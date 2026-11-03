@@ -18,6 +18,7 @@ from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import LabelRef
 from app.shared.realtime import Channel, ChannelRequest
 from tests.db.test_conversation_api import events_of, say
+from tests.db.test_incident_settings_api import admin_write
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
 
 __all__ = ["world"]  # the fixture, re-used
@@ -404,3 +405,22 @@ async def test_requester_side_messages_name_the_portal_status_only(
     assert context.public_variables["record.status"] == LabelRef("portal_status.in_progress")
     assert context.public_variables["change.from_status"] == LabelRef("portal_status.in_progress")
     assert context.public_link == f"/requests/{item['id']}"  # e-mails open it in the portal
+
+
+async def test_the_expected_resolution_time_shows_only_if_the_tenant_shows_it(
+    world: World,
+) -> None:
+    """REQ-INC-147 (D5): off by default; an admin turns it on for requesters."""
+    a = world.a
+    item = await world.create(a, a.admin)
+    hidden = (await world.call("GET", f"{PORTAL}/{item['id']}", a, a.requester)).json()
+    assert "resolution_due_at" not in hidden
+    shown_on = await admin_write(
+        world, a, "PATCH", "/incidents/settings", {"portal_show_due_time": True}
+    )
+    assert shown_on.status_code == 200, shown_on.text
+    assert shown_on.json()["portal_show_due_time"] is True
+    shown = (await world.call("GET", f"{PORTAL}/{item['id']}", a, a.requester)).json()
+    assert "resolution_due_at" in shown
+    listed = await mine(world, a, a.requester)
+    assert all("resolution_due_at" in row for row in listed["items"])

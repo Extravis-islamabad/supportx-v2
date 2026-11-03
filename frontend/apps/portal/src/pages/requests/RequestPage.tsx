@@ -91,6 +91,13 @@ export function RequestPage() {
               {t('portal.request.reported', { when: relative(item.created_at) })}
             </time>
           </Typography.Text>
+          {item.resolution_due_at != null && (
+            <Typography.Text type="secondary" data-testid="portal-due">
+              <time dateTime={item.resolution_due_at} title={format(item.resolution_due_at)}>
+                {t('portal.request.expected', { when: format(item.resolution_due_at) })}
+              </time>
+            </Typography.Text>
+          )}
         </Space>
       </Flex>
 

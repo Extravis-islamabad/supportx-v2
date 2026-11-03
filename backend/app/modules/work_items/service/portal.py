@@ -37,13 +37,19 @@ from app.modules.work_items.domain.portal import (
     unfillable,
 )
 from app.modules.work_items.domain.templates import rules_from_json
-from app.modules.work_items.domain.types import INCIDENT, Channel, WorkItemType
+from app.modules.work_items.domain.types import (
+    INCIDENT,
+    TYPES,
+    Channel,
+    WorkItemType,
+    WorkItemTypeCode,
+)
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemConversation,
     WorkItemTemplate,
 )
-from app.modules.work_items.service import resolution, templates
+from app.modules.work_items.service import catalogue, resolution, templates
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
@@ -190,6 +196,8 @@ async def _shape(
     session: AsyncSession, seen_by: Viewer, records: list[WorkItem]
 ) -> list[PortalRecord]:
     rules = await _rules(session, {r.template_id for r in records if r.template_id is not None})
+    # The expected resolution time, only if the tenant shows it (REQ-INC-147, D5).
+    shown = DUE_TIME if records and await _shows_due_time(session, records[0].type) else frozenset()
     out: list[PortalRecord] = []
     for record in records:
         reach = reaches(seen_by, _facts(record))
@@ -200,11 +208,19 @@ async def _shape(
             PortalRecord(
                 record,
                 reach,
-                requester_fields(found if found is not None else rules_from_json(None)),
+                requester_fields(found if found is not None else rules_from_json(None)) | shown,
                 portal_status(record.status, StatusCategory(record.status_category)),
             )
         )
     return out
+
+
+DUE_TIME = frozenset({"resolution_due_at"})
+
+
+async def _shows_due_time(session: AsyncSession, type_code: str) -> bool:
+    wtype = TYPES.get(WorkItemTypeCode(type_code))
+    return wtype is not None and (await catalogue.load(session, wtype)).portal_show_due_time
 
 
 def _search(text: str) -> ColumnElement[bool]:

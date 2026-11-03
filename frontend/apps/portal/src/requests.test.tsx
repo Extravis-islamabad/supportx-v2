@@ -235,3 +235,20 @@ describe('portal: files on a request', () => {
     expect(screen.queryByTestId('portal-reply')).toBeNull();
   });
 });
+
+describe('portal: the expected resolution time', () => {
+  it('shows only when the server sends it (the tenant shows it, D5)', async () => {
+    window.history.pushState({}, '', `/requests/${ID}`);
+    const fake = fakeApi({
+      ...BASE,
+      [`GET /api/v1/portal/incidents/${ID}`]: {
+        body: portalIncident({ resolution_due_at: '2026-11-05T14:00:00Z' }),
+      },
+      [`GET /api/v1/portal/incidents/${ID}/conversation`]: { body: { items: [] } },
+      [`GET /api/v1/files/records/incident/${ID}`]: { body: [] },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('portal-due')).textContent).toMatch(/^Expected by /);
+  });
+});

@@ -5582,4 +5582,8 @@ export const ar: LabelResource = {
   'incidents.sla.span_days': '{{days}} ي {{hours}} س',
   'incidents.sla.span_hours': '{{hours}} س {{minutes}} د',
   'incidents.sla.span_minutes': '{{minutes}} د',
+  'settings.portal_show_due_time': 'يرى مقدمو الطلبات الوقت المتوقع للحل',
+  'settings.portal_show_due_time_help':
+    'تعرض البوابة متى يُتوقع حل الحادثة، وفق اتفاقية مستوى الخدمة.',
+  'portal.request.expected': 'متوقع بحلول {{when}}',
 };

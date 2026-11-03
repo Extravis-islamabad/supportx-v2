@@ -5101,4 +5101,8 @@ export const ur: LabelResource = {
   'incidents.sla.span_days': '{{days}} دن {{hours}} گھنٹے',
   'incidents.sla.span_hours': '{{hours}} گھنٹے {{minutes}} منٹ',
   'incidents.sla.span_minutes': '{{minutes}} منٹ',
+  'settings.portal_show_due_time': 'درخواست گزار حل کا متوقع وقت دیکھیں',
+  'settings.portal_show_due_time_help':
+    'پورٹل دکھاتا ہے کہ واقعہ کب تک حل ہونا چاہیے، اس کے SLA کے مطابق۔',
+  'portal.request.expected': 'متوقع {{when}} تک',
 };

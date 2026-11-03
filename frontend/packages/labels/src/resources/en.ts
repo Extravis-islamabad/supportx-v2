@@ -5497,6 +5497,10 @@ export const en = {
   'incidents.sla.span_days': '{{days}} d {{hours}} h',
   'incidents.sla.span_hours': '{{hours}} h {{minutes}} min',
   'incidents.sla.span_minutes': '{{minutes}} min',
+  'settings.portal_show_due_time': 'Requesters see the expected resolution time',
+  'settings.portal_show_due_time_help':
+    'The portal shows when an incident should be resolved, from its SLA.',
+  'portal.request.expected': 'Expected by {{when}}',
 } as const;
 
 export type LabelKey = keyof typeof en;

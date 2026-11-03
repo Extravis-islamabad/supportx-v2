@@ -62,6 +62,9 @@ class PortalIncidentOut(BaseModel):
     resolved_at: datetime | None = None
     closed_at: datetime | None = None
     resolution: str | None = None
+    resolution_due_at: datetime | None = Field(
+        default=None, description="Only when the tenant shows it (REQ-INC-147)."
+    )
     version: int
     description: str | None = None
     category_id: uuid.UUID | None = None

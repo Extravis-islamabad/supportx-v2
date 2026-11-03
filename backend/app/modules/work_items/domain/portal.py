@@ -191,8 +191,9 @@ def reaches(viewer: Viewer, record: RecordFacts) -> PortalReach | None:
     return None
 
 
-# What the requester's live channel may name as changed (field names, never values).
-LIVE_FIELDS = ALWAYS | TEMPLATE_CONTROLLED
+# What the requester's live channel may name as changed (field names, never values); the due
+# time is a name only: the API decides whether the tenant shows it (D5).
+LIVE_FIELDS = ALWAYS | TEMPLATE_CONTROLLED | {"resolution_due_at"}
 
 
 def portal_changes(
