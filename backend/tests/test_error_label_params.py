@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 from app.core import errors
-from tests.test_error_labels import APP_DIR, RESOURCES, _import_application, _subclasses
+from tests.test_error_labels import APP_DIR, _import_application, _subclasses, label_text
 
 _ENTRY = re.compile(r"^\s*'([^']+)':\s*((?:'(?:[^'\\]|\\.)*'\s*\+?\s*)+),?$", re.MULTILINE)
 _PLACEHOLDER = re.compile(r"\{\{\s*(\w+)\s*\}\}")
@@ -22,7 +22,7 @@ LOCALES = ("en", "ar", "ur")
 
 def label_placeholders(locale: str) -> dict[str, set[str]]:
     """`errors.*` key → the placeholders its label uses (multi-line entries joined)."""
-    text = (RESOURCES / f"{locale}.ts").read_text(encoding="utf-8")
+    text = label_text(locale)
     found: dict[str, set[str]] = {}
     for key, value in _ENTRY.findall(text):
         if key.startswith("errors."):

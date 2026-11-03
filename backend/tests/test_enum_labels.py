@@ -20,6 +20,9 @@ from tooling.export_openapi import build_schema
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
     # SLA set-up (WP-025)
+    "ActionKind": "sla_action_kind",
+    "Anchor": "sla_level_anchor",
+    "RecipientKind": "sla_recipient_kind",
     "HolidayPart": "sla_holiday_part",
     "CalendarSource": "sla_calendar_source",
     "PriorityRule": "sla_priority_rule",
@@ -28,6 +31,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # The record's SLA panel (WP-025 s2)
     "SlaTargetOut.kind": "sla_target_kind",
     "SlaTargetOut.state": "sla_target_state",
+    "SlaLevelRunOut.anchor": "sla_level_anchor",
+    "SlaLevelRunOut.state": "sla_run_state",
     "SlaTargetOut.met_how": "sla_met_how",
     "WorkItemSlaOut.reason": "sla_applied_reason",
     "TargetUnit": "sla_target_unit",

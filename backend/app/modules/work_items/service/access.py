@@ -71,6 +71,10 @@ def followed_with_access(subject: Subject) -> ColumnElement[bool]:
 SHARED_ACTIONS = frozenset({"view", "add_note"})
 
 
+# A target's state as lists show it (sla's SlaStamp; labels `sla_target_state.*`).
+SLA_STATES = ("running", "warning", "paused", "met", "breached", "stopped")
+
+
 def _enum(column: object, values: object) -> FilterField:
     return FilterField(column, FieldType.ENUM, values=frozenset(str(v) for v in values))  # type: ignore[attr-defined]  # StrEnum classes iterate
 
@@ -133,6 +137,12 @@ FIELDS = ResourceFields(
         "first_response_due_at": FilterField(
             WorkItem.first_response_due_at, FieldType.DATETIME, sortable=True, simple=False
         ),
+        # Each target's SLA state and breached flag (WP-025 session 3): list columns, filters
+        # and the "about to breach" and "breached" views (REQ-SLA-019 AC2, REQ-SLA-020 AC4).
+        "first_response_sla_state": _enum(WorkItem.first_response_sla_state, SLA_STATES),
+        "resolution_sla_state": _enum(WorkItem.resolution_sla_state, SLA_STATES),
+        "first_response_breached": FilterField(WorkItem.first_response_breached, FieldType.BOOLEAN),
+        "resolution_breached": FilterField(WorkItem.resolution_breached, FieldType.BOOLEAN),
         # Reporting needs these too (WP-035, D-100 D9); they filter the list just the same.
         "first_responded_at": FilterField(
             WorkItem.first_responded_at, FieldType.DATETIME, sortable=True, simple=False

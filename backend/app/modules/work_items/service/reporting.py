@@ -45,6 +45,12 @@ DIMENSIONS: Mapping[str, Dimension] = {
     "reopen_count": Dimension(_D.NUMBER),
     "reassignment_count": Dimension(_D.NUMBER),
     "paused_seconds": Dimension(_D.NUMBER),
+    # SLA results (WP-025 session 3): each target's state, named by `sla_target_state.*`, and
+    # whether it was ever breached; the same values the record's SLA panel shows (§3.2).
+    "first_response_sla_state": Dimension(_D.CODE, label_prefix="sla_target_state"),
+    "resolution_sla_state": Dimension(_D.CODE, label_prefix="sla_target_state"),
+    "first_response_breached": Dimension(_D.BOOLEAN),
+    "resolution_breached": Dimension(_D.BOOLEAN),
 }
 
 

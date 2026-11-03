@@ -22,6 +22,7 @@ from app.core.database import Database
 from app.core.errors import Conflict, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules import sla
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.closure import CLOSURE_CODE
 from app.modules.work_items.domain.closure import auto_close_due as closure_due
@@ -162,7 +163,14 @@ async def auto_close_due(session: AsyncSession, wtype: WorkItemType, now: dateti
     )
     closed = 0
     for record in rows.all():
-        due = closure_due(record.resolution_notified_at, days)
+        # Business days on the record's own calendar (its resolution target's, else the
+        # tenant's operating hours; WP-020f D4 moved onto WP-025's one business-time service).
+        calendar = await sla.record_calendar(session, record.id)
+        try:
+            due = closure_due(record.resolution_notified_at, days, calendar.add_working_days)
+        except sla.CalendarError:
+            log.info("auto_close_no_working_time", record_id=str(record.id))
+            continue
         if due is None or due > now:
             continue
         code = record.closure_code
@@ -189,7 +197,10 @@ async def auto_close_due(session: AsyncSession, wtype: WorkItemType, now: dateti
 
 
 async def auto_close_schedule(database: Database, settings: Settings) -> None:
-    """Every tenant: close what is due (a quick, idempotent loop; Temporal later, WP-025)."""
+    """Every tenant: close what is due (a quick, idempotent loop; counted in days, so 15 min).
+
+    Each record's business days follow its own calendar (`sla.record_calendar`).
+    """
     del settings
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
