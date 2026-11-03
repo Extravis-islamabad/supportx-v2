@@ -110,7 +110,9 @@ def mask(
     ]
     out: list[str] = []
     for text in texts:
-        result = text
+        # Brackets of our own kind already in the text become plain ones, so a person cannot plant
+        # "⟦EMAIL_1⟧" and have restore fill in someone else's value (lane B, #188).
+        result = text.replace(OPEN, "[").replace(CLOSE, "]")
         for kind, pattern in rules:
             result = pattern.sub(partial(_replace, masker, kind), result)
         result = _IPV6.sub(ipv6, result)

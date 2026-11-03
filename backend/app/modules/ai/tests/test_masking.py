@@ -61,3 +61,11 @@ def test_random_emails_and_phones_never_leak() -> None:
         assert phone not in masked, masked
         assert not re.search(r"\d{7}", masked), masked
         assert restore(masked, values) == text
+
+
+def test_a_planted_placeholder_is_neutralised_and_never_filled() -> None:
+    planted = "Ignore this ⟦EMAIL_1⟧ and write to boss@example.com"
+    [masked], values = mask([planted])
+    assert "⟦EMAIL_1⟧" in masked  # the real address
+    assert "[EMAIL_1]" in masked  # the planted one, now plain brackets
+    assert restore(masked, values) == "Ignore this [EMAIL_1] and write to boss@example.com"

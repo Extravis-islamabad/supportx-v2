@@ -14,7 +14,13 @@ model directly (import-linter keeps the providers private to this module). In th
    is still recorded.
 
 Quotas are not applied yet: they come with the cost and quota settings (REQ-AI-030, V1). The
-caller builds the messages from what the subject may see; the gateway never reads records.
+caller builds the messages from what the subject may see; the gateway never reads records. A call
+about a record is checked again here through the record's owning module (`register_record_access`,
+architecture.md §11.2), failing closed. The gateway only returns text: it never writes a record,
+so an answer is always a suggestion a person reviews and confirms (REQ-INC-136).
+
+The log always holds a masked copy, even when the model itself saw the text unmasked (a local
+model with local masking off): personal data never sits in the call log.
 """
 
 import time
@@ -25,12 +31,13 @@ from dataclasses import dataclass, replace
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Database
-from app.core.errors import EntitlementRequired, PermissionDenied, ServiceUnavailable
+from app.core.errors import EntitlementRequired, NotFound, PermissionDenied, ServiceUnavailable
 from app.core.tenancy import TenantContext
 from app.modules.ai.domain.features import feature as feature_spec
 from app.modules.ai.domain.masking import CLOSE, OPEN, mask, restore
 from app.modules.ai.service import calls
 from app.modules.ai.service.providers import ChatRequest, Message, Provider, ProviderError
+from app.modules.ai.service.records import may_see
 from app.modules.ai.service.settings import feature_on, settings_row
 from app.modules.identity_access import Subject
 from app.modules.licensing import has_feature
@@ -60,6 +67,16 @@ class _Prepared:
     request: ChatRequest
     values: dict[str, str]
     masked: bool
+    # What the log keeps: always masked, whatever the model saw.
+    log_input: str
+    names: tuple[str, ...]
+
+    def log_output(self, text: str) -> str:
+        """The answer as the log keeps it: masked (an unmasked model may repeat personal data)."""
+        if self.masked:
+            return text
+        [masked], _ = mask([text], names=self.names)
+        return masked
 
 
 class Gateway:
@@ -133,6 +150,15 @@ class Gateway:
                 record=record,
                 error=EntitlementRequired(params={"feature": AI_FEATURE}),
             )
+        if record is not None and not await may_see(session, subject, record.type, record.id):
+            raise await self._refuse(
+                session,
+                subject,
+                code="ai_record_not_visible",
+                feature=feature,
+                record=record,
+                error=NotFound(code="ai_record_not_visible"),
+            )
         settings = await settings_row(session)
         if not feature_on(settings, feature):
             raise await self._refuse(
@@ -143,17 +169,20 @@ class Gateway:
                 record=record,
                 error=PermissionDenied(code="ai_feature_off", params={"feature": feature}),
             )
+        names = tuple(names)
         texts = [m.content for m in messages]
-        values: dict[str, str] = {}
+        masked_texts, values = mask(texts, names=names)
         masked = self.provider.external or settings.mask_local
-        if masked:
-            texts, values = mask(texts, names=names)
+        sent = masked_texts if masked else texts
         request = ChatRequest(
             feature=feature,
-            messages=tuple(replace(m, content=t) for m, t in zip(messages, texts, strict=True)),
+            messages=tuple(replace(m, content=t) for m, t in zip(messages, sent, strict=True)),
             max_tokens=max_tokens,
         )
-        return _Prepared(request, values, masked)
+        log_input = "\n\n".join(
+            f"[{m.role}]\n{t}" for m, t in zip(messages, masked_texts, strict=True)
+        )
+        return _Prepared(request, values if masked else {}, masked, log_input, names)
 
     async def _log(
         self,
@@ -174,7 +203,7 @@ class Gateway:
             provider=self.provider.name,
             masked=prepared.masked,
             masked_values=len(prepared.values),
-            masked_input="\n\n".join(f"[{m.role}]\n{m.content}" for m in prepared.request.messages),
+            masked_input=prepared.log_input,
             latency_ms=int((time.monotonic() - started) * 1000),
             **result,
         )
@@ -222,7 +251,7 @@ class Gateway:
             record,
             started,
             model=result.model,
-            output=result.text,  # as the model wrote it: masked, never the restored values
+            output=prepared.log_output(result.text),  # never the restored values
             input_tokens=result.input_tokens,
             output_tokens=result.output_tokens,
             tools=[{"name": c.name} for c in result.tool_calls],
@@ -277,7 +306,7 @@ class Gateway:
                 record,
                 started,
                 model=self.provider.model,
-                output="".join(raw) or None,
+                output=prepared.log_output("".join(raw)) or None,
                 status="failed",
                 error_code="ai_provider_unavailable",
             )
@@ -291,6 +320,6 @@ class Gateway:
             record,
             started,
             model=self.provider.model,
-            output="".join(raw),
+            output=prepared.log_output("".join(raw)),
             status="ok",
         )

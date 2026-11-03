@@ -48,4 +48,5 @@ export const en = {
   'ai_outcome.accepted': 'Accepted',
   'ai_outcome.edited': 'Edited',
   'ai_outcome.discarded': 'Discarded',
+  'errors.ai_record_not_visible': 'You cannot see this record, so AI cannot work on it.',
 } as const;

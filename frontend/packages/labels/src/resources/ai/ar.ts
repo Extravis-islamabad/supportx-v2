@@ -49,4 +49,6 @@ export const ar: LabelResource = {
   'ai_outcome.accepted': 'مقبول',
   'ai_outcome.edited': 'معدَّل',
   'ai_outcome.discarded': 'مرفوض',
+  'errors.ai_record_not_visible':
+    'لا يمكنك رؤية هذا السجل، لذا لا يمكن للذكاء الاصطناعي العمل عليه.',
 };

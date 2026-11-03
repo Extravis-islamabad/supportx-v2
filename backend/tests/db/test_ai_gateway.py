@@ -33,9 +33,17 @@ from app.core.errors import (
 from app.core.modules import ModuleRegistry, discover_modules
 from app.core.tenancy import TenantContext
 from app.main import create_app
-from app.modules.ai import GATEWAY_STATE, Gateway, Message, Record
+from app.modules.ai import (
+    GATEWAY_STATE,
+    Gateway,
+    Message,
+    Record,
+    register_record_access,
+    unregister_record_access,
+)
 from app.modules.ai.infra.models import AiCall
 from app.modules.ai.service.calls import purge_text, set_outcome
+from app.modules.ai.service.erasure import erase_person
 from app.modules.ai.service.providers import ChatRequest, ChatResult, FakeProvider, ProviderError
 from app.modules.ai.service.settings import settings_row, update_settings
 from app.modules.identity_access.domain.policy import Grant, Subject
@@ -105,6 +113,7 @@ class World:
         self, app: FastAPI, db: ThrowawayDatabase, tenant: uuid.UUID, other: uuid.UUID
     ) -> None:
         self.app, self.db, self.tenant, self.other = app, db, tenant, other
+        self.visible: set[uuid.UUID] = set()
 
     def session(self, tenant: uuid.UUID | None = None) -> AbstractAsyncContextManager[AsyncSession]:
         database: Database = self.app.state.db
@@ -127,8 +136,20 @@ async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
     )
     tenant = await create_tenant(migrated_db.migrator_url, "AI A")
     other = await create_tenant(migrated_db.migrator_url, "AI B")
+    visible: set[uuid.UUID] = set()
+
+    async def incident_access(session: AsyncSession, who: Subject, record_id: uuid.UUID) -> bool:
+        del session, who
+        return record_id in visible
+
     async with app.router.lifespan_context(app):
-        yield World(app, migrated_db, tenant, other)
+        register_record_access("incident", incident_access)
+        world = World(app, migrated_db, tenant, other)
+        world.visible = visible
+        try:
+            yield world
+        finally:
+            unregister_record_access("incident")
 
 
 SUMMARY = [Message("system", "Summarise."), Message("user", "Printer jams on floor 3.")]
@@ -138,13 +159,15 @@ async def test_the_gateway_is_started_with_the_fake_and_answers(world: World) ->
     gateway: Gateway = getattr(world.app.state, GATEWAY_STATE)
     assert gateway.provider.name == "fake"
     tech = subject(world.tenant, "incidents.view")
+    incident = uuid.uuid4()
+    world.visible.add(incident)
     async with world.session() as session:
         answer = await gateway.chat(
             session,
             tech,
             feature="conversation_summary",
             messages=SUMMARY,
-            record=Record("incident", uuid.uuid4()),
+            record=Record("incident", incident),
         )
     assert answer.text == "[conversation_summary] Printer jams on floor 3."
     [call] = await world.calls()
@@ -354,3 +377,51 @@ async def test_only_the_caller_records_what_they_did_with_the_answer(world: Worl
         await set_outcome(session, tech, answer.call_id, "edited")
     [call] = await world.calls()
     assert call.outcome == "edited"
+
+
+async def test_a_record_the_subject_cannot_see_or_no_module_vouches_for_is_refused(
+    world: World,
+) -> None:
+    gateway = world.gateway(FakeProvider())
+    tech = subject(world.tenant, "incidents.view")
+    for record in (Record("incident", uuid.uuid4()), Record("unvouched", uuid.uuid4())):
+        with pytest.raises(NotFound):
+            async with world.session() as session:
+                await gateway.chat(
+                    session, tech, feature="conversation_summary", messages=SUMMARY, record=record
+                )
+    assert [c.error_code for c in await world.calls()] == ["ai_record_not_visible"] * 2
+
+
+async def test_the_log_is_masked_even_when_the_local_model_saw_plain_text(world: World) -> None:
+    gateway = world.gateway(FakeProvider())  # local, local masking off
+    tech = subject(world.tenant, "incidents.reply")
+    async with world.session() as session:
+        answer = await gateway.chat(
+            session,
+            tech,
+            feature="reply_draft",
+            messages=[Message("user", "Reply to Ali Raza at ali@example.com")],
+            names=["Ali Raza"],
+        )
+    assert "ali@example.com" in answer.text  # the model saw it, the person sees it
+    [call] = await world.calls()
+    assert call.masked is False
+    for secret in ("ali@example.com", "Ali Raza"):
+        assert secret not in (call.masked_input or "")
+        assert secret not in (call.output or "")
+
+
+async def test_an_erased_person_s_call_text_goes_at_once(world: World) -> None:
+    gateway = world.gateway(FakeProvider())
+    tech = subject(world.tenant, "incidents.view")
+    other = subject(world.tenant, "incidents.view")
+    async with world.session() as session:
+        await gateway.chat(session, tech, feature="conversation_summary", messages=SUMMARY)
+        await gateway.chat(session, other, feature="conversation_summary", messages=SUMMARY)
+    async with world.session() as session:
+        assert await erase_person(session, tech.user_id) == 1
+    by_user = {c.user_id: c for c in await world.calls()}
+    assert by_user[tech.user_id].masked_input is None
+    assert by_user[tech.user_id].output is None
+    assert by_user[other.user_id].masked_input is not None

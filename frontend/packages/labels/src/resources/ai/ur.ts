@@ -50,4 +50,5 @@ export const ur: LabelResource = {
   'ai_outcome.accepted': 'قبول شدہ',
   'ai_outcome.edited': 'ترمیم شدہ',
   'ai_outcome.discarded': 'رد شدہ',
+  'errors.ai_record_not_visible': 'آپ یہ ریکارڈ نہیں دیکھ سکتے، اس لیے AI اس پر کام نہیں کر سکتا۔',
 };
