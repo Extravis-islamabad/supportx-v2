@@ -2573,6 +2573,56 @@
         "type": "object"
       }
     },
+    "service_catalog.category.changed": {
+      "1": {
+        "description": "A category was added or changed.",
+        "properties": {
+          "category_id": {
+            "format": "uuid",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "category_id",
+          "changed_fields"
+        ],
+        "title": "ServiceCategoryChanged",
+        "type": "object"
+      }
+    },
+    "service_catalog.item.changed": {
+      "1": {
+        "description": "An item was added or changed (names only of the changed fields).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "changed_fields"
+        ],
+        "title": "CatalogItemChanged",
+        "type": "object"
+      }
+    },
     "sla.calendar.deleted": {
       "1": {
         "description": "A working calendar went to the trash (only when no site, group or policy uses it).",

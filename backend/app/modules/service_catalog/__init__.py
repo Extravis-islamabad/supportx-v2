@@ -9,11 +9,26 @@ pending the product owner).
 Public interface for other modules: none yet (work_items will read an item's rules here).
 """
 
+from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
+from app.modules.service_catalog.api.routes import router
+from app.modules.service_catalog.events import EVENTS
 from app.modules.service_catalog.infra import models  # noqa: F401 - registers the tables
+from app.modules.service_catalog.service.catalog import MANAGE, rules_of
+from app.modules.service_catalog.service.realtime import ROUTES
 
 FEATURE = "service_request"
 
-module = ModuleSpec(name="service_catalog", feature=FEATURE)
+# Admins hold it (every permission); a catalog manager role can be made from it.
+PERMISSIONS = (PermissionSpec(MANAGE, FEATURE),)
 
-__all__ = ["module"]
+module = ModuleSpec(
+    name="service_catalog",
+    routers=[router],
+    events=EVENTS,
+    feature=FEATURE,
+    permissions=PERMISSIONS,
+    realtime=ROUTES,
+)
+
+__all__ = ["module", "rules_of"]
