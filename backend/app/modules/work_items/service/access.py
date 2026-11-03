@@ -28,6 +28,7 @@ from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import ResourceType, Subject
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
+from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemFollower
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
@@ -108,6 +109,9 @@ FIELDS = ResourceFields(
         # REQ-INC-093: lists and reports group and filter by the closure code.
         "closure_code": FilterField(WorkItem.closure_code, FieldType.STRING, sortable=True),
         "template_id": FilterField(WorkItem.template_id, FieldType.UUID),
+        # Service requests (WP-030, REQ-SR-009): by item and by approval status.
+        "catalog_item_id": FilterField(WorkItem.catalog_item_id, FieldType.UUID),
+        "approval_status": _enum(WorkItem.approval_status, ApprovalStatus),
         "sla_policy_id": FilterField(WorkItem.sla_policy_id, FieldType.UUID),
         "created_by": FilterField(WorkItem.created_by, FieldType.UUID),
         "updated_by": FilterField(WorkItem.updated_by, FieldType.UUID),

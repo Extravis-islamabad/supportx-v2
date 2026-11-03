@@ -138,3 +138,31 @@ async def test_nobody_chooses_awaiting_approval_or_rejected_by_hand(world: World
             headers={"If-Match": f'"{made["version"]}"', **CONSOLE},
         )
         assert problem(moved) == (409, "invalid_transition"), (action, moved.text)
+
+
+async def test_service_requests_filter_by_item_and_approval_status(world: World) -> None:
+    """REQ-SR-009 AC3: by catalog item and by approval status."""
+    a = world.a
+    needs = await an_item(world, a, approval={"approvers": [{"kind": "requested_for_manager"}]})
+    plain = await an_item(world, a)
+    waiting = (
+        await raise_request(
+            world, a, a.admin, catalog_item_id=needs["id"], answers={"model": "air"}
+        )
+    ).json()
+    free = (
+        await raise_request(
+            world, a, a.admin, catalog_item_id=plain["id"], answers={"model": "air"}
+        )
+    ).json()
+
+    async def ids(**params: str) -> set[str]:
+        listed = await world.call("GET", SR, a, a.admin, params=params)
+        assert listed.status_code == 200, listed.text
+        return {i["id"] for i in listed.json()["items"]}
+
+    assert await ids(approval_status="pending") == {waiting["id"]}
+    assert await ids(catalog_item_id=plain["id"]) == {free["id"]}
+    assert {waiting["id"], free["id"]}.isdisjoint(
+        {i["id"] for i in (await world.call("GET", BASE, a, a.admin)).json()["items"]}
+    )  # the incident list never shows them
