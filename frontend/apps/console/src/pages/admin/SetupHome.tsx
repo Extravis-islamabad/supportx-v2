@@ -1,5 +1,5 @@
 import { Card, Col, Empty, Input, Row, Space, Typography } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
 import { useAccess, useLabel } from '@supportx/ui';
@@ -17,6 +17,34 @@ function useSetupText() {
   ];
 }
 
+const SCROLL_KEY = 'supportx.setup-home.scroll';
+
+/**
+ * Coming back to the setup home returns to where it was scrolled (REQ-ADM-108). The shell scrolls
+ * every new page to the top first, so the restore waits a frame.
+ */
+function useKeptScroll() {
+  useEffect(() => {
+    let saved = 0;
+    try {
+      saved = Number(sessionStorage.getItem(SCROLL_KEY) ?? '0');
+    } catch {
+      // Storage can be blocked (private window); the page then simply starts at the top.
+    }
+    const frame = requestAnimationFrame(() => {
+      if (saved > 0) window.scrollTo({ top: saved });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      try {
+        sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+      } catch {
+        // As above: nothing to keep.
+      }
+    };
+  }, []);
+}
+
 /**
  * The setup home (WP-042, REQ-ADM-106, 107): every page this person may open, grouped by task,
  * each with a one-line explanation, and a search over names, explanations and keywords.
@@ -26,6 +54,7 @@ export function SetupHome() {
   const { can } = useAccess();
   const text = useSetupText();
   const [query, setQuery] = useState('');
+  useKeptScroll();
   const pages = pagesFor(can).filter((page) => matches(query, text(page)));
 
   return (
