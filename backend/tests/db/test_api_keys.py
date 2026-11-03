@@ -4,9 +4,10 @@ Keys are made in a signed-in browser session (the BFF test world) and used with
 `Authorization: Bearer sxk_…` from a client that holds no cookie.
 """
 
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import asyncpg
 import httpx
@@ -15,7 +16,12 @@ from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import api_keys as rules
+from app.modules.identity_access.service.realtime import ROUTES
+from app.shared.events import EventEnvelope
 from tests.db.test_auth_bff import CONSOLE, Bff, bff  # noqa: F401 - the fixture, reused
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.db
 
@@ -116,6 +122,33 @@ async def test_req_int_019_ac2_a_revoked_key_is_refused_on_its_next_call(bff: Bf
         )
         assert revoked.json()["status"] == "revoked"
         assert _code(await api.get("/api/v1/users")) == (401, "api_key_revoked")
+
+
+async def test_a_key_made_and_revoked_writes_outbox_events_without_its_text(bff: Bff) -> None:  # noqa: F811
+    csrf = await _signed_in(bff)
+    made = (await _make(bff, csrf)).json()
+    await bff.client.post(f"/api/v1/api-keys/{made['id']}/revoke", headers={"X-CSRF-Token": csrf})
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        rows = await conn.fetch(
+            "SELECT envelope::text AS raw, envelope->'payload'->>'change' AS change"
+            " FROM outbox_events WHERE event_type = 'identity_access.api_key.changed'"
+            " AND aggregate_id = $1 ORDER BY id",
+            made["id"],
+        )
+    finally:
+        await conn.close()
+    assert [r["change"] for r in rows] == ["created", "revoked"]
+    secret = made["key"].rsplit("_", 1)[-1]
+    assert all(secret not in r["raw"] and made["key"] not in r["raw"] for r in rows)
+    # Live (rule c): key managers' list and the owner's own channel, IDs only.
+    route = next(r for r in ROUTES if "identity_access.api_key.changed" in r.event_types)
+    envelope = EventEnvelope.model_validate(json.loads(rows[0]["raw"]))
+    effects = await route.route(envelope, cast("AsyncSession", None))  # the route reads nothing
+    channels = sorted(p.channel.name for p in effects.publications if p.ids)
+    tenant = envelope.tenant_id
+    assert channels == sorted([f"t:{tenant}:queue:api_keys", f"t:{tenant}:user:{made['owner_id']}"])
+    assert {p.ids for p in effects.publications if p.ids} == {(made["id"],)}
 
 
 async def test_req_int_019_ac3_another_address_is_refused_and_written_down(bff: Bff) -> None:  # noqa: F811

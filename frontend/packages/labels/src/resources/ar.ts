@@ -3897,6 +3897,7 @@ export const ar: LabelResource = {
   'errors.message_refused': 'رفض خادم البريد الرسالة.',
   'errors.recipient_refused': 'رفض خادم البريد المستلم.',
   'event_type.identity_access.invitation.changed': 'تغيّرت دعوة',
+  'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
   'event_type.identity_access.password_policy.changed': 'تغيّرت سياسة كلمات المرور',
   'event_type.system.mail.queued': 'وُضع بريد في قائمة الانتظار',
   'audit.action.invitation.sent': 'أرسل دعوة',

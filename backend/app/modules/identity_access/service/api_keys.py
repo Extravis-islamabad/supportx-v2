@@ -18,6 +18,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,11 +37,13 @@ from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.domain import api_keys as rules
 from app.modules.identity_access.domain.policy import Subject
+from app.modules.identity_access.events import ApiKeyChanged
 from app.modules.identity_access.infra.models import ApiKey, User
 from app.modules.identity_access.service.identity_settings import (
     IdentitySettingsView,
     get_identity_settings,
 )
+from app.shared.events import record_event
 from app.shared.ids import new_id
 
 MANAGE = "api_keys.manage"
@@ -151,6 +154,7 @@ async def create_key(  # noqa: PLR0913 - the key's parts, explicit
         object_id=key_id,
         details={"name": title, "owner_id": str(owner), "scopes": chosen},
     )
+    await _changed(session, row, "created")
     return MadeKey(row=row, text=made.text)
 
 
@@ -184,7 +188,20 @@ async def revoke_key(
             object_id=key_id,
             details={"name": row.name},
         )
+        await _changed(session, row, "revoked")
     return row
+
+
+async def _changed(
+    session: AsyncSession, row: ApiKey, change: Literal["created", "revoked"]
+) -> None:
+    """The outbox event, in the same transaction as the key (architecture.md §6.5)."""
+    await record_event(
+        session,
+        ApiKeyChanged(change=change, owner_id=row.owner_id),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
 
 
 async def authenticate(

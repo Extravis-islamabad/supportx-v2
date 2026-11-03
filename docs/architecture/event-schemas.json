@@ -1145,6 +1145,32 @@
         "type": "object"
       }
     },
+    "identity_access.api_key.changed": {
+      "1": {
+        "description": "An API key was made or revoked (WP-041, D-128): key screens refetch. Never the key text.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "revoked"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change",
+          "owner_id"
+        ],
+        "title": "ApiKeyChanged",
+        "type": "object"
+      }
+    },
     "identity_access.identity_settings.changed": {
       "1": {
         "description": "The tenant's sign-in settings changed (WP-039).\n\nSessions, people creation, invitations, the password policy, or the worker's result\napplying it (`password_policy_state`).",

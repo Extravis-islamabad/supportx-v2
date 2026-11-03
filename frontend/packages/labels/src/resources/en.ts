@@ -3884,6 +3884,7 @@ export const en = {
   'errors.message_refused': 'The mail server refused the message.',
   'errors.recipient_refused': 'The mail server refused the recipient.',
   'event_type.identity_access.invitation.changed': 'Invitation changed',
+  'event_type.identity_access.api_key.changed': 'API key changed',
   'event_type.identity_access.password_policy.changed': 'Password policy changed',
   'event_type.system.mail.queued': 'Email queued',
   'audit.action.invitation.sent': 'Sent an invitation',

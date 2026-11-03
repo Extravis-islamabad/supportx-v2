@@ -3479,6 +3479,7 @@ export const ur: LabelResource = {
   'errors.message_refused': 'میل سرور نے پیغام رد کر دیا۔',
   'errors.recipient_refused': 'میل سرور نے وصول کنندہ رد کر دیا۔',
   'event_type.identity_access.invitation.changed': 'دعوت نامہ بدلا',
+  'event_type.identity_access.api_key.changed': 'API کلید بدلی',
   'event_type.identity_access.password_policy.changed': 'پاس ورڈ پالیسی بدلی',
   'event_type.system.mail.queued': 'ای میل قطار میں',
   'audit.action.invitation.sent': 'دعوت نامہ بھیجا',
