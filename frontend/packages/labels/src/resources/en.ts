@@ -5304,6 +5304,19 @@ export const en = {
   'permission.requests.view_reports': 'View requests of their direct reports',
   'permission.requests.view_reports.description':
     'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
+  'portal_status.received': 'Received',
+  'portal_status.in_progress': 'In progress',
+  'portal_status.waiting_for_you': 'Waiting for you',
+  'portal_status.resolved': 'Resolved: please confirm',
+  'portal_status.closed': 'Closed',
+  'portal_status.canceled': 'Canceled',
+  'portal_reach.own': 'Mine',
+  'portal_reach.reports': 'My direct reports',
+  'portal_reach.department': 'My department',
+  'portal_reach.site': 'My site',
+  'portal_reach.all': 'Everyone',
+  'portal_state.open': 'Open',
+  'portal_state.closed': 'Closed',
 } as const;
 
 export type LabelKey = keyof typeof en;

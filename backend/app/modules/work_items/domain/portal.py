@@ -7,7 +7,7 @@ Pure rules, no I/O:
 - `requester_fields`: which record fields the portal returns. An **allow-list**: a field the
   staff view gains later never reaches a requester by default (REQ-PRT-007 AC4). Staff-only
   fields are refused whatever a template says.
-- `Reach` and `reaches`: which records a person may see in the portal (REQ-INC-147,
+- `PortalReach` and `reaches`: which records a person may see in the portal (REQ-INC-147,
   REQ-PRT-007 AC1/AC2). `own` is the requester or the person it is for; wider reach comes from
   permissions (D2, pending the product owner: kept behind `service/portal.py`'s one scope check).
 """
@@ -66,6 +66,7 @@ ALWAYS = frozenset(
         "portal_status",
         "created_at",
         "updated_at",
+        "resolution",  # the fix the requester confirms or rejects (REQ-INC-147)
         "resolved_at",
         "closed_at",
         "version",
@@ -134,7 +135,7 @@ def unfillable(given: Collection[str], rules: Mapping[str, FieldRule]) -> list[s
     return sorted(name for name in given if name not in allowed)
 
 
-class Reach(StrEnum):
+class PortalReach(StrEnum):
     """How far a person sees in the portal."""
 
     OWN = "own"  # records they raised or that are for them
@@ -149,7 +150,7 @@ class Viewer:
     """The person looking, with what decides their reach."""
 
     user_id: uuid.UUID
-    reach: frozenset[Reach] = frozenset({Reach.OWN})
+    reach: frozenset[PortalReach] = frozenset({PortalReach.OWN})
     department_ids: frozenset[uuid.UUID] = field(default_factory=frozenset)
     site_ids: frozenset[uuid.UUID] = field(default_factory=frozenset)
     report_ids: frozenset[uuid.UUID] = field(default_factory=frozenset)
@@ -170,18 +171,18 @@ def is_own(viewer: Viewer, record: RecordFacts) -> bool:
     return viewer.user_id in {record.requester_id, record.on_behalf_of_id}
 
 
-def reaches(viewer: Viewer, record: RecordFacts) -> Reach | None:
+def reaches(viewer: Viewer, record: RecordFacts) -> PortalReach | None:
     """The narrowest reach by which the viewer sees the record, or None."""
     people = {record.requester_id, record.on_behalf_of_id} - {None}
-    checks: tuple[tuple[Reach, bool], ...] = (
-        (Reach.OWN, is_own(viewer, record)),
-        (Reach.REPORTS, bool(people & viewer.report_ids)),
+    checks: tuple[tuple[PortalReach, bool], ...] = (
+        (PortalReach.OWN, is_own(viewer, record)),
+        (PortalReach.REPORTS, bool(people & viewer.report_ids)),
         (
-            Reach.DEPARTMENT,
+            PortalReach.DEPARTMENT,
             record.department_id is not None and record.department_id in viewer.department_ids,
         ),
-        (Reach.SITE, record.site_id is not None and record.site_id in viewer.site_ids),
-        (Reach.ALL, True),
+        (PortalReach.SITE, record.site_id is not None and record.site_id in viewer.site_ids),
+        (PortalReach.ALL, True),
     )
     for reach, ok in checks:
         if ok and reach in viewer.reach:
@@ -194,8 +195,8 @@ __all__ = [
     "FILLABLE",
     "STAFF_ONLY",
     "TEMPLATE_CONTROLLED",
+    "PortalReach",
     "PortalStatus",
-    "Reach",
     "RecordFacts",
     "Viewer",
     "is_own",

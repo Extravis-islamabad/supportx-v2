@@ -9,8 +9,8 @@ from app.modules.work_items.domain.portal import (
     ALWAYS,
     STAFF_ONLY,
     TEMPLATE_CONTROLLED,
+    PortalReach,
     PortalStatus,
-    Reach,
     RecordFacts,
     Viewer,
     portal_status,
@@ -87,26 +87,30 @@ def _record(requester: uuid.UUID | None, **kw: uuid.UUID | None) -> RecordFacts:
 
 def test_own_reach_is_requester_or_the_person_it_is_for_only() -> None:
     me = Viewer(ME)
-    assert reaches(me, _record(ME)) is Reach.OWN
-    assert reaches(me, _record(OTHER, for_=ME)) is Reach.OWN
+    assert reaches(me, _record(ME)) is PortalReach.OWN
+    assert reaches(me, _record(OTHER, for_=ME)) is PortalReach.OWN
     # same department and site but someone else's: not seen with own reach (REQ-PRT-007 AC1)
     assert reaches(me, _record(OTHER, dept=DEPT, site=SITE)) is None
 
 
 def test_wider_reach_needs_its_permission_and_its_fact() -> None:
     record = _record(OTHER, dept=DEPT, site=SITE)
-    assert reaches(Viewer(ME, frozenset({Reach.OWN, Reach.DEPARTMENT})), record) is None
-    dept = Viewer(ME, frozenset({Reach.OWN, Reach.DEPARTMENT}), department_ids=frozenset({DEPT}))
-    assert reaches(dept, record) is Reach.DEPARTMENT
-    site = Viewer(ME, frozenset({Reach.OWN, Reach.SITE}), site_ids=frozenset({SITE}))
-    assert reaches(site, record) is Reach.SITE
-    assert reaches(Viewer(ME, frozenset({Reach.ALL})), record) is Reach.ALL
+    assert reaches(Viewer(ME, frozenset({PortalReach.OWN, PortalReach.DEPARTMENT})), record) is None
+    dept = Viewer(
+        ME, frozenset({PortalReach.OWN, PortalReach.DEPARTMENT}), department_ids=frozenset({DEPT})
+    )
+    assert reaches(dept, record) is PortalReach.DEPARTMENT
+    site = Viewer(ME, frozenset({PortalReach.OWN, PortalReach.SITE}), site_ids=frozenset({SITE}))
+    assert reaches(site, record) is PortalReach.SITE
+    assert reaches(Viewer(ME, frozenset({PortalReach.ALL})), record) is PortalReach.ALL
 
 
 def test_direct_reports_are_their_own_reach() -> None:
-    boss = Viewer(BOSS, frozenset({Reach.OWN, Reach.REPORTS}), report_ids=frozenset({ME}))
-    assert reaches(boss, _record(ME)) is Reach.REPORTS
-    assert reaches(boss, _record(OTHER, for_=ME)) is Reach.REPORTS
+    boss = Viewer(
+        BOSS, frozenset({PortalReach.OWN, PortalReach.REPORTS}), report_ids=frozenset({ME})
+    )
+    assert reaches(boss, _record(ME)) is PortalReach.REPORTS
+    assert reaches(boss, _record(OTHER, for_=ME)) is PortalReach.REPORTS
     assert reaches(boss, _record(OTHER)) is None
     # the narrowest reach wins: their own record is own, not reports
-    assert reaches(boss, _record(BOSS, for_=ME)) is Reach.OWN
+    assert reaches(boss, _record(BOSS, for_=ME)) is PortalReach.OWN

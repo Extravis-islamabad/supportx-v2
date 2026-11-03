@@ -4907,4 +4907,17 @@ export const ur: LabelResource = {
   'permission.requests.view_reports': 'براہِ راست ماتحتوں کی درخواستیں دیکھیں',
   'permission.requests.view_reports.description':
     'پورٹل میں اپنے براہِ راست ماتحتوں کے واقعات اور درخواستیں ایک الگ فلٹر میں دیکھیں۔',
+  'portal_status.received': 'موصول ہو گیا',
+  'portal_status.in_progress': 'کام جاری ہے',
+  'portal_status.waiting_for_you': 'آپ کے جواب کا انتظار',
+  'portal_status.resolved': 'حل ہو گیا: براہِ کرم تصدیق کریں',
+  'portal_status.closed': 'بند',
+  'portal_status.canceled': 'منسوخ',
+  'portal_reach.own': 'میری',
+  'portal_reach.reports': 'میرے براہِ راست ماتحت',
+  'portal_reach.department': 'میرا شعبہ',
+  'portal_reach.site': 'میری سائٹ',
+  'portal_reach.all': 'سب',
+  'portal_state.open': 'کھلی',
+  'portal_state.closed': 'بند',
 };

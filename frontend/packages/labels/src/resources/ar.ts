@@ -5362,4 +5362,17 @@ export const ar: LabelResource = {
   'permission.requests.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
   'permission.requests.view_reports.description':
     'في البوابة، رؤية حوادث وطلبات الأشخاص الذين يتبعونه مباشرة، ضمن عامل تصفية منفصل.',
+  'portal_status.received': 'تم الاستلام',
+  'portal_status.in_progress': 'قيد المعالجة',
+  'portal_status.waiting_for_you': 'بانتظار ردك',
+  'portal_status.resolved': 'تم الحل: يرجى التأكيد',
+  'portal_status.closed': 'مغلق',
+  'portal_status.canceled': 'ملغى',
+  'portal_reach.own': 'طلباتي',
+  'portal_reach.reports': 'مرؤوسيّ المباشرون',
+  'portal_reach.department': 'قسمي',
+  'portal_reach.site': 'موقعي',
+  'portal_reach.all': 'الجميع',
+  'portal_state.open': 'مفتوح',
+  'portal_state.closed': 'مغلق',
 };

@@ -17,9 +17,10 @@ at startup.
 from fastapi import FastAPI
 
 from app.core.modules import ModuleSpec
+from app.modules.work_items.api.portal_routes import router as portal_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
-from app.modules.work_items.domain.types import TYPES
+from app.modules.work_items.domain.types import INCIDENT, TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     bulk,
@@ -97,8 +98,8 @@ register_owner_access(FILE_ACCESS)
 
 module = ModuleSpec(
     name="work_items",
-    routers=[build_router(wtype) for wtype in TYPES.values()],
-    router_features=[wtype.feature for wtype in TYPES.values()],
+    routers=[*(build_router(wtype) for wtype in TYPES.values()), portal_router],
+    router_features=[*(wtype.feature for wtype in TYPES.values()), INCIDENT.feature],
     events=EVENTS,
     permissions=(
         *(spec for wtype in TYPES.values() for spec in permissions(wtype)),
