@@ -213,6 +213,11 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 
     A stale If-Match gets 409 with `changed_fields`, `changed_by` and `changed_at`.
     """
+    sent_contact = body.model_fields_set & directory.CONTACT_FIELDS
+    before: dict[str, str | None] = {}
+    if sent_contact and user_id == subject.user_id:  # others are refused by the service
+        current = await directory.get_user(session, subject, user_id)
+        before = {name: getattr(current, name) for name in sent_contact}
     user = await directory.update_preferences(
         session,
         subject,
@@ -221,8 +226,13 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         changes=body.model_dump(include=body.model_fields_set),
         source=source_of(request),
     )
-    # Contact details are personal data: audited (field names only, never the numbers).
-    contact = sorted(body.model_fields_set & directory.CONTACT_FIELDS)
+    # Contact details are personal data: audited when they really changed (field names only,
+    # never the numbers); resending the same number writes no entry.
+    contact = sorted(
+        name
+        for name in body.model_fields_set & directory.CONTACT_FIELDS
+        if before.get(name) != getattr(user, name)
+    )
     note.skip = not contact
     note.details = {"changed_fields": contact}
     set_etag(response, user.version)

@@ -36,6 +36,7 @@ from app.shared.realtime import (
     Publication,
     RealtimeEffects,
     RealtimeRoute,
+    broadcast,
     personal,
     record,
 )
@@ -238,16 +239,25 @@ async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> 
 
 
 async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
-    """Sign-in settings or an SSO set-up changed: other admins' security screens refetch."""
+    """Sign-in settings or an SSO set-up changed: other admins' security screens refetch.
+
+    When people may now (or no longer) change their own numbers, everyone's My account
+    refetches their own record (WP-028, rule 5c): a signal with no content, on the tenant's
+    channel, as the API decides what each person may do.
+    """
     del session
-    return RealtimeEffects(
-        publications=IDENTITY_LIST.publications(
-            envelope.tenant_id,
-            "identity.changed",
-            uuid.UUID(str(envelope.aggregate_id)),
-            actor_id=_actor(envelope),
-        )
+    publications = IDENTITY_LIST.publications(
+        envelope.tenant_id,
+        "identity.changed",
+        uuid.UUID(str(envelope.aggregate_id)),
+        actor_id=_actor(envelope),
     )
+    if "people_edit_contact" in envelope.payload.get("changed_fields", ()):
+        publications.append(Publication(broadcast(envelope.tenant_id), CONTACT_EDITING_CHANGED))
+    return RealtimeEffects(publications=publications)
+
+
+CONTACT_EDITING_CHANGED = "identity_access.contact_editing_changed"
 
 
 async def _invitation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:

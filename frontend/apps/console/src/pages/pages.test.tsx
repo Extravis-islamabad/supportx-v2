@@ -1,5 +1,8 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../App';
 import { consoleApi, fakeEntitlements, fakeSession, fakeUser, ME_PATH, problem } from '../test/api';
@@ -36,6 +39,31 @@ describe('My profile', () => {
   });
   afterEach(() => {
     restore();
+  });
+
+  it('contact details open live when an admin allows them (WP-028, rule 5c)', async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    let editable = false;
+    api({
+      routes: {
+        [`GET ${ME_PATH}`]: () => ({ body: fakeUser({ contact_editable: editable }) }),
+      },
+    });
+    try {
+      render(<App />);
+      expect(await screen.findByTestId('account-contact-locked')).toBeDefined();
+      editable = true;
+      act(() => {
+        realtime.publish(':broadcast', {
+          type: 'identity_access.contact_editing_changed',
+          ids: [],
+        });
+      });
+      expect(await screen.findByTestId('account-phone')).toBeDefined();
+    } finally {
+      setDefaultClientFactory(inertClientFactory);
+    }
   });
 
   it('saves with If-Match for the version it loaded', async () => {

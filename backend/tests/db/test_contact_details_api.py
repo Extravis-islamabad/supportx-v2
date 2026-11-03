@@ -10,6 +10,8 @@ import uuid
 
 import asyncpg
 
+from app.modules.identity_access.service.realtime import ROUTES
+from app.shared.events import EventEnvelope
 from tests.db.test_users_api import Directory, directory
 
 __all__ = ["directory"]  # the fixture, re-used
@@ -119,3 +121,63 @@ async def test_numbers_a_directory_keeps_stay_read_only(directory: Directory) ->
         "message_key": "errors.field.managed_by_directory",
         "params": {"source": "entra"},
     }
+
+
+async def test_resending_the_same_number_writes_no_audit_entry(directory: Directory) -> None:
+    await _allow(directory)
+    status, _ = await _patch(directory, directory.requester, phone="+971 4 555 0101")
+    assert status == 200
+    status, _ = await _patch(directory, directory.requester, phone="+971 4 555 0101")
+    assert status == 200
+    assert await _audited(directory, directory.requester) == [{"changed_fields": ["phone"]}]
+
+
+async def test_nobody_sets_someone_elses_numbers_here(directory: Directory) -> None:
+    await _allow(directory)
+    before = (await directory.get(f"/api/v1/users/{directory.tech}", directory.tech)).json()
+    for field in ("phone", "mobile"):
+        refused = await directory.client.patch(
+            f"/api/v1/users/{directory.tech}",
+            json={field: "+1 555 0100"},
+            headers={**directory.as_(directory.requester), "If-Match": f'"{before["version"]}"'},
+        )
+        assert (refused.status_code, refused.json()["code"]) == (403, "own_profile_only")
+    after = (await directory.get(f"/api/v1/users/{directory.tech}", directory.tech)).json()
+    assert (after["phone"], after["mobile"], after["version"]) == (
+        before["phone"],
+        before["mobile"],
+        before["version"],
+    )
+    # The refused attempts are on the record as refusals; none of them is a change.
+    attempts = await _audited(directory, directory.tech)
+    assert len(attempts) == 2
+    assert all("changed_fields" not in a for a in attempts)
+
+
+async def test_turning_the_setting_on_tells_every_my_account(directory: Directory) -> None:
+    """Rule 5c: a content-free signal on the tenant channel; each screen refetches its own."""
+    tenant = directory.tenant
+    changed = EventEnvelope.model_validate(
+        {
+            "event_id": str(uuid.uuid4()),
+            "event_type": "identity_access.identity_settings.changed",
+            "schema_version": 1,
+            "occurred_at": "2026-11-04T00:00:00Z",
+            "tenant_id": str(tenant),
+            "aggregate_type": "tenant",
+            "aggregate_id": str(tenant),
+            "aggregate_version": 2,
+            "actor": {"type": "user", "id": str(directory.tech)},
+            "payload": {"changed_fields": ["people_edit_contact"]},
+        }
+    )
+    other = changed.model_copy(update={"payload": {"changed_fields": ["invitation_valid_days"]}})
+
+    async def published(envelope: EventEnvelope) -> dict[str, str]:
+        route = next(r for r in ROUTES if envelope.event_type in r.event_types)
+        effects = await route.route(envelope, None)  # type: ignore[arg-type]  # unused by it
+        return {p.channel.name: p.type for p in effects.publications}
+
+    channel = f"t:{tenant}:broadcast"
+    assert (await published(changed))[channel] == "identity_access.contact_editing_changed"
+    assert channel not in await published(other)

@@ -1,13 +1,23 @@
 import { Alert, Button, Card, Flex, Form, Input, Typography } from 'antd';
 import { useState } from 'react';
 
-import { useSession, useUpdateUser, useUser, type UserDetail } from '@supportx/api-client';
+import { useQueryClient } from '@tanstack/react-query';
+
+import {
+  queryKeys,
+  useSession,
+  useUpdateUser,
+  useUser,
+  type UserDetail,
+} from '@supportx/api-client';
+import { useTenantChannel } from '@supportx/realtime';
 
 import { useLabel } from './appearance';
 import { reportError } from './errors';
 import { lengthLimit } from './lengthLimit';
 
 const NUMBER_MAX = 50;
+export const CONTACT_EDITING_CHANGED = 'identity_access.contact_editing_changed';
 const SOURCE_LABEL = { entra: 'directory_source.entra', ldap: 'directory_source.ldap' } as const;
 
 /**
@@ -19,6 +29,13 @@ const SOURCE_LABEL = { entra: 'directory_source.entra', ldap: 'directory_source.
 export function ContactDetailsCard() {
   const me = useSession().data?.user.id;
   const user = useUser(me);
+  const queryClient = useQueryClient();
+  // An admin allowed or stopped it (rule 5c): refetch your own record; the API says what's now.
+  useTenantChannel((event) => {
+    if (event.type === CONTACT_EDITING_CHANGED && me !== undefined) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(me) });
+    }
+  });
   if (user.data === undefined) return null;
   // Keyed by version: a saved or live-updated record starts the form from the new values.
   return <ContactDetails key={user.data.version} user={user.data} />;

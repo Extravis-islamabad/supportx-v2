@@ -1,8 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { UserDetail } from '@supportx/api-client';
 import { fakeApi, fakeEntitlements, fakeSession, fakeUser } from '@supportx/api-client/testing';
+
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from './App';
 
@@ -13,6 +16,7 @@ const ME = '01900000-0000-7000-8000-000000000101';
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
+  setDefaultClientFactory(inertClientFactory);
 });
 
 function routes(user: Partial<UserDetail>) {
@@ -76,5 +80,28 @@ describe('portal: contact details', () => {
     const note = await screen.findByTestId('account-contact-directory');
     expect(note.textContent).toContain('Microsoft Entra ID');
     expect(screen.queryByTestId('account-contact-locked')).toBeNull();
+  });
+});
+
+describe('portal: contact details live', () => {
+  it('an admin allowing it opens the fields with no reload (rule 5c)', async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    let editable = false;
+    window.history.pushState({}, '', '/account');
+    const fake = fakeApi({
+      ...routes({}),
+      [`GET /api/v1/users/${ME}`]: () => ({
+        body: fakeUser({ phone: '+971 4 555 0101', contact_editable: editable }),
+      }),
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByTestId('account-contact-locked')).toBeDefined();
+    editable = true;
+    act(() => {
+      realtime.publish(':broadcast', { type: 'identity_access.contact_editing_changed', ids: [] });
+    });
+    expect(await screen.findByTestId('account-phone')).toBeDefined();
   });
 });
