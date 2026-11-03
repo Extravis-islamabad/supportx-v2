@@ -757,13 +757,27 @@ it with no reload (rule c). Not built yet.
   to identity's policy touches only that function. Note for D2: `permission.requests.*` is
   labelled "service requests" today, while the portal reads it as "my requests" (incidents and
   service requests together, REQ-PRT-007).
-- [ ] Session 1 (backend, draft #178): `domain/portal.py` (plain status, field allow-list, reach)
-  done; `GET /api/v1/portal/incidents` and `/{id}` done (8 db tests); still to come: create,
-  reply and files, confirm/reject through the portal, the requester live channel
-  `t:{tenant}:portal:wi:{id}` (public entries only, D4), tenant settings `portal_show_due_time`
-  (D5, after #172) and `requesters_edit_profile` (D9).
-- [ ] Session 2 (portal UI): My requests, the record, Report an issue, profile, sign-in hops (D8),
-  web manifest (D10); e2e en/ar at 360x740 with axe.
+- [x] Session 1 (backend, #178, 2026-11-03/04): `domain/portal.py` (plain status, allow-list,
+  reach, live rule); `/api/v1/portal/incidents` list, record, templates, create, public
+  conversation, replies, confirm/reject; requester channel `t:{tenant}:portal_wi:{id}` (D4);
+  requester-side notifications use the portal status and link to the portal record
+  (`RecordContext.public_link`, lane B approved); BFF sends a requester signing in on the console
+  to the portal and sessions carry the stored type (D-029; lane B approved); contact details
+  setting `people_edit_contact` (migration 0058, lane B approved).
+- [ ] Session 2 (portal UI, #178): done: My requests (filters, search, show more, live), one
+  request (fix, conversation, reply, files, camera, live), Report an issue (files, camera),
+  contact details card (both apps) and the Admin > Security toggle, manifest start_url/scope,
+  console guard. **Still to do:** e2e users per lane B's (a)+(b) (`limited` becomes a technician
+  with only the requester role, without the type API adding the technician role; plus a new
+  `requester` suite user; stack.ts is lane B's, they review); move realtime-security
+  124/148/186 and knowledge.spec:354 (lane C agreed) to the portal; e2e en/ar at 360x740 with
+  axe; D5 due time after #172; renumber migration 0058 after #172's 0054; merge main (#159).
+- **Reading of REQ-PRT-001 AC1** (lane B, FYI coordinator): a stored requester always lands on
+  the portal, whatever custom roles; console work means becoming a technician.
+- **Follow-ups (not #178):** revoke the dropped console refresh token at a requester's console
+  sign-in (needs an OIDC revocation call); warn an admin who gives a requester a role with
+  console permissions; requester rows of a wider reach (reports, department) are not live yet
+  (own rows are).
 - **Moved out (coordinator, 2026-11-03):** admin "preview the portal as a requester"
   (REQ-INC-147 AC4) to WP-032; knowledge suggestions while typing (REQ-INC-028) to WP-034, the
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
