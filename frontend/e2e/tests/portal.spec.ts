@@ -127,8 +127,11 @@ test('the portal in Arabic is right to left and accessible on a phone', async ({
   const requester = await open(browser, 'limited', `${PORTAL_URL}/requests`, true);
   const page = requester.page;
   try {
+    // On a phone the language sits in the appearance menu (the header's compact form).
+    await page.getByTestId('appearance-menu').click();
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();
+    await page.keyboard.press('Escape');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByTestId('portal-report')).toHaveText(/الإبلاغ عن مشكلة/);
     await expectAccessible(page, 'my requests (Arabic, phone)');
