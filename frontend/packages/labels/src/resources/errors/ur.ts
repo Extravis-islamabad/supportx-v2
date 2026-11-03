@@ -1,0 +1,553 @@
+import type { LabelResource } from '../en';
+
+// errors labels (see ../README.md).
+export const ur: LabelResource = {
+  'errors.copy_reference': 'حوالہ کاپی کریں',
+  'errors.announcement_not_found': 'یہ اعلان موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.invalid_transition':
+    'موجودہ حیثیت میں یہ ممکن نہیں۔ تازہ ترین دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.cannot_publish': 'یہ اعلان ابھی شائع نہیں کیا جا سکتا۔',
+  'errors.field.required': 'یہ خانہ ضروری ہے۔',
+  'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
+  'errors.field.unknown_value': 'یہ قدر موجود نہیں (اب نہیں رہی)۔',
+  'errors.field.owner_not_allowed':
+    'یہ شخص اعلانات کا انتظام نہیں کر سکتا، اس لیے مالک نہیں بن سکتا۔',
+  'errors.field.window_end_before_start': 'شروع کے بعد ہونا چاہیے۔',
+  'errors.work_item_not_found': 'یہ ریکارڈ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.would_lose_access':
+    'اس تبدیلی کے بعد آپ {{display_id}} نہیں دیکھ سکیں گے۔ حوالے کرنے کے لیے تصدیق کریں۔',
+  'errors.record_closed': 'بند یا منسوخ ریکارڈ تبدیل نہیں ہو سکتے۔',
+  'errors.already_taken': '{{taken_by}} نے ابھی اسے لے لیا ہے۔ دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.already_yours': 'یہ پہلے ہی آپ کو تفویض ہے۔',
+  'errors.invalid_cursor': 'یہ صفحہ لنک اب درست نہیں۔ پہلے صفحے سے شروع کریں۔',
+  'errors.category_not_found': 'یہ زمرہ موجود نہیں۔',
+  'errors.field.invalid_tag': 'ٹیگ میں حروف، ہندسے، خالی جگہ، نقطے اور ڈیش ہو سکتے ہیں (40 تک)۔',
+  'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
+  'errors.field.too_many_records': 'زیادہ سے زیادہ {{max}} ریکارڈ منتخب کریں۔',
+  'errors.field.channel_reserved':
+    'صرف فون یا بالمشافہ چنا جا سکتا ہے؛ دوسرے ذرائع خود بخود طے ہوتے ہیں۔',
+  'errors.field.user_not_found': 'یہ شخص آپ کی تنظیم میں موجود نہیں۔',
+  'errors.field.category_not_found': 'یہ زمرہ موجود نہیں۔',
+  'errors.field.category_disabled': 'یہ زمرہ اب استعمال میں نہیں۔',
+  'errors.field.site_not_found': 'یہ مقام موجود نہیں۔',
+  'errors.field.group_not_found': 'یہ گروپ موجود نہیں۔',
+  'errors.field.technician_not_allowed': 'یہ شخص ان ریکارڈز پر کام نہیں کر سکتا۔',
+  'errors.field.technician_not_in_group': 'یہ ٹیکنیشن منتخب گروپ کا رکن نہیں۔',
+  'errors.field.group_not_yours': 'آپ اس گروپ کے رکن نہیں۔',
+  'errors.field.group_required': 'چنیں کہ آپ کا کون سا گروپ اسے لے گا۔',
+  'errors.field.invalid_prefix': '2 سے 6 بڑے انگریزی حروف استعمال کریں۔',
+  'errors.field.english_label_required': 'انگریزی نام ضروری ہے۔',
+  'errors.field.unknown_language': 'صرف انگریزی، عربی اور اردو نام قابل قبول ہیں۔',
+  'errors.field.too_deep': 'زمروں کی زیادہ سے زیادہ تین سطحیں ہیں۔',
+  'errors.audit_entry_not_found': 'یہ آڈٹ اندراج موجود نہیں ہے۔',
+  'errors.field.range_end_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
+  'errors.field.read_category_unknown': 'اس قسم کی پڑھائی لاگ نہیں کی جا سکتی۔',
+  'errors.storage_unavailable':
+    'فائل اسٹوریج تک رسائی نہیں ہو سکی۔ بعد میں کوشش کریں یا منتظم سے رابطہ کریں۔',
+  'errors.storage_not_configured': 'اس تنصیب کے لیے فائل اسٹوریج ترتیب نہیں دی گئی۔',
+  'errors.audit_export_not_found': 'یہ برآمد موجود نہیں ہے۔',
+  'errors.audit_export_not_ready':
+    'یہ برآمد ڈاؤن لوڈ نہیں ہو سکتی (تیار نہیں، ناکام یا میعاد ختم)۔',
+  'errors.audit_export_too_large': 'ایک برآمد کے لیے اندراجات بہت زیادہ ہیں۔ کم مدت منتخب کریں۔',
+  'errors.saved_search_limit': 'آپ محفوظ تلاشوں کی حد تک پہنچ گئے ہیں۔ پہلے ایک حذف کریں۔',
+  'errors.saved_search_not_found': 'یہ محفوظ تلاش موجود نہیں ہے۔',
+  'errors.audit_archive_unsealed':
+    'اس مہینے کے کچھ اندراجات ابھی مہر بند نہیں ہوئے، اس لیے اسے محفوظ نہیں کیا جا سکتا۔',
+  'errors.audit_archive_unverified': 'اسٹوریج سے دوبارہ پڑھنے پر آرکائیو تصدیق میں ناکام رہا۔',
+  'errors.audit_archive_out_of_order':
+    'اس مہینے کے اندراجات غلط ترتیب میں مہر بند ہوئے؛ سپورٹ سے آڈٹ لاگ چیک کرنے کو کہیں۔',
+  'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
+  'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
+  'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
+  'errors.audit_archive_not_restored': 'اس کے اندراجات پڑھنے کے لیے پہلے آرکائیو بحال کریں۔',
+  'errors.conversation_entry_not_found': 'یہ جواب یا نوٹ اب موجود نہیں ہے۔',
+  'errors.follower_not_found': 'یہ شخص اسے فالو نہیں کر رہا۔',
+  'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',
+  'errors.work_item_view_not_found': 'یہ محفوظ ویو اب موجود نہیں، یا آپ کے ساتھ شیئر نہیں کیا گیا۔',
+  'errors.bulk_job_not_found': 'یہ اجتماعی تبدیلی نہیں ملی۔',
+  'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
+  'errors.field.too_many': 'وصول کنندگان بہت زیادہ ہیں۔',
+  'errors.field.replies_are_public':
+    'جوابات ٹیم سے باہر کے لوگوں کو جاتے ہیں، اس لیے وہ ہمیشہ عوامی ہوتے ہیں۔',
+  'errors.field.cannot_see_record':
+    'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
+  'errors.field.duplicate_name': 'یہ نام پہلے سے استعمال میں ہے۔',
+  'errors.delivery_not_failed': 'یہ جواب ناکام نہیں ہوا، اس لیے دوبارہ بھیجنے کو کچھ نہیں۔',
+  'errors.mail_content_gone': 'اس ای میل کا متن اب محفوظ نہیں۔ جواب دوبارہ لکھیں۔',
+  'errors.mail_status_staff_only': 'یہ صرف وہ لوگ دیکھ سکتے ہیں جو ریکارڈز پر جواب دیتے ہیں۔',
+  'errors.recipient_deferred': 'وصول کنندہ کے میل سرور نے بعد میں کوشش کرنے کو کہا۔',
+  'errors.server_busy': 'میل سرور مصروف تھا۔',
+  'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.file_staff_only':
+    'صرف سروس ڈیسک فائلیں ہٹا سکتا ہے یا کسی اور کے پیغام میں شامل کر سکتا ہے۔',
+  'errors.file_owner_not_found':
+    'جس چیز سے آپ منسلک کر رہے ہیں وہ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.file_owner_not_allowed': 'وہاں فائلیں منسلک نہیں کی جا سکتیں۔',
+  'errors.file_not_ready': 'یہ فائل کھولنے کے لیے تیار نہیں۔',
+  'errors.file_not_rescannable': 'اس فائل کی دوبارہ جانچ نہیں ہو سکتی۔',
+  'errors.file_thumbnail_not_found': 'اس فائل کا کوئی پیش منظر نہیں۔',
+  'errors.file_too_large': 'فائل {{limit_mb}} MB کی حد سے بڑی ہے۔',
+  'errors.file_type_blocked': 'اس قسم کی فائلوں کی اجازت نہیں (.{{extension}})۔',
+  'errors.storage_quota_exceeded':
+    'آپ کی تنظیم کا فائل اسٹوریج بھر گیا ہے ({{used_gb}} از {{limit_gb}} GB)۔',
+  'errors.range_not_satisfiable': 'فائل کا یہ حصہ موجود نہیں۔',
+  'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
+  'errors.files_not_configured': 'فائلیں محفوظ نہیں ہو سکتیں: انکرپشن کیز ترتیب نہیں دی گئیں۔',
+  'errors.field.invalid_email': 'یہ پتے درست نہیں ہیں: {{addresses}}',
+  'errors.status_not_found': 'یہ حالت اب موجود نہیں۔',
+  'errors.transition_not_found': 'حالت کی یہ تبدیلی لائف سائیکل کا حصہ نہیں۔',
+  'errors.scale_value_not_found': 'یہ قدر موجود نہیں۔',
+  'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
+  'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
+  'errors.template_not_found': 'یہ سانچہ اب موجود نہیں۔',
+  'errors.field.invalid_colour': '#1677ff جیسا رنگ منتخب کریں۔',
+  'errors.field.matrix_incomplete': 'اثر اور فوریت کے ہر جوڑے کو ترجیح درکار ہے۔',
+  'errors.field.value_required_by_system':
+    '"دیگر" ریٹائر نہیں ہو سکتا: جب کوئی وجہ موزوں نہ ہو تو یہی راستہ ہے۔',
+  'errors.field.last_value': 'کم از کم ایک قدر استعمال میں رہنی چاہیے۔',
+  'errors.field.order_must_list_every_value':
+    'اس دوران فہرست بدل گئی۔ ری لوڈ کر کے دوبارہ کوشش کریں۔',
+  'errors.field.number_already_used':
+    'یہ نمبر پہلے ہی استعمال ہو چکا ہے۔ {{minimum}} یا اس سے زیادہ منتخب کریں۔',
+  'errors.field.template_not_found': 'یہ سانچہ اب موجود نہیں۔ کوئی اور منتخب کریں۔',
+  'errors.field.template_disabled': 'یہ سانچہ بند کر دیا گیا ہے۔ کوئی اور سانچہ منتخب کریں۔',
+  'errors.field.default_required':
+    'ہمیشہ ایک ڈیفالٹ سانچہ ہوتا ہے۔ اس کے بجائے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
+  'errors.field.default_cannot_be_disabled':
+    'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
+  'errors.field.disabled_cannot_be_default': 'ڈیفالٹ بنانے سے پہلے یہ سانچہ آن کریں۔',
+  'errors.field.field_always_required':
+    'موضوع اور درخواست گزار ہمیشہ دکھائے جاتے ہیں اور لازمی ہیں۔',
+  'errors.field.hidden_required_needs_default':
+    'چھپے لازمی فیلڈ کو ابتدائی قدر درکار ہے، ورنہ کوئی اسے بھر نہیں سکے گا۔',
+  'errors.field.fill_needs_see': 'درخواست گزار صرف وہی فیلڈ بھر سکتے ہیں جو وہ دیکھ سکیں۔',
+  'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
+  'errors.field.requester_always_needed':
+    'درخواست گزار موضوع اور درخواست گزار ہمیشہ دیکھتے اور بھرتے ہیں۔',
+  'errors.custom_field_not_found': 'یہ اپنی مرضی کا خانہ موجود نہیں (اب نہیں رہا)۔',
+  'errors.custom_field_entity_not_found': 'اس قسم کے ریکارڈ کے لیے اپنی مرضی کے خانے دستیاب نہیں۔',
+  'errors.custom_field_in_use':
+    'ریکارڈز میں اس خانے کی قدریں موجود ہیں۔ پرانے ریکارڈز پر رکھنے کے لیے اسے ریٹائر کریں، یا ہٹا دیں: پرانی قدریں تاریخچے میں رہیں گی۔',
+  'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
+  'errors.field.below_minimum': 'کم از کم {{min}} ہے۔',
+  'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
+  'errors.field.field_retired': 'یہ خانہ ریٹائر ہو چکا ہے اور نئی قدریں نہیں لیتا۔',
+  'errors.field.invalid_currency': 'تین حرفی کرنسی کوڈ استعمال کریں، جیسے USD یا PKR۔',
+  'errors.field.invalid_key': 'خانے کو ایسا نام دیں جس میں کم از کم دو حروف یا ہندسے ہوں۔',
+  'errors.field.invalid_pattern': 'یہ پیٹرن درست ریگولر ایکسپریشن نہیں ہے۔',
+  'errors.field.email_not_valid': 'ای میل پتہ درج کریں، جیسے name@example.com۔',
+  'errors.field.phone_not_valid': 'فون نمبر درج کریں: ہندسے، خالی جگہ، +، - اور قوسین۔',
+  'errors.field.url_not_valid': 'https:// یا http:// سے شروع ہونے والا ویب پتہ درج کریں۔',
+  'errors.field.key_cannot_change': 'خانے کا API نام تبدیل نہیں ہو سکتا۔',
+  'errors.field.type_cannot_change':
+    'خانے کی قسم تبدیل نہیں ہو سکتی۔ نیا خانہ بنائیں اور اسے ریٹائر کریں۔',
+  'errors.field.pattern_mismatch': 'یہ قدر متوقع شکل میں نہیں ہے۔',
+  'errors.field.timezone_required': 'ٹائم زون شامل کریں۔',
+  'errors.field.value_too_short': 'کم از کم {{min}} حروف استعمال کریں۔',
+  'errors.custom_field_limit_reached':
+    'اس قسم کے ریکارڈ میں پہلے ہی {{limit}} اپنی مرضی کے خانے ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے کوئی خانہ ہٹائیں یا دوبارہ استعمال کریں۔',
+  'errors.brand_colour_contrast':
+    'یہ رنگ پڑھنے میں مشکل ہے: اس پر متن WCAG AA کنٹراسٹ سے کم ہے۔ تجویز کردہ رنگ استعمال کریں یا گہرا رنگ چنیں۔',
+  'errors.branding_not_found': 'یہ برانڈ نہیں ملا۔',
+  'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
+  'errors.field.english_text_required':
+    'انگریزی متن شامل کریں: جہاں ترجمہ نہ ہو وہاں یہی دکھایا جاتا ہے۔',
+  'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
+  'errors.field.brand_image_too_large': 'یہ تصویر بہت بڑی ہے: زیادہ سے زیادہ 5 MB اور 25 میگاپکسل۔',
+  'errors.field.brand_image_too_small': 'یہ تصویر بہت چھوٹی ہے: ہر طرف کم از کم 16 پکسل۔',
+  'errors.field.brand_image_unreadable':
+    'یہ تصویر پڑھی نہیں جا سکی۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
+  'errors.field.brand_image_svg':
+    'SVG تصاویر قبول نہیں کی جاتیں کیونکہ ان میں اسکرپٹ ہو سکتے ہیں۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
+  'errors.domain_taken': 'یہ ڈومین پہلے سے استعمال میں ہے۔',
+  'errors.domain_limit': 'آپ زیادہ سے زیادہ {{max}} ڈومین شامل کر سکتے ہیں۔',
+  'errors.domain_not_found': 'یہ ڈومین نہیں ملا۔',
+  'errors.domains_not_configured': 'اس انسٹالیشن پر کسٹم ڈومین ترتیب نہیں دیے گئے۔',
+  'errors.domain_wrong_answer':
+    'ڈومین ابھی اس SupportX کی طرف اشارہ نہیں کرتا: اس کا DNS ریکارڈ دیکھیں۔',
+  'errors.domain_not_resolving': 'ڈومین کا ابھی کوئی DNS ریکارڈ نہیں ہے۔',
+  'errors.domain_not_reachable': 'ڈومین تک رسائی نہیں ہو سکی۔',
+  'errors.domain_check_failed': 'ڈومین نے جواب دیا، مگر اس SupportX کی طرح نہیں۔',
+  'errors.domain_address_not_allowed':
+    'ڈومین ایسے پتے کی طرف اشارہ کرتا ہے جس سے SupportX رابطہ نہیں کرتا۔',
+  'errors.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
+  'errors.domain_reserved': 'اس انسٹالیشن کے اپنے ڈومین کے پتے خودکار طور پر دیے جاتے ہیں۔',
+  'errors.certificate_unreadable': 'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
+  'errors.private_key_unreadable':
+    'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
+  'errors.certificate_key_mismatch': 'نجی کلید اس سرٹیفکیٹ کی نہیں ہے۔',
+  'errors.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
+  'errors.certificate_not_valid_now': 'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے یا ابھی درست نہیں ہوا۔',
+  'errors.field.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
+  'errors.field.domain_reserved': 'اس انسٹالیشن کے اپنے ڈومین کے پتے خودکار طور پر دیے جاتے ہیں۔',
+  'errors.field.certificate_unreadable':
+    'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
+  'errors.field.private_key_unreadable':
+    'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
+  'errors.field.certificate_key_mismatch': 'نجی کلید اس سرٹیفکیٹ کی نہیں ہے۔',
+  'errors.field.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
+  'errors.field.certificate_not_valid_now':
+    'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے یا ابھی درست نہیں ہوا۔',
+  'errors.field.name_needs_letters': 'نام میں کم از کم ایک حرف یا ہندسہ استعمال کریں۔',
+  'errors.field.pattern_too_complex':
+    'یہ پیٹرن ایسے گروپ کو دہراتا ہے جو خود بھی دہرایا جاتا ہے، جس سے محفوظ کرنا بہت سست ہو سکتا ہے۔ اسے آسان کریں، مثلاً ([A-Z]+)+ کے بجائے [A-Z]+۔',
+  'errors.field.whole_number_required': 'مکمل عدد درج کریں۔',
+  'errors.cannot_deactivate_self': 'آپ خود کو غیر فعال نہیں کر سکتے۔',
+  'errors.cannot_stop_own_sign_in': 'آپ اپنا سائن اِن خود بند نہیں کر سکتے۔',
+  'errors.default_site_required':
+    'ڈیفالٹ سائٹ ہٹائی نہیں جا سکتی۔ پہلے کسی اور سائٹ کو ڈیفالٹ بنائیں۔',
+  'errors.department_not_found': 'یہ شعبہ اب موجود نہیں۔',
+  'errors.desk_limit_reached': 'آپ کا لائسنس مزید ڈیسک کی اجازت نہیں دیتا۔',
+  'errors.invalid_choice': 'یہ قدر دستیاب انتخاب میں سے نہیں۔',
+  'errors.people_import_file_too_large': 'فائل 5 MB سے بڑی ہے۔',
+  'errors.people_import_file_not_readable': 'CSV فائل یا Excel ورک بُک ({{xlsx}}) استعمال کریں۔',
+  'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
+  'errors.tenant_admin_is_technician':
+    'ٹیننٹ منتظم ٹیکنیشن ہی رہتا ہے۔ پہلے منتظم کا کردار ہٹائیں۔',
+  'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
+  'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
+  'errors.field.department_not_found': 'کوئی فعال شعبہ منتخب کریں۔',
+  'errors.field.desk_not_found': 'کوئی فعال ڈیسک منتخب کریں۔',
+  'errors.field.email_required_for_sign_in':
+    'سائن اِن کے لیے ای میل ضروری ہے۔ ای میل شامل کریں یا اس فرد کو رابطہ بنائیں۔',
+  'errors.field.email_taken': 'یہ ای میل کوئی اور فرد استعمال کر رہا ہے۔',
+  'errors.field.employee_id_taken': 'یہ ملازم آئی ڈی کسی اور فرد کی ہے۔',
+  'errors.field.invalid_code': 'حروف، اعداد، نقطے یا ڈیش استعمال کریں (زیادہ سے زیادہ 50)۔',
+  'errors.field.manager_loop':
+    'یہ فرد پہلے ہی اس مینیجر کا مینیجر ہے (براہِ راست یا دوسروں کے ذریعے)۔',
+  'errors.field.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
+  'errors.field.parent_loop': 'اس سے یہ اپنا ہی والد بن جائے گا۔',
+  'errors.field.site_inactive': 'یہ سائٹ غیر فعال ہے۔ فعال سائٹ منتخب کریں۔',
+  'errors.field.unknown_time_zone': 'فہرست سے ٹائم زون منتخب کریں۔',
+  'errors.people_import_file_unsafe':
+    'ورک بُک نہیں کھولی گئی: یہ اپنے سائز سے کہیں بڑی ہو جاتی ہے۔',
+  'errors.field.value_too_long_max': 'زیادہ سے زیادہ {{max_length}} حروف استعمال کریں۔',
+  'errors.field.field_not_settable': 'قاعدہ یہ فیلڈ مقرر نہیں کر سکتا۔',
+  'errors.field.field_set_twice': 'یہ فیلڈ قاعدے کے کسی اور عمل سے پہلے ہی مقرر ہے۔',
+  'errors.field.message_required': 'کم از کم انگریزی میں پیغام لکھیں۔',
+  'errors.field.too_many_actions': 'ایک قاعدے میں زیادہ سے زیادہ {{max}} عمل ہو سکتے ہیں۔',
+  'errors.field.unknown_record_type': 'منتخب کریں کہ قاعدہ کس پر لاگو ہو۔',
+  'errors.field.value_no_longer_valid': 'یہ قدر اب دستیاب نہیں۔',
+  'errors.order_out_of_date': 'اس دوران فہرست بدل گئی۔ دوبارہ لوڈ کر کے ترتیب دیں۔',
+  'errors.rule_not_found': 'یہ قاعدہ اب موجود نہیں۔',
+  'errors.rule_refused': '{{message_ur}}',
+  'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
+  'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
+  'errors.open_work_blocked': 'یہ کام کھلا ہونے تک یہ نہیں ہو سکتا: {{items}}۔',
+  'errors.open_work_unconfirmed':
+    'کام ابھی کھلا ہے: {{items}}۔ پھر بھی آگے بڑھنے کے لیے تصدیق کریں۔',
+  'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
+  'errors.field.requester_only': 'یہ کوڈ صرف درخواست گزار کی تصدیق سے لگتا ہے۔',
+  'errors.field.required_to_close': 'بند کرنے سے پہلے درکار ہے۔',
+  'errors.field.auto_close_needs_notifications':
+    'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
+  'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
+  'errors.too_many_rules': 'ہر ریکارڈ قسم کے لیے زیادہ سے زیادہ {{max}} قاعدے۔',
+  'errors.transition_not_allowed': 'حالت کی یہ تبدیلی اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',
+  'errors.field.too_many_values': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
+  'errors.custom_field_used_by_rule':
+    'آٹومیشن اصول یہ فیلڈ استعمال کرتے ہیں ({{rules}})۔ پہلے وہ اصول بدلیں یا ہٹائیں۔',
+  'errors.unknown_record_type': 'اس قسم کے ریکارڈ کے لیے آٹومیشن دستیاب نہیں۔',
+  // Reports (WP-035)
+  'errors.report_schedule_not_found': 'یہ شیڈول موجود نہیں یا آپ کا نہیں۔',
+  'errors.field.recipients_required': 'کم از کم ایک شخص یا گروپ منتخب کریں۔',
+  'errors.field.too_many_recipients': 'زیادہ سے زیادہ 50 افراد اور 20 گروپ۔',
+  'errors.field.unknown_recipient': 'منتخب کردہ کوئی شخص اب فعال نہیں یا کوئی گروپ اب موجود نہیں۔',
+  'errors.field.report_not_found': 'یہ رپورٹ موجود نہیں یا آپ کے ساتھ شیئر نہیں۔',
+  'errors.field.one_day_required': 'ہفتے کا ایک دن منتخب کریں۔',
+  'errors.field.end_before_start': 'اختتامی تاریخ آغاز کی تاریخ سے پہلے ہے۔',
+  'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
+  'errors.report_export_not_found': 'یہ ایکسپورٹ موجود نہیں یا آپ کا نہیں۔',
+  'errors.report_export_not_ready':
+    'یہ فائل تیار نہیں یا اس کا لنک ختم ہو گیا ہے۔ رپورٹ دوبارہ ایکسپورٹ کریں۔',
+  'errors.kb_article_not_found': 'یہ مضمون موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
+  'errors.kb_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
+  'errors.kb_link_not_found': 'یہ ربط اب موجود نہیں۔',
+  'errors.kb_article_not_published': 'اس مضمون کا ابھی کوئی شائع شدہ ورژن نہیں جو شامل کیا جا سکے۔',
+  'errors.kb_record_has_no_resolution': 'اس ریکارڈ کا ابھی کوئی حل نہیں جسے نالج بنایا جا سکے۔',
+  'errors.too_many_files': 'ایک ساتھ بہت زیادہ فائلیں: زیادہ سے زیادہ {{max}}۔',
+  'errors.insert_too_large':
+    'مضمون کی تصاویر ایک ساتھ شامل کرنے کے لیے بہت بڑی ہیں: زیادہ سے زیادہ {{limit_mb}} MB۔',
+  'errors.kb_type_not_found': 'مضمون کی یہ قسم موجود نہیں۔',
+  'errors.field.builtin_type_names': 'پہلے سے موجود قسم کے نام نہیں بدلتے۔',
+  'errors.kb_article_not_editable':
+    'آپ یہ مضمون نہیں بدل سکتے۔ اس کا مالک یا نالج مینیجر بدل سکتا ہے۔',
+  'errors.kb_topic_not_found': 'یہ موضوع موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
+  'errors.kb_draft_not_found': 'اس زبان میں اس مضمون کا کوئی مسودہ نہیں۔',
+  'errors.kb_draft_in_review': 'یہ نسخہ جائزے میں ہے اور ابھی بدلا نہیں جا سکتا۔',
+  'errors.kb_draft_exists': 'اس زبان میں ایک مسودہ پہلے سے کھلا ہے۔ اسی پر کام جاری رکھیں۔',
+  'errors.field.expiry_before_review': 'ختم ہونے کی تاریخ جائزے کی تاریخ کے بعد ہونی چاہیے۔',
+  'errors.field.review_date_past': 'آج یا بعد کی تاریخ منتخب کریں۔',
+  'errors.field.technician_audience_empty': 'تمام تکنیکی ماہرین یا کم از کم ایک گروپ منتخب کریں۔',
+  'errors.field.requester_audience_empty':
+    'درخواست دہندگان کا کم از کم ایک گروپ، سائٹ یا شعبہ منتخب کریں۔',
+  'errors.field.name_required': 'نام درج کریں۔',
+  'errors.field.topic_too_deep': 'موضوعات زیادہ سے زیادہ {{max}} درجے گہرے ہو سکتے ہیں۔',
+  'errors.field.topic_under_itself': 'کوئی موضوع خود اپنے یا اپنے ذیلی موضوع کے نیچے نہیں جا سکتا۔',
+  'errors.field.move_articles_first': 'اس موضوع میں ابھی مضامین ہیں۔ منتخب کریں کہ وہ کہاں جائیں۔',
+  'errors.field.title_required': 'عنوان درج کریں۔',
+  'errors.field.unknown_article_type': 'مضمون کی یہ قسم موجود نہیں یا ختم کر دی گئی ہے۔',
+  'errors.field.wider_than_topic': 'مضمون اپنے موضوع کے سامعین کو صرف محدود کر سکتا ہے، وسیع نہیں۔',
+  'errors.kb_article_withdrawn': 'یہ مضمون اب دستیاب نہیں ہے۔',
+  'errors.kb_cannot_approve':
+    'آپ یہ مضمون منظور نہیں کر سکتے۔ موضوع کا مالک یا منظور کنندہ کر سکتا ہے۔',
+  'errors.kb_cannot_delete': 'آپ یہ مضمون ردی میں نہیں ڈال سکتے۔',
+  'errors.kb_cannot_withdraw': 'آپ یہ مضمون واپس نہیں لے سکتے۔',
+  'errors.kb_not_published': 'یہ مضمون ابھی شائع نہیں ہوا۔',
+  'errors.kb_topic_in_trash':
+    'اس کا موضوع ردی میں ہے۔ پہلے موضوع بحال کریں یا کوئی اور موضوع چنیں۔',
+  'errors.kb_not_a_draft': 'صرف مسودہ جائزے کے لیے بھیجا جا سکتا ہے۔',
+  'errors.kb_not_in_review': 'یہ ورژن جائزے کا منتظر نہیں ہے۔',
+  'errors.kb_self_approval_off':
+    'یہاں مصنف اپنے مضامین منظور نہیں کر سکتے۔ کسی اور منظور کنندہ سے کہیں۔',
+  'errors.field.reason_required': 'وجہ بتائیں۔',
+  'errors.field.unknown_column': 'یہ کالم ان ریکارڈز کے لیے موجود نہیں۔',
+  'errors.field.duplicate_column': 'ہر کالم ایک بار درج کیا جا سکتا ہے۔',
+  'errors.dashboard_not_found': 'یہ ڈیش بورڈ موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
+  'errors.dashboard_not_editable':
+    'صرف اس کا مالک یہ ڈیش بورڈ بدل سکتا ہے۔ اپنی نقل بنانے کے لیے اسے کاپی کریں۔',
+  'errors.field.dashboard_not_shared':
+    'کسی کردار کا ہوم صرف بلٹ اِن یا شیئر شدہ ڈیش بورڈ ہو سکتا ہے۔',
+  'errors.invalid_report': 'یہ رپورٹ اس حالت میں نہیں چل سکتی۔ نمایاں حصے چیک کریں۔',
+  'errors.report_timeout':
+    'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
+  'errors.report_queue_full':
+    'آپ کی تنظیم اس وقت بہت سی رپورٹس چلا رہی ہے۔ چند سیکنڈ بعد دوبارہ کوشش کریں۔',
+  'errors.report_not_found': 'یہ رپورٹ موجود نہیں یا آپ کے ساتھ شیئر نہیں کی گئی۔',
+  'errors.report_entity_not_found': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
+  'errors.report_not_allowed': 'آپ کو ان ریکارڈز پر رپورٹس چلانے کی اجازت نہیں۔',
+  'errors.report_not_editable':
+    'اس رپورٹ کو صرف اس کا مالک یا مشترکہ فولڈرز کا منتظم بدل سکتا ہے۔ اپنی نقل بنانے کے لیے اسے کاپی کریں۔',
+  'errors.too_many_favourites': 'آپ زیادہ سے زیادہ {{max}} رپورٹس کو ستارہ لگا سکتے ہیں۔',
+  'errors.field.unknown_dimension': 'رپورٹس کو اس فیلڈ کے مطابق گروپ نہیں کیا جا سکتا۔',
+  'errors.field.duplicate_dimension': 'یہ گروپ بندی پہلے سے استعمال میں ہے۔',
+  'errors.field.dimension_not_groupable':
+    'متعدد انتخاب والی فیلڈز ابھی گروپ بندی کے لیے استعمال نہیں ہو سکتیں۔',
+  'errors.field.bucket_required':
+    'تاریخوں کو گروپ کرنے کا طریقہ منتخب کریں: دن، ہفتہ، مہینہ، سہ ماہی، سال یا عمر۔',
+  'errors.field.bucket_not_allowed':
+    'صرف تاریخ والی فیلڈز کو دن، ہفتے یا مہینے کے مطابق گروپ کیا جا سکتا ہے۔',
+  'errors.field.unknown_measure': 'یہ پیمانہ ان ریکارڈز کے لیے دستیاب نہیں۔',
+  'errors.field.duplicate_measure': 'ہر پیمانہ ایک ہی بار استعمال ہو سکتا ہے۔',
+  'errors.field.measure_not_available': 'یہ پیمانہ ابھی دستیاب نہیں۔',
+  'errors.field.unknown_entity': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
+  'errors.field.unknown_folder': 'یہ فولڈر اب موجود نہیں۔',
+  'errors.field.unknown_builtin_report': 'یہ بلٹ اِن رپورٹ موجود نہیں۔',
+  'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
+  'errors.sign_in_unknown_person':
+    'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
+  'errors.identity_admin_not_configured':
+    'اس انسٹالیشن پر سائن اِن کی ترتیبات ابھی تیار نہیں۔ اپنے ایڈمنسٹریٹر سے شناخت کے سیٹ اپ کا مرحلہ چلانے کو کہیں۔',
+  'errors.identity_admin_unavailable':
+    'سائن اِن کی سروس سے ابھی رابطہ نہیں ہو پا رہا۔ تھوڑی دیر میں دوبارہ کوشش کریں۔',
+  'errors.identity_organization_missing':
+    'آپ کی تنظیم ابھی سائن اِن کے لیے تیار نہیں۔ اپنے ایڈمنسٹریٹر سے پوچھیں۔',
+  'errors.sso_not_tested': 'چالو کرنے سے پہلے سیٹ اپ کو ایک سائن اِن سے آزمائیں۔',
+  'errors.sso_provider_limit': 'آپ زیادہ سے زیادہ {{max}} سنگل سائن آن سیٹ اپ رکھ سکتے ہیں۔',
+  'errors.sso_provider_missing':
+    'یہ سیٹ اپ سائن اِن کی سروس میں موجود نہیں۔ اسے ہٹا کر دوبارہ شامل کریں۔',
+  'errors.sso_provider_not_found': 'یہ سنگل سائن آن سیٹ اپ نہیں ملا۔',
+  'errors.sso_provider_refused':
+    'سائن اِن کی سروس نے یہ ترتیبات قبول نہیں کیں۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
+  'errors.sso_switch_off_first':
+    'رابطے کا طریقہ بدلنے سے پہلے سیٹ اپ بند کریں، تاکہ کوئی باہر نہ رہ جائے۔',
+  'errors.sso_switched_off': 'آزمانے سے پہلے سیٹ اپ چالو کریں یا اسے بدلیں۔',
+  'errors.sso_test_not_found': 'یہ آزمائش ختم ہو گئی۔ نئی شروع کریں۔',
+  'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
+  'errors.field.session_absolute_out_of_range':
+    'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
+  'errors.field.sso_certificate_expired':
+    'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے۔ شناخت فراہم کنندہ سے نیا لیں۔',
+  'errors.field.sso_certificate_missing': 'میٹا ڈیٹا میں دستخطی سرٹیفکیٹ نہیں ہے۔',
+  'errors.field.sso_certificate_required': 'شناخت فراہم کنندہ کا دستخطی سرٹیفکیٹ چسپاں کریں۔',
+  'errors.field.sso_certificate_unreadable':
+    'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM صورت میں چسپاں کریں۔',
+  'errors.field.sso_client_id_required': 'کلائنٹ آئی ڈی درج کریں۔',
+  'errors.field.sso_client_rejected':
+    'شناخت فراہم کنندہ نے یہ کلائنٹ آئی ڈی اور سیکرٹ قبول نہیں کیے۔',
+  'errors.field.sso_client_secret_required': 'کلائنٹ سیکرٹ درج کریں۔',
+  'errors.field.sso_discovery_invalid': 'یہ پتا OpenID Connect جاری کنندہ کی طرح جواب نہیں دیتا۔',
+  'errors.field.sso_discovery_unreachable': 'SupportX اس جاری کنندہ تک نہیں پہنچ سکا۔ پتا جانچیں۔',
+  'errors.field.sso_domain_invalid': '{{domain}} ڈومین کا نام نہیں، جیسے example.com۔',
+  'errors.field.sso_domain_public':
+    '{{domain}} عوامی میل سروس ہے اور سنگل سائن آن کے لیے استعمال نہیں ہو سکتی۔',
+  'errors.field.sso_domain_required': 'کم از کم ایک ای میل ڈومین شامل کریں۔',
+  'errors.field.sso_domain_taken': 'ان میں سے ایک ڈومین کسی اور تنظیم کے پاس ہے۔',
+  'errors.field.sso_domains_too_many': 'زیادہ سے زیادہ {{max}} ڈومین رکھیں۔',
+  'errors.field.sso_issuer_mismatch':
+    'یہ پتا کسی اور جاری کنندہ کا نام دیتا ہے۔ جاری کنندہ کا عین پتا استعمال کریں۔',
+  'errors.field.sso_issuer_required': 'جاری کنندہ کا پتا درج کریں۔',
+  'errors.field.sso_metadata_required':
+    'میٹا ڈیٹا اپ لوڈ کریں، اس کا پتا دیں، یا سائن اِن کا پتا بھریں۔',
+  'errors.field.sso_metadata_unreachable': 'SupportX اس پتے سے میٹا ڈیٹا نہیں لا سکا۔',
+  'errors.field.sso_metadata_unreadable': 'یہ فائل قابلِ مطالعہ SAML میٹا ڈیٹا نہیں۔',
+  'errors.field.sso_name_length': '1 سے {{max}} حروف رکھیں۔',
+  'errors.field.sso_protocol_fixed':
+    'سیٹ اپ اپنا پروٹوکول برقرار رکھتا ہے۔ اس کے بجائے نیا شامل کریں۔',
+  'errors.field.sso_sign_in_url_missing': 'میٹا ڈیٹا میں سائن اِن کا پتا نہیں ہے۔',
+  // WP-039 identity: Admin > Sign-in and security
+  'errors.field.sso_domain_in_use':
+    '{{domain}} آپ کے کسی اور سنگل سائن آن سیٹ اپ میں استعمال ہو رہا ہے۔',
+  'errors.field.sso_domain_unverified':
+    'سنگل سائن آن کے استعمال سے پہلے ثابت کریں کہ {{domain}} آپ کی تنظیم کا ہے۔',
+  'errors.field.sso_url_invalid': 'مکمل پتا درج کریں جو https:// سے شروع ہو۔',
+  'errors.field.password_policy_out_of_range': '{{min}} اور {{max}} کے درمیان رکھیں۔',
+  'errors.field.invitation_days_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
+  'errors.invitation_already_signed_in':
+    'یہ شخص پہلے ہی سائن اِن کر چکا ہے، اس لیے دعوت کی ضرورت نہیں۔',
+  'errors.invitation_needs_email': 'پہلے اس شخص کا ای میل پتا شامل کریں۔',
+  'errors.invitation_not_found': 'یہ دعوت نامہ نہیں ملا۔',
+  'errors.invitation_not_pending': 'یہ دعوت نامہ اب منتظر نہیں: قبول ہو چکا یا واپس لیا جا چکا۔',
+  'errors.invitation_pending': 'اس شخص کا ایک دعوت نامہ منتظر ہے۔ اس کے بجائے اسے دوبارہ بھیجیں۔',
+  'errors.invitation_person_cannot_sign_in': 'یہ شخص غیر فعال ہے یا اسے سائن اِن کی اجازت نہیں۔',
+  'errors.password_policy_not_saved': 'پہلے پاس ورڈ پالیسی محفوظ کریں۔',
+  'errors.password_policy_platform': 'اس انسٹالیشن پر پاس ورڈ پالیسی پلیٹ فارم طے کرتا ہے۔',
+  'errors.password_reset_not_signed_in':
+    'اس شخص نے ابھی سائن اِن نہیں کیا۔ اس کے بجائے دعوت نامہ بھیجیں۔',
+  'errors.mail_not_configured':
+    'اس انسٹالیشن پر باہر جانے والی ای میل سیٹ اپ نہیں۔ اپنے آپریٹر سے اسے ترتیب دینے کو کہیں۔',
+  'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
+  'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
+  'errors.mail_attachment_type': 'اس قسم کی فائل ای میل سے نہیں بھیجی جا سکتی۔',
+  'errors.mail_attachments_too_large': 'منسلکات مل کر 10 MB سے بڑی ہیں۔',
+  'errors.mail_kind_invalid': 'اس قسم کی ای میل معلوم نہیں۔',
+  'errors.mail_language_invalid': 'یہ زبان ای میل کے لیے دستیاب نہیں۔',
+  'errors.mail_recipients': '1 سے 50 وصول کنندگان کو بھیجیں۔',
+  'errors.mail_sender_invalid': 'بھیجنے والے کا نام یا جواب کا پتا درست نہیں۔',
+  'errors.mail_subject_invalid': 'موضوع ایک سطر کا ہو، زیادہ سے زیادہ 300 حروف۔',
+  'errors.authentication_failed': 'میل سرور نے سائن اِن رد کر دیا۔',
+  'errors.message_refused': 'میل سرور نے پیغام رد کر دیا۔',
+  'errors.recipient_refused': 'میل سرور نے وصول کنندہ رد کر دیا۔',
+  'errors.field.mfa_grace_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
+  'errors.field.mfa_mode_invalid': 'بند، اختیاری یا لازمی منتخب کریں۔',
+  'errors.mfa_enrolment_unavailable':
+    'پہلے دو مرحلہ سائن اِن سیٹ اپ کرنا ہے، لیکن سائن اِن سروس تک رسائی نہیں ہو سکی۔ کچھ دیر بعد دوبارہ کوشش کریں۔',
+  'errors.mfa_reset_not_signed_in':
+    'اس شخص نے ابھی سائن اِن نہیں کیا، اس لیے ری سیٹ کرنے کو کچھ نہیں۔',
+  'errors.mfa_reset_own':
+    'آپ اپنا دو مرحلہ سائن اِن خود ری سیٹ نہیں کر سکتے۔ کسی دوسرے ایڈمنسٹریٹر سے کہیں۔',
+  'errors.role_not_found': 'یہ رول نہیں ملا۔',
+  'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
+  'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
+  'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
+  'errors.mailbox_not_found': 'یہ میل باکس موجود نہیں۔',
+  'errors.mailbox_address_taken': 'کوئی اور میل باکس یہ پتہ پہلے سے پڑھتا ہے۔',
+  'errors.mailbox_key_ring_missing':
+    'میل باکس کے پاس ورڈ ابھی محفوظ طریقے سے نہیں رکھے جا سکتے: انسٹالیشن کی کلیدی رنگ سیٹ نہیں ہے۔',
+  'errors.field.plain_connection_refused':
+    'بغیر انکرپشن کنکشن رد کیا جاتا ہے جب تک آپ اجازت نہ دیں۔',
+  'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
+  'errors.mailbox_sign_in_not_needed': 'اس میل باکس کے لیے کسی کو سائن اِن کرنے کی ضرورت نہیں۔',
+  'errors.mailbox_credential_unreadable':
+    'ایپ کا سیکرٹ یا سرٹیفکیٹ موجود نہیں یا پڑھا نہیں جا سکتا۔ دوبارہ درج کریں۔',
+  'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
+  'errors.field.oauth_certificate_invalid':
+    'سرٹیفکیٹ اور اس کی RSA پرائیویٹ کی، دونوں PEM میں چسپاں کریں۔',
+  'errors.field.my_groups_in_records':
+    'فہرست "میرے گروپ" استعمال نہیں کر سکتی۔ چارٹ استعمال کریں یا گروپ منتخب کریں۔',
+  'errors.field.flow_without_groupings': 'درج بمقابلہ حل شدہ رپورٹ میں گروپ بندی نہیں ہوتی۔',
+  'errors.field.flow_not_available': 'اس قسم کے ریکارڈ کی درج بمقابلہ حل شدہ رپورٹ دستیاب نہیں۔',
+  'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',
+  'errors.work_item_worklog_not_found': 'یہ ورک لاگ اب موجود نہیں۔',
+  'errors.work_item_link_not_found': 'یہ ربط اب موجود نہیں۔',
+  'errors.field.end_or_duration_required': 'اختتامی وقت یا دورانیہ درج کریں۔',
+  'errors.field.duration_mismatch': 'دورانیہ آغاز اور اختتام کے اوقات سے میل نہیں کھاتا۔',
+  'errors.field.already_linked': 'یہ ریکارڈ پہلے سے منسلک ہیں۔',
+  'errors.field.cannot_link_itself': 'ریکارڈ کو خود سے منسلک نہیں کیا جا سکتا۔',
+  'errors.field.record_not_found': 'آپ کے دیکھنے کے قابل کسی ریکارڈ کی یہ شناخت نہیں۔',
+  'errors.mail_not_waiting': 'یہ پیغام اب منتظر نہیں: کسی نے پہلے ہی اسے نمٹا دیا۔',
+  'errors.special_hours_not_found': 'یہ مخصوص اوقات موجود نہیں یا ہٹا دیے گئے ہیں۔',
+  'errors.field.exception_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
+  'errors.field.exception_range_too_long':
+    'مخصوص اوقات زیادہ سے زیادہ ایک سال پر محیط ہو سکتے ہیں۔',
+  'errors.field.exception_ranges_overlap':
+    'یہ تاریخیں اس کیلنڈر کے دوسرے مخصوص اوقات سے ٹکراتی ہیں۔ تاریخیں بدلیں یا دوسری مدت میں ترمیم کریں۔',
+  'errors.calendar_not_found': 'یہ کیلنڈر موجود نہیں یا حذف ہو چکا ہے۔',
+  'errors.calendar_in_use':
+    'سائٹس یا سپورٹ گروپس ابھی یہ کیلنڈر استعمال کرتے ہیں۔ پہلے انہیں دوسرا کیلنڈر دیں۔',
+  'errors.system_calendar_required':
+    'ہر ادارہ یہ کیلنڈر رکھتا ہے، اس لیے اسے حذف نہیں کیا جا سکتا۔',
+  'errors.holiday_list_not_found': 'تعطیلات کی یہ فہرست موجود نہیں یا حذف ہو چکی ہے۔',
+  'errors.holiday_not_found': 'یہ تعطیل موجود نہیں یا حذف ہو چکی ہے۔',
+  'errors.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
+  'errors.field.calendar_not_found': 'فہرست سے کیلنڈر منتخب کریں۔',
+  'errors.field.invalid_language':
+    'نام انگریزی، عربی اور اردو میں دیے جا سکتے ہیں، ہر ایک 200 حروف تک۔',
+  'errors.field.week_empty': 'کم از کم ایک کام کا دورانیہ شامل کریں۔',
+  'errors.field.week_too_many_periods':
+    'ایک ہفتے میں زیادہ سے زیادہ 28 کام کے دورانیے ہو سکتے ہیں۔',
+  'errors.field.period_time_invalid': 'اوقات HH:MM کی شکل میں درج کریں، 00:00 سے 24:00 تک۔',
+  'errors.field.period_weekday_invalid': 'ہفتے کا کوئی دن منتخب کریں۔',
+  'errors.field.periods_overlap':
+    'کام کے دورانیے ایک دوسرے پر آ رہے ہیں۔ رات کا دورانیہ بھی اگلی صبح کے دورانیے سے پہلے ختم ہونا چاہیے۔',
+  'errors.field.holiday_list_not_found': 'فہرست سے تعطیلات کی فہرستیں منتخب کریں۔',
+  'errors.field.system_calendar_fixed':
+    'چوبیس گھنٹے ہمیشہ ہر گھنٹہ گنتا ہے۔ صرف اس کا نام بدلا جا سکتا ہے۔',
+  'errors.field.holiday_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
+  'errors.field.holiday_range_too_long': 'ایک تعطیل زیادہ سے زیادہ ایک سال لمبی ہو سکتی ہے۔',
+  'errors.field.half_day_single_date': 'صبح یا دوپہر کی چھٹی صرف ایک دن کی ہوتی ہے۔',
+  'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
+  'errors.field.ical_too_many_lines': 'فائل میں 20,000 سے زیادہ سطریں ہیں۔',
+  'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
+  'errors.field.ical_invalid': 'یہ iCalendar (.ics) فائل نہیں ہے۔',
+  'errors.sla_record_type_not_found': 'اس قسم کے ریکارڈ کے لیے سروس کے اہداف دستیاب نہیں۔',
+  'errors.sla_policy_not_found': 'یہ ایس ایل اے پالیسی موجود نہیں یا حذف کر دی گئی ہے۔',
+  'errors.sla_fallback_required':
+    'ڈیفالٹ پالیسی حذف نہیں ہو سکتی: یہ تب لاگو ہوتی ہے جب کوئی اور پالیسی لاگو نہ ہو۔',
+  'errors.field.unknown_priority': 'فہرست سے ترجیح منتخب کریں۔',
+  'errors.field.fallback_fixed': 'ڈیفالٹ پالیسی ہمیشہ لاگو ہوتی ہے اور اس کی کوئی شرائط نہیں۔',
+  'errors.field.order_incomplete': 'ترتیب بدلتے وقت فہرست بدل گئی۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
+  'errors.field.target_duplicate': 'اس ترجیح کے لیے یہ ہدف پہلے سے مقرر ہے۔',
+  'errors.field.target_amount_invalid': '1 سے 100,000 تک کا پورا عدد درج کریں۔',
+  'errors.field.fixed_calendar_required': 'استعمال ہونے والا کیلنڈر منتخب کریں۔',
+  'errors.field.fixed_calendar_unused': 'کیلنڈر صرف تب منتخب ہوتا ہے جب ماخذ مقررہ کیلنڈر ہو۔',
+  'errors.service_identity_managed':
+    'یہ ایک کنیکٹر کی اپنی شناخت ہے۔ اسے ایڈمن › انٹیگریشنز سے تبدیل کریں۔',
+  'errors.sla_target_not_found': 'اس واقعے کا ایسا کوئی SLA ہدف نہیں ہے۔',
+  'errors.sla_target_done':
+    'یہ SLA ہدف پورا ہو چکا ہے یا رک چکا ہے، اس لیے اس کی مقررہ تاریخ اب نہیں بدل سکتی۔',
+  'errors.field.due_in_past': 'مستقبل کا کوئی وقت منتخب کریں۔',
+  // WP-040 session 2: directory sync.
+  'errors.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
+  'errors.directory_tenant_invalid': 'ڈائریکٹری کی ٹیننٹ آئی ڈی یا اس کا بنیادی ڈومین درج کریں۔',
+  'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
+  'errors.directory_groups_required': 'سنک کرنے کے لیے کم از کم ایک گروپ منتخب کریں۔',
+  'errors.directory_group_invalid':
+    'ڈائریکٹری کا ایک گروپ درست نہیں۔ اسے فہرست سے دوبارہ منتخب کریں۔',
+  'errors.directory_name_taken': 'اس نام کی ایک اور ڈائریکٹری پہلے سے موجود ہے۔',
+  'errors.directory_disabled': 'یہ ڈائریکٹری بند ہے۔ سنک کے لیے اسے آن کریں۔',
+  'errors.directory_not_found': 'ڈائریکٹری نہیں ملی۔',
+  'errors.directory_secret_missing':
+    'کوئی کارآمد کلائنٹ سیکرٹ یا سرٹیفکیٹ محفوظ نہیں۔ اسے دوبارہ درج کریں۔',
+  'errors.directory_unavailable':
+    'ڈائریکٹری نے جواب نہیں دیا یا سنک ایپ کو مسترد کر دیا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.required': 'یہ فیلڈ لازمی ہے۔',
+  'errors.certificate_invalid':
+    'سرٹیفکیٹ پڑھا نہیں جا سکا۔ PEM کو اس کی پرائیویٹ کی کے ساتھ پیسٹ کریں۔',
+  'errors.out_of_range': 'یہ قدر اجازت شدہ حد سے باہر ہے۔',
+  'errors.field.too_many_levels': 'ہر ہدف کے لیے زیادہ سے زیادہ {{max}} ایسکلیشن درجے۔',
+  'errors.field.levels_same_moment': 'دو درجے ایک ہی وقت پر چلتے ہیں۔ ہر ایک کو اپنا وقت دیں۔',
+  'errors.field.offset_too_large':
+    'کوئی درجہ اپنے نقطۂ آغاز سے زیادہ سے زیادہ 30 کاروباری دن دور ہو سکتا ہے۔',
+  'errors.field.level_does_nothing':
+    'یہ درجہ نہ کسی کو بتاتا ہے نہ کچھ کرتا ہے۔ وصول کنندگان یا کوئی کارروائی شامل کریں۔',
+  'errors.field.recipient_shape': 'اس وصول کنندہ کے لیے شخص یا گروپ منتخب کریں۔',
+  'errors.field.note_too_long': 'نوٹ زیادہ سے زیادہ {{max}} حروف کا ہو سکتا ہے۔',
+  'errors.field.unknown_reference': 'یہاں بتایا گیا کوئی شخص یا گروپ اب موجود نہیں۔',
+  'errors.field.level_too_many_recipients': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} وصول کنندگان۔',
+  'errors.field.level_too_many_actions': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} کارروائیاں۔',
+  'errors.catalog_item_not_found': 'یہ کیٹلاگ آئٹم موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.field.too_many_questions': 'فارم میں زیادہ سے زیادہ 30 سوال ہو سکتے ہیں۔',
+  'errors.field.duplicate': 'یہ پہلے سے استعمال میں ہے۔',
+  'errors.field.unknown_question': 'اس فارم میں یہ سوال نہیں ہے۔',
+  'errors.field.invalid_number': 'عدد درج کریں۔',
+  'errors.field.invalid_date': 'تاریخ درج کریں۔',
+  'errors.field.invalid_text': 'متن درج کریں۔',
+  'errors.field.too_many_options': 'ایک سوال میں زیادہ سے زیادہ 50 انتخاب ہو سکتے ہیں۔',
+  'errors.field.too_many_approvers': 'ایک مرحلے میں زیادہ سے زیادہ 10 منظور کنندگان ہو سکتے ہیں۔',
+  'errors.field.too_many_tasks': 'ایک منصوبے میں زیادہ سے زیادہ 20 کام ہو سکتے ہیں۔',
+  'errors.field.not_found': 'یہ اب موجود نہیں۔',
+  'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
+  'errors.field.invalid_value': 'یہ قدر درست نہیں۔',
+};
