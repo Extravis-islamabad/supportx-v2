@@ -504,16 +504,8 @@ async def remove_role(
         # Two admins removing each other at once must not leave the tenant without one.
         lock = func.hashtextextended(f"authz:{_tenant(session)}:admins", 0)
         await session.execute(select(func.pg_advisory_xact_lock(lock)))
-        admins = await session.scalar(
-            select(func.count())
-            .select_from(UserRole)
-            .join(User, User.id == UserRole.user_id)
-            .where(UserRole.role_id == role_id, User.status == "active", User.deleted_at.is_(None))
-        )
-        holds = await session.scalar(
-            select(UserRole.user_id).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
-        )
-        if holds is not None and int(admins or 0) <= 1:
+        # Admins through groups count too (WP-042); the person may stay admin through one.
+        if not await _tenant_admin_holders(session, without_direct=user_id):
             raise Conflict(code="last_tenant_admin")
     removed = await _remove(session, user_id, role_id)
     _refresh(session, policy)
@@ -521,9 +513,16 @@ async def remove_role(
 
 
 async def _tenant_admin_holders(
-    session: AsyncSession, *, without_group: uuid.UUID | None = None
+    session: AsyncSession,
+    *,
+    without_group: uuid.UUID | None = None,
+    without_direct: uuid.UUID | None = None,
 ) -> set[uuid.UUID]:
-    """Active people holding tenant admin, directly or through an active group (WP-042)."""
+    """Active people holding tenant admin, directly or through an active group (WP-042).
+
+    `without_group` / `without_direct`: as if that group's link, or that person's own role, were
+    already gone (the change being checked).
+    """
     role_id = (await ensure_system_roles(session))[TENANT_ADMIN]
     direct = set(
         await session.scalars(
@@ -532,6 +531,8 @@ async def _tenant_admin_holders(
             .where(UserRole.role_id == role_id, User.status == "active", User.deleted_at.is_(None))
         )
     )
+    if without_direct is not None:
+        direct.discard(without_direct)
     carrying = {
         group
         for group in await session.scalars(
@@ -651,14 +652,8 @@ async def guard_last_admin(session: AsyncSession, user_id: uuid.UUID) -> None:
     # Two admins removing each other at once must not leave the tenant without one.
     lock = func.hashtextextended(f"authz:{_tenant(session)}:admins", 0)
     await session.execute(select(func.pg_advisory_xact_lock(lock)))
-    role_id = (await ensure_system_roles(session))[TENANT_ADMIN]
-    admins = await session.scalars(
-        select(UserRole.user_id)
-        .join(User, User.id == UserRole.user_id)
-        .where(UserRole.role_id == role_id, User.status == "active", User.deleted_at.is_(None))
-    )
-    holders = set(admins)
-    if user_id in holders and len(holders) <= 1:
+    holders = await _tenant_admin_holders(session)  # directly or through groups (WP-042)
+    if user_id in holders and not holders - {user_id}:
         raise Conflict(code="last_tenant_admin")
 
 
