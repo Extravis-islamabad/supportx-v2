@@ -205,7 +205,12 @@ def compose(  # noqa: PLR0913 - the event, the record, the person and their read
     values: dict[str, str | None] = dict.fromkeys(offered)
     values.update({name: localise(value, language, zone) for name, value in chosen.items()})
     base = origin(access)
-    link = base + context.link.lstrip("/") if access is RecordAccess.FULL else base
+    if access is RecordAccess.FULL:
+        link = base + context.link.lstrip("/")
+    elif context.public_link is not None:  # the record in the portal (REQ-PRT-024 AC2)
+        link = base + context.public_link.lstrip("/")
+    else:
+        link = base
     values["record.link"] = link
     values["recipient.name"] = person.name
     in_app = render(_template(code, "in_app", language), "", values).subject

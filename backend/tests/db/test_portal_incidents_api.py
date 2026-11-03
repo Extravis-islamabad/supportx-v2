@@ -403,3 +403,4 @@ async def test_requester_side_messages_name_the_portal_status_only(
     assert context.variables["record.status"] != LabelRef("portal_status.in_progress")
     assert context.public_variables["record.status"] == LabelRef("portal_status.in_progress")
     assert context.public_variables["change.from_status"] == LabelRef("portal_status.in_progress")
+    assert context.public_link == f"/requests/{item['id']}"  # e-mails open it in the portal

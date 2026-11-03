@@ -386,6 +386,7 @@ class IncidentNotifications:
             record_id=record.id,
             display_id=record.display_id,
             link=f"/incidents/{record.id}",
+            public_link=f"/requests/{record.id}",  # the portal's record (WP-028, REQ-PRT-024)
             variables=full,
             public_variables=public,
             relatives=relatives,
