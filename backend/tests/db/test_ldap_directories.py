@@ -228,3 +228,57 @@ async def test_another_tenant_never_sees_it(world: World, keycloak: FakeKeycloak
         with pytest.raises(AppError) as hidden:
             await ldap_directories.get_ldap_directory(session, view.row.id)
     assert hidden.value.instance_code == "directory_not_found"
+
+
+# --- the API -----------------------------------------------------------------------------------
+
+API = "/integrations/ldap-directories"
+
+
+async def _post(world: World, **body: Any) -> Any:  # noqa: ANN401 - the response
+    return await world.call(
+        "POST",
+        API,
+        world.a,
+        world.a.admin,
+        json=BODY | body,
+        headers={"Idempotency-Key": uuid.uuid4().hex},
+    )
+
+
+@pytest.mark.usefixtures("licensed", "keycloak")
+async def test_the_api_takes_the_password_and_never_returns_it(world: World) -> None:
+    missing = await _post(world)
+    assert missing.status_code == 422, missing.text
+    created = await _post(world, bind_password=BIND_PASSWORD)
+    assert created.status_code == 201, created.text
+    assert BIND_PASSWORD not in created.text
+    body = created.json()
+    assert body["bind_password"]["secret_type"] == "password"
+    assert "bind_password" not in body["settings"]
+    assert (body["settings"]["port"], body["federation_state"]) == (636, "pending")
+    listed = await world.call("GET", API, world.a, world.a.admin)
+    assert [d["id"] for d in listed.json()] == [body["id"]]
+    entra = await world.call("GET", "/integrations/directories", world.a, world.a.admin)
+    assert entra.json() == []
+    details = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = 'directory.created'",
+        world.a.tenant,
+    )
+    assert '"security": "ldaps"' in details[0]["details"]
+
+
+@pytest.mark.usefixtures("licensed", "keycloak")
+async def test_the_api_refuses_plain_unless_chosen_and_records_the_choice(world: World) -> None:
+    refused = await _post(world, bind_password=BIND_PASSWORD, security="plain")
+    assert refused.status_code == 422, refused.text
+    assert [e["code"] for e in refused.json()["errors"]] == ["plain_connection_refused"]
+    allowed = await _post(world, bind_password=BIND_PASSWORD, security="plain", allow_plain=True)
+    assert allowed.status_code == 201, allowed.text
+    assert allowed.json()["settings"]["port"] == 389
+    details = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = 'directory.created'"
+        " ORDER BY occurred_at DESC LIMIT 1",
+        world.a.tenant,
+    )
+    assert '"allow_plain": true' in details[0]["details"]

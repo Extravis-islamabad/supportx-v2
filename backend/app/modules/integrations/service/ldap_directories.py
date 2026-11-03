@@ -325,7 +325,7 @@ async def _audit_use(
         action_code=action,
         facts=WORKER,
         reason_code=reason_code,
-        object_type="directory",
+        object_type="directory_connector",
         object_id=row.id,
         details=details,
     )
@@ -417,6 +417,7 @@ LDAP_FEDERATION_APPLY = ConsumerSpec(
 
 __all__ = [
     "LDAP_FEDERATION_APPLY",
+    "DirectoryView",
     "apply_federation",
     "create_ldap_directory",
     "get_ldap_directory",

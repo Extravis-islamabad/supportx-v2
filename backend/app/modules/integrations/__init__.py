@@ -12,6 +12,7 @@ from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.integrations.api.catalogue import catalogue_router
 from app.modules.integrations.api.directories import router as directories_router
+from app.modules.integrations.api.ldap_directories import router as ldap_directories_router
 from app.modules.integrations.api.routes import oauth_router, router
 from app.modules.integrations.events import EVENTS
 from app.modules.integrations.infra import models  # noqa: F401 - tables known to Alembic
@@ -31,7 +32,7 @@ connector_notifications.register()  # failing and recovered connectors (WP-040)
 
 module = ModuleSpec(
     name="integrations",
-    routers=[router, oauth_router, catalogue_router, directories_router],
+    routers=[router, oauth_router, catalogue_router, directories_router, ldap_directories_router],
     # Tenant admins hold every permission; mailboxes are theirs (and custom roles').
     permissions=(
         PermissionSpec(MANAGE),
