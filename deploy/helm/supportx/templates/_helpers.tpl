@@ -209,3 +209,37 @@ checksum/env: {{ include (print $.Template.BasePath "/configmap-env.yaml") . | s
 {{ toYaml . }}
 {{- end }}
 {{- end -}}
+
+{{/*
+High availability (WP-014b): copies of one component spread over nodes. Nothing when `ha.enabled`
+is off, so a single-node install schedules as before. "hard" never puts two copies on one node
+(a node lost takes at most one); "soft" prefers not to, for small test clusters.
+*/}}
+{{- define "supportx.scheduling" -}}
+{{- if .root.Values.ha.enabled }}
+affinity:
+  podAntiAffinity:
+    {{- if eq .root.Values.ha.antiAffinity "hard" }}
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            {{- include "supportx.selector" . | nindent 12 }}
+    {{- else }}
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              {{- include "supportx.selector" . | nindent 14 }}
+    {{- end }}
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        {{- include "supportx.selector" . | nindent 8 }}
+{{- end }}
+{{- end -}}

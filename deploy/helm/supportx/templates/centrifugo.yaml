@@ -59,6 +59,7 @@ spec:
       automountServiceAccountToken: false
       {{- include "supportx.pullSecrets" . | nindent 6 }}
       {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
       containers:
         - name: centrifugo
           image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.centrifugo) }}

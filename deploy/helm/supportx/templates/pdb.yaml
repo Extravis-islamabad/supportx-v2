@@ -1,0 +1,36 @@
+{{- /*
+High availability (WP-014b): every component running more than one copy keeps `ha.minAvailable`
+of them through voluntary disruptions (a node drain, a cluster upgrade). A single copy gets no
+budget: it would block every drain. The fan-out and index workers stay single by design
+(ADR-023, D-088).
+*/ -}}
+{{- if .Values.ha.enabled }}
+{{- $copies := dict
+  "api" (ternary .Values.api.autoscaling.minReplicas .Values.api.replicas .Values.api.autoscaling.enabled)
+  "web" .Values.web.replicas
+  "relay" .Values.relay.replicas
+  "consumers" .Values.consumers.replicas
+  "centrifugo" .Values.centrifugo.replicas
+  "keycloak" .Values.keycloak.replicas
+}}
+{{- if .Values.temporal.address }}
+{{- $_ := set $copies "sla-timers" .Values.slaTimers.replicas }}
+{{- end }}
+{{- range $component, $count := $copies }}
+{{- if gt (int $count) 1 }}
+{{- $c := dict "root" $ "component" $component }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  minAvailable: {{ $.Values.ha.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -58,6 +58,8 @@ app:
 
 api:
   replicas: 1
+  # On CPU, between minReplicas and maxReplicas (HA). Replaces `replicas` while enabled.
+  autoscaling: {enabled: false, minReplicas: 3, maxReplicas: 6, targetCPUPercent: 70}
   # One uvicorn process per pod; scale with replicas so each pod has one metrics registry.
   resources:
     requests: {cpu: 250m, memory: 384Mi}
@@ -357,6 +359,16 @@ networkPolicies:
 
 # Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
 # the same tag, so this is what rolls them).
+# High availability (WP-014b; values-ha.yaml turns it on). Off: one copy of each component,
+# scheduled anywhere, as a single-node install needs.
+ha:
+  enabled: false
+  # "hard": never two copies of a component on one node (3 nodes or more); "soft": prefer not to.
+  antiAffinity: hard
+  # Kept during a voluntary disruption (a node drain, an upgrade) for every component running
+  # more than one copy.
+  minAvailable: 1
+
 podAnnotations: {}
 
 podSecurity:
