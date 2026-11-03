@@ -219,6 +219,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'ai',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AiSettingsPage')).AiSettingsPage,
+            }),
+          },
+          {
             path: 'notifications',
             lazy: async () => ({
               Component: (await import('./pages/admin/notifications/NotificationRulesPage'))

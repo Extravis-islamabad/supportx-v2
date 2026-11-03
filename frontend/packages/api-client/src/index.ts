@@ -306,6 +306,7 @@ export {
   type SsoProvider,
   type SsoTestResult,
 } from './identity';
+export { useAiSettings, useSaveAiSettings, type AiSettings, type AiSettingsInput } from './ai';
 export {
   useBulkJob,
   useBulkJobs,
