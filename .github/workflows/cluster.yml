@@ -173,6 +173,63 @@ jobs:
           kubectl -n supportx logs -l app.kubernetes.io/component=migrate --tail=100 || true
           kubectl -n supportx get events --sort-by=.lastTimestamp | tail -n 50 || true
 
+  ha-smoke:
+    # WP-014b, ADR-038: the HA profile (values-ha.yaml with small requests, values-ha-ci.yaml) on a
+    # four-node k3d cluster. The Valkey master dies, Sentinel promotes a replica, a signed-in
+    # person's session keeps working, and the restarted pod comes back as a replica (one master).
+    name: k3d HA smoke (Valkey failover)
+    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
+    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Changes (only deployment changes need this job)
+        id: changes
+        uses: ./.github/actions/changes
+        with:
+          needs: '^(deploy/|Makefile$|\.github/workflows/cluster\.yml$|\.github/actions/|backend/app/core/valkey\.py$)'
+          skipped: "skipped: no deployment change"
+      - uses: ./.github/actions/setup-backend
+        if: ${{ steps.changes.outputs.run != 'false' }}
+      - uses: ./.github/actions/setup-frontend
+        if: ${{ steps.changes.outputs.run != 'false' }}
+      - uses: ./.github/actions/generated
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        with:
+          frontend: "true"
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        with:
+          version: v4.3.1
+      - *install-k3d
+      - name: Four-node cluster (k3s v1.36.5) and prerequisites
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-up-ha
+      - name: Build, import and install the HA profile; helm test
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make deploy-ha
+      - name: Valkey failover keeps a signed-in session (no split brain)
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-smoke
+      - name: Diagnostics on failure
+        if: ${{ failure() && steps.changes.outputs.run != 'false' }}
+        run: |
+          kubectl get pods -A -o wide || true
+          kubectl -n supportx describe pods | tail -n 200 || true
+          for pod in supportx-valkey-0 supportx-valkey-1 supportx-valkey-2; do
+            for c in valkey sentinel; do
+              echo "== $pod/$c"; kubectl -n supportx logs "$pod" -c "$c" --tail=60 || true
+            done
+          done
+          for d in api centrifugo keycloak; do
+            echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=80 || true
+          done
+          kubectl -n supportx get events --sort-by=.lastTimestamp | tail -n 50 || true
+
   e2e:
     name: Playwright on k3d (nightly)
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}

@@ -328,6 +328,19 @@ deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgra
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 15m
 	$(HELM_TEST)
 
+cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
+	@K3D_CONFIG=cluster-ha.yaml bash deploy/k3d/up.sh
+
+deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
+	k3d image import supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
+		-f $(CHART)/values-ha.yaml -f $(CHART)/values-ha-ci.yaml \
+		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 20m
+	$(HELM_TEST)
+
+cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survives, no split brain (ADR-038)
+	@bash deploy/k3d/ha-smoke.sh
+
 cluster-test: ## helm test: every internal route answers and Valkey enforces auth
 	$(HELM_TEST)
 
