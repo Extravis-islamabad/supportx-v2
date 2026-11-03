@@ -132,6 +132,33 @@ jobs:
         if: ${{ failure() }}
         run: tail -n 200 "$RUNNER_TEMP"/resilience-*.log || true
 
+  ldap-federation:
+    # AD/LDAP end to end (WP-040, D-130): a throwaway Keycloak (the stack's version, dev realm) and
+    # a test-only OpenLDAP built from Debian's slapd. SupportX's component and mappers are
+    # accepted and synced, people come back mapped, and only supportx-federation may federate.
+    # The test runs its own containers.
+    name: ldap federation
+    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
+    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/generated
+      - name: Keycloak and OpenLDAP, end to end
+        working-directory: backend
+        env:
+          SUPPORTX_LDAP_FEDERATION_TESTS: "1"
+          SUPPORTX_LDAP_FEDERATION_LOGS: ${{ runner.temp }}
+        run: uv run pytest tests/federation --no-cov -p no:cacheprovider -v
+      - name: Keycloak and OpenLDAP logs on failure
+        if: ${{ failure() }}
+        run: tail -n 300 "$RUNNER_TEMP"/ldap-federation-*.log || true
+
   backend-tests:
     name: backend tests ${{ matrix.shard }}/3
     runs-on: ubuntu-24.04

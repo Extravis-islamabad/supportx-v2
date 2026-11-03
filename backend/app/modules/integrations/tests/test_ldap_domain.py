@@ -79,12 +79,16 @@ def test_mappers_bring_what_supportx_maps_and_ad_disables_at_sign_in() -> None:
         m["name"]: m
         for m in mappers(replace(AD, groups_dn="OU=Groups,DC=corp,DC=example"), component_id="c-1")
     }
+    # Keycloak's own username mapper must stay in the list SupportX replaces (found with slapd).
+    assert found["username"]["config"]["ldap.attribute"] == ["sAMAccountName"]
     assert found["email"]["config"]["ldap.attribute"] == ["mail"]
     assert found["department"]["config"]["user.model.attribute"] == ["sx_department"]
     assert found["site"]["config"]["user.model.attribute"] == ["sx_site"]
     assert found["account controls"]["providerId"] == "msad-user-account-control-mapper"
     assert found["groups"]["config"]["mode"] == ["READ_ONLY"]
     assert all(m["parentId"] == "c-1" for m in found.values())
+    plain = mappers(replace(AD, vendor=Vendor.OTHER), component_id="c-1")
+    assert next(m for m in plain if m["name"] == "username")["config"]["ldap.attribute"] == ["uid"]
     other = {m["name"] for m in mappers(replace(AD, vendor=Vendor.OTHER), component_id="c-1")}
     assert "account controls" not in other
     assert "groups" not in other  # no groups DN, no group mapper

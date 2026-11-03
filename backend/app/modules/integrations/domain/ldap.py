@@ -193,7 +193,15 @@ def mappers(
     settings: LdapSettings, *, component_id: str
 ) -> list[dict[str, Any]]:  # Any: Keycloak's JSON
     """The mappers SupportX relies on, under the component (replaced as a whole on a change)."""
+    ad = settings.vendor is Vendor.ACTIVE_DIRECTORY
+    username = _attribute_mapper(
+        "username", "sAMAccountName" if ad else "uid", "username", parent=component_id
+    )
+    # Keycloak makes this one with the component; SupportX replaces the mappers as a whole, so it
+    # must be in the list, or nobody can be imported ("null username", seen against slapd).
+    username["config"]["is.mandatory.in.ldap"] = ["true"]
     found = [
+        username,
         _attribute_mapper("email", "mail", "email", parent=component_id),
         _attribute_mapper("first name", "givenName", "firstName", parent=component_id),
         _attribute_mapper("last name", "sn", "lastName", parent=component_id),

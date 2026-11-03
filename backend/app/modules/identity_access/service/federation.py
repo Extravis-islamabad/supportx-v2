@@ -5,9 +5,12 @@ module owns the directory record and its bind password. Keycloak is this module'
 federation calls stay here, behind a public interface: write or remove one component with its
 mappers, or ask for a sync.
 
-Every call acts as `supportx-federation`, the account with only manage-realm (product owner,
-2026-11-03). That account exists only where the installation turned LDAP on, so
-`FederationNotInstalled` is the answer everywhere else. The caller audits each use.
+Writing and removing the component act as `supportx-federation`, the account with only
+manage-realm (product owner, 2026-11-03, D-130). That account exists only where the
+installation turned LDAP on, so `FederationNotInstalled` is the answer everywhere else; the
+caller audits each use. Reading the people it imported, and asking Keycloak to sync now, are
+user management, which `supportx-identity` (manage-users) already does for every other person:
+the federation account never gains user rights.
 """
 
 from collections.abc import Callable
@@ -55,6 +58,15 @@ def _admin(settings: Settings) -> KeycloakAdmin:
     return admin
 
 
+def _identity(settings: Settings) -> KeycloakAdmin:
+    if not federation_installed(settings):
+        raise FederationNotInstalled  # only an install with LDAP on reads federated people
+    admin = KeycloakAdmin.from_settings(settings)
+    if admin is None:
+        raise FederationFailed("ldap_federation_keycloak_unavailable")  # noqa: EM101 - a code
+    return admin
+
+
 def _failed(exc: Exception) -> FederationFailed:
     if isinstance(exc, IdentityAdminRefused):
         # The message can name the customer's server; the log keeps it, the screen gets a code.
@@ -93,7 +105,7 @@ async def sync_ldap_federation(
     settings: Settings, component_id: str, *, full: bool
 ) -> dict[str, Any]:  # Any: Keycloak's sync result (added, updated, removed, failed)
     """Ask Keycloak to read the directory now: the changes only, or everyone."""
-    admin = _admin(settings)
+    admin = _identity(settings)
     try:
         return await admin.sync_federation(component_id, full=full)
     except (IdentityAdminUnavailable, IdentityAdminRefused) as exc:
@@ -106,7 +118,7 @@ async def federated_users(
     settings: Settings, component_id: str
 ) -> list[dict[str, Any]]:  # Any: Keycloak's user JSON, read by integrations.domain.ldap
     """Every person the directory's component imported into the realm."""
-    admin = _admin(settings)
+    admin = _identity(settings)
     try:
         return await admin.federated_users(component_id)
     except (IdentityAdminUnavailable, IdentityAdminRefused) as exc:
