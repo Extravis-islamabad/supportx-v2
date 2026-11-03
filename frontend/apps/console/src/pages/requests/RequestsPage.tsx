@@ -8,6 +8,7 @@ import {
   serviceRequestKeys,
   useCatalogItems,
   useServiceRequests,
+  useServiceRequestViews,
   type ApprovalStatus,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
@@ -26,7 +27,7 @@ const APPROVAL: ApprovalStatus[] = ['pending', 'approved', 'rejected', 'withdraw
 
 /**
  * Service requests (WP-030, REQ-SR-009): the list with the item and the approval status, a filter
- * by approval status, live through the list channel. The full record page arrives with the
+ * by approval status, the built-in views with counts, live through the list channel. The full record page arrives with the
  * approval engine; a row opens the request's summary.
  */
 export function RequestsPage() {
@@ -37,7 +38,9 @@ export function RequestsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [approval, setApproval] = useState<ApprovalStatus | undefined>(undefined);
-  const list = useServiceRequests({ approval_status: approval });
+  const [view, setView] = useState<string | undefined>(undefined);
+  const list = useServiceRequests({ approval_status: approval, view });
+  const views = useServiceRequestViews();
   const items = useCatalogItems();
   const byId = new Map((items.data ?? []).map((i) => [i.id, i]));
   useListChannel('service-requests', () => {
@@ -61,18 +64,35 @@ export function RequestsPage() {
           )
         }
       />
-      <Select
-        allowClear
-        value={approval}
-        onChange={(value: ApprovalStatus | undefined) => {
-          setApproval(value);
-        }}
-        placeholder={t('requests.approval_filter')}
-        aria-label={t('requests.approval_filter')}
-        style={{ minWidth: 220 }}
-        options={APPROVAL.map((code) => ({ value: code, label: t(`approval_status.${code}`) }))}
-        data-testid="sr-approval-filter"
-      />
+      <Space wrap>
+        <Select
+          allowClear
+          value={view}
+          onChange={(value: string | undefined) => {
+            setView(value);
+          }}
+          placeholder={t('requests.view_filter')}
+          aria-label={t('requests.view_filter')}
+          style={{ minWidth: 260 }}
+          options={(views.data ?? []).map((v) => ({
+            value: v.view,
+            label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+          }))}
+          data-testid="sr-view-filter"
+        />
+        <Select
+          allowClear
+          value={approval}
+          onChange={(value: ApprovalStatus | undefined) => {
+            setApproval(value);
+          }}
+          placeholder={t('requests.approval_filter')}
+          aria-label={t('requests.approval_filter')}
+          style={{ minWidth: 220 }}
+          options={APPROVAL.map((code) => ({ value: code, label: t(`approval_status.${code}`) }))}
+          data-testid="sr-approval-filter"
+        />
+      </Space>
       <Table
         rowKey="id"
         loading={list.isLoading}

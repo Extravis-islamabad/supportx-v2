@@ -76,6 +76,12 @@ function api(routes: Record<string, unknown> = {}) {
           people: {},
         },
       },
+      'GET /api/v1/service-requests/views': {
+        body: [
+          { view: 'pending_approval', count: 1, capped: false },
+          { view: 'awaiting_fulfilment', count: 0, capped: false },
+        ],
+      },
       [`GET /api/v1/service-requests/${SR_ID}`]: { body: request },
       ...routes,
     },
@@ -94,6 +100,19 @@ describe('console: service requests', () => {
     expect(within(row as HTMLElement).getByText('New laptop')).toBeDefined();
     // the status and the approval status both read it while it waits
     expect(within(row as HTMLElement).getAllByText('Awaiting approval')).toHaveLength(2);
+  });
+
+  it('narrows the list to an approval view, with its count', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('sr-row-SR-1');
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'View' }));
+    fireEvent.click(await screen.findByTitle('Pending approval (1)'));
+    await waitFor(() => {
+      const asked = fake.find('GET', '/api/v1/service-requests');
+      expect(asked.some((r) => r.url.searchParams.get('view') === 'pending_approval')).toBe(true);
+    });
   });
 
   it('raises one from the catalog with the form’s answers, once', async () => {

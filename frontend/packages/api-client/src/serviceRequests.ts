@@ -13,16 +13,21 @@ export type CatalogQuestion = components['schemas']['QuestionIO'];
 export type ServiceRequest = components['schemas']['WorkItemOut'];
 export type ServiceRequestInput = components['schemas']['WorkItemIn'];
 export type ApprovalStatus = components['schemas']['ApprovalStatus'];
+export type ServiceRequestViewCount = components['schemas']['WorkItemViewCountOut'];
 
 export interface ServiceRequestsQuery {
   approval_status?: ApprovalStatus;
   catalog_item_id?: string;
+  /** A built-in view code from {@link useServiceRequestViews}. */
+  view?: string;
   cursor?: string;
 }
 
 export const serviceRequestKeys = {
   all: ['service-requests'] as const,
   list: (query: ServiceRequestsQuery) => ['service-requests', 'list', query] as const,
+  // Under 'list' so the list channel's refresh updates the view counts too.
+  views: ['service-requests', 'list', 'views'] as const,
   detail: (id: string) => ['service-requests', 'detail', id] as const,
   catalog: ['catalog'] as const,
   items: ['catalog', 'items'] as const,
@@ -60,6 +65,14 @@ export function useServiceRequests(query: ServiceRequestsQuery) {
     queryKey: serviceRequestKeys.list(query),
     queryFn: () => call(api.GET('/api/v1/service-requests', { params: { query } })),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** The built-in views (approval views included, REQ-SR-009) with how many requests each holds. */
+export function useServiceRequestViews() {
+  return useQuery({
+    queryKey: serviceRequestKeys.views,
+    queryFn: () => call(api.GET('/api/v1/service-requests/views')),
   });
 }
 

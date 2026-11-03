@@ -212,3 +212,33 @@ async def test_a_requester_raises_for_others_only_within_the_scope(world: World)
         on_behalf_of_id=str(a.tech_b),
     )
     assert by_staff.status_code == 201, by_staff.text
+
+
+async def test_requests_have_approval_views_incidents_do_not(world: World) -> None:
+    """REQ-SR-009 AC1: pending approval; approved (or needing none) and awaiting fulfilment."""
+    a = world.a
+    needs = await an_item(world, a, approval={"approvers": [{"kind": "requested_for_manager"}]})
+    plain = await an_item(world, a)
+    waiting = (
+        await raise_request(
+            world, a, a.admin, catalog_item_id=needs["id"], answers={"model": "air"}
+        )
+    ).json()
+    free = (
+        await raise_request(
+            world, a, a.admin, catalog_item_id=plain["id"], answers={"model": "air"}
+        )
+    ).json()
+
+    async def in_view(view: str) -> set[str]:
+        listed = await world.call("GET", SR, a, a.admin, params={"view": view})
+        assert listed.status_code == 200, listed.text
+        return {i["id"] for i in listed.json()["items"]}
+
+    assert await in_view("pending_approval") == {waiting["id"]}
+    assert await in_view("awaiting_fulfilment") == {free["id"]}
+    counts = (await world.call("GET", f"{SR}/views", a, a.admin)).json()
+    found = {c["view"]: c["count"] for c in counts}
+    assert (found["pending_approval"], found["awaiting_fulfilment"]) == (1, 1)
+    incident_views = (await world.call("GET", f"{BASE}/views", a, a.admin)).json()
+    assert not {"pending_approval", "awaiting_fulfilment"} & {c["view"] for c in incident_views}

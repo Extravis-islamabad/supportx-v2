@@ -85,6 +85,7 @@ from app.modules.work_items.domain.lifecycle import (
     move_pause_clock,
     reason_problems,
 )
+from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
@@ -594,6 +595,15 @@ def view_predicates(
         ),
         "closed": WorkItem.status_category == StatusCategory.CLOSED,
         "canceled": WorkItem.status_category == StatusCategory.CANCELED,
+        # Service requests (WP-030, REQ-SR-009): waiting for approval; approved (or needing
+        # none) and still open, i.e. waiting to be fulfilled.
+        "pending_approval": WorkItem.approval_status == ApprovalStatus.PENDING.value,
+        "awaiting_fulfilment": and_(
+            _open(),
+            WorkItem.approval_status.in_(
+                [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value]
+            ),
+        ),
         "all": WorkItem.id.is_not(None),
         **_personal(subject, now=now, today_end=tomorrow),
     }
@@ -690,6 +700,15 @@ async def view_filters(
         ),
         "closed": _cond("status_category", "eq", StatusCategory.CLOSED.value),
         "canceled": _cond("status_category", "eq", StatusCategory.CANCELED.value),
+        "pending_approval": _cond("approval_status", "eq", ApprovalStatus.PENDING.value),
+        "awaiting_fulfilment": _all(
+            open_,
+            {
+                "field": "approval_status",
+                "op": "in",
+                "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
+            },
+        ),
         "all": None,
         "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
@@ -775,7 +794,16 @@ VIEW_CODES = (
     "canceled",
     "all",
 )
+# Service requests add their approval views (WP-030, REQ-SR-009); incidents never show them.
+SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
 COUNT_CAP = 1000
+
+
+def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
+    """The built-in views of one type, in the menu's order."""
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
+        return (*VIEW_CODES[:-1], *SR_VIEW_CODES, VIEW_CODES[-1])
+    return VIEW_CODES
 
 
 def staff_rows(
@@ -835,7 +863,7 @@ async def view_counts(
     predicates = await views_for(session, subject, zone=zone)
     base = staff_rows(subject, wtype)
     found: list[tuple[str, int, bool]] = []
-    for code in VIEW_CODES:
+    for code in view_codes(wtype):
         limited = base.where(predicates[code]).with_only_columns(WorkItem.id).limit(COUNT_CAP + 1)
         total = int(await session.scalar(select(func.count()).select_from(limited.subquery())) or 0)
         found.append((code, min(total, COUNT_CAP), total > COUNT_CAP))

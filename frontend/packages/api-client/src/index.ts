@@ -674,6 +674,7 @@ export {
   useRaiseServiceRequest,
   useServiceRequest,
   useServiceRequests,
+  useServiceRequestViews,
   type ApprovalStatus,
   type CatalogCategory,
   type CatalogItem,
@@ -681,4 +682,5 @@ export {
   type ServiceRequest,
   type ServiceRequestInput,
   type ServiceRequestsQuery,
+  type ServiceRequestViewCount,
 } from './serviceRequests';
