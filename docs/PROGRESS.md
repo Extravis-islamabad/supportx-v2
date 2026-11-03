@@ -767,14 +767,14 @@ it with no reload (rule c). Not built yet.
 - [ ] Session 2 (portal UI, #178): done: My requests (filters, search, show more, live), one
   request (fix, conversation, reply, files, camera, live), Report an issue (files, camera),
   contact details card (both apps) and the Admin > Security toggle, manifest start_url/scope,
-  console guard. **Still to do:** e2e users per lane B's (a)+(b) (`limited` becomes a technician
-  with only the requester role, without the type API adding the technician role; plus a new
-  `requester` suite user; stack.ts is lane B's, they review); move realtime-security
-  124/148/186 and knowledge.spec:354 (lane C agreed) to the portal; e2e en/ar at 360x740 with
-  axe; D5 due time after #172; merge main (#159) and re-point 0058 onto main's head 0051 (or lane B's 0055 / #172's 0054, whichever lands first).
+  console guard. **Still to do:** run roles.spec and the portal e2e (en/ar at 360x740 with axe)
+  when the shared stack is free; D5 due time after #172; merge main (#159) and re-point 0058 onto main's head 0051 (or lane B's 0055 / #172's 0054, whichever lands first).
 - **Paused 2026-11-04 (Haider).** Resume point: merge main into feat/wp-028, re-point 0058, then the e2e users and specs above.
-- **Reading of REQ-PRT-001 AC1** (lane B, FYI coordinator): a stored requester always lands on
-  the portal, whatever custom roles; console work means becoming a technician.
+- **D-129 (product owner, 2026-11-04)** replaces the earlier AC1 reading: any role but
+  `requester` opens the console (with a Requester portal link); requester-only people always get
+  the portal, enforced at sign-in and at /auth/me (also on a shared host), audited. D2 = option
+  (a): engine-level `work_items.view_department` / `work_items.view_reports`. Lane B approved.
+  E2E: no new suite users needed; roles.spec reworked (not run yet: the shared stack is in use).
 - **Follow-ups (not #178):** revoke the dropped console refresh token at a requester's console
   sign-in (needs an OIDC revocation call); warn an admin who gives a requester a role with
   console permissions; requester rows of a wider reach (reports, department) are not live yet
