@@ -756,8 +756,9 @@ it with no reload (rule c). Not built yet.
   `catalog` (Professional); D7 whether e-mail approvals may skip sign-in (file 02 question 3):
   interim default (coordinator) is sign-in required; the one-time, bound, expiring no-sign-in
   link is built behind a tenant setting that stays off until the product owner decides.
-- **Cross-lane:** signed action links (REQ-NTF-024) are lane B's (coordinator); if they can't fit
-  them before session 3, lane A builds them there on app/shared/mail under lane B's review.
+- **Cross-lane:** signed action links (REQ-NTF-024): lane B's queue is full, so lane A builds them
+  in session 3 (`app/shared/action_links`, a port for notifications and work_items) under lane
+  B's security review; their five conditions are in the plan.
 
 ### [ ] WP-028 — Portal: shell, sign-in and requester incidents (lane A, started 2026-11-03; 2 sessions)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
