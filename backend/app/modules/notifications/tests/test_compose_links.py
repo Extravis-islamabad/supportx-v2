@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.modules.identity_access import NotifiablePerson
-from app.modules.notifications.service.engine import compose
+from app.modules.notifications.service.engine import Message, compose
 from app.shared.notifications.ports import RecordAccess, RecordContext
 
 CONSOLE = "https://acme.example/"
@@ -36,8 +36,8 @@ def _context(public_link: str | None) -> RecordContext:
     )
 
 
-def _link(access: RecordAccess, public_link: str | None) -> tuple[str, str]:
-    message = compose(
+def _message(access: RecordAccess, public_link: str | None) -> Message:
+    return compose(
         "incident.status_changed",
         context=_context(public_link),
         access=access,
@@ -58,6 +58,10 @@ def _link(access: RecordAccess, public_link: str | None) -> tuple[str, str]:
             }
         ),
     )
+
+
+def _link(access: RecordAccess, public_link: str | None) -> tuple[str, str]:
+    message = _message(access, public_link)
     return message.link, message.email.body
 
 
@@ -81,3 +85,9 @@ def test_public_readers_open_the_record_in_the_portal() -> None:
 def test_a_portal_path_must_be_a_path() -> None:
     with pytest.raises(ValueError, match="must start with"):
         _context("https://elsewhere.example/x")
+
+
+def test_the_in_app_centre_opens_the_same_app_as_the_e_mail() -> None:
+    assert _message(RecordAccess.FULL, f"/requests/{RECORD}").path == f"/incidents/{RECORD}"
+    assert _message(RecordAccess.PUBLIC, f"/requests/{RECORD}").path == f"/requests/{RECORD}"
+    assert _message(RecordAccess.PUBLIC, None).path == "/"  # never the console path
