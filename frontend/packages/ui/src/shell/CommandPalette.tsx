@@ -11,6 +11,10 @@ export interface PaletteCommand {
   /** A second line (e.g. a record's requester and status). */
   subtitle?: string;
   path: string;
+  /** More words it is found by (setup pages: keywords and synonyms, WP-042). */
+  keywords?: string;
+  /** Offered only once something is typed (setup pages would crowd the empty list). */
+  searchOnly?: boolean;
 }
 
 /** Records found by the server for what is typed (or recent ones while nothing is typed). */
@@ -59,8 +63,10 @@ export function CommandPalette({
     const needle = query.trim().toLocaleLowerCase();
     const pages =
       needle === ''
-        ? commands
-        : commands.filter((command) => command.title.toLocaleLowerCase().includes(needle));
+        ? commands.filter((command) => command.searchOnly !== true)
+        : commands.filter((command) =>
+            `${command.title} ${command.keywords ?? ''}`.toLocaleLowerCase().includes(needle),
+          );
     const list: Group[] = [];
     if (pages.length > 0)
       list.push({

@@ -46,6 +46,7 @@ import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
 import { LoopBanner } from './pages/admin/automation/LoopBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
+import { pagesFor } from './pages/admin/setupMap';
 import { usePaletteIncidents } from './pages/incidents/usePaletteIncidents';
 
 import { NAV } from './nav';
@@ -143,8 +144,17 @@ export function ConsoleLayout() {
         .filter((item) => !item.locked)
         .map((item) => ({ key: item.key, title: t(item.labelKey), path: item.path })),
       { key: 'profile', title: t('nav.profile'), path: '/profile' },
+      // Setup pages by name, explanation and keywords (WP-042, REQ-ADM-107), once typing.
+      ...pagesFor(access.can).map((page) => ({
+        key: `setup-${page.key}`,
+        title: `${t('setup.title')} › ${t(page.labelKey)}`,
+        subtitle: t(`setup.page.${page.key}.description`),
+        keywords: `${t(`setup.page.${page.key}.description`)} ${t(`setup.page.${page.key}.keywords`)}`,
+        path: `/admin/${page.key}`,
+        searchOnly: true,
+      })),
     ],
-    [nav, t],
+    [nav, t, access.can],
   );
   const paletteRecords = usePaletteIncidents(
     paletteOpen,
