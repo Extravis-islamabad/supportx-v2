@@ -54,7 +54,9 @@ export function SectionNav({
               style={{
                 padding: `${String(SPACE.xs)}px ${String(SPACE.sm)}px`,
                 fontSize: TYPE.body,
-                color: current ? token.colorPrimary : token.colorText,
+                // Primary blue text fails AA on dark backgrounds (axe, dark theme): the open section keeps
+                // body text, marked by weight, its underline and aria-current.
+                color: token.colorText,
                 fontWeight: current ? 600 : 400,
                 borderBottom: `2px solid ${current ? token.colorPrimary : 'transparent'}`,
                 marginBottom: -1,

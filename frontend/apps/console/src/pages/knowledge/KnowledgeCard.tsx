@@ -142,7 +142,13 @@ export function KnowledgeCard({
         size="small"
         loading={found.isPending}
         dataSource={items}
-        locale={{ emptyText: t('knowledge.card.empty') }}
+        // AntD greys an empty list's text to the disabled colour, which fails AA contrast on
+        // the record panel (axe, D-124): secondary text keeps it readable.
+        locale={{
+          emptyText: (
+            <Typography.Text type="secondary">{t('knowledge.card.empty')}</Typography.Text>
+          ),
+        }}
         renderItem={(item) => {
           const shown =
             item.article.published[language] ??
