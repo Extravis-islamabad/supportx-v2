@@ -228,6 +228,9 @@ jobs:
           for d in api centrifugo keycloak; do
             echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=80 || true
           done
+          echo "== migrate"; kubectl -n supportx logs -l app.kubernetes.io/component=migrate --tail=150 --prefix || true
+          echo "== database"; kubectl -n supportx get clusters.postgresql.cnpg.io -o wide || true
+          kubectl -n supportx describe clusters.postgresql.cnpg.io | tail -n 60 || true
           kubectl -n supportx get events --sort-by=.lastTimestamp | tail -n 50 || true
 
   e2e:
