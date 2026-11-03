@@ -112,6 +112,25 @@ async def test_a_requesters_key_cannot_exceed_the_requester(bff: Bff) -> None:  
         assert _code(await api.get("/api/v1/users"))[0] == 403
 
 
+async def test_a_key_outside_its_scope_is_told_which_scope_it_lacks(bff: Bff) -> None:  # noqa: F811
+    csrf = await _signed_in(bff)  # the owner may list incidents; the key only reads users
+    key = (await _make(bff, csrf, scopes=["users:read"])).json()["key"]
+    async with _as_key(bff, key) as api:
+        refused = await api.get("/api/v1/incidents")
+    assert _code(refused) == (403, "api_scope_missing")
+    assert refused.json()["params"] == {"scope": "incidents:read"}
+
+
+async def test_a_key_is_not_allowed_on_the_realtime_token_route(bff: Bff) -> None:  # noqa: F811
+    csrf = await _signed_in(bff)
+    key = (await _make(bff, csrf)).json()["key"]
+    async with _as_key(bff, key) as api:
+        refused = await api.post(
+            "/api/v1/realtime/subscription-token", json={"channel": "t:x:users"}
+        )
+    assert _code(refused) == (403, "api_key_not_allowed")
+
+
 async def test_req_int_019_ac2_a_revoked_key_is_refused_on_its_next_call(bff: Bff) -> None:  # noqa: F811
     csrf = await _signed_in(bff)
     made = (await _make(bff, csrf)).json()

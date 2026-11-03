@@ -546,11 +546,10 @@ class PolicyService:
         if any(subject.holds(p) for p in permissions):
             return
         beyond: frozenset[str] = subject.extra.get(OUT_OF_SCOPE, frozenset())
-        if any(p in beyond for p in permissions):
-            # The owner may, the key may not: say which scope the key needs (REQ-INT-021 AC1).
-            raise PermissionDenied(
-                code="api_scope_missing", params={"scope": scope_of(permissions[0])}
-            )
+        lacking = next((p for p in permissions if p in beyond), None)
+        if lacking is not None:
+            # The owner may, the key may not: name a scope the key lacks (REQ-INT-021 AC1).
+            raise PermissionDenied(code="api_scope_missing", params={"scope": scope_of(lacking)})
         reason = (
             "not_entitled"
             if all(p in subject.not_entitled for p in permissions)
