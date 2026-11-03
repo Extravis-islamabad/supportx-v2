@@ -144,6 +144,30 @@ async def list_scopes(subject: SignedIn, policy: Policy) -> list[ScopeOut]:
     ]
 
 
+class KeyRulesOut(BaseModel):
+    """What the key screens may offer this person (the server checks the same on create)."""
+
+    may_create: bool = Field(description="Whether you may make keys (for yourself at least).")
+    manages_keys: bool = Field(description="You hold api_keys.manage: every key, any owner.")
+    never_expires_allowed: bool
+    default_lifetime_days: int
+    max_lifetime_days: int
+
+
+@router.get("/rules", summary="What the key screens may offer you")
+async def key_rules(session: TenantSession, subject: SignedIn) -> KeyRulesOut:
+    """The tenant's key settings as they apply to the signed-in person."""
+    settings = await api_keys.key_rules(session)
+    manager = subject.holds(api_keys.MANAGE)
+    return KeyRulesOut(
+        may_create=manager or settings.people_may_create_keys,
+        manages_keys=manager,
+        never_expires_allowed=settings.allow_non_expiring_keys,
+        default_lifetime_days=rules.DEFAULT_LIFETIME.days,
+        max_lifetime_days=rules.MAX_LIFETIME.days,
+    )
+
+
 async def _out(session: TenantSession, rows: list[ApiKey], now: datetime) -> list[ApiKeyOut]:
     names = await user_names(session, sorted({str(r.owner_id) for r in rows}))
     return [ApiKeyOut.of(r, names.get(str(r.owner_id)), now) for r in rows]

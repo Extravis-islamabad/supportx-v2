@@ -205,6 +205,44 @@ async def test_req_int_019_ac4_expiry_is_required_unless_the_tenant_allows_none(
     assert allowed.json()["expires_at"] is None
 
 
+async def test_the_key_screens_learn_what_they_may_offer_and_hear_when_it_changes(bff: Bff) -> None:  # noqa: F811
+    csrf = await _signed_in(bff)
+    rules = (await bff.client.get("/api/v1/api-keys/rules")).json()
+    assert rules == {
+        "may_create": True,
+        "manages_keys": True,
+        "never_expires_allowed": False,
+        "default_lifetime_days": 90,
+        "max_lifetime_days": 366,
+    }
+    settings = (await bff.client.get("/api/v1/identity/settings")).json()
+    saved = await bff.client.put(
+        "/api/v1/identity/settings",
+        json={"people_may_create_keys": True},
+        headers={"X-CSRF-Token": csrf, "If-Match": f'"{settings["version"]}"'},
+    )
+    assert saved.status_code == 200, saved.text
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        raw = await conn.fetchval(
+            "SELECT envelope::text FROM outbox_events"
+            " WHERE event_type = 'identity_access.identity_settings.changed'"
+            " ORDER BY id DESC LIMIT 1"
+        )
+    finally:
+        await conn.close()
+    route = next(r for r in ROUTES if "identity_access.identity_settings.changed" in r.event_types)
+    effects = await route.route(
+        EventEnvelope.model_validate(json.loads(raw)), cast("AsyncSession", None)
+    )
+    signals = [p for p in effects.publications if p.channel.kind == "broadcast"]
+    assert [(p.type, p.ids) for p in signals] == [("api_keys.rules_changed", ())]
+    # A requester, now allowed their own keys, but not a key manager.
+    await _signed_in(bff, "requester", email="requester@demo.test")
+    mine = (await bff.client.get("/api/v1/api-keys/rules")).json()
+    assert (mine["may_create"], mine["manages_keys"]) == (True, False)
+
+
 async def test_an_inactive_owner_or_a_tampered_key_is_refused(bff: Bff) -> None:  # noqa: F811
     csrf = await _signed_in(bff)
     made = (await _make(bff, csrf)).json()

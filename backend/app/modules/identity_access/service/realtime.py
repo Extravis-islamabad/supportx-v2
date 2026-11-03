@@ -36,6 +36,7 @@ from app.shared.realtime import (
     Publication,
     RealtimeEffects,
     RealtimeRoute,
+    broadcast,
     personal,
     record,
 )
@@ -53,6 +54,7 @@ IDENTITY_LIST = LiveList("identity", "identity.manage")
 INVITATIONS_LIST = LiveList("invitations", "users.manage")
 # API keys (WP-041): every key for key managers; each owner hears of their own on their channel.
 API_KEYS_LIST = LiveList("api_keys", "api_keys.manage")
+KEY_SETTINGS = frozenset({"people_may_create_keys", "allow_non_expiring_keys"})
 
 # Changes to these user fields change what the user may do: their connections are cut.
 ACCESS_FIELDS = frozenset({"status", "user_type"})
@@ -241,16 +243,22 @@ async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> 
 
 
 async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
-    """Sign-in settings or an SSO set-up changed: other admins' security screens refetch."""
+    """Sign-in settings or an SSO set-up changed: other admins' security screens refetch.
+
+    A change to the API key settings also reaches everyone's own key screen (WP-041), as a
+    tenant-wide signal that names nothing: each screen refetches what it may offer.
+    """
     del session
-    return RealtimeEffects(
-        publications=IDENTITY_LIST.publications(
-            envelope.tenant_id,
-            "identity.changed",
-            uuid.UUID(str(envelope.aggregate_id)),
-            actor_id=_actor(envelope),
-        )
+    publications = IDENTITY_LIST.publications(
+        envelope.tenant_id,
+        "identity.changed",
+        uuid.UUID(str(envelope.aggregate_id)),
+        actor_id=_actor(envelope),
     )
+    changed = set(envelope.payload.get("changed_fields") or ())
+    if changed & KEY_SETTINGS:
+        publications.append(Publication(broadcast(envelope.tenant_id), "api_keys.rules_changed"))
+    return RealtimeEffects(publications=publications)
 
 
 async def _invitation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
