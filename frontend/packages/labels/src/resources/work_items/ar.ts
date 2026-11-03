@@ -898,6 +898,10 @@ export const ar: LabelResource = {
   'requests.new': 'طلب خدمة جديد',
   'requests.approval_filter': 'الموافقة',
   'requests.view_filter': 'العرض',
+  'requests.settings.raising_for_others': 'تقديم طلب نيابة عن شخص آخر',
+  'requests.settings.on_behalf_scope': 'يمكن لمقدمي الطلبات التقديم نيابة عن',
+  'requests.settings.on_behalf_help':
+    'يقدّم الفنيون الطلبات نيابة عن أي شخص. ويمكن لمقدم الطلب دائمًا التقديم نيابة عن مرؤوسيه المباشرين.',
   'requests.item': 'عنصر الكتالوج',
   'requests.approval': 'الموافقة',
   'requests.search_catalog': 'البحث في الكتالوج',

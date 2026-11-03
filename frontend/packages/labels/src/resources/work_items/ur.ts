@@ -830,6 +830,10 @@ export const ur: LabelResource = {
   'requests.new': 'نئی سروس درخواست',
   'requests.approval_filter': 'منظوری',
   'requests.view_filter': 'منظر',
+  'requests.settings.raising_for_others': 'کسی اور کی طرف سے درخواست',
+  'requests.settings.on_behalf_scope': 'درخواست گزار ان کی طرف سے درخواست دے سکتے ہیں',
+  'requests.settings.on_behalf_help':
+    'ٹیکنیشن کسی کی بھی طرف سے درخواست دے سکتے ہیں۔ درخواست گزار اپنے براہِ راست ماتحتوں کی طرف سے ہمیشہ درخواست دے سکتا ہے۔',
   'requests.item': 'کیٹلاگ آئٹم',
   'requests.approval': 'منظوری',
   'requests.search_catalog': 'کیٹلاگ میں تلاش کریں',

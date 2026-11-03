@@ -6,6 +6,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import {
   queryKeys,
   readPending,
+  serviceRequestKeys,
   useLogout,
   useSetFormDensity,
   useSession,
@@ -99,6 +100,7 @@ export function ConsoleLayout() {
       queryKeys.incidents.catalogue,
       queryKeys.incidents.categories,
       queryKeys.incidents.templates,
+      serviceRequestKeys.settings,
     ]) {
       void queryClient.invalidateQueries({ queryKey: key });
     }

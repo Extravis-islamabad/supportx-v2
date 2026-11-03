@@ -831,6 +831,10 @@ export const en = {
   'requests.new': 'New service request',
   'requests.approval_filter': 'Approval',
   'requests.view_filter': 'View',
+  'requests.settings.raising_for_others': 'Raising for someone else',
+  'requests.settings.on_behalf_scope': 'Requesters may raise for',
+  'requests.settings.on_behalf_help':
+    'Technicians raise for anyone. A requester may always raise for their own direct reports.',
   'requests.item': 'Catalog item',
   'requests.approval': 'Approval',
   'requests.search_catalog': 'Search the catalog',

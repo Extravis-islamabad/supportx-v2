@@ -13,6 +13,8 @@ export type CatalogQuestion = components['schemas']['QuestionIO'];
 export type ServiceRequest = components['schemas']['WorkItemOut'];
 export type ServiceRequestInput = components['schemas']['WorkItemIn'];
 export type ApprovalStatus = components['schemas']['ApprovalStatus'];
+export type OnBehalfScope = components['schemas']['OnBehalfScope'];
+export type ServiceRequestCatalogue = components['schemas']['WorkItemCatalogueOut'];
 export type ServiceRequestViewCount = components['schemas']['WorkItemViewCountOut'];
 
 export interface ServiceRequestsQuery {
@@ -29,6 +31,7 @@ export const serviceRequestKeys = {
   // Under 'list' so the list channel's refresh updates the view counts too.
   views: ['service-requests', 'list', 'views'] as const,
   detail: (id: string) => ['service-requests', 'detail', id] as const,
+  settings: ['service-requests', 'settings'] as const,
   catalog: ['catalog'] as const,
   items: ['catalog', 'items'] as const,
   item: (id: string) => ['catalog', 'items', id] as const,
@@ -102,6 +105,42 @@ export function useRaiseServiceRequest() {
     onSuccess: (made) => {
       queryClient.setQueryData(serviceRequestKeys.detail(made.id), made);
       void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });
+    },
+  });
+}
+
+/** The service request type's settings (statuses, prefix, whom requesters may raise for). */
+export function useServiceRequestCatalogue(enabled = true) {
+  return useQuery({
+    queryKey: serviceRequestKeys.settings,
+    queryFn: () => call(api.GET('/api/v1/service-requests/settings')),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Change service request settings with If-Match on the version the screen showed; the answer
+ * replaces the cached settings at once, other screens follow `work_items.settings_changed`.
+ */
+export function useServiceRequestSettingsChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      body,
+      version,
+    }: {
+      body: Partial<components['schemas']['WorkItemSettingsPatch']>;
+      version: number;
+    }) =>
+      call(
+        api.PATCH('/api/v1/service-requests/settings', {
+          params: { header: { 'If-Match': `"${String(version)}"` } },
+          body,
+        }),
+      ),
+    onSuccess: (catalogue) => {
+      queryClient.setQueryData(serviceRequestKeys.settings, catalogue);
     },
   });
 }

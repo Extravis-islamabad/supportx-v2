@@ -213,6 +213,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'requests',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/requests/RequestSettingsPage'))
+                .RequestSettingsPage,
+            }),
+          },
+          {
             path: 'automation/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,

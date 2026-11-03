@@ -211,6 +211,7 @@ export const en = {
   'connectivity.limited': 'Some live updates are paused. Retrying…',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
+  'nav.admin_requests': 'Service requests',
   'settings.incidents_title': 'Incident settings',
   'settings.section.general': 'General',
   'settings.section.templates': 'Templates',
