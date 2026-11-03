@@ -29,12 +29,21 @@ concurrency:
 
 jobs:
   core:
-    name: core profile, integration and e2e
+    name: core profile, integration and e2e ${{ matrix.shard }}/2
     # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
     # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # The Playwright suite outgrew one job: 85 journeys took ~45 min even when green, so the job hit
+    # its limit before any error or report was printed. Two shards, each on its own stack (the
+    # suite shares one Keycloak and dev DB per stack, so one worker per shard as before). The
+    # Playwright step has its own limit, so a stuck run still prints diagnostics and uploads its
+    # report; the job's 60 min is only the backstop.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -94,7 +103,8 @@ jobs:
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make backend-env db-migrate db-seed db-guard
       - name: Backend integration tests (real Keycloak, Valkey, PgBouncer)
-        if: ${{ steps.changes.outputs.run == 'true' }}
+        # Once per run, not per shard: they don't depend on the Playwright split.
+        if: ${{ steps.changes.outputs.run == 'true' && matrix.shard == 1 }}
         working-directory: backend
         run: uv run pytest -m integration --no-cov -q
       - name: Start the API, the event workers and the console
@@ -123,9 +133,13 @@ jobs:
       - name: Playwright (console and portal journeys, accessibility, in Chromium)
         if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: frontend
+        timeout-minutes: 40
+        env:
+          SHARD: ${{ matrix.shard }}
+          E2E_GLOBAL_TIMEOUT_MINUTES: "35" # Playwright stops itself first, printing every failure
         run: |
           pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
-          pnpm --filter @supportx/e2e e2e
+          pnpm --filter @supportx/e2e e2e --shard="$SHARD/2"
       - name: Diagnostics on failure
         if: ${{ failure() && steps.changes.outputs.run == 'true' }}
         run: |
@@ -140,7 +154,7 @@ jobs:
         if: ${{ failure() && steps.changes.outputs.run == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: frontend/e2e/playwright-report
           retention-days: 7
       - name: Tear down
