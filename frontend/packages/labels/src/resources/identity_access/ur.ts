@@ -602,4 +602,8 @@ export const ur: LabelResource = {
   'role.report_viewer': 'رپورٹ دیکھنے والا',
   'role.report_viewer.description':
     'ہر واقعہ اور درخواست اور ان کی رپورٹس پڑھتا ہے، بغیر کچھ بدلے۔',
+  'roles.groups': 'سپورٹ گروپس',
+  'roles.groups_help': 'ان گروپس کے ارکان جب تک رکن ہیں یہ کردار رکھتے ہیں۔',
+  'roles.groups_add': 'گروپ شامل کریں',
+  'roles.groups_none': 'کوئی گروپ یہ کردار نہیں رکھتا۔',
 };

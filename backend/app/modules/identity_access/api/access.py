@@ -93,9 +93,10 @@ class RoleSummary(BaseModel):
 
 
 class RoleDetailOut(RoleSummary):
-    """A role with its permission matrix."""
+    """A role with its permission matrix and the support groups carrying it (WP-042)."""
 
     permissions: list[GrantIO]
+    group_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class RoleCreate(BaseModel):
@@ -141,6 +142,7 @@ def _detail(detail: role_service.RoleDetail) -> RoleDetailOut:
             GrantIO(permission=g.permission, scope=g.scope, condition=g.condition)
             for g in detail.grants
         ],
+        group_ids=detail.group_ids,
     )
 
 

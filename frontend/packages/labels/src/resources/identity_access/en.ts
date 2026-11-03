@@ -752,4 +752,8 @@ export const en = {
   'role.report_viewer': 'Report viewer',
   'role.report_viewer.description':
     'Reads every incident and request and their reports, without changing anything.',
+  'roles.groups': 'Support groups',
+  'roles.groups_help': 'Members of these groups hold this role while they are members.',
+  'roles.groups_add': 'Add a group',
+  'roles.groups_none': 'No group carries this role.',
 } as const;

@@ -108,6 +108,7 @@ export {
   useRole,
   useRoleAssignment,
   useRoleMutations,
+  useGroupRoleMutations,
   useRoles,
   useUnitMutations,
   useUnits,

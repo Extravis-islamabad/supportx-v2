@@ -22,8 +22,10 @@ import { useMemo, useState } from 'react';
 import {
   usePermissionCatalogue,
   useRole,
+  useGroupRoleMutations,
   useRoleMutations,
   useRoles,
+  useUnits,
   type PermissionInfo,
   type RoleDetail,
   type RoleGrant,
@@ -240,6 +242,13 @@ function RoleForm({
           ),
         }))}
       />
+      {initial !== null && can('groups.view') && (
+        <RoleGroups
+          roleId={initial.id}
+          groupIds={initial.group_ids ?? []}
+          onProblem={problem.show}
+        />
+      )}
       <FormProblem problem={problem} />
       {role !== null && onCopy !== undefined && can('roles.manage') && (
         <Flex justify="start">
@@ -316,6 +325,69 @@ function RoleForm({
             onClose();
           }}
           remove={remove}
+        />
+      )}
+    </Space>
+  );
+}
+
+/**
+ * The support groups carrying the role (WP-042, REQ-ADM-015 AC2): their members hold it while
+ * members. Adding or removing needs the same rights as giving the role to a person.
+ */
+function RoleGroups({
+  roleId,
+  groupIds,
+  onProblem,
+}: {
+  roleId: string;
+  groupIds: string[];
+  onProblem: (error: unknown) => void;
+}) {
+  const t = useLabel();
+  const { can } = useAccess();
+  const groups = useUnits('groups');
+  const { add, remove } = useGroupRoleMutations();
+  const names = new Map((groups.data ?? []).map((g) => [g.id, g.name]));
+  const editable = can('roles.manage');
+  return (
+    <Space direction="vertical" style={{ width: '100%' }} data-testid="role-groups">
+      <Typography.Title level={4} style={{ margin: 0 }}>
+        {t('roles.groups')}
+      </Typography.Title>
+      <Typography.Text type="secondary">{t('roles.groups_help')}</Typography.Text>
+      <Flex wrap gap={6}>
+        {groupIds.length === 0 && (
+          <Typography.Text type="secondary">{t('roles.groups_none')}</Typography.Text>
+        )}
+        {groupIds.map((id) => (
+          <Tag
+            key={id}
+            closable={editable}
+            data-testid={`role-group-${id}`}
+            onClose={(event) => {
+              event.preventDefault();
+              remove.mutate({ roleId, groupId: id }, { onError: onProblem });
+            }}
+          >
+            {names.get(id) ?? '…'}
+          </Tag>
+        ))}
+      </Flex>
+      {editable && (
+        <Select
+          style={{ maxWidth: 320 }}
+          placeholder={t('roles.groups_add')}
+          aria-label={t('roles.groups_add')}
+          value={null}
+          loading={add.isPending}
+          data-testid="role-groups-add"
+          options={(groups.data ?? [])
+            .filter((g) => !groupIds.includes(g.id))
+            .map((g) => ({ value: g.id, label: g.name }))}
+          onChange={(groupId: string) => {
+            add.mutate({ roleId, groupId }, { onError: onProblem });
+          }}
         />
       )}
     </Space>

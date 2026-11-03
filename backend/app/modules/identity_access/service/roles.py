@@ -12,7 +12,7 @@ Every change writes its event in the same transaction and refreshes compiled per
 
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -77,6 +77,8 @@ class RoleDetail:
     role: Role
     grants: list[PermissionGrant]
     user_count: int
+    # Support groups carrying the role (WP-042): their members hold it too.
+    group_ids: list[uuid.UUID] = field(default_factory=list)
 
 
 def _tenant(session: AsyncSession) -> uuid.UUID:
@@ -165,7 +167,7 @@ async def _detail(session: AsyncSession, catalogue: Catalogue, role: Role) -> Ro
     count = await session.scalar(
         select(func.count()).select_from(UserRole).where(UserRole.role_id == role.id)
     )
-    return RoleDetail(role, grants, int(count or 0))
+    return RoleDetail(role, grants, int(count or 0), await groups_of_role(session, role.id))
 
 
 def _validate_grants(

@@ -209,6 +209,37 @@ describe('Admin › Roles', () => {
     expect(table.textContent).not.toMatch(/requests\.view|users\.view/);
   });
 
+  it('REQ-ADM-015 AC2: the groups carrying a role are listed by name; adding one gives it them', async () => {
+    const fake = adminRoutes({
+      routes: {
+        'GET /api/v1/roles/r-hr': {
+          body: { ...HR, permissions: [], group_ids: ['g-night'] },
+          headers: { ETag: '"4"' },
+        },
+        'GET /api/v1/organization/groups': {
+          body: [
+            { id: 'g-night', name: 'Night shift', member_ids: [], disabled: false, version: 1 },
+            { id: 'g-day', name: 'Day shift', member_ids: [], disabled: false, version: 1 },
+          ],
+        },
+        'PUT /api/v1/roles/r-hr/groups/g-day': { status: 204 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('role-row-custom_abc'));
+    const groups = await screen.findByTestId('role-groups');
+    expect(await within(groups).findByText('Night shift')).toBeDefined();
+    fireEvent.mouseDown(
+      within(groups).getByTestId('role-groups-add').querySelector('input') ?? groups,
+    );
+    fireEvent.click(
+      await screen.findByText('Day shift', { selector: '.ant-select-item-option-content' }),
+    );
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/roles/r-hr/groups/g-day')).toHaveLength(1);
+    });
+  });
+
   it('explains a refused escalation', async () => {
     adminRoutes({
       routes: { 'POST /api/v1/roles': { status: 403, body: problem(403, 'privilege_escalation') } },
