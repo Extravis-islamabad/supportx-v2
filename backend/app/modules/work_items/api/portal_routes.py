@@ -4,6 +4,9 @@
     GET /api/v1/portal/incidents/{id}       one record in the viewer's reach
     GET /api/v1/portal/incidents/templates  the forms the portal offers (requester fields only)
     POST /api/v1/portal/incidents           report an issue (REQ-INC-028), Idempotency-Key
+    GET  .../{id}/conversation              public replies and notes only
+    POST .../{id}/replies                   the requester's reply (own records only)
+    POST .../{id}/resolution/confirm|reject the requester's answer to a fix (WP-020f)
 
 Only signed-in people; what they see is decided in `service/portal.py` (the one scope check).
 Responses carry the allow-listed fields only: a field the record's template hides, and every
@@ -20,8 +23,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.modules.identity_access import PolicyService, Subject, get_policy
-from app.modules.work_items.api.routes import RESPONSES
+from app.modules.work_items.api.routes import RESOLUTION_MAX, RESPONSES
 from app.modules.work_items.domain.classification import Impact, Urgency
+from app.modules.work_items.domain.conversation import EntryKind
 from app.modules.work_items.domain.portal import PortalReach, PortalStatus, requester_fillable
 from app.modules.work_items.domain.templates import (
     IMPACT_DETAILS_MAX,
@@ -129,6 +133,39 @@ class PortalIncidentIn(BaseModel):
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
 
 
+class PortalEntryOut(BaseModel):
+    """A public reply or note: who wrote it (name only) and what it says."""
+
+    id: uuid.UUID
+    kind: EntryKind
+    body: str = Field(description="Sanitised HTML.")
+    created_at: datetime
+    author_name: str | None
+    by_you: bool
+
+
+class PortalConversationOut(BaseModel):
+    """The public conversation, oldest first."""
+
+    items: list[PortalEntryOut]
+
+
+class PortalReplyIn(BaseModel):
+    """The requester's reply."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    body: str = Field(min_length=1, max_length=DESCRIPTION_MAX * 2, description="Rich text.")
+
+
+class PortalRejectIn(BaseModel):
+    """Why it is not fixed: shown as the requester's public reply."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    comment: str = Field(min_length=1, max_length=RESOLUTION_MAX)
+
+
 def _out(found: service.PortalRecord) -> PortalIncidentOut:
     return PortalIncidentOut.model_validate(found.values())
 
@@ -217,6 +254,90 @@ async def get_portal_incident(
 ) -> PortalIncidentOut:
     """The record as the requester's side sees it; 404 when out of reach."""
     return _out(await service.get_record(session, subject, record_id))
+
+
+@router.get("/{record_id}/conversation", summary="The public conversation of your incident")
+async def portal_conversation(
+    session: TenantSession, subject: SignedIn, record_id: uuid.UUID
+) -> PortalConversationOut:
+    """Public replies and notes only; private notes never (REQ-INC-147 AC2)."""
+    entries = await service.conversation(session, subject, record_id)
+    return PortalConversationOut(
+        items=[
+            PortalEntryOut(
+                id=e.id,
+                kind=EntryKind(e.kind),
+                body=e.body,
+                created_at=e.created_at,
+                author_name=e.author_name,
+                by_you=e.by_you,
+            )
+            for e in entries
+        ]
+    )
+
+
+@router.post(
+    "/{record_id}/replies",
+    summary="Reply on your incident",
+    status_code=status.HTTP_201_CREATED,
+    response_model_exclude_unset=True,
+)
+async def portal_reply(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_id: uuid.UUID,
+    body: PortalReplyIn,
+    session: TenantSession,
+    subject: SignedIn,
+    request: Request,
+    policy: Annotated[PolicyService, Depends(get_policy)],
+) -> PortalIncidentOut:
+    """A public reply in your name; waiting on you resumes, a late one may reopen (WP-020f)."""
+    replied = await service.reply(
+        session, subject, record_id, body=body.body, source=source_of(request), holders=policy
+    )
+    target = replied.follow_up.id if replied.follow_up is not None else record_id
+    return _out(await service.get_record(session, subject, target))
+
+
+@router.post(
+    "/{record_id}/resolution/confirm",
+    summary="Confirm the fix",
+    response_model_exclude_unset=True,
+)
+async def portal_confirm(
+    record_id: uuid.UUID, session: TenantSession, subject: SignedIn, request: Request
+) -> PortalIncidentOut:
+    """It is fixed (REQ-INC-096 AC1); 409 `not_resolved` when there is nothing to confirm."""
+    return _out(
+        await service.answer_resolution(
+            session, subject, record_id, confirmed=True, comment=None, source=source_of(request)
+        )
+    )
+
+
+@router.post(
+    "/{record_id}/resolution/reject",
+    summary="Say it is not fixed",
+    response_model_exclude_unset=True,
+)
+async def portal_reject(
+    record_id: uuid.UUID,
+    body: PortalRejectIn,
+    session: TenantSession,
+    subject: SignedIn,
+    request: Request,
+) -> PortalIncidentOut:
+    """It reopens; the comment is your public reply (REQ-INC-096 AC2)."""
+    return _out(
+        await service.answer_resolution(
+            session,
+            subject,
+            record_id,
+            confirmed=False,
+            comment=body.comment,
+            source=source_of(request),
+        )
+    )
 
 
 __all__ = ["router"]

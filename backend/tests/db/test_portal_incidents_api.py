@@ -9,6 +9,7 @@ every response, and a staff field can't be used as a filter to probe for records
 import uuid
 from typing import Any
 
+from tests.db.test_conversation_api import say
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
 
 __all__ = ["world"]  # the fixture, re-used
@@ -224,3 +225,73 @@ async def test_the_portal_offers_requester_templates_with_requester_fields_only(
     )
     assert other_tenant.status_code == 422, other_tenant.text
     assert other_tenant.json()["errors"][0]["code"] == "template_not_found"
+
+
+async def test_the_portal_conversation_shows_public_entries_only(world: World) -> None:
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga))
+    private = await say(world, a, a.admin, item, body="<p>Vendor case 8812, ignore user</p>")
+    assert private.status_code == 201, private.text
+    public = await say(world, a, a.admin, item, kind="reply", body="<p>Restart it please.</p>")
+    assert public.status_code == 201, public.text
+
+    found = await world.call("GET", f"{PORTAL}/{item['id']}/conversation", a, a.requester)
+    assert found.status_code == 200, found.text
+    entries = found.json()["items"]
+    assert [e["body"] for e in entries] == ["<p>Restart it please.</p>"]  # REQ-INC-147 AC2
+    assert entries[0]["by_you"] is False
+    assert set(entries[0]) == {"id", "kind", "body", "created_at", "author_name", "by_you"}
+    other = await world.call("GET", f"{PORTAL}/{item['id']}/conversation", a, a.requester2)
+    assert problem(other) == (404, "work_item_not_found")
+
+
+async def test_a_requester_replies_but_a_manager_with_reach_only_reads(world: World) -> None:
+    a = world.a
+    item = await world.create(a, a.admin, requester_id=str(a.requester2))
+    replied = await world.call(
+        "POST", f"{PORTAL}/{item['id']}/replies", a, a.requester2, json={"body": "<p>Any news?</p>"}
+    )
+    assert replied.status_code == 201, replied.text
+    entries = (
+        await world.call("GET", f"{PORTAL}/{item['id']}/conversation", a, a.requester2)
+    ).json()["items"]
+    assert [(e["body"], e["by_you"]) for e in entries] == [("<p>Any news?</p>", True)]
+
+    await world.sql("UPDATE users SET manager_id = $1 WHERE id = $2", a.requester, a.requester2)
+    granted = await role(world, a, "Lead (portal)", [("requests.view_reports", "all")])
+    await world.call("PUT", f"/users/{a.requester}/roles/{granted}", a, a.admin)
+    seen = await world.call("GET", f"{PORTAL}/{item['id']}/conversation", a, a.requester)
+    assert seen.status_code == 200, seen.text
+    refused = await world.call(
+        "POST", f"{PORTAL}/{item['id']}/replies", a, a.requester, json={"body": "<p>Hi</p>"}
+    )
+    assert refused.status_code == 403, refused.text
+
+
+async def test_the_requester_confirms_or_rejects_a_fix_in_the_portal(world: World) -> None:
+    a = world.a
+    first = await world.create(a, a.admin, group_id=str(a.ga))
+    second = await world.create(a, a.admin, group_id=str(a.ga))
+    for item in (first, second):
+        resolved = await world.act(a, a.admin, item, "resolve", resolution="<p>Reset done</p>")
+        assert resolved.status_code == 200, resolved.text
+    shown = (await world.call("GET", f"{PORTAL}/{first['id']}", a, a.requester)).json()
+    assert (shown["portal_status"], shown["resolution"]) == ("resolved", "<p>Reset done</p>")
+
+    confirmed = await world.call(
+        "POST", f"{PORTAL}/{first['id']}/resolution/confirm", a, a.requester
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["portal_status"] in {"closed", "resolved"}
+    assert not set(confirmed.json()) & STAFF_ONLY
+    rejected = await world.call(
+        "POST",
+        f"{PORTAL}/{second['id']}/resolution/reject",
+        a,
+        a.requester,
+        json={"comment": "Still jams."},
+    )
+    assert rejected.status_code == 200, rejected.text
+    assert rejected.json()["portal_status"] == "in_progress"
+    again = await world.call("POST", f"{PORTAL}/{second['id']}/resolution/confirm", a, a.requester)
+    assert problem(again)[0] == 409

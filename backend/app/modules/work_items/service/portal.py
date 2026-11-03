@@ -16,6 +16,7 @@ Today's default:
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -24,7 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import PermissionSpec
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules.identity_access import Subject, direct_reports, person_placement
+from app.modules.identity_access import Subject, direct_reports, person_placement, user_contacts
+from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.portal import (
     PortalReach,
@@ -38,9 +40,14 @@ from app.modules.work_items.domain.portal import (
 )
 from app.modules.work_items.domain.templates import rules_from_json
 from app.modules.work_items.domain.types import INCIDENT, Channel, WorkItemType
-from app.modules.work_items.infra.models import WorkItem, WorkItemTemplate
-from app.modules.work_items.service import templates
+from app.modules.work_items.infra.models import (
+    WorkItem,
+    WorkItemConversation,
+    WorkItemTemplate,
+)
+from app.modules.work_items.service import resolution, templates
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.history import Source
@@ -315,7 +322,107 @@ async def create_record(  # noqa: PLR0913 - the form's inputs and the engine's c
     return await get_record(session, subject, made.record.id, wtype)
 
 
+# --- the public conversation (REQ-INC-147) ----------------------------------------------------
+
+CONVERSATION_MAX = 200
+
+
+@dataclass(frozen=True)
+class PublicEntry:
+    """A public reply or note as the requester's side sees it: no recipients, no delivery."""
+
+    id: uuid.UUID
+    kind: str
+    body: str
+    created_at: datetime
+    author_name: str | None
+    by_you: bool
+
+
+async def conversation(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID, wtype: WorkItemType = INCIDENT
+) -> list[PublicEntry]:
+    """Public entries only, oldest first (the newest CONVERSATION_MAX); private notes never."""
+    found = await get_record(session, subject, record_id, wtype)
+    rows = list(
+        await session.scalars(
+            select(WorkItemConversation)
+            .where(
+                WorkItemConversation.work_item_id == found.record.id,
+                WorkItemConversation.visibility == Visibility.PUBLIC,
+                WorkItemConversation.deleted_at.is_(None),
+            )
+            .order_by(WorkItemConversation.created_at.desc(), WorkItemConversation.id.desc())
+            .limit(CONVERSATION_MAX)
+        )
+    )
+    rows.reverse()
+    authors = sorted({str(e.created_by) for e in rows if e.created_by is not None})
+    names = await user_contacts(session, authors)  # names only leave here, never addresses
+    return [
+        PublicEntry(
+            e.id,
+            e.kind,
+            e.body,
+            e.created_at,
+            names[str(e.created_by)][0] if str(e.created_by) in names else None,
+            e.created_by == subject.user_id,
+        )
+        for e in rows
+    ]
+
+
+async def reply(  # noqa: PLR0913 - the reply and the engine's context
+    session: AsyncSession,
+    subject: Subject,
+    record_id: uuid.UUID,
+    *,
+    body: str,
+    source: Source,
+    holders: items.PermissionHolders,
+    wtype: WorkItemType = INCIDENT,
+) -> RequesterReply:
+    """The requester's public reply; only their own records (a manager reads, never replies)."""
+    found = await get_record(session, subject, record_id, wtype)
+    if found.reach is not PortalReach.OWN:
+        raise PermissionDenied(params={"permission": CREATE, "reason": "no_permission"})
+    return await add_requester_reply(
+        session,
+        wtype,
+        found.record,
+        body=body,
+        source=source,
+        automatic=False,
+        subject=subject,
+        holders=holders,
+    )
+
+
+async def answer_resolution(  # noqa: PLR0913 - the answer and its context
+    session: AsyncSession,
+    subject: Subject,
+    record_id: uuid.UUID,
+    *,
+    confirmed: bool,
+    comment: str | None,
+    source: Source,
+    wtype: WorkItemType = INCIDENT,
+) -> PortalRecord:
+    """Confirm or reject the fix (WP-020f) on your own record; the portal's view comes back."""
+    found = await get_record(session, subject, record_id, wtype)
+    if found.reach is not PortalReach.OWN:
+        raise PermissionDenied(params={"permission": CREATE, "reason": "no_permission"})
+    if confirmed:
+        await resolution.confirm(session, subject, wtype, record_id, source=source)
+    else:
+        await resolution.reject(
+            session, subject, wtype, record_id, comment=comment or "", source=source
+        )
+    return await get_record(session, subject, record_id, wtype)
+
+
 __all__ = [
+    "CONVERSATION_MAX",
     "CREATE",
     "FIELDS",
     "PERMISSIONS",
@@ -324,10 +431,14 @@ __all__ = [
     "VIEW_REPORTS",
     "PortalRecord",
     "PortalState",
+    "PublicEntry",
+    "answer_resolution",
+    "conversation",
     "create_record",
     "get_record",
     "list_records",
     "portal_templates",
     "reach_predicate",
+    "reply",
     "viewer",
 ]
