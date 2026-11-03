@@ -13,11 +13,11 @@ WP-014b session 1, the HA profile (#189, draft; ADR-038). Open alongside: WP-040
 
 ## Branch
 
-`ci/generated-not-committed`; next `feat/wp-040-ldap`
+`feat/wp-014b-ha` (#189); `feat/wp-040-ldap` (#175); `feat/wp-040-connector-defaults` (#185)
 
 ## Worktree
 
-`../supportx-v2-gen`; `../supportx-v2-ha`, `../supportx-v2-entra`, `../supportx-v2-defaults`
+`../supportx-v2-ha`, `../supportx-v2-entra`, `../supportx-v2-defaults`
 
 ## Claimed migration
 
