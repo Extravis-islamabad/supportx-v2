@@ -619,6 +619,12 @@ class WorkItemListItem(BaseModel):
     id: uuid.UUID
     display_id: str
     subject: str
+    catalog_item_id: uuid.UUID | None = Field(
+        default=None, description="Service requests: the item it was raised from."
+    )
+    approval_status: ApprovalStatus | None = Field(
+        default=None, description="Service requests: the approval (REQ-SR-009)."
+    )
     requester_id: uuid.UUID
     technician_id: uuid.UUID | None
     group_id: uuid.UUID | None

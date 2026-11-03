@@ -666,3 +666,19 @@ export {
   type KbFromRecord,
   type KbAudience,
 } from './knowledge';
+export {
+  serviceRequestKeys,
+  useCatalogCategories,
+  useCatalogItem,
+  useCatalogItems,
+  useRaiseServiceRequest,
+  useServiceRequest,
+  useServiceRequests,
+  type ApprovalStatus,
+  type CatalogCategory,
+  type CatalogItem,
+  type CatalogQuestion,
+  type ServiceRequest,
+  type ServiceRequestInput,
+  type ServiceRequestsQuery,
+} from './serviceRequests';

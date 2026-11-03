@@ -35,7 +35,7 @@ export const NAV: readonly NavItem[] = [
     path: '/requests',
     labelKey: 'nav.requests',
     icon: <InboxOutlined />,
-    feature: 'incident',
+    feature: 'service_request',
     permissions: ['requests.view'],
   },
   {
@@ -118,14 +118,7 @@ export const NAV: readonly NavItem[] = [
 ];
 
 /** Sections that only show "coming soon" until their module exists. */
-export const SECTION_KEYS = [
-  'requests',
-  'problems',
-  'changes',
-  'releases',
-  'assets',
-  'cmdb',
-] as const;
+export const SECTION_KEYS = ['problems', 'changes', 'releases', 'assets', 'cmdb'] as const;
 
 export function navItem(key: string): NavItem | undefined {
   return NAV.find((item) => item.key === key);
