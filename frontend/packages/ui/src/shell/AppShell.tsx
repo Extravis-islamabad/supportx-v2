@@ -20,7 +20,10 @@ export interface AppShellProps {
   header: ReactNode | ((topNav: ReactNode) => ReactNode);
   /** Licence and connectivity banners, above the page. */
   banners?: ReactNode;
-  /** Where the navigation sits (the user's preference, stored server-side). Default: top bar. */
+  /**
+   * Where the navigation sits (the user's preference, stored server-side). Default: the side bar
+   * with labels (D-124).
+   */
   layout?: NavLayout;
   children: ReactNode;
 }
@@ -40,7 +43,7 @@ export function AppShell({
   onNavigate,
   header,
   banners,
-  layout = 'top',
+  layout = 'side',
   children,
 }: AppShellProps) {
   const t = useLabel();
@@ -90,7 +93,9 @@ export function AppShell({
           aria-label={t('nav.main')}
           data-testid="nav-top"
           data-items={itemKeys}
-          style={{ flex: 1, minWidth: 0, marginInlineStart: 16 }}
+          // The menu's own "More" stays inside the nav, never drawn under the search button at
+          // phone width (QA WP-036 BUG-06); its submenu opens in a popup, outside this box.
+          style={{ flex: 1, minWidth: 0, marginInlineStart: 16, overflow: 'hidden' }}
         >
           <Menu
             mode="horizontal"
@@ -128,8 +133,8 @@ export function AppShell({
         onCollapse={setCollapsed}
         breakpoint={compact ? undefined : 'lg'}
         theme="light"
-        width={232}
-        collapsedWidth={compact ? 64 : 80}
+        width={208}
+        collapsedWidth={64}
         trigger={compact ? null : undefined}
         style={{ borderInlineEnd: `1px solid ${token.colorBorderSecondary}` }}
       >

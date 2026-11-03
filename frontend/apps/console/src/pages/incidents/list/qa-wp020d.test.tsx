@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeIncident, fakeIncidentCatalogue, fakeSession } from '@supportx/api-client/testing';
@@ -109,25 +109,29 @@ describe('BUG-01: every view count follows the changes that move it', () => {
 });
 
 describe('BUG-02: the toolbar keeps its place when chips are added', () => {
-  it('BUG-02: two toolbar rows that fit, and chips stack under a fixed-width search', async () => {
+  it('BUG-02: one filter bar that fits, and chips stack under a fixed-width search', async () => {
     await openList();
-    // Row one: what to look at (the view and its buttons, the search); row two: how to narrow
-    // and show it. Each is narrower than a desktop screen, so nothing wraps at random.
-    const find = screen.getByTestId('inc-toolbar-find');
-    const narrow = screen.getByTestId('inc-toolbar-narrow');
-    for (const id of ['inc-view', 'inc-view-new', 'inc-search-group']) {
-      expect(find.contains(screen.getByTestId(id)), id).toBe(true);
+    // The console UI pass (D-124) keeps one bar: view, search, priority, "Filters", columns;
+    // sort and page size moved to the filters drawer, so the bar is narrower than a desktop.
+    const bar = screen.getByTestId('inc-filterbar');
+    for (const id of ['inc-view', 'inc-view-new', 'inc-search-group', 'inc-filter-priority']) {
+      expect(bar.contains(screen.getByTestId(id)), id).toBe(true);
     }
-    for (const id of ['inc-filter-priority', 'inc-sort', 'inc-page-size', 'inc-columns']) {
-      expect(narrow.contains(screen.getByTestId(id)), id).toBe(true);
-    }
-    // The view selector and "New view" sit in the row itself, never in a box of their own that
+    expect(bar.contains(screen.getByTestId('inc-columns'))).toBe(true);
+    // The view selector and "New view" sit in the bar itself, never in a box of their own that
     // a browser could size to the selector alone.
-    expect(screen.getByTestId('inc-view-new').parentElement).toBe(find);
+    expect(screen.getByTestId('inc-view-new').parentElement).toBe(bar);
     // Chips go below the search box inside a column of fixed width: a chip adds height, never
     // width, so the controls after it do not jump to a new line.
     const search = screen.getByTestId('inc-search-group');
     expect(search.style.width).toBe('min(320px, 100%)');
     expect(search.classList.contains('ant-flex-vertical')).toBe(true);
+    // Sort and page size are not lost: they are in the filters drawer (lane A, #159 review).
+    expect(screen.queryByTestId('inc-sort')).toBeNull();
+    fireEvent.click(screen.getByTestId('inc-filterbar-filters'));
+    const drawer = await screen.findByTestId('inc-filters');
+    for (const id of ['inc-sort', 'inc-page-size']) {
+      expect(drawer.contains(within(drawer).getByTestId(id)), id).toBe(true);
+    }
   });
 });

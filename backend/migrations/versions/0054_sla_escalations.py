@@ -10,7 +10,7 @@ lists, filters and the "about to breach" and "breached" views read them (REQ-SLA
 REQ-SLA-020 AC4).
 
 Revision ID: 0054
-Revises: 0048
+Revises: 0051
 Created: 2026-11-02
 """
 
@@ -24,7 +24,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0054"
-down_revision: str | None = "0048"
+down_revision: str | None = "0051"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

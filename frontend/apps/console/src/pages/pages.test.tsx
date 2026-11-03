@@ -12,22 +12,40 @@ function api(...args: Parameters<typeof consoleApi>) {
 }
 const ADMIN = fakeSession({ display_name: 'Amal Admin', roles: ['tenant_admin', 'technician'] });
 
-/** IntersectionObserver stand-in: `scrollToEnd()` reports the sentinel as visible. */
-const observers: IntersectionObserverCallback[] = [];
+/**
+ * IntersectionObserver stand-in: `scrollToEnd()` reports the list's sentinel as visible. Other
+ * observers (Ant Design's ellipsis in the page header) are left alone: only the one watching
+ * `users-sentinel` is told.
+ */
+const observers: { callback: IntersectionObserverCallback; targets: Element[] }[] = [];
 class FakeObserver {
+  private readonly entry: { callback: IntersectionObserverCallback; targets: Element[] };
   constructor(callback: IntersectionObserverCallback) {
-    observers.push(callback);
+    this.entry = { callback, targets: [] };
+    observers.push(this.entry);
   }
-  observe(): void {
-    // the test triggers the callback itself (scrollToEnd)
+  observe(target: Element): void {
+    this.entry.targets.push(target);
+  }
+  unobserve(): void {
+    // nothing to release
   }
   disconnect(): void {
     // nothing to release
   }
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
 }
 function scrollToEnd() {
-  const last = observers.at(-1);
-  last?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+  const watching = observers.filter((o) =>
+    o.targets.some((target) => target.getAttribute('data-testid') === 'users-sentinel'),
+  );
+  const last = watching.at(-1);
+  last?.callback(
+    [{ isIntersecting: true } as IntersectionObserverEntry],
+    {} as IntersectionObserver,
+  );
 }
 
 describe('My profile', () => {

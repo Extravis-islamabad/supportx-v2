@@ -11,6 +11,7 @@ import {
 } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
+import { clickAction } from '../../test/actions';
 import { consoleApi } from '../../test/api';
 import { rememberTab } from './tabs';
 
@@ -152,7 +153,7 @@ describe('BUG-04: technicians cannot choose "Confirmed by requester"', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-close'));
+    await clickAction('inc-action-close');
     const select = await screen.findByTestId('inc-closure-code');
     const selector = select.querySelector('.ant-select-selector');
     if (selector === null) throw new Error('not an Ant Design Select');

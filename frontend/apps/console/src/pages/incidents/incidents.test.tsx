@@ -12,6 +12,7 @@ import { consoleApi, fakeSession, problem } from '../../test/api';
 import { duplicateNames } from './labels';
 import { previewPriority } from './form';
 import { rememberTab } from './tabs';
+import { actionOrder, clickAction, isDisabled } from '../../test/actions';
 
 // The fake session's user (api-client testing fixtures).
 const SESSION_USER = '01900000-0000-7000-8000-000000000101';
@@ -123,9 +124,8 @@ describe('One incident', () => {
     api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: ITEM, headers: { ETag: '"1"' } } } });
     render(<App />);
     expect((await screen.findByTestId('inc-heading')).textContent).toBe('Mail is down');
-    const order = within(screen.getByTestId('inc-actions'))
-      .getAllByRole('button')
-      .map((b) => b.getAttribute('data-testid'));
+    // Every move in "More actions", in one fixed order (D-124); unavailable ones say why.
+    const order = (await actionOrder()).filter((id) => id.startsWith('inc-action-'));
     expect(order).toEqual([
       'inc-action-start_work',
       'inc-action-wait_requester',
@@ -134,12 +134,13 @@ describe('One incident', () => {
       'inc-action-resolve',
       'inc-action-close',
       'inc-action-reopen',
-      'inc-action-cancel',
       'inc-action-undo_cancel',
+      // Destructive moves sit apart, last (REQ-WI-010 AC4).
+      'inc-action-cancel',
     ]);
-    expect(screen.getByTestId('inc-action-close-reason').getAttribute('data-reason')).toBe(
-      'not_from_status',
-    );
+    const close = screen.getByTestId('inc-action-close-menu');
+    expect(isDisabled(close)).toBe(true);
+    expect(close.textContent).toContain('Not possible in the current status.');
     // Delete is not offered at all without the permission (it is set apart from everyday work).
     expect(screen.queryByTestId('inc-op-delete')).toBeNull();
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
@@ -157,6 +158,60 @@ describe('One incident', () => {
     expect(description.getAttribute('dir')).toBe('auto');
   });
 
+  it('D-124: the best-ranked available moves get buttons, Resolve primary; the rest stay in the menu', async () => {
+    const open = fakeIncident({
+      actions: ITEM.actions.map((a) => ({
+        ...a,
+        allowed: ['start_work', 'wait_requester', 'wait_third_party', 'resolve', 'close'].includes(
+          a.action,
+        ),
+        reason: null,
+      })),
+      operations: ITEM.operations.map((o) => ({ ...o, allowed: false, reason: 'no_permission' })),
+    });
+    api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: open, headers: { ETag: '"1"' } } } });
+    render(<App />);
+    const bar = await screen.findByTestId('inc-operations');
+    const buttons = within(bar)
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('data-testid'))
+      .filter((id) => id?.startsWith('inc-action-'));
+    // Four of five: the waits rank below start work, resolve and close (wait_requester first).
+    expect(buttons).toEqual([
+      'inc-action-start_work',
+      'inc-action-wait_requester',
+      'inc-action-resolve',
+      'inc-action-close',
+    ]);
+    expect(screen.getByTestId('inc-action-resolve').className).toContain('ant-btn-primary');
+  });
+
+  it('REQ-WI-010 AC4: a cancel without a reason step still asks once, in clear words', async () => {
+    const plain = fakeIncident({
+      actions: ITEM.actions.map((a) =>
+        a.action === 'cancel' ? { ...a, allowed: true, reason: null, reason_mode: 'none' } : a,
+      ),
+    });
+    const canceled = fakeIncident({ status: 'canceled', status_category: 'canceled', version: 2 });
+    const fake = api({
+      routes: {
+        ...COMMON,
+        [`GET ${PATH}`]: { body: plain, headers: { ETag: '"1"' } },
+        [`POST ${PATH}/actions/cancel`]: { body: canceled },
+      },
+    });
+    render(<App />);
+    await clickAction('inc-action-cancel');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getAllByText('Cancel this incident?').length).toBeGreaterThan(0);
+    expect(fake.find('POST', `${PATH}/actions/cancel`)).toHaveLength(0);
+    expect(within(dialog).queryByRole('button', { name: 'Cancel' })).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel incident' }));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/actions/cancel`)).toHaveLength(1);
+    });
+  });
+
   it('REQ-INC-047: an action that needs a reason asks for it before sending', async () => {
     const canceled = fakeIncident({ status: 'canceled', status_category: 'canceled', version: 2 });
     const fake = api({
@@ -167,7 +222,7 @@ describe('One incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-cancel'));
+    await clickAction('inc-action-cancel');
     fireEvent.click(await screen.findByTestId('inc-reason-confirm'));
     expect((await screen.findByTestId('inc-reason-code-error')).textContent).toBe(
       'Choose a reason.',
@@ -214,7 +269,7 @@ describe('One incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-op-assign'));
+    await clickAction('inc-op-assign');
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-group')));
     fireEvent.click(await screen.findByTitle('Service Desk'));
     fireEvent.click(screen.getByTestId('inc-assign-confirm'));

@@ -3,6 +3,7 @@ import { theme as antdTheme, type ThemeConfig } from 'antd';
 import type { Locale } from '@supportx/labels';
 
 import { SUPPORTX_COLOURS, SUPPORTX_LOGOS, type BrandLogos } from './brand';
+import { densityTheme, type Density } from './density';
 
 export const THEME_MODES = ['light', 'dark', 'high_contrast'] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
@@ -75,7 +76,26 @@ export function buildTheme(
   mode: ThemeMode,
   branding: Partial<Branding> = {},
   locale: Locale = 'en',
+  density: Density = 'comfortable',
 ): ThemeConfig {
+  const base = modeTheme(mode, branding, locale);
+  const dense = densityTheme(density, base.algorithm ?? antdTheme.defaultAlgorithm);
+  const components = { ...base.components };
+  for (const [name, tokens] of Object.entries(dense.components ?? {})) {
+    const key = name as keyof NonNullable<ThemeConfig['components']>;
+    components[key] = { ...(components[key] as object), ...tokens } as never;
+  }
+  return {
+    ...base,
+    algorithm: dense.algorithm,
+    // The mode's own tokens win (high contrast line widths, readable colours); Urdu keeps its
+    // taller line height, so rows grow rather than clip.
+    token: { ...dense.token, ...base.token },
+    components,
+  };
+}
+
+function modeTheme(mode: ThemeMode, branding: Partial<Branding>, locale: Locale): ThemeConfig {
   const brand = { ...DEFAULT_BRANDING, ...branding };
   const base = shared(locale);
   if (mode === 'high_contrast') {

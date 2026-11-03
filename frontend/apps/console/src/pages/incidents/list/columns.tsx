@@ -40,17 +40,17 @@ export interface ColumnSpec {
   render: (row: IncidentListItem, context: ColumnContext) => ReactNode;
 }
 
-/** The list's columns until the user chooses (D1: as before WP-020d). */
+/** The list's columns until the user chooses (D-124; saved choices and views keep theirs). */
 export const DEFAULT_COLUMNS: readonly string[] = [
   'display_id',
   'subject',
   'requester_id',
+  'technician_id',
+  'group_id',
   'status',
   'priority',
-  'group_id',
-  'technician_id',
   'resolution_due_at',
-  'updated_at',
+  'created_at',
 ];
 
 const field = (name: string) => (c: ColumnContext) => c.words.field(name);
@@ -66,7 +66,7 @@ const OWN: ColumnSpec[] = [
   {
     key: 'subject',
     sortField: 'subject',
-    width: 360,
+    width: 320, // capped, with an ellipsis and the whole subject as the tooltip (D-124)
     title: field('subject'),
     // The whole subject is the tooltip, and it reads in its own direction (QA BUG-12, BUG-16).
     render: (row) => (
