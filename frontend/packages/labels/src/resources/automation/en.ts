@@ -227,4 +227,5 @@ export const en = {
   'automation.why.auto_closed':
     'Closed automatically: the requester was told of the resolution and did not answer in time.',
   'automation.why.assignment_move': 'Moved automatically when it was assigned.',
+  'automation.why.sla_escalation': 'By SLA escalation: {{target}}, level {{level}}',
 } as const;

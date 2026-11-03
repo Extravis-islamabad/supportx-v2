@@ -31,6 +31,7 @@ export type ReasonList = components['schemas']['ReasonList'];
 export type WorkItemChannel = components['schemas']['Channel'];
 export type IncidentSla = components['schemas']['WorkItemSlaOut'];
 export type IncidentSlaTarget = components['schemas']['SlaTargetOut'];
+export type IncidentSlaLevelRun = components['schemas']['SlaLevelRunOut'];
 export type SlaTargetKind = 'first_response' | 'resolution';
 
 /** List parameters the UI controls. */

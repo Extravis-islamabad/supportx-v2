@@ -21,6 +21,7 @@ from app.modules.organization.api import domains as domain_routes
 from app.modules.organization.domain.domains import proof
 from app.modules.organization.infra.domain_check import DomainCheckError
 from app.shared.files.service.core import FileServices
+from tests.app_state import set_state
 from tests.db.test_files_api import audit_actions, files, storage
 from tests.db.test_incidents_api import World, problem, world
 
@@ -35,7 +36,7 @@ BASE = "/organization/domains"
 def installation_secret(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
     """The proof key is the installation's session secret (every deployment has one)."""
     settings_ = world.app.state.settings.model_copy(update={"session_secret": SecretStr("s" * 40)})
-    monkeypatch.setattr(world.app.state, "settings", settings_)
+    set_state(monkeypatch, world.app.state, "settings", settings_)
 
 
 def secret(world: World) -> bytes:
@@ -149,7 +150,7 @@ async def test_hosts_that_are_not_a_tenants_to_claim_are_refused(
 ) -> None:
     a = world.a
     settings_ = world.app.state.settings.model_copy(update={"tenant_base_domain": "brand.test"})
-    monkeypatch.setattr(world.app.state, "settings", settings_)
+    set_state(monkeypatch, world.app.state, "settings", settings_)
     for host, code in (
         ("10.0.0.1", "domain_invalid"),
         ("https://help.acme.test", "domain_invalid"),

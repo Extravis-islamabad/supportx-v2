@@ -47,6 +47,11 @@ export function useAutomationWhy(): (
         return t('automation.why.matrix');
       case 'auto_move':
         return autoMove(t, text(automation.rule), text(automation.action));
+      case 'sla_escalation': // WP-025: an SLA escalation level's action
+        return t('automation.why.sla_escalation', {
+          target: t(`sla_target_kind.${text(automation.target)}`),
+          level: typeof automation.level === 'number' ? automation.level : 0,
+        });
       default:
         return '';
     }

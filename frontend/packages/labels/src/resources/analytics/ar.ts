@@ -516,4 +516,8 @@ export const ar: LabelResource = {
   'dashboard_records_sort.due': 'الأقرب استحقاقًا أولًا',
   'dashboard_records_sort.priority': 'الأعلى أولوية أولًا',
   'report_field.first_response_due_at': 'الاستجابة قبل',
+  'report_field.first_response_sla_state': 'اتفاقية الاستجابة',
+  'report_field.resolution_sla_state': 'اتفاقية الحل',
+  'report_field.first_response_breached': 'تأخر الاستجابة',
+  'report_field.resolution_breached': 'تأخر الحل',
 };

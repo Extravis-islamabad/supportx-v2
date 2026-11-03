@@ -15,6 +15,7 @@ from PIL import Image
 from app.core.tenancy import TenantContext
 from app.modules.organization import email_branding, header_html
 from app.shared.files.service.core import FileServices
+from tests.app_state import set_state
 from tests.db.test_files_api import audit_actions, files, scan_waiting, storage, upload
 from tests.db.test_incidents_api import World, problem, world
 
@@ -212,7 +213,7 @@ async def test_the_address_picks_the_brand_and_an_unknown_one_shows_the_default(
     a = world.a
     assert (await save(world, a, a.admin, 0, primary_colour="#0b5394")).status_code == 200
     settings_ = world.app.state.settings.model_copy(update={"tenant_base_domain": "brand.test"})
-    monkeypatch.setattr(world.app.state, "settings", settings_)
+    set_state(monkeypatch, world.app.state, "settings", settings_)
     slug = await slug_of(world, a)
 
     async def colour(host: str) -> str:
@@ -269,7 +270,7 @@ async def test_the_public_brand_tells_only_logo_and_colours_and_cannot_find_tena
     )
     assert saved.status_code == 200, saved.text
     settings_ = world.app.state.settings.model_copy(update={"tenant_base_domain": "brand.test"})
-    monkeypatch.setattr(world.app.state, "settings", settings_)
+    set_state(monkeypatch, world.app.state, "settings", settings_)
     slug_a, slug_b = await slug_of(world, a), await slug_of(world, b)
 
     # 1. The address's own logo and colours, nothing else: no names, texts, slug, IDs or files.

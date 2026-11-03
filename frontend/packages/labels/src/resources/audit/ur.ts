@@ -497,4 +497,8 @@ export const ur: LabelResource = {
   'audit.action.directory.changed': 'ڈائریکٹری تبدیل کی',
   'audit.action.directory.removed': 'ڈائریکٹری ہٹائی',
   'audit.action.directory.sync_requested': 'ڈائریکٹری سنک شروع کیا',
+  'event_type.sla.target.warning': 'ایس ایل اے کی انتباہی حد آ گئی',
+  'event_type.sla.target.breached': 'ایس ایل اے ہدف میں تاخیر',
+  'event_type.sla.target.escalated': 'ایس ایل اے ایسکلیشن کا درجہ چلا',
+  'history.sla_escalation': '{{target}}: درجہ {{level}} چلا',
 };

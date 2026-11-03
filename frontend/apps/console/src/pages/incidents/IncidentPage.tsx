@@ -102,7 +102,7 @@ import {
 import { DepartmentPicker, SitePicker, UserPicker } from './pickers';
 import { IMPACT_DETAILS_MAX, SUBJECT_MAX } from './form';
 import { useStatusActions } from './StatusActions';
-import { PriorityTag, StatusTag } from './tags';
+import { PriorityTag, SlaTag, StatusTag } from './tags';
 import { TagsInput } from './TagsInput';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
@@ -383,6 +383,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               <>
                 <StatusTag status={item.status} catalogue={catalogue.data} />
                 <PriorityTag priority={item.priority} source={item.priority_source} />
+                <SlaTag
+                  policyId={item.sla_policy_id}
+                  dueAt={item.resolution_due_at}
+                  state={item.resolution_sla_state}
+                  format={dates.format}
+                />
               </>
             }
             meta={[

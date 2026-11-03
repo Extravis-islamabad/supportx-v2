@@ -234,4 +234,5 @@ export const ar: LabelResource = {
   'automation.why.auto_closed':
     'أُغلقت تلقائيًا: أُبلغ مقدّم الطلب بالحل ولم يردّ في الوقت المحدد.',
   'automation.why.assignment_move': 'نُقلت تلقائيًا عند إسنادها.',
+  'automation.why.sla_escalation': 'بتصعيد اتفاقية مستوى الخدمة: {{target}}، المستوى {{level}}',
 };

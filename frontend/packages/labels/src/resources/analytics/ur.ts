@@ -513,4 +513,8 @@ export const ur: LabelResource = {
   'dashboard_records_sort.due': 'سب سے پہلے واجب پہلے',
   'dashboard_records_sort.priority': 'سب سے زیادہ ترجیح پہلے',
   'report_field.first_response_due_at': 'جواب کی آخری حد',
+  'report_field.first_response_sla_state': 'جواب کا ایس ایل اے',
+  'report_field.resolution_sla_state': 'حل کا ایس ایل اے',
+  'report_field.first_response_breached': 'جواب میں تاخیر',
+  'report_field.resolution_breached': 'حل میں تاخیر',
 };

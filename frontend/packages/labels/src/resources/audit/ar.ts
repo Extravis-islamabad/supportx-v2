@@ -515,4 +515,8 @@ export const ar: LabelResource = {
   'audit.action.directory.changed': 'غيّر دليلًا',
   'audit.action.directory.removed': 'أزال دليلًا',
   'audit.action.directory.sync_requested': 'بدأ مزامنة دليل',
+  'event_type.sla.target.warning': 'بلوغ نقطة تحذير اتفاقية مستوى الخدمة',
+  'event_type.sla.target.breached': 'تأخر هدف اتفاقية مستوى الخدمة',
+  'event_type.sla.target.escalated': 'تنفيذ مستوى تصعيد لاتفاقية مستوى الخدمة',
+  'history.sla_escalation': '{{target}}: نُفِّذ المستوى {{level}}',
 };
