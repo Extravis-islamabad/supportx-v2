@@ -771,7 +771,8 @@ it with no reload (rule c). Not built yet.
   with only the requester role, without the type API adding the technician role; plus a new
   `requester` suite user; stack.ts is lane B's, they review); move realtime-security
   124/148/186 and knowledge.spec:354 (lane C agreed) to the portal; e2e en/ar at 360x740 with
-  axe; D5 due time after #172; renumber migration 0058 after #172's 0054; merge main (#159).
+  axe; D5 due time after #172; merge main (#159) and re-point 0058 onto main's head 0051 (or lane B's 0055 / #172's 0054, whichever lands first).
+- **Paused 2026-11-04 (Haider).** Resume point: merge main into feat/wp-028, re-point 0058, then the e2e users and specs above.
 - **Reading of REQ-PRT-001 AC1** (lane B, FYI coordinator): a stored requester always lands on
   the portal, whatever custom roles; console work means becoming a technician.
 - **Follow-ups (not #178):** revoke the dropped console refresh token at a requester's console
