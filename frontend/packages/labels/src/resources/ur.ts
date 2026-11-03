@@ -4837,6 +4837,11 @@ export const ur: LabelResource = {
   'audit.action.directory.federation_applied': 'شناختی سروس میں AD/LDAP ڈائریکٹری جوڑی',
   'audit.action.directory.federation_failed': 'شناختی سروس میں AD/LDAP ڈائریکٹری نہیں جوڑی جا سکی',
   'audit.action.directory.federation_removed': 'شناختی سروس سے AD/LDAP ڈائریکٹری ہٹائی',
+  'ldap_security.ldaps': 'LDAPS (شروع سے انکرپٹڈ)',
+  'ldap_security.start_tls': 'StartTLS (سائن ان سے پہلے انکرپٹڈ)',
+  'ldap_security.plain': 'انکرپٹڈ نہیں',
+  'ldap_vendor.ad': 'Active Directory',
+  'ldap_vendor.other': 'دیگر LDAP ڈائریکٹری',
   'errors.directory_unavailable':
     'ڈائریکٹری نے جواب نہیں دیا یا سنک ایپ کو مسترد کر دیا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.required': 'یہ فیلڈ لازمی ہے۔',

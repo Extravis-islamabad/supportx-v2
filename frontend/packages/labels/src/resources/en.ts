@@ -5239,6 +5239,11 @@ export const en = {
     'Could not connect an AD/LDAP directory in the identity service',
   'audit.action.directory.federation_removed':
     'Removed an AD/LDAP directory from the identity service',
+  'ldap_security.ldaps': 'LDAPS (encrypted from the start)',
+  'ldap_security.start_tls': 'StartTLS (encrypted before signing in)',
+  'ldap_security.plain': 'Not encrypted',
+  'ldap_vendor.ad': 'Active Directory',
+  'ldap_vendor.other': 'Other LDAP directory',
   'errors.directory_unavailable':
     'The directory did not answer or refused the sync app. Try again in a moment.',
   'errors.required': 'This field is required.',

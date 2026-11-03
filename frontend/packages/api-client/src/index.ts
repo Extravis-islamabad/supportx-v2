@@ -608,6 +608,14 @@ export {
   type DirectoryGroup,
   type DirectoryInput,
 } from './directories';
+export {
+  useCreateLdapDirectory,
+  useLdapDirectories,
+  useRemoveLdapDirectory,
+  useUpdateLdapDirectory,
+  type LdapDirectory,
+  type LdapDirectoryInput,
+} from './ldapDirectories';
 export { useEventDelivery, type Readiness } from './system';
 export {
   KB_VIEWS,
