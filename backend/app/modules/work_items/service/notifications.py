@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound
+from app.modules import sla
 from app.modules.identity_access import subject_for, user_names
 from app.modules.organization import unit_heads, users_in_groups
 from app.modules.work_items.domain.conversation import (
@@ -47,7 +48,7 @@ from app.modules.work_items.events import (
     WorkItemStatusChanged,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemConversation, WorkItemFollower
-from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import catalogue, escalations
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.closing import resolution_notified
 from app.modules.work_items.service.file_access import sees_private
@@ -88,6 +89,14 @@ _CONVERSATION = (
     Variable("conversation.excerpt", "notification_variable.conversation.excerpt"),
 )
 _STATUS_CHANGE = (Variable("change.from_status", "notification_variable.change.from_status"),)
+_SLA = (Variable("sla.target", "notification_variable.sla.target"),)
+# The people an escalation level names (its own recipients, or its fallback list).
+ESCALATION_RECIPIENTS = "escalation_recipients"
+_SLA_EVENTS: Mapping[str, str] = {
+    sla.SlaWarning.event_type: "incident.sla_warning",
+    sla.SlaBreached.event_type: "incident.sla_breached",
+    sla.SlaEscalated.event_type: "incident.sla_escalated",
+}
 
 EVENTS: tuple[NotificationEvent, ...] = (
     NotificationEvent(
@@ -169,6 +178,25 @@ EVENTS: tuple[NotificationEvent, ...] = (
         NotificationCategory.FOLLOWING,
         EventDefault(enabled=False, recipients=("new_follower",), channels=IN_APP),
     ),
+    # SLA (WP-025 session 3): the warning point, a breach, and each escalation level that ran.
+    NotificationEvent(
+        "incident.sla_warning",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("assignee",)),
+        variables=_SLA,
+    ),
+    NotificationEvent(
+        "incident.sla_breached",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("assignee", "group_head")),
+        variables=_SLA,
+    ),
+    NotificationEvent(
+        "incident.sla_escalated",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=(ESCALATION_RECIPIENTS,)),
+        variables=_SLA,
+    ),
 )
 
 RECIPIENT_KINDS = (
@@ -181,6 +209,7 @@ RECIPIENT_KINDS = (
     "followers",
     "mentioned",
     "new_follower",
+    ESCALATION_RECIPIENTS,
 )
 
 VARIABLES = (
@@ -255,6 +284,49 @@ RESOLUTION_NOTICE = "incident.resolved"
 REQUESTER_SIDE = frozenset({"requester", "on_behalf_of"})
 
 
+async def _relatives(
+    session: AsyncSession, record: WorkItem, event_code: str, envelope: EventEnvelope
+) -> dict[str, frozenset[uuid.UUID]] | None:
+    """The people relative to the incident for this event (None: the level's run is gone)."""
+    payload = envelope.payload
+    relatives: dict[str, frozenset[uuid.UUID]] = {
+        "requester": frozenset({record.requester_id}),
+        "on_behalf_of": frozenset({record.on_behalf_of_id} if record.on_behalf_of_id else ()),
+        "assignee": frozenset({record.technician_id} if record.technician_id else ()),
+    }
+    if record.group_id is not None:
+        members = await session.scalars(users_in_groups(frozenset({record.group_id})))
+        relatives["group"] = frozenset(members)
+        lead, head = await unit_heads(session, record.group_id, record.department_id)
+        relatives["group_head"] = frozenset(p for p in (lead, head) if p is not None)
+    followers = await session.scalars(
+        select(WorkItemFollower.user_id).where(
+            WorkItemFollower.work_item_id == record.id, WorkItemFollower.deleted_at.is_(None)
+        )
+    )
+    relatives["followers"] = frozenset(followers)
+    if envelope.event_type == WorkItemCreated.event_type and event_code == "incident.assigned":
+        # The technician of the creation, even if someone else holds it by now (their own
+        # assignment event tells them).
+        relatives["assignee"] = frozenset({uuid.UUID(str(payload["technician_id"]))})
+    if envelope.event_type == WorkItemAssigned.event_type:
+        before = _uuid((payload.get("audience_before") or {}).get("technician_id"))
+        if before is not None and before != record.technician_id:
+            relatives["previous_assignee"] = frozenset({before})
+    if envelope.event_type == WorkItemFollowerAdded.event_type:
+        relatives["new_follower"] = frozenset({uuid.UUID(str(payload["user_id"]))})
+    if event_code == "incident.mentioned":
+        relatives["mentioned"] = frozenset(uuid.UUID(str(u)) for u in payload["mentioned_ids"])
+    if event_code == "incident.sla_escalated":
+        found = await sla.escalation_run(session, uuid.UUID(str(payload["run_id"])))
+        if found is None:
+            return None
+        relatives[ESCALATION_RECIPIENTS], _fallback = await escalations.level_people(
+            session, record, found[1]
+        )
+    return relatives
+
+
 class IncidentNotifications:
     """`RecordSource` for incidents."""
 
@@ -270,12 +342,19 @@ class IncidentNotifications:
         WorkItemConversationAdded.event_type,
         WorkItemStatusChanged.event_type,
         WorkItemFollowerAdded.event_type,
+        *_SLA_EVENTS,
     )
 
-    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
+    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:  # noqa: PLR0911 - one return per event family, flat
         """Notification events of one committed work item event (incidents only)."""
         payload = envelope.payload
         kind = envelope.event_type
+        if kind in _SLA_EVENTS:
+            if payload.get("record_type") != INCIDENT.code.value:
+                return ()
+            if kind == sla.SlaEscalated.event_type and not payload.get("notify"):
+                return ()  # the level only acts
+            return (_SLA_EVENTS[kind],)
         if kind in _TYPED and payload.get("type") != INCIDENT.code.value:
             return ()
         if kind == WorkItemCreated.event_type:
@@ -299,7 +378,7 @@ class IncidentNotifications:
     ) -> RecordContext | None:
         """The incident as it is now, with the people relative to it for this event."""
         payload = envelope.payload
-        record_id = uuid.UUID(str(payload["work_item_id"]))
+        record_id = uuid.UUID(str(payload.get("work_item_id") or payload["record_id"]))
         record = await session.scalar(
             select(WorkItem).where(WorkItem.id == record_id, WorkItem.deleted_at.is_(None))
         )
@@ -311,35 +390,9 @@ class IncidentNotifications:
         ):
             # A reply by the requester (portal, e-mail) tells the assignee instead.
             event_code = "incident.requester_replied"
-        relatives: dict[str, frozenset[uuid.UUID]] = {
-            "requester": frozenset({record.requester_id}),
-            "on_behalf_of": frozenset({record.on_behalf_of_id} if record.on_behalf_of_id else ()),
-            "assignee": frozenset({record.technician_id} if record.technician_id else ()),
-        }
-        if record.group_id is not None:
-            members = await session.scalars(users_in_groups(frozenset({record.group_id})))
-            relatives["group"] = frozenset(members)
-            lead, head = await unit_heads(session, record.group_id, record.department_id)
-            relatives["group_head"] = frozenset(p for p in (lead, head) if p is not None)
-        followers = await session.scalars(
-            select(WorkItemFollower.user_id).where(
-                WorkItemFollower.work_item_id == record.id, WorkItemFollower.deleted_at.is_(None)
-            )
-        )
-        relatives["followers"] = frozenset(followers)
-        if envelope.event_type == WorkItemCreated.event_type and event_code == "incident.assigned":
-            # The technician of the creation, even if someone else holds it by now (their own
-            # assignment event tells them).
-            relatives["assignee"] = frozenset({uuid.UUID(str(payload["technician_id"]))})
-        if envelope.event_type == WorkItemAssigned.event_type:
-            before = _uuid((payload.get("audience_before") or {}).get("technician_id"))
-            if before is not None and before != record.technician_id:
-                relatives["previous_assignee"] = frozenset({before})
-        if envelope.event_type == WorkItemFollowerAdded.event_type:
-            relatives["new_follower"] = frozenset({uuid.UUID(str(payload["user_id"]))})
-        if event_code == "incident.mentioned":
-            relatives["mentioned"] = frozenset(uuid.UUID(str(u)) for u in payload["mentioned_ids"])
-
+        relatives = await _relatives(session, record, event_code, envelope)
+        if relatives is None:
+            return None
         people = [p for p in (record.requester_id, record.technician_id, actor) if p is not None]
         names = await user_names(session, [str(p) for p in people])
         cat = await catalogue.load(session, INCIDENT)
@@ -365,6 +418,8 @@ class IncidentNotifications:
         }
         if envelope.event_type == WorkItemStatusChanged.event_type:
             shared["change.from_status"] = status_value(payload.get("from_status"))
+        if envelope.event_type in _SLA_EVENTS:
+            shared["sla.target"] = LabelRef(f"sla_target_kind.{payload['kind']}")
         full = dict(shared)
         public = dict(shared)
         public.update(_public_status(envelope, record, cat))
@@ -395,7 +450,8 @@ class IncidentNotifications:
                 "status_category": record.status_category,
                 "channel": record.channel,
             },
-            urgent=record.priority == "p1",
+            # P1, and every SLA warning, breach and escalation: never held for a digest.
+            urgent=record.priority == "p1" or envelope.event_type in _SLA_EVENTS,
             event_code=event_code,
             entry_id=uuid.UUID(str(payload["entry_id"])) if "entry_id" in payload else None,
         )

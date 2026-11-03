@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import sla
@@ -30,6 +31,11 @@ _NOT_CONDITIONS = frozenset(
         "display_number",
         "sla_policy_id",
         "resolution_due_at",
+        "first_response_due_at",
+        "first_response_sla_state",
+        "resolution_sla_state",
+        "first_response_breached",
+        "resolution_breached",
         "first_responded_at",
         "paused_seconds",
         "created_at",
@@ -57,8 +63,51 @@ def register_sla() -> None:
             code=WorkItemTypeCode.INCIDENT.value,
             fields=CONDITION_FIELDS,
             priorities=tuple(p.value for p in Priority),
+            lock_record=lock_record,
+            on_fired=_on_fired,
+            run_actions=_run_actions,
         )
     )
+
+
+async def lock_record(session: AsyncSession, record_id: uuid.UUID) -> None:
+    """Lock the record row: always before its SLA clocks (sla's `LockHook`, one lock order)."""
+    await session.execute(select(WorkItem.id).where(WorkItem.id == record_id).with_for_update())
+
+
+async def _on_fired(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    columns: Mapping[str, Any],
+    fired: list[sla.Fired],
+    *,
+    now: datetime,
+) -> None:
+    # Imported here: work_items.py imports this module (the save path calls it).
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - see above
+
+    await items.sla_fired(session, record_id, columns, fired, now=now)
+
+
+async def _run_actions(
+    session: AsyncSession, record_id: uuid.UUID, level: sla.Level, *, now: datetime
+) -> list[dict[str, object]]:
+    from app.modules.work_items.service import escalations  # noqa: PLC0415 - as `_on_fired`
+
+    return await escalations.run_actions(session, record_id, level, now=now)
+
+
+def fired_changes(
+    record: WorkItem, changed: Mapping[str, Any], fired: list[sla.Fired]
+) -> list[Change]:
+    """History lines of a firing: the SLA columns that moved, and each level that ran."""
+    lines = [Change(k, _plain(getattr(record, k)), _plain(v)) for k, v in changed.items()]
+    lines += [
+        Change("sla_escalation", None, f"{f.kind}:{f.position}")
+        for f in fired
+        if f.what == "escalated" and not f.skipped
+    ]
+    return lines
 
 
 # What the SLA clock reads beyond the condition fields (sla.service.registry names them).
@@ -71,7 +120,15 @@ _CLOCK_FIELDS = (
     "first_responded_at",
 )
 SNAPSHOT_FIELDS = tuple(dict.fromkeys((*CONDITION_FIELDS.fields, *_CLOCK_FIELDS)))
-STAMP_COLUMNS = ("sla_policy_id", "first_response_due_at", "resolution_due_at")
+STAMP_COLUMNS = (
+    "sla_policy_id",
+    "first_response_due_at",
+    "resolution_due_at",
+    "first_response_sla_state",
+    "resolution_sla_state",
+    "first_response_breached",
+    "resolution_breached",
+)
 
 
 def snapshot(record: WorkItem, changes: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -96,6 +153,8 @@ async def sla_columns(
     if not has_sla(record):
         return {}
     before = None if changes is None else snapshot(record)
+    if before is not None:
+        await lock_record(session, record.id)  # before the clocks (registry.LockHook)
     after = snapshot(record, changes)
     stamp = await sla.on_change(session, record.type, record.id, before, after, now=now)
     return {k: v for k, v in stamp.columns().items() if getattr(record, k) != v}
@@ -139,6 +198,7 @@ async def set_due(  # noqa: PLR0913 - the change and who makes it, explicit
     actor: uuid.UUID,
 ) -> dict[str, Any]:
     """Set or clear a due date by hand in sla; returns the record's SLA columns after it."""
+    await lock_record(session, record.id)
     stamp = await sla.set_due_by_hand(
         session, record.type, record.id, kind, due_at, reason=reason, now=now, actor=actor
     )

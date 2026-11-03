@@ -8,8 +8,8 @@
   Before it WP-029-FIX (D-105) and WP-029 parts 1 and 2 (D-097, D-102, ADR-035); WP-021-FIX
   (D-096); WP-021 (D-092, ADR-032); WP-026 (custom fields). Lane B: WP-039 sessions 1-3,
   WP-023 notifications (D-106, in review).
-- **Next work package:** lane A: WP-025 session 3 (sessions 1-2 built, #152); WP-020d/e QA joins
-  the next batched QA round. Lanes: see docs/LANES.md.
+- **Next work package:** lane A: WP-025 session 4 (sessions 1-3 built, #152 merged, #172);
+  then the batched QA round (WP-020e + WP-025), WP-028, WP-030, WP-031, WP-032. Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Speed mode (D-122, until the MVP):** only the fast checks gate merges; e2e, the cluster, PDF and
@@ -966,7 +966,7 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
-### [~] WP-025 — SLA v1 on Temporal (lane A; D-115, ADR-037; sessions 1-2 of 4 built 2026-11-02)
+### [~] WP-025 — SLA v1 on Temporal (lane A; D-115, ADR-037; sessions 1-3 of 4 built 2026-11-03)
 
 Plan: ~/Desktop/wp-025-plan.md (approved). Four sessions (D-115 D1).
 
@@ -1029,7 +1029,52 @@ Plan: ~/Desktop/wp-025-plan.md (approved). Four sessions (D-115 D1).
     and admin areas.
   - **Moved to session 3:** "about to breach" and "breached" views and filters, which need the
     warning and breach stamps the timers set; the countdown column.
-- [ ] Session 3 — Temporal: server, `sla_timers` worker, warnings, breaches, escalations.
+- [x] **Session 3 — warnings, breaches, escalations, the Temporal waker** (#172; migration 0054,
+  after 0047):
+  - PostgreSQL holds the truth, Temporal wakes (ADR-037): `sla.fire` stamps a due warning
+    (`warned_at`) and breach (at the due moment, `time_passed`; now with `target_changed` after
+    a recalculation) and runs due escalation levels, each exactly once, under the record's lock
+    (record row first, then its clocks: one lock order for saves and the waker);
+    `sla.next_wake` gives the next moment; four concurrent wakers run each level once;
+  - the `sla__safety_net` schedule (60 s) fires anything more than two minutes late (D-115 D5);
+  - escalation levels (REQ-SLA-022..025) per policy and target kind, at a business-time offset
+    from the due time or the warning point, up to 8 per target, snapshotted on the record (D7);
+    one run per clock and level (`sla_escalation_runs`, unique); held while paused, moved by a
+    resume or a due date set by hand, cancelled when met, resolved, closed or canceled;
+    recipients: assignee, group head, assignee's manager, requester's manager, department head,
+    support groups, named people (API), with a fallback list when a relative is not set
+    (REQ-SLA-023 AC1); actions: reassign to a group or person, raise the priority one step, a
+    private note, each in its own savepoint, history from source `sla`, outcome on the run;
+  - notifications through the incident source (no engine change; rule 8 notice to lane B):
+    `incident.sla_warning`, `sla_breached`, `sla_escalated`, urgent; escalations go to the
+    level's recipients (a new recipient kind), access checked at send time (AC3);
+  - incidents stamp each target's state (`warning` past its point) and a breached flag that
+    stays: list fields, filters, report dimensions, and the built-in views "about to breach"
+    (exactly the records in warning, REQ-SLA-019 AC2) and "breached"; a firing writes history
+    from source `sla` and a change event, so every open screen turns live;
+  - Temporal: one `SlaClock` workflow per record (`sla:<tenant>:<record>`, queue `sla`, no I/O,
+    continue-as-new after 100 turns); activities in `workers/sla_timers` (`make worker-sla`);
+    the `sla__scheduler` consumer signals or starts it from the outbox's clock events (off
+    without Temporal); time-skipping workflow tests with a replay check; Compose's dev Temporal
+    creates the `supportx` namespace; Helm runs the `sla-timers` worker when
+    `temporal.address` names a Temporal; `temporalio` 1.35 added (D-115) with nexus-rpc,
+    protobuf and types-protobuf;
+  - Admin › SLA › Policies: an escalation levels editor; the record's SLA panel shows Warning
+    and each level in words with its state, time, hold and failed actions; history shows SLA
+    states, due times and runs as labels, and why an escalation changed the record;
+  - auto-close counts business days on the record's own calendar (its resolution target's,
+    else operating hours): WP-020f D4 moved onto the one business-time service;
+  - tests: 11 timer DB tests (warning once, breach stamp and AC2, levels once and cancelled,
+    pause hold, fallback recipients, views, concurrency, auto-close calendar, RLS), workflow
+    and replay, scheduler and escalation-domain unit tests, console 305 in the incident,
+    admin and report areas.
+  - **Moved to session 4:** the bundled Temporal in Helm (official chart on the CloudNativePG
+    cluster, schema by admin-tools, D-017) and its backup and upgrade notes; the countdown
+    column; the chaos test with real processes; REQ-SLA-026 tenant switch (V1); named people
+    as recipients in the editor (the API takes them).
+  - **For the product owner:** REQ-SLA-024 AC2 says a priority raised by a level keeps the
+    running targets "unless the policy says so"; today it follows the tenant's priority-change
+    rule (recalculate by default). A per-policy option would be a new setting.
 - [ ] Session 4 — live panel and list columns, e2e (en, ar, axe, 390 px), load test, docs, QA.
 
 ### [~] WP-036 — Home page and live dashboards (lane C; sessions 1-2 of 2 built 2026-10-28)

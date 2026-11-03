@@ -9,11 +9,11 @@ Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-02
 
 ## Current WP
 
-**PAUSED 2026-11-04 (Haider, via the coordinator).** WP-025 sessions 3-4 in **#172** (queued on --auto; needs `gh pr update-branch 172` by Haider, then a one-line re-point of 0054 onto main's head 0051, cleared with the coordinator first). **WP-028 in #178** (draft, 824dc05): backend, portal UI, lane B parts all approved. Resume point: merge main (#159) into feat/wp-028, re-point 0058 onto 0051; then the e2e users per lane B's (a)+(b) (stack.ts is lane B's, they review), move realtime-security 124/148/186 and knowledge.spec:354 to the portal, e2e en/ar at 360x740 with axe, D5 after #172. Queue after: QA round (WP-020e + WP-025), WP-030, WP-031, WP-032.
+WP-025 sessions 1-4 merged (#152, #172; still to come for WP-025: the bundled Temporal chart, e2e, load test, docs). **WP-028 in #178** (ready, full-ci): portal backend and UI, D-129 (who opens the console), lane B parts approved; still to come: D5 due time, e2e run. **WP-030 in #182** (draft): plan approved by the coordinator (D3, D7 parked for Haider). Queue after: QA round (WP-020e + WP-025), WP-031, WP-032. Lane A reviews WP-038's incident-screen parts when lane C asks.
 
 ## Branch
 
-`feat/wp-028` (#178, draft); `feat/wp-025-s3` (#172, queued)
+`feat/wp-028` (#178), `feat/wp-030` (#182, draft)
 
 ## Worktree
 
@@ -21,8 +21,8 @@ main folder (`supportx-v2`)
 
 ## Claimed migration
 
-0038, 0039, 0040, 0044, 0047 (merged); 0054 (WP-025, #172); 0058 (WP-028, #178); both re-point onto main's head 0051 before merge
+0038, 0039, 0040, 0044, 0047, 0054 (merged); 0058 (WP-028, #178); 0059, 0060 (WP-030, #182); each re-points onto main's head before merge
 
 ## Claimed decisions
 
-D-105, D-115
+D-105, D-115, D-129

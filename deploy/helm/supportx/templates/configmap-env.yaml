@@ -40,6 +40,12 @@ data:
   {{- if eq .Values.app.entitlementProvider "licence_file" }}
   SUPPORTX_LICENCE_FILE: /etc/supportx/licence/licence.json
   {{- end }}
+  {{- if .Values.temporal.address }}
+  # SLA clocks on Temporal (WP-025, ADR-037); unset, the SLA safety net fires everything.
+  SUPPORTX_TEMPORAL_ADDRESS: {{ .Values.temporal.address | quote }}
+  SUPPORTX_TEMPORAL_NAMESPACE: {{ .Values.temporal.namespace | quote }}
+  SUPPORTX_TEMPORAL_TASK_QUEUE: {{ .Values.temporal.taskQueue | quote }}
+  {{- end }}
   {{- range $name, $value := .Values.app.extraEnv }}
   {{ $name }}: {{ $value | quote }}
   {{- end }}

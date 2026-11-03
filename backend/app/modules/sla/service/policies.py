@@ -19,7 +19,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.modules import organization
 from app.modules.identity_access import Subject, user_names
+from app.modules.sla.domain.escalation import (
+    Action,
+    ActionKind,
+    Anchor,
+    Level,
+    Recipient,
+    RecipientKind,
+    level_of,
+    level_problems,
+)
 from app.modules.sla.domain.policy import (
     CalendarSource,
     PolicyRule,
@@ -37,7 +48,12 @@ from app.modules.sla.events import (
     SlaPolicySaved,
     SlaSettingsSaved,
 )
-from app.modules.sla.infra.models import SlaPolicy, SlaPolicyTarget, SlaSettings
+from app.modules.sla.infra.models import (
+    SlaEscalationLevel,
+    SlaPolicy,
+    SlaPolicyTarget,
+    SlaSettings,
+)
 from app.modules.sla.service.access import MANAGE, VIEW, require
 from app.modules.sla.service.calendars import calendar_exists
 from app.modules.sla.service.registry import SlaRecordType, record_type
@@ -67,6 +83,16 @@ FIELD_PROBLEMS = frozenset(
         "unknown_priority",
         "fallback_fixed",
         "order_incomplete",
+        # Escalation levels (session 3, domain/escalation.py).
+        "too_many_levels",
+        "levels_same_moment",
+        "offset_too_large",
+        "level_too_many_recipients",
+        "level_too_many_actions",
+        "level_does_nothing",
+        "recipient_shape",
+        "note_too_long",
+        "unknown_reference",
     }
 )
 
@@ -97,6 +123,7 @@ class PolicyView:
     targets: list[SlaPolicyTarget] = field(default_factory=list)
     never_matches: bool = False
     can_manage: bool = False
+    levels: list[Level] = field(default_factory=list)
 
 
 def _field(name: str, code: str, **params: Any) -> FieldError:  # noqa: ANN401 - label params
@@ -238,15 +265,45 @@ def target_rows(rows: Sequence[SlaPolicyTarget]) -> list[TargetRow]:
     ]
 
 
+async def levels_of(
+    session: AsyncSession, policy_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[Level]]:
+    """Each policy's escalation levels, by kind and position."""
+    found: dict[uuid.UUID, list[Level]] = {i: [] for i in policy_ids}
+    if policy_ids:
+        rows = await session.scalars(
+            select(SlaEscalationLevel)
+            .where(SlaEscalationLevel.policy_id.in_(policy_ids))
+            .order_by(SlaEscalationLevel.kind, SlaEscalationLevel.position)
+        )
+        for row in rows:
+            found[row.policy_id].append(
+                level_of(
+                    {
+                        "kind": row.kind,
+                        "position": row.position,
+                        "anchor": row.anchor,
+                        "offset_seconds": row.offset_seconds,
+                        "recipients": row.recipients,
+                        "fallback": row.fallback,
+                        "actions": row.actions,
+                        "notify": row.notify,
+                    }
+                )
+            )
+    return found
+
+
 async def list_policies(session: AsyncSession, subject: Subject, code: str) -> list[PolicyView]:
     """A record type's policies in order, each with its targets and a "never matches" flag."""
     require(subject, VIEW)
     _type(code)
     policies = await policies_of(session, code)
     targets = await targets_of(session, [p.id for p in policies])
+    levels = await levels_of(session, [p.id for p in policies])
     hidden = set(never_matching(rules_of(policies)))
     manage = subject.holds(MANAGE)
-    return [PolicyView(p, targets[p.id], p.id in hidden, manage) for p in policies]
+    return [PolicyView(p, targets[p.id], p.id in hidden, manage, levels[p.id]) for p in policies]
 
 
 async def _row(session: AsyncSession, policy_id: uuid.UUID) -> SlaPolicy:
@@ -339,6 +396,106 @@ async def _replace_targets(
     await session.flush()
 
 
+def _who(raw: Sequence[Mapping[str, Any]]) -> tuple[Recipient, ...]:
+    return tuple(
+        Recipient(RecipientKind(r["kind"]), str(r["id"]) if r.get("id") is not None else None)
+        for r in raw
+    )
+
+
+async def _levels(
+    session: AsyncSession, raw: Sequence[Mapping[str, Any]], errors: list[FieldError]
+) -> list[Level]:
+    """The sent levels, numbered within each kind in the order sent, then checked."""
+    levels: list[Level] = []
+    counts: dict[TargetKind, int] = {}
+    for item in raw:
+        kind = TargetKind(item["kind"])
+        counts[kind] = counts.get(kind, 0) + 1
+        levels.append(
+            Level(
+                kind=kind,
+                position=counts[kind],
+                anchor=Anchor(item.get("anchor") or Anchor.DUE),
+                offset_seconds=int(item.get("offset_seconds") or 0),
+                recipients=_who(item.get("recipients") or ()),
+                fallback=_who(item.get("fallback") or ()),
+                actions=tuple(
+                    Action(
+                        ActionKind(a["kind"]),
+                        str(a["target_id"]) if a.get("target_id") is not None else None,
+                        (a.get("text") or "").strip() or None,
+                    )
+                    for a in item.get("actions") or ()
+                ),
+                notify=bool(item.get("notify", True)),
+            )
+        )
+    for name, code, params in level_problems(levels):
+        errors.append(_field(name, code, **params))
+    await _level_references(session, levels, errors)
+    return levels
+
+
+def _references(levels: Sequence[Level]) -> tuple[set[str], set[str]]:
+    """The people and groups the levels name (as recipients or reassign targets)."""
+    people: set[str] = set()
+    groups: set[str] = set()
+    for level in levels:
+        for who in (*level.recipients, *level.fallback):
+            if who.id and who.kind in {RecipientKind.USER, RecipientKind.GROUP}:
+                (people if who.kind is RecipientKind.USER else groups).add(who.id)
+        for action in level.actions:
+            if action.target_id and action.kind is ActionKind.REASSIGN_PERSON:
+                people.add(action.target_id)
+            if action.target_id and action.kind is ActionKind.REASSIGN_GROUP:
+                groups.add(action.target_id)
+    return people, groups
+
+
+async def _level_references(
+    session: AsyncSession, levels: Sequence[Level], errors: list[FieldError]
+) -> None:
+    """Named people and groups must exist (live) in the tenant."""
+    people, groups = _references(levels)
+    try:
+        group_ids = [uuid.UUID(g) for g in groups]
+        person_ids = [str(uuid.UUID(p)) for p in people]
+    except ValueError:
+        errors.append(_field("levels", "unknown_reference"))
+        return
+    known_people = await user_names(session, person_ids) if person_ids else {}
+    known_groups = await organization.existing_unit_ids(session, "group", group_ids)
+    if set(person_ids) - set(known_people) or set(group_ids) - set(known_groups):
+        errors.append(_field("levels", "unknown_reference"))
+
+
+async def _replace_levels(
+    session: AsyncSession, policy_id: uuid.UUID, levels: Sequence[Level]
+) -> None:
+    await session.execute(
+        delete(SlaEscalationLevel).where(SlaEscalationLevel.policy_id == policy_id)
+    )
+    context = session.info[SESSION_TENANT_KEY]
+    for level in levels:
+        session.add(
+            SlaEscalationLevel(
+                id=new_id(),
+                tenant_id=context.tenant_id,
+                policy_id=policy_id,
+                kind=level.kind.value,
+                position=level.position,
+                anchor=level.anchor.value,
+                offset_seconds=level.offset_seconds,
+                recipients=[r.as_json() for r in level.recipients],
+                fallback=[r.as_json() for r in level.fallback],
+                actions=[a.as_json() for a in level.actions],
+                notify=level.notify,
+            )
+        )
+    await session.flush()
+
+
 def _target_snapshot(rows: Sequence[TargetRow]) -> list[dict[str, Any]]:
     return [
         {
@@ -353,7 +510,9 @@ def _target_snapshot(rows: Sequence[TargetRow]) -> list[dict[str, Any]]:
     ]
 
 
-def _snapshot(row: SlaPolicy, rows: Sequence[TargetRow]) -> dict[str, Any]:
+def _snapshot(
+    row: SlaPolicy, rows: Sequence[TargetRow], levels: Sequence[Level] = ()
+) -> dict[str, Any]:
     return {
         "name": row.name,
         "labels": dict(row.labels),
@@ -362,6 +521,7 @@ def _snapshot(row: SlaPolicy, rows: Sequence[TargetRow]) -> dict[str, Any]:
         "enabled": row.enabled,
         "pausing": sorted(row.pausing),
         "targets": _target_snapshot(rows),
+        "levels": [level.as_json() for level in levels],
     }
 
 
@@ -387,6 +547,7 @@ async def create_policy(
     conditions = _conditions(values.get("conditions"), rtype, errors)
     pausing = _pausing(values.get("pausing", [k.value for k in TargetKind]), errors)
     rows = await _targets(session, values.get("targets") or [], rtype, errors)
+    levels = await _levels(session, values.get("levels") or [], errors)
     if errors:
         raise ValidationFailed(errors=errors)
     position = await session.scalar(
@@ -413,13 +574,14 @@ async def create_policy(
     except IntegrityError:
         raise ValidationFailed(errors=[_field("name", "name_taken")]) from None
     await _replace_targets(session, row.id, rows)
+    await _replace_levels(session, row.id, levels)
     await record_changes(
         session,
         record_type=RECORD_TYPE,
         record_id=row.id,
         version=row.version,
         kind="created",
-        changes=[Change(k, None, v) for k, v in _snapshot(row, rows).items()],
+        changes=[Change(k, None, v) for k, v in _snapshot(row, rows, levels).items()],
         source=source,
     )
     await record_event(
@@ -431,7 +593,7 @@ async def create_policy(
     return await get_policy(session, subject, row.id)
 
 
-async def update_policy(  # noqa: C901, PLR0912, PLR0913 - one rule per field, flat
+async def update_policy(  # noqa: C901, PLR0912, PLR0913, PLR0915 - one rule per field, flat
     session: AsyncSession,
     subject: Subject,
     policy_id: uuid.UUID,
@@ -445,7 +607,8 @@ async def update_policy(  # noqa: C901, PLR0912, PLR0913 - one rule per field, f
     row = await _row(session, policy_id)
     rtype = _type(row.record_type)
     current = target_rows((await targets_of(session, [row.id]))[row.id])
-    before = _snapshot(row, current)
+    current_levels = (await levels_of(session, [row.id]))[row.id]
+    before = _snapshot(row, current, current_levels)
     errors: list[FieldError] = []
     columns: dict[str, Any] = {}
     if "name" in values:
@@ -468,11 +631,15 @@ async def update_policy(  # noqa: C901, PLR0912, PLR0913 - one rule per field, f
     rows = current
     if "targets" in values:
         rows = await _targets(session, values["targets"] or [], rtype, errors)
+    levels = current_levels
+    if "levels" in values:
+        levels = await _levels(session, values["levels"] or [], errors)
     if errors:
         raise ValidationFailed(errors=errors)
     columns = {k: v for k, v in columns.items() if getattr(row, k) != v}
     targets_changed = _target_snapshot(rows) != before["targets"]
-    if not columns and not targets_changed:
+    levels_changed = [level.as_json() for level in levels] != before["levels"]
+    if not columns and not targets_changed and not levels_changed:
         return await get_policy(session, subject, row.id)
     try:
         async with session.begin_nested():
@@ -491,7 +658,9 @@ async def update_policy(  # noqa: C901, PLR0912, PLR0913 - one rule per field, f
         raise ValidationFailed(errors=[_field("name", "name_taken")]) from None
     if targets_changed:
         await _replace_targets(session, row.id, rows)
-    after = _snapshot(updated, rows)
+    if levels_changed:
+        await _replace_levels(session, row.id, levels)
+    after = _snapshot(updated, rows, levels)
     changes = [Change(k, before[k], after[k]) for k in after if before[k] != after[k]]
     await record_changes(
         session,
