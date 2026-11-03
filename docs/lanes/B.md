@@ -9,7 +9,7 @@ Identity, mail, notifications, CI
 
 ## Current WP
 
-Generated files out of git and a file per lane (D-127, this PR); then WP-040 session 2's rest: AD/LDAP through Keycloak federation (D-118) and the connector defaults screen. WP-040 merged so far: #150 (framework, service identities), #168 (Entra sync, leavers). Nightly Cluster rerun in progress, triage when it ends. Queue: QA round, WP-013, WP-014b, WP-014c, WP-037 AI gateway, WP-038 AI on incidents (plan to the coordinator first; lane A reviews the incident-screen parts).
+WP-014b session 1, the HA profile (#189, draft; ADR-038). Open alongside: WP-040 AD/LDAP (#175, draft, D-130) and connector defaults (#185, queued, D-041). Queue after WP-014b: QA round, WP-013 (licence core, private repo: Haider), WP-014c. WP-037/038 are lane C's; lane B reviews their security parts.
 
 ## Branch
 
@@ -17,7 +17,7 @@ Generated files out of git and a file per lane (D-127, this PR); then WP-040 ses
 
 ## Worktree
 
-`../supportx-v2-gen`; `../supportx-v2-entra`
+`../supportx-v2-gen`; `../supportx-v2-ha`, `../supportx-v2-entra`, `../supportx-v2-defaults`
 
 ## Claimed migration
 
