@@ -760,7 +760,7 @@ it with no reload (rule c). Not built yet.
   in session 3 (`app/shared/action_links`, a port for notifications and work_items) under lane
   B's security review; their five conditions are in the plan.
 
-### [ ] WP-028 — Portal: shell, sign-in and requester incidents (lane A, started 2026-11-03; 2 sessions)
+### [x] WP-028 — Portal: shell, sign-in and requester incidents (lane A, 2026-11-03/04; 2 sessions; #178)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
   **D2 (wider requester reach) is with the product owner:** built meanwhile as two work_items
   permissions (`requests.view_department`, `requests.view_reports`; site and all from
@@ -775,11 +775,12 @@ it with no reload (rule c). Not built yet.
   (`RecordContext.public_link`, lane B approved); BFF sends a requester signing in on the console
   to the portal and sessions carry the stored type (D-029; lane B approved); contact details
   setting `people_edit_contact` (migration 0058, lane B approved).
-- [ ] Session 2 (portal UI, #178): done: My requests (filters, search, show more, live), one
+- [x] Session 2 (portal UI, #178): done: My requests (filters, search, show more, live), one
   request (fix, conversation, reply, files, camera, live), Report an issue (files, camera),
   contact details card (both apps) and the Admin > Security toggle, manifest start_url/scope,
-  console guard. **Still to do:** run roles.spec and the portal e2e (en/ar at 360x740 with axe)
-  when the shared stack is free; D5 due time after #172; merge main (#159) and re-point 0058 onto main's head 0051 (or lane B's 0055 / #172's 0054, whichever lands first).
+  console guard; D5 expected resolution time behind `portal_show_due_time` (off by default).
+  E2E (portal.spec en/ar at 360x740 with axe, roles.spec under D-129) runs in #178's full-ci
+  run; 0058 revises #172's 0054.
 - **Paused 2026-11-04 (Haider).** Resume point: merge main into feat/wp-028, re-point 0058, then the e2e users and specs above.
 - **D-129 (product owner, 2026-11-04)** replaces the earlier AC1 reading: any role but
   `requester` opens the console (with a Requester portal link); requester-only people always get
