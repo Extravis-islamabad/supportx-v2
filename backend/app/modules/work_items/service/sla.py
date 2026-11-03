@@ -57,17 +57,22 @@ CONDITION_FIELDS = ResourceFields(
 
 
 def register_sla() -> None:
-    """Incidents have SLAs (called at import; idempotent)."""
-    sla.register_record_type(
-        sla.SlaRecordType(
-            code=WorkItemTypeCode.INCIDENT.value,
-            fields=CONDITION_FIELDS,
-            priorities=tuple(p.value for p in Priority),
-            lock_record=lock_record,
-            on_fired=_on_fired,
-            run_actions=_run_actions,
+    """Incidents and service requests have SLAs (called at import; idempotent).
+
+    Service requests (WP-030) take the same policies, conditions and firing; the item's own SLA
+    and the clock waiting for approval (REQ-SR-006, -007) come with the approval engine.
+    """
+    for code in (WorkItemTypeCode.INCIDENT, WorkItemTypeCode.SERVICE_REQUEST):
+        sla.register_record_type(
+            sla.SlaRecordType(
+                code=code.value,
+                fields=CONDITION_FIELDS,
+                priorities=tuple(p.value for p in Priority),
+                lock_record=lock_record,
+                on_fired=_on_fired,
+                run_actions=_run_actions,
+            )
         )
-    )
 
 
 async def lock_record(session: AsyncSession, record_id: uuid.UUID) -> None:
