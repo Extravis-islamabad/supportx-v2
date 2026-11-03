@@ -5483,6 +5483,13 @@ export const en = {
   'permission.requests.assign_outside_group.description':
     'Assign a technician who is not a member of the chosen group to a service request.',
   'priority_source.catalog_item': 'From the catalog item',
+  'approval_status.not_needed': 'No approval needed',
+  'approval_status.pending': 'Awaiting approval',
+  'approval_status.approved': 'Approved',
+  'approval_status.rejected': 'Rejected',
+  'approval_status.withdrawn': 'Withdrawn',
+  'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
+  'custom_field_entity.service_request': 'Service requests',
 } as const;
 
 export type LabelKey = keyof typeof en;

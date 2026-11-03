@@ -5088,4 +5088,11 @@ export const ur: LabelResource = {
   'permission.requests.assign_outside_group.description':
     'ایسے ٹیکنیشن کو سروس درخواست تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'priority_source.catalog_item': 'کیٹلاگ آئٹم سے',
+  'approval_status.not_needed': 'منظوری درکار نہیں',
+  'approval_status.pending': 'منظوری کا منتظر',
+  'approval_status.approved': 'منظور',
+  'approval_status.rejected': 'مسترد',
+  'approval_status.withdrawn': 'واپس لی گئی',
+  'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
+  'custom_field_entity.service_request': 'سروس درخواستیں',
 };

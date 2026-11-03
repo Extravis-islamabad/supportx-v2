@@ -1,4 +1,4 @@
-"""Service catalog tables (migration 0060; WP-030 s1, plan D2)."""
+"""Service catalog tables (migration 0062; WP-030 s1, plan D2)."""
 
 import uuid
 from typing import Any

@@ -6,7 +6,7 @@ item's form questions, approval stage and fulfilment plan are JSONB checked by t
 foreign keys to the category, the SLA policy, the support group and the default technician.
 Expand only, no data step; the downgrade drops both tables.
 
-Revision ID: 0060
+Revision ID: 0062
 Revises: 0059
 Created: 2026-11-04
 """
@@ -20,7 +20,7 @@ from sqlalchemy.dialects import postgresql
 
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
-revision: str = "0060"
+revision: str = "0062"
 down_revision: str | None = "0059"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

@@ -113,8 +113,7 @@ INCIDENT = WorkItemType(
 )
 
 # WP-030 (REQ-SR-001..004): its own SR counter, life cycle and permissions (`requests.*`, the
-# names identity reserved for it). Its permissions are registered now; it joins TYPES (routes,
-# lists, seeding) when creating one from a catalog item works end to end.
+# names identity reserved for it). A new one always comes from a catalog item (REQ-SR-001).
 SERVICE_REQUEST = WorkItemType(
     code=WorkItemTypeCode.SERVICE_REQUEST,
     path="service-requests",
@@ -126,7 +125,10 @@ SERVICE_REQUEST = WorkItemType(
     fields=COMMON_FIELDS,
 )
 
-TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {INCIDENT.code: INCIDENT}
+TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {
+    INCIDENT.code: INCIDENT,
+    SERVICE_REQUEST.code: SERVICE_REQUEST,
+}
 # Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
 PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST)
 

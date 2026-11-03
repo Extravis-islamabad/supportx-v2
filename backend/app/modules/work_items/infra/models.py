@@ -390,7 +390,7 @@ class WorkItem(TenantEntity):
             "priority_source IN ('matrix', 'manual', 'default', 'rule', 'catalog_item')",
             name="priority_source_code",
         ),
-        # Service requests (WP-030, migration 0061): the item, its answers, the approval status.
+        # Service requests (WP-030, migration 0063): the item, its answers, the approval status.
         CheckConstraint(
             "approval_status IS NULL OR approval_status IN "
             "('not_needed', 'pending', 'approved', 'rejected', 'withdrawn')",
@@ -584,7 +584,7 @@ class WorkItem(TenantEntity):
     # Their free text (text, long text, email, phone, web address), kept on every save for
     # search: a generated column cannot tell free text from choice codes (D-087).
     custom_text: Mapped[str | None] = mapped_column(Text)
-    priority_source: Mapped[str] = mapped_column(String(10))
+    priority_source: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(40))
     status_category: Mapped[str] = mapped_column(String(10))
     status_reason_code: Mapped[str | None] = mapped_column(String(40))

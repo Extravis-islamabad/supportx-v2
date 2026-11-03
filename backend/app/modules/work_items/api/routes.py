@@ -44,6 +44,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
@@ -113,6 +114,12 @@ class WorkItemIn(BaseModel):
     level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
+    )
+    catalog_item_id: uuid.UUID | None = Field(
+        default=None, description="Service requests only, and required there (REQ-SR-001)."
+    )
+    answers: dict[str, Any] | None = Field(
+        default=None, description="Service requests: the item form's answers by question key."
     )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom field values by key (GET /custom-fields?entity=...)."
@@ -444,6 +451,15 @@ class WorkItemOut(BaseModel):
     priority_source: PrioritySource
     level: str | None = Field(description="A `level` list code (may be a retired one).")
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
+    catalog_item_id: uuid.UUID | None = Field(
+        default=None, description="Service requests: the item it was raised from."
+    )
+    answers: dict[str, Any] = Field(
+        default_factory=dict, description="Service requests: the item form's answers."
+    )
+    approval_status: ApprovalStatus | None = Field(
+        default=None, description="Service requests: not needed, pending, approved ..."
+    )
     custom: dict[str, Any] = Field(description="Custom field values by key (WP-026).")
     status: str
     status_category: StatusCategory
@@ -517,6 +533,9 @@ class WorkItemOut(BaseModel):
 
 
 _RECORD_FIELDS = (
+    "catalog_item_id",
+    "answers",
+    "approval_status",
     "id",
     "type",
     "display_id",
@@ -1097,6 +1116,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     Query_ = Annotated[ListQuery, Depends(list_dependency(wtype))]  # noqa: N806 - type alias
     location = f"/api/v1/{wtype.path}"
     name = wtype.code.replace("_", " ")
+    audit = wtype.code.value  # audit codes: "incident.deleted", "service_request.deleted"
 
     async def _page(
         session: Any,  # noqa: ANN401 - TenantSession (an AsyncSession) from the route
@@ -1237,7 +1257,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         response: Response,
         request: Request,
         note: Annotated[
-            AuditNote, audited(f"{name}.settings_changed", object_type=f"{name}_settings")
+            AuditNote, audited(f"{audit}.settings_changed", object_type=f"{audit}_settings")
         ],
     ) -> WorkItemCatalogueOut:
         """Prefix, default priority and the automatic status moves on assignment."""
@@ -1268,7 +1288,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         response: Response,
         request: Request,
         note: Annotated[
-            AuditNote, audited(f"{name}.settings_changed", object_type=f"{name}_settings")
+            AuditNote, audited(f"{audit}.settings_changed", object_type=f"{audit}_settings")
         ],
     ) -> WorkItemCatalogueOut:
         """Closure rules, open work, auto-close (needs a channel that tells requesters), reopen."""
@@ -1301,7 +1321,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         subject: Admin,
         request: Request,
         note: Annotated[
-            AuditNote, audited(f"{name}.category_created", object_type=f"{name}_category")
+            AuditNote, audited(f"{audit}.category_created", object_type=f"{audit}_category")
         ],
     ) -> WorkItemCategoryOut:
         """A new node (at most three levels)."""
@@ -1330,8 +1350,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         note: Annotated[
             AuditNote,
             audited(
-                f"{name}.category_changed",
-                object_type=f"{name}_category",
+                f"{audit}.category_changed",
+                object_type=f"{audit}_category",
                 object_param="category_id",
             ),
         ],
@@ -1550,7 +1570,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         summary="Set or clear a due date by hand",
         responses=CONFLICT,
         dependencies=[
-            audited(f"{name}.due_date_changed", object_type=name, object_param="record_id")
+            audited(f"{audit}.due_date_changed", object_type=audit, object_param="record_id")
         ],
     )
     async def set_due_date(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -1583,7 +1603,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         summary="Move to the trash",
         status_code=status.HTTP_204_NO_CONTENT,
         responses=CONFLICT,
-        dependencies=[audited(f"{name}.deleted", object_type=name, object_param="record_id")],
+        dependencies=[audited(f"{audit}.deleted", object_type=audit, object_param="record_id")],
     )
     async def delete(
         record_id: uuid.UUID,
@@ -1602,7 +1622,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         "/{record_id}/restore",
         summary="Restore from the trash",
         responses=CONFLICT,
-        dependencies=[audited(f"{name}.restored", object_type=name, object_param="record_id")],
+        dependencies=[audited(f"{audit}.restored", object_type=audit, object_param="record_id")],
     )
     async def restore(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,

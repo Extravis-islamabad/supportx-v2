@@ -5564,4 +5564,11 @@ export const ar: LabelResource = {
   'permission.requests.assign_outside_group.description':
     'إسناد فني ليس عضوًا في المجموعة المختارة إلى طلب خدمة.',
   'priority_source.catalog_item': 'من عنصر الكتالوج',
+  'approval_status.not_needed': 'لا يحتاج إلى موافقة',
+  'approval_status.pending': 'بانتظار الموافقة',
+  'approval_status.approved': 'تمت الموافقة',
+  'approval_status.rejected': 'مرفوض',
+  'approval_status.withdrawn': 'مسحوب',
+  'errors.field.catalog_item_not_found': 'اختر عنصرًا من الكتالوج متاحًا لك.',
+  'custom_field_entity.service_request': 'طلبات الخدمة',
 };

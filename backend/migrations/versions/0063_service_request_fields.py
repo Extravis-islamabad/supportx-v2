@@ -6,13 +6,16 @@ Expand only, no data step (no service request exists yet):
 - work_items.answers: the item form's answers (JSONB object; checked against the item).
 - work_items.approval_status: not_needed | pending | approved | rejected | withdrawn (NULL on
   incidents).
-- priority_source also accepts `catalog_item` (REQ-SR-005 AC1: the item set it).
+- custom fields may be defined for service requests (custom_fields.entity accepts
+  `service_request`).
+- priority_source also accepts `catalog_item` (REQ-SR-005 AC1: the item set it), and widens
+  from 10 to 20 characters to hold it.
 
 The downgrade drops the three columns and the extra priority source (it refuses while a record
 still has it, keeping data intact).
 
-Revision ID: 0061
-Revises: 0060
+Revision ID: 0063
+Revises: 0062
 Created: 2026-11-04
 """
 
@@ -22,8 +25,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "0061"
-down_revision: str | None = "0060"
+revision: str = "0063"
+down_revision: str | None = "0062"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -31,6 +34,7 @@ APPROVAL = ("not_needed", "pending", "approved", "rejected", "withdrawn")
 SOURCES_BEFORE = ("matrix", "manual", "default", "rule")
 SOURCES_AFTER = (*SOURCES_BEFORE, "catalog_item")
 SOURCE_CHECK = "ck_work_items_priority_source_code"
+ENTITY_CHECK = "ck_custom_fields_entity_code"
 
 
 def _in(column: str, codes: Sequence[str]) -> str:
@@ -68,16 +72,36 @@ def upgrade() -> None:
         postgresql_where=sa.text("catalog_item_id IS NOT NULL"),
     )
     op.drop_constraint(op.f(SOURCE_CHECK), "work_items", type_="check")
+    op.alter_column(
+        "work_items",
+        "priority_source",
+        type_=sa.String(length=20),
+        existing_type=sa.String(length=10),
+        existing_nullable=False,
+    )
     op.create_check_constraint(
         op.f(SOURCE_CHECK), "work_items", _in("priority_source", SOURCES_AFTER)
+    )
+    op.drop_constraint(op.f(ENTITY_CHECK), "custom_fields", type_="check")
+    op.create_check_constraint(
+        op.f(ENTITY_CHECK), "custom_fields", _in("entity", ("incident", "service_request"))
     )
 
 
 def downgrade() -> None:
     """Back to incidents' fields only."""
+    op.drop_constraint(op.f(ENTITY_CHECK), "custom_fields", type_="check")
+    op.create_check_constraint(op.f(ENTITY_CHECK), "custom_fields", _in("entity", ("incident",)))
     op.drop_constraint(op.f(SOURCE_CHECK), "work_items", type_="check")
     op.create_check_constraint(
         op.f(SOURCE_CHECK), "work_items", _in("priority_source", SOURCES_BEFORE)
+    )
+    op.alter_column(
+        "work_items",
+        "priority_source",
+        type_=sa.String(length=10),
+        existing_type=sa.String(length=20),
+        existing_nullable=False,
     )
     op.drop_index("ix_wi_tenant_catalog_item", table_name="work_items")
     op.drop_constraint(op.f("ck_work_items_answers_object"), "work_items", type_="check")
