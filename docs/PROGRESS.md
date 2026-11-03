@@ -764,10 +764,14 @@ it with no reload (rule c). Not built yet.
   when needed, item priority marked `catalog_item`, group and technician from the item,
   technician after approval; migration 0063 also widens priority_source and
   custom_fields.entity); SLA record type. Tests: domain (life cycle 4, start 4, items 5), db
-  (catalog 5, service requests 5, requests.* pins 4). **Still to do:** lists and built-in views
-  (REQ-SR-009), raising from the catalog in the console (REQ-SR-010), on behalf of with the
-  tenant's scope (REQ-SR-011), the record page's item section (REQ-SR-003 AC1), labels into
-  module files after #181.
+  (catalog 5, service requests 7, requests.* pins 4). Then: list filters by item and approval
+  status (REQ-SR-009); the console's service requests (list, raise from the catalog, one
+  request's item details; REQ-SR-010, REQ-SR-003 AC1; Vitest 3); on behalf of within the
+  tenant's scope `on_behalf_scope` (REQ-SR-011, migration 0064; never a deactivated person,
+  "any requester" can sign in; lane B approved); labels in module files (#181). **Still to do:**
+  the service request built-in views (pending approval, awaiting fulfilment, raised by my
+  direct reports; REQ-SR-009), the console setting for the on-behalf scope, the portal's "for
+  someone else". Migrations: 0059, 0062, 0063, 0064 (coordinator).
 - [ ] Session 2: the approval engine, the console approvals drawer, the portal approve/reject,
   live progress, withdraw, the SLA waiting for approval and the item's SLA.
 - [ ] Session 3: signed action links and e-mail approvals, fulfilment, requester views, e2e.
