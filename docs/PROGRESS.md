@@ -749,6 +749,26 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
+### [ ] WP-028 — Portal: shell, sign-in and requester incidents (lane A, started 2026-11-03; 2 sessions)
+- **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
+  **D2 (wider requester reach) is with the product owner:** built meanwhile as two work_items
+  permissions (`requests.view_department`, `requests.view_reports`; site and all from
+  `requests.view`'s scope) behind the one scope check `service/portal.py: viewer()`, so moving it
+  to identity's policy touches only that function. Note for D2: `permission.requests.*` is
+  labelled "service requests" today, while the portal reads it as "my requests" (incidents and
+  service requests together, REQ-PRT-007).
+- [ ] Session 1 (backend, draft #178): `domain/portal.py` (plain status, field allow-list, reach)
+  done; `GET /api/v1/portal/incidents` and `/{id}` done (8 db tests); still to come: create,
+  reply and files, confirm/reject through the portal, the requester live channel
+  `t:{tenant}:portal:wi:{id}` (public entries only, D4), tenant settings `portal_show_due_time`
+  (D5, after #172) and `requesters_edit_profile` (D9).
+- [ ] Session 2 (portal UI): My requests, the record, Report an issue, profile, sign-in hops (D8),
+  web manifest (D10); e2e en/ar at 360x740 with axe.
+- **Moved out (coordinator, 2026-11-03):** admin "preview the portal as a requester"
+  (REQ-INC-147 AC4) to WP-032; knowledge suggestions while typing (REQ-INC-028) to WP-034, the
+  form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
+  (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
+
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
 - [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
