@@ -12,7 +12,7 @@ import uuid
 import asyncpg
 
 from app.core.tenancy import TenantContext
-from app.modules.organization import add_member
+from app.modules.organization import SYSTEM_PATH, add_member
 from tests.db.test_access_api import World, problem, world  # noqa: F401 - the fixture, reused
 
 
@@ -136,7 +136,7 @@ async def test_a_sync_made_membership_change_refreshes_access_like_any_other(wor
     a = world.a
     group = await _group(world, "Synced")
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
-        assert await add_member(session, "group", group, a.tech)
+        assert await add_member(session, "group", group, a.tech, by=SYSTEM_PATH)
     conn = await asyncpg.connect(world.db.admin_url)
     try:
         found = await conn.fetchval(

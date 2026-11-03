@@ -40,8 +40,10 @@ export function IncidentSettingsPage() {
   const { can } = useAccess();
   const navigate = useNavigate();
   const { section } = useParams();
-  const catalogue = useIncidentCatalogue(can('settings.manage'));
-  if (!can('settings.manage')) return <NoAccess titleKey="nav.admin_incidents" />;
+  // The service desk's configure right (WP-042), or settings.manage for every area.
+  const allowed = can('config.service_desk') || can('settings.manage');
+  const catalogue = useIncidentCatalogue(allowed);
+  if (!allowed) return <NoAccess titleKey="nav.admin_incidents" />;
   if (section === undefined || !(SECTIONS as readonly string[]).includes(section)) {
     return <Navigate to="/admin/incidents/general" replace />;
   }

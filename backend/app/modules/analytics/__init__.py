@@ -76,6 +76,7 @@ PERMISSIONS = (
     ),
     PermissionSpec(dashboards.SHARE, None, ("all",), defaults=(("service_desk_manager", "all"),)),
     PermissionSpec(dashboards.MANAGE_DEFAULTS, None, ("all",)),
+    PermissionSpec("config.reports", None, ("all",)),
 )
 
 

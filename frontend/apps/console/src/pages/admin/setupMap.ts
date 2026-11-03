@@ -45,7 +45,9 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     key: 'incidents',
     group: 'service_desk',
     labelKey: 'nav.admin_incidents',
-    permission: 'settings.manage',
+    // The service desk's configure right (WP-042), or settings.manage for every area.
+    permission: 'config.service_desk',
+    also: 'settings.manage',
   },
   // Knowledge settings or its article types (D-120): either permission opens the page.
   {

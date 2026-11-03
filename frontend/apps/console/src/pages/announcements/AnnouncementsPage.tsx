@@ -140,7 +140,7 @@ export function AnnouncementsPage() {
           )}
         </Space>
       </Flex>
-      {can('settings.manage') && <FourEyesSetting />}
+      {(can('config.announcements') || can('settings.manage')) && <FourEyesSetting />}
       <Flex gap={12} wrap>
         <Input.Search
           allowClear
@@ -305,7 +305,7 @@ function RestoreButton({ row }: { row: AnnouncementListItem }) {
   );
 }
 
-/** The tenant's four-eyes rule (settings.manage): the author or owner may not publish. */
+/** The tenant's four-eyes rule (config.announcements or settings.manage): the author or owner may not publish. */
 function FourEyesSetting() {
   const t = useLabel();
   const { message } = App.useApp();

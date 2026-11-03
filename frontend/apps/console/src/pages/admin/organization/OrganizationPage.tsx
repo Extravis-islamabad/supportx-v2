@@ -113,7 +113,8 @@ const KINDS: { kind: StructureKind; view: string; manage: string; feature?: 'esm
   { kind: 'departments', view: 'departments.view', manage: 'departments.manage' },
   { kind: 'groups', view: 'groups.view', manage: 'groups.manage' },
   // Desks are for enterprise service management (ESM): shown only with the feature (D-061).
-  { kind: 'desks', view: 'groups.view', manage: 'settings.manage', feature: 'esm' },
+  // Desks: the organisation's configure right (WP-042), or settings.manage for every area.
+  { kind: 'desks', view: 'groups.view', manage: 'config.organisation', feature: 'esm' },
 ];
 
 /** Admin › Organisation (WP-021): sites, departments, support groups and desks. */
@@ -137,7 +138,12 @@ export function OrganizationPage() {
       items={tabs.map((k) => ({
         key: k.kind,
         label: t(`organization.${k.kind}`),
-        children: <UnitsTab kind={k.kind} editable={can(k.manage)} />,
+        children: (
+          <UnitsTab
+            kind={k.kind}
+            editable={can(k.manage) || (k.kind === 'desks' && can('settings.manage'))}
+          />
+        ),
       }))}
     />
   );

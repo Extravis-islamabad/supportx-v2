@@ -757,4 +757,16 @@ export const en = {
   'roles.groups_add': 'Add a group',
   'roles.groups_none': 'No group carries this role.',
   'access.through_groups': 'through {{groups}}',
+  'permission_module.config': 'Configuration',
+  'permission.config.service_desk': 'Configure the service desk',
+  'permission.config.service_desk.description':
+    'Incident levels, categories, templates, reply templates and custom fields.',
+  'permission.config.organisation': 'Configure the organisation',
+  'permission.config.organisation.description': 'Desks and the organisation’s structure settings.',
+  'permission.config.announcements': 'Configure announcements',
+  'permission.config.announcements.description':
+    'Who may publish, and whether a second person must approve.',
+  'permission.config.reports': 'Configure reports',
+  'permission.config.reports.description':
+    'Report settings: week start, export limits and every scheduled report.',
 } as const;

@@ -751,4 +751,16 @@ export const ar: LabelResource = {
   'roles.groups_add': 'إضافة مجموعة',
   'roles.groups_none': 'لا تحمل أي مجموعة هذا الدور.',
   'access.through_groups': 'عبر {{groups}}',
+  'permission_module.config': 'الإعداد',
+  'permission.config.service_desk': 'إعداد مكتب الخدمة',
+  'permission.config.service_desk.description':
+    'مستويات الحوادث وفئاتها وقوالبها وقوالب الردود والحقول المخصصة.',
+  'permission.config.organisation': 'إعداد المؤسسة',
+  'permission.config.organisation.description': 'المكاتب وإعدادات هيكل المؤسسة.',
+  'permission.config.announcements': 'إعداد الإعلانات',
+  'permission.config.announcements.description':
+    'من يمكنه النشر، وما إذا كان يلزم موافقة شخص ثانٍ.',
+  'permission.config.reports': 'إعداد التقارير',
+  'permission.config.reports.description':
+    'إعدادات التقارير: بداية الأسبوع وحدود التصدير وكل التقارير المجدولة.',
 };

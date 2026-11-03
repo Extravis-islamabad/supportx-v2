@@ -621,6 +621,33 @@ async def remove_group_role(
     return removed
 
 
+# The running policy service (set at start-up): the catalogue the grantable check reads.
+_POLICY: list[PolicyService] = []
+
+
+def use_policy(policy: PolicyService | None) -> None:
+    """At start-up (and None at shutdown)."""
+    _POLICY.clear()
+    if policy is not None:
+        _POLICY.append(policy)
+
+
+async def check_group_grantable(
+    session: AsyncSession, subject: Subject, group_id: uuid.UUID
+) -> None:
+    """403 privilege_escalation unless `subject` could give every role the group carries.
+
+    For anything that adds people to a group outside a person's own action, checked when it is
+    set up: a directory mapping a directory group onto a SupportX group (lane B, WP-042).
+    """
+    if not _POLICY:
+        msg = "check_group_grantable before the policy service started"
+        raise RuntimeError(msg)
+    carried = await session.scalars(select(GroupRole.role_id).where(GroupRole.group_id == group_id))
+    for role_id in list(carried):
+        await _assignable(session, _POLICY[0], subject, role_id)
+
+
 def member_guard(
     policy: PolicyService,
 ) -> Callable[[AsyncSession, object, uuid.UUID], Awaitable[None]]:

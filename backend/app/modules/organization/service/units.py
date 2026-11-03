@@ -178,21 +178,26 @@ def unregister_member_guard(guard: MemberGuard) -> None:
         _MEMBER_GUARDS.remove(guard)
 
 
+# Marks a membership change no person makes (directory sync): its group mappings were checked
+# when an admin made them (identity_access.check_group_grantable). Fail closed: callers must say.
+SYSTEM_PATH = object()
+
+
 async def add_member(
     session: AsyncSession,
     kind: Kind,
     unit_id: uuid.UUID,
     user_id: uuid.UUID,
     *,
-    by: object | None = None,
+    by: object,
 ) -> bool:
     """Add a user (idempotent: False if already a member). 404 for an unknown user or unit.
 
-    `by`: the person adding (their subject); the registered guards check them for groups. System
-    paths (directory sync) pass none: their group mappings are checked when made.
+    `by`: the person adding (their subject), checked by the registered guards for groups, or
+    `SYSTEM_PATH` for directory sync, whose group mappings were checked when made.
     """
     await _require_unit(session, kind, unit_id)
-    if kind == "group" and by is not None:
+    if kind == "group" and by is not SYSTEM_PATH:
         for guard in _MEMBER_GUARDS:
             await guard(session, by, unit_id)
     unit = UNITS[kind]

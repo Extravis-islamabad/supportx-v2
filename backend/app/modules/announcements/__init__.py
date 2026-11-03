@@ -34,6 +34,7 @@ PERMISSIONS = (
         defaults=(("technician", "own"), ("service_desk_manager", "all"), ("site_admin", "site")),
     ),
     PermissionSpec(PUBLISH, FEATURE, defaults=(("service_desk_manager", "all"),)),
+    PermissionSpec("config.announcements", FEATURE, defaults=(("service_desk_manager", "all"),)),
 )
 
 module = ModuleSpec(

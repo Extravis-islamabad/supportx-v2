@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { PlusOutlined } from '@ant-design/icons';
 import {
   Button,
@@ -92,6 +93,7 @@ function RolesSection({
   const t = useLabel();
   const { can } = useAccess();
   const roles = useRoles(can('roles.view'));
+  const list = useListFormat();
   const groups = useUnits('groups', throughGroups.length > 0);
   const groupName = new Map((groups.data ?? []).map((g) => [g.id, g.name]));
   const sources = (roleId: string) =>
@@ -129,7 +131,7 @@ function RolesSection({
                   style={{ marginInlineStart: 8, fontSize: 12 }}
                   data-testid={`role-through-${role.key}`}
                 >
-                  {t('access.through_groups', { groups: sources(role.id).join(', ') })}
+                  {t('access.through_groups', { groups: list(sources(role.id)) })}
                 </Typography.Text>
               )}
             </Checkbox>

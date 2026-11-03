@@ -203,11 +203,10 @@ async def create_directory(
     settings: AppSettings,
 ) -> Response:
     """Send an Idempotency-Key: a retried request returns the same 201. Syncs within a minute."""
-    del subject
 
     async def run() -> Created:
         view = await service.create_directory(
-            session, settings, _values(body), credential=body.credential
+            session, settings, _values(body), credential=body.credential, by=subject
         )
         out = DirectoryOut.of(view)
         return Created(body=out, headers={"ETag": f'"{out.version}"'})
@@ -233,7 +232,6 @@ async def update_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     settings: AppSettings,
 ) -> DirectoryOut:
     """If-Match: the version you read. Changing who is synced reads everyone again next run."""
-    del subject
     view = await service.update_directory(
         session,
         settings,
@@ -241,6 +239,7 @@ async def update_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         _values(body),
         expected_version=version,
         credential=body.credential,
+        by=subject,
     )
     set_etag(response, view.row.version)
     return DirectoryOut.of(view)

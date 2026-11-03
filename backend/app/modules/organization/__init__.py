@@ -65,6 +65,7 @@ from app.modules.organization.service.structure import (
 )
 from app.modules.organization.service.tenants import get_current_tenant
 from app.modules.organization.service.units import (
+    SYSTEM_PATH,
     Memberships,
     active_groups,
     add_member,
@@ -90,6 +91,8 @@ PERMISSIONS = (
     ),
     PermissionSpec("departments.manage"),
     PermissionSpec("settings.manage"),
+    # Per-area configure rights (WP-042, REQ-ADM-019); settings.manage grants every area.
+    PermissionSpec("config.organisation"),
     PermissionSpec("branding.manage"),
 )
 
@@ -132,6 +135,7 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "SYSTEM_PATH",
     "BrandingView",
     "CalendarUsers",
     "EmailBranding",

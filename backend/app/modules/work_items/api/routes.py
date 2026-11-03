@@ -1090,7 +1090,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     Take = Annotated[Subject, Depends(require_permission(perm("take")))]  # noqa: N806 - type alias
     DueDates = Annotated[Subject, Depends(require_permission(perm("edit_due_dates")))]  # noqa: N806 - type alias
     Delete = Annotated[Subject, Depends(require_permission(perm("delete")))]  # noqa: N806 - type alias
-    Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]  # noqa: N806 - type alias
+    Admin = Annotated[  # noqa: N806 - type alias
+        Subject, Depends(require_permission("config.service_desk", "settings.manage"))
+    ]
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
     # The record's own requester (no console permission): the service checks it is theirs.
     SignedIn = Annotated[Subject, Depends(require_signed_in())]  # noqa: N806 - type alias

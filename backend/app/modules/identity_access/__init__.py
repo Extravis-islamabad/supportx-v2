@@ -101,9 +101,11 @@ from app.modules.identity_access.service.policy import (
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
 from app.modules.identity_access.service.roles import (
     RoleName,
+    check_group_grantable,
     guard_group_disable,
     member_guard,
     role_names,
+    use_policy,
 )
 from app.modules.identity_access.service.service_identities import (
     create_service_identity,
@@ -237,6 +239,7 @@ def _start_policy(app: FastAPI, settings: "Settings") -> None:
     setattr(app.state, AUTHORIZER_STATE, policy)
     register_access_invalidator(policy.invalidate)
     # Adding a member to a group carrying roles needs those roles' rights (WP-042).
+    use_policy(policy)
     app.state.member_guard = member_guard(policy)
     register_member_guard(app.state.member_guard)
     register_group_disable_guard(guard_group_disable)
@@ -298,6 +301,7 @@ async def _shutdown(app: FastAPI) -> None:
     if guard is not None:
         unregister_member_guard(guard)
     unregister_group_disable_guard(guard_group_disable)
+    use_policy(None)
     policy_client = getattr(app.state, "policy_client", None)
     if policy_client is not None:
         await policy_client.aclose()
@@ -369,6 +373,7 @@ __all__ = [
     "UserType",
     "authorize",
     "authorize_stored",
+    "check_group_grantable",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",

@@ -607,4 +607,16 @@ export const ur: LabelResource = {
   'roles.groups_add': 'گروپ شامل کریں',
   'roles.groups_none': 'کوئی گروپ یہ کردار نہیں رکھتا۔',
   'access.through_groups': '{{groups}} کے ذریعے',
+  'permission_module.config': 'ترتیب',
+  'permission.config.service_desk': 'سروس ڈیسک ترتیب دیں',
+  'permission.config.service_desk.description':
+    'واقعات کے لیول، زمرے، سانچے، جواب کے سانچے اور حسب ضرورت فیلڈز۔',
+  'permission.config.organisation': 'ادارہ ترتیب دیں',
+  'permission.config.organisation.description': 'ڈیسک اور ادارے کے ڈھانچے کی ترتیبات۔',
+  'permission.config.announcements': 'اعلانات ترتیب دیں',
+  'permission.config.announcements.description':
+    'کون شائع کر سکتا ہے، اور کیا دوسرے شخص کی منظوری ضروری ہے۔',
+  'permission.config.reports': 'رپورٹس ترتیب دیں',
+  'permission.config.reports.description':
+    'رپورٹ کی ترتیبات: ہفتے کا آغاز، برآمد کی حدیں اور ہر شیڈول شدہ رپورٹ۔',
 };
