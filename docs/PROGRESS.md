@@ -753,11 +753,11 @@ it with no reload (rule c). Not built yet.
 - **Plan:** ~/Desktop/wp-030-plan.md (sent to the coordinator 2026-11-04). Builds after #178.
 - **Parked for the product owner (built meanwhile as the defaults):** D3 edition line (file 02
   question 1): catalog basics with `service_request` (Essentials), the advanced parts with
-  `catalog` (Professional); D7 e-mail approvals without sign-in by default (file 02 question 3):
-  one-time, bound, expiring links with a confirmation page, and a tenant setting to require
-  sign-in.
-- **Cross-lane:** signed action links (REQ-NTF-024, WP-023 s2) are needed for e-mail approvals;
-  asked lane B whether they build them or lane A does in session 3 under their review.
+  `catalog` (Professional); D7 whether e-mail approvals may skip sign-in (file 02 question 3):
+  interim default (coordinator) is sign-in required; the one-time, bound, expiring no-sign-in
+  link is built behind a tenant setting that stays off until the product owner decides.
+- **Cross-lane:** signed action links (REQ-NTF-024) are lane B's (coordinator); if they can't fit
+  them before session 3, lane A builds them there on app/shared/mail under lane B's review.
 
 ### [ ] WP-028 — Portal: shell, sign-in and requester incidents (lane A, started 2026-11-03; 2 sessions)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
