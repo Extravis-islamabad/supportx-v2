@@ -286,7 +286,9 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
             )
         # First login since WP-016: Keycloak roles become SupportX role assignments, once (D-029).
         mapped = await map_identity_roles(session, user_id, identity.roles, now)
-        stored_type = str(await session.scalar(select(User.user_type).where(User.id == user_id)))
+        stored_type = str(
+            (await session.execute(select(User.user_type).where(User.id == user_id))).scalar_one()
+        )
     if mapped and on_roles_mapped is not None:
         # Committed: drop any compiled permissions cached from before (the events do it too,
         # but the browser asks for /auth/me immediately after this login).
