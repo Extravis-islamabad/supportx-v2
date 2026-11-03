@@ -189,6 +189,11 @@ class Settings(BaseSettings):
     index_worker_interval_seconds: float = Field(default=30.0, ge=1, le=600)
     index_lock_timeout_seconds: int = Field(default=60, ge=1, le=3600)
     index_build_timeout_seconds: int = Field(default=7200, ge=60, le=86400)
+    # SLA clocks on Temporal (WP-025 session 3, ADR-037): the waker. None: no Temporal here; the
+    # sla safety net still fires everything, up to two minutes late (D-115 D5).
+    temporal_address: str | None = None  # host:port of the Temporal frontend
+    temporal_namespace: str = "supportx"
+    temporal_task_queue: str = "sla"
     consumer_backoff_initial_seconds: float = Field(default=1.0, gt=0)
     consumer_backoff_max_seconds: float = Field(default=60.0, gt=0)
     consumer_ack_wait_seconds: float = Field(default=30.0, ge=1)

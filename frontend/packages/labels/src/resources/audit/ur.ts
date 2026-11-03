@@ -500,4 +500,8 @@ export const ur: LabelResource = {
   'event_type.identity_access.group_role.changed': 'گروپ کے کردار بدلے',
   'audit.action.role.group_added': 'گروپ کو کردار دیا',
   'audit.action.role.group_removed': 'گروپ سے کردار لیا',
+  'event_type.sla.target.warning': 'ایس ایل اے کی انتباہی حد آ گئی',
+  'event_type.sla.target.breached': 'ایس ایل اے ہدف میں تاخیر',
+  'event_type.sla.target.escalated': 'ایس ایل اے ایسکلیشن کا درجہ چلا',
+  'history.sla_escalation': '{{target}}: درجہ {{level}} چلا',
 };

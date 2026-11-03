@@ -285,6 +285,32 @@ class Calendar:
             total += min(end, b) - begin
         return total // _ONE_SECOND
 
+    def add_working_days(self, start: datetime, days: int) -> datetime:
+        """The same local time on the `days`-th working day after `start`'s (UTC).
+
+        A working day has working time on this calendar (its week, date-range hours and
+        holidays; a half day counts). Around the clock, every day does. Used for "N business
+        days" rules such as auto-close (WP-020f D4, now on the record's calendar); the time of
+        day is kept, so it never falls before the matching calendar day.
+        """
+        _check_aware(start)
+        if days < 0:
+            msg = "days must not be negative"
+            raise ValueError(msg)
+        if days == 0 or self.counts_everything:
+            return (start + timedelta(days=days)).astimezone(UTC)
+        local = start.astimezone(self.zone)
+        day, left = local.date(), days
+        week = self._by_weekday()
+        for _ in range(HORIZON_DAYS):
+            day += timedelta(days=1)
+            if self.day_intervals(day, week):
+                left -= 1
+                if left == 0:
+                    wall = datetime.combine(day, local.time().replace(tzinfo=None))
+                    return wall.replace(tzinfo=self.zone).astimezone(UTC)
+        raise CalendarError(NO_WORKING_TIME)
+
     def day_seconds(self) -> int:
         """Nominal business seconds in one working day (the average over its working days).
 

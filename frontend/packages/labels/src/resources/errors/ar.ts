@@ -573,4 +573,15 @@ export const ar: LabelResource = {
   'errors.required': 'هذا الحقل مطلوب.',
   'errors.certificate_invalid': 'تعذرت قراءة الشهادة. الصق ملف PEM مع مفتاحه الخاص.',
   'errors.out_of_range': 'هذه القيمة خارج النطاق المسموح.',
+  'errors.field.too_many_levels': 'يُسمح بـ {{max}} مستويات تصعيد على الأكثر لكل هدف.',
+  'errors.field.levels_same_moment':
+    'مستويان يعملان في اللحظة نفسها. حدّد لكل منهما وقتًا خاصًا به.',
+  'errors.field.offset_too_large': 'يمكن أن يبعد المستوى 30 يوم عمل على الأكثر عن نقطة بدايته.',
+  'errors.field.level_does_nothing':
+    'هذا المستوى لا يُبلغ أحدًا ولا ينفذ شيئًا. أضف مستلمين أو إجراءً.',
+  'errors.field.recipient_shape': 'اختر الشخص أو المجموعة لهذا المستلم.',
+  'errors.field.note_too_long': 'يمكن أن تحتوي الملاحظة على {{max}} حرفًا على الأكثر.',
+  'errors.field.unknown_reference': 'لم يعد أحد الأشخاص أو المجموعات المذكورة هنا موجودًا.',
+  'errors.field.level_too_many_recipients': 'يُسمح بـ {{max}} مستلمًا على الأكثر لكل مستوى.',
+  'errors.field.level_too_many_actions': 'يُسمح بـ {{max}} إجراءات على الأكثر لكل مستوى.',
 };

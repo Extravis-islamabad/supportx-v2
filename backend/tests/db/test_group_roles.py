@@ -22,9 +22,12 @@ async def _group(world: World, name: str) -> uuid.UUID:  # noqa: F811 - the fixt
 
 
 async def _holds(world: World, user: uuid.UUID, permission: str) -> bool:  # noqa: F811
+    """Whether the person may read the audit log (the auditor role's audit.view)."""
+    assert permission == "audit.view"
     a = world.a
-    me = (await world.call("GET", "/auth/me", a, user)).json()
-    return any(p["key"] == permission for p in me.get("permissions") or [])
+    status = (await world.call("GET", "/audit/status", a, user)).status_code
+    assert status in {200, 403, 404}, status  # no access: refused, or hidden as not found
+    return status == 200
 
 
 async def test_a_member_holds_the_group_s_role_and_loses_it_on_leaving(world: World) -> None:  # noqa: F811

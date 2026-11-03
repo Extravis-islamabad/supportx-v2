@@ -2880,6 +2880,76 @@
         "type": "object"
       }
     },
+    "sla.target.breached": {
+      "1": {
+        "description": "The target's due moment passed while it was open (REQ-SLA-020); the stamp stays.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind"
+        ],
+        "title": "SlaBreached",
+        "type": "object"
+      }
+    },
+    "sla.target.escalated": {
+      "1": {
+        "description": "An escalation level ran, once (REQ-SLA-022). `run_id` names the run and its level.\n\n`notify` False: the level only acted, or the tenant-wide switch held its messages.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "notify": {
+            "title": "Notify",
+            "type": "boolean"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind",
+          "run_id",
+          "position",
+          "notify"
+        ],
+        "title": "SlaEscalated",
+        "type": "object"
+      }
+    },
     "sla.target.met": {
       "1": {
         "description": "The target was met (on time, late, or by the resolution).",
@@ -3039,6 +3109,33 @@
           "kind"
         ],
         "title": "SlaStopped",
+        "type": "object"
+      }
+    },
+    "sla.target.warning": {
+      "1": {
+        "description": "The target reached its warning point (REQ-SLA-019).",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind"
+        ],
+        "title": "SlaWarning",
         "type": "object"
       }
     },

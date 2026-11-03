@@ -518,4 +518,8 @@ export const ar: LabelResource = {
   'audit.action.directory.sync_requested': 'بدأ مزامنة دليل',
   'audit.action.role.group_added': 'منح مجموعة دورًا',
   'audit.action.role.group_removed': 'سحب دورًا من مجموعة',
+  'event_type.sla.target.warning': 'بلوغ نقطة تحذير اتفاقية مستوى الخدمة',
+  'event_type.sla.target.breached': 'تأخر هدف اتفاقية مستوى الخدمة',
+  'event_type.sla.target.escalated': 'تنفيذ مستوى تصعيد لاتفاقية مستوى الخدمة',
+  'history.sla_escalation': '{{target}}: نُفِّذ المستوى {{level}}',
 };

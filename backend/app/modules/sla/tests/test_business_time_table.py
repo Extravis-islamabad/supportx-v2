@@ -8,6 +8,7 @@ import random
 import re
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -158,3 +159,17 @@ def test_a_calendar_with_no_week_cannot_promise_a_due_date() -> None:
 def test_naive_instants_are_refused() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         CALENDARS["K-MF"].add(datetime(2026, 11, 2, 9), 60)  # noqa: DTZ001 - the point of the test
+
+
+def test_working_days_skip_weekends_and_holidays_and_keep_the_time() -> None:
+    """Auto-close's "N business days" on a calendar (WP-020f D4 on WP-025's service)."""
+    week = tuple(Period(d, 9 * 60, 18 * 60) for d in range(5))  # Monday to Friday 09:00-18:00
+    karachi = ZoneInfo("Asia/Karachi")
+    cal = Calendar(zone=karachi, periods=week, holidays={date(2026, 11, 9): HolidayPart.FULL})
+    friday = datetime(2026, 11, 6, 15, 30, tzinfo=karachi)
+    # Friday + 1 working day: Monday 9 November is a holiday, so Tuesday, same local time.
+    assert cal.add_working_days(friday, 1) == datetime(2026, 11, 10, 15, 30, tzinfo=karachi)
+    assert cal.add_working_days(friday, 3) == datetime(2026, 11, 12, 15, 30, tzinfo=karachi)
+    assert Calendar.around_the_clock().add_working_days(friday, 2) == (
+        datetime(2026, 11, 8, 15, 30, tzinfo=karachi).astimezone(UTC)
+    )

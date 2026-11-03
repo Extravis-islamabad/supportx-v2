@@ -526,4 +526,15 @@ export const ur: LabelResource = {
   'errors.certificate_invalid':
     'سرٹیفکیٹ پڑھا نہیں جا سکا۔ PEM کو اس کی پرائیویٹ کی کے ساتھ پیسٹ کریں۔',
   'errors.out_of_range': 'یہ قدر اجازت شدہ حد سے باہر ہے۔',
+  'errors.field.too_many_levels': 'ہر ہدف کے لیے زیادہ سے زیادہ {{max}} ایسکلیشن درجے۔',
+  'errors.field.levels_same_moment': 'دو درجے ایک ہی وقت پر چلتے ہیں۔ ہر ایک کو اپنا وقت دیں۔',
+  'errors.field.offset_too_large':
+    'کوئی درجہ اپنے نقطۂ آغاز سے زیادہ سے زیادہ 30 کاروباری دن دور ہو سکتا ہے۔',
+  'errors.field.level_does_nothing':
+    'یہ درجہ نہ کسی کو بتاتا ہے نہ کچھ کرتا ہے۔ وصول کنندگان یا کوئی کارروائی شامل کریں۔',
+  'errors.field.recipient_shape': 'اس وصول کنندہ کے لیے شخص یا گروپ منتخب کریں۔',
+  'errors.field.note_too_long': 'نوٹ زیادہ سے زیادہ {{max}} حروف کا ہو سکتا ہے۔',
+  'errors.field.unknown_reference': 'یہاں بتایا گیا کوئی شخص یا گروپ اب موجود نہیں۔',
+  'errors.field.level_too_many_recipients': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} وصول کنندگان۔',
+  'errors.field.level_too_many_actions': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} کارروائیاں۔',
 };

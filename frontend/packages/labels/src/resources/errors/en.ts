@@ -624,4 +624,15 @@ export const en = {
   'errors.certificate_invalid':
     'The certificate could not be read. Paste the PEM with its private key.',
   'errors.out_of_range': 'This value is outside the allowed range.',
+  'errors.field.too_many_levels': 'At most {{max}} escalation levels per target.',
+  'errors.field.levels_same_moment': 'Two levels run at the same moment. Give each its own time.',
+  'errors.field.offset_too_large':
+    'A level can be at most 30 business days from its starting point.',
+  'errors.field.level_does_nothing':
+    'This level tells no one and does nothing. Add recipients or an action.',
+  'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
+  'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
+  'errors.field.unknown_reference': 'A person or group named here no longer exists.',
+  'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
+  'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
 } as const;

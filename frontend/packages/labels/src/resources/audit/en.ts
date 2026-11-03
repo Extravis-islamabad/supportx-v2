@@ -510,4 +510,8 @@ export const en = {
   'audit.action.directory.sync_requested': 'Started a directory sync',
   'audit.action.role.group_added': 'Gave a group a role',
   'audit.action.role.group_removed': 'Took a role from a group',
+  'event_type.sla.target.warning': 'SLA warning point reached',
+  'event_type.sla.target.breached': 'SLA target overdue',
+  'event_type.sla.target.escalated': 'SLA escalation level ran',
+  'history.sla_escalation': '{{target}}: level {{level}} ran',
 } as const;

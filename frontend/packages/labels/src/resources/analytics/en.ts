@@ -515,4 +515,8 @@ export const en = {
   'dashboard_records_sort.due': 'Soonest due first',
   'dashboard_records_sort.priority': 'Highest priority first',
   'report_field.first_response_due_at': 'Respond by',
+  'report_field.first_response_sla_state': 'Response SLA',
+  'report_field.resolution_sla_state': 'Resolution SLA',
+  'report_field.first_response_breached': 'Response overdue',
+  'report_field.resolution_breached': 'Resolution overdue',
 } as const;
