@@ -12,8 +12,10 @@ from typing import Any
 from app.core.database import Database
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import subject_for
+from app.modules.work_items.service.notifications import SOURCE as NOTIFICATIONS
 from app.modules.work_items.service.realtime import CHANNELS, PORTAL_KIND, ROUTES
 from app.shared.events import EventEnvelope
+from app.shared.notifications.ports import LabelRef
 from app.shared.realtime import Channel, ChannelRequest
 from tests.db.test_conversation_api import events_of, say
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
@@ -376,3 +378,28 @@ async def test_only_the_requester_side_may_join_the_requester_channel(
     assert not await joins(a, a.admin, item["id"])
     assert not await joins(b, b.requester, item["id"])  # another tenant: RLS hides the row
     assert not await joins(a, a.requester, "not-a-uuid")
+
+
+async def test_requester_side_messages_name_the_portal_status_only(
+    world: World, app_db: Database
+) -> None:
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga))
+    current = await world.fresh(a, item)
+    for action, reason in (("start_work", None), ("wait_third_party", "vendor")):
+        moved = await world.act(a, a.admin, current, action, reason_code=reason)
+        assert moved.status_code == 200, (action, moved.text)
+        current = moved.json()
+    event = next(
+        e
+        for e in await events_of(world, "work_item")
+        if e.payload.get("work_item_id") == item["id"]
+        and e.payload.get("to_status") == "awaiting_third_party"
+    )
+    async with app_db.tenant_session(TenantContext(a.tenant)) as session:
+        context = await NOTIFICATIONS.context(session, "incident.status_changed", event)
+    assert context is not None
+    # staff read the real status; the requester's side the plain one (REQ-INC-147 AC2)
+    assert context.variables["record.status"] != LabelRef("portal_status.in_progress")
+    assert context.public_variables["record.status"] == LabelRef("portal_status.in_progress")
+    assert context.public_variables["change.from_status"] == LabelRef("portal_status.in_progress")

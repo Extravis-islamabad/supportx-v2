@@ -35,7 +35,8 @@ from app.modules.work_items.domain.conversation import (
     EntryKind,
     Visibility,
 )
-from app.modules.work_items.domain.lifecycle import WorkItemAction
+from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
+from app.modules.work_items.domain.portal import portal_status
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.events import (
     WorkItemAssigned,
@@ -208,6 +209,29 @@ def _actor(envelope: EventEnvelope) -> uuid.UUID | None:
         return None
 
 
+def _public_status(
+    envelope: EventEnvelope, record: WorkItem, cat: catalogue.Catalogue
+) -> dict[str, VariableValue]:
+    """The requester's side reads the portal's plain status, never a technician-only one.
+
+    REQ-INC-147 AC2, WP-028 D3: "Awaiting third party" reaches them as "In progress".
+    """
+    found: dict[str, VariableValue] = {
+        "record.status": LabelRef(
+            f"portal_status.{portal_status(record.status, StatusCategory(record.status_category))}"
+        )
+    }
+    if envelope.event_type == WorkItemStatusChanged.event_type:
+        code = str(envelope.payload.get("from_status") or "")
+        known = next((s for s in cat.statuses if s.code == code), None)
+        found["change.from_status"] = (
+            LabelRef(f"portal_status.{portal_status(code, StatusCategory(known.category))}")
+            if known is not None
+            else None
+        )
+    return found
+
+
 def _excerpt(body: str) -> str:
     text = html.unescape(nh3.clean(body.replace("</p>", "</p>\n"), tags=set())).strip()
     return text if len(text) <= EXCERPT else text[: EXCERPT - 1].rstrip() + "…"
@@ -343,6 +367,7 @@ class IncidentNotifications:
             shared["change.from_status"] = status_value(payload.get("from_status"))
         full = dict(shared)
         public = dict(shared)
+        public.update(_public_status(envelope, record, cat))
         if envelope.event_type == WorkItemConversationAdded.event_type:
             entry = await session.scalar(
                 select(WorkItemConversation).where(
