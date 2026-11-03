@@ -497,4 +497,5 @@ export const ur: LabelResource = {
   'audit.action.directory.changed': 'ڈائریکٹری تبدیل کی',
   'audit.action.directory.removed': 'ڈائریکٹری ہٹائی',
   'audit.action.directory.sync_requested': 'ڈائریکٹری سنک شروع کیا',
+  'event_type.identity_access.group_role.changed': 'گروپ کے کردار بدلے',
 };

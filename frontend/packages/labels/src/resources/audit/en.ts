@@ -8,6 +8,7 @@ export const en = {
   'event_type.licensing.entitlement.changed': 'Plan or licence changed',
   'event_type.identity_access.role.changed': 'Role changed',
   'event_type.identity_access.user_role.changed': 'User roles changed',
+  'event_type.identity_access.group_role.changed': 'Group roles changed',
   'event_type.organization.site.changed': 'Site changed',
   'event_type.organization.support_group.changed': 'Support group changed',
   'event_type.organization.membership.changed': 'Membership changed',

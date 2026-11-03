@@ -1145,6 +1145,38 @@
         "type": "object"
       }
     },
+    "identity_access.group_role.changed": {
+      "1": {
+        "description": "A support group gained or lost a role: its members' access changes (WP-042).",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "role_id",
+          "change"
+        ],
+        "title": "GroupRoleChanged",
+        "type": "object"
+      }
+    },
     "identity_access.identity_settings.changed": {
       "1": {
         "description": "The tenant's sign-in settings changed (WP-039).\n\nSessions, people creation, invitations, the password policy, or the worker's result\napplying it (`password_policy_state`).",

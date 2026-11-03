@@ -33,10 +33,17 @@ from app.core.errors import (
 )
 from app.modules.identity_access.domain.permissions import SYSTEM_ROLES, TENANT_ADMIN, Catalogue
 from app.modules.identity_access.domain.policy import Subject, can_delegate
-from app.modules.identity_access.events import RoleChanged, UserRoleChanged
-from app.modules.identity_access.infra.models import Role, RolePermission, User, UserRole
+from app.modules.identity_access.events import GroupRoleChanged, RoleChanged, UserRoleChanged
+from app.modules.identity_access.infra.models import (
+    GroupRole,
+    Role,
+    RolePermission,
+    User,
+    UserRole,
+)
 from app.modules.identity_access.service.access_settings import tenant_technician_scope
 from app.modules.identity_access.service.policy import PolicyService, ResourceType
+from app.modules.organization import active_groups, users_in_groups
 from app.shared.api.filters import compile_filter
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -511,6 +518,112 @@ async def remove_role(
     removed = await _remove(session, user_id, role_id)
     _refresh(session, policy)
     return removed
+
+
+async def _tenant_admin_holders(
+    session: AsyncSession, *, without_group: uuid.UUID | None = None
+) -> set[uuid.UUID]:
+    """Active people holding tenant admin, directly or through an active group (WP-042)."""
+    role_id = (await ensure_system_roles(session))[TENANT_ADMIN]
+    direct = set(
+        await session.scalars(
+            select(UserRole.user_id)
+            .join(User, User.id == UserRole.user_id)
+            .where(UserRole.role_id == role_id, User.status == "active", User.deleted_at.is_(None))
+        )
+    )
+    carrying = {
+        group
+        for group in await session.scalars(
+            select(GroupRole.group_id).where(GroupRole.role_id == role_id)
+        )
+        if group != without_group
+    }
+    active = await active_groups(session, frozenset(carrying))
+    through: set[uuid.UUID] = set()
+    if active:
+        through = set(
+            await session.scalars(
+                select(User.id).where(
+                    User.id.in_(users_in_groups(active)),
+                    User.status == "active",
+                    User.deleted_at.is_(None),
+                )
+            )
+        )
+    return direct | through
+
+
+async def add_group_role(
+    session: AsyncSession,
+    policy: PolicyService,
+    subject: Subject,
+    group_id: uuid.UUID,
+    role_id: uuid.UUID,
+) -> bool:
+    """A support group carries the role: its members hold it (idempotent; no escalation)."""
+    await _assignable(session, policy, subject, role_id)
+    if group_id not in await active_groups(session, frozenset({group_id})):
+        raise NotFound(code="group_not_found")
+    context = session.info[SESSION_TENANT_KEY]
+    result = await session.execute(
+        insert(GroupRole)
+        .values(
+            tenant_id=context.tenant_id,
+            group_id=group_id,
+            role_id=role_id,
+            created_by=context.user_id,
+        )
+        .on_conflict_do_nothing()
+        .returning(GroupRole.role_id)
+    )
+    added = result.first() is not None
+    if added:
+        await record_event(
+            session,
+            GroupRoleChanged(group_id=group_id, role_id=role_id, change="added"),
+            aggregate_id=group_id,
+        )
+        _refresh(session, policy)
+    return added
+
+
+async def remove_group_role(
+    session: AsyncSession,
+    policy: PolicyService,
+    subject: Subject,
+    group_id: uuid.UUID,
+    role_id: uuid.UUID,
+) -> bool:
+    """The group no longer carries the role. The tenant never loses its last admin this way."""
+    role = await _assignable(session, policy, subject, role_id)
+    if role.key == TENANT_ADMIN:
+        lock = func.hashtextextended(f"authz:{_tenant(session)}:admins", 0)
+        await session.execute(select(func.pg_advisory_xact_lock(lock)))
+        if not await _tenant_admin_holders(session, without_group=group_id):
+            raise Conflict(code="last_tenant_admin")
+    result = await session.execute(
+        delete(GroupRole)
+        .where(GroupRole.group_id == group_id, GroupRole.role_id == role_id)
+        .returning(GroupRole.role_id)
+    )
+    removed = result.first() is not None
+    if removed:
+        await record_event(
+            session,
+            GroupRoleChanged(group_id=group_id, role_id=role_id, change="removed"),
+            aggregate_id=group_id,
+        )
+        _refresh(session, policy)
+    return removed
+
+
+async def groups_of_role(session: AsyncSession, role_id: uuid.UUID) -> list[uuid.UUID]:
+    """The support groups carrying the role (the role editor lists them)."""
+    found = await session.scalars(
+        select(GroupRole.group_id).where(GroupRole.role_id == role_id).order_by(GroupRole.group_id)
+    )
+    return list(found)
 
 
 async def grant_system_role(session: AsyncSession, user_id: uuid.UUID, key: str) -> bool:

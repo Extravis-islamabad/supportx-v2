@@ -105,6 +105,18 @@ class UserRoleChanged(DomainEvent):
     change: Literal["assigned", "removed"]
 
 
+class GroupRoleChanged(DomainEvent):
+    """A support group gained or lost a role: its members' access changes (WP-042)."""
+
+    event_type: ClassVar[str] = "identity_access.group_role.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "group"
+
+    group_id: uuid.UUID
+    role_id: uuid.UUID
+    change: Literal["added", "removed"]
+
+
 class UserCreated(DomainEvent):
     """An admin or an import added a person before their first sign-in (WP-021)."""
 
@@ -259,6 +271,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SessionTenantSwitched,
     RoleChanged,
     UserRoleChanged,
+    GroupRoleChanged,
     UserCreated,
     UserCreatedV2,
     UserCreatedV3,

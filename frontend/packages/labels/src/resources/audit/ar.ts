@@ -10,6 +10,7 @@ export const ar: LabelResource = {
   'event_type.licensing.entitlement.changed': 'تم تغيير الخطة أو الترخيص',
   'event_type.identity_access.role.changed': 'تم تغيير دور',
   'event_type.identity_access.user_role.changed': 'تم تغيير أدوار مستخدم',
+  'event_type.identity_access.group_role.changed': 'تغيّرت أدوار المجموعة',
   'event_type.organization.site.changed': 'تم تغيير موقع',
   'event_type.organization.support_group.changed': 'تم تغيير مجموعة دعم',
   'event_type.organization.membership.changed': 'تم تغيير عضوية',
