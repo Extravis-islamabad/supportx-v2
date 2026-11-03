@@ -37,6 +37,7 @@ images:
   seaweedfs: chrislusf/seaweedfs:4.48
   clamav: clamav/clamav:1.5.4-debian
   mailpit: axllent/mailpit:v1.31.6   # dev profile only (mailCatcher)
+  valkey: valkey/valkey:9.1.2        # HA only (valkeyHa, ADR-038); the bundled chart's own otherwise
 
 # --- secrets (never in values) ---------------------------------------------------------------------
 # Created before install by deploy/scripts/secrets.sh (random values, never overwritten), later
@@ -273,6 +274,20 @@ valkey:
         capabilities: {drop: ["ALL"]}
 
 # --- Centrifugo (realtime gateway, ADR-005) ---------------------------------------------------------
+# HA Valkey (WP-014b, ADR-038): three pods, each a Valkey server and a Sentinel, on the official
+# image. No pod reclaims the master role by itself: each asks the sentinels at start. values-ha.yaml
+# turns it on and the bundled `valkey` chart off (that chart always makes pod 0 the master).
+valkeyHa:
+  enabled: false
+  replicas: 3
+  quorum: 2                         # sentinels that must agree the master is down
+  downAfterMilliseconds: 5000
+  failoverTimeoutMilliseconds: 60000
+  maxmemory: 256mb
+  resources:
+    requests: {cpu: 50m, memory: 96Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+
 centrifugo:
   replicas: 1                       # more than one needs the Valkey engine (WP-014b)
   resources:

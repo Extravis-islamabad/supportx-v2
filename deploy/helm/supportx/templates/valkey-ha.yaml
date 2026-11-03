@@ -1,0 +1,187 @@
+{{- /*
+HA Valkey (WP-014b, ADR-038): a StatefulSet of Valkey servers, each with a Sentinel beside it, on
+the official image. At start each pod asks the sentinels for the current master and replicates
+from it unless it is that master. Only on a first start, when no sentinel answers, does pod 0
+begin as master. So a restarted former master always rejoins as a replica. The app and
+Centrifugo find the master through the sentinels (SUPPORTX_VALKEY_SENTINELS). Passwords come
+from the installation secret only, written to files in memory, never on a command line.
+*/ -}}
+{{- if .Values.valkeyHa.enabled }}
+{{- $c := dict "root" . "component" "valkey" }}
+{{- $name := include "supportx.name" $c }}
+{{- $headless := printf "%s-headless" $name }}
+{{- $ha := .Values.valkeyHa }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-scripts
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+data:
+  common.sh: |
+    # The current master's host, asked of the sentinels; empty when none answers.
+    SELF="${HOSTNAME}.{{ $headless }}.{{ .Release.Namespace }}.svc"
+    ask_sentinels() {
+      for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
+        peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
+        found=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 \
+          --no-auth-warning SENTINEL get-master-addr-by-name supportx 2>/dev/null | head -n 1)
+        if [ -n "$found" ]; then echo "$found"; return 0; fi
+      done
+      return 0
+    }
+  valkey.sh: |
+    set -eu
+    . /scripts/common.sh
+    master=$(ask_sentinels)
+    if [ -z "$master" ]; then
+      # First start of the set: pod 0 begins as master, the others replicate from it.
+      if [ "${HOSTNAME##*-}" = "0" ]; then master="$SELF"; else
+        master="{{ $name }}-0.{{ $headless }}.{{ .Release.Namespace }}.svc"; fi
+    fi
+    {
+      echo "port 6379"
+      echo "requirepass $VALKEY_PASSWORD"
+      echo "masterauth $VALKEY_PASSWORD"
+      echo "replica-announce-ip $SELF"
+      echo "maxmemory {{ $ha.maxmemory }}"
+      echo "maxmemory-policy noeviction"
+      echo "appendonly no"
+      if [ "$master" != "$SELF" ]; then echo "replicaof $master 6379"; fi
+    } > /run/valkey/valkey.conf
+    echo "valkey: starting as $([ "$master" = "$SELF" ] && echo master || echo "replica of $master")"
+    exec valkey-server /run/valkey/valkey.conf
+  sentinel.sh: |
+    set -eu
+    . /scripts/common.sh
+    # Wait for this pod's own server, then monitor the master it knows (or the sentinels know).
+    for _ in $(seq 1 60); do
+      REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -p 6379 --no-auth-warning ping >/dev/null 2>&1 && break
+      sleep 1
+    done
+    master=$(ask_sentinels)
+    if [ -z "$master" ]; then
+      role=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -p 6379 --no-auth-warning \
+        info replication | tr -d '\r' | sed -n 's/^master_host://p')
+      master="${role:-$SELF}"
+    fi
+    {
+      echo "port 26379"
+      echo "sentinel resolve-hostnames yes"
+      echo "sentinel announce-hostnames yes"
+      echo "sentinel announce-ip $SELF"
+      echo "requirepass $VALKEY_PASSWORD"
+      echo "sentinel monitor supportx $master 6379 {{ $ha.quorum }}"
+      echo "sentinel auth-pass supportx $VALKEY_PASSWORD"
+      echo "sentinel down-after-milliseconds supportx {{ $ha.downAfterMilliseconds }}"
+      echo "sentinel failover-timeout supportx {{ $ha.failoverTimeoutMilliseconds }}"
+      echo "sentinel parallel-syncs supportx 1"
+    } > /run/sentinel/sentinel.conf
+    exec valkey-sentinel /run/sentinel/sentinel.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $headless }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  clusterIP: None
+  # Sentinels and replicas find each other before they are ready.
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: valkey, port: 6379}
+    - {name: sentinel, port: 26379}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  serviceName: {{ $headless }}
+  replicas: {{ $ha.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+      annotations:
+        # The scripts live in this chart: a change to them ships with a new chart version.
+        checksum/scripts: {{ printf "%s-%s" (toJson $ha) .Chart.Version | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
+      containers:
+        {{- range $role := list "valkey" "sentinel" }}
+        - name: {{ $role }}
+          image: {{ include "supportx.thirdPartyImage" (dict "root" $ "image" $.Values.images.valkey) }}
+          command: ["/bin/sh", "/scripts/{{ $role }}.sh"]
+          env:
+            - name: VALKEY_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: valkey-password}}
+          ports:
+            - {name: {{ $role }}, containerPort: {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }}}
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "REDISCLI_AUTH=\"$VALKEY_PASSWORD\" valkey-cli -p {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }} --no-auth-warning ping | grep -q PONG"]
+            periodSeconds: 5
+          resources:
+            {{- toYaml $.Values.valkeyHa.resources | nindent 12 }}
+          {{- include "supportx.containerSecurityContext" $ | nindent 10 }}
+          volumeMounts:
+            - {name: scripts, mountPath: /scripts, readOnly: true}
+            - {name: run, mountPath: /run/{{ $role }}}
+            - {name: data, mountPath: /data}
+        {{- end }}
+      volumes:
+        - name: scripts
+          configMap: {name: {{ $name }}-scripts}
+        - name: run
+          emptyDir: {medium: Memory, sizeLimit: 1Mi}
+        - name: data
+          emptyDir: {}
+---
+# Its servers and sentinels: SupportX's own pods only (the app, Centrifugo, each other).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: supportx
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - {port: 6379, protocol: TCP}
+        - {port: 26379, protocol: TCP}
+---
+# A quorum of sentinels stays up through a drain.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  minAvailable: {{ $ha.quorum }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+{{- end }}

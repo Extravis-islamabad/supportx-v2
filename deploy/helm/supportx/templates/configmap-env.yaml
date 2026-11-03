@@ -19,6 +19,16 @@ data:
   SUPPORTX_CENTRIFUGO_API_URL: {{ printf "http://%s-centrifugo:8000" .Release.Name | quote }}
   # As many stream copies as NATS servers (a cluster in values-ha.yaml, WP-014b); else one.
   SUPPORTX_EVENTS_STREAM_REPLICAS: {{ ternary .Values.nats.config.cluster.replicas 1 .Values.nats.config.cluster.enabled | toString | quote }}
+  {{- if .Values.valkeyHa.enabled }}
+  # Valkey through its sentinels (HA, ADR-038); the URL then gives only the password and database.
+  {{- $name := include "supportx.name" (dict "root" . "component" "valkey") }}
+  {{- $hosts := list }}
+  {{- range $i := until (int .Values.valkeyHa.replicas) }}
+  {{- $hosts = append $hosts (printf "%s-%d.%s-headless.%s.svc:26379" $name $i $name $.Release.Namespace) }}
+  {{- end }}
+  SUPPORTX_VALKEY_SENTINELS: {{ join "," $hosts | quote }}
+  SUPPORTX_VALKEY_SENTINEL_MASTER: supportx
+  {{- end }}
   # /metrics (and the workers' /healthz, /readyz) on the internal port (WP-014).
   SUPPORTX_METRICS_EXPORTER: prometheus
   SUPPORTX_METRICS_HOST: "0.0.0.0"

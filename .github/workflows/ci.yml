@@ -132,6 +132,31 @@ jobs:
         if: ${{ failure() }}
         run: tail -n 200 "$RUNNER_TEMP"/resilience-*.log || true
 
+  valkey-failover:
+    # HA Valkey (WP-014b, ADR-038): the chart's own Valkey and Sentinel scripts, run as three
+    # containers. Sentinel promotes a replica when the master stops, data survives, and the old
+    # master rejoins as a replica (no split brain). The test runs its own containers.
+    name: valkey failover
+    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
+    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/generated
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: Valkey and Sentinel fail over
+        working-directory: backend
+        env:
+          SUPPORTX_HA_TESTS: "1"
+        run: uv run pytest tests/ha --no-cov -p no:cacheprovider -v
+
   backend-tests:
     name: backend tests ${{ matrix.shard }}/3
     runs-on: ubuntu-24.04

@@ -20,6 +20,9 @@ app.kubernetes.io/component: {{ .component }}
 
 {{/* Fail early on settings every profile needs. */}}
 {{- define "supportx.validate" -}}
+{{- if and .Values.valkeyHa.enabled .Values.valkey.enabled }}
+{{- fail "valkeyHa (HA, ADR-038) replaces the bundled valkey chart: set valkey.enabled=false" }}
+{{- end }}
 {{- if not .Values.publicUrl -}}
 {{- fail "publicUrl is required (the browser's origin, e.g. https://supportx.example.com)" -}}
 {{- end -}}

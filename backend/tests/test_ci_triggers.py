@@ -88,6 +88,7 @@ def test_required_checks_run_on_every_pr_and_in_the_merge_queue() -> None:
 HEAVY = {
     "core profile, integration and e2e",
     "images (build, Trivy, SBOM)",
+    "valkey failover",  # WP-014b, ADR-038
     "k3d install and smoke test",
     "pdf (worker image)",
     "worker resilience",
