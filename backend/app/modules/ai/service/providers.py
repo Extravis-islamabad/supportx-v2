@@ -99,6 +99,10 @@ class Provider(Protocol):
         """One vector per text."""
         ...
 
+    async def aclose(self) -> None:
+        """Release connections (at shutdown)."""
+        ...
+
 
 def prompt_key(request: ChatRequest) -> str:
     """`<feature>:<sha256 of the messages>`: the key of a recorded answer."""
@@ -151,6 +155,9 @@ class FakeProvider:
             digest = hashlib.sha256(text.encode()).digest()
             out.append([b / 255 for b in digest[:EMBEDDING_DIMENSIONS_FAKE]])
         return out
+
+    async def aclose(self) -> None:
+        """Nothing to release."""
 
 
 class OpenAICompatibleProvider:
@@ -254,6 +261,10 @@ class OpenAICompatibleProvider:
             "/embeddings", {"model": self.embedding_model, "input": list(texts)}
         )
         return [list(map(float, item["embedding"])) for item in data.get("data") or []]
+
+    async def aclose(self) -> None:
+        """Close the HTTP client."""
+        await self._client.aclose()
 
 
 def provider_from(settings: Settings) -> Provider:

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
-class Area(StrEnum):
+class AiArea(StrEnum):
     """Groups on the AI settings screen."""
 
     WRITING = "writing"
@@ -23,16 +23,16 @@ class FeatureSpec:
     """One AI feature."""
 
     code: str
-    area: Area
+    area: AiArea
     permission: str
 
 
 # WP-038 builds the incident features on these codes (REQ-INC-022, 136, 137).
 FEATURES: tuple[FeatureSpec, ...] = (
-    FeatureSpec("reply_draft", Area.WRITING, "incidents.reply"),
-    FeatureSpec("text_improve", Area.WRITING, "incidents.reply"),
-    FeatureSpec("conversation_summary", Area.SUMMARIES, "incidents.view"),
-    FeatureSpec("possible_duplicates", Area.PREDICTIONS, "incidents.create"),
+    FeatureSpec("reply_draft", AiArea.WRITING, "incidents.reply"),
+    FeatureSpec("text_improve", AiArea.WRITING, "incidents.reply"),
+    FeatureSpec("conversation_summary", AiArea.SUMMARIES, "incidents.view"),
+    FeatureSpec("possible_duplicates", AiArea.PREDICTIONS, "incidents.create"),
 )
 BY_CODE = {feature.code: feature for feature in FEATURES}
 

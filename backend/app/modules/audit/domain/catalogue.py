@@ -241,6 +241,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("knowledge.settings_changed", AuditCategory.CONFIGURATION, "knowledge"),
     ("knowledge.type_created", AuditCategory.CONFIGURATION, "knowledge"),
     ("knowledge.type_changed", AuditCategory.CONFIGURATION, "knowledge"),
+    # ai (WP-037)
+    ("ai.settings_changed", AuditCategory.CONFIGURATION, "ai"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category

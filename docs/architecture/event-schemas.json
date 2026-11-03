@@ -140,6 +140,25 @@
     "type": "object"
   },
   "events": {
+    "ai.settings.changed": {
+      "1": {
+        "description": "The tenant's AI switches or retention changed: screens hide or show AI features live.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "AiSettingsChanged",
+        "type": "object"
+      }
+    },
     "analytics.dashboard.deleted": {
       "1": {
         "description": "A dashboard was deleted (soft).",

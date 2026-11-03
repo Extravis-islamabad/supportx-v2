@@ -1,4 +1,5 @@
 import { ur as shared } from './shared/ur.ts';
+import { ur as ai } from './ai/ur.ts';
 import { ur as analytics } from './analytics/ur.ts';
 import { ur as announcements } from './announcements/ur.ts';
 import { ur as audit } from './audit/ur.ts';
@@ -20,6 +21,7 @@ import type { LabelResource } from './en';
 // Each module keeps its labels in <module>/ur.ts (README.md).
 export const ur: LabelResource = {
   ...shared,
+  ...ai,
   ...analytics,
   ...announcements,
   ...audit,
@@ -39,6 +41,7 @@ export const ur: LabelResource = {
 
 export const urByModule = {
   shared,
+  ai,
   analytics,
   announcements,
   audit,

@@ -1,0 +1,53 @@
+import type { LabelResource } from '../en';
+
+// ai labels (see ../README.md).
+export const ur: LabelResource = {
+  // AI gateway (WP-037).
+  'permission.ai.manage': 'AI کا انتظام',
+  'permission.ai.manage.description':
+    'AI اور اس کی خصوصیات آن یا آف کریں، ماسکنگ اور AI کالز کا متن رکھنے کی مدت چنیں۔',
+  'permission_module.ai': 'AI',
+  'ai_feature.reply_draft': 'جواب کے مسودے',
+  'ai_feature.text_improve': 'متن بہتر کریں اور ترجمہ کریں',
+  'ai_feature.conversation_summary': 'گفتگو کا خلاصہ',
+  'ai_feature.possible_duplicates': 'ممکنہ نقول',
+  'ai_area.writing': 'تحریر',
+  'ai_area.summaries': 'خلاصے',
+  'ai_area.predictions': 'پیش گوئیاں',
+  'ai_area.knowledge': 'نالج',
+  'errors.ai_feature_off': 'یہ AI خصوصیت آپ کے ادارے کے لیے بند ہے۔',
+  'errors.ai_unavailable': 'AI ماڈل جواب نہیں دے رہا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.ai_call_not_found': 'یہ AI جواب موجود نہیں یا آپ کا نہیں۔',
+  'errors.field.ai_feature_unknown': 'صرف فہرست میں سے خصوصیات چنیں۔',
+  'errors.field.ai_retention_out_of_range': 'متن 1 سے 365 دن کے درمیان رکھیں۔',
+  'event_type.ai.settings.changed': 'AI کی ترتیبات بدلیں',
+  'audit.action.ai.settings_changed': 'AI کی ترتیبات بدلیں',
+  'ai_settings.title': 'AI',
+  'ai_settings.master': 'AI استعمال کریں',
+  'ai_settings.master_help':
+    'بند: کسی کے لیے کوئی AI خصوصیت نہیں چلتی اور کوئی ماڈل نہیں بلایا جاتا۔',
+  'ai_settings.features': 'خصوصیات',
+  'ai_settings.off_effect':
+    'بند کرنے سے خصوصیت فوراً سب کے لیے ہٹ جاتی ہے۔ پہلے کے نتائج تاریخ میں رہتے ہیں مگر دکھائے نہیں جاتے۔',
+  'ai_settings.confirm_off': '“{{feature}}” بند کریں؟',
+  'ai_settings.confirm_master_off': 'سب کے لیے AI بند کریں؟',
+  'ai_settings.switch_off': 'بند کریں',
+  'ai_settings.privacy': 'رازداری',
+  'ai_settings.mask_local': 'مقامی ماڈل کے لیے بھی ذاتی ڈیٹا چھپائیں',
+  'ai_settings.mask_local_help':
+    'ماڈل کے متن پڑھنے سے پہلے نام، ای میل پتے، فون اور شناختی نمبر بدل دیے جاتے ہیں۔ آپ کی تنصیب سے باہر کے ماڈل کے لیے یہ ہمیشہ آن رہتا ہے۔',
+  'ai_settings.always_masked': 'ماڈل آپ کی تنصیب سے باہر ہے: ذاتی ڈیٹا ہمیشہ چھپایا جاتا ہے۔',
+  'ai_settings.retention': 'AI کالز کا متن رکھیں',
+  'ai_settings.retention_help':
+    'اس کے بعد ہر کال کا متن حذف ہو جاتا ہے؛ کس نے کون سی خصوصیت استعمال کی اور نتیجہ رپورٹس کے لیے رہتے ہیں۔',
+  'ai_settings.days': 'دن',
+  'ai_settings.model': 'ماڈل',
+  'ai_settings.model_value': '{{model}} ({{where}})',
+  'ai_settings.local': 'آپ کی تنصیب میں',
+  'ai_settings.external': 'آپ کی تنصیب سے باہر',
+  'ai_settings.saved': 'محفوظ ہو گیا۔',
+  'nav.admin_ai': 'AI',
+  'ai_outcome.accepted': 'قبول شدہ',
+  'ai_outcome.edited': 'ترمیم شدہ',
+  'ai_outcome.discarded': 'رد شدہ',
+};
