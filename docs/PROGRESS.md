@@ -749,6 +749,16 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
+### [ ] WP-030 — Service requests and the approval engine (lane A, planned 2026-11-04; 3 sessions)
+- **Plan:** ~/Desktop/wp-030-plan.md (sent to the coordinator 2026-11-04). Builds after #178.
+- **Parked for the product owner (built meanwhile as the defaults):** D3 edition line (file 02
+  question 1): catalog basics with `service_request` (Essentials), the advanced parts with
+  `catalog` (Professional); D7 e-mail approvals without sign-in by default (file 02 question 3):
+  one-time, bound, expiring links with a confirmation page, and a tenant setting to require
+  sign-in.
+- **Cross-lane:** signed action links (REQ-NTF-024, WP-023 s2) are needed for e-mail approvals;
+  asked lane B whether they build them or lane A does in session 3 under their review.
+
 ### [ ] WP-028 — Portal: shell, sign-in and requester incidents (lane A, started 2026-11-03; 2 sessions)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
   **D2 (wider requester reach) is with the product owner:** built meanwhile as two work_items
