@@ -13,6 +13,7 @@ from app.modules.work_items.domain.portal import (
     PortalStatus,
     RecordFacts,
     Viewer,
+    portal_changes,
     portal_status,
     reaches,
     requester_fields,
@@ -114,3 +115,21 @@ def test_direct_reports_are_their_own_reach() -> None:
     assert reaches(boss, _record(OTHER)) is None
     # the narrowest reach wins: their own record is own, not reports
     assert reaches(boss, _record(BOSS, for_=ME)) is PortalReach.OWN
+
+
+def test_the_live_channel_hears_only_what_the_requester_sees() -> None:
+    o, p = StatusCategory.OPEN, StatusCategory.PAUSED
+    assert portal_changes(["group_id", "technician_id", "priority"]) == ()
+    assert portal_changes(["subject", "group_id"]) == ("subject",)
+    # in progress -> waiting on a third party reads the same to the requester: nothing
+    third_party = portal_changes(
+        ["status"], status_before=("in_progress", o), status_after=("awaiting_third_party", p)
+    )
+    assert third_party == ()
+    waiting = portal_changes(
+        ["status"], status_before=("in_progress", o), status_after=("awaiting_requester", p)
+    )
+    assert waiting == ("portal_status",)
+    # an unknown earlier status (a custom one) is assumed changed
+    unknown = portal_changes([], status_before=("x", None), status_after=("new", o))
+    assert unknown == ("portal_status",)

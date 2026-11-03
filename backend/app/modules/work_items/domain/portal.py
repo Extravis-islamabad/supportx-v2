@@ -63,6 +63,7 @@ ALWAYS = frozenset(
         "subject",
         "requester_id",
         "on_behalf_of_id",
+        "portal_changes",
         "portal_status",
         "created_at",
         "updated_at",
@@ -190,9 +191,39 @@ def reaches(viewer: Viewer, record: RecordFacts) -> PortalReach | None:
     return None
 
 
+# What the requester's live channel may name as changed (field names, never values).
+LIVE_FIELDS = ALWAYS | TEMPLATE_CONTROLLED
+
+
+def portal_changes(
+    fields: Collection[str],
+    *,
+    status_before: tuple[str, StatusCategory | None] | None = None,
+    status_after: tuple[str, StatusCategory] | None = None,
+) -> tuple[str, ...]:
+    """The changed fields a requester may hear about; empty means publish nothing.
+
+    A staff-side change (group, technician, priority, a move between two statuses the
+    requester sees the same, like in progress -> waiting on a third party) says nothing on
+    their channel, so it cannot even tell that staff did something.
+    """
+    found = {f for f in fields if f in LIVE_FIELDS}
+    if status_after is not None:
+        after = portal_status(*status_after)
+        before = (
+            portal_status(status_before[0], status_before[1])
+            if status_before is not None and status_before[1] is not None
+            else None
+        )
+        if before != after:
+            found.add("portal_status")
+    return tuple(sorted(found))
+
+
 __all__ = [
     "ALWAYS",
     "FILLABLE",
+    "LIVE_FIELDS",
     "STAFF_ONLY",
     "TEMPLATE_CONTROLLED",
     "PortalReach",
@@ -200,6 +231,7 @@ __all__ = [
     "RecordFacts",
     "Viewer",
     "is_own",
+    "portal_changes",
     "portal_status",
     "reaches",
     "requester_fields",

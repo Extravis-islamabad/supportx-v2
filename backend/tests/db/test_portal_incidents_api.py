@@ -9,7 +9,13 @@ every response, and a staff field can't be used as a filter to probe for records
 import uuid
 from typing import Any
 
-from tests.db.test_conversation_api import say
+from app.core.database import Database
+from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
+from app.modules.work_items.service.realtime import CHANNELS, PORTAL_KIND, ROUTES
+from app.shared.events import EventEnvelope
+from app.shared.realtime import Channel, ChannelRequest
+from tests.db.test_conversation_api import events_of, say
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
 
 __all__ = ["world"]  # the fixture, re-used
@@ -295,3 +301,78 @@ async def test_the_requester_confirms_or_rejects_a_fix_in_the_portal(world: Worl
     assert rejected.json()["portal_status"] == "in_progress"
     again = await world.call("POST", f"{PORTAL}/{second['id']}/resolution/confirm", a, a.requester)
     assert problem(again)[0] == 409
+
+
+async def _published(app_db: Database, org: Org, envelope: EventEnvelope) -> dict[str, Any]:
+    """Channel name -> the publication's fields, for one event through the realtime routes."""
+    async with app_db.tenant_session(TenantContext(org.tenant)) as session:
+        for spec in ROUTES:
+            if envelope.event_type in spec.event_types:
+                effects = await spec.route(envelope, session)
+                return {p.channel.name: p for p in effects.publications}
+    return {}
+
+
+async def test_the_requester_channel_hears_only_what_the_requester_sees(
+    world: World, app_db: Database
+) -> None:
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    portal = f"t:{a.tenant}:portal_wi:{item['id']}"
+    await say(world, a, a.admin, item, body="<p>Vendor case 8812</p>")  # private note
+    await say(world, a, a.admin, item, kind="reply", body="<p>On it</p>")  # public reply
+    current = await world.fresh(a, item)
+    for action, reason in (
+        ("start_work", None),
+        ("wait_third_party", "vendor"),  # in progress -> third party: the same to them
+        ("resume", None),
+        ("wait_requester", "more_information"),
+    ):
+        moved = await world.act(a, a.admin, current, action, reason_code=reason)
+        assert moved.status_code == 200, (action, moved.text)
+        current = moved.json()
+
+    entries = [
+        e
+        for e in await events_of(world, "work_item_conversation")
+        if e.payload["work_item_id"] == item["id"]
+    ]
+    heard = [portal in await _published(app_db, a, e) for e in entries]
+    assert heard == [False, True]  # the private note says nothing there (REQ-INC-147 AC2)
+
+    changes = [
+        e
+        for e in await events_of(world, "work_item")
+        if e.payload.get("work_item_id") == item["id"] and "to_status" in e.payload
+    ]
+    by_status = {}
+    for event in changes:
+        found = await _published(app_db, a, event)
+        by_status[event.payload["to_status"]] = found[portal].fields if portal in found else None
+    assert by_status["awaiting_third_party"] is None
+    assert by_status["awaiting_requester"] == ("portal_status",)
+
+
+async def test_only_the_requester_side_may_join_the_requester_channel(
+    world: World, app_db: Database
+) -> None:
+    a, b = world.a, world.b
+    item = await world.create(
+        a, a.admin, requester_id=str(a.requester2), on_behalf_of_id=str(a.requester)
+    )
+    spec = next(c for c in CHANNELS if c.kind == PORTAL_KIND)
+
+    async def joins(org: Org, user: uuid.UUID, record_id: str) -> bool:
+        async with app_db.tenant_session(TenantContext(org.tenant, user_id=user)) as session:
+            subject = await subject_for(session, org.tenant, user)
+            request = ChannelRequest(
+                Channel(org.tenant, PORTAL_KIND, record_id), org.tenant, user, subject, session
+            )
+            return await spec.authorize(request) is not None
+
+    assert await joins(a, a.requester2, item["id"])  # requester
+    assert await joins(a, a.requester, item["id"])  # the person it is for
+    assert not await joins(a, a.tech_a, item["id"])  # staff use the record channel
+    assert not await joins(a, a.admin, item["id"])
+    assert not await joins(b, b.requester, item["id"])  # another tenant: RLS hides the row
+    assert not await joins(a, a.requester, "not-a-uuid")
