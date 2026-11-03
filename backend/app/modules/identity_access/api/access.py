@@ -331,6 +331,59 @@ async def get_user_access(
 
 
 @router.put(
+    "/roles/{role_id}/groups/{group_id}",
+    summary="A support group carries a role",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "role.group_added",
+            object_type="role",
+            object_param="role_id",
+            detail_params=("group_id",),
+        )
+    ],
+)
+async def add_group_role(
+    role_id: uuid.UUID,
+    group_id: uuid.UUID,
+    session: TenantSession,
+    subject: ManageRoles,
+    policy: Policy,
+) -> Response:
+    """Idempotent. The group's members hold the role while members (WP-042, REQ-ADM-015 AC2).
+
+    Only roles within your own permissions (tenant admins: any), as for a person.
+    """
+    await role_service.add_group_role(session, policy, subject, group_id, role_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/roles/{role_id}/groups/{group_id}",
+    summary="A support group no longer carries a role",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "role.group_removed",
+            object_type="role",
+            object_param="role_id",
+            detail_params=("group_id",),
+        )
+    ],
+)
+async def remove_group_role(
+    role_id: uuid.UUID,
+    group_id: uuid.UUID,
+    session: TenantSession,
+    subject: ManageRoles,
+    policy: Policy,
+) -> Response:
+    """Idempotent. The tenant never loses its last admin this way (409 last_tenant_admin)."""
+    await role_service.remove_group_role(session, policy, subject, group_id, role_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
     "/users/{user_id}/roles/{role_id}",
     summary="Assign a role",
     status_code=status.HTTP_204_NO_CONTENT,

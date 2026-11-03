@@ -516,4 +516,6 @@ export const ar: LabelResource = {
   'audit.action.directory.changed': 'غيّر دليلًا',
   'audit.action.directory.removed': 'أزال دليلًا',
   'audit.action.directory.sync_requested': 'بدأ مزامنة دليل',
+  'audit.action.role.group_added': 'منح مجموعة دورًا',
+  'audit.action.role.group_removed': 'سحب دورًا من مجموعة',
 };

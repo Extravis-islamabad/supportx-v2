@@ -508,4 +508,6 @@ export const en = {
   'audit.action.directory.changed': 'Changed a directory',
   'audit.action.directory.removed': 'Removed a directory',
   'audit.action.directory.sync_requested': 'Started a directory sync',
+  'audit.action.role.group_added': 'Gave a group a role',
+  'audit.action.role.group_removed': 'Took a role from a group',
 } as const;
