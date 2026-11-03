@@ -8,7 +8,7 @@ Expand only (D-113), no data step: directory_connectors also takes `source = 'ld
 
 The downgrade refuses while an AD/LDAP directory exists (it would lose it): remove those first.
 
-Revision ID: 0055
+Revision ID: 0056
 Revises: 0051 (main's head; lane A's 0054 may come first: re-pointed when queued)
 Created: 2026-11-03
 """
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "0055"
+revision: str = "0056"
 down_revision: str | None = "0051"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

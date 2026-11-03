@@ -29,7 +29,7 @@ async def _insert(admin_url: str, *args: object) -> None:
 def test_ldap_directories_need_settings_entra_its_app_and_going_back_refuses_to_lose_one(
     db_config: db_testing.DbTestConfig,
 ) -> None:
-    database = db_testing.create(db_config, migrate_to="0055")
+    database = db_testing.create(db_config, migrate_to="0056")
     try:
         tenant = asyncio.run(create_tenant(database.migrator_url))
         settings = json.dumps({"host": "dc1.corp.example", "port": 636})
@@ -44,7 +44,7 @@ def test_ldap_directories_need_settings_entra_its_app_and_going_back_refuses_to_
             db_testing.downgrade(database.migrator_url, "0051")
         asyncio.run(_delete_ldap(database.admin_url))  # a throwaway database (rule 5h)
         db_testing.downgrade(database.migrator_url, "0051")
-        db_testing.migrate(database.migrator_url, "0055")  # and up again
+        db_testing.migrate(database.migrator_url, "0056")  # and up again
     finally:
         db_testing.destroy(db_config, database)
 

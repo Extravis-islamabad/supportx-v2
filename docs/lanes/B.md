@@ -21,7 +21,7 @@ Identity, mail, notifications, CI
 
 ## Claimed migration
 
-0024, 0026, 0032, 0033, 0037, 0042, 0043, 0045, 0049, 0052, 0053 (merged); 0055 AD/LDAP directories (#175, revises main's head 0051 after #159; lane A's 0054 (#172) and 0058 (#178) also follow 0051, so whoever merges second re-points)
+0024, 0026, 0032, 0033, 0037, 0042, 0043, 0045, 0049, 0052, 0053 (merged); 0056 AD/LDAP directories (#175; was 0055, which lane C's #176 took), 0057 connector settings (D-041, next) (revises main's head 0051 after #159; lane A's 0054 (#172) and 0058 (#178) also follow 0051, so whoever merges second re-points)
 
 ## Claimed decisions
 
