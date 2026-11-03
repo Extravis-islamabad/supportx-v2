@@ -1,7 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Spin } from 'antd';
+import { useEffect, useState } from 'react';
 import { RouterProvider } from 'react-router';
 
+import { loginUrl } from '@supportx/api-client';
 import { RealtimeProvider } from '@supportx/realtime';
 
 import {
@@ -26,6 +28,22 @@ export interface AppProps {
   navigate?: SessionGateProps['navigate'];
 }
 
+/**
+ * A requester never works in the console (REQ-PRT-001 AC1, WP-028): the BFF sends them to the
+ * portal at sign-in; a console session made before that rule goes there too. The portal's
+ * sign-in completes silently on Keycloak's own session.
+ */
+function ToPortal({
+  navigate = (url: string) => {
+    window.location.assign(url);
+  },
+}: AppProps) {
+  useEffect(() => {
+    navigate(loginUrl('portal', '/'));
+  }, [navigate]);
+  return <Spin fullscreen />;
+}
+
 export function App({ navigate }: AppProps) {
   // One cache and one router per mounted app (not module-level), so tests and HMR start clean.
   const [queryClient] = useState(createQueryClient);
@@ -45,15 +63,19 @@ export function App({ navigate }: AppProps) {
               <PasswordResetPage app="console" />
             ) : (
               <SessionGate app="console" navigate={navigate}>
-                {(session) => (
-                  // Keyed by tenant: a tenant switch remounts everything below with fresh state.
-                  <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
-                    <TenantBranding />
-                    <LicenceProvider key={session.tenant.id} session={session}>
-                      <RouterProvider router={router} />
-                    </LicenceProvider>
-                  </RealtimeProvider>
-                )}
+                {(session) =>
+                  session.user.user_type === 'requester' ? (
+                    <ToPortal navigate={navigate} />
+                  ) : (
+                    // Keyed by tenant: a tenant switch remounts everything below with fresh state.
+                    <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
+                      <TenantBranding />
+                      <LicenceProvider key={session.tenant.id} session={session}>
+                        <RouterProvider router={router} />
+                      </LicenceProvider>
+                    </RealtimeProvider>
+                  )
+                }
               </SessionGate>
             )}
           </ErrorReporterProvider>

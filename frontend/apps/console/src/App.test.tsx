@@ -161,6 +161,17 @@ describe('console shell', () => {
     });
   });
 
+  it('sends a requester to the portal, never showing the console (WP-028)', async () => {
+    api({ me: fakeSession({ user_type: 'requester', roles: ['requester'] }) });
+    const navigate = vi.fn();
+    at('/incidents');
+    render(<App navigate={navigate} />);
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/api/v1/auth/login?app=portal&returnTo=%2F');
+    });
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
+  });
+
   it('follows the user locale: an Arabic user gets Arabic labels right-to-left', async () => {
     api({ me: fakeSession({ locale: 'ar' }) });
     render(<App />);

@@ -213,8 +213,10 @@ describe('menus follow permissions', () => {
     restore();
   });
 
-  it('a requester sees only the sections their role allows, and no Admin', async () => {
-    api({ me: fakeSession({ roles: ['requester'], user_type: 'requester' }) });
+  // Requesters never reach the console (WP-028, REQ-PRT-001 AC1): menus follow the permissions
+  // of a console user, here one holding only the narrow requester role.
+  it('a narrow role sees only the sections it allows, and no Admin', async () => {
+    api({ me: fakeSession({ roles: ['requester'], user_type: 'technician' }) });
     window.history.pushState({}, '', '/');
     render(<App />);
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' });
@@ -228,7 +230,7 @@ describe('menus follow permissions', () => {
   });
 
   it('a custom grant adds exactly its section', async () => {
-    const me = fakeSession({ roles: ['requester', 'custom_x'], user_type: 'requester' });
+    const me = fakeSession({ roles: ['requester', 'custom_x'], user_type: 'technician' });
     me.permissions = [
       ...(me.permissions ?? []),
       { key: 'reports.view', scope: 'all', scopes: ['all'], conditional: false },

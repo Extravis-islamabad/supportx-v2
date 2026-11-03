@@ -263,8 +263,9 @@ describe('Admin › Users', () => {
     ).toBe('req-500');
   });
 
-  it('is not available to requesters (no users.view)', async () => {
-    api({ me: fakeSession({ roles: ['requester'], user_type: 'requester' }) });
+  it('is not available without users.view', async () => {
+    // A console user with the narrow requester role (requesters themselves go to the portal).
+    api({ me: fakeSession({ roles: ['requester'], user_type: 'technician' }) });
     render(<App />);
     expect(await screen.findByText(/Ask your administrator for access/)).toBeDefined();
   });
