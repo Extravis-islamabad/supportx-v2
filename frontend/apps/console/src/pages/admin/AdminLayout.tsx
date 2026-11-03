@@ -1,5 +1,5 @@
 import { Grid, Typography, theme } from 'antd';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { NoAccess, PageHeader, useAccess, useLabel, usePageCrumbs } from '@supportx/ui';
 
@@ -115,8 +115,7 @@ export function AdminLayout() {
   );
 
   if (pages.length === 0) return <NoAccess titleKey="nav.admin" />;
-  // An address this person may not open goes home rather than showing an empty frame.
-  if (active !== undefined && page === undefined) return <Navigate to="/admin" replace />;
+  // Each page checks its own access and says so (NoAccess); the menu only hides what is not yours.
 
   return (
     <>

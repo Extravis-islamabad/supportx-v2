@@ -107,7 +107,7 @@ export function fold(text: string): string {
     .replace(/ى/g, 'ي')
     .replace(/ة/g, 'ه')
     .toLowerCase()
-    .replace(/[\u0300-\u036f\u064b-\u065f\u0670]/g, '');
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 }
 
 /** Whether a page matches the words typed: every word in its name, description or keywords. */

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeEntitlements, fakeSession } from '@supportx/api-client/testing';
+import { fakeEntitlements, fakeSession, type FakeRoute } from '@supportx/api-client/testing';
 import { en } from '@supportx/labels';
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
 import { scriptedRealtime } from '@supportx/realtime/testing';
@@ -21,7 +21,7 @@ afterEach(() => {
 
 const ADMIN = fakeSession({ roles: ['tenant_admin', 'technician'] });
 
-function api(routes: Record<string, unknown> = {}, me = ADMIN) {
+function api(routes: Record<string, FakeRoute> = {}, me = ADMIN) {
   const fake = consoleApi({ me, routes });
   restore = fake.restore;
   return fake;
@@ -54,7 +54,8 @@ describe('the setup map', () => {
   it('search folds case, punctuation and Arabic letter forms', () => {
     expect(fold('Sign-In')).toBe('signin');
     expect(fold('أمان')).toBe(fold('امان'));
-    expect(matches('pass word', ['Password policy'])).toBe(false);
+    expect(matches('pass word', ['Password policy'])).toBe(true); // every word, anywhere
+    expect(matches('mfa sso', ['Password, MFA'])).toBe(false);
     expect(matches('password', ['Sign-in', 'Password, MFA'])).toBe(true);
     expect(matches('', ['anything'])).toBe(true);
   });
@@ -67,7 +68,7 @@ describe('Setup home and menu', () => {
     render(<App />);
     const home = await screen.findByTestId('setup-home');
     expect(within(home).getByRole('heading', { name: 'People and access' })).toBeDefined();
-    expect(within(home).getByTestId('setup-page-users').textContent).toBe('Users');
+    expect(within(home).getByTestId('setup-page-users').textContent).toBe('People');
     expect(home.textContent).toContain('Add people, change their type and status');
     const menu = screen.getByTestId('admin-sections');
     expect(within(menu).getByTestId('admin-sections-home').getAttribute('aria-current')).toBe(
@@ -147,5 +148,22 @@ describe('Licence and plan', () => {
       expect(screen.getByTestId('licence-limits').textContent).toContain('8 of 25');
     });
     expect(fake.find('GET', '/api/v1/entitlements').length).toBeGreaterThan(1);
+  });
+});
+
+describe('Setup in the command palette (REQ-ADM-107)', () => {
+  it('finds a setup page by a keyword once something is typed', async () => {
+    window.history.pushState({}, '', '/');
+    api();
+    render(<App />);
+    await screen.findByTestId('user-name');
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const input = await screen.findByRole('combobox', { name: 'Type a page name…' });
+    expect(screen.queryByText('Setup › Sign-in and security')).toBeNull(); // not before typing
+    fireEvent.change(input, { target: { value: '2fa' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/admin/security');
+    });
   });
 });
