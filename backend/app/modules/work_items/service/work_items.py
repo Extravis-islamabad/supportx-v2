@@ -1687,6 +1687,7 @@ async def _on_behalf_problems(
             manager_id=placement.manager_id,
             active=placement.active,
             can_sign_in=placement.can_sign_in,
+            is_service=placement.user_type == "service",
         )
 
     if not sr_rules.may_raise_for(

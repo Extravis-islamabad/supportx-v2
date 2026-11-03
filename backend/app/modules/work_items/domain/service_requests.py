@@ -34,6 +34,7 @@ class PersonFacts:
     manager_id: uuid.UUID | None
     active: bool = True
     can_sign_in: bool = True
+    is_service: bool = False  # a connector's service identity: never a request's person
 
 
 def may_raise_for(scope: OnBehalfScope, submitter: PersonFacts, target: PersonFacts) -> bool:
@@ -44,7 +45,7 @@ def may_raise_for(scope: OnBehalfScope, submitter: PersonFacts, target: PersonFa
     """
     if target.user_id == submitter.user_id:
         return True
-    if not target.active:
+    if not target.active or target.is_service:
         return False
     in_scope = {
         OnBehalfScope.ALL_USERS: True,
