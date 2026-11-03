@@ -453,4 +453,7 @@ export const ar: LabelResource = {
   'antd.transfer.select_all': 'تحديد كل البيانات',
   'antd.transfer.select_current': 'تحديد الصفحة الحالية',
   'antd.transfer.select_invert': 'عكس تحديد الصفحة الحالية',
+  'nav.admin_api_keys': 'مفاتيح API',
+  'api_scope_access.read': 'قراءة',
+  'api_scope_access.write': 'كتابة',
 };

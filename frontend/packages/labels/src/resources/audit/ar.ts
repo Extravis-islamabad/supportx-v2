@@ -519,4 +519,9 @@ export const ar: LabelResource = {
   'event_type.sla.target.breached': 'تأخر هدف اتفاقية مستوى الخدمة',
   'event_type.sla.target.escalated': 'تنفيذ مستوى تصعيد لاتفاقية مستوى الخدمة',
   'history.sla_escalation': '{{target}}: نُفِّذ المستوى {{level}}',
+  'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
+  'audit.action.api_key.created': 'أنشأ مفتاح API',
+  'audit.action.api_key.revoked': 'أبطل مفتاح API',
+  'audit.action.api_key.refused': 'رُفض مفتاح API',
+  'audit.action.api_key.settings_changed': 'غيّر قواعد مفاتيح API',
 };
