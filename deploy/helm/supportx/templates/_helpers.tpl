@@ -24,7 +24,7 @@ app.kubernetes.io/component: {{ .component }}
 {{- fail "valkeyHa (HA, ADR-038) replaces the bundled valkey chart: set valkey.enabled=false" }}
 {{- end }}
 {{- if and (gt (int .Values.centrifugo.replicas) 1) (not .Values.valkeyHa.enabled) }}
-{{- fail "centrifugo.replicas above 1 needs the Valkey engine: valkeyHa.enabled=true (values-ha.yaml)" }}
+{{- fail "centrifugo.replicas above 1 needs the Valkey engine: turn on valkeyHa (values-ha.yaml)" }}
 {{- end }}
 {{- if not .Values.publicUrl -}}
 {{- fail "publicUrl is required (the browser's origin, e.g. https://supportx.example.com)" -}}
