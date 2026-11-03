@@ -7,7 +7,7 @@ owns validation and the transaction.
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -160,11 +160,41 @@ async def _require_unit(session: AsyncSession, kind: Kind, unit_id: uuid.UUID) -
         raise NotFound(code="site_not_found" if kind == "site" else "group_not_found")
 
 
+# Checks a person adding a member to a group (WP-042): identity_access registers one so that a
+# group carrying roles hands them out only to someone who could assign those roles directly.
+MemberGuard = Callable[[AsyncSession, object, uuid.UUID], Awaitable[None]]
+_MEMBER_GUARDS: list[MemberGuard] = []
+
+
+def register_member_guard(guard: MemberGuard) -> None:
+    """At start-up: a check run before a person adds anyone to a group."""
+    if guard not in _MEMBER_GUARDS:
+        _MEMBER_GUARDS.append(guard)
+
+
+def unregister_member_guard(guard: MemberGuard) -> None:
+    """At shutdown."""
+    if guard in _MEMBER_GUARDS:
+        _MEMBER_GUARDS.remove(guard)
+
+
 async def add_member(
-    session: AsyncSession, kind: Kind, unit_id: uuid.UUID, user_id: uuid.UUID
+    session: AsyncSession,
+    kind: Kind,
+    unit_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    by: object | None = None,
 ) -> bool:
-    """Add a user (idempotent: False if already a member). 404 for an unknown user or unit."""
+    """Add a user (idempotent: False if already a member). 404 for an unknown user or unit.
+
+    `by`: the person adding (their subject); the registered guards check them for groups. System
+    paths (directory sync) pass none: their group mappings are checked when made.
+    """
     await _require_unit(session, kind, unit_id)
+    if kind == "group" and by is not None:
+        for guard in _MEMBER_GUARDS:
+            await guard(session, by, unit_id)
     unit = UNITS[kind]
     context = session.info[SESSION_TENANT_KEY]
     statement = (

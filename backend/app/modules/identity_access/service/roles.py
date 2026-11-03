@@ -11,7 +11,7 @@ Every change writes its event in the same transaction and refreshes compiled per
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -617,6 +617,27 @@ async def remove_group_role(
         )
         _refresh(session, policy)
     return removed
+
+
+def member_guard(
+    policy: PolicyService,
+) -> Callable[[AsyncSession, object, uuid.UUID], Awaitable[None]]:
+    """The check organization runs before a person adds a member to a group (WP-042, lane B).
+
+    A group that carries roles hands them out with each new member, so the person adding needs
+    every one of them as if assigning it directly (`_assignable`); else 403 privilege_escalation.
+    """
+
+    async def guard(session: AsyncSession, by: object, group_id: uuid.UUID) -> None:
+        if not isinstance(by, Subject):
+            raise TypeError(by)
+        carried = await session.scalars(
+            select(GroupRole.role_id).where(GroupRole.group_id == group_id)
+        )
+        for role_id in list(carried):
+            await _assignable(session, policy, by, role_id)
+
+    return guard
 
 
 async def groups_of_role(session: AsyncSession, role_id: uuid.UUID) -> list[uuid.UUID]:

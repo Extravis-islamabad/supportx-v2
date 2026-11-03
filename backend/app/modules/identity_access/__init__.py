@@ -96,7 +96,7 @@ from app.modules.identity_access.service.policy import (
     visible,
 )
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
-from app.modules.identity_access.service.roles import RoleName, role_names
+from app.modules.identity_access.service.roles import RoleName, member_guard, role_names
 from app.modules.identity_access.service.service_identities import (
     create_service_identity,
     set_service_identity_active,
@@ -107,7 +107,7 @@ from app.modules.identity_access.service.worker_sessions import (
     worker_session_ender,
 )
 from app.modules.licensing import Feature, entitled_features
-from app.modules.organization import memberships
+from app.modules.organization import memberships, register_member_guard, unregister_member_guard
 from app.shared.clock import system_clock
 from app.shared.labels import missing_labels
 from app.shared.realtime import (
@@ -222,6 +222,9 @@ def _start_policy(app: FastAPI, settings: "Settings") -> None:
     app.state.policy = policy
     setattr(app.state, AUTHORIZER_STATE, policy)
     register_access_invalidator(policy.invalidate)
+    # Adding a member to a group carrying roles needs those roles' rights (WP-042).
+    app.state.member_guard = member_guard(policy)
+    register_member_guard(app.state.member_guard)
 
 
 async def _startup(app: FastAPI) -> None:
@@ -276,6 +279,9 @@ async def _shutdown(app: FastAPI) -> None:
     policy = getattr(app.state, "policy", None)
     if policy is not None:
         unregister_access_invalidator(policy.invalidate)
+    guard = getattr(app.state, "member_guard", None)
+    if guard is not None:
+        unregister_member_guard(guard)
     policy_client = getattr(app.state, "policy_client", None)
     if policy_client is not None:
         await policy_client.aclose()
