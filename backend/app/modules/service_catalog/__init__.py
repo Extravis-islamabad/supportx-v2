@@ -6,7 +6,8 @@ API; WP-031 adds the admin screens, versions and the rest of REQ-CAT. Licensed w
 `service_request` (Essentials, catalog basics); the advanced parts need `catalog` (plan D3,
 pending the product owner).
 
-Public interface for other modules: none yet (work_items will read an item's rules here).
+Public interface for other modules: `request_item` (what an item decides for a new service
+request, with its form's answers checked), `RequestItem`, `rules_of`.
 """
 
 from app.core.authorization import PermissionSpec
@@ -14,7 +15,12 @@ from app.core.modules import ModuleSpec
 from app.modules.service_catalog.api.routes import router
 from app.modules.service_catalog.events import EVENTS
 from app.modules.service_catalog.infra import models  # noqa: F401 - registers the tables
-from app.modules.service_catalog.service.catalog import MANAGE, rules_of
+from app.modules.service_catalog.service.catalog import (
+    MANAGE,
+    RequestItem,
+    request_item,
+    rules_of,
+)
 from app.modules.service_catalog.service.realtime import ROUTES
 
 FEATURE = "service_request"
@@ -31,4 +37,4 @@ module = ModuleSpec(
     realtime=ROUTES,
 )
 
-__all__ = ["module", "rules_of"]
+__all__ = ["RequestItem", "module", "request_item", "rules_of"]

@@ -27,7 +27,9 @@ from app.modules.service_catalog.domain.items import (
     PlannedTask,
     Question,
     QuestionKind,
+    answer_problems,
     name_problems,
+    needs_approval,
     rules_problems,
 )
 from app.modules.service_catalog.events import CatalogItemChanged, ServiceCategoryChanged
@@ -455,14 +457,60 @@ async def create_category(
     return category
 
 
+# --- for work_items: what an item decides for a new request ---------------------------------------
+
+
+@dataclass(frozen=True)
+class RequestItem:
+    """What a service request takes from its item (plain values; work_items decides with them)."""
+
+    item_id: uuid.UUID
+    needs_approval: bool
+    default_priority: str | None
+    sla_policy_id: uuid.UUID | None
+    group_id: uuid.UUID | None
+    technician_id: uuid.UUID | None
+    technician_after_approval: bool
+    count_approval_time: bool
+    auto_fulfil: bool
+    answer_problems: tuple[tuple[str, str], ...]  # the answers checked against the form
+
+
+async def request_item(
+    session: AsyncSession,
+    subject: Subject,
+    item_id: uuid.UUID,
+    answers: Mapping[str, Any],
+) -> RequestItem:
+    """The item a person raises a request from, if they may (enabled, open to them); else 404."""
+    view = await get_item(session, subject, item_id)
+    if not view.item.enabled:
+        raise NotFound(code="catalog_item_not_found")
+    rules = view.rules
+    return RequestItem(
+        item_id=view.item.id,
+        needs_approval=needs_approval(rules),
+        default_priority=view.item.default_priority,
+        sla_policy_id=view.item.sla_policy_id,
+        group_id=view.item.group_id,
+        technician_id=view.item.technician_id,
+        technician_after_approval=rules.technician_after_approval,
+        count_approval_time=rules.count_approval_time,
+        auto_fulfil=rules.auto_fulfil,
+        answer_problems=tuple(answer_problems(rules.questions, answers)),
+    )
+
+
 __all__ = [
     "MANAGE",
     "ItemView",
+    "RequestItem",
     "create_category",
     "create_item",
     "get_item",
     "list_categories",
     "list_items",
+    "request_item",
     "rules_of",
     "update_item",
 ]
