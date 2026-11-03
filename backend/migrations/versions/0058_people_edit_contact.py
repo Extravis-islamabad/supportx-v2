@@ -4,11 +4,11 @@ Expand only, no data step: identity_settings.people_edit_contact, off by default
 changes their own phone and mobile in My account (portal and console), unless a directory keeps
 them; off, the fields are read-only and the API refuses. The downgrade drops the column.
 
-Numbered 0058 to stay clear of open branches (0054 WP-025, 0055 WP-040/041); renumbered after
+Numbered 0058 to stay clear of open branches (0054 WP-025, 0055 WP-040/041); re-pointed after
 main's head before merge (one Alembic head, docs/LANES.md).
 
 Revision ID: 0058
-Revises: 0048
+Revises: 0051
 Created: 2026-11-04
 """
 
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0058"
-down_revision: str | None = "0048"
+down_revision: str | None = "0051"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

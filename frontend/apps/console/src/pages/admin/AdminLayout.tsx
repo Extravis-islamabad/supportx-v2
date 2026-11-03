@@ -1,7 +1,6 @@
-import { Tabs, Typography } from 'antd';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
-import { NoAccess, useAccess, useLabel } from '@supportx/ui';
+import { NoAccess, PageHeader, SectionNav, useAccess, useLabel, usePageCrumbs } from '@supportx/ui';
 
 /** Admin tabs, each shown only to users holding its permission (WP-016). */
 const TABS = [
@@ -35,17 +34,29 @@ export function AdminLayout() {
   const tabs = TABS.filter((tab) => can(tab.permission) || ('also' in tab && can(tab.also)));
   const active = pathname.split('/')[2];
   const first = tabs[0];
+  const tab = tabs.find((candidate) => candidate.key === active);
+  usePageCrumbs(
+    tab === undefined
+      ? null
+      : [{ label: t('nav.admin'), path: '/admin' }, { label: t(tab.labelKey) }],
+  );
 
   if (first === undefined) return <NoAccess titleKey="nav.admin" />;
   if (active === undefined || active === '') return <Navigate to={`/admin/${first.key}`} replace />;
 
   return (
     <>
-      <Typography.Title level={1}>{t('nav.admin')}</Typography.Title>
-      <Tabs
-        activeKey={active}
-        onChange={(key) => void navigate(`/admin/${key}`)}
-        items={tabs.map((tab) => ({ key: tab.key, label: t(tab.labelKey) }))}
+      <PageHeader title={t('nav.admin')} testId="admin-header" />
+      <SectionNav
+        label={t('nav.admin')}
+        active={active}
+        onNavigate={(path) => void navigate(path)}
+        items={tabs.map((tab) => ({
+          key: tab.key,
+          label: t(tab.labelKey),
+          path: `/admin/${tab.key}`,
+        }))}
+        testId="admin-sections"
       />
       <Outlet />
     </>

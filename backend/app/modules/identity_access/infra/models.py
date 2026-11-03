@@ -127,7 +127,7 @@ class User(TenantEntity):
     # Owned by SupportX, editable by the user (WP-008); identity fields above come from Keycloak.
     signature: Mapped[str | None] = mapped_column(Text)
     time_zone: Mapped[str | None] = mapped_column(String(64))
-    nav_layout: Mapped[str] = mapped_column(server_default="top")
+    nav_layout: Mapped[str] = mapped_column(server_default="side")  # D-124
     form_density: Mapped[str] = mapped_column(server_default="comfortable")
     # The language picked in the app (QA BUG-04); NULL: follow `locale` from Keycloak.
     ui_locale: Mapped[str | None]

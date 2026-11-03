@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { expectAccessible, resetLanguage, signInAs } from './helpers';
+import { actionEntry, clickAction, expectAccessible, resetLanguage, signInAs } from './helpers';
 
 /**
  * WP-020 incidents end to end in real browsers (parity file 01): a new incident with rich text
@@ -187,7 +187,7 @@ test('a new incident with rich text appears live for the technician; edits reach
     );
 
     // A status that needs a reason asks for it; the reason shows on the record and in history.
-    await tech.page.getByTestId('inc-action-wait_requester').click();
+    await clickAction(tech.page, 'inc-action-wait_requester');
     await tech.page.getByTestId('inc-reason-confirm').click();
     await expect(tech.page.getByTestId('inc-reason-code-error')).toHaveText('Choose a reason.');
     await pick(tech.page, 'inc-reason-code', '', 'Needs more information');
@@ -226,9 +226,9 @@ test('D-052/D-053/D-068: the technician sees the site queue, keeps following wha
   try {
     await expect(tech.page.getByTestId('inc-display-id')).toContainText(queued.display_id);
     // Take it into E2E Desk, then hand it to E2E Network (not one of the technician's groups).
-    await tech.page.getByTestId('inc-op-take').click();
+    await clickAction(tech.page, 'inc-op-take');
     await expect(tech.page.getByTestId('inc-status')).toHaveText('Assigned');
-    await tech.page.getByTestId('inc-op-assign').click();
+    await clickAction(tech.page, 'inc-op-assign');
     await pick(tech.page, 'inc-assign-group', 'E2E Network', /^E2E Network /);
     await pick(tech.page, 'inc-assign-reason', '', 'Wrong group');
     await tech.page.getByTestId('inc-assign-confirm').click();
@@ -240,7 +240,11 @@ test('D-052/D-053/D-068: the technician sees the site queue, keeps following wha
     await tech.page.getByTestId('inc-handover-confirm').click();
     // Still open for them: read-only, following, and listed as a follower with access.
     await expect(tech.page.getByTestId('inc-follow')).toContainText('Unfollow');
-    await expect(tech.page.getByTestId('inc-op-assign')).toBeDisabled();
+    await expect(await actionEntry(tech.page, 'inc-op-assign')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await tech.page.keyboard.press('Escape');
     await tech.page.getByRole('tab', { name: 'Details' }).click();
     await expect(tech.page.getByTestId('inc-followers')).toContainText(
       'Kept after handing it over',

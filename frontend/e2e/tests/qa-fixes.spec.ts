@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { resetLanguage, settledBox, settledLayout, signInAs, storedLanguage } from './helpers';
+import {
+  clickAction,
+  resetLanguage,
+  settledBox,
+  settledLayout,
+  signInAs,
+  storedLanguage,
+} from './helpers';
 
 /**
  * WP-020-FIX: the findings of the WP-020 QA report that only a real browser can show (layout,
@@ -195,7 +202,7 @@ test('C1, C2, C5: counter clear of the buttons; Arabic in a Naskh face; nothing 
 
   // C5: opening a dialog does not move the header.
   const before = await settledBox(page.getByTestId('appearance-menu'));
-  await page.getByTestId('inc-action-cancel').click();
+  await clickAction(page, 'inc-action-cancel');
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   const during = await settledBox(page.getByTestId('appearance-menu'));

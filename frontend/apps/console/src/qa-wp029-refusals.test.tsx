@@ -10,6 +10,7 @@ import {
 
 import { App } from './App';
 import { consoleApi, fakeSession, fakeUser, problem } from './test/api';
+import { clickAction } from './test/actions';
 
 // WP-029 QA BUG-02, app-wide: an expected refusal (a business rule, a validation) shows once, at
 // the form, dialog or drawer that made the save, in the user's language; never as a red error
@@ -194,7 +195,7 @@ describe('BUG-02: refusals show at the form, app-wide', () => {
     });
     window.history.pushState({}, '', `/incidents/${item.id}`);
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-cancel'));
+    await clickAction('inc-action-cancel');
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-reason-code')));
     fireEvent.click(await screen.findByTitle('Duplicate'));
     fireEvent.click(screen.getByTestId('inc-reason-confirm'));

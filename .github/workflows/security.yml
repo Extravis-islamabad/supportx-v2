@@ -38,13 +38,35 @@ jobs:
           persist-credentials: false
       # The gitleaks CLI image (MIT) is used directly: gitleaks-action needs a paid licence for
       # organisation accounts, which would break once the repo moves to an Extravis org (D-015).
-      - name: Scan full git history
+      # A PR or queue group scans only its own commits, so a finding on one branch never blocks
+      # every other lane's PR. The nightly and manual runs scan every commit of every branch
+      # (product owner, 2026-11-03). Known false positives are listed by exact fingerprint in
+      # .gitleaksignore (read by gitleaks from the repo root); no rule is ever turned off.
+      - name: Choose the commits to scan
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+          QUEUE_HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          case "$EVENT" in
+            pull_request) range="$PR_BASE..$PR_HEAD" ;;
+            merge_group) range="$QUEUE_BASE..$QUEUE_HEAD" ;;
+            *) range="--all" ;;
+          esac
+          echo "log-opts=$range" >> "$GITHUB_OUTPUT"
+          echo "Scanning: $range"
+      - name: Scan for secrets
+        env:
+          LOG_OPTS: ${{ steps.range.outputs.log-opts }}
         run: |
           # safe.directory: the checkout is owned by the runner user, not the container user.
           docker run --rm -v "$PWD:/repo" \
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
             "$GITLEAKS_IMAGE" \
-            git /repo --no-banner --redact --verbose --exit-code 1
+            git /repo --no-banner --redact --verbose --exit-code 1 --log-opts="$LOG_OPTS"
 
   dependency-audit:
     name: dependency audit (pip-audit, pnpm audit)
