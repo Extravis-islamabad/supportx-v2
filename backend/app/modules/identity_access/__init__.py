@@ -109,6 +109,7 @@ from app.modules.identity_access.service.worker_sessions import (
 from app.modules.licensing import Feature, entitled_features
 from app.modules.organization import memberships
 from app.shared.clock import system_clock
+from app.shared.labels import missing_labels
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     SESSION_ENDED,
@@ -169,12 +170,38 @@ async def subject_for(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid
     return await _worker_policy().compile(session, tenant_id, user_id)
 
 
+def check_catalogue_labels(catalogue: Catalogue, settings: "Settings") -> None:
+    """Every permission and permission module has its English and Arabic label (REQ-ADM-016 AC1).
+
+    A missing one stops start-up in dev and test, so it is caught before a screen shows a raw
+    code; production only logs it and starts (a label is never worth an outage).
+    """
+    keys = {
+        key
+        for permission, spec in catalogue.permissions.items()
+        for key in (
+            f"permission.{permission}",
+            f"permission.{permission}.description",
+            f"permission_module.{spec.module}",
+        )
+    }
+    missing = missing_labels(keys, ("en", "ar"))
+    if not missing:
+        return
+    if settings.profile == "production":
+        log.warning("permission_labels_missing", missing=missing)
+        return
+    msg = f"permission labels missing (add them to packages/labels): {', '.join(missing)}"
+    raise RuntimeError(msg)
+
+
 def _start_policy(app: FastAPI, settings: "Settings") -> None:
     """The policy layer (WP-016): needs the database; caches in Valkey when configured."""
     app.state.policy = None
     setattr(app.state, AUTHORIZER_STATE, None)
     app.state.policy_client = None
     catalogue = build_catalogue(app.state.modules)
+    check_catalogue_labels(catalogue, settings)
     if app.state.db is None:
         return
     cache = None

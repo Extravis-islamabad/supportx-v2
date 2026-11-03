@@ -321,7 +321,7 @@ async def test_system_roles_cannot_be_changed_or_deleted(world: World) -> None:
         attempt = await world.call(
             method, f"/roles/{technician}", a, a.admin, headers={"If-Match": '"1"'}, **kw
         )
-        assert problem(attempt) == (403, "system_role_immutable")
+        assert problem(attempt) == (409, "system_role_immutable")
 
 
 async def test_the_last_tenant_admin_keeps_the_role(world: World) -> None:

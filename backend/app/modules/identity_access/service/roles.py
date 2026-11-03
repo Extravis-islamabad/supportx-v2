@@ -319,7 +319,9 @@ async def _write_grants(
 async def _custom_role(session: AsyncSession, role_id: uuid.UUID) -> Role:
     role = await RoleRepository(session).get(role_id)
     if role.is_system:
-        raise PermissionDenied(code="system_role_immutable")
+        # The request conflicts with what the role is (built-in), not with the caller's rights:
+        # 409, so a client copies it instead (REQ-ADM-017; a recorded D-095 change, WP-042).
+        raise Conflict(code="system_role_immutable")
     return role
 
 
