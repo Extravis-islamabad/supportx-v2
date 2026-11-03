@@ -2,6 +2,8 @@
 
     GET /api/v1/portal/incidents            "My requests": own, or one reach as a filter
     GET /api/v1/portal/incidents/{id}       one record in the viewer's reach
+    GET /api/v1/portal/incidents/templates  the forms the portal offers (requester fields only)
+    POST /api/v1/portal/incidents           report an issue (REQ-INC-028), Idempotency-Key
 
 Only signed-in people; what they see is decided in `service/portal.py` (the one scope check).
 Responses carry the allow-listed fields only: a field the record's template hides, and every
@@ -12,17 +14,27 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
-from app.modules.identity_access import Subject
+from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.api.routes import RESPONSES
-from app.modules.work_items.domain.portal import PortalReach, PortalStatus
+from app.modules.work_items.domain.classification import Impact, Urgency
+from app.modules.work_items.domain.portal import PortalReach, PortalStatus, requester_fillable
+from app.modules.work_items.domain.templates import (
+    IMPACT_DETAILS_MAX,
+    TemplateField,
+    rules_from_json,
+)
+from app.modules.work_items.domain.types import DESCRIPTION_MAX, SUBJECT_MAX
+from app.modules.work_items.infra.models import WorkItemTemplate
 from app.modules.work_items.service import portal as service
+from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, list_query
 from app.shared.api.ratelimit import rate_limit
+from app.shared.history import source_of
 
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
 Query_ = Annotated[
@@ -65,6 +77,58 @@ class PortalIncidentPage(BaseModel):
     estimated_total: int | None = None
 
 
+class PortalFieldOut(BaseModel):
+    """A field the requester fills in on this form."""
+
+    name: TemplateField
+    required: bool
+
+
+class PortalTemplateOut(BaseModel):
+    """A form the portal offers: its name and the requester's fields, nothing staff-side."""
+
+    id: uuid.UUID
+    code: str | None = Field(description="Seeded templates: labelled by the UI from this code.")
+    labels: dict[str, str] | None
+    description: str | None
+    is_default: bool
+    fields: list[PortalFieldOut]
+
+    @classmethod
+    def of(cls, row: WorkItemTemplate) -> "PortalTemplateOut":
+        """The template as the portal shows it, fields in the form's order."""
+        rules = rules_from_json(row.field_rules)
+        fillable = requester_fillable(rules)
+        return cls(
+            id=row.id,
+            code=row.code,
+            labels=row.labels,
+            description=row.description,
+            is_default=row.is_default,
+            fields=[
+                PortalFieldOut(name=f, required=rules[f.value].required)
+                for f in TemplateField
+                if f.value in fillable
+            ],
+        )
+
+
+class PortalIncidentIn(BaseModel):
+    """What a requester sends; the template decides which of these they may fill in."""
+
+    model_config = ConfigDict(extra="forbid")  # a staff field is refused, never ignored
+
+    template_id: uuid.UUID | None = Field(default=None, description="Default: the first offered.")
+    subject: str = Field(max_length=SUBJECT_MAX * 2)
+    description: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Rich text (HTML), sanitised."
+    )
+    category_id: uuid.UUID | None = None
+    impact: Impact | None = None
+    urgency: Urgency | None = None
+    impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
+
+
 def _out(found: service.PortalRecord) -> PortalIncidentOut:
     return PortalIncidentOut.model_validate(found.values())
 
@@ -102,6 +166,45 @@ async def list_portal_incidents(  # noqa: PLR0913, PLR0917 - FastAPI dependencie
         has_more=page.has_more,
         estimated_total=page.estimated_total,
     )
+
+
+@router.get("/templates", summary="The forms the portal offers")
+async def list_portal_templates(
+    session: TenantSession, subject: SignedIn
+) -> list[PortalTemplateOut]:
+    """Templates marked for requesters (else the default), with the requester's fields only."""
+    del subject
+    return [PortalTemplateOut.of(t) for t in await service.portal_templates(session)]
+
+
+@router.post("", summary="Report an issue in the portal", status_code=status.HTTP_201_CREATED)
+async def create_portal_incident(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    body: PortalIncidentIn,
+    session: TenantSession,
+    subject: SignedIn,
+    idempotency: Idempotency,
+    request: Request,
+    policy: Annotated[PolicyService, Depends(get_policy)],
+) -> Response:
+    """A new incident in your name; the new ID comes back at once (REQ-INC-028 AC1)."""
+
+    async def run() -> Created:
+        values = body.model_dump(exclude_unset=True, exclude={"template_id"})
+        found = await service.create_record(
+            session,
+            subject,
+            values,
+            template_id=body.template_id,
+            source=source_of(request),
+            holders=policy,
+        )
+        out = _out(found)
+        return Created(
+            body=out.model_dump(mode="json", exclude_unset=True),
+            headers={"Location": f"/api/v1/portal/incidents/{out.id}"},
+        )
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
 @router.get(

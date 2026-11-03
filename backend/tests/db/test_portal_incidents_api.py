@@ -162,3 +162,65 @@ async def test_open_closed_and_search_filters(world: World) -> None:
     assert ids(await mine(world, a, a.requester, q="printer")) == {printer["id"]}
     assert ids(await mine(world, a, a.requester, q=vpn["display_id"])) == {vpn["id"]}
     assert ids(await mine(world, a, a.requester, q="100%_")) == set()
+
+
+async def report(world: World, org: Org, user: uuid.UUID, **body: Any) -> Any:  # noqa: ANN401
+    return await world.call(
+        "POST",
+        PORTAL,
+        org,
+        user,
+        json={"subject": "Laptop will not start", **body},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+
+
+async def test_a_requester_reports_an_issue_and_gets_its_id_at_once(world: World) -> None:
+    a = world.a
+    made = await report(world, a, a.requester, description="<p>Black screen</p>")
+    assert made.status_code == 201, made.text
+    body = made.json()
+    assert body["display_id"].startswith("INC-")  # REQ-INC-028 AC1
+    assert (body["portal_status"], body["reach"]) == ("received", "own")
+    assert not set(body) & STAFF_ONLY
+    staff = (await world.call("GET", f"/incidents/{body['id']}", a, a.admin)).json()
+    assert staff["channel"] == "portal"
+    assert staff["requester_id"] == str(a.requester)  # always the signed-in person
+    # it is in the technicians' list (live: the engine's usual outbox event, REQ-INC-028 AC3)
+    listed = (await world.call("GET", "/incidents", a, a.admin)).json()
+    assert body["id"] in {i["id"] for i in listed["items"]}
+
+
+async def test_a_requester_cannot_set_staff_or_unfillable_fields(world: World) -> None:
+    a = world.a
+    for extra in (
+        {"group_id": str(a.ga)},
+        {"technician_id": str(a.tech_a)},
+        {"priority": "critical"},
+        {"requester_id": str(a.requester2)},
+    ):
+        refused = await report(world, a, a.requester, **extra)
+        assert refused.status_code == 422, (extra, refused.text)
+    # urgency is a requester field the default template does not let them fill in
+    refused = await report(world, a, a.requester, urgency="high")
+    assert refused.status_code == 422, refused.text
+    assert [e["code"] for e in refused.json()["errors"]] == ["read_only"]
+
+
+async def test_the_portal_offers_requester_templates_with_requester_fields_only(
+    world: World,
+) -> None:
+    a = world.a
+    offered = (await world.call("GET", f"{PORTAL}/templates", a, a.requester)).json()
+    assert [t["is_default"] for t in offered] == [True]  # none marked: the default
+    assert {f["name"] for f in offered[0]["fields"]} == {"subject", "description"}
+    other_tenant = await world.call(
+        "POST",
+        PORTAL,
+        a,
+        a.requester,
+        json={"subject": "x", "template_id": str(uuid.uuid4())},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert other_tenant.status_code == 422, other_tenant.text
+    assert other_tenant.json()["errors"][0]["code"] == "template_not_found"

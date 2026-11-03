@@ -14,6 +14,7 @@ Today's default:
 """
 
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -22,7 +23,7 @@ from sqlalchemy import ColumnElement, Select, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import PermissionSpec
-from app.core.errors import NotFound
+from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules.identity_access import Subject, direct_reports, person_placement
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.portal import (
@@ -33,12 +34,16 @@ from app.modules.work_items.domain.portal import (
     portal_status,
     reaches,
     requester_fields,
+    unfillable,
 )
 from app.modules.work_items.domain.templates import rules_from_json
-from app.modules.work_items.domain.types import INCIDENT, WorkItemType
+from app.modules.work_items.domain.types import INCIDENT, Channel, WorkItemType
 from app.modules.work_items.infra.models import WorkItem, WorkItemTemplate
+from app.modules.work_items.service import templates
+from app.modules.work_items.service import work_items as items
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
+from app.shared.history import Source
 
 VIEW = "requests.view"
 VIEW_DEPARTMENT = "requests.view_department"
@@ -241,7 +246,77 @@ async def get_record(
     return (await _shape(session, seen_by, [record]))[0]
 
 
+# --- reporting an issue (REQ-INC-028) ---------------------------------------------------------
+
+CREATE = "requests.create"
+
+
+async def portal_templates(
+    session: AsyncSession, wtype: WorkItemType = INCIDENT
+) -> list[WorkItemTemplate]:
+    """The templates the portal offers: those marked for requesters and enabled.
+
+    With none marked, the default template, so a new tenant's portal can report an issue out
+    of the box (REQ-INC-028 AC1).
+    """
+    rows = await templates.list_templates(session, wtype)
+    offered = [t for t in rows if t.for_requesters and t.disabled_at is None]
+    return offered or [t for t in rows if t.is_default]
+
+
+async def create_record(  # noqa: PLR0913 - the form's inputs and the engine's context
+    session: AsyncSession,
+    subject: Subject,
+    values: Mapping[str, Any],
+    *,
+    template_id: uuid.UUID | None,
+    source: Source,
+    holders: items.PermissionHolders,
+    wtype: WorkItemType = INCIDENT,
+) -> PortalRecord:
+    """A new incident from the portal, in the signed-in person's name, channel `portal`.
+
+    Only the template's requester-fillable fields are taken; any other field is refused, not
+    dropped (a staff field like `group_id` never comes from a requester, REQ-INC-028 AC2).
+    """
+    if not subject.holds(CREATE):
+        raise PermissionDenied(params={"permission": CREATE, "reason": "no_permission"})
+    offered = {t.id: t for t in await portal_templates(session, wtype)}
+    chosen = offered.get(template_id) if template_id else next(iter(offered.values()), None)
+    if chosen is None:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.template_id",
+                    code="template_not_found",
+                    message_key="errors.field.template_not_found",
+                )
+            ]
+        )
+    refused = unfillable(values.keys(), rules_from_json(chosen.field_rules))
+    if refused:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field=f"body.{name}", code="read_only", message_key="errors.field.read_only"
+                )
+                for name in refused
+            ]
+        )
+    made = await items.create(
+        session,
+        subject,
+        wtype,
+        {**values, "requester_id": subject.user_id, "template_id": chosen.id},
+        source=source,
+        holders=holders,
+        channel=Channel.PORTAL,
+    )
+    return await get_record(session, subject, made.record.id, wtype)
+
+
 __all__ = [
+    "CREATE",
     "FIELDS",
     "PERMISSIONS",
     "VIEW",
@@ -249,8 +324,10 @@ __all__ = [
     "VIEW_REPORTS",
     "PortalRecord",
     "PortalState",
+    "create_record",
     "get_record",
     "list_records",
+    "portal_templates",
     "reach_predicate",
     "viewer",
 ]
