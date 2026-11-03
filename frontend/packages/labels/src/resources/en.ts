@@ -5217,6 +5217,28 @@ export const en = {
   'errors.directory_not_found': 'The directory was not found.',
   'errors.directory_secret_missing':
     'No working client secret or certificate is stored. Enter it again.',
+  'errors.ldap_host_invalid':
+    "Enter the directory server's host name or IP address, without ldap:// or a path.",
+  'errors.plain_connection_refused':
+    'A connection without encryption is refused unless you allow it.',
+  'errors.ldap_dn_invalid': 'Enter a distinguished name such as OU=People,DC=example,DC=com.',
+  'errors.ldap_filter_invalid': 'Enter an LDAP filter in brackets, such as (objectClass=person).',
+  'errors.ldap_attribute_invalid': 'Enter a directory attribute name: letters, digits and hyphens.',
+  'errors.ldap_federation_not_installed':
+    'AD/LDAP is not turned on for this installation. Ask your administrator to enable it.',
+  'errors.ldap_single_tenant_only':
+    'AD/LDAP directories can only be connected on an installation that serves one organisation.',
+  'errors.ldap_federation_refused':
+    'The identity service refused the directory settings. Check the server, bind account and paths.',
+  'errors.ldap_federation_keycloak_unavailable':
+    'The identity service did not answer. The directory will be connected when it is back.',
+  'errors.ldap_bind_password_missing': 'No bind password is stored. Enter it again.',
+  'audit.action.directory.federation_applied':
+    'Connected an AD/LDAP directory in the identity service',
+  'audit.action.directory.federation_failed':
+    'Could not connect an AD/LDAP directory in the identity service',
+  'audit.action.directory.federation_removed':
+    'Removed an AD/LDAP directory from the identity service',
   'errors.directory_unavailable':
     'The directory did not answer or refused the sync app. Try again in a moment.',
   'errors.required': 'This field is required.',

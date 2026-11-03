@@ -18,6 +18,7 @@ from app.modules.integrations.infra import models  # noqa: F401 - tables known t
 from app.modules.integrations.service import catalogue, connector_notifications, notifications, runs
 from app.modules.integrations.service.directory_sync import sync_schedule
 from app.modules.integrations.service.fetching import fetch_schedule
+from app.modules.integrations.service.ldap_directories import LDAP_FEDERATION_APPLY
 from app.modules.integrations.service.mailboxes import LEGACY_MANAGE, MANAGE
 from app.modules.integrations.service.realtime import ROUTES
 from app.shared.connectors.ports import ConnectorCategory
@@ -46,6 +47,8 @@ module = ModuleSpec(
         # Directory sync: every minute, each connector when due (every 30 minutes, D-118).
         ScheduleSpec("integrations__directory_sync", 60, sync_schedule),
     ],
+    # AD/LDAP: the consumers worker writes each directory into Keycloak (WP-040, D-118).
+    consumers=[LDAP_FEDERATION_APPLY],
     events=EVENTS,
     realtime=ROUTES,
 )

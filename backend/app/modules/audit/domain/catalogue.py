@@ -201,6 +201,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("directory.changed", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.removed", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.sync_requested", AuditCategory.CONFIGURATION, "integrations"),
+    # Every use of the supportx-federation account (WP-040, D-118; product owner 2026-11-03).
+    ("directory.federation_applied", AuditCategory.CONFIGURATION, "integrations"),
+    ("directory.federation_failed", AuditCategory.CONFIGURATION, "integrations"),
+    ("directory.federation_removed", AuditCategory.CONFIGURATION, "integrations"),
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),

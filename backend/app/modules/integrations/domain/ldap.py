@@ -119,7 +119,7 @@ def _one(value: str | int | bool) -> list[str]:  # noqa: FBT001 - one config val
 
 
 def component(
-    settings: LdapSettings, *, name: str, realm_id: str, bind_password: str
+    settings: LdapSettings, *, name: str, realm_id: str, bind_password: str, enabled: bool = True
 ) -> dict[str, Any]:  # Any: Keycloak's JSON
     """The user-federation component for Keycloak's admin API (`POST /components`)."""
     ad = settings.vendor is Vendor.ACTIVE_DIRECTORY
@@ -148,7 +148,7 @@ def component(
         "fullSyncPeriod": _one(settings.full_sync_seconds),
         "changedSyncPeriod": _one(settings.changed_sync_seconds),
         "trustEmail": ["false"],
-        "enabled": ["true"],
+        "enabled": _one(enabled),  # a directory switched off in SupportX signs nobody in
         "priority": ["0"],
         "cachePolicy": ["DEFAULT"],
     }
