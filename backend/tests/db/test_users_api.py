@@ -238,7 +238,10 @@ async def test_cursor_cannot_be_reused_elsewhere(
         "other user": directory.list(other_tech_here, limit=2, cursor=cursor),
         "other filter": directory.list(limit=2, cursor=cursor, status="active"),
         "other sort": directory.list(limit=2, cursor=cursor, sort="-display_name"),
-        "tampered": directory.list(limit=2, cursor=cursor[:-3] + "abc"),
+        # Never by chance the same cursor (a fixed suffix can match the real one).
+        "tampered": directory.list(
+            limit=2, cursor=cursor[:-3] + ("xyz" if cursor.endswith("abc") else "abc")
+        ),
         "garbage": directory.list(limit=2, cursor="' OR 1=1 --"),
     }
     for label, request in attempts.items():
