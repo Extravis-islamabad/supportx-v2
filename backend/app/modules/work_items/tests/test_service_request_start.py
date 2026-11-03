@@ -81,3 +81,11 @@ def test_whom_a_requester_may_raise_for() -> None:
     assert may_raise_for(scope.ALL_REQUESTERS, me, stranger)
     assert not may_raise_for(scope.ALL_REQUESTERS, me, technician)
     assert may_raise_for(scope.ALL_USERS, me, technician)
+    # Never for a deactivated person, not even a report; "any requester" can sign in and is no
+    # service identity (lane B review, #182).
+    gone = person(manager_id=me.user_id, active=False)
+    assert not may_raise_for(scope.ALL_USERS, me, gone)
+    contact = person(can_sign_in=False)
+    assert not may_raise_for(scope.ALL_REQUESTERS, me, contact)
+    service = person(is_requester=False)  # a service identity is not a requester
+    assert not may_raise_for(scope.ALL_REQUESTERS, me, service)

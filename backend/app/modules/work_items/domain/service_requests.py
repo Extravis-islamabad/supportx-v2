@@ -32,19 +32,29 @@ class PersonFacts:
     site_id: uuid.UUID | None
     is_requester: bool
     manager_id: uuid.UUID | None
+    active: bool = True
+    can_sign_in: bool = True
 
 
 def may_raise_for(scope: OnBehalfScope, submitter: PersonFacts, target: PersonFacts) -> bool:
-    """Whether `submitter` may raise a record for `target` under the tenant's scope (AC1)."""
-    if submitter.user_id in {target.user_id, target.manager_id}:
-        return True  # themselves, or their own direct report
-    if scope is OnBehalfScope.ALL_USERS:
+    """Whether `submitter` may raise a record for `target` under the tenant's scope (AC1).
+
+    Never for a deactivated person; "any requester" means people who are requesters and can
+    sign in (no service identities, no contacts without sign-in; lane B review).
+    """
+    if target.user_id == submitter.user_id:
         return True
-    if scope is OnBehalfScope.ALL_REQUESTERS:
-        return target.is_requester
-    if scope is OnBehalfScope.SAME_SITE:
-        return submitter.site_id is not None and target.site_id == submitter.site_id
-    return submitter.department_id is not None and target.department_id == submitter.department_id
+    if not target.active:
+        return False
+    in_scope = {
+        OnBehalfScope.ALL_USERS: True,
+        OnBehalfScope.ALL_REQUESTERS: target.is_requester and target.can_sign_in,
+        OnBehalfScope.SAME_SITE: submitter.site_id is not None
+        and target.site_id == submitter.site_id,
+        OnBehalfScope.SAME_DEPARTMENT: submitter.department_id is not None
+        and target.department_id == submitter.department_id,
+    }
+    return target.manager_id == submitter.user_id or in_scope[scope]  # or their own report
 
 
 class ApprovalStatus(StrEnum):
