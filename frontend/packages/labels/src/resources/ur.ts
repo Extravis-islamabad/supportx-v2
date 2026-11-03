@@ -2,6 +2,19 @@ import type { LabelResource } from './en';
 
 // Urdu skeleton: mandatory from Stage 2 (D-006). Missing keys fall back to English.
 export const ur: LabelResource = {
+  'layout.more_actions': 'مزید اقدامات',
+  'layout.alerts_count_one': '{{count}} انتباہ',
+  'layout.alerts_count_other': '{{count}} انتباہات',
+  'layout.notices_count_one': '{{count}} اطلاع',
+  'layout.notices_count_other': '{{count}} اطلاعات',
+  'layout.notices_more_one': '{{count}} مزید اطلاع',
+  'layout.notices_more_other': '{{count}} مزید اطلاعات',
+  'layout.view': 'دیکھیں',
+  'layout.hide': 'چھپائیں',
+  'layout.filters': 'فلٹرز',
+  'layout.done': 'ہو گیا',
+  'layout.properties': 'خصوصیات',
+  'app.console.name': 'SupportX',
   'product.name': 'SupportX',
   'appearance.language': 'زبان',
   'locale.en': 'English',
@@ -445,6 +458,7 @@ export const ur: LabelResource = {
   'incidents.restored': 'بحال ہو گیا۔',
   'incidents.status_reason': 'وجہ',
   'incidents.requested_by': 'درخواست گزار: {{name}}',
+  'incidents.created_on': 'بنایا گیا {{date}}',
   'incidents.unassigned': 'ابھی کسی نے نہیں لیا',
   'incidents.assigned_to': '{{name}} کو تفویض',
   'incidents.delete_confirm': '{{id}} کو ردی کی ٹوکری میں ڈالیں؟',
@@ -452,6 +466,11 @@ export const ur: LabelResource = {
   'incidents.tab.details': 'تفصیلات',
   'incidents.tab.history': 'تاریخ ({{count}})',
   'incidents.properties': 'خصوصیات',
+  'incidents.panel.sla': 'سروس لیول',
+  'incidents.panel.sla_state': 'حالت',
+  'incidents.panel.resolve_by': 'حل کی آخری تاریخ',
+  'incidents.panel.assignment': 'تفویض',
+  'incidents.panel.followers': 'فالوورز',
   'incidents.created_at': 'درج ہونے کا وقت',
   'incidents.edit_field': '{{field}} میں ترمیم',
   'incidents.saved': 'محفوظ ہو گیا۔',
@@ -4421,6 +4440,7 @@ export const ur: LabelResource = {
   'mailbox_answer.follow_up.body':
     'آپ کے جواب کا شکریہ۔ {{previous}} بہت پہلے بند ہو چکا تھا اس لیے دوبارہ نہیں کھل سکتا، چنانچہ آپ کے پیغام سے ایک نیا واقعہ شروع ہوا: {{id}}۔ اس میں اضافہ کرنے کے لیے اس ای میل کا جواب دیں۔',
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
+  'shell.breadcrumbs': 'آپ یہاں ہیں',
   // SLA set-up: calendars and holidays (WP-025 session 1)
   'sla.special.title': 'مخصوص تاریخوں کے اوقات',
   'sla.special.explain':

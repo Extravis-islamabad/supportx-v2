@@ -119,8 +119,20 @@ async function openComposer(kind: 'reply' | 'note') {
 
 async function pick(action: 'content' | 'link') {
   // The reply editor may open in a dialog of its own: look for the button on the whole page.
-  fireEvent.click(await screen.findByTestId('kb-picker-open'));
-  const drawer = await screen.findByTestId('kb-picker');
+  // The Knowledge card in the properties panel (on every tab since D-124) has a picker of its
+  // own: take the editor's, the one outside the card.
+  const open = await waitFor(() => {
+    const found = screen
+      .queryAllByTestId('kb-picker-open')
+      .filter((button) => button.closest('[data-testid="kb-card"]') === null)
+      .at(-1);
+    if (found === undefined) throw new Error('no picker in the editor yet');
+    return found;
+  });
+  fireEvent.click(open);
+  const drawers = await screen.findAllByTestId('kb-picker');
+  const drawer = drawers.at(-1);
+  if (drawer === undefined) throw new Error('no picker drawer');
   fireEvent.click(await within(drawer).findByTestId(`kb-picker-${action}-KB-1`));
 }
 

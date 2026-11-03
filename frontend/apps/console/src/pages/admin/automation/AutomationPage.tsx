@@ -1,7 +1,7 @@
-import { Flex, Tabs, Typography } from 'antd';
+import { Flex } from 'antd';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
-import { NoAccess, useAccess, useLabel } from '@supportx/ui';
+import { NoAccess, PageHeader, SectionNav, useAccess, useLabel } from '@supportx/ui';
 
 import { BusinessRulesTab } from './BusinessRulesTab';
 import { RoutingTab } from './RoutingTab';
@@ -29,12 +29,17 @@ export function AutomationPage() {
   return (
     // minWidth 0: the tab bar fits the screen and folds the rest into "more" (as Incidents).
     <Flex vertical gap={8} style={{ minWidth: 0 }}>
-      <Typography.Title level={2}>{t('automation.page_title')}</Typography.Title>
-      <Tabs
-        activeKey={current}
-        onChange={(key) => void navigate(`/admin/automation/${key}`)}
-        items={SECTIONS.map((key) => ({ key, label: t(`settings.section.${key}`) }))}
-        data-testid="automation-sections"
+      <PageHeader level={2} title={t('automation.page_title')} />
+      <SectionNav
+        label={t('automation.page_title')}
+        active={current}
+        onNavigate={(path) => void navigate(path)}
+        items={SECTIONS.map((key) => ({
+          key,
+          label: t(`settings.section.${key}`),
+          path: `/admin/automation/${key}`,
+        }))}
+        testId="automation-sections"
       />
       {current === 'business-rules' && <BusinessRulesTab />}
       {current === 'triggers' && <TriggersTab />}

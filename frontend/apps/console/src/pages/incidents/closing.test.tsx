@@ -13,6 +13,7 @@ import {
 import { App } from '../../App';
 import { consoleApi, fakeSession, problem } from '../../test/api';
 import { rememberTab } from './tabs';
+import { clickAction } from '../../test/actions';
 
 // WP-020f: resolving and closing on the record (docs/specs/parity/01-work-items-incidents.md,
 // REQ-INC-090..098). Test names cite the requirement.
@@ -109,7 +110,7 @@ describe('Resolving', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     fireEvent.click(await screen.findByTestId('inc-reason-confirm'));
     expect((await screen.findByTestId('inc-resolution-error')).textContent).toBe(
       'Describe how it was resolved.',
@@ -143,7 +144,7 @@ describe('Resolving', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     await typeRichText('inc-resolution-editor', 'Swapped the toner');
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-closure-code')));
     fireEvent.click(await screen.findByTitle('Workaround given'));
@@ -187,7 +188,7 @@ describe('Resolving', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     const earlier = await screen.findByTestId('inc-previous-resolution');
     expect(earlier.textContent).toContain('Rebooted the printer');
     fireEvent.click(screen.getByTestId('inc-previous-resolution-reuse'));
@@ -208,7 +209,7 @@ describe('Resolving', () => {
       routes: { ...COMMON, ...record(inProgress(['category_id', 'site_id', 'custom.cost'])) },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     const missing = await screen.findByTestId('inc-closing-missing');
     await waitFor(() => {
       expect(missing.textContent).toBe(
@@ -240,7 +241,7 @@ describe('Resolving', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     await typeRichText('inc-resolution-editor', 'Fixed');
     fireEvent.click(screen.getByTestId('inc-reason-confirm'));
     expect((await screen.findByTestId('inc-closing-missing')).textContent).toBe(
@@ -268,7 +269,7 @@ describe('Resolving', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     await typeRichText('inc-resolution-editor', 'Fixed');
     fireEvent.click(screen.getByTestId('inc-reason-confirm'));
     const warning = await screen.findByTestId('inc-open-work');
@@ -304,7 +305,7 @@ describe('Resolving', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     await typeRichText('inc-resolution-editor', 'Fixed');
     fireEvent.click(screen.getByTestId('inc-reason-confirm'));
     expect((await screen.findByTestId('form-problem')).textContent).toContain(
@@ -324,7 +325,7 @@ describe('Closing', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-close'));
+    await clickAction('inc-action-close');
     fireEvent.click(await screen.findByTestId('inc-reason-confirm'));
     expect((await screen.findByTestId('inc-closure-code-error')).textContent).toBe(
       'Choose a closure code.',
@@ -354,7 +355,7 @@ describe('Closing', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-close'));
+    await clickAction('inc-action-close');
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-closure-code')));
     expect(await screen.findByTitle('Fixed')).toBeDefined();
     expect(screen.queryByTitle('Duplicate')).toBeNull();
@@ -585,7 +586,7 @@ describe('Arabic', () => {
       routes: { ...COMMON, ...record(inProgress(['category_id'])) },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     const missing = await screen.findByTestId('inc-closing-missing');
     // One field, isolated (FSI/PDI) like every list item in right-to-left text.
     expect(missing.textContent).toBe('املأ هذه في السجل أولًا: \u2068الفئة\u2069.');

@@ -31,8 +31,14 @@ import {
 import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import {
+  ActionBar,
   ConflictDialog,
+  FilterBar,
+  ListPage,
   FormProblem,
+  PageHeader,
+  SPACE,
+  type RecordAction,
   lengthLimit,
   NoAccess,
   useAccess,
@@ -41,6 +47,7 @@ import {
   useConflictRetry,
   useFormProblem,
   WriteButton,
+  usePageCrumbs,
 } from '@supportx/ui';
 
 import { DashboardView } from './DashboardView';
@@ -102,92 +109,102 @@ function Picker() {
   }, [data, search, locale]);
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={1} style={{ margin: 0 }}>
-          {t('nav.dashboards')}
-        </Typography.Title>
-        {can('dashboards.create') && <NewDashboard />}
-      </Flex>
-      <Input.Search
-        allowClear
-        placeholder={t('dashboards.search')}
-        aria-label={t('dashboards.search')}
-        value={search}
-        onChange={(event) => {
-          setSearch(event.target.value);
-        }}
-        style={{ maxWidth: 360 }}
-        data-testid="dashboards-search"
-      />
-      {groups.map((group) => (
-        <Card
-          key={group.key}
-          size="small"
-          title={t(`dashboards.group_${group.key}`)}
-          data-testid={`dashboards-group-${group.key}`}
+    <ListPage
+      testId="dashboards-list"
+      header={
+        <PageHeader
+          title={t('nav.dashboards')}
+          count={data === undefined ? undefined : String(data.items.length)}
+          extra={can('dashboards.create') ? <NewDashboard /> : undefined}
+        />
+      }
+      filters={
+        <FilterBar
+          search={
+            <Input.Search
+              allowClear
+              placeholder={t('dashboards.search')}
+              aria-label={t('dashboards.search')}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              data-testid="dashboards-search"
+            />
+          }
+        />
+      }
+    >
+      <Flex vertical gap={SPACE.sm}>
+        {groups.map((group) => (
+          <Card
+            key={group.key}
+            size="small"
+            title={t(`dashboards.group_${group.key}`)}
+            data-testid={`dashboards-group-${group.key}`}
+          >
+            <List
+              dataSource={group.items}
+              renderItem={(d) => {
+                const starred = data?.favourites.includes(d.ref) ?? false;
+                return (
+                  <List.Item
+                    actions={[
+                      <Tooltip
+                        key="star"
+                        title={t(starred ? 'dashboards.unstar' : 'dashboards.star')}
+                      >
+                        <Button
+                          type="text"
+                          aria-label={t(starred ? 'dashboards.unstar' : 'dashboards.star')}
+                          aria-pressed={starred}
+                          icon={starred ? <StarFilled /> : <StarOutlined />}
+                          onClick={() => {
+                            star.mutate({ ref: d.ref, starred: !starred });
+                          }}
+                          data-testid={`dashboards-star-${d.ref}`}
+                        />
+                      </Tooltip>,
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={
+                        <Space wrap>
+                          <Link
+                            to={`/dashboards/${encodeURIComponent(d.ref)}`}
+                            data-testid={`dashboards-open-${d.ref}`}
+                          >
+                            {dashboardName(d, t, locale)}
+                          </Link>
+                          <Tag>{t(d.shared ? 'dashboards.shared' : 'dashboards.private')}</Tag>
+                          {data?.home === d.ref && (
+                            <Tag icon={<HomeOutlined />}>{t('dashboards.your_home')}</Tag>
+                          )}
+                        </Space>
+                      }
+                      description={
+                        d.builtin ? t(`dashboard.${d.builtin}.description`) : d.description
+                      }
+                    />
+                  </List.Item>
+                );
+              }}
+            />
+          </Card>
+        ))}
+        {list.isSuccess && groups.length === 0 && (
+          <Typography.Text type="secondary">{t('dashboards.no_match')}</Typography.Text>
+        )}
+        <Button
+          type="link"
+          onClick={() => {
+            void navigate('/');
+          }}
         >
-          <List
-            dataSource={group.items}
-            renderItem={(d) => {
-              const starred = data?.favourites.includes(d.ref) ?? false;
-              return (
-                <List.Item
-                  actions={[
-                    <Tooltip
-                      key="star"
-                      title={t(starred ? 'dashboards.unstar' : 'dashboards.star')}
-                    >
-                      <Button
-                        type="text"
-                        aria-label={t(starred ? 'dashboards.unstar' : 'dashboards.star')}
-                        aria-pressed={starred}
-                        icon={starred ? <StarFilled /> : <StarOutlined />}
-                        onClick={() => {
-                          star.mutate({ ref: d.ref, starred: !starred });
-                        }}
-                        data-testid={`dashboards-star-${d.ref}`}
-                      />
-                    </Tooltip>,
-                  ]}
-                >
-                  <List.Item.Meta
-                    title={
-                      <Space wrap>
-                        <Link
-                          to={`/dashboards/${encodeURIComponent(d.ref)}`}
-                          data-testid={`dashboards-open-${d.ref}`}
-                        >
-                          {dashboardName(d, t, locale)}
-                        </Link>
-                        <Tag>{t(d.shared ? 'dashboards.shared' : 'dashboards.private')}</Tag>
-                        {data?.home === d.ref && (
-                          <Tag icon={<HomeOutlined />}>{t('dashboards.your_home')}</Tag>
-                        )}
-                      </Space>
-                    }
-                    description={
-                      d.builtin ? t(`dashboard.${d.builtin}.description`) : d.description
-                    }
-                  />
-                </List.Item>
-              );
-            }}
-          />
-        </Card>
-      ))}
-      {list.isSuccess && groups.length === 0 && (
-        <Typography.Text type="secondary">{t('dashboards.no_match')}</Typography.Text>
-      )}
-      <Button
-        type="link"
-        onClick={() => {
-          void navigate('/');
-        }}
-      >
-        {t('dashboards.back_home')}
-      </Button>
-    </Space>
+          {t('dashboards.back_home')}
+        </Button>
+      </Flex>
+    </ListPage>
   );
 }
 
@@ -285,6 +302,15 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
   if (editing && editedVersion === undefined && loadedVersion !== undefined) {
     setEditedVersion(loadedVersion);
   }
+  // On Home the section says it all; elsewhere "Dashboards › <name>".
+  usePageCrumbs(
+    home === true || !dashboard
+      ? null
+      : [
+          { label: t('nav.dashboards'), path: '/dashboards' },
+          { label: dashboardName(dashboard, t, locale) },
+        ],
+  );
 
   if (found.isError) {
     // Deleted, or no longer shared with this viewer (REQ-DSH-028 AC2): say so, keep them going.
@@ -342,114 +368,138 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
     );
   };
 
+  const remove_ = () => {
+    remove.mutateAsync(dashboard.version).then(
+      () => {
+        void navigate('/dashboards');
+      },
+      (error: unknown) => {
+        problem.show(error);
+      },
+    );
+  };
+  const actions: RecordAction[] = [
+    ...(dashboard.can_edit && !editing
+      ? [
+          {
+            key: 'edit',
+            label: t('dashboards.edit'),
+            allowed: true,
+            primary: true,
+            rank: 1,
+            onClick: () => {
+              setEditing(true);
+            },
+            testId: 'dashboard-edit',
+          },
+        ]
+      : []),
+    ...(home
+      ? []
+      : [
+          {
+            key: 'set_home',
+            label: t(isHome ? 'dashboards.is_home' : 'dashboards.set_home'),
+            allowed: !isHome,
+            whyNot: t('dashboards.is_home'),
+            primary: true,
+            rank: 2,
+            icon: <HomeOutlined />,
+            onClick: () => {
+              setHome.mutate(dashboard.ref);
+            },
+            testId: 'dashboard-set-home',
+          },
+        ]),
+    ...(can('dashboards.create')
+      ? [
+          {
+            key: 'copy',
+            label: t('dashboards.copy'),
+            allowed: true,
+            icon: <CopyOutlined />,
+            onClick: copy,
+            testId: 'dashboard-copy',
+          },
+        ]
+      : []),
+    ...(dashboard.can_edit
+      ? [
+          {
+            key: 'delete',
+            label: t('reports.delete'),
+            allowed: true,
+            danger: true,
+            confirm: t('dashboards.delete_confirm', { name: isolate(name) }),
+            confirmOk: t('reports.delete'),
+            confirmCancel: t('reports.cancel'),
+            onClick: remove_,
+            testId: 'dashboard-delete',
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Space wrap align="center">
-          <Typography.Title
-            level={home ? 2 : 1}
-            style={{ margin: 0 }}
-            data-testid="dashboard-title"
-          >
-            {name}
-          </Typography.Title>
-          <Tag>{t(dashboard.shared ? 'dashboards.shared' : 'dashboards.private')}</Tag>
-        </Space>
-        <Space wrap>
-          <Button
-            type="text"
-            aria-label={t(starred ? 'dashboards.unstar' : 'dashboards.star')}
-            aria-pressed={starred}
-            icon={starred ? <StarFilled /> : <StarOutlined />}
-            onClick={() => {
-              star.mutate({ ref: dashboard.ref, starred: !starred });
-            }}
-          />
-          {!home && (
+    <div data-testid="dashboard-page">
+      <PageHeader
+        level={home ? 2 : 1}
+        title={
+          <Space size={SPACE.xs} align="center">
+            <span data-testid="dashboard-title">{name}</span>
+            <Tag>{t(dashboard.shared ? 'dashboards.shared' : 'dashboards.private')}</Tag>
             <Button
-              icon={<HomeOutlined />}
-              disabled={isHome}
+              type="text"
+              size="small"
+              aria-label={t(starred ? 'dashboards.unstar' : 'dashboards.star')}
+              aria-pressed={starred}
+              icon={starred ? <StarFilled /> : <StarOutlined />}
               onClick={() => {
-                setHome.mutate(dashboard.ref);
+                star.mutate({ ref: dashboard.ref, starred: !starred });
               }}
-              data-testid="dashboard-set-home"
-            >
-              {t(isHome ? 'dashboards.is_home' : 'dashboards.set_home')}
-            </Button>
-          )}
-          {home && (
-            <Link to="/dashboards" data-testid="dashboard-change-home">
-              {t('dashboards.other_dashboards')}
-            </Link>
-          )}
-          {can('dashboards.create') && (
-            <WriteButton icon={<CopyOutlined />} onClick={copy} data-testid="dashboard-copy">
-              {t('dashboards.copy')}
-            </WriteButton>
-          )}
-          {dashboard.can_edit && !editing && (
-            <WriteButton
-              onClick={() => {
-                setEditing(true);
-              }}
-              data-testid="dashboard-edit"
-            >
-              {t('dashboards.edit')}
-            </WriteButton>
-          )}
-          {dashboard.can_edit && (
-            <Tooltip title={can('dashboards.share') ? undefined : t('dashboards.cannot_share')}>
-              <Space>
-                <Switch
-                  checked={dashboard.shared}
-                  disabled={!can('dashboards.share')}
-                  aria-label={t('dashboards.share_everyone')}
-                  onChange={(shared) => {
-                    const share = (version: number) => {
-                      update.mutate(
-                        { changes: { shared }, version },
-                        {
-                          onError: (error) => {
-                            if (!shareConflict.take(error, share)) problem.show(error);
+            />
+          </Space>
+        }
+        extra={
+          <>
+            {home && (
+              <Link to="/dashboards" data-testid="dashboard-change-home">
+                {t('dashboards.other_dashboards')}
+              </Link>
+            )}
+            {dashboard.can_edit && (
+              <Tooltip title={can('dashboards.share') ? undefined : t('dashboards.cannot_share')}>
+                <Space size={SPACE.xs}>
+                  <Switch
+                    size="small"
+                    checked={dashboard.shared}
+                    disabled={!can('dashboards.share')}
+                    aria-label={t('dashboards.share_everyone')}
+                    onChange={(shared) => {
+                      const share = (version: number) => {
+                        update.mutate(
+                          { changes: { shared }, version },
+                          {
+                            onError: (error) => {
+                              if (!shareConflict.take(error, share)) problem.show(error);
+                            },
                           },
-                        },
-                      );
-                    };
-                    share(dashboard.version);
-                  }}
-                  data-testid="dashboard-share"
-                />
-                <Typography.Text>{t('dashboards.share_everyone')}</Typography.Text>
-              </Space>
-            </Tooltip>
-          )}
-          {dashboard.can_edit && (
-            <Button
-              danger
-              onClick={() => {
-                Modal.confirm({
-                  title: t('dashboards.delete_confirm', { name: isolate(name) }),
-                  okText: t('reports.delete'),
-                  okButtonProps: { danger: true },
-                  cancelText: t('reports.cancel'),
-                  onOk: () =>
-                    remove.mutateAsync(dashboard.version).then(
-                      () => {
-                        void navigate('/dashboards');
-                      },
-                      (error: unknown) => {
-                        problem.show(error);
-                      },
-                    ),
-                });
-              }}
-              data-testid="dashboard-delete"
-            >
-              {t('reports.delete')}
-            </Button>
-          )}
-        </Space>
-      </Flex>
+                        );
+                      };
+                      share(dashboard.version);
+                    }}
+                    data-testid="dashboard-share"
+                  />
+                  <Typography.Text>{t('dashboards.share_everyone')}</Typography.Text>
+                </Space>
+              </Tooltip>
+            )}
+            {actions.length > 0 && (
+              <ActionBar testId="dashboard-actions" actions={actions} max={2} />
+            )}
+          </>
+        }
+      />
       <FormProblem problem={problem} />
       <DashboardView
         // A newer version from someone else refreshes the view, but never an edit in progress.
@@ -480,6 +530,6 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
           if (pending) save(pending, conflict.latestVersion ?? dashboard.version);
         }}
       />
-    </Space>
+    </div>
   );
 }

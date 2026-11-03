@@ -18,13 +18,19 @@ import {
   AnnouncementBanners,
   AppHeader,
   AppShell,
+  brandText,
   CommandPalette,
+  HeaderCrumbs,
   ConnectivityBanner,
   MfaReminder,
   LicenceBanners,
+  NoticeStack,
   reportError,
   useCommandPaletteShortcut,
   useAccess,
+  useAppearance,
+  useCurrentCrumbs,
+  useDocumentTitle,
   useLabel,
   useLicence,
   visibleNav,
@@ -148,6 +154,20 @@ export function ConsoleLayout() {
   );
   const section = pathname.split('/')[1] ?? '';
   const activeKey = section === '' ? 'home' : section;
+  // Where the user is (2026-10-28): the page's own crumbs, else its section; the tab says it too.
+  const sectionItem = NAV.find((item) => item.key === activeKey);
+  const sectionCrumbs = useMemo(
+    () =>
+      sectionItem === undefined
+        ? section === 'profile'
+          ? [{ label: t('nav.profile') }]
+          : []
+        : [{ label: t(sectionItem.labelKey), path: sectionItem.path }],
+    [sectionItem, section, t],
+  );
+  const crumbs = useCurrentCrumbs(sectionCrumbs);
+  const { branding, locale } = useAppearance();
+  useDocumentTitle(crumbs, brandText(branding, 'productName', locale) ?? t('product.name'));
 
   if (session === undefined || session === null) return null; // SessionGate renders only with one
 
@@ -162,6 +182,13 @@ export function ConsoleLayout() {
           appName="app.console.name"
           session={session}
           start={topNav ?? undefined}
+          context={(narrow) => (
+            <HeaderCrumbs
+              crumbs={crumbs}
+              narrow={narrow}
+              onNavigate={(path) => void navigate(path)}
+            />
+          )}
           onNavLayoutChange={(layout) => {
             setNavLayout.mutate(layout, { onError: reportError });
           }}
@@ -195,7 +222,8 @@ export function ConsoleLayout() {
         />
       )}
       banners={
-        <>
+        // One notice at a time, the others behind "N more notices · View" (D-124).
+        <NoticeStack testId="shell-notices">
           <ConnectivityBanner />
           <EventDeliveryBanner />
           {pathname !== '/profile' && <MfaReminder />}
@@ -209,9 +237,15 @@ export function ConsoleLayout() {
             enabled={licence.has('incident')}
             onOpen={(id) => void navigate(`/announcements/${id}`)}
           />
-        </>
+        </NoticeStack>
       }
     >
+      {session.user.nav_layout === 'top' && crumbs.length > 1 && (
+        // The top menu shows the section; a record or sub-page says where it is above the page.
+        <div style={{ marginBlockEnd: 12 }}>
+          <HeaderCrumbs crumbs={crumbs} narrow={false} onNavigate={(path) => void navigate(path)} />
+        </div>
+      )}
       <Outlet />
       <CommandPalette
         open={paletteOpen}

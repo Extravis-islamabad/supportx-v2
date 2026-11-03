@@ -1,0 +1,8 @@
+# One finding only, by its exact fingerprint (commit:file:rule:line). Never disable a rule or
+# ignore a whole file here (product owner, 2026-11-03).
+#
+# A made-up value in a unit test, not a real secret: the Keycloak federation-client test ran
+# against an in-memory fake of Keycloak's admin API (httpx MockTransport), and the value was used
+# nowhere else (no chart, env file or secrets store). The next commit on that branch (b19d016)
+# replaced it with a value generated at test time.
+2f23862774f224f08b52f9a36167a9f6c473f4da:backend/tests/test_keycloak_identity.py:generic-api-key:279

@@ -1,18 +1,6 @@
 import { StarFilled, StarOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Button,
-  Card,
-  Empty,
-  Flex,
-  Input,
-  List,
-  Modal,
-  Select,
-  Space,
-  Tag,
-  Typography,
-} from 'antd';
+import { Button, Card, Empty, Input, List, Modal, Select, Space, Tag, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -27,9 +15,14 @@ import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
+  FilterBar,
   FormProblem,
   lengthLimit,
+  ListPage,
   NoAccess,
+  PageHeader,
+  SPACE,
+  TYPE,
   useAccess,
   useConflict,
   useFormProblem,
@@ -113,71 +106,97 @@ export function ReportsHomePage() {
     sections.set(entry.folder, [...(sections.get(entry.folder) ?? []), entry]);
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={1} style={{ margin: 0 }}>
-          {t('reports.title')}
-        </Typography.Title>
-        <Space wrap>
-          {can(MANAGE_FOLDERS) && <FolderTools folders={data?.folders ?? []} />}
-          <MyExportsButton />
-          <SchedulesButton />
-          <ReportSettingsButton />
-        </Space>
-      </Flex>
-      <Input.Search
-        allowClear
-        aria-label={t('reports.search')}
-        placeholder={t('reports.search')}
-        value={search}
-        onChange={(event) => {
-          setSearch(event.target.value);
-        }}
-        style={{ maxWidth: 360 }}
-        data-testid="reports-search"
-      />
+    <ListPage
+      testId="reports-home"
+      header={
+        <PageHeader
+          title={t('reports.title')}
+          count={library.isSuccess ? String(entries.length) : undefined}
+          extra={
+            <>
+              {can(MANAGE_FOLDERS) && <FolderTools folders={data?.folders ?? []} />}
+              <MyExportsButton />
+              <SchedulesButton />
+              <ReportSettingsButton />
+            </>
+          }
+        />
+      }
+      filters={
+        <FilterBar
+          search={
+            <Input.Search
+              allowClear
+              aria-label={t('reports.search')}
+              placeholder={t('reports.search')}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              data-testid="reports-search"
+            />
+          }
+        />
+      }
+    >
       {library.isSuccess && shown.length === 0 && (
         <Empty description={t(needle ? 'reports.no_match' : 'reports.empty')} />
       )}
-      {[...sections.entries()].map(([title, items]) => (
-        <Card key={title} title={title} size="small" data-testid="reports-section">
-          <List
-            dataSource={items}
-            renderItem={(entry) => (
-              <List.Item
-                actions={[
-                  <Button
-                    key="star"
-                    type="text"
-                    aria-label={t(starred.has(entry.ref) ? 'reports.unstar' : 'reports.star')}
-                    aria-pressed={starred.has(entry.ref)}
-                    icon={starred.has(entry.ref) ? <StarFilled /> : <StarOutlined />}
-                    onClick={() => {
-                      star.mutate({ ref: entry.ref, starred: !starred.has(entry.ref) });
-                    }}
-                    data-testid={`reports-star-${entry.ref}`}
-                  />,
-                ]}
-              >
-                <List.Item.Meta
-                  title={
-                    <Space>
-                      <Link to={entry.path} data-testid={`reports-open-${entry.ref}`}>
-                        {entry.name}
-                      </Link>
-                      {entry.shared && !entry.ref.startsWith('builtin:') && (
-                        <Tag>{t('reports.shared')}</Tag>
-                      )}
-                    </Space>
-                  }
-                  description={entry.description}
-                />
-              </List.Item>
-            )}
-          />
-        </Card>
-      ))}
-    </Space>
+      {/* Sections side by side on a wide screen, one column on a phone (D-124 density). */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(440px, 100%), 1fr))',
+          gap: SPACE.sm,
+          alignItems: 'start',
+        }}
+      >
+        {[...sections.entries()].map(([title, items]) => (
+          <Card key={title} title={title} size="small" data-testid="reports-section">
+            <List
+              size="small"
+              dataSource={items}
+              renderItem={(entry) => (
+                <List.Item
+                  actions={[
+                    <Button
+                      key="star"
+                      type="text"
+                      size="small"
+                      aria-label={t(starred.has(entry.ref) ? 'reports.unstar' : 'reports.star')}
+                      aria-pressed={starred.has(entry.ref)}
+                      icon={starred.has(entry.ref) ? <StarFilled /> : <StarOutlined />}
+                      onClick={() => {
+                        star.mutate({ ref: entry.ref, starred: !starred.has(entry.ref) });
+                      }}
+                      data-testid={`reports-star-${entry.ref}`}
+                    />,
+                  ]}
+                >
+                  <List.Item.Meta
+                    title={
+                      <Space size={SPACE.xs}>
+                        <Link to={entry.path} data-testid={`reports-open-${entry.ref}`}>
+                          {entry.name}
+                        </Link>
+                        {entry.shared && !entry.ref.startsWith('builtin:') && (
+                          <Tag>{t('reports.shared')}</Tag>
+                        )}
+                      </Space>
+                    }
+                    description={
+                      <Typography.Text type="secondary" style={{ fontSize: TYPE.data }} ellipsis>
+                        {entry.description}
+                      </Typography.Text>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          </Card>
+        ))}
+      </div>
+    </ListPage>
   );
 }
 

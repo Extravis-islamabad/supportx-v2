@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { expectAccessible, openSelect, signInAs } from './helpers';
+import { clickAction, expectAccessible, openSelect, signInAs } from './helpers';
 
 /**
  * WP-020f end to end: resolve with a resolution and close with a closure code on screen, the
@@ -55,7 +55,7 @@ test('REQ-INC-090/093/097: resolve with a resolution, close with a code, reopen 
   await page.getByRole('tab', { name: 'Details' }).click();
 
   // Resolve: the dialog asks for a resolution first.
-  await page.getByTestId('inc-action-resolve').click();
+  await clickAction(page, 'inc-action-resolve');
   await page.getByTestId('inc-reason-confirm').click();
   await expect(page.getByTestId('inc-resolution-error')).toBeVisible();
   // The editor's test ID is on the editable area itself (as for the description).
@@ -66,14 +66,14 @@ test('REQ-INC-090/093/097: resolve with a resolution, close with a code, reopen 
   await expect(page.getByTestId('inc-resolution')).toContainText('Restarted the print spooler.');
 
   // Close: a closure code, shown on the record in words.
-  await page.getByTestId('inc-action-close').click();
+  await clickAction(page, 'inc-action-close');
   const list = await openSelect(page, 'inc-closure-code');
   await list.getByTitle('Workaround given').click();
   await page.getByTestId('inc-reason-confirm').click();
   await expect(page.getByTestId('inc-closure-code-view')).toContainText('Workaround given');
 
   // Reopen (a reason is asked): the current values clear, history keeps them.
-  await page.getByTestId('inc-action-reopen').click();
+  await clickAction(page, 'inc-action-reopen');
   const reasons = await openSelect(page, 'inc-reason-code');
   await reasons.locator('.ant-select-item-option').first().click();
   await page.getByTestId('inc-reason-text').fill('Still jams.');

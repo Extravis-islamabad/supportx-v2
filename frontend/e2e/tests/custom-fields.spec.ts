@@ -84,7 +84,10 @@ test('a custom pick list: added live, required by a template, filled, filtered, 
     await expect(tech.page.locator('main')).not.toContainText(key);
 
     // A template that requires it.
-    await admin.page.getByRole('tab', { name: 'Templates', exact: true }).click();
+    await admin.page
+      .getByTestId('settings-sections')
+      .getByRole('link', { name: 'Templates', exact: true })
+      .click();
     await admin.page.getByTestId('tpl-admin-new').click();
     await admin.page.getByTestId('tpl-editor-name-en').fill(templateName);
     await admin.page.getByTestId(`tpl-rule-custom.${key}-required`).click();
@@ -122,6 +125,7 @@ test('a custom pick list: added live, required by a template, filled, filtered, 
 
     // AC1: the list filters on it.
     await admin.page.goto('/incidents');
+    await admin.page.getByTestId('inc-filterbar-filters').click(); // the Filters drawer (D-124)
     await pick(admin.page, 'inc-filter-custom-field', label);
     await pick(admin.page, 'inc-filter-custom-value', 'Ground');
     await expect(admin.page.getByTestId('inc-table')).toContainText(subject);

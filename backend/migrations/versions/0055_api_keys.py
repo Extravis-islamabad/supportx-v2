@@ -11,7 +11,7 @@ No data step. The downgrade drops what this adds (keys made since stop working, 
 without the table).
 
 Revision ID: 0055
-Revises: 0048 (re-pointed onto the head of main when queued; lane A's 0054 may come first)
+Revises: 0051 (re-pointed onto the head of main when queued; lane A's 0054 may come first)
 Created: 2026-11-03
 """
 
@@ -24,7 +24,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0055"
-down_revision: str | None = "0048"
+down_revision: str | None = "0051"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

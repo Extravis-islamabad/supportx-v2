@@ -14,13 +14,15 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
+  PageHeader,
   reportError,
+  SPACE,
+  type Tone,
   ToneTag,
   useConflictRetry,
   useDateTime,
   useLabel,
   WriteButton,
-  type Tone,
 } from '@supportx/ui';
 
 import { MailboxEditor } from './MailboxEditor';
@@ -123,21 +125,23 @@ export function MailPage() {
   };
 
   return (
-    <Flex vertical gap={16} data-testid="admin-mail">
-      <Flex justify="space-between" align="start" gap={12} wrap>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 0, maxWidth: 720 }}>
-          {t('mail.intro')}
-        </Typography.Paragraph>
-        <WriteButton
-          type="primary"
-          onClick={() => {
-            setEditing('new');
-          }}
-          data-testid="mailbox-add"
-        >
-          {t('mail.add')}
-        </WriteButton>
-      </Flex>
+    <Flex vertical gap={SPACE.sm} data-testid="admin-mail">
+      <PageHeader
+        level={2}
+        title={t('nav.admin_mail')}
+        description={t('mail.intro')}
+        extra={
+          <WriteButton
+            type="primary"
+            onClick={() => {
+              setEditing('new');
+            }}
+            data-testid="mailbox-add"
+          >
+            {t('mail.add')}
+          </WriteButton>
+        }
+      />
       <List<Mailbox>
         loading={mailboxes.isPending}
         dataSource={items}

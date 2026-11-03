@@ -5,24 +5,35 @@ work package. The index and the rules are in [`docs/LANES.md`](../LANES.md).
 
 ## Area
 
-Reports, dashboards and knowledge (knowledge moved from lane B, D-108)
+Reports, dashboards and knowledge (knowledge moved from lane B, D-108); the public API and admin
+setup (WP-041, WP-042, moved from lane B); AI (WP-037, WP-038, moved from lane B, 2026-11-03).
 
 ## Current WP
 
-WP-033 session 4 built (#153, stacked on 3b #151; D-121). Queue: batched QA and e2e for WP-033 s2-s4 (under the lock once on main), then WP-034 (knowledge search, suggestions, portal knowledge), WP-041 (public API: keys, scopes, docs) and WP-042 (admin setup, roles screens, preferences, licence page through the entitlement interface), both moved from lane B (product owner, 2026-11-02); each planned to the coordinator first
+**Paused** (product owner, 2026-11-04) after the console UI pass (#159, D-124) merged. Resume
+queue, in order: (1) knowledge e2e specs 139/276/347, red on main too; (2) the label split
+(`refactor/labels-per-module`, re-run on fresh main, all lanes told before it is queued); (3)
+WP-041 public API (#176, draft: backend, outbox events and live list built; screens and D-128 to
+do); (4) WP-042 S1 (plan approved); (5) WP-034 S1 (#158, built; knowledge screens onto the D-124
+layout); (6) WP-037 then WP-038, each planned to the coordinator first. Urdu for the 370 older
+keys before the pilot.
 
 ## Branch
 
-`feat/wp-033-s4` (on `feat/wp-033-s3b`), `feat/wp-033-s3b` (on `feat/wp-033-s3a`), `feat/wp-033-s3a`, `feat/wp-033-s2`, `feat/dashboard-widget-library`, `fix/wp036-qa`, `feat/header-context`, `ci/openapi-schema-names`, `fix/export-plain-labels`
+`refactor/labels-per-module`, `feat/wp-034-knowledge-search` (#158), `feat/wp-041-public-api`
+(#176)
 
 ## Worktree
 
-`../supportx-v2-s4`, `../supportx-v2-s3b`, `../supportx-v2-s3a`, `../supportx-v2-lanec`, `../supportx-v2-lanec2`, `../supportx-v2-wp036qa`, `../supportx-v2-plainx`
+`../supportx-v2-labels`, `../supportx-v2-wp034`, `../supportx-v2-wp041` (`../supportx-v2-uipass`
+done: #159 merged)
 
 ## Claimed migration
 
-0027, 0029, 0031, 0035, 0036 (merged); 0041 knowledge review (follows 0047); 0046 knowledge types and article counter (3b); 0048 kb_record_links and files.copied_from (s4)
+0027, 0029, 0031, 0035, 0036, 0041, 0046, 0048, 0051 (merged); 0050 knowledge search and votes
+(#158); 0055 API keys (#176, follows 0051)
 
 ## Claimed decisions
 
-D-100, D-101, D-108, D-110, D-114, D-117, D-119, D-120, D-121; ADR-033, ADR-034
+D-100, D-101, D-108, D-110, D-114, D-117, D-119, D-120, D-121 (merged); D-124 console UI pass
+(merged); D-125 WP-034 (#158); D-128 WP-041; ADR-033, ADR-034

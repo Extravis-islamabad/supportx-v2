@@ -14,6 +14,7 @@ import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime'
 
 import { App } from './App';
 import { consoleApi } from './test/api';
+import { clickAction } from './test/actions';
 
 // QA WP-029 BUG-05: one shared conflict dialog in every editor. A stale save names who saved
 // first, when, and which fields; records without field history (the server sends no fields)
@@ -249,7 +250,7 @@ describe('QA WP-029 BUG-05: the shared conflict dialog', () => {
       },
     });
     open(`/incidents/${item.id}`);
-    fireEvent.click(await screen.findByTestId('inc-action-start_work'));
+    await clickAction('inc-action-start_work');
     await expectNamed('Priority');
     // Keep mine: the move again, on the version saved now.
     fireEvent.click(screen.getByTestId('conflict-keep-mine'));
