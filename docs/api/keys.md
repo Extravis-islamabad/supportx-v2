@@ -8,8 +8,8 @@ and acts as that owner, limited to the scopes it was given (D-128).
 - **Administrators** (permission "Manage API keys") make keys for **service identities**, the
   accounts integrations act as, so an integration keeps working when the person who set it up
   leaves. They also see and can revoke every key of the organisation.
-- **People** can make keys for themselves only when an administrator allows it (Admin > Security,
-  "People may make API keys for themselves"; off by default).
+- **People** can make keys for themselves, in My profile > API keys, only when an administrator
+  allows it (Admin > API keys, "People may make keys for themselves"; off by default).
 - The key is shown **once**, when it is made. Afterwards only its name and its last four characters
   are shown. Store it in your secret manager straight away. If it is lost, revoke it and make a new
   one: SupportX cannot show it again, because it never stores it.
@@ -67,4 +67,4 @@ sxk_[0-9a-hjkmnp-tv-z]{26}_[0-9a-hjkmnp-tv-z]{26}_[A-Za-z0-9_-]{43}
 ```
 
 A key is `sxk_`, the organisation's ID, the key's ID and a 43-character random secret. If a key
-leaks, revoke it at once in Admin > API keys (or My account > API keys for your own).
+leaks, revoke it at once in Admin > API keys (or My profile > API keys for your own).
