@@ -601,6 +601,12 @@ export {
 } from './mailboxes';
 export { useConnectorCatalogue, type ConnectorInstance, type ConnectorKind } from './connectors';
 export {
+  useConnectorSettings,
+  useSaveConnectorSettings,
+  type ConnectorSettings,
+  type ConnectorSettingsInput,
+} from './connectorSettings';
+export {
   useCreateDirectory,
   useDirectories,
   useDirectoryGroups,

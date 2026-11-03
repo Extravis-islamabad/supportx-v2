@@ -156,6 +156,7 @@ export const queryKeys = {
   },
   connectors: {
     catalogue: ['connectors', 'catalogue'] as const,
+    settings: ['connectors', 'settings'] as const, // D-041: the tenant's connector defaults
   },
   directories: {
     all: ['directories'] as const,
