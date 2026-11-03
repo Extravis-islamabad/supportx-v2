@@ -762,12 +762,8 @@ it with no reload (rule c). Not built yet.
 
 ### [x] WP-028 — Portal: shell, sign-in and requester incidents (lane A, 2026-11-03/04; 2 sessions; #178)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
-  **D2 (wider requester reach) is with the product owner:** built meanwhile as two work_items
-  permissions (`requests.view_department`, `requests.view_reports`; site and all from
-  `requests.view`'s scope) behind the one scope check `service/portal.py: viewer()`, so moving it
-  to identity's policy touches only that function. Note for D2: `permission.requests.*` is
-  labelled "service requests" today, while the portal reads it as "my requests" (incidents and
-  service requests together, REQ-PRT-007).
+  D2 decided in D-129 (option a): engine-level `work_items.view_department` and
+  `work_items.view_reports`, behind the one scope check `service/portal.py: viewer()`.
 - [x] Session 1 (backend, #178, 2026-11-03/04): `domain/portal.py` (plain status, allow-list,
   reach, live rule); `/api/v1/portal/incidents` list, record, templates, create, public
   conversation, replies, confirm/reject; requester channel `t:{tenant}:portal_wi:{id}` (D4);
