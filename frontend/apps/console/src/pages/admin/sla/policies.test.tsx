@@ -40,6 +40,7 @@ function policy(overrides: Partial<SlaPolicy> = {}): SlaPolicy {
         fixed_calendar_id: null,
       },
     ],
+    levels: [],
     never_matches: false,
     can_manage: true,
     version: 1,
@@ -74,6 +75,9 @@ const ROUTES = {
   [`GET ${POLICIES}`]: { body: [VIP, SHADOWED, policy()] },
   'GET /api/v1/sla/calendars': { body: [] },
   'GET /api/v1/incidents/list-fields': { body: [] },
+  'GET /api/v1/organization/groups': {
+    body: [{ id: 'g-desk', name: 'Service desk', kind: 'group' }],
+  },
   [`GET ${SETTINGS}`]: { body: SETTINGS_ROW },
 };
 
@@ -143,6 +147,47 @@ describe('Admin › SLA › Policies', () => {
       targets: [{ kind: 'resolution', priority: 'p1', amount: 2, unit: 'hours', source: 'site' }],
     });
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
+  });
+});
+
+describe('Admin › SLA › Policies › escalation levels', () => {
+  afterEach(() => {
+    restore();
+  });
+
+  it('REQ-SLA-022: adds a level an hour before the due time, sent with the policy', async () => {
+    window.history.pushState({}, '', '/admin/sla/policies');
+    const fake = api({
+      me: ADMIN,
+      routes: { ...ROUTES, [`POST ${POLICIES}`]: { status: 201, body: VIP } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sla-policy-add'));
+    fireEvent.change(await screen.findByTestId('sla-policy-name'), {
+      target: { value: 'Key requesters' },
+    });
+    fireEvent.click(screen.getByTestId('sla-level-add-resolution'));
+    const level = await screen.findByTestId('sla-level-resolution-1');
+    expect(level.textContent).toContain('Level 1 · At the due time');
+    fireEvent.change(screen.getByTestId('sla-level-offset-resolution-1'), {
+      target: { value: '60' },
+    });
+    expect(level.textContent).toContain('1 business hour after the due time');
+    fireEvent.click(screen.getByTestId('sla-policy-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', POLICIES)).toHaveLength(1);
+    });
+    expect(fake.find('POST', POLICIES)[0]?.body).toMatchObject({
+      levels: [
+        {
+          kind: 'resolution',
+          anchor: 'due',
+          offset_seconds: 3600,
+          recipients: [{ kind: 'assignee', id: null }],
+          notify: true,
+        },
+      ],
+    });
   });
 });
 

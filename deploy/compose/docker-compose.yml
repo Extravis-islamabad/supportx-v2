@@ -284,7 +284,8 @@ services:
       VISIBILITY_DBNAME: temporal_visibility
       # The databases are created by postgres/initdb (temporal has no CREATEDB right).
       SKIP_DB_CREATE: "true"
-      DEFAULT_NAMESPACE: default
+      # The SLA clocks' namespace (WP-025, SUPPORTX_TEMPORAL_NAMESPACE).
+      DEFAULT_NAMESPACE: supportx
     ports:
       - "127.0.0.1:${TEMPORAL_PORT:-27233}:7233"
     healthcheck:

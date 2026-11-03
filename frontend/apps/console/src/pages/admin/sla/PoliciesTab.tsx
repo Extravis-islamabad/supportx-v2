@@ -31,6 +31,7 @@ import {
   useSlaPolicyChange,
   useSlaSettings,
   useSlaSettingsChange,
+  type SlaLevel,
   type SlaPolicy,
   type SlaSettings,
   type SlaTargetRow,
@@ -49,6 +50,7 @@ import {
 
 import { builderFields } from '../../incidents/list/model';
 import { useReportWords } from '../../reports/names';
+import { LevelsEditor } from './LevelsEditor';
 
 type Translate = ReturnType<typeof useLabel>;
 type Kind = SlaTargetRow['kind'];
@@ -67,6 +69,10 @@ const NOT_CONDITIONS = new Set([
   'resolution_due_at',
   'first_response_due_at',
   'first_responded_at',
+  'first_response_sla_state',
+  'resolution_sla_state',
+  'first_response_breached',
+  'resolution_breached',
   'paused_seconds',
   'created_at',
   'updated_at',
@@ -292,6 +298,18 @@ function PolicyEditor({
   const problem = useFormProblem();
   const [problems, setProblems] = useState<Record<string, string>>({});
   const [targets, setTargets] = useState<SlaTargetRow[]>(row?.targets ?? []);
+  // The stored levels, as the API takes them back (their position is their order per kind).
+  const [levels, setLevels] = useState<SlaLevel[]>(
+    (row?.levels ?? []).map((level) => ({
+      kind: level.kind,
+      anchor: level.anchor,
+      offset_seconds: level.offset_seconds,
+      recipients: level.recipients,
+      fallback: level.fallback,
+      actions: level.actions,
+      notify: level.notify,
+    })),
+  );
   const parsed = useMemo(() => fromDsl(row?.conditions ?? null), [row?.conditions]);
   const [filter, setFilter] = useState<FilterModel>(parsed ?? { join: 'and', rows: [] });
   const [conflict, setConflict] = useState<unknown>();
@@ -335,6 +353,7 @@ function PolicyEditor({
       enabled: values.enabled,
       pausing: values.pausing,
       targets: targets.filter((r) => r.amount !== null && r.amount !== undefined),
+      levels,
       // The default policy applies to everything: it has no conditions (D-074).
       ...(fallback || parsed === null ? {} : { conditions: toDsl(filter) ?? null }),
     };
@@ -546,6 +565,9 @@ function PolicyEditor({
                 })),
               ]}
             />
+          </Form.Item>
+          <Form.Item label={t('sla.policy.field.levels')} {...help('levels')}>
+            <LevelsEditor levels={levels} onChange={setLevels} />
           </Form.Item>
         </Form>
       </Drawer>

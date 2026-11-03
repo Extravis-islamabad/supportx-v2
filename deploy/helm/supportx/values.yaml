@@ -89,6 +89,23 @@ indexWorker:
     requests: {cpu: 20m, memory: 96Mi}
     limits: {cpu: 250m, memory: 256Mi}
 
+# SLA clocks on Temporal (WP-025, ADR-037, D-055). `address` is the Temporal frontend (host:port)
+# of a Temporal the installation runs; empty: no Temporal, and the SLA safety net fires every
+# warning, breach and escalation up to two minutes late (D-115 D5). The bundled Temporal (its
+# official chart on the CloudNativePG cluster, schema by admin-tools, D-017) comes with WP-025
+# session 4.
+temporal:
+  address: ""
+  namespace: supportx
+  taskQueue: sla
+
+# The SLA timers worker: replicas share the task queue; a repeated task is a no-op (sla.fire).
+slaTimers:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 160Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
 web:
   replicas: 1
   resources:
