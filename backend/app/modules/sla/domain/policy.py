@@ -333,3 +333,14 @@ def overdue(clock: TargetClock, now: datetime) -> bool:
     return clock.state in {TargetState.RUNNING, TargetState.BREACHED} and (
         clock.due_at is not None and now >= clock.due_at
     )
+
+
+def breach(clock: TargetClock, at: datetime) -> TargetClock:
+    """Past due and still open: breached at `at`, a stamp that stays (REQ-SLA-020).
+
+    Only a running clock breaches (a paused one has no due moment running). It keeps running
+    as breached; meeting it later stamps it met late.
+    """
+    if clock.state is not TargetState.RUNNING:
+        return clock
+    return replace(clock, state=TargetState.BREACHED, breached_at=at)
