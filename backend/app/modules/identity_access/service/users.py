@@ -78,6 +78,9 @@ class ProvisionedUser:
     # The tenant's session limits for the app signed in to (REQ-SEC-029), in seconds.
     session_idle_seconds: int
     session_absolute_seconds: int
+    # The stored type (technician / requester): SupportX's record decides after the first
+    # sign-in, never Keycloak's roles (D-029); the console/portal landing follows it (WP-028).
+    user_type: str = "requester"
 
 
 async def count_technicians(session: AsyncSession) -> int:
@@ -283,6 +286,7 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
             )
         # First login since WP-016: Keycloak roles become SupportX role assignments, once (D-029).
         mapped = await map_identity_roles(session, user_id, identity.roles, now)
+        stored_type = str(await session.scalar(select(User.user_type).where(User.id == user_id)))
     if mapped and on_roles_mapped is not None:
         # Committed: drop any compiled permissions cached from before (the events do it too,
         # but the browser asks for /auth/me immediately after this login).
@@ -294,6 +298,7 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
         tenant_name=tenant.name,
         session_idle_seconds=idle,
         session_absolute_seconds=absolute,
+        user_type=stored_type,
     )
 
 

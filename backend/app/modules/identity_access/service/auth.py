@@ -35,6 +35,7 @@ from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
     Identity,
+    UserType,
     identity_from,
     safe_return_to,
     validate_claims,
@@ -122,6 +123,17 @@ class MfaEnrolmentDue(Exception):
 @dataclass(frozen=True)
 class EnrolFirst:
     """No session yet: the browser signs in again and Keycloak makes the person enrol MFA."""
+
+    redirect_to: str
+
+
+@dataclass(frozen=True)
+class PortalInstead:
+    """A requester signed in on the console: no console session; the portal signs them in.
+
+    REQ-PRT-001 AC1 (WP-028, lane B's review): a requester never lands on the console. Their
+    Keycloak session stands, so the portal's own sign-in completes without a second prompt.
+    """
 
     redirect_to: str
 
@@ -272,7 +284,7 @@ class AuthService:
         previous_session_id: str | None,
         host: str | None = None,
         action_status: str | None = None,
-    ) -> "LoginResult | EnrolFirst | sso_test.TestFinished":
+    ) -> "LoginResult | EnrolFirst | PortalInstead | sso_test.TestFinished":
         """Finish the OIDC callback and create a fresh session (or finish an SSO test).
 
         Any failure is raised as LoginFailure carrying the app it belongs to, so the BFF can send a
@@ -301,6 +313,10 @@ class AuthService:
             raise LoginFailure(app, exc, origin) from exc
         if previous_session_id:  # rotation: the pre-login session (if any) dies here
             await self.store.delete_session(previous_session_id)
+        if app == "console" and session.user_type == UserType.REQUESTER.value:
+            # The console's paths mean nothing in the portal: its home, never return_to.
+            log.info("login_sent_to_portal", subject=session.subject, tenant_id=session.tenant_id)
+            return PortalInstead(self.landing("portal", "/", origin))
         session_id = await self._save_new(session)
         log.info("login", subject=session.subject, tenant_id=session.tenant_id, client=app)
         landing = self.landing(app, pending["return_to"], origin)
@@ -382,7 +398,7 @@ class AuthService:
             email=identity.email,
             display_name=identity.display_name,
             locale=identity.locale,
-            user_type=identity.user_type.value,
+            user_type=user.user_type,  # the stored type, not the token's (D-029)
             roles=list(identity.roles),
             client=app,
             csrf_token=secrets.token_urlsafe(32),

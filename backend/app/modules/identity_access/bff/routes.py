@@ -29,6 +29,7 @@ from app.modules.identity_access.service.auth import (
     EnrolFirst,
     LoginAddress,
     LoginFailure,
+    PortalInstead,
 )
 from app.modules.identity_access.service.sso_test import TestFinished
 from app.modules.organization import tenant_for_host
@@ -206,6 +207,8 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
         target = f"{base}/?{query}"
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, EnrolFirst):  # past the MFA grace period: Keycloak makes them enrol
+        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+    if isinstance(result, PortalInstead):  # a requester on the console: no session, the portal
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
         await _record_sso_test(request, result)

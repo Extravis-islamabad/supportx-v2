@@ -168,8 +168,54 @@ async def test_portal_login_uses_the_portal_client_and_origin(bff: Bff) -> None:
     )
 
 
+async def test_a_requester_signing_in_on_the_console_lands_on_the_portal(bff: Bff) -> None:
+    """REQ-PRT-001 AC1 (WP-028): no console session; Keycloak's own signs them in to the portal."""
+    requester = bff.user("a", email="to-portal@demo.test", roles=("requester",))
+    response = await bff.login(requester, return_to="/incidents/42")
+    assert response.status_code == 303, response.text
+    assert response.headers["location"] == f"{PORTAL}/"  # its home: console paths mean nothing
+    assert bff.cookie() is None
+    assert (await bff.me()).status_code == 401
+    # On the portal itself they sign in as usual.
+    landed = await bff.login(requester, app="portal", return_to="/requests")
+    assert (landed.status_code, landed.headers["location"]) == (302, f"{PORTAL}/requests")
+    assert (await bff.me()).json()["user"]["user_type"] == "requester"
+
+
+async def test_an_agent_signing_in_on_the_console_is_unchanged(bff: Bff) -> None:
+    agent = bff.user("a", email="agent@demo.test", roles=("technician",))
+    response = await bff.login(agent, return_to="/incidents/42")
+    assert (response.status_code, response.headers["location"]) == (302, f"{CONSOLE}/incidents/42")
+    assert bff.cookie() is not None
+
+
+async def _set_type(bff: Bff, email: str, user_type: str) -> None:
+    conn = await asyncpg.connect(bff.db.admin_url)  # users has FORCED RLS
+    try:
+        await conn.execute("UPDATE users SET user_type = $2 WHERE email = $1", email, user_type)
+    finally:
+        await conn.close()
+
+
+async def test_the_stored_type_decides_the_landing_not_keycloak(bff: Bff) -> None:
+    """D-029: SupportX's record decides once the person exists; Keycloak's roles do not."""
+    promoted = bff.user("a", email="promoted@demo.test", roles=("requester",))
+    await bff.login(promoted, app="portal")
+    await _set_type(bff, "promoted@demo.test", "technician")
+    landed = await bff.login(promoted, return_to="/incidents")
+    assert (landed.status_code, landed.headers["location"]) == (302, f"{CONSOLE}/incidents")
+    assert (await bff.me()).json()["user"]["user_type"] == "technician"
+
+    demoted = bff.user("a", email="demoted@demo.test", roles=("technician",))
+    await bff.login(demoted)
+    await _set_type(bff, "demoted@demo.test", "requester")
+    sent = await bff.login(demoted, return_to="/incidents")
+    assert (sent.status_code, sent.headers["location"]) == (303, f"{PORTAL}/")
+
+
 async def test_me_describes_the_session_without_tokens(bff: Bff) -> None:
-    await bff.login(bff.user("a", locale="ar", roles=("requester",)))
+    # Requesters sign in on the portal (on the console they are sent there: WP-028).
+    await bff.login(bff.user("a", locale="ar", roles=("requester",)), app="portal")
     response = await bff.me()
     assert response.status_code == 200
     body = response.json()
@@ -221,7 +267,10 @@ async def _precreate(bff: Bff, email: str, *, can_sign_in: bool = True) -> uuid.
 async def test_first_sign_in_links_a_person_added_by_an_admin(bff: Bff) -> None:
     """D-092: matched by email (any case), linked once; their record and roles are kept."""
     person = await _precreate(bff, "added@demo.test")
-    response = await bff.login(bff.user("a", email="Added@Demo.test", name="Keycloak Name"))
+    # Added as a requester: they sign in on the portal (the console sends them there, WP-028).
+    response = await bff.login(
+        bff.user("a", email="Added@Demo.test", name="Keycloak Name"), app="portal"
+    )
     assert response.status_code == 302, response.text
     (row,) = await user_rows(bff.db, "added@demo.test")
     assert (row["display_name"], row["user_type"], row["version"]) == (
@@ -686,7 +735,7 @@ async def test_technician_over_the_seat_limit_cannot_log_in(bff: Bff) -> None:
     # The seat holder keeps working, and requesters are never counted.
     assert (await bff.login(bff.user("a", email="first@demo.test"))).status_code == 302
     requester = bff.user("a", email="req@demo.test", roles=("requester",))
-    assert (await bff.login(requester)).status_code == 302
+    assert (await bff.login(requester, app="portal")).status_code == 302
 
 
 async def test_switching_into_a_full_tenant_is_refused(bff: Bff) -> None:
@@ -719,7 +768,7 @@ async def test_me_returns_supportx_roles_and_effective_permissions(bff: Bff) -> 
     }
     assert held["profile.edit"]["scope"] == "own"
 
-    await bff.login(bff.user("a", email="perm-req@demo.test", roles=("requester",)))
+    await bff.login(bff.user("a", email="perm-req@demo.test", roles=("requester",)), app="portal")
     me = (await bff.me()).json()
     assert me["user"]["roles"] == ["requester"]
     assert "users.view" not in {p["key"] for p in me["permissions"]}
