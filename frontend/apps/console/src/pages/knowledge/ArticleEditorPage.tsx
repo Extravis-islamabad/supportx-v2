@@ -60,11 +60,17 @@ const treeOptions = (nodes: TopicNode[]): TreeOption[] =>
     children: treeOptions(node.children),
   }));
 
-/** Leaving with unsaved changes asks first (in-app navigation and closing the tab). */
-function useLeaveGuard(dirty: boolean) {
+/**
+ * Leaving with unsaved changes asks first (in-app navigation and closing the tab). Returns
+ * `allowLeave`: call it right before a navigation that follows a save. The blocker reads it live,
+ * so the save's own navigation is not stopped by the `dirty` of the render before the save
+ * (setDirty(false) and navigate run in the same tick).
+ */
+function useLeaveGuard(dirty: boolean): () => void {
   const t = useLabel();
   const { modal } = App.useApp();
-  const blocker = useBlocker(dirty);
+  const allowed = useRef(false);
+  const blocker = useBlocker(() => dirty && !allowed.current);
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
     modal.confirm({
@@ -90,6 +96,9 @@ function useLeaveGuard(dirty: boolean) {
       window.removeEventListener('beforeunload', warn);
     };
   }, [dirty]);
+  return () => {
+    allowed.current = true;
+  };
 }
 
 interface NewArticleForm {
@@ -116,7 +125,7 @@ export function NewArticlePage() {
   const [form] = Form.useForm<NewArticleForm>();
   const [key] = useState(() => crypto.randomUUID());
   const [dirty, setDirty] = useState(false);
-  useLeaveGuard(dirty && !create.isSuccess);
+  const allowLeave = useLeaveGuard(dirty && !create.isSuccess);
   const tree = useMemo(
     () => treeOptions(topicTree(topics.data ?? [], language)),
     [topics.data, language],
@@ -133,6 +142,7 @@ export function NewArticlePage() {
       {
         onSuccess: (article) => {
           setDirty(false);
+          allowLeave();
           attachDrafts('kb_article', article.id, inlineImageIds(values.body_html)).catch(
             reportError,
           );

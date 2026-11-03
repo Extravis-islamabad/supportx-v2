@@ -122,6 +122,12 @@ def test_cursor_is_bound_to_its_scope(other: dict[str, Any]) -> None:
     assert caught.value.instance_code == "invalid_cursor"
 
 
+def _edited(text: str) -> str:
+    """`text` with its last two characters changed, never by chance the same (it was flaky)."""
+    end = "AA" if text[-2:] != "AA" else "BB"
+    return text[:-2] + end
+
+
 def test_tampered_or_foreign_cursors_are_rejected() -> None:
     codec = CursorCodec(b"k" * 32)
     keys = parse_sort("-created_at", THINGS)
@@ -129,8 +135,8 @@ def test_tampered_or_foreign_cursors_are_rejected() -> None:
     payload, signature = good.split(".")
     forged_payload = CursorCodec(b"x" * 32).encode(scope(), keys, [datetime.now(UTC), uuid.uuid4()])
     for bad in (
-        payload[:-2] + "AA." + signature,  # edited payload
-        payload + "." + signature[:-2] + "AA",  # edited signature
+        _edited(payload) + "." + signature,  # edited payload
+        payload + "." + _edited(signature),  # edited signature
         forged_payload,  # signed with another key
         "not-a-cursor",
         "a.b.c",
