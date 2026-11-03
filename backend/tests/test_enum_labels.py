@@ -212,6 +212,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "IndexState": "custom_field_index_state",
     # The service catalog (WP-030)
     "ApprovalStatus": "approval_status",
+    "OnBehalfScope": "work_item_on_behalf_scope",
     "ApproverKind": "catalog_approver_kind",
     "ItemAudience": "catalog_item_audience",
     "QuestionKind": "catalog_question_kind",

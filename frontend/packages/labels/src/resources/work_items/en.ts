@@ -836,4 +836,8 @@ export const en = {
   'requests.send': 'Raise the request',
   'requests.not_found': 'This service request does not exist or is not yours to see.',
   'requests.item_details': 'Item details',
+  'work_item_on_behalf_scope.same_department': 'People in their department',
+  'work_item_on_behalf_scope.same_site': 'People at their site',
+  'work_item_on_behalf_scope.all_requesters': 'Any requester',
+  'work_item_on_behalf_scope.all_users': 'Anyone',
 } as const;

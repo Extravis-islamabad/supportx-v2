@@ -28,7 +28,11 @@ const laptop: CatalogItem = {
       options: ['air', 'pro'],
     },
   ],
-  approval: { approvers: [{ kind: 'requested_for_manager', person_id: null }] },
+  approval: {
+    approvers: [{ kind: 'requested_for_manager', person_id: null }],
+    comments_required: false,
+    self_approval: false,
+  },
   plan: [],
   default_priority: 'p2',
   requester_sets_priority: false,

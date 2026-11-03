@@ -42,6 +42,7 @@ from app.modules.automation import (
     transition_settings,
 )
 from app.modules.identity_access import (
+    Placement,
     RoleName,
     Subject,
     authorize_stored,
@@ -1655,6 +1656,45 @@ def _item_columns(
     }
 
 
+async def _on_behalf_problems(
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    cat: Catalogue,
+    cleaned: Mapping[str, Any],
+) -> None:
+    """A requester raising a record for someone else stays within the tenant's scope (REQ-SR-011).
+
+    Staff (who may assign records) raise for anyone; a requester for themselves, their direct
+    reports, and the people the scope allows; anyone else is refused with 403 (AC1).
+    """
+    target = cleaned.get("on_behalf_of_id")
+    if target is None or subject.holds(wtype.permission("assign")):
+        return
+    if cleaned.get("requester_id") != subject.user_id:
+        return  # raising as someone else needs staff rights, checked with the requester
+    mine, theirs = (
+        await person_placement(session, subject.user_id),
+        await person_placement(session, target),
+    )
+
+    def facts(user_id: uuid.UUID, placement: Placement) -> sr_rules.PersonFacts:
+        return sr_rules.PersonFacts(
+            user_id=user_id,
+            department_id=placement.department_id,
+            site_id=placement.site_id,
+            is_requester=placement.user_type == "requester",
+            manager_id=placement.manager_id,
+        )
+
+    if not sr_rules.may_raise_for(
+        sr_rules.OnBehalfScope(cat.on_behalf_scope),
+        facts(subject.user_id, mine),
+        facts(target, theirs),
+    ):
+        raise PermissionDenied(code="on_behalf_out_of_scope")
+
+
 async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1703,6 +1743,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     if problems:
         raise await _value_errors(session, wtype, problems)
     problems += await _check_people(session, cleaned)
+    await _on_behalf_problems(session, subject, wtype, cat, cleaned)
     problems += await _check_units(
         session,
         {"site_id": cleaned.get("site_id"), "department_id": cleaned.get("department_id")},

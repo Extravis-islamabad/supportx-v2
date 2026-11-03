@@ -835,4 +835,8 @@ export const ur: LabelResource = {
   'requests.send': 'درخواست دیں',
   'requests.not_found': 'یہ سروس درخواست موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'requests.item_details': 'آئٹم کی تفصیلات',
+  'work_item_on_behalf_scope.same_department': 'ان کے شعبے کے لوگ',
+  'work_item_on_behalf_scope.same_site': 'ان کی سائٹ کے لوگ',
+  'work_item_on_behalf_scope.all_requesters': 'کوئی بھی درخواست گزار',
+  'work_item_on_behalf_scope.all_users': 'کوئی بھی',
 };

@@ -166,3 +166,49 @@ async def test_service_requests_filter_by_item_and_approval_status(world: World)
     assert {waiting["id"], free["id"]}.isdisjoint(
         {i["id"] for i in (await world.call("GET", BASE, a, a.admin)).json()["items"]}
     )  # the incident list never shows them
+
+
+async def test_a_requester_raises_for_others_only_within_the_scope(world: World) -> None:
+    """REQ-SR-011 AC1: same department by default, their direct reports always, else 403."""
+    a = world.a
+    item = await an_item(world, a)
+    finance = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO departments (id, tenant_id, name) VALUES ($1, $2, 'Finance')",
+        finance,
+        a.tenant,
+    )
+    stranger = await raise_request(
+        world,
+        a,
+        a.requester,
+        catalog_item_id=item["id"],
+        answers={"model": "air"},
+        on_behalf_of_id=str(a.requester2),
+    )
+    assert problem(stranger) == (403, "on_behalf_out_of_scope")
+    await world.sql(
+        "UPDATE users SET department_id = $1 WHERE id = ANY($2::uuid[])",
+        finance,
+        [a.requester, a.requester2],
+    )
+    colleague = await raise_request(
+        world,
+        a,
+        a.requester,
+        catalog_item_id=item["id"],
+        answers={"model": "air"},
+        on_behalf_of_id=str(a.requester2),
+    )
+    assert colleague.status_code == 201, colleague.text
+    assert colleague.json()["on_behalf_of_id"] == str(a.requester2)
+    # Staff raise for anyone.
+    by_staff = await raise_request(
+        world,
+        a,
+        a.admin,
+        catalog_item_id=item["id"],
+        answers={"model": "air"},
+        on_behalf_of_id=str(a.tech_b),
+    )
+    assert by_staff.status_code == 201, by_staff.text

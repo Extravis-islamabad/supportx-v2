@@ -647,4 +647,6 @@ export const en = {
   'errors.field.too_many_tasks': 'A plan can have at most 20 tasks.',
   'errors.field.not_found': 'This no longer exists.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
+  'errors.on_behalf_out_of_scope':
+    "You can't raise a request for this person. Ask your service desk.",
 } as const;

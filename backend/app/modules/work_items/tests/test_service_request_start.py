@@ -43,3 +43,41 @@ def test_the_priority_is_never_blank() -> None:
     assert (from_item.priority, from_item.priority_from_item) == ("p2", True)  # REQ-SR-005 AC1
     default = start(_item(), tenant_default_priority="p3")
     assert (default.priority, default.priority_from_item) == ("p3", False)  # AC2
+
+
+def test_whom_a_requester_may_raise_for() -> None:
+    """REQ-SR-011: their own direct reports always; others by the tenant's scope."""
+    from app.modules.work_items.domain.service_requests import (  # noqa: PLC0415 - test-local
+        OnBehalfScope,
+        PersonFacts,
+        may_raise_for,
+    )
+
+    dept, other_dept, site = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    me = PersonFacts(uuid.uuid4(), dept, site, is_requester=True, manager_id=None)
+
+    def person(**over: object) -> PersonFacts:
+        values: dict[str, object] = {
+            "user_id": uuid.uuid4(),
+            "department_id": other_dept,
+            "site_id": None,
+            "is_requester": True,
+            "manager_id": None,
+        }
+        values.update(over)
+        return PersonFacts(**values)  # type: ignore[arg-type]  # test builder
+
+    report = person(manager_id=me.user_id)
+    colleague = person(department_id=dept)
+    neighbour = person(site_id=site)
+    technician = person(is_requester=False)
+    stranger = person()
+    scope = OnBehalfScope
+    assert may_raise_for(scope.SAME_DEPARTMENT, me, report)  # direct report, whatever the scope
+    assert may_raise_for(scope.SAME_DEPARTMENT, me, colleague)
+    assert not may_raise_for(scope.SAME_DEPARTMENT, me, stranger)
+    assert may_raise_for(scope.SAME_SITE, me, neighbour)
+    assert not may_raise_for(scope.SAME_SITE, me, colleague)
+    assert may_raise_for(scope.ALL_REQUESTERS, me, stranger)
+    assert not may_raise_for(scope.ALL_REQUESTERS, me, technician)
+    assert may_raise_for(scope.ALL_USERS, me, technician)

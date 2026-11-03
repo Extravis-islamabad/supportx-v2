@@ -903,4 +903,8 @@ export const ar: LabelResource = {
   'requests.send': 'تقديم الطلب',
   'requests.not_found': 'طلب الخدمة هذا غير موجود أو لا يحق لك رؤيته.',
   'requests.item_details': 'تفاصيل العنصر',
+  'work_item_on_behalf_scope.same_department': 'الأشخاص في قسمه',
+  'work_item_on_behalf_scope.same_site': 'الأشخاص في موقعه',
+  'work_item_on_behalf_scope.all_requesters': 'أي مقدم طلب',
+  'work_item_on_behalf_scope.all_users': 'أي شخص',
 };

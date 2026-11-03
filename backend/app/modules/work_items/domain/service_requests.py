@@ -14,6 +14,39 @@ from app.modules.work_items.domain.lifecycle import DefaultStatus, ServiceReques
 ITEM_SOURCE = "catalog_item"  # history and the priority marker name the item (REQ-SR-005 AC1)
 
 
+class OnBehalfScope(StrEnum):
+    """Whom a requester may raise a record for (REQ-SR-011); their direct reports always count."""
+
+    SAME_DEPARTMENT = "same_department"
+    SAME_SITE = "same_site"
+    ALL_REQUESTERS = "all_requesters"
+    ALL_USERS = "all_users"
+
+
+@dataclass(frozen=True)
+class PersonFacts:
+    """What the on-behalf rule looks at for one person."""
+
+    user_id: uuid.UUID
+    department_id: uuid.UUID | None
+    site_id: uuid.UUID | None
+    is_requester: bool
+    manager_id: uuid.UUID | None
+
+
+def may_raise_for(scope: OnBehalfScope, submitter: PersonFacts, target: PersonFacts) -> bool:
+    """Whether `submitter` may raise a record for `target` under the tenant's scope (AC1)."""
+    if submitter.user_id in {target.user_id, target.manager_id}:
+        return True  # themselves, or their own direct report
+    if scope is OnBehalfScope.ALL_USERS:
+        return True
+    if scope is OnBehalfScope.ALL_REQUESTERS:
+        return target.is_requester
+    if scope is OnBehalfScope.SAME_SITE:
+        return submitter.site_id is not None and target.site_id == submitter.site_id
+    return submitter.department_id is not None and target.department_id == submitter.department_id
+
+
 class ApprovalStatus(StrEnum):
     """A service request's approval (REQ-SR-003)."""
 
@@ -80,4 +113,14 @@ def after_approval(item: ItemDecides, *, current_technician: uuid.UUID | None) -
     return current_technician
 
 
-__all__ = ["ITEM_SOURCE", "ApprovalStatus", "ItemDecides", "Start", "after_approval", "start"]
+__all__ = [
+    "ITEM_SOURCE",
+    "ApprovalStatus",
+    "ItemDecides",
+    "OnBehalfScope",
+    "PersonFacts",
+    "Start",
+    "after_approval",
+    "may_raise_for",
+    "start",
+]

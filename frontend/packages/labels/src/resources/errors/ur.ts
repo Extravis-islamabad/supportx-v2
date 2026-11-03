@@ -550,4 +550,5 @@ export const ur: LabelResource = {
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
   'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
   'errors.field.invalid_value': 'یہ قدر درست نہیں۔',
+  'errors.on_behalf_out_of_scope': 'آپ اس شخص کے لیے درخواست نہیں دے سکتے۔ سروس ڈیسک سے پوچھیں۔',
 };

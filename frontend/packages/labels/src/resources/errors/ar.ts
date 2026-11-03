@@ -596,4 +596,5 @@ export const ar: LabelResource = {
   'errors.field.too_many_tasks': 'يمكن أن تضم الخطة 20 مهمة على الأكثر.',
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
   'errors.field.catalog_item_not_found': 'اختر عنصرًا من الكتالوج متاحًا لك.',
+  'errors.on_behalf_out_of_scope': 'لا يمكنك تقديم طلب لهذا الشخص. اسأل مكتب الخدمة.',
 };

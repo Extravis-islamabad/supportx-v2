@@ -68,6 +68,10 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
+        CheckConstraint(
+            "on_behalf_scope IN ('same_department', 'same_site', 'all_requesters', 'all_users')",
+            name="on_behalf_scope_code",
+        ),
         CheckConstraint(_codes("default_priority", Priority), name="default_priority_code"),
         CheckConstraint(
             "default_impact IS NULL OR " + _codes("default_impact", Impact),
@@ -99,6 +103,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     auto_status_on_assign: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # D-068: whoever hands a record out of their own reach keeps following it unless they untick.
     keep_following_on_handover: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # REQ-SR-011 (WP-030, migration 0064): whom a requester may raise a record for.
+    on_behalf_scope: Mapped[str] = mapped_column(String(20), server_default="same_department")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"

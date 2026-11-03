@@ -44,7 +44,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
-from app.modules.work_items.domain.service_requests import ApprovalStatus
+from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBehalfScope
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
@@ -806,6 +806,10 @@ class WorkItemCatalogueOut(BaseModel):
     keep_following_on_handover: bool = Field(
         description="Hand-over dialog: 'keep following' starts ticked (D-068)."
     )
+    on_behalf_scope: OnBehalfScope = Field(
+        default=OnBehalfScope.SAME_DEPARTMENT,
+        description="Whom a requester may raise a record for (REQ-SR-011).",
+    )
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
@@ -832,6 +836,7 @@ class WorkItemCatalogueOut(BaseModel):
             default_urgency=None if cat.default_urgency is None else Urgency(cat.default_urgency),
             auto_status_on_assign=cat.auto_status_on_assign,
             keep_following_on_handover=cat.keep_following_on_handover,
+            on_behalf_scope=OnBehalfScope(cat.on_behalf_scope),
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -940,6 +945,7 @@ class WorkItemSettingsPatch(BaseModel):
     default_urgency: Urgency | None = Field(default=None, description="Null: no default.")
     auto_status_on_assign: bool | None = None
     keep_following_on_handover: bool | None = None
+    on_behalf_scope: OnBehalfScope | None = None
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 
