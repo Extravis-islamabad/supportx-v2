@@ -11,7 +11,7 @@
   follows the old one.
 """
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -162,7 +162,8 @@ def decide_open_work(
 def add_business_days(start: datetime, days: int) -> datetime:
     """`days` business days (Monday to Friday) after `start`, same time of day.
 
-    D4 (WP-020f): Monday to Friday until working calendars arrive with WP-025.
+    D4 (WP-020f): the fallback when no calendar is given; the service passes the record's own
+    calendar (`sla.record_calendar(...).add_working_days`, WP-025).
     """
     moment = start
     left = days
@@ -173,11 +174,18 @@ def add_business_days(start: datetime, days: int) -> datetime:
     return moment
 
 
-def auto_close_due(notified_at: datetime | None, days: int | None) -> datetime | None:
-    """When a resolved record auto-closes; None when off or the requester was never told."""
+def auto_close_due(
+    notified_at: datetime | None,
+    days: int | None,
+    add: Callable[[datetime, int], datetime] = add_business_days,
+) -> datetime | None:
+    """When a resolved record auto-closes; None when off or the requester was never told.
+
+    `add` counts the business days (the record's calendar; Monday to Friday by default).
+    """
     if notified_at is None or days is None:
         return None
-    return add_business_days(notified_at, days)
+    return add(notified_at, days)
 
 
 def within_reopen_window(done_at: datetime | None, now: datetime, days: int) -> bool:

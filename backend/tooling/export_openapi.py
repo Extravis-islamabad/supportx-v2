@@ -1,8 +1,8 @@
 """Export the Core API's OpenAPI 3.1 document (architecture.md §10; WP-004).
 
 `make openapi` writes frontend/packages/api-client/openapi.json, the input for the generated
-TypeScript client (WP-010). `make openapi-check` (run in CI) fails when the committed file is out
-of date, so an API change cannot merge without its contract.
+TypeScript client (WP-010). The file is generated, never committed (D-127): CI writes it from the
+code before tsc, so the client always matches the API. `--check` compares a file with the code.
 
 Both modes also refuse a document where two models share a class name: FastAPI then names the
 schemas by their full module path (`app__modules__knowledge__api__routes__SettingsOut`), and the

@@ -1,9 +1,9 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
 .PHONY: help decisions progress-log setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
-	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
-	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
+	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed db-guard custom-field-indexes dev-subscription e2e \
+	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
 	frontend-install-check keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
@@ -13,6 +13,8 @@ BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 PIP_AUDIT_VERSION := 2.10.1
 OPENAPI_FILE := ../frontend/packages/api-client/openapi.json
+# Generated, never committed (D-127): regenerated, never hand-merged.
+LABELS_JSON := backend/app/shared/labels/resources.json
 EVENT_SCHEMAS := ../docs/architecture/event-schemas.json
 EVENTS_CLI := $(BACKEND) uv run python -m workers.events_cli
 # Local dev stack (WP-002, docs/dev-setup.md). `--profile full` on down/ps/logs so they cover every
@@ -28,6 +30,7 @@ setup: ## Install backend (uv, Python 3.12) and frontend (pnpm) deps, install gi
 	$(BACKEND) uv sync
 	$(FRONTEND) pnpm install --frozen-lockfile
 	uv run --project backend pre-commit install
+	$(MAKE) generated
 
 lint: backend-lint frontend-lint ## Lint everything (ruff, import-linter, OpenAPI + event schema drift, ESLint, Prettier)
 
@@ -74,6 +77,14 @@ db-current: ## Show the database's current migration
 db-seed: ## Create the dev tenants and their plans if missing (idempotent, never deletes or updates)
 	$(BACKEND) uv run python -m tooling.seed_dev
 
+showcase-seed: $(DEV_ENV) ## Fill Showcase Company (slug showcase) for demos; idempotent, never touches demo or other (D-124)
+	@env_value() { grep "^$$1=" $(CURDIR)/$(DEV_ENV) | cut -d= -f2-; }; \
+	cd backend && SUPPORTX_KEYCLOAK_URL="http://localhost:$$(env_value KEYCLOAK_PORT || echo 28080)" \
+	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
+	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
+	SUPPORTX_SHOWCASE_PASSWORD="$$(env_value SHOWCASE_PASSWORD)" \
+	uv run python -m tooling.showcase_seed showcase
+
 custom-field-indexes: ## One index pass now, as the index worker does (CONCURRENTLY; D-088)
 	$(BACKEND) uv run python -m tooling.custom_field_indexes
 
@@ -101,6 +112,9 @@ worker-consumers-pdf: ## The consumers with PDF report exports (D-100 D8; macOS:
 worker-indexes: ## Run the custom field index worker (builds requested indexes, D-088) until Ctrl+C
 	$(BACKEND) uv run python -m workers.custom_field_indexes
 
+worker-sla: ## Run the SLA clocks' Temporal worker (needs SUPPORTX_TEMPORAL_ADDRESS, make dev-up-full) until Ctrl+C
+	$(BACKEND) uv run python -m workers.sla_timers
+
 worker-fanout: ## Run the realtime fan-out (events -> Centrifugo -> live screens) until Ctrl+C
 	$(BACKEND) uv run python -m workers.realtime_fanout
 
@@ -121,8 +135,16 @@ dlq-replay: ## Replay dead letters to their consumer: make dlq-replay seq=<n> | 
 backend-test-pdf: ## PDF export tests (D-100 D8): needs `uv sync --group pdf` and Pango (macOS: brew install pango)
 	cd backend && uv sync --group pdf && DYLD_FALLBACK_LIBRARY_PATH=$(PDF_LIBS) SUPPORTX_REQUIRE_PDF_TESTS=1 .venv/bin/pytest -m pdf --no-cov -q
 
-labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034), and the RTL ranges for the console
-	node frontend/packages/labels/scripts/export-json.js backend/app/shared/labels/resources.json
+generated: generated-backend generated-frontend ## Write every generated file (not committed, D-127): backend labels, OpenAPI, API types
+
+generated-backend: ## The label dictionary the backend reads (D-100 D7, ADR-034); needs Node only
+	node frontend/packages/labels/scripts/export-json.js $(LABELS_JSON)
+
+generated-frontend: ## The OpenAPI 3.1 contract and the TypeScript API types (D-022); needs the backend venv and pnpm
+	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)
+	$(FRONTEND) pnpm --filter @supportx/api-client generate
+
+labels-json: generated-backend ## Export the label dictionary for the backend, and the RTL ranges for the console
 	$(BACKEND) uv run python -m tooling.rtl_ranges ../frontend/packages/labels/src/rtl-ranges.json
 
 events-schemas: ## Export every event schema to docs/architecture/event-schemas.json
@@ -137,25 +159,20 @@ decisions: ## Render every docs/decisions/D-NNN.md into one table at docs/_build
 progress-log: ## Render docs/progress-log/ newest first into docs/_build/PROGRESS-log.md (D-123)
 	$(BACKEND) uv run python -m tooling.docs_entries progress-log
 
-openapi: ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API types (D-022)
-	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)
-	$(FRONTEND) pnpm --filter @supportx/api-client generate
+openapi: generated-frontend ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API types (D-022)
 
-openapi-check: ## Fail if the committed openapi.json is out of date, or accepted breaks outlive the public API (D-095)
-	$(BACKEND) uv run python -m tooling.export_openapi --check $(OPENAPI_FILE)
+openapi-check: ## Fail if accepted breaks outlive the public API (D-095)
 	$(BACKEND) uv run python -m tooling.openapi_diff --check-accepted
 
 openapi-diff: ## Fail on breaking API changes: make openapi-diff base=<openapi.json of the target branch>
 	@test -n "$(base)" || { echo 'usage: make openapi-diff base=path/to/old/openapi.json'; exit 2; }
+	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)
 	$(BACKEND) uv run python -m tooling.openapi_diff $(abspath $(base)) $(OPENAPI_FILE)
-
-schema-check: ## Fail if api-client/src/schema.ts is out of date (frontend lint, CI)
-	$(FRONTEND) pnpm --filter @supportx/api-client check:schema
 
 e2e: ## Playwright journeys + axe (needs dev-up, backend-dev, worker-relay, worker-consumers and the console dev server)
 	$(FRONTEND) pnpm --filter @supportx/e2e e2e
 
-build: ## Production builds of the console and portal
+build: generated-frontend ## Production builds of the console and portal
 	$(FRONTEND) pnpm build
 
 precommit: ## Run every pre-commit hook against all files (as CI does)
@@ -187,7 +204,7 @@ backend-lint:
 backend-typecheck:
 	$(BACKEND) uv run mypy
 
-backend-test:
+backend-test: generated-backend
 	$(BACKEND) uv run pytest
 
 backend-test-timings: ## Time every backend test file, to refresh the CI shard weights (tests/shard_weights.json)
@@ -207,14 +224,13 @@ backend-shard-weights: ## Refresh tests/shard_weights.json from a CI run's file 
 frontend-install-check:
 	$(FRONTEND) CI=true pnpm install --frozen-lockfile
 
-frontend-lint:
+frontend-lint: generated-frontend
 	$(FRONTEND) pnpm lint && pnpm format:check
-	$(MAKE) schema-check
 
-frontend-typecheck:
+frontend-typecheck: generated-frontend
 	$(FRONTEND) pnpm typecheck
 
-frontend-test:
+frontend-test: generated
 	$(FRONTEND) pnpm test
 
 # --- Local dev stack -----------------------------------------------------------------------------
@@ -288,7 +304,7 @@ chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Char
 chart-lint: chart-deps ## Lint and render the chart for every profile (kubeconform too, if installed)
 	@bash deploy/scripts/chart-lint.sh
 
-images: ## Build the INTERNAL/DEV backend, worker (PDF) and web images for this machine's architecture
+images: generated ## Build the INTERNAL/DEV backend, worker (PDF) and web images for this machine's architecture
 	docker build -f deploy/images/backend.Dockerfile -t supportx-backend:$(IMAGE_TAG) \
 		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
 	docker build -f deploy/images/backend.Dockerfile --target worker -t supportx-worker:$(IMAGE_TAG) \

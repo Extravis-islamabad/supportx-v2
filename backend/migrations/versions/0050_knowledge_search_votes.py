@@ -13,7 +13,7 @@
 All additive (expand only); the downgrade drops what this adds.
 
 Revision ID: 0050
-Revises: 0048 (re-pointed onto the head of main only if the merge queue rejects it)
+Revises: 0054 (re-pointed onto the head of main only if the merge queue rejects it)
 Created: 2026-11-02
 """
 
@@ -25,7 +25,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0050"
-down_revision: str | None = "0048"
+down_revision: str | None = "0054"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

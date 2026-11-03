@@ -20,6 +20,13 @@ Apple Silicon (M1–M4) Macs are fully supported: every image used is multi-arch
 
 ## 2. First-time setup
 
+**Generated files (D-127).** The OpenAPI contract, the TypeScript API types
+(`frontend/packages/api-client/openapi.json`, `src/schema.ts`) and the backend's label dictionary
+(`backend/app/shared/labels/resources.json`) are generated, never committed. `make setup` writes
+them; after pulling or changing an API or a label, run `make generated` (the frontend's lint,
+typecheck, test and build scripts also write them when they are missing). They are never merged by
+hand: on a conflict there is nothing to merge, just regenerate.
+
 ```bash
 make dev-init     # creates deploy/compose/.env with random passwords (never overwrites it)
 make dev-up       # starts the core services and waits until all are healthy (~1 min first time)
@@ -123,10 +130,30 @@ have yet (here `supportx_relay`); it never changes existing passwords or data.
 make backend-env    # writes/updates backend/.env (adds missing settings, never overwrites)
 make db-migrate     # create/upgrade tables (as supportx_migrator, directly to PostgreSQL)
 make db-seed        # dev tenants + plans (idempotent, never deletes or changes existing data)
+make showcase-seed  # Showcase Company for demos (see below)
 make db-guard       # check that every table is tenant-isolated (RLS)
 make db-current     # which migration the database is at
 make db-bootstrap   # create missing roles/grants (run automatically by db-migrate)
 ```
+
+### Showcase Company (demos, D-124)
+
+`make showcase-seed` fills a separate tenant, **Showcase Company** (slug `showcase`), with data to
+show: two sites, three support groups, ten people, sixty incidents in realistic states with
+replies, and a shared dashboard. It is for demos only: the e2e suite keeps Demo Company (`demo`)
+and the isolation tests Other Company (`other`); the seed refuses any other slug and never touches
+them. It is idempotent: a second run adds only what is missing and changes nothing.
+
+1. Set `SHOWCASE_PASSWORD` in `deploy/compose/.env` (12+ characters, upper and lower case, a
+   digit and a special character).
+2. `make showcase-seed`. It creates the Keycloak organization and its two sign-ins through the
+   admin API when they are missing (fresh installs already have them from the dev realm file,
+   without a password), sets the password only where there is none, signs both in once, then
+   adds the data through the public API as the showcase admin.
+3. Sign in to the console as `admin@showcase.test` (tenant admin) or `tech@showcase.test`
+   (technician) with that password.
+
+Records carry the date the seed ran: the API never backdates.
 
 ### Plans and licence limits (WP-009)
 

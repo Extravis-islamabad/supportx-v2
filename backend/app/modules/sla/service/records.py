@@ -12,7 +12,29 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.sla.infra.models import SlaApplication, SlaCalendar, SlaPolicy, SlaTarget
+from app.modules.sla.domain.calendar import Calendar
+from app.modules.sla.domain.setup import SystemCalendar
+from app.modules.sla.infra.models import (
+    SlaApplication,
+    SlaCalendar,
+    SlaEscalationRun,
+    SlaPolicy,
+    SlaTarget,
+)
+from app.modules.sla.service.calendars import calendar_for_maths, system_calendar_id
+
+
+@dataclass(frozen=True, slots=True)
+class SlaLevelRunView:
+    """One escalation level of a target clock: when, and whether it waits, ran or was cancelled."""
+
+    position: int
+    anchor: str
+    offset_seconds: int
+    state: str
+    due_at: datetime | None  # None while waiting: held by a pause
+    ran_at: datetime | None
+    failed_actions: int  # actions that could not be done (REQ-SLA-024 AC3)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +61,8 @@ class SlaTargetView:
     manual_by: uuid.UUID | None
     manual_reason: str | None
     manual_at: datetime | None
+    warned_at: datetime | None = None
+    levels: tuple[SlaLevelRunView, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +96,26 @@ async def record_sla(session: AsyncSession, record_id: uuid.UUID) -> SlaRecordVi
             select(SlaCalendar.id, SlaCalendar.name).where(SlaCalendar.id.in_(calendar_ids))
         )
         calendars = {row.id: row.name for row in found}
+    runs: dict[uuid.UUID, list[SlaLevelRunView]] = {}
+    target_ids = [r.id for r in latest.values()]
+    if target_ids:
+        for run in await session.scalars(
+            select(SlaEscalationRun)
+            .where(SlaEscalationRun.target_id.in_(target_ids))
+            .order_by(SlaEscalationRun.position)
+        ):
+            outcome = run.outcome or {}
+            runs.setdefault(run.target_id, []).append(
+                SlaLevelRunView(
+                    position=run.position,
+                    anchor=str(run.level.get("anchor", "due")),
+                    offset_seconds=int(run.level.get("offset_seconds", 0)),
+                    state=run.state,
+                    due_at=run.due_at,
+                    ran_at=run.ran_at,
+                    failed_actions=sum(1 for a in outcome.get("actions", []) if not a.get("ok")),
+                )
+            )
     policy_name = None
     if application is not None and application.policy_id is not None:
         policy_name = await session.scalar(
@@ -99,6 +143,8 @@ async def record_sla(session: AsyncSession, record_id: uuid.UUID) -> SlaRecordVi
             manual_by=row.manual_by,
             manual_reason=row.manual_reason,
             manual_at=row.manual_at,
+            warned_at=row.warned_at,
+            levels=tuple(runs.get(row.id, ())),
         )
         for _, row in sorted(latest.items())
     )
@@ -127,3 +173,23 @@ async def open_records_on_calendar(session: AsyncSession, calendar_id: uuid.UUID
         )
     )
     return int(count or 0)
+
+
+async def record_calendar(session: AsyncSession, record_id: uuid.UUID) -> Calendar:
+    """The calendar a record's own "business days" use (auto-close, WP-020f D4 on WP-025).
+
+    Its resolution target's calendar (latest round), else the tenant's operating hours.
+    """
+    calendar_id = await session.scalar(
+        select(SlaTarget.calendar_id)
+        .where(
+            SlaTarget.record_id == record_id,
+            SlaTarget.kind == "resolution",
+            SlaTarget.calendar_id.is_not(None),
+        )
+        .order_by(SlaTarget.round.desc())
+        .limit(1)
+    )
+    if calendar_id is None:
+        calendar_id = await system_calendar_id(session, SystemCalendar.OPERATING_HOURS)
+    return await calendar_for_maths(session, calendar_id)

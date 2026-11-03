@@ -13,6 +13,7 @@ import {
   type BrandingSource,
   type Direction,
 } from './appearance';
+import type { Density } from './density';
 import { useDropdownFit } from './dropdownFit';
 import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
 
@@ -24,6 +25,8 @@ export interface AppearanceProviderProps {
   initialLocale?: Locale;
   /** Per-tenant branding (WP-017); the Extravis default otherwise. */
   branding?: Partial<Branding>;
+  /** Staff screens are compact (D-124); the portal keeps the comfortable default. */
+  density?: Density;
 }
 
 /** Remembered choice, else the OS preference. Storage may be unavailable (private mode). */
@@ -73,6 +76,9 @@ function useFavicon(brand: Branding): void {
 // A table wider than the screen scrolls inside its own box, never the page (QA BUG-03, 390 px).
 const PAGE_CSS =
   'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
+  // Text for screen readers only (a name where the screen shows initials or an icon).
+  '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
+  'clip: rect(0 0 0 0); white-space: nowrap; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
   // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
   // virtual, so CSS cannot size them by content); they never pass the screen.
@@ -92,6 +98,7 @@ export function AppearanceProvider({
   initialMode,
   initialLocale = 'en',
   branding,
+  density = 'comfortable',
 }: AppearanceProviderProps) {
   const [mode, setModeState] = useState<ThemeMode>(() => initialMode ?? preferredMode());
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
@@ -143,7 +150,10 @@ export function AppearanceProvider({
     }),
     [mode, direction, locale, brand, setBranding],
   );
-  const themeConfig = useMemo(() => buildTheme(mode, brand, locale), [mode, brand, locale]);
+  const themeConfig = useMemo(
+    () => buildTheme(mode, brand, locale, density),
+    [mode, brand, locale, density],
+  );
 
   return (
     <AppearanceContext.Provider value={appearance}>

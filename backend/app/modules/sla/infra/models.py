@@ -380,6 +380,14 @@ class SlaTarget(TenantKeyed, Base):
             "due_at",
             postgresql_where=text("state IN ('running', 'breached') AND due_at IS NOT NULL"),
         ),
+        Index(
+            "ix_sla_targets_tenant_warning",
+            "tenant_id",
+            "warning_at",
+            postgresql_where=text(
+                "state = 'running' AND warned_at IS NULL AND warning_at IS NOT NULL"
+            ),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
@@ -436,3 +444,75 @@ class SlaPause(TenantKeyed, Base):
     business_seconds: Mapped[int | None] = mapped_column(BigInteger)
     calendar_seconds: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SlaEscalationLevel(TenantKeyed, Base):
+    """One escalation level of a policy's target kind (REQ-SLA-022; replaced on save)."""
+
+    __tablename__ = "sla_escalation_levels"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "policy_id"],
+            ["sla_policies.tenant_id", "sla_policies.id"],
+            name="fk_sla_escalation_levels_policy",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(_KINDS, name="kind_code"),
+        CheckConstraint("anchor IN ('due', 'warning')", name="anchor_code"),
+        CheckConstraint("position BETWEEN 1 AND 8", name="position_range"),
+        Index(
+            "uq_sla_escalation_levels_position",
+            "tenant_id",
+            "policy_id",
+            "kind",
+            "position",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    policy_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(20))
+    position: Mapped[int] = mapped_column(SmallInteger)
+    anchor: Mapped[str] = mapped_column(String(20))
+    offset_seconds: Mapped[int] = mapped_column(Integer)
+    recipients: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    fallback: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    actions: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    notify: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SlaEscalationRun(TenantKeyed, Base):
+    """One level's run for one target clock: unique per (target, level), so never twice."""
+
+    __tablename__ = "sla_escalation_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "target_id"],
+            ["sla_targets.tenant_id", "sla_targets.id"],
+            name="fk_sla_escalation_runs_target",
+        ),
+        CheckConstraint("state IN ('waiting', 'ran', 'cancelled')", name="state_code"),
+        CheckConstraint("(state = 'ran') = (ran_at IS NOT NULL)", name="ran"),
+        Index("uq_sla_escalation_runs_level", "tenant_id", "target_id", "level_key", unique=True),
+        Index(
+            "ix_sla_escalation_runs_tenant_due",
+            "tenant_id",
+            "due_at",
+            postgresql_where=text("state = 'waiting' AND due_at IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    target_id: Mapped[uuid.UUID]
+    level_key: Mapped[str] = mapped_column(String(40))
+    position: Mapped[int] = mapped_column(SmallInteger)
+    level: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    due_at: Mapped[datetime | None]
+    state: Mapped[str] = mapped_column(String(20), server_default="waiting")
+    ran_at: Mapped[datetime | None]
+    outcome: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+    version: Mapped[int] = mapped_column(BigInteger, server_default="1")

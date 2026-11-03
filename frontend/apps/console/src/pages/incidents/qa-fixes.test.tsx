@@ -11,6 +11,7 @@ import {
 import { App } from '../../App';
 import { consoleApi, problem } from '../../test/api';
 import { rememberTab } from './tabs';
+import { actionItem, clickAction } from '../../test/actions';
 
 // The fake session's user (api-client testing fixtures).
 const SESSION_USER = '01900000-0000-7000-8000-000000000101';
@@ -94,11 +95,12 @@ describe('QA findings on one incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-op-take'));
+    await clickAction('inc-op-take');
     await waitFor(() => {
-      expect(screen.getByTestId('inc-people').textContent).toContain('Tariq Technician');
+      // The assignment lives in the record's properties panel (D-124).
+      expect(screen.getByTestId('inc-panel-assignment').textContent).toContain('Tariq Technician');
     });
-    fireEvent.click(screen.getByTestId('inc-op-assign'));
+    await clickAction('inc-op-assign');
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => {
       expect(within(dialog).getByTestId('inc-assign-group').textContent).toContain('Service Desk');
@@ -130,7 +132,7 @@ describe('QA findings on one incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-op-assign'));
+    await clickAction('inc-op-assign');
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => {
       expect(within(dialog).getByTestId('inc-assign-technician').textContent).toContain(
@@ -178,7 +180,7 @@ describe('QA findings on one incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-wait_requester'));
+    await clickAction('inc-action-wait_requester');
     fireEvent.change(await screen.findByTestId('inc-reason-text'), {
       target: { value: 'Asked by mail' },
     });
@@ -212,7 +214,7 @@ describe('QA findings on one incident', () => {
     await waitFor(() => {
       expect(fake.find('PATCH', PATH)).toHaveLength(1);
     });
-    fireEvent.click(screen.getByTestId('inc-op-assign'));
+    await clickAction('inc-op-assign');
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-group')));
     fireEvent.click(await screen.findByTitle('Service Desk'));
     const confirm = screen.getByTestId('inc-assign-confirm');
@@ -277,8 +279,10 @@ describe('QA findings on one incident', () => {
     });
     api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: refused } } });
     const { unmount } = render(<App />);
-    const why = await screen.findByTestId('inc-action-start_work-reason');
-    expect(why.getAttribute('data-reason')).toBe('cannot_take');
+    const why = await actionItem('inc-action-start_work');
+    expect(why.textContent).toContain(
+      'Start work makes it yours, and you may not take this incident.',
+    );
     unmount();
     restore();
 
@@ -306,7 +310,7 @@ describe('QA findings on one incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-start_work'));
+    await clickAction('inc-action-start_work');
     const chooser = await screen.findByTestId('inc-start-group');
     expect(screen.getByText('Start work: which of your groups takes it?')).toBeDefined();
     fireEvent.mouseDown(selectorOf(chooser));
@@ -323,7 +327,7 @@ describe('QA findings on one incident', () => {
   it('BUG-06: cancelling an incident uses clear words, never "Cancel / Cancel / Cancel"', async () => {
     api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: ITEM } } });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-cancel'));
+    await clickAction('inc-action-cancel');
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Cancel this incident?')).toBeDefined();
     expect(within(dialog).getByTestId('inc-reason-confirm').textContent).toBe('Cancel incident');
@@ -353,7 +357,7 @@ describe('QA findings on one incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-op-delete'));
+    await clickAction('inc-op-delete');
     const confirm = (await screen.findAllByRole('button', { name: 'Move to trash' })).at(-1);
     if (confirm === undefined) throw new Error('no confirmation');
     fireEvent.click(confirm);
@@ -464,14 +468,14 @@ describe('QA findings on one incident', () => {
     expect(screen.getByTestId('inc-status-reason').querySelector('bdi')?.textContent).toBe(
       'بانتظار الرد',
     );
-    fireEvent.click(screen.getByTestId('inc-action-cancel'));
+    await clickAction('inc-action-cancel');
     expect((await screen.findByTestId('inc-reason-text')).getAttribute('dir')).toBe('auto');
   });
 
   it('BUG-14: "Choose a reason" shows under the reason, "Describe the reason" under the details', async () => {
     api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: ITEM } } });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-cancel'));
+    await clickAction('inc-action-cancel');
     fireEvent.click(await screen.findByTestId('inc-reason-confirm'));
     const codeError = await screen.findByTestId('inc-reason-code-error');
     expect(codeError.textContent).toBe('Choose a reason.');
@@ -496,7 +500,7 @@ describe('QA findings on one incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-op-assign'));
+    await clickAction('inc-op-assign');
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-group')));
     fireEvent.click(await screen.findByTitle('Network'));
     fireEvent.click(screen.getByTestId('inc-assign-confirm'));
@@ -519,7 +523,7 @@ describe('QA findings on one incident', () => {
     });
     api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: canceled } } });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-undo_cancel'));
+    await clickAction('inc-action-undo_cancel');
     const dialog = await screen.findByRole('dialog');
     expect(dialog.textContent).toContain('Details (optional)');
     expect(dialog.textContent).not.toContain('Other');

@@ -1,14 +1,11 @@
-import { EditOutlined } from '@ant-design/icons';
+import { AlertOutlined, EditOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Alert,
   App,
   Button,
   Card,
-  Descriptions,
   Flex,
   Input,
-  Popconfirm,
   Result,
   Select,
   Skeleton,
@@ -56,15 +53,26 @@ import {
   useAppearance,
   useDateTime,
   useLabel,
+  useLicence,
+  usePageCrumbs,
   WriteButton,
   lengthLimit,
+  ActionBar,
+  AlertStrip,
+  PropertiesPanel,
+  PropertyRow,
+  RecordHeader,
+  RecordPage,
+  SPACE,
+  type RecordAction,
 } from '@supportx/ui';
 
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
-import { AssignDialog, TakeButton } from './assign';
+import { AssignDialog } from './assign';
+import { useTakeAction } from './take';
+import { useActionReason } from './actionReason';
 import { useIncidentFieldName } from './conflict';
-import { OperationButton } from './operations';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
 import { rememberIncident } from './recent';
@@ -83,6 +91,7 @@ import { CategoryCascade } from './CategoryCascade';
 import {
   categoryPath,
   closureCodeLabel,
+  labelled,
   levelLabel,
   listValueLabel,
   personName,
@@ -92,7 +101,7 @@ import {
 } from './labels';
 import { DepartmentPicker, SitePicker, UserPicker } from './pickers';
 import { IMPACT_DETAILS_MAX, SUBJECT_MAX } from './form';
-import { StatusActions } from './StatusActions';
+import { useStatusActions } from './StatusActions';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
 import { TagsInput } from './TagsInput';
 
@@ -127,11 +136,14 @@ export function IncidentPage() {
     );
   }
   return (
-    <IncidentDetail
-      key={item.id}
-      item={item}
-      reload={async () => (await incident.refetch()).data}
-    />
+    <>
+      <IncidentCrumbs item={item} />
+      <IncidentDetail
+        key={item.id}
+        item={item}
+        reload={async () => (await incident.refetch()).data}
+      />
+    </>
   );
 }
 
@@ -262,8 +274,89 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const op = (name: string): IncidentActionState | undefined =>
     item.operations.find((o) => o.action === name);
   const deleteOp = op('delete');
+  const reasonText = useActionReason();
+  const status = useStatusActions(item, catalogue.data);
+  const take = useTakeAction(item, op('take'));
   const groupName =
     item.group_id === null ? '' : (groups.data?.find((g) => g.id === item.group_id)?.name ?? '');
+
+  const onEditing = (delta: number) => {
+    editing.current = Math.max(0, editing.current + delta);
+    // Nobody edits any more: catch up with what changed meanwhile (QA BUG-09).
+    if (editing.current === 0 && behind.current) {
+      behind.current = false;
+      setChangedBy(null);
+      void reload();
+    }
+  };
+  const actionOf = (
+    name: string,
+    label: string,
+    testId: string,
+    onClick: () => void,
+    rank: number,
+  ): RecordAction | null => {
+    const state = op(name);
+    if (state === undefined) return null;
+    return {
+      key: name,
+      label,
+      allowed: state.allowed,
+      whyNot: !state.allowed && state.reason != null ? reasonText(state) : undefined,
+      primary: true,
+      rank,
+      testId,
+      onClick,
+    };
+  };
+  // Every action in its one fixed order (REQ-WI-010, D-124): assign, take, the status moves,
+  // then delete apart from the rest.
+  const actions = [
+    actionOf(
+      'assign',
+      t('work_item_operation.assign'),
+      'inc-op-assign',
+      () => {
+        setAssigning(true);
+      },
+      4,
+    ),
+    take.action,
+    ...status.actions,
+    deleteOp !== undefined && deleteOp.reason !== 'no_permission'
+      ? {
+          key: 'delete',
+          label: t('work_item_operation.delete'),
+          allowed: deleteOp.allowed,
+          whyNot: !deleteOp.allowed && deleteOp.reason != null ? reasonText(deleteOp) : undefined,
+          danger: true,
+          confirm: t('incidents.delete_confirm', { id: item.display_id }),
+          loading: remove.isPending,
+          testId: 'inc-op-delete',
+          onClick: () => {
+            removeIt(item.version);
+          },
+        }
+      : null,
+  ].filter((action): action is RecordAction => action !== null);
+
+  const statusReason =
+    item.status_reason_code !== null || item.status_reason_text !== null ? (
+      <span data-testid="inc-status-reason">
+        {t('incidents.status_reason')}:{' '}
+        {item.status_reason_code === null
+          ? ''
+          : reasonValueLabel(t, catalogue.data, item.status_reason_code, locale)}
+        {item.status_reason_text === null ? (
+          ''
+        ) : (
+          <>
+            {' — '}
+            <bdi dir="auto">{item.status_reason_text}</bdi>
+          </>
+        )}
+      </span>
+    ) : null;
 
   // Knowledge in this record's editors (D-121): the picker, for replies, notes and the resolution.
   const knowledgeSlot: KnowledgeSlot = (insert, audience) => (
@@ -278,114 +371,145 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
 
   return (
     <KnowledgeSlotContext.Provider value={knowledgeSlot}>
-      {/* Full width: the record uses the whole screen (no fixed cap leaving the right side empty). */}
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <Flex justify="space-between" align="start" wrap gap={12}>
-          <Space direction="vertical" size={4}>
-            <Typography.Text type="secondary" copyable data-testid="inc-display-id">
-              {item.display_id}
-            </Typography.Text>
-            <Typography.Title level={1} style={{ margin: 0 }} data-testid="inc-heading">
-              {/* What people typed reads in its own direction, whatever the UI's (QA BUG-12). */}
-              <bdi dir="auto">{item.subject}</bdi>
-            </Typography.Title>
-            <Space size={4} wrap>
-              <StatusTag status={item.status} catalogue={catalogue.data} />
-              <PriorityTag priority={item.priority} source={item.priority_source} />
-              <SlaTag
-                policyId={item.sla_policy_id}
-                dueAt={item.resolution_due_at}
-                format={dates.format}
-              />
-            </Space>
-            {(item.status_reason_code !== null || item.status_reason_text !== null) && (
-              <Typography.Text type="secondary" data-testid="inc-status-reason">
-                {t('incidents.status_reason')}:{' '}
-                {item.status_reason_code === null
-                  ? ''
-                  : reasonValueLabel(t, catalogue.data, item.status_reason_code, locale)}
-                {item.status_reason_text === null ? (
-                  ''
-                ) : (
-                  <>
-                    {' — '}
-                    <bdi dir="auto">{item.status_reason_text}</bdi>
-                  </>
-                )}
-              </Typography.Text>
-            )}
-            <Typography.Text type="secondary" data-testid="inc-people">
-              {/* Names and the group are isolated, so a mixed Arabic and English line keeps
-                "(group)" together in either reading direction (QA C6). */}
-              {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
-              {' · '}
-              {item.technician_id === null
-                ? t('incidents.unassigned')
-                : t('incidents.assigned_to', { name: personName(item.people, item.technician_id) })}
-              {groupName === '' ? '' : ' '}
-              {groupName === '' ? null : <bdi>({groupName})</bdi>}
-            </Typography.Text>
-          </Space>
-          <Flex align="center" gap={12} wrap>
-            <PresenceAvatars viewers={viewers} selfUserId={me} />
-            <FollowButton item={item} me={me} />
-          </Flex>
-        </Flex>
-        {changedBy !== null && (
-          <Alert
-            type="warning"
-            showIcon
-            role="status"
-            data-testid="live-change-notice"
-            message={t('live.changed_by', { name: changedBy })}
-            action={
-              <Button
-                size="small"
-                data-testid="live-change-reload"
-                onClick={() => {
-                  behind.current = false;
-                  setChangedBy(null);
-                  void reload();
-                }}
-              >
-                {t('live.reload')}
-              </Button>
+      <RecordPage
+        testId="inc-record"
+        header={
+          <RecordHeader
+            icon={<AlertOutlined />}
+            displayId={item.display_id}
+            title={item.subject}
+            testIds={{ id: 'inc-display-id', title: 'inc-heading' }}
+            tags={
+              <>
+                <StatusTag status={item.status} catalogue={catalogue.data} />
+                <PriorityTag priority={item.priority} source={item.priority_source} />
+                <SlaTag
+                  policyId={item.sla_policy_id}
+                  dueAt={item.resolution_due_at}
+                  state={item.resolution_sla_state}
+                  format={dates.format}
+                />
+              </>
+            }
+            meta={[
+              // Names are isolated, so a mixed Arabic and English line keeps its order (QA C6).
+              <span key="people" data-testid="inc-people">
+                {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
+              </span>,
+              <span key="created">
+                {t('incidents.created_on', { date: dates.format(item.created_at) })}
+              </span>,
+              ...(statusReason === null ? [] : [statusReason]),
+            ]}
+            extra={
+              <>
+                <PresenceAvatars viewers={viewers} selfUserId={me} />
+                <FollowButton item={item} me={me} />
+              </>
             }
           />
-        )}
-        <Flex gap={8} wrap align="center" data-testid="inc-operations">
-          <OperationButton
-            state={op('assign')}
-            label={t('work_item_operation.assign')}
-            testId="inc-op-assign"
-            onClick={() => {
-              setAssigning(true);
-            }}
+        }
+        actions={<ActionBar actions={actions} testId="inc-operations" />}
+        alerts={
+          <>
+            <AlertStrip
+              testId="inc-alerts"
+              alerts={
+                changedBy === null
+                  ? []
+                  : [
+                      {
+                        key: 'live',
+                        type: 'warning',
+                        dismissible: false,
+                        testId: 'live-change-notice',
+                        message: t('live.changed_by', { name: changedBy }),
+                        action: (
+                          <Button
+                            size="small"
+                            data-testid="live-change-reload"
+                            onClick={() => {
+                              behind.current = false;
+                              setChangedBy(null);
+                              void reload();
+                            }}
+                          >
+                            {t('live.reload')}
+                          </Button>
+                        ),
+                      },
+                    ]
+              }
+            />
+            <LoopWarning id={item.id} />
+          </>
+        }
+        panel={
+          <PropertiesPanel
+            testId="inc-panel"
+            sections={[
+              {
+                key: 'properties',
+                title: t('incidents.properties'),
+                children: (
+                  <Details item={item} reload={reload} onEditing={onEditing} part="properties" />
+                ),
+              },
+              {
+                key: 'sla',
+                title: t('incidents.panel.sla'),
+                testId: 'inc-panel-sla',
+                // Lane A's SLA card (WP-025, #152) in the panel section kept for it.
+                children: (
+                  <div data-testid="inc-sla-card">
+                    <IncidentSla item={item} />
+                  </div>
+                ),
+              },
+              {
+                key: 'assignment',
+                title: t('incidents.panel.assignment'),
+                testId: 'inc-panel-assignment',
+                children: (
+                  <>
+                    <PropertyRow label={t('work_item.field.group_id')}>
+                      <bdi>{groupName}</bdi>
+                    </PropertyRow>
+                    <PropertyRow label={t('work_item.field.technician_id')}>
+                      {item.technician_id === null ? (
+                        <Typography.Text type="secondary">
+                          {t('incidents.unassigned')}
+                        </Typography.Text>
+                      ) : (
+                        <bdi>{personName(item.people, item.technician_id)}</bdi>
+                      )}
+                    </PropertyRow>
+                  </>
+                ),
+              },
+              {
+                key: 'followers',
+                title: t('incidents.panel.followers'),
+                children: <FollowersCard item={item} me={me} />,
+              },
+              // Linked articles you may read, and how many others (WP-033 s4, D-121).
+              {
+                key: 'knowledge',
+                title: t('knowledge.card.title'),
+                children: (
+                  <KnowledgeCard
+                    recordType="incident"
+                    recordId={item.id}
+                    subject={item.subject}
+                    hasResolution={item.resolution !== null}
+                    userId={me ?? ''}
+                  />
+                ),
+              },
+            ]}
           />
-          <TakeButton item={item} state={op('take')} />
-          <StatusActions item={item} catalogue={catalogue.data} />
-          <span style={{ flex: 1 }} />
-          {deleteOp !== undefined && deleteOp.reason !== 'no_permission' && (
-            <Popconfirm
-              title={t('incidents.delete_confirm', { id: item.display_id })}
-              okText={t('work_item_operation.delete')}
-              okButtonProps={{ danger: true }}
-              cancelText={t('actions.cancel')}
-              onConfirm={() => {
-                removeIt(item.version);
-              }}
-            >
-              <WriteButton
-                danger
-                disabled={!deleteOp.allowed}
-                loading={remove.isPending}
-                data-testid="inc-op-delete"
-              >
-                {t('work_item_operation.delete')}
-              </WriteButton>
-            </Popconfirm>
-          )}
-        </Flex>
+        }
+      >
         <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
         <AssignDialog
           item={item}
@@ -395,7 +519,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             setAssigning(false);
           }}
         />
-        <LoopWarning id={item.id} />
+        {status.dialogs}
+        {take.dialogs}
         <Tabs
           data-testid="inc-tabs"
           // The tab this user used last, Conversation the first time (D-081).
@@ -426,7 +551,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                       void reload();
                     }
                   }}
-                  me={me}
+                  part="main"
                 />
               ),
             },
@@ -457,7 +582,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             },
           ]}
         />
-      </Space>
+      </RecordPage>
     </KnowledgeSlotContext.Provider>
   );
 }
@@ -490,17 +615,20 @@ function FollowsLink({ id }: { id: string }) {
   );
 }
 
-/** Properties edited in place (REQ-INC-123) and the description (rich text). */
+/**
+ * The Details tab (`main`: description, files and resolution) and the properties edited in place
+ * (`properties`, REQ-INC-123), which live in the record page's permanent panel (D-124).
+ */
 function Details({
   item,
   reload,
   onEditing,
-  me,
+  part,
 }: {
   item: Incident;
   reload: () => Promise<unknown>;
   onEditing: (delta: number) => void;
-  me: string | null;
+  part: 'main' | 'properties';
 }) {
   const t = useLabel();
   const listFormat = useListFormat();
@@ -703,68 +831,58 @@ function Details({
           },
         ]),
   ];
+  if (part === 'properties') {
+    return (
+      <div data-testid="inc-properties">
+        {rows.map((row) => (
+          <PropertyRow key={row.key} label={row.label}>
+            {row.edit !== undefined && canEdit ? (
+              <InlineEdit
+                item={item}
+                field={row.key}
+                label={row.label}
+                spec={row.edit}
+                reload={reload}
+                onEditing={onEditing}
+              >
+                {row.view}
+              </InlineEdit>
+            ) : (
+              <span data-testid={`inc-prop-${row.key}`}>{row.view}</span>
+            )}
+          </PropertyRow>
+        ))}
+      </div>
+    );
+  }
   return (
-    <Flex gap={16} wrap align="start">
-      {/* The description, and below it the resolution once there is one (REQ-INC-090). */}
-      <Flex vertical gap={16} style={{ flex: '2 1 420px', minWidth: 0 }}>
-        <Card title={t('work_item.field.description')}>
-          <Description item={item} canEdit={canEdit} reload={reload} onEditing={onEditing} />
-          <IncidentFiles item={item} canEdit={canEdit} />
+    /* The description, and below it the resolution once there is one (REQ-INC-090). */
+    <Flex vertical gap={SPACE.sm} style={{ minWidth: 0 }}>
+      <Card size="small" title={t('work_item.field.description')}>
+        <Description item={item} canEdit={canEdit} reload={reload} onEditing={onEditing} />
+        <IncidentFiles item={item} canEdit={canEdit} />
+      </Card>
+      {(item.resolution !== null || item.closure_code !== null) && (
+        <Card
+          size="small"
+          title={t('work_item.field.resolution')}
+          data-testid="inc-resolution-card"
+        >
+          <Space direction="vertical" style={{ width: '100%' }}>
+            {item.resolution !== null && (
+              <RichTextView html={item.resolution} testId="inc-resolution" />
+            )}
+            {item.closure_code !== null && (
+              <Typography.Text data-testid="inc-closure-code-view">
+                {t('incidents.closing.closure_code_shown', {
+                  code: closureCodeLabel(t, catalogue.data, item.closure_code, locale),
+                })}
+              </Typography.Text>
+            )}
+            <AutoCloseNote item={item} catalogue={catalogue.data} />
+          </Space>
         </Card>
-        {(item.resolution !== null || item.closure_code !== null) && (
-          <Card title={t('work_item.field.resolution')} data-testid="inc-resolution-card">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              {item.resolution !== null && (
-                <RichTextView html={item.resolution} testId="inc-resolution" />
-              )}
-              {item.closure_code !== null && (
-                <Typography.Text data-testid="inc-closure-code-view">
-                  {t('incidents.closing.closure_code_shown', {
-                    code: closureCodeLabel(t, catalogue.data, item.closure_code, locale),
-                  })}
-                </Typography.Text>
-              )}
-              <AutoCloseNote item={item} catalogue={catalogue.data} />
-            </Space>
-          </Card>
-        )}
-      </Flex>
-      {/* Properties and followers share one column beside the description. */}
-      <Flex vertical gap={16} style={{ flex: '1 1 340px', minWidth: 0 }}>
-        <Card title={t('incidents.properties')}>
-          <Descriptions column={1} size="small" data-testid="inc-properties">
-            {rows.map((row) => (
-              <Descriptions.Item key={row.key} label={row.label}>
-                {row.edit !== undefined && canEdit ? (
-                  <InlineEdit
-                    item={item}
-                    field={row.key}
-                    label={row.label}
-                    spec={row.edit}
-                    reload={reload}
-                    onEditing={onEditing}
-                  >
-                    {row.view}
-                  </InlineEdit>
-                ) : (
-                  <span data-testid={`inc-prop-${row.key}`}>{row.view}</span>
-                )}
-              </Descriptions.Item>
-            ))}
-          </Descriptions>
-        </Card>
-        <Card title={t('incidents.sla.title')} data-testid="inc-sla-card">
-          <IncidentSla item={item} />
-        </Card>
-        <FollowersCard item={item} me={me} />
-        <KnowledgeCard
-          recordType="incident"
-          recordId={item.id}
-          subject={item.subject}
-          hasResolution={item.resolution !== null}
-          userId={me ?? ''}
-        />
-      </Flex>
+      )}
     </Flex>
   );
 }
@@ -1215,4 +1333,22 @@ function Description({
       />
     </Space>
   );
+}
+
+/**
+ * Where the user is: "IT Service Desk › Incidents › INC-42" (the desk only with ESM; product
+ * owner, 2026-10-28), in the header and the browser tab.
+ */
+function IncidentCrumbs({ item }: { item: Incident }) {
+  const t = useLabel();
+  const { locale } = useAppearance();
+  const esm = useLicence().has('esm');
+  const desks = useStructure('desks', esm, true);
+  const desk = esm ? desks.data?.find((d) => d.id === item.desk_id) : undefined;
+  usePageCrumbs([
+    ...(desk ? [{ label: labelled(desk.labels, locale, () => t(`desk.${desk.code}`)) }] : []),
+    { label: t('nav.incidents'), path: '/incidents' },
+    { label: item.display_id },
+  ]);
+  return null;
 }

@@ -164,9 +164,10 @@ A sunset less than 12 months after deprecation is refused (§10).
 
 ## 8. Contract stability
 
-`make openapi` exports `openapi.json` and regenerates the TypeScript types. CI fails if the file
-is stale (`openapi-check`). It also fails when `openapi.json` breaks the target branch's copy
-(`make openapi-diff base=…`). Breaking means:
+`make openapi` (or `make generated`) exports `openapi.json` and regenerates the TypeScript types.
+Both are generated, never committed (D-127): CI writes them from the code before tsc and the
+tests, so they cannot be stale. CI fails when the contract breaks the target branch's, which it
+exports from that branch's code (`make openapi-diff base=…`). Breaking means:
 - an operation or parameter removed;
 - a new required parameter or body field;
 - a type changed;
@@ -228,7 +229,8 @@ is not empty, so every breaking change means `/api/v2`.
 **Labels and contract**
 - [ ] New error codes have `errors.<code>` labels (en, ar); new field-error codes have
   `errors.field.<code>`. `tests/test_error_labels.py` enforces both.
-- [ ] Run `make openapi` and commit `openapi.json` + `schema.ts`.
+- [ ] Run `make openapi` so tsc sees the new types (the files are generated, never committed,
+  D-127).
 
 **Tests**
 - [ ] Filter/sort/cursor/ETag/If-Match/permission tests over HTTP against real PostgreSQL. Use

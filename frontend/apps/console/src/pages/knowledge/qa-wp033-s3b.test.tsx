@@ -256,7 +256,7 @@ describe('Admin › Knowledge (D-120)', () => {
       'PATCH /api/v1/knowledge/settings': { body: { ...SETTINGS, prefix: 'ART', version: 6 } },
     });
     render(<App />);
-    expect(await screen.findByRole('tab', { name: 'Knowledge' })).toBeDefined();
+    expect(await screen.findByRole('link', { name: 'Knowledge' })).toBeDefined();
     const card = await screen.findByTestId('kb-admin-general');
     expect(within(card).getAllByText('Default: No').length).toBeGreaterThan(0);
     expect(within(card).getByText('Default: KB')).toBeDefined();
@@ -370,5 +370,23 @@ describe('Admin › Knowledge (D-120)', () => {
     render(<App />);
     await screen.findByTestId('user-name');
     expect(screen.queryByRole('tab', { name: 'Knowledge' })).toBeNull();
+  });
+});
+
+describe('New article (REQ-KB-001)', () => {
+  it('saving the first draft opens its editor at once, without asking to leave', async () => {
+    window.history.pushState({}, '', `/knowledge/articles/new?topic=${TOPIC.id}`);
+    const fake = api({
+      'POST /api/v1/knowledge/articles': { status: 201, body: FIRST },
+      [`GET /api/v1/knowledge/articles/${FIRST.id}`]: { body: FIRST },
+    });
+    render(<App />);
+    fireEvent.change(await screen.findByTestId('kb-title'), { target: { value: 'Printer jams' } });
+    fireEvent.click(screen.getByTestId('kb-create'));
+    await waitFor(() => {
+      expect(window.location.pathname).toBe(`/knowledge/articles/${FIRST.id}/edit/en`);
+    });
+    expect(fake.find('POST', '/api/v1/knowledge/articles')).toHaveLength(1);
+    expect(screen.queryByText('Leave without saving?')).toBeNull();
   });
 });

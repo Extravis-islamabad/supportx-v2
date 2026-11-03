@@ -1,27 +1,28 @@
 """Every enum value the API can send has an English and an Arabic label (CLAUDE.md rule d, WP-010).
 
-Walks the committed OpenAPI contract (frontend/packages/api-client/openapi.json, kept in sync by
-the drift check) and finds every enum: named schemas (`UserType`) and inline property enums
-(`UserDetail.status`). Each must be mapped to a label prefix below, and every value must have a
-label `<prefix>.<value>` in en and ar. A new enum without a mapping fails here, so nobody ships a
-code the UI cannot translate. Error codes, event types and the licence catalogue have their own
-checks (test_error_labels.py, test_event_labels.py, test_licensing_labels.py).
+Walks the OpenAPI contract as the code builds it (`tooling.export_openapi.build_schema`; the
+file is generated, never committed, D-127) and finds every enum: named schemas (`UserType`) and
+inline property enums (`UserDetail.status`). Each must be mapped to a label prefix below, and
+every value must have a label `<prefix>.<value>` in en and ar. A new enum without a mapping
+fails here, so nobody ships a code the UI cannot translate. Error codes, event types and the
+licence catalogue have their own checks (test_error_labels.py, test_event_labels.py,
+test_licensing_labels.py).
 """
 
-import json
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from tests.test_error_labels import label_keys
-
-OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/openapi.json"
+from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
     # SLA set-up (WP-025)
+    "ActionKind": "sla_action_kind",
+    "Anchor": "sla_level_anchor",
+    "RecipientKind": "sla_recipient_kind",
     "HolidayPart": "sla_holiday_part",
     "CalendarSource": "sla_calendar_source",
     "PriorityRule": "sla_priority_rule",
@@ -30,6 +31,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # The record's SLA panel (WP-025 s2)
     "SlaTargetOut.kind": "sla_target_kind",
     "SlaTargetOut.state": "sla_target_state",
+    "SlaLevelRunOut.anchor": "sla_level_anchor",
+    "SlaLevelRunOut.state": "sla_run_state",
     "SlaTargetOut.met_how": "sla_met_how",
     "WorkItemSlaOut.reason": "sla_applied_reason",
     "TargetUnit": "sla_target_unit",
@@ -227,7 +230,7 @@ def enums(schemas: dict[str, Any]) -> Iterator[tuple[str, list[str]]]:
 
 @pytest.fixture(scope="module")
 def contract_enums() -> list[tuple[str, list[str]]]:
-    return list(enums(json.loads(OPENAPI.read_text(encoding="utf-8"))["components"]["schemas"]))
+    return list(enums(build_schema()["components"]["schemas"]))
 
 
 def test_every_enum_in_the_contract_has_a_label_prefix(

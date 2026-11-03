@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { expectAccessible, signInAs } from './helpers';
+import { actionEntry, clickAction, expectAccessible, signInAs } from './helpers';
 
 /**
  * WP-029 end to end: an admin's business rule changes a technician's new incident in the same
@@ -195,7 +195,7 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
     ).toBeVisible(LIVE);
 
     // 4. Resolve: the trigger adds its note after the commit, shown with its outcome.
-    await tech.page.getByTestId('inc-action-resolve').click();
+    await clickAction(tech.page, 'inc-action-resolve');
     // Resolving asks for the resolution (WP-020f, REQ-INC-090).
     await tech.page.getByTestId('inc-resolution-editor').click();
     await tech.page.keyboard.type('Restarted the service');
@@ -209,7 +209,7 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
     await expectAccessible(tech.page, 'automation panel');
 
     // 5. Ping-pong: the guard stops it, the record warns naming both, the admin is told.
-    await tech.page.getByTestId('inc-action-reopen').click();
+    await clickAction(tech.page, 'inc-action-reopen');
     const record = (await (await call(tech.page, 'GET', `/incidents/${id}`)).json()) as {
       version: number;
     };
@@ -234,10 +234,11 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
     expect(saved.status()).toBe(200);
     closeLimited = true;
     await tech.page.reload();
-    await expect(tech.page.getByTestId('inc-action-close-reason')).toHaveAttribute(
-      'data-reason',
-      /not_for_you|not_from_status/,
-    );
+    // Disabled in "More actions", with its reason as the entry's second line (D-124).
+    const close = await actionEntry(tech.page, 'inc-action-close');
+    await expect(close).toHaveAttribute('aria-disabled', 'true');
+    await expect(close).toContainText(/Only certain people|Not possible in the current status/);
+    await tech.page.keyboard.press('Escape');
 
     // 7. The admin screens, in Arabic too.
     for (const section of ['triggers', 'transitions', 'routing']) {

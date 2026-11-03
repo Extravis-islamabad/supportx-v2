@@ -3,7 +3,6 @@ import {
   Alert,
   Button,
   Card,
-  Descriptions,
   Flex,
   Input,
   Modal,
@@ -16,7 +15,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import {
@@ -57,6 +56,11 @@ import {
 } from '@supportx/labels';
 import {
   ConflictDialog,
+  FilterBar,
+  FiltersDrawer,
+  PageHeader,
+  SPACE,
+  TYPE,
   reportError,
   FormProblem,
   describeError,
@@ -68,6 +72,7 @@ import {
   useFormProblem,
   useDateTime,
   WriteButton,
+  usePageCrumbs,
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
@@ -145,6 +150,9 @@ export function ReportPage() {
     const report = saved.data;
     return report ? savedBase(report) : null;
   }, [code, library.data, saved.data, t]);
+  usePageCrumbs(
+    base === null ? null : [{ label: t('nav.reports'), path: '/reports' }, { label: base.name }],
+  );
 
   if (!allowed) return <NoAccess titleKey="nav.reports" />;
   const loading = code !== undefined ? library.isPending : saved.isPending;
@@ -183,6 +191,7 @@ function ReportView({ latest }: { latest: Base }) {
   );
   const [drill, setDrill] = useState<Drill | null>(null);
   const [copying, setCopying] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const definition = useMemo<ReportDefinition>(
     () => ({
@@ -252,8 +261,34 @@ function ReportView({ latest }: { latest: Base }) {
     joinParts((result?.groups ?? []).map((g, i) => words.key(g, row.keys[i])));
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Header base={base} definition={definition} result={result} canRun={problems.size === 0} />
+    <div data-testid="report-page">
+      <Header
+        base={base}
+        definition={definition}
+        result={result}
+        actions={
+          <>
+            <ExportButton title={base.name} definition={definition} canRun={problems.size === 0} />
+            <ScheduleButton
+              reportRef={base.ref}
+              title={base.name}
+              changed={JSON.stringify(definition) !== JSON.stringify(base.definition)}
+            />
+            <MyExportsButton />
+            <Actions
+              copying={copying}
+              onCopying={setCopying}
+              base={base}
+              latest={latest}
+              onLoad={load}
+              definition={definition}
+              canSave={problems.size === 0 && can('reports.create')}
+              onSaved={(id) => void navigate(`/reports/${id}`)}
+              onDeleted={() => void navigate('/reports')}
+            />
+          </>
+        }
+      />
       {base.builtin !== null && edited && (
         // A changed built-in report says so: it is no longer the shipped one (QA WP-035 BUG-08).
         <Alert
@@ -280,7 +315,109 @@ function ReportView({ latest }: { latest: Base }) {
           }
         />
       )}
-      <Card size="small" title={t('reports.filters')}>
+      {/* What to show on the bar, the filter in the drawer (D-124): the result stays in view. */}
+      <FilterBar
+        testId="report-bar"
+        quick={
+          <>
+            <Select
+              aria-label={t('reports.group_by')}
+              prefix={`${t('reports.group_by')}:`}
+              allowClear
+              placeholder={t('reports.no_grouping')}
+              value={group?.field}
+              onChange={(value?: string) => {
+                setGroup(0, value);
+              }}
+              options={groupable.map((f) => ({ value: f.name, label: words.field(f.name) }))}
+              style={{ minWidth: 220 }}
+              data-testid="report-group"
+            />
+            {group && isDate(group.field) && (
+              <Select
+                aria-label={t('reports.bucket')}
+                value={group.bucket ?? 'day'}
+                onChange={(bucket: DateBucket) => {
+                  setDraft({
+                    ...draft,
+                    group_by: [{ field: group.field, bucket }, ...(draft.group_by ?? []).slice(1)],
+                  });
+                }}
+                options={BUCKETS.map((b) => ({ value: b, label: t(`report_bucket.${b}`) }))}
+                data-testid="report-bucket"
+              />
+            )}
+            {group && (
+              <Select
+                aria-label={t('reports.then_by')}
+                prefix={`${t('reports.then_by')}:`}
+                allowClear
+                placeholder={t('reports.no_grouping')}
+                value={second?.field}
+                onChange={(value?: string) => {
+                  setGroup(1, value);
+                }}
+                options={groupable
+                  .filter((f) => f.name !== group.field && !isDate(f.name))
+                  .map((f) => ({ value: f.name, label: words.field(f.name) }))}
+                style={{ minWidth: 200 }}
+                data-testid="report-group-2"
+              />
+            )}
+            <Select
+              mode="multiple"
+              aria-label={t('reports.measures')}
+              maxCount={4}
+              value={draft.measures ?? ['count']}
+              onChange={(measures: string[]) => {
+                setDraft({ ...draft, measures: measures.length > 0 ? measures : ['count'] });
+              }}
+              options={(entity.data?.measures ?? []).map((m) => ({
+                value: m.code,
+                label: words.measure(base.definition.entity, m.code).name,
+              }))}
+              style={{ minWidth: 260 }}
+              data-testid="report-measures"
+            />
+            <Select
+              aria-label={t('reports.chart')}
+              prefix={`${t('reports.chart')}:`}
+              value={draft.chart}
+              onChange={(chart: ChartType) => {
+                setDraft({ ...draft, chart });
+                setView(chart === 'table' ? 'table' : 'chart');
+              }}
+              options={CHARTS.map((c) => ({ value: c, label: t(`report_chart.${c}`) }))}
+              data-testid="report-chart-type"
+            />
+            {draft.chart !== 'table' && draft.chart !== 'kpi' && (
+              <Segmented
+                aria-label={t('reports.view')}
+                value={view}
+                onChange={(value) => {
+                  setView(value as 'chart' | 'table');
+                }}
+                options={[
+                  { value: 'chart', label: t('reports.view_chart') },
+                  { value: 'table', label: t('reports.view_table') },
+                ]}
+                data-testid="report-view"
+              />
+            )}
+          </>
+        }
+        filtersCount={complexFilter ? 0 : model.rows.length}
+        onOpenFilters={() => {
+          setFiltersOpen(true);
+        }}
+      />
+      <FiltersDrawer
+        open={filtersOpen}
+        onClose={() => {
+          setFiltersOpen(false);
+        }}
+        testId="report-filters"
+      >
         {complexFilter ? (
           <Alert type="info" showIcon message={t('reports.filter_read_only')} />
         ) : (
@@ -291,98 +428,27 @@ function ReportView({ latest }: { latest: Base }) {
             testId="report-filter"
           />
         )}
-        {problems.size > 0 && (
-          <Typography.Text type="danger" role="alert" data-testid="report-cannot-run">
-            {t('reports.fix_filter_to_run')}
-          </Typography.Text>
-        )}
-      </Card>
-      <Flex wrap gap={12} align="center">
-        <Select
-          aria-label={t('reports.group_by')}
-          prefix={`${t('reports.group_by')}:`}
-          allowClear
-          placeholder={t('reports.no_grouping')}
-          value={group?.field}
-          onChange={(value?: string) => {
-            setGroup(0, value);
-          }}
-          options={groupable.map((f) => ({ value: f.name, label: words.field(f.name) }))}
-          style={{ minWidth: 220 }}
-          data-testid="report-group"
+      </FiltersDrawer>
+      {problems.size > 0 && (
+        <Alert
+          type="error"
+          showIcon
+          role="alert"
+          data-testid="report-cannot-run"
+          message={t('reports.fix_filter_to_run')}
+          action={
+            <Button
+              size="small"
+              onClick={() => {
+                setFiltersOpen(true);
+              }}
+            >
+              {t('layout.filters')}
+            </Button>
+          }
+          style={{ marginBottom: SPACE.xs }}
         />
-        {group && isDate(group.field) && (
-          <Select
-            aria-label={t('reports.bucket')}
-            value={group.bucket ?? 'day'}
-            onChange={(bucket: DateBucket) => {
-              setDraft({
-                ...draft,
-                group_by: [{ field: group.field, bucket }, ...(draft.group_by ?? []).slice(1)],
-              });
-            }}
-            options={BUCKETS.map((b) => ({ value: b, label: t(`report_bucket.${b}`) }))}
-            data-testid="report-bucket"
-          />
-        )}
-        {group && (
-          <Select
-            aria-label={t('reports.then_by')}
-            prefix={`${t('reports.then_by')}:`}
-            allowClear
-            placeholder={t('reports.no_grouping')}
-            value={second?.field}
-            onChange={(value?: string) => {
-              setGroup(1, value);
-            }}
-            options={groupable
-              .filter((f) => f.name !== group.field && !isDate(f.name))
-              .map((f) => ({ value: f.name, label: words.field(f.name) }))}
-            style={{ minWidth: 200 }}
-            data-testid="report-group-2"
-          />
-        )}
-        <Select
-          mode="multiple"
-          aria-label={t('reports.measures')}
-          maxCount={4}
-          value={draft.measures ?? ['count']}
-          onChange={(measures: string[]) => {
-            setDraft({ ...draft, measures: measures.length > 0 ? measures : ['count'] });
-          }}
-          options={(entity.data?.measures ?? []).map((m) => ({
-            value: m.code,
-            label: words.measure(base.definition.entity, m.code).name,
-          }))}
-          style={{ minWidth: 260 }}
-          data-testid="report-measures"
-        />
-        <Select
-          aria-label={t('reports.chart')}
-          prefix={`${t('reports.chart')}:`}
-          value={draft.chart}
-          onChange={(chart: ChartType) => {
-            setDraft({ ...draft, chart });
-            setView(chart === 'table' ? 'table' : 'chart');
-          }}
-          options={CHARTS.map((c) => ({ value: c, label: t(`report_chart.${c}`) }))}
-          data-testid="report-chart-type"
-        />
-        {draft.chart !== 'table' && draft.chart !== 'kpi' && (
-          <Segmented
-            aria-label={t('reports.view')}
-            value={view}
-            onChange={(value) => {
-              setView(value as 'chart' | 'table');
-            }}
-            options={[
-              { value: 'chart', label: t('reports.view_chart') },
-              { value: 'table', label: t('reports.view_table') },
-            ]}
-            data-testid="report-view"
-          />
-        )}
-      </Flex>
+      )}
       {refused && run.error && (
         <Alert
           type="warning"
@@ -404,6 +470,7 @@ function ReportView({ latest }: { latest: Base }) {
             </Space>
           }
           loading={run.isPending}
+          style={{ marginTop: SPACE.xs }}
           data-testid="report-result"
         >
           <Results
@@ -427,33 +494,13 @@ function ReportView({ latest }: { latest: Base }) {
           </Typography.Paragraph>
         </Card>
       )}
-      <Flex gap={12} wrap align="center">
-        <Actions
-          copying={copying}
-          onCopying={setCopying}
-          base={base}
-          latest={latest}
-          onLoad={load}
-          definition={definition}
-          canSave={problems.size === 0 && can('reports.create')}
-          onSaved={(id) => void navigate(`/reports/${id}`)}
-          onDeleted={() => void navigate('/reports')}
-        />
-        <ExportButton title={base.name} definition={definition} canRun={problems.size === 0} />
-        <ScheduleButton
-          reportRef={base.ref}
-          title={base.name}
-          changed={JSON.stringify(definition) !== JSON.stringify(base.definition)}
-        />
-        <MyExportsButton />
-      </Flex>
       <DrillDrawer
         drill={drill}
         onClose={() => {
           setDrill(null);
         }}
       />
-    </Space>
+    </div>
   );
 }
 
@@ -461,15 +508,16 @@ function Header({
   base,
   definition,
   result,
-  canRun,
+  actions,
 }: {
   base: Base;
   definition: ReportDefinition;
   result: ReportResult | undefined;
-  canRun: boolean;
+  actions: ReactNode;
 }) {
   const t = useLabels();
   const isolate = useIsolate();
+  const navigate = useNavigate();
   const words = useReportWords(result);
   const star = useStarReport();
   const library = useReportLibrary();
@@ -479,28 +527,49 @@ function Header({
   const joinParts = useJoinParts();
   const summary = filterInWords(definition.filter, words, fields, t, list, joinParts);
   return (
-    <Space direction="vertical" size={4} style={{ width: '100%' }}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={1} style={{ margin: 0 }} data-testid="report-title">
-          {base.name}
-        </Typography.Title>
-        <Button
-          aria-label={t(starred ? 'reports.unstar' : 'reports.star')}
-          aria-pressed={starred}
-          icon={starred ? <StarFilled /> : <StarOutlined />}
-          onClick={() => {
-            star.mutate({ ref: base.ref, starred: !starred });
-          }}
-          data-testid="report-star"
-        />
-      </Flex>
-      {base.description && <Typography.Text type="secondary">{base.description}</Typography.Text>}
-      <Descriptions size="small" column={1}>
-        <Descriptions.Item label={t('reports.applied_filters')}>
+    <>
+      <PageHeader
+        title={
+          <Space size={SPACE.xxs} align="center">
+            <span data-testid="report-title">{base.name}</span>
+            <Button
+              type="text"
+              size="small"
+              aria-label={t(starred ? 'reports.unstar' : 'reports.star')}
+              aria-pressed={starred}
+              icon={starred ? <StarFilled /> : <StarOutlined />}
+              onClick={() => {
+                star.mutate({ ref: base.ref, starred: !starred });
+              }}
+              data-testid="report-star"
+            />
+          </Space>
+        }
+        back={{
+          label: t('reports.title'),
+          onClick: () => void navigate('/reports'),
+        }}
+        description={base.description || undefined}
+        extra={actions}
+      />
+      {/* One meta line: what the numbers count, and their total (REQ-RPT-050). */}
+      <Flex
+        wrap
+        gap={SPACE.md}
+        style={{ marginBottom: SPACE.sm, fontSize: TYPE.data }}
+        data-testid="report-meta"
+      >
+        <Typography.Text style={{ fontSize: TYPE.data }}>
+          <Typography.Text type="secondary" style={{ fontSize: TYPE.data }}>
+            {t('reports.applied_filters')}:{' '}
+          </Typography.Text>
           <span data-testid="report-filter-words">{summary}</span>
-        </Descriptions.Item>
+        </Typography.Text>
         {result && (
-          <Descriptions.Item label={t('reports.total')}>
+          <Typography.Text style={{ fontSize: TYPE.data }}>
+            <Typography.Text type="secondary" style={{ fontSize: TYPE.data }}>
+              {t('reports.total')}:{' '}
+            </Typography.Text>
             <span data-testid="report-total">
               {joinParts(
                 result.measures.map((m, i) =>
@@ -511,11 +580,10 @@ function Header({
                 ),
               )}
             </span>
-          </Descriptions.Item>
+          </Typography.Text>
         )}
-      </Descriptions>
-      {!canRun && null}
-    </Space>
+      </Flex>
+    </>
   );
 }
 
@@ -811,7 +879,7 @@ function Actions({
   const whyNot = canSave ? undefined : t('reports.cannot_save');
 
   return (
-    <Flex gap={12} wrap>
+    <>
       <Tooltip title={whyNot}>
         <WriteButton
           type={base.saved?.canEdit ? 'default' : 'primary'}
@@ -857,9 +925,11 @@ function Actions({
       {base.saved !== null && !base.saved.canEdit && (
         <Typography.Text type="secondary">{t('reports.not_editable_hint')}</Typography.Text>
       )}
-      <div style={{ flexBasis: '100%' }}>
-        <FormProblem problem={problem} />
-      </div>
+      {problem.error !== null && (
+        <div style={{ flexBasis: '100%' }}>
+          <FormProblem problem={problem} />
+        </div>
+      )}
       <ConflictDialog
         {...removeConflict.dialog}
         fieldLabel={(field) => t(DEFINITION_PARTS[field] ?? 'reports.layout')}
@@ -944,6 +1014,6 @@ function Actions({
           <FormProblem problem={copyProblem} />
         </Space>
       </Modal>
-    </Flex>
+    </>
   );
 }
