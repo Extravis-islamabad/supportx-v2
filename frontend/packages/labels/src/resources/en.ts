@@ -5317,6 +5317,11 @@ export const en = {
   'directory_attribute.country': 'Country',
   'people.managed_by_directory':
     'Name, address, job, phone, site, department and manager come from the directory. Change them there; VIP, language and notes stay yours.',
+  'work_item_action.approve': 'Approve',
+  'work_item_action.reject': 'Reject',
+  'work_item_status.awaiting_approval': 'Awaiting approval',
+  'work_item_status.fulfilled': 'Fulfilled',
+  'work_item_status.rejected': 'Rejected',
 } as const;
 
 export type LabelKey = keyof typeof en;

@@ -4921,4 +4921,9 @@ export const ur: LabelResource = {
   'directory_attribute.country': 'ملک',
   'people.managed_by_directory':
     'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
+  'work_item_action.approve': 'منظور کریں',
+  'work_item_action.reject': 'مسترد کریں',
+  'work_item_status.awaiting_approval': 'منظوری کا منتظر',
+  'work_item_status.fulfilled': 'پورا ہو گیا',
+  'work_item_status.rejected': 'مسترد',
 };

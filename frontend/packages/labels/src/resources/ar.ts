@@ -5387,4 +5387,9 @@ export const ar: LabelResource = {
   'directory_attribute.country': 'البلد',
   'people.managed_by_directory':
     'يأتي الاسم والعنوان والوظيفة والهاتف والموقع والقسم والمدير من الدليل. غيّرها هناك؛ وتبقى أولوية كبار الشخصيات واللغة والملاحظات لك.',
+  'work_item_action.approve': 'موافقة',
+  'work_item_action.reject': 'رفض',
+  'work_item_status.awaiting_approval': 'بانتظار الموافقة',
+  'work_item_status.fulfilled': 'تم التنفيذ',
+  'work_item_status.rejected': 'مرفوض',
 };
