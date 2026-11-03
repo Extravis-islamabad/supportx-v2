@@ -8,8 +8,8 @@ Expand only:
 
 No data step. The downgrade drops both tables.
 
-Revision ID: 0056
-Revises: 0054 (re-pointed onto the head of main when queued; lane C's 0055 may come first)
+Revision ID: 0060
+Revises: 0054 (re-pointed onto the head of main when queued; other lanes' 0055 to 0059 may come first)
 Created: 2026-11-04
 """
 
@@ -21,7 +21,7 @@ from sqlalchemy.dialects import postgresql
 
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
-revision: str = "0056"
+revision: str = "0060"
 down_revision: str | None = "0054"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

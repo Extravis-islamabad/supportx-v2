@@ -72,10 +72,10 @@ class AiCall(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
     sources: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
     guardrail_events: Mapped[list[Any]] = mapped_column(JSONB, server_default="[]")
     latency_ms: Mapped[int] = mapped_column(Integer, server_default="0")
-    input_tokens: Mapped[int | None]
-    output_tokens: Mapped[int | None]
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
     # Hundredths of a US cent per call, when the provider has a price (local models: none).
-    cost_estimate: Mapped[int | None]
+    cost_estimate: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(10))
     error_code: Mapped[str | None] = mapped_column(String(60))
     outcome: Mapped[str | None] = mapped_column(String(10))

@@ -20,6 +20,7 @@ from app.core.database import Database
 from app.core.errors import NotFound
 from app.core.tenancy import TenantContext
 from app.modules.ai.infra.models import AiCall, AiSettings
+from app.modules.ai.service.settings import session_tenant
 from app.modules.identity_access import Subject
 from app.shared.clock import system_clock
 
@@ -30,7 +31,7 @@ Outcome = Literal["accepted", "edited", "discarded"]
 
 async def record_call(session: AsyncSession, **fields: object) -> AiCall:
     """Write one call; returns it (its ID goes back to the feature for the outcome)."""
-    call = AiCall(**fields)
+    call = AiCall(tenant_id=session_tenant(session), **fields)
     session.add(call)
     await session.flush()
     return call
