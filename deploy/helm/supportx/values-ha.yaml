@@ -7,7 +7,7 @@
 #     --set routing.gateway.tlsSecret=supportx-tls
 # Copies of a component never share a node (ha.antiAffinity hard), every component with more
 # than one copy has a PodDisruptionBudget, and the API scales on CPU. Still to come in WP-014b:
-# Centrifugo with more than one copy (on the HA Valkey), backups and the restore runbook. Images are INTERNAL/DEV builds (D-038).
+# backups and the restore runbook. Images are INTERNAL/DEV builds (D-038).
 app:
   profile: production
 
@@ -56,3 +56,7 @@ valkey:
   enabled: false
 valkeyHa:
   enabled: true
+
+# Realtime: three copies sharing the Valkey engine through the sentinels.
+centrifugo:
+  replicas: 3

@@ -289,7 +289,7 @@ valkeyHa:
     limits: {cpu: 500m, memory: 384Mi}
 
 centrifugo:
-  replicas: 1                       # more than one needs the Valkey engine (WP-014b)
+  replicas: 1                       # more than one needs the Valkey engine: valkeyHa (ADR-038)
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: "1", memory: 512Mi}
