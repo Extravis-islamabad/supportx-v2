@@ -27,7 +27,7 @@ from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules import metadata
+from app.modules import metadata, service_catalog
 from app.modules.automation import (
     TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
 )
@@ -61,6 +61,7 @@ from app.modules.organization import (
     unit_heads,
     users_in_groups,
 )
+from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -88,6 +89,7 @@ from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     Channel,
     WorkItemType,
+    WorkItemTypeCode,
     channel_problems,
     clean_subject,
     clean_tags,
@@ -1553,6 +1555,106 @@ async def _place(session: AsyncSession, cleaned: dict[str, Any]) -> None:
             cleaned["site_id"] = next(iter(sites))
 
 
+async def _request_item(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, values: Mapping[str, Any]
+) -> service_catalog.RequestItem | None:
+    """The catalog item of a new service request (refused without one); None for other types."""
+    given = values.get("catalog_item_id")
+    if wtype.code is not WorkItemTypeCode.SERVICE_REQUEST:
+        if given is not None or values.get("answers"):
+            raise ValidationFailed(
+                errors=[
+                    FieldError(
+                        field="body.catalog_item_id",
+                        code="not_allowed",
+                        message_key="errors.field.not_allowed",
+                    )
+                ]
+            )
+        return None
+    if not given:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.catalog_item_id",
+                    code="required",
+                    message_key="errors.field.required",
+                )
+            ]
+        )
+    try:
+        return await service_catalog.request_item(
+            session, subject, uuid.UUID(str(given)), values.get("answers") or {}
+        )
+    except NotFound as error:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.catalog_item_id",
+                    code="catalog_item_not_found",
+                    message_key="errors.field.catalog_item_not_found",
+                )
+            ]
+        ) from error
+
+
+def _started(item: service_catalog.RequestItem | None, cat: Catalogue) -> sr_rules.Start | None:
+    """How a service request starts from its item (None for other types)."""
+    if item is None:
+        return None
+    return sr_rules.start(
+        sr_rules.ItemDecides(
+            needs_approval=item.needs_approval,
+            default_priority=item.default_priority,
+            group_id=item.group_id,
+            technician_id=item.technician_id,
+            technician_after_approval=item.technician_after_approval,
+        ),
+        tenant_default_priority=cat.default_priority,
+    )
+
+
+def _from_item(
+    started: sr_rules.Start | None,
+    initial: str,
+    group_id: uuid.UUID | None,
+    technician_id: uuid.UUID | None,
+) -> tuple[str, uuid.UUID | None, uuid.UUID | None]:
+    """The first status and assignment: the item's, where the person set none."""
+    if started is None:
+        return initial, group_id, technician_id
+    return started.status, group_id or started.group_id, technician_id or started.technician_id
+
+
+def _item_priority(
+    started: sr_rules.Start | None, priority: str, source: PrioritySource
+) -> tuple[str, PrioritySource]:
+    """A rule's or the person's priority stays; else the item's default (REQ-SR-005)."""
+    if started is None or not started.priority_from_item:
+        return priority, source
+    if source in {PrioritySource.RULE, PrioritySource.MANUAL}:
+        return priority, source
+    return started.priority, PrioritySource.CATALOG_ITEM
+
+
+def _item_columns(
+    item: service_catalog.RequestItem | None, values: Mapping[str, Any]
+) -> dict[str, Any]:
+    """A service request's own columns (incidents keep their defaults)."""
+    if item is None:
+        return {}
+    status = (
+        sr_rules.ApprovalStatus.PENDING
+        if item.needs_approval
+        else sr_rules.ApprovalStatus.NOT_NEEDED
+    )
+    return {
+        "catalog_item_id": item.item_id,
+        "answers": dict(values.get("answers") or {}),
+        "approval_status": status.value,
+    }
+
+
 async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1587,6 +1689,12 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         )
     custom, custom_problems = await _custom_in(session, wtype, values, current=None, creating=True)
     problems += custom_problems
+    # A service request comes from its catalog item (REQ-SR-001 AC2), which decides its first
+    # status, priority and assignment (REQ-SR-005, -008, -021); the person's own choices of
+    # group and technician were checked above, the item's were checked when it was saved.
+    item = await _request_item(session, subject, wtype, values)
+    started = _started(item, cat)
+    problems += [] if item is None else list(item.answer_problems)
     template = await templates.for_create(session, wtype, values.get("template_id"))
     problems += await templates.required_problems(
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
@@ -1606,7 +1714,12 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     if problems:
         raise await _value_errors(session, wtype, problems)
     await _place(session, cleaned)
-    initial = next(s.code for s in cat.statuses if not s.system and not s.disabled)
+    initial, group_id, technician_id = _from_item(
+        started,
+        next(s.code for s in cat.statuses if not s.system and not s.disabled),
+        group_id,
+        technician_id,
+    )
     channel_given = channel
     channel = (
         channel or cleaned.get("channel") or (Channel.PHONE if source == "ui" else Channel.API)
@@ -1642,7 +1755,9 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     custom, group_id, technician_id = _apply_automated(
         automated.values, cleaned, custom, group_id, technician_id
     )
-    priority, priority_source = _first_priority(cat, cleaned, manual, automated.values)
+    priority, priority_source = _item_priority(
+        started, *_first_priority(cat, cleaned, manual, automated.values)
+    )
     now = _now()
     number = await next_display_number(session, wtype.counter_key)
     record = WorkItem(
@@ -1668,6 +1783,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         priority_source=priority_source,
         level=cleaned.get("level"),
         template_id=template.id,
+        **_item_columns(item, values),
         custom=custom or {},
         custom_text=await _custom_text(session, wtype, custom or {}),
         status=initial,
