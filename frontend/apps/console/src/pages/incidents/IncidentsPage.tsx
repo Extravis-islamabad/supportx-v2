@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Segmented, Select, Space, Table, Typography } from 'antd';
+import { Alert, App, Button, Flex, Segmented, Select, Space, Table } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -45,6 +45,10 @@ import {
   useDateTime,
   useLabel,
   WriteButton,
+  FilterBar,
+  FiltersDrawer,
+  ListPage,
+  PageHeader,
 } from '@supportx/ui';
 
 import { choiceName, fieldName } from '../customFields/values';
@@ -123,6 +127,9 @@ export function IncidentsPage() {
   // One custom field filter (WP-026, REQ-INC-014 AC1): a pick list or yes/no field and a value.
   const [customKey, setCustomKey] = useState<string>();
   const [customValue, setCustomValue] = useState<string>();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Filters set in the drawer, counted on the bar's "Filters" button (D-124).
+  const drawerCount = (customValue === undefined ? 0 : 1) + (range === undefined ? 0 : 1);
   // The selection belongs to one list: a new view, filter or trash starts empty ("all N" meant
   // the old list).
   const [picked, setPicked] = useState<Selection & { list: string }>({
@@ -280,43 +287,47 @@ export function IncidentsPage() {
     can(action === 'resolve' || action === 'close' ? 'incidents.edit' : `incidents.${action}`);
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={1} style={{ margin: 0 }}>
-          {t('incidents.title')}
-        </Typography.Title>
-        <Space wrap>
-          {!trash && (
-            <ListExport
-              title={viewName}
-              filter={exported}
-              columns={columns.map((c) => c.key)}
-              sort={sort}
-            />
-          )}
-          {!trash && <BulkJobsButton onOpen={setJobId} />}
-          {can('incidents.delete') && (
-            <Segmented<'current' | 'trash'>
-              value={mode}
-              onChange={setMode}
-              options={[
-                { value: 'current', label: t('incidents.current') },
-                { value: 'trash', label: t('incidents.trash') },
-              ]}
-              data-testid="inc-mode"
-            />
-          )}
-          {can('incidents.create') && (
-            <WriteButton
-              type="primary"
-              onClick={() => void navigate('/incidents/new')}
-              data-testid="inc-new"
-            >
-              {t('incidents.new')}
-            </WriteButton>
-          )}
-        </Space>
-      </Flex>
+    <ListPage
+      testId="inc-list"
+      header={
+        <PageHeader
+          title={t('incidents.title')}
+          extra={
+            <>
+              {!trash && (
+                <ListExport
+                  title={viewName}
+                  filter={exported}
+                  columns={columns.map((c) => c.key)}
+                  sort={sort}
+                />
+              )}
+              {!trash && <BulkJobsButton onOpen={setJobId} />}
+              {can('incidents.delete') && (
+                <Segmented<'current' | 'trash'>
+                  value={mode}
+                  onChange={setMode}
+                  options={[
+                    { value: 'current', label: t('incidents.current') },
+                    { value: 'trash', label: t('incidents.trash') },
+                  ]}
+                  data-testid="inc-mode"
+                />
+              )}
+              {can('incidents.create') && (
+                <WriteButton
+                  type="primary"
+                  onClick={() => void navigate('/incidents/new')}
+                  data-testid="inc-new"
+                >
+                  {t('incidents.new')}
+                </WriteButton>
+              )}
+            </>
+          }
+        />
+      }
+    >
       {!trash && (
         <PersonalCounters
           active={view}
@@ -326,112 +337,150 @@ export function IncidentsPage() {
           }}
         />
       )}
-      {/* Two rows, each narrower than a desktop screen (WP-020d QA BUG-02): what to look at
-          (view and search, whose chips add height only), then how to narrow and show it. One
-          row of everything was wider than the screen, so items wrapped wherever they fell. */}
-      <Flex gap={12} wrap align="start" data-testid="inc-toolbar-find">
-        {!trash && (
-          // Straight in the row, not a wrapping box of their own: Chrome sizes such a box to its
-          // widest child, which pushed "New view" under the selector (BUG-02). The row still
-          // wraps them on a phone.
+      <FilterBar
+        testId="inc-filterbar"
+        view={
+          <>
+            {!trash && (
+              // Straight in the bar, not a wrapping box of their own: Chrome sizes such a box to
+              // its widest child, which pushed "New view" under the selector (WP-020d QA BUG-02).
+              // The bar still wraps them on a phone.
+              <>
+                <Select
+                  aria-label={t('incidents.view')}
+                  // Many views: searchable by name.
+                  showSearch
+                  optionFilterProp="label"
+                  prefix={`${t('incidents.view')}:`}
+                  value={view}
+                  onChange={(next: string) => {
+                    setTrying(undefined);
+                    setView(next);
+                  }}
+                  options={[
+                    {
+                      label: t('incidents.views.built_in'),
+                      title: t('incidents.views.built_in'),
+                      options: [
+                        ...(views.data ?? [{ view: DEFAULT_VIEW, count: 0, capped: false }]).map(
+                          (v) => ({
+                            value: v.view,
+                            label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+                          }),
+                        ),
+                        // A personal counter opened its view (REQ-INC-128 AC2): name it like the others.
+                        ...((COUNTERS as readonly string[]).includes(view)
+                          ? [{ value: view, label: t(`work_item_view.${view}`) }]
+                          : []),
+                      ],
+                    },
+                    ...(mine.length > 0
+                      ? [
+                          {
+                            label: t('incidents.views.mine'),
+                            title: t('incidents.views.mine'),
+                            options: mine.map((v) => ({
+                              value: `${CUSTOM}${v.id}`,
+                              label: v.name,
+                            })),
+                          },
+                        ]
+                      : []),
+                    ...(shared.length > 0
+                      ? [
+                          {
+                            label: t('incidents.views.shared_with_me'),
+                            title: t('incidents.views.shared_with_me'),
+                            options: shared.map((v) => ({
+                              value: `${CUSTOM}${v.id}`,
+                              label: v.name,
+                            })),
+                          },
+                        ]
+                      : []),
+                  ]}
+                  style={{ width: 'min(260px, 100%)' }}
+                  data-testid="inc-view"
+                />
+                {saved?.mine === true && (
+                  <Button
+                    onClick={() => {
+                      setEditing(draftOf(saved));
+                    }}
+                    data-testid="inc-view-edit"
+                  >
+                    {t('incidents.views.edit')}
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    setEditing(draftOf(undefined));
+                  }}
+                  data-testid="inc-view-new"
+                >
+                  {t('incidents.views.new')}
+                </Button>
+              </>
+            )}
+          </>
+        }
+        search={
+          <>
+            <SearchChips
+              text={search}
+              onText={setSearch}
+              chips={chips}
+              onChips={setChips}
+              fields={fields}
+              words={words}
+            />
+          </>
+        }
+        quick={
           <>
             <Select
-              aria-label={t('incidents.view')}
-              // Many views: searchable by name.
-              showSearch
-              optionFilterProp="label"
-              prefix={`${t('incidents.view')}:`}
-              value={view}
-              onChange={(next: string) => {
-                setTrying(undefined);
-                setView(next);
+              aria-label={t('work_item.field.priority')}
+              prefix={`${t('work_item.field.priority')}:`}
+              value={priority ?? ''}
+              onChange={(value) => {
+                setPriority(value === '' ? undefined : value);
               }}
               options={[
-                {
-                  label: t('incidents.views.built_in'),
-                  title: t('incidents.views.built_in'),
-                  options: [
-                    ...(views.data ?? [{ view: DEFAULT_VIEW, count: 0, capped: false }]).map(
-                      (v) => ({
-                        value: v.view,
-                        label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
-                      }),
-                    ),
-                    // A personal counter opened its view (REQ-INC-128 AC2): name it like the others.
-                    ...((COUNTERS as readonly string[]).includes(view)
-                      ? [{ value: view, label: t(`work_item_view.${view}`) }]
-                      : []),
-                  ],
-                },
-                ...(mine.length > 0
-                  ? [
-                      {
-                        label: t('incidents.views.mine'),
-                        title: t('incidents.views.mine'),
-                        options: mine.map((v) => ({ value: `${CUSTOM}${v.id}`, label: v.name })),
-                      },
-                    ]
-                  : []),
-                ...(shared.length > 0
-                  ? [
-                      {
-                        label: t('incidents.views.shared_with_me'),
-                        title: t('incidents.views.shared_with_me'),
-                        options: shared.map((v) => ({ value: `${CUSTOM}${v.id}`, label: v.name })),
-                      },
-                    ]
-                  : []),
+                { value: '', label: t('users.any') },
+                ...PRIORITIES.map((p) => ({
+                  value: p,
+                  label: scaleLabel(t, catalogue.data, 'priority', p, locale),
+                })),
               ]}
-              style={{ width: 'min(260px, 100%)' }}
-              data-testid="inc-view"
+              style={{ minWidth: 'min(200px, 100%)' }}
+              data-testid="inc-filter-priority"
             />
-            {saved?.mine === true && (
-              <Button
-                onClick={() => {
-                  setEditing(draftOf(saved));
-                }}
-                data-testid="inc-view-edit"
-              >
-                {t('incidents.views.edit')}
-              </Button>
-            )}
-            <Button
-              onClick={() => {
-                setEditing(draftOf(undefined));
-              }}
-              data-testid="inc-view-new"
-            >
-              {t('incidents.views.new')}
-            </Button>
           </>
-        )}
-        <SearchChips
-          text={search}
-          onText={setSearch}
-          chips={chips}
-          onChips={setChips}
-          fields={fields}
-          words={words}
-        />
-      </Flex>
-      <Flex gap={12} wrap align="center" data-testid="inc-toolbar-narrow">
-        <Select
-          aria-label={t('work_item.field.priority')}
-          prefix={`${t('work_item.field.priority')}:`}
-          value={priority ?? ''}
-          onChange={(value) => {
-            setPriority(value === '' ? undefined : value);
-          }}
-          options={[
-            { value: '', label: t('users.any') },
-            ...PRIORITIES.map((p) => ({
-              value: p,
-              label: scaleLabel(t, catalogue.data, 'priority', p, locale),
-            })),
-          ]}
-          style={{ minWidth: 'min(200px, 100%)' }}
-          data-testid="inc-filter-priority"
-        />
+        }
+        filtersCount={drawerCount}
+        onOpenFilters={() => {
+          setFiltersOpen(true);
+        }}
+        extra={
+          <>
+            <ColumnChooser
+              columns={columns}
+              catalogue={columnSpecs}
+              context={context}
+              onChange={(next) => {
+                saveSettings({ columns: next });
+              }}
+            />
+          </>
+        }
+      />
+      <FiltersDrawer
+        open={filtersOpen}
+        onClose={() => {
+          setFiltersOpen(false);
+        }}
+        testId="inc-filters"
+      >
         {filterable.length > 0 && (
           <Space.Compact>
             <Select
@@ -491,6 +540,7 @@ export function IncidentsPage() {
             )}
           </Space.Compact>
         )}
+        <TimeRange value={range} onChange={setRange} words={words} />
         <Select
           aria-label={t('users.sort')}
           prefix={`${t('users.sort')}:`}
@@ -525,16 +575,7 @@ export function IncidentsPage() {
           options={PAGE_SIZES.map((n) => ({ value: n, label: String(n) }))}
           data-testid="inc-page-size"
         />
-        <ColumnChooser
-          columns={columns}
-          catalogue={columnSpecs}
-          context={context}
-          onChange={(next) => {
-            saveSettings({ columns: next });
-          }}
-        />
-      </Flex>
-      <TimeRange value={range} onChange={setRange} words={words} />
+      </FiltersDrawer>
       {trying !== undefined && (
         <Alert
           type="warning"
@@ -742,7 +783,7 @@ export function IncidentsPage() {
           setJobId(null);
         }}
       />
-    </Space>
+    </ListPage>
   );
 }
 

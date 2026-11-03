@@ -404,12 +404,13 @@ describe('QA WP-020b on the incident screens', () => {
     expect(entry.textContent).toMatch(/Automatic by Amal Admin/);
   });
 
-  it('C6: the group name keeps its brackets together in either reading direction', async () => {
+  it('C6: the group name is isolated, so it reads whole in either direction', async () => {
     api({ routes: COMMON });
     await openRecord();
-    const people = screen.getByTestId('inc-people');
-    const isolated = [...people.querySelectorAll('bdi')].map((b) => b.textContent);
-    expect(isolated).toContain('(Service Desk)');
+    // The group sits in the properties panel's Assignment section (D-124), isolated.
+    const assignment = screen.getByTestId('inc-panel-assignment');
+    const isolated = [...assignment.querySelectorAll('bdi')].map((b) => b.textContent);
+    expect(isolated).toContain('Service Desk');
   });
 
   it('D-081: mentioning someone who cannot see the incident warns before sending', async () => {

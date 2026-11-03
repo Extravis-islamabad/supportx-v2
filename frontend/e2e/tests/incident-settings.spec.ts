@@ -81,7 +81,10 @@ test('a new level reaches an open form live; a template built by an admin is use
 
     // Admin › Incidents › Templates: a template that requires impact details, hides tags and
     // starts with urgency "High".
-    await admin.page.getByRole('tab', { name: 'Templates', exact: true }).click();
+    await admin.page
+      .getByTestId('settings-sections')
+      .getByRole('link', { name: 'Templates', exact: true })
+      .click();
     await admin.page.getByTestId('tpl-admin-new').click();
     await admin.page.getByTestId('tpl-editor-name-en').fill(templateName);
     await admin.page.getByTestId('tpl-editor-group').fill('E2E Infrastructure');
@@ -120,7 +123,10 @@ test('a new level reaches an open form live; a template built by an admin is use
     await expect(form.getByTestId('inc-prop-impact_details')).toContainText('Second floor');
 
     // Retire the level: the record keeps showing it, live.
-    await admin.page.getByRole('tab', { name: 'Levels', exact: true }).click();
+    await admin.page
+      .getByTestId('settings-sections')
+      .getByRole('link', { name: 'Levels', exact: true })
+      .click();
     const row = admin.page.getByRole('row', { name: new RegExp(level) });
     await row.getByRole('button', { name: 'Retire' }).click();
     await admin.page.getByRole('button', { name: 'Retire' }).last().click();
@@ -128,7 +134,10 @@ test('a new level reaches an open form live; a template built by an admin is use
     await expect(form.getByTestId('inc-prop-level')).toContainText(level);
 
     // Turn the template off: it leaves new forms but still names the record.
-    await admin.page.getByRole('tab', { name: 'Templates', exact: true }).click();
+    await admin.page
+      .getByTestId('settings-sections')
+      .getByRole('link', { name: 'Templates', exact: true })
+      .click();
     const tplRow = admin.page.getByRole('row', { name: new RegExp(templateName) });
     await tplRow.getByRole('button', { name: 'Turn off' }).click();
     await admin.page.getByRole('button', { name: 'Turn off' }).last().click();

@@ -1,5 +1,5 @@
-import { App, Flex, Modal, Tooltip } from 'antd';
-import { useState } from 'react';
+import { App, Modal } from 'antd';
+import { useState, type ReactNode } from 'react';
 
 import {
   ApiError,
@@ -20,7 +20,7 @@ import {
   useConflict,
   useFormProblem,
   useLabel,
-  WriteButton,
+  type RecordAction,
 } from '@supportx/ui';
 
 import { useActionReason } from './actionReason';
@@ -31,6 +31,18 @@ import { GroupPicker } from './pickers';
 
 // Resolve asks for the resolution, close for the closure code (WP-020f): always a dialog.
 const CLOSING = new Set<string>(['resolve', 'close']);
+// Destructive moves sit apart, last in "More actions", and always confirm (REQ-WI-010 AC4).
+const DESTRUCTIVE = new Set<string>(['cancel']);
+// Which available moves earn one of the four buttons (D-124); the rest stay in the menu.
+const RANK: Record<string, number> = {
+  resolve: 1,
+  start_work: 3,
+  reopen: 4,
+  resume: 5,
+  close: 6,
+  wait_requester: 7,
+  wait_third_party: 8,
+};
 
 interface Pending {
   action: IncidentAction;
@@ -42,18 +54,16 @@ interface Pending {
 }
 
 /**
- * Status actions in their one fixed order (REQ-WI-010, REQ-INC-046): an action the life cycle
- * does not allow now, or that the user may not run, stays in place, disabled, with the reason.
+ * Status actions in their one fixed order (REQ-WI-010, REQ-INC-046, D-124): every move keeps
+ * its place in "More actions", disabled with the reason when the life cycle or the user's rights
+ * do not allow it now; the available everyday ones also get a button.
  * Actions that need a reason ask for it first (REQ-INC-047). Start work on an unassigned
  * incident takes it for the user; in several groups they choose which first (QA BUG-05).
  */
-export function StatusActions({
-  item,
-  catalogue,
-}: {
-  item: Incident;
-  catalogue: IncidentCatalogue | undefined;
-}) {
+export function useStatusActions(
+  item: Incident,
+  catalogue: IncidentCatalogue | undefined,
+): { actions: RecordAction[]; dialogs: ReactNode } {
   const t = useLabel();
   const reasonText = useActionReason();
   const previousResolution = usePreviousResolution(item);
@@ -130,53 +140,54 @@ export function StatusActions({
       },
     );
   };
-  return (
-    <Flex gap={8} wrap data-testid="inc-actions">
-      {item.actions.map((state) => {
-        const action = state.action as IncidentAction;
-        const button = (
-          <WriteButton
-            key={action}
-            disabled={!state.allowed || act.isPending}
-            type={action === 'resolve' ? 'primary' : 'default'}
-            loading={act.isPending && act.variables.action === action}
-            data-testid={`inc-action-${action}`}
-            onClick={() => {
-              const go = () => {
-                if (state.reason_mode === 'none' && !CLOSING.has(action)) run({ action });
-                else {
-                  setOpenWork(null);
-                  setAsking(state);
-                }
-              };
-              // The admin's confirmation for this move, in the reader's language (REQ-WF-003).
-              const text = state.confirmation?.[locale] ?? state.confirmation?.en;
-              if (text === undefined) {
-                go();
-                return;
-              }
-              modal.confirm({
-                title: t(`work_item_action.${action}`),
-                content: <bdi data-testid="inc-action-confirmation">{text}</bdi>,
-                okText: t(`work_item_action.${action}`),
-                cancelText: t('actions.cancel'),
-                onOk: go,
-              });
-            }}
-          >
-            {t(`work_item_action.${action}`)}
-          </WriteButton>
-        );
-        return state.allowed || state.reason == null ? (
-          button
-        ) : (
-          <Tooltip key={action} title={reasonText(state)}>
-            <span data-testid={`inc-action-${action}-reason`} data-reason={state.reason}>
-              {button}
-            </span>
-          </Tooltip>
-        );
-      })}
+  const actions: RecordAction[] = item.actions.map((state) => {
+    const action = state.action as IncidentAction;
+    const go = () => {
+      if (state.reason_mode === 'none' && !CLOSING.has(action)) run({ action });
+      else {
+        setOpenWork(null);
+        setAsking(state);
+      }
+    };
+    return {
+      key: action,
+      label: t(`work_item_action.${action}`),
+      allowed: state.allowed && !act.isPending,
+      whyNot: !state.allowed && state.reason != null ? reasonText(state) : undefined,
+      primary: !DESTRUCTIVE.has(action),
+      rank: RANK[action] ?? 50,
+      danger: DESTRUCTIVE.has(action),
+      // Asked exactly once: by its reason dialog, by the admin's confirmation, or else here.
+      confirm:
+        DESTRUCTIVE.has(action) &&
+        state.reason_mode === 'none' &&
+        state.confirmation?.[locale] === undefined &&
+        state.confirmation?.en === undefined
+          ? t('incidents.cancel_title')
+          : undefined,
+      confirmOk: t('incidents.cancel_confirm'),
+      confirmCancel: t('incidents.cancel_keep'),
+      loading: act.isPending && act.variables.action === action,
+      testId: `inc-action-${action}`,
+      onClick: () => {
+        // The admin's confirmation for this move, in the reader's language (REQ-WF-003).
+        const text = state.confirmation?.[locale] ?? state.confirmation?.en;
+        if (text === undefined) {
+          go();
+          return;
+        }
+        modal.confirm({
+          title: t(`work_item_action.${action}`),
+          content: <bdi data-testid="inc-action-confirmation">{text}</bdi>,
+          okText: t(`work_item_action.${action}`),
+          cancelText: t('actions.cancel'),
+          onOk: go,
+        });
+      },
+    };
+  });
+  const dialogs = (
+    <>
       {askingNow !== null && (
         <MoveDialog
           state={askingNow}
@@ -256,6 +267,7 @@ export function StatusActions({
           setTried(undefined);
         }}
       />
-    </Flex>
+    </>
   );
+  return { actions, dialogs };
 }

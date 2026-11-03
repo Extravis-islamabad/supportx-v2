@@ -399,7 +399,8 @@ describe('Reports', () => {
       render(<App />);
       await screen.findByTestId('report-table');
       const before = fake.find('POST', '/api/v1/reports/run').length;
-      fireEvent.click(screen.getByTestId('report-filter-add'));
+      fireEvent.click(screen.getByTestId('report-bar-filters'));
+      fireEvent.click(await screen.findByTestId('report-filter-add'));
       expect(await screen.findByTestId('report-cannot-run')).toBeDefined();
       expect(screen.getByTestId('report-save-copy').hasAttribute('disabled')).toBe(true);
       await new Promise((resolve) => setTimeout(resolve, 600));

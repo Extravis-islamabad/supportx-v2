@@ -38,6 +38,7 @@ import {
 } from '@supportx/api-client';
 import { Chart, kitOption } from '@supportx/charts';
 import { useIsolate, useJoinParts, useLabels } from '@supportx/labels';
+import { TYPE } from '@supportx/ui';
 
 import type { Drill } from '../reports/DrillDrawer';
 import { ExportButton } from '../reports/exports';
@@ -328,10 +329,19 @@ function KpiTile({
   const points = spark.data?.rows.map((r) => r.values[0] ?? null) ?? [];
   return (
     <Space direction="vertical" size={4} style={{ width: '100%' }}>
+      {/* A dashboard number reads at a glance: 28 px, the measure as a small line (D-124). */}
       <Statistic
-        title={words.measure(result.entity, measure.code).name}
+        title={
+          <span style={{ fontSize: TYPE.meta }}>
+            {words.measure(result.entity, measure.code).name}
+          </span>
+        }
         valueRender={() => (
-          <Typography.Link onClick={onDrill} data-testid="widget-kpi-value">
+          <Typography.Link
+            onClick={onDrill}
+            style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}
+            data-testid="widget-kpi-value"
+          >
             {words.value(measure, value)}
           </Typography.Link>
         )}
