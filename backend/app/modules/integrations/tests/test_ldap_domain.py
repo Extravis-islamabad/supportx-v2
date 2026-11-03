@@ -2,12 +2,16 @@
 
 from dataclasses import replace
 
+import pytest
+
+from app.modules.integrations.domain.directory import DirectoryPerson, PersonSkipped, SkipReason
 from app.modules.integrations.domain.ldap import (
     CHANGED_SYNC_SECONDS,
     LdapSettings,
     Security,
     Vendor,
     component,
+    from_keycloak,
     mappers,
     problems,
 )
@@ -84,3 +88,58 @@ def test_mappers_bring_what_supportx_maps_and_ad_disables_at_sign_in() -> None:
     other = {m["name"] for m in mappers(replace(AD, vendor=Vendor.OTHER), component_id="c-1")}
     assert "account controls" not in other
     assert "groups" not in other  # no groups DN, no group mapper
+
+
+# --- from_keycloak -----------------------------------------------------------------------------
+
+
+def _user(**fields: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "id": "kc-1",
+        "email": "Sam.Lee@Corp.example",
+        "firstName": "Sam",
+        "lastName": "Lee",
+        "enabled": True,
+        "attributes": {"LDAP_ID": ["guid-1"], "sx_department": ["IT"], "sx_site": ["HQ"]},
+    }
+    return base | fields
+
+
+def test_a_federated_user_becomes_a_directory_person() -> None:
+    change = from_keycloak(_user())
+    assert change == DirectoryPerson(
+        external_id="guid-1",
+        enabled=True,
+        values={"email": "sam.lee@corp.example", "first_name": "Sam", "last_name": "Lee"},
+        refs={"department": "IT", "site": "HQ"},
+    )
+
+
+def test_a_disabled_account_and_a_missing_department_are_said_so() -> None:
+    change = from_keycloak(_user(enabled=False, attributes={"LDAP_ID": ["guid-1"]}))
+    assert isinstance(change, DirectoryPerson)
+    assert change.enabled is False
+    assert change.refs == {"department": None, "site": None}  # a full read: cleared
+
+
+def test_keycloak_id_when_the_directory_id_is_missing() -> None:
+    assert from_keycloak(_user(attributes={})).external_id == "kc-1"
+
+
+@pytest.mark.parametrize(
+    ("email", "reason"),
+    [
+        (None, SkipReason.NO_ADDRESS),
+        ("  ", SkipReason.NO_ADDRESS),
+        ("sam", SkipReason.NOT_AN_EMAIL),
+    ],
+)
+def test_no_usable_address_is_skipped(email: object, reason: SkipReason) -> None:
+    assert from_keycloak(_user(email=email)) == PersonSkipped("guid-1", reason)
+
+
+def test_a_too_long_name_is_skipped_alone() -> None:
+    change = from_keycloak(_user(firstName="x" * 101))
+    assert isinstance(change, DirectoryPerson)
+    assert "first_name" not in change.values
+    assert change.skipped == (("first_name", SkipReason.TOO_LONG),)

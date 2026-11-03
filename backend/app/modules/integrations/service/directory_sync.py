@@ -24,7 +24,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequenc
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import delete, select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -46,6 +46,7 @@ from app.modules.identity_access import (
 from app.modules.integrations.domain.connector_health import RunCounts
 from app.modules.integrations.domain.directory import (
     AttributeMapping,
+    Change,
     DirectoryPerson,
     DirectoryRemoval,
     PersonSkipped,
@@ -97,6 +98,8 @@ class _Config:
     users_link: str | None
     groups_link: str | None
     interval: timedelta
+    # Which directory keeps these people (Entra here; AD/LDAP runs through Keycloak, D-118).
+    source: Literal["entra", "ldap"] = "entra"
 
 
 @dataclass
@@ -277,7 +280,10 @@ class _Sync:
         return await session.get(DirectoryPersonLink, (self.tenant, self.config.id, person))
 
     async def _user(self, session: AsyncSession, item: Mapping[str, Any]) -> None:
-        change = from_graph(item, self.config.mapping)
+        await self.change(session, from_graph(item, self.config.mapping))
+
+    async def change(self, session: AsyncSession, change: Change) -> None:
+        """One person as the directory now says, whichever directory (Entra, AD/LDAP)."""
         link = await self._link(session, change.external_id)
         if isinstance(change, DirectoryRemoval):
             if link is not None:
@@ -331,7 +337,7 @@ class _Sync:
         try:
             async with session.begin_nested():
                 synced = await sync_directory_person(
-                    session, link.user_id if link else None, values, directory="entra"
+                    session, link.user_id if link else None, values, directory=self.config.source
                 )
         except (ValidationFailed, Conflict, NotFound) as refused:
             self.run.counts["failed"] += 1
@@ -367,7 +373,7 @@ class _Sync:
         """Reactivate; a refusal (no technician seat left) is counted, never the run's end."""
         try:
             async with session.begin_nested():
-                await directory_returner(session, user_id, directory="entra")
+                await directory_returner(session, user_id, directory=self.config.source)
         except AppError as refused:
             self.run.counts["failed"] += 1
             self.run.skip(SkipReason.REFUSED)
@@ -377,7 +383,7 @@ class _Sync:
 
     async def _leave(self, session: AsyncSession, user_id: uuid.UUID) -> None:
         outcome = await directory_leaver(
-            session, user_id, directory="entra", end_sessions=self._ender()
+            session, user_id, directory=self.config.source, end_sessions=self._ender()
         )
         if outcome is LeaverOutcome.LEFT:
             self.run.counts["left"] += 1
@@ -385,6 +391,20 @@ class _Sync:
             self.run.skip(SkipReason.LAST_ADMIN)
 
     # --- after the round ------------------------------------------------------------------------
+
+    async def removed_except(self, seen: set[str]) -> None:
+        """After a full read (no delta): this directory's people it no longer has are leavers."""
+        async with self._session() as session:
+            links = list(
+                await session.scalars(
+                    select(DirectoryPersonLink).where(
+                        DirectoryPersonLink.connector_id == self.config.id
+                    )
+                )
+            )
+            for link in links:
+                if link.external_id not in seen:
+                    await self._leave(session, link.user_id)
 
     async def out_of_scope(self) -> None:
         """People who left the last scope group they were in are leavers."""
@@ -414,7 +434,10 @@ class _Sync:
                 try:
                     async with session.begin_nested():
                         await sync_directory_person(
-                            session, link.user_id, {"manager_id": manager_id}, directory="entra"
+                            session,
+                            link.user_id,
+                            {"manager_id": manager_id},
+                            directory=self.config.source,
                         )
                 except (ValidationFailed, Conflict, NotFound):
                     self.run.skip(SkipReason.REFUSED)  # e.g. a manager loop in the directory

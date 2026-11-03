@@ -16,10 +16,18 @@ representations, and says what is refused:
 """
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 from urllib.parse import urlsplit
+
+from app.modules.integrations.domain.directory import (
+    Change,
+    DirectoryPerson,
+    PersonSkipped,
+    SkipReason,
+)
 
 COMPONENT_PROVIDER = "ldap"
 COMPONENT_TYPE = "org.keycloak.storage.UserStorageProvider"
@@ -229,3 +237,54 @@ def mappers(
             }
         )
     return found
+
+
+# --- the people Keycloak imported --------------------------------------------------------------
+
+_EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]+$")
+_NAME_MAX = 100
+
+
+def _first(attributes: Mapping[str, object], key: str) -> str | None:
+    values = attributes.get(key)
+    if isinstance(values, list) and values and isinstance(values[0], str) and values[0].strip():
+        return values[0].strip()
+    return None
+
+
+def _name(value: object) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def from_keycloak(user: Mapping[str, object]) -> Change:
+    """One federated user, as Keycloak's admin API returns it, as a directory change.
+
+    The person's ID is the directory's own (`LDAP_ID`: objectGUID or entryUUID), so the link
+    survives the component being created again; Keycloak's user ID is the fallback. Everyone is
+    read on every run (no delta), so every field is present: a missing department clears it.
+    """
+    raw = user.get("attributes")
+    attributes: Mapping[str, object] = raw if isinstance(raw, Mapping) else {}
+    external_id = _first(attributes, "LDAP_ID") or str(user.get("id") or "")
+    email = _name(user.get("email"))
+    if email is None:
+        return PersonSkipped(external_id, SkipReason.NO_ADDRESS)
+    if not _EMAIL.match(email):
+        return PersonSkipped(external_id, SkipReason.NOT_AN_EMAIL)
+    names = {"first_name": _name(user.get("firstName")), "last_name": _name(user.get("lastName"))}
+    skipped = tuple(
+        (field, SkipReason.TOO_LONG)
+        for field, value in names.items()
+        if value is not None and len(value) > _NAME_MAX
+    )
+    values = {k: v for k, v in names.items() if v is None or len(v) <= _NAME_MAX}
+    return DirectoryPerson(
+        external_id=external_id,
+        enabled=user.get("enabled") is not False,
+        values={"email": email.lower(), **values},
+        refs={
+            "department": _first(attributes, "sx_department"),
+            "site": _first(attributes, "sx_site"),
+        },
+        skipped=skipped,
+    )
