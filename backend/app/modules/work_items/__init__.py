@@ -26,6 +26,7 @@ from app.modules.work_items.service import (
     inbound_mail,
     notifications,
     parts,
+    portal,
     record_facts,
     report_names,
     resolution,
@@ -99,7 +100,10 @@ module = ModuleSpec(
     routers=[build_router(wtype) for wtype in TYPES.values()],
     router_features=[wtype.feature for wtype in TYPES.values()],
     events=EVENTS,
-    permissions=tuple(spec for wtype in TYPES.values() for spec in permissions(wtype)),
+    permissions=(
+        *(spec for wtype in TYPES.values() for spec in permissions(wtype)),
+        *portal.PERMISSIONS,  # WP-028 D2 (pending the product owner)
+    ),
     channels=CHANNELS,
     realtime=ROUTES,
     on_startup=[_startup],

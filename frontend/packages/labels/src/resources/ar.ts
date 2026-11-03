@@ -5356,4 +5356,10 @@ export const ar: LabelResource = {
   'directory_attribute.country': 'البلد',
   'people.managed_by_directory':
     'يأتي الاسم والعنوان والوظيفة والهاتف والموقع والقسم والمدير من الدليل. غيّرها هناك؛ وتبقى أولوية كبار الشخصيات واللغة والملاحظات لك.',
+  'permission.requests.view_department': 'عرض طلبات قسمه',
+  'permission.requests.view_department.description':
+    'في البوابة، رؤية حوادث وطلبات الأشخاص في قسمه.',
+  'permission.requests.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
+  'permission.requests.view_reports.description':
+    'في البوابة، رؤية حوادث وطلبات الأشخاص الذين يتبعونه مباشرة، ضمن عامل تصفية منفصل.',
 };

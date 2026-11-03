@@ -5298,6 +5298,12 @@ export const en = {
   'directory_attribute.country': 'Country',
   'people.managed_by_directory':
     'Name, address, job, phone, site, department and manager come from the directory. Change them there; VIP, language and notes stay yours.',
+  'permission.requests.view_department': 'View requests of their department',
+  'permission.requests.view_department.description':
+    'In the portal, see the incidents and requests of people in their own department.',
+  'permission.requests.view_reports': 'View requests of their direct reports',
+  'permission.requests.view_reports.description':
+    'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
 } as const;
 
 export type LabelKey = keyof typeof en;

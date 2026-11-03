@@ -4901,4 +4901,10 @@ export const ur: LabelResource = {
   'directory_attribute.country': 'ملک',
   'people.managed_by_directory':
     'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
+  'permission.requests.view_department': 'اپنے شعبے کی درخواستیں دیکھیں',
+  'permission.requests.view_department.description':
+    'پورٹل میں اپنے شعبے کے لوگوں کے واقعات اور درخواستیں دیکھیں۔',
+  'permission.requests.view_reports': 'براہِ راست ماتحتوں کی درخواستیں دیکھیں',
+  'permission.requests.view_reports.description':
+    'پورٹل میں اپنے براہِ راست ماتحتوں کے واقعات اور درخواستیں ایک الگ فلٹر میں دیکھیں۔',
 };
