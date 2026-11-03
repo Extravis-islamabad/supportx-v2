@@ -12,6 +12,9 @@ export default defineConfig({
   globalSetup: './global-setup.ts',
   globalTeardown: './global-teardown.ts',
   timeout: 90_000,
+  // A whole-run limit set by the CI job (minutes), below its own step limit, so Playwright still
+  // prints every failure and writes its HTML report: a step killed mid-run leaves neither.
+  globalTimeout: Number(process.env.E2E_GLOBAL_TIMEOUT_MINUTES ?? 0) * 60_000,
   // One worker: tests share the dev stack's Keycloak, users and plans.
   workers: 1,
   retries: process.env.CI ? 1 : 0,

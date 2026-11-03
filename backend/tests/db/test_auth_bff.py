@@ -37,6 +37,7 @@ from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.tests.fake_idp import ISSUER, FakeIdp, FakeUser, MemoryKeyValue
 from app.shared.clock import FrozenClock
 from conftest import make_settings
+from tests.app_state import set_state
 from tests.db.test_api_tenancy import build_app
 from tooling.db_testing import ThrowawayDatabase
 
@@ -939,7 +940,7 @@ async def test_bug_04_ui_language_is_kept_per_user_across_logins_and_devices(bff
 async def _on_address(bff: Bff, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
     """Tenant A reached on its subdomain `<slug>.brand.test`; returns (slug, host)."""
     settings = bff.app.state.settings.model_copy(update={"tenant_base_domain": "brand.test"})
-    monkeypatch.setattr(bff.app.state, "settings", settings)
+    set_state(monkeypatch, bff.app.state, "settings", settings)
     conn = await asyncpg.connect(bff.db.admin_url)
     try:
         slug = str(await conn.fetchval("SELECT slug FROM tenants WHERE id = $1", bff.tenants[0]))
