@@ -4966,4 +4966,13 @@ export const ur: LabelResource = {
   'identity.settings.people_edit_contact': 'لوگ اپنا فون اور موبائل نمبر خود بدل سکتے ہیں',
   'identity.settings.people_edit_contact_help':
     'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',
+  'account.contact.title': 'رابطے کی تفصیلات',
+  'account.contact.phone': 'فون',
+  'account.contact.mobile': 'موبائل',
+  'account.contact.none': 'درج نہیں',
+  'account.contact.save': 'رابطے کی تفصیلات محفوظ کریں',
+  'account.contact.from_directory':
+    'آپ کا فون اور موبائل {{source}} سے آتا ہے۔ انہیں وہیں تبدیل کریں۔',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': 'آپ کی تنظیم کی ڈائریکٹری (LDAP)',
 };

@@ -5363,6 +5363,15 @@ export const en = {
   'identity.settings.people_edit_contact': 'People may change their own phone and mobile',
   'identity.settings.people_edit_contact_help':
     'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
+  'account.contact.title': 'Contact details',
+  'account.contact.phone': 'Phone',
+  'account.contact.mobile': 'Mobile',
+  'account.contact.none': 'Not given',
+  'account.contact.save': 'Save contact details',
+  'account.contact.from_directory':
+    'Your phone and mobile come from {{source}}. Change them there.',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': "your organisation's directory (LDAP)",
 } as const;
 
 export type LabelKey = keyof typeof en;

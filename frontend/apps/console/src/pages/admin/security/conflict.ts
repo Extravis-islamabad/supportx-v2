@@ -9,6 +9,7 @@ const NAMES = {
   portal_idle_seconds: 'security.field.portal_idle',
   portal_absolute_seconds: 'security.field.portal_absolute',
   create_people_on_sign_in: 'security.people.create',
+  people_edit_contact: 'identity.settings.people_edit_contact',
   invitation_valid_days: 'security.invitations.valid_days',
   mfa_grace_days: 'security.mfa.grace',
   password_min_length: 'security.password.min_length',

@@ -309,6 +309,7 @@ export function fakeUser(overrides: Partial<UserDetail> = {}): UserDetail {
     id: '01900000-0000-7000-8000-000000000101',
     email: 'tech@demo.test',
     display_name: 'Tariq Technician',
+    contact_editable: false,
     first_name: 'Tariq',
     last_name: 'Technician',
     name_custom: false,

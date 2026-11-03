@@ -14,6 +14,7 @@ export * from './files';
 export * from './licence';
 export * from './richtext';
 export { AccountSecurityCard } from './AccountSecurityCard';
+export { ContactDetailsCard } from './ContactDetailsCard';
 export { MfaReminder } from './MfaReminder';
 export { PASSWORD_RESET_PATH, PasswordResetPage } from './PasswordResetPage';
 export { SessionGate, type SessionGateProps } from './SessionGate';

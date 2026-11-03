@@ -5425,4 +5425,12 @@ export const ar: LabelResource = {
   'identity.settings.people_edit_contact': 'يمكن للأشخاص تغيير أرقام هواتفهم بأنفسهم',
   'identity.settings.people_edit_contact_help':
     'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
+  'account.contact.title': 'بيانات الاتصال',
+  'account.contact.phone': 'الهاتف',
+  'account.contact.mobile': 'الجوال',
+  'account.contact.none': 'غير مُدخل',
+  'account.contact.save': 'حفظ بيانات الاتصال',
+  'account.contact.from_directory': 'يأتي هاتفك وجوالك من {{source}}. غيّرهما هناك.',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': 'دليل مؤسستك (LDAP)',
 };

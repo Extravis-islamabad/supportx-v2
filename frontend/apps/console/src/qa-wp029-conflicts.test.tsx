@@ -75,6 +75,7 @@ describe('QA WP-029 BUG-05: the shared conflict dialog', () => {
       portal_idle_seconds: 1800,
       portal_absolute_seconds: 43200,
       create_people_on_sign_in: true,
+      people_edit_contact: false,
       invitation_valid_days: 7,
       password_min_length: 12,
       password_upper: true,
