@@ -14,7 +14,7 @@ from pydantic import SecretStr
 from app.core.errors import AppError, Conflict, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import FederationFailed
-from app.modules.integrations.service import directories, ldap_directories
+from app.modules.integrations.service import directories, ldap_directories, ldap_people
 from app.shared.files.keyring import KeyRing
 from tests.app_state import set_state
 from tests.db.test_files_api import audit_actions
@@ -282,3 +282,70 @@ async def test_the_api_refuses_plain_unless_chosen_and_records_the_choice(world:
         world.a.tenant,
     )
     assert '"allow_plain": true' in details[0]["details"]
+
+
+# --- the people Keycloak imported -----------------------------------------------------------------
+
+
+def _kc_user(n: int, *, enabled: bool = True) -> dict[str, Any]:  # Any: Keycloak's JSON
+    return {
+        "id": f"kc-{n}",
+        "email": f"ldap-person-{n}@corp.example",
+        "firstName": f"Person{n}",
+        "lastName": "Ldap",
+        "enabled": enabled,
+        "attributes": {"LDAP_ID": [f"guid-{n}"]},
+    }
+
+
+async def _people(world: World) -> dict[str, tuple[str, str | None]]:
+    rows = await world.sql(
+        "SELECT email, status, directory_source FROM users"
+        " WHERE tenant_id = $1 AND email LIKE 'ldap-person-%'",
+        world.a.tenant,
+    )
+    return {r["email"]: (r["status"], r["directory_source"]) for r in rows}
+
+
+@pytest.mark.usefixtures("licensed")
+async def test_people_follow_the_directory_and_leavers_leave(
+    world: World, keycloak: FakeKeycloak, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    del keycloak
+    view = await _create(world)
+    await _apply(world, view.row.id)
+    answer: list[dict[str, Any]] = [_kc_user(1), _kc_user(2), _kc_user(3)]
+
+    async def users(settings: object, component_id: str) -> list[dict[str, Any]]:
+        del settings, component_id
+        return list(answer)
+
+    monkeypatch.setattr(ldap_people, "federated_users", users)
+
+    async def run() -> Any:  # noqa: ANN401 - RunCounts
+        return await ldap_people.sync_ldap_people(
+            world.app.state.db, world.app.state.settings, world.a.tenant, view.row.id
+        )
+
+    first = await run()
+    assert (first.read, first.created) == (3, 3)
+    people = await _people(world)
+    assert {source for _, source in people.values()} == {"ldap"}  # kept by the directory
+    assert {status for status, _ in people.values()} == {"active"}
+
+    answer[:] = [_kc_user(1), _kc_user(2, enabled=False)]  # 2 disabled in AD, 3 gone
+    await run()
+    people = await _people(world)
+    assert people["ldap-person-1@corp.example"][0] == "active"
+    assert people["ldap-person-2@corp.example"][0] != "active"
+    assert people["ldap-person-3@corp.example"][0] != "active"
+
+    answer[:] = []  # a broken search base: nobody changes
+    await run()
+    assert (await _people(world))["ldap-person-1@corp.example"][0] == "active"
+    skips = await world.sql(
+        "SELECT error_code FROM connector_runs WHERE instance_id = $1"
+        " ORDER BY started_at DESC LIMIT 1",
+        view.row.id,
+    )
+    assert skips[0]["error_code"] == "ldap_no_people_found"

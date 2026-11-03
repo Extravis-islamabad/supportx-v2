@@ -21,6 +21,7 @@ class FakeRealm:
         self.calls: list[str] = []
         self.synced: list[str] = []
         self.client_id: str | None = None
+        self.users: list[dict[str, Any]] = []  # Any: Keycloak's JSON
 
     def handler(self, request: httpx.Request) -> httpx.Response:  # noqa: PLR0911 - one answer per call
         path = request.url.path.removeprefix("/auth")
@@ -55,6 +56,9 @@ class FakeRealm:
             if request.method == "DELETE":
                 self.components.pop(component, None)
                 return httpx.Response(204)
+        if path == f"{base}/users" and request.method == "GET":
+            first, size = int(request.url.params["first"]), int(request.url.params["max"])
+            return httpx.Response(200, json=self.users[first : first + size])
         if path.startswith(f"{base}/user-storage/") and path.endswith("/sync"):
             self.synced.append(request.url.params["action"])
             return httpx.Response(200, json={"added": 3, "updated": 0, "removed": 0, "failed": 0})
@@ -122,4 +126,20 @@ async def test_a_component_is_found_by_its_exact_name(name: str) -> None:
     made = await admin.put_federation_component(_ldap("Corp AD"))
     found = await admin.federation_component(name)
     assert (found is not None and found["id"] == made) is (name == "Corp AD")
+    await admin.close()
+
+
+async def test_federated_users_are_read_page_by_page_and_only_the_components() -> None:
+    realm = FakeRealm()
+    realm.users = [
+        {"id": "u1", "federationLink": "cmp-1"},
+        {"id": "u2", "federationLink": "other"},
+        {"id": "u3"},  # a local account
+        {"id": "u4", "federationLink": "cmp-1"},
+        {"id": "u5", "federationLink": "cmp-1"},
+    ]
+    admin = _admin(realm)
+    found = await admin.federated_users("cmp-1", page=2)
+    assert [u["id"] for u in found] == ["u1", "u4", "u5"]
+    assert sum(c.endswith("/users") for c in realm.calls) == 3  # 2 + 2 + 1
     await admin.close()

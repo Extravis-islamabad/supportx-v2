@@ -77,6 +77,7 @@ from app.modules.identity_access.service.directory_people import (
 from app.modules.identity_access.service.federation import (
     FederationFailed,
     FederationNotInstalled,
+    federated_users,
     federation_installed,
     put_ldap_federation,
     remove_ldap_federation,
@@ -333,6 +334,7 @@ __all__ = [
     "directory_leaver",
     "directory_returner",
     "display_names",
+    "federated_users",
     "federation_installed",
     "get_policy",
     "mail_recipients",

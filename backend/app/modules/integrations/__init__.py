@@ -20,6 +20,7 @@ from app.modules.integrations.service import catalogue, connector_notifications,
 from app.modules.integrations.service.directory_sync import sync_schedule
 from app.modules.integrations.service.fetching import fetch_schedule
 from app.modules.integrations.service.ldap_directories import LDAP_FEDERATION_APPLY
+from app.modules.integrations.service.ldap_people import ldap_people_schedule
 from app.modules.integrations.service.mailboxes import LEGACY_MANAGE, MANAGE
 from app.modules.integrations.service.realtime import ROUTES
 from app.shared.connectors.ports import ConnectorCategory
@@ -47,6 +48,8 @@ module = ModuleSpec(
         ScheduleSpec("integrations__connector_purge", 86400, runs.purge_schedule),
         # Directory sync: every minute, each connector when due (every 30 minutes, D-118).
         ScheduleSpec("integrations__directory_sync", 60, sync_schedule),
+        # AD/LDAP: the people Keycloak imported, into SupportX when due (D-118).
+        ScheduleSpec("integrations__ldap_people", 60, ldap_people_schedule),
     ],
     # AD/LDAP: the consumers worker writes each directory into Keycloak (WP-040, D-118).
     consumers=[LDAP_FEDERATION_APPLY],

@@ -296,6 +296,29 @@ class KeycloakAdmin:
         )
         return dict(found or {})
 
+    async def federated_users(
+        self, component_id: str, *, page: int = 200
+    ) -> list[dict[str, Any]]:  # Any: Keycloak's JSON
+        """Every user the component imported, with attributes (read a page at a time).
+
+        Keycloak cannot filter users by component, so the realm's users are read and those
+        linked to this component kept. The realm serves one tenant (D-118), so that is the
+        tenant's own people.
+        """
+        found: list[dict[str, Any]] = []  # Any: Keycloak's JSON
+        first = 0
+        while True:
+            batch = await self._json(
+                "GET",
+                "/users",
+                params={"first": first, "max": page, "briefRepresentation": "false"},
+            )
+            batch = list(batch or [])
+            found += [u for u in batch if u.get("federationLink") == component_id]
+            if len(batch) < page:
+                return found
+            first += page
+
     async def delete_federation_component(self, component_id: str) -> None:
         """Remove the component (Keycloak drops the people it imported, never SupportX's)."""
         await self._call("DELETE", f"/components/{component_id}", missing_ok=True)

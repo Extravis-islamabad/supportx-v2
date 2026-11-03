@@ -100,3 +100,16 @@ async def sync_ldap_federation(
         raise _failed(exc) from exc
     finally:
         await admin.close()
+
+
+async def federated_users(
+    settings: Settings, component_id: str
+) -> list[dict[str, Any]]:  # Any: Keycloak's user JSON, read by integrations.domain.ldap
+    """Every person the directory's component imported into the realm."""
+    admin = _admin(settings)
+    try:
+        return await admin.federated_users(component_id)
+    except (IdentityAdminUnavailable, IdentityAdminRefused) as exc:
+        raise _failed(exc) from exc
+    finally:
+        await admin.close()
