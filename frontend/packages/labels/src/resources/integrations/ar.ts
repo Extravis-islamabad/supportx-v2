@@ -352,4 +352,5 @@ export const ar: LabelResource = {
   'connector_settings.sync_minutes_help':
     'بين {{min}} و{{max}}. يمكن لكل دليل تغيير الفترة الخاصة به.',
   'connector_settings.saved': 'تم حفظ الإعدادات الافتراضية للموصلات',
+  'directories.interval_default': 'الإعداد الافتراضي للجهة',
 };

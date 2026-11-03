@@ -66,7 +66,7 @@ interface Form {
   department_from: string;
   site_from: string;
   include_guests: boolean;
-  interval_minutes: number;
+  interval_minutes: number | null; // null: the tenant's default (D-041), set by the server
   enabled: boolean;
 }
 
@@ -85,7 +85,7 @@ function formFrom(directory: Directory | null): Form {
     department_from: (mapping.department_from as string | undefined) ?? 'department',
     site_from: (mapping.site_from as string | undefined) ?? 'officeLocation',
     include_guests: mapping.include_guests === true,
-    interval_minutes: directory?.interval_minutes ?? 30,
+    interval_minutes: directory?.interval_minutes ?? null,
     enabled: directory?.enabled ?? true,
   };
 }
@@ -167,7 +167,7 @@ function DirectoryEditor({
       site_from: form.site_from,
       include_guests: form.include_guests,
     },
-    interval_minutes: form.interval_minutes,
+    ...(form.interval_minutes === null ? {} : { interval_minutes: form.interval_minutes }),
     enabled: form.enabled,
   });
   const onError = (error: unknown) => {
@@ -435,8 +435,9 @@ function DirectoryEditor({
             min={15}
             max={1440}
             value={form.interval_minutes}
+            placeholder={t('directories.interval_default')}
             onChange={(value) => {
-              set({ interval_minutes: value ?? 30 });
+              set({ interval_minutes: value });
             }}
           />
           <Typography.Text type="secondary">{t('directories.interval_hint')}</Typography.Text>

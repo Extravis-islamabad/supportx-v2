@@ -352,4 +352,5 @@ export const en = {
   'connector_settings.sync_minutes_help':
     'Between {{min}} and {{max}}. Each directory can change its own.',
   'connector_settings.saved': 'Connector defaults saved',
+  'directories.interval_default': "The tenant's default",
 } as const;

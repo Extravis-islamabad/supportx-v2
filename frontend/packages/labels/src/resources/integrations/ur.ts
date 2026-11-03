@@ -352,4 +352,5 @@ export const ur: LabelResource = {
   'connector_settings.sync_minutes_help':
     '{{min}} اور {{max}} کے درمیان۔ ہر ڈائریکٹری اپنا وقفہ بدل سکتی ہے۔',
   'connector_settings.saved': 'کنیکٹر کی طے شدہ ترتیبات محفوظ ہو گئیں',
+  'directories.interval_default': 'ادارے کی طے شدہ قدر',
 };
