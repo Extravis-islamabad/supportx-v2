@@ -606,4 +606,5 @@ export const ur: LabelResource = {
   'roles.groups_help': 'ان گروپس کے ارکان جب تک رکن ہیں یہ کردار رکھتے ہیں۔',
   'roles.groups_add': 'گروپ شامل کریں',
   'roles.groups_none': 'کوئی گروپ یہ کردار نہیں رکھتا۔',
+  'access.through_groups': '{{groups}} کے ذریعے',
 };

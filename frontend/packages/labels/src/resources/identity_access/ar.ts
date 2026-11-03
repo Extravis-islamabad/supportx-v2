@@ -750,4 +750,5 @@ export const ar: LabelResource = {
   'roles.groups_help': 'يحمل أعضاء هذه المجموعات هذا الدور ما داموا أعضاء.',
   'roles.groups_add': 'إضافة مجموعة',
   'roles.groups_none': 'لا تحمل أي مجموعة هذا الدور.',
+  'access.through_groups': 'عبر {{groups}}',
 };

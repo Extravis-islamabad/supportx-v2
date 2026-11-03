@@ -642,6 +642,21 @@ def member_guard(
     return guard
 
 
+async def roles_through_groups(
+    session: AsyncSession, group_ids: frozenset[uuid.UUID]
+) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """(role, group) pairs a person holds through their active groups (the Access drawer)."""
+    active = await active_groups(session, group_ids)
+    if not active:
+        return []
+    rows = await session.execute(
+        select(GroupRole.role_id, GroupRole.group_id)
+        .where(GroupRole.group_id.in_(active))
+        .order_by(GroupRole.role_id, GroupRole.group_id)
+    )
+    return [(row.role_id, row.group_id) for row in rows]
+
+
 async def groups_of_role(session: AsyncSession, role_id: uuid.UUID) -> list[uuid.UUID]:
     """The support groups carrying the role (the role editor lists them)."""
     found = await session.scalars(

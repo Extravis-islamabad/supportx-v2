@@ -756,4 +756,5 @@ export const en = {
   'roles.groups_help': 'Members of these groups hold this role while they are members.',
   'roles.groups_add': 'Add a group',
   'roles.groups_none': 'No group carries this role.',
+  'access.through_groups': 'through {{groups}}',
 } as const;

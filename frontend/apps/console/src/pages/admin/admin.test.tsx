@@ -302,6 +302,52 @@ describe('Admin › Users access drawer', () => {
   });
 });
 
+describe('Access drawer: roles held through groups (WP-042)', () => {
+  afterEach(() => {
+    restore();
+  });
+
+  it('names the group a role comes from', async () => {
+    window.history.pushState({}, '', '/admin/users');
+    const target = fakeUser({ id: 'u-9', display_name: 'Bilal Tech', user_type: 'technician' });
+    adminRoutes({
+      routes: {
+        'GET /api/v1/users': { body: { items: [target], has_more: false, next_cursor: null } },
+        'GET /api/v1/users/u-9': { body: target },
+        'GET /api/v1/organization/departments': { body: [] },
+        'GET /api/v1/users/u-9/access': {
+          body: {
+            user_id: 'u-9',
+            role_ids: [],
+            site_ids: [],
+            group_ids: ['g-night'],
+            group_roles: [{ role_id: 'r-hr', group_id: 'g-night' }],
+          },
+        },
+        'GET /api/v1/organization/sites': { body: [] },
+        'GET /api/v1/organization/groups': {
+          body: [
+            {
+              id: 'g-night',
+              name: 'Night shift',
+              member_ids: ['u-9'],
+              disabled: false,
+              version: 1,
+            },
+          ],
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByText('Bilal Tech'));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Access' }));
+    const drawer = await screen.findByTestId('user-access');
+    expect((await within(drawer).findByTestId('role-through-custom_abc')).textContent).toBe(
+      'through Night shift',
+    );
+  });
+});
+
 describe('menus follow permissions', () => {
   afterEach(() => {
     restore();
