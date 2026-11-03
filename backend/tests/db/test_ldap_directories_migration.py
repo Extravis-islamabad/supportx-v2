@@ -41,9 +41,9 @@ def test_ldap_directories_need_settings_entra_its_app_and_going_back_refuses_to_
         with pytest.raises(asyncpg.CheckViolationError):  # LDAP without settings
             asyncio.run(_insert(database.admin_url, tenant, "L", "ldap", None, None, None, None))
         with pytest.raises(Exception, match="AD/LDAP directories exist"):
-            db_testing.downgrade(database.migrator_url, "0051")
+            db_testing.downgrade(database.migrator_url, "0054")
         asyncio.run(_delete_ldap(database.admin_url))  # a throwaway database (rule 5h)
-        db_testing.downgrade(database.migrator_url, "0051")
+        db_testing.downgrade(database.migrator_url, "0054")
         db_testing.migrate(database.migrator_url, "0056")  # and up again
     finally:
         db_testing.destroy(db_config, database)

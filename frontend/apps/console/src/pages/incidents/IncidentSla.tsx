@@ -22,15 +22,64 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { levelWhen } from '../admin/sla/levels';
 import { incidentView, useIncidentFieldName } from './conflict';
 
 const REASON_MAX = 500;
 
-/** Colour by state: overdue stands out, met is calm, the rest neutral. */
+/** Running past its warning point shows as "Warning" (REQ-SLA-019). */
+function shownState(target: IncidentSlaTarget): IncidentSlaTarget['state'] | 'warning' {
+  return target.state === 'running' && target.warned_at != null ? 'warning' : target.state;
+}
+
+/** Colour by state: overdue stands out, warning draws the eye, met is calm, the rest neutral. */
 function stateColour(target: IncidentSlaTarget): string | undefined {
-  if (target.state === 'breached') return 'error';
-  if (target.state === 'met') return target.met_how === 'late' ? 'warning' : 'success';
+  const state = shownState(target);
+  if (state === 'breached') return 'error';
+  if (state === 'warning') return 'warning';
+  if (state === 'met') return target.met_how === 'late' ? 'warning' : 'success';
   return undefined;
+}
+
+/** Each escalation level: when, and whether it waits (or is held), ran or was cancelled. */
+function Levels({ target }: { target: IncidentSlaTarget }) {
+  const t = useLabel();
+  const dates = useDateTime();
+  const levels = target.levels ?? [];
+  if (levels.length === 0) return null;
+  return (
+    <Space direction="vertical" size={2} data-testid={`inc-sla-${target.kind}-levels`}>
+      <Typography.Text strong>{t('incidents.sla.levels')}</Typography.Text>
+      {levels.map((level) => (
+        <Space
+          key={level.position}
+          size={6}
+          wrap
+          data-testid={`inc-sla-${target.kind}-level-${String(level.position)}`}
+        >
+          <Typography.Text>
+            {t('incidents.sla.level', { position: level.position })} · {levelWhen(t, level)}
+          </Typography.Text>
+          <Tag color={level.state === 'ran' ? 'processing' : undefined}>
+            {t(`sla_run_state.${level.state}`)}
+          </Tag>
+          {level.state === 'ran' && level.ran_at !== null && (
+            <Typography.Text type="secondary">{dates.format(level.ran_at)}</Typography.Text>
+          )}
+          {level.state === 'waiting' && (
+            <Typography.Text type="secondary">
+              {level.due_at === null ? t('incidents.sla.level_held') : dates.format(level.due_at)}
+            </Typography.Text>
+          )}
+          {level.failed_actions > 0 && (
+            <Typography.Text type="danger">
+              {t('incidents.sla.level_failed', { count: level.failed_actions })}
+            </Typography.Text>
+          )}
+        </Space>
+      ))}
+    </Space>
+  );
 }
 
 /**
@@ -76,7 +125,7 @@ export function IncidentSla({ item }: { item: Incident }) {
             <Tag color={stateColour(target)} data-testid={`inc-sla-${target.kind}-state`}>
               {target.state === 'met' && target.met_how !== null
                 ? t(`sla_met_how.${target.met_how}`)
-                : t(`sla_target_state.${target.state}`)}
+                : t(`sla_target_state.${shownState(target)}`)}
             </Tag>
           }
         >
@@ -116,6 +165,11 @@ export function IncidentSla({ item }: { item: Incident }) {
                 </Typography.Text>
                 <Typography.Text type="secondary">{t('incidents.sla.manual_note')}</Typography.Text>
               </Space>
+            </Descriptions.Item>
+          )}
+          {(target.levels ?? []).length > 0 && (
+            <Descriptions.Item>
+              <Levels target={target} />
             </Descriptions.Item>
           )}
           {panel.may_set_due_dates && ['running', 'paused', 'breached'].includes(target.state) && (

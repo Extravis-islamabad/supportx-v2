@@ -577,6 +577,18 @@ def view_predicates(
         if reports
         else WorkItem.id.is_(None),
         "without_sla": and_(_open(), WorkItem.sla_policy_id.is_(None)),
+        # REQ-SLA-019 AC2 and REQ-INC-011 AC3: exactly the records in warning, and the open
+        # records with a breached target, both live (the waker stamps the record).
+        "about_to_breach": and_(
+            _open(),
+            or_(
+                WorkItem.first_response_sla_state == "warning",
+                WorkItem.resolution_sla_state == "warning",
+            ),
+        ),
+        "breached": and_(
+            _open(), or_(WorkItem.first_response_breached, WorkItem.resolution_breached)
+        ),
         "closed": WorkItem.status_category == StatusCategory.CLOSED,
         "canceled": WorkItem.status_category == StatusCategory.CANCELED,
         "all": WorkItem.id.is_not(None),
@@ -655,6 +667,24 @@ async def view_filters(
         "shared_with_me": listed(shared),
         "from_my_reports": both(open_, listed(reports, "requester_id")) if reports else nothing,
         "without_sla": _all(open_, _cond("sla_policy_id", op="is_null")),
+        "about_to_breach": _all(
+            open_,
+            {
+                "or": [
+                    _cond("first_response_sla_state", "eq", "warning"),
+                    _cond("resolution_sla_state", "eq", "warning"),
+                ]
+            },
+        ),
+        "breached": _all(
+            open_,
+            {
+                "or": [
+                    _cond("first_response_breached", "eq", value=True),
+                    _cond("resolution_breached", "eq", value=True),
+                ]
+            },
+        ),
         "closed": _cond("status_category", "eq", StatusCategory.CLOSED.value),
         "canceled": _cond("status_category", "eq", StatusCategory.CANCELED.value),
         "all": None,
@@ -2442,6 +2472,57 @@ async def set_due_date(  # noqa: PLR0913 - the record, the change and its contex
     return await _view(session, subject, wtype, updated)
 
 
+async def sla_fired(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    columns: Mapping[str, Any],
+    fired: Sequence[Any],
+    *,
+    now: datetime,
+) -> None:
+    """The SLA waker fired on this record: stamp it, with history from source "sla".
+
+    A warning or breach changes the record's SLA state columns; each escalation level that ran
+    is a history line of its own (REQ-SLA-022 AC1). The change event turns every open list and
+    record live (REQ-SLA-019 AC1). The record row is already locked (sla's `LockHook`).
+    """
+    del now
+    record = await session.scalar(select(WorkItem).where(WorkItem.id == record_id))
+    if record is None:
+        return
+    changed = {k: v for k, v in columns.items() if getattr(record, k) != v}
+    lines = sla_glue.fired_changes(record, changed, list(fired))
+    if not lines:
+        return
+    audience_before = _audience(record)
+    updated = await WorkItemRepository(session).update(
+        record.id, expected_version=record.version, changes=changed
+    )
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=lines,
+        source="sla",
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted({line.field for line in lines}),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class SlaPanel:
     """The record's SLA panel (REQ-SLA-038).
@@ -2596,12 +2677,14 @@ async def automated_update(  # noqa: PLR0913 - the record, the values and who ma
     *,
     ref: Mapping[str, Any],
     cause_id: uuid.UUID,
+    source: Source = "rule",
 ) -> list[str]:
     """Set fields as a trigger, through the same save path (REQ-RUL-009, 010).
 
     Business rules run again and the matrix follows impact and urgency; history names the
-    trigger (source `rule`), and the event carries the trigger's run as its cause so the loop
-    guard sees the chain. Returns the fields that changed (empty: nothing to change).
+    trigger (source `rule`; an SLA escalation level passes `sla`), and the event carries the
+    trigger's run as its cause so the loop guard sees the chain. Returns the fields that changed
+    (empty: nothing to change).
     """
     record = await session.scalar(_rows(wtype).where(WorkItem.id == record_id).with_for_update())
     if record is None:
@@ -2640,7 +2723,7 @@ async def automated_update(  # noqa: PLR0913 - the record, the values and who ma
             version=updated.version,
             kind="updated",
             changes=mine,
-            source="rule",
+            source=source,
             automation_ref=dict(ref),
         )
     await _record_automation(session, updated, automated)

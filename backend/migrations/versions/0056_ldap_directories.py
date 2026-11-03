@@ -9,7 +9,7 @@ Expand only (D-113), no data step: directory_connectors also takes `source = 'ld
 The downgrade refuses while an AD/LDAP directory exists (it would lose it): remove those first.
 
 Revision ID: 0056
-Revises: 0051 (main's head; lane A's 0054 may come first: re-pointed when queued)
+Revises: 0054 (main's head; lane A's 0054 may come first: re-pointed when queued)
 Created: 2026-11-03
 """
 
@@ -20,7 +20,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0056"
-down_revision: str | None = "0051"
+down_revision: str | None = "0054"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -40,7 +40,7 @@ BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (SELECT 1 FROM directory_connectors WHERE tenant_id = t AND source = 'ldap') THEN
-            RAISE EXCEPTION 'AD/LDAP directories exist: remove them before going below 0055';
+            RAISE EXCEPTION 'AD/LDAP directories exist: remove them before going below 0056';
         END IF;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);

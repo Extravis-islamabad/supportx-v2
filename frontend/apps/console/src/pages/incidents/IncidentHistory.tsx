@@ -40,6 +40,8 @@ const CODED: Record<string, string> = {
   note_visibility: 'visibility',
   'task.status': 'task_status', // WP-020e
   'task.priority': 'task_priority',
+  first_response_sla_state: 'sla_target_state', // WP-025
+  resolution_sla_state: 'sla_target_state',
 };
 const TIMES = new Set([
   'resolved_at',
@@ -48,9 +50,17 @@ const TIMES = new Set([
   'first_responded_at',
   'resolution_notified_at',
   'task.due_at',
+  'first_response_due_at', // WP-025
+  'resolution_due_at',
 ]);
 // Rich text and references with no words of their own: "changed", never the HTML or an ID.
-const CHANGED_ONLY = new Set(['description', 'resolution', 'follows_id', 'task.position']);
+const CHANGED_ONLY = new Set([
+  'description',
+  'resolution',
+  'follows_id',
+  'task.position',
+  'sla_policy_id', // WP-025: the panel names the policy
+]);
 const PEOPLE = new Set([
   'requester_id',
   'on_behalf_of_id',
@@ -144,6 +154,14 @@ export function IncidentHistory({ id }: { id: string }) {
     if (change.field === 'template_id' && typeof value === 'string') {
       const found = templates.data?.find((x) => x.id === value);
       return found === undefined ? t('history.changed') : templateLabel(t, found, locale);
+    }
+    // WP-025: an escalation level that ran ("resolution:2").
+    if (change.field === 'sla_escalation' && typeof value === 'string') {
+      const [target = '', level = ''] = value.split(':');
+      return t('history.sla_escalation', {
+        target: t(`sla_target_kind.${target}`),
+        level: Number(level),
+      });
     }
     const prefix = CODED[change.field];
     if (prefix !== undefined && typeof value === 'string') return t(`${prefix}.${value}`);
