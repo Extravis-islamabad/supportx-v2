@@ -52,11 +52,8 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
 RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
-    PermissionSpec("requests.view", "incident", ALL),
-    PermissionSpec("requests.create", "incident"),
-    PermissionSpec("requests.edit", "incident", ALL),
-    PermissionSpec("requests.assign", "incident", NOT_OWN),
-    PermissionSpec("requests.close", "incident", ALL),
+    # requests.* (service requests) moved to work_items' ModuleSpec (WP-030, lane B review); the
+    # system-role grants below still name them, unchanged.
     PermissionSpec("problems.view", "problem", ALL),
     PermissionSpec("problems.manage", "problem", NOT_OWN),
     PermissionSpec("changes.view", "change", ALL),

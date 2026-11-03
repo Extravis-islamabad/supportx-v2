@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from app.core.modules import ModuleSpec
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
-from app.modules.work_items.domain.types import TYPES
+from app.modules.work_items.domain.types import PERMISSION_TYPES, TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     bulk,
@@ -99,7 +99,7 @@ module = ModuleSpec(
     routers=[build_router(wtype) for wtype in TYPES.values()],
     router_features=[wtype.feature for wtype in TYPES.values()],
     events=EVENTS,
-    permissions=tuple(spec for wtype in TYPES.values() for spec in permissions(wtype)),
+    permissions=tuple(spec for wtype in PERMISSION_TYPES for spec in permissions(wtype)),
     channels=CHANNELS,
     realtime=ROUTES,
     on_startup=[_startup],

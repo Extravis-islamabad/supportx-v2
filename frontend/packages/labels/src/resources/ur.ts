@@ -5058,4 +5058,33 @@ export const ur: LabelResource = {
   'errors.field.too_many_tasks': 'ایک منصوبے میں زیادہ سے زیادہ 20 کام ہو سکتے ہیں۔',
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
   'errors.field.invalid_value': 'یہ قدر درست نہیں۔',
+  'permission.requests.take': 'سروس درخواستیں خود لیں',
+  'permission.requests.take.description': 'ایسی سروس درخواست خود لیں جو ابھی کسی نے نہیں لی۔',
+  'permission.requests.change_priority': 'درخواست کی ترجیح ہاتھ سے بدلیں',
+  'permission.requests.change_priority.description':
+    'سروس درخواست کو اس کے آئٹم یا میٹرکس سے ملی ترجیح کو وجہ کے ساتھ بدلیں۔',
+  'permission.requests.resolve': 'سروس درخواستیں پوری کریں',
+  'permission.requests.resolve.description': 'سروس درخواستوں کو پوری شدہ نشان زد کریں۔',
+  'permission.requests.reopen': 'سروس درخواستیں دوبارہ کھولیں',
+  'permission.requests.reopen.description':
+    'پوری شدہ یا بند سروس درخواستیں وجہ کے ساتھ دوبارہ کھولیں۔',
+  'permission.requests.cancel': 'سروس درخواستیں منسوخ کریں',
+  'permission.requests.cancel.description':
+    'سروس درخواستیں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
+  'permission.requests.delete': 'سروس درخواستیں حذف کریں',
+  'permission.requests.delete.description': 'سروس درخواستیں کوڑے دان میں ڈالیں اور واپس لائیں۔',
+  'permission.requests.add_note': 'درخواستوں پر نجی نوٹس شامل کریں',
+  'permission.requests.add_note.description': 'سروس درخواستوں پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.requests.reply': 'درخواستوں پر جواب اور عوامی نوٹس',
+  'permission.requests.reply.description':
+    'سروس درخواستوں پر درخواست گزاروں کو جواب دیں، ایسے نوٹس شامل کریں جو وہ دیکھ سکیں، اور نجی نوٹس عوامی بنائیں۔',
+  'permission.requests.manage_followers': 'درخواستوں کے فالوورز کا انتظام',
+  'permission.requests.manage_followers.description':
+    'دوسرے لوگوں کو سروس درخواستوں کے فالوور بنائیں اور ہٹائیں۔',
+  'permission.requests.edit_due_dates': 'درخواستوں کی آخری تاریخ ہاتھ سے مقرر کریں',
+  'permission.requests.edit_due_dates.description':
+    'سروس درخواست کی جواب یا تکمیل کی آخری تاریخ وجہ کے ساتھ ہاتھ سے مقرر کریں یا مٹائیں۔ پھر وہ مٹانے تک رہتی ہے۔',
+  'permission.requests.assign_outside_group': 'درخواستیں گروپ سے باہر تفویض کریں',
+  'permission.requests.assign_outside_group.description':
+    'ایسے ٹیکنیشن کو سروس درخواست تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
 };

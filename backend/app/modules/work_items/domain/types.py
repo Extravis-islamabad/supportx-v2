@@ -15,6 +15,8 @@ from enum import StrEnum
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
+    SERVICE_REQUEST_STATUSES,
+    SERVICE_REQUEST_TRANSITIONS,
     StatusDef,
     TransitionDef,
 )
@@ -110,7 +112,23 @@ INCIDENT = WorkItemType(
     fields=COMMON_FIELDS,
 )
 
+# WP-030 (REQ-SR-001..004): its own SR counter, life cycle and permissions (`requests.*`, the
+# names identity reserved for it). Its permissions are registered now; it joins TYPES (routes,
+# lists, seeding) when creating one from a catalog item works end to end.
+SERVICE_REQUEST = WorkItemType(
+    code=WorkItemTypeCode.SERVICE_REQUEST,
+    path="service-requests",
+    default_prefix="SR",
+    feature="service_request",
+    permission_prefix="requests",
+    statuses=SERVICE_REQUEST_STATUSES,
+    transitions=SERVICE_REQUEST_TRANSITIONS,
+    fields=COMMON_FIELDS,
+)
+
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {INCIDENT.code: INCIDENT}
+# Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
+PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST)
 
 
 # --- value rules shared by every type -------------------------------------------------------------

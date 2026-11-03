@@ -28,7 +28,7 @@ from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import ResourceType, Subject
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
-from app.modules.work_items.domain.types import Channel, WorkItemType
+from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemFollower
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 
@@ -195,9 +195,22 @@ _ACTIONS: tuple[tuple[str, tuple[Scope, ...], tuple[tuple[str, Scope], ...]], ..
 )
 
 
+# Service requests (WP-030): these five keys keep the system-role grants identity has always
+# given them (SYSTEM_ROLE_GRANTS: technicians all, requesters view and close own, create all);
+# the type declares no defaults of its own for them, so nothing is added or widened.
+IDENTITY_GRANTED = frozenset({"view", "create", "edit", "assign", "close"})
+
+
 def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     """The permission catalogue entries of one type."""
     return tuple(
-        PermissionSpec(wtype.permission(action), wtype.feature, scopes, defaults=defaults)
+        PermissionSpec(
+            wtype.permission(action),
+            wtype.feature,
+            scopes,
+            defaults=()
+            if wtype.code is WorkItemTypeCode.SERVICE_REQUEST and action in IDENTITY_GRANTED
+            else defaults,
+        )
         for action, scopes, defaults in _ACTIONS
     )

@@ -5535,4 +5535,32 @@ export const ar: LabelResource = {
   'errors.field.too_many_approvers': 'يمكن أن تضم المرحلة 10 موافقين على الأكثر.',
   'errors.field.too_many_tasks': 'يمكن أن تضم الخطة 20 مهمة على الأكثر.',
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
+  'permission.requests.take': 'تولي طلبات الخدمة',
+  'permission.requests.take.description': 'تولي طلب خدمة لم يتولّه أحد بعد.',
+  'permission.requests.change_priority': 'تغيير أولوية الطلب يدويًا',
+  'permission.requests.change_priority.description':
+    'تجاوز الأولوية التي حصل عليها طلب الخدمة من عنصره أو من المصفوفة، مع ذكر السبب.',
+  'permission.requests.resolve': 'تنفيذ طلبات الخدمة',
+  'permission.requests.resolve.description': 'تعليم طلبات الخدمة كمنفذة.',
+  'permission.requests.reopen': 'إعادة فتح طلبات الخدمة',
+  'permission.requests.reopen.description':
+    'إعادة فتح طلبات الخدمة المنفذة أو المغلقة مع ذكر السبب.',
+  'permission.requests.cancel': 'إلغاء طلبات الخدمة',
+  'permission.requests.cancel.description': 'إلغاء طلبات الخدمة مع ذكر السبب والتراجع عن الإلغاء.',
+  'permission.requests.delete': 'حذف طلبات الخدمة',
+  'permission.requests.delete.description': 'نقل طلبات الخدمة إلى سلة المحذوفات واستعادتها.',
+  'permission.requests.add_note': 'إضافة ملاحظات خاصة على الطلبات',
+  'permission.requests.add_note.description': 'كتابة ملاحظات للموظفين فقط على طلبات الخدمة.',
+  'permission.requests.reply': 'الرد على الطلبات وإضافة ملاحظات عامة',
+  'permission.requests.reply.description':
+    'الرد على مقدمي طلبات الخدمة، وإضافة ملاحظات يمكنهم رؤيتها، وجعل الملاحظات الخاصة عامة.',
+  'permission.requests.manage_followers': 'إدارة متابعي الطلبات',
+  'permission.requests.manage_followers.description':
+    'إضافة أشخاص آخرين كمتابعين لطلبات الخدمة وإزالتهم.',
+  'permission.requests.edit_due_dates': 'تعيين مواعيد استحقاق الطلبات يدويًا',
+  'permission.requests.edit_due_dates.description':
+    'تعيين موعد استحقاق الاستجابة أو التنفيذ لطلب خدمة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',
+  'permission.requests.assign_outside_group': 'إسناد الطلبات خارج المجموعة',
+  'permission.requests.assign_outside_group.description':
+    'إسناد فني ليس عضوًا في المجموعة المختارة إلى طلب خدمة.',
 };

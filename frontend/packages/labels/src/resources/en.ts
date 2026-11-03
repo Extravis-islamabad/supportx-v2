@@ -5453,6 +5453,35 @@ export const en = {
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_tasks': 'A plan can have at most 20 tasks.',
   'errors.field.not_found': 'This no longer exists.',
+  'permission.requests.take': 'Take service requests',
+  'permission.requests.take.description': 'Take a service request nobody has taken yet.',
+  'permission.requests.change_priority': "Change a request's priority by hand",
+  'permission.requests.change_priority.description':
+    'Override the priority a service request got from its item or the matrix, with a reason.',
+  'permission.requests.resolve': 'Fulfil service requests',
+  'permission.requests.resolve.description': 'Mark service requests as fulfilled.',
+  'permission.requests.reopen': 'Reopen service requests',
+  'permission.requests.reopen.description':
+    'Reopen fulfilled or closed service requests, with a reason.',
+  'permission.requests.cancel': 'Cancel service requests',
+  'permission.requests.cancel.description':
+    'Cancel service requests with a reason, and undo a cancellation.',
+  'permission.requests.delete': 'Delete service requests',
+  'permission.requests.delete.description': 'Move service requests to the trash and restore them.',
+  'permission.requests.add_note': 'Add private notes on requests',
+  'permission.requests.add_note.description': 'Write staff-only notes on service requests.',
+  'permission.requests.reply': 'Reply on requests and add public notes',
+  'permission.requests.reply.description':
+    'Reply to requesters on service requests, add notes they can see, and make private notes public.',
+  'permission.requests.manage_followers': 'Manage followers of requests',
+  'permission.requests.manage_followers.description':
+    'Add other people as followers of service requests and remove them.',
+  'permission.requests.edit_due_dates': 'Set request due dates by hand',
+  'permission.requests.edit_due_dates.description':
+    "Set or clear a service request's response or fulfilment due time by hand, with a reason. It then stays until cleared.",
+  'permission.requests.assign_outside_group': 'Assign requests outside the group',
+  'permission.requests.assign_outside_group.description':
+    'Assign a technician who is not a member of the chosen group to a service request.',
 } as const;
 
 export type LabelKey = keyof typeof en;
