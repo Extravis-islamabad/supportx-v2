@@ -25,4 +25,4 @@ Identity, mail, notifications, CI
 
 ## Claimed decisions
 
-D-098, D-099, D-103, D-104, D-106, D-109, D-116, D-118, D-123, D-127 (D-126 reserved: the Dependabot rule, waiting for the product owner)
+D-098, D-099, D-103, D-104, D-106, D-109, D-116, D-118, D-123, D-127, D-130 (AD/LDAP federation account, #175) (D-126 reserved: the Dependabot rule, waiting for the product owner)
