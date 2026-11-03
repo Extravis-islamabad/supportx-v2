@@ -18,19 +18,22 @@ one client factory (`app/core/valkey.py`), which already speaks Sentinel when
 
 ## Decision
 
-1. **The HA profile runs Valkey as one master and two replicas with the official chart**, plus
-   **three Sentinel pods that our chart defines**. They use the same official Valkey image
-   (`valkey-sentinel`) and monitor the master under the name `supportx`, with a quorum of 2.
-2. **No pod reclaims the master role by itself.** Each Valkey pod's start-up step asks the
-   sentinels for the current master. A pod that isn't the master starts as its replica, so a
-   restarted former master rejoins as a replica (no split brain).
+1. **In the HA profile our chart renders Valkey itself**: a StatefulSet of three pods on the
+   official Valkey image, each with a Valkey server and a Sentinel (`valkey-sentinel`, the same
+   image). They monitor one master named `supportx`, with a quorum of 2. The official chart
+   can't be used here: its start-up script always makes pod 0 the master, so a restarted pod 0
+   would claim the role again after a failover.
+2. **No pod reclaims the master role by itself.** Each pod's start-up step asks the sentinels for
+   the current master and starts as its replica unless it is that master. Only on a first start,
+   when no sentinel answers, does pod 0 begin as master. A restarted former master rejoins as a
+   replica (no split brain).
 3. **The app and Centrifugo find the master through Sentinel** and follow a failover by
    themselves (`SUPPORTX_VALKEY_SENTINELS`; Centrifugo's own Sentinel support), which lets
    Centrifugo run more than one copy on the Valkey engine.
 4. **The sentinels' password and TLS follow Valkey's own secret handling**: from the
    installation secret, never in a values file.
-5. **Replication only, without Sentinel, stays available** for single-node k3s on-prem, where
-   there is no second node to fail over to.
+5. **Single-node installs keep the official chart** (one Valkey, optional replicas), where there
+   is no second node to fail over to.
 6. **A failover test** on the reduced HA profile on k3d, in CI, proves:
    - stopping the master lets Sentinel promote a replica;
    - the app reconnects, and a signed-in person's session survives;
@@ -50,8 +53,8 @@ one client factory (`app/core/valkey.py`), which already speaks Sentinel when
 
 - No new image or package: the official Valkey image and valkey-py, both approved (D-020,
   D-037).
-- Our chart owns the Sentinel StatefulSet and its start-up script, so its upgrades are ours.
-  The failover test guards it.
+- Our chart owns the HA Valkey StatefulSet and its start-up script, so their upgrades are
+  ours. The failover test guards them.
 - Sessions survive a failover only if they were replicated before the master was lost.
   Asynchronous replication can lose the last moments, and those people sign in again. This is
   accepted, and documented in the runbook.
