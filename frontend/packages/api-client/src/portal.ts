@@ -1,4 +1,10 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { api, call } from './client';
 import { useSingleFlight } from './incidents';
@@ -33,11 +39,18 @@ export const portalKeys = {
   templates: ['portal', 'incidents', 'templates'] as const,
 };
 
-/** "My requests": one page, the previous page kept on screen while the next loads. */
-export function usePortalIncidents(query: PortalIncidentsQuery) {
-  return useQuery({
+/** "My requests": pages follow each other (`fetchNextPage`), the shown ones kept meanwhile. */
+export function usePortalIncidents(query: Omit<PortalIncidentsQuery, 'cursor'>) {
+  return useInfiniteQuery({
     queryKey: portalKeys.list(query),
-    queryFn: () => call(api.GET('/api/v1/portal/incidents', { params: { query } })),
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/api/v1/portal/incidents', {
+          params: { query: { ...query, cursor: pageParam } },
+        }),
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.has_more ? (last.next_cursor ?? undefined) : undefined),
     placeholderData: keepPreviousData,
   });
 }

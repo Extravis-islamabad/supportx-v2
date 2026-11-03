@@ -170,3 +170,37 @@ describe('portal: report an issue', () => {
     expect((await screen.findByTestId('portal-request-id')).textContent).toBe('INC-42');
   });
 });
+
+describe('portal: my requests, long lists', () => {
+  it('shows more with the next cursor, keeping the first page', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = fakeApi({
+      ...BASE,
+      'GET /api/v1/portal/incidents': (call) =>
+        call.url.searchParams.get('cursor') === 'c2'
+          ? {
+              body: {
+                items: [portalIncident({ id: 'second', display_id: 'INC-2' })],
+                next_cursor: null,
+                has_more: false,
+              },
+            }
+          : {
+              body: {
+                items: [portalIncident({ id: 'first', display_id: 'INC-1' })],
+                next_cursor: 'c2',
+                has_more: true,
+              },
+            },
+    });
+    restore = fake.restore;
+    render(<App />);
+    await screen.findByTestId('portal-request-INC-1');
+    fireEvent.click(screen.getByTestId('portal-requests-more'));
+    await screen.findByTestId('portal-request-INC-2');
+    expect(screen.getByTestId('portal-request-INC-1')).toBeDefined();
+    await waitFor(() => {
+      expect(screen.queryByTestId('portal-requests-more')).toBeNull();
+    });
+  });
+});

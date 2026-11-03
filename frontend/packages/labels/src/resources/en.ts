@@ -5347,6 +5347,7 @@ export const en = {
   'portal.conversation.service_desk': 'Service desk',
   'portal.conversation.reply': 'Write a reply',
   'portal.conversation.send': 'Send reply',
+  'portal.requests.more': 'Show more',
 } as const;
 
 export type LabelKey = keyof typeof en;

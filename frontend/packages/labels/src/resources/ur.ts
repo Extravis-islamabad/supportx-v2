@@ -4950,4 +4950,5 @@ export const ur: LabelResource = {
   'portal.conversation.service_desk': 'سروس ڈیسک',
   'portal.conversation.reply': 'جواب لکھیں',
   'portal.conversation.send': 'جواب بھیجیں',
+  'portal.requests.more': 'مزید دکھائیں',
 };

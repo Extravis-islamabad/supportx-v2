@@ -43,7 +43,7 @@ export function RequestsPage() {
     }
   });
   if (page.error) reportError(page.error);
-  const items = page.data?.items ?? [];
+  const items = (page.data?.pages ?? []).flatMap((p) => p.items);
   const wider = items.some((i) => i.reach !== 'own') || reach !== undefined;
 
   return (
@@ -143,6 +143,17 @@ export function RequestsPage() {
           </List.Item>
         )}
       />
+      {page.hasNextPage && (
+        <Button
+          size="large"
+          loading={page.isFetchingNextPage}
+          onClick={() => void page.fetchNextPage()}
+          style={{ alignSelf: 'center' }}
+          data-testid="portal-requests-more"
+        >
+          {t('portal.requests.more')}
+        </Button>
+      )}
     </Flex>
   );
 }

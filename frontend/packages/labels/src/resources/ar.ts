@@ -5405,4 +5405,5 @@ export const ar: LabelResource = {
   'portal.conversation.service_desk': 'مكتب الخدمة',
   'portal.conversation.reply': 'اكتب ردًا',
   'portal.conversation.send': 'إرسال الرد',
+  'portal.requests.more': 'عرض المزيد',
 };
