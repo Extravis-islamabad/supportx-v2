@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import User
@@ -115,6 +116,9 @@ class UserPreferencesPatch(BaseModel):
         max_length=8,
         description="UI language (en, ar, ur); null: follow the identity provider's locale.",
     )
+    # REQ-PRT-013 AC2 (WP-028): only when the tenant allows it and no directory keeps them.
+    phone: str | None = Field(default=None, max_length=100, description="Your phone number.")
+    mobile: str | None = Field(default=None, max_length=100, description="Your mobile number.")
 
 
 ViewUsers = Annotated[Subject, Depends(require_permission("users.view"))]
@@ -188,8 +192,11 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     session: TenantSession,
     subject: EditProfile,
     request: Request,
+    note: Annotated[
+        AuditNote, audited("user.contact_changed", object_type="user", object_param="user_id")
+    ],
 ) -> UserDetail:
-    """Change your own signature or time zone. Needs `If-Match` with the ETag you read.
+    """Change your own preferences (and contact details if allowed). Needs `If-Match`.
 
     A stale If-Match gets 409 with `changed_fields`, `changed_by` and `changed_at`.
     """
@@ -201,5 +208,9 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         changes=body.model_dump(include=body.model_fields_set),
         source=source_of(request),
     )
+    # Contact details are personal data: audited (field names only, never the numbers).
+    contact = sorted(body.model_fields_set & directory.CONTACT_FIELDS)
+    note.skip = not contact
+    note.details = {"changed_fields": contact}
     set_etag(response, user.version)
     return UserDetail.of(user, subject)

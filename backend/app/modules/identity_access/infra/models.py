@@ -350,6 +350,8 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     create_people_on_sign_in: Mapped[bool] = mapped_column(server_default="true")
     # REQ-SEC-020, Appendix A: how long an invitation link works (7 days; at most 30).
     invitation_valid_days: Mapped[int] = mapped_column(server_default="7")
+    # REQ-PRT-013 AC2 (WP-028): people change their own phone and mobile; off by default.
+    people_edit_contact: Mapped[bool] = mapped_column(server_default="false")
     # REQ-SEC-005, Appendix A (domain/password_policy.py): the installation's password policy,
     # which a worker writes into the realm. `default`: never edited here (the realm keeps what
     # the deploy gave it); `applying` until the worker wrote it; `failed` with the reason code.

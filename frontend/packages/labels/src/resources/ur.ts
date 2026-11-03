@@ -4959,4 +4959,11 @@ export const ur: LabelResource = {
     'درخواست بھیج دی گئی، لیکن {{count}} فائل منسلک نہیں ہو سکی۔ اسے درخواست پر دوبارہ شامل کریں۔',
   'portal.report.files_failed_other':
     'درخواست بھیج دی گئی، لیکن {{count}} فائلیں منسلک نہیں ہو سکیں۔ انہیں درخواست پر دوبارہ شامل کریں۔',
+  'audit.action.user.contact_changed': 'اپنی رابطے کی تفصیلات تبدیل کیں',
+  'errors.contact_editing_off':
+    'آپ کی تنظیم یہاں رابطے کی تفصیلات بدلنے کی اجازت نہیں دیتی۔ سروس ڈیسک سے پوچھیں۔',
+  'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
+  'identity.settings.people_edit_contact': 'لوگ اپنا فون اور موبائل نمبر خود بدل سکتے ہیں',
+  'identity.settings.people_edit_contact_help':
+    'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',
 };

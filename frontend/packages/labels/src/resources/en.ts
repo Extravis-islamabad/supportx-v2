@@ -5356,6 +5356,13 @@ export const en = {
     'The request was sent, but {{count}} file could not be attached. Add it again on the request.',
   'portal.report.files_failed_other':
     'The request was sent, but {{count}} files could not be attached. Add them again on the request.',
+  'audit.action.user.contact_changed': 'Changed their contact details',
+  'errors.contact_editing_off':
+    'Your organisation does not let you change your contact details here. Ask your service desk.',
+  'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
+  'identity.settings.people_edit_contact': 'People may change their own phone and mobile',
+  'identity.settings.people_edit_contact_help':
+    'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
 } as const;
 
 export type LabelKey = keyof typeof en;

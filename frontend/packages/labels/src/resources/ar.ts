@@ -5419,4 +5419,10 @@ export const ar: LabelResource = {
     'أُرسل الطلب، لكن تعذر إرفاق {{count}} ملفًا. أضفها مرة أخرى في الطلب.',
   'portal.report.files_failed_other':
     'أُرسل الطلب، لكن تعذر إرفاق {{count}} ملف. أضفها مرة أخرى في الطلب.',
+  'audit.action.user.contact_changed': 'غيّر بيانات الاتصال الخاصة به',
+  'errors.contact_editing_off': 'لا تسمح مؤسستك بتغيير بيانات الاتصال هنا. اسأل مكتب الخدمة.',
+  'errors.field.managed_by_directory': 'يحتفظ الدليل بهذا الحقل. غيّره هناك.',
+  'identity.settings.people_edit_contact': 'يمكن للأشخاص تغيير أرقام هواتفهم بأنفسهم',
+  'identity.settings.people_edit_contact_help':
+    'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
 };

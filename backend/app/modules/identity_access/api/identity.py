@@ -88,6 +88,9 @@ class IdentitySettingsBody(BaseModel):
     invitation_valid_days: int | None = Field(
         default=None, description="How long an invitation link works (1 to 30 days)."
     )
+    people_edit_contact: bool | None = Field(
+        default=None, description="People change their own phone and mobile (REQ-PRT-013)."
+    )
     # REQ-SEC-005: installation-wide; refused on multi-tenant installations.
     password_min_length: int | None = Field(default=None, description="8 to 64 characters.")
     password_upper: bool | None = Field(default=None, description="Needs an upper-case letter.")
@@ -126,6 +129,7 @@ class IdentitySettingsOut(BaseModel):
     password_expiry_days: int
     password_breached_check: bool
     mfa_grace_days: int
+    people_edit_contact: bool
     password_policy_editable: bool = Field(
         description="False on multi-tenant installations: the platform's policy applies."
     )

@@ -93,6 +93,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.role_assigned", AuditCategory.ACCESS, "identity_access"),
     ("user.role_removed", AuditCategory.ACCESS, "identity_access"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
+    ("user.contact_changed", AuditCategory.ACCESS, "identity_access"),  # WP-028, REQ-PRT-013
     # automation (WP-029)
     ("automation.rule_created", AuditCategory.CONFIGURATION, "automation"),
     ("automation.rule_changed", AuditCategory.CONFIGURATION, "automation"),
