@@ -55,6 +55,8 @@ async def _audited(d: Directory, user: uuid.UUID) -> list[dict[str, object]]:
 
 
 async def test_contact_details_are_read_only_by_default(directory: Directory) -> None:
+    mine = await directory.get(f"/api/v1/users/{directory.requester}", directory.requester)
+    assert mine.json()["contact_editable"] is False
     status, body = await _patch(directory, directory.requester, phone="+971 4 555 0101")
     assert (status, body["code"]) == (403, "contact_editing_off")
     # Preferences still save as before.
@@ -64,6 +66,11 @@ async def test_contact_details_are_read_only_by_default(directory: Directory) ->
 
 async def test_when_allowed_people_change_their_own_numbers_audited(directory: Directory) -> None:
     await _allow(directory)
+    mine = await directory.get(f"/api/v1/users/{directory.requester}", directory.requester)
+    assert mine.json()["contact_editable"] is True
+    # Only on your own record: another person's detail never says it.
+    theirs = await directory.get(f"/api/v1/users/{directory.requester}", directory.tech)
+    assert theirs.json()["contact_editable"] is False
     status, body = await _patch(
         directory, directory.requester, phone=" +971 4 555 0101 ", mobile="+971 50 555 0102"
     )
@@ -100,6 +107,8 @@ async def test_numbers_a_directory_keeps_stay_read_only(directory: Directory) ->
         "UPDATE users SET directory_source = 'entra' WHERE id = $1",
         directory.requester,
     )
+    mine = await directory.get(f"/api/v1/users/{directory.requester}", directory.requester)
+    assert mine.json()["contact_editable"] is False
     status, body = await _patch(directory, directory.requester, mobile="+971 50 555 0199")
     assert status == 422
     errors = body["errors"]

@@ -10,6 +10,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
@@ -85,6 +86,10 @@ class UserDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     version: int = Field(description="Send it back as If-Match (the ETag) to update.")
+    contact_editable: bool = Field(
+        default=False,
+        description="Your own record only: whether you may change phone and mobile here.",
+    )
 
     @classmethod
     def of(cls, user: User, subject: Subject) -> "UserDetail":
@@ -92,6 +97,14 @@ class UserDetail(BaseModel):
         data = cls.model_validate(user, from_attributes=True).model_dump()
         data["signed_in_before"] = user.external_subject is not None
         return cls.model_validate(visible(subject, directory.USERS, data))
+
+
+async def _own_detail(session: AsyncSession, user: User, subject: Subject) -> UserDetail:
+    """The detail, saying on your own record whether My account may change your numbers."""
+    detail = UserDetail.of(user, subject)
+    if user.id == subject.user_id:
+        detail.contact_editable = await directory.contact_editable(session, user)
+    return detail
 
 
 class UserPage(Page[UserDetail]):
@@ -173,7 +186,7 @@ async def get_user(
     if cached is not None:
         return cached  # type: ignore[return-value]  # 304 without a body
     set_etag(response, user.version)
-    return UserDetail.of(user, subject)
+    return await _own_detail(session, user, subject)
 
 
 @router.patch(
@@ -213,4 +226,4 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     note.skip = not contact
     note.details = {"changed_fields": contact}
     set_etag(response, user.version)
-    return UserDetail.of(user, subject)
+    return await _own_detail(session, user, subject)

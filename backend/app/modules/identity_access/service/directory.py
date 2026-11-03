@@ -264,6 +264,13 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
     return clean
 
 
+async def contact_editable(session: AsyncSession, user: User) -> bool:
+    """Whether the person may change their own phone and mobile (My account shows the fields)."""
+    return (
+        user.directory_source is None and (await get_identity_settings(session)).people_edit_contact
+    )
+
+
 async def _check_contact(session: AsyncSession, current: User, contact: Sequence[str]) -> None:
     """Own contact details change only when the tenant allows it and no directory keeps them."""
     if not contact:
