@@ -60,7 +60,7 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   await expect(admin.getByTestId('roles-table').getByText(roleName)).toBeVisible();
 
   // ...and assigns it in Admin › People (the person drawer's Access tab, WP-021).
-  await admin.getByRole('tab', { name: 'People' }).click();
+  await admin.getByTestId('admin-sections').getByRole('link', { name: 'People' }).click();
   await admin.getByRole('searchbox', { name: 'Search by name or email' }).fill('e2e.limited');
   await admin.getByText('Lina E2E Limited').click();
   await admin.getByTestId('person-drawer').getByRole('tab', { name: 'Access' }).click();
@@ -91,7 +91,7 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
     .getByRole('button', { name: 'Close' })
     .click();
   await expect(drawer).toBeHidden();
-  await admin.getByRole('tab', { name: 'Roles' }).click();
+  await admin.getByTestId('admin-sections').getByRole('link', { name: 'Roles' }).click();
   await admin.getByTestId('roles-table').getByText(roleName).click();
   await admin.getByTestId('delete-role').click();
   await admin

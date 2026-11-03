@@ -74,6 +74,10 @@ Design's default so it meets WCAG AA. The user's choice is remembered in the bro
 visit follows the OS (`prefers-color-scheme`, `prefers-contrast`). `AppearanceProvider` accepts
 `branding={{ colorPrimary, logoUrl }}`: WP-017 will load it per tenant; nothing else changes.
 
+The console's density, page layouts and action rules are in
+[console-design.md](console-design.md) (D-124): `buildTheme(mode, branding, locale, density)`
+takes `compact` for the console.
+
 ## Shell and entitlements
 
 Console: sidebar (collapsible; mirrors in RTL), header (Ctrl+K palette, appearance, tenant

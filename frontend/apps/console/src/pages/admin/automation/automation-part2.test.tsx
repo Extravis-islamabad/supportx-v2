@@ -14,6 +14,7 @@ import { scriptedRealtime } from '@supportx/realtime/testing';
 import { App } from '../../../App';
 import { consoleApi } from '../../../test/api';
 import { rememberTab } from '../../incidents/tabs';
+import { actionItem, clickAction, isDisabled } from '../../../test/actions';
 
 // WP-029 part 2: triggers, transition settings, the record's automation panel, loop warnings.
 
@@ -284,7 +285,7 @@ describe('The record (WP-029 part 2)', () => {
     };
     const fake = routes({ [`GET ${PATH}`]: { body: item, headers: { ETag: '"1"' } } });
     open(`/incidents/${item.id}`);
-    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    await clickAction('inc-action-resolve');
     expect((await screen.findByTestId('inc-action-confirmation')).textContent).toBe(
       'Is the user happy?',
     );
@@ -300,8 +301,9 @@ describe('The record (WP-029 part 2)', () => {
     };
     routes({ [`GET ${PATH}`]: { body: item, headers: { ETag: '"1"' } } });
     open(`/incidents/${item.id}`);
-    const reason = await screen.findByTestId('inc-action-resolve-reason');
-    expect(reason.getAttribute('data-reason')).toBe('not_for_you');
+    const resolve = await actionItem('inc-action-resolve');
+    expect(isDisabled(resolve)).toBe(true);
+    expect(resolve.textContent).toContain('Only certain people may do this on this record.');
   });
 });
 

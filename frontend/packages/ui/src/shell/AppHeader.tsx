@@ -42,6 +42,11 @@ export interface AppHeaderProps {
   menuItems?: NonNullable<MenuProps['items']>;
   /** Shown instead of the app name at the start of the row (top-bar navigation). */
   start?: ReactNode;
+  /**
+   * Where the user is, in place of the app's name (the console's breadcrumbs); `narrow` is the
+   * phone-width header. Omitted: the app's name (the portal).
+   */
+  context?: (narrow: boolean) => ReactNode;
   /** Offer the navigation layout choice (console). */
   onNavLayoutChange?: (layout: NavLayout) => void;
   /** Store the language the user picks (it follows them to every device, QA BUG-04). */
@@ -103,6 +108,7 @@ export function AppHeader({
   extra,
   menuItems,
   start,
+  context,
   onNavLayoutChange,
   onLocaleChange,
 }: AppHeaderProps) {
@@ -174,7 +180,7 @@ export function AppHeader({
         lineHeight: 'normal',
       }}
     >
-      {start ?? (
+      {start ?? context?.(narrow) ?? (
         <Typography.Text strong style={{ flex: 1 }}>
           {t(appName)}
         </Typography.Text>
@@ -264,13 +270,17 @@ export function AppHeader({
         <Button
           type="text"
           data-testid="user-menu"
-          aria-label={narrow ? `${t('shell.menu')}: ${session.user.display_name}` : undefined}
           style={{ height: 'auto', paddingBlock: 4, paddingInline: narrow ? 4 : undefined }}
         >
           <Flex align="center" gap={8}>
             <Avatar aria-hidden style={{ background: token.colorPrimary }}>
               {initials(session.user.display_name)}
             </Avatar>
+            {narrow && (
+              // Named by its content, not an aria-label that differs from the initials it shows
+              // (QA WP-036 BUG-07, axe label-content-name-mismatch).
+              <span className="sx-visually-hidden">{`${t('shell.menu')}: ${session.user.display_name}`}</span>
+            )}
             {!narrow && (
               <Typography.Text data-testid="user-name">{session.user.display_name}</Typography.Text>
             )}

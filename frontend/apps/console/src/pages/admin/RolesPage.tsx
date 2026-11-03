@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { queryKeys, useRoles, type RoleSummary } from '@supportx/api-client';
 import { refreshList, useListChannel } from '@supportx/realtime';
-import { NoAccess, useAccess, useLabel, WriteButton } from '@supportx/ui';
+import { NoAccess, PageHeader, useAccess, useLabel, WriteButton } from '@supportx/ui';
 
 import { RoleEditor } from './RoleEditor';
 import { TechnicianVisibilityCard } from './TechnicianVisibility';
@@ -30,23 +30,24 @@ export function RolesPage() {
 
   return (
     <>
-      <Flex justify="space-between" align="baseline" style={{ marginBottom: 16 }}>
-        <Typography.Title level={2} style={{ margin: 0 }}>
-          {t('roles.title')}
-        </Typography.Title>
-        {can('roles.manage') && (
-          <WriteButton
-            type="primary"
-            icon={<PlusOutlined />}
-            data-testid="new-role"
-            onClick={() => {
-              setEditing(null);
-            }}
-          >
-            {t('roles.new')}
-          </WriteButton>
-        )}
-      </Flex>
+      <PageHeader
+        level={2}
+        title={t('roles.title')}
+        extra={
+          can('roles.manage') && (
+            <WriteButton
+              type="primary"
+              icon={<PlusOutlined />}
+              data-testid="new-role"
+              onClick={() => {
+                setEditing(null);
+              }}
+            >
+              {t('roles.new')}
+            </WriteButton>
+          )
+        }
+      />
       <Table<RoleSummary>
         rowKey="id"
         data-testid="roles-table"
