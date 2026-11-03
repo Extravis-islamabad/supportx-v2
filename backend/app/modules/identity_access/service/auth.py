@@ -35,7 +35,6 @@ from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
     Identity,
-    UserType,
     identity_from,
     safe_return_to,
     validate_claims,
@@ -59,7 +58,12 @@ from app.modules.identity_access.infra.oidc import (
 from app.modules.identity_access.infra.store import SessionStore
 from app.modules.identity_access.service import mfa as mfa_service
 from app.modules.identity_access.service import sso_test
-from app.modules.identity_access.service.users import provision_user, record_logout, tenant_name
+from app.modules.identity_access.service.users import (
+    provision_user,
+    record_logout,
+    requester_only,
+    tenant_name,
+)
 from app.shared.clock import Clock
 
 if TYPE_CHECKING:
@@ -313,7 +317,7 @@ class AuthService:
             raise LoginFailure(app, exc, origin) from exc
         if previous_session_id:  # rotation: the pre-login session (if any) dies here
             await self.store.delete_session(previous_session_id)
-        if app == "console" and session.user_type == UserType.REQUESTER.value:
+        if app == "console" and await self._requester_only(session):
             # The console's paths mean nothing in the portal: its home, never return_to.
             log.info("login_sent_to_portal", subject=session.subject, tenant_id=session.tenant_id)
             return PortalInstead(self.landing("portal", "/", origin))
@@ -325,6 +329,11 @@ class AuthService:
             query = urlencode({"account_action": pending["account_action"], "status": outcome})
             landing += ("&" if "?" in landing else "?") + query
         return LoginResult(session_id, session, landing)
+
+    async def _requester_only(self, session: Session) -> bool:
+        if self.database is None:  # pragma: no cover - a login needs the database
+            return False
+        return await requester_only(self.database, session.tenant_uuid, session.user_uuid)
 
     async def _login(self, app: AppName, code: str, pending: dict[str, Any]) -> Session:
         client = self.client(app, pending.get("origin"))

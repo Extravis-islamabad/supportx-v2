@@ -5317,11 +5317,11 @@ export const en = {
   'directory_attribute.country': 'Country',
   'people.managed_by_directory':
     'Name, address, job, phone, site, department and manager come from the directory. Change them there; VIP, language and notes stay yours.',
-  'permission.requests.view_department': 'View requests of their department',
-  'permission.requests.view_department.description':
+  'permission.work_items.view_department': 'View requests of their department',
+  'permission.work_items.view_department.description':
     'In the portal, see the incidents and requests of people in their own department.',
-  'permission.requests.view_reports': 'View requests of their direct reports',
-  'permission.requests.view_reports.description':
+  'permission.work_items.view_reports': 'View requests of their direct reports',
+  'permission.work_items.view_reports.description':
     'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
   'portal_status.received': 'Received',
   'portal_status.in_progress': 'In progress',
@@ -5391,6 +5391,9 @@ export const en = {
     'Your phone and mobile come from {{source}}. Change them there.',
   'directory_source.entra': 'Microsoft Entra ID',
   'directory_source.ldap': "your organisation's directory (LDAP)",
+  'nav.requester_portal': 'Requester portal',
+  'errors.console_requester_only': 'This account uses the requester portal, not the console.',
+  'permission_module.work_items': 'All requests (incidents and service requests)',
 } as const;
 
 export type LabelKey = keyof typeof en;

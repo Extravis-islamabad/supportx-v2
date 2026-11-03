@@ -161,7 +161,7 @@ describe('console shell', () => {
     });
   });
 
-  it('sends a requester to the portal, never showing the console (WP-028)', async () => {
+  it('sends a requester-only person to the portal, never showing the console (D-129)', async () => {
     api({ me: fakeSession({ user_type: 'requester', roles: ['requester'] }) });
     const navigate = vi.fn();
     at('/incidents');
@@ -170,6 +170,20 @@ describe('console shell', () => {
       expect(navigate).toHaveBeenCalledWith('/api/v1/auth/login?app=portal&returnTo=%2F');
     });
     expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
+  });
+
+  it('staff open the requester portal from the user menu (D-129)', async () => {
+    api();
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null);
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('user-menu'));
+    fireEvent.click(await screen.findByText('Requester portal'));
+    expect(opened).toHaveBeenCalledWith(
+      '/api/v1/auth/login?app=portal&returnTo=%2F',
+      '_blank',
+      'noopener',
+    );
+    opened.mockRestore();
   });
 
   it('follows the user locale: an Arabic user gets Arabic labels right-to-left', async () => {

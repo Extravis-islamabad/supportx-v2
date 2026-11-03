@@ -4921,11 +4921,11 @@ export const ur: LabelResource = {
   'directory_attribute.country': 'ملک',
   'people.managed_by_directory':
     'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
-  'permission.requests.view_department': 'اپنے شعبے کی درخواستیں دیکھیں',
-  'permission.requests.view_department.description':
+  'permission.work_items.view_department': 'اپنے شعبے کی درخواستیں دیکھیں',
+  'permission.work_items.view_department.description':
     'پورٹل میں اپنے شعبے کے لوگوں کے واقعات اور درخواستیں دیکھیں۔',
-  'permission.requests.view_reports': 'براہِ راست ماتحتوں کی درخواستیں دیکھیں',
-  'permission.requests.view_reports.description':
+  'permission.work_items.view_reports': 'براہِ راست ماتحتوں کی درخواستیں دیکھیں',
+  'permission.work_items.view_reports.description':
     'پورٹل میں اپنے براہِ راست ماتحتوں کے واقعات اور درخواستیں ایک الگ فلٹر میں دیکھیں۔',
   'portal_status.received': 'موصول ہو گیا',
   'portal_status.in_progress': 'کام جاری ہے',
@@ -4995,4 +4995,7 @@ export const ur: LabelResource = {
     'آپ کا فون اور موبائل {{source}} سے آتا ہے۔ انہیں وہیں تبدیل کریں۔',
   'directory_source.entra': 'Microsoft Entra ID',
   'directory_source.ldap': 'آپ کی تنظیم کی ڈائریکٹری (LDAP)',
+  'nav.requester_portal': 'درخواست گزار پورٹل',
+  'errors.console_requester_only': 'یہ اکاؤنٹ درخواست گزار پورٹل استعمال کرتا ہے، کنسول نہیں۔',
+  'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
 };

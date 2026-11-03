@@ -117,7 +117,7 @@ async def test_direct_reports_need_the_permission_and_have_their_own_filter(
     own = await world.create(a, a.admin)
 
     assert ids(await mine(world, a, boss)) == {own["id"]}  # no permission yet
-    granted = await role(world, a, "Team lead (portal)", [("requests.view_reports", "all")])
+    granted = await role(world, a, "Team lead (portal)", [("work_items.view_reports", "all")])
     assigned = await world.call("PUT", f"/users/{boss}/roles/{granted}", a, a.admin)
     assert assigned.status_code in {200, 204}, assigned.text
 
@@ -149,7 +149,7 @@ async def test_department_reach_covers_the_persons_own_department_only(world: Wo
     )
     assert colleague["id"] not in ids(await mine(world, a, a.requester))
 
-    granted = await role(world, a, "Department viewer", [("requests.view_department", "all")])
+    granted = await role(world, a, "Department viewer", [("work_items.view_department", "all")])
     assigned = await world.call("PUT", f"/users/{a.requester}/roles/{granted}", a, a.admin)
     assert assigned.status_code in {200, 204}, assigned.text
     seen = ids(await mine(world, a, a.requester))
@@ -266,7 +266,7 @@ async def test_a_requester_replies_but_a_manager_with_reach_only_reads(world: Wo
     assert [(e["body"], e["by_you"]) for e in entries] == [("<p>Any news?</p>", True)]
 
     await world.sql("UPDATE users SET manager_id = $1 WHERE id = $2", a.requester, a.requester2)
-    granted = await role(world, a, "Lead (portal)", [("requests.view_reports", "all")])
+    granted = await role(world, a, "Lead (portal)", [("work_items.view_reports", "all")])
     await world.call("PUT", f"/users/{a.requester}/roles/{granted}", a, a.admin)
     seen = await world.call("GET", f"{PORTAL}/{item['id']}/conversation", a, a.requester)
     assert seen.status_code == 200, seen.text

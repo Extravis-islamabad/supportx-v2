@@ -34,7 +34,7 @@ from app.modules.identity_access.events import (
     UserProvisioned,
     UserUpdated,
 )
-from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.infra.models import Role, User, UserRole
 from app.modules.identity_access.service.identity_settings import get_identity_settings
 from app.modules.identity_access.service.invitations import mark_accepted
 from app.modules.identity_access.service.roles import map_identity_roles
@@ -302,6 +302,40 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
         session_absolute_seconds=absolute,
         user_type=stored_type,
     )
+
+
+async def requester_only(database: Database, tenant_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Whether every SupportX role the person holds is `requester` (D-129).
+
+    Requester-only people never open the console; holding any other role (a technician or
+    admin role, system or custom) does; holding no role at all does not. Read from SupportX's
+    records (D-029); someone whose roles were never mapped holds their type's default role, as
+    the policy compiles it.
+    """
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        keys = set(
+            await session.scalars(
+                select(Role.key)
+                .join(UserRole, UserRole.role_id == Role.id)
+                .where(UserRole.user_id == user_id, Role.deleted_at.is_(None))
+            )
+        )
+        if not keys:  # as the policy compiles it: never mapped = the type's default role
+            person = (
+                await session.execute(
+                    select(User.user_type, User.roles_mapped_at).where(User.id == user_id)
+                )
+            ).one_or_none()
+            if person is not None and person.roles_mapped_at is None:
+                keys = {
+                    "technician"
+                    if person.user_type == UserType.TECHNICIAN.value
+                    else REQUESTER_ROLE
+                }
+    return keys <= {REQUESTER_ROLE}
+
+
+REQUESTER_ROLE = "requester"
 
 
 async def record_logout(

@@ -1,14 +1,12 @@
 """The portal's view of incidents for requesters (WP-028; ~/Desktop/wp-028-plan.md).
 
 Everything a requester reads goes through `viewer` and `reach_predicate`: the **one scope
-check** of D2. Wider reach than their own records is pending the product owner (permissions
-here, or scopes in identity's policy); moving it later touches only `viewer`.
-
-Today's default:
+check**. Wider reach than their own records is decided by D-129 (product owner, D2 option a):
+two permissions of the work-item engine, not of one type, so service requests use them too.
 
 - own: always (requester, or the person it is for), no permission needed;
-- direct reports: `requests.view_reports`;
-- department: `requests.view_department` (the person's own department);
+- direct reports: `work_items.view_reports`;
+- department: `work_items.view_department` (the person's own department);
 - site and all: `requests.view` at scope `site` / `all` ("my requests" covers incidents and
   service requests, REQ-PRT-007). `group` scope means nothing to a requester and is ignored.
 """
@@ -53,10 +51,11 @@ from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.history import Source
 
 VIEW = "requests.view"
-VIEW_DEPARTMENT = "requests.view_department"
-VIEW_REPORTS = "requests.view_reports"
+VIEW_DEPARTMENT = "work_items.view_department"
+VIEW_REPORTS = "work_items.view_reports"
 
-# work_items' share of D2 (registered through its ModuleSpec; no role holds them by default).
+# D-129: engine-level, for every work item type (registered through work_items' ModuleSpec);
+# no role holds them by default.
 PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec(VIEW_DEPARTMENT, "incident"),
     PermissionSpec(VIEW_REPORTS, "incident"),

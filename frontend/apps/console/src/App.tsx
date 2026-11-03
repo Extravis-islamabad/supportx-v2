@@ -29,10 +29,15 @@ export interface AppProps {
   navigate?: SessionGateProps['navigate'];
 }
 
+/** D-129: holding no role but `requester` (or none) means the portal, never the console. */
+function requesterOnly(roles: string[]): boolean {
+  return roles.every((role) => role === 'requester');
+}
+
 /**
- * A requester never works in the console (REQ-PRT-001 AC1, WP-028): the BFF sends them to the
- * portal at sign-in; a console session made before that rule goes there too. The portal's
- * sign-in completes silently on Keycloak's own session.
+ * Requester-only people never work in the console (D-129, WP-028): the BFF sends them to the
+ * portal at sign-in and ends a console session at /me; this is the screen's backstop. The
+ * portal's sign-in completes silently on Keycloak's own session.
  */
 function ToPortal({
   navigate = (url: string) => {
@@ -65,7 +70,7 @@ export function App({ navigate }: AppProps) {
             ) : (
               <SessionGate app="console" navigate={navigate}>
                 {(session) =>
-                  session.user.user_type === 'requester' ? (
+                  requesterOnly(session.user.roles) ? (
                     <ToPortal navigate={navigate} />
                   ) : (
                     // Keyed by tenant: a tenant switch remounts everything below with fresh state.

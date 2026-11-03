@@ -328,8 +328,17 @@ async def _audit_session(request: Request, session: Session, action_code: str) -
 @public_route
 async def me(found: CurrentSession, request: Request) -> MeResponse:
     """The logged-in user, active tenant, switchable tenants, CSRF token and permissions."""
-    _session_id, session = found
-    return await _describe(request, session)
+    session_id, session = found
+    described = await _describe(request, session)
+    policy_known = getattr(request.app.state, "policy", None) is not None
+    if policy_known and session.client == "console" and set(described.user.roles) <= {"requester"}:
+        # D-129: requester-only people never use the console, also with a session made before
+        # the rule or before their last staff role was removed. It ends here; signing in again
+        # on the console takes them to the portal.
+        auth: AuthService = request.app.state.auth
+        await auth.store.delete_session(session_id)
+        raise Unauthenticated(code="console_requester_only")
+    return described
 
 
 async def _describe(request: Request, session: Session) -> MeResponse:

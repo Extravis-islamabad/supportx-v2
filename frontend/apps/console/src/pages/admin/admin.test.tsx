@@ -213,10 +213,10 @@ describe('menus follow permissions', () => {
     restore();
   });
 
-  // Requesters never reach the console (WP-028, REQ-PRT-001 AC1): menus follow the permissions
-  // of a console user, here one holding only the narrow requester role.
+  // Requester-only people never reach the console (D-129): menus follow the permissions of a
+  // console user, here one with a narrow custom role beside the requester role.
   it('a narrow role sees only the sections it allows, and no Admin', async () => {
-    api({ me: fakeSession({ roles: ['requester'], user_type: 'technician' }) });
+    api({ me: fakeSession({ roles: ['requester', 'custom_narrow'], user_type: 'technician' }) });
     window.history.pushState({}, '', '/');
     render(<App />);
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' });

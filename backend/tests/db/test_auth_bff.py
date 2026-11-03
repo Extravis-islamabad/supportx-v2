@@ -189,26 +189,48 @@ async def test_an_agent_signing_in_on_the_console_is_unchanged(bff: Bff) -> None
     assert bff.cookie() is not None
 
 
-async def _set_type(bff: Bff, email: str, user_type: str) -> None:
-    conn = await asyncpg.connect(bff.db.admin_url)  # users has FORCED RLS
+async def _grant(bff: Bff, email: str, role: str) -> None:
+    conn = await asyncpg.connect(bff.db.admin_url)  # user_roles has FORCED RLS
     try:
-        await conn.execute("UPDATE users SET user_type = $2 WHERE email = $1", email, user_type)
+        await conn.execute(
+            "INSERT INTO user_roles (tenant_id, user_id, role_id)"
+            " SELECT u.tenant_id, u.id, r.id FROM users u JOIN roles r ON r.tenant_id = u.tenant_id"
+            " WHERE u.email = $1 AND r.key = $2 ON CONFLICT DO NOTHING",
+            email,
+            role,
+        )
     finally:
         await conn.close()
 
 
-async def test_the_stored_type_decides_the_landing_not_keycloak(bff: Bff) -> None:
-    """D-029: SupportX's record decides once the person exists; Keycloak's roles do not."""
+async def _revoke(bff: Bff, email: str, role: str) -> None:
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        await conn.execute(
+            "DELETE FROM user_roles ur USING users u, roles r WHERE ur.user_id = u.id"
+            " AND ur.role_id = r.id AND u.email = $1 AND r.key = $2",
+            email,
+            role,
+        )
+    finally:
+        await conn.close()
+
+
+async def test_supportx_roles_decide_the_landing_not_keycloak(bff: Bff) -> None:
+    """D-129, D-029: any role but requester opens the console; Keycloak's roles do not count."""
     promoted = bff.user("a", email="promoted@demo.test", roles=("requester",))
     await bff.login(promoted, app="portal")
-    await _set_type(bff, "promoted@demo.test", "technician")
+    await _grant(bff, "promoted@demo.test", "technician")
     landed = await bff.login(promoted, return_to="/incidents")
     assert (landed.status_code, landed.headers["location"]) == (302, f"{CONSOLE}/incidents")
-    assert (await bff.me()).json()["user"]["user_type"] == "technician"
 
     demoted = bff.user("a", email="demoted@demo.test", roles=("technician",))
     await bff.login(demoted)
-    await _set_type(bff, "demoted@demo.test", "requester")
+    await _revoke(bff, "demoted@demo.test", "technician")
+    await _grant(bff, "demoted@demo.test", "requester")
+    # Their console session ends at the next /me (made before the change) ...
+    assert (await bff.me()).status_code == 401
+    # ... and signing in again on the console takes them to the portal.
     sent = await bff.login(demoted, return_to="/incidents")
     assert (sent.status_code, sent.headers["location"]) == (303, f"{PORTAL}/")
 
@@ -789,7 +811,10 @@ async def test_keycloak_roles_are_mapped_only_once(bff: Bff) -> None:
             a,
         )
         # ...then the user signs in again, still a technician in Keycloak, now even an admin there.
-        await bff.login(bff.user("a", email="once@demo.test", roles=("technician", "tenant_admin")))
+        # With no SupportX role left they are not let into the console (D-129): the portal.
+        again = bff.user("a", email="once@demo.test", roles=("technician", "tenant_admin"))
+        assert (await bff.login(again)).status_code == 303
+        await bff.login(again, app="portal")
         count = await conn.fetchval(
             "SELECT count(*) FROM user_roles ur JOIN users u ON u.id = ur.user_id"
             " WHERE u.tenant_id = $1 AND u.email = 'once@demo.test'",

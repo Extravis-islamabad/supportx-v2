@@ -5387,11 +5387,11 @@ export const ar: LabelResource = {
   'directory_attribute.country': 'البلد',
   'people.managed_by_directory':
     'يأتي الاسم والعنوان والوظيفة والهاتف والموقع والقسم والمدير من الدليل. غيّرها هناك؛ وتبقى أولوية كبار الشخصيات واللغة والملاحظات لك.',
-  'permission.requests.view_department': 'عرض طلبات قسمه',
-  'permission.requests.view_department.description':
+  'permission.work_items.view_department': 'عرض طلبات قسمه',
+  'permission.work_items.view_department.description':
     'في البوابة، رؤية حوادث وطلبات الأشخاص في قسمه.',
-  'permission.requests.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
-  'permission.requests.view_reports.description':
+  'permission.work_items.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
+  'permission.work_items.view_reports.description':
     'في البوابة، رؤية حوادث وطلبات الأشخاص الذين يتبعونه مباشرة، ضمن عامل تصفية منفصل.',
   'portal_status.received': 'تم الاستلام',
   'portal_status.in_progress': 'قيد المعالجة',
@@ -5464,4 +5464,7 @@ export const ar: LabelResource = {
   'account.contact.from_directory': 'يأتي هاتفك وجوالك من {{source}}. غيّرهما هناك.',
   'directory_source.entra': 'Microsoft Entra ID',
   'directory_source.ldap': 'دليل مؤسستك (LDAP)',
+  'nav.requester_portal': 'بوابة مقدمي الطلبات',
+  'errors.console_requester_only': 'يستخدم هذا الحساب بوابة مقدمي الطلبات، وليس وحدة التحكم.',
+  'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
 };
