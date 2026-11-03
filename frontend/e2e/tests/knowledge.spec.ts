@@ -378,7 +378,10 @@ test('knowledge in a reply: the server decides the warning, the card shows the l
     await tech.page.getByRole('tab', { name: /Conversation/ }).click();
     await tech.page.getByTestId('conv-reply').locator('button').first().click();
     const pickFrom = async (title: string, action: 'content' | 'link') => {
-      await tech.page.getByTestId('kb-picker-open').click();
+      // The reply editor's picker: the record panel's Knowledge card has its own (D-124).
+      await tech.page
+        .locator('[data-testid="kb-picker-open"]:not([data-testid="kb-card"] *)')
+        .click();
       const drawer = tech.page.getByTestId('kb-picker');
       await drawer.getByTestId('kb-picker-search').locator('input').fill(title);
       const row = drawer.locator('[data-testid^="kb-picker-item-"]').filter({ hasText: title });
