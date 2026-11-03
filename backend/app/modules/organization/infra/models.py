@@ -19,13 +19,14 @@ from sqlalchemy import (
     CheckConstraint,
     ForeignKeyConstraint,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.organization.domain.tenant import SLUG_PATTERN
@@ -394,3 +395,33 @@ class TenantDomain(TenantEntity):
     private_key_key_id: Mapped[uuid.UUID | None]
     certificate_not_after: Mapped[datetime | None]
     certificate_error: Mapped[str | None]
+
+
+class TenantSettings(TenantKeyed, Base):
+    """The tenant's instance settings (WP-042; REQ-ADM-049, 050, 052), created on first use.
+
+    Defaults for people and sites (a person's own choice wins, then their site's), the base
+    currency, and the languages offered (English always).
+    """
+
+    __tablename__ = "tenant_settings"
+    __table_args__ = (
+        CheckConstraint("fiscal_year_start_month BETWEEN 1 AND 12", name="fiscal_month_range"),
+        CheckConstraint("'en' = ANY(languages)", name="english_offered"),
+        CheckConstraint("default_language = ANY(languages)", name="default_offered"),
+    )
+
+    time_zone: Mapped[str] = mapped_column(String(64), server_default="UTC")
+    week_start: Mapped[str] = mapped_column(String(10), server_default="monday")
+    date_format: Mapped[str] = mapped_column(String(12), server_default="dd/mm/yyyy")
+    time_format: Mapped[str] = mapped_column(String(4), server_default="24h")
+    country: Mapped[str | None] = mapped_column(String(2))
+    fiscal_year_start_month: Mapped[int] = mapped_column(Integer, server_default="1")
+    contact_email: Mapped[str | None] = mapped_column(String(320))
+    contact_phone: Mapped[str | None] = mapped_column(String(40))
+    base_currency: Mapped[str] = mapped_column(String(3), server_default="USD")
+    languages: Mapped[list[str]] = mapped_column(ARRAY(String(5)), server_default="{en,ar,ur}")
+    default_language: Mapped[str] = mapped_column(String(5), server_default="en")
+    version: Mapped[int] = mapped_column(Integer, server_default="1")
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+    updated_by: Mapped[uuid.UUID | None]

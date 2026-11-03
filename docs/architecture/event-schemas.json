@@ -2605,6 +2605,30 @@
         "type": "object"
       }
     },
+    "organization.tenant_settings.changed": {
+      "1": {
+        "description": "The tenant's instance settings changed (WP-042): defaults and languages refetch.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "changed_fields"
+        ],
+        "title": "TenantSettingsChanged",
+        "type": "object"
+      }
+    },
     "sla.calendar.deleted": {
       "1": {
         "description": "A working calendar went to the trash (only when no site, group or policy uses it).",

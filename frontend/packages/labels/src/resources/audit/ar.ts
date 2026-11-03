@@ -522,4 +522,6 @@ export const ar: LabelResource = {
   'event_type.sla.target.breached': 'تأخر هدف اتفاقية مستوى الخدمة',
   'event_type.sla.target.escalated': 'تنفيذ مستوى تصعيد لاتفاقية مستوى الخدمة',
   'history.sla_escalation': '{{target}}: نُفِّذ المستوى {{level}}',
+  'event_type.organization.tenant_settings.changed': 'تغيّرت إعدادات المنشأة',
+  'audit.action.organization.settings_changed': 'غيّر إعدادات المنشأة',
 };

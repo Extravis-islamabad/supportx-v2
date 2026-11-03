@@ -92,6 +92,17 @@ class DomainChanged(DomainEvent):
     change: Literal["added", "verified", "failed", "certificate", "removed"]
 
 
+class TenantSettingsChanged(DomainEvent):
+    """The tenant's instance settings changed (WP-042): defaults and languages refetch."""
+
+    event_type: ClassVar[str] = "organization.tenant_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "tenant_settings"
+
+    version: int
+    changed_fields: list[str]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     SiteChanged,
     SupportGroupChanged,
@@ -100,4 +111,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     MembershipChanged,
     BrandingChanged,
     DomainChanged,
+    TenantSettingsChanged,
 )

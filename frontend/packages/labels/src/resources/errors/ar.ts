@@ -584,4 +584,16 @@ export const ar: LabelResource = {
   'errors.field.unknown_reference': 'لم يعد أحد الأشخاص أو المجموعات المذكورة هنا موجودًا.',
   'errors.field.level_too_many_recipients': 'يُسمح بـ {{max}} مستلمًا على الأكثر لكل مستوى.',
   'errors.field.level_too_many_actions': 'يُسمح بـ {{max}} إجراءات على الأكثر لكل مستوى.',
+  'errors.field.time_zone_unknown': 'اختر منطقة زمنية من القائمة.',
+  'errors.field.week_start_unknown': 'اختر يوم بداية الأسبوع.',
+  'errors.field.date_format_unknown': 'اختر تنسيق تاريخ من القائمة.',
+  'errors.field.time_format_unknown': 'اختر نظام 24 ساعة أو 12 ساعة.',
+  'errors.field.country_invalid': 'اختر دولة من القائمة.',
+  'errors.field.month_out_of_range': 'اختر شهرًا من القائمة.',
+  'errors.field.email_invalid': 'أدخل عنوان بريد مثل name@example.com.',
+  'errors.field.currency_unknown': 'اختر عملة من القائمة.',
+  'errors.field.languages_invalid': 'الإنجليزية متاحة دائمًا؛ اختر العربية أو الأردية أيضًا.',
+  'errors.field.default_language_not_offered': 'يجب أن تكون اللغة الافتراضية إحدى اللغات المتاحة.',
+  'errors.currency_change_needs_confirmation':
+    'يتطلب تغيير العملة الأساسية تأكيدًا: تبقى المبالغ المسجلة سابقًا بالعملة القديمة.',
 };

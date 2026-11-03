@@ -14,6 +14,7 @@ from app.shared.realtime import Publication, RealtimeEffects, RealtimeRoute, bro
 BRANDING_CHANGED = "organization.branding_changed"
 DOMAINS_CHANGED = "organization.domains_changed"
 STRUCTURE_CHANGED = "organization.structure_changed"
+SETTINGS_CHANGED = "organization.settings_changed"
 
 
 async def _branding_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -30,6 +31,14 @@ async def _domains_changed(envelope: EventEnvelope, session: AsyncSession) -> Re
     )
 
 
+async def _settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """Instance settings (WP-042): open screens refetch the defaults and languages offered."""
+    del session
+    return RealtimeEffects(
+        publications=[Publication(broadcast(envelope.tenant_id), SETTINGS_CHANGED)]
+    )
+
+
 async def _structure_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     del session
     return RealtimeEffects(
@@ -39,6 +48,7 @@ async def _structure_changed(envelope: EventEnvelope, session: AsyncSession) -> 
 
 ROUTES = [
     RealtimeRoute(("organization.branding.changed",), _branding_changed),
+    RealtimeRoute(("organization.tenant_settings.changed",), _settings_changed),
     RealtimeRoute(("organization.domain.changed",), _domains_changed),
     RealtimeRoute(
         (

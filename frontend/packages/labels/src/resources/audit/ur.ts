@@ -504,4 +504,6 @@ export const ur: LabelResource = {
   'event_type.sla.target.breached': 'ایس ایل اے ہدف میں تاخیر',
   'event_type.sla.target.escalated': 'ایس ایل اے ایسکلیشن کا درجہ چلا',
   'history.sla_escalation': '{{target}}: درجہ {{level}} چلا',
+  'event_type.organization.tenant_settings.changed': 'تنصیب کی ترتیبات بدلیں',
+  'audit.action.organization.settings_changed': 'تنصیب کی ترتیبات بدلیں',
 };

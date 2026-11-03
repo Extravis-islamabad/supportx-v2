@@ -514,4 +514,6 @@ export const en = {
   'event_type.sla.target.breached': 'SLA target overdue',
   'event_type.sla.target.escalated': 'SLA escalation level ran',
   'history.sla_escalation': '{{target}}: level {{level}} ran',
+  'event_type.organization.tenant_settings.changed': 'Instance settings changed',
+  'audit.action.organization.settings_changed': 'Changed the instance settings',
 } as const;

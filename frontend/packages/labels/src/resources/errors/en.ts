@@ -635,4 +635,17 @@ export const en = {
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
   'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
   'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
+  'errors.field.time_zone_unknown': 'Choose a time zone from the list.',
+  'errors.field.week_start_unknown': 'Choose the day the week starts.',
+  'errors.field.date_format_unknown': 'Choose a date format from the list.',
+  'errors.field.time_format_unknown': 'Choose 24-hour or 12-hour time.',
+  'errors.field.country_invalid': 'Choose a country from the list.',
+  'errors.field.month_out_of_range': 'Choose a month from the list.',
+  'errors.field.email_invalid': 'Enter an e-mail address like name@example.com.',
+  'errors.field.currency_unknown': 'Choose a currency from the list.',
+  'errors.field.languages_invalid': 'English is always offered; choose any of Arabic and Urdu too.',
+  'errors.field.default_language_not_offered':
+    'The default language must be one of the languages offered.',
+  'errors.currency_change_needs_confirmation':
+    'Changing the base currency needs a confirmation: amounts already recorded stay in the old one.',
 } as const;
