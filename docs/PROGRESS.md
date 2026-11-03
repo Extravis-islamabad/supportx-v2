@@ -749,6 +749,29 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
+### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+- **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
+- **Parked for the product owner:** D3 edition line (catalog basics with `service_request`,
+  advanced parts with `catalog`); D7 e-mail approvals: interim default sign-in required, the
+  no-sign-in link behind an off setting. Signed action links (REQ-NTF-024) are built by lane A
+  in session 3 under lane B's security review (their five conditions are in the plan).
+- [ ] Session 1 (in progress): done: the service request life cycle (awaiting_approval,
+  fulfilled, rejected; system actions approve/reject; migration 0059); the `service_catalog`
+  module (categories and items with form questions, one approval stage, plan, priority, SLA
+  policy, group, technician; API with If-Match, audit, RLS; migration 0062); the service request
+  type in TYPES (`/api/v1/service-requests`, SR counter; requests.* moved from identity under
+  lane B's pins); creation from an item (refused without one, answers checked, awaiting approval
+  when needed, item priority marked `catalog_item`, group and technician from the item,
+  technician after approval; migration 0063 also widens priority_source and
+  custom_fields.entity); SLA record type. Tests: domain (life cycle 4, start 4, items 5), db
+  (catalog 5, service requests 5, requests.* pins 4). **Still to do:** lists and built-in views
+  (REQ-SR-009), raising from the catalog in the console (REQ-SR-010), on behalf of with the
+  tenant's scope (REQ-SR-011), the record page's item section (REQ-SR-003 AC1), labels into
+  module files after #181.
+- [ ] Session 2: the approval engine, the console approvals drawer, the portal approve/reject,
+  live progress, withdraw, the SLA waiting for approval and the item's SLA.
+- [ ] Session 3: signed action links and e-mail approvals, fulfilment, requester views, e2e.
+
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
 - [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
