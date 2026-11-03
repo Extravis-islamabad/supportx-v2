@@ -642,6 +642,22 @@ def member_guard(
     return guard
 
 
+async def guard_group_disable(session: AsyncSession, group_id: uuid.UUID) -> None:
+    """409 `last_tenant_admin` if disabling this group would leave the tenant without an admin."""
+    role_id = (await ensure_system_roles(session))[TENANT_ADMIN]
+    carries = await session.scalar(
+        select(GroupRole.role_id).where(
+            GroupRole.group_id == group_id, GroupRole.role_id == role_id
+        )
+    )
+    if carries is None:
+        return
+    lock = func.hashtextextended(f"authz:{_tenant(session)}:admins", 0)
+    await session.execute(select(func.pg_advisory_xact_lock(lock)))
+    if not await _tenant_admin_holders(session, without_group=group_id):
+        raise Conflict(code="last_tenant_admin")
+
+
 async def roles_through_groups(
     session: AsyncSession, group_ids: frozenset[uuid.UUID]
 ) -> list[tuple[uuid.UUID, uuid.UUID]]:

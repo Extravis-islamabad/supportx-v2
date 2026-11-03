@@ -149,3 +149,25 @@ async def test_a_sync_made_membership_change_refreshes_access_like_any_other(wor
     finally:
         await conn.close()
     assert found == 1
+
+
+async def test_disabling_the_last_admin_s_group_is_refused(world: World) -> None:  # noqa: F811
+    a = world.a
+    group = await _group(world, "Sole owners")
+    admin_role = await world.role_id(a, "tenant_admin")
+    await world.call("PUT", f"/roles/{admin_role}/groups/{group}", a, a.admin)
+    await world.call("PUT", f"/organization/groups/{group}/members/{a.tech}", a, a.admin)
+    assert (
+        await world.call("DELETE", f"/users/{a.admin}/roles/{admin_role}", a, a.admin)
+    ).status_code == 204
+    groups = (await world.call("GET", "/organization/groups", a, a.tech)).json()
+    version = next(g["version"] for g in groups if g["id"] == str(group))
+    refused = await world.call(
+        "PATCH",
+        f"/organization/groups/{group}",
+        a,
+        a.tech,
+        json={"disabled": True},
+        headers={"If-Match": f'"{version}"'},
+    )
+    assert problem(refused) == (409, "last_tenant_admin")

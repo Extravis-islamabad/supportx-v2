@@ -58,8 +58,10 @@ from app.modules.organization.service.structure import (
     find_department,
     find_site,
     leave_groups,
+    register_group_disable_guard,
     site_defaults,
     unit_heads,
+    unregister_group_disable_guard,
 )
 from app.modules.organization.service.tenants import get_current_tenant
 from app.modules.organization.service.units import (
@@ -157,6 +159,7 @@ __all__ = [
     "memberships",
     "module",
     "register_calendar_check",
+    "register_group_disable_guard",
     "register_member_guard",
     "register_usage",
     "remove_member",
@@ -164,6 +167,7 @@ __all__ = [
     "tenant_for_host",
     "unit_calendars",
     "unit_heads",
+    "unregister_group_disable_guard",
     "unregister_member_guard",
     "users_in_groups",
     "users_in_sites",
