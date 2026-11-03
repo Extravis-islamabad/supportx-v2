@@ -663,3 +663,22 @@ export {
   type KbFromRecord,
   type KbAudience,
 } from './knowledge';
+export {
+  portalKeys,
+  useAnswerFix,
+  usePortalConversation,
+  usePortalIncident,
+  usePortalIncidents,
+  usePortalReply,
+  usePortalTemplates,
+  useReportIssue,
+  type PortalEntry,
+  type PortalIncident,
+  type PortalIncidentInput,
+  type PortalIncidentPage,
+  type PortalIncidentsQuery,
+  type PortalReach,
+  type PortalState,
+  type PortalStatus,
+  type PortalTemplate,
+} from './portal';

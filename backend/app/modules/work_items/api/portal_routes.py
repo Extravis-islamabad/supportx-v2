@@ -214,7 +214,12 @@ async def list_portal_templates(
     return [PortalTemplateOut.of(t) for t in await service.portal_templates(session)]
 
 
-@router.post("", summary="Report an issue in the portal", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    summary="Report an issue in the portal",
+    status_code=status.HTTP_201_CREATED,
+    response_model=PortalIncidentOut,
+)
 async def create_portal_incident(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: PortalIncidentIn,
     session: TenantSession,
