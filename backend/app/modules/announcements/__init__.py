@@ -21,9 +21,19 @@ FEATURE = "incident"
 # Technicians read every announcement and write their own; publishing and the four-eyes setting
 # stay with admins (and custom roles) until the product owner says otherwise.
 PERMISSIONS = (
-    PermissionSpec(VIEW, FEATURE, ALL_SCOPES, defaults=(("technician", "all"),)),
-    PermissionSpec(MANAGE, FEATURE, ALL_SCOPES, defaults=(("technician", "own"),)),
-    PermissionSpec(PUBLISH, FEATURE),
+    PermissionSpec(
+        VIEW,
+        FEATURE,
+        ALL_SCOPES,
+        defaults=(("technician", "all"), ("service_desk_manager", "all"), ("site_admin", "site")),
+    ),
+    PermissionSpec(
+        MANAGE,
+        FEATURE,
+        ALL_SCOPES,
+        defaults=(("technician", "own"), ("service_desk_manager", "all"), ("site_admin", "site")),
+    ),
+    PermissionSpec(PUBLISH, FEATURE, defaults=(("service_desk_manager", "all"),)),
 )
 
 module = ModuleSpec(

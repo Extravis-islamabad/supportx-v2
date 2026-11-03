@@ -743,4 +743,13 @@ export const en = {
   'roles.compare_same': 'These roles grant the same permissions.',
   'roles.compare_not_granted': 'Not granted',
   'roles.compare_differs': 'Differs',
+  'role.service_desk_manager': 'Service desk manager',
+  'role.service_desk_manager.description':
+    'Runs the service desk: every incident and request, the desk’s SLAs, automation, reports and announcements.',
+  'role.site_admin': 'Site administrator',
+  'role.site_admin.description':
+    'Looks after one site: its incidents and requests, people, assets and announcements.',
+  'role.report_viewer': 'Report viewer',
+  'role.report_viewer.description':
+    'Reads every incident and request and their reports, without changing anything.',
 } as const;

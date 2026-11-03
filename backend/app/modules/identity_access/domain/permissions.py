@@ -33,7 +33,21 @@ SECURITY_ADMIN = "security_admin"
 # Writes, reviews and publishes knowledge (D-108, WP-033 session 2). Its knowledge permissions
 # come from the knowledge module (PermissionSpec.defaults); identity only gives the role its key.
 KNOWLEDGE_MANAGER = "knowledge_manager"
-SYSTEM_ROLES = (TENANT_ADMIN, TECHNICIAN, REQUESTER, AUDITOR, SECURITY_ADMIN, KNOWLEDGE_MANAGER)
+# WP-042 (REQ-ADM-018), agreed with lanes A and B: run the desk; one site's admin; read reports.
+SERVICE_DESK_MANAGER = "service_desk_manager"
+SITE_ADMIN = "site_admin"
+REPORT_VIEWER = "report_viewer"
+SYSTEM_ROLES = (
+    TENANT_ADMIN,
+    TECHNICIAN,
+    REQUESTER,
+    AUDITOR,
+    SECURITY_ADMIN,
+    KNOWLEDGE_MANAGER,
+    SERVICE_DESK_MANAGER,
+    SITE_ADMIN,
+    REPORT_VIEWER,
+)
 
 ALL = ALL_SCOPES
 OWN_ONLY: tuple[Scope, ...] = ("own",)
@@ -129,6 +143,36 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("identity.manage", "all"),
         ),
         KNOWLEDGE_MANAGER: (("profile.edit", "own"),),
+        # WP-042 (REQ-ADM-018), agreed with lanes A and B. Identity's own and the reserved
+        # grants only; each module declares the rest in its PermissionSpec defaults.
+        # Runs the service desk. No settings.manage (lane B): config.service_desk once the
+        # per-area configure rights exist; identity, security and API keys stay identity.manage.
+        SERVICE_DESK_MANAGER: (
+            ("profile.edit", "own"),
+            ("requests.view", "all"),
+            ("requests.create", "all"),
+            ("requests.edit", "all"),
+            ("requests.assign", "all"),
+            ("requests.close", "all"),
+            ("users.view", "all"),
+            ("sites.view", "all"),
+            ("groups.view", "all"),
+        ),
+        # One site's administrator (people view only: users.manage has no site scope yet).
+        SITE_ADMIN: (
+            ("profile.edit", "own"),
+            ("requests.view", "site"),
+            ("requests.edit", "site"),
+            ("requests.assign", "site"),
+            ("requests.close", "site"),
+            ("users.view", "site"),
+            ("assets.view", "site"),
+            ("assets.manage", "site"),
+            ("sites.view", "all"),
+        ),
+        # Reads incidents, requests and their reports, read-only (lane B: reports apply the
+        # viewer's own scope, so without view rights they would be empty).
+        REPORT_VIEWER: (("profile.edit", "own"), ("requests.view", "all")),
     }
 )
 

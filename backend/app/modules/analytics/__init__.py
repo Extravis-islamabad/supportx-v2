@@ -43,16 +43,38 @@ _OWN: tuple[Scope, ...] = ("own",)
 # Managing shared folders stays with admins (and custom roles) until the product owner says
 # otherwise; admins hold every permission.
 PERMISSIONS = (
-    PermissionSpec(VIEW, None, _NOT_OWN, defaults=(("technician", "all"),)),
-    PermissionSpec(CREATE, None, _OWN, defaults=(("technician", "own"),)),
+    PermissionSpec(
+        VIEW,
+        None,
+        _NOT_OWN,
+        defaults=(
+            ("technician", "all"),
+            ("service_desk_manager", "all"),
+            ("site_admin", "site"),
+            ("report_viewer", "all"),
+        ),
+    ),
+    PermissionSpec(
+        CREATE, None, _OWN, defaults=(("technician", "own"), ("service_desk_manager", "own"))
+    ),
     PermissionSpec(MANAGE_FOLDERS, None, ("all",)),
-    PermissionSpec(EXPORT, None, ("all",), defaults=(("technician", "all"),)),
+    PermissionSpec(
+        EXPORT,
+        None,
+        ("all",),
+        defaults=(("technician", "all"), ("service_desk_manager", "all"), ("report_viewer", "all")),
+    ),
     # Scheduling mails reports to people: administrators by default (custom roles may add it).
-    PermissionSpec(SCHEDULE, None, ("all",)),
+    PermissionSpec(SCHEDULE, None, ("all",), defaults=(("service_desk_manager", "all"),)),
     # Dashboards (WP-036, REQ-DSH-029): technicians make their own; sharing with everyone and
     # setting role homes are for administrators by default.
-    PermissionSpec(dashboards.CREATE, None, _OWN, defaults=(("technician", "own"),)),
-    PermissionSpec(dashboards.SHARE, None, ("all",)),
+    PermissionSpec(
+        dashboards.CREATE,
+        None,
+        _OWN,
+        defaults=(("technician", "own"), ("service_desk_manager", "own")),
+    ),
+    PermissionSpec(dashboards.SHARE, None, ("all",), defaults=(("service_desk_manager", "all"),)),
     PermissionSpec(dashboards.MANAGE_DEFAULTS, None, ("all",)),
 )
 

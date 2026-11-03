@@ -739,4 +739,11 @@ export const ar: LabelResource = {
   'roles.compare_same': 'يمنح هذان الدوران الأذونات نفسها.',
   'roles.compare_not_granted': 'غير ممنوح',
   'roles.compare_differs': 'مختلف',
+  'role.service_desk_manager': 'مدير مكتب الخدمة',
+  'role.service_desk_manager.description':
+    'يدير مكتب الخدمة: كل الحوادث والطلبات، واتفاقيات مستوى الخدمة للمكتب، والأتمتة، والتقارير، والإعلانات.',
+  'role.site_admin': 'مسؤول الموقع',
+  'role.site_admin.description': 'يتولى موقعًا واحدًا: حوادثه وطلباته وأشخاصه وأصوله وإعلاناته.',
+  'role.report_viewer': 'مستعرض التقارير',
+  'role.report_viewer.description': 'يطّلع على كل الحوادث والطلبات وتقاريرها دون تغيير أي شيء.',
 };

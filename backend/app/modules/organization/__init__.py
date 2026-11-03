@@ -82,7 +82,10 @@ PERMISSIONS = (
     PermissionSpec("sites.manage"),
     PermissionSpec("groups.view"),
     PermissionSpec("groups.manage"),
-    PermissionSpec("departments.view", defaults=(("technician", "all"),)),
+    PermissionSpec(
+        "departments.view",
+        defaults=(("technician", "all"), ("service_desk_manager", "all"), ("site_admin", "all")),
+    ),
     PermissionSpec("departments.manage"),
     PermissionSpec("settings.manage"),
     PermissionSpec("branding.manage"),

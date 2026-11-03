@@ -25,7 +25,13 @@ import uuid
 from sqlalchemy import ColumnElement, and_, select
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
-from app.modules.identity_access import ResourceType, Subject
+from app.modules.identity_access import (
+    REPORT_VIEWER,
+    SERVICE_DESK_MANAGER,
+    SITE_ADMIN,
+    ResourceType,
+    Subject,
+)
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
 from app.modules.work_items.domain.types import Channel, WorkItemType
@@ -195,9 +201,43 @@ _ACTIONS: tuple[tuple[str, tuple[Scope, ...], tuple[tuple[str, Scope], ...]], ..
 )
 
 
+# WP-042 built-in roles (agreed with lanes A and B): the service desk manager everywhere, a site
+# admin works their site's records (no create, delete or due dates), a report viewer reads.
+_SITE_WORK = frozenset(
+    {
+        "view",
+        "edit",
+        "assign",
+        "take",
+        "change_priority",
+        "resolve",
+        "close",
+        "reopen",
+        "cancel",
+        "add_note",
+        "reply",
+        "manage_followers",
+    }
+)
+
+
+def _role_defaults(action: str) -> tuple[tuple[str, Scope], ...]:
+    found: list[tuple[str, Scope]] = [(SERVICE_DESK_MANAGER, "all")]
+    if action in _SITE_WORK:
+        found.append((SITE_ADMIN, "site"))
+    if action == "view":
+        found.append((REPORT_VIEWER, "all"))
+    return tuple(found)
+
+
 def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     """The permission catalogue entries of one type."""
     return tuple(
-        PermissionSpec(wtype.permission(action), wtype.feature, scopes, defaults=defaults)
+        PermissionSpec(
+            wtype.permission(action),
+            wtype.feature,
+            scopes,
+            defaults=(*defaults, *_role_defaults(action)),
+        )
         for action, scopes, defaults in _ACTIONS
     )

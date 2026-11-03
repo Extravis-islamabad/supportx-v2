@@ -43,7 +43,10 @@ from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     IDENTITY_PERMISSIONS,
     KNOWLEDGE_MANAGER,
+    REPORT_VIEWER,
     RESERVED_PERMISSIONS,
+    SERVICE_DESK_MANAGER,
+    SITE_ADMIN,
     Catalogue,
 )
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
@@ -334,6 +337,9 @@ register_people_usage()
 
 __all__ = [
     "KNOWLEDGE_MANAGER",
+    "REPORT_VIEWER",
+    "SERVICE_DESK_MANAGER",
+    "SITE_ADMIN",
     "FieldRule",
     "LeaverOutcome",
     "MailRecipient",

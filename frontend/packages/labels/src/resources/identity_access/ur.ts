@@ -593,4 +593,13 @@ export const ur: LabelResource = {
   'roles.compare_same': 'یہ کردار ایک جیسی اجازتیں دیتے ہیں۔',
   'roles.compare_not_granted': 'نہیں دی گئی',
   'roles.compare_differs': 'مختلف',
+  'role.service_desk_manager': 'سروس ڈیسک مینیجر',
+  'role.service_desk_manager.description':
+    'سروس ڈیسک چلاتا ہے: ہر واقعہ اور درخواست، ڈیسک کے SLA، آٹومیشن، رپورٹس اور اعلانات۔',
+  'role.site_admin': 'سائٹ ایڈمنسٹریٹر',
+  'role.site_admin.description':
+    'ایک سائٹ کی دیکھ بھال کرتا ہے: اس کے واقعات اور درخواستیں، لوگ، اثاثے اور اعلانات۔',
+  'role.report_viewer': 'رپورٹ دیکھنے والا',
+  'role.report_viewer.description':
+    'ہر واقعہ اور درخواست اور ان کی رپورٹس پڑھتا ہے، بغیر کچھ بدلے۔',
 };
