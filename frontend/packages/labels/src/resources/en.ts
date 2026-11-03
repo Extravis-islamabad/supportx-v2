@@ -5482,6 +5482,7 @@ export const en = {
   'permission.requests.assign_outside_group': 'Assign requests outside the group',
   'permission.requests.assign_outside_group.description':
     'Assign a technician who is not a member of the chosen group to a service request.',
+  'priority_source.catalog_item': 'From the catalog item',
 } as const;
 
 export type LabelKey = keyof typeof en;

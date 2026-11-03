@@ -387,8 +387,28 @@ class WorkItem(TenantEntity):
         CheckConstraint("urgency IS NULL OR " + _codes("urgency", Urgency), name="urgency_code"),
         CheckConstraint(_codes("priority", Priority), name="priority_code"),
         CheckConstraint(
-            "priority_source IN ('matrix', 'manual', 'default', 'rule')",
+            "priority_source IN ('matrix', 'manual', 'default', 'rule', 'catalog_item')",
             name="priority_source_code",
+        ),
+        # Service requests (WP-030, migration 0061): the item, its answers, the approval status.
+        CheckConstraint(
+            "approval_status IS NULL OR approval_status IN "
+            "('not_needed', 'pending', 'approved', 'rejected', 'withdrawn')",
+            name="approval_status_code",
+        ),
+        CheckConstraint("jsonb_typeof(answers) = 'object'", name="answers_object"),
+        ForeignKeyConstraint(
+            ["tenant_id", "catalog_item_id"],
+            ["catalog_items.tenant_id", "catalog_items.id"],
+            name="fk_work_items_catalog_item_id_catalog_items",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_wi_tenant_catalog_item",
+            "tenant_id",
+            "catalog_item_id",
+            "id",
+            postgresql_where=text("catalog_item_id IS NOT NULL"),
         ),
         CheckConstraint("length(btrim(subject)) BETWEEN 1 AND 250", name="subject_length"),
         CheckConstraint(
@@ -554,6 +574,11 @@ class WorkItem(TenantEntity):
     # Support level, a code of the `level` pick list (REQ-INC-007); retired codes stay readable.
     level: Mapped[str | None] = mapped_column(String(40))
     template_id: Mapped[uuid.UUID | None]
+    # Service requests (WP-030): the catalog item, the form's answers (Any: JSON values), and
+    # the approval status; NULL / empty on incidents.
+    catalog_item_id: Mapped[uuid.UUID | None]
+    answers: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    approval_status: Mapped[str | None] = mapped_column(String(20))
     # Custom field values by key (WP-026, metadata module); typed JSON, GIN-indexed.
     custom: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     # Their free text (text, long text, email, phone, web address), kept on every save for

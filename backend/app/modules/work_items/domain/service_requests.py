@@ -7,10 +7,21 @@ it is assigned to at creation.
 
 import uuid
 from dataclasses import dataclass
+from enum import StrEnum
 
 from app.modules.work_items.domain.lifecycle import DefaultStatus, ServiceRequestStatus
 
 ITEM_SOURCE = "catalog_item"  # history and the priority marker name the item (REQ-SR-005 AC1)
+
+
+class ApprovalStatus(StrEnum):
+    """A service request's approval (REQ-SR-003)."""
+
+    NOT_NEEDED = "not_needed"
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
 
 
 @dataclass(frozen=True)
@@ -69,4 +80,4 @@ def after_approval(item: ItemDecides, *, current_technician: uuid.UUID | None) -
     return current_technician
 
 
-__all__ = ["ITEM_SOURCE", "ItemDecides", "Start", "after_approval", "start"]
+__all__ = ["ITEM_SOURCE", "ApprovalStatus", "ItemDecides", "Start", "after_approval", "start"]

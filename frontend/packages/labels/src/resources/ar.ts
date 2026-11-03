@@ -5563,4 +5563,5 @@ export const ar: LabelResource = {
   'permission.requests.assign_outside_group': 'إسناد الطلبات خارج المجموعة',
   'permission.requests.assign_outside_group.description':
     'إسناد فني ليس عضوًا في المجموعة المختارة إلى طلب خدمة.',
+  'priority_source.catalog_item': 'من عنصر الكتالوج',
 };

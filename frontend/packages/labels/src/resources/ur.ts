@@ -5087,4 +5087,5 @@ export const ur: LabelResource = {
   'permission.requests.assign_outside_group': 'درخواستیں گروپ سے باہر تفویض کریں',
   'permission.requests.assign_outside_group.description':
     'ایسے ٹیکنیشن کو سروس درخواست تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
+  'priority_source.catalog_item': 'کیٹلاگ آئٹم سے',
 };
