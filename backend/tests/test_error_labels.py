@@ -80,8 +80,15 @@ def _subclasses(cls: type[errors.AppError]) -> list[type[errors.AppError]]:
     return found + [sub for child in found for sub in _subclasses(child)]
 
 
+def label_text(locale: str) -> str:
+    """A language's label sources: each module keeps them in `<module>/<locale>.ts` (D-127)."""
+    files = [RESOURCES / f"{locale}.ts", *sorted(RESOURCES.glob(f"*/{locale}.ts"))]
+    return "\n".join(path.read_text(encoding="utf-8") for path in files)
+
+
 def label_keys(locale: str) -> set[str]:
-    return set(_KEY.findall((RESOURCES / f"{locale}.ts").read_text(encoding="utf-8")))
+    """Every key of a language."""
+    return set(_KEY.findall(label_text(locale)))
 
 
 @pytest.mark.parametrize("locale", ["en", "ar"])
