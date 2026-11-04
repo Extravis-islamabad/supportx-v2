@@ -36,5 +36,6 @@
   "tests/toast-contrast.spec.ts": 22,
   "tests/ui-pass-2.spec.ts": 420,
   "tests/arabic-fonts.spec.ts": 30,
+  "tests/visual-matrix.spec.ts": 1,
   "tests/users.spec.ts": 10
 }
