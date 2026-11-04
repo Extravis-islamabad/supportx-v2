@@ -19,6 +19,7 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound, ValidationFailed
+from app.modules.ai.domain.prompts import RULES
 from app.modules.ai.service.conversations import conversation_source
 from app.modules.ai.service.gateway import AiAnswer, Gateway, Record
 from app.modules.ai.service.providers import Message
@@ -36,12 +37,6 @@ LANGUAGE_NAMES: dict[Language, str] = {"en": "English", "ar": "Arabic", "ur": "U
 INSTRUCTION_MAX = 1000
 TEXT_MAX = 8000
 
-RULES = (
-    "Use only facts written in the record below. Never promise anything, and never add dates, "
-    "times, names, numbers, prices or next steps that are not in it; if something is not known, "
-    "leave it out. Placeholders such as ⟦PERSON_1⟧ stand for real values: keep them exactly. "
-    "Answer with the text only: no preamble, no notes about what you did."
-)
 STYLES: dict[Style, str] = {
     "correct": "Correct its spelling, grammar and punctuation. Change nothing else.",
     "shorter": "Make it shorter and clearer, keeping every fact.",
