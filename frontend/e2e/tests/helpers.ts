@@ -28,6 +28,12 @@ export async function signInAs(page: Page, user: E2eUser, path = '/'): Promise<v
   // are stored with the user: a test that switched a suite user to Arabic or dark must not leave
   // the next test in it. Back to the defaults (the identity provider's language).
   if (await resetLanguage(page)) {
+    // The page already applied the stored theme and mirrored it in this browser; left there, the
+    // app would copy it back to the server on reload (a person who never chose takes the
+    // browser's) and move the user's version under the test.
+    await page.evaluate(() => {
+      window.localStorage.removeItem('supportx.theme_mode');
+    });
     await page.reload();
     await expect(page.getByTestId('user-menu')).toBeVisible();
   }
