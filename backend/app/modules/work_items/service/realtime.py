@@ -370,6 +370,19 @@ async def _view_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     )
 
 
+PORTAL_SETTINGS_CHANGED = "work_items.portal_settings_changed"
+
+
+async def _portal_settings_changed(
+    envelope: EventEnvelope, session: AsyncSession
+) -> RealtimeEffects:
+    """Portal settings changed: open portals and the settings page reload them (REQ-PRT-031)."""
+    del session
+    return RealtimeEffects(
+        publications=[Publication(broadcast(envelope.tenant_id), PORTAL_SETTINGS_CHANGED)]
+    )
+
+
 async def _list_settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A user's list settings changed: their other windows reload them."""
     del session
@@ -480,6 +493,7 @@ ROUTES = [
         _work_item_changed,
     ),
     RealtimeRoute(("work_items.settings.changed",), _settings_changed),
+    RealtimeRoute(("work_items.portal_settings.changed",), _portal_settings_changed),
     RealtimeRoute(
         (
             "work_items.conversation.added",

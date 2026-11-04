@@ -3976,6 +3976,25 @@
         "type": "object"
       }
     },
+    "work_items.portal_settings.changed": {
+      "1": {
+        "description": "The tenant's portal settings changed (WP-032 D8): open portals reload them live.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "WorkItemPortalSettingsChanged",
+        "type": "object"
+      }
+    },
     "work_items.reply_templates.changed": {
       "1": {
         "description": "A reply template was added, changed or removed (open composers reload the list).",
