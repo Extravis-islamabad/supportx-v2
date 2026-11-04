@@ -189,6 +189,12 @@ containers = ["app.modules.work_items"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]
+name = "service_catalog layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.service_catalog"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
 name = "audit layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.audit"]

@@ -129,6 +129,9 @@ export const en = {
   'audit.action.announcement.settings_changed': 'Changed announcement settings',
   'audit.action.incident.deleted': 'Moved an incident to the trash',
   'audit.action.incident.restored': 'Restored an incident from the trash',
+  'audit.action.service_request.approval_decided': 'Approved or rejected a service request',
+  'audit.action.action_link.used': 'Used or was refused an action link',
+  'audit.action.service_request.withdrawn': 'Withdrew a service request awaiting approval',
   'audit.action.incident.bulk_started': 'Started a bulk change of incidents',
   'audit.action.incident.closed_record_edited': 'Edited a closed incident',
   'audit.action.incident.due_date_changed': "Changed an incident's due date",
@@ -459,6 +462,7 @@ export const en = {
   'event_type.work_items.list_settings.changed': 'List settings changed',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
   'event_type.work_items.part.changed': 'Task, worklog or link changed',
+  'event_type.work_items.approval.changed': 'Approval opened or decided',
   'audit.action.mailbox.created': 'Added a mailbox',
   'audit.action.mailbox.changed': 'Changed a mailbox',
   'audit.action.mailbox.removed': 'Removed a mailbox',
@@ -511,6 +515,10 @@ export const en = {
   'event_type.sla.target.breached': 'SLA target overdue',
   'event_type.sla.target.escalated': 'SLA escalation level ran',
   'history.sla_escalation': '{{target}}: level {{level}} ran',
+  'event_type.service_catalog.item.changed': 'Catalog item changed',
+  'event_type.service_catalog.category.changed': 'Catalog category changed',
+  'audit.action.catalog.item_changed': 'Changed a catalog item',
+  'audit.action.catalog.category_changed': 'Changed a catalog category',
   // WP-040 AD/LDAP (D-130)
   'audit.action.directory.federation_applied':
     'Connected an AD/LDAP directory in the identity service',

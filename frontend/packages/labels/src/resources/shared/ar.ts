@@ -222,6 +222,7 @@ export const ar: LabelResource = {
   'connectivity.limited': 'بعض التحديثات المباشرة متوقفة مؤقتًا. جارٍ إعادة المحاولة…',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
+  'nav.admin_requests': 'طلبات الخدمة',
   'settings.incidents_title': 'إعدادات الحوادث',
   'settings.section.general': 'عام',
   'settings.section.templates': 'القوالب',

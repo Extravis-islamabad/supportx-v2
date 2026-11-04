@@ -113,4 +113,5 @@ export const ar: LabelResource = {
   'custom_fields.part.deleted': 'الحذف',
   'custom_fields.part.order': 'الترتيب',
   'custom_fields.part.field_type': 'النوع',
+  'custom_field_entity.service_request': 'طلبات الخدمة',
 };

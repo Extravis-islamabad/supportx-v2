@@ -12,12 +12,15 @@ Rules every message follows, whoever builds it:
 """
 
 import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.headerregistry import Address
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
 from typing import Literal
+
+from app.shared.action_links.domain import LinkRequest
 
 MAX_RECIPIENTS = 50
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
@@ -56,6 +59,58 @@ class Attachment:
 
 
 @dataclass(frozen=True)
+class MailLink:
+    """A one-time link the sender makes as it sends (D-132): never stored, never logged.
+
+    The bodies hold `action_links.marker(name)` where it goes; at send the sender mints a token
+    for `request` and puts `prefix + token` there, in the outgoing copy only.
+    """
+
+    name: str
+    prefix: str  # e.g. "https://acme.example/portal/approve#"
+    request: LinkRequest
+
+
+def links_to_json(links: tuple[MailLink, ...]) -> list[dict[str, object]] | None:
+    """The links as stored with a queued message or a waiting delivery (no token)."""
+    if not links:
+        return None
+    return [
+        {
+            "name": link.name,
+            "prefix": link.prefix,
+            "recipient_id": str(link.request.recipient_id),
+            "action": link.request.action,
+            "object_type": link.request.object_type,
+            "object_id": str(link.request.object_id),
+            "object_version": link.request.object_version,
+        }
+        for link in links
+    ]
+
+
+def links_from_json(value: object) -> tuple[MailLink, ...]:
+    """The stored links back (an empty tuple for none)."""
+    if not isinstance(value, list):
+        return ()
+    return tuple(
+        MailLink(
+            name=str(item["name"]),
+            prefix=str(item["prefix"]),
+            request=LinkRequest(
+                recipient_id=uuid.UUID(str(item["recipient_id"])),
+                action=str(item["action"]),
+                object_type=str(item["object_type"]),
+                object_id=uuid.UUID(str(item["object_id"])),
+                object_version=int(item["object_version"]),
+            ),
+        )
+        for item in value
+        if isinstance(item, dict)
+    )
+
+
+@dataclass(frozen=True)
 class OutgoingMail:
     """One message, rendered. `kind` names its purpose (e.g. `report`, `notification`)."""
 
@@ -68,6 +123,7 @@ class OutgoingMail:
     reply_to: str | None = None
     sender_name: str | None = None  # the tenant's sender name; else the installation's
     attachments: tuple[Attachment, ...] = ()
+    links: tuple[MailLink, ...] = ()  # D-132: made at send, see MailLink
 
 
 def _no_breaks(value: str) -> bool:

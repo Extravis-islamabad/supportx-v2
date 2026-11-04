@@ -140,6 +140,8 @@ class NotificationDelivery(UuidPrimaryKey, TenantScoped, Timestamps, Base):
     subject: Mapped[str | None] = mapped_column(String(300))
     text_body: Mapped[str | None] = mapped_column(Text)
     html_body: Mapped[str | None] = mapped_column(Text)
+    # D-132: one-time links to make at send (no token: bodies hold markers where they go).
+    links: Mapped[list[dict[str, object]] | None] = mapped_column(JSONB)
 
 
 class NotificationPreference(TenantKeyed, Timestamps, Base):

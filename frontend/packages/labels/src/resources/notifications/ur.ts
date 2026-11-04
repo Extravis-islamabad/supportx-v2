@@ -67,6 +67,22 @@ export const ur: LabelResource = {
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
   'notification_category.status': 'حالت کی تبدیلیاں',
+  'notification_category.approval': 'منظوریاں',
+  'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
+  'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
+  'notification_variable.approval_link': 'منظوری › لنک',
+  'notification_template.service_request.approval_requested.in_app':
+    '{{ record.display_id }} آپ کی منظوری کا منتظر ہے: {{ record.title }}',
+  'notification_template.service_request.approval_requested.subject':
+    'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_requested.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ requester.name }} نے {{ record.display_id }} «{{ record.title }}» کی درخواست کی ہے، اور یہ آپ کی منظوری کی منتظر ہے۔\n\nمنظور یا مسترد کریں: {{ approval_link }}\n\nیہ لنک سائن ان کے بعد صرف آپ کے لیے، ایک بار کام کرتا ہے۔',
+  'notification_template.service_request.approval_fallback.in_app':
+    '{{ record.display_id }} کا کوئی فعال منظوری دہندہ نہیں، یہ منظوری کے منتظم کا منتظر ہے: {{ record.title }}',
+  'notification_template.service_request.approval_fallback.subject':
+    'منظوری منتظر: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_fallback.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_category.mention': 'تذکرے',
   'notification_category.following': 'فالو کرنا',
   'notification_channel.in_app': 'ایپ میں',

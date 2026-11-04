@@ -98,6 +98,8 @@ function autoMove(t: ReturnType<typeof useLabel>, rule: string, action: string):
       return t('automation.why.auto_closed');
     case 'assignment':
       return t('automation.why.assignment_move');
+    case 'fulfilment': // WP-030 s3: the last required fulfilment task was done
+      return t('automation.why.fulfilled');
     default:
       return '';
   }

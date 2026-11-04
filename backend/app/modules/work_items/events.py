@@ -242,6 +242,28 @@ class WorkItemPartChanged(DomainEvent):
     change: Literal["added", "changed", "removed"]
 
 
+ApprovalChange = Literal["opened", "decided", "closed"]
+
+
+class WorkItemApprovalChanged(DomainEvent):
+    """An approval was opened, decided, closed or withdrawn (WP-030 s2, REQ-SR-024).
+
+    `approver_id` None: the approval administrators hold it. IDs and codes only, never the
+    comment; the record's screens and the approver's drawer refetch through the API.
+    """
+
+    event_type: ClassVar[str] = "work_items.approval.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    approval_id: uuid.UUID
+    approver_id: uuid.UUID | None
+    state: str
+    change: ApprovalChange
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCreated,
     WorkItemUpdated,
@@ -260,4 +282,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemListSettingsChanged,
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,
+    WorkItemApprovalChanged,
 )
