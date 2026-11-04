@@ -51,6 +51,35 @@ model of another width is refused until a migration widens the column. Every vec
 model. After a model change, an hourly job re-embeds the old rows, and searches never mix two
 models' vectors (D-131).
 
+## Deployment (Helm chart)
+
+The chart's `ai` values run the models next to SupportX. The chart default is off; the installer
+switches it on (WP-014c).
+
+| Component | Model | Runs on |
+|---|---|---|
+| `llm-cpu` | Qwen3-4B Q4_K_M, llama.cpp server | CPU only, in every install |
+| `llm-embed` | bge-m3 Q8_0, llama.cpp server | CPU |
+| `llm-gpu` (optional, `ai.gpu.enabled`) | Qwen3-14B AWQ, vLLM | One GPU node; it answers chat instead of `llm-cpu` |
+
+- **Weights:**
+  - Each model has its own volume. Its weight files are pinned by repository revision and
+    sha256 in `values.yaml`, and checked before the server starts; a mismatch stops the pod.
+  - Connected installs fetch missing files from `ai.mirror`, Hugging Face by default.
+  - Air-gapped installs set `ai.mirror: ""`, and the installer fills the volumes. A pre-loaded
+    volume is never downloaded again.
+  - With the egress allow-list on, list your mirror or proxy under
+    `networkPolicies.egress.components.llm-cpu` (and `llm-embed`, `llm-gpu`).
+- **GPU node:**
+  - Set `ai.gpu.resourceName` to your device plugin's resource (for example `nvidia.com/gpu`),
+    plus `ai.gpu.nodeSelector` and `ai.gpu.tolerations`. Nothing vendor-specific is assumed.
+  - One copy, so no disruption budget: draining the node pauses chat, and AI features answer
+    "unavailable" meanwhile.
+- **Network:** only the API and the consumers worker reach the model servers.
+
+To use another model, change its `name`, `repo`, `revision` and `files` (with their sha256).
+Embedding models must be 1024 wide.
+
 ## Alternatives that are not of Chinese origin
 
 Some customers, often government and banks, do not accept a model of Chinese origin. Qwen

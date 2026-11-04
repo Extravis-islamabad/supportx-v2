@@ -1,0 +1,204 @@
+{{- /*
+Local AI model servers (WP-037; REQ-AI-003, 004, 058; D-131). Each server is one copy with its
+own volume: `llm-cpu` (chat, llama.cpp server, CPU only), `llm-embed` (embeddings, bge-m3) and,
+optionally, `llm-gpu` (chat on a GPU node, vLLM), which then answers instead of `llm-cpu`.
+
+Before a server starts, its `weights` init container fetches any missing file from ai.mirror (when
+set) into the model's volume, then checks every file against the sha256 pinned in values. A missing
+file with no mirror, or a mismatch, stops the pod: it never serves unverified weights. Air-gapped
+installs leave ai.mirror empty, and the installer (WP-014c) fills the volume.
+
+Only the API and the consumers worker (the gateway, the re-embed schedule) reach the servers
+(networkpolicies.yaml). One copy each, so no PDB: one would block every node drain.
+*/ -}}
+{{- define "supportx.aiWeights" -}}
+{{- $root := .root -}}
+- name: weights
+  image: {{ include "supportx.thirdPartyImage" (dict "root" $root "image" $root.Values.images.llamaCpp) }}
+  command: ["/bin/sh", "-c"]
+  args:
+    - |
+      set -eu
+      dir=/models/{{ .model.revision }}
+      mkdir -p "$dir"
+      fetch() {
+        path="$1"; sum="$2"
+        if [ ! -f "$dir/$path" ]; then
+          if [ -z "${MIRROR}" ]; then
+            echo "weights: $path is missing and no mirror is set (air-gapped: the installer fills this volume)" >&2
+            exit 1
+          fi
+          mkdir -p "$(dirname "$dir/$path")"
+          curl -fsSL --retry 5 -o "$dir/$path.part" "${MIRROR}/{{ .model.repo }}/resolve/{{ .model.revision }}/$path"
+          mv "$dir/$path.part" "$dir/$path"
+        fi
+        if ! echo "$sum  $dir/$path" | sha256sum -c --quiet -; then
+          echo "weights: $path does not match its pinned sha256; refusing to start" >&2
+          exit 1
+        fi
+      }
+      {{- range .model.files }}
+      fetch {{ .path | quote }} {{ .sha256 | quote }}
+      {{- end }}
+      echo "weights: verified"
+  env:
+    - {name: MIRROR, value: {{ $root.Values.ai.mirror | trimSuffix "/" | quote }}}
+  {{- include "supportx.containerSecurityContext" $root | nindent 2 }}
+  resources:
+    {{- toYaml $root.Values.ai.local.weightsResources | nindent 4 }}
+  volumeMounts:
+    - {name: models, mountPath: /models}
+    - {name: tmp, mountPath: /tmp}
+{{- end -}}
+
+{{- define "supportx.aiServer" -}}
+{{- $root := .root -}}
+{{- $c := dict "root" $root "component" .component -}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "supportx.name" $c }}-models
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep   # weights outlive an uninstall: no download again
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .storage.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: http, port: {{ .port }}, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}   # one volume, mounted by one pod at a time
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+      annotations:
+        checksum/weights: {{ toJson .model | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" $root | nindent 6 }}
+      {{- include "supportx.podSecurityContext" $root | nindent 6 }}
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "supportx.aiWeights" (dict "root" $root "model" .model) | nindent 8 }}
+      containers:
+        - name: server
+          image: {{ include "supportx.thirdPartyImage" (dict "root" $root "image" .image) }}
+          {{- with .command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            {{- toYaml .args | nindent 12 }}
+          env:
+            {{- toYaml .env | nindent 12 }}
+          ports:
+            - {name: http, containerPort: {{ .port }}}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            failureThreshold: 90      # loading the weights into memory
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+            failureThreshold: 5
+          {{- include "supportx.containerSecurityContext" $root | nindent 10 }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          volumeMounts:
+            - {name: models, mountPath: /models, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            {{- if .shm }}
+            - {name: shm, mountPath: /dev/shm}
+            {{- end }}
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ include "supportx.name" $c }}-models
+        - name: tmp
+          emptyDir: {}
+        {{- if .shm }}
+        - name: shm
+          emptyDir: {medium: Memory, sizeLimit: 2Gi}
+        {{- end }}
+{{- end -}}
+
+{{- $ai := .Values.ai }}
+{{- if and $ai.gpu.enabled (not $ai.local.enabled) }}
+{{- fail "ai.gpu needs ai.local: embeddings always run on the CPU server" }}
+{{- end }}
+{{- if $ai.local.enabled }}
+{{- $chat := $ai.local.chat }}
+{{- $embed := $ai.local.embeddings }}
+{{- $llama := list "--host" "0.0.0.0" "--port" "8080" "--metrics" }}
+{{- if not $ai.gpu.enabled }}
+{{- include "supportx.aiServer" (dict
+  "root" . "component" "llm-cpu" "port" 8080 "image" .Values.images.llamaCpp
+  "model" $chat "storage" $chat.storage "resources" $chat.resources
+  "args" (concat (list "--model" (printf "/models/%s/%s" $chat.revision (index $chat.files 0).path)
+    "--alias" $chat.name "--ctx-size" (toString $chat.contextSize)
+    "--jinja" "--reasoning-format" "deepseek") $llama)
+  "env" (list (dict "name" "HOME" "value" "/tmp"))) | nindent 0 }}
+{{- end }}
+{{- include "supportx.aiServer" (dict
+  "root" . "component" "llm-embed" "port" 8080 "image" .Values.images.llamaCpp
+  "model" $embed "storage" $embed.storage "resources" $embed.resources
+  "args" (concat (list "--model" (printf "/models/%s/%s" $embed.revision (index $embed.files 0).path)
+    "--alias" $embed.name "--ctx-size" (toString $embed.contextSize)
+    "--embedding" "--pooling" "cls") $llama)
+  "env" (list (dict "name" "HOME" "value" "/tmp"))) | nindent 0 }}
+{{- end }}
+{{- if $ai.gpu.enabled }}
+{{- $gpu := $ai.gpu }}
+{{- $resourceName := required "ai.gpu.resourceName is required (the device plugin's resource, e.g. nvidia.com/gpu)" $gpu.resourceName }}
+{{- $resources := deepCopy $gpu.resources }}
+{{- $_ := set $resources "limits" (merge (dict $resourceName 1) (default (dict) $resources.limits)) }}
+{{- include "supportx.aiServer" (dict
+  "root" . "component" "llm-gpu" "port" 8000 "image" .Values.images.vllm
+  "model" $gpu.model "storage" $gpu.storage "resources" $resources
+  "nodeSelector" $gpu.nodeSelector "tolerations" $gpu.tolerations "shm" true
+  "command" (list "python3" "-m" "vllm.entrypoints.openai.api_server")
+  "args" (list "--model" (printf "/models/%s" $gpu.model.revision)
+    "--served-model-name" $gpu.model.name "--host" "0.0.0.0" "--port" "8000"
+    "--max-model-len" (toString $gpu.maxModelLen))
+  "env" (list (dict "name" "HOME" "value" "/tmp") (dict "name" "HF_HUB_OFFLINE" "value" "1")
+    (dict "name" "VLLM_CACHE_ROOT" "value" "/tmp/vllm") (dict "name" "XDG_CACHE_HOME" "value" "/tmp/cache"))) | nindent 0 }}
+{{- end }}

@@ -38,6 +38,9 @@ images:
   clamav: clamav/clamav:1.5.4-debian
   mailpit: axllent/mailpit:v1.31.6   # dev profile only (mailCatcher)
   valkey: valkey/valkey:9.1.2        # HA only (valkeyHa, ADR-038); the bundled chart's own otherwise
+  # Local AI (WP-037, D-131): pinned by digest; mirrored through Zot like the others (D-038).
+  llamaCpp: ghcr.io/ggml-org/llama.cpp:server-b11960@sha256:8052c13edd987de8858f8150031e025ac3d66823f09cf3ec8220899c4abce220
+  vllm: vllm/vllm-openai:v0.32.0@sha256:befccf0e7e4089aa23926bb6f887a85c0d46c2a99e6de5c5ffdf5cb7957c5b34
 
 # --- secrets (never in values) ---------------------------------------------------------------------
 # Created before install by deploy/scripts/secrets.sh (random values, never overwritten), later
@@ -192,6 +195,74 @@ clamav:
   resources:
     requests: {cpu: 100m, memory: 1Gi}
     limits: {cpu: "2", memory: 2Gi}
+
+# --- Local AI models (WP-037; REQ-AI-003, 004, 058; D-131) ---------------------------------------
+# Off by default here; the installer (WP-014c) switches the local model on for every deployment.
+# Each model has its own volume. Before a server starts, every weight file is checked against the
+# sha256 pinned below, and a mismatch stops it (fail closed). Weights come from `ai.mirror` when it
+# is set and the file is missing. Leave it "" when the installer fills the volume (air-gapped).
+# Hugging Face is for connected installs only: it has no fixed addresses, so with
+# networkPolicies.egress on, list an internal mirror or a proxy under
+# networkPolicies.egress.components.llm-cpu / llm-embed / llm-gpu.
+ai:
+  mirror: https://huggingface.co
+  # A CPU-only llama.cpp server for chat and another for embeddings (bge-m3), in every install.
+  local:
+    enabled: false
+    chat:
+      name: qwen3-4b                  # SUPPORTX_AI_MODEL
+      repo: Qwen/Qwen3-4B-GGUF
+      revision: bc640142c66e1fdd12af0bd68f40445458f3869b
+      files:
+        - {path: Qwen3-4B-Q4_K_M.gguf, sha256: 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5}
+      contextSize: 8192
+      storage: {size: 5Gi, storageClass: ""}
+      resources:
+        requests: {cpu: "2", memory: 4Gi}
+        limits: {cpu: "4", memory: 6Gi}
+    embeddings:
+      name: bge-m3                    # SUPPORTX_AI_EMBEDDING_MODEL; 1024 wide (migration 0075)
+      repo: gpustack/bge-m3-GGUF
+      revision: 2d48f1737679ad900d5c26c5aad5410e9c70fdca
+      files:
+        - {path: bge-m3-Q8_0.gguf, sha256: 950f4a8e5e19477a6d3c26d2f162233c20002c601f75e4b002e3239997821167}
+      contextSize: 8192
+      storage: {size: 2Gi, storageClass: ""}
+      resources:
+        requests: {cpu: 500m, memory: 1Gi}
+        limits: {cpu: "2", memory: 2Gi}
+    # The weights check and download, before each server starts.
+    weightsResources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: "1", memory: 512Mi}
+  # An optional GPU node with vLLM: it answers chat instead of the CPU server (embeddings stay on
+  # the CPU server). Qwen3-14B, AWQ-quantised to fit one 24 GB GPU.
+  gpu:
+    enabled: false
+    model:
+      name: qwen3-14b
+      repo: Qwen/Qwen3-14B-AWQ
+      revision: 31c69efc29464b6bb0aee1398b5a7b50a99340c3
+      files:
+        - {path: config.json, sha256: 5244a80c9acdc63504acff475a9c84044cca0f62cb4f184fe0cf7d1792fafb5a}
+        - {path: generation_config.json, sha256: 2325da0f15bb848e018c5ae071b7943332e9f871d6b60e2ed22ca97d4cb993d2}
+        - {path: merges.txt, sha256: 8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5}
+        - {path: model-00001-of-00002.safetensors, sha256: 668eb0f1356638310db286f4819b223c12e3916934123f1a81b2b2c0e148c6a2}
+        - {path: model-00002-of-00002.safetensors, sha256: c3c1625df80fe01211038bfa520629ebde6adf776556aa80cd49696d986d6657}
+        - {path: model.safetensors.index.json, sha256: b8243c9f4e592643b48eb2c35f99f5a6c160a2e8a89b01075e05701871851997}
+        - {path: tokenizer.json, sha256: aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4}
+        - {path: tokenizer_config.json, sha256: d5d09f07b48c3086c508b30d1c9114bd1189145b74e982a265350c923acd8101}
+        - {path: vocab.json, sha256: ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910}
+    maxModelLen: 8192
+    # The GPU resource the cluster's device plugin offers, e.g. nvidia.com/gpu or amd.com/gpu.
+    # Required when enabled (nothing vendor-specific is assumed).
+    resourceName: ""
+    nodeSelector: {}
+    tolerations: []
+    storage: {size: 20Gi, storageClass: ""}
+    resources:
+      requests: {cpu: "2", memory: 16Gi}
+      limits: {cpu: "8", memory: 24Gi}
 
 # --- Audit log (WP-018, ADR-027) ---------------------------------------------------------------------
 audit:
