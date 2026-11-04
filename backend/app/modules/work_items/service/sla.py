@@ -58,16 +58,32 @@ CONDITION_FIELDS = ResourceFields(
 
 
 AWAITING_APPROVAL = ServiceRequestStatus.AWAITING_APPROVAL.value
-SLA_TYPES = frozenset({WorkItemTypeCode.INCIDENT.value, WorkItemTypeCode.SERVICE_REQUEST.value})
+SLA_TYPES = frozenset(
+    {
+        WorkItemTypeCode.INCIDENT.value,
+        WorkItemTypeCode.SERVICE_REQUEST.value,
+        WorkItemTypeCode.PROBLEM.value,
+    }
+)
+# Problems (WP-044a, REQ-PRB-008, Appendix A): a target date only, in business days from
+# creation (P1 5, P2 10, P3 20, P4 40), on the site's calendar; no first response.
+PROBLEM_TARGETS: tuple[tuple[str, str, int, str, str], ...] = tuple(
+    (priority, "resolution", days, "business_days", "site")
+    for priority, days in (("p1", 5), ("p2", 10), ("p3", 20), ("p4", 40))
+)
 
 
 def register_sla() -> None:
-    """Incidents and service requests have SLAs (called at import; idempotent).
+    """Incidents, service requests and problems have SLAs (called at import; idempotent).
 
     Service requests (WP-030) take the same policies, conditions and firing; the item's own SLA
     and the clock waiting for approval (REQ-SR-006, -007) come with the approval engine.
     """
-    for code in (WorkItemTypeCode.INCIDENT, WorkItemTypeCode.SERVICE_REQUEST):
+    for code in (
+        WorkItemTypeCode.INCIDENT,
+        WorkItemTypeCode.SERVICE_REQUEST,
+        WorkItemTypeCode.PROBLEM,
+    ):
         sla.register_record_type(
             sla.SlaRecordType(
                 code=code.value,
@@ -77,6 +93,7 @@ def register_sla() -> None:
                 on_fired=_on_fired,
                 run_actions=_run_actions,
                 preferred_policy=_item_policy,
+                default_targets=PROBLEM_TARGETS if code is WorkItemTypeCode.PROBLEM else None,
             )
         )
 

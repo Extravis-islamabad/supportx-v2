@@ -182,24 +182,35 @@ async def ensure_defaults(session: AsyncSession, code: str) -> None:
     )
     if inserted.scalar() is None:  # a parallel first request made it
         return
-    for priority, response, resolution, source in DEFAULT_TARGETS:
+    for priority, kind, amount, unit, source in _defaults_of(code):
+        session.add(
+            SlaPolicyTarget(
+                id=new_id(),
+                tenant_id=context.tenant_id,
+                policy_id=policy_id,
+                kind=kind,
+                priority=priority,
+                amount=amount,
+                unit=unit,
+                source=source,
+            )
+        )
+    await session.flush()
+
+
+def _defaults_of(code: str) -> tuple[tuple[str, str, int, str, str], ...]:
+    """The fallback policy's targets of a record type: its own, or the incident defaults."""
+    found = record_type(code)
+    if found is not None and found.default_targets is not None:
+        return found.default_targets
+    return tuple(
+        (priority, kind.value, amount, unit.value, source.value)
+        for priority, response, resolution, source in DEFAULT_TARGETS
         for kind, (amount, unit) in (
             (TargetKind.FIRST_RESPONSE, response),
             (TargetKind.RESOLUTION, resolution),
-        ):
-            session.add(
-                SlaPolicyTarget(
-                    id=new_id(),
-                    tenant_id=context.tenant_id,
-                    policy_id=policy_id,
-                    kind=kind.value,
-                    priority=priority,
-                    amount=amount,
-                    unit=unit.value,
-                    source=source.value,
-                )
-            )
-    await session.flush()
+        )
+    )
 
 
 # --- reading ------------------------------------------------------------------------------------

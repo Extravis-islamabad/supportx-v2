@@ -138,3 +138,27 @@ async def test_a_role_with_the_mapped_grants_works_group_problems(world: World) 
         headers={"If-Match": f'"{record["version"]}"', **CONSOLE},
     )
     assert changed.status_code == 200, changed.text
+
+
+async def test_a_problem_gets_a_target_date_and_no_first_response(world: World) -> None:
+    """REQ-PRB-008, Appendix A: business days by priority; response SLAs are off for problems."""
+    a = world.a
+    made = await new_problem(
+        world, a, a.admin, group_id=str(a.ga), impact="organisation", urgency="high"
+    )
+    assert made.status_code == 201, made.text
+    record = made.json()
+    assert record["resolution_due_at"] is not None  # the target date
+    assert record["first_response_due_at"] is None
+    targets = await world.sql(
+        "SELECT t.kind, t.priority, t.amount, t.unit FROM sla_policy_targets t"
+        " JOIN sla_policies p ON p.id = t.policy_id"
+        " WHERE p.tenant_id = $1 AND p.record_type = 'problem' AND p.fallback ORDER BY t.priority",
+        a.tenant,
+    )
+    assert [(r["kind"], r["priority"], r["amount"], r["unit"]) for r in targets] == [
+        ("resolution", "p1", 5, "business_days"),
+        ("resolution", "p2", 10, "business_days"),
+        ("resolution", "p3", 20, "business_days"),
+        ("resolution", "p4", 40, "business_days"),
+    ]
