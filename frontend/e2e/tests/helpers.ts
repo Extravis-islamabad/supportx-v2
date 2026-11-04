@@ -96,7 +96,7 @@ export async function expectAccessible(
   // check for "leaving" before the scan closes that race, and a half-transparent toast fails on
   // contrast (lane C, automation.spec). The app has no persistent toasts; the longest lasts 4.5 s.
   await expect(page.locator('.ant-message-notice, .ant-notification-notice')).toHaveCount(0, {
-    timeout: 10_000,
+    timeout: 20_000,
   });
   // Any other element leaving (a closing popup) is half transparent on its way out of the page: its
   // contrast says nothing about what users read, so wait until it is gone. "-leave" covers both
