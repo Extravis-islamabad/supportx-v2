@@ -2,6 +2,14 @@ import type { LabelResource } from '../en';
 
 // ai labels (see ../README.md).
 export const ar: LabelResource = {
+  'ai.summary.check': 'تحقّق منه مقابل المحادثة قبل الاعتماد عليه.',
+  'ai.summary.empty': 'لا يوجد ملخص بعد. لخّص المحادثة بالذكاء الاصطناعي.',
+  'ai.summary.includes_private': 'يشمل الملاحظات الخاصة',
+  'ai.summary.made_by': 'كتبه الذكاء الاصطناعي ({{model}})، {{when}}',
+  'ai.summary.make': 'لخّص',
+  'ai.summary.refresh': 'تحديث',
+  'ai.summary.stale': 'غير محدَّث: ردود أو ملاحظات أحدث',
+  'ai.summary.title': 'ملخص المحادثة',
   'ai_area.knowledge': 'المعرفة',
   'ai_area.predictions': 'التنبؤات',
   'ai_area.summaries': 'الملخصات',
@@ -36,19 +44,34 @@ export const ar: LabelResource = {
   'ai_settings.retention_help':
     'بعد ذلك يُحذف نص كل طلب؛ ويبقى من استخدم أي ميزة والنتيجة للتقارير.',
   'ai_settings.saved': 'تم الحفظ.',
+  'ai_settings.summary_sources': 'ما تقرؤه الملخصات',
+  'ai_settings.summary_sources_help':
+    'لا تُقرأ الملاحظات الخاصة إلا إذا اخترتها هنا، ولا تُعرض تلك الملخصات إلا للموظفين.',
   'ai_settings.switch_off': 'إيقاف',
   'ai_settings.title': 'الذكاء الاصطناعي',
+  'ai_summary_source.description': 'الوصف',
+  'ai_summary_source.private_notes': 'الملاحظات الخاصة',
+  'ai_summary_source.public_notes': 'الملاحظات العامة',
+  'ai_summary_source.replies': 'الردود',
   'audit.action.ai.calls_erased': 'حُذف نص محادثات شخص مع الذكاء الاصطناعي (محو البيانات)',
   'audit.action.ai.calls_purged': 'حُذف نص محادثات الذكاء الاصطناعي بعد انتهاء مدة الاحتفاظ',
+  'audit.action.ai.embeddings_purged':
+    'حُذف فهرس البحث بالذكاء الاصطناعي للسجلات (أُوقف الذكاء الاصطناعي)',
   'audit.action.ai.settings_changed': 'غيّر إعدادات الذكاء الاصطناعي',
+  'audit.action.ai.summaries_erased': 'حُذفت ملخصات المحادثات التي قد تذكر شخصًا مُحيت بياناته',
   'errors.ai_call_not_found': 'إجابة الذكاء الاصطناعي هذه غير موجودة أو ليست لك.',
   'errors.ai_feature_off': 'ميزة الذكاء الاصطناعي هذه متوقفة لمؤسستك.',
   'errors.ai_record_not_visible':
     'لا يمكنك رؤية هذا السجل، لذا لا يمكن للذكاء الاصطناعي العمل عليه.',
+  'errors.ai_summary_nothing': 'لا يوجد ما يُلخَّص بعد: لا وصف ولا ردود ولا ملاحظات.',
   'errors.ai_unavailable': 'نموذج الذكاء الاصطناعي لا يستجيب. حاول مرة أخرى بعد قليل.',
   'errors.field.ai_feature_unknown': 'اختر ميزات من القائمة فقط.',
   'errors.field.ai_retention_out_of_range': 'احتفظ بالنص بين يوم واحد و365 يومًا.',
+  'errors.field.ai_summary_source_unknown':
+    'اختر من الوصف والردود والملاحظات العامة والملاحظات الخاصة.',
+  'errors.field.ai_summary_sources_empty': 'اختر جزءًا واحدًا على الأقل لتقرأه الملخصات.',
   'event_type.ai.settings.changed': 'تغيّرت إعدادات الذكاء الاصطناعي',
+  'event_type.ai.summary.changed': 'أُعدّ ملخص المحادثة أو لم يعد حديثًا',
   'nav.admin_ai': 'الذكاء الاصطناعي',
   // AI gateway (WP-037).
   'permission.ai.manage': 'إدارة الذكاء الاصطناعي',

@@ -36,6 +36,10 @@ FEATURES: tuple[FeatureSpec, ...] = (
 )
 BY_CODE = {feature.code: feature for feature in FEATURES}
 
+# The feature whose switch decides whether records are embedded at all (D-134): switched off,
+# nothing is indexed and the tenant's vectors are deleted.
+INDEX_FEATURE = "possible_duplicates"
+
 
 def feature(code: str) -> FeatureSpec | None:
     """The feature with this code, or None."""

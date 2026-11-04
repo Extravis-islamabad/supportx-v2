@@ -1,4 +1,4 @@
-import { Alert, App, Card, Flex, InputNumber, Space, Switch, Typography } from 'antd';
+import { Alert, App, Card, Checkbox, Flex, InputNumber, Space, Switch, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -41,6 +41,8 @@ function Row({
     </Flex>
   );
 }
+
+const SUMMARY_SOURCES = ['description', 'replies', 'public_notes', 'private_notes'] as const;
 
 export function AiSettingsPage() {
   const t = useLabel();
@@ -178,6 +180,28 @@ export function AiSettingsPage() {
               }
             />
           )}
+          {/* WP-038: what conversation summaries may read; at least one part. */}
+          <Row
+            id="ai-summary-sources"
+            label={t('ai_settings.summary_sources')}
+            help={t('ai_settings.summary_sources_help')}
+            control={
+              <Checkbox.Group
+                value={saved.summary_sources}
+                disabled={save.isPending}
+                aria-labelledby="ai-summary-sources"
+                data-testid="ai-summary-sources"
+                options={SUMMARY_SOURCES.map((code) => ({
+                  value: code,
+                  label: t(`ai_summary_source.${code}`),
+                  disabled: saved.summary_sources.length === 1 && saved.summary_sources[0] === code,
+                }))}
+                onChange={(values) => {
+                  if (values.length > 0) change({ summary_sources: values });
+                }}
+              />
+            }
+          />
           {/* D-131: said where the setting is, not only in the docs. */}
           <Alert
             type="info"

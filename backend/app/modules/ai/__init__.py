@@ -19,10 +19,18 @@ from app.core.modules import ModuleSpec
 from app.modules.ai.api.routes import GATEWAY_STATE, router
 from app.modules.ai.events import EVENTS
 from app.modules.ai.service.calls import purge_sweep
+from app.modules.ai.service.conversations import (
+    ConversationEntry,
+    ConversationSource,
+    ConversationText,
+    register_conversation_source,
+    unregister_conversation_source,
+)
 from app.modules.ai.service.embeddings import (
     Embeddings,
     Hit,
     TextSource,
+    on_work_item_changed,
     reembed_job,
     register_embedding_source,
     unregister_embedding_source,
@@ -37,6 +45,8 @@ from app.modules.ai.service.records import (
     unregister_record_access,
 )
 from app.modules.ai.service.settings import MANAGE
+from app.modules.ai.service.summaries import on_conversation_changed
+from app.shared.events import ConsumerSpec
 from app.shared.schedules import ScheduleSpec
 
 PERMISSIONS = (PermissionSpec(MANAGE, AI_FEATURE),)
@@ -65,7 +75,29 @@ module = ModuleSpec(
     on_shutdown=[_shutdown],
     events=EVENTS,
     permissions=PERMISSIONS,
-    consumers=[PERSON_ERASED],
+    consumers=[
+        PERSON_ERASED,
+        # Incidents' text embedded for possible duplicates while AI is on (WP-038, D-134).
+        ConsumerSpec(
+            name="ai__record_embeddings",
+            event_types=(
+                "work_items.work_item.created",
+                "work_items.work_item.updated",
+                "work_items.work_item.deleted",
+                "work_items.work_item.restored",
+            ),
+            handler=on_work_item_changed,
+        ),
+        # A newer reply or note makes a record's summary stale (WP-038).
+        ConsumerSpec(
+            name="ai__summary_stale",
+            event_types=(
+                "work_items.conversation.added",
+                "work_items.conversation.visibility_changed",
+            ),
+            handler=on_conversation_changed,
+        ),
+    ],
     realtime=ROUTES,
     schedules=[
         ScheduleSpec("ai__purge_text", 86400, purge_sweep),
@@ -78,6 +110,9 @@ __all__ = [
     "EMBEDDINGS_STATE",
     "GATEWAY_STATE",
     "AiAnswer",
+    "ConversationEntry",
+    "ConversationSource",
+    "ConversationText",
     "Embeddings",
     "Gateway",
     "Hit",
@@ -86,8 +121,10 @@ __all__ = [
     "RecordAccess",
     "TextSource",
     "module",
+    "register_conversation_source",
     "register_embedding_source",
     "register_record_access",
+    "unregister_conversation_source",
     "unregister_embedding_source",
     "unregister_record_access",
 ]

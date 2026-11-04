@@ -1,10 +1,12 @@
-"""The ai module over HTTP (WP-037): AI settings and the outcome of a call.
+"""The ai module over HTTP (WP-037, 038): AI settings, the outcome of a call, and summaries.
 
-The features themselves (summaries, reply drafts, duplicates) have their routes with the record
-they work on (WP-038); they all call the gateway.
+Summaries are served here for any record type an owning module registers a conversation reader
+for (incidents now). Reply drafts and possible duplicates live with the record they work on; all
+of them call the gateway.
 """
 
 import uuid
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -14,10 +16,15 @@ from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.ai.domain.features import FEATURES, AiArea
-from app.modules.ai.infra.models import AiSettings
-from app.modules.ai.service import calls
+from app.modules.ai.infra.models import AiSettings, AiSummary
+from app.modules.ai.service import calls, summaries
 from app.modules.ai.service.gateway import Gateway
-from app.modules.ai.service.settings import RETENTION_DAYS, settings_row, update_settings
+from app.modules.ai.service.settings import (
+    RETENTION_DAYS,
+    settings_row,
+    summary_sources,
+    update_settings,
+)
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -52,6 +59,9 @@ class FeatureOut(BaseModel):
     enabled: bool
 
 
+SummarySource = Literal["description", "replies", "public_notes", "private_notes"]
+
+
 class ProviderOut(BaseModel):
     """Which model answers, and whether it is outside the installation (masking always on)."""
 
@@ -67,6 +77,8 @@ class AiSettingsOut(BaseModel):
     disabled_features: list[str]
     mask_local: bool
     log_retention_days: int
+    # What conversation summaries read (WP-038); the default when the admin has not chosen.
+    summary_sources: list[SummarySource]
     version: int
     features: list[FeatureOut]
     provider: ProviderOut
@@ -79,6 +91,7 @@ class AiSettingsOut(BaseModel):
             disabled_features=list(row.disabled_features),
             mask_local=row.mask_local,
             log_retention_days=row.log_retention_days,
+            summary_sources=list(summary_sources(row)),  # type: ignore[arg-type]  # known codes (check constraint)
             version=row.version,
             features=[
                 FeatureOut(
@@ -107,6 +120,7 @@ class AiSettingsPatch(BaseModel):
     log_retention_days: int | None = Field(
         default=None, ge=RETENTION_DAYS.start, le=RETENTION_DAYS.stop - 1
     )
+    summary_sources: list[SummarySource] | None = Field(default=None, min_length=1, max_length=4)
 
 
 class OutcomeIn(BaseModel):
@@ -163,3 +177,84 @@ async def post_outcome(
 ) -> None:
     """Accepted, edited or discarded: for quality and usage reporting. Your own calls only."""
     await calls.set_outcome(session, subject, call_id, body.outcome)
+
+
+# --- conversation summaries (WP-038, REQ-INC-137) -------------------------------------------------
+
+SummaryRecordType = Literal["incident"]
+
+
+class SummaryOut(BaseModel):
+    """A record's conversation summary, or none yet (`summary` null)."""
+
+    summary: str | None
+    model: str | None
+    made_at: datetime | None
+    stale: bool
+    # Private notes were read (staff only); the card says so.
+    includes_private: bool
+    call_id: uuid.UUID | None
+    version: int | None
+
+    @classmethod
+    def of(cls, row: AiSummary | None, *, includes_private: bool) -> "SummaryOut":
+        """From the stored row (or none)."""
+        if row is None:
+            return cls(
+                summary=None,
+                model=None,
+                made_at=None,
+                stale=False,
+                includes_private=includes_private,
+                call_id=None,
+                version=None,
+            )
+        return cls(
+            summary=row.text,
+            model=row.model,
+            made_at=row.updated_at,
+            stale=row.stale,
+            includes_private=row.level == summaries.WITH_PRIVATE,
+            call_id=row.call_id,
+            version=row.version,
+        )
+
+
+SUMMARY_ERRORS: Responses = {
+    404: {"model": ProblemDetail, "description": "No such record, or not visible to you."},
+}
+
+
+@router.get(
+    "/summaries/{record_type}/{record_id}",
+    summary="A record's conversation summary",
+    responses=SUMMARY_ERRORS,
+)
+async def get_summary(
+    record_type: SummaryRecordType, record_id: uuid.UUID, session: TenantSession, subject: SignedIn
+) -> SummaryOut:
+    """The latest summary at your level (with private notes when the admin chose them)."""
+    row = await summaries.current(session, subject, record_type, record_id)
+    sources = summary_sources(await settings_row(session))
+    return SummaryOut.of(row, includes_private="private_notes" in sources)
+
+
+@router.post(
+    "/summaries/{record_type}/{record_id}/refresh",
+    summary="Summarise a record's conversation now",
+    responses={
+        **SUMMARY_ERRORS,
+        422: {"model": ProblemDetail, "description": "Nothing to summarise yet."},
+        503: {"model": ProblemDetail, "description": "The model did not answer."},
+    },
+)
+async def refresh_summary(
+    record_type: SummaryRecordType,
+    record_id: uuid.UUID,
+    session: TenantSession,
+    subject: SignedIn,
+    gateway: Gw,
+) -> SummaryOut:
+    """Through the gateway: your permission, the plan, the switches, masking and the log."""
+    row = await summaries.refresh(session, subject, gateway, record_type, record_id)
+    return SummaryOut.of(row, includes_private=row.level == summaries.WITH_PRIVATE)
