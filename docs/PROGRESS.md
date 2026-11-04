@@ -759,6 +759,31 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
+### [ ] WP-044a — Problems: record, creation, templates, statuses, assignment (lane A, 2026-11-05; 5 sessions; #211)
+- **Plan:** ~/Desktop/wp-044-plan.md (all of WP-044, 13 sessions; coordinator approved
+  2026-11-04). Numbers: 0076, 0077 (044a), 0078 (044b), 0079 (044c), D-140 (Haider's answers
+  to Q1-Q7, built with the recommended answers meanwhile), ADR-040 (investigators widen record
+  access). No React Native in V1: mobile is API-only (D17).
+- [x] Session 1 (#211):
+  - Problems as a registered work-item type: PRB counter, `/problems`, licence feature
+    `problem`, custom fields for problems.
+  - The Appendix A life cycle with the actions investigate, confirm_root_cause, await_fix and
+    hold. On hold resumes where it was put on hold (`status_before_pause`, the same way as
+    undo-cancel).
+  - Each type lists only its own life cycle's actions (fixed when an incident listed the
+    problem actions).
+  - `problems.*` moved from identity's reserved list into work_items (lane B agreed; lane B
+    reviews):
+    - technicians: view and create all, and work their groups' problems;
+    - delete stays with the admins.
+  - Migration 0077 maps saved roles: problems.manage(S) becomes create, edit, assign and close
+    (never delete).
+  - Tests: domain (life cycle), DB (API, permissions, RLS, the 0077 migration and a role still
+    editing group problems).
+- [ ] S2 matrix, pick lists, target dates (needs one more migration number) · [ ] S3 create
+  from incidents · [ ] S4 templates and guided life cycle · [ ] S5 owner and investigators,
+  console screens, e2e.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 - **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
 - **Decided (product owner, 2026-11-04):** D3 in **D-133** (catalog basics in Essentials,
