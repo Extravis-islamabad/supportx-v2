@@ -19,6 +19,13 @@ from app.core.modules import ModuleSpec
 from app.modules.ai.api.routes import GATEWAY_STATE, router
 from app.modules.ai.events import EVENTS
 from app.modules.ai.service.calls import purge_sweep
+from app.modules.ai.service.conversations import (
+    ConversationEntry,
+    ConversationSource,
+    ConversationText,
+    register_conversation_source,
+    unregister_conversation_source,
+)
 from app.modules.ai.service.embeddings import (
     Embeddings,
     Hit,
@@ -78,6 +85,9 @@ __all__ = [
     "EMBEDDINGS_STATE",
     "GATEWAY_STATE",
     "AiAnswer",
+    "ConversationEntry",
+    "ConversationSource",
+    "ConversationText",
     "Embeddings",
     "Gateway",
     "Hit",
@@ -86,8 +96,10 @@ __all__ = [
     "RecordAccess",
     "TextSource",
     "module",
+    "register_conversation_source",
     "register_embedding_source",
     "register_record_access",
+    "unregister_conversation_source",
     "unregister_embedding_source",
     "unregister_record_access",
 ]
