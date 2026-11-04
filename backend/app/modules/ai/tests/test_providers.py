@@ -13,7 +13,9 @@ from app.modules.ai.service.providers import (
     ProviderError,
     Tool,
     prompt_key,
+    provider_from,
 )
+from conftest import make_settings
 
 REQUEST = ChatRequest(
     feature="conversation_summary",
@@ -110,3 +112,46 @@ async def test_a_failing_server_is_a_provider_error_that_never_carries_the_promp
     with pytest.raises(ProviderError) as raised:
         await _provider(httpx.MockTransport(handle)).chat(REQUEST)
     assert "printer" not in str(raised.value).lower()
+
+
+# D-131: the model is swappable by configuration alone. These are the documented non-Qwen
+# alternatives (docs/guides/ai-models.md); any name the server knows works the same way.
+ALT_CHAT = "mistral-small-3.1-24b-instruct"
+ALT_EMBED = "multilingual-e5-large"
+
+
+async def test_another_configured_model_flows_through_with_no_code_change() -> None:
+    settings = make_settings(
+        ai_provider="openai_compatible",
+        ai_base_url="http://model.local/v1",
+        ai_model=ALT_CHAT,
+        ai_embedding_model=ALT_EMBED,
+    )
+    built = provider_from(settings)
+    assert isinstance(built, OpenAICompatibleProvider)
+    assert (built.model, built.embedding_model) == (ALT_CHAT, ALT_EMBED)
+    sent: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content)["model"])
+        if request.url.path.endswith("/embeddings"):
+            return httpx.Response(200, json={"data": [{"embedding": [0.3]}]})
+        return httpx.Response(
+            200, json={"model": ALT_CHAT, "choices": [{"message": {"content": "Hi."}}]}
+        )
+
+    provider = OpenAICompatibleProvider(
+        "http://model.local/v1",
+        settings.ai_model,
+        settings.ai_embedding_model,
+        api_key=None,
+        external=False,
+        timeout=5,
+        transport=httpx.MockTransport(handle),
+    )
+    assert (await provider.chat(REQUEST)).model == ALT_CHAT
+    await provider.embed(["vpn"])
+    assert sent == [ALT_CHAT, ALT_EMBED]
+    # The fake (CI, this Mac) carries the configured name too.
+    fake = provider_from(make_settings(ai_model=ALT_CHAT))
+    assert (await fake.chat(REQUEST)).model == ALT_CHAT

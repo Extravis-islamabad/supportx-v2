@@ -155,6 +155,21 @@ async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
 SUMMARY = [Message("system", "Summarise."), Message("user", "Printer jams on floor 3.")]
 
 
+async def _audited(world: World, action: str) -> list[object]:
+    """The details of the tenant's audit entries for `action`, oldest first."""
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        rows = await conn.fetch(
+            "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = $2"
+            " ORDER BY occurred_at",
+            world.tenant,
+            action,
+        )
+    finally:
+        await conn.close()
+    return [json.loads(r["details"]) for r in rows]
+
+
 async def test_the_gateway_is_started_with_the_fake_and_answers(world: World) -> None:
     gateway: Gateway = getattr(world.app.state, GATEWAY_STATE)
     assert gateway.provider.name == "fake"
@@ -349,6 +364,8 @@ async def test_call_text_is_cleared_after_the_retention_period_and_the_row_stays
     assert rows[old.call_id].text_purged_at is not None
     assert rows[old.call_id].status == "ok"  # counts and outcome stay
     assert rows[new.call_id].output is not None
+    # D-131: the purge is audited, with how many and the retention period applied.
+    assert await _audited(world, "ai.calls_purged") == [{"calls": 1, "retention_days": 30}]
     # A longer retention keeps it.
     admin = subject(world.tenant, "ai.manage")
     async with world.session() as session:
@@ -421,7 +438,19 @@ async def test_an_erased_person_s_call_text_goes_at_once(world: World) -> None:
         await gateway.chat(session, other, feature="conversation_summary", messages=SUMMARY)
     async with world.session() as session:
         assert await erase_person(session, tech.user_id) == 1
+    assert await _audited(world, "ai.calls_erased") == [{"calls": 1}]  # D-131
     by_user = {c.user_id: c for c in await world.calls()}
     assert by_user[tech.user_id].masked_input is None
     assert by_user[tech.user_id].output is None
     assert by_user[other.user_id].masked_input is not None
+
+
+async def test_another_configured_model_is_the_one_answering_and_logged(world: World) -> None:
+    """D-131: a non-Qwen model by configuration only; the gateway and the log carry its name."""
+    gateway = world.gateway(FakeProvider("mistral-small-3.1-24b-instruct"))
+    tech = subject(world.tenant, "incidents.view")
+    async with world.session() as session:
+        answer = await gateway.chat(session, tech, feature="conversation_summary", messages=SUMMARY)
+    assert answer.model == "mistral-small-3.1-24b-instruct"
+    [call] = await world.calls()
+    assert call.model == "mistral-small-3.1-24b-instruct"

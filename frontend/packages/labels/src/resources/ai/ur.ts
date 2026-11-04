@@ -22,6 +22,8 @@ export const ur: LabelResource = {
   'errors.field.ai_retention_out_of_range': 'متن 1 سے 365 دن کے درمیان رکھیں۔',
   'event_type.ai.settings.changed': 'AI کی ترتیبات بدلیں',
   'audit.action.ai.settings_changed': 'AI کی ترتیبات بدلیں',
+  'audit.action.ai.calls_purged': 'محفوظ رکھنے کی مدت کے بعد AI گفتگو کا متن حذف کیا',
+  'audit.action.ai.calls_erased': 'کسی شخص کی AI گفتگو کا متن حذف کیا (ڈیٹا مٹانا)',
   'ai_settings.title': 'AI',
   'ai_settings.master': 'AI استعمال کریں',
   'ai_settings.master_help':
@@ -40,6 +42,8 @@ export const ur: LabelResource = {
   'ai_settings.retention': 'AI کالز کا متن رکھیں',
   'ai_settings.retention_help':
     'اس کے بعد ہر کال کا متن حذف ہو جاتا ہے؛ کس نے کون سی خصوصیت استعمال کی اور نتیجہ رپورٹس کے لیے رہتے ہیں۔',
+  'ai_settings.no_training':
+    'آپ کی AI گفتگو کبھی کسی ماڈل کی تربیت کے لیے استعمال نہیں ہوتی۔ اس کا متن صرف نیچے دی گئی مدت تک رکھا جاتا ہے، پھر حذف ہو جاتا ہے؛ ہر حذف آڈٹ میں درج ہوتا ہے۔',
   'ai_settings.days': 'دن',
   'ai_settings.model': 'ماڈل',
   'ai_settings.model_value': '{{model}} ({{where}})',

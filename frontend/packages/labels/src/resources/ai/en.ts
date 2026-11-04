@@ -20,6 +20,8 @@ export const en = {
   'errors.field.ai_retention_out_of_range': 'Keep the text between 1 and 365 days.',
   'event_type.ai.settings.changed': 'AI settings changed',
   'audit.action.ai.settings_changed': 'Changed the AI settings',
+  'audit.action.ai.calls_purged': 'Deleted AI conversation text after its retention period',
+  'audit.action.ai.calls_erased': 'Deleted a person\u2019s AI conversation text (erasure)',
   'ai_settings.title': 'AI',
   'ai_settings.master': 'Use AI',
   'ai_settings.master_help': 'Off: no AI feature runs for anyone and no model is called.',
@@ -38,6 +40,8 @@ export const en = {
   'ai_settings.retention': 'Keep AI call text for',
   'ai_settings.retention_help':
     'After this, the text of each call is deleted; who used which feature and the outcome stay for reports.',
+  'ai_settings.no_training':
+    'Your AI conversations are never used to train any model. Their text is kept only for the period below, then deleted; every deletion is audited.',
   'ai_settings.days': 'days',
   'ai_settings.model': 'Model',
   'ai_settings.model_value': '{{model}} ({{where}})',

@@ -23,5 +23,16 @@
 - Admin › AI: the master switch, a switch per feature grouped by area (switching off asks
   first and says what happens to existing results), masking for the local model, the
   retention period, and which model answers. Labels in a new `ai` label module (en, ar, ur).
-- Not yet: quotas (REQ-AI-030, V1); the local runtime, embeddings and retrieval (session 2,
-  waiting for the product owner on images and models).
+- D-131 (the product owner's AI decisions, 2026-11-04):
+  - Approved: vLLM, the llama.cpp server, Qwen3-14B (quantised to one 24 GB GPU), Qwen3-4B and
+    bge-m3.
+  - Models are swappable by configuration only. docs/guides/ai-models.md names non-Chinese
+    alternatives: Mistral Small 3.1 24B for chat, multilingual-e5-large for embeddings. Tests
+    prove a differently configured model name is called, answers and is logged.
+  - Retention: 30 days by default, set per tenant. AI conversations are never used for
+    training; the AI settings screen and the guide both say so.
+  - Every deletion is audited (`ai.calls_purged` with count and period, `ai.calls_erased`). The
+    purge runs in batches of 1,000, so no statement grows with a backlog.
+- Not yet: quotas (REQ-AI-030, V1). Session 2 (local runtime, embeddings, retrieval) is
+  unblocked by D-131 and starts once #188 lands. It records the quantisation and the eval-set
+  quality at that quantisation.

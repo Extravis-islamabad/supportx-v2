@@ -1,4 +1,4 @@
-import { App, Card, Flex, InputNumber, Space, Switch, Typography } from 'antd';
+import { Alert, App, Card, Flex, InputNumber, Space, Switch, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -178,6 +178,14 @@ export function AiSettingsPage() {
               }
             />
           )}
+          {/* D-131: said where the setting is, not only in the docs. */}
+          <Alert
+            type="info"
+            showIcon
+            role="note"
+            message={t('ai_settings.no_training')}
+            data-testid="ai-no-training"
+          />
           <Row
             id="ai-retention"
             label={t('ai_settings.retention')}

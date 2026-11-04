@@ -21,6 +21,7 @@ from app.core.errors import NotFound
 from app.core.tenancy import TenantContext
 from app.modules.ai.infra.models import AiCall, AiSettings
 from app.modules.ai.service.settings import session_tenant
+from app.modules.audit import WORKER, record
 from app.modules.identity_access import Subject
 from app.shared.clock import system_clock
 
@@ -49,16 +50,42 @@ async def set_outcome(
     return call
 
 
+PURGE_BATCH = 1000  # rows per statement: each stays short, even after a long outage
+
+
 async def purge_text(session: AsyncSession) -> int:
-    """Clear the text of this tenant's calls older than its retention period; rows stay."""
+    """Clear the text of this tenant's calls older than its retention period; rows stay.
+
+    In batches, so no single statement grows with the backlog. Every purge that clears
+    anything is audited (D-131), with the count and the retention period applied.
+    """
     days = await session.scalar(select(AiSettings.log_retention_days)) or 30
     now = system_clock.now()
-    result = await session.execute(
-        update(AiCall)
-        .where(AiCall.created_at < now - timedelta(days=days), AiCall.text_purged_at.is_(None))
-        .values(masked_input=None, output=None, text_purged_at=now)
-    )
-    return int(getattr(result, "rowcount", 0) or 0)
+    cleared = 0
+    while True:
+        batch = (
+            select(AiCall.id)
+            .where(AiCall.created_at < now - timedelta(days=days), AiCall.text_purged_at.is_(None))
+            .limit(PURGE_BATCH)
+        )
+        result = await session.execute(
+            update(AiCall)
+            .where(AiCall.id.in_(batch))
+            .values(masked_input=None, output=None, text_purged_at=now)
+        )
+        done = int(getattr(result, "rowcount", 0) or 0)
+        cleared += done
+        if done < PURGE_BATCH:
+            break
+    if cleared:
+        await record(
+            session,
+            action_code="ai.calls_purged",
+            facts=WORKER,
+            object_type="ai_calls",
+            details={"calls": cleared, "retention_days": days},
+        )
+    return cleared
 
 
 async def purge_sweep(database: Database, settings: Settings) -> None:

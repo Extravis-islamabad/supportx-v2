@@ -22,6 +22,8 @@ export const ar: LabelResource = {
   'errors.field.ai_retention_out_of_range': 'احتفظ بالنص بين يوم واحد و365 يومًا.',
   'event_type.ai.settings.changed': 'تغيّرت إعدادات الذكاء الاصطناعي',
   'audit.action.ai.settings_changed': 'غيّر إعدادات الذكاء الاصطناعي',
+  'audit.action.ai.calls_purged': 'حُذف نص محادثات الذكاء الاصطناعي بعد انتهاء مدة الاحتفاظ',
+  'audit.action.ai.calls_erased': 'حُذف نص محادثات شخص مع الذكاء الاصطناعي (محو البيانات)',
   'ai_settings.title': 'الذكاء الاصطناعي',
   'ai_settings.master': 'استخدام الذكاء الاصطناعي',
   'ai_settings.master_help': 'إيقاف: لا تعمل أي ميزة ذكاء اصطناعي لأي شخص ولا يُستدعى أي نموذج.',
@@ -39,6 +41,8 @@ export const ar: LabelResource = {
   'ai_settings.retention': 'الاحتفاظ بنص طلبات الذكاء الاصطناعي لمدة',
   'ai_settings.retention_help':
     'بعد ذلك يُحذف نص كل طلب؛ ويبقى من استخدم أي ميزة والنتيجة للتقارير.',
+  'ai_settings.no_training':
+    'لا تُستخدم محادثاتك مع الذكاء الاصطناعي أبدًا لتدريب أي نموذج. يُحتفظ بنصها للمدة أدناه فقط ثم يُحذف، وكل حذف مسجّل في سجل التدقيق.',
   'ai_settings.days': 'يومًا',
   'ai_settings.model': 'النموذج',
   'ai_settings.model_value': '{{model}} ({{where}})',

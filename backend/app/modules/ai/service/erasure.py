@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.modules.ai.infra.models import AiCall
+from app.modules.audit import WORKER, record
 from app.shared.clock import system_clock
 from app.shared.events import ConsumerSpec, EventEnvelope
 
@@ -19,13 +20,23 @@ log = get_logger(__name__)
 
 
 async def erase_person(session: AsyncSession, user_id: uuid.UUID) -> int:
-    """Clear the text of the person's AI calls; returns how many."""
+    """Clear the text of the person's AI calls; returns how many. Audited when any (D-131)."""
     result = await session.execute(
         update(AiCall)
         .where(AiCall.user_id == user_id, AiCall.text_purged_at.is_(None))
         .values(masked_input=None, output=None, text_purged_at=system_clock.now())
     )
-    return int(getattr(result, "rowcount", 0) or 0)
+    cleared = int(getattr(result, "rowcount", 0) or 0)
+    if cleared:
+        await record(
+            session,
+            action_code="ai.calls_erased",
+            facts=WORKER,
+            object_type="user",
+            object_id=user_id,
+            details={"calls": cleared},
+        )
+    return cleared
 
 
 async def on_status_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
