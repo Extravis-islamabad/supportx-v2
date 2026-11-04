@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
-from app.modules.work_items.service.approvals import on_user_status_changed
+from app.modules.work_items.service.approvals import on_user_status_changed, reroute_inactive
 from app.shared.events import EventEnvelope
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
 from tests.db.test_service_requests_api import SR, an_item, raise_request
@@ -311,3 +311,17 @@ async def test_a_deactivated_approvers_approvals_go_to_the_fallback(world: World
         "approver_inactive",
     )
     assert await inbox(world, a, a.admin) == [record["id"]]
+
+
+async def test_the_daily_check_reroutes_what_the_event_missed(world: World) -> None:
+    """REQ-SR-023 AC3: an approver gone without an event still never holds an approval."""
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    record = await waiting(world, a)
+    await world.sql("UPDATE users SET status = 'disabled' WHERE id = $1", a.tech_a)  # no event
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await reroute_inactive(session) == 1
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await reroute_inactive(session) == 0  # nothing left to move
+    [entry] = await approvals(world, a, a.admin, record)
+    assert (entry["origin"], entry["route_reason"]) == ("administrators", "approver_inactive")

@@ -14,12 +14,16 @@ record's approval status, history and events are written in the same transaction
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
+from app.core.database import Database
 from app.core.errors import Conflict, NotFound, PermissionDenied
+from app.core.logging import get_logger
+from app.core.tenancy import TenantContext
 from app.modules import service_catalog
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, person_placement
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.lifecycle import WorkItemAction
@@ -34,6 +38,7 @@ from app.shared.events import ConsumerSpec, EventEnvelope
 from app.shared.history import Source
 
 WITHDRAWN_REASON = "withdrawn_by_requester"  # REQ-SR-061 AC1
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -325,23 +330,21 @@ __all__ = [
     "ApprovalView",
     "PendingApproval",
     "decide",
+    "inactive_approvers_schedule",
     "list_for_record",
     "mine",
     "on_user_status_changed",
+    "reroute_inactive",
     "withdraw",
 ]
 
 
-async def on_user_status_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
-    """A deactivated approver's pending approvals go to the fallback (REQ-SR-023 AC2).
+async def reroute_from(session: AsyncSession, leaver: uuid.UUID) -> int:
+    """Move `leaver`'s pending approvals to the approval administrators (REQ-SR-023).
 
-    The approval administrators take them, with "approver inactive" as the reason on each; the
-    leaver's inbox and the administrators' screens hear about it. Idempotent: a second delivery
-    finds nothing pending for that person any more.
+    "Approver inactive" becomes each one's reason; the leaver's inbox and the administrators'
+    screens hear about it. Idempotent: a second run finds nothing pending for that person.
     """
-    if session is None or envelope.payload.get("status") != "disabled":
-        return
-    leaver = uuid.UUID(str(envelope.payload["user_id"]))
     rows = list(
         await session.scalars(
             select(WorkItemApproval)
@@ -364,6 +367,49 @@ async def on_user_status_changed(envelope: EventEnvelope, session: AsyncSession 
         row.version += 1
         await session.flush()
         await approval_event(session, record, row, "opened")  # the administrators' inboxes
+    return len(rows)
+
+
+async def on_user_status_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """A deactivated approver's pending approvals go to the fallback (REQ-SR-023 AC2)."""
+    if session is None or envelope.payload.get("status") != "disabled":
+        return
+    await reroute_from(session, uuid.UUID(str(envelope.payload["user_id"])))
+
+
+async def reroute_inactive(session: AsyncSession) -> int:
+    """The daily check (REQ-SR-023 AC3): no approval waits on someone no longer active.
+
+    Catches what the deactivation event could not (a person removed another way, an event
+    lost to an outage); the administrators then find them in their approvals inbox.
+    """
+    approvers = set(
+        await session.scalars(
+            select(WorkItemApproval.approver_id)
+            .where(
+                WorkItemApproval.approver_id.is_not(None),
+                WorkItemApproval.state == rules.ApprovalState.PENDING.value,
+                WorkItemApproval.deleted_at.is_(None),
+            )
+            .distinct()
+        )
+    )
+    moved = 0
+    for approver in approvers:
+        if approver is not None and not (await person_placement(session, approver)).active:
+            moved += await reroute_from(session, approver)
+    return moved
+
+
+async def inactive_approvers_schedule(database: Database, settings: Settings) -> None:
+    """Every tenant, daily: approvals held by people no longer active go to the fallback."""
+    del settings
+    async with database.platform_session() as platform:
+        tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
+    for tenant in tenants:
+        async with database.tenant_session(TenantContext(tenant)) as session:
+            if moved := await reroute_inactive(session):
+                log.info("approvals_rerouted", tenant_id=str(tenant), approvals=moved)
 
 
 APPROVER_LEFT = ConsumerSpec(

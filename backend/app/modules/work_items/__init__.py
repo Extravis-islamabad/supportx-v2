@@ -31,7 +31,7 @@ from app.modules.work_items.service import (
     resolution,
 )
 from app.modules.work_items.service.access import permissions
-from app.modules.work_items.service.approvals import APPROVER_LEFT
+from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.closing import (
@@ -110,6 +110,8 @@ module = ModuleSpec(
     # REQ-INC-096: resolved records the requester was told about close after N business days.
     schedules=[
         ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule),
+        # REQ-SR-023 AC3: daily, no approval waits on someone no longer active.
+        ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),
         # Bulk jobs (WP-020d): picked up within seconds of being asked for, like people imports.
         ScheduleSpec("work_items__bulk_jobs", 5, bulk.run_bulk_jobs),
     ],
