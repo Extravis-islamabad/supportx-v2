@@ -84,6 +84,13 @@ const PAGE_CSS =
   '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +
   // Option text wraps only between words ("Stacked bar", never "Sta / cked"); a single word
   // too long for the list ends in an ellipsis, its full text in the option's tooltip (title).
+  // Room for the dots below Arabic-script letters wherever one line of user text is cut off
+  // (QA 2026-11-04: "في" read as "فى"), whatever the UI language: the clip box (the padding
+  // box) grows, and the equal negative margin keeps the layout exactly as it was. Two-line
+  // clamps take the script's line height instead (clampLineHeight).
+  '.ant-typography-ellipsis-single-line, .ant-card-head-title, .ant-select-selection-item, ' +
+  '.ant-select-item-option-content, .ant-menu-title-content ' +
+  '{ padding-block: 0.25em; margin-block: -0.25em; } ' +
   '.ant-select-dropdown .ant-select-item-option .ant-select-item-option-content ' +
   '{ white-space: normal; word-break: normal; overflow-wrap: normal; overflow: hidden; ' +
   'text-overflow: ellipsis; }';

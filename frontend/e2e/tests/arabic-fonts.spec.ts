@@ -101,6 +101,20 @@ test('Arabic in headings and body uses the bundled Noto Sans Arabic in every wei
     }
     await prefer(page, { ui_locale: null, urdu_script: null });
     await page.reload();
+    // One line cut off with an ellipsis: the incidents list's subject cell, Arabic subject in
+    // the English UI. The clip box reaches at least a quarter of the font size below the line.
+    await page.goto('/incidents');
+    const cell = page.locator(`td:has(bdi[title="${ARABIC}"])`).first();
+    await expect(cell).toBeVisible();
+    const room = await cell.evaluate((td) => {
+      const style = getComputedStyle(td);
+      const clipBottom = td.getBoundingClientRect().bottom - parseFloat(style.borderBottomWidth);
+      const text = td.querySelector('bdi');
+      const line = text?.getBoundingClientRect().bottom ?? clipBottom;
+      return (clipBottom - line) / parseFloat(style.fontSize);
+    });
+    expect(room, 'room below the subject line, in font sizes').toBeGreaterThanOrEqual(0.25);
+    await page.goto(`/incidents/${incident.id}`);
     // The description's body text, the same way.
     expectNotoForArabic(await usedFonts(page, '[data-testid="inc-description"] p'), 'body');
   } finally {
