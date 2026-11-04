@@ -341,4 +341,18 @@ export const ar: LabelResource = {
   'directory_attribute.country': 'البلد',
   'directory_source.entra': 'Microsoft Entra ID',
   'directory_source.ldap': 'دليل مؤسستك (LDAP)',
+  // WP-040 connector defaults (D-041)
+  'connector_settings.title': 'الإعدادات الافتراضية للموصلات',
+  'connector_settings.intro':
+    'كيف يعمل كل موصل ما لم تنص إعداداته الخاصة على غير ذلك. يُحتسب فشل المصادقة فورًا دائمًا.',
+  'connector_settings.failing_after_runs': 'متعثر بعد (تشغيلات فاشلة متتالية)',
+  'connector_settings.failing_after_runs_help':
+    'بين {{min}} و{{max}}. يُبلَّغ المسؤولون مرة واحدة عندما يبدأ الموصل بالتعثر.',
+  'connector_settings.error_retention_days': 'الاحتفاظ بأخطاء الموصلات (أيام)',
+  'connector_settings.error_retention_days_help': 'بين {{min}} و{{max}} يومًا.',
+  'connector_settings.sync_minutes': 'تتزامن الأدلة الجديدة كل (دقائق)',
+  'connector_settings.sync_minutes_help':
+    'بين {{min}} و{{max}}. يمكن لكل دليل تغيير الفترة الخاصة به.',
+  'connector_settings.saved': 'تم حفظ الإعدادات الافتراضية للموصلات',
+  'directories.interval_default': 'الإعداد الافتراضي للجهة',
 };

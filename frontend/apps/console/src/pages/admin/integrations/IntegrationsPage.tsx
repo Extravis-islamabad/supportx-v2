@@ -10,7 +10,9 @@ import {
   type ConnectorKind,
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
-import { ToneTag, useDateTime, useLabel, type Tone } from '@supportx/ui';
+import { ToneTag, useAccess, useDateTime, useLabel, type Tone } from '@supportx/ui';
+
+import { ConnectorSettingsCard } from './ConnectorSettingsCard';
 
 const STATUS_TONE: Record<ConnectorInstance['status'], Tone> = {
   not_set_up: 'default',
@@ -136,6 +138,7 @@ function KindCard({ kind }: { kind: ConnectorKind }) {
  */
 export function IntegrationsPage() {
   const t = useLabel();
+  const canManage = useAccess().can('integrations.manage'); // the defaults card (D-041)
   const queryClient = useQueryClient();
   const catalogue = useConnectorCatalogue();
   const [query, setQuery] = useState('');
@@ -179,6 +182,7 @@ export function IntegrationsPage() {
       {catalogue.isSuccess && groups.length === 0 && (
         <Empty description={t('integrations.no_match')} />
       )}
+      {canManage && <ConnectorSettingsCard />}
       {groups.map(([category, kinds]) => (
         <Flex key={category} vertical gap={8} data-testid={`connector-category-${category}`}>
           <Typography.Title level={5} style={{ marginBottom: 0 }}>

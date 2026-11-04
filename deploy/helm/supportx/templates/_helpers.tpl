@@ -20,6 +20,12 @@ app.kubernetes.io/component: {{ .component }}
 
 {{/* Fail early on settings every profile needs. */}}
 {{- define "supportx.validate" -}}
+{{- if and .Values.valkeyHa.enabled .Values.valkey.enabled }}
+{{- fail "valkeyHa (HA, ADR-038) replaces the bundled valkey chart: set valkey.enabled=false" }}
+{{- end }}
+{{- if and (gt (int .Values.centrifugo.replicas) 1) (not .Values.valkeyHa.enabled) }}
+{{- fail "centrifugo.replicas above 1 needs the Valkey engine: turn on valkeyHa (values-ha.yaml)" }}
+{{- end }}
 {{- if not .Values.publicUrl -}}
 {{- fail "publicUrl is required (the browser's origin, e.g. https://supportx.example.com)" -}}
 {{- end -}}
@@ -207,5 +213,39 @@ true
 checksum/env: {{ include (print $.Template.BasePath "/configmap-env.yaml") . | sha256sum }}
 {{- with .Values.podAnnotations }}
 {{ toYaml . }}
+{{- end }}
+{{- end -}}
+
+{{/*
+High availability (WP-014b): copies of one component spread over nodes. Nothing when `ha.enabled`
+is off, so a single-node install schedules as before. "hard" never puts two copies on one node
+(a node lost takes at most one); "soft" prefers not to, for small test clusters.
+*/}}
+{{- define "supportx.scheduling" -}}
+{{- if .root.Values.ha.enabled }}
+affinity:
+  podAntiAffinity:
+    {{- if eq .root.Values.ha.antiAffinity "hard" }}
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            {{- include "supportx.selector" . | nindent 12 }}
+    {{- else }}
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              {{- include "supportx.selector" . | nindent 14 }}
+    {{- end }}
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        {{- include "supportx.selector" . | nindent 8 }}
 {{- end }}
 {{- end -}}

@@ -101,6 +101,8 @@ class DirectoryIn(BaseModel):
     scope_groups: list[DirectoryGroupIn] = Field(default_factory=list, max_length=100)
     group_mappings: list[GroupMappingIn] = Field(default_factory=list, max_length=100)
     mapping: MappingIn = Field(default_factory=MappingIn)
+    # The contract's type and default stay as they were (#168); a field the caller leaves out
+    # is told apart by model_fields_set: then a new directory takes the tenant's default (D-041).
     interval_minutes: int = Field(default=30, ge=15, le=1440)
     enabled: bool = True
 
@@ -166,7 +168,10 @@ class DirectoryOut(BaseModel):
 
 
 def _values(body: DirectoryIn) -> dict[str, Any]:
-    return body.model_dump(mode="json", exclude={"credential"})
+    values = body.model_dump(mode="json", exclude={"credential"})
+    if "interval_minutes" not in body.model_fields_set:
+        del values["interval_minutes"]  # left out: the tenant's default for new ones (D-041)
+    return values
 
 
 @router.get("", summary="Directory connectors")

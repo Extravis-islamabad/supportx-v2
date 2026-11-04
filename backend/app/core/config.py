@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     # Backing services. None means "not configured": readiness reports it instead of crashing.
     database_url: SecretStr | None = None
     valkey_url: SecretStr | None = None
+    # High availability (WP-014b): Valkey through Sentinel. "host:port,host:port" of the sentinels
+    # and the monitored master's name; `valkey_url` then gives only the password, database and
+    # TLS (its host is not used). Unset: a single Valkey at `valkey_url`, as before.
+    valkey_sentinels: str | None = None
+    valkey_sentinel_master: str = Field(default="supportx", min_length=1, max_length=64)
+    valkey_sentinel_password: SecretStr | None = None  # None: the same as Valkey's own
     nats_url: SecretStr | None = None
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 

@@ -22,7 +22,6 @@ from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.tenancy import TenantContext
 from app.modules.integrations.domain.connector_health import (
-    ERROR_RETENTION_DAYS,
     RUN_RETENTION_DAYS,
     Health,
     Notice,
@@ -31,6 +30,7 @@ from app.modules.integrations.domain.connector_health import (
 )
 from app.modules.integrations.events import ConnectorFailing, ConnectorRecovered
 from app.modules.integrations.infra.models import ConnectorError, ConnectorHealth, ConnectorRun
+from app.modules.integrations.service.connector_settings import get_connector_settings
 from app.shared.events import record_event
 from app.shared.ids import new_id
 
@@ -83,7 +83,10 @@ async def record_run(  # noqa: PLR0913 - one run's facts, explicit
         row.failing, row.consecutive_failures = False, 0
         session.add(row)
     health, notice = after_run(
-        Health(row.failing, row.consecutive_failures), ok=ok, auth_failure=auth_failure
+        Health(row.failing, row.consecutive_failures),
+        ok=ok,
+        auth_failure=auth_failure,
+        failing_after=(await get_connector_settings(session)).failing_after_runs,  # D-041
     )
     row.failing, row.consecutive_failures, row.updated_at = (
         health.failing,
@@ -190,6 +193,7 @@ async def health_of(
 async def purge(session: AsyncSession, now: datetime | None = None) -> tuple[int, int]:
     """Drop runs and errors past their retention in the session's tenant: (runs, errors)."""
     moment = now or datetime.now(UTC)
+    keep_errors = (await get_connector_settings(session)).error_retention_days  # D-041
     runs = cast(
         "CursorResult[Any]",
         await session.execute(
@@ -202,7 +206,7 @@ async def purge(session: AsyncSession, now: datetime | None = None) -> tuple[int
         "CursorResult[Any]",
         await session.execute(
             delete(ConnectorError).where(
-                ConnectorError.occurred_at < moment - timedelta(days=ERROR_RETENTION_DAYS)
+                ConnectorError.occurred_at < moment - timedelta(days=keep_errors)
             )
         ),
     )
