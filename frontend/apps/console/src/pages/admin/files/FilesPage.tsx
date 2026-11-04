@@ -43,7 +43,7 @@ import { FilesBanner } from './FilesBanner';
  */
 export function FilesPage() {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const dates = useDateTime();
   const { message } = App.useApp();
   const rules = useFileRules();
@@ -215,10 +215,10 @@ export function FilesPage() {
           <Flex vertical gap={8} style={{ maxWidth: 480 }}>
             <Typography.Text>
               {limit === null
-                ? t('files.admin.used_unlimited', { used: formatSize(used, locale) })
+                ? t('files.admin.used_unlimited', { used: formatSize(used, intlLocale) })
                 : t('files.admin.used_of', {
-                    used: formatSize(used, locale),
-                    limit: formatSize(limit, locale),
+                    used: formatSize(used, intlLocale),
+                    limit: formatSize(limit, intlLocale),
                   })}
             </Typography.Text>
             {limit !== null && (

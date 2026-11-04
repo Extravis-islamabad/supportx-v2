@@ -259,6 +259,7 @@ export function fakeSession(
       week_start: 'monday',
       date_format: 'dd/mm/yyyy',
       time_format: '24h',
+      digits: 'western',
       ...user,
     },
     tenant: DEMO_TENANT,

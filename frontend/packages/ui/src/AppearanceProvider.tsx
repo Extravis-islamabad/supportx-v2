@@ -9,7 +9,9 @@ import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 import { ANT_LOCALES } from './antdLocales';
 import {
   AppearanceContext,
+  intlLocaleFor,
   type Appearance,
+  type Digits,
   type BrandingSource,
   type Direction,
 } from './appearance';
@@ -93,6 +95,7 @@ export function AppearanceProvider({
   const [mode, setModeState] = useState<ThemeMode>(() => initialMode ?? preferredMode());
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [textScale, setTextScale] = useState(100);
+  const [digits, setDigits] = useState<Digits>('western');
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
   useEffect(() => {
@@ -135,6 +138,9 @@ export function AppearanceProvider({
       },
       textScale,
       setTextScale,
+      digits,
+      setDigits,
+      intlLocale: intlLocaleFor(locale, digits),
       setDirection,
       setBranding,
       setLocale: (next) => {
@@ -142,7 +148,7 @@ export function AppearanceProvider({
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand, setBranding, textScale],
+    [mode, direction, locale, brand, setBranding, textScale, digits],
   );
   const themeConfig = useMemo(
     () => buildTheme(mode, brand, locale, density, textScale),

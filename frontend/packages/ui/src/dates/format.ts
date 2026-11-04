@@ -32,7 +32,7 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
  */
 export function useDateTime(): DateTimeFormatter {
   const zone = useTimeZone();
-  const { locale } = useAppearance();
+  const { intlLocale: locale } = useAppearance(); // digits pinned (D-135)
   const absolute = new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',

@@ -61,7 +61,7 @@ function useDebounced<T>(value: T, delay: number): T {
 export function KnowledgePage() {
   const t = useLabel();
   const navigate = useNavigate();
-  const { locale } = useAppearance();
+  const { locale, intlLocale } = useAppearance();
   const { can } = useAccess();
   const allowed = can('knowledge.view');
   const language: KbLanguage = articleLanguage(locale);
@@ -91,7 +91,7 @@ export function KnowledgePage() {
   const selected = allTopics.find((topic) => topic.id === topicId);
   const typeByCode = new Map((types.data ?? []).map((type) => [type.code, type]));
   const topicById = new Map(allTopics.map((topic) => [topic.id, topic]));
-  const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+  const dateFormat = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' });
 
   if (!allowed) return <NoAccess titleKey="nav.knowledge" />;
 

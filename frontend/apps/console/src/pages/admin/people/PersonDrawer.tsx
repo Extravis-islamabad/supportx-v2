@@ -229,11 +229,13 @@ function PersonForm({
   useEffect(() => {
     form.setFieldsValue(base.values);
   }, [form, base.values]);
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const when =
     user === undefined
       ? ''
-      : new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(user.updated_at));
+      : new Intl.DateTimeFormat(intlLocale, { timeStyle: 'short' }).format(
+          new Date(user.updated_at),
+        );
 
   const showProblems = (error: unknown): boolean => {
     if (!(error instanceof ApiError) || error.status !== 422 || error.fieldErrors.length === 0) {

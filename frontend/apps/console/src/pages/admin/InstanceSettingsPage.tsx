@@ -54,13 +54,13 @@ function useNames(locale: string) {
 export function InstanceSettingsPage() {
   const t = useLabel();
   const { can } = useAccess();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const { modal, message } = App.useApp();
   const allowed = can('config.organisation') || can('settings.manage');
   const settings = useTenantSettings(allowed);
   const save = useSaveTenantSettings();
   const [form] = Form.useForm<FormValues>();
-  const names = useNames(locale);
+  const names = useNames(intlLocale);
   useTenantChannel((m) => {
     if (m.type === 'organization.settings_changed') void settings.refetch();
   });

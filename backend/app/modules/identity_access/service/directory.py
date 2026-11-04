@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
 from app.modules.identity_access.domain.identity import (
     DATE_FORMATS,
+    DIGITS,
     PERSON_TYPES,
     TEXT_SCALES,
     TIME_FORMATS,
@@ -80,6 +81,7 @@ EDITABLE_FIELDS = frozenset(
         "week_start",
         "date_format",
         "time_format",
+        "digits",
         *CONTACT_FIELDS,
     }
 )
@@ -91,6 +93,7 @@ _CHOICES: dict[str, frozenset[object]] = {
     "week_start": frozenset(WEEK_STARTS),
     "date_format": frozenset(DATE_FORMATS),
     "time_format": frozenset(TIME_FORMATS),
+    "digits": frozenset(DIGITS),
 }
 MAX_SIGNATURE_LENGTH = 2000
 

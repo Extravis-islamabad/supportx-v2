@@ -13,6 +13,7 @@ export interface PendingPreferences {
   week_start?: 'monday' | 'sunday' | 'saturday' | null;
   date_format?: string | null;
   time_format?: '24h' | '12h' | null;
+  digits?: 'western' | 'arabic_indic' | null;
 }
 
 const key = (userId: string) => `supportx.pending_preferences.${userId}`;

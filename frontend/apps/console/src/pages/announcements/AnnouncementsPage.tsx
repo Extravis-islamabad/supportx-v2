@@ -69,7 +69,7 @@ const equals = (field: string, value: string | undefined): FilterExpression | un
 export function AnnouncementsPage() {
   const t = useLabel();
   const navigate = useNavigate();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const { can } = useAccess();
   const allowed = can('announcements.view');
   const [view, setView] = useState<'current' | 'trash'>('current');
@@ -108,7 +108,10 @@ export function AnnouncementsPage() {
 
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   if (!allowed) return <NoAccess titleKey="nav.announcements" />;
-  const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  const dateFormat = new Intl.DateTimeFormat(intlLocale, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
   const any = { value: '', label: t('users.any') };
 
   return (

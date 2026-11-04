@@ -17,12 +17,12 @@ const ALERT_TYPE = { info: 'info', warning: 'warning', critical: 'error' } as co
  */
 export function HomePage() {
   const t = useLabel();
-  const { locale, mode, branding } = useAppearance();
+  const { locale, intlLocale, mode, branding } = useAppearance();
   const session = useSession().data;
   const licence = useLicence();
   const feed = useLiveAnnouncementFeed(licence.has('incident'));
   const items = feed.data?.items ?? [];
-  const format = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  const format = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <>
       {/* Welcome band in the brand gradient; white text on it reaches 4.97:1 at its lightest

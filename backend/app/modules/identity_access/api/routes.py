@@ -18,6 +18,7 @@ from app.core.errors import ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.domain.identity import (
     DateFormat,
+    Digits,
     FormDensity,
     NavLayout,
     ThemeMode,
@@ -97,6 +98,7 @@ class UserDetail(BaseModel):
     week_start: WeekStart | None = Field(default=None, description="Null: the tenant's.")
     date_format: DateFormat | None = Field(default=None, description="Null: the tenant's.")
     time_format: TimeFormat | None = Field(default=None, description="Null: the tenant's.")
+    digits: Digits | None = Field(default=None, description="Null: Western digits (D-135).")
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -159,6 +161,9 @@ class UserPreferencesPatch(BaseModel):
     week_start: str | None = Field(default=None, max_length=10, description="First weekday.")
     date_format: str | None = Field(default=None, max_length=12, description="e.g. dd/mm/yyyy.")
     time_format: str | None = Field(default=None, max_length=4, description="24h or 12h.")
+    digits: str | None = Field(
+        default=None, max_length=16, description="western or arabic_indic (D-135)."
+    )
     # REQ-PRT-013 AC2 (WP-028): only when the tenant allows it and no directory keeps them.
     phone: str | None = Field(default=None, max_length=100, description="Your phone number.")
     mobile: str | None = Field(default=None, max_length=100, description="Your mobile number.")

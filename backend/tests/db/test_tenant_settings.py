@@ -265,3 +265,27 @@ async def test_layout_and_density_follow_the_default_until_chosen(bff: Bff) -> N
     assert "nav_layout" not in (await bff.me()).json()["user"]["chosen"]
     bad = await patch({"form_density": "airy"})
     assert bad.status_code == 422, bad.text
+
+
+async def test_digits_are_western_unless_the_person_chooses_arabic_indic(bff: Bff) -> None:  # noqa: F811
+    """D-135: Western digits by default in every language, Arabic-Indic per person."""
+    admin = bff.user("a", email="digitsadmin@demo.test", locale="ar", roles=("tenant_admin",))
+    await bff.login(admin)
+    me = (await bff.me()).json()
+    assert (me["user"]["digits"], "digits" in me["user"]["chosen"]) == ("western", False)
+    path = f"/api/v1/users/{me['user']['id']}"
+
+    async def patch(body: dict[str, object]) -> httpx.Response:
+        read = await bff.client.get(path)
+        return await bff.client.patch(
+            path,
+            json=body,
+            headers={"X-CSRF-Token": me["csrf_token"], "If-Match": read.headers["ETag"]},
+        )
+
+    assert (await patch({"digits": "arabic_indic"})).status_code == 200
+    user = (await bff.me()).json()["user"]
+    assert (user["digits"], "digits" in user["chosen"]) == ("arabic_indic", True)
+    assert (await patch({"digits": "roman"})).status_code == 422
+    assert (await patch({"digits": None})).status_code == 200
+    assert (await bff.me()).json()["user"]["digits"] == "western"

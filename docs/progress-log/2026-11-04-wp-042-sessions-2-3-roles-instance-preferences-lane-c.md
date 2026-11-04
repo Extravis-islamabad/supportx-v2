@@ -53,10 +53,28 @@
 - Home dashboard (REQ-ADM-058): already per person in analytics (`set_home`). The preferences
   page does not duplicate it.
 
+- D-135 (numbers): Western digits by default in every language, Arabic-Indic per person (My
+  profile › Display and region › Digits). Every `Intl` formatter uses `intlLocale` (the
+  language with its numbering system pinned); labels keep `locale`. Before this, Arabic screens
+  showed Arabic-Indic digits from the browser's default.
+- D-136 and migration 0072: stored layout and density preferences reset once to "not chosen" in
+  every tenant (pre-pilot data only), plus the nullable `digits` column. Migration test.
+- D-134 recorded (possible duplicates follow the AI switch, pg_trgm fallback) for WP-038.
+- docs/guides/urdu-review.md for the native-speaker review: how to switch the shared stack's
+  console to Urdu, the screens to check, the label files.
+
+**UI pass 2 backlog (product owner, 2026-11-04; he provides a visual design target before it
+starts, so nothing is designed ahead; original design on Ant Design 5, never copying
+ManageEngine)**
+
+1. Incident screen: channel or source icons (e-mail, phone, portal, MonetX, API).
+2. Conversation as a proper timeline: an icon per entry type (reply, note, status change,
+   system), connectors, clear author and time.
+3. Surfaces: text on light-grey containers everywhere gives low contrast and no hierarchy.
+   Rethink surfaces, elevation and the type scale.
+
 **Gaps and follow-ups (recorded, not done)**
 
-- REQ-ADM-059 names a number format. Neither the tenant's settings nor a person's have one yet,
-  and it needs a decision on the choices offered.
 - REQ-ADM-062 AC2 (no cut-off text at 150 % on the record page) is not checked by e2e yet. Text
   size scales Ant Design's font sizes, control heights and menu and header heights.
 - REQ-ADM-062 AC1 (high-contrast axe on the incident list and record) is covered by the existing

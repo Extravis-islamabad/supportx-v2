@@ -8,7 +8,14 @@ import {
 } from '@supportx/api-client';
 import { reportError, storedMode, systemMode, useAppearance, type ThemeMode } from '@supportx/ui';
 
-const PERSONAL = ['theme_mode', 'text_scale', 'week_start', 'date_format', 'time_format'] as const;
+const PERSONAL = [
+  'theme_mode',
+  'text_scale',
+  'week_start',
+  'date_format',
+  'time_format',
+  'digits',
+] as const;
 
 /**
  * The person's theme and text size, from the server, on every tab and device (WP-042;
@@ -23,7 +30,7 @@ const PERSONAL = ['theme_mode', 'text_scale', 'week_start', 'date_format', 'time
 export function usePersonalAppearance(
   user: MeResponse['user'] | undefined,
 ): (mode: ThemeMode) => void {
-  const { setMode, setTextScale } = useAppearance();
+  const { setMode, setTextScale, setDigits } = useAppearance();
   const save = useSetPreference(user?.id ?? '');
   const copied = useRef(false);
   // The first theme read from the server since this tab opened. A value, not a "done" flag:
@@ -33,6 +40,7 @@ export function usePersonalAppearance(
   const userId = user?.id;
   const themeMode = user?.theme_mode;
   const textScale = user?.text_scale;
+  const digits = user?.digits;
 
   // Choices made just before a reload whose save had not finished: sent again (as the layout).
   useEffect(() => {
@@ -69,6 +77,11 @@ export function usePersonalAppearance(
   useEffect(() => {
     if (textScale !== undefined) setTextScale(textScale);
   }, [textScale, setTextScale]);
+
+  // D-135: Western digits unless the person chose Arabic-Indic ones.
+  useEffect(() => {
+    setDigits(digits ?? 'western');
+  }, [digits, setDigits]);
 
   return (mode) => {
     save.mutate({ field: 'theme_mode', value: mode }, { onError: reportError });

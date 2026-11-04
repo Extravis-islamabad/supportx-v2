@@ -82,6 +82,9 @@ DEFAULT_TEXT_SCALE = 100
 WeekStart = Literal["monday", "sunday", "saturday"]
 DateFormat = Literal["dd/mm/yyyy", "mm/dd/yyyy", "yyyy-mm-dd", "dd.mm.yyyy"]
 TimeFormat = Literal["24h", "12h"]
+# D-135: Western digits by default in every language; Arabic-Indic per person.
+Digits = Literal["western", "arabic_indic"]
+DIGITS: frozenset[str] = frozenset(get_args(Digits))
 WEEK_STARTS: frozenset[str] = frozenset(get_args(WeekStart))
 DATE_FORMATS: frozenset[str] = frozenset(get_args(DateFormat))
 TIME_FORMATS: frozenset[str] = frozenset(get_args(TimeFormat))

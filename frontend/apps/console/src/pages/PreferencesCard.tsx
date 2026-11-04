@@ -17,19 +17,23 @@ const THEMES = ['light', 'dark', 'high_contrast', 'system'] as const;
 const WEEK_STARTS = ['monday', 'sunday', 'saturday'] as const;
 const DATE_FORMATS = ['dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd', 'dd.mm.yyyy'] as const;
 const TIME_FORMATS = ['24h', '12h'] as const;
+const DIGITS = ['western', 'arabic_indic'] as const;
 const DEFAULT = '__default';
 
 export function PreferencesCard({ user }: { user: User }) {
   const t = useLabel();
-  const { locale, setMode, setTextScale } = useAppearance();
+  const { intlLocale, setMode, setTextScale } = useAppearance();
   const save = useSetPreference(user.id);
   const chosen = new Set(user.chosen ?? []);
-  const percent = useMemo(() => new Intl.NumberFormat(locale, { style: 'percent' }), [locale]);
+  const percent = useMemo(
+    () => new Intl.NumberFormat(intlLocale, { style: 'percent' }),
+    [intlLocale],
+  );
   const set = (change: PersonalPreferenceChange) => {
     save.mutate(change, { onError: reportError });
   };
 
-  const regional = <F extends 'week_start' | 'date_format' | 'time_format'>(
+  const regional = <F extends 'week_start' | 'date_format' | 'time_format' | 'digits'>(
     field: F,
     choices: readonly NonNullable<User[F]>[],
     label: (value: NonNullable<User[F]>) => string,
@@ -94,6 +98,7 @@ export function PreferencesCard({ user }: { user: User }) {
           {regional('week_start', WEEK_STARTS, (v) => t(`instance.week_start.${v}`))}
           {regional('date_format', DATE_FORMATS, (v) => v)}
           {regional('time_format', TIME_FORMATS, (v) => t(`instance.time_format.${v}`))}
+          {regional('digits', DIGITS, (v) => t(`preferences.digits.${v}`))}
         </Flex>
       </Space>
     </Card>
