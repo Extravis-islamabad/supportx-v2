@@ -915,6 +915,7 @@ export const ur: LabelResource = {
   'portal.report.description': 'تفصیل',
   'portal.report.description_hint': 'کیا ہوا، کب سے، اور آپ نے کیا آزمایا',
   'portal.report.send': 'بھیجیں',
+  'portal.approvals.title': 'منظوریاں',
   'portal.report.for_whom': 'کس کے لیے',
   'portal.report.for_me': 'میرے لیے',
   'portal.report.for_someone_else': 'کسی اور کے لیے',

@@ -916,6 +916,7 @@ export const en = {
   'portal.report.description': 'Details',
   'portal.report.description_hint': 'What happened, since when, and what you already tried',
   'portal.report.send': 'Send',
+  'portal.approvals.title': 'Approvals',
   'portal.report.for_whom': 'For whom',
   'portal.report.for_me': 'For me',
   'portal.report.for_someone_else': 'For someone else',

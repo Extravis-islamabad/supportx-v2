@@ -985,6 +985,7 @@ export const ar: LabelResource = {
   'portal.report.description': 'التفاصيل',
   'portal.report.description_hint': 'ماذا حدث، ومنذ متى، وما الذي جربته بالفعل',
   'portal.report.send': 'إرسال',
+  'portal.approvals.title': 'الموافقات',
   'portal.report.for_whom': 'لمن',
   'portal.report.for_me': 'لي',
   'portal.report.for_someone_else': 'لشخص آخر',
