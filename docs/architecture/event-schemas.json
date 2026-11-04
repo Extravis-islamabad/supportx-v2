@@ -3356,6 +3356,62 @@
         "type": "object"
       }
     },
+    "work_items.approval.changed": {
+      "1": {
+        "description": "An approval was opened, decided, closed or withdrawn (WP-030 s2, REQ-SR-024).\n\n`approver_id` None: the approval administrators hold it. IDs and codes only, never the\ncomment; the record's screens and the approver's drawer refetch through the API.",
+        "properties": {
+          "approval_id": {
+            "format": "uuid",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "approver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approver Id"
+          },
+          "change": {
+            "enum": [
+              "opened",
+              "decided",
+              "closed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "approval_id",
+          "approver_id",
+          "state",
+          "change"
+        ],
+        "title": "WorkItemApprovalChanged",
+        "type": "object"
+      }
+    },
     "work_items.bulk_job.progressed": {
       "1": {
         "description": "A bulk job started, finished a batch or ended (REQ-INC-120 AC3; counts only).",

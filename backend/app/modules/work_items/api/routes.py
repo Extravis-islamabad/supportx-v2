@@ -19,6 +19,7 @@ from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
 from app.modules.audit import AuditNote, audited, entries_for_changes
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
+from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -52,6 +53,7 @@ from app.modules.work_items.domain.types import (
     TAGS_MAX,
     Channel,
     WorkItemType,
+    WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory
 from app.modules.work_items.service import resolution
@@ -1382,6 +1384,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         return WorkItemCategoryOut.of(node)
 
     add_list_routes(router, wtype)
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
+        add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
     add_parts_collection_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)

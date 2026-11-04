@@ -195,6 +195,9 @@ FIELD_PROBLEMS = frozenset(
         "out_of_range",
         "invalid_value",
         "value_too_long",
+        # WP-030 s2: a rejection's reason; an approval's comment when the item requires one.
+        "reason_required",
+        "comment_required",
         "invalid_choice",
         "not_allowed",
         "invalid_tag",

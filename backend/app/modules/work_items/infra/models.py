@@ -31,6 +31,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
+from app.modules.work_items.domain.approvals import (
+    ApprovalState,
+    ApproverOrigin,
+    DecisionChannel,
+    RouteReason,
+)
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.conversation import (
     DeliveryReason,
@@ -995,3 +1001,58 @@ class WorkItemLink(TenantEntity):
     target_id: Mapped[uuid.UUID]
     kind: Mapped[str] = mapped_column(String(20))
     comment: Mapped[str | None] = mapped_column(String(500))
+
+
+class WorkItemApproval(TenantEntity):
+    """One approver's entry on a record's approval stage (WP-030 s2, REQ-SR-021..028, -063).
+
+    `approver_id` NULL: the tenant's approval administrators hold it (REQ-SR-023); `route_reason`
+    says why it went to the backup or to them. One stage at MVP (`stage` 1); the first decision
+    decides it and closes the others as not needed.
+    """
+
+    __tablename__ = "work_item_approvals"
+    __table_args__ = (
+        _work_item_fk("fk_wia_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "approver_id"], ["users.tenant_id", "users.id"], name="fk_wia_approver"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "decided_by"], ["users.tenant_id", "users.id"], name="fk_wia_decided_by"
+        ),
+        CheckConstraint(_codes("state", ApprovalState), name="state_code"),
+        CheckConstraint(_codes("origin", ApproverOrigin), name="origin_code"),
+        CheckConstraint(
+            "route_reason IS NULL OR " + _codes("route_reason", RouteReason), name="reason_code"
+        ),
+        CheckConstraint(
+            "channel IS NULL OR " + _codes("channel", DecisionChannel), name="channel_code"
+        ),
+        CheckConstraint(
+            "(origin = 'administrators') = (approver_id IS NULL)", name="administrators_no_person"
+        ),
+        CheckConstraint("comment IS NULL OR char_length(comment) <= 4000", name="comment_length"),
+        CheckConstraint("stage >= 1", name="stage_positive"),
+        Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
+        Index(
+            "ix_wia_tenant_approver_pending",
+            "tenant_id",
+            "approver_id",
+            postgresql_where=text("deleted_at IS NULL AND state = 'pending'"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    stage: Mapped[int] = mapped_column(Integer, server_default="1")
+    approver_id: Mapped[uuid.UUID | None]
+    origin: Mapped[str] = mapped_column(String(20))
+    route_reason: Mapped[str | None] = mapped_column(String(30))
+    state: Mapped[str] = mapped_column(String(20), server_default="pending")
+    decided_at: Mapped[datetime | None]
+    decided_by: Mapped[uuid.UUID | None]
+    channel: Mapped[str | None] = mapped_column(String(20))
+    comment: Mapped[str | None] = mapped_column(Text)
+    comment_private: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # The stage's switches, kept from the item at submission (an item edit never moves them).
+    comments_required: Mapped[bool] = mapped_column(Boolean, server_default="false")

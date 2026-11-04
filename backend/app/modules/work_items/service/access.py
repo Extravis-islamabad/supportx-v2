@@ -217,4 +217,21 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
             defaults=() if is_sr and action in IDENTITY_GRANTED else defaults,
         )
         for action, scopes, defaults in _ACTIONS
-    )
+    ) + (APPROVE_SPECS if is_sr else ())
+
+
+# The approval engine (WP-030 s2, REQ-SR-063): anyone holding the type's approve permission may
+# be named an approver, requester or technician (REQ-SR-022 AC2), so both system roles hold it.
+# Approval administrators (REQ-SR-023) decide approvals that resolved to no active person; only
+# the tenant admin holds that by default (least privilege).
+APPROVE = "approve"
+APPROVE_ANY = "work_items.approve_any"
+APPROVE_SPECS: tuple[PermissionSpec, ...] = (
+    PermissionSpec(
+        "requests.approve",
+        "service_request",
+        ("all",),
+        defaults=(("technician", "all"), ("requester", "all")),
+    ),
+    PermissionSpec(APPROVE_ANY, "service_request", ("all",)),
+)

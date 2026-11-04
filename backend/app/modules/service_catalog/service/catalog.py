@@ -474,6 +474,12 @@ class RequestItem:
     count_approval_time: bool
     auto_fulfil: bool
     answer_problems: tuple[tuple[str, str], ...]  # the answers checked against the form
+    # The approval stage (WP-030 s2), as plain values for work_items' engine: each approver as
+    # (manager of the requested-for person?, person id), the backup, and the stage's switches.
+    approvers: tuple[tuple[bool, uuid.UUID | None], ...] = ()
+    backup_id: uuid.UUID | None = None
+    self_approval: bool = False
+    comments_required: bool = False
 
 
 async def request_item(
@@ -486,19 +492,41 @@ async def request_item(
     view = await get_item(session, subject, item_id)
     if not view.item.enabled:
         raise NotFound(code="catalog_item_not_found")
-    rules = view.rules
+    return _decides(view.item, answers)
+
+
+def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
+    rules = rules_of(item)
+    stage = rules.approval
     return RequestItem(
-        item_id=view.item.id,
+        item_id=item.id,
         needs_approval=needs_approval(rules),
-        default_priority=view.item.default_priority,
-        sla_policy_id=view.item.sla_policy_id,
-        group_id=view.item.group_id,
-        technician_id=view.item.technician_id,
+        default_priority=item.default_priority,
+        sla_policy_id=item.sla_policy_id,
+        group_id=item.group_id,
+        technician_id=item.technician_id,
         technician_after_approval=rules.technician_after_approval,
         count_approval_time=rules.count_approval_time,
         auto_fulfil=rules.auto_fulfil,
         answer_problems=tuple(answer_problems(rules.questions, answers)),
+        approvers=tuple(
+            (a.kind is ApproverKind.REQUESTED_FOR_MANAGER, a.person_id)
+            for a in (stage.approvers if stage else ())
+        ),
+        backup_id=stage.backup_id if stage else None,
+        self_approval=stage.self_approval if stage else False,
+        comments_required=stage.comments_required if stage else False,
     )
+
+
+async def item_decides(session: AsyncSession, item_id: uuid.UUID) -> RequestItem | None:
+    """What an existing request's item says, for a step after submission (WP-030 s2).
+
+    Read by the system (the technician after approval): no viewer check and deleted items
+    included, since the request already exists and its approver may not see the item.
+    """
+    row = await session.get(CatalogItem, item_id)
+    return None if row is None else _decides(row, {})
 
 
 __all__ = [
@@ -508,6 +536,7 @@ __all__ = [
     "create_category",
     "create_item",
     "get_item",
+    "item_decides",
     "list_categories",
     "list_items",
     "request_item",

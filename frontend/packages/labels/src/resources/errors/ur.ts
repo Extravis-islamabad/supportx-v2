@@ -9,6 +9,7 @@ export const ur: LabelResource = {
   'errors.cannot_publish': 'یہ اعلان ابھی شائع نہیں کیا جا سکتا۔',
   'errors.field.required': 'یہ خانہ ضروری ہے۔',
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
+  'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.unknown_value': 'یہ قدر موجود نہیں (اب نہیں رہی)۔',
   'errors.field.owner_not_allowed':
     'یہ شخص اعلانات کا انتظام نہیں کر سکتا، اس لیے مالک نہیں بن سکتا۔',

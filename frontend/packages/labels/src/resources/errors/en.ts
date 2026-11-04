@@ -114,6 +114,7 @@ export const en = {
   'errors.cannot_publish': 'This announcement cannot be published yet.',
   'errors.field.required': 'This field is required.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
+  'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.unknown_value': 'This value does not exist (any more).',
   'errors.field.owner_not_allowed': 'This person may not manage announcements, so cannot own one.',
   'errors.field.window_end_before_start': 'Must be after the start.',

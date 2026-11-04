@@ -56,6 +56,9 @@ LISTS_CHANGED = "work_items.lists_changed"
 # Correlation ID of a bulk job's events (service/bulk.py): lists refresh once per batch instead.
 BULK_PREFIX = "bulk:"
 PART_CHANGED = "work_items.part_changed"
+# WP-030 s2: a record's approvals (its screens refetch), and an approver's own inbox count.
+APPROVALS_CHANGED = "work_items.approvals_changed"
+MY_APPROVALS_CHANGED = "work_items.my_approvals_changed"
 MY_TASKS_CHANGED = "work_items.my_tasks_changed"
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
@@ -349,6 +352,34 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     return RealtimeEffects(publications=publications)
 
 
+async def _approval_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An approval opened or was decided: the record's screens and the approver's inbox.
+
+    The administrators' approvals (no approver) signal every screen once (broadcast, coalesced);
+    only those with `work_items.approve_any` get rows back when their inbox refetches.
+    """
+    del session
+    payload = envelope.payload
+    tenant = envelope.tenant_id
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    approval = str(payload["approval_id"])
+    publications = [
+        Publication(
+            record(tenant, RECORD_KIND, record_id),
+            APPROVALS_CHANGED,
+            ids=(approval,),
+            actor_id=_actor(envelope),
+        )
+    ]
+    approver = _uuid(payload.get("approver_id"))
+    publications.append(
+        Publication(personal(tenant, approver), MY_APPROVALS_CHANGED, ids=(approval,))
+        if approver is not None
+        else Publication(broadcast(tenant), MY_APPROVALS_CHANGED, ids=(approval,), coalesce=True)
+    )
+    return RealtimeEffects(publications=publications)
+
+
 ROUTES = [
     RealtimeRoute(
         (
@@ -376,4 +407,5 @@ ROUTES = [
     RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
     RealtimeRoute(("work_items.part.changed",), _part_changed),
+    RealtimeRoute(("work_items.approval.changed",), _approval_changed),
 ]

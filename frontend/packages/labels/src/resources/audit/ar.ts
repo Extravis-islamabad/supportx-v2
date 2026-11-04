@@ -134,6 +134,8 @@ export const ar: LabelResource = {
   'audit.action.announcement.settings_changed': 'غيّر إعدادات الإعلانات',
   'audit.action.incident.deleted': 'نقل حادثة إلى سلة المحذوفات',
   'audit.action.incident.restored': 'استعاد حادثة من سلة المحذوفات',
+  'audit.action.service_request.approval_decided': 'وافق على طلب خدمة أو رفضه',
+  'audit.action.service_request.withdrawn': 'سحب طلب خدمة بانتظار الموافقة',
   'audit.action.incident.bulk_started': 'بدأ تغييرًا جماعيًا للحوادث',
   'audit.action.incident.closed_record_edited': 'عدّل حادثة مغلقة',
   'audit.action.incident.due_date_changed': 'غيّر موعد استحقاق حادثة',

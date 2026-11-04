@@ -105,6 +105,7 @@ export const ar: LabelResource = {
   'errors.cannot_publish': 'لا يمكن نشر هذا الإعلان بعد.',
   'errors.field.required': 'هذا الحقل مطلوب.',
   'errors.field.not_allowed': 'هذا غير مسموح مع القيم الأخرى.',
+  'errors.field.comment_required': 'أضف تعليقًا: هذا البند يتطلب تعليقًا.',
   'errors.field.unknown_value': 'هذه القيمة غير موجودة (لم تعد موجودة).',
   'errors.field.owner_not_allowed':
     'لا يملك هذا الشخص صلاحية إدارة الإعلانات، لذا لا يمكن أن يكون مالكًا.',

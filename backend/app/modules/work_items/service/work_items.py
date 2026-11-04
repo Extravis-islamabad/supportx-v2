@@ -112,7 +112,7 @@ from app.modules.work_items.infra.models import (
     WorkItemConversation,
     WorkItemFollower,
 )
-from app.modules.work_items.service import automation, closing, followers, templates
+from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service.access import RESOURCE
@@ -1920,6 +1920,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await approval_stage.open_stage(session, record, item)  # REQ-SR-021
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
             cat.lifecycle, record.status, had_technician=False, has_technician=True
@@ -2251,6 +2252,87 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         if by_requester
         else (),
     )
+    return updated
+
+
+async def decided_move(  # noqa: PLR0913 - the move and what the approval decided, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    cat: Catalogue,
+    record: WorkItem,
+    action: WorkItemAction,
+    *,
+    approval_status: str,
+    technician_id: uuid.UUID | None,
+    source: Source,
+    reason_code: str | None = None,
+) -> WorkItem:
+    """The approval engine's move (WP-030 s2): approve, reject, or a withdrawal's cancel.
+
+    The decider's own act, never automation: history keeps them as the person, from their
+    channel, with the record's new approval status. On approval the item's technician (after
+    approval, REQ-SR-008 AC2) is set in the same save, then the usual move to "assigned".
+    """
+    target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
+    old_approval, old_technician = record.approval_status, record.technician_id
+    audience = _audience(record)
+    assigning = technician_id != old_technician
+    before = _snapshot(record, STAMP_FIELDS)
+    changes = await _status_change(
+        session, wtype, record, action, target=target, reason_code=reason_code, reason_text=None
+    )
+    changes["approval_status"] = approval_status
+    if assigning:
+        changes["technician_id"] = technician_id
+    updated = await _update(session, record, record.version, changes)
+    extra = [Change("approval_status", old_approval, approval_status)]
+    if assigning:
+        extra.append(
+            Change(
+                "technician_id",
+                None if old_technician is None else str(old_technician),
+                None if technician_id is None else str(technician_id),
+            )
+        )
+    await _record_status(
+        session, before, updated, action, source=source, reason=None, automatic=False, extra=extra
+    )
+    if not assigning:
+        return updated
+    await record_event(
+        session,
+        WorkItemAssigned(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            group_id=updated.group_id,
+            technician_id=updated.technician_id,
+            audience_before=audience,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    move = (
+        after_assignment(cat.lifecycle, updated.status, had_technician=False, has_technician=True)
+        if cat.auto_status_on_assign
+        else None
+    )
+    if move is None:
+        return updated
+    before = _snapshot(updated, STAMP_FIELDS)
+    moved = await _status_change(
+        session,
+        wtype,
+        updated,
+        move,
+        target=cat.lifecycle.target(updated.status, move, before_cancel=None),
+        reason_code=None,
+        reason_text=None,
+    )
+    updated = await _update(session, updated, updated.version, moved)
+    await _record_status(session, before, updated, move, source=source, reason=None, automatic=True)
     return updated
 
 
@@ -2837,6 +2919,7 @@ may = _may
 audience_of = _audience
 now = _now
 field_errors = _errors
+now = _now
 
 
 async def update_columns(
