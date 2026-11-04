@@ -33,7 +33,26 @@ data:
   valkey.sh: |
     set -eu
     . /scripts/common.sh
+    # Any peer of the set already exists: then this is a restart, not the set's first start, and
+    # "no sentinel answered" only means the network isn't letting this pod through yet (a new
+    # pod IP takes a moment to be admitted by the network policies). Keep asking before deciding.
+    peers=0
+    for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
+      peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
+      [ "$peer" = "$SELF" ] && continue
+      getent hosts "$peer" >/dev/null 2>&1 && peers=$((peers + 1))
+    done
     master=$(ask_sentinels)
+    if [ -z "$master" ] && [ "$peers" -gt 0 ]; then
+      for _ in $(seq 1 30); do
+        sleep 2
+        master=$(ask_sentinels)
+        [ -n "$master" ] && break
+      done
+      if [ -z "$master" ]; then
+        echo "valkey: peers exist but no sentinel answered in 60 s; starting as master" >&2
+      fi
+    fi
     if [ "$master" = "$SELF" ]; then
       # Back before the sentinels noticed it was gone (inside down-after-milliseconds): they
       # still name this pod master, but it has no data (no persistence). Starting as master

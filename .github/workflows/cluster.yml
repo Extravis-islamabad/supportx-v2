@@ -233,6 +233,9 @@ jobs:
       - name: Losing the node with PostgreSQL's primary keeps a signed-in session writing
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-node-loss
+      - name: Restore drill (a backup restored to a chosen moment)
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-restore
       - name: Diagnostics on failure
         if: ${{ failure() && steps.changes.outputs.run != 'false' }}
         run: |

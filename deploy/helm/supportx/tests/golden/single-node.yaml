@@ -269,7 +269,9 @@ spec:
 ---
 # Source: supportx/templates/networkpolicies.yaml
 # PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the
-# other instances (replication) and the CloudNativePG operator (instance manager on 8000).
+# other instances (replication) and the CloudNativePG operator (instance manager on 8000). Every
+# CloudNativePG cluster of this namespace, not only <release>-pg: a cluster restored from the
+# backups (docs/runbooks/restore.md) is another one, and without this its operator can't reach it.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -284,8 +286,8 @@ metadata:
     helm.sh/chart: supportx-0.1.0
 spec:
   podSelector:
-    matchLabels:
-      cnpg.io/cluster: supportx-pg
+    matchExpressions:
+      - {key: cnpg.io/cluster, operator: Exists}
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -294,8 +296,8 @@ spec:
               app.kubernetes.io/instance: supportx
               app.kubernetes.io/name: supportx
         - podSelector:
-            matchLabels:
-              cnpg.io/cluster: supportx-pg
+            matchExpressions:
+              - {key: cnpg.io/cluster, operator: Exists}
       ports:
         - {port: 5432, protocol: TCP}
     - from:

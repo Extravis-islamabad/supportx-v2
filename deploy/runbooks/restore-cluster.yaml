@@ -1,0 +1,29 @@
+# A new PostgreSQL cluster restored from the backups (docs/runbooks/restore.md, step 3).
+# Fill in the placeholders; deploy/k3d/restore-drill.sh runs this same file in CI.
+#   RESTORE_NAME   the new cluster's name, e.g. supportx-pg-restore
+#   SOURCE_NAME    the cluster whose backups are restored, e.g. supportx-pg
+#   OBJECT_STORE   the plugin's ObjectStore holding them, e.g. supportx-pg-backups
+#   IMAGE          the PostgreSQL image of the source cluster (same major version)
+#   STORAGE        the new cluster's volume size, e.g. 20Gi
+#   TARGET_TIME    the moment to restore to, e.g. "2026-11-04 14:30:00+00" (point in time)
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: RESTORE_NAME
+spec:
+  instances: 1
+  imageName: IMAGE
+  storage:
+    size: STORAGE
+  bootstrap:
+    recovery:
+      source: origin
+      recoveryTarget:
+        targetTime: "TARGET_TIME"
+  externalClusters:
+    - name: origin
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: OBJECT_STORE
+          serverName: SOURCE_NAME
