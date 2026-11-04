@@ -635,4 +635,34 @@ export const en = {
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
   'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
   'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
+  'errors.api_key_not_allowed': 'API keys cannot be used here: sign in through the browser.',
+  'errors.api_scope_missing': 'This API key does not have the scope {{scope}}.',
+  'errors.api_keys_unavailable': 'API keys are not set up on this installation.',
+  'errors.api_keys_people_off': 'Your organisation does not let people make their own API keys.',
+  'errors.api_key_owner_not_service':
+    'Keys for someone else can only belong to a service identity.',
+  'errors.field.api_key_owner_not_service':
+    'Keys for someone else can only belong to a service identity.',
+  'errors.api_key_name_invalid': 'Enter a name of up to 100 characters.',
+  'errors.field.api_key_name_invalid': 'Enter a name of up to 100 characters.',
+  'errors.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
+  'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
+  'errors.api_key_expiry_required':
+    'Choose an expiry date: your organisation does not allow keys that never expire.',
+  'errors.field.api_key_expiry_required':
+    'Choose an expiry date: your organisation does not allow keys that never expire.',
+  'errors.api_key_expiry_past': 'The expiry date must be in the future.',
+  'errors.field.api_key_expiry_past': 'The expiry date must be in the future.',
+  'errors.api_key_expiry_too_far': 'A key can last at most one year.',
+  'errors.field.api_key_expiry_too_far': 'A key can last at most one year.',
+  'errors.api_key_allowlist_invalid':
+    'Enter up to 20 valid addresses or networks, such as 10.0.0.0/8.',
+  'errors.field.api_key_allowlist_invalid':
+    'Enter up to 20 valid addresses or networks, such as 10.0.0.0/8.',
+  'errors.api_key_not_found': 'This API key does not exist or is not yours.',
+  'errors.api_key_invalid': 'This API key is not valid.',
+  'errors.api_key_revoked': 'This API key has been revoked.',
+  'errors.api_key_expired': 'This API key has expired.',
+  'errors.api_key_owner_inactive': 'The owner of this API key is no longer active.',
+  'errors.api_key_ip_refused': 'This API key may not be used from this address.',
 } as const;

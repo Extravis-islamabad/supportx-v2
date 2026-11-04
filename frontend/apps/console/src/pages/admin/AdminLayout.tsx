@@ -15,6 +15,7 @@ const TABS = [
   { key: 'branding', labelKey: 'nav.admin_branding', permission: 'branding.manage' },
   { key: 'security', labelKey: 'nav.admin_security', permission: 'identity.manage' },
   { key: 'ai', labelKey: 'nav.admin_ai', permission: 'ai.manage' },
+  { key: 'api-keys', labelKey: 'nav.admin_api_keys', permission: 'api_keys.manage' },
   { key: 'notifications', labelKey: 'nav.admin_notifications', permission: 'notifications.manage' },
   { key: 'mail', labelKey: 'nav.admin_mail', permission: 'integrations.manage_email' },
   { key: 'integrations', labelKey: 'nav.admin_integrations', permission: 'integrations.view' },

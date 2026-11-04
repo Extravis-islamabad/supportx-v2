@@ -308,6 +308,18 @@ export {
 } from './identity';
 export { useAiSettings, useSaveAiSettings, type AiSettings, type AiSettingsInput } from './ai';
 export {
+  useApiKeyRules,
+  useApiKeys,
+  useApiKeyScopes,
+  useCreateApiKey,
+  useRevokeApiKey,
+  type ApiKey,
+  type ApiKeyCreated,
+  type ApiKeyInput,
+  type ApiKeyRules,
+  type ApiKeyScope,
+} from './apiKeys';
+export {
   useBulkJob,
   useBulkJobs,
   useIncidentListFields,
