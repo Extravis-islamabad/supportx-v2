@@ -983,7 +983,7 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-2 of 6 built 2026-11-05, #214, #219)
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-3 of 6 built 2026-11-05, #214, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
 with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
@@ -1004,8 +1004,14 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   - Read-only per stage is enforced through the API.
   - A release type can set its default template and risk.
   - Copy (REQ-REL-009).
-- [ ] S3 — guards: required fields per stage, stage access by role (REQ-REL-018, -019), guard
-  reasons on offered moves and the full refusal list (lane A's review, ADR-041 §8).
+- [x] **S3 — required to leave a stage, stage access (#219, migration 0094).**
+  - Required-to-leave checks run in the engine on every path; a move can carry the values.
+  - Stage access is an AccessRule in identity_access's policy layer (lane B reviews), applied
+    after the scope check. Visibility is never narrowed.
+  - Offered moves show their reasons and missing fields; a refused move returns the full list.
+  - A group change takes effect without signing in again.
+  - Not done: bulk stage moves (REQ-REL-018 AC2) go to WP-058b with the release lists. Record
+    roles in stage access come with S4.
 - [ ] S4 — roles, planning and deployment, planned and actual dates per stage (REQ-REL-023..028).
 - [ ] S5 — approvals per stage through the system entry point, associations (REQ-REL-030..037).
 - [ ] S6 — the console screens (rail, moves dialog, details), e2e and RTL; without workflows.
