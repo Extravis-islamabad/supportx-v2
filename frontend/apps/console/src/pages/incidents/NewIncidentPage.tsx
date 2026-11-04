@@ -30,6 +30,7 @@ import {
   useIncidentTemplates,
   useKbSettings,
   useLinkKbArticle,
+  usePossibleDuplicates,
   useSession,
   useSetFormDensity,
   useStructure,
@@ -58,6 +59,8 @@ import {
 } from '@supportx/ui';
 
 import { CustomFormField } from '../customFields/fields';
+import { useDebounced } from '../../useDebounced';
+import { DuplicatesPanel } from './DuplicatesPanel';
 import { KnowledgeSuggestions } from '../knowledge/KnowledgeSuggestions';
 import { fieldName } from '../customFields/values';
 import { HandOverWarning } from './assign';
@@ -240,6 +243,20 @@ export function NewIncidentPage() {
   const linkArticle = useLinkKbArticle();
   const typedSubject = form.watch('subject');
   const typedDescription = form.watch('description');
+  // Possible duplicates of the draft (WP-038, REQ-INC-022): asked once typing pauses.
+  const draftSubject = useDebounced(typedSubject, 600);
+  const draftDescription = useDebounced(typedDescription.replace(/<[^>]*>/g, ' '), 600);
+  const typedRequester = form.watch('requester_id');
+  const duplicates = usePossibleDuplicates(
+    {
+      title: draftSubject,
+      description: draftDescription,
+      requesterId: typedRequester ?? undefined,
+    },
+    can('incidents.create'),
+  );
+  const hasDuplicates = (duplicates.data?.items.length ?? 0) > 0;
+  const sideColumn = suggesting || hasDuplicates;
   const suggestText = `${typedSubject} ${typedDescription.replace(/<[^>]*>/g, ' ')}`;
   const toggleArticle = (articleId: string) => {
     setChosenArticles((current) => {
@@ -545,7 +562,7 @@ export function NewIncidentPage() {
       {/* The suggestions keep a fixed column beside the form, so typing never moves it. */}
       <div
         style={
-          suggesting
+          sideColumn
             ? {
                 display: 'grid',
                 gridTemplateColumns: screens.lg ? 'minmax(0, 1fr) 320px' : 'minmax(0, 1fr)',
@@ -1063,14 +1080,17 @@ export function NewIncidentPage() {
             </Space>
           </Form>
         </Card>
-        {suggesting && (
-          <div style={screens.lg ? { position: 'sticky', top: 16 } : undefined}>
-            <KnowledgeSuggestions
-              text={suggestText}
-              chosen={chosenArticles}
-              onToggle={toggleArticle}
-            />
-          </div>
+        {sideColumn && (
+          <Flex vertical gap={16} style={screens.lg ? { position: 'sticky', top: 16 } : undefined}>
+            <DuplicatesPanel found={duplicates.data} />
+            {suggesting && (
+              <KnowledgeSuggestions
+                text={suggestText}
+                chosen={chosenArticles}
+                onToggle={toggleArticle}
+              />
+            )}
+          </Flex>
         )}
       </div>
       <Modal

@@ -53,8 +53,9 @@ models' vectors (D-131).
 
 ## Deployment (Helm chart)
 
-The chart's `ai` values run the models next to SupportX. The chart default is off; the installer
-switches it on (WP-014c).
+The chart's `ai` values run the models next to SupportX. The chart default is off. The installer
+(WP-014c) asks whether to install the local model, recommends yes, switches it on when chosen and
+records the choice (D-139).
 
 | Component | Model | Runs on |
 |---|---|---|

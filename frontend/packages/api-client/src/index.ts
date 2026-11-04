@@ -138,6 +138,7 @@ export {
   useIncidentSla,
   useIncidentSearch,
   useIncidentViews,
+  usePossibleDuplicates,
   useRestoreIncident,
   useSetIncidentDueDate,
   useTakeIncident,
@@ -145,6 +146,8 @@ export {
   useUpdateIncident,
   type ActionRun,
   type AssignChange,
+  type PossibleDuplicates,
+  type PossibleDuplicatesQuery,
   type Impact,
   type Incident,
   type IncidentAction,
@@ -307,7 +310,16 @@ export {
   type SsoProvider,
   type SsoTestResult,
 } from './identity';
-export { useAiSettings, useSaveAiSettings, type AiSettings, type AiSettingsInput } from './ai';
+export {
+  useAiSettings,
+  useAiSummary,
+  useRefreshAiSummary,
+  useSaveAiSettings,
+  type AiSettings,
+  type AiSettingsInput,
+  type AiSummary,
+  type SummaryRecordType,
+} from './ai';
 export {
   useSaveTenantSettings,
   useTenantSettings,

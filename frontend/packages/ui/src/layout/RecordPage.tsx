@@ -1,7 +1,9 @@
 import { Flex, Tooltip, Typography, theme } from 'antd';
 import type { ReactNode } from 'react';
 
+import { useAppearance } from '../appearance';
 import { PANEL_WIDTH, SPACE, TYPE } from '../density';
+import { clampLineHeight } from '../fonts/fonts';
 
 export interface RecordHeaderProps {
   /** The record type's icon (decorative). */
@@ -42,6 +44,7 @@ export function RecordHeader({
   testIds = {},
 }: RecordHeaderProps) {
   const { token } = theme.useToken();
+  const { urduScript } = useAppearance();
   return (
     <Flex gap={SPACE.md} align="flex-start" data-testid={testId} style={{ minWidth: 0 }}>
       {badge}
@@ -74,7 +77,13 @@ export function RecordHeader({
         <Tooltip title={<bdi dir="auto">{title}</bdi>} placement="bottomLeft">
           <Typography.Title
             level={1}
-            style={{ margin: 0, fontSize: TYPE.page, lineHeight: 1.3, minWidth: 0 }}
+            style={{
+              margin: 0,
+              fontSize: TYPE.page,
+              // Room for the dots below Arabic-script letters: the two-line clamp cuts the rest.
+              lineHeight: clampLineHeight(title, 1.3, urduScript),
+              minWidth: 0,
+            }}
             ellipsis={{ rows: 2 }}
             data-testid={testIds.title}
           >

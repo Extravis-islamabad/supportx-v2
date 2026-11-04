@@ -1,5 +1,13 @@
 // ai labels (see ../README.md). English is the reference.
 export const en = {
+  'ai.summary.check': 'Check it against the conversation before relying on it.',
+  'ai.summary.empty': 'No summary yet. Summarise the conversation with AI.',
+  'ai.summary.includes_private': 'Includes private notes',
+  'ai.summary.made_by': 'Written by AI ({{model}}), {{when}}',
+  'ai.summary.make': 'Summarise',
+  'ai.summary.refresh': 'Refresh',
+  'ai.summary.stale': 'Out of date: newer replies or notes',
+  'ai.summary.title': 'Conversation summary',
   'ai_area.knowledge': 'Knowledge',
   'ai_area.predictions': 'Predictions',
   'ai_area.summaries': 'Summaries',
@@ -35,18 +43,34 @@ export const en = {
   'ai_settings.retention_help':
     'After this, the text of each call is deleted; who used which feature and the outcome stay for reports.',
   'ai_settings.saved': 'Saved.',
+  'ai_settings.summary_sources': 'What a conversation summary reads',
+  'ai_settings.summary_sources_help':
+    'Private notes are read only when chosen here, and a summary that read them is shown only to staff.',
   'ai_settings.switch_off': 'Switch off',
   'ai_settings.title': 'AI',
+  'ai_summary_source.description': 'Description',
+  'ai_summary_source.private_notes': 'Private notes',
+  'ai_summary_source.public_notes': 'Public notes',
+  'ai_summary_source.replies': 'Replies',
   'audit.action.ai.calls_erased': 'Deleted a person\u2019s AI conversation text (erasure)',
   'audit.action.ai.calls_purged': 'Deleted AI conversation text after its retention period',
+  'audit.action.ai.embeddings_purged': 'Deleted the AI search index of records (AI switched off)',
   'audit.action.ai.settings_changed': 'Changed the AI settings',
+  'audit.action.ai.summaries_erased':
+    'Deleted the conversation summaries that could name an erased person',
   'errors.ai_call_not_found': 'This AI answer does not exist or is not yours.',
   'errors.ai_feature_off': 'This AI feature is switched off for your organisation.',
   'errors.ai_record_not_visible': 'You cannot see this record, so AI cannot work on it.',
+  'errors.ai_summary_nothing':
+    'There is nothing to summarise yet: no description, replies or notes.',
   'errors.ai_unavailable': 'The AI model is not answering. Try again in a moment.',
   'errors.field.ai_feature_unknown': 'Choose only features from the list.',
   'errors.field.ai_retention_out_of_range': 'Keep the text between 1 and 365 days.',
+  'errors.field.ai_summary_source_unknown':
+    'Choose from the description, replies, public notes and private notes.',
+  'errors.field.ai_summary_sources_empty': 'Choose at least one part for summaries to read.',
   'event_type.ai.settings.changed': 'AI settings changed',
+  'event_type.ai.summary.changed': 'Conversation summary made or out of date',
   'nav.admin_ai': 'AI',
   // AI gateway (WP-037).
   'permission.ai.manage': 'Manage AI',
