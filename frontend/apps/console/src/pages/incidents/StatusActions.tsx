@@ -36,6 +36,12 @@ const DESTRUCTIVE = new Set<string>(['cancel']);
 // Which available moves earn one of the four buttons (D-124); the rest stay in the menu.
 const RANK: Record<string, number> = {
   resolve: 1,
+  // Problems (WP-044a): the next step of the life cycle earns a button (REQ-PRB-025 AC1).
+  investigate: 2,
+  analyse: 2,
+  confirm_root_cause: 2,
+  await_fix: 2,
+  start_review: 2,
   start_work: 3,
   reopen: 4,
   resume: 5,
