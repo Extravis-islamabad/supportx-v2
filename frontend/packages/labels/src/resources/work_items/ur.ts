@@ -857,4 +857,14 @@ export const ur: LabelResource = {
   'portal.report.files_failed_other':
     'درخواست بھیج دی گئی، لیکن {{count}} فائلیں منسلک نہیں ہو سکیں۔ انہیں درخواست پر دوبارہ شامل کریں۔',
   'portal.request.expected': 'متوقع {{when}} تک',
+  'action_reason.own_request_approval': 'آپ اپنی درخواست کردہ ریکارڈ کی منظوری نہیں دے سکتے۔',
+  'failure_reason.auth_failed': 'تصدیق ناکام ہو گئی',
+  'failure_reason.error': 'خرابی',
+  'failure_reason.not_running': 'نہیں چل رہا',
+  'failure_reason.stale_heartbeat': 'حال ہی میں کوئی سگنل نہیں ملا',
+  'failure_reason.timeout': 'وقت ختم ہو گیا',
+  'failure_reason.unexpected_response': 'غیر متوقع جواب',
+  'failure_reason.unreachable': 'رسائی ممکن نہیں',
+  'priority.p1_critical': 'P1 – نازک',
+  'status.awaiting_customer': 'صارف کے جواب کا انتظار',
 };
