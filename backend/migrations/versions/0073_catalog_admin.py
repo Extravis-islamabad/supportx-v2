@@ -129,6 +129,8 @@ def upgrade() -> None:
         sa.Column("sort_order", sa.Integer(), server_default="0", nullable=False),
         sa.Column("subject_template", sa.String(200), nullable=True),
         sa.Column("requesters_see_approval", sa.Boolean(), server_default="true", nullable=False),
+        # D-138: added by the starter catalog (the "choose a group and publish" action finds them).
+        sa.Column("starter", sa.Boolean(), server_default="false", nullable=False),
         sa.Column(
             "extra_category_ids",
             postgresql.ARRAY(sa.Uuid()),
@@ -248,6 +250,7 @@ def downgrade() -> None:
     for name in ("extra_categories", "texts_object", "kind_code", "status_code"):
         op.drop_constraint(op.f(f"ck_catalog_items_{name}"), "catalog_items", type_="check")
     for name in (
+        "starter",
         "extra_category_ids",
         "requesters_see_approval",
         "subject_template",

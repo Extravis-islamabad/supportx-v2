@@ -19,7 +19,15 @@ async def _changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEf
 
 
 ROUTES = [
-    RealtimeRoute(("service_catalog.item.changed", "service_catalog.category.changed"), _changed)
+    RealtimeRoute(
+        (
+            "service_catalog.item.changed",
+            "service_catalog.category.changed",
+            "service_catalog.settings.changed",
+            "service_catalog.starter.seeded",
+        ),
+        _changed,
+    )
 ]
 
 __all__ = ["CHANGED", "ROUTES"]

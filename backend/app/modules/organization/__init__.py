@@ -61,7 +61,7 @@ from app.modules.organization.service.structure import (
     site_defaults,
     unit_heads,
 )
-from app.modules.organization.service.tenants import get_current_tenant
+from app.modules.organization.service.tenants import get_current_tenant, record_tenant_provisioned
 from app.modules.organization.service.units import (
     Memberships,
     add_member,
@@ -149,6 +149,7 @@ __all__ = [
     "leave_groups",
     "memberships",
     "module",
+    "record_tenant_provisioned",
     "register_calendar_check",
     "register_usage",
     "remove_member",

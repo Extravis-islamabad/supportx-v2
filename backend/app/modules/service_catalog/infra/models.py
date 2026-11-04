@@ -180,6 +180,7 @@ class CatalogItem(TenantEntity):
     sort_order: Mapped[int] = mapped_column(Integer, server_default="0")
     subject_template: Mapped[str | None] = mapped_column(String(200))
     requesters_see_approval: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    starter: Mapped[bool] = mapped_column(Boolean, server_default="false")  # D-138
     extra_category_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()), server_default="{}")
     # Columns of the table, not of the mapped object: never loaded or written by the ORM.
     search_vector: Unmapped[Any] = unmapped_column(
