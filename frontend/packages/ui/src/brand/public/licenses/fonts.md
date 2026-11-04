@@ -1,6 +1,6 @@
 # Third-party notices: fonts
 
-The console bundles these fonts (D-137). They are licensed under the SIL Open Font License, Version 1.1; the licence text for each follows. They are delivered by the @fontsource packages (fonts OFL-1.1, packaging MIT): @fontsource/inter 5.3.0, @fontsource/noto-sans-arabic 5.3.0, @fontsource/noto-nastaliq-urdu 5.3.0.
+The console bundles these fonts (D-137). They are licensed under the SIL Open Font License, Version 1.1; the licence text for each follows. They are delivered by the @fontsource packages @fontsource/inter 5.3.0, @fontsource/noto-sans-arabic 5.3.0 and @fontsource/noto-nastaliq-urdu 5.3.0, which are published under OFL-1.1 (their package metadata). The Fontsource project's own tooling is MIT licensed (https://github.com/fontsource/font-files); none of it is bundled, only the font files.
 
 ## inter
 

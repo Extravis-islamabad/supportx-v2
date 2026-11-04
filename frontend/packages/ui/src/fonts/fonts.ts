@@ -6,7 +6,9 @@
 // - Noto Sans Arabic: Arabic, and Urdu in Naskh (the default).
 // - Noto Nastaliq Urdu: Urdu in Nastaliq, for people who choose it (My profile).
 import interExt400 from '@fontsource/inter/files/inter-latin-ext-400-normal.woff2';
+import interExt500 from '@fontsource/inter/files/inter-latin-ext-500-normal.woff2';
 import interExt600 from '@fontsource/inter/files/inter-latin-ext-600-normal.woff2';
+import interExt700 from '@fontsource/inter/files/inter-latin-ext-700-normal.woff2';
 import interLatin400 from '@fontsource/inter/files/inter-latin-400-normal.woff2';
 import interLatin500 from '@fontsource/inter/files/inter-latin-500-normal.woff2';
 import interLatin600 from '@fontsource/inter/files/inter-latin-600-normal.woff2';
@@ -40,7 +42,9 @@ export const FONT_FACES = [
   face('Inter', 600, interLatin600, LATIN_RANGE),
   face('Inter', 700, interLatin700, LATIN_RANGE),
   face('Inter', 400, interExt400, LATIN_EXT_RANGE),
+  face('Inter', 500, interExt500, LATIN_EXT_RANGE), // every weight we use: names never faked bold
   face('Inter', 600, interExt600, LATIN_EXT_RANGE),
+  face('Inter', 700, interExt700, LATIN_EXT_RANGE),
   face('Inter', 400, interViet400, VIETNAMESE_RANGE),
   face('Noto Sans Arabic', 400, naskh400, ARABIC_RANGE),
   face('Noto Sans Arabic', 600, naskh600, ARABIC_RANGE),

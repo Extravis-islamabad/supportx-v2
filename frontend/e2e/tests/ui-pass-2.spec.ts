@@ -67,14 +67,24 @@ test('UI pass 2: list, record and dashboard in every layout, English and Arabic,
     { key: 'record', path: `/incidents/${incident}` },
     { key: 'dashboard', path: '/' },
   ];
-  const run = async (layout: Layout, locale: 'en' | 'ar', width: number) => {
+  const run = async (
+    layout: Layout,
+    locale: 'en' | 'ar',
+    width: number,
+    theme: 'light' | 'dark' = 'light',
+  ) => {
     await save(page, { nav_layout: layout, ui_locale: locale });
     await page.setViewportSize({ width, height: 900 });
+    // The theme this browser remembers (it wins as a page opens).
+    await page.evaluate((mode) => {
+      window.localStorage.setItem('supportx.theme_mode', mode);
+    }, theme);
     for (const view of views) {
       await page.goto(view.path);
       await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(page.locator('main').first()).toBeVisible();
-      const name = `${view.key}-${layout}-${locale}-${String(width)}`;
+      const name = `${view.key}-${layout}-${locale}-${String(width)}${theme === 'dark' ? '-dark' : ''}`;
       await shoot(page, name);
       // Soft: every view is still photographed when one has a finding.
       await expect.soft(async () => expectAccessible(page, name)).toPass({ timeout: 30_000 });
@@ -88,8 +98,13 @@ test('UI pass 2: list, record and dashboard in every layout, English and Arabic,
       for (const locale of ['en', 'ar'] as const) await run(layout, locale, 1440);
     }
     for (const locale of ['en', 'ar'] as const) await run('side', locale, 390);
+    // Dark: the timeline, counters and tiles keep the theme's colours (lane A's review), measured.
+    for (const locale of ['en', 'ar'] as const) await run('side', locale, 1440, 'dark');
   } finally {
     await save(page, { nav_layout: before.nav_layout, ui_locale: null });
+    await page.evaluate(() => {
+      window.localStorage.removeItem('supportx.theme_mode');
+    });
     const found = await page.request.get(`/api/v1/incidents/${incident}`);
     if (found.status() === 200) {
       const { version } = (await found.json()) as { version: number };

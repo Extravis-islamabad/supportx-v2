@@ -194,6 +194,7 @@ export function AppHeader({
             icon={<SearchOutlined />}
             onClick={onOpenPalette}
             data-testid="open-palette"
+            aria-haspopup="dialog"
             style={{
               flex: '0 1 380px',
               justifyContent: 'flex-start',

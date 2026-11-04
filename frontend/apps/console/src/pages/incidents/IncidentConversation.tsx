@@ -143,7 +143,9 @@ export function IncidentConversation({
   );
   const writers = Object.entries(typing);
   // Automation and status events from the history as quiet one-line entries (UI pass 2), in
-  // time order with the messages; the conversation's own saves are the cards themselves.
+  // time order with the messages; the conversation's own saves are the cards themselves. Only
+  // the history pages loaded so far (the first page, newest first): older events stay in the
+  // History tab, which pages through all of them.
   const words = useHistoryWords(item.id);
   const events = words.entries
     .filter((e) => e.kind !== 'created')
@@ -186,7 +188,7 @@ export function IncidentConversation({
         />
       ),
     })),
-  ].sort((a, b) => a.at.localeCompare(b.at));
+  ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       <Flex justify="space-between" align="center" wrap gap={8}>
@@ -954,18 +956,21 @@ function EventLine({
   words: ReturnType<typeof useHistoryWords>;
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const dates = useDateTime();
   const { token } = theme.useToken();
   const who = entry.actor_name ?? t(`actor_type.${entry.actor_type}`);
-  const what = changes
-    .map((c) =>
+  // Joined the language's way (Arabic and Urdu use their own conjunction), not with "; ".
+  const what = listFormat(
+    changes.map((c) =>
       t('history.change', {
         field: words.fieldText(c.field),
         old: words.valueText(c, c.old),
         new: words.valueText(c, c.new),
       }),
-    )
-    .join('; ');
+    ),
+    'unit',
+  );
   return (
     <Flex gap={12} align="flex-start" data-testid="conv-event">
       <span

@@ -9,7 +9,7 @@ import { theme } from 'antd';
 import type { ReactNode } from 'react';
 
 import { useIncidentCounters } from '@supportx/api-client';
-import { useLabel } from '@supportx/ui';
+import { useAppearance, useLabel } from '@supportx/ui';
 
 import { COUNTERS } from './counters';
 
@@ -37,6 +37,7 @@ export function PersonalCounters({
 }) {
   const t = useLabel();
   const { token } = theme.useToken();
+  const { mode } = useAppearance();
   const counters = useIncidentCounters();
   const found = new Map((counters.data ?? []).map((c) => [c.counter, c]));
   return (
@@ -55,7 +56,15 @@ export function PersonalCounters({
         const count =
           counter === undefined ? '–' : `${String(counter.count)}${counter.capped ? '+' : ''}`;
         const warn = code === 'my_overdue' && (counter?.count ?? 0) > 0;
-        const look = LOOKS[code];
+        // The tints are for light surfaces; dark keeps the theme's own colours (lane A's review).
+        const look =
+          mode === 'dark'
+            ? {
+                ...LOOKS[code],
+                bg: token.colorFillSecondary,
+                fg: code === 'my_overdue' ? token.colorError : token.colorTextSecondary,
+              }
+            : LOOKS[code];
         const on = active === code;
         return (
           // A tile (UI pass 2): the icon on its tint, the number large, the view's name below.
