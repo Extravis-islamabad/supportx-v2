@@ -130,6 +130,7 @@ export const en = {
   'audit.action.incident.deleted': 'Moved an incident to the trash',
   'audit.action.incident.restored': 'Restored an incident from the trash',
   'audit.action.service_request.approval_decided': 'Approved or rejected a service request',
+  'audit.action.action_link.used': 'Used or was refused an action link',
   'audit.action.service_request.withdrawn': 'Withdrew a service request awaiting approval',
   'audit.action.incident.bulk_started': 'Started a bulk change of incidents',
   'audit.action.incident.closed_record_edited': 'Edited a closed incident',

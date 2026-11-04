@@ -552,6 +552,14 @@ export const ur: LabelResource = {
   'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
   'errors.field.invalid_value': 'یہ قدر درست نہیں۔',
   'errors.on_behalf_out_of_scope': 'آپ اس شخص کے لیے درخواست نہیں دے سکتے۔ سروس ڈیسک سے پوچھیں۔',
+  'errors.action_link_not_found': 'یہ لنک درست نہیں۔',
+  'errors.action_link_expired':
+    'اس لنک کی میعاد ختم ہو گئی ہے۔ اس کے بجائے درخواست ایپ میں کھولیں۔',
+  'errors.action_link_used': 'یہ لنک پہلے ہی استعمال ہو چکا ہے۔',
+  'errors.action_link_revoked': 'اب اس کی ضرورت نہیں: درخواست کا فیصلہ ہو چکا یا واپس لے لی گئی۔',
+  'errors.action_link_wrong_recipient':
+    'یہ لنک کسی اور کو بھیجا گیا تھا۔ اس شخص کے طور پر سائن ان کریں، یا درخواست ایپ میں کھولیں۔',
+  'errors.action_link_stale': 'یہ لنک بھیجے جانے کے بعد درخواست بدل گئی۔ اسے ایپ میں کھولیں۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
   'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',

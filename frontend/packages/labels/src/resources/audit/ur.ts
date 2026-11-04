@@ -120,6 +120,7 @@ export const ur: LabelResource = {
   'audit.action.incident.deleted': 'واقعہ ردی کی ٹوکری میں ڈالا',
   'audit.action.incident.restored': 'واقعہ ردی کی ٹوکری سے بحال کیا',
   'audit.action.service_request.approval_decided': 'سروس درخواست منظور یا مسترد کی',
+  'audit.action.action_link.used': 'ایکشن لنک استعمال کیا یا مسترد ہوا',
   'audit.action.service_request.withdrawn': 'منظوری کی منتظر سروس درخواست واپس لی',
   'audit.action.incident.bulk_started': 'واقعات کی اجتماعی تبدیلی شروع کی',
   'audit.action.incident.closed_record_edited': 'بند واقعہ میں ترمیم کی',

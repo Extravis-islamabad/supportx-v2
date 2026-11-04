@@ -225,6 +225,8 @@ ACTIONS: dict[str, Action] = _actions(
     # WP-030 s2: approval decisions and withdrawals (REQ-SR-025, -061).
     ("service_request.approval_decided", AuditCategory.RECORDS, "work_items"),
     ("service_request.withdrawn", AuditCategory.RECORDS, "work_items"),
+    # WP-030 s3: a signed one-time action link was used, or refused (REQ-NTF-024).
+    ("action_link.used", AuditCategory.SECURITY, "system"),
     ("service_request.bulk_started", AuditCategory.RECORDS, "work_items"),
     ("service_request.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("service_request.closed_record_edited", AuditCategory.RECORDS, "work_items"),

@@ -12,6 +12,7 @@ record's approval status, history and events are written in the same transaction
 """
 
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from sqlalchemy import or_, select, text, update
@@ -28,13 +29,14 @@ from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.lifecycle import WorkItemAction
 from app.modules.work_items.domain.service_requests import ApprovalStatus
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import fulfilment
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE, APPROVE_ANY
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
+from app.shared import action_links
 from app.shared.events import ConsumerSpec, EventEnvelope
 from app.shared.history import Source
 
@@ -218,6 +220,7 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     row.version += 1
     await session.flush()
     await approval_event(session, record, row, "decided")
+    await action_links.revoke_for(session, LINK_OBJECT, row.id)  # decided another way
     await _close_others(
         session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
     )
@@ -249,6 +252,7 @@ async def _close_others(
     )
     for r in others:
         await approval_event(session, record, r, "closed")
+        await action_links.revoke_for(session, LINK_OBJECT, r.id)  # REQ-SR-061 AC2
 
 
 async def _finish(
@@ -332,11 +336,14 @@ async def withdraw(  # noqa: PLR0913 - the withdrawal and its context, explicit
 
 __all__ = [
     "APPROVER_LEFT",
+    "LINK_ACTION",
     "WITHDRAWN_REASON",
+    "ApprovalLinkHandler",
     "ApprovalView",
     "PendingApproval",
     "decide",
     "inactive_approvers_schedule",
+    "issue_links",
     "list_for_record",
     "mine",
     "on_user_status_changed",
@@ -416,6 +423,97 @@ async def inactive_approvers_schedule(database: Database, settings: Settings) ->
         async with database.tenant_session(TenantContext(tenant)) as session:
             if moved := await reroute_inactive(session):
                 log.info("approvals_rerouted", tenant_id=str(tenant), approvals=moved)
+
+
+# --- signed action links (WP-030 s3, REQ-SR-026; lane B's conditions) --------------------------
+
+LINK_ACTION = "service_request.approval"
+LINK_OBJECT = "work_item_approval"
+
+
+async def issue_links(session: AsyncSession, rows: list[WorkItemApproval]) -> dict[uuid.UUID, str]:
+    """One link per named approver's pending approval, bound to it at its version.
+
+    The tokens go only into the approvers' own messages (never stored, never logged); the
+    administrators' approvals get none, as no single person holds them.
+    """
+    return {
+        row.id: await action_links.issue(
+            session,
+            recipient_id=row.approver_id,
+            action=LINK_ACTION,
+            object_type=LINK_OBJECT,
+            object_id=row.id,
+            object_version=row.version,
+        )
+        for row in rows
+        if row.approver_id is not None and row.state == rules.ApprovalState.PENDING
+    }
+
+
+class ApprovalLinkHandler:
+    """Approve or reject from a link: the same decision as the app, run again now (condition 5)."""
+
+    async def version_of(self, session: AsyncSession, object_id: uuid.UUID) -> int | None:
+        """The approval's version; None once it is no longer pending or is gone."""
+        row = await session.get(WorkItemApproval, object_id)
+        if row is None or row.deleted_at is not None:
+            return None
+        return row.version if row.state == rules.ApprovalState.PENDING else None
+
+    async def summary(
+        self, session: AsyncSession, subject: Subject, object_id: uuid.UUID
+    ) -> dict[str, object]:
+        """The request's summary as its approver sees it in the app (REQ-SR-025)."""
+        row = await session.get(WorkItemApproval, object_id)
+        record = await session.get(WorkItem, row.work_item_id) if row is not None else None
+        if row is None or record is None:
+            raise NotFound(code="approval_not_found")
+        wtype = TYPES[WorkItemTypeCode(record.type)]
+        view = _shown(subject, wtype, record, row)
+        return {
+            "record_id": str(record.id),
+            "display_id": record.display_id,
+            "subject": record.subject,
+            "approval_id": str(row.id),
+            "approval_version": row.version,
+            "comments_required": row.comments_required,
+            "can_decide": view.can_decide,
+        }
+
+    async def act(
+        self,
+        session: AsyncSession,
+        subject: Subject,
+        object_id: uuid.UUID,
+        body: Mapping[str, object],
+    ) -> dict[str, object]:
+        """Decide with the link's channel; the approval's own rules apply as in the app."""
+        row = await session.get(WorkItemApproval, object_id)
+        record = await session.get(WorkItem, row.work_item_id) if row is not None else None
+        if row is None or record is None:
+            raise NotFound(code="approval_not_found")
+        raw = body.get("decision")
+        if raw not in set(rules.Decision):
+            raise items.field_errors([("decision", "invalid_choice")])
+        comment = body.get("comment")
+        view = await decide(
+            session,
+            subject,
+            TYPES[WorkItemTypeCode(record.type)],
+            record.id,
+            row.id,
+            decision=rules.Decision(str(raw)),
+            comment=comment if isinstance(comment, str) else None,
+            private=bool(body.get("private", False)),
+            expected_version=row.version,
+            channel=rules.DecisionChannel.EMAIL_LINK,
+            source="email",  # history: decided from an e-mail link
+        )
+        return {"state": view.row.state, "record_id": str(record.id)}
+
+
+action_links.register_handler(LINK_ACTION, ApprovalLinkHandler())
 
 
 APPROVER_LEFT = ConsumerSpec(

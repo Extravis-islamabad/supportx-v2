@@ -598,6 +598,13 @@ export const ar: LabelResource = {
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
   'errors.field.catalog_item_not_found': 'اختر عنصرًا من الكتالوج متاحًا لك.',
   'errors.on_behalf_out_of_scope': 'لا يمكنك تقديم طلب لهذا الشخص. اسأل مكتب الخدمة.',
+  'errors.action_link_not_found': 'هذا الرابط غير صالح.',
+  'errors.action_link_expired': 'انتهت صلاحية هذا الرابط. افتح الطلب في التطبيق بدلًا منه.',
+  'errors.action_link_used': 'تم استخدام هذا الرابط من قبل.',
+  'errors.action_link_revoked': 'لم يعد هذا مطلوبًا: تم البت في الطلب أو سحبه.',
+  'errors.action_link_wrong_recipient':
+    'أُرسل هذا الرابط إلى شخص آخر. سجّل الدخول باسمه، أو افتح الطلب في التطبيق.',
+  'errors.action_link_stale': 'تغيّر الطلب منذ إرسال هذا الرابط. افتحه في التطبيق.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
   'errors.approval_closed': 'تم البت في هذه الموافقة أو لم تعد مطلوبة.',
