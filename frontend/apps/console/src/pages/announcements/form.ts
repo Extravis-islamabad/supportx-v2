@@ -7,7 +7,13 @@ import { z } from '@supportx/forms';
 
 /** The announcement form's rules and conversions (WP-012); the fields are in AnnouncementForm. */
 export const SEVERITIES: AnnouncementSeverity[] = ['info', 'warning', 'critical'];
-export const AUDIENCES: AnnouncementAudience[] = ['everyone', 'sites', 'groups'];
+export const AUDIENCES: AnnouncementAudience[] = [
+  'everyone',
+  'requesters',
+  'technicians',
+  'sites',
+  'groups',
+];
 export const TITLE_MAX = 200;
 export const BODY_MAX = 20_000;
 
@@ -24,7 +30,7 @@ export const schema = z
       .min(1, 'errors.field.required')
       .max(BODY_MAX, 'errors.field.value_too_long'),
     severity: z.enum(['info', 'warning', 'critical']),
-    audience: z.enum(['everyone', 'sites', 'groups']),
+    audience: z.enum(['everyone', 'requesters', 'technicians', 'sites', 'groups']),
     site_ids: z.array(z.string()),
     group_ids: z.array(z.string()),
     show_as_banner: z.boolean(),

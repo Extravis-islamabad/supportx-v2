@@ -158,6 +158,35 @@ describe('NoticeStack', () => {
     expect(screen.getByTestId('notices').textContent).toContain('3 notices');
     expect(hidden?.getAttribute('data-notices-collapsed')).toBe('false');
   });
+
+  it('an empty box never takes the visible place; a critical notice does (announcements.spec)', () => {
+    const Empty = () => <div />;
+    const view = renderUi(
+      <NoticeStack testId="notices">
+        <Empty />
+        <Notice text="MFA due" />
+        <div>
+          <div data-notice-critical="true">Critical: network down</div>
+        </div>
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').textContent).toContain('1 more notice');
+    // The critical notice is the one left showing; the other one is hidden while collapsed.
+    const critical = screen.getByText('Critical: network down').closest('[data-notice-extra]');
+    expect(critical).toBeNull();
+    expect(screen.getByText('MFA due').closest('[data-notice-extra]')).not.toBeNull();
+    view.unmount();
+    renderUi(
+      <NoticeStack testId="notices">
+        <Empty />
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+      </NoticeStack>,
+    );
+    // Without a critical one, the first notice with text shows (not the empty box).
+    expect(screen.getByText('Scanner down').closest('[data-notice-extra]')).toBeNull();
+    expect(screen.getByText('MFA due').closest('[data-notice-extra]')).not.toBeNull();
+  });
 });
 
 describe('AlertStrip', () => {

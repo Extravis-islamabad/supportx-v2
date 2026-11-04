@@ -23,6 +23,8 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react
 import type { MeResponse, NavLayout } from '@supportx/api-client';
 import type { LabelKey, Locale } from '@supportx/labels';
 
+import type { ThemeMode } from '../theme';
+
 import { useAppearance, useLabel } from '../appearance';
 import { AppearanceControls } from '../AppearanceControls';
 import { AboutDialog } from './AboutDialog';
@@ -51,6 +53,10 @@ export interface AppHeaderProps {
   onNavLayoutChange?: (layout: NavLayout) => void;
   /** Store the language the user picks (it follows them to every device, QA BUG-04). */
   onLocaleChange?: (locale: Locale) => void;
+  /** Store the theme the user picks (WP-042: it follows them like the language). */
+  onModeChange?: (mode: ThemeMode) => void;
+  /** The languages the tenant offers (WP-042); all when not given. */
+  languages?: readonly string[];
 }
 
 /**
@@ -111,6 +117,8 @@ export function AppHeader({
   context,
   onNavLayoutChange,
   onLocaleChange,
+  onModeChange,
+  languages,
 }: AppHeaderProps) {
   const t = useLabel();
   const { token } = theme.useToken();
@@ -205,6 +213,8 @@ export function AppHeader({
             navLayout={onNavLayoutChange === undefined ? undefined : session.user.nav_layout}
             onNavLayoutChange={onNavLayoutChange}
             onLocaleChange={onLocaleChange}
+            onModeChange={onModeChange}
+            languages={languages}
             vertical
           />
         }

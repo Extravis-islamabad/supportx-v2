@@ -158,10 +158,10 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
 function ImportItem({ job }: { job: PeopleImport }) {
   const t = useLabel();
   const formats = useFormatWords();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const [showProblems, setShowProblems] = useState(false);
   const percent = job.total === 0 ? 0 : Math.round((job.processed / job.total) * 100);
-  const when = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  const when = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <List.Item data-testid={`people-import-${job.id}`}>
       <Space direction="vertical" style={{ width: '100%' }}>

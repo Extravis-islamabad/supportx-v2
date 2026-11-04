@@ -49,7 +49,9 @@ module = ModuleSpec(
         # Directory sync (WP-040 session 2). A category gets its key when its first kind comes.
         PermissionSpec(catalogue.manage_permission(ConnectorCategory.IDENTITY)),
         # Technicians see the catalogue read-only (REQ-INT-013 AC1); set-up is per category.
-        PermissionSpec(catalogue.VIEW, defaults=(("technician", "all"),)),
+        PermissionSpec(
+            catalogue.VIEW, defaults=(("technician", "all"), ("service_desk_manager", "all"))
+        ),
     ),
     schedules=[
         ScheduleSpec("integrations__mail_fetch", 60, fetch_schedule),

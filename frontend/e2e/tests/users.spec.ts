@@ -7,6 +7,8 @@ test('users list: search, filter, sort and infinite scroll against the real API'
 }) => {
   await signInAs(page, 'admin');
   await goToSection(page, 'Admin');
+  // Admin opens the setup home (WP-042); People is in its menu.
+  await page.getByTestId('admin-sections').getByRole('link', { name: 'People' }).click();
   await expect(page.getByRole('heading', { name: 'People', level: 2 })).toBeVisible();
   const table = page.getByTestId('users-table');
   const rows = table.locator('tbody tr.ant-table-row');

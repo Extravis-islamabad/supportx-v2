@@ -253,7 +253,9 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
     """`/counters` and `/reply-templates` (before `/{record_id}`)."""
     perm = wtype.permission
     View = Annotated[Subject, Depends(require_permission(perm("view")))]  # noqa: N806 - type alias
-    Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]  # noqa: N806 - type alias
+    Admin = Annotated[  # noqa: N806 - type alias
+        Subject, Depends(require_permission("config.service_desk", "settings.manage"))
+    ]
     audit = wtype.code.value  # audit codes: "incident.deleted", "service_request.deleted"
 
     @router.get("/counters", summary="Your personal counters")

@@ -65,6 +65,8 @@ export const ur: LabelResource = {
   'announcement_audience.everyone': 'سب',
   'announcement_audience.sites': 'منتخب مقامات',
   'announcement_audience.groups': 'منتخب سپورٹ گروپس',
+  'announcement_audience.requesters': 'صرف درخواست گزار',
+  'announcement_audience.technicians': 'صرف ٹیکنیشن',
   'announcement_visibility.hidden': 'نہیں دکھایا جا رہا',
   'announcement_visibility.scheduled': 'طے شدہ',
   'announcement_visibility.live': 'اب دکھایا جا رہا ہے',

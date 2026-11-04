@@ -277,7 +277,7 @@ export function ReportSettingsButton() {
   if (latest !== undefined && latest.version !== base?.version && (base === null || !dirty)) {
     setBase(latest);
   }
-  if (!can('settings.manage')) return null;
+  if (!(can('config.reports') || can('settings.manage'))) return null;
   const data = base;
   const submit = (changes: SettingsChanges, version: number) => {
     update.mutate(

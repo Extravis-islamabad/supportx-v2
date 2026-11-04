@@ -102,7 +102,7 @@ export function Attachments({
   testId = 'attachments',
 }: AttachmentsProps) {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const { modal, message } = AntApp.useApp();
   const rules = useFileRules();
   const remove = useDeleteFile();
@@ -210,7 +210,7 @@ export function Attachments({
                 description={
                   <Flex gap={8} align="center" wrap>
                     <Typography.Text type="secondary">
-                      {formatSize(file.size, locale)}
+                      {formatSize(file.size, intlLocale)}
                     </Typography.Text>
                     <FileStateTag state={file.state} />
                   </Flex>

@@ -190,7 +190,22 @@ export const routes: RouteObject[] = [
         handle: { section: 'admin' },
         lazy: async () => ({ Component: (await import('./pages/admin/AdminLayout')).AdminLayout }),
         children: [
-          { index: true, element: null },
+          {
+            index: true,
+            lazy: async () => ({ Component: (await import('./pages/admin/SetupHome')).SetupHome }),
+          },
+          {
+            path: 'instance',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/InstanceSettingsPage')).InstanceSettingsPage,
+            }),
+          },
+          {
+            path: 'licence',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/LicencePage')).LicencePage,
+            }),
+          },
           {
             path: 'users',
             lazy: async () => ({ Component: (await import('./pages/admin/UsersPage')).UsersPage }),

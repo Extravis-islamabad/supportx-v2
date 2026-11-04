@@ -53,7 +53,7 @@ function valueText(
 export function AnnouncementHistory({ id }: { id: string }) {
   const t = useLabel();
   const listFormat = useListFormat();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const { can } = useAccess();
   const history = useAnnouncementHistory(id);
   const sites = useUnits('sites', can('sites.view'));
@@ -62,7 +62,7 @@ export function AnnouncementHistory({ id }: { id: string }) {
     () => new Map([...(sites.data ?? []), ...(groups.data ?? [])].map((u) => [u.id, u.name])),
     [sites.data, groups.data],
   );
-  const format = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  const format = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   const entries = history.data?.pages.flatMap((page) => page.items) ?? [];
   if (history.isPending) return <Skeleton active />;
   if (entries.length === 0) return <Empty description={t('history.none')} />;

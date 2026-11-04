@@ -5,6 +5,7 @@ import json
 import uuid
 from collections import Counter
 from collections.abc import Callable
+from datetime import timedelta
 from typing import Any
 
 import asyncpg
@@ -12,6 +13,10 @@ import httpx
 import pytest
 
 from app.core.config import Settings
+from app.core.database import Database
+from app.core.tenancy import TenantContext
+from app.modules.audit.infra.signing import LocalSigner, new_key_config, trusted_keys
+from app.modules.audit.service.integrity import seal, verify
 from conftest import create_tenant, make_settings
 from tooling import db_testing
 from tooling import showcase_seed as seed
@@ -122,6 +127,7 @@ async def _run(database: db_testing.ThrowawayDatabase, keycloak: FakeKeycloak) -
         found = await seed.ensure_keycloak(client, target)
     report.keycloak = found.made
     await seed.fill(settings, found.subjects, report)
+    report.backdated = await seed.backdate(database.migrator_url)  # step 5, as run() does
     return report
 
 
@@ -141,6 +147,71 @@ def test_refuses_every_slug_but_showcase(production_settings: Callable[..., Sett
     assert seed.refuse("showcase", production_settings()) is not None
 
 
+async def _audit_chain(app_url: str) -> str:
+    """Seal the showcase tenant's queued audit entries and verify its whole hash chain."""
+    database = Database.from_settings(make_settings(database_url=app_url))
+    assert database is not None
+    signer = LocalSigner.from_config(new_key_config("showcase-test"))
+    try:
+        async with database.tenant_session(TenantContext(seed.TENANT_ID)) as session:
+            await seal(session, 500)
+        async with database.tenant_session(TenantContext(seed.TENANT_ID)) as session:
+            result = await verify(session, kind="on_demand", trusted_keys=trusted_keys("", signer))
+    finally:
+        await database.dispose()
+    return str(result.status)
+
+
+async def _shift_one_audit_entry(admin_url: str) -> str:
+    """Move one showcase audit entry back a day: 'shifted', or 'refused' by the database."""
+    conn = await asyncpg.connect(admin_url)
+    try:
+        await conn.execute(
+            "UPDATE audit_entries SET occurred_at = occurred_at - interval '1 day'"
+            " WHERE id = (SELECT id FROM audit_entries WHERE tenant_id = $1 LIMIT 1)",
+            seed.TENANT_ID,
+        )
+    except asyncpg.PostgresError:
+        return "refused"
+    finally:
+        await conn.close()
+    return "shifted"
+
+
+async def _backdating_is_consistent(url: str) -> list[str]:
+    """What is wrong with the showcase dates after step 5, as readable lines (empty: fine)."""
+    conn = await asyncpg.connect(url)
+    try:
+        await conn.execute("SELECT set_config('app.tenant_id', $1, false)", str(seed.TENANT_ID))
+        rows = await conn.fetch(
+            "SELECT w.display_id, w.created_at, w.first_responded_at, w.resolved_at,"
+            " w.closed_at, t.created_at AS tenant_created"
+            " FROM work_items w JOIN tenants t ON t.id = w.tenant_id WHERE w.tenant_id = $1",
+            seed.TENANT_ID,
+        )
+        history_ahead = await conn.fetchval(
+            "SELECT count(*) FROM field_changes f JOIN work_items w ON w.id = f.record_id"
+            " WHERE f.record_type = 'work_item' AND w.tenant_id = $1"
+            " AND f.occurred_at < w.created_at - interval '1 second'",
+            seed.TENANT_ID,
+        )
+    finally:
+        await conn.close()
+    wrong = [f"history before its incident: {history_ahead}"] if history_ahead else []
+    days = {r["created_at"].date() for r in rows}
+    if len(days) < 10:
+        wrong.append(f"only {len(days)} distinct days")
+    for r in rows:
+        window = r["tenant_created"] - timedelta(days=31)
+        if not window <= r["created_at"] < r["tenant_created"]:
+            wrong.append(f"{r['display_id']} outside the 30 days")
+        times = [r["created_at"], r["first_responded_at"], r["resolved_at"], r["closed_at"]]
+        present = [t for t in times if t is not None]
+        if present != sorted(present):
+            wrong.append(f"{r['display_id']} times out of order")
+    return wrong
+
+
 def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     db_config: db_testing.DbTestConfig,
 ) -> None:
@@ -158,6 +229,9 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         assert first.tenant == ["tenant", "subscription"]
         assert first.incidents == len(seed.STATES) == 60
         assert first.dashboard
+        assert first.backdated == 60  # spread over the past 30 days (choice (b))
+        assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
+        assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
         # The password is the environment's, set only on the users made here.
         assert keycloak.passwords == dict.fromkeys(keycloak.users, "Showcase-Pass-2026!")
         assert any(f"password {seed.TECHNICIAN.email}" == m for m in first.keycloak)
@@ -182,6 +256,12 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
             0,
             False,
         )
+        assert second.backdated == 0  # idempotent: the targets are fixed
+        assert asyncio.run(_audit_chain(database.app_url)) == "passed"
+        # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
+        # database refuses the change outright).
+        if asyncio.run(_shift_one_audit_entry(database.admin_url)) == "shifted":
+            assert asyncio.run(_audit_chain(database.app_url)) == "failed"
         assert asyncio.run(_counts(database.migrator_url, seed.TENANT_ID)) == counts
         assert asyncio.run(_counts(database.migrator_url, bystander)) == before
         assert keycloak.passwords[imported] == "Changed-By-Hand-1!"

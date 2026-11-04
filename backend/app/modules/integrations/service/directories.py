@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
-from app.modules.identity_access import release_from_directory
+from app.modules.identity_access import Subject, check_group_grantable, release_from_directory
 from app.modules.integrations.domain.connector_health import SYNC_MINUTES
 from app.modules.integrations.domain.directory import (
     ATTRIBUTES,
@@ -135,12 +135,16 @@ def _problems(  # noqa: C901, PLR0912 - one check per field, in screen order
     return errors
 
 
-async def _groups_exist(session: AsyncSession, values: Mapping[str, Any]) -> None:
+async def _groups_exist(session: AsyncSession, values: Mapping[str, Any], by: Subject) -> None:
     wanted = {
         uuid.UUID(m.group_id) for m in group_mappings_from_json(values.get("group_mappings", []))
     }
     if wanted and await existing_unit_ids(session, "group", sorted(wanted)) != wanted:
         raise ValidationFailed(errors=[_error("group_mappings", "group_not_found")])
+    # Sync adds people to these groups with no person behind it, so whoever maps a directory group
+    # onto a SupportX group that carries roles must be able to give those roles (lane B, WP-042).
+    for group in sorted(wanted):
+        await check_group_grantable(session, by, group)
 
 
 def _stored(values: Mapping[str, Any]) -> dict[str, Any]:
@@ -200,7 +204,12 @@ def _ring(settings: Settings) -> Any:  # noqa: ANN401 - a KeyRing
 
 
 async def create_directory(
-    session: AsyncSession, settings: Settings, values: Mapping[str, Any], *, credential: str | None
+    session: AsyncSession,
+    settings: Settings,
+    values: Mapping[str, Any],
+    *,
+    credential: str | None,
+    by: Subject,
 ) -> DirectoryView:
     """A new directory connector; its first sync runs within a minute."""
     if "interval_minutes" not in values:  # the tenant's default for new directories (D-041)
@@ -211,7 +220,7 @@ async def create_directory(
     if errors := _problems(values, credential=credential, creating=True):
         raise ValidationFailed(errors=errors)
     ring = _ring(settings)
-    await _groups_exist(session, values)
+    await _groups_exist(session, values, by)
     stored = _stored(values)
     row = DirectoryConnector(id=new_id(), **stored)
     try:
@@ -242,6 +251,7 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
     *,
     expected_version: int,
     credential: str | None,
+    by: Subject,
 ) -> DirectoryView:
     """Change a connector (If-Match); a new secret replaces the old one behind the same row."""
     current = await DirectoryRepository(session).get(directory_id)
@@ -250,7 +260,7 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
         values = {**values, "interval_minutes": current.interval_minutes}
     if errors := _problems(values, credential=credential, creating=False):
         raise ValidationFailed(errors=errors)
-    await _groups_exist(session, values)
+    await _groups_exist(session, values, by)
     stored = _stored(values)
     # Who is synced changed: the next round reads everyone again (delta links start over).
     if (stored["scope"], stored["scope_groups"], stored["group_mappings"], stored["mapping"]) != (

@@ -74,7 +74,13 @@ from app.modules.integrations.infra.oauth import Client
 from app.modules.integrations.service import identities, runs, secrets
 from app.modules.integrations.service.connections import key_ring, oauth_for
 from app.modules.integrations.service.entra_app import ENTRA, entra_app
-from app.modules.organization import add_member, find_department, find_site, remove_member
+from app.modules.organization import (
+    SYSTEM_PATH,
+    add_member,
+    find_department,
+    find_site,
+    remove_member,
+)
 from app.shared.files.keyring import KeyRing
 
 log = get_logger(__name__)
@@ -455,7 +461,7 @@ class _Sync:
                         continue
                     try:
                         if member:
-                            await add_member(session, "group", target, link.user_id)
+                            await add_member(session, "group", target, link.user_id, by=SYSTEM_PATH)
                         else:
                             await remove_member(session, "group", target, link.user_id)
                     except NotFound:

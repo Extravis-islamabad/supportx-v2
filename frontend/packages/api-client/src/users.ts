@@ -11,6 +11,20 @@ export type UserPage = components['schemas']['UserPage'];
 export type UserPreferencesPatch = components['schemas']['UserPreferencesPatch'];
 export type NavLayout = components['schemas']['NavLayout'];
 export type FormDensity = components['schemas']['FormDensity'];
+export type ThemeMode = components['schemas']['ThemeMode'];
+
+/** Personal preferences a person may leave to the default (WP-042; null: the default). */
+export type PersonalPreference =
+  | 'theme_mode'
+  | 'text_scale'
+  | 'week_start'
+  | 'date_format'
+  | 'time_format'
+  | 'digits'
+  | 'urdu_script';
+export type PersonalPreferenceChange = {
+  [K in PersonalPreference]: { field: K; value: NonNullable<MeResponse['user'][K]> | null };
+}[PersonalPreference];
 export type FilterExpression = components['schemas']['FilterExpression'];
 export type FilterCondition = components['schemas']['FilterCondition'];
 
@@ -233,6 +247,52 @@ export function useSetUiLocale(userId: string) {
     },
     onError: (error, value) => {
       settlePendingAfterError(userId, 'ui_locale', value, error);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
+    },
+  });
+}
+
+/**
+ * Change one personal preference (WP-042; REQ-ADM-058, 059, 062): theme, text size, week start,
+ * date or time format. `null` clears it, so the site's or tenant's default applies again (read
+ * by the server, never copied onto the person). Applied at once (optimistic) like the layout;
+ * the session is read again afterwards for the default a cleared choice falls back to.
+ */
+export function useSetPreference(userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ field, value }: PersonalPreferenceChange) => {
+      const latest = await queryClient.query({
+        queryKey: queryKeys.users.detail(userId),
+        queryFn: () =>
+          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
+        staleTime: 0,
+      });
+      return call(
+        api.PATCH('/api/v1/users/{user_id}', {
+          params: {
+            path: { user_id: userId },
+            header: { 'If-Match': `"${String(latest.version)}"` },
+          },
+          body: { [field]: value },
+        }),
+      );
+    },
+    onMutate: ({ field, value }) => {
+      setPending(userId, field, value);
+      if (value === null) return; // the default comes back with the session
+      queryClient.setQueryData<MeResponse | null>(queryKeys.session, (me) =>
+        me ? { ...me, user: { ...me.user, [field]: value } } : me,
+      );
+    },
+    onSuccess: (user, { field, value }) => {
+      clearPending(userId, field, value);
+      rememberEtag(`/api/v1/users/${userId}`, `"${String(user.version)}"`);
+      queryClient.setQueryData(queryKeys.users.detail(userId), user);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
+    },
+    onError: (error, { field, value }) => {
+      settlePendingAfterError(userId, field, value, error);
       void queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });

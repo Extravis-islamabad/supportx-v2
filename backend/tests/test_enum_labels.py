@@ -139,6 +139,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "LimitKey": "limit",
     "NavLayout": "nav_layout",
     "FormDensity": "form_density",
+    # Personal preferences (WP-042): the same labels as the shared theme and instance settings.
+    "ThemeMode": "appearance.theme",
+    "UserOut.week_start": "instance.week_start",
+    "UserOut.time_format": "instance.time_format",
+    "UserOut.digits": "preferences.digits",
+    "UserOut.urdu_script": "preferences.urdu_script",
     "Op": "filter_op",
     "ReadinessResponse.status": "readiness_status",
     "ReadinessResponse.event_delivery": "event_delivery_state",

@@ -33,7 +33,7 @@ const dirOf = (language: string) => (language === 'ar' ? 'rtl' : 'ltr');
  */
 export function ApprovalInboxPage() {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { locale, intlLocale } = useAppearance();
   const { can } = useAccess();
   const allowed = can('knowledge.approve');
   const language = articleLanguage(locale);
@@ -155,7 +155,7 @@ export function ApprovalInboxPage() {
                   <Space size={4}>
                     <Tag>{t(`knowledge.language.${item.language}`)}</Tag>
                     <Typography.Text type="secondary">
-                      {new Intl.DateTimeFormat(locale, {
+                      {new Intl.DateTimeFormat(intlLocale, {
                         dateStyle: 'medium',
                         timeStyle: 'short',
                       }).format(new Date(item.updated_at))}

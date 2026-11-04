@@ -48,7 +48,7 @@ export function safeUrl(value: string): string | null {
 export function useCustomValueText() {
   const t = useLabel();
   const listFormat = useListFormat();
-  const { locale } = useAppearance();
+  const { locale, intlLocale } = useAppearance();
   const dates = useDateTime();
   return (
     field: CustomField,
@@ -69,7 +69,7 @@ export function useCustomValueText() {
         return dates.format(String(value));
       case 'currency':
         try {
-          return new Intl.NumberFormat(locale, {
+          return new Intl.NumberFormat(intlLocale, {
             style: 'currency',
             currency: field.currency ?? 'USD',
           }).format(Number(value));
@@ -78,7 +78,9 @@ export function useCustomValueText() {
         }
       case 'integer':
       case 'decimal':
-        return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(Number(value));
+        return new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 6 }).format(
+          Number(value),
+        );
       case 'person':
         return people[String(value)]?.display_name ?? t('custom_fields.unknown_person');
       default:

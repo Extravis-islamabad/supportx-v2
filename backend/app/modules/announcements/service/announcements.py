@@ -33,6 +33,7 @@ from app.modules.announcements.domain.announcement import (
     REASON_ACTIONS,
     REASON_MAX,
     TITLE_MAX,
+    UNITLESS_AUDIENCES,
     AnnouncementAction,
     AnnouncementAudience,
     AnnouncementSeverity,
@@ -260,8 +261,21 @@ def _seconds_until(moment: datetime | None, now: datetime) -> float | None:
 # --- reading --------------------------------------------------------------------------------------
 
 
+def is_requester_only(subject: Subject) -> bool:
+    """A person whose only role is requester (the requesters audience); anyone else is staff."""
+    return subject.role_keys <= {"requester"}
+
+
 def _audience_includes(subject: Subject) -> ColumnElement[bool]:
-    parts: list[ColumnElement[bool]] = [Announcement.audience == AnnouncementAudience.EVERYONE]
+    parts: list[ColumnElement[bool]] = [
+        Announcement.audience == AnnouncementAudience.EVERYONE,
+        Announcement.audience
+        == (
+            AnnouncementAudience.REQUESTERS
+            if is_requester_only(subject)
+            else AnnouncementAudience.TECHNICIANS
+        ),
+    ]
     if subject.site_ids:
         parts.append(
             and_(Announcement.audience == AnnouncementAudience.SITES, _in_sites(subject.site_ids))
@@ -610,7 +624,7 @@ async def _check_references(  # noqa: PLR0913, PLR0917 - every reference the dra
                 field="body.site_ids", code="not_allowed", message_key="errors.field.not_allowed"
             )
         )
-    if audience == AnnouncementAudience.EVERYONE and (site_ids or group_ids):
+    if audience in UNITLESS_AUDIENCES and (site_ids or group_ids):
         errors.append(
             FieldError(
                 field="body.audience", code="not_allowed", message_key="errors.field.not_allowed"

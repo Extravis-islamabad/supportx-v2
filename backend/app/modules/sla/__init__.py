@@ -55,8 +55,10 @@ FEATURE = "sla"  # in every edition (licensing catalogue): SLAs have no licence 
 
 # Technicians read the set-up (the SLA panel names the calendar); admins change it.
 PERMISSIONS = (
-    PermissionSpec(VIEW, FEATURE, defaults=(("technician", "all"),)),
-    PermissionSpec(MANAGE, FEATURE),
+    PermissionSpec(
+        VIEW, FEATURE, defaults=(("technician", "all"), ("service_desk_manager", "all"))
+    ),
+    PermissionSpec(MANAGE, FEATURE, defaults=(("service_desk_manager", "all"),)),
 )
 
 # Sites and groups name a calendar; organization asks here whether the ID is one (D-115 D3).

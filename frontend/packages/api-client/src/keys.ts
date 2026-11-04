@@ -27,6 +27,9 @@ export const queryKeys = {
     user: (id: string) => ['access', 'user', id] as const,
     units: (kind: 'sites' | 'groups') => ['access', kind] as const,
   },
+  instance: {
+    settings: ['instance', 'settings'] as const,
+  },
   ai: {
     settings: ['ai', 'settings'] as const,
   },

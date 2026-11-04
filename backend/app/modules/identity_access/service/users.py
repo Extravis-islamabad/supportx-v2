@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import Boolean, func, literal_column, select, update
+from sqlalchemy import Boolean, func, literal_column, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,12 +34,19 @@ from app.modules.identity_access.events import (
     UserProvisioned,
     UserUpdated,
 )
-from app.modules.identity_access.infra.models import Role, User, UserRole
+from app.modules.identity_access.infra.models import GroupRole, Role, User, UserRole
 from app.modules.identity_access.service.identity_settings import get_identity_settings
 from app.modules.identity_access.service.invitations import mark_accepted
 from app.modules.identity_access.service.roles import map_identity_roles
 from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
-from app.modules.organization import TenantStatus, find_department, find_site, get_current_tenant
+from app.modules.organization import (
+    TenantStatus,
+    active_groups,
+    find_department,
+    find_site,
+    get_current_tenant,
+    memberships,
+)
 from app.shared.events import Actor, DomainEvent, record_event
 from app.shared.ids import new_id
 
@@ -313,11 +320,20 @@ async def requester_only(database: Database, tenant_id: uuid.UUID, user_id: uuid
     the policy compiles it.
     """
     async with database.tenant_session(TenantContext(tenant_id)) as session:
+        # Their own roles and those of the active groups they belong to (WP-042), as the policy
+        # compiles them: a technician role reached through a group opens the console too.
+        carrying = await active_groups(session, (await memberships(session, user_id)).group_ids)
         keys = set(
             await session.scalars(
-                select(Role.key)
-                .join(UserRole, UserRole.role_id == Role.id)
-                .where(UserRole.user_id == user_id, Role.deleted_at.is_(None))
+                select(Role.key).where(
+                    Role.deleted_at.is_(None),
+                    or_(
+                        Role.id.in_(select(UserRole.role_id).where(UserRole.user_id == user_id)),
+                        Role.id.in_(
+                            select(GroupRole.role_id).where(GroupRole.group_id.in_(carrying))
+                        ),
+                    ),
+                )
             )
         )
         if not keys:  # as the policy compiles it: never mapped = the type's default role

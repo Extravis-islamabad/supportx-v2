@@ -77,6 +77,53 @@ export function buildTheme(
   branding: Partial<Branding> = {},
   locale: Locale = 'en',
   density: Density = 'comfortable',
+  textScale = 100,
+): ThemeConfig {
+  return scaleText(themeFor(mode, branding, locale, density), textScale);
+}
+
+/** Text sizes a person may choose, in percent (WP-042, REQ-ADM-062). */
+export const TEXT_SCALES = [90, 100, 110, 120, 130, 140, 150] as const;
+
+// Ant Design's own seeds where a theme leaves them out (Ant Design 5 defaults).
+const SEED = { fontSize: 14, controlHeight: 32 } as const;
+
+/**
+ * Text, and the controls and rows around it, grown or shrunk by `percent` (REQ-ADM-062): every
+ * font size the theme sets, plus the heights a larger line needs so nothing is cut off.
+ */
+function scaleText(config: ThemeConfig, percent: number): ThemeConfig {
+  if (percent === 100) return config;
+  const by = (value: number) => Math.round((value * percent) / 100);
+  const token: Record<string, unknown> = { ...config.token };
+  for (const key of ['fontSize', 'controlHeight'] as const) {
+    token[key] = by(config.token?.[key] ?? SEED[key]);
+  }
+  for (const [key, value] of Object.entries(token)) {
+    if (key.startsWith('fontSizeHeading') && typeof value === 'number') token[key] = by(value);
+  }
+  const components: Record<string, Record<string, unknown>> = {};
+  for (const [name, tokens] of Object.entries(config.components ?? {})) {
+    const scaled: Record<string, unknown> = { ...(tokens as Record<string, unknown>) };
+    for (const [key, value] of Object.entries(scaled)) {
+      if (typeof value === 'number' && /FontSize$|^itemHeight$|^headerHeight/.test(key)) {
+        scaled[key] = by(value);
+      }
+    }
+    components[name] = scaled;
+  }
+  return {
+    ...config,
+    token: token,
+    components: components,
+  };
+}
+
+function themeFor(
+  mode: ThemeMode,
+  branding: Partial<Branding>,
+  locale: Locale,
+  density: Density,
 ): ThemeConfig {
   const base = modeTheme(mode, branding, locale);
   const dense = densityTheme(density, base.algorithm ?? antdTheme.defaultAlgorithm);

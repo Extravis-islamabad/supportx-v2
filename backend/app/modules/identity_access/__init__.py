@@ -44,7 +44,10 @@ from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     IDENTITY_PERMISSIONS,
     KNOWLEDGE_MANAGER,
+    REPORT_VIEWER,
     RESERVED_PERMISSIONS,
+    SERVICE_DESK_MANAGER,
+    SITE_ADMIN,
     Catalogue,
 )
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
@@ -106,7 +109,14 @@ from app.modules.identity_access.service.policy import (
     visible,
 )
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
-from app.modules.identity_access.service.roles import RoleName, role_names
+from app.modules.identity_access.service.roles import (
+    RoleName,
+    check_group_grantable,
+    guard_group_disable,
+    member_guard,
+    role_names,
+    use_policy,
+)
 from app.modules.identity_access.service.service_identities import (
     create_service_identity,
     set_service_identity_active,
@@ -117,8 +127,15 @@ from app.modules.identity_access.service.worker_sessions import (
     worker_session_ender,
 )
 from app.modules.licensing import Feature, entitled_features
-from app.modules.organization import memberships
+from app.modules.organization import (
+    memberships,
+    register_group_disable_guard,
+    register_member_guard,
+    unregister_group_disable_guard,
+    unregister_member_guard,
+)
 from app.shared.clock import system_clock
+from app.shared.labels import missing_labels
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     SESSION_ENDED,
@@ -179,12 +196,38 @@ async def subject_for(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid
     return await _worker_policy().compile(session, tenant_id, user_id)
 
 
+def check_catalogue_labels(catalogue: Catalogue, settings: "Settings") -> None:
+    """Every permission and permission module has its English and Arabic label (REQ-ADM-016 AC1).
+
+    A missing one stops start-up in dev and test, so it is caught before a screen shows a raw
+    code; production only logs it and starts (a label is never worth an outage).
+    """
+    keys = {
+        key
+        for permission, spec in catalogue.permissions.items()
+        for key in (
+            f"permission.{permission}",
+            f"permission.{permission}.description",
+            f"permission_module.{spec.module}",
+        )
+    }
+    missing = missing_labels(keys, ("en", "ar"))
+    if not missing:
+        return
+    if settings.profile == "production":
+        log.warning("permission_labels_missing", missing=missing)
+        return
+    msg = f"permission labels missing (add them to packages/labels): {', '.join(missing)}"
+    raise RuntimeError(msg)
+
+
 def _start_policy(app: FastAPI, settings: "Settings") -> None:
     """The policy layer (WP-016): needs the database; caches in Valkey when configured."""
     app.state.policy = None
     setattr(app.state, AUTHORIZER_STATE, None)
     app.state.policy_client = None
     catalogue = build_catalogue(app.state.modules)
+    check_catalogue_labels(catalogue, settings)
     if app.state.db is None:
         return
     cache = None
@@ -205,6 +248,11 @@ def _start_policy(app: FastAPI, settings: "Settings") -> None:
     app.state.policy = policy
     setattr(app.state, AUTHORIZER_STATE, policy)
     register_access_invalidator(policy.invalidate)
+    # Adding a member to a group carrying roles needs those roles' rights (WP-042).
+    use_policy(policy)
+    app.state.member_guard = member_guard(policy)
+    register_member_guard(app.state.member_guard)
+    register_group_disable_guard(guard_group_disable)
 
 
 async def _startup(app: FastAPI) -> None:
@@ -259,6 +307,11 @@ async def _shutdown(app: FastAPI) -> None:
     policy = getattr(app.state, "policy", None)
     if policy is not None:
         unregister_access_invalidator(policy.invalidate)
+    guard = getattr(app.state, "member_guard", None)
+    if guard is not None:
+        unregister_member_guard(guard)
+    unregister_group_disable_guard(guard_group_disable)
+    use_policy(None)
     policy_client = getattr(app.state, "policy_client", None)
     if policy_client is not None:
         await policy_client.aclose()
@@ -312,6 +365,9 @@ register_people_usage()
 
 __all__ = [
     "KNOWLEDGE_MANAGER",
+    "REPORT_VIEWER",
+    "SERVICE_DESK_MANAGER",
+    "SITE_ADMIN",
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",
@@ -330,6 +386,7 @@ __all__ = [
     "UserType",
     "authorize",
     "authorize_stored",
+    "check_group_grantable",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",

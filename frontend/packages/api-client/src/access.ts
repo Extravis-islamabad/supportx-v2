@@ -151,6 +151,32 @@ export function useRoleAssignment() {
   return { assign, remove };
 }
 
+/** Give a support group a role, or take it away (WP-042): its members hold the role. */
+export function useGroupRoleMutations() {
+  const invalidate = useInvalidateAccess();
+  const add = useMutation({
+    meta: { silent: true },
+    mutationFn: ({ roleId, groupId }: { roleId: string; groupId: string }) =>
+      call(
+        api.PUT('/api/v1/roles/{role_id}/groups/{group_id}', {
+          params: { path: { role_id: roleId, group_id: groupId } },
+        }),
+      ),
+    onSuccess: invalidate,
+  });
+  const remove = useMutation({
+    meta: { silent: true },
+    mutationFn: ({ roleId, groupId }: { roleId: string; groupId: string }) =>
+      call(
+        api.DELETE('/api/v1/roles/{role_id}/groups/{group_id}', {
+          params: { path: { role_id: roleId, group_id: groupId } },
+        }),
+      ),
+    onSuccess: invalidate,
+  });
+  return { add, remove };
+}
+
 /** Sites or support groups with members (sites.view / groups.view). */
 export function useUnits(kind: UnitKind, enabled = true) {
   return useQuery({

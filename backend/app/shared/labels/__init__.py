@@ -15,7 +15,7 @@ programming error and raises, so tests catch it instead of a code reaching a use
 import json
 import re
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from functools import cache
 from pathlib import Path
 from typing import Final
@@ -65,6 +65,18 @@ def has_label(key: str) -> bool:
     """Whether any language has `key` (or its plural forms)."""
     english = _dictionary()[FALLBACK]
     return key in english or f"{key}_other" in english
+
+
+def missing_labels(keys: Iterable[str], languages: Iterable[str]) -> list[str]:
+    """`<language>:<key>` for each key a language lacks (plural forms count), sorted."""
+    dictionary = _dictionary()
+    found: list[str] = []
+    for language in languages:
+        known = dictionary.get(language, {})
+        found += [
+            f"{language}:{key}" for key in keys if key not in known and f"{key}_other" not in known
+        ]
+    return sorted(found)
 
 
 def _lookup(key: str, language: str, count: int | None) -> str:

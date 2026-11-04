@@ -5,6 +5,15 @@ import { useLabels, type LabelInput, type LabelParams, type Locale } from '@supp
 import type { Branding, ThemeMode } from './theme';
 
 export type Direction = 'ltr' | 'rtl';
+/** Digits on screen (D-135). */
+export type Digits = 'western' | 'arabic_indic';
+
+/** `locale` with its numbering system: Western (`latn`) unless Arabic-Indic was chosen. */
+export function intlLocaleFor(locale: string, digits: Digits): string {
+  // Urdu writes the extended Arabic-Indic digits (۰-۹), Arabic and others ٠-٩.
+  const system = digits === 'arabic_indic' ? (locale === 'ur' ? 'arabext' : 'arab') : 'latn';
+  return `${locale}-u-nu-${system}`;
+}
 
 export interface Appearance {
   mode: ThemeMode;
@@ -12,6 +21,17 @@ export interface Appearance {
   locale: Locale;
   branding: Branding;
   setMode: (mode: ThemeMode) => void;
+  /**
+   * The locale for numbers and dates (`Intl`): the language with its digits pinned (D-135).
+   * Western digits by default in every language; Arabic-Indic when the person chose them.
+   * Labels keep `locale`.
+   */
+  intlLocale: string;
+  digits: Digits;
+  setDigits: (digits: Digits) => void;
+  /** Text size in percent, 90 to 150 (WP-042, REQ-ADM-062); 100 unless the person chose. */
+  textScale: number;
+  setTextScale: (percent: number) => void;
   setDirection: (direction: Direction) => void;
   setLocale: (locale: Locale) => void;
   /**

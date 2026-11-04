@@ -62,6 +62,8 @@ export const en = {
   'announcement_audience.everyone': 'Everyone',
   'announcement_audience.sites': 'Selected sites',
   'announcement_audience.groups': 'Selected support groups',
+  'announcement_audience.requesters': 'Requesters only',
+  'announcement_audience.technicians': 'Technicians only',
   'announcement_visibility.hidden': 'Not shown',
   'announcement_visibility.scheduled': 'Scheduled',
   'announcement_visibility.live': 'Live',
