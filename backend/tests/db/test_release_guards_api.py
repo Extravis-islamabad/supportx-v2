@@ -182,3 +182,19 @@ async def test_a_groups_only_rule_never_strands_a_release(world: World) -> None:
     item = await a_release(world, a)
     assert offered(await as_user(world, a, a.admin, item), "submission_accepted")["allowed"] is True
     assert (await move(world, a, item, "submission_accepted")).status_code == 200
+
+
+async def test_a_cleared_rule_restricts_nobody(world: World) -> None:
+    """A stored rule with empty lists is no rule (lane B): nobody is locked out."""
+    a = world.a
+    await release_workers(world, a)
+    item = await a_release(world, a)
+    await world.sql(
+        "UPDATE work_item_stages SET access = $2::jsonb"
+        " WHERE tenant_id = $1 AND code = 'submission'",
+        a.tenant,
+        '{"move_out": {"group_ids": [], "permissions": []}, "edit": {"group_ids": []}}',
+    )
+    shown = await as_user(world, a, a.tech_a, item)
+    assert offered(shown, "submission_accepted")["allowed"] is True
+    assert (await move(world, a, item, "submission_accepted", user=a.tech_a)).status_code == 200

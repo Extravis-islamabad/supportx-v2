@@ -22,8 +22,11 @@ from app.modules.work_items.domain.lifecycle import (
 )
 from app.modules.work_items.domain.releases import (
     DETAIL_FIELDS,
+    OUTCOME_STAGES,
+    PLAN_SECTIONS,
     RELEASE_MODEL,
     RELEASE_REASONS,
+    RELEASE_ROLES,
     RELEASE_TYPES,
 )
 from app.modules.work_items.domain.stages import SetBy, StageModel
@@ -87,6 +90,11 @@ class WorkItemType:
     own_lists: Mapping[str, tuple[tuple[str, str | None], ...]] = field(default_factory=dict)
     # Fields only this type has (an extension table): templates may name them in stage rules.
     own_fields: frozenset[str] = frozenset()
+    # Engine parts a type opts into (WP-058a s4): named roles held per record, rich-text plan
+    # sections, and stages that record an outcome.
+    roles: tuple[str, ...] = ()
+    plan_sections: tuple[str, ...] = ()
+    outcome_stages: frozenset[str] = frozenset()
 
     @property
     def counter_key(self) -> str:
@@ -161,6 +169,9 @@ RELEASE = WorkItemType(
     fields=COMMON_FIELDS,
     stages=RELEASE_MODEL,
     own_fields=frozenset(DETAIL_FIELDS),
+    roles=RELEASE_ROLES,
+    plan_sections=PLAN_SECTIONS,
+    outcome_stages=OUTCOME_STAGES,
     own_lists={
         "release_type": RELEASE_TYPES,
         "release_reason": tuple((code, None) for code in RELEASE_REASONS),

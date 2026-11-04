@@ -220,3 +220,47 @@ def search_terms(details: Mapping[str, Any]) -> str:
     """
     values = [str(details[n]) for n in SEARCHED_FIELDS if details.get(n)]
     return " ".join(part for v in values for part in (v, re.sub(r"[\W_]+", " ", v).strip()))
+
+
+# --- roles, plan sections, stage outcomes (WP-058a s4; REQ-REL-023..028) -------------------------
+
+# Appendix A's release roles, each held by one person (REQ-REL-023); seeded per tenant, editable.
+RELEASE_ROLES = (
+    "requester",
+    "release_manager",
+    "release_engineer",
+    "development_lead",
+    "qa_lead",
+    "uat_owner",
+    "reviewer",
+)
+# The planning stage's rich-text sections (REQ-REL-025), each with its own version and history.
+PLAN_SECTIONS = ("impact", "rollout", "backout")
+# Stages that record an outcome, notes, issues and evidence (REQ-REL-028).
+OUTCOME_STAGES = frozenset({"build", "testing", "acceptance_testing", "deployment", "training"})
+
+
+class StageOutcome(StrEnum):
+    """How a stage went (REQ-REL-028)."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    PARTLY_DONE = "partly_done"
+
+
+def outcome_problems(stage: str, merged: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """(field, code) pairs of a stage's outcome after an edit (values merged)."""
+    problems: list[tuple[str, str]] = []
+    outcome = merged.get("outcome")
+    if outcome is not None and stage not in OUTCOME_STAGES:
+        problems.append(("outcome", "not_allowed"))
+    elif outcome is not None and outcome not in {o.value for o in StageOutcome}:
+        problems.append(("outcome", "invalid_choice"))
+    # REQ-REL-028 AC1: a failed outcome says what went wrong.
+    if outcome == StageOutcome.FAILED and not (merged.get("issues") or "").strip():
+        problems.append(("issues", "required"))
+    for start, end in (("scheduled_start", "scheduled_end"), ("actual_start", "actual_end")):
+        began, ended = merged.get(start), merged.get(end)
+        if began is not None and ended is not None and ended < began:
+            problems.append((end, "end_before_start"))
+    return problems

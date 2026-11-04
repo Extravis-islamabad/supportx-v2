@@ -197,12 +197,13 @@ async def access_rule(
         return None
     row = await session.get(WorkItemStage, (catalogue.tenant_of(session), record.type, code))
     rule = ((row.access if row is not None else None) or {}).get(kind) or {}
-    if not rule:
-        return None
-    return AccessRule(
+    named = AccessRule(
         group_ids=frozenset(uuid.UUID(str(g)) for g in rule.get("group_ids") or ()),
-        permissions=frozenset(str(p) for p in rule.get("permissions") or ()) | ALWAYS_ADMITTED,
+        permissions=frozenset(str(p) for p in rule.get("permissions") or ()),
     )
+    if named.empty():  # a cleared rule ({"group_ids": []}) restricts nobody (lane B)
+        return None
+    return AccessRule(group_ids=named.group_ids, permissions=named.permissions | ALWAYS_ADMITTED)
 
 
 async def template_rules(session: AsyncSession, record: WorkItem) -> Mapping[str, Any] | None:
