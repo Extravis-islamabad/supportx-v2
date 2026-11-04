@@ -846,9 +846,12 @@ it with no reload (rule c). Not built yet.
   capped at 5 (lane B's review). Never stored, never logged (Haider's addition): bodies hold a
   marker and the message keeps only the link request; the mail sender mints the token at send,
   a retry or resend mints a fresh one and revokes the old. Tests: db 6 public + 3 notification,
-  portal Vitest 2. **Still to do:** the e2e journey in English
-  and Arabic (needs the shared stack, QA lock), then out of draft (the final re-point of 0059
-  with the coordinator).
+  portal Vitest 2.
+  E2E (`e2e/tests/service-requests.spec.ts`, green on the stack smoke 2026-11-04): raise,
+  approve from the console drawer, the plan's task done, fulfilled, receipt confirmed in the
+  portal, all live; the e-mailed link approved in a window with nobody signed in, once; the
+  portal pages in Arabic with axe. **Still to do:** out of draft after #183 (the final
+  re-point of 0059, with the coordinator). (E2E: see below.)
 - **Found outside WP-030 (lane A's next polish PR, agreed with lane B 2026-11-04):**
   `work_items/service/conversations.py` decides a reply's delivery state from the global
   `get_settings()`, so a checkout whose `backend/.env` sets SMTP fails `test_reply_delivery`
