@@ -5,6 +5,7 @@ export const ur: LabelResource = {
   'custom_field_display.list': 'ڈراپ ڈاؤن فہرست',
   'custom_field_display.radio': 'بٹن',
   'custom_field_entity.incident': 'واقعات',
+  'custom_field_entity.problem': 'مسائل',
   'custom_field_entity.service_request': 'سروس درخواستیں',
   'custom_field_index_error.busy': 'واقعات کا جدول دیگر دیکھ بھال میں مصروف تھا۔',
   'custom_field_index_error.disk_full': 'ڈیٹا بیس کی ڈسک کی جگہ ختم ہو گئی۔',
