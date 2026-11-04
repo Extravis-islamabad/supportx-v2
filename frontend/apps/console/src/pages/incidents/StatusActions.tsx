@@ -63,13 +63,16 @@ interface Pending {
 export function useStatusActions(
   item: Incident,
   catalogue: IncidentCatalogue | undefined,
+  /** Another type's action mutation (problems, WP-044a); the incident one by default. */
+  override?: ReturnType<typeof useIncidentAction>,
 ): { actions: RecordAction[]; dialogs: ReactNode } {
   const t = useLabel();
   const reasonText = useActionReason();
   const previousResolution = usePreviousResolution(item);
   const { message, modal } = App.useApp();
   const { locale } = useAppearance();
-  const act = useIncidentAction(item.id);
+  const incidentAct = useIncidentAction(item.id);
+  const act = override ?? incidentAct;
   const [asking, setAsking] = useState<IncidentActionState | null>(null);
   // The action waiting for "which of your groups" (start work on an unassigned incident).
   const [choosing, setChoosing] = useState<Pending | null>(null);

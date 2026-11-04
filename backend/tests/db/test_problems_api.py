@@ -522,7 +522,8 @@ async def test_an_investigator_works_one_problem_and_nothing_more(world: World) 
     named = await world.call("PUT", f"{path}/investigators/{them}", a, a.tech_a)
     assert named.status_code == 204, named.text
     listed = await world.call("GET", f"{path}/investigators", a, a.admin)
-    assert listed.json() == {"user_ids": [str(them)]}
+    assert listed.json()["user_ids"] == [str(them)]
+    assert listed.json()["people"][str(them)]["display_name"]
     # They see it, live in their list, and work notes, tasks and worklogs on it ...
     assert (await world.call("GET", path, a, them)).status_code == 200
     mine = await world.call("GET", PRB, a, them)

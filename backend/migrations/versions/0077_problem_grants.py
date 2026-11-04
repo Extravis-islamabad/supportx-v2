@@ -10,7 +10,7 @@ The downgrade folds back only what problems.manage can represent without losing 
 grant (lane B's review, CLAUDE.md rule 5h; the same as lane C's 0091). A role holding exactly the
 four keys the upgrade made (create at all; edit, assign and close at one scope S) gets
 problems.manage at S. Any other problem key (delete, take, ...), a partial set, or the three at
-different scopes stops the downgrade with an error and changes nothing.
+different scopes or with different conditions stops the downgrade with an error and changes nothing.
 
 Revision ID: 0077
 Revises: 0076
@@ -68,6 +68,8 @@ _REFUSE = f"""
             GROUP BY role_id
             HAVING count(*) <> 4
                 OR count(DISTINCT scope) FILTER (WHERE permission IN {_FOLDED}) <> 1
+                OR count(DISTINCT coalesce(condition::text, '')) FILTER (
+                    WHERE permission IN {_FOLDED}) <> 1
                 OR bool_or(permission = 'problems.create' AND scope <> 'all')
         ) THEN
             RAISE EXCEPTION 'a role holds only part of the problem keys, or at different scopes:'

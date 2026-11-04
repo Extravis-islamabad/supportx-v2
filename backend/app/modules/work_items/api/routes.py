@@ -493,6 +493,9 @@ class WorkItemOut(BaseModel):
         default=STANDARD_LIFECYCLE,
         description="The transition set it follows, from its template (WP-044a; REQ-PRB-025).",
     )
+    status_before_pause: str | None = Field(
+        default=None, description="On hold: the status it resumes to (problems, Appendix A)."
+    )
     catalog_item_id: uuid.UUID | None = Field(
         default=None, description="Service requests: the item it was raised from."
     )
@@ -604,6 +607,7 @@ _RECORD_FIELDS = (
     "outage_ended_at",
     "template_id",
     "lifecycle",
+    "status_before_pause",
     "custom",
     "status",
     "status_category",
@@ -913,6 +917,12 @@ class WorkItemCatalogueOut(BaseModel):
     reasons: list[WorkItemReasonOut]
     levels: list[WorkItemListValueOut] = Field(description="Support levels (REQ-INC-007).")
     closure_codes: list[WorkItemListValueOut] = Field(description="REQ-INC-093.")
+    problem_types: list[WorkItemListValueOut] = Field(
+        default_factory=list, description="Problems: the problem type list (WP-044a)."
+    )
+    root_causes: list[WorkItemListValueOut] = Field(
+        default_factory=list, description="Problems: the root cause category list (WP-044a)."
+    )
     closure: WorkItemClosureOut
     next_number: int = Field(description="The display number the next record gets.")
 
@@ -992,6 +1002,8 @@ class WorkItemCatalogueOut(BaseModel):
             ],
             levels=[_value(v) for v in cat.list_values(PickList.LEVEL)],
             closure_codes=[_value(v) for v in cat.list_values(PickList.CLOSURE_CODE)],
+            problem_types=[_value(v) for v in cat.list_values(PickList.PROBLEM_TYPE)],
+            root_causes=[_value(v) for v in cat.list_values(PickList.ROOT_CAUSE)],
             closure=WorkItemClosureOut(
                 resolve_requires=list(cat.closure.resolve_requires),
                 close_requires=list(cat.closure.close_requires),

@@ -142,7 +142,11 @@ async def _for_work(
 
 
 def _own_time_only(wtype: WorkItemType, subject: Subject, owner_id: uuid.UUID | None) -> None:
-    """An investigator logs, changes and removes only their own time (lane B, ADR-040)."""
+    """An investigator logs, changes and removes only their own time (lane B, ADR-040).
+
+    `owner_id` None is a new worklog without an owner, which then is the subject's own (stored
+    worklogs always have an owner).
+    """
     if owner_id is not None and owner_id != subject.user_id:
         raise PermissionDenied(
             params={"permission": wtype.permission("edit"), "reason": "own_worklogs_only"}

@@ -778,6 +778,7 @@ export {
   useProblemAction,
   useProblemCatalogue,
   useProblemLinks,
+  useProblemPeople,
   useProblemPrefill,
   useProblems,
   useProblemTemplates,

@@ -274,3 +274,18 @@ export function useInvestigatorChange(id: string) {
     },
   });
 }
+
+/** Technicians who work on problems, to name as investigators (holders of `problems.view`). */
+export function useProblemPeople(id: string, search: string) {
+  return useQuery({
+    queryKey: ['problems', 'detail', id, 'people', search],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/{record_id}/mentionable', {
+          params: { path: { record_id: id }, query: { search: search.trim() || undefined } },
+        }),
+      ),
+    enabled: id !== '',
+    placeholderData: keepPreviousData,
+  });
+}

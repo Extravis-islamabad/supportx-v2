@@ -24,8 +24,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.modules.audit import audited
-from app.modules.identity_access import PolicyService, Subject, get_policy
+from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.list_routes import BulkJobOut
+from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.lists import MAX_BULK
 from app.modules.work_items.domain.types import PROBLEM, WorkItemType
@@ -100,6 +101,7 @@ class InvestigatorsOut(BaseModel):
     """A problem's investigators, oldest first (REQ-PRB-029)."""
 
     user_ids: list[uuid.UUID]
+    people: dict[str, PersonOut] = Field(default_factory=dict, description="Their names.")
 
 
 class LinkedOut(BaseModel):
@@ -316,7 +318,9 @@ def _add_investigator_routes(router: APIRouter, wtype: WorkItemType) -> None:
         record_id: uuid.UUID, session: TenantSession, subject: View
     ) -> InvestigatorsOut:
         """Technicians who work it besides the owner (REQ-PRB-029)."""
-        return InvestigatorsOut(user_ids=await service.investigators(session, subject, record_id))
+        ids = await service.investigators(session, subject, record_id)
+        names = await user_contacts(session, [str(i) for i in ids])
+        return InvestigatorsOut(user_ids=ids, people=people_out(names))
 
     @router.put(
         "/{record_id}/investigators/{user_id}",
