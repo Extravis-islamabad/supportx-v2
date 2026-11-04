@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Incidents · SupportX console</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#6B33B8}a:hover{color:#4F2590}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; background: #F4F5F7; color: #14161B; font-family: system-ui, sans-serif; font-size: 14px">
+
+<nav aria-label="Main" style="flex: 1 1 220px; background: #16122B; color: #C9C4DB; padding: 16px 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px 8px">
+<div style="width: 30px; height: 30px; border-radius: 8px; background: #7E40D1; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px">S</div>
+<span style="font-weight: 700; font-size: 16px; letter-spacing: 0.6px; color: #FFFFFF">SUPPORT<span style="color: #C7A4F2">X</span></span>
+</div>
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="9">
+<a href="#" style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 10px; border-radius: 8px; text-decoration: none; background: {{n.bg}}; color: {{n.fg}}; font-weight: {{n.weight}}; font-size: 14px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg>
+<span style="flex: 1">{{n.label}}</span>
+<sc-if value="{{n.hasCount}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: #3A3168; color: #FFFFFF">{{n.count}}</span></sc-if>
+</a>
+</sc-for>
+</nav>
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="min-height: 56px; background: #FFFFFF; border-bottom: 1px solid #E3E5EA; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 8px 24px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5A6070; flex: 1 1 240px">
+<span style="font-weight: 600; color: #14161B">Showcase Bank</span><span aria-hidden="true">·</span><span>IT Service Desk</span>
+</div>
+<label style="flex: 0 1 380px; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px solid #D5D8DF; border-radius: 8px; background: #F8F9FB; color: #5A6070; box-sizing: border-box">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"></path></svg>
+<input type="search" aria-label="Search everything" placeholder="Search incidents, people, articles" style="border: none; background: transparent; outline: none; font: inherit; font-size: 13px; flex: 1; min-width: 0; color: #14161B">
+<span style="font-size: 11px; border: 1px solid #D5D8DF; border-radius: 4px; padding: 1px 5px; background: #FFFFFF">Ctrl K</span>
+</label>
+<div style="display: flex; align-items: center; gap: 12px">
+<button type="button" aria-label="Notifications, 4 new" style="position: relative; width: 36px; height: 36px; border-radius: 8px; border: 1px solid #E3E5EA; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>
+<span style="position: absolute; top: 6px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #D92D20; border: 2px solid #FFFFFF"></span>
+</button>
+<button type="button" style="height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid #ABEFC6; background: #ECFDF3; color: #067647; font: inherit; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer"><span style="width: 8px; height: 8px; border-radius: 50%; background: #17B26A"></span>Available</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; border: none; background: transparent; font: inherit; color: #14161B; cursor: pointer">
+<span style="width: 32px; height: 32px; border-radius: 50%; background: #7E40D1; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">AA</span>
+<span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2"><span style="font-size: 13px; font-weight: 600">Amal Admin</span><span style="font-size: 11px; color: #5A6070">Administrator</span></span>
+</button>
+</div>
+</header>
+
+<main style="padding: 20px 24px 32px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: baseline; gap: 10px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Incidents</h1>
+<span style="font-size: 13px; color: #5A6070">48 open across your groups</span>
+</div>
+<div style="display: flex; gap: 8px">
+<button type="button" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; font: inherit; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Export</button>
+<button type="button" style="height: 36px; padding: 0 16px; border-radius: 8px; border: none; background: #7E40D1; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New incident</button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="5">
+<button type="button" style="text-align: start; background: #FFFFFF; border: 1px solid {{k.border}}; border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; font: inherit; color: inherit; cursor: pointer">
+<span style="width: 36px; height: 36px; border-radius: 8px; background: {{k.iconBg}}; color: {{k.iconFg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{k.icon}}"></path></svg>
+</span>
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 20px; font-weight: 700; line-height: 1.1">{{k.value}}</span>
+<span style="font-size: 12px; color: #5A6070; font-weight: 500">{{k.label}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+
+<section style="background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 8px; overflow: hidden">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid #E3E5EA">
+<button type="button" style="height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #D5D8DF; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; color: #14161B; display: flex; align-items: center; gap: 8px; cursor: pointer">All open <span style="color: #5A6070; font-weight: 500">48</span>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<label style="display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 1px solid #D5D8DF; border-radius: 8px; color: #5A6070; flex: 0 1 260px; box-sizing: border-box">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"></path></svg>
+<input type="search" aria-label="Search this list" placeholder="Search ID, subject, requester" style="border: none; outline: none; font: inherit; font-size: 13px; flex: 1; min-width: 0; color: #14161B">
+</label>
+<sc-for list="{{quickFilters}}" as="q" hint-placeholder-count="4">
+<button type="button" style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid {{q.border}}; background: {{q.bg}}; font: inherit; font-size: 13px; color: {{q.fg}}; display: flex; align-items: center; gap: 6px; cursor: pointer">{{q.label}}
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+</sc-for>
+<button type="button" style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px dashed #B9BEC9; background: #FFFFFF; font: inherit; font-size: 13px; color: #344054; display: flex; align-items: center; gap: 6px; cursor: pointer">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z"></path></svg>More filters</button>
+<span style="flex: 1"></span>
+<button type="button" style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #D5D8DF; background: #FFFFFF; font: inherit; font-size: 13px; color: #344054; display: flex; align-items: center; gap: 6px; cursor: pointer">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3h7v18H3zM14 3h7v18h-7z"></path></svg>Columns</button>
+</div>
+
+<div style="overflow-x: auto">
+<table style="width: 100%; min-width: 1120px; border-collapse: collapse; font-size: 13px">
+<thead>
+<tr style="background: #F8F9FB; text-align: start; color: #5A6070">
+<th scope="col" style="width: 40px; padding: 10px 0 10px 14px; text-align: start; font-weight: 500; border-bottom: 1px solid #E3E5EA"><input type="checkbox" aria-label="Select all"></th>
+<th scope="col" style="padding: 10px 8px; text-align: start; font-weight: 600; font-size: 12px; border-bottom: 1px solid #E3E5EA">ID</th>
+<th scope="col" style="padding: 10px 8px; text-align: start; font-weight: 600; font-size: 12px; border-bottom: 1px solid #E3E5EA">Subject</th>
+<th scope="col" style="padding: 10px 8px; text-align: start; font-weight: 600; font-size: 12px; border-bottom: 1px solid #E3E5EA">Requester</th>
+<th scope="col" style="padding: 10px 8px; text-align: start; font-weight: 600; font-size: 12px; border-bottom: 1px solid #E3E5EA">Assigned to</th>
+<th scope="col" style="padding: 10px 8px; text-align: start; font-weight: 600; font-size: 12px; border-bottom: 1px solid #E3E5EA">Status</th>
+<th scope="col" style="padding: 10px 8px; text-align: start; font-weight: 600; font-size: 12px; border-bottom: 1px solid #E3E5EA">Priority</th>
+<th scope="col" style="padding: 10px 8px; text-align: start; font-weight: 600; font-size: 12px; border-bottom: 1px solid #E3E5EA">SLA</th>
+<th scope="col" style="padding: 10px 14px 10px 8px; text-align: start; font-weight: 600; font-size: 12px; border-bottom: 1px solid #E3E5EA">Created</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+<tr style="background: {{r.rowBg}}">
+<td style="padding: 0 0 0 14px; height: 48px; border-bottom: 1px solid #EEF0F3"><input type="checkbox" aria-label="Select {{r.id}}"></td>
+<td style="padding: 0 8px; border-bottom: 1px solid #EEF0F3; white-space: nowrap">
+<span style="display: inline-flex; align-items: center; gap: 8px">
+<span title="{{r.chLabel}}" style="width: 26px; height: 26px; border-radius: 6px; background: {{r.chBg}}; color: {{r.chFg}}; display: inline-flex; align-items: center; justify-content: center">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="{{r.chLabel}}"><path d="{{r.chIcon}}"></path></svg>
+</span>
+<a href="Incident.dc.html" style="font-weight: 600; text-decoration: none">{{r.id}}</a>
+</span>
+</td>
+<td style="padding: 0 8px; border-bottom: 1px solid #EEF0F3; max-width: 340px">
+<span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: #14161B">{{r.subject}}</span>
+</td>
+<td style="padding: 0 8px; border-bottom: 1px solid #EEF0F3; white-space: nowrap">
+<span style="display: flex; flex-direction: column; line-height: 1.3"><span style="color: #14161B">{{r.requester}}</span><span style="font-size: 12px; color: #5A6070">{{r.dept}}</span></span>
+</td>
+<td style="padding: 0 8px; border-bottom: 1px solid #EEF0F3; white-space: nowrap">
+<sc-if value="{{r.hasTech}}" hint-placeholder-val="{{true}}">
+<span style="display: inline-flex; align-items: center; gap: 8px">
+<span style="width: 24px; height: 24px; border-radius: 50%; background: {{r.avBg}}; color: #FFFFFF; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{r.techInit}}</span>
+<span style="display: flex; flex-direction: column; line-height: 1.3"><span style="color: #14161B">{{r.tech}}</span><span style="font-size: 12px; color: #5A6070">{{r.group}}</span></span>
+</span>
+</sc-if>
+<sc-if value="{{r.noTech}}" hint-placeholder-val="{{false}}">
+<span style="display: flex; flex-direction: column; line-height: 1.3"><span style="color: #B54708; font-weight: 600">Unassigned</span><span style="font-size: 12px; color: #5A6070">{{r.group}}</span></span>
+</sc-if>
+</td>
+<td style="padding: 0 8px; border-bottom: 1px solid #EEF0F3; white-space: nowrap">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: {{r.stBg}}; color: {{r.stFg}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{r.stFg}}"></span>{{r.status}}</span>
+</td>
+<td style="padding: 0 8px; border-bottom: 1px solid #EEF0F3; white-space: nowrap">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: #14161B"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{r.priColor}}"></span>{{r.priority}}</span>
+</td>
+<td style="padding: 0 8px; border-bottom: 1px solid #EEF0F3; white-space: nowrap">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: {{r.slaFg}}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.slaIcon}}"></path></svg>{{r.sla}}</span>
+</td>
+<td style="padding: 0 14px 0 8px; border-bottom: 1px solid #EEF0F3; white-space: nowrap; color: #5A6070">{{r.created}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; font-size: 13px; color: #5A6070">
+<span>Showing 1–12 of 48</span>
+<div style="display: flex; gap: 4px">
+<button type="button" aria-label="Previous page" style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; cursor: pointer">‹</button>
+<button type="button" aria-current="page" style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid #7E40D1; background: #F4EBFF; color: #4F2590; font: inherit; font-weight: 600; cursor: pointer">1</button>
+<button type="button" style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; font: inherit; cursor: pointer">2</button>
+<button type="button" style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; font: inherit; cursor: pointer">3</button>
+<button type="button" style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; font: inherit; cursor: pointer">4</button>
+<button type="button" aria-label="Next page" style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; cursor: pointer">›</button>
+</div>
+</div>
+</section>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+var CH = {
+  email: { label: 'Email', bg: '#EEF4FF', fg: '#3538CD', icon: 'M4 6h16v12H4zM4 7l8 6 8-6' },
+  phone: { label: 'Phone', bg: '#ECFDF3', fg: '#067647', icon: 'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z' },
+  portal: { label: 'Portal', bg: '#F4EBFF', fg: '#6B33B8', icon: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18' },
+  monetx: { label: 'MonetX alert', bg: '#FEF3F2', fg: '#B42318', icon: 'M22 12h-4l-3 9L9 3l-3 9H2' },
+  walkup: { label: 'Walk-up', bg: '#F2F4F7', fg: '#475467', icon: 'M20 21a8 8 0 0 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' }
+};
+var ST = {
+  'New': { bg: '#EEF4FF', fg: '#3538CD' },
+  'Assigned': { bg: '#EFF8FF', fg: '#175CD3' },
+  'In progress': { bg: '#FFF6ED', fg: '#B93815' },
+  'Waiting on requester': { bg: '#F2F4F7', fg: '#475467' },
+  'Resolved': { bg: '#ECFDF3', fg: '#067647' }
+};
+var PRI = { 'P1 Critical': '#D92D20', 'P2 High': '#EF6820', 'P3 Medium': '#EAAA08', 'P4 Low': '#98A2B3' };
+var CLOCK = 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z';
+var SLA = {
+  ok: { fg: '#344054', icon: CLOCK },
+  risk: { fg: '#B54708', icon: CLOCK },
+  late: { fg: '#B42318', icon: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z' },
+  paused: { fg: '#5A6070', icon: 'M10 4H6v16h4zM18 4h-4v16h4z' },
+  met: { fg: '#067647', icon: 'M20 6 9 17l-5-5' }
+};
+var AV = ['#7E40D1', '#175CD3', '#067647', '#B93815', '#3538CD', '#475467'];
+var ROWS = [
+  ['INC-1048', 'email', 'VPN disconnects every 10 minutes', 'Ayesha Khan', 'Finance', 'Tariq Mahmood', 'Network', 'In progress', 'P2 High', '1h 20m left', 'ok', 'Today 09:12'],
+  ['INC-1047', 'monetx', 'Core switch SW-ISB-02 unreachable', 'MonetX', 'Monitoring', null, 'Network', 'New', 'P1 Critical', 'Response due 12m', 'risk', 'Today 10:41'],
+  ['INC-1046', 'portal', 'Outlook not syncing on mobile after password change', 'Bilal Ahmed', 'Sales', 'Sara Malik', 'Service Desk', 'In progress', 'P3 Medium', 'Overdue 25m', 'late', 'Today 08:30'],
+  ['INC-1045', 'phone', 'Teller app slow at Blue Area branch', 'Usman Raza', 'Branch operations', 'Tariq Mahmood', 'Applications', 'Waiting on requester', 'P2 High', 'Paused', 'paused', 'Yesterday 16:20'],
+  ['INC-1044', 'email', 'Printer shows paper jam on 3rd floor', 'Sana Iqbal', 'HR', null, 'Service Desk', 'New', 'P4 Low', '2d 4h left', 'ok', 'Yesterday 15:02'],
+  ['INC-1043', 'portal', 'Cannot open core banking reports', 'Hamza Ali', 'Risk', 'Faisal Khan', 'Applications', 'Assigned', 'P2 High', '3h 05m left', 'ok', 'Yesterday 14:47'],
+  ['INC-1041', 'email', 'Shared drive F: not mapped after login', 'Zainab Qureshi', 'Legal', 'Faisal Khan', 'Desktop Support', 'In progress', 'P3 Medium', '4h 40m left', 'ok', 'Yesterday 11:15'],
+  ['INC-1040', 'monetx', 'Firewall FW-KHI-01 CPU above 90%', 'MonetX', 'Monitoring', 'Tariq Mahmood', 'Network', 'In progress', 'P1 Critical', '38m left', 'risk', 'Yesterday 10:03'],
+  ['INC-1039', 'phone', 'ATM monitoring dashboard not loading', 'Imran Shah', 'Branch operations', null, 'Applications', 'New', 'P2 High', 'Response due 45m', 'ok', 'Mon 17:40'],
+  ['INC-1038', 'portal', 'Reset MFA device for new phone', 'Nadia Hassan', 'Marketing', 'Sara Malik', 'Service Desk', 'Waiting on requester', 'P4 Low', 'Paused', 'paused', 'Mon 12:22'],
+  ['INC-1037', 'email', 'Wi-Fi drops in meeting room 4B', 'Omar Farooq', 'Administration', 'Faisal Khan', 'Network', 'Assigned', 'P3 Medium', '6h left', 'ok', 'Mon 10:05'],
+  ['INC-1036', 'walkup', 'Laptop battery drains within an hour', 'Maria Joseph', 'Treasury', 'Sara Malik', 'Desktop Support', 'Resolved', 'P3 Medium', 'Met', 'met', 'Mon 09:31']
+];
+var NAV = [
+  ['Home', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z', null],
+  ['Incidents', 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z', 48],
+  ['Service requests', 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0', 21],
+  ['Problems', 'M8 2v4M16 2v4M12 12h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', null],
+  ['Changes', 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3', null],
+  ['Assets', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', null],
+  ['Knowledge', 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM20 17v4H6.5', null],
+  ['Reports', 'M3 3v18h18M7 15l4-4 3 3 5-6', null],
+  ['Dashboards', 'M12 21a9 9 0 1 0-9-9M12 12l5-5M3 12h3', null],
+  ['Admin', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z', null]
+];
+function initials(n) { return n.split(' ').map(function (p) { return p[0]; }).join('').slice(0, 2).toUpperCase(); }
+
+class Component extends DCLogic {
+  renderVals() {
+    var nav = NAV.map(function (n) {
+      var on = n[0] === 'Incidents';
+      return { label: n[0], icon: n[1], hasCount: n[2] != null, count: n[2],
+        bg: on ? '#2C2552' : 'transparent', fg: on ? '#FFFFFF' : '#C9C4DB', weight: on ? 600 : 500 };
+    });
+    var rows = ROWS.map(function (r, i) {
+      var ch = CH[r[1]], st = ST[r[7]], sl = SLA[r[10]];
+      return { id: r[0], chLabel: ch.label, chBg: ch.bg, chFg: ch.fg, chIcon: ch.icon, subject: r[2], requester: r[3], dept: r[4],
+        hasTech: !!r[5], noTech: !r[5], tech: r[5] || '', techInit: r[5] ? initials(r[5]) : '', avBg: AV[(r[5] || '').length % AV.length], group: r[6],
+        status: r[7], stBg: st.bg, stFg: st.fg, priority: r[8], priColor: PRI[r[8]], sla: r[9], slaFg: sl.fg, slaIcon: sl.icon, created: r[11],
+        rowBg: r[10] === 'late' ? '#FFFBFA' : '#FFFFFF' };
+    });
+    var kpis = [
+      { value: 2, label: 'Overdue', icon: SLA.late.icon, iconBg: '#FEE4E2', iconFg: '#B42318', border: '#FECDCA' },
+      { value: 5, label: 'Due today', icon: CLOCK, iconBg: '#FEF0C7', iconFg: '#B54708', border: '#E3E5EA' },
+      { value: 3, label: 'Unassigned', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6', iconBg: '#F4EBFF', iconFg: '#6B33B8', border: '#E3E5EA' },
+      { value: 6, label: 'Waiting on me', icon: 'M20 21a8 8 0 0 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', iconBg: '#EFF8FF', iconFg: '#175CD3', border: '#E3E5EA' },
+      { value: 4, label: 'Updated by others', icon: 'M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5', iconBg: '#ECFDF3', iconFg: '#067647', border: '#E3E5EA' }
+    ];
+    var quickFilters = [
+      { label: 'Status: Open', active: true }, { label: 'Priority: Any' }, { label: 'Group: My groups', active: true }, { label: 'Assigned to: Anyone' }
+    ].map(function (q) { return { label: q.label, bg: q.active ? '#F4EBFF' : '#FFFFFF', fg: q.active ? '#4F2590' : '#344054', border: q.active ? '#D6BBFB' : '#D5D8DF' }; });
+    return { nav: nav, rows: rows, kpis: kpis, quickFilters: quickFilters };
+  }
+}
+</script>
+</body>
+</html>

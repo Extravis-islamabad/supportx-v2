@@ -283,12 +283,6 @@ export function ConsoleLayout() {
         </NoticeStack>
       }
     >
-      {session.user.nav_layout === 'top' && crumbs.length > 1 && (
-        // The top menu shows the section; a record or sub-page says where it is above the page.
-        <div style={{ marginBlockEnd: 12 }}>
-          <HeaderCrumbs crumbs={crumbs} narrow={false} onNavigate={(path) => void navigate(path)} />
-        </div>
-      )}
       <Outlet />
       <CommandPalette
         open={paletteOpen}

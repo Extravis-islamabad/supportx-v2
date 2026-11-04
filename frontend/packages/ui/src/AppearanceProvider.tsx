@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 
 import { ANT_LOCALES } from './antdLocales';
+import { FONT_FACES, type UrduScript } from './fonts/fonts';
 import {
   AppearanceContext,
   intlLocaleFor,
@@ -72,6 +73,12 @@ const PAGE_CSS =
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
+  // Tabs that do not fit scroll sideways instead of moving into a "more" menu: Ant Design puts
+  // that menu's button inside the tab list, which may hold only tabs (axe aria-required-children,
+  // the record at 390 px; UI pass 2).
+  '.ant-tabs-nav-operations { display: none !important; } ' +
+  '.ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap { overflow-x: auto; scrollbar-width: thin; } ' +
+  '.ant-tabs > .ant-tabs-nav .ant-tabs-nav-list { transform: none !important; } ' +
   // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
   // virtual, so CSS cannot size them by content); they never pass the screen.
   '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +
@@ -94,6 +101,7 @@ export function AppearanceProvider({
 }: AppearanceProviderProps) {
   const [mode, setModeState] = useState<ThemeMode>(() => initialMode ?? preferredMode());
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [urduScript, setUrduScript] = useState<UrduScript>('naskh');
   const [textScale, setTextScale] = useState(100);
   const [digits, setDigits] = useState<Digits>('western');
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
@@ -143,21 +151,23 @@ export function AppearanceProvider({
       intlLocale: intlLocaleFor(locale, digits),
       setDirection,
       setBranding,
+      urduScript,
+      setUrduScript,
       setLocale: (next) => {
         setLocaleState(next);
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand, setBranding, textScale, digits],
+    [mode, direction, locale, brand, setBranding, urduScript, textScale, digits],
   );
   const themeConfig = useMemo(
-    () => buildTheme(mode, brand, locale, density, textScale),
-    [mode, brand, locale, density, textScale],
+    () => buildTheme(mode, brand, locale, density, textScale, urduScript),
+    [mode, brand, locale, density, textScale, urduScript],
   );
 
   return (
     <AppearanceContext.Provider value={appearance}>
-      <style>{PAGE_CSS}</style>
+      <style>{FONT_FACES + PAGE_CSS}</style>
       <LabelsProvider locale={locale}>
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
           <AntApp>{children}</AntApp>

@@ -162,6 +162,15 @@ jobs:
           name: playwright-report-${{ matrix.shard }}
           path: frontend/e2e/playwright-report
           retention-days: 7
+      - name: Upload UI screenshots
+        # UI pass 2's views (e2e/tests/ui-pass-2.spec.ts): the PR's before and after images.
+        if: ${{ always() && steps.changes.outputs.run == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-screens-${{ matrix.shard }}
+          path: frontend/e2e/ui-screens
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Tear down
         if: ${{ always() && steps.changes.outputs.run == 'true' }}
         run: |

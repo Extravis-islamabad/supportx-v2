@@ -31,7 +31,7 @@ const PERSONAL = [
 export function usePersonalAppearance(
   user: MeResponse['user'] | undefined,
 ): (mode: ThemeMode) => void {
-  const { setMode, setTextScale, setDigits } = useAppearance();
+  const { setMode, setTextScale, setDigits, setUrduScript } = useAppearance();
   const save = useSetPreference(user?.id ?? '');
   const copied = useRef(false);
   // The first theme read from the server since this tab opened. A value, not a "done" flag:
@@ -42,6 +42,7 @@ export function usePersonalAppearance(
   const themeMode = user?.theme_mode;
   const textScale = user?.text_scale;
   const digits = user?.digits;
+  const urduScript = user?.urdu_script;
 
   // Choices made just before a reload whose save had not finished: sent again (as the layout).
   useEffect(() => {
@@ -83,6 +84,11 @@ export function usePersonalAppearance(
   useEffect(() => {
     setDigits(digits ?? 'western');
   }, [digits, setDigits]);
+
+  // D-137: Urdu in Naskh unless the person chose Nastaliq.
+  useEffect(() => {
+    setUrduScript(urduScript ?? 'naskh');
+  }, [urduScript, setUrduScript]);
 
   return (mode) => {
     save.mutate({ field: 'theme_mode', value: mode }, { onError: reportError });

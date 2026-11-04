@@ -412,6 +412,7 @@ export const ur: LabelResource = {
   'incidents.reason_text_optional': 'تفصیل (اختیاری)',
   'incidents.reason_text_required': 'وجہ بیان کریں۔',
   'incidents.reassign_reason': 'دوسرے گروپ میں منتقلی کی وجہ',
+  'incidents.record_type': 'واقعہ',
   'incidents.requested_by': 'درخواست گزار: {{name}}',
   'incidents.required_note': '* والے خانے لازمی ہیں۔',
   'incidents.restore': 'بحال کریں',

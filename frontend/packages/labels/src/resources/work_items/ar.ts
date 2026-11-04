@@ -466,6 +466,7 @@ export const ar: LabelResource = {
   'incidents.reason_text_optional': 'التفاصيل (اختيارية)',
   'incidents.reason_text_required': 'صف السبب.',
   'incidents.reassign_reason': 'سبب النقل إلى مجموعة أخرى',
+  'incidents.record_type': 'حادث',
   'incidents.requested_by': 'مقدم الطلب: {{name}}',
   'incidents.required_note': 'الحقول المميزة بـ * مطلوبة.',
   'incidents.restore': 'استعادة',

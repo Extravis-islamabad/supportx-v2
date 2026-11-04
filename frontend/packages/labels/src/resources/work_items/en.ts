@@ -404,6 +404,7 @@ export const en = {
   'incidents.reason_text_optional': 'Details (optional)',
   'incidents.reason_text_required': 'Describe the reason.',
   'incidents.reassign_reason': 'Why it moves to another group',
+  'incidents.record_type': 'Incident',
   'incidents.requested_by': 'Requested by {{name}}',
   'incidents.required_note': 'Fields marked * are required.',
   'incidents.restore': 'Restore',
