@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+# The checks that say whether events reach the bus, the consumers and the screens. Other
+# informational checks (e.g. malware_signatures) degrade /ready but are not event delivery.
+EVENT_DELIVERY_CHECKS = frozenset({"outbox_relay", "event_consumers", "realtime_fanout"})
+
 
 class CheckStatus(StrEnum):
     """Outcome of one dependency check."""
