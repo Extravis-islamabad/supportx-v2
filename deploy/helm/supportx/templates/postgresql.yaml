@@ -84,4 +84,51 @@ spec:
     parameters:
       default_pool_size: {{ $pg.pooler.defaultPoolSize | quote }}
       max_client_conn: {{ $pg.pooler.maxClientConn | quote }}
+      {{- with $pg.pooler.tcpUserTimeoutMs }}
+      # A server connection to a primary whose node vanished (no reset ever comes) is dropped
+      # after this long, not after the kernel's minutes of retries (WP-014b node-loss test).
+      tcp_user_timeout: {{ . | quote }}
+      {{- end }}
+  {{- if and .Values.ha.enabled (gt (int $pg.pooler.instances) 1) }}
+  # HA (WP-014b): the copies on different nodes, like every other multi-copy component.
+  template:
+    spec:
+      containers: []
+      affinity:
+        podAntiAffinity:
+          {{- if eq .Values.ha.antiAffinity "hard" }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  cnpg.io/poolerName: {{ .Release.Name }}-pg-pooler
+          {{- else }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: {{ .Release.Name }}-pg-pooler
+          {{- end }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              cnpg.io/poolerName: {{ .Release.Name }}-pg-pooler
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}-pg-pooler
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.ha.minAvailable }}
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: {{ .Release.Name }}-pg-pooler
+  {{- end }}
 {{- end }}
