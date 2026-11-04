@@ -752,7 +752,48 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
-### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
+- **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
+  (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
+  Migrations 0073 (schema) and 0074 (per-tenant data step: `enabled` → `status`, existing
+  tenants marked as seeded), so the PR runs full-ci.
+- [x] Session 1 (backend, #200):
+  - Category tree (4 levels, no loops; a disabled category hides its items from requesters;
+    delete only when empty, 409 with counts).
+  - Item life: draft → published → retired → published, with planned `publish_at` /
+    `retire_at` (schedule `service_catalog__lifecycle`, every minute, audited). An incomplete
+    item stays a draft at its publish time. Copy makes a draft; delete is soft and only without
+    requests (409 → retire).
+  - Publishing needs English, a category and a group; missing translations are listed for
+    managers.
+  - D6 question kinds with option words, help text, defaults and audiences (requester,
+    technician, approver; a requester never sees or sets the others), plus a subject template.
+  - D10 "report a problem" entries: a requester incident template, checked through work_items'
+    port.
+  - D12 search on the shared port: names, keywords, summaries and descriptions in en/ar/ur, with
+    Arabic/Urdu normalisation and typo tolerance; p95 ≤ 500 ms for 1,000 items, tested.
+  - D7 tenant setting `hide_default_incident_template`; a GET never writes.
+  - D13 starter catalog (D-138): 6 categories and 14 items in en/ar/ur, seeded as drafts on the
+    new `organization.tenant.provisioned` event, once per tenant. Also: the "choose a group and
+    publish" action, `make catalog-starter TENANT=<slug>`, and the showcase seed publishes them.
+  - The WP-030 API stays compatible (`enabled` kept: true publishes, false retires; no OpenAPI
+    breaks).
+  - Tests: domain 16, API 15 (RLS, tree, life, schedule, audiences, entries, search and its
+    budget, settings, starter, tooling, the outbox event).
+- [ ] Session 2 (console admin and portal wiring): D4 admin list and item page with tabs, D8
+  and D9 editors, D11 ordering (drag and keyboard) and featured, preview as a requester, the
+  starter banner, live updates, en/ar/ur labels, RTL, axe; e2e "build, preview, publish,
+  request". The portal shows an item's description before its form (the password item's
+  self-service first, D-138).
+- **Notes for later:**
+  - Popularity ranking ("most requested") is WP-032.
+  - Drop `catalog_items.enabled` in a contract migration once no client sends it.
+  - Tenant provisioning, when it is built (lane B, identity), emits
+    `organization.tenant.provisioned` once the tenant is ready.
+  - `docs/guides/urdu-review.md` gets lane C's section from #183 (union).
+  - Arabic and Urdu catalog texts wait for native-speaker review.
+
+### [x] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182, merged 2026-11-04)
 - **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
 - **Decided (product owner, 2026-11-04):** D3 in **D-133** (catalog basics in Essentials,
   `service_request`; the advanced catalog in Professional, `catalog`); D7 in **D-132** (e-mail
