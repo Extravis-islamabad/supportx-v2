@@ -167,8 +167,8 @@ describe('console: service requests', () => {
     fireEvent.change(await screen.findByTestId('sr-subject'), {
       target: { value: ' Laptop for Sara ' },
     });
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Model' }));
-    fireEvent.click(await screen.findByTitle('air'));
+    // Up to four choices show as radio buttons (WP-031's question renderer).
+    fireEvent.click(screen.getByRole('radio', { name: 'air' }));
     fireEvent.click(screen.getByTestId('sr-send'));
     await waitFor(() => {
       expect(window.location.pathname).toBe(`/requests/${SR_ID}`);

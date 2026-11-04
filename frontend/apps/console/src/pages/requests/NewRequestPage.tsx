@@ -1,4 +1,4 @@
-import { Button, DatePicker, Flex, Form, Input, InputNumber, List, Select, Typography } from 'antd';
+import { Button, Flex, Form, Input, List, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
@@ -7,94 +7,25 @@ import {
   useCatalogItems,
   useRaiseServiceRequest,
   useSession,
-  type CatalogQuestion,
 } from '@supportx/api-client';
-import { lengthLimit, PageHeader, reportError, useAppearance, useLabel } from '@supportx/ui';
+import {
+  lengthLimit,
+  PageHeader,
+  QuestionField,
+  reportError,
+  requesterQuestions,
+  sentAnswers,
+  startingAnswers,
+  textIn,
+  useAppearance,
+  useLabel,
+  type QuestionValue,
+} from '@supportx/ui';
 
 import { UserPicker } from '../incidents/pickers';
 import { itemName } from './items';
 
 const SUBJECT_MAX = 250;
-const TEXT_MAX = 2000;
-
-type Answers = Record<string, string | number | null>;
-
-/** One form question, by its kind (REQ-SR-003). */
-function Question({
-  question,
-  value,
-  onChange,
-  locale,
-}: {
-  question: CatalogQuestion;
-  value: string | number | null;
-  onChange: (value: string | number | null) => void;
-  locale: string;
-}) {
-  const label = question.label[locale] ?? question.label.en ?? question.key;
-  const id = `sr-q-${question.key}`;
-  const common = { id, 'aria-label': label, 'data-testid': id };
-  let input;
-  if (question.kind === 'choice') {
-    input = (
-      <Select
-        {...common}
-        value={typeof value === 'string' ? value : undefined}
-        onChange={(v: string) => {
-          onChange(v);
-        }}
-        options={(question.options ?? []).map((o) => ({ value: o, label: o }))}
-      />
-    );
-  } else if (question.kind === 'number') {
-    input = (
-      <InputNumber
-        {...common}
-        value={typeof value === 'number' ? value : null}
-        onChange={(v) => {
-          onChange(v);
-        }}
-      />
-    );
-  } else if (question.kind === 'date') {
-    input = (
-      <DatePicker
-        {...common}
-        onChange={(_, text) => {
-          onChange(typeof text === 'string' && text !== '' ? text : null);
-        }}
-      />
-    );
-  } else if (question.kind === 'long_text') {
-    input = (
-      <Input.TextArea
-        {...common}
-        value={typeof value === 'string' ? value : ''}
-        count={lengthLimit(TEXT_MAX)}
-        autoSize={{ minRows: 3 }}
-        onChange={(e) => {
-          onChange(e.target.value);
-        }}
-      />
-    );
-  } else {
-    input = (
-      <Input
-        {...common}
-        value={typeof value === 'string' ? value : ''}
-        count={lengthLimit(TEXT_MAX)}
-        onChange={(e) => {
-          onChange(e.target.value);
-        }}
-      />
-    );
-  }
-  return (
-    <Form.Item label={label} htmlFor={id} required={question.required}>
-      {input}
-    </Form.Item>
-  );
-}
 
 /**
  * Raise a service request from the catalog (WP-030, REQ-SR-010): search the items the technician
@@ -115,13 +46,16 @@ export function NewRequestPage() {
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('');
   const [requester, setRequester] = useState<string | null>(me);
-  const [answers, setAnswers] = useState<Answers>({});
+  const [answers, setAnswers] = useState<Record<string, QuestionValue> | null>(null);
 
   if (itemId === undefined || item.data === undefined) {
     const term = search.trim().toLocaleLowerCase(locale);
     const found = (items.data ?? []).filter(
       (i) =>
-        i.enabled && (term === '' || itemName(i, locale).toLocaleLowerCase(locale).includes(term)),
+        // Only what can be raised now: published service items (WP-031 plan D3, D10).
+        i.status === 'published' &&
+        i.kind === 'service' &&
+        (term === '' || itemName(i, locale).toLocaleLowerCase(locale).includes(term)),
     );
     return (
       <Flex vertical gap={16}>
@@ -168,9 +102,15 @@ export function NewRequestPage() {
   }
 
   const chosen = item.data;
-  const missing = chosen.questions.some(
-    (q) => q.required && (answers[q.key] == null || answers[q.key] === ''),
-  );
+  // The questions the requester answers (a technician raises it as them, WP-031 plan D6).
+  const questions = requesterQuestions(chosen.questions);
+  const shown = answers ?? startingAnswers(questions);
+  const missing = questions.some((q) => {
+    const value = shown[q.key];
+    return (
+      q.required && (value == null || value === '' || (Array.isArray(value) && value.length === 0))
+    );
+  });
   const ready = subject.trim() !== '' && requester !== null && !missing;
   return (
     <Flex vertical gap={16} style={{ maxWidth: 760 }}>
@@ -187,9 +127,6 @@ export function NewRequestPage() {
         layout="vertical"
         onFinish={() => {
           if (!ready) return;
-          const given = Object.fromEntries(
-            Object.entries(answers).filter(([, v]) => v !== null && v !== ''),
-          );
           raise.mutate(
             {
               key,
@@ -197,7 +134,7 @@ export function NewRequestPage() {
                 subject: subject.trim(),
                 requester_id: requester,
                 catalog_item_id: chosen.id,
-                answers: given,
+                answers: sentAnswers(shown),
                 confirm_lose_access: false,
               },
             },
@@ -228,16 +165,33 @@ export function NewRequestPage() {
             ariaLabel={t('requests.requested_for')}
           />
         </Form.Item>
-        {chosen.questions.map((q) => (
-          <Question
+        {questions.map((q) => (
+          <Form.Item
             key={q.key}
-            question={q}
-            locale={locale}
-            value={answers[q.key] ?? null}
-            onChange={(value) => {
-              setAnswers((all) => ({ ...all, [q.key]: value }));
-            }}
-          />
+            label={textIn(q.label, locale) || q.key}
+            extra={textIn(q.help, locale) || undefined}
+            htmlFor={`sr-q-${q.key}`}
+            required={q.required}
+          >
+            <QuestionField
+              question={q}
+              value={shown[q.key] ?? null}
+              onChange={(value) => {
+                setAnswers({ ...shown, [q.key]: value });
+              }}
+              locale={locale}
+              renderPerson={({ id, value, onChange, disabled }) => (
+                <UserPicker
+                  id={id}
+                  value={value}
+                  onChange={onChange}
+                  disabled={disabled}
+                  testId={id}
+                  ariaLabel={textIn(q.label, locale) || q.key}
+                />
+              )}
+            />
+          </Form.Item>
         ))}
         <Button
           type="primary"

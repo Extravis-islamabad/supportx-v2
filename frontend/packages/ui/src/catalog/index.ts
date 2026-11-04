@@ -8,3 +8,4 @@ export {
   textIn,
   type QuestionValue,
 } from './answers';
+export { useAnswerWords } from './useAnswerWords';
