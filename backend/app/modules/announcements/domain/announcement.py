@@ -38,11 +38,21 @@ class AnnouncementSeverity(StrEnum):
 
 
 class AnnouncementAudience(StrEnum):
-    """Who it is for: everyone in the tenant, or members of chosen sites / support groups."""
+    """Who it is for.
+
+    Everyone, members of chosen sites / support groups, or only requesters or only technicians
+    (WP-042, REQ-ADM-077).
+    """
 
     EVERYONE = "everyone"
     SITES = "sites"
     GROUPS = "groups"
+    REQUESTERS = "requesters"
+    TECHNICIANS = "technicians"
+
+
+# Audiences that name no sites or groups (the rest need at least one).
+UNITLESS_AUDIENCES = frozenset({"everyone", "requesters", "technicians"})
 
 
 class AnnouncementVisibility(StrEnum):
@@ -137,7 +147,7 @@ def publish_problems(  # noqa: PLR0913 - every input of the rule, keyword-only
     problems = window.problems()
     if not title.strip() or not body.strip():
         problems.append("content_missing")
-    if audience != AnnouncementAudience.EVERYONE and units == 0:
+    if audience not in UNITLESS_AUDIENCES and units == 0:
         problems.append("audience_empty")
     if window.publish_until is not None and window.publish_until <= now:
         problems.append("window_already_ended")

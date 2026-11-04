@@ -694,6 +694,29 @@ async def test_requesters_see_only_what_is_live_for_them(world: World) -> None:
     assert lists.json() == {"channels": []}
 
 
+async def test_requester_and_technician_audiences(world: World) -> None:
+    """REQ-ADM-077: requesters only reaches people whose only role is requester; technicians
+    only reaches everyone else. Neither names sites or groups."""
+    a = world.a
+    for_requesters = await world.published(a, title="Requesters", audience="requesters")
+    for_technicians = await world.published(a, title="Technicians", audience="technicians")
+    req, tech = for_requesters["id"], for_technicians["id"]
+    assert {req, tech} & await ids(world, a, a.requester, "/feed") == {req}
+    assert {req, tech} & await ids(world, a, a.outsider, "/feed") == {req}
+    # Site Tech holds requester and a custom staff role: staff, so a technician.
+    assert {req, tech} & await ids(world, a, a.site_tech, "/feed") == {tech}
+    assert {req, tech} & await ids(world, a, a.tech, "/feed") == {tech}
+    assert (await world.call("GET", f"{BASE}/{tech}", a, a.requester)).status_code == 404
+    with_sites = await world.call(
+        "POST",
+        BASE,
+        a,
+        a.admin,
+        json={"title": "t", "body": "b", "audience": "technicians", "site_ids": [str(a.s1)]},
+    )
+    assert problem(with_sites) == (422, "validation_failed")
+
+
 async def test_site_scoped_technician_sees_and_writes_only_their_sites(world: World) -> None:
     a = world.a
     for_s1 = await world.published(a, title="S1 only", audience="sites", site_ids=[str(a.s1)])
