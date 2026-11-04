@@ -10,7 +10,8 @@ export type KbTopic = components['schemas']['TopicOut'];
 export type KbTopicInput = components['schemas']['TopicIn'];
 export type KbTopicPatch = components['schemas']['TopicPatch'];
 export type KbArticleType = components['schemas']['ArticleTypeOut'];
-export type KbArticle = components['schemas']['ArticleOut'];
+// What GET returns: the article plus the reader's own vote (optional, so writes fit too).
+export type KbArticle = components['schemas']['ArticleReadOut'];
 export type KbArticleInput = components['schemas']['ArticleIn'];
 export type KbArticlePatch = components['schemas']['ArticlePatch'];
 export type KbArticleRow = components['schemas']['ArticleRowOut'];
@@ -25,6 +26,11 @@ export type KbArticleLinks = components['schemas']['ArticleLinksOut'];
 export type KbRecordArticles = components['schemas']['RecordArticlesOut'];
 export type KbApplied = components['schemas']['AppliedOut'];
 export type KbFromRecord = components['schemas']['FromRecordOut'];
+export type KbVote = components['schemas']['VoteOut'];
+export type KbVoteInput = components['schemas']['VoteIn'];
+export type KbScores = components['schemas']['ScoresOut'];
+export type KbVoteReason = NonNullable<KbVoteInput['reason']>;
+export type KbSnippetPart = components['schemas']['SnippetOut'];
 /** Where knowledge goes into: a reply or note everyone on the record reads, or staff only. */
 export type KbAudience = 'public' | 'private';
 export type KbLanguage = 'en' | 'ar';
@@ -152,11 +158,13 @@ export function useKbApprovalCount(enabled = true) {
   });
 }
 
-export function useKbSettings(enabled = true) {
+/** `silent`: a screen that only adapts to the settings (the incident form) shows no error. */
+export function useKbSettings(enabled = true, silent = false) {
   return useQuery({
     queryKey: queryKeys.knowledge.settings,
     queryFn: () => call(api.GET('/api/v1/knowledge/settings')),
     enabled,
+    meta: silent ? { silent: true } : undefined,
   });
 }
 
@@ -526,16 +534,19 @@ export function useLinkKbArticle() {
       recordType,
       recordId,
       key,
+      how = 'link',
     }: {
       articleId: string;
       recordType: string;
       recordId: string;
       key: string;
+      /** `suggestion`: picked from the suggestions while logging the record (REQ-INC-021). */
+      how?: 'link' | 'suggestion';
     }) =>
       call(
         api.POST('/api/v1/knowledge/articles/{article_id}/links', {
           params: { path: { article_id: articleId }, header: { 'Idempotency-Key': key } },
-          body: { record_type: recordType, record_id: recordId },
+          body: { record_type: recordType, record_id: recordId, how },
         }),
       ),
     onSuccess: (_, v) => {
@@ -652,6 +663,57 @@ export function useKbFromRecord() {
         queryKey: queryKeys.knowledge.recordArticles(v.recordType, v.recordId),
       });
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.knowledge.all, 'list'] });
+    },
+  });
+}
+
+// --- WP-034 session 1: suggestions and "did this help?" (D-125) ---------------------------------
+
+/** Published articles this reader may read that match the text; nothing under three letters. */
+export function useKbSuggestions(text: string, language: KbLanguage, enabled = true) {
+  const typed = text.trim();
+  return useQuery({
+    queryKey: queryKeys.knowledge.suggestions(typed, language),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/knowledge/suggestions', {
+          params: { query: { text: typed, language, limit: 5 } },
+        }),
+      ),
+    enabled: enabled && typed.length >= 3,
+    placeholderData: (previous) => previous,
+    staleTime: 30_000,
+  });
+}
+
+/** Scores and feedback, for those who may change or approve the article. */
+export function useKbScores(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.knowledge.votes(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/knowledge/articles/{article_id}/votes', {
+          params: { path: { article_id: id } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+/** Say whether the version you read helped; voting again changes your vote. */
+export function useKbVote(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: KbVoteInput) =>
+      call(
+        api.PUT('/api/v1/knowledge/articles/{article_id}/vote', {
+          params: { path: { article_id: id } },
+          body,
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.votes(id) });
     },
   });
 }

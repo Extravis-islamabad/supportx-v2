@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import ColumnElement, and_, false, select
+from sqlalchemy import ColumnElement, Subquery, and_, case, false, func, literal, select, union_all
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +27,7 @@ from app.modules.knowledge.domain.knowledge import (
     COUNTER_KEY,
     ID_PREFIX,
     KbLanguage,
+    RequesterAudience,
     VersionStatus,
     date_problems,
     default_review,
@@ -35,9 +36,11 @@ from app.modules.knowledge.events import KbArticleSaved
 from app.modules.knowledge.infra.models import (
     KbArticle,
     KbArticleVersion,
+    KbRecordLink,
     KbSettings,
     KbTopic,
     KbType,
+    KbVote,
 )
 from app.modules.knowledge.service.access import (
     CREATE,
@@ -58,6 +61,7 @@ from app.modules.knowledge.service.access import (
     withdrawals_visible,
 )
 from app.modules.knowledge.service.repos import ArticleRepository, VersionRepository
+from app.modules.knowledge.service.search import text_match
 from app.modules.knowledge.service.topics import (
     AUDIENCE_FIELDS,
     audience_columns,
@@ -70,16 +74,12 @@ from app.shared.db.display_ids import format_display_id, next_display_number
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
 from app.shared.richtext import sanitize_html
-from app.shared.search import ENGINE, SearchDocument
 
 RECORD_TYPE = "kb_article"
 REVIEW_SOON_DAYS = 15  # "review due" includes the next 15 days (REQ-KB-034)
 KEYWORD_MAX = 60
 OPEN = (VersionStatus.DRAFT, VersionStatus.IN_REVIEW)
-_VERSION_COLUMNS = KbArticleVersion.__table__.c
-TEXT = SearchDocument(
-    vector=_VERSION_COLUMNS.search_vector, short_text=_VERSION_COLUMNS.search_title
-)
+POPULAR_DAYS = 90  # "popular": helpful votes and record links of the last 90 days (D-125 Q1)
 
 
 # --- settings and types (first use) ---------------------------------------------------------------
@@ -439,6 +439,7 @@ def _article_snapshot(article: KbArticle) -> dict[str, Any]:
         "review_on": article.review_on.isoformat() if article.review_on else None,
         "expires_on": article.expires_on.isoformat() if article.expires_on else None,
         "own_audience": article.own_audience,
+        "featured": article.featured,
         **{
             k: sorted(str(v) for v in getattr(article, k))
             if isinstance(getattr(article, k), list)
@@ -457,7 +458,7 @@ async def update_article(  # noqa: PLR0913 - the change, explicit
     expected_version: int,
     source: Source,
 ) -> ArticleView:
-    """Topic, type, owner, own audience, review and expiry dates (the fields given)."""
+    """Topic, type, owner, featured, own audience, review and expiry dates (the fields given)."""
     view = await _editable(session, subject, article_id)
     article, topic = view.article, view.topic
     columns: dict[str, Any] = {}
@@ -468,6 +469,8 @@ async def update_article(  # noqa: PLR0913 - the change, explicit
         columns["type_code"] = (await _type(session, values["type_code"])).code
     if "owner_id" in values:
         columns["owner_id"] = values["owner_id"]
+    if values.get("featured") is not None:
+        columns["featured"] = bool(values["featured"])
     if "own_audience" in values or any(k in values for k in AUDIENCE_FIELDS):
         current = {k: getattr(article, k) for k in ("own_audience", *AUDIENCE_FIELDS)}
         columns |= _own_audience({**current, **values}, topic)
@@ -652,6 +655,12 @@ async def list_articles(  # noqa: PLR0913 - the list's filters, explicit
     type_code: str | None = None,
     owner_id: uuid.UUID | None = None,
     only_language: str | None = None,
+    any_word: bool = False,
+    audience: str | None = None,
+    updated_from: date | None = None,
+    updated_to: date | None = None,
+    featured: bool | None = None,
+    order: str = "recent",
 ) -> list[ArticleRow]:
     """Articles of one view (REQ-KB-013, 077), in the reader's audience; searchable (WP-027).
 
@@ -663,6 +672,11 @@ async def list_articles(  # noqa: PLR0913 - the list's filters, explicit
     those who may withdraw or edit them (REQ-KB-031, 077). Filters: type, owner, and
     `only_language` (versions in that language only; `language` merely prefers it).
     Requesters have the `published` view only.
+
+    Search (REQ-KB-053): every word must match (`any_word` for suggestions: any word, ranked by
+    how many). `audience`: `requesters` (some requesters may read it) or `staff_only`; updated
+    between two dates; `featured`. `order`: `recent` or `popular` (D-125 Q1: only articles with
+    helpful votes or record links in the last 90 days, the most first).
     """
     reader = await reader_predicate(session, subject)
     staff = is_staff(subject)
@@ -695,21 +709,31 @@ async def list_articles(  # noqa: PLR0913 - the list's filters, explicit
         .where(deleted, reader)
     )
     statement = statement.where(*_view_filters(view, subject, _today()))
-    if topic_id is not None:
-        statement = statement.where(KbArticle.topic_id == topic_id)
-    if type_code is not None:
-        statement = statement.where(KbArticle.type_code == type_code)
-    if owner_id is not None:
-        statement = statement.where(KbArticle.owner_id == owner_id)
-    if only_language is not None:
-        statement = statement.where(KbArticleVersion.language == only_language)
-    order: list[Any] = [KbArticle.updated_at.desc(), KbArticle.id]
+    statement = statement.where(
+        *_narrowing(
+            ListFilters(
+                topic_id=topic_id,
+                type_code=type_code,
+                owner_id=owner_id,
+                only_language=only_language,
+                audience=audience,
+                updated_from=updated_from,
+                updated_to=updated_to,
+                featured=featured,
+            )
+        )
+    )
+    ordering: list[Any] = [KbArticle.updated_at.desc(), KbArticle.id]
+    if order == "popular":
+        score = _popularity()
+        statement = statement.join(score, score.c.article_id == KbArticle.id)
+        ordering = [score.c.score.desc(), *ordering]
     if query:
-        found = await ENGINE.match(session, TEXT, query)
+        found = await text_match(session, query, any_word=any_word)
         if found is not None:
             statement = statement.where(found.predicate)
-            order = [found.rank.desc(), *order]
-    rows = (await session.execute(statement.order_by(*order).limit(limit * 2))).all()
+            ordering = [found.rank.desc(), *ordering]
+    rows = (await session.execute(statement.order_by(*ordering).limit(limit * 2))).all()
     chosen: dict[uuid.UUID, ArticleRow] = {}
     for article, version in rows:
         current = chosen.get(article.id)
@@ -718,6 +742,65 @@ async def list_articles(  # noqa: PLR0913 - the list's filters, explicit
         ):
             chosen[article.id] = ArticleRow(article, version)
     return list(chosen.values())[:limit]
+
+
+@dataclass(frozen=True)
+class ListFilters:
+    """The optional filters of a list (each None: not filtered)."""
+
+    topic_id: uuid.UUID | None = None
+    type_code: str | None = None
+    owner_id: uuid.UUID | None = None
+    only_language: str | None = None
+    audience: str | None = None
+    updated_from: date | None = None
+    updated_to: date | None = None
+    featured: bool | None = None
+
+
+def _narrowing(given: ListFilters) -> list[ColumnElement[bool]]:
+    """The conditions of the filters given."""
+    requesters = case(
+        (KbArticle.own_audience.is_(True), KbArticle.requesters), else_=KbTopic.requesters
+    )
+    staff_only = requesters == RequesterAudience.NONE.value
+    updated = func.date(KbArticle.updated_at)
+    # Built only for the filters given: comparing a column with None is an error in SQLAlchemy.
+    conditions: list[ColumnElement[bool]] = []
+    if given.topic_id is not None:
+        conditions.append(KbArticle.topic_id == given.topic_id)
+    if given.type_code is not None:
+        conditions.append(KbArticle.type_code == given.type_code)
+    if given.owner_id is not None:
+        conditions.append(KbArticle.owner_id == given.owner_id)
+    if given.only_language is not None:
+        conditions.append(KbArticleVersion.language == given.only_language)
+    if given.audience is not None:
+        conditions.append(staff_only if given.audience == "staff_only" else ~staff_only)
+    if given.updated_from is not None:
+        conditions.append(updated >= given.updated_from)
+    if given.updated_to is not None:
+        conditions.append(updated <= given.updated_to)
+    if given.featured is not None:
+        conditions.append(KbArticle.featured.is_(given.featured))
+    return conditions
+
+
+def _popularity() -> Subquery:
+    """Per article: helpful votes plus live record links of the last 90 days (D-125 Q1)."""
+    since = func.now() - timedelta(days=POPULAR_DAYS)
+    votes = select(KbVote.article_id.label("article_id"), literal(1).label("point")).where(
+        KbVote.helpful.is_(True), KbVote.updated_at >= since
+    )
+    links = select(KbRecordLink.article_id, literal(1)).where(
+        KbRecordLink.deleted_at.is_(None), KbRecordLink.created_at >= since
+    )
+    points = union_all(votes, links).subquery()
+    return (
+        select(points.c.article_id, func.sum(points.c.point).label("score"))
+        .group_by(points.c.article_id)
+        .subquery()
+    )
 
 
 def audience_text(view: ArticleView) -> dict[str, Any]:

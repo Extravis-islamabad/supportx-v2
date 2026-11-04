@@ -42,7 +42,8 @@ describe('i18next labels', () => {
 
   it('falls back to English for a key Urdu lacks, then to humanize() with a warning', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    expect(label('users.title', 'ur')).toBe('Users');
+    // The one key Urdu lacks on purpose (ur-missing.json).
+    expect(label('module.incident_management', 'ur')).toBe('Incident Management');
     expect(label('some_module.awaiting_parts', 'ar')).toBe('Awaiting Parts');
     expect(warn).toHaveBeenCalledTimes(1);
   });

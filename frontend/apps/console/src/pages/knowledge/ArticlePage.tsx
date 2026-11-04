@@ -55,6 +55,7 @@ import {
   typeName,
 } from './model';
 import { ArticleFlags, VersionStatusTag } from './tags';
+import { FeedbackPanel, HelpfulPrompt } from './Votes';
 
 /** The article page (REQ-KB-077, 078): live on its own channel `kb:{id}`. */
 export function ArticlePage() {
@@ -109,6 +110,8 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
     void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.versions(article.id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.links(article.id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.history(article.id) });
+    // A vote anywhere refreshes the score here (REQ-KB-069 AC4).
+    void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.votes(article.id) });
   });
 
   const path = topicPath(topics.data ?? [], article.topic_id, language);
@@ -246,6 +249,7 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
           <div ref={body} dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
             <RichTextView html={shown?.body_html ?? null} testId="kb-body" />
           </div>
+          {shown?.status === 'published' && <HelpfulPrompt article={article} version={shown} />}
           <Tabs
             data-testid="kb-tabs"
             items={[
@@ -276,7 +280,7 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
               {
                 key: 'feedback',
                 label: t('knowledge.tab.feedback'),
-                children: <EmptyText>{t('knowledge.feedback_later')}</EmptyText>,
+                children: <FeedbackPanel article={article} />,
               },
             ]}
           />

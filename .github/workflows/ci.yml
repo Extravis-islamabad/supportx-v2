@@ -230,6 +230,18 @@ jobs:
         if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
         run: uv run python -m tooling.db_bootstrap --database supportx
+      # Temporal's time-skipping test server, downloaded once per temporalio version: fetching it
+      # on every run hit the download host's rate limit (429) and failed unrelated PRs.
+      - name: Temporal test-server version
+        id: temporal
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        run: echo "version=$(grep -A1 '^name = "temporalio"$' backend/uv.lock | sed -n 's/^version = "\(.*\)"$/\1/p')" >> "$GITHUB_OUTPUT"
+      - name: Temporal test-server cache
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/temporal-test-server
+          key: temporal-test-server-${{ runner.os }}-${{ steps.temporal.outputs.version }}
       - name: Test this shard (4 workers; coverage combined and checked by the backend job)
         if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
@@ -237,6 +249,7 @@ jobs:
           SUPPORTX_PERF_REPORT: ${{ runner.temp }}/event-perf.json
           # Each file's seconds, to refresh tests/shard_weights.json from CI (tooling/pytest_shards.py).
           SUPPORTX_TEST_TIMINGS: ${{ runner.temp }}/timings.json
+          SUPPORTX_TEMPORAL_TEST_SERVER_DIR: ${{ runner.temp }}/temporal-test-server  # cached above
         run: uv run pytest -n 4 --dist loadgroup --cov-report= --cov-fail-under=0 --durations=15
       - name: Event bus latency and throughput (job summary)
         if: ${{ steps.changes.outputs.run == 'true' && (!cancelled()) }}

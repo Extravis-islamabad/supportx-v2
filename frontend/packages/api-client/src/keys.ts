@@ -193,6 +193,9 @@ export const queryKeys = {
     settings: ['knowledge', 'settings'] as const,
     links: (id: string) => ['knowledge', 'links', id] as const,
     recordArticles: (type: string, id: string) => ['knowledge', 'record', type, id] as const,
+    votes: (id: string) => ['knowledge', 'votes', id] as const,
+    suggestions: (text: string, language: string) =>
+      ['knowledge', 'suggestions', language, text] as const,
   },
   organization: {
     all: ['organization'] as const,

@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 
 from temporalio import activity
 from temporalio.client import WorkflowHistory
-from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer, Worker
 
 from app.modules.sla.infra.temporal import (
@@ -22,6 +21,7 @@ from app.modules.sla.infra.temporal import (
     workflow_id,
     workflow_runner,
 )
+from tooling.temporal_testing import time_skipping
 
 QUEUE = "sla-test"
 
@@ -49,7 +49,7 @@ class FakeClocks:
 
 
 async def test_the_workflow_wakes_at_each_moment_then_ends() -> None:
-    async with await WorkflowEnvironment.start_time_skipping() as env:
+    async with await time_skipping() as env:
         start = await env.get_current_time()
         clocks = FakeClocks([start + timedelta(hours=3), start + timedelta(hours=4)])
         async with Worker(
@@ -74,7 +74,7 @@ async def test_the_workflow_wakes_at_each_moment_then_ends() -> None:
 
 
 async def test_a_signal_plans_again_before_the_moment() -> None:
-    async with await WorkflowEnvironment.start_time_skipping() as env:
+    async with await time_skipping() as env:
         start = await env.get_current_time()
         clocks = FakeClocks([start + timedelta(hours=4)])
         async with Worker(

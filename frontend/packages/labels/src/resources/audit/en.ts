@@ -514,6 +514,7 @@ export const en = {
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'Changed the connector defaults',
   'event_type.integrations.connector_settings.changed': 'Connector defaults changed',
+  'event_type.knowledge.vote.saved': 'Knowledge article vote saved',
   'event_type.identity_access.api_key.changed': 'API key changed',
   'audit.action.api_key.created': 'Made an API key',
   'audit.action.api_key.revoked': 'Revoked an API key',
