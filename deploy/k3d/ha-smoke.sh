@@ -28,16 +28,27 @@ role() {
     'REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli --no-auth-warning info replication' \
     2>/dev/null | tr -d '\r' | sed -n 's/^role://p'
 }
-me() { curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -H 'X-SupportX-Client: console' "$PUBLIC_URL/api/v1/auth/me"; }
+# The jar's cookies as one header. The BFF marks its cookie Secure, which curl won't send over
+# http:// itself (browsers treat *.localhost as secure). Names and values only; never printed.
+cookies() { awk -F'\t' 'NF >= 7 { printf "%s%s=%s", (n++ ? "; " : ""), $6, $7 }' "$JAR"; }
+me() {
+  curl -s -o /dev/null -w '%{http_code}' -H "Cookie: $(cookies)" -H 'X-SupportX-Client: console' \
+    "$PUBLIC_URL/api/v1/auth/me"
+}
 
 echo "== sign in as $USER_NAME through the BFF"
 password="$(jq -r --arg u "$USER_NAME" '.users[] | select(.username == $u) | .credentials[0].value' "$REALM")"
 page="$(curl -s -c "$JAR" -b "$JAR" -L "$PUBLIC_URL/api/v1/auth/login?app=console&returnTo=/")"
 action="$(printf '%s' "$page" | grep -o 'id="kc-form-login"[^>]*action="[^"]*"' | sed 's/.*action="//; s/"$//; s/&amp;/\&/g')"
 [ -n "$action" ] || { echo "no Keycloak login form"; exit 1; }
-curl -s -c "$JAR" -b "$JAR" -L -o /dev/null --data-urlencode "username=$USER_NAME" \
-  --data-urlencode "password=$password" "$action"
-[ "$(me)" = 200 ] || { echo "not signed in after the login flow"; exit 1; }
+ended="$(curl -s -c "$JAR" -b "$JAR" -L -o /dev/null -w '%{http_code} %{url_effective}' \
+  --data-urlencode "username=$USER_NAME" --data-urlencode "password=$password" "$action")"
+if [ "$(me)" != 200 ]; then
+  # What can be said without a secret: where the flow ended, and which cookies it holds.
+  echo "not signed in after the login flow (ended: ${ended%%\?*}; /auth/me: $(me))"
+  echo "cookies held: $(awk -F'\t' 'NF >= 7 { printf "%s ", $6 }' "$JAR")"
+  exit 1
+fi
 echo "signed in"
 
 master="$(sentinel supportx-valkey-0)"
