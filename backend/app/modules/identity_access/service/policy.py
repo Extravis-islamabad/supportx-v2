@@ -17,7 +17,7 @@ the `identity_access__invalidate_authz` consumer (every other process).
 import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any, Literal, Protocol
@@ -30,7 +30,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import REQUEST_SESSION_STATE, Database
 from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
+from app.core.scopes import scope_of
 from app.core.tenancy import TenantContext
+from app.modules.identity_access.domain import api_keys
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     REQUESTER,
@@ -558,6 +560,10 @@ class PolicyService:
                 getattr(request.state, REQUEST_SESSION_STATE, None),
             )
         )
+        if context.api_scopes is not None:
+            # An API key: its owner's live grants, narrowed to what the key's scopes cover. Every
+            # check (routes and services) then sees both rules at once (REQ-INT-021, D-128).
+            subject = for_key(subject, context.api_scopes)
         setattr(request.state, SUBJECT_STATE, subject)
         return subject
 
@@ -565,6 +571,11 @@ class PolicyService:
         """403 `permission_denied` unless one of `permissions` is held."""
         if any(subject.holds(p) for p in permissions):
             return
+        beyond: frozenset[str] = subject.extra.get(OUT_OF_SCOPE, frozenset())
+        lacking = next((p for p in permissions if p in beyond), None)
+        if lacking is not None:
+            # The owner may, the key may not: name a scope the key lacks (REQ-INT-021 AC1).
+            raise PermissionDenied(code="api_scope_missing", params={"scope": scope_of(lacking)})
         reason = (
             "not_entitled"
             if all(p in subject.not_entitled for p in permissions)
@@ -577,6 +588,20 @@ class PolicyService:
         if context.user_id is None:
             return False
         return (await self.subject(context.tenant_id, context.user_id)).holds(permission)
+
+
+OUT_OF_SCOPE = "api_out_of_scope"
+
+
+def for_key(subject: Subject, scopes: frozenset[str]) -> Subject:
+    """The subject an API key acts as: the owner's grants its scopes cover, nothing more."""
+    kept = {k: g for k, g in subject.grants.items() if api_keys.covered(k, scopes)}
+    beyond = frozenset(k for k in subject.grants if k not in kept)
+    return replace(
+        subject,
+        grants=MappingProxyType(kept),
+        extra=MappingProxyType({**subject.extra, OUT_OF_SCOPE: beyond}),
+    )
 
 
 def _nobody(tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:

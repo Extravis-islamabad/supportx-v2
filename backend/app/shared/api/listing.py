@@ -30,7 +30,7 @@ from datetime import UTC, datetime, tzinfo
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import Depends, Query, Request
+from fastapi import Depends, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import ColumnElement, Select, and_, false, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,6 +49,8 @@ from app.shared.api.filters import (
     parse_filter_json,
 )
 
+# Header saying a too-large page size was reduced (REQ-INT-024 AC3, docs/api/README.md).
+PAGE_SIZE_CAPPED = "X-Page-Size-Capped"
 MAX_SORT_FIELDS = 3
 TOTAL_CAP = 10_000
 RESERVED_PARAMETERS = frozenset({"filter", "sort", "limit", "cursor", "include_total"})
@@ -365,6 +367,7 @@ def list_query(
 
     async def dependency(  # noqa: PLR0913, PLR0917 - FastAPI reads parameters from the signature
         request: Request,
+        response: Response,
         tenant: Annotated[TenantContext, Depends(resolve_tenant)],
         session: TenantSession,
         codec: Annotated[CursorCodec, Depends(get_cursor_codec)],
@@ -377,7 +380,10 @@ def list_query(
             ),
         ] = None,
         sort: Annotated[str | None, Query(description="e.g. -created_at,display_name")] = None,
-        limit: Annotated[int | None, Query(description="Page size (default 50, max 200).")] = None,
+        limit: Annotated[
+            int | None,
+            Query(description="Page size (default 50, max 200; more is reduced to the max)."),
+        ] = None,
         cursor: Annotated[
             str | None, Query(description="next_cursor of the previous page.")
         ] = None,
@@ -388,7 +394,11 @@ def list_query(
         if fields_for is not None:
             allowed = replace(resource, fields={**resource.fields, **await fields_for(session)})
         size = settings.page_size_default if limit is None else limit
-        if not 1 <= size <= settings.page_size_max:
+        if size > settings.page_size_max:
+            # Too large is reduced to the maximum and said so, never refused (REQ-INT-024 AC3).
+            size = settings.page_size_max
+            response.headers[PAGE_SIZE_CAPPED] = str(settings.page_size_max)
+        if size < 1:
             raise _invalid(
                 at="limit",
                 field_code="out_of_range",

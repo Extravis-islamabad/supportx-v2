@@ -475,6 +475,10 @@ export const en = {
     'Sign-in, passwords, two-step sign-in, single sign-on, sessions and API keys.',
   'setup.page.security.keywords':
     'security, password, mfa, two-step, 2fa, sso, saml, oidc, sessions, timeout, invitations, api keys',
+  'setup.page.api-keys.description':
+    'Keys that let other systems use the API: who made them, their scopes, expiry and use.',
+  'setup.page.api-keys.keywords':
+    'api keys, tokens, integrations, scopes, automation, scripts, revoke',
   'setup.page.incidents.description':
     'Levels, categories, templates, closure codes and reasons for incidents.',
   'setup.page.incidents.keywords':
@@ -512,4 +516,7 @@ export const en = {
     'Time zone, formats, fiscal year, base currency and the languages offered.',
   'setup.page.instance.keywords':
     'instance, time zone, timezone, date format, week start, fiscal year, currency, languages, country',
+  'nav.admin_api_keys': 'API keys',
+  'api_scope_access.read': 'Read',
+  'api_scope_access.write': 'Write',
 } as const;

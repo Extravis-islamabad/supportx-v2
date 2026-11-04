@@ -516,4 +516,9 @@ export const en = {
   'history.sla_escalation': '{{target}}: level {{level}} ran',
   'event_type.organization.tenant_settings.changed': 'Instance settings changed',
   'audit.action.organization.settings_changed': 'Changed the instance settings',
+  'event_type.identity_access.api_key.changed': 'API key changed',
+  'audit.action.api_key.created': 'Made an API key',
+  'audit.action.api_key.revoked': 'Revoked an API key',
+  'audit.action.api_key.refused': 'API key refused',
+  'audit.action.api_key.settings_changed': 'Changed the API key rules',
 } as const;

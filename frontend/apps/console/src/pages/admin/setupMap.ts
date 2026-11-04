@@ -42,6 +42,12 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'identity.manage',
   },
   {
+    key: 'api-keys',
+    group: 'people_access',
+    labelKey: 'nav.admin_api_keys',
+    permission: 'api_keys.manage',
+  },
+  {
     key: 'incidents',
     group: 'service_desk',
     labelKey: 'nav.admin_incidents',

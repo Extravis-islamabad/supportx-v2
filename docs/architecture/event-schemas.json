@@ -1145,6 +1145,32 @@
         "type": "object"
       }
     },
+    "identity_access.api_key.changed": {
+      "1": {
+        "description": "An API key was made or revoked (WP-041, D-128): key screens refetch. Never the key text.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "revoked"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change",
+          "owner_id"
+        ],
+        "title": "ApiKeyChanged",
+        "type": "object"
+      }
+    },
     "identity_access.group_role.changed": {
       "1": {
         "description": "A support group gained or lost a role: its members' access changes (WP-042).",

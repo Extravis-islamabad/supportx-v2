@@ -234,6 +234,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'api-keys',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/ApiKeysPage')).ApiKeysPage,
+            }),
+          },
+          {
             path: 'notifications',
             lazy: async () => ({
               Component: (await import('./pages/admin/notifications/NotificationRulesPage'))

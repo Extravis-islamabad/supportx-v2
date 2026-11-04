@@ -30,6 +30,12 @@ export const queryKeys = {
   instance: {
     settings: ['instance', 'settings'] as const,
   },
+  apiKeys: {
+    all: ['api-keys'] as const,
+    list: ['api-keys', 'list'] as const,
+    rules: ['api-keys', 'rules'] as const,
+    scopes: ['api-keys', 'scopes'] as const,
+  },
   identity: {
     all: ['identity'] as const,
     settings: ['identity', 'settings'] as const,

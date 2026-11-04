@@ -399,6 +399,9 @@ export const ur: LabelResource = {
     'سائن اِن، پاس ورڈ، دو مرحلہ سائن اِن، سنگل سائن آن، سیشن اور API کلیدیں۔',
   'setup.page.security.keywords':
     'سیکیورٹی، پاس ورڈ، دو مرحلہ، سنگل سائن آن، سیشن، ٹائم آؤٹ، دعوت نامے، کلیدیں',
+  'setup.page.api-keys.description':
+    'وہ کلیدیں جن سے دوسرے سسٹم API استعمال کرتے ہیں: کس نے بنائیں، ان کے دائرے، میعاد اور استعمال۔',
+  'setup.page.api-keys.keywords': 'API کلیدیں، ٹوکن، انضمام، دائرے، خودکاری، اسکرپٹ، منسوخ',
   'setup.page.incidents.description': 'واقعات کے لیول، زمرے، سانچے، بندش کوڈ اور وجوہات۔',
   'setup.page.incidents.keywords':
     'واقعات، ٹکٹ، زمرے، سانچے، لیول، بندش کوڈ، وجوہات، ترجیح، حالتیں',
@@ -427,4 +430,7 @@ export const ur: LabelResource = {
   'setup.page.instance.description': 'ٹائم زون، اشکال، مالی سال، بنیادی کرنسی اور دستیاب زبانیں۔',
   'setup.page.instance.keywords':
     'ٹائم زون، تاریخ کی شکل، ہفتے کا آغاز، مالی سال، کرنسی، زبانیں، ملک',
+  'nav.admin_api_keys': 'API کلیدیں',
+  'api_scope_access.read': 'پڑھنا',
+  'api_scope_access.write': 'لکھنا',
 };

@@ -67,6 +67,25 @@ jobs:
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
             "$GITLEAKS_IMAGE" \
             git /repo --no-banner --redact --verbose --exit-code 1 --log-opts="$LOG_OPTS"
+      # D-128: the repo's own rule must catch a SupportX API key. A made-up key (valid in shape,
+      # never issued) goes into a temporary folder; gitleaks has to report it under that rule.
+      - name: The SupportX key rule catches a key
+        run: |
+          sample="$RUNNER_TEMP/leak-sample"
+          mkdir -p "$sample"
+          chmod 777 "$sample"  # the container's own user writes the report here
+          printf 'SUPPORTX_TOKEN=sxk_%s_%s_%s\n' "$(printf '0%.0s' $(seq 26))" \
+            "$(printf '1%.0s' $(seq 26))" "$(printf 'a%.0s' $(seq 43))" > "$sample/config.env"
+          set +e
+          docker run --rm -v "$PWD:/repo" -v "$sample:/sample" "$GITLEAKS_IMAGE" \
+            dir /sample/config.env --config /repo/.gitleaks.toml --no-banner --redact \
+            --exit-code 1 --report-format json --report-path /sample/report.json
+          found=$?
+          set -e
+          test "$found" -eq 1 || { echo "gitleaks found nothing in the sample key"; exit 1; }
+          # Caught by the SupportX rule itself, not by a default rule that happens to match.
+          jq -e 'any(.[]; .RuleID == "supportx-api-key")' "$sample/report.json" > /dev/null \
+            || { echo "the supportx-api-key rule did not catch the sample key"; exit 1; }
 
   dependency-audit:
     name: dependency audit (pip-audit, pnpm audit)

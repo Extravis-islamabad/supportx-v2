@@ -506,4 +506,9 @@ export const ur: LabelResource = {
   'history.sla_escalation': '{{target}}: درجہ {{level}} چلا',
   'event_type.organization.tenant_settings.changed': 'تنصیب کی ترتیبات بدلیں',
   'audit.action.organization.settings_changed': 'تنصیب کی ترتیبات بدلیں',
+  'event_type.identity_access.api_key.changed': 'API کلید بدلی',
+  'audit.action.api_key.created': 'API کلید بنائی',
+  'audit.action.api_key.revoked': 'API کلید منسوخ کی',
+  'audit.action.api_key.refused': 'API کلید رد کی گئی',
+  'audit.action.api_key.settings_changed': 'API کلید کے قواعد بدلے',
 };

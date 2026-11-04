@@ -6,6 +6,7 @@
   "description": "Playwright end-to-end journeys against a running stack (architecture.md \u00a716.2).",
   "scripts": {
     "e2e": "playwright test",
+    "test": "node --test shards.test.ts",
     "typecheck": "tsc --noEmit",
     "install-browsers": "playwright install chromium",
     "perf:latency": "playwright test -c playwright.perf.config.ts",

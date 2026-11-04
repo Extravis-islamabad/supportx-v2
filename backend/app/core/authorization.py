@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from fastapi import Request
 
-from app.core.errors import ServiceUnavailable
+from app.core.errors import PermissionDenied, ServiceUnavailable
 from app.core.tenancy import TenantContext, resolve_tenant
 
 if TYPE_CHECKING:
@@ -109,7 +109,12 @@ def require_signed_in() -> Callable[[Request], Awaitable[Any]]:
     """Route dependency for a user's own data (session, own profile, the plan summary)."""
 
     async def dependency(request: Request) -> Any:  # noqa: ANN401 - the module's Subject type
-        return await _authorizer(request).subject_for(request, await resolve_tenant(request))
+        context = await resolve_tenant(request)
+        if context.api_scopes is not None:
+            # A person's own session, profile and key screens are for the browser only: a key
+            # never reaches them (and never makes keys; D-128).
+            raise PermissionDenied(code="api_key_not_allowed")
+        return await _authorizer(request).subject_for(request, context)
 
     setattr(dependency, SIGNED_IN_ATTR, True)
     return dependency
