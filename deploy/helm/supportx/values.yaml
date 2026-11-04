@@ -371,6 +371,17 @@ networkPolicies:
   enabled: true
   # Where the gateway / ingress controller runs (Traefik is in kube-system on k3s).
   ingressNamespace: kube-system
+  # Egress allow-list (WP-014b; templates/networkpolicies-egress.yaml). Off: egress is open.
+  # On: DNS and this namespace only, plus the rules below (NetworkPolicy `egress` rules, i.e.
+  # `to` with ipBlock CIDRs and `ports`). List here every outside address SupportX must reach.
+  egress:
+    enabled: false
+    extra: []                       # every pod, e.g. a forward proxy: [{to: [{ipBlock: {cidr: 10.0.0.5/32}}], ports: [{protocol: TCP, port: 3128}]}]
+    components: {}                  # per component, e.g. {keycloak: [LDAP servers], consumers: [SMTP relay], api: [...]}
+    # CloudNativePG's instance and pooler pods watch the Kubernetes API. Narrow the CIDR to your
+    # control-plane addresses where you can.
+    kubeApi:
+      - {cidr: 0.0.0.0/0, port: 6443}
 
 # Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
 # the same tag, so this is what rolls them).

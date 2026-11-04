@@ -220,6 +220,9 @@ jobs:
       - name: Build, import and install the HA profile; helm test
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make deploy-ha
+      - name: Egress allow-list (values-ha-ci turns it on) keeps the outside out
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-egress
       - name: Valkey failover keeps a signed-in session (no split brain)
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-smoke

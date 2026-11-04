@@ -84,6 +84,24 @@ hex values and never overwrites an existing one (its passwords are already insid
   Traefik's websecure listener with your certificate Secret, the base realm (no users). **Internal
   evaluation only** until backups (WP-014b) and Nuitka images exist.
 
+## Egress allow-list (opt-in)
+
+Ingress is always denied by default. Egress is open unless `networkPolicies.egress.enabled` is
+true (WP-014b). With it on:
+- every pod in the namespace may reach DNS and the other pods of the namespace;
+- CloudNativePG's pods may also reach the Kubernetes API (`networkPolicies.egress.kubeApi`, port
+  6443; narrow the CIDR to your control plane);
+- every other address must be listed. NetworkPolicies match addresses, not host names, so list
+  CIDRs, or route through a forward proxy and list only the proxy:
+  - `networkPolicies.egress.extra`: rules for every pod;
+  - `networkPolicies.egress.components.<component>`: rules for one component's pods, e.g.
+    `keycloak` for your LDAP servers, `consumers` for the SMTP relay and Microsoft Graph, `api`
+    for AI providers, MonetX and webhook targets.
+
+Anything not listed is dropped, so check every integration after turning it on. CI runs the HA
+cluster with it on (`values-ha-ci.yaml`), and `make cluster-ha-egress` checks that the namespace
+answers and the outside doesn't.
+
 ## Observability
 
 Every SupportX pod serves Prometheus metrics on 9464 (`http_server_*` for the API; outbox age,

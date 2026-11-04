@@ -1,0 +1,86 @@
+{{- /*
+Egress allow-list (WP-014b), opt-in: networkPolicies.egress.enabled, off by default.
+
+On, every pod in the release namespace may reach only:
+  - DNS (kube-dns in kube-system);
+  - other pods in this namespace (the database, PgBouncer, NATS, Valkey, Keycloak, SeaweedFS,
+    clamd: their own ingress policies still decide who gets in);
+  - the rules in networkPolicies.egress.extra (every pod) and
+    networkPolicies.egress.components.<component> (that component's pods): your SMTP relay,
+    proxy, LDAP servers, Microsoft Graph, AI providers, MonetX, webhook targets. NetworkPolicies
+    match addresses, not host names, so these are CIDRs, or a forward proxy's address;
+  - for CloudNativePG's instance and pooler pods only: the Kubernetes API
+    (networkPolicies.egress.kubeApi), which their instance manager watches.
+Everything else leaving the namespace is dropped. Off, egress stays open, as before.
+*/ -}}
+{{- $egress := .Values.networkPolicies.egress }}
+{{- if and .Values.networkPolicies.enabled $egress.enabled }}
+{{- $rel := .Release.Name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-egress-base
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - podSelector: {}
+    {{- with $egress.extra }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- range $component, $rules := $egress.components }}
+{{- if $rules }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-{{ $component }}-egress
+  labels:
+    {{- include "supportx.labels" (dict "root" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+      app.kubernetes.io/component: {{ $component }}
+  policyTypes: [Egress]
+  egress:
+    {{- toYaml $rules | nindent 4 }}
+{{- end }}
+{{- end }}
+{{- range $key := list "cnpg.io/cluster" "cnpg.io/poolerName" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-{{ $key | replace "cnpg.io/" "" | lower }}-kube-api-egress
+  labels:
+    {{- include "supportx.labels" (dict "root" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: {{ $key }}, operator: Exists}
+  policyTypes: [Egress]
+  egress:
+    {{- range $egress.kubeApi }}
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr }}
+      ports:
+        - {protocol: TCP, port: {{ .port }}}
+    {{- end }}
+{{- end }}
+{{- end }}
