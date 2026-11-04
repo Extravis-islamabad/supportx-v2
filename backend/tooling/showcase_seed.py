@@ -15,7 +15,16 @@ added, nothing is ever updated or deleted (CLAUDE.md rule 5h).
    groups and their members, people, incidents in realistic states with replies, and a shared
    dashboard.
 
-Records carry today's dates: the API never backdates, and the seed writes nothing around it.
+5. Dates (the product owner's choice (b), 2026-11-04): the API never backdates, so every record
+   would carry the day the seed ran, with flat trend charts and "0 min to resolve". One SQL step
+   outside the API, in this tenant only (`app.tenant_id` set, RLS applies), then spreads the
+   incidents over the 30 days before the tenant was created. Each incident moves by one delta,
+   applied to every timestamp of the incident and of its rows (conversation, tasks, worklogs,
+   followers, SLA applications, targets, pauses and escalation runs, field history). The order
+   of its times (created <= first response <= resolved) and its SLA clocks stay as they were.
+   The target time is fixed (the tenant's creation minus a per-incident offset), so a re-run
+   computes a delta of zero: idempotent. This step is dev tooling; no API or product code path
+   ever backdates.
 """
 
 import asyncio
@@ -273,6 +282,76 @@ class SeedError(RuntimeError):
 
 
 # --- 1. Tenant -------------------------------------------------------------------------------
+
+
+BACKDATE_DAYS = 30
+# The incident and every row of it (table, how a row points at the incident `s.id`).
+_BACKDATE_TARGETS = (
+    ("work_items", "t.id = s.id"),
+    ("work_item_conversations", "t.work_item_id = s.id"),
+    ("work_item_tasks", "t.work_item_id = s.id"),
+    ("work_item_worklogs", "t.work_item_id = s.id"),
+    ("work_item_followers", "t.work_item_id = s.id"),
+    ("sla_applications", "t.record_id = s.id"),
+    ("sla_targets", "t.record_id = s.id"),
+    (
+        "sla_pauses",
+        "t.target_id IN (SELECT g.id FROM sla_targets g WHERE g.record_id = s.id)",
+    ),
+    (
+        "sla_escalation_runs",
+        "t.target_id IN (SELECT g.id FROM sla_targets g WHERE g.record_id = s.id)",
+    ),
+    ("field_changes", "t.record_type = 'work_item' AND t.record_id = s.id"),
+)
+# Each incident's fixed target: 1 to 30 days and 0 to 8 hours before the tenant was created.
+_BACKDATE_DELTAS = """
+CREATE TEMP TABLE showcase_shift ON COMMIT DROP AS
+SELECT w.id,
+       (t.created_at
+        - make_interval(days => 1 + ((w.display_number * 7) % $2)::int,
+                        hours => ((w.display_number * 5) % 9)::int))
+       - w.created_at AS delta
+  FROM work_items w JOIN tenants t ON t.id = w.tenant_id
+ WHERE w.tenant_id = $1
+"""
+
+
+async def backdate(migrator_url: str) -> int:
+    """Step 5: spread the incidents over the past 30 days (see the module docstring).
+
+    Returns how many incidents moved (0 on a re-run).
+    """
+    conn = await asyncpg.connect(migrator_url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
+            await conn.execute(_BACKDATE_DELTAS, TENANT_ID, BACKDATE_DAYS)
+            await conn.execute("DELETE FROM showcase_shift WHERE delta = interval '0'")
+            moved: int = await conn.fetchval("SELECT count(*) FROM showcase_shift")
+            if moved == 0:
+                return 0
+            for table, link in _BACKDATE_TARGETS:
+                columns = [
+                    row["column_name"]
+                    for row in await conn.fetch(
+                        "SELECT column_name FROM information_schema.columns"
+                        " WHERE table_schema = 'public' AND table_name = $1"
+                        " AND data_type = 'timestamp with time zone' ORDER BY column_name",
+                        table,
+                    )
+                ]
+                if not columns:
+                    continue
+                shift = ", ".join(f"{c} = t.{c} + s.delta" for c in columns)
+                await conn.execute(
+                    f"UPDATE {table} t SET {shift} FROM showcase_shift s"  # noqa: S608 - names from the fixed list above and the catalogue
+                    f" WHERE t.tenant_id = $1 AND {link}",
+                    TENANT_ID,
+                )
+            return moved
+    finally:
+        await conn.close()
 
 
 async def ensure_tenant(migrator_url: str) -> list[str]:
@@ -801,6 +880,7 @@ class Report:
     keycloak: list[str] = field(default_factory=list)
     incidents: int = 0
     dashboard: bool = False
+    backdated: int = 0
 
 
 async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) -> None:
@@ -860,6 +940,7 @@ async def run(settings: Settings, keycloak: KeycloakTarget) -> Report:
         found = await ensure_keycloak(client, keycloak)
     report.keycloak = found.made
     await fill(settings, found.subjects, report)
+    report.backdated = await backdate(migrator.get_secret_value())
     return report
 
 
@@ -893,6 +974,7 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"showcase seed: tenant {SLUG} ({TENANT_ID})\n"
         f"  made now: {', '.join(report.tenant + report.keycloak) or 'nothing (all present)'}\n"
         f"  incidents made now: {report.incidents}; dashboard made now: {report.dashboard}\n"
+        f"  incidents moved into the past 30 days now: {report.backdated}\n"
         f"  sign in as {ADMIN.email} or {TECHNICIAN.email} with ${PASSWORD_ENV}\n"
     )
     return 0
