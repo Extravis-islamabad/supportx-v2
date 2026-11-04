@@ -149,3 +149,21 @@ export function useAnswerFix(id: string) {
     onSuccess: saved,
   });
 }
+
+export type PortalPerson = components['schemas']['PortalPersonOut'];
+
+/** People the signed-in requester may report for (WP-030, REQ-SR-011): names only, in scope. */
+export function usePortalOnBehalfPeople(search: string) {
+  const text = search.trim();
+  return useQuery({
+    queryKey: ['portal', 'on-behalf-people', text] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/incidents/on-behalf-people', {
+          params: { query: { search: text } },
+        }),
+      ),
+    enabled: text.length >= 2,
+    staleTime: 30_000,
+  });
+}

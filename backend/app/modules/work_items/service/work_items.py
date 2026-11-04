@@ -1686,6 +1686,41 @@ def _item_columns(
     }
 
 
+def _person_facts(user_id: uuid.UUID, placement: Placement) -> sr_rules.PersonFacts:
+    return sr_rules.PersonFacts(
+        user_id=user_id,
+        department_id=placement.department_id,
+        site_id=placement.site_id,
+        is_requester=placement.user_type == "requester",
+        manager_id=placement.manager_id,
+        active=placement.active,
+        can_sign_in=placement.can_sign_in,
+        is_service=placement.user_type == "service",
+    )
+
+
+async def may_raise_for_people(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, candidates: Sequence[uuid.UUID]
+) -> list[uuid.UUID]:
+    """Of `candidates`, those the subject may raise a record for (REQ-SR-011), in order.
+
+    The same rule as creation: the tenant's on-behalf scope, their own direct reports always,
+    never a deactivated person or a service identity; never the subject themselves (the portal
+    form offers "myself" on its own).
+    """
+    cat = await config.load(session, wtype)
+    scope = sr_rules.OnBehalfScope(cat.on_behalf_scope)
+    me = _person_facts(subject.user_id, await person_placement(session, subject.user_id))
+    found: list[uuid.UUID] = []
+    for person in candidates:
+        if person == subject.user_id:
+            continue
+        theirs = _person_facts(person, await person_placement(session, person))
+        if sr_rules.may_raise_for(scope, me, theirs):
+            found.append(person)
+    return found
+
+
 async def _on_behalf_problems(
     session: AsyncSession,
     subject: Subject,
@@ -1707,23 +1742,10 @@ async def _on_behalf_problems(
         await person_placement(session, subject.user_id),
         await person_placement(session, target),
     )
-
-    def facts(user_id: uuid.UUID, placement: Placement) -> sr_rules.PersonFacts:
-        return sr_rules.PersonFacts(
-            user_id=user_id,
-            department_id=placement.department_id,
-            site_id=placement.site_id,
-            is_requester=placement.user_type == "requester",
-            manager_id=placement.manager_id,
-            active=placement.active,
-            can_sign_in=placement.can_sign_in,
-            is_service=placement.user_type == "service",
-        )
-
     if not sr_rules.may_raise_for(
         sr_rules.OnBehalfScope(cat.on_behalf_scope),
-        facts(subject.user_id, mine),
-        facts(target, theirs),
+        _person_facts(subject.user_id, mine),
+        _person_facts(target, theirs),
     ):
         raise PermissionDenied(code="on_behalf_out_of_scope")
 

@@ -734,6 +734,8 @@ export {
   usePortalIncidents,
   usePortalReply,
   usePortalTemplates,
+  usePortalOnBehalfPeople,
+  type PortalPerson,
   useReportIssue,
   type PortalEntry,
   type PortalIncident,
