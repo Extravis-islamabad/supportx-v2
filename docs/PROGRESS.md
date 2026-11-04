@@ -828,8 +828,32 @@ it with no reload (rule c). Not built yet.
     - template tasks on entering a status (REQ-PRB-020 AC2), template groups (REQ-PRB-021) and
       the designer's explanations (REQ-PRB-022) are console work for S5;
     - copying and editing a life cycle (REQ-PRB-025 AC3) comes with the life cycle designer.
-- [ ] S5 owner and investigators (ADR-040), the full-SLA switch (D-140 Q3), console screens,
-  e2e.
+- [x] Session 5 (#211, 0089 extended; ADR-040):
+  - Investigators (REQ-PRB-029): a follower row with reason `investigator` and access.
+    - They see the problem and add notes, work its tasks, and log their own time (lane B's
+      review: never others' worklogs).
+    - Fields, status, assignment and links stay closed to them.
+    - Named or removed by whoever may edit the problem; anyone may step down.
+    - Audited and in history. The record channel follows the access.
+  - Full SLAs on problems (D-140 Q3): `sla_settings.full_sla`, off by default. While it is off
+    only the target date counts, and response targets are refused on save.
+  - Console screens:
+    - the problems list (live), and creating a problem from an incident or from many (the
+      already-caused ones to move or leave), with similar problems while typing;
+    - the record, with the incidents' status bar, the guided steps, the incidents it causes,
+      investigators and copy;
+    - "Create problem" on incidents.
+  - Lane B's review of 0077: the downgrade refuses rather than lose a grant.
+  - Audit labels for every service_request.* and problem.* action.
+  - Stack smoke dispatched with the new e2e spec (problems.spec.ts).
+  - Not yet (recorded):
+    - an assign dialog and a technician picker on the problem page come with 044c S1's record
+      page (assignment works through the API and the list);
+    - the analysis, tasks, worklogs and conversation tabs come in 044b and 044c;
+    - template groups and designer hints (REQ-PRB-021, -022) go to 044c S1;
+    - creating from many incidents through the incident list's bulk bar goes to 044c S1 (the
+      URL form works now).
+- WP-044a is complete once #211's full-ci is green; it then leaves draft.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
