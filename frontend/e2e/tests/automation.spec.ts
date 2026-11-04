@@ -245,7 +245,10 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
     // Disabled in "More actions", with its reason as the entry's second line (D-124).
     const close = await actionEntry(tech.page, 'inc-action-close');
     await expect(close).toHaveAttribute('aria-disabled', 'true');
-    await expect(close).toContainText(/Only certain people|Not possible in the current status/);
+    // The reason names who may (QA WP-029 C2): the move is limited to tenant administrators.
+    await expect(close).toContainText(
+      /Only these may do this on this record: Tenant administrator|Not possible in the current status/,
+    );
     await tech.page.keyboard.press('Escape');
 
     // 7. The admin screens, in Arabic too.
