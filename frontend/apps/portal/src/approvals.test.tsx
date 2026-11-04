@@ -38,6 +38,7 @@ const WAITING = {
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
+  window.sessionStorage.clear();
 });
 
 describe('portal: approvals', () => {
@@ -279,6 +280,33 @@ describe('portal: approvals', () => {
     });
     const target = String(assign.mock.calls[0]?.[0]);
     expect(target).toContain('app=portal');
-    expect(decodeURIComponent(target)).toContain(`/requests/approval-link#${TOKEN}`);
+    expect(decodeURIComponent(target)).toContain('/requests/approval-link');
+    // Lane B: the token never rides in the sign-in URL (access logs, the login state).
+    expect(decodeURIComponent(target)).not.toContain(TOKEN);
+    expect(target).not.toContain(TOKEN);
+    expect(window.sessionStorage.getItem('supportx.approval_link')).toBe(TOKEN);
+  });
+
+  it('after signing in, the page takes the handed-over token and removes it at once', async () => {
+    window.sessionStorage.setItem('supportx.approval_link', TOKEN);
+    window.history.pushState({}, '', '/requests/approval-link');
+    const fake = fakeApi({
+      ...BASE,
+      'POST /api/v1/action-links/peek': {
+        body: {
+          action: 'service_request.approval',
+          object_type: 'work_item_approval',
+          object_id: APPROVAL,
+          expires_at: '2026-11-07T08:00:00Z',
+          summary: { display_id: 'SR-9', subject: 'Desk for Omar', comments_required: false },
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('approval-link-summary')).textContent).toContain('SR-9');
+    const [peeked] = fake.find('POST', '/api/v1/action-links/peek');
+    expect(peeked?.body).toEqual({ token: TOKEN });
+    expect(window.sessionStorage.getItem('supportx.approval_link')).toBeNull();
   });
 });

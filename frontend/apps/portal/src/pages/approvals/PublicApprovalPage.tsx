@@ -20,6 +20,8 @@ import {
 } from '@supportx/api-client';
 import { describeError, lengthLimit, useLabel } from '@supportx/ui';
 
+import { HANDOVER_KEY } from './handover';
+
 const COMMENT_MAX = 4000;
 const SIGN_IN_REQUIRED = 'action_link_sign_in_required';
 
@@ -63,9 +65,15 @@ export function PublicApprovalPage() {
   const signIn =
     peek.error instanceof ApiError && peek.error.code === SIGN_IN_REQUIRED && token !== undefined;
   useEffect(() => {
-    if (signIn) {
-      window.location.assign(loginUrl('portal', `/requests/approval-link#${token}`));
+    if (!signIn) return;
+    // The token stays in this tab only, never in the sign-in URL, its stored state or a log;
+    // the signed-in page takes it and removes it at once.
+    try {
+      window.sessionStorage.setItem(HANDOVER_KEY, token);
+    } catch {
+      // Storage blocked: the person signs in and opens the e-mail's link again.
     }
+    window.location.assign(loginUrl('portal', '/requests/approval-link'));
   }, [signIn, token]);
 
   let content;

@@ -16,19 +16,35 @@ import { Link } from 'react-router';
 import { ApiError, useActionLink, usePeekActionLink } from '@supportx/api-client';
 import { describeError, lengthLimit, useLabel } from '@supportx/ui';
 
+import { HANDOVER_KEY } from './handover';
+
 const COMMENT_MAX = 4000;
 
 /** The token from the URL fragment, read once and removed from the address bar and history. */
+/** A token handed over by the public page while the person signed in (never in a URL). */
+function handedOver(): string | undefined {
+  try {
+    return window.sessionStorage.getItem(HANDOVER_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function useFragmentToken(): string | undefined {
   // Read without side effects: StrictMode calls an initializer twice and keeps one result.
   const [token] = useState(() => {
     const found = window.location.hash.replace(/^#/, '');
-    return found === '' ? undefined : found;
+    return found === '' ? handedOver() : found;
   });
   // Then off the address bar and the history (lane B's condition 3).
   useEffect(() => {
     if (window.location.hash !== '') {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    try {
+      window.sessionStorage.removeItem(HANDOVER_KEY); // taken: gone at once
+    } catch {
+      // nothing stored
     }
   }, []);
   return token;
