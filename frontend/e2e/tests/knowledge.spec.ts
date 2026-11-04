@@ -158,7 +158,7 @@ test('write, approve live from the inbox, send back, withdraw; an outsider never
     // 2. The inbox previews it beside "nothing published yet", image included; approve.
     await count.click();
     await expect(admin.page).toHaveURL(/\/knowledge\/approvals/);
-    await admin.page.getByText(`E2E VPN token ${tag}`).click();
+    await admin.page.getByTestId('kb-inbox-queue').getByText(`E2E VPN token ${tag}`).click();
     const preview = admin.page.getByTestId('kb-inbox-preview');
     await expect(preview.getByTestId('kb-inbox-first')).toBeVisible();
     await expect(preview.getByTestId('kb-inbox-note')).toContainText('Ready for review');
@@ -304,7 +304,7 @@ test('knowledge in Arabic: right to left, labels only, accessible', async ({ bro
       await expectAccessible(admin.page, `${path} (Arabic)`);
     }
     await admin.page.goto('/knowledge/approvals');
-    await admin.page.getByText(`E2E عربي ${tag}`).click();
+    await admin.page.getByTestId('kb-inbox-queue').getByText(`E2E عربي ${tag}`).click();
     await expect(admin.page.getByTestId('kb-inbox-preview')).toBeVisible();
     await expect(admin.page.getByTestId('kb-inbox-queue')).toContainText('بانتظارك');
   } finally {
@@ -395,8 +395,15 @@ test('knowledge in a reply: the server decides the warning, the card shows the l
     await expectAccessible(tech.page, 'knowledge warning');
     await tech.page.locator('.ant-modal:visible').getByRole('button').first().click();
     await expect(tech.page.getByTestId('conv-editor')).not.toContainText('Open the portal');
-    // An article the requester can read: no warning, the content goes in at the caret.
-    await tech.page.keyboard.press('Escape');
+    // An article the requester can read: no warning, the content goes in at the caret. The
+    // picker is closed by its own button once the warning has gone: an Escape pressed while the
+    // warning is still closing never reaches the drawer, which then covers the next click.
+    await expect(tech.page.locator('.ant-modal:visible')).toHaveCount(0);
+    await tech.page
+      .getByTestId('kb-picker')
+      .getByRole('button', { name: 'Close', exact: true })
+      .click();
+    await expect(tech.page.getByTestId('kb-picker')).toBeHidden();
     await pickFrom(`E2E shared ${tag}`, 'content');
     await expect(tech.page.getByTestId('conv-editor')).toContainText('Open the portal', LIVE);
     await expect(tech.page.getByTestId('kb-picker-warning')).toHaveCount(0);

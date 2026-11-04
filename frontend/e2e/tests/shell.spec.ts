@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { SEEDED } from '../stack';
 import { expectAccessible, goToSection, navItems, settledBox, signIn, signInAs } from './helpers';
 
-const SECTIONS = ['Service requests', 'Problems', 'Changes', 'Releases', 'Assets', 'CMDB'];
+const SECTIONS = ['Problems', 'Changes', 'Releases', 'Assets', 'CMDB'];
 
 test('navigation: every section opens a translated coming-soon page; palette and 404 work', async ({
   page,
@@ -15,6 +15,11 @@ test('navigation: every section opens a translated coming-soon page; palette and
     await expect(page.getByText(/being built/)).toBeVisible();
   }
   expect(await navItems(page)).not.toContain('admin'); // not a tenant admin
+
+  // Service requests is a real page (WP-030), not a coming-soon one.
+  await goToSection(page, 'Service requests');
+  await expect(page.getByRole('heading', { name: 'Service requests', level: 1 })).toBeVisible();
+  await expect(page.getByText(/being built/)).toHaveCount(0);
 
   // Reports is a real page (WP-035), not a coming-soon one.
   await goToSection(page, 'Reports');
@@ -149,11 +154,16 @@ test('where you are: breadcrumbs and the tab title, never "Technician Console", 
           { message: `no sideways scroll at ${String(width)} px` },
         )
         .toBeLessThanOrEqual(0);
-      // The top menu never reaches under the search button (QA WP-036 BUG-06).
+      // The top menu never reaches under the search button (QA WP-036 BUG-06): side by side,
+      // or (UI pass 2) the menu's band below the header.
       const nav = await page.getByTestId('nav-top').boundingBox();
       const search = await page.getByTestId('open-palette').boundingBox();
       if (nav !== null && search !== null) {
-        const apart = nav.x + nav.width <= search.x + 1 || search.x + search.width <= nav.x + 1;
+        const apart =
+          nav.x + nav.width <= search.x + 1 ||
+          search.x + search.width <= nav.x + 1 ||
+          nav.y + nav.height <= search.y + 1 ||
+          search.y + search.height <= nav.y + 1;
         expect(apart, `menu and search apart at ${String(width)} px`).toBe(true);
       }
     }
