@@ -379,10 +379,11 @@ networkPolicies:
     enabled: false
     extra: []                       # every pod, e.g. a forward proxy: [{to: [{ipBlock: {cidr: 10.0.0.5/32}}], ports: [{protocol: TCP, port: 3128}]}]
     components: {}                  # per component, e.g. {keycloak: [LDAP servers], consumers: [SMTP relay], api: [...]}
-    # CloudNativePG's instance and pooler pods watch the Kubernetes API. Narrow the CIDR to your
-    # control-plane addresses where you can.
-    kubeApi:
-      - {cidr: 0.0.0.0/0, port: 6443}
+    # The Kubernetes API, for CloudNativePG's pods and the API and worker pods' wait-for-migrate.
+    # Empty: read from the default/kubernetes EndpointSlice at install time. `helm template` and
+    # GitOps can't read it: set them, e.g. kubeApiCidrs: [10.0.0.10/32], kubeApiPorts: [6443].
+    kubeApiCidrs: []
+    kubeApiPorts: [6443]
 
 # Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
 # the same tag, so this is what rolls them).

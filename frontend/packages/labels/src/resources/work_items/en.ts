@@ -765,6 +765,7 @@ export const en = {
   'incidents.mail_no_subject': 'E-mail without a subject',
   'failure_reason.disconnected': 'Cannot reach the database or the message bus',
   'failure_reason.backlog': 'Events are waiting too long',
+  'failure_reason.stale_signatures': 'Virus signatures are out of date',
   'incidents.bulk.select_page': 'Select every incident on this page',
   'action_reason.system_calendar': 'Every organisation keeps this calendar.',
   'action_reason.calendar_in_use': 'Sites or support groups use this calendar.',

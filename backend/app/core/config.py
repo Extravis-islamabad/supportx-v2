@@ -291,6 +291,9 @@ class Settings(BaseSettings):
     files_clamd_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     files_scan_required: bool = True
     files_signature_max_age_days: int = Field(default=7, ge=1, le=90)
+    # /ready warns (informational, not unready) once the signatures are older than this: the
+    # early sign that freshclam can't reach its mirror, e.g. under the egress allow-list (WP-014b).
+    files_signature_ready_warn_hours: int = Field(default=48, ge=1, le=24 * 90)
     files_link_ttl_seconds: int = Field(default=300, ge=30, le=3600)
     # Uploads written to storage at once per API process; more wait their turn (their bodies stay
     # in the network, not in memory). Each holds about one 5 MiB S3 part plus its encryption.

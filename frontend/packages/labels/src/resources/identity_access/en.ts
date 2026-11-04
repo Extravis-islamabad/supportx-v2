@@ -706,6 +706,7 @@ export const en = {
   'readiness_check.outbox_relay': 'Event relay',
   'readiness_check.event_consumers': 'Event processing',
   'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.malware_signatures': 'Virus signatures',
   'readiness_check.nats': 'Message bus',
   'permission.sla.view': 'View SLA set-up',
   'permission.sla.view.description': 'See working calendars, holidays and SLA policies.',
