@@ -7,7 +7,8 @@ pattern. They are requesters, so they never take a technician seat. Refuses prod
 
 `delete` also removes what the suite itself created through the UI and API (WP-012, WP-020),
 matched by the reserved "E2E " name prefix: announcements (with their field history and audience
-rows), incidents (with their history), incident templates and admin-added pick-list values
+rows), incidents and service requests (with their history, approvals and approval links), catalog
+items and their emptied categories (WP-030/031), incident templates and admin-added pick-list values
 (WP-020c), support groups, sites and departments, and people added in Admin > People that never
 signed in (WP-021), in the two dev tenants; plus
 the field history of the suite's own users (`e2e.*@demo.test`, profile and layout saves). The API
@@ -92,7 +93,64 @@ SUITE_RECORDS = (
         ),
         SUITE_PREFIX,
     ),
+    (
+        # Service requests (WP-030): the e-mailed links of their approvals (no foreign key: the
+        # link names its object by type and ID), then the approvals, which reference the record.
+        "action_links",
+        (
+            "DELETE FROM action_links WHERE object_type = 'work_item_approval' AND object_id IN"
+            " (SELECT a.id FROM work_item_approvals a JOIN work_items w ON w.id = a.work_item_id"
+            " WHERE w.subject LIKE $1)"
+        ),
+        SUITE_PREFIX,
+    ),
+    (
+        "work_item_approvals",
+        (
+            "DELETE FROM work_item_approvals WHERE work_item_id IN"
+            " (SELECT id FROM work_items WHERE subject LIKE $1)"
+        ),
+        SUITE_PREFIX,
+    ),
     ("work_items", "DELETE FROM work_items WHERE subject LIKE $1", SUITE_PREFIX),
+    (
+        # Catalog items the suite made (WP-030/031), after the requests raised from them; one a
+        # remaining request still names stays. Then the suite's categories left empty.
+        "field_changes",
+        (
+            "DELETE FROM field_changes WHERE record_type = 'catalog_item' AND record_id IN"
+            " (SELECT id FROM catalog_items WHERE names->>'en' LIKE $1"
+            " AND id NOT IN (SELECT catalog_item_id FROM work_items"
+            " WHERE catalog_item_id IS NOT NULL))"
+        ),
+        SUITE_PREFIX,
+    ),
+    (
+        "catalog_items",
+        (
+            "DELETE FROM catalog_items WHERE names->>'en' LIKE $1 AND id NOT IN"
+            " (SELECT catalog_item_id FROM work_items WHERE catalog_item_id IS NOT NULL)"
+        ),
+        SUITE_PREFIX,
+    ),
+    (
+        "field_changes",
+        (
+            "DELETE FROM field_changes WHERE record_type = 'service_category' AND record_id IN"
+            " (SELECT id FROM service_categories WHERE names->>'en' LIKE $1"
+            " AND id NOT IN (SELECT category_id FROM catalog_items"
+            " WHERE category_id IS NOT NULL))"
+        ),
+        SUITE_PREFIX,
+    ),
+    (
+        "service_categories",
+        (
+            "DELETE FROM service_categories WHERE names->>'en' LIKE $1 AND id NOT IN"
+            " (SELECT category_id FROM catalog_items WHERE category_id IS NOT NULL)"
+        ),
+        SUITE_PREFIX,
+    ),
     (
         # Templates the suite made (WP-020c), after the incidents that name them.
         "field_changes",
@@ -231,12 +289,17 @@ async def delete(url: str) -> int:
         await conn.close()
 
 
-async def delete_suite_records(url: str) -> dict[str, int]:
-    """Remove the "E2E …" records the suite created (deleted roles too); returns rows per table."""
+async def delete_suite_records(
+    url: str, tenants: tuple[uuid.UUID, ...] = (DEMO_TENANT_ID, OTHER_TENANT_ID)
+) -> dict[str, int]:
+    """Remove the "E2E …" records the suite created (deleted roles too); returns rows per table.
+
+    `tenants`: the two dev tenants; a test passes its own.
+    """
     removed = {table: 0 for table, _, _ in SUITE_RECORDS}
     conn = await asyncpg.connect(url)
     try:
-        for tenant in (DEMO_TENANT_ID, OTHER_TENANT_ID):
+        for tenant in tenants:
             async with conn.transaction():
                 await _in_tenant(conn, tenant)
                 for table, statement, pattern in SUITE_RECORDS:

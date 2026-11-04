@@ -221,7 +221,15 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
     const warning = tech.page.getByTestId('inc-loop-warning');
     await expect(warning).toContainText(`E2E ping ${tag}`, { timeout: 30_000 });
     await expect(warning).toContainText(`E2E pong ${tag}`);
-    await expect(admin.page.getByTestId('loop-banner')).toBeVisible(LIVE);
+    // The shell shows one notice at a time (D-124): the banner may be folded behind another
+    // one, so open the stack before looking (stack smoke 41826831299).
+    const banner = admin.page.getByTestId('loop-banner');
+    await expect(banner).toBeAttached(LIVE);
+    const notices = admin.page.getByTestId('shell-notices-toggle');
+    if ((await notices.count()) > 0 && (await notices.getAttribute('aria-expanded')) !== 'true') {
+      await notices.click();
+    }
+    await expect(banner).toBeVisible();
 
     // 6. "Close" limited to admins: the technician sees it disabled with the reason.
     const saved = await call(
@@ -237,7 +245,10 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
     // Disabled in "More actions", with its reason as the entry's second line (D-124).
     const close = await actionEntry(tech.page, 'inc-action-close');
     await expect(close).toHaveAttribute('aria-disabled', 'true');
-    await expect(close).toContainText(/Only certain people|Not possible in the current status/);
+    // The reason names who may (QA WP-029 C2): the move is limited to tenant administrators.
+    await expect(close).toContainText(
+      /Only these may do this on this record: Tenant administrator|Not possible in the current status/,
+    );
     await tech.page.keyboard.press('Escape');
 
     // 7. The admin screens, in Arabic too.
