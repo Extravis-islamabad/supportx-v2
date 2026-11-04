@@ -56,6 +56,9 @@ CONDITION_FIELDS = ResourceFields(
 )
 
 
+SLA_TYPES = frozenset({WorkItemTypeCode.INCIDENT.value, WorkItemTypeCode.SERVICE_REQUEST.value})
+
+
 def register_sla() -> None:
     """Incidents and service requests have SLAs (called at import; idempotent).
 
@@ -143,8 +146,12 @@ def snapshot(record: WorkItem, changes: Mapping[str, Any] | None = None) -> dict
 
 
 def has_sla(record: WorkItem) -> bool:
-    """Whether this record's type has SLAs (registered above)."""
-    return record.type == WorkItemTypeCode.INCIDENT.value
+    """Whether this record's type has SLAs (registered above).
+
+    Service requests too (WP-030 s2, D6): "awaiting approval" is a paused status, so the
+    resolution clock waits for the approval by default (REQ-SR-007 AC1, AC3).
+    """
+    return record.type in SLA_TYPES
 
 
 async def sla_columns(

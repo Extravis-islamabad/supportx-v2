@@ -257,3 +257,22 @@ async def test_approvals_are_isolated_by_rls(world: World) -> None:
     assert await inbox(world, b, b.admin) == []
     kept = await world.sql("SELECT state FROM work_item_approvals WHERE tenant_id = $1", a.tenant)
     assert [r["state"] for r in kept] == ["pending"]
+
+
+async def test_the_resolution_clock_waits_for_the_approval(world: World) -> None:
+    """REQ-SR-007 AC1 (D6): paused while awaiting approval, running once approved."""
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    record = await waiting(world, a)
+
+    async def resolution_state() -> list[str]:
+        rows = await world.sql(
+            "SELECT state FROM sla_targets WHERE record_id = $1 AND kind = 'resolution'",
+            uuid.UUID(record["id"]),
+        )
+        return [r["state"] for r in rows]
+
+    assert await resolution_state() == ["paused"]
+    [entry] = await approvals(world, a, a.tech_a, record)
+    assert (await decide(world, a, a.tech_a, record, entry, "approve")).status_code == 200
+    assert await resolution_state() == ["running"]
