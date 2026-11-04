@@ -6,11 +6,11 @@ cache generation twice is harmless, so redelivery needs no processed_events reco
 
 from collections.abc import Awaitable, Callable
 
-import valkey.asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
+from app.core.valkey import client as valkey_client
 from app.modules.licensing.events import EntitlementChanged
 from app.modules.licensing.infra.cache import ValkeyEntitlementCache
 from app.shared.events import ConsumerSpec, EventEnvelope
@@ -24,7 +24,7 @@ async def invalidate_with(settings: Settings, envelope: EventEnvelope) -> None:
     """Bump the tenant's cache generation in the Valkey of `settings`."""
     if settings.valkey_url is None:
         return
-    client = valkey.asyncio.from_url(settings.valkey_url.get_secret_value())  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+    client = valkey_client(settings)
     try:
         cache = ValkeyEntitlementCache(
             client,

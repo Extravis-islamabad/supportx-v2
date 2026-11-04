@@ -17,7 +17,6 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import valkey.asyncio
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +26,7 @@ from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
 from app.core.modules import ModuleRegistry, ModuleSpec, UsageCounter
 from app.core.tenancy import TenantContext
+from app.core.valkey import client as valkey_client
 from app.modules.licensing.api.routes import router
 from app.modules.licensing.domain.catalogue import Edition, Feature, LimitKey, unknown_features
 from app.modules.licensing.domain.entitlement import (
@@ -65,6 +65,8 @@ from app.modules.licensing.service.subscriptions import (
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter
 
 if TYPE_CHECKING:
+    import valkey.asyncio
+
     from app.core.config import Settings
     from app.core.database import Database
 
@@ -135,7 +137,7 @@ def _build_service(
     cache: EntitlementCache = NoCache()
     client = None
     if settings.valkey_url is not None and settings.entitlement_cache_ttl_seconds > 0:
-        client = valkey.asyncio.from_url(settings.valkey_url.get_secret_value())  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+        client = valkey_client(settings)
         cache = ValkeyEntitlementCache(
             client,
             prefix=settings.valkey_key_prefix,

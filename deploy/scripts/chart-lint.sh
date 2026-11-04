@@ -25,6 +25,8 @@ PROFILES=(
   "ingress|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.mode=ingress --set routing.ingress.tlsSecret=supportx-tls --set routing.hostnames={supportx.example.com}"
   "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com"
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"
+  "ha-ci|-f $CHART/values-dev.yaml -f $CHART/values-ha.yaml -f $CHART/values-ha-ci.yaml"
+  "ha|-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
 )
 
 for entry in "${PROFILES[@]}"; do
@@ -43,6 +45,32 @@ for entry in "${PROFILES[@]}"; do
     echo "kubeconform not installed: schema validation skipped (CI always runs it)"
   fi
 done
+
+# HA (WP-014b): every SupportX Deployment that runs more than one copy (or scales) has a
+# PodDisruptionBudget of the same name and podAntiAffinity, so losing or draining one node never
+# takes every copy.
+awk '
+  /^---/ { flush(); kind = ""; name = ""; copies = 0; anti = 0; next }
+  /^kind: / { kind = $2 }
+  /^  name: supportx-/ && name == "" { name = $2 }
+  /^  replicas: [0-9]+/ { copies = $2 }
+  /^  minReplicas: [0-9]+/ { copies = $2 }
+  /podAntiAffinity:/ { anti = 1 }
+  function flush() {
+    if (kind == "Deployment" && copies > 1) { multi[name] = 1; if (!anti) bare[name] = 1 }
+    if (kind == "HorizontalPodAutoscaler") { multi[name] = 1 }
+    if (kind == "PodDisruptionBudget") { pdb[name] = 1 }
+  }
+  END {
+    flush(); bad = 0
+    for (n in multi) {
+      if (!(n in pdb)) { print "HA: " n " runs several copies without a PodDisruptionBudget"; bad = 1 }
+      if (n in bare) { print "HA: " n " runs several copies without podAntiAffinity"; bad = 1 }
+    }
+    exit bad
+  }
+' "$OUT/ha.yaml" || { echo "HA profile check failed"; exit 1; }
+echo "HA: every multi-copy component has a PodDisruptionBudget and anti-affinity"
 
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"

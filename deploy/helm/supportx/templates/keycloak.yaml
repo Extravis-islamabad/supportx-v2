@@ -76,6 +76,7 @@ spec:
         prometheus.io/path: /metrics
         {{- end }}
     spec:
+      {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
       automountServiceAccountToken: false
       {{- include "supportx.pullSecrets" . | nindent 6 }}
       securityContext:
