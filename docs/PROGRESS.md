@@ -983,7 +983,7 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; session 1 of 6 built 2026-11-05, #214)
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-2 of 6 built 2026-11-05, #214, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
 with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
@@ -997,7 +997,13 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     the release's own fields (`/details`).
   - Appendix A seeds.
   - Labels in en, ar and ur.
-- [ ] S2 — templates per release type, the create form and stage sections (REQ-REL-007..013).
+- [x] **S2 — templates, stage rules, type defaults, copy (#219, migration 0093).**
+  - Templates choose the path and carry rules per stage (shown, required, read-only), checked
+    on save.
+  - Standard and emergency templates are seeded.
+  - Read-only per stage is enforced through the API.
+  - A release type can set its default template and risk.
+  - Copy (REQ-REL-009).
 - [ ] S3 — guards: required fields per stage, stage access by role (REQ-REL-018, -019), guard
   reasons on offered moves and the full refusal list (lane A's review, ADR-041 §8).
 - [ ] S4 — roles, planning and deployment, planned and actual dates per stage (REQ-REL-023..028).
@@ -1010,6 +1016,12 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   - REQ-REL-006: custom fields placed per stage come in S2. The `release` entity exists.
   - No console screens yet (S6). The API is complete and public (mobile-ready, the
     coordinator's 2026-11-05 note).
+- **Not done in S2:**
+  - REQ-REL-010 (import releases) moves to **WP-062b** (data administration and import, file 11
+    §11; the coordinator's decision, 2026-11-05).
+  - REQ-REL-008: from an incident or problem once lane A's link kinds are on main; from a change
+    in WP-058b.
+  - Required-to-leave-stage is S3. Tasks and checklists per stage are S4.
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
