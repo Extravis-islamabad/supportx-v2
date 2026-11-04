@@ -158,6 +158,7 @@ export const en = {
   'nav.admin_api_keys': 'API keys',
   'nav.admin_automation': 'Automation',
   'nav.admin_branding': 'Branding',
+  'nav.admin_catalog': 'Service catalog',
   'nav.admin_files': 'Files',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
@@ -472,6 +473,9 @@ export const en = {
   'setup.page.automation.keywords': 'automation, rules, triggers, workflows, auto assign, actions',
   'setup.page.branding.description': 'Logo, colours and the portal’s look.',
   'setup.page.branding.keywords': 'branding, logo, colours, colors, theme, portal, look',
+  'setup.page.catalog.description':
+    'Categories and items people request: their forms, approval, group, SLA and fulfilment tasks, in every language.',
+  'setup.page.catalog.keywords': 'catalog, catalogue, items, forms, service requests, starter',
   'setup.page.files.description': 'Upload limits, allowed file types and malware scanning.',
   'setup.page.files.keywords':
     'files, attachments, uploads, size, storage, malware, virus, scanning',

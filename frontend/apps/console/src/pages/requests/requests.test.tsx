@@ -15,10 +15,27 @@ const SR_ID = '01a1a2b3-0000-7000-8000-00000000c501';
 const laptop: CatalogItem = {
   id: ITEM_ID,
   names: { en: 'New laptop', ar: 'حاسوب جديد' },
+  summaries: {},
   descriptions: {},
+  keywords: {},
+  icon: null,
   category_id: null,
+  extra_category_ids: [],
+  kind: 'service',
+  template_id: null,
   audience: 'everyone',
+  status: 'published',
   enabled: true,
+  publish_at: null,
+  retire_at: null,
+  published_at: null,
+  owner_id: null,
+  featured: false,
+  sort_order: 0,
+  subject_template: null,
+  requesters_see_approval: true,
+  starter: false,
+  missing_translations: [],
   questions: [
     {
       key: 'model',
@@ -150,8 +167,8 @@ describe('console: service requests', () => {
     fireEvent.change(await screen.findByTestId('sr-subject'), {
       target: { value: ' Laptop for Sara ' },
     });
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Model' }));
-    fireEvent.click(await screen.findByTitle('air'));
+    // Up to four choices show as radio buttons (WP-031's question renderer).
+    fireEvent.click(screen.getByRole('radio', { name: 'air' }));
     fireEvent.click(screen.getByTestId('sr-send'));
     await waitFor(() => {
       expect(window.location.pathname).toBe(`/requests/${SR_ID}`);

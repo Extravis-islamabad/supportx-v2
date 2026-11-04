@@ -1,0 +1,30 @@
+// The catalog's fixed icons (WP-031 plan D1/D2; the server's domain/catalog.py ICONS): codes,
+// each drawn by the console and the portal and named by its label (`catalog_icon.<code>`).
+export const ICONS = [
+  'account',
+  'access',
+  'laptop',
+  'monitor',
+  'phone',
+  'software',
+  'mail',
+  'network',
+  'vpn',
+  'printer',
+  'building',
+  'desk',
+  'badge',
+  'people',
+  'document',
+  'leave',
+  'onboarding',
+  'offboarding',
+  'security',
+  'help',
+  'problem',
+  'money',
+  'travel',
+  'tools',
+] as const;
+
+export type IconCode = (typeof ICONS)[number];

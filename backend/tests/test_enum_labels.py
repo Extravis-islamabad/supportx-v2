@@ -242,6 +242,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "DecisionChannel": "approval_channel",
     "RouteReason": "approval_route_reason",
     "ApproverKind": "catalog_approver_kind",
+    # catalog administration (WP-031)
+    "ItemKind": "catalog_item_kind",
+    "ItemStatus": "catalog_item_status",
+    "QuestionAudience": "catalog_question_audience",
     "ItemAudience": "catalog_item_audience",
     "QuestionKind": "catalog_question_kind",
     "IndexFailure": "custom_field_index_error",

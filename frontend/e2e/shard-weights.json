@@ -4,6 +4,7 @@
   "tests/automation.spec.ts": 62,
   "tests/branding-admin.spec.ts": 25,
   "tests/branding.spec.ts": 55,
+  "tests/catalog.spec.ts": 40,
   "tests/closing.spec.ts": 16,
   "tests/custom-fields.spec.ts": 53,
   "tests/dashboards-conflict.spec.ts": 20,

@@ -64,6 +64,9 @@ export const ur: LabelResource = {
   'errors.cannot_deactivate_self': 'آپ خود کو غیر فعال نہیں کر سکتے۔',
   'errors.cannot_publish': 'یہ اعلان ابھی شائع نہیں کیا جا سکتا۔',
   'errors.cannot_stop_own_sign_in': 'آپ اپنا سائن اِن خود بند نہیں کر سکتے۔',
+  'errors.catalog_item_in_use':
+    'اس آئٹم کی درخواستیں موجود ہیں، اس لیے اسے حذف نہیں کیا جا سکتا۔ اس کے بجائے اسے ختم کریں۔',
+  'errors.catalog_item_incomplete': 'طے شدہ وقت پر آئٹم مکمل نہیں تھا، اس لیے یہ مسودہ ہی رہا۔',
   'errors.catalog_item_not_found': 'یہ کیٹلاگ آئٹم موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
   'errors.category_not_found': 'یہ زمرہ موجود نہیں۔',
   'errors.certificate_invalid':
@@ -144,6 +147,7 @@ export const ur: LabelResource = {
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
+  'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
   'errors.field.below_minimum': 'کم از کم {{min}} ہے۔',
   'errors.field.brand_image_svg':
     'SVG تصاویر قبول نہیں کی جاتیں کیونکہ ان میں اسکرپٹ ہو سکتے ہیں۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
@@ -161,7 +165,10 @@ export const ur: LabelResource = {
   'errors.field.cannot_see_record':
     'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
   'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
+  'errors.field.catalog_too_deep': 'کیٹلاگ کیٹیگریز کے زیادہ سے زیادہ چار درجے ہو سکتے ہیں۔',
   'errors.field.category_disabled': 'یہ زمرہ اب استعمال میں نہیں۔',
+  'errors.field.category_loop':
+    'کوئی کیٹیگری خود اپنے اندر یا اپنی ذیلی کیٹیگری کے اندر نہیں رکھی جا سکتی۔',
   'errors.field.category_not_found': 'یہ زمرہ موجود نہیں۔',
   'errors.field.certificate_key_mismatch': 'نجی کلید اس سرٹیفکیٹ کی نہیں ہے۔',
   'errors.field.certificate_not_valid_now':
@@ -292,6 +299,7 @@ export const ur: LabelResource = {
   'errors.field.mfa_mode_invalid': 'بند، اختیاری یا لازمی منتخب کریں۔',
   'errors.field.month_out_of_range': 'فہرست میں سے مہینہ چنیں۔',
   'errors.field.move_articles_first': 'اس موضوع میں ابھی مضامین ہیں۔ منتخب کریں کہ وہ کہاں جائیں۔',
+  'errors.field.must_be_future': 'مستقبل کا کوئی وقت منتخب کریں۔',
   'errors.field.my_groups_in_records':
     'فہرست "میرے گروپ" استعمال نہیں کر سکتی۔ چارٹ استعمال کریں یا گروپ منتخب کریں۔',
   'errors.field.name_needs_letters': 'نام میں کم از کم ایک حرف یا ہندسہ استعمال کریں۔',
@@ -410,8 +418,11 @@ export const ur: LabelResource = {
   'errors.field.too_many': 'وصول کنندگان بہت زیادہ ہیں۔',
   'errors.field.too_many_actions': 'ایک قاعدے میں زیادہ سے زیادہ {{max}} عمل ہو سکتے ہیں۔',
   'errors.field.too_many_approvers': 'ایک مرحلے میں زیادہ سے زیادہ 10 منظور کنندگان ہو سکتے ہیں۔',
+  'errors.field.too_many_categories':
+    'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
   'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
+  'errors.field.too_many_keywords': 'ہر زبان میں زیادہ سے زیادہ 20 کلیدی الفاظ استعمال کریں۔',
   'errors.field.too_many_levels': 'ہر ہدف کے لیے زیادہ سے زیادہ {{max}} ایسکلیشن درجے۔',
   'errors.field.too_many_options': 'ایک سوال میں زیادہ سے زیادہ 50 انتخاب ہو سکتے ہیں۔',
   'errors.field.too_many_questions': 'فارم میں زیادہ سے زیادہ 30 سوال ہو سکتے ہیں۔',
@@ -434,8 +445,11 @@ export const ur: LabelResource = {
   'errors.field.unknown_language': 'صرف انگریزی، عربی اور اردو نام قابل قبول ہیں۔',
   'errors.field.unknown_measure': 'یہ پیمانہ ان ریکارڈز کے لیے دستیاب نہیں۔',
   'errors.field.unknown_operator': 'یہ موازنہ پہچانا نہیں گیا۔',
+  'errors.field.unknown_option': 'یہ انتخاب سوال کے اختیارات میں شامل نہیں۔',
   'errors.field.unknown_parameter': 'فہرست کا یہ اختیار پہچانا نہیں گیا۔',
   'errors.field.unknown_permission': 'یہ اجازت موجود نہیں ہے۔',
+  'errors.field.unknown_placeholder':
+    'قوسین میں صرف فارم کے سوالات کی کلیدیں، یا {person}، استعمال کریں۔',
   'errors.field.unknown_priority': 'فہرست سے ترجیح منتخب کریں۔',
   'errors.field.unknown_question': 'اس فارم میں یہ سوال نہیں ہے۔',
   'errors.field.unknown_recipient': 'منتخب کردہ کوئی شخص اب فعال نہیں یا کوئی گروپ اب موجود نہیں۔',
@@ -671,6 +685,9 @@ export const ur: LabelResource = {
   'errors.saved_search_not_found': 'یہ محفوظ تلاش موجود نہیں ہے۔',
   'errors.scale_value_not_found': 'یہ قدر موجود نہیں۔',
   'errors.server_busy': 'میل سرور مصروف تھا۔',
+  'errors.service_category_in_use':
+    'اس کیٹیگری میں ابھی آئٹمز یا کیٹیگریز موجود ہیں۔ پہلے انہیں منتقل یا حذف کریں۔',
+  'errors.service_category_not_found': 'یہ کیٹیگری موجود نہیں۔',
   'errors.service_identity_managed':
     'یہ ایک کنیکٹر کی اپنی شناخت ہے۔ اسے ایڈمن › انٹیگریشنز سے تبدیل کریں۔',
   'errors.service_unavailable':

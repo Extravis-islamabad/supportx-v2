@@ -28,14 +28,9 @@ import {
   useWithdrawRequest,
 } from '@supportx/api-client';
 import { useRecordEvents } from '@supportx/realtime';
-import { reportError, RichTextView, useAppearance, useLabel } from '@supportx/ui';
+import { reportError, RichTextView, useAnswerWords, useAppearance, useLabel } from '@supportx/ui';
 
 import { PortalStatusTag } from '../requests/PortalStatusTag';
-
-function answerText(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  return typeof value === 'string' ? value : JSON.stringify(value);
-}
 
 /**
  * One service request as its requester sees it (WP-030 D9; REQ-SR-051, -061, -062): the plain
@@ -45,6 +40,7 @@ function answerText(value: unknown): string {
  */
 export function ServiceRequestPage() {
   const t = useLabel();
+  const answerWords = useAnswerWords();
   const { id = '' } = useParams();
   const { locale } = useAppearance();
   const queryClient = useQueryClient();
@@ -185,7 +181,7 @@ export function ServiceRequestPage() {
       >
         {questions.map((q) => (
           <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
-            {answerText(r.answers?.[q.key])}
+            {answerWords(q, r.answers?.[q.key])}
           </Descriptions.Item>
         ))}
       </Descriptions>

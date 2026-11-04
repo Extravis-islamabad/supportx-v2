@@ -68,7 +68,7 @@ from app.modules.organization.service.structure import (
     unit_heads,
     unregister_group_disable_guard,
 )
-from app.modules.organization.service.tenants import get_current_tenant
+from app.modules.organization.service.tenants import get_current_tenant, record_tenant_provisioned
 from app.modules.organization.service.units import (
     SYSTEM_PATH,
     Memberships,
@@ -169,6 +169,7 @@ __all__ = [
     "memberships",
     "module",
     "offered_languages",
+    "record_tenant_provisioned",
     "regional_defaults",
     "register_calendar_check",
     "register_group_disable_guard",

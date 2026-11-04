@@ -14,7 +14,10 @@ from typing import Any
 
 LANGUAGES = ("en", "ar", "ur")
 NAME_MAX = 120
-TEXT_MAX = 2000
+TEXT_MAX = 2000  # a short answer
+LONG_TEXT_MAX = 10_000
+HELP_MAX = 500
+NUMBER_LIMIT = 10**15  # as WP-026 fields
 MAX_QUESTIONS = 30
 MAX_OPTIONS = 50
 MAX_TASKS = 20
@@ -30,13 +33,52 @@ class ItemAudience(StrEnum):
 
 
 class QuestionKind(StrEnum):
-    """What a form question takes."""
+    """What a form question takes (WP-030's five, plus WP-031 D6; the rules of WP-026's fields)."""
 
     TEXT = "text"
     LONG_TEXT = "long_text"
     CHOICE = "choice"
     NUMBER = "number"
     DATE = "date"
+    DECIMAL = "decimal"
+    CURRENCY = "currency"
+    DATETIME = "datetime"
+    MULTI_CHOICE = "multi_choice"
+    YES_NO = "yes_no"
+    EMAIL = "email"
+    PHONE = "phone"
+    URL = "url"
+    PERSON = "person"
+    ATTACHMENT = "attachment"
+
+
+class QuestionAudience(StrEnum):
+    """Who sees a form question (REQ-CAT-008): the requester, the technician, the approver."""
+
+    REQUESTER = "requester"
+    TECHNICIAN = "technician"
+    APPROVER = "approver"
+
+
+CHOICE_KINDS = frozenset({QuestionKind.CHOICE, QuestionKind.MULTI_CHOICE})
+TEXT_KINDS = frozenset(
+    {
+        QuestionKind.TEXT,
+        QuestionKind.LONG_TEXT,
+        QuestionKind.EMAIL,
+        QuestionKind.PHONE,
+        QuestionKind.URL,
+    }
+)
+# The formats of WP-026's custom fields (metadata/domain/fields.py), the same codes too.
+_FORMATS: Mapping[QuestionKind, tuple[re.Pattern[str], str]] = {
+    QuestionKind.EMAIL: (re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$"), "email_not_valid"),
+    QuestionKind.PHONE: (re.compile(r"^\+?[0-9 ()./-]{3,30}$"), "phone_not_valid"),
+    QuestionKind.URL: (re.compile(r"^https?://[^\s]+$", re.IGNORECASE), "url_not_valid"),
+}
+_DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$")
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+MAX_ATTACHMENTS = 10
 
 
 class ApproverKind(StrEnum):
@@ -57,7 +99,13 @@ class Question:
     label: Mapping[str, str]
     kind: QuestionKind
     required: bool = False
-    options: Sequence[str] = ()  # choice codes; their labels live with the question
+    options: Sequence[str] = ()  # choice codes; their words in option_labels
+    # WP-031 D6: the words of each choice per language, help text, a starting value and who
+    # sees the question (an approver-only question is never on the requester's form).
+    option_labels: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
+    help: Mapping[str, str] = field(default_factory=dict)
+    default: Any = None
+    shown_to: frozenset[QuestionAudience] = frozenset(QuestionAudience)
 
     def as_json(self) -> dict[str, Any]:
         """For the item's JSON column."""
@@ -67,6 +115,10 @@ class Question:
             "kind": self.kind.value,
             "required": self.required,
             "options": list(self.options),
+            "option_labels": {k: dict(v) for k, v in self.option_labels.items()},
+            "help": dict(self.help),
+            "default": self.default,
+            "shown_to": sorted(a.value for a in self.shown_to),
         }
 
 
@@ -126,8 +178,27 @@ def name_problems(at: str, names: Mapping[str, str] | None, *, required: bool) -
     return found
 
 
+def _option_problems(at: str, q: Question) -> list[Problem]:
+    if q.kind not in CHOICE_KINDS:
+        return [(f"{at}.options", "not_allowed")] if q.options else []
+    if not q.options:
+        return [(f"{at}.options", "required")]
+    if len(q.options) > MAX_OPTIONS:
+        return [(f"{at}.options", "too_many_options")]
+    if any(not _KEY.fullmatch(o) for o in q.options) or len(set(q.options)) != len(q.options):
+        return [(f"{at}.options", "invalid_key")]
+    found: list[Problem] = [
+        (f"{at}.option_labels.{code}", "unknown_option")
+        for code in q.option_labels
+        if code not in q.options
+    ]
+    for code, words in q.option_labels.items():
+        found += name_problems(f"{at}.option_labels.{code}", words, required=False)
+    return found
+
+
 def question_problems(questions: Sequence[Question]) -> list[Problem]:
-    """Keys unique and well-formed, labels in English, choices with options."""
+    """Keys unique and well-formed, labels in English, choices with options, sane defaults."""
     found: list[Problem] = []
     if len(questions) > MAX_QUESTIONS:
         found.append(("questions", "too_many_questions"))
@@ -140,17 +211,28 @@ def question_problems(questions: Sequence[Question]) -> list[Problem]:
             found.append((f"{at}.key", "duplicate"))
         seen.add(q.key)
         found += name_problems(f"{at}.label", q.label, required=True)
-        if q.kind is QuestionKind.CHOICE:
-            if not q.options:
-                found.append((f"{at}.options", "required"))
-            elif len(q.options) > MAX_OPTIONS:
-                found.append((f"{at}.options", "too_many_options"))
-            elif any(not _KEY.fullmatch(o) for o in q.options) or len(set(q.options)) != len(
-                q.options
-            ):
-                found.append((f"{at}.options", "invalid_key"))
-        elif q.options:
-            found.append((f"{at}.options", "not_allowed"))
+        found += _help_problems(f"{at}.help", q.help)
+        found += _option_problems(at, q)
+        if not q.shown_to:
+            found.append((f"{at}.shown_to", "required"))
+        elif q.required and QuestionAudience.REQUESTER not in q.shown_to:
+            # Nobody on the form could answer it.
+            found.append((f"{at}.required", "not_allowed"))
+        if q.default is not None and (
+            q.kind in {QuestionKind.ATTACHMENT, QuestionKind.PERSON}
+            or _value_problem(q, q.default) is not None
+        ):
+            found.append((f"{at}.default", "invalid_value"))
+    return found
+
+
+def _help_problems(at: str, help_text: Mapping[str, str]) -> list[Problem]:
+    found: list[Problem] = []
+    for lang, text in help_text.items():
+        if lang not in LANGUAGES:
+            found.append((f"{at}.{lang}", "invalid_choice"))
+        elif len(text) > HELP_MAX:
+            found.append((f"{at}.{lang}", "value_too_long"))
     return found
 
 
@@ -190,34 +272,80 @@ def rules_problems(rules: ItemRules) -> list[Problem]:
     )
 
 
-def answer_problems(questions: Sequence[Question], answers: Mapping[str, Any]) -> list[Problem]:
-    """The form's answers (REQ-SR-003): required ones given, choices from the list, no strangers."""
-    by_key = {q.key: q for q in questions}
+def _value_problem(q: Question, value: Any) -> str | None:  # noqa: ANN401, C901, PLR0911 - JSON; one rule per kind
+    """The problem code of one non-empty answer, or None."""
+    kind = q.kind
+    if kind in TEXT_KINDS:
+        if not isinstance(value, str):
+            return "invalid_text"
+        limit = LONG_TEXT_MAX if kind is QuestionKind.LONG_TEXT else TEXT_MAX
+        if len(value) > limit:
+            return "value_too_long"
+        rule = _FORMATS.get(kind)
+        return rule[1] if rule and not rule[0].fullmatch(value.strip()) else None
+    if kind in {QuestionKind.NUMBER, QuestionKind.DECIMAL, QuestionKind.CURRENCY}:
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return "invalid_number"
+        return "above_maximum" if abs(value) >= NUMBER_LIMIT else None
+    if kind is QuestionKind.CHOICE:
+        return None if value in q.options else "invalid_choice"
+    if kind is QuestionKind.MULTI_CHOICE:
+        ok = isinstance(value, list) and all(isinstance(v, str) and v in q.options for v in value)
+        return None if ok else "invalid_choice"
+    if kind is QuestionKind.YES_NO:
+        return None if isinstance(value, bool) else "invalid_value"
+    if kind is QuestionKind.DATE:
+        return None if isinstance(value, str) and _DATE.fullmatch(value) else "invalid_date"
+    if kind is QuestionKind.DATETIME:
+        ok = isinstance(value, str) and _DATETIME.fullmatch(value) is not None
+        return None if ok else "timezone_required"
+    if kind is QuestionKind.PERSON:
+        return None if isinstance(value, str) and _is_uuid(value) else "invalid_value"
+    if kind is QuestionKind.ATTACHMENT:  # file IDs, stored and scanned by the files module
+        ok = (
+            isinstance(value, list)
+            and len(value) <= MAX_ATTACHMENTS
+            and all(isinstance(v, str) and _is_uuid(v) for v in value)
+        )
+        return None if ok else "invalid_value"
+    return "invalid_value"  # pragma: no cover - every kind is handled above
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _empty(value: Any) -> bool:  # noqa: ANN401 - JSON value
+    return value is None or value == [] or (isinstance(value, str) and not value.strip())
+
+
+def answer_problems(
+    questions: Sequence[Question],
+    answers: Mapping[str, Any],
+    *,
+    by: QuestionAudience = QuestionAudience.REQUESTER,
+) -> list[Problem]:
+    """The form's answers (REQ-SR-003): required ones given, values of their kind, no strangers.
+
+    `by` is who fills the form: a question not shown to them is unknown to them, so a
+    requester can never set a technician-only or approver-only answer.
+    """
+    by_key = {q.key: q for q in questions if by in q.shown_to}
     found: list[Problem] = [
         (f"answers.{key}", "unknown_question") for key in answers if key not in by_key
     ]
-    for q in questions:
+    for q in by_key.values():
         value = answers.get(q.key)
-        empty = value is None or (isinstance(value, str) and not value.strip())
-        if empty:
-            if q.required:
+        if _empty(value):
+            if q.required and by is QuestionAudience.REQUESTER:
                 found.append((f"answers.{q.key}", "required"))
             continue
-        at = f"answers.{q.key}"
-        if q.kind is QuestionKind.CHOICE and value not in q.options:
-            found.append((at, "invalid_choice"))
-        elif q.kind is QuestionKind.NUMBER and (
-            isinstance(value, bool) or not isinstance(value, int | float)
-        ):
-            found.append((at, "invalid_number"))
-        elif q.kind in {QuestionKind.TEXT, QuestionKind.LONG_TEXT} and (
-            not isinstance(value, str) or len(value) > TEXT_MAX
-        ):
-            found.append((at, "value_too_long" if isinstance(value, str) else "invalid_text"))
-        elif q.kind is QuestionKind.DATE and not (
-            isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value)
-        ):
-            found.append((at, "invalid_date"))
+        if (code := _value_problem(q, value)) is not None:
+            found.append((f"answers.{q.key}", code))
     return found
 
 
