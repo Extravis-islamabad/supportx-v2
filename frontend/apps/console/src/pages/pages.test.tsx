@@ -90,6 +90,22 @@ describe('My profile', () => {
     window.localStorage.removeItem('supportx.theme_mode');
   });
 
+  it('a browser keeps its own theme as it opens; one with none copies it to the server once', async () => {
+    window.localStorage.setItem('supportx.theme_mode', 'dark');
+    try {
+      const fake = api({
+        me: fakeSession({ theme_mode: 'light' }),
+        routes: { [`PATCH ${ME_PATH}`]: { body: fakeUser({ version: 4 }) } },
+      });
+      render(<App />);
+      await screen.findByTestId('preferences');
+      expect(document.documentElement.dataset.theme).toBe('dark'); // its own, not the server's
+      expect(fake.find('PATCH', ME_PATH)).toHaveLength(0); // the person already chose
+    } finally {
+      window.localStorage.removeItem('supportx.theme_mode');
+    }
+  });
+
   it('saves with If-Match for the version it loaded', async () => {
     const fake = api({
       routes: {

@@ -12,7 +12,10 @@ const PERSONAL = ['theme_mode', 'text_scale', 'week_start', 'date_format', 'time
 
 /**
  * The person's theme and text size, from the server, on every tab and device (WP-042;
- * REQ-ADM-058, 062): applied whenever the session changes (a save elsewhere refreshes it live).
+ * REQ-ADM-058, 062). A browser with no theme of its own takes the person's at once (a new
+ * device); a browser that remembers one keeps it as it opens (it mirrors the last one applied
+ * there), and a change made anywhere while it is open applies here too (the session refreshes
+ * live).
  * Someone who never chose gets the theme this browser remembers copied to the server once; with
  * nothing remembered, the system's applies and nothing is stored. Returns the save for a theme
  * picked in the header.
@@ -23,6 +26,7 @@ export function usePersonalAppearance(
   const { setMode, setTextScale } = useAppearance();
   const save = useSetPreference(user?.id ?? '');
   const copied = useRef(false);
+  const opened = useRef(true); // the first theme read from the server since this tab opened
   const userId = user?.id;
   const themeMode = user?.theme_mode;
   const textScale = user?.text_scale;
@@ -40,14 +44,17 @@ export function usePersonalAppearance(
 
   useEffect(() => {
     if (userId === undefined) return;
+    const remembered = storedMode();
+    const opening = opened.current;
+    opened.current = false;
     if (themeMode === null || themeMode === undefined) {
-      const remembered = storedMode();
       if (remembered !== null && !copied.current) {
         copied.current = true;
         save.mutate({ field: 'theme_mode', value: remembered });
       }
       return;
     }
+    if (opening && remembered !== null) return; // this browser's own, as it opens
     setMode(themeMode === 'system' ? systemMode() : themeMode);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- applies the server's value only
   }, [userId, themeMode]);
