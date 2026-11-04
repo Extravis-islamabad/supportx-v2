@@ -106,6 +106,12 @@ class IdentitySettingsBody(BaseModel):
     mfa_grace_days: int | None = Field(
         default=None, description="Days to set up MFA once it is required (0 to 30)."
     )
+    people_may_create_keys: bool | None = Field(
+        default=None, description="People may make API keys for themselves (REQ-SEC-037)."
+    )
+    allow_non_expiring_keys: bool | None = Field(
+        default=None, description="API keys may be made without an expiry date (D-128)."
+    )
 
 
 class IdentitySettingsOut(BaseModel):
@@ -126,6 +132,8 @@ class IdentitySettingsOut(BaseModel):
     password_expiry_days: int
     password_breached_check: bool
     mfa_grace_days: int
+    people_may_create_keys: bool = Field(description="People may make API keys for themselves.")
+    allow_non_expiring_keys: bool = Field(description="API keys may be made without an expiry.")
     password_policy_editable: bool = Field(
         description="False on multi-tenant installations: the platform's policy applies."
     )

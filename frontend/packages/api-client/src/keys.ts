@@ -27,6 +27,12 @@ export const queryKeys = {
     user: (id: string) => ['access', 'user', id] as const,
     units: (kind: 'sites' | 'groups') => ['access', kind] as const,
   },
+  apiKeys: {
+    all: ['api-keys'] as const,
+    list: ['api-keys', 'list'] as const,
+    rules: ['api-keys', 'rules'] as const,
+    scopes: ['api-keys', 'scopes'] as const,
+  },
   identity: {
     all: ['identity'] as const,
     settings: ['identity', 'settings'] as const,

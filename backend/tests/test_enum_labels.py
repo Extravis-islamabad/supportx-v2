@@ -81,6 +81,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "TopicPatch.requesters": "kb_requesters",
     "VoteIn.reason": "kb_vote_reason",
     "ArticleLinkIn.how": "kb_link_source",
+    # API keys (WP-041)
+    "ApiKeyOut.status": "api_key_status",
+    "ApiKeyCreatedOut.status": "api_key_status",
+    "ScopeOut.access": "api_scope_access",
     # Knowledge on incidents (WP-033 session 4)
     "ApplyIn.audience": "kb_apply_audience",
     "ApplyIn.language": "locale",

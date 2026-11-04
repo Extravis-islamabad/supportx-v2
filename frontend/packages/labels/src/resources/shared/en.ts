@@ -444,4 +444,7 @@ export const en = {
   'antd.transfer.select_current': 'Select current page',
   'antd.transfer.select_invert': 'Invert current page',
   'search.knowledge': 'Knowledge articles',
+  'nav.admin_api_keys': 'API keys',
+  'api_scope_access.read': 'Read',
+  'api_scope_access.write': 'Write',
 } as const;

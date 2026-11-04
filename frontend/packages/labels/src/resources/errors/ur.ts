@@ -546,4 +546,32 @@ export const ur: LabelResource = {
   'errors.field.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.field.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
   'errors.field.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
+  'errors.api_key_not_allowed': 'یہاں API کلیدیں استعمال نہیں ہو سکتیں: براؤزر سے سائن اِن کریں۔',
+  'errors.api_scope_missing': 'اس API کلید کے پاس دائرہ {{scope}} نہیں ہے۔',
+  'errors.api_keys_unavailable': 'اس تنصیب پر API کلیدیں ترتیب نہیں دی گئیں۔',
+  'errors.api_keys_people_off': 'آپ کا ادارہ لوگوں کو اپنی API کلیدیں بنانے کی اجازت نہیں دیتا۔',
+  'errors.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
+  'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
+  'errors.api_key_name_invalid': 'زیادہ سے زیادہ 100 حروف کا نام درج کریں۔',
+  'errors.field.api_key_name_invalid': 'زیادہ سے زیادہ 100 حروف کا نام درج کریں۔',
+  'errors.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
+  'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
+  'errors.api_key_expiry_required':
+    'میعاد ختم ہونے کی تاریخ منتخب کریں: آپ کا ادارہ کبھی ختم نہ ہونے والی کلیدوں کی اجازت نہیں دیتا۔',
+  'errors.field.api_key_expiry_required':
+    'میعاد ختم ہونے کی تاریخ منتخب کریں: آپ کا ادارہ کبھی ختم نہ ہونے والی کلیدوں کی اجازت نہیں دیتا۔',
+  'errors.api_key_expiry_past': 'میعاد ختم ہونے کی تاریخ مستقبل میں ہونی چاہیے۔',
+  'errors.field.api_key_expiry_past': 'میعاد ختم ہونے کی تاریخ مستقبل میں ہونی چاہیے۔',
+  'errors.api_key_expiry_too_far': 'کلید زیادہ سے زیادہ ایک سال چل سکتی ہے۔',
+  'errors.field.api_key_expiry_too_far': 'کلید زیادہ سے زیادہ ایک سال چل سکتی ہے۔',
+  'errors.api_key_allowlist_invalid':
+    'زیادہ سے زیادہ 20 درست پتے یا نیٹ ورک درج کریں، جیسے 10.0.0.0/8۔',
+  'errors.field.api_key_allowlist_invalid':
+    'زیادہ سے زیادہ 20 درست پتے یا نیٹ ورک درج کریں، جیسے 10.0.0.0/8۔',
+  'errors.api_key_not_found': 'یہ API کلید موجود نہیں یا آپ کی نہیں ہے۔',
+  'errors.api_key_invalid': 'یہ API کلید درست نہیں ہے۔',
+  'errors.api_key_revoked': 'یہ API کلید منسوخ کر دی گئی ہے۔',
+  'errors.api_key_expired': 'اس API کلید کی میعاد ختم ہو گئی ہے۔',
+  'errors.api_key_owner_inactive': 'اس API کلید کا مالک اب فعال نہیں ہے۔',
+  'errors.api_key_ip_refused': 'یہ API کلید اس پتے سے استعمال نہیں ہو سکتی۔',
 };
