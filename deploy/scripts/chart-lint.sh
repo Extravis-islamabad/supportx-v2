@@ -28,6 +28,8 @@ PROFILES=(
   "ha-ci|-f $CHART/values-dev.yaml -f $CHART/values-ha.yaml -f $CHART/values-ha-ci.yaml --set networkPolicies.egress.kubeApiCidrs={10.0.0.10/32}"
   "ha|-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
   "ldap|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set directory.ldap.enabled=true"
+  "ai-models|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set ai.local.enabled=true"
+  "ai-gpu|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set ai.local.enabled=true --set ai.gpu.enabled=true --set ai.gpu.resourceName=nvidia.com/gpu"
 )
 
 for entry in "${PROFILES[@]}"; do
@@ -109,6 +111,21 @@ if awk '/^---/ { if (egress && open) found = 1; egress = 0; open = 0 }
   echo "egress: no egress rule may allow 0.0.0.0/0 (ha-ci)" >&2; exit 1
 fi
 echo "egress: refused without the control plane's addresses; no open 0.0.0.0/0 rule"
+
+# Local AI (WP-037): off by default; on, every weight file is checked against its pinned sha256
+# before the server starts, only the gateway's pods reach the servers, and the GPU node needs its
+# device plugin's resource name (no vendor assumed).
+[ "$(grep -c 'llm-' "$OUT/single-node.yaml" || true)" = "0" ] || { echo "ai: the model servers must be off by default" >&2; exit 1; }
+WEIGHTS="$(grep -c 'sha256sum -c' "$OUT/ai-models.yaml" || true)"
+[ "$WEIGHTS" = "2" ] || { echo "ai-models: both CPU servers must check their weights ($WEIGHTS)" >&2; exit 1; }
+grep -q "llm-ingress" "$OUT/ai-models.yaml" || { echo "ai-models: the servers need their ingress policy" >&2; exit 1; }
+AI_ARGS=""
+for entry in "${PROFILES[@]}"; do [ "${entry%%|*}" = ai-models ] && AI_ARGS="${entry#*|}"; done
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $AI_ARGS --set ai.gpu.enabled=true >/dev/null 2>&1; then
+  echo "ai-gpu: the chart must refuse a GPU node without ai.gpu.resourceName" >&2; exit 1
+fi
+echo "ai: off by default; weights checked before start; GPU resource required"
 
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"

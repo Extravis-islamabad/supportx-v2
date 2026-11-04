@@ -25,8 +25,60 @@ screens show whichever name is configured.
 | Small chat (development, small sites) | Qwen3-4B | Apache-2.0 | llama.cpp server |
 | Embeddings | bge-m3 | MIT | vLLM or llama.cpp server |
 
-The quantisation used and the quality measured with the eval set at that quantisation are
-recorded here when WP-037 session 2 (local runtime) is done.
+### Quantisation and quality (eval set)
+
+`make ai-eval` runs the eval set (`backend/tooling/ai_eval_set.json`) against the configured
+servers:
+- **Retrieval:** 20 queries in English, Arabic and Urdu over ten support articles. Is the right
+  article the nearest (top 1), or among the three nearest (top 3)?
+- **Answers:** six prompts (summaries and reply drafts) answered in their own language, with no
+  reasoning text in the answer.
+
+Run it for every model and quantisation before offering it.
+
+| Model, quantisation | Measured | Retrieval top 1 (en / ar / ur) | Retrieval top 3 | Answers in the right language | Speed |
+|---|---|---|---|---|---|
+| bge-m3 Q8_0 (llama.cpp server, Metal) | 2026-11-04 | 6/6 · 8/8 · 5/6 | 20/20 | (embeddings) | |
+| Qwen3-4B Q4_K_M (llama.cpp server, Metal, Apple M5) | 2026-11-04 | | | 6/6 | 1–6 s per answer, ~18–29 tokens/s |
+| Qwen3-14B Q4_K_M (demo, one 24 GB GPU) | at the first demo switch | | | | |
+
+The Urdu miss in top 1 found the right article second. Every query found it in the top 3.
+
+### Embedding width
+
+The embedding store holds 1024-wide vectors, the width of both approved embedding models. A
+model of another width is refused until a migration widens the column. Every vector records its
+model. After a model change, an hourly job re-embeds the old rows, and searches never mix two
+models' vectors (D-131).
+
+## Deployment (Helm chart)
+
+The chart's `ai` values run the models next to SupportX. The chart default is off; the installer
+switches it on (WP-014c).
+
+| Component | Model | Runs on |
+|---|---|---|
+| `llm-cpu` | Qwen3-4B Q4_K_M, llama.cpp server | CPU only, in every install |
+| `llm-embed` | bge-m3 Q8_0, llama.cpp server | CPU |
+| `llm-gpu` (optional, `ai.gpu.enabled`) | Qwen3-14B AWQ, vLLM | One GPU node; it answers chat instead of `llm-cpu` |
+
+- **Weights:**
+  - Each model has its own volume. Its weight files are pinned by repository revision and
+    sha256 in `values.yaml`, and checked before the server starts; a mismatch stops the pod.
+  - Connected installs fetch missing files from `ai.mirror`, Hugging Face by default.
+  - Air-gapped installs set `ai.mirror: ""`, and the installer fills the volumes. A pre-loaded
+    volume is never downloaded again.
+  - With the egress allow-list on, list your mirror or proxy under
+    `networkPolicies.egress.components.llm-cpu` (and `llm-embed`, `llm-gpu`).
+- **GPU node:**
+  - Set `ai.gpu.resourceName` to your device plugin's resource (for example `nvidia.com/gpu`),
+    plus `ai.gpu.nodeSelector` and `ai.gpu.tolerations`. Nothing vendor-specific is assumed.
+  - One copy, so no disruption budget: draining the node pauses chat, and AI features answer
+    "unavailable" meanwhile.
+- **Network:** only the API and the consumers worker reach the model servers.
+
+To use another model, change its `name`, `repo`, `revision` and `files` (with their sha256).
+Embedding models must be 1024 wide.
 
 ## Alternatives that are not of Chinese origin
 

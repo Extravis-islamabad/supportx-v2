@@ -114,3 +114,36 @@ test('UI pass 2: list, record and dashboard in every layout, English and Arabic,
     }
   }
 });
+
+test('a message starts below the header, never over its search field, in Arabic and at 390 px', async ({
+  page,
+}) => {
+  await signInAs(page, 'tech', '/profile');
+  try {
+    for (const [locale, width] of [
+      ['ar', 1440],
+      ['ar', 390],
+      ['en', 390],
+    ] as const) {
+      await save(page, { ui_locale: locale });
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto('/profile');
+      await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
+      await page.getByTestId('profile-save').click();
+      const notice = page.locator('.ant-message-notice').first();
+      await expect(notice).toBeVisible();
+      const header = await page.getByRole('banner').boundingBox();
+      const box = await notice.boundingBox();
+      expect(header, 'header').not.toBeNull();
+      expect(box, 'message').not.toBeNull();
+      // Its top edge is at or under the header's bottom edge.
+      expect(
+        (box?.y ?? 0) + 1,
+        `message below the header (${locale}, ${String(width)} px)`,
+      ).toBeGreaterThanOrEqual((header?.y ?? 0) + (header?.height ?? 0));
+      await expect(page.locator('.ant-message-notice')).toHaveCount(0, { timeout: 10_000 });
+    }
+  } finally {
+    await save(page, { ui_locale: null });
+  }
+});
