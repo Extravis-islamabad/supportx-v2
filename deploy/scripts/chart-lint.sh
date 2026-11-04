@@ -61,23 +61,28 @@ if helm template supportx "$CHART" --namespace supportx $LDAP_ARGS --set multiTe
   echo "ldap: the chart must refuse directory.ldap.enabled with multiTenant: true" >&2
   exit 1
 fi
-# HA (WP-014b): every SupportX Deployment that runs more than one copy (or scales) has a
-# PodDisruptionBudget of the same name and podAntiAffinity, so losing or draining one node never
-# takes every copy.
+# HA (WP-014b): every SupportX Deployment that runs more than one copy (or scales), and the
+# PgBouncer Pooler, has a PodDisruptionBudget of the same name and podAntiAffinity, so losing or
+# draining one node never takes every copy. The Pooler must run more than one copy: every API
+# request goes through it (the node-loss test lost the only one).
 awk '
   /^---/ { flush(); kind = ""; name = ""; copies = 0; anti = 0; next }
   /^kind: / { kind = $2 }
   /^  name: supportx-/ && name == "" { name = $2 }
   /^  replicas: [0-9]+/ { copies = $2 }
   /^  minReplicas: [0-9]+/ { copies = $2 }
+  /^  instances: [0-9]+/ { copies = $2 }
   /podAntiAffinity:/ { anti = 1 }
   function flush() {
     if (kind == "Deployment" && copies > 1) { multi[name] = 1; if (!anti) bare[name] = 1 }
     if (kind == "HorizontalPodAutoscaler") { multi[name] = 1 }
+    if (kind == "Pooler") { poolers++; if (copies > 1) { multi[name] = 1; if (!anti) bare[name] = 1 } else single[name] = 1 }
     if (kind == "PodDisruptionBudget") { pdb[name] = 1 }
   }
   END {
     flush(); bad = 0
+    if (poolers == 0) { print "HA: no PgBouncer Pooler rendered"; bad = 1 }
+    for (n in single) { print "HA: " n " runs one copy"; bad = 1 }
     for (n in multi) {
       if (!(n in pdb)) { print "HA: " n " runs several copies without a PodDisruptionBudget"; bad = 1 }
       if (n in bare) { print "HA: " n " runs several copies without podAntiAffinity"; bad = 1 }
