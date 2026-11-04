@@ -38,7 +38,7 @@ from app.modules.work_items.domain.parts import (
     moved,
     worklog_times,
 )
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemPartChanged
 from app.modules.work_items.infra.models import (
     WorkItem,
@@ -643,11 +643,13 @@ class LinkView:
 
     link: WorkItemLink
     other_id: uuid.UUID
-    # "related"; for follows: "follows" (this record follows the other) or "followed_by".
-    relation: Literal["related", "follows", "followed_by"]
+    # "related"; for follows: "follows" (this record follows the other) or "followed_by";
+    # for caused by: "caused_by" (this incident, by the other) or "causes" (this problem).
+    relation: "Relation"
     visible: bool
     display_id: str | None
     subject_text: str | None
+    other_type: WorkItemTypeCode | None = None
 
 
 async def links(
@@ -667,24 +669,39 @@ async def links(
     for link in rows:
         mine_is_source = link.source_id == record_id
         other = link.target_id if mine_is_source else link.source_id
-        relation: Literal["related", "follows", "followed_by"] = (
-            "related"
-            if link.kind == LinkKind.RELATED
-            else ("follows" if mine_is_source else "followed_by")
+        row = await session.get(WorkItem, other)
+        # A caused-by link joins two types: the other's own permissions decide (WP-044a).
+        other_type = TYPES.get(WorkItemTypeCode(row.type)) if row is not None else None
+        visible = other_type is not None and await items.may(
+            session, subject, other_type, "view", other
         )
-        visible = await items.may(session, subject, wtype, "view", other)
-        row = await session.get(WorkItem, other) if visible else None
+        shown = row if visible else None
         found.append(
             LinkView(
                 link,
                 other,
-                relation,
-                visible and row is not None,
-                row.display_id if row is not None else None,
-                row.subject if row is not None else None,
+                _relation(LinkKind(link.kind), mine_is_source=mine_is_source),
+                visible and shown is not None,
+                shown.display_id if shown is not None else None,
+                shown.subject if shown is not None else None,
+                other_type.code if visible and other_type is not None else None,
             )
         )
     return found
+
+
+Relation = Literal["related", "follows", "followed_by", "caused_by", "causes"]
+
+
+def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
+    """How the link reads from this record's side."""
+    match kind:
+        case LinkKind.RELATED:
+            return "related"
+        case LinkKind.FOLLOWS:
+            return "follows" if mine_is_source else "followed_by"
+        case LinkKind.CAUSED_BY:
+            return "caused_by" if mine_is_source else "causes"
 
 
 def _pair(record_id: uuid.UUID, other_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID]:
@@ -794,3 +811,4 @@ async def add_follows(
 
 tasks_of = _tasks
 recorded = _recorded
+link_recorded = _link_recorded

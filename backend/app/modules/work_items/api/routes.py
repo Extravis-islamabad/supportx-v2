@@ -27,6 +27,7 @@ from app.modules.work_items.api.conversation_routes import (
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
+from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
@@ -1441,6 +1442,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        # WP-044a s3: before the /{record_id} routes
+        add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
     add_parts_collection_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)

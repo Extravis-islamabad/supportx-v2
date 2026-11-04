@@ -5,6 +5,8 @@
 - work_items.outage_started_at / outage_ended_at: the outage window; the end, when given, is
   not before the start.
 - work_item_reasons may hold the two new lists.
+- work_item_links may be `caused_by` (an incident caused by a problem, at most one per incident:
+  a partial unique index); bulk jobs may `link_problem` (REQ-PRB-011, -012).
 
 Expand only. The downgrade removes the columns and the two lists' values (per tenant: the
 table forces RLS, see 0023).
@@ -27,6 +29,11 @@ depends_on: str | Sequence[str] | None = None
 LISTS_BEFORE = ("pause", "third_party", "cancel", "reopen", "reassign", "level", "closure_code")
 LISTS_AFTER = (*LISTS_BEFORE, "problem_type", "root_cause")
 LIST_CHECK = "ck_work_item_reasons_list_code"
+LINK_CHECK = "ck_work_item_links_kind_code"
+LINKS_BEFORE = ("related", "follows")
+BULK_CHECK = "ck_work_item_bulk_jobs_action_code"
+BULK_BEFORE = ("edit", "assign", "take", "resolve", "close")
+ONE_CAUSE = "uq_wil_tenant_one_cause"
 OUTAGE_CHECK = "ck_work_items_outage_order"
 
 _DROP_LISTS = """
@@ -66,10 +73,31 @@ def upgrade() -> None:
     )
     op.drop_constraint(op.f(LIST_CHECK), "work_item_reasons", type_="check")
     op.create_check_constraint(op.f(LIST_CHECK), "work_item_reasons", _in("list", LISTS_AFTER))
+    op.drop_constraint(op.f(LINK_CHECK), "work_item_links", type_="check")
+    op.create_check_constraint(
+        op.f(LINK_CHECK), "work_item_links", _in("kind", (*LINKS_BEFORE, "caused_by"))
+    )
+    op.create_index(
+        ONE_CAUSE,
+        "work_item_links",
+        ["tenant_id", "source_id"],
+        unique=True,
+        postgresql_where=sa.text("kind = 'caused_by' AND deleted_at IS NULL"),
+    )
+    op.drop_constraint(op.f(BULK_CHECK), "work_item_bulk_jobs", type_="check")
+    op.create_check_constraint(
+        op.f(BULK_CHECK), "work_item_bulk_jobs", _in("action", (*BULK_BEFORE, "link_problem"))
+    )
 
 
 def downgrade() -> None:
-    """Back to the lists and columns before problems' fields."""
+    """Back to the lists and columns before problems' fields (a downgrade refuses while a
+    caused_by link or a link_problem job exists: the checks would fail, keeping data intact)."""
+    op.drop_constraint(op.f(BULK_CHECK), "work_item_bulk_jobs", type_="check")
+    op.create_check_constraint(op.f(BULK_CHECK), "work_item_bulk_jobs", _in("action", BULK_BEFORE))
+    op.drop_index(ONE_CAUSE, table_name="work_item_links")
+    op.drop_constraint(op.f(LINK_CHECK), "work_item_links", type_="check")
+    op.create_check_constraint(op.f(LINK_CHECK), "work_item_links", _in("kind", LINKS_BEFORE))
     op.execute(_DROP_LISTS)
     op.drop_constraint(op.f(LIST_CHECK), "work_item_reasons", type_="check")
     op.create_check_constraint(op.f(LIST_CHECK), "work_item_reasons", _in("list", LISTS_BEFORE))

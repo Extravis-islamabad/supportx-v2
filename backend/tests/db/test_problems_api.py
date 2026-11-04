@@ -9,7 +9,8 @@ tenant isolation. Requesters never reach a problem.
 import uuid
 from typing import Any
 
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
+from app.modules.work_items.service.bulk import run_bulk_jobs
+from tests.db.test_incidents_api import CONSOLE, Org, World, field_codes, problem, role, world
 
 __all__ = ["world"]  # the fixture, re-used
 
@@ -215,3 +216,199 @@ async def test_a_problems_own_fields(world: World) -> None:
     assert {e["field"]: e["code"] for e in on_incident.json()["errors"]} == {
         "body.problem_type": "not_allowed"
     }
+
+
+# --- from incidents, similar and copy (WP-044a s3; REQ-PRB-011, -012, -014, -015) --------------
+
+
+async def causes(world: World, org: Org, incident: dict[str, Any]) -> list[str]:
+    """The display IDs of the problems an incident is caused by (at most one)."""
+    rows = await world.sql(
+        "SELECT w.display_id FROM work_item_links l JOIN work_items w ON w.id = l.target_id"
+        " WHERE l.tenant_id = $1 AND l.source_id = $2 AND l.kind = 'caused_by'"
+        " AND l.deleted_at IS NULL",
+        org.tenant,
+        uuid.UUID(incident["id"]),
+    )
+    return [r["display_id"] for r in rows]
+
+
+async def test_a_problem_from_one_incident_is_prefilled_and_linked(world: World) -> None:
+    """REQ-PRB-011 AC1, AC2: the incident's values, then caused by on both, with history."""
+    a = world.a
+    incident = await world.create(
+        a, a.admin, group_id=str(a.ga), impact="organisation", urgency="high"
+    )
+    filled = await world.call(
+        "GET", f"{PRB}/prefill?incident_id={incident['id']}", a, a.tech_a, headers=CONSOLE
+    )
+    assert filled.status_code == 200, filled.text
+    values = filled.json()
+    assert (values["subject"], values["impact"], values["urgency"]) == (
+        "Mail is down",
+        "organisation",
+        "high",
+    )
+    assert values["requester_id"] == str(a.tech_a)  # reported by: the creator
+    made = await world.call(
+        "POST",
+        f"{PRB}/from-incidents",
+        a,
+        a.tech_a,
+        json={
+            "problem": {
+                "subject": values["subject"],
+                "requester_id": values["requester_id"],
+                "group_id": str(a.ga),
+            },
+            "main_incident_id": incident["id"],
+        },
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    created = made.json()
+    assert created["bulk_jobs"] == []
+    prb = created["problem"]
+    assert await causes(world, a, incident) == [prb["display_id"]]
+    on_incident = await world.call("GET", f"/incidents/{incident['id']}/links", a, a.tech_a)
+    assert [
+        (link["relation"], link["other_type"], link["other_display_id"])
+        for link in on_incident.json()
+    ] == [("caused_by", "problem", prb["display_id"])]
+    on_problem = await world.call("GET", f"{PRB}/{prb['id']}/links", a, a.tech_a)
+    assert [(link["relation"], link["other_type"]) for link in on_problem.json()] == [
+        ("causes", "incident")
+    ]
+    history = await world.sql(
+        "SELECT record_id FROM field_changes WHERE tenant_id = $1 AND field = 'link'",
+        a.tenant,
+    )
+    assert {str(r["record_id"]) for r in history} >= {incident["id"], prb["id"]}
+    # The requester of an incident never reaches the problem through its links.
+    assert (
+        problem(
+            await world.call("GET", f"{PRB}/prefill?incident_id={incident['id']}", a, a.requester)
+        )[0]
+        == 403
+    )
+
+
+async def test_one_problem_from_many_incidents_moves_only_what_was_confirmed(
+    world: World,
+) -> None:
+    """REQ-PRB-012 AC1, AC2: the others link by job; one already caused stays unless moved."""
+    a = world.a
+    main, plain, kept, moved = [
+        await world.create(a, a.admin, group_id=str(a.ga)) for _ in range(4)
+    ]
+    older = (await new_problem(world, a, a.admin, group_id=str(a.ga))).json()
+    for incident in (kept, moved):
+        linked = await world.call(
+            "POST",
+            f"{PRB}/{older['id']}/incidents",
+            a,
+            a.tech_a,
+            json={"incident_id": incident["id"]},
+        )
+        assert linked.json() == {"linked": True}, linked.text
+    ids = [main["id"], plain["id"], kept["id"], moved["id"]]
+    preview = await world.call(
+        "POST", f"{PRB}/from-incidents/preview", a, a.tech_a, json={"incident_ids": ids}
+    )
+    assert preview.json()["already_caused"] == [
+        {"incident_id": kept["id"], "problem_display_id": older["display_id"]},
+        {"incident_id": moved["id"], "problem_display_id": older["display_id"]},
+    ]
+    made = await world.call(
+        "POST",
+        f"{PRB}/from-incidents",
+        a,
+        a.tech_a,
+        json={
+            "problem": {
+                "subject": "Mail outages",
+                "requester_id": str(a.tech_a),
+                "group_id": str(a.ga),
+            },
+            "main_incident_id": main["id"],
+            "incident_ids": ids,
+            "move_incident_ids": [moved["id"]],
+        },
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    assert len(made.json()["bulk_jobs"]) == 2  # one to link, one to move
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+    new = made.json()["problem"]["display_id"]
+    assert [await causes(world, a, i) for i in (main, plain, kept, moved)] == [
+        [new],
+        [new],
+        [older["display_id"]],  # left where it was: not confirmed
+        [new],
+    ]
+    again = await world.call(
+        "POST", f"{PRB}/{older['id']}/incidents", a, a.tech_a, json={"incident_id": main["id"]}
+    )
+    assert problem(again) == (409, "incident_has_problem")
+    assert again.json()["params"] == {"display_id": new}
+    too_many = await world.call(
+        "POST",
+        f"{PRB}/from-incidents/preview",
+        a,
+        a.tech_a,
+        json={"incident_ids": [str(uuid.uuid4()) for _ in range(1001)]},
+    )
+    assert too_many.status_code == 422  # AC4
+
+
+async def test_similar_problems_only_open_and_visible(world: World) -> None:
+    """REQ-PRB-014 AC1, AC3."""
+    a, b = world.a, world.b
+    await new_problem(world, a, a.admin, subject="Printer queue stalls on floor three")
+    await new_problem(world, b, b.admin, subject="Printer queue stalls on floor three")
+    found = await world.call("GET", f"{PRB}/similar?q=printer queue stalls", a, a.tech_a)
+    assert found.status_code == 200, found.text
+    assert [r["subject"] for r in found.json()] == ["Printer queue stalls on floor three"]
+    assert (await world.call("GET", f"{PRB}/similar?q=pr", a, a.tech_a)).json() == []
+
+
+async def test_a_copy_has_the_fields_a_marked_title_and_names_the_original(world: World) -> None:
+    """REQ-PRB-015 AC1..AC3."""
+    a = world.a
+    original = (
+        await new_problem(
+            world,
+            a,
+            a.admin,
+            group_id=str(a.ga),
+            problem_type="proactive",
+            root_cause_category="capacity_or_performance",
+        )
+    ).json()
+    await world.sql(
+        "UPDATE work_item_reasons SET disabled_at = now()"
+        " WHERE tenant_id = $1 AND type = 'problem' AND list = 'root_cause'"
+        " AND code = 'capacity_or_performance'",
+        a.tenant,
+    )
+    preview = await world.call("GET", f"{PRB}/{original['id']}/copy", a, a.tech_a)
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["left_empty"] == ["root_cause_category"]
+    made = await world.call("POST", f"{PRB}/{original['id']}/copy", a, a.tech_a, headers=CONSOLE)
+    assert made.status_code == 201, made.text
+    copy = made.json()
+    assert copy["subject"] == f"Mail keeps timing out ({original['display_id']})"
+    assert (copy["problem_type"], copy["root_cause_category"]) == ("proactive", None)
+    assert copy["display_id"] != original["display_id"]
+    named = await world.sql(
+        "SELECT new_value FROM field_changes WHERE tenant_id = $1 AND record_id = $2"
+        " AND field = 'copied_from'",
+        a.tenant,
+        uuid.UUID(copy["id"]),
+    )
+    assert len(named) == 1
+    links = await world.call("GET", f"{PRB}/{copy['id']}/links", a, a.tech_a)
+    assert links.json() == []  # links are never copied
+    assert field_codes(
+        await world.call("POST", f"{PRB}/{copy['id']}/incidents", a, a.tech_a, json={})
+    ) == {"incident_id": "required"}

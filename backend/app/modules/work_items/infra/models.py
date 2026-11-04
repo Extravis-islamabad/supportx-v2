@@ -1017,6 +1017,14 @@ class WorkItemLink(TenantEntity):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        # WP-044a: an incident is caused by at most one problem (Q2).
+        Index(
+            "uq_wil_tenant_one_cause",
+            "tenant_id",
+            "source_id",
+            unique=True,
+            postgresql_where=text("kind = 'caused_by' AND deleted_at IS NULL"),
+        ),
         Index(
             "ix_wil_tenant_target",
             "tenant_id",

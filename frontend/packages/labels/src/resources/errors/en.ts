@@ -483,6 +483,8 @@ export const en = {
     'Your organisation is not set up for sign-in yet. Ask your administrator.',
   'errors.identity_provider_unavailable':
     'Sign-in is temporarily unavailable. Please try again shortly.',
+  'errors.incident_has_problem':
+    'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
     "The article's images are too large to insert together: at most {{limit_mb}} MB.",
   'errors.internal_error': 'Something went wrong on our side. Please try again.',

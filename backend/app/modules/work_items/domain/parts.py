@@ -52,6 +52,7 @@ class LinkKind(StrEnum):
 
     RELATED = "related"  # symmetrical
     FOLLOWS = "follows"  # source follows target (a reply after the reopen window)
+    CAUSED_BY = "caused_by"  # source (an incident) is caused by target (a problem), WP-044a
 
 
 class WorklogProblem(StrEnum):

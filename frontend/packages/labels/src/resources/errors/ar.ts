@@ -450,6 +450,7 @@ export const ar: LabelResource = {
     'تعذّر الوصول إلى خدمة تسجيل الدخول الآن. حاول مجددًا بعد قليل.',
   'errors.identity_organization_missing': 'مؤسستك غير مهيأة لتسجيل الدخول بعد. اسأل المسؤول.',
   'errors.identity_provider_unavailable': 'تسجيل الدخول غير متاح مؤقتًا. يرجى المحاولة بعد قليل.',
+  'errors.incident_has_problem': 'هذه الحادثة مرتبطة بالفعل بـ {{display_id}}. انقلها للتأكيد.',
   'errors.insert_too_large': 'صور المقالة أكبر من أن تُدرج معًا: {{limit_mb}} ميغابايت على الأكثر.',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
