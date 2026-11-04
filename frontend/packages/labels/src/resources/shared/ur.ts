@@ -428,7 +428,7 @@ export const ur: LabelResource = {
   'home.seats_unlimited': '{{used}} استعمال شدہ، کوئی حد نہیں',
   'home.seats_used': '{{limit}} میں سے {{used}} استعمال شدہ',
   'home.subtitle': '{{tenant}} میں آپ کی ورک اسپیس',
-  'home.technician_seats': 'تکنیکی عملے کی نشستیں',
+  'home.technician_seats': 'ٹیکنیشن نشستیں',
   'home.title': 'خوش آمدید، {{name}}',
   'live.changed_by':
     'اس ریکارڈ کو ابھی {{name}} نے تبدیل کیا۔ محفوظ کرنے سے پہلے تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
