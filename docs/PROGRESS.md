@@ -814,10 +814,19 @@ it with no reload (rule c). Not built yet.
   link answers exactly as an unknown one (lane B); the approval engine decides from a link
   with channel `email_link`, a decided or withdrawn approval revokes its links (REQ-SR-061
   AC2). Console page `/requests/approval-link#token` (the token read from the fragment and
-  removed from the address bar). Tests: domain 4, db 4 (incl. RLS), Vitest 2. **Still to
-  do:** sending the links in the approvers' e-mail (per recipient, through lane B's engine:
-  ask lane B first), the no-sign-in mode behind an off tenant setting (D7, parked), requester
-  views and the portal approve / link page (D9, after #178), e2e.
+  removed from the address bar). Tests: domain 4, db 4 (incl. RLS), Vitest 2. Approval
+  notifications (lane B's design and review): `service_request.approval_requested` to the
+  approver (urgent, required; the e-mail carries that approver's own link, made by the
+  engine's new `RecordSource.recipient_links` hook during their render, in the delivery's
+  transaction, skipped when that e-mail already exists; `SECRET_VARIABLES` shows a
+  placeholder everywhere else), `service_request.approval_fallback` to `approve_any` holders
+  in-app only without a link; category `approval`. Tests: db 3 (one link per recipient, no
+  second link on a redelivery, none in-app, no token in the outbox or the logs).
+  **Precondition of any no-sign-in mode (D7, lane B):** mail_messages and
+  notification_deliveries keep the rendered body, link included, until purge; safe today as a
+  link is recipient-bound and needs sign-in, but bodies with links must be cleared at send
+  before that mode exists (to go in WP-030's D-file when D7 is decided). **Still to do:**
+  requester views and the portal approve / link page (D9, after #178), e2e.
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
