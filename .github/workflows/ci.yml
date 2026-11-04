@@ -160,13 +160,14 @@ jobs:
         run: uv run pytest tests/ha --no-cov -p no:cacheprovider -v
 
   backend-tests:
-    name: backend tests ${{ matrix.shard }}/3
+    name: backend tests ${{ matrix.shard }}/4
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false # every shard reports its failures in one run
       matrix:
-        shard: [1, 2, 3] # keep in step with SUPPORTX_TEST_SHARD below
+        # Four since 2026-11-04: with three, every shard ran 15-20+ min of the 20 min limit.
+        shard: [1, 2, 3, 4] # keep in step with SUPPORTX_TEST_SHARD below
     # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
     # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
     # NATS JetStream is started as a step below (service containers cannot pass `-js`).
@@ -206,7 +207,7 @@ jobs:
           --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
           --health-retries 20
     env:
-      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/3
+      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/4
       SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
       SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
       SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
