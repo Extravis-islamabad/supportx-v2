@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Literal
 
-from sqlalchemy import Select, func, literal
+from sqlalchemy import Select, func, literal, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.ai import Gateway
@@ -23,7 +23,7 @@ from app.modules.work_items.domain.plain import plain_text
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import work_items as items
-from app.shared.clock import system_clock
+from app.shared.clock import Clock, system_clock
 
 FEATURE = "possible_duplicates"
 LIMIT = 5
@@ -56,15 +56,23 @@ def _open(subject: Subject) -> Select[Any]:
 
 
 async def _by_text(session: AsyncSession, subject: Subject, title: str) -> dict[uuid.UUID, float]:
-    """Trigram similarity of the subject (no model): the open, visible incidents above TEXT_MIN."""
-    # The generated, trigram-indexed subject column (WP-027); not an ORM attribute.
-    similarity = func.similarity(
-        WorkItem.__table__.c.search_subject, func.sx_search_normalize(literal(title))
+    """Trigram similarity of the subject (no model): the open, visible incidents above TEXT_MIN.
+
+    The `%` operator, so the subject's trigram index serves it (WP-027), with its threshold set
+    for this transaction only, as the search engine does.
+    """
+    await session.execute(
+        text("SELECT set_config('pg_trgm.similarity_threshold', :value, true)"),
+        {"value": str(TEXT_MIN)},
     )
+    # The generated, trigram-indexed subject column (WP-027); not an ORM attribute.
+    column = WorkItem.__table__.c.search_subject
+    query_text = func.sx_search_normalize(literal(title))
+    similarity = func.similarity(column, query_text)
     query = (
         _open(subject)
         .with_only_columns(WorkItem.id, similarity)
-        .where(similarity >= TEXT_MIN)
+        .where(column.op("%")(query_text))
         .order_by(similarity.desc())
         .limit(LIMIT * 2)
     )
@@ -72,9 +80,9 @@ async def _by_text(session: AsyncSession, subject: Subject, title: str) -> dict[
 
 
 async def _same_requester(
-    session: AsyncSession, subject: Subject, requester_id: uuid.UUID
+    session: AsyncSession, subject: Subject, requester_id: uuid.UUID, clock: Clock
 ) -> list[uuid.UUID]:
-    since = system_clock.now() - SAME_REQUESTER_WINDOW
+    since = clock.now() - SAME_REQUESTER_WINDOW
     recent = (
         _open(subject)
         .with_only_columns(WorkItem.id)
@@ -83,7 +91,7 @@ async def _same_requester(
     return [record_id for (record_id,) in (await session.execute(recent)).all()]
 
 
-async def possible_duplicates(  # noqa: PLR0913 - the draft's parts, explicit
+async def possible_duplicates(  # noqa: PLR0913 - the draft's parts and the clock, explicit
     session: AsyncSession,
     subject: Subject,
     gateway: Gateway,
@@ -92,6 +100,7 @@ async def possible_duplicates(  # noqa: PLR0913 - the draft's parts, explicit
     description: str | None = None,
     requester_id: uuid.UUID | None = None,
     exclude: uuid.UUID | None = None,
+    clock: Clock = system_clock,
 ) -> tuple[list[Candidate], Method]:
     """The open incidents the person may see that look like this draft, and how they were found."""
     text = f"{title}\n{plain_text(description)}".strip()
@@ -119,7 +128,7 @@ async def possible_duplicates(  # noqa: PLR0913 - the draft's parts, explicit
             scores[record_id] = value
             reasons[record_id] = [reason]
     if requester_id is not None:
-        for record_id in await _same_requester(session, subject, requester_id):
+        for record_id in await _same_requester(session, subject, requester_id, clock):
             scores[record_id] = scores.get(record_id, 0.0) + SAME_REQUESTER_WEIGHT
             reasons.setdefault(record_id, []).append("same_requester")
     if exclude is not None:

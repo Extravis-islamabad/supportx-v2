@@ -484,15 +484,14 @@ export function usePossibleDuplicates(query: PossibleDuplicatesQuery, enabled = 
   return useQuery({
     meta: { silent: true }, // a hint beside the form: a failure shows nothing, never a toast
     queryKey: queryKeys.incidents.duplicates({ ...query, title }),
+    // A POST: the draft's text goes in the body, never in a URL (logs, history).
     queryFn: () =>
       call(
-        api.GET('/api/v1/incidents/possible-duplicates', {
-          params: {
-            query: {
-              title,
-              description: emptyToUndefined(query.description?.slice(0, 4000)),
-              requester_id: query.requesterId,
-            },
+        api.POST('/api/v1/incidents/possible-duplicates', {
+          body: {
+            title,
+            description: emptyToUndefined(query.description?.slice(0, 4000)),
+            requester_id: query.requesterId,
           },
         }),
       ),

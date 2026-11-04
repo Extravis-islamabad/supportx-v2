@@ -27,7 +27,9 @@ MAIL = "Outlook keeps asking for the password since Monday"
 
 
 async def duplicates(world: World, org: Org, user: Any, **query: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON
-    response = await world.call("GET", f"{BASE}/possible-duplicates", org, user, params=query)
+    response = await world.call(
+        "POST", f"{BASE}/possible-duplicates", org, user, json=query, headers=CONSOLE
+    )
     assert response.status_code == 200, response.text
     return dict(response.json())
 
@@ -110,10 +112,9 @@ async def test_req_inc_022_same_requester_within_the_hour_counts_and_needs_creat
         (recent["id"], ["same_requester"])
     ]
     refused = await world.call(
-        "GET", f"{BASE}/possible-duplicates", a, a.requester, params={"title": MAIL}
+        "POST", f"{BASE}/possible-duplicates", a, a.requester, json={"title": MAIL}, headers=CONSOLE
     )
     assert refused.status_code == 403
-    assert CONSOLE  # console headers are only needed for writes
 
 
 async def vectors(world: World, org: Org) -> int:
@@ -206,3 +207,36 @@ async def test_switching_back_on_backfills_the_index(world: World) -> None:
     await ai_settings(world, a, disabled_features=[])
     await reembed_sweep(world.app.state.db, make_settings(), FakeProvider())
     assert await vectors(world, a) == 2
+
+
+async def test_the_same_requester_window_is_one_hour_by_the_clock(world: World) -> None:
+    from datetime import datetime, timedelta  # noqa: PLC0415 - this test only
+
+    from app.modules.ai import GATEWAY_STATE  # noqa: PLC0415 - this test only
+    from app.modules.work_items.service.duplicates import possible_duplicates  # noqa: PLC0415
+    from app.shared.clock import system_clock  # noqa: PLC0415 - this test only
+
+    a = world.a
+    await ai_settings(world, a, disabled_features=["possible_duplicates"])
+    recent = await world.create(a, a.tech_a, group_id=str(a.ga), subject="Laptop will not start")
+
+    class Later:
+        def now(self) -> datetime:
+            return system_clock.now() + timedelta(hours=1, minutes=1)
+
+    subject = await world.app.state.policy.subject(a.tenant, a.tech_a)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        gateway = getattr(world.app.state, GATEWAY_STATE)
+        now, _ = await possible_duplicates(
+            session, subject, gateway, title="Badge reader broken", requester_id=a.requester
+        )
+        later, _ = await possible_duplicates(
+            session,
+            subject,
+            gateway,
+            title="Badge reader broken",
+            requester_id=a.requester,
+            clock=Later(),
+        )
+    assert [str(c.record.id) for c in now] == [recent["id"]]
+    assert later == []

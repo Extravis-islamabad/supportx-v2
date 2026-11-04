@@ -1,9 +1,9 @@
 import { CopyOutlined } from '@ant-design/icons';
-import { Card, Flex, List, Tag, Typography } from 'antd';
+import { Card, Flex, List, Typography } from 'antd';
 import { Link } from 'react-router';
 
 import { useIncidentCatalogue, type PossibleDuplicates } from '@supportx/api-client';
-import { useAppearance, useLabel } from '@supportx/ui';
+import { ToneTag, useAppearance, useLabel } from '@supportx/ui';
 
 import { statusLabel } from './labels';
 
@@ -38,15 +38,19 @@ export function DuplicatesPanel({ found }: { found: PossibleDuplicates | undefin
           <List.Item data-testid={`inc-duplicate-${entry.item.display_id}`}>
             <Flex vertical gap={2} style={{ minWidth: 0 }}>
               <Link to={`/incidents/${entry.item.id}`} target="_blank" rel="noopener">
-                <Typography.Text strong>{entry.item.display_id}</Typography.Text>{' '}
+                <Typography.Text strong>
+                  <bdi dir="ltr">{entry.item.display_id}</bdi>
+                </Typography.Text>{' '}
                 <bdi dir="auto">{entry.item.subject}</bdi>
               </Link>
               <Flex gap={4} wrap>
-                <Tag>{statusLabel(t, catalogue.data, entry.item.status, locale)}</Tag>
+                <ToneTag tone="default">
+                  {statusLabel(t, catalogue.data, entry.item.status, locale)}
+                </ToneTag>
                 {entry.reasons.map((reason) => (
-                  <Tag key={reason} color="blue">
+                  <ToneTag key={reason} tone="info">
                     {t(`duplicate_reason.${reason}`)}
-                  </Tag>
+                  </ToneTag>
                 ))}
               </Flex>
             </Flex>

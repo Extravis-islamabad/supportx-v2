@@ -680,6 +680,17 @@ class WorkItemSearchOut(BaseModel):
     people: dict[str, PersonOut] = Field(default_factory=dict)
 
 
+class DuplicatesQuery(BaseModel):
+    """A draft incident, to look for possible duplicates of (REQ-INC-022)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(max_length=250)
+    description: str | None = Field(default=None, max_length=4000)
+    requester_id: uuid.UUID | None = None
+    exclude: uuid.UUID | None = None
+
+
 class DuplicateOut(BaseModel):
     """An open incident that may be the same issue (REQ-INC-022)."""
 
@@ -1285,18 +1296,16 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
 
     if wtype is INCIDENT:
 
-        @router.get("/possible-duplicates", summary="Possible duplicates of a new incident")
-        async def possible_duplicates(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query
+        @router.post("/possible-duplicates", summary="Possible duplicates of a new incident")
+        async def possible_duplicates(
+            body: DuplicatesQuery,
             session: TenantSession,
             subject: Create,
             request: Request,
-            title: Annotated[str, Query(max_length=250, description="The draft's subject.")],
-            description: Annotated[str | None, Query(max_length=4000)] = None,
-            requester_id: uuid.UUID | None = None,
-            exclude: uuid.UUID | None = None,
         ) -> DuplicatesOut:
             """Open incidents you may see that look like the one being written (REQ-INC-022).
 
+            A POST: the draft's text travels in the body, never in a URL (proxy logs, history).
             With AI on: by meaning (logged as an AI call). With AI off: by subject, no model
             (D-134). The same requester's incidents from the last hour count extra.
             """
@@ -1305,10 +1314,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 session,
                 subject,
                 gateway,
-                title=strip_isolates(title).strip(),
-                description=description,
-                requester_id=requester_id,
-                exclude=exclude,
+                title=strip_isolates(body.title).strip(),
+                description=body.description,
+                requester_id=body.requester_id,
+                exclude=body.exclude,
             )
             people = sorted(
                 {

@@ -1,8 +1,8 @@
 import { ReloadOutlined, RobotOutlined } from '@ant-design/icons';
-import { Button, Card, Flex, Skeleton, Tag, Typography } from 'antd';
+import { Button, Card, Flex, Skeleton, Typography } from 'antd';
 
 import { useAiSettings, useAiSummary, useRefreshAiSummary } from '@supportx/api-client';
-import { reportError, useDateTime, useLabel } from '@supportx/ui';
+import { reportError, ToneTag, useDateTime, useLabel } from '@supportx/ui';
 
 // The conversation summary at the top of the record's panel (WP-038, REQ-INC-137): made on
 // request through the AI gateway, kept until a newer reply or note makes it stale (live, from
@@ -51,11 +51,13 @@ export function SummaryCard({ recordId }: { recordId: string }) {
         <Flex vertical gap={8}>
           <Flex gap={4} wrap>
             {data.stale && (
-              <Tag color="warning" data-testid="ai-summary-stale">
+              <ToneTag tone="warning" testId="ai-summary-stale">
                 {t('ai.summary.stale')}
-              </Tag>
+              </ToneTag>
             )}
-            {data.includes_private && <Tag>{t('ai.summary.includes_private')}</Tag>}
+            {data.includes_private && (
+              <ToneTag tone="default">{t('ai.summary.includes_private')}</ToneTag>
+            )}
           </Flex>
           <Typography.Paragraph
             dir="auto"
