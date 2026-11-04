@@ -32,7 +32,8 @@ export interface CommandPaletteProps {
   onNavigate: (path: string) => void;
   /** What is typed, for the caller's record search (WP-027). */
   onQueryChange?: (query: string) => void;
-  records?: PaletteRecords;
+  /** One group per record kind (incidents, knowledge …), in the order given. */
+  records?: PaletteRecords | readonly PaletteRecords[];
 }
 
 interface Group {
@@ -56,6 +57,9 @@ export function CommandPalette({
   records,
 }: CommandPaletteProps) {
   const t = useLabel();
+  const kinds = records === undefined ? [] : 'items' in records ? [records] : records;
+  const searching = records !== undefined;
+  const loading = kinds.some((kind) => kind.loading);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
 
@@ -71,13 +75,17 @@ export function CommandPalette({
     if (pages.length > 0)
       list.push({
         key: 'pages',
-        heading: records === undefined ? undefined : t('palette.pages'),
+        heading: searching ? t('palette.pages') : undefined,
         items: pages,
       });
-    if (records !== undefined && records.items.length > 0)
-      list.push({ key: 'records', heading: records.title, items: records.items });
+    kinds.forEach((kind, index) => {
+      if (kind.items.length > 0)
+        list.push({ key: `records-${String(index)}`, heading: kind.title, items: kind.items });
+    });
     return list;
-  }, [commands, query, records, t]);
+    // `kinds` is derived from `records` on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+  }, [commands, query, records, searching, t]);
   const rows = groups.flatMap((group) => group.items);
 
   const close = () => {
@@ -108,11 +116,9 @@ export function CommandPalette({
         aria-controls={rows.length > 0 ? 'command-palette-list' : undefined}
         aria-activedescendant={rows.length > 0 ? `palette-option-${String(active)}` : undefined}
         aria-label={t('palette.placeholder')}
-        placeholder={t(
-          records === undefined ? 'palette.placeholder' : 'palette.placeholder_search',
-        )}
+        placeholder={t(searching ? 'palette.placeholder_search' : 'palette.placeholder')}
         value={query}
-        suffix={records?.loading === true ? <Spin size="small" /> : <span />}
+        suffix={loading ? <Spin size="small" /> : <span />}
         onChange={(event) => {
           setQuery(event.target.value);
           setActive(0);
@@ -126,9 +132,7 @@ export function CommandPalette({
       />
       {rows.length === 0 ? (
         <div style={{ marginTop: 12 }}>
-          <EmptyText>
-            {t(records?.loading === true ? 'palette.searching' : 'palette.no_results')}
-          </EmptyText>
+          <EmptyText>{t(loading ? 'palette.searching' : 'palette.no_results')}</EmptyText>
         </div>
       ) : (
         <div

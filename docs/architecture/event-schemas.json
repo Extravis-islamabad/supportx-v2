@@ -2231,6 +2231,29 @@
         "type": "object"
       }
     },
+    "knowledge.vote.saved": {
+      "1": {
+        "description": "Someone voted on whether an article helped, or changed their vote (REQ-KB-069).\n\nNo person, answer or comment: the article page refetches the counts with its reader's rights.",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "article_id",
+          "version_id"
+        ],
+        "title": "KbVoteSaved",
+        "type": "object"
+      }
+    },
     "licensing.entitlement.changed": {
       "1": {
         "description": "The tenant's entitlement changed (plan, add-ons, limits, term or status).\n\nConsumers: the entitlement cache invalidation (this module); later the realtime fan-out\n(WP-011) so open consoles re-read GET /api/v1/entitlements and show or hide menus live.",

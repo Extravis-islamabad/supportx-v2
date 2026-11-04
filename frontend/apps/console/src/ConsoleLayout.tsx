@@ -50,6 +50,7 @@ import { LoopBanner } from './pages/admin/automation/LoopBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
 import { pagesFor } from './pages/admin/setupMap';
 import { usePaletteIncidents } from './pages/incidents/usePaletteIncidents';
+import { usePaletteKnowledge } from './pages/knowledge/usePaletteKnowledge';
 
 import { NAV } from './nav';
 
@@ -167,6 +168,14 @@ export function ConsoleLayout() {
     session?.user.id ?? null,
     access.can('incidents.view') && licence.has('incident'),
   );
+  const paletteKnowledge = usePaletteKnowledge(
+    paletteOpen,
+    paletteQuery,
+    access.can('knowledge.view'),
+  );
+  const paletteGroups = [paletteRecords, paletteKnowledge].filter(
+    (group): group is NonNullable<typeof group> => group !== undefined,
+  );
   const section = pathname.split('/')[1] ?? '';
   const activeKey = section === '' ? 'home' : section;
   // Where the user is (2026-10-28): the page's own crumbs, else its section; the tab says it too.
@@ -270,7 +279,7 @@ export function ConsoleLayout() {
         commands={commands}
         onNavigate={(path) => void navigate(path)}
         onQueryChange={setPaletteQuery}
-        records={paletteRecords}
+        records={paletteGroups.length > 0 ? paletteGroups : undefined}
       />
     </AppShell>
   );

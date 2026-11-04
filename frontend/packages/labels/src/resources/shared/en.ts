@@ -516,6 +516,7 @@ export const en = {
     'Time zone, formats, fiscal year, base currency and the languages offered.',
   'setup.page.instance.keywords':
     'instance, time zone, timezone, date format, week start, fiscal year, currency, languages, country',
+  'search.knowledge': 'Knowledge articles',
   'nav.admin_api_keys': 'API keys',
   'api_scope_access.read': 'Read',
   'api_scope_access.write': 'Write',

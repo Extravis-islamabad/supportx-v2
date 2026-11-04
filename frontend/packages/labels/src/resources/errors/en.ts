@@ -648,6 +648,15 @@ export const en = {
     'The default language must be one of the languages offered.',
   'errors.currency_change_needs_confirmation':
     'Changing the base currency needs a confirmation: amounts already recorded stay in the old one.',
+  'errors.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
+  'errors.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
+  'errors.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
+  'errors.kb_version_not_published':
+    'That version is no longer the one readers see. Reload the article and try again.',
+  'errors.kb_requesters_off': 'Knowledge articles are not available here.',
+  'errors.field.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
+  'errors.field.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
+  'errors.field.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.api_key_not_allowed': 'API keys cannot be used here: sign in through the browser.',
   'errors.api_scope_missing': 'This API key does not have the scope {{scope}}.',
   'errors.api_keys_unavailable': 'API keys are not set up on this installation.',

@@ -513,6 +513,7 @@ export const ar: LabelResource = {
     'المنطقة الزمنية والتنسيقات والسنة المالية والعملة الأساسية واللغات المتاحة.',
   'setup.page.instance.keywords':
     'منطقة زمنية، تنسيق التاريخ، بداية الأسبوع، السنة المالية، عملة، لغات، دولة',
+  'search.knowledge': 'مقالات المعرفة',
   'nav.admin_api_keys': 'مفاتيح API',
   'api_scope_access.read': 'قراءة',
   'api_scope_access.write': 'كتابة',

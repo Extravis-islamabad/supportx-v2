@@ -8,7 +8,7 @@ Expand only:
 No data step. The downgrade drops the table (members lose the roles they held through groups).
 
 Revision ID: 0061
-Revises: 0055 (re-pointed onto the head of main when queued; 0055 to 0060 may come first)
+Revises: 0050 (re-pointed onto the head of main when queued)
 Created: 2026-11-04
 """
 
@@ -20,7 +20,7 @@ from alembic import op
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0061"
-down_revision: str | None = "0055"
+down_revision: str | None = "0050"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

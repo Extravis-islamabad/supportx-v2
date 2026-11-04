@@ -6,7 +6,7 @@ import {
   FolderAddOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
-import { Badge, Button, Card, Flex, Input, Select, Space, Table, Tree, Typography } from 'antd';
+import { Badge, Button, Card, Flex, Input, Select, Space, Table, Tree } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
@@ -22,7 +22,15 @@ import {
   type KbTopic,
   type KbView,
 } from '@supportx/api-client';
-import { EmptyText, NoAccess, useAccess, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import {
+  PageHeader,
+  EmptyText,
+  NoAccess,
+  useAccess,
+  useAppearance,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
 import { useKnowledgeLive } from './live';
 import { ArticleFlags, VersionStatusTag } from './tags';
@@ -142,32 +150,33 @@ export function KnowledgePage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={1} style={{ margin: 0 }}>
-          {t('knowledge.title')}
-        </Typography.Title>
-        <Space wrap>
-          {can('knowledge.approve') && (
-            <Link to="/knowledge/approvals" data-testid="kb-open-inbox">
-              <Badge count={awaiting} size="small" offset={[8, 0]}>
-                {t('knowledge.inbox.title')}
-              </Badge>
-            </Link>
-          )}
-          {can('knowledge.create') && (
-            <WriteButton
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() =>
-                void navigate(`/knowledge/articles/new${topicId ? `?topic=${topicId}` : ''}`)
-              }
-              data-testid="kb-new-article"
-            >
-              {t('knowledge.new_article')}
-            </WriteButton>
-          )}
-        </Space>
-      </Flex>
+      <PageHeader
+        title={t('knowledge.title')}
+        testId="kb-header"
+        extra={
+          <Space wrap>
+            {can('knowledge.approve') && (
+              <Link to="/knowledge/approvals" data-testid="kb-open-inbox">
+                <Badge count={awaiting} size="small" offset={[8, 0]}>
+                  {t('knowledge.inbox.title')}
+                </Badge>
+              </Link>
+            )}
+            {can('knowledge.create') && (
+              <WriteButton
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() =>
+                  void navigate(`/knowledge/articles/new${topicId ? `?topic=${topicId}` : ''}`)
+                }
+                data-testid="kb-new-article"
+              >
+                {t('knowledge.new_article')}
+              </WriteButton>
+            )}
+          </Space>
+        }
+      />
       <Flex gap={16} wrap align="start">
         <Card
           size="small"

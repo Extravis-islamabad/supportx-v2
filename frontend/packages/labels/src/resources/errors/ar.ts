@@ -596,6 +596,15 @@ export const ar: LabelResource = {
   'errors.field.default_language_not_offered': 'يجب أن تكون اللغة الافتراضية إحدى اللغات المتاحة.',
   'errors.currency_change_needs_confirmation':
     'يتطلب تغيير العملة الأساسية تأكيدًا: تبقى المبالغ المسجلة سابقًا بالعملة القديمة.',
+  'errors.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
+  'errors.kb_vote_reason_unknown': 'اختر أحد الأسباب المعروضة.',
+  'errors.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',
+  'errors.kb_version_not_published':
+    'لم يعد هذا الإصدار هو ما يراه القرّاء. أعد تحميل المقالة وحاول مرة أخرى.',
+  'errors.kb_requesters_off': 'مقالات المعرفة غير متاحة هنا.',
+  'errors.field.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
+  'errors.field.kb_vote_reason_unknown': 'اختر أحد الأسباب المعروضة.',
+  'errors.field.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',
   'errors.api_key_not_allowed': 'لا يمكن استخدام مفاتيح API هنا: سجّل الدخول عبر المتصفح.',
   'errors.api_scope_missing': 'مفتاح API هذا لا يملك النطاق {{scope}}.',
   'errors.api_keys_unavailable': 'مفاتيح API غير مُعدّة في هذا التثبيت.',

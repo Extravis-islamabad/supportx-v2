@@ -158,4 +158,11 @@ export const ur: LabelResource = {
     'انگریزی ہمیشہ دستیاب ہے۔ جس کی زبان بند ہو وہ پہلے سے طے شدہ زبان دیکھتا ہے۔',
   'instance.default_language': 'پہلے سے طے شدہ زبان',
   'instance.saved': 'محفوظ ہو گیا۔',
+  'tenant_status.active': 'فعال',
+  'tenant_status.suspended': 'معطل',
+  'weekday.mon': 'پیر',
+  'weekday.tue': 'منگل',
+  'weekday.wed': 'بدھ',
+  'weekday.thu': 'جمعرات',
+  'weekday.fri': 'جمعہ',
 };

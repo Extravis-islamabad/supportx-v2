@@ -524,6 +524,7 @@ export const ar: LabelResource = {
   'history.sla_escalation': '{{target}}: نُفِّذ المستوى {{level}}',
   'event_type.organization.tenant_settings.changed': 'تغيّرت إعدادات المنشأة',
   'audit.action.organization.settings_changed': 'غيّر إعدادات المنشأة',
+  'event_type.knowledge.vote.saved': 'حُفظ تقييم مقالة معرفة',
   'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
   'audit.action.api_key.created': 'أنشأ مفتاح API',
   'audit.action.api_key.revoked': 'أبطل مفتاح API',
