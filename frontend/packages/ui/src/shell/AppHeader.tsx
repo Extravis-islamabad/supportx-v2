@@ -122,7 +122,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   const t = useLabel();
   const { token } = theme.useToken();
-  const { mode, branding } = useAppearance();
+  const { mode } = useAppearance();
   const [aboutOpen, setAboutOpen] = useState(false);
   const screens = Grid.useBreakpoint();
   // Narrow only when a small breakpoint was measured: before the first measurement (and where
@@ -176,15 +176,10 @@ export function AppHeader({
         gap: narrow ? 8 : 16,
         paddingInline: narrow ? 12 : 24,
         minWidth: 0,
-        // A thin brand gradient along the top edge (decorative); high contrast keeps it solid.
+        // The white top bar (UI pass 2): one in every layout, a 1px line below it.
+        minHeight: 56,
         backgroundColor: token.colorBgContainer,
-        backgroundImage:
-          mode === 'high_contrast'
-            ? `linear-gradient(${token.colorText}, ${token.colorText})`
-            : `linear-gradient(90deg, ${branding.gradient[0]}, ${branding.gradient[1]})`,
-        backgroundSize: '100% 3px',
-        backgroundRepeat: 'no-repeat',
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        borderBottom: `1px solid ${mode === 'high_contrast' ? token.colorText : token.colorBorderSecondary}`,
         lineHeight: 'normal',
       }}
     >
@@ -202,8 +197,22 @@ export function AppHeader({
             data-testid="open-palette"
           />
         ) : (
-          <Button icon={<SearchOutlined />} onClick={onOpenPalette} data-testid="open-palette">
-            {t('palette.open')} <Typography.Text keyboard>{t('palette.shortcut')}</Typography.Text>
+          // Looks like the search field it opens (the command palette), not a button.
+          <Button
+            icon={<SearchOutlined />}
+            onClick={onOpenPalette}
+            data-testid="open-palette"
+            aria-haspopup="dialog"
+            style={{
+              flex: '0 1 380px',
+              justifyContent: 'flex-start',
+              background: token.colorFillAlter,
+              color: token.colorTextSecondary,
+              fontWeight: 400,
+            }}
+          >
+            <span style={{ flex: 1, textAlign: 'start' }}>{t('palette.open')}</span>
+            <Typography.Text keyboard>{t('palette.shortcut')}</Typography.Text>
           </Button>
         ))}
       {extra}
@@ -292,7 +301,14 @@ export function AppHeader({
               <span className="sx-visually-hidden">{`${t('shell.menu')}: ${session.user.display_name}`}</span>
             )}
             {!narrow && (
-              <Typography.Text data-testid="user-name">{session.user.display_name}</Typography.Text>
+              <Flex vertical align="flex-start" style={{ lineHeight: 1.2 }}>
+                <Typography.Text strong data-testid="user-name">
+                  {session.user.display_name}
+                </Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {t(`user_type.${session.user.user_type}`)}
+                </Typography.Text>
+              </Flex>
             )}
             <DownOutlined aria-hidden />
           </Flex>

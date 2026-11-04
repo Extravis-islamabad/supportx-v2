@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Design system: Ant Design theme tokens, appearance (light/dark, RTL, locale), wrapped components (architecture.md \u00a79.2).",
+  "description": "Design system: Ant Design theme tokens, appearance (light/dark, RTL, locale), wrapped components (architecture.md §9.2).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/noto-nastaliq-urdu": "5.3.0",
+    "@fontsource/noto-sans-arabic": "5.3.0",
     "@supportx/api-client": "workspace:*",
     "@supportx/labels": "workspace:*",
     "@supportx/realtime": "workspace:*",

@@ -20,8 +20,8 @@ import {
   Select,
   Space,
   Spin,
-  Statistic,
   Tag,
+  theme,
   Tooltip,
   Typography,
 } from 'antd';
@@ -36,7 +36,6 @@ import {
   type ReportDefinition,
   type ReportResult,
 } from '@supportx/api-client';
-import { Chart, kitOption } from '@supportx/charts';
 import { useIsolate, useJoinParts, useLabels } from '@supportx/labels';
 import { TYPE } from '@supportx/ui';
 
@@ -310,6 +309,7 @@ function KpiTile({
   onDrill: () => void;
 }) {
   const t = useLabels();
+  const { token } = theme.useToken();
   const isolate = useIsolate();
   const period = kpiPeriod(definition);
   const [now] = useState(() => new Date());
@@ -327,28 +327,35 @@ function KpiTile({
     measure.better,
   );
   const points = spark.data?.rows.map((r) => r.values[0] ?? null) ?? [];
+  // The target's tile (UI pass 2): the measure on top, a 30 px number with its sparkline beside
+  // it, and the change against the previous period below.
+  const sparkColour =
+    moved?.good === true
+      ? token.colorSuccess
+      : moved?.good === false
+        ? token.colorError
+        : token.colorPrimary;
   return (
-    <Space direction="vertical" size={4} style={{ width: '100%' }}>
-      {/* A dashboard number reads at a glance: 28 px, the measure as a small line (D-124). */}
-      <Statistic
-        title={
-          <span style={{ fontSize: TYPE.meta }}>
-            {words.measure(result.entity, measure.code).name}
-          </span>
-        }
-        valueRender={() => (
-          <Typography.Link
-            onClick={onDrill}
-            style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}
-            data-testid="widget-kpi-value"
-          >
-            {words.value(measure, value)}
-          </Typography.Link>
+    <Flex vertical gap={6} style={{ width: '100%' }}>
+      <span style={{ fontSize: TYPE.meta, fontWeight: 600, color: token.colorTextSecondary }}>
+        {words.measure(result.entity, measure.code).name}
+      </span>
+      <Flex align="flex-end" justify="space-between" gap={8}>
+        <Typography.Link
+          onClick={onDrill}
+          style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, letterSpacing: -0.5 }}
+          data-testid="widget-kpi-value"
+        >
+          {words.value(measure, value)}
+        </Typography.Link>
+        {points.length > 1 && (
+          <Sparkline points={points} colour={sparkColour} label={t('dashboards.sparkline')} />
         )}
-      />
+      </Flex>
       {moved !== null && (
         <Typography.Text
           type={moved.good === null ? 'secondary' : moved.good ? 'success' : 'danger'}
+          style={{ fontSize: TYPE.meta, fontWeight: 600 }}
           data-testid="widget-kpi-trend"
         >
           {moved.delta > 0 ? <ArrowUpOutlined /> : moved.delta < 0 ? <ArrowDownOutlined /> : null}{' '}
@@ -362,23 +369,36 @@ function KpiTile({
           )}
         </Typography.Text>
       )}
-      {points.length > 1 && (
-        <Chart
-          height={48}
-          ariaLabel={t('dashboards.sparkline')}
-          option={{
-            ...kitOption({
-              type: 'line',
-              categories: points.map((_, i) => String(i)),
-              series: [{ name: words.measure(result.entity, measure.code).name, values: points }],
-            }),
-            xAxis: { type: 'category', show: false, data: points.map((_, i) => String(i)) },
-            yAxis: { type: 'value', show: false },
-            grid: { left: 0, right: 0, top: 4, bottom: 4 },
-            tooltip: { show: false },
-          }}
-        />
-      )}
-    </Space>
+    </Flex>
+  );
+}
+
+/** A small trend line (88 x 30), drawn directly: a tile needs no chart engine for it. */
+function Sparkline({
+  points,
+  colour,
+  label,
+}: {
+  points: (number | null)[];
+  colour: string;
+  label: string;
+}) {
+  const values = points.map((p) => p ?? 0);
+  const max = Math.max(...values, 1) * 1.05;
+  const step = 84 / Math.max(values.length - 1, 1);
+  const line = values
+    .map((v, i) => `${(2 + i * step).toFixed(1)},${(27 - (v / max) * 24).toFixed(1)}`)
+    .join(' ');
+  return (
+    <svg width={88} height={30} viewBox="0 0 88 30" role="img" aria-label={label}>
+      <polyline
+        points={line}
+        fill="none"
+        stroke={colour}
+        strokeWidth={2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

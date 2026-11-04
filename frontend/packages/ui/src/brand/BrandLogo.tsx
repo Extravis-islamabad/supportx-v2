@@ -8,6 +8,8 @@ export interface BrandLogoProps {
   variant?: LogoVariant;
   /** Rendered height in CSS pixels (the files are drawn at three times the usual sizes). */
   height?: number;
+  /** What it sits on: `dark` (the navigation, in every mode) always takes the white-text logo. */
+  surface?: 'page' | 'dark';
 }
 
 /**
@@ -15,14 +17,21 @@ export interface BrandLogoProps {
  * theme: dark text on light, white text on dark, one colour in high contrast. Its accessible
  * name is the product name. Without an icon file the narrow variant shows the short name.
  */
-export function BrandLogo({ variant = 'full', height = 32 }: BrandLogoProps) {
+export function BrandLogo({ variant = 'full', height = 32, surface = 'page' }: BrandLogoProps) {
   const t = useLabel();
   const { mode, branding, locale } = useAppearance();
-  const src = logoFor(branding.logos, mode, variant);
+  const src = logoFor(branding.logos, surface === 'dark' ? 'dark' : mode, variant);
   const name = brandText(branding, 'productName', locale);
   if (src === undefined) {
     return (
-      <Typography.Text strong style={{ fontSize: 18, whiteSpace: 'nowrap' }}>
+      <Typography.Text
+        strong
+        style={{
+          fontSize: 18,
+          whiteSpace: 'nowrap',
+          color: surface === 'dark' ? '#FFFFFF' : undefined,
+        }}
+      >
         {name ?? t('product.short_name')}
       </Typography.Text>
     );

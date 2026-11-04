@@ -638,6 +638,15 @@ importers:
       '@ant-design/icons':
         specifier: ^5.6.1
         version: 5.6.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@fontsource/inter':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/noto-nastaliq-urdu':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/noto-sans-arabic':
+        specifier: 5.3.0
+        version: 5.3.0
       '@supportx/api-client':
         specifier: workspace:*
         version: link:../api-client
@@ -947,6 +956,15 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fontsource/inter@5.3.0':
+    resolution: {integrity: sha512-RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g==}
+
+  '@fontsource/noto-nastaliq-urdu@5.3.0':
+    resolution: {integrity: sha512-rhozTu22mlnDp5R8A4gGeNJvoLroHEV0TytCwly20w1LMA+VXs/MyhORGJu3i3SWZFdyeCFe5EF5xzraq6zd6A==}
+
+  '@fontsource/noto-sans-arabic@5.3.0':
+    resolution: {integrity: sha512-i3t6GR0LOReyJVEk+YfYCnxv53wuIelg7Y9NGNvOq4Diq/EP0YszaGXkQwfQNigLjfO4POrLaPGM0sNliGYk7A==}
 
   '@hookform/resolvers@5.9.2':
     resolution: {integrity: sha512-RtjTnZqsC38s4NKp2XO3fD8IA5uyN4tB7McQ5C6uiMPcV+WWO8F+wVa3e+BXUpH2ScgxghAlwFRMVqjT9WChAQ==}
@@ -3153,6 +3171,12 @@ snapshots:
       '@floating-ui/utils': 0.2.12
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@fontsource/inter@5.3.0': {}
+
+  '@fontsource/noto-nastaliq-urdu@5.3.0': {}
+
+  '@fontsource/noto-sans-arabic@5.3.0': {}
 
   '@hookform/resolvers@5.9.2(react-hook-form@7.91.0(@types/react@18.3.31)(react@18.3.1))(zod@4.6.7)':
     dependencies:
