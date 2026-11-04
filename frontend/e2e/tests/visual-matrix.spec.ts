@@ -305,7 +305,9 @@ async function shoot(page: Page, shot: Shot, screen: Screen): Promise<void> {
     if (screen.loading) {
       await page.route('**/api/v1/**', async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 4000));
-        await route.continue();
+        // The shot may be taken (and the route removed, or the page gone) before the delay
+        // ends: a late continue is then refused, which must not fail the run.
+        await route.continue().catch(() => undefined);
       });
       await page.goto(shot.url, { waitUntil: 'commit' });
       await page.waitForTimeout(1200);
@@ -339,7 +341,8 @@ async function shoot(page: Page, shot: Shot, screen: Screen): Promise<void> {
     // A screen that breaks is a finding, not a crash of the run.
     shot.error = error instanceof Error ? error.message.split('\n')[0] : String(error);
   } finally {
-    if (screen.loading) await page.unroute('**/api/v1/**');
+    // Delayed handlers may still be waiting: drop them without waiting or failing.
+    if (screen.loading) await page.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => undefined);
   }
 }
 

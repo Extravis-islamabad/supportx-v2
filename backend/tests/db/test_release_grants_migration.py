@@ -121,7 +121,35 @@ async def _revoke(url: str, role: uuid.UUID, permission: str) -> None:
         await conn.close()
 
 
-@pytest.mark.parametrize("change", ["delete_granted", "trimmed_to_assign"])
+async def _rescope(url: str, role: uuid.UUID, permission: str, scope: str) -> None:
+    conn = await asyncpg.connect(url)
+    try:
+        await conn.execute(
+            "UPDATE role_permissions SET scope = $3 WHERE role_id = $1 AND permission = $2",
+            role,
+            permission,
+            scope,
+        )
+    finally:
+        await conn.close()
+
+
+async def _condition(url: str, role: uuid.UUID, permission: str) -> None:
+    conn = await asyncpg.connect(url)
+    try:
+        await conn.execute(
+            'UPDATE role_permissions SET condition = \'{"field": "priority"}\'::jsonb'
+            " WHERE role_id = $1 AND permission = $2",
+            role,
+            permission,
+        )
+    finally:
+        await conn.close()
+
+
+@pytest.mark.parametrize(
+    "change", ["delete_granted", "trimmed_to_assign", "different_scopes", "different_conditions"]
+)
 def test_the_downgrade_refuses_rather_than_lose_a_grant_made_after_the_upgrade(
     at_0090: db_testing.ThrowawayDatabase, change: str
 ) -> None:
@@ -129,9 +157,13 @@ def test_the_downgrade_refuses_rather_than_lose_a_grant_made_after_the_upgrade(
     db_testing.migrate(at_0090.migrator_url, "0091")
     if change == "delete_granted":  # a key manage never covered
         asyncio.run(_grant(at_0090.admin_url, roles["wide"], "releases.delete", "all"))
-    else:  # a role trimmed to assign only: manage would widen it
+    elif change == "trimmed_to_assign":  # a role trimmed to assign only: manage would widen it
         for key in ("releases.create", "releases.edit", "releases.cancel", "releases.reopen"):
             asyncio.run(_revoke(at_0090.admin_url, roles["group"], key))
+    elif change == "different_scopes":  # assign widened to all, edit still at group
+        asyncio.run(_rescope(at_0090.admin_url, roles["group"], "releases.assign", "all"))
+    else:  # cancel limited by a condition the others do not have
+        asyncio.run(_condition(at_0090.admin_url, roles["group"], "releases.cancel"))
     before = {k: asyncio.run(_grants(at_0090.admin_url, r)) for k, r in roles.items()}
     with pytest.raises(Exception, match="going below 0091"):
         db_testing.downgrade(at_0090.migrator_url, "0090")

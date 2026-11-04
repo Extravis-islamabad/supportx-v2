@@ -10,8 +10,8 @@ RLS; see 0023, 0036, 0077).
 The downgrade folds back only what releases.manage can represent without losing or widening a
 grant (lane B's review, CLAUDE.md rule 5h): a role holding exactly the five keys the upgrade
 made (create at all; edit, assign, cancel and reopen at one scope S) gets releases.manage at S.
-Any other release key (delete, take, ...), a partial set, or the four at different scopes stops
-the downgrade with an error and changes nothing.
+Any other release key (delete, take, ...), a partial set, the four at different scopes, or the
+five with different attribute conditions stops the downgrade with an error and changes nothing.
 
 Revision ID: 0091
 Revises: 0090
@@ -72,9 +72,11 @@ _REFUSE = f"""
             HAVING count(*) <> 5
                 OR count(DISTINCT scope) FILTER (WHERE permission IN {_FOLDED}) <> 1
                 OR bool_or(permission = 'releases.create' AND scope <> 'all')
+                OR count(DISTINCT coalesce(condition::text, '')) <> 1
         ) THEN
-            RAISE EXCEPTION 'a role holds only part of the release keys, or at different scopes:'
-                ' releases.manage cannot represent it, so going below 0091 is refused';
+            RAISE EXCEPTION 'a role holds only part of the release keys, or at different scopes'
+                ' or conditions: releases.manage cannot represent it, so going below 0091 is'
+                ' refused';
         END IF;
 """  # noqa: S608 - fixed key lists, no input
 

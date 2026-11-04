@@ -160,7 +160,27 @@ postgresql:
       defaultPoolSize: "25"
       maxClientConn: "500"
       tcpUserTimeoutMs: ""          # PgBouncer tcp_user_timeout; values-ha.yaml sets it
-    # Backups to S3-compatible storage (Barman Cloud plugin): WP-014b.
+    # Backups (WP-014b): WAL archived continuously and a base backup on `schedule`, through
+    # CloudNativePG's Barman Cloud plugin (a cluster prerequisite, like the operator), so the
+    # database can be restored to any moment in `retentionPolicy` (point-in-time recovery).
+    backup:
+      enabled: false
+      # Empty: this release's object storage (SeaweedFS in this release, or objectStorage.external),
+      # in its bucket under backups/postgres. A separate bucket and credentials are safer (the app's
+      # keys can then not touch the backups): set destinationPath, endpointURL and credentialsSecret.
+      destinationPath: ""             # e.g. s3://supportx-backups/postgres
+      endpointURL: ""
+      credentialsSecret: ""           # keys ACCESS_KEY_ID and ACCESS_SECRET_KEY; empty: the app Secret's S3 keys
+      retentionPolicy: "30d"
+      schedule: "0 0 2 * * *"         # CloudNativePG's six fields (seconds first): daily at 02:00
+      walCompression: gzip
+      # At rest, by the target (S3 server-side encryption): AES256 (SSE-S3) or aws:kms. Empty: the
+      # bucket's own policy. Production targets must encrypt, by this or by bucket policy; Barman
+      # Cloud has no client-side encryption (the offsite rclone copy adds it, WP-014b).
+      encryption: ""
+      # A target outside this release must encrypt: set `encryption`, or set this to true to state
+      # that the bucket's own policy encrypts every object. Otherwise the chart refuses to render.
+      encryptionByBucketPolicy: false
 
 # --- Object storage (S3 API only, D-016; WP-018, reused by WP-022) ---------------------------------------
 # seaweedfs: a minimal single-node SeaweedFS in this release (on-prem, ADR-012, D-076).
