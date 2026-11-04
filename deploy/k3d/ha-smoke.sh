@@ -15,8 +15,8 @@ PUBLIC_URL="${SUPPORTX_PUBLIC_URL:-http://supportx.localhost:8080}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 REALM="$ROOT/deploy/helm/supportx/files/keycloak/dev/supportx-realm.json"
 USER_NAME="tech@demo.test"
-JAR="$(mktemp)"
-trap 'rm -f "$JAR"' EXIT
+COOKIES="$(mktemp)"  # the session's Cookie header, mode 600; removed on exit
+trap 'rm -f "$COOKIES"' EXIT
 
 sentinel() {  # a sentinel's answer: the current master's pod name
   kubectl -n "$NAMESPACE" exec "$1" -c sentinel -- sh -c \
@@ -28,27 +28,17 @@ role() {
     'REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli --no-auth-warning info replication' \
     2>/dev/null | tr -d '\r' | sed -n 's/^role://p'
 }
-# The jar's cookies as one header. The BFF marks its cookie Secure, which curl won't send over
-# http:// itself (browsers treat *.localhost as secure). Names and values only; never printed.
-cookies() { awk -F'\t' 'NF >= 7 { printf "%s%s=%s", (n++ ? "; " : ""), $6, $7 }' "$JAR"; }
 me() {
-  curl -s -o /dev/null -w '%{http_code}' -H "Cookie: $(cookies)" -H 'X-SupportX-Client: console' \
-    "$PUBLIC_URL/api/v1/auth/me"
+  curl -s -o /dev/null -w '%{http_code}' -H "Cookie: $(cat "$COOKIES")" \
+    -H 'X-SupportX-Client: console' "$PUBLIC_URL/api/v1/auth/me"
 }
 
 echo "== sign in as $USER_NAME through the BFF"
-password="$(jq -r --arg u "$USER_NAME" '.users[] | select(.username == $u) | .credentials[0].value' "$REALM")"
-page="$(curl -s -c "$JAR" -b "$JAR" -L "$PUBLIC_URL/api/v1/auth/login?app=console&returnTo=/")"
-action="$(printf '%s' "$page" | grep -o 'id="kc-form-login"[^>]*action="[^"]*"' | sed 's/.*action="//; s/"$//; s/&amp;/\&/g')"
-[ -n "$action" ] || { echo "no Keycloak login form"; exit 1; }
-ended="$(curl -s -c "$JAR" -b "$JAR" -L -o /dev/null -w '%{http_code} %{url_effective}' \
-  --data-urlencode "username=$USER_NAME" --data-urlencode "password=$password" "$action")"
-if [ "$(me)" != 200 ]; then
-  # What can be said without a secret: where the flow ended, and which cookies it holds.
-  echo "not signed in after the login flow (ended: ${ended%%\?*}; /auth/me: $(me))"
-  echo "cookies held: $(awk -F'\t' 'NF >= 7 { printf "%s ", $6 }' "$JAR")"
-  exit 1
-fi
+# ha_login.py follows the sign-in itself: the BFF's and Keycloak's cookies are Secure, which
+# curl won't keep over http:// (browsers treat *.localhost as secure).
+HA_LOGIN_PASSWORD="$(jq -r --arg u "$USER_NAME" '.users[] | select(.username == $u) | .credentials[0].value' "$REALM")" \
+  uv run --project "$ROOT/backend" python "$ROOT/deploy/k3d/ha_login.py" "$PUBLIC_URL" "$USER_NAME" "$COOKIES"
+[ "$(me)" = 200 ] || { echo "not signed in after the login flow"; exit 1; }
 echo "signed in"
 
 master="$(sentinel supportx-valkey-0)"
