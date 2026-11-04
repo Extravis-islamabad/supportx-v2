@@ -27,7 +27,19 @@ until_true() {  # until_true <seconds> <what> <command...>
   done
   echo "$what after $((SECONDS - started))s"
 }
-cleanup() { k delete "clusters.postgresql.cnpg.io/$RESTORE" --ignore-not-found --wait=false >/dev/null 2>&1 || true; }
+report() {  # what the restore cluster was doing, before it goes (a failed drill only)
+  echo "--- $RESTORE: status"
+  k get "clusters.postgresql.cnpg.io/$RESTORE" -o jsonpath='{.status.phase}{"\n"}{.status.phaseReason}{"\n"}{range .status.conditions[*]}{.type}={.status} {.reason}: {.message}{"\n"}{end}' || true
+  echo "--- $RESTORE: pods"
+  k get pods -l "cnpg.io/cluster=$RESTORE" -o wide || true
+  echo "--- $RESTORE-1: last log lines"
+  k logs "${RESTORE}-1" -c postgres --tail=40 2>/dev/null || true
+}
+cleanup() {
+  local status=$?
+  [ "$status" = 0 ] || report
+  k delete "clusters.postgresql.cnpg.io/$RESTORE" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+}
 trap cleanup EXIT
 
 primary="$(pg "$SOURCE" '{.status.currentPrimary}')"
@@ -61,7 +73,15 @@ sed -e "s|RESTORE_NAME|$RESTORE|" -e "s|SOURCE_NAME|$SOURCE|" \
   -e "s|IMAGE|$(pg "$SOURCE" '{.spec.imageName}')|" \
   -e "s|STORAGE|1Gi|" -e "s|TARGET_TIME|$target|" \
   "$ROOT/deploy/runbooks/restore-cluster.yaml" | k apply -f - >/dev/null
-k wait "clusters.postgresql.cnpg.io/$RESTORE" --for=condition=Ready --timeout=900s >/dev/null
+# Each phase it goes through, until it is healthy (or 15 minutes pass).
+phase="" started=$SECONDS
+while :; do
+  now="$(pg "$RESTORE" '{.status.phase}' 2>/dev/null || true)"
+  if [ "$now" != "$phase" ]; then echo "  $((SECONDS - started))s: ${now:-pending}"; phase="$now"; fi
+  [ "$now" = "Cluster in healthy state" ] && break
+  [ $((SECONDS - started)) -ge 900 ] && { echo "$RESTORE: not healthy within 900s"; exit 1; }
+  sleep 5
+done
 echo "$RESTORE is ready"
 
 rows="$(sql "${RESTORE}-1" "SELECT string_agg(label, ',' ORDER BY at) FROM restore_drill")"
