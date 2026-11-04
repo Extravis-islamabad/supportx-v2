@@ -50,6 +50,19 @@ data:
   {{- if .Values.clamav.enabled }}
   SUPPORTX_FILES_CLAMD_ADDRESS: {{ printf "%s-clamav:3310" .Release.Name | quote }}
   {{- end }}
+  {{- if .Values.ai.local.enabled }}
+  # Local AI (WP-037): the release's model servers; chat on the GPU node when there is one.
+  SUPPORTX_AI_PROVIDER: openai_compatible
+  {{- if .Values.ai.gpu.enabled }}
+  SUPPORTX_AI_BASE_URL: {{ printf "http://%s-llm-gpu:8000/v1" .Release.Name | quote }}
+  SUPPORTX_AI_MODEL: {{ .Values.ai.gpu.model.name | quote }}
+  {{- else }}
+  SUPPORTX_AI_BASE_URL: {{ printf "http://%s-llm-cpu:8080/v1" .Release.Name | quote }}
+  SUPPORTX_AI_MODEL: {{ .Values.ai.local.chat.name | quote }}
+  {{- end }}
+  SUPPORTX_AI_EMBEDDING_BASE_URL: {{ printf "http://%s-llm-embed:8080/v1" .Release.Name | quote }}
+  SUPPORTX_AI_EMBEDDING_MODEL: {{ .Values.ai.local.embeddings.name | quote }}
+  {{- end }}
   {{- if eq .Values.app.entitlementProvider "licence_file" }}
   SUPPORTX_LICENCE_FILE: /etc/supportx/licence/licence.json
   {{- end }}

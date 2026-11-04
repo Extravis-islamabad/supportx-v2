@@ -233,6 +233,9 @@ class Settings(BaseSettings):
     ai_api_key: SecretStr | None = None
     ai_model: str = "fake"
     ai_embedding_model: str = "fake-embeddings"
+    # Embeddings from their own server when set (vLLM and the llama.cpp server serve one model
+    # each); else from `ai_base_url`. The vectors are 1024 wide (bge-m3, multilingual-e5-large).
+    ai_embedding_base_url: str | None = None
     ai_provider_external: bool = False
     ai_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     # JSON file of recorded answers for the fake provider ({"<feature>:<sha256>": "text"}).

@@ -1,12 +1,24 @@
-"""The ai module's tables (WP-037): the tenant's AI settings and the call log."""
+"""The ai module's tables (WP-037): the tenant's AI settings, the call log and the embeddings."""
 
 import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, Index, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql.base import ischema_names
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import UserDefinedType
 
 from app.shared.db.models import (
     Actors,
@@ -80,3 +92,55 @@ class AiCall(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
     error_code: Mapped[str | None] = mapped_column(String(60))
     outcome: Mapped[str | None] = mapped_column(String(10))
     text_purged_at: Mapped[datetime | None]
+
+
+# The embedding width of both approved models (bge-m3, multilingual-e5-large; D-131). The HNSW
+# index needs one fixed width; another width needs a migration first (see 0075).
+EMBEDDING_DIMENSION = 1024
+
+
+class Vector(UserDefinedType[list[float]]):
+    """pgvector's `vector(n)`, written and read as text (`[0.1,0.2]`): no extra package."""
+
+    cache_ok = True
+
+    def __init__(self, dimension: int) -> None:
+        self.dimension = dimension
+
+    def get_col_spec(self, **_: Any) -> str:  # noqa: ANN401 - SQLAlchemy's signature
+        """The column type in DDL."""
+        return f"vector({self.dimension})"
+
+
+# Reflection (Alembic's model check) knows the column type too, instead of warning about it.
+ischema_names["vector"] = Vector
+
+
+class AiEmbedding(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
+    """One vector per piece of a record, with the model that made it (REQ-AI-057, 058).
+
+    Searches compare only vectors of the configured model; rows of another model wait for the
+    re-embed job (D-131). No text is kept, only its hash, so unchanged text is not embedded again.
+    """
+
+    __tablename__ = "ai_embeddings"
+    __table_args__ = (
+        CheckConstraint(f"dimension = {EMBEDDING_DIMENSION}", name="dimension_width"),
+        CheckConstraint("chunk >= 0", name="chunk_positive"),
+        UniqueConstraint("tenant_id", "source_type", "source_id", "chunk", "model"),
+        Index("ix_ai_embeddings_tenant_model_source", "tenant_id", "model", "source_type"),
+        Index(
+            "ix_ai_embeddings_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
+
+    source_type: Mapped[str] = mapped_column(String(40))
+    source_id: Mapped[uuid.UUID]
+    chunk: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    model: Mapped[str] = mapped_column(String(120))
+    dimension: Mapped[int] = mapped_column(SmallInteger)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSION))
