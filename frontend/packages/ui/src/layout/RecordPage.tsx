@@ -106,6 +106,8 @@ export interface PanelSection {
   /** Open at first (default true). */
   open?: boolean;
   testId?: string;
+  /** The child is a card of its own (title and actions): shown as the section, not inside one. */
+  bare?: boolean;
 }
 
 /**
@@ -131,36 +133,45 @@ export function PropertiesPanel({
         alignItems: 'start',
       }}
     >
-      {sections.map((section) => (
-        <section
-          key={section.key}
-          aria-labelledby={`panel-${section.key}`}
-          style={{
-            background: token.colorBgContainer,
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: token.borderRadius,
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              padding: `${String(SPACE.sm)}px 14px`,
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
-            }}
-          >
-            <Typography.Title
-              level={2}
-              id={`panel-${section.key}`}
-              style={{ margin: 0, fontSize: TYPE.body, fontWeight: 600 }}
-            >
-              {section.title}
-            </Typography.Title>
-          </div>
-          <div data-testid={section.testId} style={{ padding: `${String(SPACE.xs)}px 14px 10px` }}>
+      {sections.map((section) =>
+        section.bare === true ? (
+          <div key={section.key} data-testid={section.testId} style={{ minWidth: 0 }}>
             {section.children}
           </div>
-        </section>
-      ))}
+        ) : (
+          <section
+            key={section.key}
+            aria-labelledby={`panel-${section.key}`}
+            style={{
+              background: token.colorBgContainer,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: token.borderRadius,
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                padding: `${String(SPACE.sm)}px 14px`,
+                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              }}
+            >
+              <Typography.Title
+                level={2}
+                id={`panel-${section.key}`}
+                style={{ margin: 0, fontSize: TYPE.body, fontWeight: 600 }}
+              >
+                {section.title}
+              </Typography.Title>
+            </div>
+            <div
+              data-testid={section.testId}
+              style={{ padding: `${String(SPACE.xs)}px 14px 10px` }}
+            >
+              {section.children}
+            </div>
+          </section>
+        ),
+      )}
     </aside>
   );
 }
@@ -216,7 +227,7 @@ export function RecordPage({ header, actions, alerts, children, panel, testId }:
       <section style={{ ...card, padding: `${String(SPACE.md)}px 18px` }}>
         <Flex wrap gap={SPACE.md} align="flex-start">
           <div style={{ flex: '999 1 420px', minWidth: 0 }}>{header}</div>
-          {actions !== undefined && <div style={{ flex: '0 0 auto' }}>{actions}</div>}
+          {actions !== undefined && <div style={{ flex: '0 1 auto', minWidth: 0 }}>{actions}</div>}
         </Flex>
       </section>
       {alerts}

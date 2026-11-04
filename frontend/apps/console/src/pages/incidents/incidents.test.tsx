@@ -158,7 +158,7 @@ describe('One incident', () => {
     expect(description.getAttribute('dir')).toBe('auto');
   });
 
-  it('D-124: the best-ranked available moves get buttons, Resolve primary; the rest stay in the menu', async () => {
+  it('D-124 and UI pass 2: Reply is primary, the best-ranked moves fill the rest; the others stay in the menu', async () => {
     const open = fakeIncident({
       actions: ITEM.actions.map((a) => ({
         ...a,
@@ -176,10 +176,11 @@ describe('One incident', () => {
       .getAllByRole('button')
       .map((b) => b.getAttribute('data-testid'))
       .filter((id) => id?.startsWith('inc-action-'));
-    // Three of five (UI pass 2: three buttons and More actions, at most four controls): the
-    // waits rank below resolve, start work and close; shown in the fixed order.
-    expect(buttons).toEqual(['inc-action-start_work', 'inc-action-resolve', 'inc-action-close']);
-    expect(screen.getByTestId('inc-action-resolve').className).toContain('ant-btn-primary');
+    // Three buttons and More actions (at most four controls, UI pass 2): Reply first and primary,
+    // then the best-ranked moves (resolve, start work); close and the waits stay in the menu.
+    expect(buttons).toEqual(['inc-action-start_work', 'inc-action-resolve']);
+    expect(screen.getByTestId('inc-op-reply').className).toContain('ant-btn-primary');
+    expect(screen.getByTestId('inc-action-resolve').className).not.toContain('ant-btn-primary');
   });
 
   it('REQ-WI-010 AC4: a cancel without a reason step still asks once, in clear words', async () => {

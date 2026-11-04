@@ -145,6 +145,8 @@ export function AppShell({
         width={220}
         collapsedWidth={64}
         trigger={compact ? null : undefined}
+        // The dark navigation runs the full height however long the page (UI pass 2).
+        style={{ position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}
       >
         <div
           style={{

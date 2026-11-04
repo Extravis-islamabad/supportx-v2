@@ -81,6 +81,12 @@ const PAGE_CSS =
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
+  // Tabs that do not fit scroll sideways instead of moving into a "more" menu: Ant Design puts
+  // that menu's button inside the tab list, which may hold only tabs (axe aria-required-children,
+  // the record at 390 px; UI pass 2).
+  '.ant-tabs-nav-operations { display: none !important; } ' +
+  '.ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap { overflow-x: auto; scrollbar-width: thin; } ' +
+  '.ant-tabs > .ant-tabs-nav .ant-tabs-nav-list { transform: none !important; } ' +
   // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
   // virtual, so CSS cannot size them by content); they never pass the screen.
   '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +

@@ -311,21 +311,30 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       onClick,
     };
   };
-  // Every action in its one fixed order (REQ-WI-010, D-124): assign, take, the status moves,
-  // then delete apart from the rest.
-  const actions = [
-    // Reply first and as the primary button (UI pass 2): it opens the composer on Conversation.
-    actionOf(
-      'reply',
-      t('reply_mode.reply'),
-      'inc-op-reply',
-      () => {
+  const replyAction = (): RecordAction | null => {
+    const state = item.conversation_actions.find((a) => a.action === 'reply');
+    if (state === undefined) return null;
+    return {
+      key: 'reply',
+      label: t('reply_mode.reply'),
+      allowed: state.allowed,
+      whyNot: !state.allowed && state.reason != null ? reasonText(state) : undefined,
+      primary: true,
+      rank: 0,
+      testId: 'inc-op-reply',
+      onClick: () => {
         setTab('conversation');
         rememberTab(me, 'conversation');
         setReplyRequest((n) => n + 1);
       },
-      0,
-    ),
+    };
+  };
+  // Every action in its one fixed order (REQ-WI-010, D-124): assign, take, the status moves,
+  // then delete apart from the rest.
+  const actions = [
+    // Reply first and as the primary button (UI pass 2): it opens the composer on Conversation.
+    // Its right comes from the conversation's actions (a reply is not a record operation).
+    replyAction(),
     actionOf(
       'assign',
       t('work_item_operation.assign'),
@@ -506,12 +515,14 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               {
                 key: 'followers',
                 title: t('incidents.panel.followers'),
+                bare: true, // its own card, with the count and the add field
                 children: <FollowersCard item={item} me={me} />,
               },
               // Linked articles you may read, and how many others (WP-033 s4, D-121).
               {
                 key: 'knowledge',
                 title: t('knowledge.card.title'),
+                bare: true, // its own card, with Link an article
                 children: (
                   <KnowledgeCard
                     recordType="incident"
