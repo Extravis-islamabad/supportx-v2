@@ -121,6 +121,8 @@ class UserOut(BaseModel):
 
 # Preferences a person may leave to the default (WP-042): applied at read time, never copied.
 _PERSONAL = ("theme_mode", "text_scale", "week_start", "date_format", "time_format")
+# Their `chosen` entries too: NULL since 0070 means the default (side bar, comfortable).
+_LAYOUT = ("nav_layout", "form_density")
 
 
 def _personal(row: Any, regional: RegionalDefaults) -> dict[str, Any]:  # noqa: ANN401 - a Row
@@ -136,7 +138,8 @@ def _personal(row: Any, regional: RegionalDefaults) -> dict[str, Any]:  # noqa: 
         "time_zone": regional.time_zone,
     }
     applied = {n: own[n] if own.get(n) is not None else d for n, d in defaults.items()}
-    applied["chosen"] = sorted(n for n, v in own.items() if v is not None)
+    layout = {} if row is None else {n: getattr(row, n) for n in _LAYOUT}
+    applied["chosen"] = sorted(n for n, v in {**own, **layout}.items() if v is not None)
     return applied
 
 

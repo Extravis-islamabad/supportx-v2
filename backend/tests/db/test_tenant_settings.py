@@ -232,3 +232,36 @@ async def test_time_zone_is_the_persons_else_the_sites_else_the_tenants_else_the
     assert await zone() == "Asia/Karachi"  # 3. their site's
     await patch(f"/api/v1/users/{me['user']['id']}", {"time_zone": "Europe/London"})
     assert await zone() == "Europe/London"  # 4. their own
+
+
+async def test_layout_and_density_follow_the_default_until_chosen(bff: Bff) -> None:  # noqa: F811
+    """0070, Haider's rule: NULL reads as the default; a choice is kept; null clears it."""
+    admin = bff.user("a", email="layoutadmin@demo.test", locale="en", roles=("tenant_admin",))
+    await bff.login(admin)
+    me = (await bff.me()).json()
+    user = me["user"]
+    assert (user["nav_layout"], user["form_density"]) == ("side", "comfortable")
+    assert "nav_layout" not in user["chosen"]
+    path = f"/api/v1/users/{user['id']}"
+    detail = await bff.client.get(path)
+    assert (detail.json()["nav_layout"], detail.json()["form_density"]) == ("side", "comfortable")
+
+    async def patch(body: dict[str, object]) -> httpx.Response:
+        read = await bff.client.get(path)
+        return await bff.client.patch(
+            path,
+            json=body,
+            headers={"X-CSRF-Token": me["csrf_token"], "If-Match": read.headers["ETag"]},
+        )
+
+    chosen = await patch({"nav_layout": "top", "form_density": "compact"})
+    assert chosen.status_code == 200, chosen.text
+    user = (await bff.me()).json()["user"]
+    assert (user["nav_layout"], user["form_density"]) == ("top", "compact")
+    assert {"nav_layout", "form_density"} <= set(user["chosen"])
+    cleared = await patch({"nav_layout": None})
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["nav_layout"] == "side"
+    assert "nav_layout" not in (await bff.me()).json()["user"]["chosen"]
+    bad = await patch({"form_density": "airy"})
+    assert bad.status_code == 422, bad.text

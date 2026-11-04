@@ -236,7 +236,11 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "nav_layout" and value not in {layout.value for layout in NavLayout}:
+        elif (
+            name == "nav_layout"
+            and value is not None
+            and value not in {layout.value for layout in NavLayout}
+        ):
             errors.append(
                 FieldError(
                     field="body.nav_layout",
@@ -244,7 +248,11 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "form_density" and value not in {d.value for d in FormDensity}:
+        elif (
+            name == "form_density"
+            and value is not None
+            and value not in {d.value for d in FormDensity}
+        ):
             errors.append(
                 FieldError(
                     field="body.form_density",

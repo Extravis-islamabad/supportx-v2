@@ -41,6 +41,10 @@
   Neither audience names sites or groups.
 - The role editor's groups section now says that a group filled by directory sync gives the
   role to everyone the sync adds (lane B's hint).
+- Navigation layout and form density (migration 0070, coordinator's go-ahead): nullable with no
+  server default, so they too follow the default until a person chooses. Stored values stay.
+  Responses keep both required and non-null (the default is filled in when read), and a PATCH
+  may send null to clear a choice. openapi-diff against main: no breaking change.
 - Home dashboard (REQ-ADM-058): already per person in analytics (`set_home`). The preferences
   page does not duplicate it.
 
@@ -52,5 +56,3 @@
   size scales Ant Design's font sizes, control heights and menu and header heights.
 - REQ-ADM-062 AC1 (high-contrast axe on the incident list and record) is covered by the existing
   theme contrast tests, not by a new e2e.
-- nav_layout and form_density keep their non-null server defaults. Making them nullable would
-  change their contract and is left for a later contract change.

@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
@@ -83,6 +83,8 @@ class UserDetail(BaseModel):
     locale: Literal["en", "ar", "ur"]
     time_zone: str | None
     signature: str | None
+    # Not chosen (NULL): read as the default (the validator below), so both stay required and
+    # non-null in the contract (0070).
     nav_layout: NavLayout
     form_density: FormDensity
     ui_locale: Literal["en", "ar", "ur"] | None = Field(
@@ -97,6 +99,13 @@ class UserDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     version: int = Field(description="Send it back as If-Match (the ETag) to update.")
+
+    @field_validator("nav_layout", "form_density", mode="before")
+    @classmethod
+    def _default_when_not_chosen(cls, value: object, info: ValidationInfo) -> object:
+        if value is not None:
+            return value
+        return NavLayout.SIDE if info.field_name == "nav_layout" else FormDensity.COMFORTABLE
 
     @classmethod
     def of(cls, user: User, subject: Subject) -> "UserDetail":

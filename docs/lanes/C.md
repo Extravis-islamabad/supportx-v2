@@ -31,7 +31,7 @@ done: #176 merged)
 
 0027, 0029, 0031, 0035, 0036, 0041, 0046, 0048, 0051, 0055 (merged); 0050 knowledge search and
 votes (#158, follows 0055); 0060 AI gateway (#188); 0061 group roles, 0066 tenant settings, 0067
-user preferences, 0068 announcement audiences (#183); 0069 AI summaries (WP-038)
+user preferences, 0068 announcement audiences, 0070 layout preferences nullable (#183); 0069 AI summaries (WP-038)
 
 ## Claimed decisions
 
