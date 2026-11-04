@@ -3,6 +3,7 @@ export const en = {
   'custom_field_display.list': 'Drop-down list',
   'custom_field_display.radio': 'Buttons',
   'custom_field_entity.incident': 'Incidents',
+  'custom_field_entity.release': 'Releases',
   'custom_field_entity.service_request': 'Service requests',
   'custom_field_index_error.busy': 'The incidents table was busy with other maintenance.',
   'custom_field_index_error.disk_full': 'The database ran out of disk space.',
@@ -110,6 +111,8 @@ export const en = {
   'pick_list.level': 'Levels',
   'pick_list.pause': 'Waiting on the requester',
   'pick_list.reassign': 'Reasons for moving to another group',
+  'pick_list.release_reason': 'Release reasons',
+  'pick_list.release_type': 'Release types',
   'pick_list.reopen': 'Reopen reasons',
   'pick_list.third_party': 'Waiting on a third party',
 } as const;

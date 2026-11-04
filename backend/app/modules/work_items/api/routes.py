@@ -46,7 +46,14 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.releases import (
+    BUILD_REF_MAX,
+    DETAIL_FIELDS,
+    VERSION_MAX,
+    ReleaseRisk,
+)
 from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBehalfScope
+from app.modules.work_items.domain.stages import RailState
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
@@ -466,6 +473,12 @@ class WorkItemOut(BaseModel):
         default=None, description="Service requests: not needed, pending, approved ..."
     )
     custom: dict[str, Any] = Field(description="Custom field values by key (WP-026).")
+    stage: str | None = Field(
+        default=None, description="Staged types (releases): the stage it is in (ADR-041)."
+    )
+    stage_path: str | None = Field(
+        default=None, description="Staged types: the path of stages it follows."
+    )
     status: str
     status_category: StatusCategory
     status_reason_code: str | None
@@ -563,6 +576,8 @@ _RECORD_FIELDS = (
     "level",
     "template_id",
     "custom",
+    "stage",
+    "stage_path",
     "status",
     "status_category",
     "status_reason_code",
@@ -1156,6 +1171,157 @@ class AutomationRunOut(BaseModel):
     occurred_at: datetime
 
 
+class ReleaseDetailsIn(BaseModel):
+    """A release's own fields to change (send only those you change; null clears one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    release_type: str | None = Field(
+        default=None, max_length=40, description="A release type code."
+    )
+    risk: ReleaseRisk | None = None
+    risk_reason: str | None = Field(
+        default=None,
+        max_length=REASON_TEXT_MAX,
+        description="Why the risk changed (required then).",
+    )
+    release_version: str | None = Field(default=None, max_length=VERSION_MAX)
+    build_ref: str | None = Field(default=None, max_length=BUILD_REF_MAX)
+    release_reason: str | None = Field(default=None, max_length=40)
+    release_notes: str | None = Field(
+        default=None, max_length=RESOLUTION_MAX, description="Rich text, sanitised on save."
+    )
+    scheduled_start: datetime | None = None
+    scheduled_end: datetime | None = None
+    actual_start: datetime | None = None
+    actual_end: datetime | None = None
+    release_manager_id: uuid.UUID | None = None
+    release_engineer_id: uuid.UUID | None = None
+
+
+class ReleaseDetailsOut(BaseModel):
+    """A release's own fields (REQ-REL-002..005), with the release's version for If-Match."""
+
+    work_item_id: uuid.UUID
+    version: int = Field(description="The release's version: send it back as If-Match.")
+    release_type: str | None
+    risk: ReleaseRisk | None
+    release_version: str | None
+    build_ref: str | None
+    release_reason: str | None
+    release_notes: str | None
+    scheduled_start: datetime | None
+    scheduled_end: datetime | None
+    actual_start: datetime | None
+    actual_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+
+    @classmethod
+    def of(cls, view: service.ReleaseDetailsView) -> "ReleaseDetailsOut":
+        """From the service view (all empty before any field is set)."""
+        row = view.details
+        return cls(
+            work_item_id=view.record.id,
+            version=view.record.version,
+            **{n: (getattr(row, n) if row is not None else None) for n in DETAIL_FIELDS},
+        )
+
+
+class StageMoveIn(BaseModel):
+    """A listed status move of a staged type (ADR-041): the target status and its reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to_status: str = Field(max_length=40, description="A status listed as a move from here.")
+    reason_code: str | None = Field(default=None, max_length=40)
+    reason_text: str | None = Field(default=None, max_length=REASON_TEXT_MAX)
+    resolution: str | None = Field(
+        default=None,
+        max_length=RESOLUTION_MAX,
+        description="Moving into a resolved status: the outcome, rich text (sanitised).",
+    )
+    closure_code: str | None = Field(
+        default=None, max_length=40, description="Moving into a closed status: a closure code."
+    )
+    confirm_open_work: bool = Field(
+        default=False, description="Closing with open tasks or approvals: you confirm."
+    )
+
+
+class StageEntryOut(BaseModel):
+    """One time the record was in a stage."""
+
+    entered_at: datetime
+    left_at: datetime | None
+
+
+class RailStageOut(BaseModel):
+    """One stage on the rail, in path order."""
+
+    stage: str
+    state: RailState
+    optional: bool
+    entries: list[StageEntryOut]
+
+
+class StageMoveOut(BaseModel):
+    """A move offered from the current status."""
+
+    to_status: str
+    to_stage: str
+    reason_mode: ReasonMode
+    reason_list: ReasonList | None
+    required_fields: list[str]
+    allowed: bool
+    reason: str | None = Field(description="Why you may not (a code), when not allowed.")
+
+
+class StagePanelOut(BaseModel):
+    """A staged record's rail and its offered moves."""
+
+    stage: str
+    stage_path: str
+    status: str
+    version: int
+    rail: list[RailStageOut]
+    moves: list[StageMoveOut]
+
+    @classmethod
+    def of(cls, panel: service.StagePanel) -> "StagePanelOut":
+        """From the service panel."""
+        r = panel.record
+        return cls(
+            stage=str(r.stage),
+            stage_path=str(r.stage_path),
+            status=r.status,
+            version=r.version,
+            rail=[
+                RailStageOut(
+                    stage=s.stage,
+                    state=s.state,
+                    optional=s.optional,
+                    entries=[
+                        StageEntryOut(entered_at=e.entered_at, left_at=e.left_at) for e in s.entries
+                    ],
+                )
+                for s in panel.rail
+            ],
+            moves=[
+                StageMoveOut(
+                    to_status=m.transition.to_status,
+                    to_stage=m.to_stage,
+                    reason_mode=m.transition.reason_mode,
+                    reason_list=m.transition.reason_list,
+                    required_fields=list(m.transition.required_fields),
+                    allowed=m.allowed,
+                    reason=m.reason,
+                )
+                for m in panel.moves
+            ],
+        )
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -1586,6 +1752,88 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
+
+    if wtype.stages is not None:  # ADR-041: staged types move by listed status transitions
+
+        @router.get("/{record_id}/stages", summary="The stage rail and the moves from here")
+        async def stage_panel(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> StagePanelOut:
+            """Each stage on the record's path (done, current, skipped, future) and its moves."""
+            panel = await service.stage_panel(session, subject, wtype, record_id)
+            set_etag(response, panel.record.version)
+            return StagePanelOut.of(panel)
+
+        @router.post("/{record_id}/moves", summary="Move to a listed status", responses=CONFLICT)
+        async def move(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: StageMoveIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: View,
+            response: Response,
+            request: Request,
+        ) -> WorkItemOut:
+            """Only moves listed from the current status on the record's path.
+
+            A completing status moves on to the next stage in the same save. Needs If-Match.
+            """
+            view = await service.move_status(
+                session,
+                subject,
+                wtype,
+                record_id,
+                target=body.to_status,
+                expected_version=version,
+                reason_code=body.reason_code,
+                reason_text=body.reason_text,
+                source=source_of(request),
+                closing_input=MoveInput(
+                    resolution=body.resolution,
+                    closure_code=body.closure_code,
+                    confirm_open_work=body.confirm_open_work,
+                ),
+            )
+            set_etag(response, view.record.version)
+            return WorkItemOut.of(view)
+
+    if wtype.code is WorkItemTypeCode.RELEASE:  # REQ-REL-002..005: a release's own fields
+
+        @router.get("/{record_id}/details", summary="The release's own fields")
+        async def get_details(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> ReleaseDetailsOut:
+            """Type, risk, version, build, reason, notes, dates and the release's people."""
+            found = await service.release_details(session, subject, wtype, record_id)
+            set_etag(response, found.record.version)
+            return ReleaseDetailsOut.of(found)
+
+        @router.patch(
+            "/{record_id}/details", summary="Change the release's own fields", responses=CONFLICT
+        )
+        async def patch_details(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ReleaseDetailsIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> ReleaseDetailsOut:
+            """Needs If-Match (the release's version). A risk change needs `risk_reason`."""
+            sent = body.model_dump(include=body.model_fields_set - {"risk_reason"})
+            view = await service.update_release_details(
+                session,
+                subject,
+                wtype,
+                record_id,
+                expected_version=version,
+                values=sent,
+                source=source_of(request),
+                risk_reason=body.risk_reason,
+            )
+            set_etag(response, view.record.version)
+            return ReleaseDetailsOut.of(view)
 
     @router.post(
         "/{record_id}/resolution/confirm",
