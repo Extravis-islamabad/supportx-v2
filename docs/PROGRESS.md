@@ -784,19 +784,21 @@ it with no reload (rule c). Not built yet.
   private comments for staff only (REQ-SR-028); approve moves it on with the item's technician
   after approval (then "assigned"); reject ends it; withdraw while it waits (REQ-SR-061 AC1);
   a deactivated approver's approvals go to the fallback (the first work_items consumer,
-  REQ-SR-023 AC2) and a daily check catches what the event missed (AC3); `requests.approve` for requesters and technicians (REQ-SR-022 AC2, -063).
+  REQ-SR-023 AC2) and a daily check catches what the event missed (AC3); `requests.approve`
+  for requesters and technicians (REQ-SR-022 AC2, -063).
   API: `my-approvals`, `{id}/approvals`, `…/decision` (If-Match), `{id}/withdraw`; outbox event
   `work_items.approval.changed` on the record channel and the approver's personal channel
   (administrators' approvals: one broadcast signal); audit `service_request.approval_decided`,
   `.withdrawn`. Service requests get SLAs; the resolution clock waits in awaiting approval
   (REQ-SR-007 AC1); an item that counts approval time keeps it running (AC2,
   `work_items.sla_counts_approval` in 0065); the item's own SLA policy wins over the conditions
-  (REQ-SR-006; `item_sla_policy_id`, the SLA module's `preferred_policy` hook). Console: the approvals panel on the request page (each entry, Approve /
-  Reject dialog, Withdraw), the header approvals drawer with its live count (REQ-SR-024, -025).
+  (REQ-SR-006; `item_sla_policy_id`, the SLA module's `preferred_policy` hook). Console: the
+  approvals panel on the request page (each entry, Approve / Reject dialog, Withdraw), the
+  header approvals drawer with its live count (REQ-SR-024, -025).
   Tests: domain 6, db 15 (incl. RLS), Vitest 3. **Still to do:** the portal approve / reject
-  and withdraw (needs #178's portal); notifications to approvers (WP-023 engine registration);
- "hide approvals from
-  requesters" (REQ-SR-024 AC3). At the merge after #178: drop the duplicate
+  and withdraw (needs #178's portal); notifications to approvers (WP-023 engine registration,
+  with session 3's e-mail approvals under lane B's review); "hide approvals from requesters"
+  (REQ-SR-024 AC3). At the merge after #178: drop the duplicate
   `permission_module.work_items` label (both PRs add it).
 - [ ] Session 3: signed action links and e-mail approvals, fulfilment, requester views, e2e.
 
