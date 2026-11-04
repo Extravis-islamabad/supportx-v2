@@ -13,9 +13,35 @@ from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
 __all__ = ["world"]  # the fixture, re-used
 
 ITEMS = "/catalog/items"
+CATEGORIES = "/catalog/categories"
+
+
+async def category(world: World, org: Org, **body: Any) -> str:  # noqa: ANN401 - JSON
+    """A category made by the org's admin; its ID."""
+    made = await world.call(
+        "POST",
+        CATEGORIES,
+        org,
+        org.admin,
+        json={"names": {"en": "Hardware", "ar": "الأجهزة"}, **body},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert made.status_code == 201, made.text
+    return str(made.json()["id"])
 
 
 async def add(world: World, org: Org, user: uuid.UUID, **body: Any) -> Any:  # noqa: ANN401
+    """An item, published at once in a new category with the org's group (WP-031 plan D9).
+
+    `enabled=False` makes a draft (the WP-030 spelling); `status` is passed through.
+    """
+    if "status" not in body and "enabled" not in body:
+        body["status"] = "published"
+    if body.get("enabled") is False:
+        del body["enabled"]
+        body["status"] = "draft"
+    body.setdefault("category_id", await category(world, org))
+    body.setdefault("group_id", str(org.ga))
     return await world.call(
         "POST",
         ITEMS,
