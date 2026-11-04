@@ -184,12 +184,16 @@ test('an approver approves from the e-mailed link without signing in (D-132)', a
 
     // The e-mail carries this approver's own link: the token only after '#'.
     const mail = await mailTo(USERS.limited.email, sentAt);
-    const link = /https?:\/\/[^"\s<]*\/(approve#[A-Za-z0-9_-]{43})/.exec(mail.html);
+    const link = /(https?:\/\/[^"\s<]*)\/(approve#[A-Za-z0-9_-]{43})/.exec(mail.html);
     expect(link, 'the e-mail has the approval link').not.toBeNull();
     // Deployed, the portal is served on the tenant's origin under /portal/, which is where the
-    // link points; the dev stack serves it on a port of its own, so the path and token are
-    // opened on the suite's portal (lane B fixes email_branding on the dev stack).
-    const url = `${PORTAL_URL}/${link?.[1] ?? ''}`;
+    // link points; the dev stack serves the portal on a port of its own (lane B fixes
+    // email_branding there). Keep the link's host, which names the tenant (the page has no
+    // session to say which), and use the portal's port.
+    const portal = new URL(PORTAL_URL);
+    const target = new URL(link?.[1] ?? PORTAL_URL);
+    target.port = portal.port;
+    const url = `${target.origin}/${link?.[2] ?? ''}`;
 
     // D-132: no sign-in needed: a window with nobody signed in shows a confirmation page.
     const outside = await privateWindow(browser);
@@ -200,7 +204,7 @@ test('an approver approves from the e-mailed link without signing in (D-132)', a
     await expect(outside.getByTestId('public-approval-done')).toBeVisible(LIVE);
 
     // Once used, the link does nothing more (a fresh load, not a same-page hash change).
-    await outside.goto(`${PORTAL_URL}/`);
+    await outside.goto(`${target.origin}/`);
     await outside.goto(url);
     await expect(outside.getByTestId('public-approval-refused')).toContainText('not valid');
     await outside.context().close();
