@@ -1141,6 +1141,7 @@ class WorkItemStage(TenantKeyed, Base):
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("code ~ '^[a-z][a-z0-9_]{1,39}$'", name="code_format"),
+        CheckConstraint("access IS NULL OR jsonb_typeof(access) = 'object'", name="access_object"),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -1149,6 +1150,10 @@ class WorkItemStage(TenantKeyed, Base):
     labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
     system: Mapped[bool] = mapped_column(Boolean, server_default="false")
     disabled_at: Mapped[datetime | None]
+    # Who may edit the stage and move a record out of it (0094; REQ-REL-019): for `edit` and
+    # `move_out`, {"group_ids": [...], "permissions": [...], "roles": [...]}; NULL: anyone who
+    # may edit the record.
+    access: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class WorkItemStagePath(TenantKeyed, Base):

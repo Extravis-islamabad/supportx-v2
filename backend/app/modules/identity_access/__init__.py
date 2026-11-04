@@ -50,7 +50,7 @@ from app.modules.identity_access.domain.permissions import (
     SITE_ADMIN,
     Catalogue,
 )
-from app.modules.identity_access.domain.policy import RecordFacts, Subject
+from app.modules.identity_access.domain.policy import AccessRule, RecordFacts, Subject
 from app.modules.identity_access.events import EVENTS
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
@@ -368,6 +368,7 @@ __all__ = [
     "REPORT_VIEWER",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",
+    "AccessRule",
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",

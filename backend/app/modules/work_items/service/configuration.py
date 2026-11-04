@@ -13,7 +13,7 @@ reload live). The routes add the audit entry (WP-018).
 
 import re
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,6 +21,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
+from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain.classification import (
     Impact,
     MatrixError,
@@ -52,6 +53,7 @@ from app.modules.work_items.infra.models import (
     WorkItemPriorityCell,
     WorkItemReason,
     WorkItemScaleValue,
+    WorkItemStage,
     WorkItemStatus,
     WorkItemTemplate,
     WorkItemTransition,
@@ -610,4 +612,98 @@ async def change_next_number(  # noqa: PLR0913 - the change and its context, exp
         changed_fields=["numbering"],
         source=source,
         user_id=user_id,
+    )
+
+
+# --- stage access (WP-058a s3; REQ-REL-019; ADR-041) ---------------------------------------------
+
+ACCESS_KINDS = frozenset({"edit", "move_out"})
+ACCESS_KEYS = frozenset({"group_ids", "permissions"})  # "roles" joins with record roles (S4)
+
+
+async def _clean_access(
+    session: AsyncSession,
+    raw: Any,  # noqa: ANN401 - JSON
+    known_permission: Callable[[str], bool],
+) -> dict[str, Any] | None:
+    """A stage's access, checked so a typo can never lock a stage (lane B's review)."""
+    if not raw:
+        return None
+    if not isinstance(raw, Mapping) or set(raw) - ACCESS_KINDS:
+        raise invalid(field="access", field_code="not_allowed")
+    cleaned: dict[str, Any] = {}
+    for kind, rule in raw.items():
+        where = f"access.{kind}"
+        if not rule:
+            continue
+        if not isinstance(rule, Mapping) or set(rule) - ACCESS_KEYS:
+            raise invalid(field=where, field_code="not_allowed")
+        groups = [_uuid_or_none(g) for g in rule.get("group_ids") or ()]
+        if None in groups:
+            raise invalid(field=f"{where}.group_ids", field_code="invalid_value")
+        wanted = [g for g in groups if g is not None]
+        if set(wanted) - await existing_unit_ids(session, "group", wanted):
+            raise invalid(field=f"{where}.group_ids", field_code="group_not_found")
+        permissions = [str(p) for p in rule.get("permissions") or ()]
+        if any(not known_permission(p) for p in permissions):
+            raise invalid(field=f"{where}.permissions", field_code="invalid_choice")
+        if wanted or permissions:
+            cleaned[kind] = {
+                "group_ids": sorted(str(g) for g in set(wanted)),
+                "permissions": sorted(set(permissions)),
+            }
+    return cleaned or None
+
+
+async def update_stage_access(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    stage: str,
+    *,
+    expected_version: int,
+    access: Any,  # noqa: ANN401 - JSON
+    known_permission: Callable[[str], bool],
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> Catalogue:
+    """Who may edit a stage and move a record out of it; empty: anyone who may edit it."""
+    if wtype.stages is None:
+        raise NotFound(code="stage_not_found")
+    current = await config.load(session, wtype)
+    await _check_version(session, wtype, current, expected_version)
+    row = await session.scalar(
+        select(WorkItemStage).where(WorkItemStage.type == wtype.code, WorkItemStage.code == stage)
+    )
+    if row is None:
+        raise NotFound(code="stage_not_found")
+    cleaned = await _clean_access(session, access, known_permission)
+    if cleaned == row.access:
+        return current
+    before = row.access
+    await session.execute(
+        update(WorkItemStage)
+        .where(WorkItemStage.type == wtype.code, WorkItemStage.code == stage)
+        .values(access=cleaned)
+    )
+    return await _bump(
+        session,
+        wtype,
+        current=current,
+        expected_version=expected_version,
+        changes=[Change(f"stages.{stage}.access", before, cleaned)],
+        changed_fields=[f"stages.{stage}"],
+        source=source,
+        user_id=user_id,
+    )
+
+
+async def stage_rows(session: AsyncSession, wtype: WorkItemType) -> list[WorkItemStage]:
+    """A staged type's stages in order (seeding first)."""
+    await config.ensure_seeded(session, wtype)
+    return list(
+        await session.scalars(
+            select(WorkItemStage)
+            .where(WorkItemStage.type == wtype.code)
+            .order_by(WorkItemStage.sort_order)
+        )
     )

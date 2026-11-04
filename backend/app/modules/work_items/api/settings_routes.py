@@ -21,7 +21,7 @@ from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import AuditNote, audited
-from app.modules.identity_access import Subject
+from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.lifecycle import ReasonMode, WorkItemAction
 from app.modules.work_items.domain.templates import (
@@ -115,6 +115,32 @@ class ListValuePatch(BaseModel):
         description="The value's own settings, replacing all of them (release types:"
         " default_template_id, default_risk).",
     )
+
+
+class StageAccessRuleIO(BaseModel):
+    """Who may: any of these groups or permissions (both empty: anyone who may edit)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    permissions: list[str] = Field(default_factory=list, max_length=50)
+
+
+class StageAccessIn(BaseModel):
+    """A stage's access (REQ-REL-019): who may edit it, and who may move a record out of it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    edit: StageAccessRuleIO | None = None
+    move_out: StageAccessRuleIO | None = None
+
+
+class StageSettingsOut(BaseModel):
+    """One stage of a staged type, with its access."""
+
+    code: str
+    sort_order: int
+    access: StageAccessIn | None
 
 
 class ListOrderIn(BaseModel):
@@ -388,6 +414,56 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             user_id=subject.user_id,
         )
         return await done(session, cat, response)
+
+    if wtype.stages is not None:  # ADR-041: a staged type's stages and their access
+
+        @router.get("/settings/stages", summary="Stages and who may work in them")
+        async def get_stages(session: TenantSession, subject: Admin) -> list[StageSettingsOut]:
+            """Every stage of the type in order, with its edit and move-out access."""
+            del subject
+            rows = await configuration.stage_rows(session, wtype)
+            return [
+                StageSettingsOut(
+                    code=r.code,
+                    sort_order=r.sort_order,
+                    access=StageAccessIn.model_validate(r.access) if r.access else None,
+                )
+                for r in rows
+            ]
+
+        @router.put(
+            "/settings/stages/{stage}/access",
+            summary="Set who may edit a stage and move a record out of it",
+            responses=CONFLICT,
+            response_model=response_model,
+        )
+        async def put_stage_access(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            stage: str,
+            body: StageAccessIn,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Settings,
+            policy: Annotated[PolicyService, Depends(get_policy)],
+        ) -> Any:  # noqa: ANN401 - the catalogue model
+            """Groups and permissions are checked, so a typo never locks a stage.
+
+            Empty: anyone who may edit the record.
+            """
+            note.details = {"changed_fields": [f"stages.{stage}"]}
+            cat = await configuration.update_stage_access(
+                session,
+                wtype,
+                stage,
+                expected_version=version,
+                access=body.model_dump(mode="json", exclude_none=True),
+                known_permission=lambda key: policy.catalogue.get(key) is not None,
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            return await done(session, cat, response)
 
     @router.put(
         "/settings/matrix",

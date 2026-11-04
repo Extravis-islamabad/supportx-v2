@@ -31,6 +31,7 @@ export const en = {
   'action_reason.relative.group_head': 'the group head',
   'action_reason.relative.requester': 'the requester',
   'action_reason.relative.requester_manager': "the requester's manager",
+  'action_reason.stage_access': 'Only certain groups or roles may do this in this stage.',
   'action_reason.system_calendar': 'Every organisation keeps this calendar.',
   'action_reason.window_already_ended': 'The "show until" time has already passed.',
   'action_reason.window_end_before_start': '"Show until" must be after "show from".',

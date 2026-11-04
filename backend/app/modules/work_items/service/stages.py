@@ -7,6 +7,7 @@ owning type's guard. The record write itself (columns, history, events) stays in
 `service.work_items`, beside every other status change.
 """
 
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -15,6 +16,7 @@ from typing import Any, Protocol
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.identity_access import AccessRule
 from app.modules.work_items.domain.lifecycle import ReasonList, ReasonMode, StatusCategory
 from app.modules.work_items.domain.stages import (
     FIRST_LIFECYCLE,
@@ -175,6 +177,37 @@ async def enabled_paths(session: AsyncSession, wtype: WorkItemType) -> set[str]:
             )
         )
     )
+
+
+EDIT, MOVE_OUT = "edit", "move_out"  # the two kinds of stage access (REQ-REL-019)
+
+
+async def access_rule(
+    session: AsyncSession, record: WorkItem, kind: str, stage: str | None = None
+) -> AccessRule | None:
+    """The stage's access rule of `kind` for the record (None: no stage or no rule).
+
+    Record roles ("roles") are resolved to their holders once the record has roles (S4).
+    """
+    code = stage or record.stage
+    if code is None:
+        return None
+    row = await session.get(WorkItemStage, (catalogue.tenant_of(session), record.type, code))
+    rule = ((row.access if row is not None else None) or {}).get(kind) or {}
+    if not rule:
+        return None
+    return AccessRule(
+        group_ids=frozenset(uuid.UUID(str(g)) for g in rule.get("group_ids") or ()),
+        permissions=frozenset(str(p) for p in rule.get("permissions") or ()),
+    )
+
+
+async def template_rules(session: AsyncSession, record: WorkItem) -> Mapping[str, Any] | None:
+    """The stage rules of the record's template (None when it has none)."""
+    if record.template_id is None:
+        return None
+    template = await session.get(WorkItemTemplate, record.template_id)
+    return template.stage_rules if template is not None else None
 
 
 async def read_only_fields(session: AsyncSession, record: WorkItem) -> frozenset[str]:

@@ -34,6 +34,7 @@ export const ur: LabelResource = {
   'action_reason.relative.group_head': 'گروپ کا سربراہ',
   'action_reason.relative.requester': 'درخواست گزار',
   'action_reason.relative.requester_manager': 'درخواست گزار کا مینیجر',
+  'action_reason.stage_access': 'اس مرحلے میں یہ صرف مخصوص گروپ یا کردار کر سکتے ہیں۔',
   'action_reason.system_calendar': 'ہر ادارہ یہ کیلنڈر رکھتا ہے۔',
   'action_reason.window_already_ended': '«دکھانا ختم» کا وقت گزر چکا ہے۔',
   'action_reason.window_end_before_start': '«دکھانا ختم» کو «دکھانا شروع» کے بعد ہونا چاہیے۔',

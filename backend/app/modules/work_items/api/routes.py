@@ -1269,6 +1269,11 @@ class StageMoveIn(BaseModel):
     confirm_open_work: bool = Field(
         default=False, description="Closing with open tasks or approvals: you confirm."
     )
+    fields: dict[str, Any] | None = Field(
+        default=None,
+        description="Values the move asks for (see `missing` on the stages panel), saved in the"
+        " same request with the usual edit checks and history.",
+    )
 
 
 class StageEntryOut(BaseModel):
@@ -1287,6 +1292,13 @@ class RailStageOut(BaseModel):
     entries: list[StageEntryOut]
 
 
+class MissingFieldOut(BaseModel):
+    """A value a move still needs."""
+
+    field: str
+    code: str = Field(description="`required` (the move) or `required_to_leave_stage`.")
+
+
 class StageMoveOut(BaseModel):
     """A move offered from the current status."""
 
@@ -1297,6 +1309,9 @@ class StageMoveOut(BaseModel):
     required_fields: list[str]
     allowed: bool
     reason: str | None = Field(description="Why you may not (a code), when not allowed.")
+    missing: list[MissingFieldOut] = Field(
+        default_factory=list, description="Values the move asks for in its dialog (REQ-REL-018)."
+    )
 
 
 class StagePanelOut(BaseModel):
@@ -1338,6 +1353,7 @@ class StagePanelOut(BaseModel):
                     required_fields=list(m.transition.required_fields),
                     allowed=m.allowed,
                     reason=m.reason,
+                    missing=[MissingFieldOut(field=f, code=c) for f, c in m.missing],
                 )
                 for m in panel.moves
             ],
@@ -1815,6 +1831,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                     closure_code=body.closure_code,
                     confirm_open_work=body.confirm_open_work,
                 ),
+                fields=body.fields,
             )
             set_etag(response, view.record.version)
             return WorkItemOut.of(view)

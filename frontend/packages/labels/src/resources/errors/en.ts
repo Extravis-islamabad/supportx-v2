@@ -353,6 +353,7 @@ export const en = {
   'errors.field.requester_only': "Only the requester's confirmation sets this code.",
   'errors.field.required': 'This field is required.',
   'errors.field.required_to_close': 'Needed before closing.',
+  'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
   'errors.field.same_folder': 'Choose a different folder for its reports.',
@@ -717,6 +718,7 @@ export const en = {
     'This move is not allowed from the current status. Reload to see the latest.',
   'errors.stage_move_refused':
     'Something must be done before this move. See the reasons on the record.',
+  'errors.stage_not_found': 'This stage does not exist.',
   'errors.stage_status_system_only': 'Only an approval decision sets this status.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',

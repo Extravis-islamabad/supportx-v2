@@ -33,6 +33,7 @@ export const ar: LabelResource = {
   'action_reason.relative.group_head': 'رئيس المجموعة',
   'action_reason.relative.requester': 'مقدّم الطلب',
   'action_reason.relative.requester_manager': 'مدير مقدّم الطلب',
+  'action_reason.stage_access': 'يمكن لمجموعات أو أدوار معيّنة فقط القيام بذلك في هذه المرحلة.',
   'action_reason.system_calendar': 'تحتفظ كل مؤسسة بهذا التقويم.',
   'action_reason.window_already_ended': 'لقد مضى وقت «يظهر حتى» بالفعل.',
   'action_reason.window_end_before_start': 'يجب أن يكون «يظهر حتى» بعد «يظهر من».',

@@ -301,6 +301,7 @@ FIELD_PROBLEMS = frozenset(
         "hidden_cannot_be_required",
         "read_only_in_stage",
         "not_a_field",
+        "required_to_leave_stage",  # WP-058a s3 (REQ-REL-018)
     }
 )
 

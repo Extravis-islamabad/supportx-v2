@@ -42,6 +42,7 @@ from app.modules.automation import (
     transition_settings,
 )
 from app.modules.identity_access import (
+    AccessRule,
     Placement,
     RoleName,
     Subject,
@@ -95,6 +96,8 @@ from app.modules.work_items.domain.stages import (
     SetBy,
     StatusTransitionDef,
     plan_move,
+    required_to_leave,
+    stages_left,
 )
 from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
@@ -158,6 +161,7 @@ OPEN_CATEGORIES = (StatusCategory.OPEN, StatusCategory.PAUSED)
 NOT_FROM_STATUS = "not_from_status"
 NO_PERMISSION = "no_permission"
 OUT_OF_SCOPE = "out_of_scope"
+STAGE_ACCESS = "stage_access"  # the stage's access rule refuses (REQ-REL-019, the policy layer)
 RECORD_CLOSED = "record_closed"
 ALREADY_YOURS = "already_yours"
 ASSIGNED_TO_OTHER = "assigned_to_other"
@@ -289,23 +293,28 @@ def _rows(wtype: WorkItemType, *, trash: bool = False) -> Select[Any]:
 async def _may(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, action: str, record_id: uuid.UUID
 ) -> bool:
+    return await _reason_for(session, subject, wtype, action, record_id) is None
+
+
+async def _reason_for(  # noqa: PLR0913 - the check and its optional stage rule, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    action: str,
+    record_id: uuid.UUID,
+    *,
+    rule: AccessRule | None = None,
+) -> str | None:
+    """None when allowed, else no_permission / out_of_scope / stage_access (one policy layer)."""
     permission = wtype.permission(action)
     if not subject.holds(permission):
-        return False
-    return bool(
-        await authorize_stored(session, subject, permission, RESOURCE, WorkItem.id, record_id)
-    )
-
-
-async def _reason_for(
-    session: AsyncSession, subject: Subject, wtype: WorkItemType, action: str, record_id: uuid.UUID
-) -> str | None:
-    """None when allowed, else no_permission / out_of_scope."""
-    if not subject.holds(wtype.permission(action)):
         return NO_PERMISSION
-    if not await _may(session, subject, wtype, action, record_id):
-        return OUT_OF_SCOPE
-    return None
+    decision = await authorize_stored(
+        session, subject, permission, RESOURCE, WorkItem.id, record_id, rule=rule
+    )
+    if decision:
+        return None
+    return STAGE_ACCESS if decision.reason == STAGE_ACCESS else OUT_OF_SCOPE
 
 
 async def _relatives(
@@ -393,10 +402,18 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
     allowed_now = set(lifecycle.actions_from(record.status))
     reasons: dict[str, str | None] = {}
 
+    # Editing a staged record also needs its stage's edit access (REQ-REL-019).
+    edit_rule = await stage_service.access_rule(session, record, stage_service.EDIT)
+
     async def reason(permission_action: str) -> str | None:
         if permission_action not in reasons:
             reasons[permission_action] = await _reason_for(
-                session, subject, wtype, permission_action, record.id
+                session,
+                subject,
+                wtype,
+                permission_action,
+                record.id,
+                rule=edit_rule if permission_action == "edit" else None,
             )
         return reasons[permission_action]
 
@@ -494,12 +511,22 @@ async def _visible(
     return record
 
 
-async def _for_action(
-    session: AsyncSession, subject: Subject, wtype: WorkItemType, action: str, record_id: uuid.UUID
+async def _for_action(  # noqa: PLR0913 - the check and its stage access, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    action: str,
+    record_id: uuid.UUID,
+    *,
+    stage_access: str | None = None,
 ) -> WorkItem:
-    """Visible (404) and the action's permission reaches it (403 with the reason)."""
+    """Visible (404) and the action's permission reaches it (403 with the reason).
+
+    `stage_access`: also the record's current stage's access rule of that kind (REQ-REL-019).
+    """
     record = await _visible(session, subject, wtype, record_id)
-    refused = await _reason_for(session, subject, wtype, action, record_id)
+    rule = await stage_service.access_rule(session, record, stage_access) if stage_access else None
+    refused = await _reason_for(session, subject, wtype, action, record_id, rule=rule)
     if refused is not None:
         raise PermissionDenied(params={"permission": wtype.permission(action), "reason": refused})
     return record
@@ -2038,7 +2065,9 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     source: Source,
 ) -> WorkItemView:
     """Edit fields (never status or assignment). Unchanged input: no new version, no event."""
-    record = await _for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_action(
+        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+    )
     if _closed(record):
         raise Conflict(code="record_closed", params={"status": record.status})
     cat = await config.load(session, wtype)
@@ -2315,8 +2344,12 @@ async def move_status(  # noqa: PLR0913 - the move and its context, explicit
     reason_text: str | None,
     source: Source,
     closing_input: closing.MoveInput | None = None,
+    fields: Mapping[str, Any] | None = None,
 ) -> WorkItemView:
     """A person's listed status move on a staged type (ADR-041 §8); never a system status.
+
+    `fields` fill what the move asks for in the same save (lane A): they go through the normal
+    edit (and release details) checks and history first, then the move runs on the new version.
 
     Checks in order: the move is listed for the record's path and version, the target is not
     system-only, the edit permission and the move's own (cancel, reopen), the reason, the type's
@@ -2324,6 +2357,16 @@ async def move_status(  # noqa: PLR0913 - the move and its context, explicit
     """
     if wtype.stages is None:
         raise Conflict(code="stage_move_not_allowed", params={"to": target})
+    if fields:
+        expected_version = await _fill_for_move(
+            session,
+            subject,
+            wtype,
+            record_id,
+            fields=fields,
+            expected_version=expected_version,
+            source=source,
+        )
     record = await _for_action(session, subject, wtype, "edit", record_id)
     moved = await _stage_move(
         session,
@@ -2340,6 +2383,44 @@ async def move_status(  # noqa: PLR0913 - the move and its context, explicit
     return await _view(session, subject, wtype, moved)
 
 
+async def _fill_for_move(  # noqa: PLR0913 - the values and their context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    fields: Mapping[str, Any],
+    expected_version: int,
+    source: Source,
+) -> int:
+    """Save the values a move brings (standard and custom, then release details); new version."""
+    own = {n: v for n, v in fields.items() if n in wtype.own_fields}
+    standard = {n: v for n, v in fields.items() if n not in wtype.own_fields}
+    if standard:
+        view = await update(
+            session,
+            subject,
+            wtype,
+            record_id,
+            expected_version=expected_version,
+            values=standard,
+            source=source,
+        )
+        expected_version = view.record.version
+    if own:
+        details = await update_release_details(
+            session,
+            subject,
+            wtype,
+            record_id,
+            expected_version=expected_version,
+            values=own,
+            source=source,
+        )
+        expected_version = details.record.version
+    return expected_version
+
+
 @dataclass(frozen=True)
 class StageOffer:
     """A move offered from the current status: whether you may, and why not."""
@@ -2348,6 +2429,8 @@ class StageOffer:
     to_stage: str
     allowed: bool
     reason: str | None
+    # What the move still needs (field, problem code), so the dialog asks for exactly these.
+    missing: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -2376,7 +2459,16 @@ async def stage_panel(
         refused = may_edit
         if refused is None and t.permission is not None:
             refused = await _reason_for(session, subject, wtype, t.permission, record.id)
-        moves.append(StageOffer(t, target.stage, refused is None, refused))
+        planned = plan_move(
+            model, current=record.status, target=t.to_status, path=str(record.stage_path)
+        )
+        if refused is None and await _stage_access_refused(
+            session, subject, wtype, record, planned
+        ):
+            refused = STAGE_ACCESS
+        missing = tuple(await _move_missing(session, record, planned))
+        # Missing values do not disable the move: the dialog asks for them (REQ-REL-018 AC1).
+        moves.append(StageOffer(t, target.stage, refused is None, refused, missing))
     return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves)
 
 
@@ -2429,6 +2521,16 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         raise Conflict(code=error.code, params={"from": record.status, "to": target}) from error
     if subject is not None and move.transition.permission is not None:
         await _for_action(session, subject, wtype, move.transition.permission, record.id)
+    if subject is not None:
+        refused = await _stage_access_refused(session, subject, wtype, record, move)
+        if refused is not None:
+            raise PermissionDenied(
+                params={
+                    "permission": wtype.permission("edit"),
+                    "reason": STAGE_ACCESS,
+                    "stage": refused,
+                }
+            )
     cat = await config.load(session, wtype)
     text = (reason_text or "").strip() or None
     problems = reason_problems(
@@ -2439,13 +2541,19 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     )
     if problems:
         raise _errors(problems, reason_text={"max_length": 500})
-    _check_move_fields(record, move)
+    missing = await _move_missing(session, record, move)
+    if missing:
+        raise _errors(missing)
     guard = stage_service.guard_of(record.type)
     refusals = [] if guard is None else await guard.check(session, record, move)
-    if refusals:
+    if refusals:  # the full list (lane A), the first one also on its own for simple screens
         raise Conflict(
             code="stage_move_refused",
-            params={"reason": refusals[0].code, "count": len(refusals)},
+            params={
+                "reason": refusals[0].code,
+                "reasons": ",".join(r.code for r in refusals),
+                "count": len(refusals),
+            },
         )
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
@@ -2491,15 +2599,62 @@ def _closing_action(record: WorkItem, move: Move) -> WorkItemAction:
     return WorkItemAction.START_WORK  # no closing rules
 
 
-def _check_move_fields(record: WorkItem, move: Move) -> None:
-    """The fields the move's transition asks for must have a value (ADR-041 §4, REQ-CHG-026)."""
-    asked = move.transition.required_fields
+async def _stage_access_refused(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem, move: Move
+) -> str | None:
+    """The stage whose access a person lacks for this move, or None (REQ-REL-019).
+
+    Leaving a stage needs its move-out access (each stage the move leaves); a move inside the
+    stage needs its edit access.
+    """
+    left = stages_left(move, str(record.stage))
+    checks = (
+        [(stage_service.MOVE_OUT, s) for s in left]
+        if left
+        else [(stage_service.EDIT, record.stage)]
+    )
+    for kind, stage in checks:
+        rule = await stage_service.access_rule(session, record, kind, stage)
+        if await _reason_for(session, subject, wtype, "edit", record.id, rule=rule) == STAGE_ACCESS:
+            return str(stage)
+    return None
+
+
+async def _move_missing(
+    session: AsyncSession, record: WorkItem, move: Move
+) -> list[tuple[str, str]]:
+    """Every field the move needs that has no value, as (field, problem code) pairs.
+
+    The transition's own fields (ADR-041 §4, REQ-CHG-026) and the fields the template requires
+    before leaving each stage the move leaves (REQ-REL-018), on every path. The full list, so a
+    dialog asks for exactly these.
+    """
+    rules = await stage_service.template_rules(session, record)
+    leaving = required_to_leave(rules, stages_left(move, str(record.stage)))
+    asked = [
+        *move.transition.required_fields,
+        *(n for n in leaving if n not in move.transition.required_fields),
+    ]
     if not asked:
-        return
-    values = {name: getattr(record, name, None) for name in asked if not name.startswith("custom.")}
+        return []
+    values = await _field_values(session, record, asked)
     missing = missing_fields(asked, values, record.custom or {})
-    if missing:
-        raise _errors([(name, "required") for name in missing])
+    return [
+        (name, "required" if name in move.transition.required_fields else "required_to_leave_stage")
+        for name in missing
+    ]
+
+
+async def _field_values(
+    session: AsyncSession, record: WorkItem, names: Sequence[str]
+) -> dict[str, Any]:
+    """The record's values of `names`, its type's own fields (release details) included."""
+    values = {n: getattr(record, n, None) for n in names if not n.startswith("custom.")}
+    own = [n for n in names if n in release_rules.DETAIL_FIELDS]
+    if own:
+        row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record.id))
+        values.update({n: getattr(row, n) if row is not None else None for n in own})
+    return values
 
 
 def _staged_changes(
@@ -2758,7 +2913,9 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
     `copying`: a copy takes the original's risk, which was set (with its reason) there.
     """
     _release_only(wtype)
-    record = await _for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_action(
+        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+    )
     if _closed(record):
         raise Conflict(code="record_closed", params={"status": record.status})
     if record.version != expected_version:

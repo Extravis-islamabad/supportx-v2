@@ -361,6 +361,23 @@ def stage_rules_to_json(rules: Mapping[str, Mapping[str, StageFieldRule]]) -> di
     }
 
 
+def required_to_leave(raw: Mapping[str, Any] | None, stages: Iterable[str]) -> list[str]:
+    """Fields a stored rule set requires before a record may leave any of `stages`, in order."""
+    names: list[str] = []
+    for stage in stages:
+        for name, flags in ((raw or {}).get(stage) or {}).items():
+            if (flags or {}).get("required") and name not in names:
+                names.append(name)
+    return names
+
+
+def stages_left(move: "Move", current: str) -> list[str]:
+    """The stages a move leaves: the current one if it enters another, and any passed through."""
+    if not move.entered:
+        return []
+    return [current, *move.entered[:-1]]
+
+
 def read_only_in(raw: Mapping[str, Any] | None, stage: str | None) -> frozenset[str]:
     """The fields a stored rule set makes read-only in `stage`."""
     if not raw or stage is None:
