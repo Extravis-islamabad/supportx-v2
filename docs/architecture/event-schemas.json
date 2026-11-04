@@ -2641,6 +2641,23 @@
         "type": "object"
       }
     },
+    "organization.tenant.provisioned": {
+      "1": {
+        "description": "A tenant is ready for use (WP-031, D-138): modules seed their starting content from it.\n\nOnly the tenant's ID. Whatever creates tenants (tooling today; tenant provisioning later,\nonce its identity side is ready) emits it once; consumers stay idempotent per tenant, so a\nretried provisioning never seeds twice.",
+        "properties": {
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id"
+        ],
+        "title": "TenantProvisioned",
+        "type": "object"
+      }
+    },
     "service_catalog.category.changed": {
       "1": {
         "description": "A category was added or changed.",
@@ -2688,6 +2705,46 @@
           "changed_fields"
         ],
         "title": "CatalogItemChanged",
+        "type": "object"
+      }
+    },
+    "service_catalog.settings.changed": {
+      "1": {
+        "description": "The tenant's catalog settings changed (WP-031).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "CatalogSettingsChanged",
+        "type": "object"
+      }
+    },
+    "service_catalog.starter.seeded": {
+      "1": {
+        "description": "The starter catalog was added to the tenant (D-138): counts only.",
+        "properties": {
+          "categories": {
+            "title": "Categories",
+            "type": "integer"
+          },
+          "items": {
+            "title": "Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "categories",
+          "items"
+        ],
+        "title": "StarterCatalogSeeded",
         "type": "object"
       }
     },
