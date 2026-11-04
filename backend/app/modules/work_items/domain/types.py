@@ -15,6 +15,8 @@ from enum import StrEnum
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
+    PROBLEM_STATUSES,
+    PROBLEM_TRANSITIONS,
     SERVICE_REQUEST_STATUSES,
     SERVICE_REQUEST_TRANSITIONS,
     StatusDef,
@@ -125,12 +127,28 @@ SERVICE_REQUEST = WorkItemType(
     fields=COMMON_FIELDS,
 )
 
+# WP-044a (REQ-PRB-001..003, -009, -023): its own PRB counter, the Appendix A life cycle and
+# permissions (`problems.*`, moved from identity's reserved list as requests.* was). Licensed
+# with `problem` (Professional). Its own fields (type, root cause category, outage window, the
+# known error ...) come with WP-044a s2 and WP-044b.
+PROBLEM = WorkItemType(
+    code=WorkItemTypeCode.PROBLEM,
+    path="problems",
+    default_prefix="PRB",
+    feature="problem",
+    permission_prefix="problems",
+    statuses=PROBLEM_STATUSES,
+    transitions=PROBLEM_TRANSITIONS,
+    fields=COMMON_FIELDS,
+)
+
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {
     INCIDENT.code: INCIDENT,
     SERVICE_REQUEST.code: SERVICE_REQUEST,
+    PROBLEM.code: PROBLEM,
 }
 # Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
-PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST)
+PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, PROBLEM)
 
 
 # --- value rules shared by every type -------------------------------------------------------------

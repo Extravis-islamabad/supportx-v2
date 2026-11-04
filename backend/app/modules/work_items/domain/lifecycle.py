@@ -43,6 +43,11 @@ class WorkItemAction(StrEnum):
     """Status actions in the one order the UI shows them (system actions last, never shown)."""
 
     START_WORK = "start_work"
+    # problems (WP-044a, REQ-PRB-023, Appendix A)
+    INVESTIGATE = "investigate"
+    CONFIRM_ROOT_CAUSE = "confirm_root_cause"
+    AWAIT_FIX = "await_fix"
+    HOLD = "hold"
     WAIT_REQUESTER = "wait_requester"
     WAIT_THIRD_PARTY = "wait_third_party"
     RESUME = "resume"
@@ -58,6 +63,8 @@ class WorkItemAction(StrEnum):
     REJECT = "reject"
 
 
+# Transitions that may return to an earlier status instead of naming one (to_status None).
+RETURNING_ACTIONS = frozenset({WorkItemAction.UNDO_CANCEL, WorkItemAction.RESUME})
 SYSTEM_ACTIONS = frozenset(
     {WorkItemAction.ASSIGN, WorkItemAction.UNASSIGN, WorkItemAction.APPROVE, WorkItemAction.REJECT}
 )
@@ -130,8 +137,8 @@ class Lifecycle:
             if t.to_status is not None and t.to_status not in by_code:
                 msg = f"transition {t.action} leads to unknown status {t.to_status!r}"
                 raise LifecycleError(msg)
-            if t.to_status is None and t.action != WorkItemAction.UNDO_CANCEL:
-                msg = f"only undo_cancel may return to the previous status, not {t.action}"
+            if t.to_status is None and t.action not in RETURNING_ACTIONS:
+                msg = f"only undo_cancel and resume may return to a previous status, not {t.action}"
                 raise LifecycleError(msg)
             # A system status is entered only by a system action (a rejection), never chosen.
             if (
@@ -169,14 +176,26 @@ class Lifecycle:
             raise InvalidTransition(status, action)
         return found
 
-    def target(self, status: str, action: WorkItemAction, *, before_cancel: str | None) -> str:
-        """Where `action` leads from `status` (undo_cancel: back to `before_cancel`)."""
+    def target(
+        self,
+        status: str,
+        action: WorkItemAction,
+        *,
+        before_cancel: str | None,
+        before_pause: str | None = None,
+    ) -> str:
+        """Where `action` leads from `status`.
+
+        A transition with no target returns: undo_cancel to `before_cancel`, resume to
+        `before_pause` (a problem resumes where it was put on hold, Appendix A).
+        """
         found = self.transition(status, action)
         if found.to_status is not None:
             return found.to_status
-        if before_cancel is None or before_cancel not in self.statuses:
+        back = before_cancel if action == WorkItemAction.UNDO_CANCEL else before_pause
+        if back is None or back not in self.statuses or self.statuses[back].system:
             raise InvalidTransition(status, action)
-        return before_cancel
+        return back
 
 
 # --- the Appendix A defaults ----------------------------------------------------------------------
@@ -324,6 +343,64 @@ SERVICE_REQUEST_TRANSITIONS: tuple[TransitionDef, ...] = (
 def service_request_lifecycle() -> Lifecycle:
     """The Appendix A service request life cycle (validated)."""
     return Lifecycle.build(SERVICE_REQUEST_STATUSES, SERVICE_REQUEST_TRANSITIONS)
+
+
+# --- problems (WP-044a, REQ-PRB-023, Appendix A) -------------------------------------------------
+
+
+class ProblemStatus(StrEnum):
+    """The statuses a problem adds to the seeded ones (new, assigned, resolved, closed ...)."""
+
+    INVESTIGATING = "investigating"
+    ROOT_CAUSE_FOUND = "root_cause_found"  # entered with a root cause (WP-044b checks it)
+    AWAITING_FIX = "awaiting_fix"  # usually a linked change (WP-045)
+    ON_HOLD = "on_hold"  # paused; resume returns where it was put on hold
+
+
+P = ProblemStatus
+PROBLEM_STATUSES: tuple[StatusDef, ...] = (
+    StatusDef(S.NEW, StatusCategory.OPEN, "#1677ff"),
+    StatusDef(S.ASSIGNED, StatusCategory.OPEN, "#2f54eb"),
+    StatusDef(P.INVESTIGATING, StatusCategory.OPEN, "#13c2c2"),
+    StatusDef(P.ROOT_CAUSE_FOUND, StatusCategory.OPEN, "#722ed1"),
+    StatusDef(P.AWAITING_FIX, StatusCategory.OPEN, "#fa8c16"),
+    StatusDef(P.ON_HOLD, StatusCategory.PAUSED, "#faad14"),
+    StatusDef(S.RESOLVED, StatusCategory.RESOLVED, "#52c41a"),
+    StatusDef(S.CLOSED, StatusCategory.CLOSED, "#8c8c8c"),
+    StatusDef(S.CANCELED, StatusCategory.CANCELED, "#bfbfbf"),
+    StatusDef(S.MERGED, StatusCategory.CLOSED, "#bfbfbf", system=True),
+)
+
+PROBLEM_TRANSITIONS: tuple[TransitionDef, ...] = (
+    _t(S.NEW, A.ASSIGN, S.ASSIGNED),
+    _t(S.NEW, A.INVESTIGATE, P.INVESTIGATING),
+    _t(S.NEW, A.CANCEL, S.CANCELED, _CANCEL),
+    _t(S.ASSIGNED, A.UNASSIGN, S.NEW),
+    _t(S.ASSIGNED, A.INVESTIGATE, P.INVESTIGATING),
+    _t(S.ASSIGNED, A.HOLD, P.ON_HOLD, _PAUSE),
+    _t(S.ASSIGNED, A.CANCEL, S.CANCELED, _CANCEL),
+    _t(P.INVESTIGATING, A.CONFIRM_ROOT_CAUSE, P.ROOT_CAUSE_FOUND),
+    _t(P.INVESTIGATING, A.HOLD, P.ON_HOLD, _PAUSE),
+    _t(P.INVESTIGATING, A.RESOLVE, S.RESOLVED),
+    _t(P.INVESTIGATING, A.CANCEL, S.CANCELED, _CANCEL),
+    _t(P.ROOT_CAUSE_FOUND, A.AWAIT_FIX, P.AWAITING_FIX),
+    _t(P.ROOT_CAUSE_FOUND, A.INVESTIGATE, P.INVESTIGATING),  # the cause was rejected
+    _t(P.ROOT_CAUSE_FOUND, A.RESOLVE, S.RESOLVED),
+    _t(P.ROOT_CAUSE_FOUND, A.CLOSE, S.CLOSED),  # accepted, no fix (a closure code says so)
+    _t(P.AWAITING_FIX, A.RESOLVE, S.RESOLVED),
+    _t(P.AWAITING_FIX, A.INVESTIGATE, P.INVESTIGATING),  # the fix failed
+    _t(P.AWAITING_FIX, A.HOLD, P.ON_HOLD, _PAUSE),
+    TransitionDef(P.ON_HOLD, A.RESUME, None),  # back to the status it was put on hold from
+    _t(S.RESOLVED, A.CLOSE, S.CLOSED),
+    _t(S.RESOLVED, A.REOPEN, P.INVESTIGATING, _REOPEN),
+    _t(S.CLOSED, A.REOPEN, P.INVESTIGATING, _REOPEN),
+    TransitionDef(S.CANCELED, A.UNDO_CANCEL, None, ReasonMode.OPTIONAL),
+)
+
+
+def problem_lifecycle() -> Lifecycle:
+    """The Appendix A problem life cycle (validated)."""
+    return Lifecycle.build(PROBLEM_STATUSES, PROBLEM_TRANSITIONS)
 
 
 # --- rules on top of a life cycle -----------------------------------------------------------------

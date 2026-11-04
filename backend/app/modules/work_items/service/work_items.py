@@ -153,6 +153,11 @@ CANNOT_TAKE = "cannot_take"
 # Which permission runs which status action.
 ACTION_PERMISSION: Mapping[WorkItemAction, str] = {
     WorkItemAction.START_WORK: "edit",
+    # problems (WP-044a): working the problem through its analysis
+    WorkItemAction.INVESTIGATE: "edit",
+    WorkItemAction.CONFIRM_ROOT_CAUSE: "edit",
+    WorkItemAction.AWAIT_FIX: "edit",
+    WorkItemAction.HOLD: "edit",
     WorkItemAction.WAIT_REQUESTER: "edit",
     WorkItemAction.WAIT_THIRD_PARTY: "edit",
     WorkItemAction.RESUME: "edit",
@@ -1358,6 +1363,11 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
         changes["status_before_cancel"] = record.status
     if action == WorkItemAction.UNDO_CANCEL:
         changes["status_before_cancel"] = None
+    # Appendix A (problems): on hold returns to where it was put on hold (WP-044a).
+    if action == WorkItemAction.HOLD:
+        changes["status_before_pause"] = record.status
+    if action == WorkItemAction.RESUME:
+        changes["status_before_pause"] = None
     if new == StatusCategory.RESOLVED:
         changes["resolved_at"] = now
     if new == StatusCategory.CLOSED:
@@ -2200,7 +2210,10 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     try:
         step = cat.lifecycle.transition(record.status, action)
         target = cat.lifecycle.target(
-            record.status, action, before_cancel=record.status_before_cancel
+            record.status,
+            action,
+            before_cancel=record.status_before_cancel,
+            before_pause=record.status_before_pause,
         )
     except InvalidTransition as error:  # pragma: no cover - start work is allowed from assigned
         raise Conflict(
@@ -2255,7 +2268,12 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     BUG-03): history keeps them as the person, from their channel, with `requester_action`
     saying what they did. Only the system's own moves (auto-close) are automatic.
     """
-    target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
+    target = cat.lifecycle.target(
+        record.status,
+        action,
+        before_cancel=record.status_before_cancel,
+        before_pause=record.status_before_pause,
+    )
     step = await closing.before_move(session, cat, record, action, given or closing.MoveInput())
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
@@ -2297,7 +2315,12 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     channel, with the record's new approval status. On approval the item's technician (after
     approval, REQ-SR-008 AC2) is set in the same save, then the usual move to "assigned".
     """
-    target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
+    target = cat.lifecycle.target(
+        record.status,
+        action,
+        before_cancel=record.status_before_cancel,
+        before_pause=record.status_before_pause,
+    )
     old_approval, old_technician = record.approval_status, record.technician_id
     audience = _audience(record)
     assigning = technician_id != old_technician

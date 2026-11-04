@@ -613,6 +613,8 @@ class WorkItem(TenantEntity):
     status_reason_code: Mapped[str | None] = mapped_column(String(40))
     status_reason_text: Mapped[str | None] = mapped_column(Text)
     status_before_cancel: Mapped[str | None] = mapped_column(String(40))
+    # WP-044a: where a record put on hold resumes (Appendix A, problems).
+    status_before_pause: Mapped[str | None] = mapped_column(String(40))
     # The fix (REQ-INC-090), sanitised rich text; cleared on reopen (history keeps it).
     resolution: Mapped[str | None] = mapped_column(Text)
     # A code of the closure_code pick list (REQ-INC-093); cleared on reopen (history keeps it).

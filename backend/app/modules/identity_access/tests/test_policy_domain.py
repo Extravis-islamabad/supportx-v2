@@ -83,7 +83,7 @@ MATRIX = {
     "requests.create": (True, True, True),
     "requests.assign": (True, True, False),
     "changes.approve": (True, False, False),
-    "problems.manage": (True, True, False),
+    "assets.manage": (True, True, False),  # problems.* moved to work_items (WP-044a)
     # knowledge.* moved to the knowledge module with its own defaults (D-108 (7), WP-033)
 }
 
@@ -99,7 +99,7 @@ def test_system_role_matrix(permission: str) -> None:
 
 def test_scopes_of_system_roles() -> None:
     assert subject_for("tenant_admin").broadest_scope("requests.view") == "all"
-    assert subject_for("technician").broadest_scope("problems.manage") == "group"
+    assert subject_for("technician").broadest_scope("assets.manage") == "group"
     assert subject_for("requester").broadest_scope("requests.view") == "own"
     assert subject_for("requester").broadest_scope("users.view") is None
 
