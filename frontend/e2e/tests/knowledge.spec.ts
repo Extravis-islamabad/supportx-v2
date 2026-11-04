@@ -126,7 +126,8 @@ async function writeAndSubmit(page: Page, made: World, title: string): Promise<s
   await page.keyboard.type('Keep the old token until the new one works.');
   await pasteImage(page, 'kb-edit-body');
   await expect(body.locator('img')).toHaveCount(1, LIVE);
-  await expect(page.getByTestId('kb-save-state')).toContainText(/Saved/, LIVE);
+  // The state, not its words ("All changes saved" in English; the Arabic run reads the same).
+  await expect(page.getByTestId('kb-save-state')).toHaveAttribute('data-state', 'saved', LIVE);
   await page.getByTestId('kb-done').click();
   await expect(page).toHaveURL(new RegExp(`/knowledge/articles/${id}$`), LIVE);
   await page.getByTestId('kb-action-submit').click();
