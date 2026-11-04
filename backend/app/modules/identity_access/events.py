@@ -251,6 +251,17 @@ class InvitationChanged(DomainEvent):
     status: Literal["pending", "accepted", "revoked"]
 
 
+class ApiKeyChanged(DomainEvent):
+    """An API key was made or revoked (WP-041, D-128): key screens refetch. Never the key text."""
+
+    event_type: ClassVar[str] = "identity_access.api_key.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "api_key"
+
+    change: Literal["created", "revoked"]
+    owner_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -270,4 +281,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     MfaChanged,
     SsoProviderChanged,
     InvitationChanged,
+    ApiKeyChanged,
 )

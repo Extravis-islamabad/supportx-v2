@@ -518,4 +518,9 @@ export const en = {
     'Could not connect an AD/LDAP directory in the identity service',
   'audit.action.directory.federation_removed':
     'Removed an AD/LDAP directory from the identity service',
+  'event_type.identity_access.api_key.changed': 'API key changed',
+  'audit.action.api_key.created': 'Made an API key',
+  'audit.action.api_key.revoked': 'Revoked an API key',
+  'audit.action.api_key.refused': 'API key refused',
+  'audit.action.api_key.settings_changed': 'Changed the API key rules',
 } as const;

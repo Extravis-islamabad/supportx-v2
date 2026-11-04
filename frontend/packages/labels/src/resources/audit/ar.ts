@@ -523,4 +523,9 @@ export const ar: LabelResource = {
   'audit.action.directory.federation_applied': 'ربط دليل AD/LDAP في خدمة الهوية',
   'audit.action.directory.federation_failed': 'تعذّر ربط دليل AD/LDAP في خدمة الهوية',
   'audit.action.directory.federation_removed': 'أزال دليل AD/LDAP من خدمة الهوية',
+  'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
+  'audit.action.api_key.created': 'أنشأ مفتاح API',
+  'audit.action.api_key.revoked': 'أبطل مفتاح API',
+  'audit.action.api_key.refused': 'رُفض مفتاح API',
+  'audit.action.api_key.settings_changed': 'غيّر قواعد مفاتيح API',
 };

@@ -1,0 +1,14 @@
+# Secret scanning (gitleaks, .github/workflows/security.yml): the default rules plus SupportX's
+# own API keys (WP-041, D-128). The same pattern is published in docs/api/keys.md for customers'
+# own scanners; backend/tests/test_gitleaks_rules.py keeps the two identical.
+
+title = "SupportX"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supportx-api-key"
+description = "SupportX API key"
+regex = '''sxk_[0-9a-hjkmnp-tv-z]{26}_[0-9a-hjkmnp-tv-z]{26}_[A-Za-z0-9_-]{43}'''
+keywords = ["sxk_"]

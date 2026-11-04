@@ -505,4 +505,9 @@ export const ur: LabelResource = {
   'audit.action.directory.federation_applied': 'شناختی سروس میں AD/LDAP ڈائریکٹری جوڑی',
   'audit.action.directory.federation_failed': 'شناختی سروس میں AD/LDAP ڈائریکٹری نہیں جوڑی جا سکی',
   'audit.action.directory.federation_removed': 'شناختی سروس سے AD/LDAP ڈائریکٹری ہٹائی',
+  'event_type.identity_access.api_key.changed': 'API کلید بدلی',
+  'audit.action.api_key.created': 'API کلید بنائی',
+  'audit.action.api_key.revoked': 'API کلید منسوخ کی',
+  'audit.action.api_key.refused': 'API کلید رد کی گئی',
+  'audit.action.api_key.settings_changed': 'API کلید کے قواعد بدلے',
 };

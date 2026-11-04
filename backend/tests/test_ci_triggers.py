@@ -86,7 +86,7 @@ def test_required_checks_run_on_every_pr_and_in_the_merge_queue() -> None:
 # nightly on main, on a manual run and on a PR labelled `full-ci`; a job-level `if:` skips them
 # everywhere else, so they take no runner. None may be a required check.
 HEAVY = {
-    "core profile, integration and e2e ${{ matrix.shard }}/2",  # two shards (#179)
+    "core profile, integration and e2e ${{ matrix.shard }}/3",  # three shards, by time
     "images (build, Trivy, SBOM)",
     "ldap federation",  # WP-040, D-130
     "k3d install and smoke test",
