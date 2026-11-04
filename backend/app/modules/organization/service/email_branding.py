@@ -42,9 +42,13 @@ class EmailBranding:
     console_url: str = ""  # the console on the tenant's address, ending in "/" (WP-023 links)
 
 
-def tenant_origin(settings: Settings, slug: str) -> str:
-    """Where the tenant's people reach SupportX: its subdomain when there are subdomains."""
-    parts = urlsplit(settings.console_url)
+def tenant_origin(settings: Settings, slug: str, base_url: str | None = None) -> str:
+    """Where the tenant's people reach SupportX: its subdomain when there are subdomains.
+
+    `base_url` (default: the console's) gives the scheme and port. They differ only where an app
+    has its own port, as the portal does on the dev and CI stack (localhost:5174).
+    """
+    parts = urlsplit(base_url or settings.console_url)
     if settings.tenant_base_domain:
         port = f":{parts.port}" if parts.port else ""
         return f"{parts.scheme}://{slug}.{settings.tenant_base_domain.strip('.')}{port}"
@@ -61,13 +65,16 @@ async def email_branding(
     logo = None
     if "logo.png" in view.assets:
         logo = f"{origin}{PUBLIC_PREFIX}/{tenant_id}/logo.png?v={view.assets_version or '0'}"
+    # The portal at its own origin: deployed it shares the console's (under /portal/), on the
+    # dev stack it has its own port, and a link on the console's would land on the console.
+    portal_origin = tenant_origin(settings, tenant.slug, settings.portal_url)
     portal_path = urlsplit(settings.portal_url).path.rstrip("/")
     return EmailBranding(
         product_name=text_for(view.product_name, locale) or DEFAULT_PRODUCT_NAME,
         primary_colour=view.colours.primary,
         gradient=view.colours.gradient,
         logo_url=logo,
-        portal_url=f"{origin}{portal_path}/",
+        portal_url=f"{portal_origin}{portal_path}/",
         console_url=f"{origin}{urlsplit(settings.console_url).path.rstrip('/')}/",
     )
 
