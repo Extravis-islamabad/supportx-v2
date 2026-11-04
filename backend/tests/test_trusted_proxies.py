@@ -10,7 +10,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import structlog
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+from app.core import proxies
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = ROOT / "deploy" / "images" / "backend.Dockerfile"
@@ -71,3 +74,24 @@ async def test_only_the_gateway_may_say_who_the_client_is(
     found = await _client_of(peer, forwarded_for)
     assert found is not None
     assert found[0] == client
+
+
+def _scope(peer: str, forwarded_for: str | None) -> dict[str, Any]:
+    headers = [] if forwarded_for is None else [(b"x-forwarded-for", forwarded_for.encode())]
+    return {"type": "http", "client": (peer, 1), "headers": headers}
+
+
+def test_a_gateway_outside_the_trusted_list_is_warned_about_once() -> None:
+    proxies.reset_for_tests()
+    with structlog.testing.capture_logs() as logs:
+        # Trusted gateway: uvicorn already took the client from the header; nothing to say.
+        assert proxies.check_forwarded(_scope("203.0.113.9", "203.0.113.9")) is False
+        assert proxies.check_forwarded(_scope("10.0.0.5", None)) is False  # no header at all
+        # An untrusted proxy: its header was ignored. Warned once, not on every request.
+        assert proxies.check_forwarded(_scope("10.99.0.3", "203.0.113.9")) is True
+        assert proxies.check_forwarded(_scope("10.99.0.3", "198.51.100.1")) is True
+    warned = [entry for entry in logs if entry["event"] == "forwarded_header_ignored"]
+    assert len(warned) == 1
+    assert warned[0]["peer"] == "10.99.0.3"
+    assert "api.trustedProxies" in warned[0]["hint"]
+    proxies.reset_for_tests()
