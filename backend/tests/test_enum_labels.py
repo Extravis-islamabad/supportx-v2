@@ -80,7 +80,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "TopicIn.requesters": "kb_requesters",
     "TopicPatch.requesters": "kb_requesters",
     "VoteIn.reason": "kb_vote_reason",
-    "ArticleLinkIn.how": "kb_link_source",
+    "RecordRef.how": "kb_link_source",
     # API keys (WP-041)
     "ApiKeyOut.status": "api_key_status",
     "ApiKeyCreatedOut.status": "api_key_status",
