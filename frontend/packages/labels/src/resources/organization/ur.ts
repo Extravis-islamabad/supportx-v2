@@ -128,4 +128,11 @@ export const ur: LabelResource = {
   'weekday.5': 'ہفتہ',
   'weekday.6': 'اتوار',
   'organization.field.calendar_id': 'کام کا کیلنڈر',
+  'tenant_status.active': 'فعال',
+  'tenant_status.suspended': 'معطل',
+  'weekday.mon': 'پیر',
+  'weekday.tue': 'منگل',
+  'weekday.wed': 'بدھ',
+  'weekday.thu': 'جمعرات',
+  'weekday.fri': 'جمعہ',
 };

@@ -574,4 +574,112 @@ export const ur: LabelResource = {
   'errors.api_key_expired': 'اس API کلید کی میعاد ختم ہو گئی ہے۔',
   'errors.api_key_owner_inactive': 'اس API کلید کا مالک اب فعال نہیں ہے۔',
   'errors.api_key_ip_refused': 'یہ API کلید اس پتے سے استعمال نہیں ہو سکتی۔',
+  'errors.auth_not_configured': 'اس انسٹالیشن کے لیے سائن اِن ترتیب نہیں دیا گیا۔',
+  'errors.authorization_unavailable':
+    'اجازتیں ابھی جانچی نہیں جا سکتیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.bad_request': 'درخواست پر کارروائی نہیں ہو سکی۔',
+  'errors.conflict':
+    'کسی اور نے یہ آئٹم تبدیل کر دیا۔ تازہ ترین ورژن دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.csrf_failed':
+    'اس درخواست کی تصدیق نہیں ہو سکی۔ براہِ کرم صفحہ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
+  'errors.database_not_configured':
+    'سروس ابھی مکمل طور پر ترتیب نہیں دی گئی۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.entitlement_required': 'آپ کے پلان میں یہ خصوصیت شامل نہیں۔',
+  'errors.entitlement_required.detail': '{{feature}} آپ کے ادارے کے پلان کا حصہ نہیں۔',
+  'errors.entitlements_unavailable':
+    'لائسنس کی معلومات عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
+  'errors.field.duplicate_permission': 'یہ اجازت دو بار درج ہے۔',
+  'errors.field.duplicate_sort_field': 'ترتیب میں ہر فیلڈ صرف ایک بار استعمال ہو سکتی ہے۔',
+  'errors.field.filter_too_deep': 'فلٹر میں بہت زیادہ اندرونی گروپ ہیں۔',
+  'errors.field.filter_too_large': 'فلٹر بہت بڑا ہے۔',
+  'errors.field.invalid_choice': 'یہ اجازت یافتہ قدروں میں سے نہیں ہے۔',
+  'errors.field.invalid_group': 'گروپ میں کم از کم ایک شرط ہونی چاہیے۔',
+  'errors.field.invalid_json': 'فلٹر درست نہیں ہے۔',
+  'errors.field.invalid_node': 'فلٹر کا یہ حصہ نہ شرط ہے نہ گروپ۔',
+  'errors.field.invalid_range': 'حد کا آغاز اس کے اختتام کے بعد ہے۔',
+  'errors.field.invalid_sort': 'ترتیب کے لیے ایک سے تین فیلڈز منتخب کریں۔',
+  'errors.field.invalid_value': 'یہ قدر اس فیلڈ کے لیے درست نہیں ہے۔',
+  'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
+  'errors.field.operator_not_allowed': 'یہ موازنہ اس فیلڈ کے ساتھ استعمال نہیں ہو سکتا۔',
+  'errors.field.out_of_range': 'یہ عدد اجازت یافتہ حد سے باہر ہے۔',
+  'errors.field.read_only': 'یہ فیلڈ یہاں تبدیل نہیں ہو سکتی۔',
+  'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
+  'errors.field.unknown_field': 'آپ اس فیلڈ پر فلٹر نہیں کر سکتے۔',
+  'errors.field.unknown_key': 'فلٹر کی یہ ترتیب پہچانی نہیں گئی۔',
+  'errors.field.unknown_operator': 'یہ موازنہ پہچانا نہیں گیا۔',
+  'errors.field.unknown_parameter': 'فہرست کا یہ اختیار پہچانا نہیں گیا۔',
+  'errors.field.unknown_permission': 'یہ اجازت موجود نہیں ہے۔',
+  'errors.field.unknown_sort_field': 'فہرست کو اس فیلڈ کے لحاظ سے ترتیب نہیں دیا جا سکتا۔',
+  'errors.field.value_not_allowed': 'یہ موازنہ کوئی قدر نہیں لیتا۔',
+  'errors.field.value_too_long': 'یہ قدر بہت لمبی ہے۔',
+  'errors.group_not_found': 'سپورٹ گروپ نہیں ملا۔',
+  'errors.idempotency_key_reused':
+    'یہ درخواست پہلے ہی مختلف ڈیٹا کے لیے استعمال ہو چکی ہے۔ نئی درخواست شروع کریں۔',
+  'errors.idempotency_request_in_progress':
+    'یہی درخواست ابھی زیرِ کارروائی ہے۔ براہِ کرم ذرا انتظار کریں۔',
+  'errors.identity_provider_unavailable':
+    'سائن اِن عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.internal_error': 'ہماری طرف کچھ غلط ہو گیا۔ براہِ کرم دوبارہ کوشش کریں۔',
+  'errors.invalid_etag':
+    'اس تبدیلی کے ساتھ بھیجا گیا آئٹم کا ورژن درست نہیں۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
+  'errors.invalid_filter': 'فلٹر لاگو نہیں ہو سکا۔ نمایاں کی گئی شرط دیکھیں۔',
+  'errors.invalid_idempotency_key': 'درخواست کا شناخت کنندہ درست نہیں۔',
+  'errors.invalid_login_state':
+    'اس سائن اِن لنک کی میعاد ختم ہو گئی ہے۔ براہِ کرم دوبارہ شروع کریں۔',
+  'errors.invalid_page_size': 'ایک صفحے کے لیے بہت زیادہ قطاریں مانگی گئیں۔',
+  'errors.invalid_sort': 'فہرست کو اس طرح ترتیب نہیں دیا جا سکتا۔',
+  'errors.invalid_tenant_id': 'ادارے کا شناخت کنندہ درست نہیں۔',
+  'errors.last_tenant_admin': 'ادارے میں کم از کم ایک ادارہ منتظم ہونا ضروری ہے۔',
+  'errors.limit_reached':
+    'آپ کے پلان کی اس کے لیے حد پوری ہو چکی ہے۔ پلان بڑھانے کے لیے اپنے منتظم سے کہیں۔',
+  'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
+  'errors.method_not_allowed': 'یہ کارروائی یہاں دستیاب نہیں۔',
+  'errors.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
+  'errors.network_error':
+    'SupportX تک ابھی رسائی نہیں ہو رہی۔ اپنا کنکشن چیک کریں؛ ہم کوشش جاری رکھیں گے۔',
+  'errors.no_organization':
+    'آپ کا اکاؤنٹ ابھی کسی ادارے سے منسلک نہیں۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
+  'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
+  'errors.not_found': 'آئٹم نہیں ملا۔',
+  'errors.own_profile_only': 'آپ صرف اپنی ترجیحات تبدیل کر سکتے ہیں۔',
+  'errors.payload_too_large': 'اپ لوڈ بہت بڑا ہے۔',
+  'errors.permission_denied': 'آپ کو یہ کرنے کی اجازت نہیں ہے۔',
+  'errors.precondition_required':
+    'اس تبدیلی کے لیے وہ ورژن درکار ہے جس میں آپ ترمیم کر رہے ہیں۔ آئٹم دوبارہ لوڈ کر کے پھر کوشش کریں۔',
+  'errors.privilege_escalation': 'آپ وہ رسائی نہیں دے سکتے جو خود آپ کے پاس نہیں۔',
+  'errors.rate_limited': 'بہت زیادہ درخواستیں۔ براہِ کرم ذرا انتظار کر کے دوبارہ کوشش کریں۔',
+  'errors.read_only_mode':
+    'آپ کا ادارہ صرف پڑھنے کی حالت میں ہے۔ آپ ڈیٹا دیکھ اور برآمد کر سکتے ہیں، لیکن لائسنس کی تجدید تک تبدیلیاں رکی ہوئی ہیں۔',
+  'errors.realtime_channel_denied':
+    'آپ اب اسے براہِ راست نہیں دیکھ سکتے۔ تازہ ترین ڈیٹا دیکھنے کے لیے صفحہ دوبارہ لوڈ کریں۔',
+  'errors.realtime_not_configured':
+    'اس سرور پر براہِ راست اپ ڈیٹس ترتیب نہیں دی گئیں۔ تازہ ترین ڈیٹا دیکھنے کے لیے صفحہ دوبارہ لوڈ کریں۔',
+  'errors.reference_copied': 'حوالہ کاپی ہو گیا',
+  'errors.reference_is': 'حوالہ: {{reference}}',
+  'errors.role_in_use':
+    'یہ کردار ابھی صارفین کو تفویض ہے۔ پہلے وہ کردار منتخب کریں جس میں انہیں منتقل کرنا ہے۔',
+  'errors.service_unavailable':
+    'سروس عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.session_expired': 'آپ کا سیشن ختم ہو گیا ہے۔ براہِ کرم دوبارہ سائن اِن کریں۔',
+  'errors.site_not_found': 'سائٹ نہیں ملی۔',
+  'errors.system_role_immutable': 'پہلے سے موجود کردار تبدیل یا حذف نہیں کیے جا سکتے۔',
+  'errors.technician_limit_reached':
+    'آپ کے ادارے کے پلان میں ٹیکنیشن کی تمام نشستیں استعمال میں ہیں۔ نشست خالی کرنے یا مزید شامل کرنے کے لیے اپنے منتظم سے کہیں۔',
+  'errors.technicians_only': 'صرف ٹیکنیشن دوسرے صارفین کو دیکھ سکتا ہے۔',
+  'errors.tenant_not_found': 'آپ کا ادارہ نہیں مل سکا۔',
+  'errors.tenant_not_provisioned':
+    'آپ کا ادارہ ابھی SupportX میں ترتیب نہیں دیا گیا۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.tenant_suspended': 'آپ کے ادارے کی رسائی معطل ہے۔',
+  'errors.unauthenticated': 'جاری رکھنے کے لیے براہِ کرم سائن اِن کریں۔',
+  'errors.unsupported_media_type': 'یہ فائل یا مواد کی قسم معاون نہیں۔',
+  'errors.user_disabled':
+    'آپ کا اکاؤنٹ غیر فعال کر دیا گیا ہے۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.user_email_conflict':
+    'آپ کے ادارے میں ایک اور اکاؤنٹ پہلے سے یہ ای میل پتہ استعمال کرتا ہے۔',
+  'errors.user_not_found': 'صارف نہیں ملا۔',
+  'errors.validation_failed': 'کچھ فیلڈز پر توجہ درکار ہے۔',
+  'errors.version_conflict':
+    'آپ کے کھولنے کے بعد کسی اور نے یہ آئٹم محفوظ کر دیا۔ ان کی تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
 };
