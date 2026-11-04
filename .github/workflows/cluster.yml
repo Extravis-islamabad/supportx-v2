@@ -223,6 +223,9 @@ jobs:
       - name: Valkey failover keeps a signed-in session (no split brain)
         if: ${{ steps.changes.outputs.run != 'false' }}
         run: make cluster-ha-smoke
+      - name: Losing the node with PostgreSQL's primary keeps a signed-in session writing
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        run: make cluster-ha-node-loss
       - name: Diagnostics on failure
         if: ${{ failure() && steps.changes.outputs.run != 'false' }}
         run: |
