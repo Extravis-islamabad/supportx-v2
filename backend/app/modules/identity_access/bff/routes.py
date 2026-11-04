@@ -426,6 +426,14 @@ async def _refuse_requester_only(
         await _audit_session(
             request, session, "session.signed_out", reason="console_requester_only"
         )
+        # The cookie goes with the session. Left behind, the portal's sign-in would take the
+        # ended session for a timed-out one and make Keycloak ask for the password again
+        # (REQ-SEC-029's rule), although their Keycloak session stands (PortalInstead).
+        cleared = Response()
+        clear_session_cookie(cleared, auth.settings)
+        raise Unauthenticated(
+            code="console_requester_only", headers={"set-cookie": cleared.headers["set-cookie"]}
+        )
     raise Unauthenticated(code="console_requester_only")
 
 

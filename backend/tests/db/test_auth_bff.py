@@ -256,7 +256,13 @@ async def test_supportx_roles_decide_the_landing_not_keycloak(bff: Bff) -> None:
     await _revoke(bff, "demoted@demo.test", "technician")
     await _grant(bff, "demoted@demo.test", "requester")
     # Their console session ends at the next /me (made before the change), audited ...
-    assert (await bff.me()).status_code == 401
+    ended_me = await bff.me()
+    assert ended_me.status_code == 401
+    # ... the cookie goes with it, so the portal's sign-in passes through on Keycloak's session
+    # instead of taking the ended one for a timed-out session and asking for the password.
+    assert bff.cookie() is None
+    portal = await bff.client.get("/api/v1/auth/login", params={"app": "portal"})
+    assert "prompt=login" not in portal.headers["location"]
     conn = await asyncpg.connect(bff.db.admin_url)
     try:
         ended = await conn.fetch(
