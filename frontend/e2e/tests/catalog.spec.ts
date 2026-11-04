@@ -80,6 +80,10 @@ test('build, preview, publish and request a catalog item, live in the portal', a
     await admin.page.getByTestId('cat-question-add').click();
     await admin.page.getByTestId('cat-question-0-label-en').fill('Which desk');
     await admin.page.getByTestId('cat-question-0-key').fill('desk');
+    await admin.page
+      .getByTestId('cat-question-0')
+      .getByRole('switch', { name: 'Required' })
+      .click();
     await admin.page.getByRole('tab', { name: 'SLA and assignment' }).click();
     await choose(admin.page, 'cat-group', `E2E catalog desk ${tag}`);
     await admin.page.getByTestId('cat-save').click();
