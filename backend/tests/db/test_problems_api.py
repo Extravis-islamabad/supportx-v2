@@ -162,3 +162,56 @@ async def test_a_problem_gets_a_target_date_and_no_first_response(world: World) 
         ("resolution", "p3", 20, "business_days"),
         ("resolution", "p4", 40, "business_days"),
     ]
+
+
+async def test_a_problems_own_fields(world: World) -> None:
+    """REQ-PRB-005, -006: type and root cause from the tenant's lists; the outage window."""
+    a = world.a
+    made = await new_problem(
+        world,
+        a,
+        a.admin,
+        problem_type="proactive",
+        root_cause_category="capacity_or_performance",
+        outage_started_at="2026-11-04T08:00:00+05:00",
+        outage_ended_at="2026-11-04T09:30:00+05:00",
+    )
+    assert made.status_code == 201, made.text
+    record = made.json()
+    assert (record["problem_type"], record["root_cause_category"]) == (
+        "proactive",
+        "capacity_or_performance",
+    )
+    wrong = await new_problem(world, a, a.admin, problem_type="sideways")
+    assert {e["field"]: e["code"] for e in wrong.json()["errors"]} == {
+        "body.problem_type": "invalid_choice"
+    }
+    backwards = await world.call(
+        "PATCH",
+        f"{PRB}/{record['id']}",
+        a,
+        a.admin,
+        json={"outage_ended_at": "2026-11-04T07:00:00+05:00"},
+        headers={"If-Match": f'"{record["version"]}"', **CONSOLE},
+    )
+    assert {e["field"]: e["code"] for e in backwards.json()["errors"]} == {
+        "body.outage_ended_at": "before_start"
+    }
+    history = await world.sql(
+        "SELECT field FROM field_changes WHERE tenant_id = $1 AND record_id = $2",
+        a.tenant,
+        uuid.UUID(record["id"]),
+    )
+    assert {"problem_type", "root_cause_category"} <= {r["field"] for r in history}
+    # Never on an incident.
+    on_incident = await world.call(
+        "POST",
+        "/incidents",
+        a,
+        a.admin,
+        json={"subject": "x", "requester_id": str(a.requester), "problem_type": "reactive"},
+        headers=CONSOLE,
+    )
+    assert {e["field"]: e["code"] for e in on_incident.json()["errors"]} == {
+        "body.problem_type": "not_allowed"
+    }

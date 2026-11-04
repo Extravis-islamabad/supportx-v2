@@ -114,6 +114,19 @@ class WorkItemIn(BaseModel):
     )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
+    # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
+    problem_type: str | None = Field(
+        default=None, max_length=40, description="Problems: a `problem_type` list code."
+    )
+    root_cause_category: str | None = Field(
+        default=None, max_length=40, description="Problems: a `root_cause` list code."
+    )
+    outage_started_at: datetime | None = Field(
+        default=None, description="Problems: when the outage began."
+    )
+    outage_ended_at: datetime | None = Field(
+        default=None, description="Problems: when it ended (not before it began)."
+    )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )
@@ -157,6 +170,19 @@ class WorkItemPatch(BaseModel):
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40)
+    # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
+    problem_type: str | None = Field(
+        default=None, max_length=40, description="Problems: a `problem_type` list code."
+    )
+    root_cause_category: str | None = Field(
+        default=None, max_length=40, description="Problems: a `root_cause` list code."
+    )
+    outage_started_at: datetime | None = Field(
+        default=None, description="Problems: when the outage began."
+    )
+    outage_ended_at: datetime | None = Field(
+        default=None, description="Problems: when it ended (not before it began)."
+    )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key (null clears one); others kept."
     )
@@ -452,6 +478,11 @@ class WorkItemOut(BaseModel):
     priority: Priority
     priority_source: PrioritySource
     level: str | None = Field(description="A `level` list code (may be a retired one).")
+    # Problems (WP-044a s2); null on other types.
+    problem_type: str | None = None
+    root_cause_category: str | None = None
+    outage_started_at: datetime | None = None
+    outage_ended_at: datetime | None = None
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
     catalog_item_id: uuid.UUID | None = Field(
         default=None, description="Service requests: the item it was raised from."
@@ -558,6 +589,10 @@ _RECORD_FIELDS = (
     "priority",
     "priority_source",
     "level",
+    "problem_type",
+    "root_cause_category",
+    "outage_started_at",
+    "outage_ended_at",
     "template_id",
     "custom",
     "status",

@@ -110,7 +110,9 @@ export const en = {
   'pick_list.closure_code': 'Closure codes',
   'pick_list.level': 'Levels',
   'pick_list.pause': 'Waiting on the requester',
+  'pick_list.problem_type': 'Problem types',
   'pick_list.reassign': 'Reasons for moving to another group',
   'pick_list.reopen': 'Reopen reasons',
+  'pick_list.root_cause': 'Root cause categories',
   'pick_list.third_party': 'Waiting on a third party',
 } as const;

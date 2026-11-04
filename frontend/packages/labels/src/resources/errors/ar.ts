@@ -127,6 +127,7 @@ export const ar: LabelResource = {
   'errors.field.api_key_scope_unknown': 'اختر نطاقًا واحدًا على الأقل من النطاقات المعروضة.',
   'errors.field.auto_close_needs_notifications':
     'يحتاج الإغلاق التلقائي إلى إشعارات مقدّمي الطلبات: لا توجد بعد قناة تُبلغ مقدّمي الطلبات بالحل.',
+  'errors.field.before_start': 'لا يمكن أن تسبق النهاية البداية.',
   'errors.field.below_minimum': 'الحد الأدنى هو {{min}}.',
   'errors.field.brand_image_svg':
     'صور SVG غير مقبولة لأنها قد تحتوي على نصوص برمجية. استخدم ملف PNG أو JPEG أو WebP أو ICO.',

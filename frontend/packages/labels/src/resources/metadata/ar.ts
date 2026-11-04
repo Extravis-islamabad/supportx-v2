@@ -112,7 +112,9 @@ export const ar: LabelResource = {
   'pick_list.closure_code': 'رموز الإغلاق',
   'pick_list.level': 'المستويات',
   'pick_list.pause': 'بانتظار مقدم الطلب',
+  'pick_list.problem_type': 'أنواع المشكلات',
   'pick_list.reassign': 'أسباب النقل إلى مجموعة أخرى',
   'pick_list.reopen': 'أسباب إعادة الفتح',
+  'pick_list.root_cause': 'فئات الأسباب الجذرية',
   'pick_list.third_party': 'بانتظار طرف ثالث',
 };

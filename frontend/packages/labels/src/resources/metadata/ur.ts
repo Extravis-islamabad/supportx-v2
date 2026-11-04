@@ -112,7 +112,9 @@ export const ur: LabelResource = {
   'pick_list.closure_code': 'بندش کے کوڈ',
   'pick_list.level': 'سطحیں',
   'pick_list.pause': 'درخواست گزار کا انتظار',
+  'pick_list.problem_type': 'مسائل کی اقسام',
   'pick_list.reassign': 'دوسرے گروپ میں منتقلی کی وجوہات',
   'pick_list.reopen': 'دوبارہ کھولنے کی وجوہات',
+  'pick_list.root_cause': 'بنیادی وجوہات کی اقسام',
   'pick_list.third_party': 'تیسرے فریق کا انتظار',
 };

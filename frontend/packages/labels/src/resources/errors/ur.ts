@@ -144,6 +144,7 @@ export const ur: LabelResource = {
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
+  'errors.field.before_start': 'اختتام آغاز سے پہلے نہیں ہو سکتا۔',
   'errors.field.below_minimum': 'کم از کم {{min}} ہے۔',
   'errors.field.brand_image_svg':
     'SVG تصاویر قبول نہیں کی جاتیں کیونکہ ان میں اسکرپٹ ہو سکتے ہیں۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',

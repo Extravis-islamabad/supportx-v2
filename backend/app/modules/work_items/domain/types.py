@@ -233,6 +233,7 @@ FIELD_PROBLEMS = frozenset(
         "group_required",
         "invalid_prefix",
         "due_in_past",  # a due date set by hand (REQ-SLA-028)
+        "before_start",  # WP-044a: a problem's outage ends before it begins
         "english_label_required",
         "unknown_language",
         "too_deep",

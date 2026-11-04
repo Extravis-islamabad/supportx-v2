@@ -275,6 +275,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     # Pairs that are not field problems: unit kinds, role scopes, field-name tuples, notification
     # recipient kinds (service/notifications.py).
     found -= {
+        "proactive",  # the problem type pick list (domain/templates.py), not a field problem
         "site",
         "group",
         "all",

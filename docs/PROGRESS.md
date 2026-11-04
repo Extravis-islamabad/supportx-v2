@@ -780,7 +780,15 @@ it with no reload (rule c). Not built yet.
     (never delete).
   - Tests: domain (life cycle), DB (API, permissions, RLS, the 0077 migration and a role still
     editing group problems).
-- [ ] S2 matrix, pick lists, target dates (needs one more migration number) · [ ] S3 create
+- [x] Session 2 (#211, migration 0089):
+  - problems have their own priority matrix (the per-type seed copies the incident one);
+  - problem type (reactive / proactive) and root cause category, from admin-editable pick lists
+    seeded for problems (Appendix A);
+  - the outage window (the end not before the start);
+  - target dates on the SLA engine: resolution only, P1 5 to P4 40 business days, no first
+    response; pausing and escalation as for incidents;
+  - problem-only fields refused on other types; field history; labels en/ar/ur.
+- [ ] S3 create
   from incidents · [ ] S4 templates and guided life cycle · [ ] S5 owner and investigators,
   console screens, e2e.
 

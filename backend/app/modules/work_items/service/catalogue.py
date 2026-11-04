@@ -47,11 +47,12 @@ from app.modules.work_items.domain.lifecycle import (
 from app.modules.work_items.domain.templates import (
     CONFIRMED_BY_REQUESTER,
     DEFAULT_LIST_VALUES,
+    PROBLEM_LIST_VALUES,
     PickList,
     default_rules,
     rules_to_json,
 )
-from app.modules.work_items.domain.types import DEFAULT_CATEGORIES, WorkItemType
+from app.modules.work_items.domain.types import DEFAULT_CATEGORIES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import (
     WorkItemCategory,
     WorkItemPriorityCell,
@@ -284,7 +285,10 @@ def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any, desk: Any)
     session.add_all(
         [
             WorkItemReason(tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i)
-            for lst, codes in DEFAULT_LIST_VALUES.items()
+            for lst, codes in {
+                **DEFAULT_LIST_VALUES,
+                **(PROBLEM_LIST_VALUES if wtype.code is WorkItemTypeCode.PROBLEM else {}),
+            }.items()
             for i, code in enumerate(codes)
         ]
     )

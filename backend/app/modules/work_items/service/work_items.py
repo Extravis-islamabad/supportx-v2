@@ -1074,6 +1074,9 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
         cleaned["impact_details"] = details
     if "level" in values:
         cleaned["level"] = values["level"] or None
+    for name in PROBLEM_FIELDS:
+        if name in values:
+            cleaned[name] = values[name] or None
     if "tags" in values:
         tags, codes = clean_tags(list(values["tags"] or []))
         problems += [("tags", c) for c in codes]
@@ -1136,6 +1139,43 @@ def _json(value: Any) -> Any:  # noqa: ANN401 - field values of several types
     return value
 
 
+# A problem's own fields (WP-044a s2, REQ-PRB-005, -006): codes from its pick lists, the outage.
+PROBLEM_FIELDS = ("problem_type", "root_cause_category", "outage_started_at", "outage_ended_at")
+_PROBLEM_LISTS = {"problem_type": PickList.PROBLEM_TYPE, "root_cause_category": PickList.ROOT_CAUSE}
+
+
+def _check_problem_fields(
+    wtype: WorkItemType,
+    cat: Catalogue,
+    cleaned: Mapping[str, Any],
+    record: WorkItem | None,
+) -> list[tuple[str, str]]:
+    """The problem fields' problems, by field.
+
+    Only on problems; codes offered (a record's retired one may stay); the outage ends at or after
+    it begins.
+    """
+    given = [name for name in PROBLEM_FIELDS if name in cleaned]
+    if wtype.code is not WorkItemTypeCode.PROBLEM:
+        return [(name, "not_allowed") for name in given if cleaned[name] is not None]
+    found: list[tuple[str, str]] = []
+    for name, pick in _PROBLEM_LISTS.items():
+        value = cleaned.get(name)
+        current = getattr(record, name) if record is not None else None
+        if (
+            name in cleaned
+            and value is not None
+            and value != current
+            and value not in cat.reason_codes(pick)
+        ):
+            found.append((name, "invalid_choice"))
+    start = cleaned.get("outage_started_at", record.outage_started_at if record else None)
+    end = cleaned.get("outage_ended_at", record.outage_ended_at if record else None)
+    if start is not None and end is not None and end < start:
+        found.append(("outage_ended_at", "before_start"))
+    return found
+
+
 def _check_level(
     cat: Catalogue, level: str | None, *, current: str | None
 ) -> list[tuple[str, str]]:
@@ -1145,6 +1185,12 @@ def _check_level(
     return [("level", "invalid_choice")]
 
 
+PROBLEM_FIELDS_SNAPSHOT = (
+    "problem_type",
+    "root_cause_category",
+    "outage_started_at",
+    "outage_ended_at",
+)
 SNAPSHOT_FIELDS = (
     "subject",
     "description",
@@ -1162,6 +1208,7 @@ SNAPSHOT_FIELDS = (
     "priority",
     "priority_source",
     "level",
+    *PROBLEM_FIELDS_SNAPSHOT,
     "tags",
     "status",
     "template_id",
@@ -1804,6 +1851,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
     )
     problems += _check_level(cat, cleaned.get("level"), current=None)
+    problems += _check_problem_fields(wtype, cat, cleaned, None)
     if problems:
         raise await _value_errors(session, wtype, problems)
     problems += await _check_people(session, cleaned)
@@ -1887,6 +1935,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         priority=priority,
         priority_source=priority_source,
         level=cleaned.get("level"),
+        **{name: cleaned.get(name) for name in PROBLEM_FIELDS},
         template_id=template.id,
         **_item_columns(item, values),
         custom=custom or {},
@@ -2019,6 +2068,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         )
     if "level" in cleaned:
         problems += _check_level(cat, cleaned["level"], current=record.level)
+    problems += _check_problem_fields(wtype, cat, cleaned, record)
     custom, custom_problems = await _custom_in(
         session, wtype, values, current=record.custom or {}, creating=False
     )

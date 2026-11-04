@@ -400,6 +400,11 @@ class WorkItem(TenantEntity):
         ),
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint(_codes("channel", Channel), name="channel_code"),
+        CheckConstraint(
+            "outage_ended_at IS NULL OR outage_started_at IS NULL"
+            " OR outage_ended_at >= outage_started_at",
+            name="outage_order",
+        ),
         CheckConstraint(_codes("status_category", StatusCategory), name="status_category_code"),
         CheckConstraint("impact IS NULL OR " + _codes("impact", Impact), name="impact_code"),
         CheckConstraint("urgency IS NULL OR " + _codes("urgency", Urgency), name="urgency_code"),
@@ -591,6 +596,11 @@ class WorkItem(TenantEntity):
     priority: Mapped[str] = mapped_column(String(10))
     # Support level, a code of the `level` pick list (REQ-INC-007); retired codes stay readable.
     level: Mapped[str | None] = mapped_column(String(40))
+    # Problems (WP-044a s2, REQ-PRB-005, -006): codes from the type's pick lists, the outage.
+    problem_type: Mapped[str | None] = mapped_column(String(40))
+    root_cause_category: Mapped[str | None] = mapped_column(String(40))
+    outage_started_at: Mapped[datetime | None]
+    outage_ended_at: Mapped[datetime | None]
     template_id: Mapped[uuid.UUID | None]
     # Service requests (WP-030): the catalog item, the form's answers (Any: JSON values), and
     # the approval status; NULL / empty on incidents.
