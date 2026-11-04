@@ -36,6 +36,7 @@ from app.core.tenancy import TenantContext
 from app.modules.ai.domain.features import feature as feature_spec
 from app.modules.ai.domain.masking import CLOSE, OPEN, mask, restore
 from app.modules.ai.service import calls
+from app.modules.ai.service.embeddings import Embeddings, EmbeddingWidthError, Hit
 from app.modules.ai.service.providers import ChatRequest, Message, Provider, ProviderError
 from app.modules.ai.service.records import may_see
 from app.modules.ai.service.settings import feature_on, settings_row
@@ -323,3 +324,70 @@ class Gateway:
             output=prepared.log_output("".join(raw)),
             status="ok",
         )
+
+    async def available(self, session: AsyncSession, subject: Subject, feature: str) -> bool:
+        """Whether a feature would run for this person now: permission, plan and switches.
+
+        For features with a non-AI fallback (possible duplicates, D-134): false means use it,
+        with no model call at all.
+        """
+        spec = feature_spec(feature)
+        if spec is None or not subject.holds(spec.permission):
+            return False
+        if not await has_feature(subject.tenant_id, AI_FEATURE):
+            return False
+        return feature_on(await settings_row(session), feature)
+
+    async def similar(  # noqa: PLR0913 - the search's parts, explicit
+        self,
+        session: AsyncSession,
+        subject: Subject,
+        *,
+        feature: str,
+        source_type: str,
+        query: str,
+        limit: int = 5,
+        exclude: uuid.UUID | None = None,
+    ) -> list[Hit] | None:
+        """Records near `query` by meaning that the person may see, or None when AI may not run.
+
+        None (AI off, no plan, a failing model) tells the caller to use its non-AI fallback. A
+        search that runs is logged like every AI call: the masked query and how many it found.
+        """
+        if not await self.available(session, subject, feature):
+            return None
+        masked_texts, values = mask([query], names=())
+        started = time.monotonic()
+        fields: dict[str, object] = {
+            "feature": feature,
+            "user_id": subject.user_id,
+            "provider": self.provider.name,
+            "model": self.provider.embedding_model,
+            "masked": bool(values),
+            "masked_values": len(values),
+            "masked_input": masked_texts[0],
+        }
+        try:
+            hits = await Embeddings(self.provider).search(
+                session, subject, source_type=source_type, query=query, limit=limit, exclude=exclude
+            )
+        except (ProviderError, EmbeddingWidthError):
+            await self._write(
+                session,
+                subject,
+                **fields,
+                latency_ms=int((time.monotonic() - started) * 1000),
+                status="failed",
+                error_code="ai_provider_unavailable",
+            )
+            return None
+        await self._write(
+            session,
+            subject,
+            **fields,
+            output=f"{len(hits)} found",
+            sources=[{"type": source_type, "id": str(h.source_id)} for h in hits],
+            latency_ms=int((time.monotonic() - started) * 1000),
+            status="ok",
+        )
+        return hits

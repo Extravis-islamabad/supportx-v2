@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
+from app.modules.ai import GATEWAY_STATE, Gateway
 from app.modules.audit import AuditNote, audited, entries_for_changes
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
@@ -49,6 +50,7 @@ from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBeh
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
+    INCIDENT,
     SUBJECT_MAX,
     TAGS_MAX,
     Channel,
@@ -56,6 +58,7 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory
+from app.modules.work_items.service import duplicates as duplicates_service
 from app.modules.work_items.service import resolution
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
@@ -677,6 +680,24 @@ class WorkItemSearchOut(BaseModel):
     people: dict[str, PersonOut] = Field(default_factory=dict)
 
 
+class DuplicateOut(BaseModel):
+    """An open incident that may be the same issue (REQ-INC-022)."""
+
+    item: WorkItemListItem
+    # 0 to about 1.2: similarity, plus a weight for the same requester within the hour.
+    score: float
+    reasons: list[Literal["similar_meaning", "similar_subject", "same_requester"]]
+
+
+class DuplicatesOut(BaseModel):
+    """Possible duplicates of a draft, best first, and how they were found (D-134)."""
+
+    items: list[DuplicateOut]
+    # "meaning": AI embeddings (AI on); "text": subject similarity, no model (AI off).
+    method: Literal["meaning", "text"]
+    people: dict[str, PersonOut] = Field(default_factory=dict)
+
+
 class WorkItemViewCountOut(BaseModel):
     """A built-in view and how many records you see in it (capped)."""
 
@@ -1261,6 +1282,50 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             items=[_item(r) for r in rows],
             people=_people(await user_contacts(session, people)),
         )
+
+    if wtype is INCIDENT:
+
+        @router.get("/possible-duplicates", summary="Possible duplicates of a new incident")
+        async def possible_duplicates(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query
+            session: TenantSession,
+            subject: Create,
+            request: Request,
+            title: Annotated[str, Query(max_length=250, description="The draft's subject.")],
+            description: Annotated[str | None, Query(max_length=4000)] = None,
+            requester_id: uuid.UUID | None = None,
+            exclude: uuid.UUID | None = None,
+        ) -> DuplicatesOut:
+            """Open incidents you may see that look like the one being written (REQ-INC-022).
+
+            With AI on: by meaning (logged as an AI call). With AI off: by subject, no model
+            (D-134). The same requester's incidents from the last hour count extra.
+            """
+            gateway: Gateway = getattr(request.app.state, GATEWAY_STATE)
+            found, method = await duplicates_service.possible_duplicates(
+                session,
+                subject,
+                gateway,
+                title=strip_isolates(title).strip(),
+                description=description,
+                requester_id=requester_id,
+                exclude=exclude,
+            )
+            people = sorted(
+                {
+                    str(u)
+                    for c in found
+                    for u in (c.record.requester_id, c.record.technician_id)
+                    if u
+                }
+            )
+            return DuplicatesOut(
+                items=[
+                    DuplicateOut(item=_item(c.record), score=c.score, reasons=list(c.reasons))
+                    for c in found
+                ],
+                method=method,
+                people=_people(await user_contacts(session, people)),
+            )
 
     @router.get("/lookup/{value}", summary="Find by display ID")
     async def lookup(

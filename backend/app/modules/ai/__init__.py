@@ -30,6 +30,7 @@ from app.modules.ai.service.embeddings import (
     Embeddings,
     Hit,
     TextSource,
+    on_work_item_changed,
     reembed_job,
     register_embedding_source,
     unregister_embedding_source,
@@ -76,6 +77,17 @@ module = ModuleSpec(
     permissions=PERMISSIONS,
     consumers=[
         PERSON_ERASED,
+        # Incidents' text embedded for possible duplicates while AI is on (WP-038, D-134).
+        ConsumerSpec(
+            name="ai__record_embeddings",
+            event_types=(
+                "work_items.work_item.created",
+                "work_items.work_item.updated",
+                "work_items.work_item.deleted",
+                "work_items.work_item.restored",
+            ),
+            handler=on_work_item_changed,
+        ),
         # A newer reply or note makes a record's summary stale (WP-038).
         ConsumerSpec(
             name="ai__summary_stale",

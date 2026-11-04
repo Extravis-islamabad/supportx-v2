@@ -220,7 +220,8 @@ async def test_vectors_of_two_models_never_meet_and_the_sweep_reembeds(world: Wo
     rows = await world.rows()
     models = {(r.source_type, r.model) for r in rows}
     assert models == {("kb_article", "new-model"), ("ticket", "old-model")}
-    assert sorted(provider.embedded) == sorted(ARTICLES.values())
+    # The sweep runs in every tenant: other tests' tenants in this database may be swept too.
+    assert set(ARTICLES.values()) <= set(provider.embedded)
     async with world.session() as session:
         hits = await new.search(session, who, source_type="kb_article", query="vpn drops")
         stale_hits = await new.search(session, who, source_type="ticket", query="vpn drops")

@@ -33,6 +33,7 @@ from app.modules.ai.service.providers import Provider, ProviderError
 from app.modules.ai.service.records import may_see
 from app.modules.ai.service.settings import session_tenant
 from app.modules.identity_access import Subject
+from app.shared.events import EventEnvelope
 
 log = structlog.get_logger(__name__)
 
@@ -78,6 +79,15 @@ def _literal(vector: Sequence[float]) -> str:
     if len(vector) != EMBEDDING_DIMENSION:
         raise EmbeddingWidthError(len(vector))
     return "[" + ",".join(repr(float(v)) for v in vector) + "]"
+
+
+async def remove_record(session: AsyncSession, *, source_type: str, source_id: uuid.UUID) -> None:
+    """A record's vectors, of every model, go (no model call)."""
+    await session.execute(
+        delete(AiEmbedding).where(
+            AiEmbedding.source_type == source_type, AiEmbedding.source_id == source_id
+        )
+    )
 
 
 class Embeddings:
@@ -167,11 +177,7 @@ class Embeddings:
         self, session: AsyncSession, *, source_type: str, source_id: uuid.UUID
     ) -> None:
         """Forget a record (deleted, or no longer to be found), for every model."""
-        await session.execute(
-            delete(AiEmbedding).where(
-                AiEmbedding.source_type == source_type, AiEmbedding.source_id == source_id
-            )
-        )
+        await remove_record(session, source_type=source_type, source_id=source_id)
 
     async def search(  # noqa: PLR0913 - the query's parts, explicit
         self,
@@ -264,3 +270,62 @@ async def reembed_sweep(database: Database, settings: Settings, provider: Provid
             continue
         if done:
             log.info("ai_reembedded", tenant_id=str(tenant), records=done, model=service.model)
+
+
+# --- keeping records indexed (WP-038) -------------------------------------------------------------
+
+# The feature whose switch decides whether records are embedded at all (D-134: AI off, no model).
+INDEX_FEATURE = "possible_duplicates"
+TEXT_FIELDS = {"subject", "description"}
+
+
+async def on_work_item_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: an incident was created, its text changed, or it was deleted or restored.
+
+    Deleted: its vectors go, whatever the switches (no model needed). Otherwise it is embedded
+    through its module's text source, only while AI and possible duplicates are on for the
+    tenant and its plan includes AI. Indexing is the system's work, not a person's call, so it
+    is not in the AI call log; searches are (`Gateway.similar`).
+    """
+    assert session is not None  # noqa: S101 - transactional consumer
+    payload = envelope.payload
+    source_type = str(payload.get("type"))
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    if envelope.event_type.endswith(".deleted"):
+        await remove_record(session, source_type=source_type, source_id=record_id)
+        return
+    if envelope.event_type.endswith(".updated") and not TEXT_FIELDS & set(
+        payload.get("changed_fields") or ()
+    ):
+        return
+    source = _SOURCES.get(source_type)
+    if source is None or not await _indexing_on(session, envelope.tenant_id):
+        return
+    from app.core.config import get_settings  # noqa: PLC0415 - consumers have no app state
+    from app.modules.ai.service.providers import provider_from  # noqa: PLC0415 - one place
+
+    provider = provider_from(get_settings())
+    try:
+        texts = await source(session, [record_id])
+        pieces = texts.get(record_id)
+        service = Embeddings(provider)
+        if pieces is None:
+            await service.remove(session, source_type=source_type, source_id=record_id)
+        else:
+            await service.index(
+                session, source_type=source_type, source_id=record_id, pieces=pieces
+            )
+    except (ProviderError, EmbeddingWidthError) as error:
+        # The model is down or misconfigured: the record waits; searches fall back meanwhile.
+        log.warning("ai_index_failed", record_id=str(record_id), error=type(error).__name__)
+    finally:
+        await provider.aclose()
+
+
+async def _indexing_on(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
+    from app.modules.ai.service.settings import feature_on, settings_row  # noqa: PLC0415 - cycle
+    from app.modules.licensing import has_feature  # noqa: PLC0415 - cycle
+
+    if not await has_feature(tenant_id, "ai_assist"):
+        return False
+    return feature_on(await settings_row(session), INDEX_FEATURE)
