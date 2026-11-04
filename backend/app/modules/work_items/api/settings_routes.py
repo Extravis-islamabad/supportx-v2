@@ -246,11 +246,11 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
     router: APIRouter, wtype: WorkItemType, catalogue_model: type[CatalogueModel]
 ) -> None:
     """The admin routes of one type; they answer with `catalogue_model`."""
-    name = wtype.code.value
+    audit = wtype.code.value  # audit codes: "incident.settings_changed" ...
     View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
     Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]  # noqa: N806 - type alias
     Settings = Annotated[  # noqa: N806 - type alias
-        AuditNote, audited(f"{name}.settings_changed", object_type=f"{name}_settings")
+        AuditNote, audited(f"{audit}.settings_changed", object_type=f"{audit}_settings")
     ]
     response_model: Any = catalogue_model
 
@@ -510,7 +510,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         subject: Admin,
         request: Request,
         note: Annotated[
-            AuditNote, audited(f"{name}.template_created", object_type=f"{name}_template")
+            AuditNote, audited(f"{audit}.template_created", object_type=f"{audit}_template")
         ],
     ) -> TemplateOut:
         """A new template (never the default until made so)."""
@@ -537,7 +537,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         subject: Admin,
         request: Request,
         note: Annotated[
-            AuditNote, audited(f"{name}.template_created", object_type=f"{name}_template")
+            AuditNote, audited(f"{audit}.template_created", object_type=f"{audit}_template")
         ],
     ) -> TemplateOut:
         """An independent copy, marked as a copy of the original (REQ-INC-035 AC3)."""
@@ -561,8 +561,8 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         note: Annotated[
             AuditNote,
             audited(
-                f"{name}.template_changed",
-                object_type=f"{name}_template",
+                f"{audit}.template_changed",
+                object_type=f"{audit}_template",
                 object_param="template_id",
             ),
         ],

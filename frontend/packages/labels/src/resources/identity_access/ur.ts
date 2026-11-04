@@ -18,6 +18,7 @@ export const ur: LabelResource = {
   'permission.announcements.publish.description':
     'اعلانات کو ان کے سامعین کے لیے نظر آنے والا بنائیں۔',
   'permission_module.incidents': 'واقعات',
+  'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'permission.incidents.view': 'واقعات دیکھیں',
   'permission.incidents.view.description':
     'واقعات اور ان کی تاریخ دیکھیں۔ گروپ دائرہ آپ کے مقامات کے وہ واقعات بھی دکھاتا ہے جو ابھی کسی نے نہیں لیے۔',
@@ -59,6 +60,12 @@ export const ur: LabelResource = {
   'permission.requests.assign.description': 'سروس درخواستیں ٹیکنیشنز اور گروپوں کو تفویض کریں۔',
   'permission.requests.close': 'سروس درخواستیں بند کریں',
   'permission.requests.close.description': 'سروس درخواستیں حل اور بند کریں۔',
+  'permission.requests.approve': 'سروس درخواستیں منظور کریں',
+  'permission.requests.approve.description':
+    'ان سروس درخواستوں کی منظوری کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
+  'permission.work_items.approve_any': 'متبادل منظوریوں کا فیصلہ کریں',
+  'permission.work_items.approve_any.description':
+    'ان منظوریوں کا فیصلہ کریں جن کا کوئی فعال منظوری دہندہ نہیں (منظوری کے منتظمین)۔',
   'role.security_admin': 'سکیورٹی ایڈمنسٹریٹر',
   'role.security_admin.description':
     'سائن اِن اور سکیورٹی: سنگل سائن آن، پاس ورڈ، ایم ایف اے، سیشن اور دعوت نامے؛ ریکارڈز تک رسائی نہیں۔',
@@ -583,6 +590,39 @@ export const ur: LabelResource = {
     'کسی واقعے کی جواب یا حل کی مقررہ تاریخ وجہ کے ساتھ ہاتھ سے طے کریں یا ہٹائیں۔ پھر یہ تاریخ ہٹائے جانے تک برقرار رہتی ہے۔',
   'people.managed_by_directory':
     'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
+  'permission.catalog_items.manage': 'سروس کیٹلاگ کا انتظام',
+  'permission.catalog_items.manage.description':
+    'کیٹلاگ کی کیٹیگریز اور آئٹمز شامل اور تبدیل کریں: ان کے فارم، منظوری اور تکمیل۔',
+  'permission_module.catalog_items': 'سروس کیٹلاگ',
+  'permission.requests.take': 'سروس درخواستیں خود لیں',
+  'permission.requests.take.description': 'ایسی سروس درخواست خود لیں جو ابھی کسی نے نہیں لی۔',
+  'permission.requests.change_priority': 'درخواست کی ترجیح ہاتھ سے بدلیں',
+  'permission.requests.change_priority.description':
+    'سروس درخواست کو اس کے آئٹم یا میٹرکس سے ملی ترجیح کو وجہ کے ساتھ بدلیں۔',
+  'permission.requests.resolve': 'سروس درخواستیں پوری کریں',
+  'permission.requests.resolve.description': 'سروس درخواستوں کو پوری شدہ نشان زد کریں۔',
+  'permission.requests.reopen': 'سروس درخواستیں دوبارہ کھولیں',
+  'permission.requests.reopen.description':
+    'پوری شدہ یا بند سروس درخواستیں وجہ کے ساتھ دوبارہ کھولیں۔',
+  'permission.requests.cancel': 'سروس درخواستیں منسوخ کریں',
+  'permission.requests.cancel.description':
+    'سروس درخواستیں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
+  'permission.requests.delete': 'سروس درخواستیں حذف کریں',
+  'permission.requests.delete.description': 'سروس درخواستیں کوڑے دان میں ڈالیں اور واپس لائیں۔',
+  'permission.requests.add_note': 'درخواستوں پر نجی نوٹس شامل کریں',
+  'permission.requests.add_note.description': 'سروس درخواستوں پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.requests.reply': 'درخواستوں پر جواب اور عوامی نوٹس',
+  'permission.requests.reply.description':
+    'سروس درخواستوں پر درخواست گزاروں کو جواب دیں، ایسے نوٹس شامل کریں جو وہ دیکھ سکیں، اور نجی نوٹس عوامی بنائیں۔',
+  'permission.requests.manage_followers': 'درخواستوں کے فالوورز کا انتظام',
+  'permission.requests.manage_followers.description':
+    'دوسرے لوگوں کو سروس درخواستوں کے فالوور بنائیں اور ہٹائیں۔',
+  'permission.requests.edit_due_dates': 'درخواستوں کی آخری تاریخ ہاتھ سے مقرر کریں',
+  'permission.requests.edit_due_dates.description':
+    'سروس درخواست کی جواب یا تکمیل کی آخری تاریخ وجہ کے ساتھ ہاتھ سے مقرر کریں یا مٹائیں۔ پھر وہ مٹانے تک رہتی ہے۔',
+  'permission.requests.assign_outside_group': 'درخواستیں گروپ سے باہر تفویض کریں',
+  'permission.requests.assign_outside_group.description':
+    'ایسے ٹیکنیشن کو سروس درخواست تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.work_items.view_department': 'اپنے شعبے کی درخواستیں دیکھیں',
   'permission.work_items.view_department.description':
     'پورٹل میں اپنے شعبے کے لوگوں کے واقعات اور درخواستیں دیکھیں۔',
@@ -599,7 +639,6 @@ export const ur: LabelResource = {
   'account.contact.save': 'رابطے کی تفصیلات محفوظ کریں',
   'account.contact.from_directory':
     'آپ کا فون اور موبائل {{source}} سے آتا ہے۔ انہیں وہیں تبدیل کریں۔',
-  'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',

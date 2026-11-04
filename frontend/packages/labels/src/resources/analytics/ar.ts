@@ -520,4 +520,6 @@ export const ar: LabelResource = {
   'report_field.resolution_sla_state': 'اتفاقية الحل',
   'report_field.first_response_breached': 'تأخر الاستجابة',
   'report_field.resolution_breached': 'تأخر الحل',
+  'report_field.approval_status': 'حالة الموافقة',
+  'report_field.catalog_item_id': 'عنصر الكتالوج',
 };

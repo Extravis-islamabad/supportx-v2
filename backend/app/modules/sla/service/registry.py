@@ -7,7 +7,7 @@ Inside a save, the owning module passes a snapshot of the record (field name -> 
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
@@ -86,6 +86,9 @@ class SlaRecordType:
     lock_record: LockHook | None = None  # session 3: the record row first, then the clocks
     on_fired: FiredHook | None = None  # session 3: warnings, breaches and levels fired
     run_actions: ActionsHook | None = None  # session 3: a level's actions (REQ-SLA-024)
+    # WP-030 s2 (REQ-SR-006): the policy the record itself names (a catalog item's), which wins
+    # over condition matching while it exists and is enabled; None: conditions decide.
+    preferred_policy: Callable[[Mapping[str, Any]], uuid.UUID | None] | None = None
 
 
 _TYPES: dict[str, SlaRecordType] = {}

@@ -72,6 +72,10 @@ class WorkItemTaskOut(BaseModel):
     due_at: datetime | None
     done_at: datetime | None
     position: int
+    # WP-030 s3: made by the catalog item's fulfilment plan; required to fulfil; internal.
+    from_plan: bool = False
+    required: bool = True
+    internal: bool = False
     version: int
     created_at: datetime
     updated_at: datetime

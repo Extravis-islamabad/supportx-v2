@@ -111,4 +111,5 @@ export const en = {
   'custom_fields.part.deleted': 'Removed',
   'custom_fields.part.order': 'Order',
   'custom_fields.part.field_type': 'Type',
+  'custom_field_entity.service_request': 'Service requests',
 } as const;

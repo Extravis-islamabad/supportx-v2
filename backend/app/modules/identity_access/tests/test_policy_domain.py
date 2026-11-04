@@ -34,8 +34,22 @@ ORG = (
     PermissionSpec("settings.manage"),
     PermissionSpec("licence.manage"),
 )
-FEATURES = frozenset({"incident", "problem", "change", "release", "assets", "cmdb", "knowledge"})
-CATALOGUE = Catalogue.build([*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *ORG], FEATURES)
+# requests.* came from identity's reserved list until work_items offered them (WP-030): the
+# service request type's five keys, as work_items declares them, stand in here.
+_ALL: tuple[Scope, ...] = ("all", "site", "group", "own")
+REQUESTS = (
+    PermissionSpec("requests.view", "service_request", _ALL),
+    PermissionSpec("requests.create", "service_request"),
+    PermissionSpec("requests.edit", "service_request", _ALL),
+    PermissionSpec("requests.assign", "service_request", ("all", "site", "group")),
+    PermissionSpec("requests.close", "service_request", _ALL),
+)
+FEATURES = frozenset(
+    {"incident", "service_request", "problem", "change", "release", "assets", "cmdb", "knowledge"}
+)
+CATALOGUE = Catalogue.build(
+    [*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *REQUESTS, *ORG], FEATURES
+)
 TENANT, ME, OTHER = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
 SITE, GROUP = uuid.uuid4(), uuid.uuid4()
 
@@ -98,7 +112,7 @@ def test_tenant_admin_gets_new_catalogue_permissions_automatically() -> None:
 
 
 def test_permissions_of_features_outside_the_plan_are_never_held() -> None:
-    essentials = frozenset({"incident", "knowledge"})
+    essentials = frozenset({"incident", "service_request", "knowledge"})  # as licensing has it
     admin = subject_for("tenant_admin", features=essentials)
     assert not admin.holds("changes.approve")
     assert admin.check("changes.approve").reason == "not_entitled"

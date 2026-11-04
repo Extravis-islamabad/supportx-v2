@@ -285,6 +285,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         "group_head",
         "close_requires",
         "worklog_type",
+        "awaiting_fulfilment",  # the service request view codes (work_items.SR_VIEW_CODES)
     }
     assert found <= FIELD_PROBLEMS, sorted(found - FIELD_PROBLEMS)
 

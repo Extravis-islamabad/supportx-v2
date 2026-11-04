@@ -19,6 +19,9 @@ from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    # AI gateway (WP-037)
+    "AiArea": "ai_area",
+    "OutcomeIn.outcome": "ai_outcome",
     # SLA set-up (WP-025)
     "ActionKind": "sla_action_kind",
     "Anchor": "sla_level_anchor",
@@ -218,6 +221,18 @@ ENUM_PREFIXES: dict[str, str] = {
     "CustomFieldEntity": "custom_field_entity",
     "FieldType": "custom_field_type",
     "IndexState": "custom_field_index_state",
+    # The service catalog (WP-030)
+    "ApprovalStatus": "approval_status",
+    "OnBehalfScope": "work_item_on_behalf_scope",
+    # WP-030 s2: the approval engine.
+    "ApprovalState": "approval_state",
+    "ApproverOrigin": "approval_origin",
+    "Decision": "approval_decision",
+    "DecisionChannel": "approval_channel",
+    "RouteReason": "approval_route_reason",
+    "ApproverKind": "catalog_approver_kind",
+    "ItemAudience": "catalog_item_audience",
+    "QuestionKind": "catalog_question_kind",
     "IndexFailure": "custom_field_index_error",
     # The portal (WP-028)
     "PortalStatus": "portal_status",

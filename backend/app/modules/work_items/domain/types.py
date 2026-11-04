@@ -15,6 +15,8 @@ from enum import StrEnum
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
+    SERVICE_REQUEST_STATUSES,
+    SERVICE_REQUEST_TRANSITIONS,
     StatusDef,
     TransitionDef,
 )
@@ -110,7 +112,25 @@ INCIDENT = WorkItemType(
     fields=COMMON_FIELDS,
 )
 
-TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {INCIDENT.code: INCIDENT}
+# WP-030 (REQ-SR-001..004): its own SR counter, life cycle and permissions (`requests.*`, the
+# names identity reserved for it). A new one always comes from a catalog item (REQ-SR-001).
+SERVICE_REQUEST = WorkItemType(
+    code=WorkItemTypeCode.SERVICE_REQUEST,
+    path="service-requests",
+    default_prefix="SR",
+    feature="service_request",
+    permission_prefix="requests",
+    statuses=SERVICE_REQUEST_STATUSES,
+    transitions=SERVICE_REQUEST_TRANSITIONS,
+    fields=COMMON_FIELDS,
+)
+
+TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {
+    INCIDENT.code: INCIDENT,
+    SERVICE_REQUEST.code: SERVICE_REQUEST,
+}
+# Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
+PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST)
 
 
 # --- value rules shared by every type -------------------------------------------------------------
@@ -175,6 +195,9 @@ FIELD_PROBLEMS = frozenset(
         "out_of_range",
         "invalid_value",
         "value_too_long",
+        # WP-030 s2: a rejection's reason; an approval's comment when the item requires one.
+        "reason_required",
+        "comment_required",
         "invalid_choice",
         "not_allowed",
         "invalid_tag",

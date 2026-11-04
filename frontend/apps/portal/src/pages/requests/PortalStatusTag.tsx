@@ -8,6 +8,8 @@ const TONE: Record<PortalStatus, Tone> = {
   resolved: 'success',
   closed: 'default',
   canceled: 'default',
+  awaiting_approval: 'warning',
+  rejected: 'error',
 };
 
 /** The requester's plain status (never a technician-only one: the server maps it, D3). */

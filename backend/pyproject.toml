@@ -189,6 +189,12 @@ containers = ["app.modules.work_items"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]
+name = "service_catalog layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.service_catalog"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
 name = "audit layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.audit"]
@@ -217,6 +223,21 @@ name = "notifications layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.notifications"]
 layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "ai layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.ai"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
+# REQ-AI-001 / architecture.md §12: every AI call goes through the gateway. Other modules already
+# cannot reach ai's internals (module boundaries); this also keeps core, shared, main, workers and
+# tooling from calling a model provider directly.
+name = "Only the ai module's gateway talks to model providers"
+type = "forbidden"
+source_modules = ["app.core", "app.shared", "app.main", "workers", "tooling"]
+forbidden_modules = ["app.modules.ai.service.providers"]
 
 [[tool.importlinter.contracts]]
 # CLAUDE.md rule b / architecture.md §6.5: request code writes events to the outbox and never

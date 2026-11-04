@@ -130,6 +130,7 @@ export const ur: LabelResource = {
   'connectivity.limited': 'کچھ براہ راست اپ ڈیٹس رکی ہوئی ہیں۔ دوبارہ کوشش جاری ہے…',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'واقعات',
+  'nav.admin_requests': 'سروس درخواستیں',
   'settings.incidents_title': 'واقعات کی ترتیبات',
   'settings.section.general': 'عمومی',
   'settings.section.templates': 'سانچے',

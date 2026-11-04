@@ -233,6 +233,7 @@ export const ar: LabelResource = {
   'automation.why.requester_rejected': 'أفاد مقدّم الطلب بأن المشكلة لم تُحل، فأُعيد فتحها.',
   'automation.why.auto_closed':
     'أُغلقت تلقائيًا: أُبلغ مقدّم الطلب بالحل ولم يردّ في الوقت المحدد.',
+  'automation.why.fulfilled': 'تم التنفيذ: أُنجزت كل المهام المطلوبة',
   'automation.why.assignment_move': 'نُقلت تلقائيًا عند إسنادها.',
   'automation.why.sla_escalation': 'بتصعيد اتفاقية مستوى الخدمة: {{target}}، المستوى {{level}}',
 };
