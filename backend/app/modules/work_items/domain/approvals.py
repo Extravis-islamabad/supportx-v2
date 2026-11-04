@@ -12,7 +12,7 @@ longer needed. Multi-stage and "everyone must approve" stages come with `catalog
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -174,3 +174,64 @@ __all__ = [
     "decision_problems",
     "resolve",
 ]
+
+
+# --- levels with a rule (WP-058a s5; REQ-REL-031; staged types) ---------------------------------
+
+
+class LevelRule(StrEnum):
+    """How a level's approvers decide it."""
+
+    ANY = "any"  # the first approval approves; a rejection rejects
+    ALL = "all"  # everyone must approve; any rejection rejects
+    MAJORITY = "majority"  # more than half must approve
+
+
+class LevelOutcome(StrEnum):
+    """Where a level stands."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+def level_outcome(rule: LevelRule, states: Iterable[ApprovalState]) -> LevelOutcome:
+    """The level's outcome from its approvers' states (withdrawn and not-needed do not count).
+
+    Majority: more than half of the level's approvers must approve. The level is rejected as
+    soon as a majority can no longer be reached, so an exact split (2 of 4 each way) rejects:
+    the tie case (the coordinator's condition).
+    """
+    counted = [
+        s
+        for s in states
+        if s in {ApprovalState.PENDING, ApprovalState.APPROVED, ApprovalState.REJECTED}
+    ]
+    if not counted:
+        return LevelOutcome.PENDING
+    approved = sum(s == ApprovalState.APPROVED for s in counted)
+    rejected = sum(s == ApprovalState.REJECTED for s in counted)
+    decide = {LevelRule.ANY: _any, LevelRule.ALL: _all, LevelRule.MAJORITY: _majority}[rule]
+    return decide(approved, rejected, len(counted))
+
+
+def _any(approved: int, rejected: int, total: int) -> LevelOutcome:
+    del total
+    if approved:
+        return LevelOutcome.APPROVED
+    return LevelOutcome.REJECTED if rejected else LevelOutcome.PENDING
+
+
+def _all(approved: int, rejected: int, total: int) -> LevelOutcome:
+    if rejected:
+        return LevelOutcome.REJECTED
+    return LevelOutcome.APPROVED if approved == total else LevelOutcome.PENDING
+
+
+def _majority(approved: int, rejected: int, total: int) -> LevelOutcome:
+    needed = total // 2 + 1
+    if approved >= needed:
+        return LevelOutcome.APPROVED
+    if total - rejected < needed:  # the rest approving can no longer make a majority
+        return LevelOutcome.REJECTED
+    return LevelOutcome.PENDING
