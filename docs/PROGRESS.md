@@ -755,7 +755,7 @@ it with no reload (rule c). Not built yet.
   advanced parts with `catalog`); D7 e-mail approvals: interim default sign-in required, the
   no-sign-in link behind an off setting. Signed action links (REQ-NTF-024) are built by lane A
   in session 3 under lane B's security review (their five conditions are in the plan).
-- [ ] Session 1 (in progress): done: the service request life cycle (awaiting_approval,
+- [x] Session 1 (2026-11-04): done: the service request life cycle (awaiting_approval,
   fulfilled, rejected; system actions approve/reject; migration 0059); the `service_catalog`
   module (categories and items with form questions, one approval stage, plan, priority, SLA
   policy, group, technician; API with If-Match, audit, RLS; migration 0062); the service request
@@ -772,8 +772,8 @@ it with no reload (rule c). Not built yet.
   views per type: service requests add "pending approval" and "awaiting fulfilment" (incidents
   never show them; "from my direct reports" already serves both; the requests page picks a view
   with its live count; db 1, Vitest 1); Admin > Service requests sets the on-behalf scope
-  (If-Match, a conflict reloads; Vitest 1). **Still to do:** the portal's "for someone else",
-  which needs #178's portal (no stacked PRs): it follows once #178 lands. Migrations: 0059, 0062, 0063, 0064, 0065 (coordinator).
+  (If-Match, a conflict reloads; Vitest 1). The portal's "for someone else" followed once #178
+  landed (see session 3's portal work). Migrations: 0059, 0062, 0063, 0064, 0065 (coordinator).
 - [ ] Session 2 (in progress, 2026-11-04): done: the approval engine (`domain/approvals.py`;
   migration 0065 `work_item_approvals`, RLS): the item's stage snapshotted at submission
   (approvers by name or the requested-for person's manager, REQ-SR-022; a later manager change
@@ -825,8 +825,17 @@ it with no reload (rule c). Not built yet.
   **Precondition of any no-sign-in mode (D7, lane B):** mail_messages and
   notification_deliveries keep the rendered body, link included, until purge; safe today as a
   link is recipient-bound and needs sign-in, but bodies with links must be cleared at send
-  before that mode exists (to go in WP-030's D-file when D7 is decided). **Still to do:**
-  requester views and the portal approve / link page (D9, after #178), e2e.
+  before that mode exists (to go in WP-030's D-file when D7 is decided). Portal (after #178 landed,
+  2026-11-04): "for me / for someone else" on the report form, the search listing only the
+  people the on-behalf scope allows, names only (`/portal/incidents/on-behalf-people`); the
+  Approvals page (a requester-only approver decides there, REQ-SR-022 AC2) and the portal's
+  `/requests/approval-link` page; My service requests (`/portal/service-requests`, `/{id}`,
+  `/{id}/steps`): plain statuses (new: waiting for approval, not approved), the item's answers,
+  only the approvals the tenant shows requesters, the steps with internal names hidden
+  (REQ-SR-051 AC2), Withdraw while it waits, and receipt confirmation of a fulfilled request
+  (REQ-SR-059). Tests: db 3 + 1, portal Vitest 6. **Still to do:** the e2e journey in English
+  and Arabic (needs the shared stack, QA lock), then out of draft (the final re-point of 0059
+  with the coordinator).
 - **Found outside WP-030 (lane A's next polish PR, agreed with lane B 2026-11-04):**
   `work_items/service/conversations.py` decides a reply's delivery state from the global
   `get_settings()`, so a checkout whose `backend/.env` sets SMTP fails `test_reply_delivery`
