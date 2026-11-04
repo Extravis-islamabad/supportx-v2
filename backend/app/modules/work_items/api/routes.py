@@ -47,6 +47,7 @@ from app.modules.work_items.domain.lifecycle import (
     WorkItemAction,
 )
 from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBehalfScope
+from app.modules.work_items.domain.stages import RailState
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
@@ -466,6 +467,12 @@ class WorkItemOut(BaseModel):
         default=None, description="Service requests: not needed, pending, approved ..."
     )
     custom: dict[str, Any] = Field(description="Custom field values by key (WP-026).")
+    stage: str | None = Field(
+        default=None, description="Staged types (releases): the stage it is in (ADR-041)."
+    )
+    stage_path: str | None = Field(
+        default=None, description="Staged types: the path of stages it follows."
+    )
     status: str
     status_category: StatusCategory
     status_reason_code: str | None
@@ -563,6 +570,8 @@ _RECORD_FIELDS = (
     "level",
     "template_id",
     "custom",
+    "stage",
+    "stage_path",
     "status",
     "status_category",
     "status_reason_code",
@@ -1156,6 +1165,89 @@ class AutomationRunOut(BaseModel):
     occurred_at: datetime
 
 
+class StageMoveIn(BaseModel):
+    """A listed status move of a staged type (ADR-041): the target status and its reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to_status: str = Field(max_length=40, description="A status listed as a move from here.")
+    reason_code: str | None = Field(default=None, max_length=40)
+    reason_text: str | None = Field(default=None, max_length=REASON_TEXT_MAX)
+
+
+class StageEntryOut(BaseModel):
+    """One time the record was in a stage."""
+
+    entered_at: datetime
+    left_at: datetime | None
+
+
+class RailStageOut(BaseModel):
+    """One stage on the rail, in path order."""
+
+    stage: str
+    state: RailState
+    optional: bool
+    entries: list[StageEntryOut]
+
+
+class StageMoveOut(BaseModel):
+    """A move offered from the current status."""
+
+    to_status: str
+    to_stage: str
+    reason_mode: ReasonMode
+    reason_list: ReasonList | None
+    required_fields: list[str]
+    allowed: bool
+    reason: str | None = Field(description="Why you may not (a code), when not allowed.")
+
+
+class StagePanelOut(BaseModel):
+    """A staged record's rail and its offered moves."""
+
+    stage: str
+    stage_path: str
+    status: str
+    version: int
+    rail: list[RailStageOut]
+    moves: list[StageMoveOut]
+
+    @classmethod
+    def of(cls, panel: service.StagePanel) -> "StagePanelOut":
+        """From the service panel."""
+        r = panel.record
+        return cls(
+            stage=str(r.stage),
+            stage_path=str(r.stage_path),
+            status=r.status,
+            version=r.version,
+            rail=[
+                RailStageOut(
+                    stage=s.stage,
+                    state=s.state,
+                    optional=s.optional,
+                    entries=[
+                        StageEntryOut(entered_at=e.entered_at, left_at=e.left_at) for e in s.entries
+                    ],
+                )
+                for s in panel.rail
+            ],
+            moves=[
+                StageMoveOut(
+                    to_status=m.transition.to_status,
+                    to_stage=m.to_stage,
+                    reason_mode=m.transition.reason_mode,
+                    reason_list=m.transition.reason_list,
+                    required_fields=list(m.transition.required_fields),
+                    allowed=m.allowed,
+                    reason=m.reason,
+                )
+                for m in panel.moves
+            ],
+        )
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -1586,6 +1678,45 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
+
+    if wtype.stages is not None:  # ADR-041: staged types move by listed status transitions
+
+        @router.get("/{record_id}/stages", summary="The stage rail and the moves from here")
+        async def stage_panel(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> StagePanelOut:
+            """Each stage on the record's path (done, current, skipped, future) and its moves."""
+            panel = await service.stage_panel(session, subject, wtype, record_id)
+            set_etag(response, panel.record.version)
+            return StagePanelOut.of(panel)
+
+        @router.post("/{record_id}/moves", summary="Move to a listed status", responses=CONFLICT)
+        async def move(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: StageMoveIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: View,
+            response: Response,
+            request: Request,
+        ) -> WorkItemOut:
+            """Only moves listed from the current status on the record's path.
+
+            A completing status moves on to the next stage in the same save. Needs If-Match.
+            """
+            view = await service.move_status(
+                session,
+                subject,
+                wtype,
+                record_id,
+                target=body.to_status,
+                expected_version=version,
+                reason_code=body.reason_code,
+                reason_text=body.reason_text,
+                source=source_of(request),
+            )
+            set_etag(response, view.record.version)
+            return WorkItemOut.of(view)
 
     @router.post(
         "/{record_id}/resolution/confirm",

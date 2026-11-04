@@ -286,6 +286,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCreated,
     WorkItemUpdated,
     WorkItemStatusChanged,
+    WorkItemStageChanged,
     WorkItemAssigned,
     WorkItemDeleted,
     WorkItemRestored,

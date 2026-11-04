@@ -156,9 +156,10 @@ RELEASE = WorkItemType(
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {
     INCIDENT.code: INCIDENT,
     SERVICE_REQUEST.code: SERVICE_REQUEST,
+    RELEASE.code: RELEASE,
 }
 # Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
-PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST)
+PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, RELEASE)
 
 
 # --- value rules shared by every type -------------------------------------------------------------

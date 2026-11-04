@@ -243,6 +243,9 @@ IDENTITY_GRANTED = frozenset({"view", "create", "edit", "assign", "close"})
 def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     """The permission catalogue entries of one type."""
     is_sr = wtype.code is WorkItemTypeCode.SERVICE_REQUEST
+    # Releases (WP-058a): technicians keep only identity's releases.view grant; the type adds no
+    # technician defaults, so nothing is widened (lane B review). Admin roles get theirs.
+    is_release = wtype.code is WorkItemTypeCode.RELEASE
     return tuple(
         PermissionSpec(
             wtype.permission(action),
@@ -252,7 +255,7 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
             # Service requests keep identity's system-role grants for these keys (WP-030, nothing
             # widened for technicians or requesters); the WP-042 built-in roles still get theirs.
             defaults=(
-                *(() if is_sr and action in IDENTITY_GRANTED else defaults),
+                *(() if is_release or (is_sr and action in IDENTITY_GRANTED) else defaults),
                 *_role_defaults(action),
             ),
         )

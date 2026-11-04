@@ -1,7 +1,9 @@
 # ADR-041: Stages for work items, one engine for releases and changes
 
 - **Status:** Proposed (WP-058a session 1, lane C; the coordinator approved building it; revised
-  after lane A's review for changes, who reuse it unchanged)
+  after lane A's review for changes, who reuse it unchanged, with their five additions to the
+  table list: `work_items.lifecycle_version`, `required_fields`, RLS with tenant-carrying keys,
+  cancel's role rule in the guard, and `stage_changed`'s from and to stage and entry id)
 - **Date:** 2026-11-05
 - **Deciders:** Haider (Product Owner), the coordinator, lanes A and C
 
@@ -44,7 +46,8 @@ Revised after lane A's review for changes (file 05, REQ-CHG-023..031, -052, -053
    never show for it.
 4. **One transition table for every move.** `work_item_status_transitions` (tenant, type,
    nullable path, nullable lifecycle version, from status, to status, reason mode, reason list,
-   nullable permission). It is data, and only these moves are offered or accepted, on every
+   nullable permission, and `required_fields`: the fields the move asks for in its one dialog,
+   REQ-CHG-026). It is data, and only these moves are offered or accepted, on every
    path:
    - A transition whose target is in the **same stage** is a status move: `scheduled →
      in_progress`, never `scheduled → implemented`.
@@ -56,7 +59,8 @@ Revised after lane A's review for changes (file 05, REQ-CHG-023..031, -052, -053
      first active status of the next stage on the record's path (REQ-CHG-025 AC2, -052 AC1).
    - End and outcome statuses can sit in any stage (rejected in submission, failed, backed out).
      Cancel and reopen are seeded transitions with their own permission and a required reason,
-     not fixed engine rules.
+     not fixed engine rules. Who may cancel beyond that permission (for changes: the change
+     manager, or the requester before approval) is the owning type's guard (§5), not data.
    - A type that wants free moves inside a stage seeds every pair.
 5. **Hooks for the owning type, inside the transaction.** A type may register a `StageGuard`:
    - `check(record, move) -> list[Refusal]`: required fields per stage, open tasks and pending
@@ -66,11 +70,14 @@ Revised after lane A's review for changes (file 05, REQ-CHG-023..031, -052, -053
      back.
 
    The engine never contains approval or freeze logic.
-6. **The past is kept.** `work_items` gains nullable `stage` and `stage_path` columns.
+6. **The past is kept.** `work_items` gains nullable `stage`, `stage_path` and
+   `lifecycle_version` columns (the version a record started on, §10).
    `work_item_stage_entries` records each entry into a stage: path, who, when, the transition's
-   reason, and when it left. Going back adds a new entry and never rewrites one. Every move
-   writes field history (`status`, `stage`) and emits `work_items.work_item.stage_changed` or
-   the existing status event through the outbox. Planned and actual dates per stage
+   reason, and when it left. Going back adds a new entry and never rewrites one; a stage passed
+   through on an automatic advance gets an entry left at once. Every move writes field history
+   (`status`, `stage`) and emits the existing status event (action `stage_move`) through the
+   outbox; a move that enters another stage also emits `work_items.work_item.stage_changed` with
+   the from and to stage, every stage entered and the id of the entry it is in now. Planned and actual dates per stage
    (REQ-REL-026) are columns added to the entry in session 4.
 7. **The rail is computed, never stored.** For each stage on the record's path, in order: *done*,
    *current*, *skipped* (a later stage was entered without entering it) or *future*, with its
@@ -99,6 +106,8 @@ Revised after lane A's review for changes (file 05, REQ-CHG-023..031, -052, -053
 - Reports can group by stage and by status category (REQ-REL-014 AC3). Each record counts once,
   by its current stage.
 - Migration 0090 adds the tables and columns. Existing rows get NULL stages and are unaffected.
+  All five tables force RLS, and every composite foreign key carries `tenant_id`, so a row can
+  only point at its own tenant's stages, paths and statuses; each table has an RLS test.
 
 ## Alternatives considered
 

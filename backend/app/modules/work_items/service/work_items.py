@@ -86,7 +86,15 @@ from app.modules.work_items.domain.lifecycle import (
     reason_problems,
 )
 from app.modules.work_items.domain.service_requests import ApprovalStatus
-from app.modules.work_items.domain.stages import DEFAULT_PATH, Move, MoveRefused, SetBy, plan_move
+from app.modules.work_items.domain.stages import (
+    DEFAULT_PATH,
+    Move,
+    MoveRefused,
+    RailStage,
+    SetBy,
+    StatusTransitionDef,
+    plan_move,
+)
 from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
@@ -2294,6 +2302,46 @@ async def move_status(  # noqa: PLR0913 - the move and its context, explicit
         subject=subject,
     )
     return await _view(session, subject, wtype, moved)
+
+
+@dataclass(frozen=True)
+class StageOffer:
+    """A move offered from the current status: whether you may, and why not."""
+
+    transition: StatusTransitionDef
+    to_stage: str
+    allowed: bool
+    reason: str | None
+
+
+@dataclass(frozen=True)
+class StagePanel:
+    """A staged record's rail and the moves offered from where it is (ADR-041 §7)."""
+
+    record: WorkItem
+    rail: list[RailStage]
+    moves: list[StageOffer]
+
+
+async def stage_panel(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> StagePanel:
+    """The rail and the listed moves a person may be offered (system statuses never are)."""
+    if wtype.stages is None:
+        raise _not_found(wtype)
+    record = await _visible(session, subject, wtype, record_id)
+    model = await stage_service.load_model(session, wtype, record.lifecycle_version)
+    may_edit = await _reason_for(session, subject, wtype, "edit", record.id)
+    moves: list[StageOffer] = []
+    for t in model.moves_from(record.status, str(record.stage_path)):
+        target = model.status(t.to_status)
+        if target.set_by == SetBy.SYSTEM:
+            continue
+        refused = may_edit
+        if refused is None and t.permission is not None:
+            refused = await _reason_for(session, subject, wtype, t.permission, record.id)
+        moves.append(StageOffer(t, target.stage, refused is None, refused))
+    return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves)
 
 
 async def system_stage_move(  # noqa: PLR0913 - the move and its context, explicit
