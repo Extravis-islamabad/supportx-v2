@@ -572,3 +572,36 @@ async def test_provisioning_writes_the_event_in_the_tenants_transaction(world: W
     [envelope] = [json.loads(r["envelope"]) for r in rows]
     assert envelope["payload"] == {"tenant_id": str(a.tenant)}
     assert envelope["tenant_id"] == str(a.tenant)
+
+
+async def test_hiding_the_general_form_keeps_a_way_to_report(world: World) -> None:
+    """Plan D7: with the setting on, the portal offers the catalog's entries' forms, not the
+    general one; with nothing else marked for requesters it keeps the general form."""
+    a = world.a
+    listed = await world.call("GET", "/incidents/templates", a, a.admin)  # makes the defaults
+    assert listed.status_code == 200, listed.text
+    on = await patch(world, a, a.admin, "/catalog/settings", 1, hide_default_incident_template=True)
+    assert on.status_code == 200, on.text
+
+    async def offered() -> list[bool]:
+        got = await world.call("GET", "/portal/incidents/templates", a, a.requester)
+        assert got.status_code == 200, got.text
+        rows = await world.sql(
+            "SELECT id, is_default FROM work_item_templates WHERE tenant_id = $1", a.tenant
+        )
+        defaults = {str(r["id"]): r["is_default"] for r in rows}
+        return [defaults[t["id"]] for t in got.json()]
+
+    assert await offered() == [True]  # the only form: kept
+    [other] = await world.sql(
+        "INSERT INTO work_item_templates (id, tenant_id, type, labels, for_requesters, desk_id)"
+        " VALUES (gen_random_uuid(), $1, 'incident', '{\"en\": \"Printer broken\"}', true,"
+        " (SELECT id FROM desks WHERE tenant_id = $1 AND is_default)) RETURNING id",
+        a.tenant,
+    )
+    await world.sql(
+        "UPDATE work_item_templates SET for_requesters = true WHERE tenant_id = $1 AND is_default",
+        a.tenant,
+    )
+    assert await offered() == [False]  # the general form hidden, the entry's form offered
+    assert other["id"] is not None
