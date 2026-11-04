@@ -151,6 +151,7 @@ postgresql:
       instances: 1
       defaultPoolSize: "25"
       maxClientConn: "500"
+      tcpUserTimeoutMs: ""          # PgBouncer tcp_user_timeout; values-ha.yaml sets it
     # Backups to S3-compatible storage (Barman Cloud plugin): WP-014b.
 
 # --- Object storage (S3 API only, D-016; WP-018, reused by WP-022) ---------------------------------------

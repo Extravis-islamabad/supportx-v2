@@ -83,6 +83,17 @@ hex values and never overwrites an existing one (its passwords are already insid
 - `values-single-node.yaml`: one k3s VM (8 vCPU / 32 GB / 500 GB), production profile, HTTPS on
   Traefik's websecure listener with your certificate Secret, the base realm (no users). **Internal
   evaluation only** until backups (WP-014b) and Nuitka images exist.
+- `values-ha.yaml` (WP-014b, ADR-038): three or more nodes. Two or three copies of every stateless
+  component, PostgreSQL with one primary and two standbys, two PgBouncer copies, a three-server
+  NATS cluster and Valkey with Sentinel. Copies sit on different nodes, each with a
+  PodDisruptionBudget. **Install the CloudNativePG operator with two copies on different nodes**
+  (`replicaCount=2`, a hostname spread; `deploy/k3d/prereqs.sh` shows how). With one copy,
+  losing its node stops the database failover until Kubernetes moves the operator pod, about
+  five minutes later.
+
+  Measured on the k3d HA cluster (node-loss test, 2026-11-04): the agent with the primary is
+  stopped; a standby is promoted after about 70 s, and the same signed-in session writes again
+  about 30 s after that.
 
 ## Egress allow-list (opt-in)
 
@@ -123,6 +134,7 @@ Jaeger, Perses) come with WP-014b.
 | Cluster › `images` | PRs touching `deploy/` or the Makefile, nightly | build both images (not pushed), Trivy gate (fixable HIGH/CRITICAL fail), CycloneDX SBOMs as artifacts |
 | Cluster › `smoke` | same | k3d with the pinned k3s, `make deploy-dev` (incl. `helm test`), public routes through the gateway |
 | Cluster › `e2e` | nightly, on demand | everything above, then every Playwright journey against the cluster |
+| Cluster › `ha-smoke` | nightly, on demand, PRs labelled `full-ci` | a four-node k3d cluster with `values-ha.yaml`. First the Valkey master is killed (the session survives, no split brain). Then the agent with PostgreSQL's primary is stopped (`make cluster-ha-node-loss`): a standby is promoted, the session writes again, and the node rejoins as a standby |
 
 ## Troubleshooting
 
