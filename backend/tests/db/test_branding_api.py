@@ -382,8 +382,12 @@ async def test_emails_get_absolute_public_logo_urls_and_the_tenant_name(
         product_name={"en": "Acme <Desk>", "ar": "مكتب أكمي"},
     )
     assert saved.status_code == 200, saved.text
-    settings_ = world.app.state.settings.model_copy(
-        update={"tenant_base_domain": "brand.test", "console_url": "https://x.example"}
+    settings_ = world.app.state.settings.model_copy(  # deployed: one origin, the portal under it
+        update={
+            "tenant_base_domain": "brand.test",
+            "console_url": "https://x.example",
+            "portal_url": "https://x.example/portal",
+        }
     )
     slug = await slug_of(world, a)
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
@@ -394,8 +398,27 @@ async def test_emails_get_absolute_public_logo_urls_and_the_tenant_name(
     assert english.logo_url.startswith(
         f"https://{slug}.brand.test/api/v1/public/branding/{a.tenant}/"
     )
-    assert english.portal_url == f"https://{slug}.brand.test/"
+    assert english.portal_url == f"https://{slug}.brand.test/portal/"
     assert (arabic.product_name, urdu.product_name) == ("مكتب أكمي", "Acme <Desk>")
     html = header_html(english)
     assert "Acme &lt;Desk&gt;" in html
     assert "<Desk>" not in html
+
+
+async def test_an_emailed_portal_link_uses_the_portals_own_port_on_the_dev_stack(
+    world: World,
+) -> None:
+    """Lane A's finding (WP-030 e2e): the portal on its own port got links on the console's."""
+    a = world.a
+    settings_ = world.app.state.settings.model_copy(
+        update={
+            "tenant_base_domain": "localhost",
+            "console_url": "http://localhost:5173",
+            "portal_url": "http://localhost:5174",
+        }
+    )
+    slug = await slug_of(world, a)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        brand = await email_branding(session, settings_, a.tenant, "en")
+    assert brand.portal_url == f"http://{slug}.localhost:5174/"
+    assert brand.console_url == f"http://{slug}.localhost:5173/"

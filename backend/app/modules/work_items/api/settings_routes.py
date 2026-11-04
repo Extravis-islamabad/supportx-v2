@@ -248,7 +248,9 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
     """The admin routes of one type; they answer with `catalogue_model`."""
     audit = wtype.code.value  # audit codes: "incident.settings_changed" ...
     View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
-    Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]  # noqa: N806 - type alias
+    Admin = Annotated[  # noqa: N806 - type alias
+        Subject, Depends(require_permission("config.service_desk", "settings.manage"))
+    ]
     Settings = Annotated[  # noqa: N806 - type alias
         AuditNote, audited(f"{audit}.settings_changed", object_type=f"{audit}_settings")
     ]

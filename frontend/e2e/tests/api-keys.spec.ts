@@ -26,7 +26,8 @@ test('API key: made on screen, shown once, limited to its scope, refused once re
   await dialog.getByTestId('api-key-create').click();
 
   const shown = page.getByTestId('api-key-shown');
-  await expect(shown).toBeVisible();
+  // The test id is on the modal's root, a box of no size: the dialog inside is what shows.
+  await expect(shown.getByRole('dialog')).toBeVisible();
   const key = await shown.getByTestId('api-key-text').inputValue();
   expect(key).toMatch(/^sxk_[0-9a-z]{26}_[0-9a-z]{26}_[A-Za-z0-9_-]{43}$/);
   await expectAccessible(page, 'api key shown once');

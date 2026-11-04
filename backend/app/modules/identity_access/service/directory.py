@@ -23,9 +23,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
 from app.modules.identity_access.domain.identity import (
+    DATE_FORMATS,
+    DIGITS,
     PERSON_TYPES,
+    TEXT_SCALES,
+    TIME_FORMATS,
+    URDU_SCRIPTS,
+    WEEK_STARTS,
     FormDensity,
     NavLayout,
+    ThemeMode,
     UserType,
 )
 from app.modules.identity_access.domain.people import clean_text, person_problems
@@ -62,10 +69,35 @@ USER_RECORD_TYPE = "user"
 # The person's own contact details (REQ-PRT-013 AC2, WP-028): only when the tenant allows it
 # (identity settings `people_edit_contact`) and no directory keeps them.
 CONTACT_FIELDS = frozenset({"phone", "mobile"})
-EDITABLE_FIELDS = frozenset(
-    {"signature", "time_zone", "nav_layout", "form_density", "ui_locale", *CONTACT_FIELDS}
-)
 UI_LOCALES = frozenset({"en", "ar", "ur"})
+EDITABLE_FIELDS = frozenset(
+    {
+        "signature",
+        "time_zone",
+        "nav_layout",
+        "form_density",
+        "ui_locale",
+        "theme_mode",
+        "text_scale",
+        "week_start",
+        "date_format",
+        "time_format",
+        "digits",
+        "urdu_script",
+        *CONTACT_FIELDS,
+    }
+)
+# Preferences that may be cleared (null: back to the default) and the values each may take.
+_CHOICES: dict[str, frozenset[object]] = {
+    "ui_locale": frozenset(UI_LOCALES),
+    "theme_mode": frozenset(mode.value for mode in ThemeMode),
+    "text_scale": frozenset(TEXT_SCALES),
+    "week_start": frozenset(WEEK_STARTS),
+    "date_format": frozenset(DATE_FORMATS),
+    "time_format": frozenset(TIME_FORMATS),
+    "digits": frozenset(DIGITS),
+    "urdu_script": frozenset(URDU_SCRIPTS),
+}
 MAX_SIGNATURE_LENGTH = 2000
 
 USER_FIELDS = ResourceFields(
@@ -224,15 +256,19 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "ui_locale" and value is not None and value not in UI_LOCALES:
+        elif name in _CHOICES and value is not None and value not in _CHOICES[name]:
             errors.append(
                 FieldError(
-                    field="body.ui_locale",
+                    field=f"body.{name}",
                     code="invalid_choice",
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "nav_layout" and value not in {layout.value for layout in NavLayout}:
+        elif (
+            name == "nav_layout"
+            and value is not None
+            and value not in {layout.value for layout in NavLayout}
+        ):
             errors.append(
                 FieldError(
                     field="body.nav_layout",
@@ -240,7 +276,11 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "form_density" and value not in {d.value for d in FormDensity}:
+        elif (
+            name == "form_density"
+            and value is not None
+            and value not in {d.value for d in FormDensity}
+        ):
             errors.append(
                 FieldError(
                     field="body.form_density",

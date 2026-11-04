@@ -230,8 +230,10 @@ test('an approver approves from the e-mailed link without signing in (D-132)', a
     await outside.getByTestId('public-approval-approve').click();
     await expect(outside.getByTestId('public-approval-done')).toBeVisible(LIVE);
 
-    // Once used, the link does nothing more (a fresh load, not a same-page hash change).
-    await outside.goto(`${target.origin}/`);
+    // Once used, the link does nothing more (a fresh load, not a same-page hash change). Through
+    // about:blank: the portal's root has no session in this window and starts the sign-in
+    // redirect, which would interrupt the next navigation (stack smoke 41826831299).
+    await outside.goto('about:blank');
     await outside.goto(url);
     await expect(outside.getByTestId('public-approval-refused')).toContainText('not valid');
     await outside.context().close();

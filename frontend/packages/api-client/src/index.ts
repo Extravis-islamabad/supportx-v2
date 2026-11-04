@@ -108,6 +108,7 @@ export {
   useRole,
   useRoleAssignment,
   useRoleMutations,
+  useGroupRoleMutations,
   useRoles,
   useUnitMutations,
   useUnits,
@@ -306,6 +307,13 @@ export {
   type SsoProvider,
   type SsoTestResult,
 } from './identity';
+export { useAiSettings, useSaveAiSettings, type AiSettings, type AiSettingsInput } from './ai';
+export {
+  useSaveTenantSettings,
+  useTenantSettings,
+  type TenantSettings,
+  type TenantSettingsInput,
+} from './instance';
 export {
   useApiKeyRules,
   useApiKeys,
@@ -488,6 +496,7 @@ export {
   searchFilter,
   useSetFormDensity,
   useSetNavLayout,
+  useSetPreference,
   useSetUiLocale,
   useUpdateUser,
   useUser,
@@ -499,6 +508,9 @@ export {
   type UserPage,
   type FormDensity,
   type NavLayout,
+  type PersonalPreference,
+  type PersonalPreferenceChange,
+  type ThemeMode as UserThemeMode,
   type UserPreferencesPatch,
   type UsersQuery,
 } from './users';

@@ -27,9 +27,30 @@ async function applyTheme(page: Page, mode: Mode): Promise<void> {
   await expect(page.locator('html')).toHaveAttribute('data-theme', mode);
 }
 
+/**
+ * The console's logo sits on the dark navigation (UI pass 2), so it is the white-text file in
+ * every theme mode; it has loaded (a broken file would have no natural size).
+ */
+async function expectNavLogo(page: Page): Promise<void> {
+  const logo = page.locator('aside').getByTestId('brand-logo-full');
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveAttribute('alt', 'SupportX');
+  await expect(logo).toHaveAttribute('src', /logo-white-text/);
+  await expect
+    .poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+}
+
 /** The visible header logo has loaded (a broken file would have no natural size). */
 async function expectHeaderLogo(page: Page, mode: Mode): Promise<void> {
-  const logo = page.getByRole('banner').getByTestId('brand-logo-full');
+  // Where the frame puts it (D-124): the top bar in the top layout, else the head of the wide
+  // sidebar (the side menu is the default layout since migration 0051).
+  // The portal has no layouts (no [data-layout]): getAttribute would wait for it for good.
+  const host = page.locator('[data-layout]').first();
+  const layout = (await host.count()) > 0 ? await host.getAttribute('data-layout') : null;
+  const frame =
+    layout === 'top' || layout === null ? page.getByRole('banner') : page.locator('aside').first();
+  const logo = frame.getByTestId('brand-logo-full');
   await expect(logo).toBeVisible();
   await expect(logo).toHaveAttribute('alt', 'SupportX');
   await expect(logo).toHaveAttribute('src', new RegExp(LOGO_FILE[mode]));
@@ -98,7 +119,7 @@ test('console: favicons and manifest served, the logo and About dialog in every 
 
   for (const mode of MODES) {
     await applyTheme(page, mode);
-    await expectHeaderLogo(page, mode);
+    await expectNavLogo(page); // console: on the dark navigation in every mode
     await expectAccessible(page, `console with logo (${mode})`);
     await openAbout(page, 'About SupportX');
     await expect(page.getByTestId('about-version')).toHaveText(/^Version \S+$/);

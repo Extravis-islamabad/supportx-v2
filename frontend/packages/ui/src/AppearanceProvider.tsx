@@ -7,17 +7,19 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 
 import { ANT_LOCALES } from './antdLocales';
+import { FONT_FACES, type UrduScript } from './fonts/fonts';
 import {
   AppearanceContext,
+  intlLocaleFor,
   type Appearance,
+  type Digits,
   type BrandingSource,
   type Direction,
 } from './appearance';
 import type { Density } from './density';
 import { useDropdownFit } from './dropdownFit';
-import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
-
-const MODE_STORAGE_KEY = 'supportx.theme_mode';
+import { buildTheme, DEFAULT_BRANDING, type Branding, type ThemeMode } from './theme';
+import { MODE_STORAGE_KEY, storedMode, systemMode } from './themeMode';
 
 export interface AppearanceProviderProps {
   children: ReactNode;
@@ -29,18 +31,9 @@ export interface AppearanceProviderProps {
   density?: Density;
 }
 
-/** Remembered choice, else the OS preference. Storage may be unavailable (private mode). */
+/** Remembered choice, else the OS preference. */
 function preferredMode(): ThemeMode {
-  try {
-    const stored = window.localStorage.getItem(MODE_STORAGE_KEY);
-    if (stored !== null && (THEME_MODES as readonly string[]).includes(stored)) {
-      return stored as ThemeMode;
-    }
-  } catch {
-    // ignore: the OS preference is a fine default
-  }
-  if (window.matchMedia('(prefers-contrast: more)').matches) return 'high_contrast';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return storedMode() ?? systemMode();
 }
 
 /**
@@ -80,6 +73,12 @@ const PAGE_CSS =
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
+  // Tabs that do not fit scroll sideways instead of moving into a "more" menu: Ant Design puts
+  // that menu's button inside the tab list, which may hold only tabs (axe aria-required-children,
+  // the record at 390 px; UI pass 2).
+  '.ant-tabs-nav-operations { display: none !important; } ' +
+  '.ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap { overflow-x: auto; scrollbar-width: thin; } ' +
+  '.ant-tabs > .ant-tabs-nav .ant-tabs-nav-list { transform: none !important; } ' +
   // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
   // virtual, so CSS cannot size them by content); they never pass the screen.
   '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +
@@ -102,13 +101,17 @@ export function AppearanceProvider({
 }: AppearanceProviderProps) {
   const [mode, setModeState] = useState<ThemeMode>(() => initialMode ?? preferredMode());
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [urduScript, setUrduScript] = useState<UrduScript>('naskh');
+  const [textScale, setTextScale] = useState(100);
+  const [digits, setDigits] = useState<Digits>('western');
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
   useEffect(() => {
     document.documentElement.dir = direction;
     document.documentElement.lang = locale;
     document.documentElement.dataset.theme = mode;
-  }, [direction, locale, mode]);
+    document.documentElement.dataset.textScale = String(textScale);
+  }, [direction, locale, mode, textScale]);
 
   // Ant Design's pickers take month and weekday names from dayjs's global locale.
   useEffect(() => {
@@ -141,23 +144,30 @@ export function AppearanceProvider({
           // not persisted: still applied for this visit
         }
       },
+      textScale,
+      setTextScale,
+      digits,
+      setDigits,
+      intlLocale: intlLocaleFor(locale, digits),
       setDirection,
       setBranding,
+      urduScript,
+      setUrduScript,
       setLocale: (next) => {
         setLocaleState(next);
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand, setBranding],
+    [mode, direction, locale, brand, setBranding, urduScript, textScale, digits],
   );
   const themeConfig = useMemo(
-    () => buildTheme(mode, brand, locale, density),
-    [mode, brand, locale, density],
+    () => buildTheme(mode, brand, locale, density, textScale, urduScript),
+    [mode, brand, locale, density, textScale, urduScript],
   );
 
   return (
     <AppearanceContext.Provider value={appearance}>
-      <style>{PAGE_CSS}</style>
+      <style>{FONT_FACES + PAGE_CSS}</style>
       <LabelsProvider locale={locale}>
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
           <AntApp>{children}</AntApp>

@@ -14,7 +14,7 @@ import {
   Table,
   Typography,
 } from 'antd';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import {
   type ApiKey,
@@ -94,7 +94,15 @@ function ScopeList({ scopes }: { scopes: string[] }) {
 }
 
 /** Service identities a key manager may make keys for (people with user type "service"). */
-function OwnerSelect({ value, onChange }: { value?: string; onChange?: (value: string) => void }) {
+function OwnerSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id?: string; // from Form.Item: the label points at it (axe: label)
+  value?: string;
+  onChange?: (value: string) => void;
+}) {
   const t = useLabel();
   const me = useSession().data?.user.id ?? '';
   const services = useUsers({
@@ -105,6 +113,7 @@ function OwnerSelect({ value, onChange }: { value?: string; onChange?: (value: s
   const rows = services.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <Select
+      id={id}
       value={value}
       onChange={onChange}
       loading={services.isPending}
@@ -114,6 +123,45 @@ function OwnerSelect({ value, onChange }: { value?: string; onChange?: (value: s
         ...rows.map((user) => ({ value: user.id, label: user.display_name })),
       ]}
     />
+  );
+}
+
+/**
+ * The scope rows' box as a form control. Form.Item hands its child `aria-required`, which a
+ * plain box may not carry (axe: aria-allowed-attr), so the box is a named group and keeps only
+ * the error link and state. Each row's radio group is the required control.
+ */
+function ScopesBox({
+  id,
+  label,
+  children,
+  'aria-describedby': describedBy,
+  'aria-invalid': invalid,
+}: {
+  id?: string;
+  label: string;
+  children: ReactNode;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean | 'true' | 'false';
+}) {
+  return (
+    <div
+      id={id}
+      role="group"
+      aria-label={label}
+      aria-describedby={describedBy}
+      aria-invalid={invalid}
+      data-testid="api-key-scopes"
+      style={{
+        maxHeight: 280,
+        overflowY: 'auto',
+        border: '1px solid var(--ant-color-border-secondary)',
+        borderRadius: 6,
+        padding: 8,
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -239,16 +287,7 @@ function NewKeyDialog({
             },
           ]}
         >
-          <div
-            data-testid="api-key-scopes"
-            style={{
-              maxHeight: 280,
-              overflowY: 'auto',
-              border: '1px solid var(--ant-color-border-secondary)',
-              borderRadius: 6,
-              padding: 8,
-            }}
-          >
+          <ScopesBox label={t('api_keys.form.scopes')}>
             {areas.map((area) => (
               <Flex
                 key={area}
@@ -276,7 +315,7 @@ function NewKeyDialog({
                 </Form.Item>
               </Flex>
             ))}
-          </div>
+          </ScopesBox>
         </Form.Item>
         <Flex gap={16} wrap align="start">
           <Form.Item

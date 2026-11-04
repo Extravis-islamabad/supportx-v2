@@ -32,6 +32,7 @@ from app.core.tenancy import TenantContext
 from app.shared.events import BusNames, ConsumerSpec, EventEnvelope
 from app.shared.realtime import CentrifugoError, RealtimeEffects, RealtimeRegistry
 from workers.consumers.runner import ConsumerRunner, RetryPolicy
+from workers.event_lag import note_lag
 from workers.metrics import ConsumerMetrics
 from workers.realtime_fanout.fanout import Fanout
 from workers.resilience import Connectivity, database_reachable, unavailable
@@ -190,6 +191,16 @@ class FanoutRunner(ConsumerRunner):
             for message in routed:
                 await message.nak(delay=RETRY_DELAY_SECONDS)
             return
+        # The oldest first delivery in the window: how late its screens hear of it (rule c).
+        first = [
+            e
+            for items in by_tenant.values()
+            for m, e in items
+            if m.metadata.num_delivered in (None, 1)
+        ]
+        if first:
+            oldest = min(first, key=lambda e: e.occurred_at)
+            self.metrics.event_lag("fanout", self.name, note_lag("fanout", self.name, oldest))
         for message in routed:
             await message.ack()
             ConsumerMetrics.bump(self.metrics.processed, self.name)

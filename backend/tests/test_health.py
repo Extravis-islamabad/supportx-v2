@@ -86,3 +86,27 @@ async def test_ready_says_event_delivery_is_stalled_when_a_worker_is_cut_off(
     assert stalled.json()["event_delivery"] == "stalled"
     assert stalled.json()["checks"]["outbox_relay"]["reason"] == "disconnected"
     assert fine.json()["event_delivery"] == "ok"
+
+
+async def test_a_stale_scanner_degrades_ready_but_is_not_event_delivery(
+    settings_factory: Callable[..., Settings], run_app: Callable[[FastAPI], Any]
+) -> None:
+    """Old ClamAV signatures warn in /ready; the console must not say events are stalled."""
+    from app.modules.system.domain.readiness import FailureReason, ProbeFailedError  # noqa: PLC0415
+    from app.modules.system.service.readiness import ReadinessService  # noqa: PLC0415
+    from app.modules.system.tests.test_readiness_service import FakeProbe  # noqa: PLC0415
+
+    app = create_app(settings_factory())
+    async with run_app(app) as client:
+        app.state.readiness = ReadinessService(
+            [FakeProbe("postgres"), FakeProbe("nats")],
+            informational=[
+                FakeProbe("outbox_relay"),
+                FakeProbe("malware_signatures", ProbeFailedError(FailureReason.STALE_SIGNATURES)),
+            ],
+            timeout=1.0,
+        )
+        found = (await client.get("/api/v1/ready")).json()
+
+    assert found["degraded"] == ["malware_signatures"]
+    assert found["event_delivery"] == "ok"

@@ -4,6 +4,7 @@ import type { Locale } from '@supportx/labels';
 
 import { SUPPORTX_COLOURS, SUPPORTX_LOGOS, type BrandLogos } from './brand';
 import { densityTheme, type Density } from './density';
+import { fontFor, type UrduScript } from './fonts/fonts';
 
 export const THEME_MODES = ['light', 'dark', 'high_contrast'] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
@@ -45,26 +46,32 @@ export const DEFAULT_BRANDING: Branding = {
 const PRIMARY_HOVER_DARKEN = 0.12;
 const PRIMARY_ACTIVE_DARKEN = 0.2;
 
-const LATIN = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
-
 /**
- * Fonts per UI language. Arabic is set in a Naskh face; Urdu in Nastaliq, which is much taller,
- * so Urdu also gets taller lines. One list for both made Arabic fall back to the installed
- * Nastaliq font (macOS ships it) and clipped Arabic button labels (QA C2).
+ * The console's frame (UI pass 2, docs/design/target): a dark indigo navigation in every theme
+ * mode, beside or above a white top bar. Measured: menu text #C9C4DB on #16122B 10.7:1, white on
+ * the selected #2C2552 14.1:1, white on the count badge #3A3168 11.5:1.
  */
-const FONTS: Record<Locale, { fontFamily: string; lineHeight?: number }> = {
-  en: { fontFamily: `${LATIN}, 'Noto Sans Arabic', sans-serif` },
-  ar: {
-    fontFamily: `${LATIN}, 'Noto Sans Arabic', 'Noto Naskh Arabic', 'Geeza Pro', Tahoma, sans-serif`,
-  },
-  ur: {
-    fontFamily: `${LATIN}, 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Noto Sans Arabic', sans-serif`,
-    lineHeight: 1.9,
-  },
-};
+export const SHELL = {
+  navBg: '#16122B',
+  navSelectedBg: '#2C2552',
+  navHoverBg: '#221C40',
+  navText: '#C9C4DB',
+  navBadgeBg: '#3A3168',
+} as const;
 
-function shared(locale: Locale): ThemeConfig['token'] {
-  return { borderRadius: 6, ...FONTS[locale] };
+/** The target's light surfaces: a cool grey page, white cards with 1px borders. */
+const LIGHT_SURFACES = {
+  colorText: '#14161B',
+  colorBgLayout: '#F4F5F7',
+  colorBorder: '#D5D8DF',
+  colorBorderSecondary: '#E3E5EA',
+  colorFillAlter: '#F8F9FB',
+  colorSplit: '#EEF0F3',
+} as const;
+
+// The font tokens live in ./fonts (D-137): bundled faces, switched by language and Urdu style.
+function shared(locale: Locale, urduScript: UrduScript): ThemeConfig['token'] {
+  return { borderRadius: 8, ...fontFor(locale, urduScript) };
 }
 
 /**
@@ -77,27 +84,104 @@ export function buildTheme(
   branding: Partial<Branding> = {},
   locale: Locale = 'en',
   density: Density = 'comfortable',
+  textScale = 100,
+  urduScript: UrduScript = 'naskh',
 ): ThemeConfig {
-  const base = modeTheme(mode, branding, locale);
+  return scaleText(themeFor(mode, branding, locale, density, urduScript), textScale);
+}
+
+/** Text sizes a person may choose, in percent (WP-042, REQ-ADM-062). */
+export const TEXT_SCALES = [90, 100, 110, 120, 130, 140, 150] as const;
+
+// Ant Design's own seeds where a theme leaves them out (Ant Design 5 defaults).
+const SEED = { fontSize: 14, controlHeight: 32 } as const;
+
+/**
+ * Text, and the controls and rows around it, grown or shrunk by `percent` (REQ-ADM-062): every
+ * font size the theme sets, plus the heights a larger line needs so nothing is cut off.
+ */
+function scaleText(config: ThemeConfig, percent: number): ThemeConfig {
+  if (percent === 100) return config;
+  const by = (value: number) => Math.round((value * percent) / 100);
+  const token: Record<string, unknown> = { ...config.token };
+  for (const key of ['fontSize', 'controlHeight'] as const) {
+    token[key] = by(config.token?.[key] ?? SEED[key]);
+  }
+  for (const [key, value] of Object.entries(token)) {
+    if (key.startsWith('fontSizeHeading') && typeof value === 'number') token[key] = by(value);
+  }
+  const components: Record<string, Record<string, unknown>> = {};
+  for (const [name, tokens] of Object.entries(config.components ?? {})) {
+    const scaled: Record<string, unknown> = { ...(tokens as Record<string, unknown>) };
+    for (const [key, value] of Object.entries(scaled)) {
+      if (typeof value === 'number' && /FontSize$|^itemHeight$|^headerHeight/.test(key)) {
+        scaled[key] = by(value);
+      }
+    }
+    components[name] = scaled;
+  }
+  return {
+    ...config,
+    token: token,
+    components: components,
+  };
+}
+
+function themeFor(
+  mode: ThemeMode,
+  branding: Partial<Branding>,
+  locale: Locale,
+  density: Density,
+  urduScript: UrduScript,
+): ThemeConfig {
+  const base = modeTheme(mode, branding, locale, urduScript);
   const dense = densityTheme(density, base.algorithm ?? antdTheme.defaultAlgorithm);
   const components = { ...base.components };
   for (const [name, tokens] of Object.entries(dense.components ?? {})) {
     const key = name as keyof NonNullable<ThemeConfig['components']>;
     components[key] = { ...(components[key] as object), ...tokens } as never;
   }
-  return {
+  return withShell({
     ...base,
     algorithm: dense.algorithm,
     // The mode's own tokens win (high contrast line widths, readable colours); Urdu keeps its
     // taller line height, so rows grow rather than clip.
     token: { ...dense.token, ...base.token },
     components,
-  };
+  });
 }
 
-function modeTheme(mode: ThemeMode, branding: Partial<Branding>, locale: Locale): ThemeConfig {
+/** The dark navigation's tokens, in every mode (Ant Design's `dark` Sider and Menu). */
+function withShell(config: ThemeConfig): ThemeConfig {
+  const components = { ...config.components };
+  components.Layout = {
+    ...components.Layout,
+    siderBg: SHELL.navBg,
+    triggerBg: SHELL.navSelectedBg,
+    triggerColor: '#FFFFFF',
+  };
+  components.Menu = {
+    ...components.Menu,
+    darkItemBg: SHELL.navBg,
+    darkSubMenuItemBg: SHELL.navBg,
+    darkPopupBg: SHELL.navBg,
+    darkItemColor: SHELL.navText,
+    darkItemHoverBg: SHELL.navHoverBg,
+    darkItemHoverColor: '#FFFFFF',
+    darkItemSelectedBg: SHELL.navSelectedBg,
+    darkItemSelectedColor: '#FFFFFF',
+  };
+  return { ...config, components };
+}
+
+function modeTheme(
+  mode: ThemeMode,
+  branding: Partial<Branding>,
+  locale: Locale,
+  urduScript: UrduScript,
+): ThemeConfig {
   const brand = { ...DEFAULT_BRANDING, ...branding };
-  const base = shared(locale);
+  const base = shared(locale, urduScript);
   if (mode === 'high_contrast') {
     return {
       algorithm: antdTheme.defaultAlgorithm,
@@ -139,9 +223,10 @@ function modeTheme(mode: ThemeMode, branding: Partial<Branding>, locale: Locale)
           colorError: '#ff7875',
         }
       : {
-          colorTextSecondary: 'rgba(0, 0, 0, 0.68)',
-          colorTextTertiary: 'rgba(0, 0, 0, 0.62)',
-          colorTextDescription: 'rgba(0, 0, 0, 0.62)',
+          // #5A6070: 6.28:1 on white, 5.76:1 on the #F4F5F7 page (UI pass 2).
+          colorTextSecondary: '#5A6070',
+          colorTextTertiary: '#5A6070',
+          colorTextDescription: '#5A6070',
           colorTextPlaceholder: 'rgba(0, 0, 0, 0.58)',
           // Ant Design's #ff4d4f is about 3.3:1 on white as button text; this red is about 5:1.
           colorError: '#cf1322',
@@ -159,10 +244,12 @@ function modeTheme(mode: ThemeMode, branding: Partial<Branding>, locale: Locale)
         ...base,
         ...readable,
         ...pressed,
+        ...LIGHT_SURFACES,
         colorPrimary: brand.colorPrimary,
-        // Links in the brand colour too: Ant Design's default link blue is about 4.1:1 on white.
-        colorLink: brand.colorPrimary,
-        colorLinkHover: pressed.colorPrimaryHover,
+        // Links a shade deeper than the brand (the target's #6B33B8: 7.5:1 on white); Ant
+        // Design's default link blue is about 4.1:1.
+        colorLink: darken(brand.colorPrimary, 0.15),
+        colorLinkHover: pressed.colorPrimaryActive,
         colorLinkActive: pressed.colorPrimaryActive,
       },
     };

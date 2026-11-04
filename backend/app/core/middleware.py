@@ -13,6 +13,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.errors import internal_error_response, notify_error
 from app.core.logging import get_logger
+from app.core.proxies import check_forwarded
 from app.core.request_context import (
     REQUEST_ID_HEADER,
     accept_request_id,
@@ -58,6 +59,7 @@ class RequestContextMiddleware:
             await self.app(scope, receive, send)
             return
 
+        check_forwarded(scope)  # a gateway outside api.trustedProxies: warned once
         request_id = accept_request_id(Headers(scope=scope).get(REQUEST_ID_HEADER))
         bind_request(request_id)
         started = time.perf_counter()

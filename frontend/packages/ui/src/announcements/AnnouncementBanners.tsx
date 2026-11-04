@@ -63,6 +63,8 @@ export function AnnouncementBanners({ enabled = true, onOpen }: AnnouncementBann
           closable
           type={ALERT_TYPE[item.severity]}
           data-testid={`announcement-banner-${item.id}`}
+          // A critical notice comes first in the shell's notice stack (D-124).
+          data-notice-critical={item.severity === 'critical' ? 'true' : undefined}
           onClose={() => {
             const next = new Set(dismissed).add(dismissKey(item));
             writeDismissed(next);

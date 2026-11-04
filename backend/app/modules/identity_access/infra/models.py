@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     LargeBinary,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -63,8 +64,36 @@ class User(TenantEntity):
         CheckConstraint("char_length(signature) <= 2000", name="signature_length"),
         CheckConstraint("nav_layout IN ('top', 'side', 'side_compact')", name="nav_layout_code"),
         CheckConstraint("form_density IN ('comfortable', 'compact')", name="form_density_code"),
+        # NULL passes both checks: not chosen, the default applies when read (0071).
         CheckConstraint(
             "ui_locale IS NULL OR ui_locale IN ('en', 'ar', 'ur')", name="ui_locale_code"
+        ),
+        # Personal preferences (WP-042): NULL means "the default", read at sign-in, never copied.
+        CheckConstraint(
+            "theme_mode IS NULL OR theme_mode IN ('light', 'dark', 'high_contrast', 'system')",
+            name="theme_mode_code",
+        ),
+        CheckConstraint(
+            "text_scale IS NULL OR (text_scale BETWEEN 90 AND 150 AND text_scale % 10 = 0)",
+            name="text_scale_range",
+        ),
+        CheckConstraint(
+            "week_start IS NULL OR week_start IN ('monday', 'sunday', 'saturday')",
+            name="week_start_code",
+        ),
+        CheckConstraint(
+            "date_format IS NULL"
+            " OR date_format IN ('dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd', 'dd.mm.yyyy')",
+            name="date_format_code",
+        ),
+        CheckConstraint(
+            "time_format IS NULL OR time_format IN ('24h', '12h')", name="time_format_code"
+        ),
+        CheckConstraint(
+            "digits IS NULL OR digits IN ('western', 'arabic_indic')", name="digits_code"
+        ),
+        CheckConstraint(
+            "urdu_script IS NULL OR urdu_script IN ('naskh', 'nastaliq')", name="urdu_script_code"
         ),
         CheckConstraint("length(btrim(first_name)) BETWEEN 1 AND 100", name="first_name_length"),
         CheckConstraint("manager_id IS NULL OR manager_id <> id", name="not_own_manager"),
@@ -128,10 +157,23 @@ class User(TenantEntity):
     # Owned by SupportX, editable by the user (WP-008); identity fields above come from Keycloak.
     signature: Mapped[str | None] = mapped_column(Text)
     time_zone: Mapped[str | None] = mapped_column(String(64))
-    nav_layout: Mapped[str] = mapped_column(server_default="side")  # D-124
-    form_density: Mapped[str] = mapped_column(server_default="comfortable")
+    # NULL: not chosen; read as the side bar (D-124) and comfortable forms (0071).
+    nav_layout: Mapped[str | None]
+    form_density: Mapped[str | None]
     # The language picked in the app (QA BUG-04); NULL: follow `locale` from Keycloak.
     ui_locale: Mapped[str | None]
+    # WP-042 (REQ-ADM-059, 062). NULL: not chosen, so the default applies when read (the
+    # browser's theme, 100 %, the site's or tenant's formats). A changed default never
+    # overwrites anyone's own choice.
+    theme_mode: Mapped[str | None] = mapped_column(String(16))
+    text_scale: Mapped[int | None] = mapped_column(SmallInteger)
+    week_start: Mapped[str | None] = mapped_column(String(10))
+    date_format: Mapped[str | None] = mapped_column(String(12))
+    time_format: Mapped[str | None] = mapped_column(String(4))
+    # D-135: NULL means Western digits (0-9), the default in every language.
+    digits: Mapped[str | None] = mapped_column(String(16))
+    # D-137: NULL means Naskh (Noto Sans Arabic) for Urdu; `nastaliq` is Noto Nastaliq Urdu.
+    urdu_script: Mapped[str | None] = mapped_column(String(16))
     # When the Keycloak roles were mapped to SupportX roles (once, D-029); NULL = not yet.
     roles_mapped_at: Mapped[datetime | None]
     # Which directory keeps this person (entra | ldap); NULL: SupportX does (WP-040 session 2).
@@ -215,6 +257,28 @@ class RolePermission(TenantKeyed, Base):
     scope: Mapped[str]
     # Attribute rule in the filter DSL (shared/api/filters.py); NULL = every record in scope.
     condition: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class GroupRole(TenantKeyed, Base):
+    """A role a support group carries (WP-042, REQ-ADM-015 AC2).
+
+    Its members hold the role while they are members of an active group. The group lives in
+    organization; only its ID is kept here (no cross-module foreign key), checked through
+    organization's public interface on write.
+    """
+
+    __tablename__ = "group_roles"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"], ["roles.tenant_id", "roles.id"], name="fk_group_roles_role"
+        ),
+        Index("ix_group_roles_tenant_role", "tenant_id", "role_id"),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    role_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_by: Mapped[uuid.UUID | None]
 
 
 class UserRole(TenantKeyed, Base):

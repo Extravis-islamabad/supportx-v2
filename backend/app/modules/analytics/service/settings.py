@@ -25,7 +25,8 @@ from app.shared.history import stale_version
 if TYPE_CHECKING:
     from app.core.tenancy import TenantContext
 
-MANAGE = "settings.manage"
+MANAGE = "settings.manage"  # every area (WP-042 keeps it)
+CONFIGURE = "config.reports"
 WEEK_STARTS = ("monday", "sunday")
 EDITABLE = ("week_start", "interactive_timeout_seconds", "export_link_days", "max_export_rows")
 
@@ -119,8 +120,8 @@ async def update_settings(
     expected_version: int,
 ) -> ReportSettings:
     """Change the fields given (If-Match on the version read); emits ReportSettingsChanged."""
-    if not subject.holds(MANAGE):
-        raise PermissionDenied(params={"permission": MANAGE})
+    if not (subject.holds(CONFIGURE) or subject.holds(MANAGE)):
+        raise PermissionDenied(params={"permission": CONFIGURE})
     row = await tenant_settings(session)
     if row.version != expected_version:
         raise await stale_version(session, row, expected_version=expected_version)

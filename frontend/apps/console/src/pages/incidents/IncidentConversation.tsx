@@ -1,9 +1,15 @@
 import {
+  CheckOutlined,
   DownOutlined,
   ExclamationCircleOutlined,
+  FileTextOutlined,
   GlobalOutlined,
   LockOutlined,
+  MailOutlined,
+  RollbackOutlined,
   SendOutlined,
+  ThunderboltOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import {
   Alert,
@@ -26,15 +32,21 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { cloneElement, isValidElement, useMemo, useState } from 'react';
+import { cloneElement, isValidElement, type ReactNode, useMemo, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
   ApiError,
   attachDrafts,
+  type ConversationEntry,
+  type EntryKind,
   fetchMentionable,
+  type Incident,
+  type IncidentHistoryEntry,
   queryKeys,
+  type ReplyMode,
+  type StoredFile,
   useAddConversationEntry,
   useChangeNoteVisibility,
   useFiles,
@@ -42,11 +54,6 @@ import {
   useRecordFiles,
   useReplyTemplates,
   useSession,
-  type ConversationEntry,
-  type StoredFile,
-  type EntryKind,
-  type Incident,
-  type ReplyMode,
   type Visibility,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
@@ -57,22 +64,24 @@ import {
   FormProblem,
   inlineImageIds,
   markHandled,
+  type MentionSearch,
   reportError,
   RichTextField,
   RichTextView,
   ToneTag,
   useAccess,
+  useAppearance,
   useConflictRetry,
   useDateTime,
   useFormProblem,
   useLabel,
   WriteButton,
-  type MentionSearch,
 } from '@supportx/ui';
 
 import { useTenantChannel } from '@supportx/realtime';
 
 import { useIncidentFieldName } from './conflict';
+import { REQUESTER_ACTION, useHistoryWords } from './historyWords';
 import { useKnowledgeTools } from './knowledgeSlot';
 import { useTypingSignal } from './typing';
 
@@ -101,11 +110,27 @@ function initials(name: string): string {
  * lock, a tinted background and says "staff only"; a public one a globe and "requester can see".
  * Replies made before the email channel exists say plainly they were not sent (WP-024).
  */
-export function IncidentConversation({ item, typing }: { item: Incident; typing: Typing }) {
+export function IncidentConversation({
+  item,
+  typing,
+  replyRequest = 0,
+}: {
+  item: Incident;
+  typing: Typing;
+  /** Bumped by the header's Reply action (UI pass 2): opens the reply composer here. */
+  replyRequest?: number;
+}) {
   const t = useLabel();
   const listFormat = useListFormat();
   const [filter, setFilter] = useState<Filter>('all');
   const [draft, setDraft] = useState<Draft | null>(null);
+  // A new request from the header opens the reply composer (unless one is open already). Set
+  // while rendering, not in an effect: React's pattern for state that follows a prop.
+  const [seenRequest, setSeenRequest] = useState(0);
+  if (replyRequest !== seenRequest) {
+    setSeenRequest(replyRequest);
+    if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: 'reply' });
+  }
   const conversation = useIncidentConversation(item.id);
   const recordFiles = useRecordFiles('incident', item.id).data ?? [];
   const entries = conversation.data?.items ?? [];
@@ -117,6 +142,53 @@ export function IncidentConversation({ item, typing }: { item: Incident; typing:
       (filter === 'notes' && e.kind === 'note'),
   );
   const writers = Object.entries(typing);
+  // Automation and status events from the history as quiet one-line entries (UI pass 2), in
+  // time order with the messages; the conversation's own saves are the cards themselves. Only
+  // the history pages loaded so far (the first page, newest first): older events stay in the
+  // History tab, which pages through all of them.
+  const words = useHistoryWords(item.id);
+  const events = words.entries
+    .filter((e) => e.kind !== 'created')
+    .map((e) => ({
+      entry: e,
+      changes: e.changes.filter(
+        (c) => c.field !== REQUESTER_ACTION && c.field !== 'conversation_entry',
+      ),
+    }))
+    .filter((e) => e.changes.length > 0);
+  const withEvents = filter === 'all' || filter === 'system';
+  const rows = [
+    ...(filter === 'system' ? [] : shown).map((entry) => ({
+      at: entry.created_at,
+      key: `entry-${entry.id}`,
+      node: (
+        <EntryCard
+          key={entry.id}
+          item={item}
+          entry={entry}
+          people={people}
+          files={recordFiles.filter(
+            (file) =>
+              file.owner_type === 'conversation_entry' &&
+              file.owner_id === entry.id &&
+              !file.inline,
+          )}
+        />
+      ),
+    })),
+    ...(withEvents ? events : []).map(({ entry, changes }) => ({
+      at: entry.occurred_at,
+      key: `event-${String(entry.version)}-${entry.occurred_at}`,
+      node: (
+        <EventLine
+          key={`${String(entry.version)}-${entry.occurred_at}`}
+          entry={entry}
+          changes={changes}
+          words={words}
+        />
+      ),
+    })),
+  ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       <Flex justify="space-between" align="center" wrap gap={8}>
@@ -167,21 +239,8 @@ export function IncidentConversation({ item, typing }: { item: Incident; typing:
           {conversation.data?.truncated === true && (
             <Alert type="info" showIcon message={t('conversation.truncated')} />
           )}
-          {shown.map((entry) => (
-            <EntryCard
-              key={entry.id}
-              item={item}
-              entry={entry}
-              people={people}
-              files={recordFiles.filter(
-                (file) =>
-                  file.owner_type === 'conversation_entry' &&
-                  file.owner_id === entry.id &&
-                  !file.inline,
-              )}
-            />
-          ))}
-          {filter === 'system' && (
+          {rows.map((row) => row.node)}
+          {filter === 'system' && events.length === 0 && (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
@@ -327,6 +386,7 @@ function EntryCard({
   const canEditRecord = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const dates = useDateTime();
   const { token } = theme.useToken();
+  const { mode } = useAppearance();
   const { message } = App.useApp();
   const change = useChangeNoteVisibility(item.id);
   // Changed by someone after it was shown (409): the shared dialog (QA WP-029 BUG-05).
@@ -350,11 +410,7 @@ function EntryCard({
   };
   const author = people[entry.created_by ?? '']?.display_name ?? t('conversation.someone');
   const isPrivate = entry.visibility === 'private';
-  const accent = isPrivate
-    ? token.colorWarning
-    : entry.kind === 'reply'
-      ? token.colorPrimary
-      : token.colorInfo;
+  const tone = entryTone(entry, mode === 'dark', token);
   const kindKey =
     entry.kind === 'reply'
       ? `reply_mode.${entry.reply_mode ?? 'reply'}`
@@ -366,103 +422,143 @@ function EntryCard({
     item.conversation_actions.find((a) => a.action === 'reply')?.allowed === true;
   const next: Visibility = isPrivate ? 'public' : 'private';
   return (
-    <Card
-      size="small"
-      data-testid="conv-entry"
-      data-kind={entry.kind}
-      data-visibility={entry.visibility}
-      style={{
-        borderInlineStart: `4px solid ${accent}`,
-        background: isPrivate ? token.colorWarningBg : undefined,
-      }}
-    >
-      <Flex justify="space-between" wrap gap={8}>
-        <Space size={6} wrap>
-          <Avatar size="small" style={{ background: token.colorPrimary }}>
-            {initials(author)}
-          </Avatar>
-          <Typography.Text strong>
-            <bdi dir="auto">{author}</bdi>
-          </Typography.Text>
-          <ToneTag
-            icon={isPrivate ? <LockOutlined /> : <GlobalOutlined />}
-            tone={isPrivate ? 'warning' : entry.kind === 'reply' ? 'purple' : 'info'}
-            testId="conv-entry-visibility"
-          >
-            {t(kindKey)}
-          </ToneTag>
-          <Typography.Text type={isPrivate ? undefined : 'secondary'} data-testid="conv-entry-who">
-            {t(isPrivate ? 'conversation.private_hint' : 'conversation.public_hint')}
-          </Typography.Text>
-          {entry.first_response && (
-            <ToneTag tone="success" testId="conv-first-response">
-              {t('conversation.first_response')}
+    <Flex gap={12} align="flex-start">
+      <span
+        aria-hidden
+        style={{
+          width: 32,
+          height: 32,
+          marginTop: 4,
+          borderRadius: '50%',
+          flexShrink: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: tone.iconBg,
+          color: tone.iconFg,
+        }}
+      >
+        {tone.icon}
+      </span>
+      <Card
+        size="small"
+        data-testid="conv-entry"
+        data-kind={entry.kind}
+        data-visibility={entry.visibility}
+        style={{ flex: 1, minWidth: 0, borderColor: tone.border, background: tone.bg }}
+      >
+        <Flex justify="space-between" wrap gap={8}>
+          <Space size={6} wrap>
+            <Avatar size="small" style={{ background: token.colorPrimary }}>
+              {initials(author)}
+            </Avatar>
+            <Typography.Text strong>
+              <bdi dir="auto">{author}</bdi>
+            </Typography.Text>
+            <ToneTag
+              icon={isPrivate ? <LockOutlined /> : <GlobalOutlined />}
+              tone={isPrivate ? 'warning' : entry.kind === 'reply' ? 'purple' : 'info'}
+              testId="conv-entry-visibility"
+            >
+              {t(kindKey)}
             </ToneTag>
-          )}
-          {entry.delivery_state === 'received' && (
-            // The requester's own words, sent in from the portal or by e-mail (QA BUG-01).
-            <ToneTag tone="info" testId="conv-received">
-              {t('delivery_state.received')}
-            </ToneTag>
-          )}
-        </Space>
-        <Typography.Text type="secondary">{dates.format(entry.created_at)}</Typography.Text>
-      </Flex>
-      {entry.kind === 'reply' && entry.recipients !== null && (
-        <Typography.Paragraph type="secondary" style={{ margin: '6px 0 0' }}>
-          {t('conversation.to')}: <bdi>{listFormat(entry.recipients.to)}</bdi>
-          {entry.recipients.cc.length > 0 && (
-            <>
-              {' · '}
-              {t('conversation.cc')}: <bdi>{listFormat(entry.recipients.cc)}</bdi>
-            </>
-          )}
-        </Typography.Paragraph>
-      )}
-      {entry.delivery_state === 'not_sent' && (
-        <Alert
-          type="warning"
-          showIcon
-          icon={<ExclamationCircleOutlined />}
-          style={{ marginTop: 8 }}
-          data-testid="conv-not-sent"
-          message={t('conversation.not_sent', {
-            reason: t(`delivery_reason.${entry.delivery_reason ?? 'email_channel_not_configured'}`),
-          })}
-          description={t('conversation.not_sent_detail')}
-        />
-      )}
-      <div style={{ marginTop: 8 }}>
-        <RichTextView html={entry.body} />
-      </div>
-      {files.length > 0 && (
-        <Attachments
-          files={files}
-          canRemove={canEditRecord}
-          canRescan={can('files.manage')}
-          staffOnly={isPrivate}
-          testId="conv-entry-files"
-        />
-      )}
-      {canSwitch && (
-        <Flex justify="end">
-          <Popconfirm
-            title={t(`conversation.make_${next}_title`)}
-            description={t(`conversation.make_${next}_text`)}
-            okText={t(`conversation.make_${next}`)}
-            cancelText={t('actions.cancel')}
-            onConfirm={() => {
-              switchTo(next, entry.version);
-            }}
-          >
-            <Button size="small" type="link" data-testid="conv-switch-visibility">
-              {t(`conversation.make_${next}`)}
-            </Button>
-          </Popconfirm>
+            <Typography.Text
+              type={isPrivate ? undefined : 'secondary'}
+              data-testid="conv-entry-who"
+            >
+              {t(isPrivate ? 'conversation.private_hint' : 'conversation.public_hint')}
+            </Typography.Text>
+            {entry.first_response && (
+              <ToneTag tone="success" testId="conv-first-response">
+                {t('conversation.first_response')}
+              </ToneTag>
+            )}
+            {entry.kind === 'reply' &&
+              entry.delivery_state !== null &&
+              entry.delivery_state !== 'received' &&
+              entry.delivery_state !== 'not_sent' && (
+                // Where a public reply is now (REQ-INC-059): queued, sent, delivered, failed.
+                <ToneTag
+                  tone={
+                    entry.delivery_state === 'sent'
+                      ? 'success'
+                      : entry.delivery_state === 'failed'
+                        ? 'error'
+                        : 'default'
+                  }
+                  icon={entry.delivery_state === 'sent' ? <CheckOutlined /> : undefined}
+                  testId="conv-delivery"
+                >
+                  {t(`delivery_state.${entry.delivery_state}`)}
+                </ToneTag>
+              )}
+            {entry.delivery_state === 'received' && (
+              // The requester's own words, sent in from the portal or by e-mail (QA BUG-01).
+              <ToneTag tone="info" testId="conv-received">
+                {t('delivery_state.received')}
+              </ToneTag>
+            )}
+          </Space>
+          <Typography.Text type="secondary">{dates.format(entry.created_at)}</Typography.Text>
         </Flex>
-      )}
-      <ConflictDialog {...conflict.dialog} fieldLabel={fieldName} />
-    </Card>
+        {entry.kind === 'reply' && entry.recipients !== null && (
+          <Typography.Paragraph type="secondary" style={{ margin: '6px 0 0' }}>
+            {t('conversation.to')}: <bdi>{listFormat(entry.recipients.to)}</bdi>
+            {entry.recipients.cc.length > 0 && (
+              <>
+                {' · '}
+                {t('conversation.cc')}: <bdi>{listFormat(entry.recipients.cc)}</bdi>
+              </>
+            )}
+          </Typography.Paragraph>
+        )}
+        {entry.delivery_state === 'not_sent' && (
+          <Alert
+            type="warning"
+            showIcon
+            icon={<ExclamationCircleOutlined />}
+            style={{ marginTop: 8 }}
+            data-testid="conv-not-sent"
+            message={t('conversation.not_sent', {
+              reason: t(
+                `delivery_reason.${entry.delivery_reason ?? 'email_channel_not_configured'}`,
+              ),
+            })}
+            description={t('conversation.not_sent_detail')}
+          />
+        )}
+        <div style={{ marginTop: 8 }}>
+          <RichTextView html={entry.body} />
+        </div>
+        {files.length > 0 && (
+          <Attachments
+            files={files}
+            canRemove={canEditRecord}
+            canRescan={can('files.manage')}
+            staffOnly={isPrivate}
+            testId="conv-entry-files"
+          />
+        )}
+        {canSwitch && (
+          <Flex justify="end">
+            <Popconfirm
+              title={t(`conversation.make_${next}_title`)}
+              description={t(`conversation.make_${next}_text`)}
+              okText={t(`conversation.make_${next}`)}
+              cancelText={t('actions.cancel')}
+              onConfirm={() => {
+                switchTo(next, entry.version);
+              }}
+            >
+              <Button size="small" type="link" data-testid="conv-switch-visibility">
+                {t(`conversation.make_${next}`)}
+              </Button>
+            </Popconfirm>
+          </Flex>
+        )}
+        <ConflictDialog {...conflict.dialog} fieldLabel={fieldName} />
+      </Card>
+    </Flex>
   );
 }
 
@@ -675,7 +771,7 @@ function Composer({
         templates={templates.data}
         extraTools={knowledgeTools}
         onManageTemplates={
-          can('settings.manage')
+          can('config.service_desk') || can('settings.manage')
             ? () => {
                 // A new tab, so this draft stays; the list here reloads live when saved there.
                 window.open(REPLY_TEMPLATES_SETTINGS, '_blank', 'noopener');
@@ -793,6 +889,122 @@ function ModalButtons({ onSend, onBack }: { onSend: () => void; onBack: () => vo
       <Button type="primary" onClick={onSend}>
         {t('conversation.send_anyway')}
       </Button>
+    </Flex>
+  );
+}
+
+/** The look of a conversation entry (UI pass 2): an icon in a circle and its card's tint. */
+function entryTone(
+  entry: ConversationEntry,
+  dark: boolean,
+  token: ReturnType<typeof theme.useToken>['token'],
+): { icon: ReactNode; iconBg: string; iconFg: string; bg?: string; border: string } {
+  const received = entry.kind === 'reply' && entry.delivery_state === 'received';
+  const isPrivate = entry.visibility === 'private';
+  if (dark) {
+    // The tints are for light surfaces; dark keeps the theme's own colours.
+    const fg = isPrivate
+      ? token.colorWarning
+      : entry.kind === 'reply'
+        ? token.colorPrimary
+        : token.colorInfo;
+    return {
+      icon: received ? (
+        <MailOutlined />
+      ) : isPrivate ? (
+        <LockOutlined />
+      ) : entry.kind === 'reply' ? (
+        <RollbackOutlined />
+      ) : (
+        <FileTextOutlined />
+      ),
+      iconBg: token.colorFillSecondary,
+      iconFg: fg,
+      border: token.colorBorderSecondary,
+    };
+  }
+  // Measured: #3538CD on #EEF4FF 7.3:1, #6B33B8 on #F4EBFF 6.4:1, #93370D on #FEF0C7 6.6:1.
+  if (received)
+    return { icon: <MailOutlined />, iconBg: '#EEF4FF', iconFg: '#3538CD', border: '#E3E5EA' };
+  if (isPrivate)
+    return {
+      icon: <LockOutlined />,
+      iconBg: '#FEF0C7',
+      iconFg: '#93370D',
+      bg: '#FFFCF5',
+      border: '#FEDF89',
+    };
+  if (entry.kind === 'reply')
+    return {
+      icon: <RollbackOutlined />,
+      iconBg: '#F4EBFF',
+      iconFg: '#6B33B8',
+      bg: '#FCFAFF',
+      border: '#E9D7FE',
+    };
+  return { icon: <FileTextOutlined />, iconBg: '#EFF8FF', iconFg: '#175CD3', border: '#E3E5EA' };
+}
+
+/** One history event as a quiet line: who, what changed, when (UI pass 2). */
+function EventLine({
+  entry,
+  changes,
+  words,
+}: {
+  entry: IncidentHistoryEntry;
+  changes: IncidentHistoryEntry['changes'];
+  words: ReturnType<typeof useHistoryWords>;
+}) {
+  const t = useLabel();
+  const listFormat = useListFormat();
+  const dates = useDateTime();
+  const { token } = theme.useToken();
+  const who = entry.actor_name ?? t(`actor_type.${entry.actor_type}`);
+  // Joined the language's way (Arabic and Urdu use their own conjunction), not with "; ".
+  const what = listFormat(
+    changes.map((c) =>
+      t('history.change', {
+        field: words.fieldText(c.field),
+        old: words.valueText(c, c.old),
+        new: words.valueText(c, c.new),
+      }),
+    ),
+    'unit',
+  );
+  return (
+    <Flex gap={12} align="flex-start" data-testid="conv-event">
+      <span
+        aria-hidden
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
+          flexShrink: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: token.colorFillSecondary,
+          color: token.colorTextSecondary,
+        }}
+      >
+        {entry.automation !== null ? <ThunderboltOutlined /> : <UserOutlined />}
+      </span>
+      <Flex
+        justify="space-between"
+        wrap
+        gap={6}
+        style={{ flex: 1, minWidth: 0, paddingTop: 7, fontSize: 13 }}
+      >
+        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+          <Typography.Text strong style={{ fontSize: 13 }}>
+            <bdi dir="auto">{who}</bdi>
+          </Typography.Text>{' '}
+          {what}
+        </Typography.Text>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {dates.format(entry.occurred_at)}
+        </Typography.Text>
+      </Flex>
     </Flex>
   );
 }

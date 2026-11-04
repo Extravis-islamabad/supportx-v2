@@ -30,9 +30,14 @@ async function call(page: Page, method: string, path: string, body?: unknown, ve
   return page.request.fetch(`/api/v1${path}`, { method, data: body, headers });
 }
 
-/** Choose an option in an Ant Design select, by its exact text in the list that is open. */
-async function pick(page: Page, testId: string, option: string | RegExp) {
+/**
+ * Choose an option in an Ant Design select, by its exact text in the list that is open. `search`
+ * types first, for a select that asks the server (the people picker lists one page only, so a
+ * person may be missing from the list until searched for: stack smoke 41832910008).
+ */
+async function pick(page: Page, testId: string, option: string | RegExp, search?: string) {
   await page.getByTestId(testId).click();
+  if (search !== undefined) await page.getByTestId(testId).locator('input').fill(search);
   const text = typeof option === 'string' ? new RegExp(`^${option}$`) : option;
   const list = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').last();
   await list.locator('.ant-select-item-option-content', { hasText: text }).first().click();
@@ -101,7 +106,7 @@ test('a custom pick list: added live, required by a template, filled, filtered, 
       await pick(form, 'inc-template', templateName);
     }).toPass(LIVE);
     await form.getByTestId('inc-subject').fill(subject);
-    await pick(form, 'inc-requester', /Adel E2E Admin/);
+    await pick(form, 'inc-requester', /Adel E2E Admin/, 'Adel E2E');
     await form.getByTestId('inc-save').click();
     await expect(form.getByTestId(`error-custom-${key}`)).toHaveText('This field is required.');
     await pick(form, `inc-custom-${key}`, 'First');

@@ -9,6 +9,8 @@ export { ToneTag } from './ToneTag';
 export { contrastRatio, TAG_TONES, TONES, type Tone } from './tones';
 export { PresenceAvatars, type PresenceAvatarsProps } from './PresenceAvatars';
 export { AppearanceProvider, type AppearanceProviderProps } from './AppearanceProvider';
+export { type UrduScript } from './fonts/fonts';
+export { storedMode, systemMode } from './themeMode';
 export * from './errors';
 export * from './files';
 export * from './licence';
@@ -24,6 +26,7 @@ export {
   darken,
   lighten,
   DEFAULT_BRANDING,
+  TEXT_SCALES,
   THEME_MODES,
   type Branding,
   type BrandTextKey,
@@ -33,3 +36,5 @@ export {
 export { lengthLimit } from './lengthLimit';
 export * from './layout';
 export { CONTROL_HEIGHT, PANEL_WIDTH, ROW_HEIGHT, SPACE, TYPE, type Density } from './density';
+export { ChannelIcon, type ChannelIconProps } from './workItems/ChannelIcon';
+export { CHANNEL_LOOKS } from './workItems/channelLooks';

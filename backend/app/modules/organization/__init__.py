@@ -46,6 +46,11 @@ from app.modules.organization.service.email_branding import (
 )
 from app.modules.organization.service.file_access import FILE_ACCESS
 from app.modules.organization.service.hosts import HostTenant, tenant_for_host
+from app.modules.organization.service.instance import (
+    RegionalDefaults,
+    offered_languages,
+    regional_defaults,
+)
 from app.modules.organization.service.realtime import ROUTES
 from app.modules.organization.service.structure import (
     SiteDefaults,
@@ -58,16 +63,22 @@ from app.modules.organization.service.structure import (
     find_department,
     find_site,
     leave_groups,
+    register_group_disable_guard,
     site_defaults,
     unit_heads,
+    unregister_group_disable_guard,
 )
 from app.modules.organization.service.tenants import get_current_tenant, record_tenant_provisioned
 from app.modules.organization.service.units import (
+    SYSTEM_PATH,
     Memberships,
+    active_groups,
     add_member,
     existing_unit_ids,
     memberships,
+    register_member_guard,
     remove_member,
+    unregister_member_guard,
     users_in_groups,
     users_in_sites,
 )
@@ -79,9 +90,14 @@ PERMISSIONS = (
     PermissionSpec("sites.manage"),
     PermissionSpec("groups.view"),
     PermissionSpec("groups.manage"),
-    PermissionSpec("departments.view", defaults=(("technician", "all"),)),
+    PermissionSpec(
+        "departments.view",
+        defaults=(("technician", "all"), ("service_desk_manager", "all"), ("site_admin", "all")),
+    ),
     PermissionSpec("departments.manage"),
     PermissionSpec("settings.manage"),
+    # Per-area configure rights (WP-042, REQ-ADM-019); settings.manage grants every area.
+    PermissionSpec("config.organisation"),
     PermissionSpec("branding.manage"),
 )
 
@@ -124,14 +140,17 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "SYSTEM_PATH",
     "BrandingView",
     "CalendarUsers",
     "EmailBranding",
     "HostTenant",
     "Memberships",
+    "RegionalDefaults",
     "SiteDefaults",
     "TenantStatus",
     "TenantView",
+    "active_groups",
     "active_unit_ids",
     "add_member",
     "calendar_users",
@@ -149,14 +168,20 @@ __all__ = [
     "leave_groups",
     "memberships",
     "module",
+    "offered_languages",
     "record_tenant_provisioned",
+    "regional_defaults",
     "register_calendar_check",
+    "register_group_disable_guard",
+    "register_member_guard",
     "register_usage",
     "remove_member",
     "site_defaults",
     "tenant_for_host",
     "unit_calendars",
     "unit_heads",
+    "unregister_group_disable_guard",
+    "unregister_member_guard",
     "users_in_groups",
     "users_in_sites",
 ]

@@ -39,7 +39,10 @@ class Announcement(TenantEntity):
         CheckConstraint("length(btrim(body)) BETWEEN 1 AND 20000", name="body_length"),
         CheckConstraint("status IN ('draft', 'published', 'archived')", name="status_code"),
         CheckConstraint("severity IN ('info', 'warning', 'critical')", name="severity_code"),
-        CheckConstraint("audience IN ('everyone', 'sites', 'groups')", name="audience_code"),
+        CheckConstraint(
+            "audience IN ('everyone', 'sites', 'groups', 'requesters', 'technicians')",
+            name="audience_code",
+        ),
         CheckConstraint(
             "publish_until IS NULL OR publish_from IS NULL OR publish_until > publish_from",
             name="window_order",

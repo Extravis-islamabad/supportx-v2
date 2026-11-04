@@ -16,7 +16,9 @@ at startup.
 
 from fastapi import FastAPI
 
+from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
+from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
 from app.modules.work_items.api.routes import build_router
@@ -115,6 +117,11 @@ module = ModuleSpec(
     events=EVENTS,
     permissions=(
         *(spec for wtype in PERMISSION_TYPES for spec in permissions(wtype)),
+        # Configure the service desk (WP-042, REQ-ADM-019): levels, categories, templates, reply
+        # templates and custom fields; settings.manage still grants every area.
+        PermissionSpec(
+            "config.service_desk", "incident", defaults=((SERVICE_DESK_MANAGER, "all"),)
+        ),
         *portal.PERMISSIONS,  # WP-028 D2 (pending the product owner)
     ),
     channels=CHANNELS,

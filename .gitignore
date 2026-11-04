@@ -40,11 +40,14 @@ dist-ssr/
 coverage/
 playwright-report/
 test-results/
+ui-screens/
 npm-debug.log*
 pnpm-debug.log*
 
 # Rust (licence-core)
 target/
+# ...but not the UI design target pages (UI pass 2).
+!docs/design/target/
 
 # Build outputs
 build/

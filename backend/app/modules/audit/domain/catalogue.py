@@ -92,6 +92,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("role.deleted", AuditCategory.ACCESS, "identity_access"),
     ("user.role_assigned", AuditCategory.ACCESS, "identity_access"),
     ("user.role_removed", AuditCategory.ACCESS, "identity_access"),
+    ("role.group_added", AuditCategory.ACCESS, "identity_access"),
+    ("role.group_removed", AuditCategory.ACCESS, "identity_access"),
+    ("organization.settings_changed", AuditCategory.CONFIGURATION, "organization"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.contact_changed", AuditCategory.ACCESS, "identity_access"),  # WP-028, REQ-PRT-013
     # API keys (WP-041, D-128): made, revoked, refused (address not allowed), the tenant's rules
@@ -282,6 +285,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("knowledge.settings_changed", AuditCategory.CONFIGURATION, "knowledge"),
     ("knowledge.type_created", AuditCategory.CONFIGURATION, "knowledge"),
     ("knowledge.type_changed", AuditCategory.CONFIGURATION, "knowledge"),
+    # ai (WP-037)
+    ("ai.settings_changed", AuditCategory.CONFIGURATION, "ai"),
+    # D-131: every deletion of AI conversation text is audited (retention purge, erasure)
+    ("ai.calls_purged", AuditCategory.DATA, "ai"),
+    ("ai.calls_erased", AuditCategory.DATA, "ai"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category

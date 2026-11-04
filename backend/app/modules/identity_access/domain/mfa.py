@@ -21,8 +21,11 @@ from typing import Literal
 from app.modules.identity_access.domain.permissions import (
     AUDITOR,
     KNOWLEDGE_MANAGER,
+    REPORT_VIEWER,
     REQUESTER,
     SECURITY_ADMIN,
+    SERVICE_DESK_MANAGER,
+    SITE_ADMIN,
     TECHNICIAN,
     TENANT_ADMIN,
 )
@@ -38,6 +41,10 @@ DEFAULT_MODES: dict[str, Mode] = {
     # Publishes to every requester: an elevated staff role like the ones above (D-104 extended).
     KNOWLEDGE_MANAGER: "required",
     REQUESTER: "optional",
+    # WP-042 (lane B): the two that configure things are required; reading reports is optional.
+    SERVICE_DESK_MANAGER: "required",
+    SITE_ADMIN: "required",
+    REPORT_VIEWER: "optional",
 }
 CUSTOM_ROLE_DEFAULT: Mode = "optional"
 GRACE_DAYS_DEFAULT, MAX_GRACE_DAYS = 7, 30

@@ -6,7 +6,7 @@
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
@@ -232,6 +232,9 @@ frontend-install-check:
 
 frontend-lint: generated-frontend
 	$(FRONTEND) pnpm lint && pnpm format:check
+
+labels-sort: ## Put every label file's keys in order (run after merging main; the lint checks it)
+	$(FRONTEND) node packages/labels/scripts/sort-labels.js
 
 frontend-typecheck: generated-frontend
 	$(FRONTEND) pnpm typecheck

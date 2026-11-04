@@ -1,11 +1,12 @@
 import { DownOutlined, LockOutlined } from '@ant-design/icons';
-import { Grid, Layout, Menu, Tooltip, theme, type MenuProps } from 'antd';
+import { Grid, Layout, Menu, Tooltip, type MenuProps } from 'antd';
 import { useState, type ReactNode } from 'react';
 
 import type { NavLayout } from '@supportx/api-client';
 
 import { useLabel } from '../appearance';
 import { BrandLogo } from '../brand';
+import { SHELL } from '../theme';
 import type { VisibleNavItem } from './nav';
 
 export interface AppShellProps {
@@ -29,11 +30,12 @@ export interface AppShellProps {
 }
 
 /**
- * Console layout in three variants (a per-user choice):
- * - `top`: brand and a horizontal menu in the header, a "More" menu for what does not fit; the
+ * Console layout in three variants (a per-user choice), with the same white top bar and the same
+ * page in all three (UI pass 2, docs/design/target):
+ * - `side`: a dark indigo sidebar with icons and labels (the default), collapsible.
+ * - `side_compact`: a narrow dark rail with icons only (labels as tooltips and accessible names).
+ * - `top`: the dark menu as a band under the top bar, a "More" menu for what does not fit; the
  *   page keeps the full width (tables).
- * - `side`: a collapsible sidebar with labels.
- * - `side_compact`: a narrow sidebar with icons only (labels as tooltips and accessible names).
  * Menu items are the same in all three (permission- and licence-driven, see `visibleNav`).
  * All mirror in RTL through Ant Design's direction.
  */
@@ -47,7 +49,6 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const t = useLabel();
-  const { token } = theme.useToken();
   const [collapsed, setCollapsed] = useState(false);
   const compact = layout === 'side_compact';
   const screens = Grid.useBreakpoint();
@@ -80,42 +81,50 @@ export function AppShell({
   // The sections offered, whatever the layout and whatever fits on screen (tests, diagnostics).
   const itemKeys = nav.map((item) => item.key).join(' ');
 
-  // Full logo in the top bar and the wide sidebar; the square mark in the narrow ones.
+  // Full logo in the wide navigation; the square mark in the narrow ones. Always on the dark
+  // navigation, so always the white-text logo.
   const brand = (short: boolean) => (
-    <BrandLogo variant={short ? 'icon' : 'full'} height={short ? 32 : 28} />
+    <BrandLogo variant={short ? 'icon' : 'full'} height={short ? 32 : 28} surface="dark" />
   );
 
   if (layout === 'top') {
-    const topNav = (
-      <>
-        {brand(false)}
-        <nav
-          aria-label={t('nav.main')}
-          data-testid="nav-top"
-          data-items={itemKeys}
-          // The menu's own "More" stays inside the nav, never drawn under the search button at
-          // phone width (QA WP-036 BUG-06); its submenu opens in a popup, outside this box.
-          style={{ flex: 1, minWidth: 0, marginInlineStart: 16, overflow: 'hidden' }}
-        >
-          <Menu
-            mode="horizontal"
-            // Click, not hover: works with touch and keyboard, and does not open by accident.
-            triggerSubMenuAction="click"
-            selectedKeys={selectedKeys}
-            items={items}
-            style={{ borderBottom: 'none', lineHeight: '62px', background: 'transparent' }}
-            overflowedIndicator={
-              <span data-testid="nav-more">
-                {t('nav.more')} <DownOutlined aria-hidden />
-              </span>
-            }
-          />
-        </nav>
-      </>
-    );
     return (
       <Layout style={{ minHeight: '100vh' }} data-layout="top">
-        {typeof header === 'function' ? header(topNav) : header}
+        {typeof header === 'function' ? header(null) : header}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            paddingInline: pad,
+            background: SHELL.navBg,
+            minWidth: 0,
+          }}
+        >
+          {brand(false)}
+          <nav
+            aria-label={t('nav.main')}
+            data-testid="nav-top"
+            data-items={itemKeys}
+            // The menu's own "More" stays inside the band; its submenu opens in a popup.
+            style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}
+          >
+            <Menu
+              mode="horizontal"
+              theme="dark"
+              // Click, not hover: works with touch and keyboard, and does not open by accident.
+              triggerSubMenuAction="click"
+              selectedKeys={selectedKeys}
+              items={items}
+              style={{ borderBottom: 'none', lineHeight: '48px', background: 'transparent' }}
+              overflowedIndicator={
+                <span data-testid="nav-more">
+                  {t('nav.more')} <DownOutlined aria-hidden />
+                </span>
+              }
+            />
+          </nav>
+        </div>
         {banners}
         <Layout.Content id="main" style={{ padding: pad, minWidth: 0 }}>
           {children}
@@ -132,11 +141,12 @@ export function AppShell({
         collapsed={narrow}
         onCollapse={setCollapsed}
         breakpoint={compact ? undefined : 'lg'}
-        theme="light"
-        width={208}
+        theme="dark"
+        width={220}
         collapsedWidth={64}
         trigger={compact ? null : undefined}
-        style={{ borderInlineEnd: `1px solid ${token.colorBorderSecondary}` }}
+        // The dark navigation runs the full height however long the page (UI pass 2).
+        style={{ position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}
       >
         <div
           style={{
@@ -154,7 +164,7 @@ export function AppShell({
           data-testid={compact ? 'nav-compact' : 'nav-side'}
           data-items={itemKeys}
         >
-          <Menu mode="inline" selectedKeys={selectedKeys} items={items} />
+          <Menu mode="inline" theme="dark" selectedKeys={selectedKeys} items={items} />
         </nav>
       </Layout.Sider>
       {/* min-width 0: the page column may shrink below its widest table (which then scrolls

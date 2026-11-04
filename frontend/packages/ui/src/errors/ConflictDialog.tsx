@@ -36,13 +36,13 @@ export function ConflictDialog({
 }: ConflictDialogProps) {
   const t = useLabel();
   const list = useListFormat();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const found = explain(error, opened, latest);
   const name = fieldLabel ?? ((field: string) => t(`field.${field}`));
   const when =
     found?.at == null
       ? null
-      : new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(found.at));
+      : new Intl.DateTimeFormat(intlLocale, { timeStyle: 'short' }).format(new Date(found.at));
   return (
     <Modal
       open={open}

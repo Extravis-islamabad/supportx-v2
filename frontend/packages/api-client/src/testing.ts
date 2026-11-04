@@ -109,6 +109,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
   ['integrations.manage_email', 'all'],
+  ['ai.manage', 'all'],
   ['api_keys.manage', 'all'],
 ];
 const REQUESTER: Grant[] = [
@@ -255,6 +256,12 @@ export function fakeSession(
       roles: ['technician'],
       nav_layout: 'top',
       form_density: 'comfortable',
+      text_scale: 100,
+      week_start: 'monday',
+      date_format: 'dd/mm/yyyy',
+      time_format: '24h',
+      digits: 'western',
+      urdu_script: 'naskh',
       ...user,
     },
     tenant: DEMO_TENANT,
