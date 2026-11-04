@@ -742,6 +742,8 @@ export {
   useApprovals,
   useDecideApproval,
   useMyApprovals,
+  useMyDecidedApprovals,
+  useApproveMany,
   useWithdrawRequest,
   useActionLink,
   usePeekActionLink,
