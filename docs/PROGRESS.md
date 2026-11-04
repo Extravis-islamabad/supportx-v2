@@ -909,6 +909,16 @@ it with no reload (rule c). Not built yet.
   and a `test_conversation_api` case locally (CI and clean worktrees pass). Inject the Settings
   where delivery is decided (the API passes `app.state.settings`, the worker its own); lane B
   takes any change needed in `app/shared/mail`.
+- **Also for that polish PR (from lane A's #197 review, 2026-11-04; lane C left them to lane A):**
+  in `IncidentConversation.tsx` / `PersonalCounters.tsx`:
+  - join event lines with the list formatter or a label, not a Latin "; " (Arabic and Urdu
+    use "؛");
+  - sort timeline rows with `Date.parse`, not `localeCompare`;
+  - note that event lines cover only the history pages loaded so far;
+  - check the counter tiles' hard-coded tints in dark and high contrast (tokens per mode, or
+    one dark view measured).
+  - Also drop the e2e PORTAL_URL host/port workaround in service-requests.spec once #202
+    (portal links on the portal's origin) has landed.
 
 ### [x] WP-028 — Portal: shell, sign-in and requester incidents (lane A, 2026-11-03/04; 2 sessions; #178)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
