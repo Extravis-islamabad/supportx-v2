@@ -23,44 +23,44 @@ suggestion. A screenshot helps.
 
 ## Screens to check
 
-| Area | Where | What to look at |
-|---|---|---|
-| Shell | Every page | Navigation menu, header, breadcrumbs, notices, the command palette (Ctrl K) |
-| Home | Home | Welcome, plan and seats, dashboard titles |
-| Incidents | Incidents list, an incident record | Columns, filters, statuses, priorities, the conversation (reply, note), history, SLA timers |
-| New incident | Incidents › New | Field names, help texts, required-field messages |
-| Knowledge | Knowledge, an article, the editor, the approval inbox | Article states, the editor's buttons, votes and feedback |
-| Reports and dashboards | Reports, Dashboards | Report names, chart titles, time ranges |
-| Announcements | Announcements | Severities, audiences, the publish window |
-| My profile | Avatar › My profile | Display and region (theme, text size, formats, digits), notifications, signature |
-| Admin | Admin (setup home) | Every setup page's name and explanation, the search, roles and permissions, people, instance settings |
-| Errors | Anywhere | Messages after a refused or invalid action (e.g. save a form with a required field empty) |
-| Portal | <http://localhost:5174> | Home, catalog, my requests |
+| Area                   | Where                                                 | What to look at                                                                                       |
+| ---------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Shell                  | Every page                                            | Navigation menu, header, breadcrumbs, notices, the command palette (Ctrl K)                           |
+| Home                   | Home                                                  | Welcome, plan and seats, dashboard titles                                                             |
+| Incidents              | Incidents list, an incident record                    | Columns, filters, statuses, priorities, the conversation (reply, note), history, SLA timers           |
+| New incident           | Incidents › New                                       | Field names, help texts, required-field messages                                                      |
+| Knowledge              | Knowledge, an article, the editor, the approval inbox | Article states, the editor's buttons, votes and feedback                                              |
+| Reports and dashboards | Reports, Dashboards                                   | Report names, chart titles, time ranges                                                               |
+| Announcements          | Announcements                                         | Severities, audiences, the publish window                                                             |
+| My profile             | Avatar › My profile                                   | Display and region (theme, text size, formats, digits), notifications, signature                      |
+| Admin                  | Admin (setup home)                                    | Every setup page's name and explanation, the search, roles and permissions, people, instance settings |
+| Errors                 | Anywhere                                              | Messages after a refused or invalid action (e.g. save a form with a required field empty)             |
+| Portal                 | <http://localhost:5174>                               | Home, catalog, my requests                                                                            |
 
 ## Label files
 
 The Urdu text lives in `frontend/packages/labels/src/resources/<module>/ur.ts`, one file per
 module, next to the English (`en.ts`) and Arabic (`ar.ts`) of the same keys:
 
-| Module | Urdu labels | What it covers |
-|---|---:|---|
-| `shared` | 462 | Shell, navigation, actions, filters, appearance, setup home |
-| `errors` | 559 | Every error message |
-| `identity_access` | 730 | Sign-in, people, roles, permissions, profile and preferences |
-| `work_items` | 809 | Incidents: fields, statuses, conversation, history, tasks |
-| `knowledge` | 292 | Knowledge base |
-| `analytics` | 462 | Reports and dashboards |
-| `audit` | 511 | Audit log, event names |
-| `automation` | 210 | Rules and triggers |
-| `sla` | 179 | Service levels |
-| `notifications` | 220 | Notifications and preferences |
-| `integrations` | 304 | Mail, directories, connectors |
-| `organization` | 151 | Sites, groups, branding, instance settings |
-| `announcements` | 72 | Announcements |
-| `licensing` | 72 | Plan, licence, features |
-| `metadata` | 104 | Custom fields |
-| `files` | 66 | Attachments |
-| `ai` | (with WP-037) | AI settings and assistance |
+| Module            |   Urdu labels | What it covers                                               |
+| ----------------- | ------------: | ------------------------------------------------------------ |
+| `shared`          |           462 | Shell, navigation, actions, filters, appearance, setup home  |
+| `errors`          |           559 | Every error message                                          |
+| `identity_access` |           730 | Sign-in, people, roles, permissions, profile and preferences |
+| `work_items`      |           809 | Incidents: fields, statuses, conversation, history, tasks    |
+| `knowledge`       |           292 | Knowledge base                                               |
+| `analytics`       |           462 | Reports and dashboards                                       |
+| `audit`           |           511 | Audit log, event names                                       |
+| `automation`      |           210 | Rules and triggers                                           |
+| `sla`             |           179 | Service levels                                               |
+| `notifications`   |           220 | Notifications and preferences                                |
+| `integrations`    |           304 | Mail, directories, connectors                                |
+| `organization`    |           151 | Sites, groups, branding, instance settings                   |
+| `announcements`   |            72 | Announcements                                                |
+| `licensing`       |            72 | Plan, licence, features                                      |
+| `metadata`        |           104 | Custom fields                                                |
+| `files`           |            66 | Attachments                                                  |
+| `ai`              | (with WP-037) | AI settings and assistance                                   |
 
 Suggested corrections can come as notes or as a list of `key: new text`. A developer applies
 them, and `make labels-sort` keeps each file in order.
