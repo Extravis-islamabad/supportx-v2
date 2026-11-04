@@ -102,9 +102,14 @@ async def link_cause(  # noqa: PLR0913 - both records, the move and the source, 
     move: bool,
     source: Source,
 ) -> WorkItemLink | None:
-    """Record that the incident is caused by the problem; None when it already was."""
+    """Record that the incident is caused by the problem; None when it already was.
+
+    The change is the incident's: editing the incident is the right that counts. The problem
+    only has to be one the subject may see (a group's technician links incidents to a problem
+    they just created without a group, or to another group's problem they can see).
+    """
     incident = await items.record_for_action(session, subject, INCIDENT, "edit", incident_id)
-    problem = await items.record_for_action(session, subject, PROBLEM, "edit", problem_id)
+    problem = await problem_of(session, subject, problem_id)
     current = await causing_problem(session, incident.id)
     if current is not None and current.target_id == problem.id:
         return None

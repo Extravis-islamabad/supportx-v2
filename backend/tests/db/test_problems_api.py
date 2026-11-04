@@ -712,3 +712,30 @@ async def test_an_investigator_logs_only_their_own_time_and_may_step_down(world:
     assert down.status_code == 204, down.text
     assert problem(await world.call("GET", path, a, them))[0] == 404
     assert (await world.call("POST", token, a, them, json=channel)).status_code == 403
+
+
+async def test_a_technician_links_their_incident_to_a_problem_without_a_group(
+    world: World,
+) -> None:
+    """The e2e's case: creating from an incident needs edit on the incident, view on the problem."""
+    a = world.a
+    incident = await world.create(a, a.admin, group_id=str(a.ga))  # tech_a's group
+    made = await world.call(
+        "POST",
+        f"{PRB}/from-incidents",
+        a,
+        a.tech_a,
+        json={
+            "problem": {"subject": "Relay queue overflow", "requester_id": str(a.tech_a)},
+            "main_incident_id": incident["id"],
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert made.status_code == 201, made.text
+    assert await causes(world, a, incident) == [made.json()["problem"]["display_id"]]
+    # Someone who cannot edit the incident still cannot link it.
+    other = (await new_problem(world, a, a.admin, group_id=str(a.gb))).json()
+    refused = await world.call(
+        "POST", f"{PRB}/{other['id']}/incidents", a, a.tech_b, json={"incident_id": incident["id"]}
+    )
+    assert problem(refused)[0] in {403, 404}
