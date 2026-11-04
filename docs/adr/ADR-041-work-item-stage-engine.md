@@ -81,13 +81,17 @@ Revised after lane A's review for changes (file 05, REQ-CHG-023..031, -052, -053
    (REQ-REL-026) are columns added to the entry in session 4.
 7. **The rail is computed, never stored.** For each stage on the record's path, in order: *done*,
    *current*, *skipped* (a later stage was entered without entering it) or *future*, with its
-   entries' dates and whether it is optional. It is served on the record and changes live
+   entries' dates and whether it is optional. After going back, the stages after the current
+   one are *future* again, keeping their earlier rounds' entries. It is served on the record and changes live
    through the record channel.
 8. **The same rules on every path.** API, bulk, workflow nodes (WP-048b) and automation call the
    same service function, which checks, in this order: the transition exists for the record's
    path and version, the status is not system-only (unless the system entry point is used), the
    permission, the reason, and the type's guard. Required fields per stage (REQ-REL-018) and
-   stage access by role (REQ-REL-019) are guards, arriving in session 3.
+   stage access by role (REQ-REL-019) are guards, arriving in session 3. With them (lane A's
+   review): each offered move carries the guard's refusals as its reasons, so a screen shows
+   why a move is not possible yet, and a refused move returns the guard's full refusal list,
+   not only the first.
 9. **Seeds and edits.** A tenant's stages, paths, statuses and transitions are seeded on first
    use from the type's declaration: Appendix A of file 06 for releases, file 05 for changes.
    Admins edit them later. Seeds never overwrite a tenant's edits.

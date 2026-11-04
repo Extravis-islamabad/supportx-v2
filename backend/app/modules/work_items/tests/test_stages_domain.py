@@ -126,7 +126,7 @@ def test_the_rail_shows_done_current_skipped_and_future_and_keeps_every_round() 
     assert states["submission"] == (RailState.DONE, 1)
     assert states["planning"] == (RailState.SKIPPED, 0)
     assert states["build"] == (RailState.CURRENT, 2)
-    assert states["testing"] == (RailState.DONE, 1)
+    assert states["testing"] == (RailState.FUTURE, 1)  # ahead again, its first round kept
     assert states["deployment"] == (RailState.FUTURE, 0)
     emergency = [s.stage for s in rail(M, path=EMERGENCY_PATH, current="build", entries=entries)]
     assert "planning" not in emergency  # off the path: not shown at all

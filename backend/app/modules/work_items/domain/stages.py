@@ -269,6 +269,9 @@ def rail(
     for index, stage in enumerate(order):
         if stage == current:
             state = RailState.CURRENT
+        elif index > now >= 0:
+            # After going back, later stages are ahead again (lane A): future, earlier rounds kept.
+            state = RailState.FUTURE
         elif stage in by_stage:
             state = RailState.DONE
         elif index < reached:

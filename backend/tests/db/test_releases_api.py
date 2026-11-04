@@ -177,7 +177,7 @@ async def test_req_rel_017_going_back_adds_a_round_and_the_rail_keeps_both(world
     item = await moved(world, a, item, "build_in_progress")  # back to build
     shown = rail(await panel(world, a, item))
     assert shown["build"] == ("current", 2)  # a second round, the first kept
-    assert shown["testing"] == ("done", 1)
+    assert shown["testing"] == ("future", 1)  # ahead again after going back
     assert shown["planning"] == ("done", 1)
     assert shown["acceptance_testing"] == ("future", 0)
 
