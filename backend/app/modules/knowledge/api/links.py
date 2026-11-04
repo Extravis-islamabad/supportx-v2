@@ -36,13 +36,24 @@ def _files(request: Request) -> FileServices:
 Files = Annotated[FileServices, Depends(_files)]
 
 
-class RecordRef(BaseModel):
+class _RecordFields(BaseModel):
     """A record: its type (the work-item type code, `incident`) and id."""
 
     model_config = ConfigDict(extra="forbid")
 
     record_type: RecordType
     record_id: uuid.UUID
+
+
+# Keeps its published name: the link route's body was `RecordRef` before `how` was added
+# (an optional field, so the contract only grows; openapi-diff).
+class RecordRef(_RecordFields):
+    """A record to link, and how the technician chose the article."""
+
+    how: Literal["link", "suggestion"] = Field(
+        default="link",
+        description="`suggestion`: picked from the suggestions while logging it (REQ-INC-021).",
+    )
 
 
 class LinkedRecordOut(BaseModel):
@@ -104,7 +115,7 @@ async def create_link(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             article_id,
             body.record_type,
             body.record_id,
-            how="link",
+            how=body.how,
             source=source_of(request),
         )
         seen = await links.visible_records(session, subject, row.record_type, [row.record_id])
@@ -212,7 +223,7 @@ async def apply_check(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
     return ApplyCheckOut(visible_to_requester=found.visible_to_requester)
 
 
-class ApplyIn(RecordRef):
+class ApplyIn(_RecordFields):
     """Insert an article into a reply (REQ-KB-063)."""
 
     audience: Literal["public", "private"]
@@ -277,7 +288,7 @@ async def apply_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     )
 
 
-class FromRecordIn(RecordRef):
+class FromRecordIn(_RecordFields):
     """Save a record's resolution as knowledge (REQ-KB-016)."""
 
     topic_id: uuid.UUID
