@@ -88,6 +88,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_branding',
     permission: 'branding.manage',
   },
+  {
+    key: 'instance',
+    group: 'organisation',
+    labelKey: 'nav.admin_instance',
+    permission: 'config.organisation',
+    also: 'settings.manage',
+  },
   { key: 'files', group: 'organisation', labelKey: 'nav.admin_files', permission: 'files.manage' },
   { key: 'licence', group: 'licence', labelKey: 'nav.admin_licence', permission: 'licence.manage' },
   { key: 'audit', group: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },

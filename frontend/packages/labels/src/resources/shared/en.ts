@@ -506,4 +506,9 @@ export const en = {
     'licence, license, plan, subscription, edition, seats, usage, upgrade, expiry',
   'setup.page.audit.description': 'Every change and sign-in, with its tamper-evident chain.',
   'setup.page.audit.keywords': 'audit, log, history, changes, sign-ins, compliance, trail',
+  'nav.admin_instance': 'Instance settings',
+  'setup.page.instance.description':
+    'Time zone, formats, fiscal year, base currency and the languages offered.',
+  'setup.page.instance.keywords':
+    'instance, time zone, timezone, date format, week start, fiscal year, currency, languages, country',
 } as const;

@@ -422,4 +422,8 @@ export const ur: LabelResource = {
   'setup.page.licence.keywords': 'لائسنس، پلان، سبسکرپشن، ایڈیشن، نشستیں، استعمال، اپ گریڈ، میعاد',
   'setup.page.audit.description': 'ہر تبدیلی اور سائن اِن، چھیڑ چھاڑ ظاہر کرنے والی زنجیر کے ساتھ۔',
   'setup.page.audit.keywords': 'آڈٹ، لاگ، تاریخ، تبدیلیاں، سائن اِن، تعمیل',
+  'nav.admin_instance': 'تنصیب کی ترتیبات',
+  'setup.page.instance.description': 'ٹائم زون، اشکال، مالی سال، بنیادی کرنسی اور دستیاب زبانیں۔',
+  'setup.page.instance.keywords':
+    'ٹائم زون، تاریخ کی شکل، ہفتے کا آغاز، مالی سال، کرنسی، زبانیں، ملک',
 };

@@ -504,4 +504,9 @@ export const ar: LabelResource = {
   'setup.page.licence.keywords': 'ترخيص، خطة، اشتراك، إصدار، مقاعد، استخدام، ترقية، انتهاء',
   'setup.page.audit.description': 'كل تغيير وتسجيل دخول، مع سلسلته التي تكشف العبث.',
   'setup.page.audit.keywords': 'تدقيق، سجل، تاريخ، تغييرات، تسجيلات الدخول، امتثال',
+  'nav.admin_instance': 'إعدادات المنشأة',
+  'setup.page.instance.description':
+    'المنطقة الزمنية والتنسيقات والسنة المالية والعملة الأساسية واللغات المتاحة.',
+  'setup.page.instance.keywords':
+    'منطقة زمنية، تنسيق التاريخ، بداية الأسبوع، السنة المالية، عملة، لغات، دولة',
 };

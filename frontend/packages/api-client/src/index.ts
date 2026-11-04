@@ -308,6 +308,12 @@ export {
   type SsoTestResult,
 } from './identity';
 export {
+  useSaveTenantSettings,
+  useTenantSettings,
+  type TenantSettings,
+  type TenantSettingsInput,
+} from './instance';
+export {
   useBulkJob,
   useBulkJobs,
   useIncidentListFields,
