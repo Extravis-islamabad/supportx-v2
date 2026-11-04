@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 
 import { ANT_LOCALES } from './antdLocales';
-import { FONT_FACES, type UrduScript } from './fonts/fonts';
+import { fontFaces, type UrduScript } from './fonts/fonts';
 import {
   AppearanceContext,
   intlLocaleFor,
@@ -167,7 +167,7 @@ export function AppearanceProvider({
 
   return (
     <AppearanceContext.Provider value={appearance}>
-      <style>{FONT_FACES + PAGE_CSS}</style>
+      <style>{fontFaces(urduScript) + PAGE_CSS}</style>
       <LabelsProvider locale={locale}>
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
           {/* Messages start below the header, never over its search field (UI pass 2, agreed
