@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 
 import { ANT_LOCALES } from './antdLocales';
+import { FONT_FACES, type UrduScript } from './fonts/fonts';
 import {
   AppearanceContext,
   type Appearance,
@@ -102,6 +103,7 @@ export function AppearanceProvider({
 }: AppearanceProviderProps) {
   const [mode, setModeState] = useState<ThemeMode>(() => initialMode ?? preferredMode());
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [urduScript, setUrduScript] = useState<UrduScript>('naskh');
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
   useEffect(() => {
@@ -143,21 +145,23 @@ export function AppearanceProvider({
       },
       setDirection,
       setBranding,
+      urduScript,
+      setUrduScript,
       setLocale: (next) => {
         setLocaleState(next);
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand, setBranding],
+    [mode, direction, locale, brand, setBranding, urduScript],
   );
   const themeConfig = useMemo(
-    () => buildTheme(mode, brand, locale, density),
-    [mode, brand, locale, density],
+    () => buildTheme(mode, brand, locale, density, urduScript),
+    [mode, brand, locale, density, urduScript],
   );
 
   return (
     <AppearanceContext.Provider value={appearance}>
-      <style>{PAGE_CSS}</style>
+      <style>{FONT_FACES + PAGE_CSS}</style>
       <LabelsProvider locale={locale}>
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
           <AntApp>{children}</AntApp>

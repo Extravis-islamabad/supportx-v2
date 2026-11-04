@@ -4,6 +4,7 @@ import type { Locale } from '@supportx/labels';
 
 import { SUPPORTX_COLOURS, SUPPORTX_LOGOS, type BrandLogos } from './brand';
 import { densityTheme, type Density } from './density';
+import { fontFor, type UrduScript } from './fonts/fonts';
 
 export const THEME_MODES = ['light', 'dark', 'high_contrast'] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
@@ -45,11 +46,6 @@ export const DEFAULT_BRANDING: Branding = {
 const PRIMARY_HOVER_DARKEN = 0.12;
 const PRIMARY_ACTIVE_DARKEN = 0.2;
 
-// THE font token (UI pass 2): the system stack, never a web font from the internet (the product
-// runs air-gapped). Bundling a face such as Inter, with an Arabic and Urdu face beside it, is
-// the product owner's call; switching is this one line.
-const LATIN = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
-
 /**
  * The console's frame (UI pass 2, docs/design/target): a dark indigo navigation in every theme
  * mode, beside or above a white top bar. Measured: menu text #C9C4DB on #16122B 10.7:1, white on
@@ -73,24 +69,9 @@ const LIGHT_SURFACES = {
   colorSplit: '#EEF0F3',
 } as const;
 
-/**
- * Fonts per UI language. Arabic is set in a Naskh face; Urdu in Nastaliq, which is much taller,
- * so Urdu also gets taller lines. One list for both made Arabic fall back to the installed
- * Nastaliq font (macOS ships it) and clipped Arabic button labels (QA C2).
- */
-const FONTS: Record<Locale, { fontFamily: string; lineHeight?: number }> = {
-  en: { fontFamily: `${LATIN}, 'Noto Sans Arabic', sans-serif` },
-  ar: {
-    fontFamily: `${LATIN}, 'Noto Sans Arabic', 'Noto Naskh Arabic', 'Geeza Pro', Tahoma, sans-serif`,
-  },
-  ur: {
-    fontFamily: `${LATIN}, 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Noto Sans Arabic', sans-serif`,
-    lineHeight: 1.9,
-  },
-};
-
-function shared(locale: Locale): ThemeConfig['token'] {
-  return { borderRadius: 8, ...FONTS[locale] };
+// The font tokens live in ./fonts (D-137): bundled faces, switched by language and Urdu style.
+function shared(locale: Locale, urduScript: UrduScript): ThemeConfig['token'] {
+  return { borderRadius: 8, ...fontFor(locale, urduScript) };
 }
 
 /**
@@ -103,8 +84,9 @@ export function buildTheme(
   branding: Partial<Branding> = {},
   locale: Locale = 'en',
   density: Density = 'comfortable',
+  urduScript: UrduScript = 'naskh',
 ): ThemeConfig {
-  const base = modeTheme(mode, branding, locale);
+  const base = modeTheme(mode, branding, locale, urduScript);
   const dense = densityTheme(density, base.algorithm ?? antdTheme.defaultAlgorithm);
   const components = { ...base.components };
   for (const [name, tokens] of Object.entries(dense.components ?? {})) {
@@ -144,9 +126,14 @@ function withShell(config: ThemeConfig): ThemeConfig {
   return { ...config, components };
 }
 
-function modeTheme(mode: ThemeMode, branding: Partial<Branding>, locale: Locale): ThemeConfig {
+function modeTheme(
+  mode: ThemeMode,
+  branding: Partial<Branding>,
+  locale: Locale,
+  urduScript: UrduScript,
+): ThemeConfig {
   const brand = { ...DEFAULT_BRANDING, ...branding };
-  const base = shared(locale);
+  const base = shared(locale, urduScript);
   if (mode === 'high_contrast') {
     return {
       algorithm: antdTheme.defaultAlgorithm,

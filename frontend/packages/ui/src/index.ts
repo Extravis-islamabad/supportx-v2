@@ -9,6 +9,7 @@ export { ToneTag } from './ToneTag';
 export { contrastRatio, TAG_TONES, TONES, type Tone } from './tones';
 export { PresenceAvatars, type PresenceAvatarsProps } from './PresenceAvatars';
 export { AppearanceProvider, type AppearanceProviderProps } from './AppearanceProvider';
+export { type UrduScript } from './fonts/fonts';
 export * from './errors';
 export * from './files';
 export * from './licence';

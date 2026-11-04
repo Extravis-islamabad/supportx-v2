@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 
 import { useLabels, type LabelInput, type LabelParams, type Locale } from '@supportx/labels';
 
+import type { UrduScript } from './fonts/fonts';
 import type { Branding, ThemeMode } from './theme';
 
 export type Direction = 'ltr' | 'rtl';
@@ -19,6 +20,9 @@ export interface Appearance {
    * `tenant` (the signed-in tenant's, which wins). `undefined` clears that source.
    */
   setBranding: (source: BrandingSource, branding: Partial<Branding> | undefined) => void;
+  /** How Urdu is set (D-137): Naskh by default, Nastaliq when the person chose it. */
+  urduScript: UrduScript;
+  setUrduScript: (script: UrduScript) => void;
 }
 
 export type BrandingSource = 'address' | 'tenant';

@@ -7,6 +7,7 @@ import { label } from '@supportx/labels';
 
 import { describeError } from './errors/describe';
 import { visibleNav, type NavItem } from './shell/nav';
+import { FONT_FACES } from './fonts/fonts';
 import { buildTheme, darken, DEFAULT_BRANDING, lighten } from './theme';
 
 const t = (key: string, params?: Record<string, unknown>) => label(key, 'en', params as never);
@@ -159,9 +160,23 @@ describe('C2: fonts per language', () => {
     const arabic = String(buildTheme('light', {}, 'ar').token?.fontFamily);
     expect(arabic).not.toMatch(/Nastaliq|Nastaleeq/);
     expect(arabic).toMatch(/Naskh|Geeza|Noto Sans Arabic/);
-    const urdu = buildTheme('dark', {}, 'ur').token;
-    expect(String(urdu?.fontFamily)).toContain('Noto Nastaliq Urdu');
-    expect(urdu?.lineHeight).toBeGreaterThan(1.8);
+    // D-137: Urdu in Naskh by default, Nastaliq (with taller lines) when the person chooses it.
+    const naskh = buildTheme('dark', {}, 'ur').token;
+    expect(String(naskh?.fontFamily)).toContain('Noto Sans Arabic');
+    expect(String(naskh?.fontFamily)).not.toMatch(/Nastaliq/);
+    const nastaliq = buildTheme('dark', {}, 'ur', 'comfortable', 'nastaliq').token;
+    expect(String(nastaliq?.fontFamily)).toContain('Noto Nastaliq Urdu');
+    expect(nastaliq?.lineHeight).toBeGreaterThan(1.8);
     expect(buildTheme('high_contrast', {}, 'ar').token?.fontFamily).toBe(arabic);
+  });
+
+  it('D-137: the fonts are bundled woff2 files, never from the internet', () => {
+    expect(FONT_FACES).not.toMatch(/https?:\/\//);
+    expect(FONT_FACES).not.toMatch(/googleapis|gstatic/);
+    expect(FONT_FACES).toMatch(/font-display:swap/);
+    expect(FONT_FACES).not.toMatch(/format\('woff'\)/); // woff2 only
+    for (const family of ['Inter', 'Noto Sans Arabic', 'Noto Nastaliq Urdu']) {
+      expect(FONT_FACES).toContain(`font-family:'${family}'`);
+    }
   });
 });
