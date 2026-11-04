@@ -23,3 +23,8 @@ valkeyHa:
 networkPolicies:
   egress:
     enabled: true
+    components:
+      # freshclam fetches signatures from ClamAV's CDN (no fixed addresses). A real install with
+      # egress on lists its private mirror or forward proxy here instead (clamav.privateMirror).
+      clamav:
+        - ports: [{protocol: TCP, port: 443}, {protocol: TCP, port: 80}]

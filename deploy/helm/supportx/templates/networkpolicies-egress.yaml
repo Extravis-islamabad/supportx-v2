@@ -9,8 +9,9 @@ On, every pod in the release namespace may reach only:
     networkPolicies.egress.components.<component> (that component's pods): your SMTP relay,
     proxy, LDAP servers, Microsoft Graph, AI providers, MonetX, webhook targets. NetworkPolicies
     match addresses, not host names, so these are CIDRs, or a forward proxy's address;
-  - for CloudNativePG's instance and pooler pods only: the Kubernetes API
-    (networkPolicies.egress.kubeApi), which their instance manager watches.
+  - the Kubernetes API (networkPolicies.egress.kubeApi), for the pods that use it only:
+    CloudNativePG's instance and pooler pods (their instance manager), and the API and worker
+    pods, whose wait-for-migrate init container asks whether this revision's migrate Job is done.
 Everything else leaving the namespace is dropped. Off, egress stays open, as before.
 */ -}}
 {{- $egress := .Values.networkPolicies.egress }}
@@ -61,18 +62,25 @@ spec:
     {{- toYaml $rules | nindent 4 }}
 {{- end }}
 {{- end }}
-{{- range $key := list "cnpg.io/cluster" "cnpg.io/poolerName" }}
+{{- $kubeApiUsers := list
+  (dict "name" "cluster" "match" (list (dict "key" "cnpg.io/cluster" "operator" "Exists")))
+  (dict "name" "poolername" "match" (list (dict "key" "cnpg.io/poolerName" "operator" "Exists")))
+  (dict "name" "backend" "match" (list
+    (dict "key" "app.kubernetes.io/instance" "operator" "In" "values" (list $rel))
+    (dict "key" "app.kubernetes.io/component" "operator" "In" "values" (list "api" "relay" "consumers" "fanout" "indexes" "sla-timers"))))
+}}
+{{- range $kubeApiUsers }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ $rel }}-{{ $key | replace "cnpg.io/" "" | lower }}-kube-api-egress
+  name: {{ $rel }}-{{ .name }}-kube-api-egress
   labels:
     {{- include "supportx.labels" (dict "root" $ "component" "network") | nindent 4 }}
 spec:
   podSelector:
     matchExpressions:
-      - {key: {{ $key }}, operator: Exists}
+      {{- toYaml .match | nindent 6 }}
   policyTypes: [Egress]
   egress:
     {{- range $egress.kubeApi }}

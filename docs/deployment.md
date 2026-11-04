@@ -98,7 +98,10 @@ true (WP-014b). With it on:
     `keycloak` for your LDAP servers, `consumers` for the SMTP relay and Microsoft Graph, `api`
     for AI providers, MonetX and webhook targets.
 
-Anything not listed is dropped, so check every integration after turning it on. CI runs the HA
+ClamAV's `freshclam` needs its signature source: list a private mirror
+(`clamav.privateMirror`) or your proxy under `components.clamav`. The public mirrors are a CDN
+with no fixed addresses. Anything not listed is dropped, so check every integration after
+turning it on. CI runs the HA
 cluster with it on (`values-ha-ci.yaml`), and `make cluster-ha-egress` checks that the namespace
 answers and the outside doesn't.
 
