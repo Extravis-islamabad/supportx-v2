@@ -52,7 +52,7 @@ async def _rows(url: str, users: list[uuid.UUID]) -> list[tuple[object, ...]]:
         )
         has_digits = await conn.fetchval(
             "SELECT count(*) FROM information_schema.columns"
-            " WHERE table_name = 'users' AND column_name = 'digits'"
+            " WHERE table_name = 'users' AND column_name IN ('digits', 'urdu_script')"
         )
     finally:
         await conn.close()
@@ -72,7 +72,7 @@ def test_0072_resets_stored_layouts_in_every_tenant_and_adds_digits(
         )
         db_testing.migrate(database.migrator_url, "0072")
         after = asyncio.run(_rows(database.admin_url, users))
-        assert after == [(None, None), (None, None), ("digits", 1)]
+        assert after == [(None, None), (None, None), ("digits", 2)]  # digits and urdu_script
         db_testing.downgrade(database.migrator_url, "0071")
         assert asyncio.run(_rows(database.admin_url, users)) == [
             (None, None),

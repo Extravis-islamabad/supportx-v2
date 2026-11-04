@@ -25,6 +25,7 @@ from app.modules.identity_access.domain.identity import (
     NavLayout,
     ThemeMode,
     TimeFormat,
+    UrduScript,
     UserType,
     WeekStart,
 )
@@ -119,13 +120,22 @@ class UserOut(BaseModel):
     date_format: str = Field(default="dd/mm/yyyy", description="How dates are written.")
     time_format: TimeFormat = Field(default="24h", description="12 or 24 hours.")
     digits: Digits = Field(default="western", description="Digits on screen (D-135).")
+    urdu_script: UrduScript = Field(default="naskh", description="How Urdu is set (D-137).")
     chosen: list[str] = Field(
         default_factory=list, description="The preferences the person set (not defaults)."
     )
 
 
 # Preferences a person may leave to the default (WP-042): applied at read time, never copied.
-_PERSONAL = ("theme_mode", "text_scale", "week_start", "date_format", "time_format", "digits")
+_PERSONAL = (
+    "theme_mode",
+    "text_scale",
+    "week_start",
+    "date_format",
+    "time_format",
+    "digits",
+    "urdu_script",
+)
 # Their `chosen` entries too: NULL since 0071 means the default (side bar, comfortable).
 _LAYOUT = ("nav_layout", "form_density")
 
@@ -141,6 +151,7 @@ def _personal(row: Any, regional: RegionalDefaults) -> dict[str, Any]:  # noqa: 
         "date_format": regional.date_format,
         "time_format": regional.time_format,
         "digits": "western",
+        "urdu_script": "naskh",
         "time_zone": regional.time_zone,
     }
     applied = {n: own[n] if own.get(n) is not None else d for n, d in defaults.items()}

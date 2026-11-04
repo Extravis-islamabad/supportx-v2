@@ -92,6 +92,9 @@ class User(TenantEntity):
         CheckConstraint(
             "digits IS NULL OR digits IN ('western', 'arabic_indic')", name="digits_code"
         ),
+        CheckConstraint(
+            "urdu_script IS NULL OR urdu_script IN ('naskh', 'nastaliq')", name="urdu_script_code"
+        ),
         CheckConstraint("length(btrim(first_name)) BETWEEN 1 AND 100", name="first_name_length"),
         CheckConstraint("manager_id IS NULL OR manager_id <> id", name="not_own_manager"),
         CheckConstraint(
@@ -169,6 +172,8 @@ class User(TenantEntity):
     time_format: Mapped[str | None] = mapped_column(String(4))
     # D-135: NULL means Western digits (0-9), the default in every language.
     digits: Mapped[str | None] = mapped_column(String(16))
+    # D-137: NULL means Naskh (Noto Sans Arabic) for Urdu; `nastaliq` is Noto Nastaliq Urdu.
+    urdu_script: Mapped[str | None] = mapped_column(String(16))
     # When the Keycloak roles were mapped to SupportX roles (once, D-029); NULL = not yet.
     roles_mapped_at: Mapped[datetime | None]
     # Which directory keeps this person (entra | ldap); NULL: SupportX does (WP-040 session 2).

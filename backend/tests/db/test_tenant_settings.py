@@ -289,3 +289,8 @@ async def test_digits_are_western_unless_the_person_chooses_arabic_indic(bff: Bf
     assert (await patch({"digits": "roman"})).status_code == 422
     assert (await patch({"digits": None})).status_code == 200
     assert (await bff.me()).json()["user"]["digits"] == "western"
+    # D-137: Urdu in Naskh by default, Nastaliq per person.
+    assert (await bff.me()).json()["user"]["urdu_script"] == "naskh"
+    assert (await patch({"urdu_script": "nastaliq"})).status_code == 200
+    assert (await bff.me()).json()["user"]["urdu_script"] == "nastaliq"
+    assert (await patch({"urdu_script": "kufi"})).status_code == 422

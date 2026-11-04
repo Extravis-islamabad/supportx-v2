@@ -1,13 +1,16 @@
-"""Digits preference, and a one-time reset of stored layouts (WP-042; D-135, D-136).
+"""Digits and Urdu script preferences, and a one-time reset of stored layouts (WP-042; D-135,
+D-136, D-137).
 
 - Expand: `users.digits`, nullable (NULL: Western digits 0-9, the default in every language,
   D-135), with a check: `western` or `arabic_indic`.
+- Expand: `users.urdu_script`, nullable (NULL: Naskh, Noto Sans Arabic, the default for Urdu;
+  `nastaliq` sets Urdu in Noto Nastaliq Urdu, D-137), with a check.
 - Data step, once per tenant (users has FORCE RLS, D-113): stored navigation layout and form
   density go back to "not chosen" (NULL), so the current defaults apply to everyone (D-136).
   The product owner approved this one reset because only dev, QA and demo accounts exist yet;
   after go-live a changed default never overwrites a stored preference.
 
-The downgrade drops `digits`. The reset is not undone: the old values were the old server
+The downgrade drops `digits` and `urdu_script`. The reset is not undone: the old values were the old server
 defaults, not choices, and NULL is valid under 0071.
 
 Revision ID: 0072
@@ -44,8 +47,13 @@ def upgrade() -> None:
     op.create_check_constraint(
         "digits_code", "users", "digits IS NULL OR digits IN ('western', 'arabic_indic')"
     )
+    op.add_column("users", sa.Column("urdu_script", sa.String(16), nullable=True))
+    op.create_check_constraint(
+        "urdu_script_code", "users", "urdu_script IS NULL OR urdu_script IN ('naskh', 'nastaliq')"
+    )
     op.execute(_RESET)
 
 
 def downgrade() -> None:
-    op.drop_column("users", "digits")  # its check goes with it
+    op.drop_column("users", "urdu_script")  # its check goes with it
+    op.drop_column("users", "digits")

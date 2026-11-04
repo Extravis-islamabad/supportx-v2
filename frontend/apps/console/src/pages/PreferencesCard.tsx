@@ -18,6 +18,7 @@ const WEEK_STARTS = ['monday', 'sunday', 'saturday'] as const;
 const DATE_FORMATS = ['dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd', 'dd.mm.yyyy'] as const;
 const TIME_FORMATS = ['24h', '12h'] as const;
 const DIGITS = ['western', 'arabic_indic'] as const;
+const URDU_SCRIPTS = ['naskh', 'nastaliq'] as const;
 const DEFAULT = '__default';
 
 export function PreferencesCard({ user }: { user: User }) {
@@ -33,7 +34,9 @@ export function PreferencesCard({ user }: { user: User }) {
     save.mutate(change, { onError: reportError });
   };
 
-  const regional = <F extends 'week_start' | 'date_format' | 'time_format' | 'digits'>(
+  const regional = <
+    F extends 'week_start' | 'date_format' | 'time_format' | 'digits' | 'urdu_script',
+  >(
     field: F,
     choices: readonly NonNullable<User[F]>[],
     label: (value: NonNullable<User[F]>) => string,
@@ -99,6 +102,7 @@ export function PreferencesCard({ user }: { user: User }) {
           {regional('date_format', DATE_FORMATS, (v) => v)}
           {regional('time_format', TIME_FORMATS, (v) => t(`instance.time_format.${v}`))}
           {regional('digits', DIGITS, (v) => t(`preferences.digits.${v}`))}
+          {regional('urdu_script', URDU_SCRIPTS, (v) => t(`preferences.urdu_script.${v}`))}
         </Flex>
       </Space>
     </Card>

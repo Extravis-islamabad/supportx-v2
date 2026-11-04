@@ -141,6 +141,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "UserOut.week_start": "instance.week_start",
     "UserOut.time_format": "instance.time_format",
     "UserOut.digits": "preferences.digits",
+    "UserOut.urdu_script": "preferences.urdu_script",
     "Op": "filter_op",
     "ReadinessResponse.status": "readiness_status",
     "ReadinessResponse.event_delivery": "event_delivery_state",

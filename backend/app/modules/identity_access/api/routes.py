@@ -23,6 +23,7 @@ from app.modules.identity_access.domain.identity import (
     NavLayout,
     ThemeMode,
     TimeFormat,
+    UrduScript,
     UserType,
     WeekStart,
 )
@@ -99,6 +100,7 @@ class UserDetail(BaseModel):
     date_format: DateFormat | None = Field(default=None, description="Null: the tenant's.")
     time_format: TimeFormat | None = Field(default=None, description="Null: the tenant's.")
     digits: Digits | None = Field(default=None, description="Null: Western digits (D-135).")
+    urdu_script: UrduScript | None = Field(default=None, description="Null: Naskh (D-137).")
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -163,6 +165,9 @@ class UserPreferencesPatch(BaseModel):
     time_format: str | None = Field(default=None, max_length=4, description="24h or 12h.")
     digits: str | None = Field(
         default=None, max_length=16, description="western or arabic_indic (D-135)."
+    )
+    urdu_script: str | None = Field(
+        default=None, max_length=16, description="naskh or nastaliq (D-137)."
     )
     # REQ-PRT-013 AC2 (WP-028): only when the tenant allows it and no directory keeps them.
     phone: str | None = Field(default=None, max_length=100, description="Your phone number.")

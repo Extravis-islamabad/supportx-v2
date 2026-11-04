@@ -28,6 +28,7 @@ from app.modules.identity_access.domain.identity import (
     PERSON_TYPES,
     TEXT_SCALES,
     TIME_FORMATS,
+    URDU_SCRIPTS,
     WEEK_STARTS,
     FormDensity,
     NavLayout,
@@ -82,6 +83,7 @@ EDITABLE_FIELDS = frozenset(
         "date_format",
         "time_format",
         "digits",
+        "urdu_script",
         *CONTACT_FIELDS,
     }
 )
@@ -94,6 +96,7 @@ _CHOICES: dict[str, frozenset[object]] = {
     "date_format": frozenset(DATE_FORMATS),
     "time_format": frozenset(TIME_FORMATS),
     "digits": frozenset(DIGITS),
+    "urdu_script": frozenset(URDU_SCRIPTS),
 }
 MAX_SIGNATURE_LENGTH = 2000
 

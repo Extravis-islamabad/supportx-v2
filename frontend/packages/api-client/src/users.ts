@@ -15,7 +15,13 @@ export type ThemeMode = components['schemas']['ThemeMode'];
 
 /** Personal preferences a person may leave to the default (WP-042; null: the default). */
 export type PersonalPreference =
-  'theme_mode' | 'text_scale' | 'week_start' | 'date_format' | 'time_format' | 'digits';
+  | 'theme_mode'
+  | 'text_scale'
+  | 'week_start'
+  | 'date_format'
+  | 'time_format'
+  | 'digits'
+  | 'urdu_script';
 export type PersonalPreferenceChange = {
   [K in PersonalPreference]: { field: K; value: NonNullable<MeResponse['user'][K]> | null };
 }[PersonalPreference];

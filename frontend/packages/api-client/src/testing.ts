@@ -260,6 +260,7 @@ export function fakeSession(
       date_format: 'dd/mm/yyyy',
       time_format: '24h',
       digits: 'western',
+      urdu_script: 'naskh',
       ...user,
     },
     tenant: DEMO_TENANT,

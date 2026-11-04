@@ -15,6 +15,7 @@ const PERSONAL = [
   'date_format',
   'time_format',
   'digits',
+  'urdu_script',
 ] as const;
 
 /**
