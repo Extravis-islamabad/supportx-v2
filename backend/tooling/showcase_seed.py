@@ -24,7 +24,9 @@ added, nothing is ever updated or deleted (CLAUDE.md rule 5h).
    of its times (created <= first response <= resolved) and its SLA clocks stay as they were.
    The target time is fixed (the tenant's creation minus a per-incident offset), so a re-run
    computes a delta of zero: idempotent. This step is dev tooling; no API or product code path
-   ever backdates.
+   ever backdates. Append-only and signed tables are never touched: the audit log (its entries,
+   queue and hash chain still verify; a test proves it), the outbox and the event log. So an
+   incident may now predate its own audit entries, which is acceptable for demo data.
 """
 
 import asyncio
