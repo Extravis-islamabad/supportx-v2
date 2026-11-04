@@ -761,9 +761,21 @@ it with no reload (rule c). Not built yet.
 
 ### [ ] WP-044a — Problems: record, creation, templates, statuses, assignment (lane A, 2026-11-05; 5 sessions; #211)
 - **Plan:** ~/Desktop/wp-044-plan.md (all of WP-044, 13 sessions; coordinator approved
-  2026-11-04). Numbers: 0076, 0077 (044a), 0078 (044b), 0079 (044c), D-140 (Haider's answers
-  to Q1-Q7, built with the recommended answers meanwhile), ADR-040 (investigators widen record
-  access). No React Native in V1: mobile is API-only (D17).
+  2026-11-04). Numbers: 0076, 0077, 0089 (044a), 0078 (044b), 0079 (044c), ADR-040
+  (investigators widen record access).
+- **Decided (D-140, Haider 2026-11-05):**
+  - Q1: closing offers "Resolve linked incidents", ticked by default, each through its own
+    service;
+  - Q2: one causing problem per incident (built, S3);
+  - Q3: target dates plus a tenant switch for full SLAs;
+  - Q4: review required for major and P1, P2 optional;
+  - Q5: an upgrade prompt in Essentials;
+  - Q6: AI grouping wherever the local model runs, pg_trgm without AI;
+  - Q7: the root cause is for problem roles only (API and search), admins can widen it;
+  - Q8: the React Native app is V1, built by Extravis's mobile team; every 044 feature goes
+    through the public API.
+  - Q3's switch goes in S5; Q4 in 044b S4; Q1 in 044b S5; Q7 in 044b S1 and 044c S2; Q5 and
+    Q6 in 044c S3; Q8 is checked in 044c S3.
 - [x] Session 1 (#211):
   - Problems as a registered work-item type: PRB counter, `/problems`, licence feature
     `problem`, custom fields for problems.
@@ -803,7 +815,20 @@ it with no reload (rule c). Not built yet.
   - Not yet (recorded): copying attachments (REQ-PRB-011 AC3), and the analysis and solution
     parts of a copy (their fields come in WP-044b); creating from changes, releases, CIs and
     reviews (REQ-PRB-013) waits for those records.
-- [ ] S4 templates and guided life cycle · [ ] S5 owner and investigators, console screens,
+- [x] Session 4 (#211, 0089 extended): named life cycles and the major problem template.
+  - A type can seed more than one transition set on its statuses. A template chooses one, and a
+    record keeps the one it was created with (`lifecycle`).
+  - Problems get "guided_analysis" (REQ-PRB-025): gathering facts, why-analysis, cause
+    confirmed, fix planned, fix verified, in review, closed. There is no close before the
+    review.
+  - New tenants get the standard and major problem templates (REQ-PRB-017 AC1).
+  - Not yet (recorded):
+    - the analysis and solution sections, and "cause confirmed needs a root cause", come with
+      the WP-044b S1 fields;
+    - template tasks on entering a status (REQ-PRB-020 AC2), template groups (REQ-PRB-021) and
+      the designer's explanations (REQ-PRB-022) are console work for S5;
+    - copying and editing a life cycle (REQ-PRB-025 AC3) comes with the life cycle designer.
+- [ ] S5 owner and investigators (ADR-040), the full-SLA switch (D-140 Q3), console screens,
   e2e.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
