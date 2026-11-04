@@ -22,6 +22,7 @@ from app.modules.work_items.domain.lifecycle import (
 )
 from app.modules.work_items.domain.releases import (
     DETAIL_FIELDS,
+    DOWNTIME_KINDS,
     OUTCOME_STAGES,
     PLAN_SECTIONS,
     RELEASE_MODEL,
@@ -175,6 +176,7 @@ RELEASE = WorkItemType(
     own_lists={
         "release_type": RELEASE_TYPES,
         "release_reason": tuple((code, None) for code in RELEASE_REASONS),
+        "downtime_kind": tuple((code, None) for code in DOWNTIME_KINDS),
     },
 )
 

@@ -125,6 +125,9 @@ class ResourceType:
     site_scope: ScopePredicate | None = None
     group_scope: ScopePredicate | None = None
     group_scope_extra: Callable[[Subject], ColumnElement[bool] | None] | None = None
+    # More records that are the subject's own (WP-058a: records where they hold a named role,
+    # in person or through a group). OR'ed into the `own` scope only; None: no extra records.
+    owner_extra: Callable[[Subject], ColumnElement[bool] | None] | None = None
     shared_scope: Callable[[Subject], ColumnElement[bool]] | None = None
     shared_actions: frozenset[str] = frozenset()
     field_rules: Mapping[str, FieldRule] = field(default_factory=lambda: MappingProxyType({}))
@@ -211,9 +214,11 @@ def _scope_predicate(
     if grant.scope == "all":
         return true()
     if grant.scope == "own":
-        if not resource_type.owner_columns:
-            return None
-        return or_(*(column == subject.user_id for column in resource_type.owner_columns))
+        owned = [column == subject.user_id for column in resource_type.owner_columns]
+        extra = resource_type.owner_extra(subject) if resource_type.owner_extra else None
+        if extra is not None:
+            owned.append(extra)
+        return or_(*owned) if owned else None
     builder = resource_type.site_scope if grant.scope == "site" else resource_type.group_scope
     ids = subject.site_ids if grant.scope == "site" else subject.group_ids
     parts = [builder(ids)] if builder is not None and ids else []

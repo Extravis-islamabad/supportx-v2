@@ -36,6 +36,7 @@ from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemPathStage,
+    WorkItemRoleHolder,
     WorkItemStage,
     WorkItemStageEntry,
     WorkItemStagePath,
@@ -190,20 +191,47 @@ async def access_rule(
 ) -> AccessRule | None:
     """The stage's access rule of `kind` for the record (None: no stage or no rule).
 
-    Record roles ("roles") are resolved to their holders once the record has roles (S4).
+    Named roles resolve to the record's current holders, people and groups (REQ-REL-019).
     """
     code = stage or record.stage
     if code is None:
         return None
     row = await session.get(WorkItemStage, (catalogue.tenant_of(session), record.type, code))
     rule = ((row.access if row is not None else None) or {}).get(kind) or {}
+    roles = [str(r) for r in rule.get("roles") or ()]
+    role_users, role_groups = await _role_holders(session, record, roles)
     named = AccessRule(
-        group_ids=frozenset(uuid.UUID(str(g)) for g in rule.get("group_ids") or ()),
+        group_ids=frozenset(uuid.UUID(str(g)) for g in rule.get("group_ids") or ()) | role_groups,
         permissions=frozenset(str(p) for p in rule.get("permissions") or ()),
+        user_ids=role_users,
     )
-    if named.empty():  # a cleared rule ({"group_ids": []}) restricts nobody (lane B)
+    if named.empty() and not roles:  # a cleared rule ({"group_ids": []}) restricts nobody
         return None
-    return AccessRule(group_ids=named.group_ids, permissions=named.permissions | ALWAYS_ADMITTED)
+    # A rule naming only roles nobody holds yet still admits the configurers (never stranded).
+    return AccessRule(
+        group_ids=named.group_ids,
+        permissions=named.permissions | ALWAYS_ADMITTED,
+        user_ids=named.user_ids,
+    )
+
+
+async def _role_holders(
+    session: AsyncSession, record: WorkItem, roles: Sequence[str]
+) -> tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]:
+    """The people and groups holding any of `roles` on the record now."""
+    if not roles:
+        return frozenset(), frozenset()
+    rows = (
+        await session.execute(
+            select(WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id).where(
+                WorkItemRoleHolder.work_item_id == record.id, WorkItemRoleHolder.role.in_(roles)
+            )
+        )
+    ).all()
+    return (
+        frozenset(r.user_id for r in rows if r.user_id),
+        frozenset(r.group_id for r in rows if r.group_id),
+    )
 
 
 async def template_rules(session: AsyncSession, record: WorkItem) -> Mapping[str, Any] | None:

@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol
 
-from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, delete, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
@@ -46,9 +46,11 @@ from app.modules.identity_access import (
     Placement,
     RoleName,
     Subject,
+    active_user_ids,
     authorize_stored,
     direct_reports,
     display_names,
+    people_matching,
     person_placement,
     role_names,
     scope_filter,
@@ -116,6 +118,7 @@ from app.modules.work_items.events import (
     WorkItemCreated,
     WorkItemDeleted,
     WorkItemRestored,
+    WorkItemRolesChanged,
     WorkItemStageChanged,
     WorkItemStatusChanged,
     WorkItemUpdated,
@@ -126,6 +129,8 @@ from app.modules.work_items.infra.models import (
     WorkItemConversation,
     WorkItemFollower,
     WorkItemReleaseDetails,
+    WorkItemRoleDef,
+    WorkItemRoleHolder,
     WorkItemTemplate,
 )
 from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
@@ -2977,6 +2982,280 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
         aggregate_version=updated.version,
     )
     return ReleaseDetailsView(updated, row)
+
+
+# --- named roles (WP-058a s4; REQ-REL-023, -024; ADR-041) ----------------------------------------
+
+
+@dataclass(frozen=True)
+class RoleHolding:
+    """One role of a record and who holds it (people and groups)."""
+
+    definition: WorkItemRoleDef
+    user_ids: tuple[uuid.UUID, ...]
+    group_ids: tuple[uuid.UUID, ...]
+
+
+@dataclass(frozen=True)
+class RolesView:
+    """A record's roles, in the type's order, with the holders' names."""
+
+    record: WorkItem
+    roles: list[RoleHolding]
+    names: Mapping[str, str]
+
+
+async def _role_defs(session: AsyncSession, wtype: WorkItemType) -> list[WorkItemRoleDef]:
+    await config.ensure_seeded(session, wtype)
+    return list(
+        await session.scalars(
+            select(WorkItemRoleDef)
+            .where(WorkItemRoleDef.type == wtype.code)
+            .order_by(WorkItemRoleDef.sort_order, WorkItemRoleDef.code)
+        )
+    )
+
+
+async def _holders_of(
+    session: AsyncSession, record_id: uuid.UUID
+) -> dict[str, tuple[list[uuid.UUID], list[uuid.UUID]]]:
+    rows = await session.scalars(
+        select(WorkItemRoleHolder)
+        .where(WorkItemRoleHolder.work_item_id == record_id)
+        .order_by(WorkItemRoleHolder.created_at, WorkItemRoleHolder.id)
+    )
+    held: dict[str, tuple[list[uuid.UUID], list[uuid.UUID]]] = {}
+    for row in rows:
+        users, groups = held.setdefault(row.role, ([], []))
+        if row.user_id is not None:
+            users.append(row.user_id)
+        if row.group_id is not None:
+            groups.append(row.group_id)
+    return held
+
+
+async def roles_of(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> RolesView:
+    """A record's roles and holders (REQ-REL-023: the roles tab), within your view scope."""
+    if not wtype.roles:
+        raise _not_found(wtype)
+    record = await _visible(session, subject, wtype, record_id)
+    held = await _holders_of(session, record.id)
+    roles = [
+        RoleHolding(d, tuple(held.get(d.code, ([], []))[0]), tuple(held.get(d.code, ([], []))[1]))
+        for d in await _role_defs(session, wtype)
+        if d.disabled_at is None or d.code in held
+    ]
+    people = [str(u) for r in roles for u in r.user_ids]
+    return RolesView(record, roles, await user_names(session, people))
+
+
+def _rule_sets(
+    definition: WorkItemRoleDef,
+) -> tuple[set[uuid.UUID], set[uuid.UUID], list[str]]:
+    """A role's eligibility: (groups, named people, permissions); all empty: anyone."""
+    rule = definition.eligibility or {}
+    return (
+        {uuid.UUID(str(g)) for g in rule.get("group_ids") or ()},
+        {uuid.UUID(str(u)) for u in rule.get("user_ids") or ()},
+        [str(p) for p in rule.get("permissions") or ()],
+    )
+
+
+async def _group_holder_problems(
+    session: AsyncSession, definition: WorkItemRoleDef, group_ids: Sequence[uuid.UUID]
+) -> list[tuple[str, str]]:
+    """A group may hold a role of several holders, if the rule names it (or names nobody)."""
+    if not group_ids:
+        return []
+    if definition.single:
+        return [("group_ids", "not_allowed")]
+    if set(group_ids) - await existing_unit_ids(session, "group", list(group_ids)):
+        return [("group_ids", "group_not_found")]
+    groups, named, permissions = _rule_sets(definition)
+    if (groups or named or permissions) and set(group_ids) - groups:
+        return [("group_ids", "not_eligible")]
+    return []
+
+
+async def _person_holder_problems(
+    session: AsyncSession,
+    holders: PermissionHolders,
+    definition: WorkItemRoleDef,
+    user_ids: Sequence[uuid.UUID],
+) -> tuple[list[tuple[str, str]], dict[str, Any]]:
+    """Each person is active and named, in an eligible group, or holds an eligible permission."""
+    if not user_ids:
+        return [], {}
+    # Deactivated people and connectors' identities never hold a role (lane B's review).
+    if set(user_ids) - await active_user_ids(session, list(user_ids)):
+        return [("user_ids", "user_not_found")], {}
+    groups, named, permissions = _rule_sets(definition)
+    if not (groups or named or permissions):
+        return [], {}
+    tenant = config.tenant_of(session)
+    for user in user_ids:
+        if user in named:
+            continue
+        if groups and (await memberships(session, user)).group_ids & groups:
+            continue
+        if any([await holders.user_holds(session, tenant, user, p) for p in permissions]):
+            continue
+        return [("user_ids", "not_eligible")], {"permission": permissions[0] if permissions else ""}
+    return [], {}
+
+
+async def _holder_problems(
+    session: AsyncSession,
+    holders: PermissionHolders,
+    definition: WorkItemRoleDef,
+    user_ids: Sequence[uuid.UUID],
+    group_ids: Sequence[uuid.UUID],
+) -> tuple[list[tuple[str, str]], dict[str, Any]]:
+    """Problems with the proposed holders, and the error params (the missing permission)."""
+    problems: list[tuple[str, str]] = []
+    if definition.single and len(user_ids) + len(group_ids) > 1:
+        problems.append(("user_ids", "too_many_items"))
+    problems += await _group_holder_problems(session, definition, group_ids)
+    people, params = await _person_holder_problems(session, holders, definition, user_ids)
+    return problems + people, params
+
+
+async def set_role(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    role: str,
+    *,
+    user_ids: Sequence[uuid.UUID],
+    group_ids: Sequence[uuid.UUID],
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> RolesView:
+    """Who holds `role` now (replacing the holders); If-Match on the record (REQ-REL-023)."""
+    if not wtype.roles:
+        raise _not_found(wtype)
+    record = await _for_action(
+        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+    )
+    if _closed(record):
+        raise Conflict(code="record_closed", params={"status": record.status})
+    definition = next((d for d in await _role_defs(session, wtype) if d.code == role), None)
+    if definition is None:
+        raise NotFound(code="role_not_found")
+    users, groups = list(dict.fromkeys(user_ids)), list(dict.fromkeys(group_ids))
+    held = (await _holders_of(session, record.id)).get(role, ([], []))
+    if definition.disabled_at is not None and (users or groups) and (users, groups) != held:
+        raise _errors([("role", "role_disabled")])
+    problems, params = await _holder_problems(session, holders, definition, users, groups)
+    if problems:
+        raise _errors(problems, **params)
+    if (set(users), set(groups)) == (set(held[0]), set(held[1])):
+        return await roles_of(session, subject, wtype, record.id)
+    await session.execute(
+        delete(WorkItemRoleHolder).where(
+            WorkItemRoleHolder.work_item_id == record.id, WorkItemRoleHolder.role == role
+        )
+    )
+    tenant = config.tenant_of(session)
+    session.add_all(
+        [
+            WorkItemRoleHolder(
+                tenant_id=tenant, work_item_id=record.id, type=wtype.code, role=role, user_id=u
+            )
+            for u in users
+        ]
+        + [
+            WorkItemRoleHolder(
+                tenant_id=tenant, work_item_id=record.id, type=wtype.code, role=role, group_id=g
+            )
+            for g in groups
+        ]
+    )
+    await session.flush()
+    updated = await _update(session, record, expected_version, {})
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[  # REQ-REL-023 AC3: old and new holder
+            Change(
+                f"role.{role}",
+                {"users": [str(u) for u in held[0]], "groups": [str(g) for g in held[1]]},
+                {"users": [str(u) for u in users], "groups": [str(g) for g in groups]},
+            )
+        ],
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemRolesChanged(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            role=role,
+            users_before=list(held[0]),
+            users_after=users,
+            groups_before=list(held[1]),
+            groups_after=groups,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return await roles_of(session, subject, wtype, updated.id)
+
+
+async def role_candidates(  # noqa: PLR0913 - the role and the search, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    role: str,
+    *,
+    search: str | None,
+    holders: PermissionHolders,
+    limit: int = 20,
+) -> list[tuple[uuid.UUID, str]]:
+    """People who may hold `role` (REQ-REL-024 AC1): the picker never offers anyone else.
+
+    The union of who holds each eligible permission, the named people and the eligible groups'
+    members (lane B's review), all active; with no rule, whoever may see the type's records.
+    """
+    if not wtype.roles or not subject.holds(wtype.permission("view")):
+        raise _not_found(wtype)
+    definition = next((d for d in await _role_defs(session, wtype) if d.code == role), None)
+    if definition is None:
+        raise NotFound(code="role_not_found")
+    rule = definition.eligibility or {}
+    tenant = config.tenant_of(session)
+    permissions = [str(p) for p in rule.get("permissions") or ()]
+    named = [uuid.UUID(str(u)) for u in rule.get("user_ids") or ()]
+    groups = frozenset(uuid.UUID(str(g)) for g in rule.get("group_ids") or ())
+    if not (permissions or named or groups):
+        permissions = [wtype.permission("view")]
+    found: dict[uuid.UUID, str] = {}
+    for permission in permissions:
+        for user, name in await holders.holders(
+            session, tenant, permission, search=search, limit=limit
+        ):
+            found.setdefault(user, name)
+    others = named + (list(await session.scalars(users_in_groups(groups))) if groups else [])
+    if others:
+        if search:
+            matching = set(await people_matching(session, search))
+            others = [u for u in others if u in matching]
+        active = await active_user_ids(session, others)
+        names = await user_names(session, [str(u) for u in active])
+        for user in others:
+            if user in active:
+                found.setdefault(user, names.get(str(user), ""))
+    return sorted(found.items(), key=lambda kv: (kv[1].casefold(), str(kv[0])))[:limit]
 
 
 # --- the requester replies (WP-020f) --------------------------------------------------------------

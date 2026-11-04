@@ -22,7 +22,7 @@ The built-in technician role holds view and the working permissions at `group` a
 
 import uuid
 
-from sqlalchemy import ColumnElement, and_, select
+from sqlalchemy import ColumnElement, and_, false, or_, select
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import (
@@ -36,7 +36,7 @@ from app.modules.work_items.domain.classification import Impact, Priority, Prior
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem, WorkItemFollower
+from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemRoleHolder
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 
 NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
@@ -72,6 +72,21 @@ def followed_with_access(subject: Subject) -> ColumnElement[bool]:
             WorkItemFollower.deleted_at.is_(None),
         )
     )
+
+
+def role_holder_of(subject: Subject) -> ColumnElement[bool]:
+    """Records where the subject holds a named role, in person or through a group (WP-058a s4).
+
+    The `own` scope's extra records (lane B's review): a holder reaches the record with whatever
+    an own-scope grant of theirs allows, in lists, on the record, live and in search alike.
+    """
+    held = select(WorkItemRoleHolder.work_item_id).where(
+        or_(
+            WorkItemRoleHolder.user_id == subject.user_id,
+            WorkItemRoleHolder.group_id.in_(subject.group_ids) if subject.group_ids else false(),
+        )
+    )
+    return WorkItem.id.in_(held)
 
 
 # What a follower with access may do on that record (REQ-INC-151 AC2).
@@ -176,6 +191,7 @@ RESOURCE = ResourceType(
     site_scope=_in_sites,
     group_scope=_in_groups,
     group_scope_extra=_site_queue,
+    owner_extra=role_holder_of,
     shared_scope=followed_with_access,
     shared_actions=SHARED_ACTIONS,
 )

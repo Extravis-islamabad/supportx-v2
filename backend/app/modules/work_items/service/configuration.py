@@ -52,6 +52,7 @@ from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import (
     WorkItemPriorityCell,
     WorkItemReason,
+    WorkItemRoleDef,
     WorkItemScaleValue,
     WorkItemStage,
     WorkItemStatus,
@@ -618,11 +619,12 @@ async def change_next_number(  # noqa: PLR0913 - the change and its context, exp
 # --- stage access (WP-058a s3; REQ-REL-019; ADR-041) ---------------------------------------------
 
 ACCESS_KINDS = frozenset({"edit", "move_out"})
-ACCESS_KEYS = frozenset({"group_ids", "permissions"})  # "roles" joins with record roles (S4)
+ACCESS_KEYS = frozenset({"group_ids", "permissions", "roles"})
 
 
 async def _clean_access(
     session: AsyncSession,
+    wtype: WorkItemType,
     raw: Any,  # noqa: ANN401 - JSON
     known_permission: Callable[[str], bool],
 ) -> dict[str, Any] | None:
@@ -631,28 +633,52 @@ async def _clean_access(
         return None
     if not isinstance(raw, Mapping) or set(raw) - ACCESS_KINDS:
         raise invalid(field="access", field_code="not_allowed")
+    known_roles = set(
+        await session.scalars(
+            select(WorkItemRoleDef.code).where(WorkItemRoleDef.type == wtype.code)
+        )
+    )
     cleaned: dict[str, Any] = {}
     for kind, rule in raw.items():
-        where = f"access.{kind}"
-        if not rule:
-            continue
-        if not isinstance(rule, Mapping) or set(rule) - ACCESS_KEYS:
-            raise invalid(field=where, field_code="not_allowed")
-        groups = [_uuid_or_none(g) for g in rule.get("group_ids") or ()]
-        if None in groups:
-            raise invalid(field=f"{where}.group_ids", field_code="invalid_value")
-        wanted = [g for g in groups if g is not None]
-        if set(wanted) - await existing_unit_ids(session, "group", wanted):
-            raise invalid(field=f"{where}.group_ids", field_code="group_not_found")
-        permissions = [str(p) for p in rule.get("permissions") or ()]
-        if any(not known_permission(p) for p in permissions):
-            raise invalid(field=f"{where}.permissions", field_code="invalid_choice")
-        if wanted or permissions:
-            cleaned[kind] = {
-                "group_ids": sorted(str(g) for g in set(wanted)),
-                "permissions": sorted(set(permissions)),
-            }
+        checked = await _clean_access_rule(
+            session, f"access.{kind}", rule, known_permission, known_roles
+        )
+        if checked:
+            cleaned[kind] = checked
     return cleaned or None
+
+
+async def _clean_access_rule(
+    session: AsyncSession,
+    where: str,
+    rule: Any,  # noqa: ANN401 - JSON
+    known_permission: Callable[[str], bool],
+    known_roles: set[str],
+) -> dict[str, Any] | None:
+    """One kind's groups, permissions and roles, each checked; None when it names nothing."""
+    if not rule:
+        return None
+    if not isinstance(rule, Mapping) or set(rule) - ACCESS_KEYS:
+        raise invalid(field=where, field_code="not_allowed")
+    groups = [_uuid_or_none(g) for g in rule.get("group_ids") or ()]
+    if None in groups:
+        raise invalid(field=f"{where}.group_ids", field_code="invalid_value")
+    wanted = [g for g in groups if g is not None]
+    if set(wanted) - await existing_unit_ids(session, "group", wanted):
+        raise invalid(field=f"{where}.group_ids", field_code="group_not_found")
+    permissions = [str(p) for p in rule.get("permissions") or ()]
+    if any(not known_permission(p) for p in permissions):
+        raise invalid(field=f"{where}.permissions", field_code="invalid_choice")
+    roles = [str(r) for r in rule.get("roles") or ()]
+    if set(roles) - known_roles:
+        raise invalid(field=f"{where}.roles", field_code="invalid_choice")
+    if not (wanted or permissions or roles):
+        return None
+    return {
+        "group_ids": sorted(str(g) for g in set(wanted)),
+        "permissions": sorted(set(permissions)),
+        "roles": sorted(set(roles)),
+    }
 
 
 async def update_stage_access(  # noqa: PLR0913 - the change and its context, explicit
@@ -676,7 +702,7 @@ async def update_stage_access(  # noqa: PLR0913 - the change and its context, ex
     )
     if row is None:
         raise NotFound(code="stage_not_found")
-    cleaned = await _clean_access(session, access, known_permission)
+    cleaned = await _clean_access(session, wtype, access, known_permission)
     if cleaned == row.access:
         return current
     before = row.access

@@ -118,12 +118,15 @@ class ListValuePatch(BaseModel):
 
 
 class StageAccessRuleIO(BaseModel):
-    """Who may: any of these groups or permissions (both empty: anyone who may edit)."""
+    """Who may: any of these groups, permissions or role holders (all empty: anyone)."""
 
     model_config = ConfigDict(extra="forbid")
 
     group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
     permissions: list[str] = Field(default_factory=list, max_length=50)
+    roles: list[str] = Field(
+        default_factory=list, max_length=20, description="Role codes: their holders on the record."
+    )
 
 
 class StageAccessIn(BaseModel):

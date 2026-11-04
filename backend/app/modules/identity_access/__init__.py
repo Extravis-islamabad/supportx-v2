@@ -62,6 +62,7 @@ from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATIO
 from app.modules.identity_access.service.directory import (
     MailRecipient,
     NotifiablePerson,
+    active_user_ids,
     direct_reports,
     display_names,
     mail_recipients,
@@ -385,6 +386,7 @@ __all__ = [
     "SyncedPerson",
     "TenantSessionEnder",
     "UserType",
+    "active_user_ids",
     "authorize",
     "authorize_stored",
     "check_group_grantable",

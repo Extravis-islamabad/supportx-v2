@@ -84,6 +84,23 @@ class WorkItemStageChanged(_WorkItemEvent):
     automatic: bool = False
 
 
+class WorkItemRolesChanged(_WorkItemEvent):
+    """Who holds a named role on the record changed (WP-058a s4; REQ-REL-023).
+
+    The holders before and after, as IDs, so the lists of both the old and the new holders
+    refresh (lane B's review).
+    """
+
+    event_type: ClassVar[str] = "work_items.work_item.roles_changed"
+    schema_version: ClassVar[int] = 1
+
+    role: str
+    users_before: list[uuid.UUID]
+    users_after: list[uuid.UUID]
+    groups_before: list[uuid.UUID]
+    groups_after: list[uuid.UUID]
+
+
 class WorkItemAssigned(_WorkItemEvent):
     """The group or technician changed (assign, reassign, take, unassign)."""
 
@@ -287,6 +304,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemUpdated,
     WorkItemStatusChanged,
     WorkItemStageChanged,
+    WorkItemRolesChanged,
     WorkItemAssigned,
     WorkItemDeleted,
     WorkItemRestored,

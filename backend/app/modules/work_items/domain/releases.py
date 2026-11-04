@@ -56,6 +56,8 @@ RELEASE_TYPES: tuple[tuple[str, str], ...] = (
     ("maintenance", "#389E0D"),
 )
 RELEASE_REASONS = ("new_features", "fixes", "security", "compliance")
+# Downtime kinds (REQ-REL-027), a pick list of the type's own.
+DOWNTIME_KINDS = ("full_outage", "partial_outage", "maintenance_window")
 
 _BLUE, _AMBER, _GREEN, _RED, _GREY = "#1677FF", "#D48806", "#389E0D", "#CF1322", "#595959"
 
