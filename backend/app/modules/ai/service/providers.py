@@ -176,6 +176,7 @@ class OpenAICompatibleProvider:
         external: bool,
         timeout: float,
         transport: httpx.AsyncBaseTransport | None = None,
+        embedding_base_url: str | None = None,
     ) -> None:
         self.model = model
         self.embedding_model = embedding_model
@@ -183,6 +184,17 @@ class OpenAICompatibleProvider:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self._client = httpx.AsyncClient(
             base_url=base_url.rstrip("/"), headers=headers, timeout=timeout, transport=transport
+        )
+        # Embeddings may come from a server of their own (one model per server).
+        self._embed_client = (
+            self._client
+            if embedding_base_url is None or embedding_base_url.rstrip("/") == base_url.rstrip("/")
+            else httpx.AsyncClient(
+                base_url=embedding_base_url.rstrip("/"),
+                headers=headers,
+                timeout=timeout,
+                transport=transport,
+            )
         )
 
     def _body(self, request: ChatRequest, *, stream: bool) -> dict[str, Any]:
@@ -207,9 +219,11 @@ class OpenAICompatibleProvider:
             ]
         return body
 
-    async def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+    async def _post(
+        self, path: str, body: dict[str, Any], client: httpx.AsyncClient | None = None
+    ) -> dict[str, Any]:
         try:
-            response = await self._client.post(path, json=body)
+            response = await (client or self._client).post(path, json=body)
             response.raise_for_status()
             data: dict[str, Any] = response.json()
         except (httpx.HTTPError, ValueError) as error:
@@ -258,12 +272,16 @@ class OpenAICompatibleProvider:
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         """POST /embeddings."""
         data = await self._post(
-            "/embeddings", {"model": self.embedding_model, "input": list(texts)}
+            "/embeddings",
+            {"model": self.embedding_model, "input": list(texts)},
+            self._embed_client,
         )
         return [list(map(float, item["embedding"])) for item in data.get("data") or []]
 
     async def aclose(self) -> None:
-        """Close the HTTP client."""
+        """Close the HTTP clients."""
+        if self._embed_client is not self._client:
+            await self._embed_client.aclose()
         await self._client.aclose()
 
 
@@ -277,5 +295,6 @@ def provider_from(settings: Settings) -> Provider:
             api_key=None if settings.ai_api_key is None else settings.ai_api_key.get_secret_value(),
             external=settings.ai_provider_external,
             timeout=settings.ai_timeout_seconds,
+            embedding_base_url=settings.ai_embedding_base_url,
         )
     return FakeProvider.from_file(settings.ai_model, settings.ai_recordings_path)
