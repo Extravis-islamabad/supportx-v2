@@ -347,6 +347,23 @@ jobs:
         run: |
           uv run coverage combine .coverage.shard*
           uv run coverage report --skip-covered --sort=cover
+      # Fresh shard weights every night: every shard's file timings in one file, ready to commit
+      # as backend/tests/shard_weights.json (`make backend-shard-weights RUN=<this run>`). The
+      # shards warn when more than 10% of the test files have no weight.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: ${{ github.event_name == 'schedule' && steps.changes.outputs.run == 'true' }}
+        with:
+          pattern: backend-timings-*
+          path: timings
+      - name: Combine the shards' file timings
+        if: ${{ github.event_name == 'schedule' && steps.changes.outputs.run == 'true' }}
+        run: jq -s 'add | to_entries | sort_by(.key) | from_entries' timings/*/timings.json > shard_weights.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ github.event_name == 'schedule' && steps.changes.outputs.run == 'true' }}
+        with:
+          name: backend-shard-weights
+          path: shard_weights.json
+          retention-days: 14
 
   frontend:
     name: frontend
