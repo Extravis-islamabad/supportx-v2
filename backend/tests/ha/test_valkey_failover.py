@@ -159,3 +159,24 @@ def test_a_failover_keeps_the_data_and_the_old_master_rejoins_as_a_replica(
     _until(lambda: valkeys.cli(0, "get", "session:probe") == "kept", 30)
     masters = [i for i in range(3) if valkeys.role(i) == "master"]
     assert masters == [promoted]  # exactly one master: no split brain
+
+
+def test_a_master_back_before_the_sentinels_notice_never_starts_empty(valkeys: Valkeys) -> None:
+    """The k3d HA smoke found it (2026-11-04): a force-deleted master pod was back in about 1 s,
+    before down-after-milliseconds, so the sentinels still named it master and it started as an
+    empty master; the replicas would then copy the empty set. It must hand over first."""
+    _until(lambda: [valkeys.role(i) for i in range(3)] == ["master", "slave", "slave"], 60)
+    _until(lambda: valkeys.master(1).startswith("supportx-valkey-0."), 30)
+    assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
+    _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
+
+    valkeys.stop(0)
+    valkeys.start(0)  # at once: well inside down-after-milliseconds
+
+    _until(lambda: valkeys.master(1) not in ("", f"supportx-valkey-0.{HEADLESS}"), 90)
+    promoted = int(valkeys.master(1).split(".")[0].rsplit("-", 1)[1])
+    _until(lambda: valkeys.role(0) == "slave", 90)
+    masters = [i for i in range(3) if valkeys.role(i) == "master"]
+    assert masters == [promoted]
+    for index in range(3):  # nobody lost the session
+        _until(lambda i=index: valkeys.cli(i, "get", "session:probe") == "kept", 30)
