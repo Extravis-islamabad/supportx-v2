@@ -218,6 +218,44 @@ avatars, and a notice when the other one saves); `make dev-subscription` while a
 (the banner appears without a reload). How it works and how to make a new screen live:
 docs/architecture/realtime.md.
 
+### Local AI model (WP-037)
+
+The AI features talk to a model server through the AI gateway. By default the API uses the
+**recorded fake** (no model at all), and CI always does. To try them against a real model on
+this Mac, run the model **natively with Metal**. **Never run a model in Docker on a developer
+Mac**: a large model in a container starves everything else (product owner, 2026-11-04).
+
+**Install** (once): `brew install llama.cpp`. This gives you `llama-server`.
+
+**Start the development model**: `make ai-dev-model`. This starts two servers:
+
+| Server | Model | Size | Address |
+|---|---|---|---|
+| Chat | Qwen3-4B, Q4_K_M | ~2.5 GB | `127.0.0.1:8081` |
+| Embeddings | bge-m3, Q8_0 | ~0.6 GB | `127.0.0.1:8082` |
+
+The first start downloads both models from Hugging Face into llama.cpp's cache: the official
+Qwen GGUF files, and bge-m3 as converted by gpustack. Later starts take seconds. The command
+also points `backend/.env` at the servers. Only its `SUPPORTX_AI_*` lines change, and the
+first run copies the file to `backend/.env.before-ai`. Restart the API afterwards.
+
+**Check it**: `make ai-model-status` shows what runs, free memory and the AI settings. Then, in
+the console, Admin › AI names the model, and a reply draft or summary comes from it.
+
+**For a demo**: `make ai-demo-model` switches the chat server to Qwen3-14B (Q4_K_M, about 9 GB).
+- Pause the lanes and close large apps first. It warns when lane work is running, and refuses
+  (keeping the 4B model) when less than 12 GB is free.
+- Switch back with `make ai-dev-model`.
+
+**Stop**: `make ai-model-stop` stops both servers and puts the API back on the recorded fake.
+
+**Memory, on a 24 GB Mac**:
+- The 4B model plus embeddings use about 4 GB with their context, fine beside daily work.
+- The 14B model uses about 11 GB, for demos only.
+- Logs are in `~/.cache/supportx/ai/`.
+
+Choosing and swapping models, and what is approved: docs/guides/ai-models.md.
+
 ### Events: watching them flow (WP-007)
 
 Four terminals (the API, the relay, the consumers, a live view):

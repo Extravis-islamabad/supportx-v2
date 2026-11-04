@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -254,6 +254,18 @@ dev-up-full: $(DEV_ENV) ## Start core + full (Temporal, OpenSearch, ClickHouse, 
 
 dev-down: $(DEV_ENV) ## Stop all dev services; data volumes are KEPT
 	$(COMPOSE) --profile full --profile setup down --remove-orphans
+
+ai-dev-model: ## Local AI on this Mac, natively with Metal: Qwen3-4B + bge-m3 (WP-037; never Docker)
+	@bash deploy/scripts/ai-model.sh dev
+
+ai-demo-model: ## Switch to Qwen3-14B for a demo (~9 GB; pause the lanes first; refuses when memory is short)
+	@bash deploy/scripts/ai-model.sh demo
+
+ai-model-stop: ## Stop the local model servers; the API goes back to the recorded fake
+	@bash deploy/scripts/ai-model.sh stop
+
+ai-model-status: ## Which local model runs, free memory, and what backend/.env points at
+	@bash deploy/scripts/ai-model.sh status
 
 dev-ps: $(DEV_ENV) ## Show dev services and their health
 	$(COMPOSE) --profile full ps --all
