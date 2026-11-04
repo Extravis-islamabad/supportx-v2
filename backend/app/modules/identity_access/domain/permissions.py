@@ -48,6 +48,9 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec("profile.edit", scopes=OWN_ONLY),
     # Sign-in and security settings: SSO, sessions, people creation (WP-039, D-089 D7).
     PermissionSpec("identity.manage"),
+    # API keys for service identities and every key of the tenant (WP-041, D-128). The key
+    # screens are for the browser only: no key ever reaches them, whatever its scopes.
+    PermissionSpec("api_keys.manage"),
 )
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
@@ -82,6 +85,7 @@ ADMIN_PERMISSIONS = frozenset(
         "licence.manage",
         "audit.view",
         "identity.manage",
+        "api_keys.manage",
     }
 )
 
@@ -127,6 +131,7 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("users.view", "all"),
             ("roles.view", "all"),
             ("identity.manage", "all"),
+            ("api_keys.manage", "all"),
         ),
         KNOWLEDGE_MANAGER: (("profile.edit", "own"),),
     }

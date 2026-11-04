@@ -7,7 +7,7 @@
   built.)
 
 Revision ID: 0057
-Revises: 0054 (main's head; 0055, 0056, 0058 and 0059 of other PRs may land first: re-pointed when queued)
+Revises: 0055 (main's head after #176; 0056, 0058 and later of other PRs may land first: re-pointed when queued)
 Created: 2026-11-04
 """
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 revision: str = "0057"
-down_revision: str | None = "0054"
+down_revision: str | None = "0055"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -504,4 +504,9 @@ export const ur: LabelResource = {
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل کیں',
   'event_type.integrations.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل ہوئیں',
+  'event_type.identity_access.api_key.changed': 'API کلید بدلی',
+  'audit.action.api_key.created': 'API کلید بنائی',
+  'audit.action.api_key.revoked': 'API کلید منسوخ کی',
+  'audit.action.api_key.refused': 'API کلید رد کی گئی',
+  'audit.action.api_key.settings_changed': 'API کلید کے قواعد بدلے',
 };
