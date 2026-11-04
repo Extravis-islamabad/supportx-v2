@@ -1,4 +1,4 @@
-import { AlertOutlined, EditOutlined } from '@ant-design/icons';
+import { EditOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   App,
@@ -39,32 +39,33 @@ import {
 import { useListFormat } from '@supportx/labels';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
-  useConflictRetry,
+  ActionBar,
+  AlertStrip,
+  ChannelIcon,
   ConflictDialog,
   describeError,
   FormProblem,
+  inlineImageIds,
+  lengthLimit,
   markHandled,
   PresenceAvatars,
+  PropertiesPanel,
+  PropertyRow,
+  type RecordAction,
+  RecordHeader,
+  RecordPage,
   reportError,
-  useFormProblem,
   RichTextField,
   RichTextView,
-  inlineImageIds,
+  SPACE,
   useAppearance,
+  useConflictRetry,
   useDateTime,
+  useFormProblem,
   useLabel,
   useLicence,
   usePageCrumbs,
   WriteButton,
-  lengthLimit,
-  ActionBar,
-  AlertStrip,
-  PropertiesPanel,
-  PropertyRow,
-  RecordHeader,
-  RecordPage,
-  SPACE,
-  type RecordAction,
 } from '@supportx/ui';
 
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
@@ -165,6 +166,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
   const [tab, setTab] = useState<string>(() => lastTab(me));
+  const [replyRequest, setReplyRequest] = useState(0);
   // Tasks, worklogs and links follow the record's edit permission (WP-020e).
   const canEditParts = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   // Offered first in quick search and record pickers (REQ-INC-085).
@@ -312,6 +314,18 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   // Every action in its one fixed order (REQ-WI-010, D-124): assign, take, the status moves,
   // then delete apart from the rest.
   const actions = [
+    // Reply first and as the primary button (UI pass 2): it opens the composer on Conversation.
+    actionOf(
+      'reply',
+      t('reply_mode.reply'),
+      'inc-op-reply',
+      () => {
+        setTab('conversation');
+        rememberTab(me, 'conversation');
+        setReplyRequest((n) => n + 1);
+      },
+      0,
+    ),
     actionOf(
       'assign',
       t('work_item_operation.assign'),
@@ -375,7 +389,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         testId="inc-record"
         header={
           <RecordHeader
-            icon={<AlertOutlined />}
+            badge={<ChannelIcon channel={item.channel} size={44} />}
+            typeLabel={t('incidents.record_type')}
             displayId={item.display_id}
             title={item.subject}
             testIds={{ id: 'inc-display-id', title: 'inc-heading' }}
@@ -409,7 +424,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             }
           />
         }
-        actions={<ActionBar actions={actions} testId="inc-operations" />}
+        // At most four controls in the header: three buttons and More actions (UI pass 2).
+        actions={<ActionBar actions={actions} max={3} testId="inc-operations" />}
         alerts={
           <>
             <AlertStrip
@@ -528,12 +544,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           onChange={(key) => {
             setTab(key);
             rememberTab(me, key);
+            // Leaving Conversation ends a pending Reply: coming back must not reopen it.
+            if (key !== 'conversation') setReplyRequest(0);
           }}
           items={[
             {
               key: 'conversation',
               label: t('incidents.tab.conversation', { count: item.conversation_count }),
-              children: <IncidentConversation item={item} typing={typing} />,
+              children: (
+                <IncidentConversation item={item} typing={typing} replyRequest={replyRequest} />
+              ),
             },
             {
               key: 'details',

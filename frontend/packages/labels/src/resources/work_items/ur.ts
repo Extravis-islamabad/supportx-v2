@@ -867,4 +867,5 @@ export const ur: LabelResource = {
   'failure_reason.unreachable': 'رسائی ممکن نہیں',
   'priority.p1_critical': 'P1 – نازک',
   'status.awaiting_customer': 'صارف کے جواب کا انتظار',
+  'incidents.record_type': 'واقعہ',
 };

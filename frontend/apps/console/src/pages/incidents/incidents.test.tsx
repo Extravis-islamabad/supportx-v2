@@ -176,13 +176,9 @@ describe('One incident', () => {
       .getAllByRole('button')
       .map((b) => b.getAttribute('data-testid'))
       .filter((id) => id?.startsWith('inc-action-'));
-    // Four of five: the waits rank below start work, resolve and close (wait_requester first).
-    expect(buttons).toEqual([
-      'inc-action-start_work',
-      'inc-action-wait_requester',
-      'inc-action-resolve',
-      'inc-action-close',
-    ]);
+    // Three of five (UI pass 2: three buttons and More actions, at most four controls): the
+    // waits rank below resolve, start work and close; shown in the fixed order.
+    expect(buttons).toEqual(['inc-action-start_work', 'inc-action-resolve', 'inc-action-close']);
     expect(screen.getByTestId('inc-action-resolve').className).toContain('ant-btn-primary');
   });
 

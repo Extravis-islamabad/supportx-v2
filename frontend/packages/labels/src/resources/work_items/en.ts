@@ -858,4 +858,5 @@ export const en = {
   'portal.report.files_failed_other':
     'The request was sent, but {{count}} files could not be attached. Add them again on the request.',
   'portal.request.expected': 'Expected by {{when}}',
+  'incidents.record_type': 'Incident',
 } as const;

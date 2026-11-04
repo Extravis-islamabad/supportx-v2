@@ -101,11 +101,27 @@ function initials(name: string): string {
  * lock, a tinted background and says "staff only"; a public one a globe and "requester can see".
  * Replies made before the email channel exists say plainly they were not sent (WP-024).
  */
-export function IncidentConversation({ item, typing }: { item: Incident; typing: Typing }) {
+export function IncidentConversation({
+  item,
+  typing,
+  replyRequest = 0,
+}: {
+  item: Incident;
+  typing: Typing;
+  /** Bumped by the header's Reply action (UI pass 2): opens the reply composer here. */
+  replyRequest?: number;
+}) {
   const t = useLabel();
   const listFormat = useListFormat();
   const [filter, setFilter] = useState<Filter>('all');
   const [draft, setDraft] = useState<Draft | null>(null);
+  // A new request from the header opens the reply composer (unless one is open already). Set
+  // while rendering, not in an effect: React's pattern for state that follows a prop.
+  const [seenRequest, setSeenRequest] = useState(0);
+  if (replyRequest !== seenRequest) {
+    setSeenRequest(replyRequest);
+    if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: 'reply' });
+  }
   const conversation = useIncidentConversation(item.id);
   const recordFiles = useRecordFiles('incident', item.id).data ?? [];
   const entries = conversation.data?.items ?? [];

@@ -930,4 +930,5 @@ export const ar: LabelResource = {
     'أُرسل الطلب، لكن تعذر إرفاق {{count}} ملفات. أضفها مرة أخرى في الطلب.',
   'portal.report.files_failed_many':
     'أُرسل الطلب، لكن تعذر إرفاق {{count}} ملفًا. أضفها مرة أخرى في الطلب.',
+  'incidents.record_type': 'حادث',
 };
