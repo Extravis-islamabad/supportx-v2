@@ -44,6 +44,8 @@ from app.modules.ai.service.records import (
     unregister_record_access,
 )
 from app.modules.ai.service.settings import MANAGE
+from app.modules.ai.service.summaries import on_conversation_changed
+from app.shared.events import ConsumerSpec
 from app.shared.schedules import ScheduleSpec
 
 PERMISSIONS = (PermissionSpec(MANAGE, AI_FEATURE),)
@@ -72,7 +74,18 @@ module = ModuleSpec(
     on_shutdown=[_shutdown],
     events=EVENTS,
     permissions=PERMISSIONS,
-    consumers=[PERSON_ERASED],
+    consumers=[
+        PERSON_ERASED,
+        # A newer reply or note makes a record's summary stale (WP-038).
+        ConsumerSpec(
+            name="ai__summary_stale",
+            event_types=(
+                "work_items.conversation.added",
+                "work_items.conversation.visibility_changed",
+            ),
+            handler=on_conversation_changed,
+        ),
+    ],
     realtime=ROUTES,
     schedules=[
         ScheduleSpec("ai__purge_text", 86400, purge_sweep),

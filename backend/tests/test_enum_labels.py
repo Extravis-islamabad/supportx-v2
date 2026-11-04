@@ -19,6 +19,7 @@ from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "AiSettingsOut.summary_sources[]": "ai_summary_source",
     # AI gateway (WP-037)
     "AiArea": "ai_area",
     "OutcomeIn.outcome": "ai_outcome",

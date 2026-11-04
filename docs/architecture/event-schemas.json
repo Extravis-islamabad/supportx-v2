@@ -159,6 +159,33 @@
         "type": "object"
       }
     },
+    "ai.summary.changed": {
+      "1": {
+        "description": "A record's conversation summary was made or became stale: its page refetches it.",
+        "properties": {
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "stale"
+        ],
+        "title": "AiSummaryChanged",
+        "type": "object"
+      }
+    },
     "analytics.dashboard.deleted": {
       "1": {
         "description": "A dashboard was deleted (soft).",

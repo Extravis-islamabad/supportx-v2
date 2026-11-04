@@ -18,6 +18,14 @@ from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
+from app.modules.ai import (
+    register_conversation_source,
+    register_embedding_source,
+    register_record_access,
+    unregister_conversation_source,
+    unregister_embedding_source,
+    unregister_record_access,
+)
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
@@ -26,6 +34,7 @@ from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import INCIDENT, PERMISSION_TYPES, SERVICE_REQUEST, TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
+    ai_sources,
     bulk,
     inbound_mail,
     notifications,
@@ -69,20 +78,32 @@ def _register_parts() -> None:
 _register_parts()
 
 
+def _register_ai() -> None:
+    """What AI may read of an incident (WP-038): the record page's own rules, through here."""
+    register_record_access(INCIDENT.code, ai_sources.may_view_incident)
+    register_conversation_source(INCIDENT.code, ai_sources.conversation_for)
+    register_embedding_source(INCIDENT.code, ai_sources.incident_texts)
+
+
 async def _startup(app: FastAPI) -> None:
     del app
     _register_parts()
     register_owner_access(FILE_ACCESS)
     register_sources()  # again after a shutdown (tests start and stop the app)
+    _register_ai()
 
 
 async def _shutdown(app: FastAPI) -> None:
     del app
     unregister_owner_access(FILE_ACCESS.owner_types)
     unregister_sources()
+    unregister_record_access(INCIDENT.code)
+    unregister_conversation_source(INCIDENT.code)
+    unregister_embedding_source(INCIDENT.code)
 
 
 register_record_usage()
+_register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()
 register_sla()
