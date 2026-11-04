@@ -213,3 +213,27 @@ export function usePortalRequestSteps(id: string) {
     enabled: id !== '',
   });
 }
+
+/** Confirm receipt of a fulfilled request, or say it is not done (REQ-SR-059). */
+export function useAnswerRequest(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ confirmed, comment }: { confirmed: boolean; comment?: string }) =>
+      confirmed
+        ? call(
+            api.POST('/api/v1/portal/service-requests/{record_id}/resolution/confirm', {
+              params: { path: { record_id: id } },
+            }),
+          )
+        : call(
+            api.POST('/api/v1/portal/service-requests/{record_id}/resolution/reject', {
+              params: { path: { record_id: id } },
+              body: { comment: comment ?? '' },
+            }),
+          ),
+    onSuccess: (found) => {
+      queryClient.setQueryData(portalRequestKeys.detail(id), found);
+      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.all });
+    },
+  });
+}

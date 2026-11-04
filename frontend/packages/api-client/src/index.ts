@@ -738,6 +738,7 @@ export {
   usePortalRequest,
   usePortalRequests,
   usePortalRequestSteps,
+  useAnswerRequest,
   portalRequestKeys,
   type PortalRequest,
   type PortalSteps,

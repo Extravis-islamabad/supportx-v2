@@ -161,4 +161,53 @@ describe('portal: approvals', () => {
     });
     expect(fake.find('POST', withdraw)[0]?.headers.get('If-Match')).toBe('"4"');
   });
+
+  it('a fulfilled request asks the requester to confirm receipt (REQ-SR-059)', async () => {
+    const me = fakeSession({ user_type: 'requester', roles: ['requester'] });
+    window.history.pushState({}, '', `/service-requests/${RECORD}`);
+    const confirm = `/api/v1/portal/service-requests/${RECORD}/resolution/confirm`;
+    let confirmed = false;
+    const fulfilled = {
+      id: RECORD,
+      display_id: 'SR-7',
+      subject: 'Laptop for Sara',
+      portal_status: 'resolved',
+      reach: 'own',
+      requester_id: me.user.id,
+      on_behalf_of_id: null,
+      catalog_item_id: null,
+      answers: {},
+      approval_status: 'approved',
+      created_at: '2026-11-04T08:00:00Z',
+      updated_at: '2026-11-04T09:00:00Z',
+      resolution: '<p>Order the laptop</p>',
+      version: 6,
+    };
+    const fake = fakeApi({
+      ...BASE,
+      'GET /api/v1/auth/me': { body: me },
+      [`GET /api/v1/portal/service-requests/${RECORD}`]: () => ({
+        body: confirmed ? { ...fulfilled, portal_status: 'closed', version: 7 } : fulfilled,
+      }),
+      [`GET /api/v1/portal/service-requests/${RECORD}/steps`]: {
+        body: { items: [], done: 0, total: 0 },
+      },
+      [`GET /api/v1/service-requests/${RECORD}/approvals`]: { body: { items: [], people: {} } },
+      [`POST ${confirm}`]: () => {
+        confirmed = true;
+        return { body: { ...fulfilled, portal_status: 'closed', version: 7 } };
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const receipt = await screen.findByTestId('portal-receipt');
+    expect(receipt.textContent).toContain('Order the laptop');
+    fireEvent.click(within(receipt).getByTestId('portal-receipt-confirm'));
+    await waitFor(() => {
+      expect(fake.find('POST', confirm)).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('portal-status').textContent).toBe('Closed');
+    });
+  });
 });

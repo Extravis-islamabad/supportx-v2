@@ -5,6 +5,7 @@ import {
   Card,
   Descriptions,
   Flex,
+  Input,
   List,
   Modal,
   Progress,
@@ -18,6 +19,7 @@ import { Link, useParams } from 'react-router';
 import {
   portalRequestKeys,
   serviceRequestKeys,
+  useAnswerRequest,
   useApprovals,
   useCatalogItem,
   usePortalRequest,
@@ -26,7 +28,7 @@ import {
   useWithdrawRequest,
 } from '@supportx/api-client';
 import { useRecordEvents } from '@supportx/realtime';
-import { reportError, useAppearance, useLabel } from '@supportx/ui';
+import { reportError, RichTextView, useAppearance, useLabel } from '@supportx/ui';
 
 import { PortalStatusTag } from '../requests/PortalStatusTag';
 
@@ -53,6 +55,9 @@ export function ServiceRequestPage() {
   const item = useCatalogItem(record.data?.catalog_item_id ?? undefined);
   const withdraw = useWithdrawRequest();
   const [asking, setAsking] = useState(false);
+  const answer = useAnswerRequest(id);
+  const [notDone, setNotDone] = useState(false);
+  const [why, setWhy] = useState('');
   useRecordEvents('portal_wi', id, () => {
     void queryClient.invalidateQueries({ queryKey: portalRequestKeys.detail(id) });
     void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
@@ -85,6 +90,58 @@ export function ServiceRequestPage() {
         </Typography.Title>
         <PortalStatusTag status={r.portal_status} />
       </Flex>
+      {r.portal_status === 'resolved' && mine && (
+        <Card title={t('portal.service_requests.received_title')} data-testid="portal-receipt">
+          {r.resolution != null && <RichTextView html={r.resolution} />}
+          {notDone ? (
+            <Flex vertical gap={8}>
+              <Input.TextArea
+                aria-label={t('portal.fix.why')}
+                value={why}
+                autoSize={{ minRows: 2 }}
+                onChange={(e) => {
+                  setWhy(e.target.value);
+                }}
+                data-testid="portal-receipt-why"
+              />
+              <Button
+                danger
+                disabled={why.trim() === ''}
+                loading={answer.isPending}
+                onClick={() => {
+                  answer.mutate(
+                    { confirmed: false, comment: why.trim() },
+                    { onError: reportError },
+                  );
+                }}
+              >
+                {t('portal.fix.reject_send')}
+              </Button>
+            </Flex>
+          ) : (
+            <Flex gap={8} wrap>
+              <Button
+                type="primary"
+                loading={answer.isPending}
+                onClick={() => {
+                  answer.mutate({ confirmed: true }, { onError: reportError });
+                }}
+                data-testid="portal-receipt-confirm"
+              >
+                {t('portal.service_requests.received_yes')}
+              </Button>
+              <Button
+                onClick={() => {
+                  setNotDone(true);
+                }}
+                data-testid="portal-receipt-reject"
+              >
+                {t('portal.service_requests.received_no')}
+              </Button>
+            </Flex>
+          )}
+        </Card>
+      )}
       {r.approval_status === 'pending' && mine && (
         <Button
           onClick={() => {

@@ -3,6 +3,7 @@
     GET /api/v1/portal/service-requests             own (or a wider reach held), open first
     GET /api/v1/portal/service-requests/{id}        one: its item and answers, plain status
     GET /api/v1/portal/service-requests/{id}/steps  fulfilment progress, internal names hidden
+    POST …/{id}/resolution/confirm | reject         received it, or not done (REQ-SR-059)
 
 The same reach and plain-status rules as the portal's incidents (service/portal.py, D-129).
 Approvals (respecting "hide approvals from requesters") and withdrawal use the engine's own
@@ -13,18 +14,20 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.modules.identity_access import Subject
+from app.modules.work_items.api.portal_routes import PortalRejectIn
 from app.modules.work_items.domain.portal import PortalReach, PortalStatus
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.service import parts
 from app.modules.work_items.service import portal as service
 from app.shared.api.listing import ListQuery, list_query
 from app.shared.api.ratelimit import rate_limit
+from app.shared.history import source_of
 
 router = APIRouter(
     prefix="/portal/service-requests",
@@ -141,6 +144,46 @@ async def portal_request_steps(
         ],
         done=sum(t.status == "done" for t in live),
         total=len(live),
+    )
+
+
+@router.post("/{record_id}/resolution/confirm", summary="Confirm you received it")
+async def portal_request_confirm(
+    record_id: uuid.UUID, session: TenantSession, subject: SignedIn, request: Request
+) -> PortalRequestOut:
+    """It is fulfilled for you (REQ-SR-059, as WP-020f); 409 `not_resolved` otherwise."""
+    return _out(
+        await service.answer_resolution(
+            session,
+            subject,
+            record_id,
+            confirmed=True,
+            comment=None,
+            source=source_of(request),
+            wtype=SERVICE_REQUEST,
+        )
+    )
+
+
+@router.post("/{record_id}/resolution/reject", summary="Say it is not done")
+async def portal_request_reject(
+    record_id: uuid.UUID,
+    body: PortalRejectIn,
+    session: TenantSession,
+    subject: SignedIn,
+    request: Request,
+) -> PortalRequestOut:
+    """It reopens; the comment is your public reply (REQ-SR-059)."""
+    return _out(
+        await service.answer_resolution(
+            session,
+            subject,
+            record_id,
+            confirmed=False,
+            comment=body.comment,
+            source=source_of(request),
+            wtype=SERVICE_REQUEST,
+        )
     )
 
 

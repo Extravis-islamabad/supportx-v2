@@ -9,7 +9,7 @@ import uuid
 from typing import Any
 
 from tests.db.test_approvals_api import approvals, decide, manager_of
-from tests.db.test_fulfilment_api import PLAN
+from tests.db.test_fulfilment_api import PLAN, done, tasks
 from tests.db.test_incidents_api import Org, World, problem, world
 from tests.db.test_service_requests_api import an_item, raise_request
 
@@ -73,3 +73,25 @@ async def test_a_rejected_request_reads_as_not_approved(world: World) -> None:
     assert rejected.status_code == 200, rejected.text
     found = (await world.call("GET", f"{PORTAL}/{record['id']}", a, a.requester)).json()
     assert found["portal_status"] == "rejected"
+
+
+async def test_the_requester_confirms_receipt_once_it_is_fulfilled(world: World) -> None:
+    """REQ-SR-059: fulfilled reads as 'resolved'; confirming closes it."""
+    a = world.a
+    item = await an_item(world, a, plan=PLAN[:1])
+    record = (
+        await raise_request(
+            world, a, a.requester, catalog_item_id=item["id"], answers={"model": "air"}
+        )
+    ).json()
+    early = await world.call("POST", f"{PORTAL}/{record['id']}/resolution/confirm", a, a.requester)
+    assert problem(early)[0] == 409  # nothing to confirm yet
+    [task] = await tasks(world, a, record)
+    await done(world, a, record, task)
+    fulfilled = (await world.call("GET", f"{PORTAL}/{record['id']}", a, a.requester)).json()
+    assert fulfilled["portal_status"] == "resolved"
+    confirmed = await world.call(
+        "POST", f"{PORTAL}/{record['id']}/resolution/confirm", a, a.requester
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["portal_status"] == "closed"
