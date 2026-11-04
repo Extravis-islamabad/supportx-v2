@@ -549,6 +549,7 @@ async def active_user_ids(
     rows = await session.scalars(
         select(User.id).where(
             User.id.in_(list(user_ids)),
+            User.deleted_at.is_(None),  # a removed user may still say "active" (lane B)
             User.status == "active",
             User.user_type != UserType.SERVICE.value,
         )

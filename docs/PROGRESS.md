@@ -1026,8 +1026,12 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     - Notifying a new role holder (REQ-REL-023 AC1) and the "behind schedule" list column
       (REQ-REL-026 AC3) come with WP-058b's notifications and lists.
     - Copying downtime from a linked change (REQ-REL-027 AC1) needs changes (058b).
-    - Listing a person's open roles before a permission is removed (REQ-REL-024 AC2) is a
-      lane B admin-screen hook, recorded for them.
+    - Listing a person's open roles before a permission is removed (REQ-REL-024 AC2) is
+      **lane B's**: identity_access adds `register_duties(lookup)` (as register_owner_access).
+      The role editor's "remove permission" and "remove role from user" previews show the
+      affected users' open duties, labels only. work_items then registers one lookup: open
+      releases where the user holds a role whose eligibility needs that permission. Queued by
+      lane B after WP-049a s1; they send the port signature first.
     - REQ-REL-029 (environments) is LATER.
 - [ ] S5 — approvals per stage through the system entry point, associations (REQ-REL-030..037).
 - [ ] S6 — the console screens (rail, moves dialog, details), e2e and RTL; without workflows.

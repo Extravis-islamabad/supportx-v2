@@ -125,6 +125,14 @@ async def test_req_rel_024_only_eligible_active_people_and_the_picker_agrees(
     await world.sql("UPDATE users SET status = 'disabled' WHERE id = $1", a.tech_b)
     gone = await put_role(world, a, item, "qa_lead", users=[a.tech_b], version=item["version"] + 1)
     assert field_codes(gone) == {("user_ids", "user_not_found")}
+    # Removed people neither, even if their status still says active (lane B).
+    await world.sql(
+        "UPDATE users SET deleted_at = now(), status = 'active' WHERE id = $1", a.requester2
+    )
+    removed = await put_role(
+        world, a, item, "uat_owner", users=[a.requester2], version=item["version"] + 1
+    )
+    assert field_codes(removed) == {("user_ids", "user_not_found")}
     typo = await patch_role_def(world, a, "qa_lead", eligibility={"permissions": ["releases.nope"]})
     assert field_codes(typo) == {("eligibility.permissions", "invalid_choice")}
 
