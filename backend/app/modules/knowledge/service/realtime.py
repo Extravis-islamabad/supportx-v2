@@ -159,10 +159,31 @@ async def _link_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     return RealtimeEffects(publications=publications)
 
 
+async def _vote_saved(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A vote (REQ-KB-069 AC4): the article page refetches its counts.
+
+    The API decides who sees which counts.
+    """
+    del session
+    article_id = uuid.UUID(str(envelope.payload["article_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, article_id),
+                envelope.event_type,
+                ids=(str(article_id),),
+                fields=("votes",),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
 CHANNELS = [LIST.spec(), ChannelSpec(kind=RECORD_KIND, authorize=_record_channel)]
 ROUTES = [
     RealtimeRoute(("knowledge.article.saved", "knowledge.article.workflow"), _article_changed),
     RealtimeRoute(("knowledge.link.saved", "knowledge.link.removed"), _link_changed),
+    RealtimeRoute(("knowledge.vote.saved",), _vote_saved),
     # Topics, types and settings: every knowledge screen refetches (no IDs; D-120).
     RealtimeRoute(
         (

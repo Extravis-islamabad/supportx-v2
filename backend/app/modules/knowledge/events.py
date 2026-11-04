@@ -120,6 +120,20 @@ class KbLinkRemoved(DomainEvent):
     record_id: uuid.UUID
 
 
+class KbVoteSaved(DomainEvent):
+    """Someone voted on whether an article helped, or changed their vote (REQ-KB-069).
+
+    No person, answer or comment: the article page refetches the counts with its reader's rights.
+    """
+
+    event_type: ClassVar[str] = "knowledge.vote.saved"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "kb_article"
+
+    article_id: uuid.UUID
+    version_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     KbTopicSaved,
     KbTopicDeleted,
@@ -129,4 +143,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     KbTypeSaved,
     KbLinkSaved,
     KbLinkRemoved,
+    KbVoteSaved,
 )

@@ -45,6 +45,7 @@ import { articleLanguage, typeName } from '../../knowledge/model';
 interface SettingsForm {
   self_approval: boolean;
   requesters_enabled: boolean;
+  suggest_on_technician_form: boolean;
   prefix: string;
   next_number: number | null;
 }
@@ -52,6 +53,7 @@ interface SettingsForm {
 const formOf = (settings: KbSettings): SettingsForm => ({
   self_approval: settings.self_approval,
   requesters_enabled: settings.requesters_enabled,
+  suggest_on_technician_form: settings.suggest_on_technician_form,
   prefix: settings.prefix,
   next_number: settings.next_number,
 });
@@ -107,6 +109,9 @@ function GeneralForm({ current }: { current: KbSettings }) {
     if (wanted.requesters_enabled !== current.requesters_enabled) {
       changes.requesters_enabled = wanted.requesters_enabled;
     }
+    if (wanted.suggest_on_technician_form !== current.suggest_on_technician_form) {
+      changes.suggest_on_technician_form = wanted.suggest_on_technician_form;
+    }
     if (wanted.prefix !== current.prefix) changes.prefix = wanted.prefix;
     if (wanted.next_number !== null && wanted.next_number !== current.next_number) {
       changes.next_number = wanted.next_number;
@@ -137,6 +142,7 @@ function GeneralForm({ current }: { current: KbSettings }) {
     prefix: 'KB',
     self_approval: false,
     requesters_enabled: true,
+    suggest_on_technician_form: true,
   };
   const yesNo = (value: boolean) => t(value ? 'filter.yes' : 'filter.no');
   return (
@@ -186,6 +192,17 @@ function GeneralForm({ current }: { current: KbSettings }) {
         >
           <Switch data-testid="kb-admin-requesters" />
         </Form.Item>
+        {/* REQ-KB-062 AC3: off hides the panel on the technician's form; the portal still suggests. */}
+        <Form.Item
+          name="suggest_on_technician_form"
+          valuePropName="checked"
+          label={t('knowledge.settings.field.suggest_on_technician_form')}
+          extra={t('knowledge.settings.default_is', {
+            value: yesNo(defaults.suggest_on_technician_form),
+          })}
+        >
+          <Switch data-testid="kb-admin-suggest" />
+        </Form.Item>
         <Typography.Title level={2} style={{ fontSize: 16 }}>
           {t('settings.numbering')}
         </Typography.Title>
@@ -234,6 +251,7 @@ function GeneralForm({ current }: { current: KbSettings }) {
               form.setFieldsValue({
                 self_approval: defaults.self_approval,
                 requesters_enabled: defaults.requesters_enabled,
+                suggest_on_technician_form: defaults.suggest_on_technician_form,
                 prefix: defaults.prefix,
               });
             }}

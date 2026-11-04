@@ -511,6 +511,7 @@ export const en = {
   'event_type.sla.target.breached': 'SLA target overdue',
   'event_type.sla.target.escalated': 'SLA escalation level ran',
   'history.sla_escalation': '{{target}}: level {{level}} ran',
+  'event_type.knowledge.vote.saved': 'Knowledge article vote saved',
   'event_type.identity_access.api_key.changed': 'API key changed',
   'audit.action.api_key.created': 'Made an API key',
   'audit.action.api_key.revoked': 'Revoked an API key',

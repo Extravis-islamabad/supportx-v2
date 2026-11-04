@@ -10,7 +10,14 @@ import {
   type KbArticleRow,
   type KbLanguage,
 } from '@supportx/api-client';
-import { NoAccess, RichTextView, useAccess, useAppearance, useLabel } from '@supportx/ui';
+import {
+  PageHeader,
+  NoAccess,
+  RichTextView,
+  useAccess,
+  useAppearance,
+  useLabel,
+} from '@supportx/ui';
 
 import { ArticleActions } from './ArticleActions';
 import { useKnowledgeLive } from './live';
@@ -94,12 +101,11 @@ export function ApprovalInboxPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={1} style={{ margin: 0 }}>
-          {t('knowledge.inbox.title')}
-        </Typography.Title>
-        <Link to="/knowledge">{t('knowledge.inbox.back')}</Link>
-      </Flex>
+      <PageHeader
+        title={t('knowledge.inbox.title')}
+        testId="kb-inbox-header"
+        extra={<Link to="/knowledge">{t('knowledge.inbox.back')}</Link>}
+      />
       <Flex gap={16} align="start" vertical={!wide}>
         <Card
           title={t('knowledge.inbox.queue', { n: String(rows.length) })}
