@@ -27,6 +27,20 @@ async function applyTheme(page: Page, mode: Mode): Promise<void> {
   await expect(page.locator('html')).toHaveAttribute('data-theme', mode);
 }
 
+/**
+ * The console's logo sits on the dark navigation (UI pass 2), so it is the white-text file in
+ * every theme mode; it has loaded (a broken file would have no natural size).
+ */
+async function expectNavLogo(page: Page): Promise<void> {
+  const logo = page.locator('aside').getByTestId('brand-logo-full');
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveAttribute('alt', 'SupportX');
+  await expect(logo).toHaveAttribute('src', /logo-white-text/);
+  await expect
+    .poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+}
+
 /** The visible header logo has loaded (a broken file would have no natural size). */
 async function expectHeaderLogo(page: Page, mode: Mode): Promise<void> {
   const logo = page.getByRole('banner').getByTestId('brand-logo-full');
@@ -98,7 +112,7 @@ test('console: favicons and manifest served, the logo and About dialog in every 
 
   for (const mode of MODES) {
     await applyTheme(page, mode);
-    await expectHeaderLogo(page, mode);
+    await expectNavLogo(page); // console: on the dark navigation in every mode
     await expectAccessible(page, `console with logo (${mode})`);
     await openAbout(page, 'About SupportX');
     await expect(page.getByTestId('about-version')).toHaveText(/^Version \S+$/);
