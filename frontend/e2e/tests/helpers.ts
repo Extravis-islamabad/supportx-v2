@@ -92,12 +92,10 @@ export async function expectAccessible(
 ): Promise<void> {
   // Ant Design animates colour changes (~0.3 s); measure contrast after they settle.
   await page.waitForTimeout(600);
-  // Toasts first, until they are fully gone: one can start fading while axe is scanning, so no
-  // check for "leaving" before the scan closes that race, and a half-transparent toast fails on
-  // contrast (lane C, automation.spec). The app has no persistent toasts; the longest lasts 4.5 s.
-  await expect(page.locator('.ant-message-notice, .ant-notification-notice')).toHaveCount(0, {
-    timeout: 20_000,
-  });
+  // Toasts are left out of the scan, not waited for: one can arrive (a notification, seconds late
+  // in CI) or start fading at any moment, and a half-transparent toast fails on contrast (lane C,
+  // automation.spec). Their own accessibility is checked by expectToastsAccessible
+  // (toast-contrast.spec).
   // Any other element leaving (a closing popup) is half transparent on its way out of the page: its
   // contrast says nothing about what users read, so wait until it is gone. "-leave" covers both
   // stages of the animation. Not a button's spinner: a button disabled as its save ends leaves it
@@ -110,6 +108,7 @@ export async function expectAccessible(
   if ((await page.locator('[aria-modal="true"]:visible').count()) > 0) {
     builder = builder.include('[aria-modal="true"]');
   }
+  builder = builder.exclude('.ant-message').exclude('.ant-notification');
   if (exclude !== undefined) builder = builder.exclude(exclude);
   const results = await builder.analyze();
   const blocking = results.violations.filter(

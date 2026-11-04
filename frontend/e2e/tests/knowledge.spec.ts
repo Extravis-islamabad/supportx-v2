@@ -399,7 +399,10 @@ test('knowledge in a reply: the server decides the warning, the card shows the l
     // picker is closed by its own button once the warning has gone: an Escape pressed while the
     // warning is still closing never reaches the drawer, which then covers the next click.
     await expect(tech.page.locator('.ant-modal:visible')).toHaveCount(0);
-    await tech.page.getByTestId('kb-picker').getByRole('button', { name: 'Close' }).click();
+    await tech.page
+      .getByTestId('kb-picker')
+      .getByRole('button', { name: 'Close', exact: true })
+      .click();
     await expect(tech.page.getByTestId('kb-picker')).toBeHidden();
     await pickFrom(`E2E shared ${tag}`, 'content');
     await expect(tech.page.getByTestId('conv-editor')).toContainText('Open the portal', LIVE);

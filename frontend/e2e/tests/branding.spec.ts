@@ -45,7 +45,9 @@ async function expectNavLogo(page: Page): Promise<void> {
 async function expectHeaderLogo(page: Page, mode: Mode): Promise<void> {
   // Where the frame puts it (D-124): the top bar in the top layout, else the head of the wide
   // sidebar (the side menu is the default layout since migration 0051).
-  const layout = await page.locator('[data-layout]').first().getAttribute('data-layout');
+  // The portal has no layouts (no [data-layout]): getAttribute would wait for it for good.
+  const host = page.locator('[data-layout]').first();
+  const layout = (await host.count()) > 0 ? await host.getAttribute('data-layout') : null;
   const frame =
     layout === 'top' || layout === null ? page.getByRole('banner') : page.locator('aside').first();
   const logo = frame.getByTestId('brand-logo-full');
