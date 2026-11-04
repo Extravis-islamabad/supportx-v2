@@ -332,7 +332,9 @@ cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
 	@K3D_CONFIG=cluster-ha.yaml bash deploy/k3d/up.sh
 
 deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
-	k3d image import supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
+	# tarball while others still read it, and k3d still reports success).
+	k3d image import --mode direct supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
 	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
 		-f $(CHART)/values-ha.yaml -f $(CHART)/values-ha-ci.yaml \
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 20m
