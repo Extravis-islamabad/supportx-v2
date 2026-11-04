@@ -461,6 +461,7 @@ export const en = {
   'event_type.work_items.list_settings.changed': 'List settings changed',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
   'event_type.work_items.part.changed': 'Task, worklog or link changed',
+  'event_type.work_items.approval.changed': 'Approval opened or decided',
   'audit.action.mailbox.created': 'Added a mailbox',
   'audit.action.mailbox.changed': 'Changed a mailbox',
   'audit.action.mailbox.removed': 'Removed a mailbox',

@@ -849,6 +849,8 @@ export const en = {
   'requests.my_approvals_count_other': '{{count}} approvals waiting for you',
   'requests.no_approvals_waiting': 'Nothing waits for your approval.',
   'requests.for_person': 'For {{name}}',
+  'approval_decision.approve': 'Approve',
+  'approval_decision.reject': 'Reject',
   'approval_origin.named': 'Named approver',
   'approval_origin.manager': 'Manager',
   'approval_origin.backup': 'Backup approver',

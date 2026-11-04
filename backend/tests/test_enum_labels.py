@@ -213,6 +213,12 @@ ENUM_PREFIXES: dict[str, str] = {
     # The service catalog (WP-030)
     "ApprovalStatus": "approval_status",
     "OnBehalfScope": "work_item_on_behalf_scope",
+    # WP-030 s2: the approval engine.
+    "ApprovalState": "approval_state",
+    "ApproverOrigin": "approval_origin",
+    "Decision": "approval_decision",
+    "DecisionChannel": "approval_channel",
+    "RouteReason": "approval_route_reason",
     "ApproverKind": "catalog_approver_kind",
     "ItemAudience": "catalog_item_audience",
     "QuestionKind": "catalog_question_kind",

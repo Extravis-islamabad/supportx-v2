@@ -468,6 +468,7 @@ export const ar: LabelResource = {
   'event_type.work_items.list_settings.changed': 'تم تغيير إعدادات القائمة',
   'event_type.work_items.bulk_job.progressed': 'تقدّم تغيير جماعي',
   'event_type.work_items.part.changed': 'تغيّرت مهمة أو سجل عمل أو رابط',
+  'event_type.work_items.approval.changed': 'فُتحت موافقة أو بُتّ فيها',
   'audit.action.mailbox.created': 'أضاف صندوق بريد',
   'audit.action.mailbox.changed': 'غيّر صندوق بريد',
   'audit.action.mailbox.removed': 'أزال صندوق بريد',

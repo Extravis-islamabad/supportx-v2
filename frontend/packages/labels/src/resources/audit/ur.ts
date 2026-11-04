@@ -460,6 +460,7 @@ export const ur: LabelResource = {
   'event_type.work_items.list_settings.changed': 'فہرست کی ترتیبات تبدیل ہوئیں',
   'event_type.work_items.bulk_job.progressed': 'اجتماعی تبدیلی آگے بڑھی',
   'event_type.work_items.part.changed': 'کام، ورک لاگ یا ربط تبدیل ہوا',
+  'event_type.work_items.approval.changed': 'منظوری کھلی یا فیصلہ ہوا',
   'audit.action.mailbox.mail_released': 'روکی گئی میل دوبارہ داخل کی',
   'audit.action.mailbox.mail_discarded': 'روکی گئی میل رد کی',
   'audit.action.sla.special_hours_changed': 'مخصوص اوقات بدلے گئے',

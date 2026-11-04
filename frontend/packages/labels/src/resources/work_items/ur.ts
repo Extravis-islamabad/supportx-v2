@@ -848,6 +848,8 @@ export const ur: LabelResource = {
   'requests.my_approvals_count_other': '{{count}} منظوریاں آپ کی منتظر',
   'requests.no_approvals_waiting': 'کوئی چیز آپ کی منظوری کی منتظر نہیں۔',
   'requests.for_person': '{{name}} کے لیے',
+  'approval_decision.approve': 'منظور کریں',
+  'approval_decision.reject': 'مسترد کریں',
   'approval_origin.named': 'نامزد منظوری دہندہ',
   'approval_origin.manager': 'مینیجر',
   'approval_origin.backup': 'متبادل منظوری دہندہ',

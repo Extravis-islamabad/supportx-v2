@@ -31,6 +31,7 @@ from app.modules.work_items.service import (
     resolution,
 )
 from app.modules.work_items.service.access import permissions
+from app.modules.work_items.service.approvals import APPROVER_LEFT
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.closing import (
@@ -102,6 +103,8 @@ module = ModuleSpec(
     permissions=tuple(spec for wtype in PERMISSION_TYPES for spec in permissions(wtype)),
     channels=CHANNELS,
     realtime=ROUTES,
+    # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
+    consumers=[APPROVER_LEFT],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     # REQ-INC-096: resolved records the requester was told about close after N business days.

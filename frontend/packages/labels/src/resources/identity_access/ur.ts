@@ -18,6 +18,7 @@ export const ur: LabelResource = {
   'permission.announcements.publish.description':
     'اعلانات کو ان کے سامعین کے لیے نظر آنے والا بنائیں۔',
   'permission_module.incidents': 'واقعات',
+  'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'permission.incidents.view': 'واقعات دیکھیں',
   'permission.incidents.view.description':
     'واقعات اور ان کی تاریخ دیکھیں۔ گروپ دائرہ آپ کے مقامات کے وہ واقعات بھی دکھاتا ہے جو ابھی کسی نے نہیں لیے۔',
@@ -59,6 +60,12 @@ export const ur: LabelResource = {
   'permission.requests.assign.description': 'سروس درخواستیں ٹیکنیشنز اور گروپوں کو تفویض کریں۔',
   'permission.requests.close': 'سروس درخواستیں بند کریں',
   'permission.requests.close.description': 'سروس درخواستیں حل اور بند کریں۔',
+  'permission.requests.approve': 'سروس درخواستیں منظور کریں',
+  'permission.requests.approve.description':
+    'ان سروس درخواستوں کی منظوری کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
+  'permission.work_items.approve_any': 'متبادل منظوریوں کا فیصلہ کریں',
+  'permission.work_items.approve_any.description':
+    'ان منظوریوں کا فیصلہ کریں جن کا کوئی فعال منظوری دہندہ نہیں (منظوری کے منتظمین)۔',
   'role.security_admin': 'سکیورٹی ایڈمنسٹریٹر',
   'role.security_admin.description':
     'سائن اِن اور سکیورٹی: سنگل سائن آن، پاس ورڈ، ایم ایف اے، سیشن اور دعوت نامے؛ ریکارڈز تک رسائی نہیں۔',

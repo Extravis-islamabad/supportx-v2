@@ -30,6 +30,7 @@ from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE, APPROVE_ANY
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
+from app.shared.events import ConsumerSpec, EventEnvelope
 from app.shared.history import Source
 
 WITHDRAWN_REASON = "withdrawn_by_requester"  # REQ-SR-061 AC1
@@ -319,11 +320,54 @@ async def withdraw(  # noqa: PLR0913 - the withdrawal and its context, explicit
 
 
 __all__ = [
+    "APPROVER_LEFT",
     "WITHDRAWN_REASON",
     "ApprovalView",
     "PendingApproval",
     "decide",
     "list_for_record",
     "mine",
+    "on_user_status_changed",
     "withdraw",
 ]
+
+
+async def on_user_status_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """A deactivated approver's pending approvals go to the fallback (REQ-SR-023 AC2).
+
+    The approval administrators take them, with "approver inactive" as the reason on each; the
+    leaver's inbox and the administrators' screens hear about it. Idempotent: a second delivery
+    finds nothing pending for that person any more.
+    """
+    if session is None or envelope.payload.get("status") != "disabled":
+        return
+    leaver = uuid.UUID(str(envelope.payload["user_id"]))
+    rows = list(
+        await session.scalars(
+            select(WorkItemApproval)
+            .where(
+                WorkItemApproval.approver_id == leaver,
+                WorkItemApproval.state == rules.ApprovalState.PENDING.value,
+                WorkItemApproval.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+    )
+    for row in rows:
+        record = await session.get(WorkItem, row.work_item_id)
+        if record is None:  # pragma: no cover - the foreign key keeps the record
+            continue
+        await approval_event(session, record, row, "closed")  # the leaver's inbox drops it
+        row.approver_id = None
+        row.origin = rules.ApproverOrigin.ADMINISTRATORS.value
+        row.route_reason = rules.RouteReason.APPROVER_INACTIVE.value
+        row.version += 1
+        await session.flush()
+        await approval_event(session, record, row, "opened")  # the administrators' inboxes
+
+
+APPROVER_LEFT = ConsumerSpec(
+    name="work_items__approver_left",
+    event_types=("identity_access.user.status_changed",),
+    handler=on_user_status_changed,
+)

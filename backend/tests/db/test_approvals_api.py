@@ -5,12 +5,15 @@ decides; a rejection needs a reason; nobody approves their own request; nobody w
 the requester withdraws while it waits; a private comment stays with staff.
 """
 
+import json
 import uuid
 from typing import Any
 
 from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
+from app.modules.work_items.service.approvals import on_user_status_changed
+from app.shared.events import EventEnvelope
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
 from tests.db.test_service_requests_api import SR, an_item, raise_request
 
@@ -276,3 +279,35 @@ async def test_the_resolution_clock_waits_for_the_approval(world: World) -> None
     [entry] = await approvals(world, a, a.tech_a, record)
     assert (await decide(world, a, a.tech_a, record, entry, "approve")).status_code == 200
     assert await resolution_state() == ["running"]
+
+
+async def test_a_deactivated_approvers_approvals_go_to_the_fallback(world: World) -> None:
+    """REQ-SR-023 AC2: the administrators take them, with the reason; the leaver's inbox empties."""
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    record = await waiting(world, a)
+    person = await world.call("GET", f"/users/{a.tech_a}", a, a.admin)
+    left = await world.call(
+        "POST",
+        f"/users/{a.tech_a}/deactivate",
+        a,
+        a.admin,
+        headers={"If-Match": person.headers["ETag"], **CONSOLE},
+    )
+    assert left.status_code == 200, left.text
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE aggregate_id = $1"
+        " AND event_type = 'identity_access.user.status_changed'",
+        str(a.tech_a),
+    )
+    envelope = EventEnvelope.model_validate(json.loads(rows[-1]["envelope"]))
+    for _ in range(2):  # a second delivery changes nothing
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            await on_user_status_changed(envelope, session)
+    [entry] = await approvals(world, a, a.admin, record)
+    assert (entry["approver_id"], entry["origin"], entry["route_reason"]) == (
+        None,
+        "administrators",
+        "approver_inactive",
+    )
+    assert await inbox(world, a, a.admin) == [record["id"]]

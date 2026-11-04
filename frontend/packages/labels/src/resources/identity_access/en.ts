@@ -82,6 +82,12 @@ export const en = {
   'permission.requests.assign.description': 'Assign service requests to technicians and groups.',
   'permission.requests.close': 'Close service requests',
   'permission.requests.close.description': 'Resolve and close service requests.',
+  'permission.requests.approve': 'Approve service requests',
+  'permission.requests.approve.description':
+    'Decide the service request approvals you are named for.',
+  'permission.work_items.approve_any': 'Decide fallback approvals',
+  'permission.work_items.approve_any.description':
+    'Decide approvals that have no active approver (approval administrators).',
   'permission.problems.view': 'View problems',
   'permission.problems.view.description': 'See problem records.',
   'permission.problems.manage': 'Manage problems',
@@ -109,6 +115,7 @@ export const en = {
   'permission_module.users': 'Users',
   'permission_module.roles': 'Roles',
   'permission_module.profile': 'Profile',
+  'permission_module.work_items': 'All requests (incidents and service requests)',
   'permission_module.sites': 'Sites',
   'permission_module.groups': 'Support groups',
   'permission_module.settings': 'Settings',

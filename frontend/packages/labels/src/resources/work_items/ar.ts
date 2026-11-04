@@ -919,6 +919,8 @@ export const ar: LabelResource = {
   'requests.my_approvals_count_other': '{{count}} موافقة بانتظارك',
   'requests.no_approvals_waiting': 'لا شيء بانتظار موافقتك.',
   'requests.for_person': 'لـ {{name}}',
+  'approval_decision.approve': 'موافقة',
+  'approval_decision.reject': 'رفض',
   'approval_origin.named': 'موافق مسمّى',
   'approval_origin.manager': 'المدير',
   'approval_origin.backup': 'موافق احتياطي',
