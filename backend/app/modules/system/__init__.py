@@ -64,7 +64,10 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
         if url is None:
             not_configured.append(name)
         else:
-            probes.append(probe_type(url.get_secret_value()))
+            found = url.get_secret_value()
+            probes.append(
+                ValkeyProbe(found, settings) if probe_type is ValkeyProbe else probe_type(found)
+            )
     if settings.oidc_issuer is None:
         not_configured.append("keycloak")
     else:

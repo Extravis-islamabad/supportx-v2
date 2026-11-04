@@ -79,6 +79,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "ArticlePatch.requesters": "kb_requesters",
     "TopicIn.requesters": "kb_requesters",
     "TopicPatch.requesters": "kb_requesters",
+    "VoteIn.reason": "kb_vote_reason",
+    "RecordRef.how": "kb_link_source",
+    # API keys (WP-041)
+    "ApiKeyOut.status": "api_key_status",
+    "ApiKeyCreatedOut.status": "api_key_status",
+    "ScopeOut.access": "api_scope_access",
     # Knowledge on incidents (WP-033 session 4)
     "ApplyIn.audience": "kb_apply_audience",
     "ApplyIn.language": "locale",
@@ -223,6 +229,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "ItemAudience": "catalog_item_audience",
     "QuestionKind": "catalog_question_kind",
     "IndexFailure": "custom_field_index_error",
+    # The portal (WP-028)
+    "PortalStatus": "portal_status",
+    "PortalReach": "portal_reach",
+    "PortalState": "portal_state",
 }
 
 

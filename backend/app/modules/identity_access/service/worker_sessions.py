@@ -10,10 +10,9 @@ either way.
 import uuid
 from collections.abc import Awaitable, Callable
 
-import valkey.asyncio
-
 from app.core.config import Settings
 from app.core.logging import get_logger
+from app.core.valkey import client as valkey_client
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service.auth import MAX_SESSION, user_key
@@ -29,10 +28,10 @@ def worker_session_ender(settings: Settings) -> TenantSessionEnder | None:
     """`end(tenant_id, user_id)`, or None where sessions are not configured (tests, dev)."""
     if settings.valkey_url is None or settings.session_secret is None:
         return None
-    url, secret = settings.valkey_url.get_secret_value(), settings.session_secret.get_secret_value()
+    secret = settings.session_secret.get_secret_value()
 
     async def end(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
-        kv = valkey.asyncio.from_url(url)  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+        kv = valkey_client(settings)
         try:
             store = SessionStore(ValkeyKeyValue(kv), SessionCipher(secret))
             await store.end_user_sessions(

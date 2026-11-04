@@ -113,6 +113,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     on_behalf_scope: Mapped[str] = mapped_column(String(20), server_default="same_department")
     # REQ-SR-024 AC3 (WP-030 s2): requesters see only "awaiting approval", no names or comments.
     approvals_hidden_from_requesters: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # REQ-INC-147 (WP-028 D5): requesters see the expected resolution time; off by default.
+    portal_show_due_time: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"

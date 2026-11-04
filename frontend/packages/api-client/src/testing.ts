@@ -109,6 +109,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
   ['integrations.manage_email', 'all'],
+  ['api_keys.manage', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],
@@ -139,8 +140,8 @@ export function fakePermissions(
 
 /** A knowledge article as its author sees it: published in English unless overridden. */
 export function fakeKbArticle(
-  overrides: Partial<components['schemas']['ArticleOut']> = {},
-): components['schemas']['ArticleOut'] {
+  overrides: Partial<components['schemas']['ArticleReadOut']> = {},
+): components['schemas']['ArticleReadOut'] {
   const version = {
     id: '01900000-0000-7000-8000-00000000b101',
     language: 'en',
@@ -157,6 +158,8 @@ export function fakeKbArticle(
     published_at: '2026-10-29T08:00:00Z',
   };
   return {
+    featured: false,
+    my_vote: null,
     id: '01900000-0000-7000-8000-00000000b001',
     display_id: 'KB-1',
     topic_id: '01900000-0000-7000-8000-00000000b201',
@@ -309,6 +312,7 @@ export function fakeUser(overrides: Partial<UserDetail> = {}): UserDetail {
     id: '01900000-0000-7000-8000-000000000101',
     email: 'tech@demo.test',
     display_name: 'Tariq Technician',
+    contact_editable: false,
     first_name: 'Tariq',
     last_name: 'Technician',
     name_custom: false,
@@ -559,6 +563,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     keep_following_on_handover: true,
     on_behalf_scope: 'same_department',
     approvals_hidden_from_requesters: false,
+    portal_show_due_time: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,
     statuses: [

@@ -307,6 +307,18 @@ export {
   type SsoTestResult,
 } from './identity';
 export {
+  useApiKeyRules,
+  useApiKeys,
+  useApiKeyScopes,
+  useCreateApiKey,
+  useRevokeApiKey,
+  type ApiKey,
+  type ApiKeyCreated,
+  type ApiKeyInput,
+  type ApiKeyRules,
+  type ApiKeyScope,
+} from './apiKeys';
+export {
   useBulkJob,
   useBulkJobs,
   useIncidentListFields,
@@ -601,6 +613,12 @@ export {
 } from './mailboxes';
 export { useConnectorCatalogue, type ConnectorInstance, type ConnectorKind } from './connectors';
 export {
+  useConnectorSettings,
+  useSaveConnectorSettings,
+  type ConnectorSettings,
+  type ConnectorSettingsInput,
+} from './connectorSettings';
+export {
   useCreateDirectory,
   useDirectories,
   useDirectoryGroups,
@@ -665,6 +683,14 @@ export {
   type KbApplied,
   type KbFromRecord,
   type KbAudience,
+  useKbSuggestions,
+  useKbScores,
+  useKbVote,
+  type KbVote,
+  type KbVoteInput,
+  type KbVoteReason,
+  type KbScores,
+  type KbSnippetPart,
 } from './knowledge';
 export {
   serviceRequestKeys,
@@ -700,3 +726,22 @@ export {
   type ServiceRequestsQuery,
   type ServiceRequestViewCount,
 } from './serviceRequests';
+export {
+  portalKeys,
+  useAnswerFix,
+  usePortalConversation,
+  usePortalIncident,
+  usePortalIncidents,
+  usePortalReply,
+  usePortalTemplates,
+  useReportIssue,
+  type PortalEntry,
+  type PortalIncident,
+  type PortalIncidentInput,
+  type PortalIncidentPage,
+  type PortalIncidentsQuery,
+  type PortalReach,
+  type PortalState,
+  type PortalStatus,
+  type PortalTemplate,
+} from './portal';

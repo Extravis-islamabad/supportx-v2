@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     # Backing services. None means "not configured": readiness reports it instead of crashing.
     database_url: SecretStr | None = None
     valkey_url: SecretStr | None = None
+    # High availability (WP-014b): Valkey through Sentinel. "host:port,host:port" of the sentinels
+    # and the monitored master's name; `valkey_url` then gives only the password, database and
+    # TLS (its host is not used). Unset: a single Valkey at `valkey_url`, as before.
+    valkey_sentinels: str | None = None
+    valkey_sentinel_master: str = Field(default="supportx", min_length=1, max_length=64)
+    valkey_sentinel_password: SecretStr | None = None  # None: the same as Valkey's own
     nats_url: SecretStr | None = None
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
@@ -212,6 +218,11 @@ class Settings(BaseSettings):
     # Key for signing list cursors. None = derived from SUPPORTX_SESSION_SECRET; with neither
     # (dev/test without login) a random per-process key is used, so cursors die with the process.
     cursor_secret: SecretStr | None = None
+    # API keys (WP-041, D-128): the server key their secrets are hashed under (HMAC-SHA-256).
+    # Kept outside the database, so a leaked database alone cannot be used to test guesses.
+    # None = derived from SUPPORTX_SESSION_SECRET; with neither, API keys are unavailable (never a
+    # random key: every key would stop working at the next restart). Rotating it ends every key.
+    api_key_secret: SecretStr | None = None
     page_size_default: int = Field(default=50, ge=1, le=500)
     page_size_max: int = Field(default=200, ge=1, le=1000)
     idempotency_ttl_hours: int = Field(default=24, ge=1, le=720)

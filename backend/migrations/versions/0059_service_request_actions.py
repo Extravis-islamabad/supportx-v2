@@ -6,7 +6,7 @@ downgrade restores the old list; it refuses while a tenant's life cycle still us
 check would fail), which keeps data intact.
 
 Revision ID: 0059
-Revises: 0054
+Revises: 0058
 Created: 2026-11-04
 """
 
@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0059"
-down_revision: str | None = "0054"
+down_revision: str | None = "0058"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

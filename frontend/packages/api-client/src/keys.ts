@@ -27,6 +27,12 @@ export const queryKeys = {
     user: (id: string) => ['access', 'user', id] as const,
     units: (kind: 'sites' | 'groups') => ['access', kind] as const,
   },
+  apiKeys: {
+    all: ['api-keys'] as const,
+    list: ['api-keys', 'list'] as const,
+    rules: ['api-keys', 'rules'] as const,
+    scopes: ['api-keys', 'scopes'] as const,
+  },
   identity: {
     all: ['identity'] as const,
     settings: ['identity', 'settings'] as const,
@@ -156,6 +162,7 @@ export const queryKeys = {
   },
   connectors: {
     catalogue: ['connectors', 'catalogue'] as const,
+    settings: ['connectors', 'settings'] as const, // D-041: the tenant's connector defaults
   },
   directories: {
     all: ['directories'] as const,
@@ -186,6 +193,9 @@ export const queryKeys = {
     settings: ['knowledge', 'settings'] as const,
     links: (id: string) => ['knowledge', 'links', id] as const,
     recordArticles: (type: string, id: string) => ['knowledge', 'record', type, id] as const,
+    votes: (id: string) => ['knowledge', 'votes', id] as const,
+    suggestions: (text: string, language: string) =>
+      ['knowledge', 'suggestions', language, text] as const,
   },
   organization: {
     all: ['organization'] as const,

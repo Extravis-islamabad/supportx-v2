@@ -9,6 +9,7 @@ from sqlalchemy import (
     Computed,
     ForeignKeyConstraint,
     Index,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -350,6 +351,8 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     create_people_on_sign_in: Mapped[bool] = mapped_column(server_default="true")
     # REQ-SEC-020, Appendix A: how long an invitation link works (7 days; at most 30).
     invitation_valid_days: Mapped[int] = mapped_column(server_default="7")
+    # REQ-PRT-013 AC2 (WP-028): people change their own phone and mobile; off by default.
+    people_edit_contact: Mapped[bool] = mapped_column(server_default="false")
     # REQ-SEC-005, Appendix A (domain/password_policy.py): the installation's password policy,
     # which a worker writes into the realm. `default`: never edited here (the realm keeps what
     # the deploy gave it); `applying` until the worker wrote it; `failed` with the reason code.
@@ -365,9 +368,45 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     password_policy_error: Mapped[str | None] = mapped_column(String(60))
     # REQ-SEC-024, Appendix A: days a person has to enrol once MFA is required (7; 0 to 30).
     mfa_grace_days: Mapped[int] = mapped_column(server_default="7")
+    # REQ-INT-019, REQ-SEC-037 (D-128): people may make API keys for themselves (off), and keys
+    # without an expiry date are allowed (off: 90 days by default, at most a year).
+    people_may_create_keys: Mapped[bool] = mapped_column(server_default="false")
+    allow_non_expiring_keys: Mapped[bool] = mapped_column(server_default="false")
 
 
 MFA_MODES = ("off", "optional", "required")
+
+
+class ApiKey(TenantEntity):
+    """An API key (REQ-INT-019, D-128): a person's own, or a service identity's.
+
+    Only the HMAC-SHA-256 of its secret is kept (`secret_hash`, under a server key outside the
+    database) and its last four characters for the screen. A key acts as its owner, limited to
+    its scopes; the owner's permissions are read live on every call, never stored here.
+    """
+
+    __tablename__ = "api_keys"
+    __table_args__ = (
+        CheckConstraint("char_length(name) BETWEEN 1 AND 100", name="name_length"),
+        CheckConstraint("cardinality(scopes) BETWEEN 1 AND 200", name="scopes_count"),
+        CheckConstraint("cardinality(ip_allowlist) <= 20", name="allowlist_count"),
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"], ["users.tenant_id", "users.id"], name="fk_api_keys_owner"
+        ),
+        Index("ix_api_keys_tenant_owner", "tenant_id", "owner_id", "created_at"),
+    )
+
+    owner_id: Mapped[uuid.UUID]
+    name: Mapped[str] = mapped_column(String(100))
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(String(80)))
+    secret_hash: Mapped[bytes] = mapped_column(LargeBinary)
+    last_four: Mapped[str] = mapped_column(String(4))
+    expires_at: Mapped[datetime | None]
+    ip_allowlist: Mapped[list[str]] = mapped_column(ARRAY(String(50)), server_default="{}")
+    last_used_at: Mapped[datetime | None]
+    last_used_ip: Mapped[str | None] = mapped_column(String(50))
+    revoked_at: Mapped[datetime | None]
+    revoked_by: Mapped[uuid.UUID | None]
 
 
 class MfaPolicy(TenantEntity):

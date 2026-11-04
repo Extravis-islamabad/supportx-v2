@@ -36,6 +36,7 @@ from app.shared.realtime import (
     Publication,
     RealtimeEffects,
     RealtimeRoute,
+    broadcast,
     personal,
     record,
 )
@@ -51,6 +52,9 @@ IMPORTS_LIST = LiveList("people_imports", "users.manage")
 IDENTITY_LIST = LiveList("identity", "identity.manage")
 # Invitations (WP-039 session 2): the security screen's list and each person's record.
 INVITATIONS_LIST = LiveList("invitations", "users.manage")
+# API keys (WP-041): every key for key managers; each owner hears of their own on their channel.
+API_KEYS_LIST = LiveList("api_keys", "api_keys.manage")
+KEY_SETTINGS = frozenset({"people_may_create_keys", "allow_non_expiring_keys"})
 
 # Changes to these user fields change what the user may do: their connections are cut.
 ACCESS_FIELDS = frozenset({"status", "user_type"})
@@ -91,6 +95,7 @@ CHANNELS = [
     IMPORTS_LIST.spec(),
     IDENTITY_LIST.spec(),
     INVITATIONS_LIST.spec(),
+    API_KEYS_LIST.spec(),
 ]
 
 
@@ -238,16 +243,31 @@ async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> 
 
 
 async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
-    """Sign-in settings or an SSO set-up changed: other admins' security screens refetch."""
+    """Sign-in settings or an SSO set-up changed: other admins' security screens refetch.
+
+    When people may now (or no longer) change their own numbers, everyone's My account
+    refetches their own record (WP-028, rule 5c): a signal with no content, on the tenant's
+    channel, as the API decides what each person may do.
+
+    A change to the API key settings also reaches everyone's own key screen (WP-041), as a
+    tenant-wide signal that names nothing: each screen refetches what it may offer.
+    """
     del session
-    return RealtimeEffects(
-        publications=IDENTITY_LIST.publications(
-            envelope.tenant_id,
-            "identity.changed",
-            uuid.UUID(str(envelope.aggregate_id)),
-            actor_id=_actor(envelope),
-        )
+    publications = IDENTITY_LIST.publications(
+        envelope.tenant_id,
+        "identity.changed",
+        uuid.UUID(str(envelope.aggregate_id)),
+        actor_id=_actor(envelope),
     )
+    changed = set(envelope.payload.get("changed_fields") or ())
+    if "people_edit_contact" in changed:
+        publications.append(Publication(broadcast(envelope.tenant_id), CONTACT_EDITING_CHANGED))
+    if changed & KEY_SETTINGS:
+        publications.append(Publication(broadcast(envelope.tenant_id), "api_keys.rules_changed"))
+    return RealtimeEffects(publications=publications)
+
+
+CONTACT_EDITING_CHANGED = "identity_access.contact_editing_changed"
 
 
 async def _invitation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -258,6 +278,20 @@ async def _invitation_changed(envelope: EventEnvelope, session: AsyncSession) ->
             envelope.tenant_id,
             "invitations.changed",
             uuid.UUID(str(envelope.aggregate_id)),
+            actor_id=_actor(envelope),
+        )
+    )
+
+
+async def _api_key_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A key was made or revoked: key managers' list and the owner's own keys refetch."""
+    del session
+    return RealtimeEffects(
+        publications=API_KEYS_LIST.publications(
+            envelope.tenant_id,
+            "api_keys.changed",
+            uuid.UUID(str(envelope.aggregate_id)),
+            owners=[uuid.UUID(str(envelope.payload["owner_id"]))],
             actor_id=_actor(envelope),
         )
     )
@@ -301,4 +335,5 @@ ROUTES = [
         _identity_changed,
     ),
     RealtimeRoute(("identity_access.invitation.changed",), _invitation_changed),
+    RealtimeRoute(("identity_access.api_key.changed",), _api_key_changed),
 ]

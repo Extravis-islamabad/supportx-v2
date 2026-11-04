@@ -95,16 +95,17 @@ test('REQ-INC-106: a view built with the filter builder lists exactly its incide
 
   // Its own columns (REQ-INC-104 AC3): adding one here leaves "All open" as it was.
   await page.getByTestId('inc-columns').click();
-  await page.getByTestId('inc-columns-search').fill('Created');
-  await page.getByTestId('inc-column-add-created_at').click();
-  await expect(page.getByTestId('inc-column-created_at')).toBeVisible();
+  // Created is a default column (D-124); Updated is the one added here.
+  await page.getByTestId('inc-columns-search').fill('Updated');
+  await page.getByTestId('inc-column-add-updated_at').click();
+  await expect(page.getByTestId('inc-column-updated_at')).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('columnheader', { name: 'Created' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Updated', exact: true })).toBeVisible();
   await page.reload(); // AC1: kept for this user after a reload
   const views = await openSelect(page, 'inc-view');
   await page.keyboard.type(`E2E list ${stamp}`); // the view menu is long: search it
   await views.getByTitle(`E2E list ${stamp}`).click();
-  await expect(page.getByRole('columnheader', { name: 'Created' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Updated', exact: true })).toBeVisible();
 });
 
 test('REQ-INC-120 AC1: a bulk close closes what it may and lists the rest with the reason', async ({

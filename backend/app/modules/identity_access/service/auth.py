@@ -32,6 +32,7 @@ from app.core.errors import (
 )
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.audit import RequestFacts
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
     Identity,
@@ -56,9 +57,14 @@ from app.modules.identity_access.infra.oidc import (
     TokenSet,
 )
 from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.service import api_keys, sso_test
 from app.modules.identity_access.service import mfa as mfa_service
-from app.modules.identity_access.service import sso_test
-from app.modules.identity_access.service.users import provision_user, record_logout, tenant_name
+from app.modules.identity_access.service.users import (
+    provision_user,
+    record_logout,
+    requester_only,
+    tenant_name,
+)
 from app.shared.clock import Clock
 
 if TYPE_CHECKING:
@@ -122,6 +128,17 @@ class MfaEnrolmentDue(Exception):
 @dataclass(frozen=True)
 class EnrolFirst:
     """No session yet: the browser signs in again and Keycloak makes the person enrol MFA."""
+
+    redirect_to: str
+
+
+@dataclass(frozen=True)
+class PortalInstead:
+    """A requester signed in on the console: no console session; the portal signs them in.
+
+    REQ-PRT-001 AC1 (WP-028, lane B's review): a requester never lands on the console. Their
+    Keycloak session stands, so the portal's own sign-in completes without a second prompt.
+    """
 
     redirect_to: str
 
@@ -272,7 +289,7 @@ class AuthService:
         previous_session_id: str | None,
         host: str | None = None,
         action_status: str | None = None,
-    ) -> "LoginResult | EnrolFirst | sso_test.TestFinished":
+    ) -> "LoginResult | EnrolFirst | PortalInstead | sso_test.TestFinished":
         """Finish the OIDC callback and create a fresh session (or finish an SSO test).
 
         Any failure is raised as LoginFailure carrying the app it belongs to, so the BFF can send a
@@ -301,6 +318,10 @@ class AuthService:
             raise LoginFailure(app, exc, origin) from exc
         if previous_session_id:  # rotation: the pre-login session (if any) dies here
             await self.store.delete_session(previous_session_id)
+        if app == "console" and await self._requester_only(session):
+            # The console's paths mean nothing in the portal: its home, never return_to.
+            log.info("login_sent_to_portal", subject=session.subject, tenant_id=session.tenant_id)
+            return PortalInstead(self.landing("portal", "/", origin))
         session_id = await self._save_new(session)
         log.info("login", subject=session.subject, tenant_id=session.tenant_id, client=app)
         landing = self.landing(app, pending["return_to"], origin)
@@ -309,6 +330,11 @@ class AuthService:
             query = urlencode({"account_action": pending["account_action"], "status": outcome})
             landing += ("&" if "?" in landing else "?") + query
         return LoginResult(session_id, session, landing)
+
+    async def _requester_only(self, session: Session) -> bool:
+        if self.database is None:  # pragma: no cover - a login needs the database
+            return False
+        return await requester_only(self.database, session.tenant_uuid, session.user_uuid)
 
     async def _login(self, app: AppName, code: str, pending: dict[str, Any]) -> Session:
         client = self.client(app, pending.get("origin"))
@@ -382,7 +408,7 @@ class AuthService:
             email=identity.email,
             display_name=identity.display_name,
             locale=identity.locale,
-            user_type=identity.user_type.value,
+            user_type=user.user_type,  # the stored type, not the token's (D-029)
             roles=list(identity.roles),
             client=app,
             csrf_token=secrets.token_urlsafe(32),
@@ -465,7 +491,18 @@ class AuthService:
             await self.end_realtime(tenant_id, user_id)
 
     async def resolve(self, request: Request) -> TenantContext | None:
-        """`SessionResolver` for app.core.tenancy: the session's tenant and user."""
+        """`SessionResolver` for app.core.tenancy: an API key's call, or the session's user.
+
+        A key in `Authorization: Bearer sxk_…` is checked first and alone: no cookie, so no CSRF
+        either (D-128). A request carrying both is the key's call.
+        """
+        key = api_keys.bearer(request.headers.get("authorization"))
+        if key is not None:
+            if self.database is None:
+                raise ServiceUnavailable(code="api_keys_unavailable")
+            return await api_keys.authenticate(
+                self.database, self.settings, key, RequestFacts.of(request), self.clock.now()
+            )
         found = await self.session_for(request)
         if found is None:
             return None
@@ -539,6 +576,20 @@ class AuthService:
             log.warning("keycloak_logout_failed", subject=session.subject)
         # Last, and never fatal: the session is already gone, which is what the user asked for.
         # The session lives in Valkey, so this event cannot share a transaction with it.
+        if self.database is not None:
+            try:
+                await record_logout(
+                    self.database, session.tenant_uuid, session.user_uuid, _client_app(session)
+                )
+            except (SQLAlchemyError, OSError):
+                log.exception("logout_event_not_recorded", subject=session.subject)
+
+    async def end_session(self, session_id: str, session: Session) -> None:
+        """End only this SupportX session, recorded as a logout; Keycloak's own session stays.
+
+        For a console session that may not exist (D-129): the person keeps their portal sign-in.
+        """
+        await self.store.delete_session(session_id)
         if self.database is not None:
             try:
                 await record_logout(

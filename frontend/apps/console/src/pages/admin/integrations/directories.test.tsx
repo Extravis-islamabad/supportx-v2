@@ -94,8 +94,9 @@ describe('Admin › Integrations › Directories', () => {
       name: 'Acme Entra',
       credential: 's3cret',
       scope: 'all_users',
-      interval_minutes: 30,
     });
+    // Left empty: the tenant's default applies on the server (D-041).
+    expect(fake.find('POST', BASE)[0]?.body).not.toHaveProperty('interval_minutes');
   });
 
   it('keeps the stored secret when changing other settings', async () => {

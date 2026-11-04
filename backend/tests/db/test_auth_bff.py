@@ -169,8 +169,111 @@ async def test_portal_login_uses_the_portal_client_and_origin(bff: Bff) -> None:
     )
 
 
+async def test_a_requester_signing_in_on_the_console_lands_on_the_portal(bff: Bff) -> None:
+    """REQ-PRT-001 AC1 (WP-028): no console session; Keycloak's own signs them in to the portal."""
+    requester = bff.user("a", email="to-portal@demo.test", roles=("requester",))
+    response = await bff.login(requester, return_to="/incidents/42")
+    assert response.status_code == 303, response.text
+    assert response.headers["location"] == f"{PORTAL}/"  # its home: console paths mean nothing
+    assert bff.cookie() is None
+    assert (await bff.me()).status_code == 401
+    # On the portal itself they sign in as usual.
+    landed = await bff.login(requester, app="portal", return_to="/requests")
+    assert (landed.status_code, landed.headers["location"]) == (302, f"{PORTAL}/requests")
+    assert (await bff.me()).json()["user"]["user_type"] == "requester"
+
+
+async def test_a_portal_session_never_opens_the_console_on_a_shared_host(bff: Bff) -> None:
+    """D-129: one host, one cookie: the console's calls are refused, the portal keeps working."""
+    requester = bff.user("a", email="shared-host@demo.test", roles=("requester",))
+    await bff.login(requester, app="portal")
+    as_console = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "console"})
+    assert (as_console.status_code, as_console.json()["code"]) == (401, "console_requester_only")
+    as_portal = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "portal"})
+    assert as_portal.status_code == 200  # the portal session was not ended
+
+
+async def test_sign_in_and_me_apply_one_rule(bff: Bff) -> None:
+    """D-129: who the BFF sends to the portal is exactly who /me refuses the console."""
+    cases = {
+        "only-requester@demo.test": (("requester",), False),
+        "staff@demo.test": (("technician",), True),
+        "both@demo.test": (("requester", "technician"), True),
+    }
+    for email, (roles, console) in cases.items():
+        person = bff.user("a", email=email, roles=roles)
+        landed = await bff.login(person)
+        assert (landed.status_code == 302) is console, email
+        await bff.login(person, app="portal")
+        me = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "console"})
+        assert (me.status_code == 200) is console, email
+
+
+async def test_an_agent_signing_in_on_the_console_is_unchanged(bff: Bff) -> None:
+    agent = bff.user("a", email="agent@demo.test", roles=("technician",))
+    response = await bff.login(agent, return_to="/incidents/42")
+    assert (response.status_code, response.headers["location"]) == (302, f"{CONSOLE}/incidents/42")
+    assert bff.cookie() is not None
+
+
+async def _grant(bff: Bff, email: str, role: str) -> None:
+    conn = await asyncpg.connect(bff.db.admin_url)  # user_roles has FORCED RLS
+    try:
+        await conn.execute(
+            "INSERT INTO user_roles (tenant_id, user_id, role_id)"
+            " SELECT u.tenant_id, u.id, r.id FROM users u JOIN roles r ON r.tenant_id = u.tenant_id"
+            " WHERE u.email = $1 AND r.key = $2 ON CONFLICT DO NOTHING",
+            email,
+            role,
+        )
+    finally:
+        await conn.close()
+
+
+async def _revoke(bff: Bff, email: str, role: str) -> None:
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        await conn.execute(
+            "DELETE FROM user_roles ur USING users u, roles r WHERE ur.user_id = u.id"
+            " AND ur.role_id = r.id AND u.email = $1 AND r.key = $2",
+            email,
+            role,
+        )
+    finally:
+        await conn.close()
+
+
+async def test_supportx_roles_decide_the_landing_not_keycloak(bff: Bff) -> None:
+    """D-129, D-029: any role but requester opens the console; Keycloak's roles do not count."""
+    promoted = bff.user("a", email="promoted@demo.test", roles=("requester",))
+    await bff.login(promoted, app="portal")
+    await _grant(bff, "promoted@demo.test", "technician")
+    landed = await bff.login(promoted, return_to="/incidents")
+    assert (landed.status_code, landed.headers["location"]) == (302, f"{CONSOLE}/incidents")
+
+    demoted = bff.user("a", email="demoted@demo.test", roles=("technician",))
+    await bff.login(demoted)
+    await _revoke(bff, "demoted@demo.test", "technician")
+    await _grant(bff, "demoted@demo.test", "requester")
+    # Their console session ends at the next /me (made before the change), audited ...
+    assert (await bff.me()).status_code == 401
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        ended = await conn.fetch(
+            "SELECT a.details FROM audit_entries a JOIN users u ON a.object_id = u.id::text"
+            " WHERE u.email = 'demoted@demo.test' AND a.action = 'session.signed_out'"
+        )
+    finally:
+        await conn.close()
+    assert [json.loads(r["details"])["reason"] for r in ended] == ["console_requester_only"]
+    # ... and signing in again on the console takes them to the portal.
+    sent = await bff.login(demoted, return_to="/incidents")
+    assert (sent.status_code, sent.headers["location"]) == (303, f"{PORTAL}/")
+
+
 async def test_me_describes_the_session_without_tokens(bff: Bff) -> None:
-    await bff.login(bff.user("a", locale="ar", roles=("requester",)))
+    # Requesters sign in on the portal (on the console they are sent there: WP-028).
+    await bff.login(bff.user("a", locale="ar", roles=("requester",)), app="portal")
     response = await bff.me()
     assert response.status_code == 200
     body = response.json()
@@ -222,7 +325,10 @@ async def _precreate(bff: Bff, email: str, *, can_sign_in: bool = True) -> uuid.
 async def test_first_sign_in_links_a_person_added_by_an_admin(bff: Bff) -> None:
     """D-092: matched by email (any case), linked once; their record and roles are kept."""
     person = await _precreate(bff, "added@demo.test")
-    response = await bff.login(bff.user("a", email="Added@Demo.test", name="Keycloak Name"))
+    # Added as a requester: they sign in on the portal (the console sends them there, WP-028).
+    response = await bff.login(
+        bff.user("a", email="Added@Demo.test", name="Keycloak Name"), app="portal"
+    )
     assert response.status_code == 302, response.text
     (row,) = await user_rows(bff.db, "added@demo.test")
     assert (row["display_name"], row["user_type"], row["version"]) == (
@@ -687,7 +793,7 @@ async def test_technician_over_the_seat_limit_cannot_log_in(bff: Bff) -> None:
     # The seat holder keeps working, and requesters are never counted.
     assert (await bff.login(bff.user("a", email="first@demo.test"))).status_code == 302
     requester = bff.user("a", email="req@demo.test", roles=("requester",))
-    assert (await bff.login(requester)).status_code == 302
+    assert (await bff.login(requester, app="portal")).status_code == 302
 
 
 async def test_switching_into_a_full_tenant_is_refused(bff: Bff) -> None:
@@ -720,7 +826,7 @@ async def test_me_returns_supportx_roles_and_effective_permissions(bff: Bff) -> 
     }
     assert held["profile.edit"]["scope"] == "own"
 
-    await bff.login(bff.user("a", email="perm-req@demo.test", roles=("requester",)))
+    await bff.login(bff.user("a", email="perm-req@demo.test", roles=("requester",)), app="portal")
     me = (await bff.me()).json()
     assert me["user"]["roles"] == ["requester"]
     assert "users.view" not in {p["key"] for p in me["permissions"]}
@@ -741,7 +847,10 @@ async def test_keycloak_roles_are_mapped_only_once(bff: Bff) -> None:
             a,
         )
         # ...then the user signs in again, still a technician in Keycloak, now even an admin there.
-        await bff.login(bff.user("a", email="once@demo.test", roles=("technician", "tenant_admin")))
+        # With no SupportX role left they are not let into the console (D-129): the portal.
+        again = bff.user("a", email="once@demo.test", roles=("technician", "tenant_admin"))
+        assert (await bff.login(again)).status_code == 303
+        await bff.login(again, app="portal")
         count = await conn.fetchval(
             "SELECT count(*) FROM user_roles ur JOIN users u ON u.id = ur.user_id"
             " WHERE u.tenant_id = $1 AND u.email = 'once@demo.test'",

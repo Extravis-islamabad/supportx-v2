@@ -28,6 +28,7 @@ import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
   AccountSecurityCard,
+  ContactDetailsCard,
   ConflictDialog,
   FormProblem,
   PresenceAvatars,
@@ -39,6 +40,7 @@ import {
 } from '@supportx/ui';
 
 import { AvailabilityCard } from '../AvailabilitySwitch';
+import { ApiKeysPanel } from './apiKeys/ApiKeysPanel';
 import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
 import { LedGroupsCard } from '../GroupMembersAvailability';
 
@@ -117,7 +119,9 @@ export function ProfilePage() {
         </Descriptions>
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
+      <ContactDetailsCard />
       <AccountSecurityCard />
+      <ApiKeysPanel mode="mine" />
       <NotificationPreferencesCard />
       <FormDensityCard userId={me.id} value={me.form_density} />
       {me.user_type === 'technician' && licence.has('incident') && (

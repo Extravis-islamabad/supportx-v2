@@ -23,7 +23,27 @@ export const routes: RouteObject[] = [
         handle: { titleKey: 'nav.profile' },
         lazy: async () => ({ Component: (await import('./pages/AccountPage')).AccountPage }),
       },
-      { path: 'requests', handle: { titleKey: 'nav.my_requests' }, lazy: comingSoon },
+      {
+        path: 'requests',
+        handle: { titleKey: 'nav.my_requests' },
+        lazy: async () => ({
+          Component: (await import('./pages/requests/RequestsPage')).RequestsPage,
+        }),
+      },
+      {
+        path: 'requests/new',
+        handle: { titleKey: 'portal.report.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/requests/ReportPage')).ReportPage,
+        }),
+      },
+      {
+        path: 'requests/:id',
+        handle: { titleKey: 'nav.my_requests' },
+        lazy: async () => ({
+          Component: (await import('./pages/requests/RequestPage')).RequestPage,
+        }),
+      },
       { path: 'catalog', handle: { titleKey: 'nav.catalog' }, lazy: comingSoon },
       { path: '*', handle: { titleKey: 'shell.not_found' }, lazy: comingSoon },
     ],

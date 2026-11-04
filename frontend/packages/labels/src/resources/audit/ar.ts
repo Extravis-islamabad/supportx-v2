@@ -527,4 +527,14 @@ export const ar: LabelResource = {
   'event_type.service_catalog.category.changed': 'تغيّرت فئة في الكتالوج',
   'audit.action.catalog.item_changed': 'غيّر عنصرًا في الكتالوج',
   'audit.action.catalog.category_changed': 'غيّر فئة في الكتالوج',
+  'audit.action.user.contact_changed': 'غيّر بيانات الاتصال الخاصة به',
+  // WP-040 connector defaults (D-041)
+  'audit.action.connector_settings.changed': 'غيّر الإعدادات الافتراضية للموصلات',
+  'event_type.integrations.connector_settings.changed': 'تغيّرت الإعدادات الافتراضية للموصلات',
+  'event_type.knowledge.vote.saved': 'حُفظ تقييم مقالة معرفة',
+  'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
+  'audit.action.api_key.created': 'أنشأ مفتاح API',
+  'audit.action.api_key.revoked': 'أبطل مفتاح API',
+  'audit.action.api_key.refused': 'رُفض مفتاح API',
+  'audit.action.api_key.settings_changed': 'غيّر قواعد مفاتيح API',
 };

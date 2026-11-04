@@ -140,6 +140,8 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         changes["approvals_hidden_from_requesters"] = bool(
             values["approvals_hidden_from_requesters"]
         )
+    if "portal_show_due_time" in values:
+        changes["portal_show_due_time"] = bool(values["portal_show_due_time"])
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):
@@ -160,6 +162,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "keep_following_on_handover": current.keep_following_on_handover,
         "on_behalf_scope": current.on_behalf_scope,
         "approvals_hidden_from_requesters": current.approvals_hidden_from_requesters,
+        "portal_show_due_time": current.portal_show_due_time,
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,
         "default_urgency": current.default_urgency,

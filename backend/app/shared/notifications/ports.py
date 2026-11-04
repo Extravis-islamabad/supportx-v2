@@ -129,6 +129,16 @@ class RecordContext:
     # The part of the record the message carries (a reply's conversation entry): the source's
     # `delivery_changed` hears how the e-mail to the requester went (REQ-INC-059).
     entry_id: uuid.UUID | None = None
+    # The record in the portal, a path from the portal's base starting with "/" (e.g.
+    # "/requests/<id>"): people with PUBLIC access are sent there (REQ-PRT-024 AC2). None sends
+    # them to the portal's home, as before.
+    public_link: str | None = None
+
+    def __post_init__(self) -> None:
+        """A portal link is a path, never an address elsewhere."""
+        if self.public_link is not None and not self.public_link.startswith("/"):
+            msg = f"public_link must start with '/': {self.public_link!r}"
+            raise ValueError(msg)
 
 
 class DeliveryChange(Protocol):

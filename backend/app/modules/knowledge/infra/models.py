@@ -37,6 +37,9 @@ class KbSettings(TenantKeyed, Base):
     prefix: Mapped[str] = mapped_column(String(6), server_default="KB")
     self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")  # D-120 (4)
     requesters_enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # Suggestions on the technician create form (REQ-KB-062 AC3); the portal always suggests.
+    suggest_on_technician_form: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    portal_search: Mapped[bool] = mapped_column(Boolean, server_default="true")  # REQ-KB-082
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
@@ -163,6 +166,8 @@ class KbArticle(TenantEntity):
     withdrawn_at: Mapped[datetime | None]
     # The review date the owner was last reminded of, so each date reminds once (REQ-KB-086).
     review_reminded_on: Mapped[date | None]
+    # Featured in the portal by its editors (D-125 Q3).
+    featured: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class KbArticleVersion(TenantEntity):
@@ -286,7 +291,9 @@ class KbRecordLink(TenantEntity):
 
     __tablename__ = "kb_record_links"
     __table_args__ = (
-        CheckConstraint("source IN ('link', 'insert', 'created_from')", name="source"),
+        CheckConstraint(
+            "source IN ('link', 'insert', 'created_from', 'suggestion', 'report')", name="source"
+        ),
         CheckConstraint("record_type ~ '^[a-z][a-z_]{1,29}$'", name="record_type"),
         ForeignKeyConstraint(
             ["tenant_id", "article_id"],
@@ -309,3 +316,42 @@ class KbRecordLink(TenantEntity):
     record_type: Mapped[str] = mapped_column(String(30))
     record_id: Mapped[uuid.UUID]
     source: Mapped[str] = mapped_column(String(20))
+
+
+VOTE_REASONS = ("steps_did_not_work", "out_of_date", "hard_to_follow", "not_what_i_needed", "other")
+
+
+class KbVote(TenantEntity):
+    """A "did this help?" vote (REQ-KB-069): one per person and article version, changed in place.
+
+    The vote stays with its version, so a new version starts at zero and history keeps the old
+    score. A "no" may carry a reason (a label code) and a short plain-text comment.
+    """
+
+    __tablename__ = "kb_votes"
+    __table_args__ = (
+        CheckConstraint(
+            "reason IS NULL OR reason IN (" + ", ".join(f"'{r}'" for r in VOTE_REASONS) + ")",
+            name="reason",
+        ),
+        CheckConstraint("comment IS NULL OR char_length(comment) <= 1000", name="comment"),
+        ForeignKeyConstraint(
+            ["tenant_id", "article_id"],
+            ["kb_articles.tenant_id", "kb_articles.id"],
+            name="fk_kb_votes_article",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "version_id"],
+            ["kb_article_versions.tenant_id", "kb_article_versions.id"],
+            name="fk_kb_votes_version",
+        ),
+        Index("uq_kb_votes_person", "tenant_id", "version_id", "person_id", unique=True),
+        Index(None, "tenant_id", "article_id", "created_at"),
+    )
+
+    article_id: Mapped[uuid.UUID]
+    version_id: Mapped[uuid.UUID]
+    person_id: Mapped[uuid.UUID]
+    helpful: Mapped[bool] = mapped_column(Boolean)
+    reason: Mapped[str | None] = mapped_column(String(30))
+    comment: Mapped[str | None] = mapped_column(Text)

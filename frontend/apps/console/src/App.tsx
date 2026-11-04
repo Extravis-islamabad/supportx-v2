@@ -1,7 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Spin } from 'antd';
+import { useEffect, useState } from 'react';
 import { RouterProvider } from 'react-router';
 
+import { loginUrl } from '@supportx/api-client';
 import { RealtimeProvider } from '@supportx/realtime';
 
 import {
@@ -27,6 +29,27 @@ export interface AppProps {
   navigate?: SessionGateProps['navigate'];
 }
 
+/** D-129: holding no role but `requester` (or none) means the portal, never the console. */
+function requesterOnly(roles: string[]): boolean {
+  return roles.every((role) => role === 'requester');
+}
+
+/**
+ * Requester-only people never work in the console (D-129, WP-028): the BFF sends them to the
+ * portal at sign-in and ends a console session at /me; this is the screen's backstop. The
+ * portal's sign-in completes silently on Keycloak's own session.
+ */
+function ToPortal({
+  navigate = (url: string) => {
+    window.location.assign(url);
+  },
+}: AppProps) {
+  useEffect(() => {
+    navigate(loginUrl('portal', '/'));
+  }, [navigate]);
+  return <Spin fullscreen />;
+}
+
 export function App({ navigate }: AppProps) {
   // One cache and one router per mounted app (not module-level), so tests and HMR start clean.
   const [queryClient] = useState(createQueryClient);
@@ -46,17 +69,21 @@ export function App({ navigate }: AppProps) {
               <PasswordResetPage app="console" />
             ) : (
               <SessionGate app="console" navigate={navigate}>
-                {(session) => (
-                  // Keyed by tenant: a tenant switch remounts everything below with fresh state.
-                  <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
-                    <TenantBranding />
-                    <LicenceProvider key={session.tenant.id} session={session}>
-                      <CrumbProvider>
-                        <RouterProvider router={router} />
-                      </CrumbProvider>
-                    </LicenceProvider>
-                  </RealtimeProvider>
-                )}
+                {(session) =>
+                  requesterOnly(session.user.roles) ? (
+                    <ToPortal navigate={navigate} />
+                  ) : (
+                    // Keyed by tenant: a tenant switch remounts everything below with fresh state.
+                    <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
+                      <TenantBranding />
+                      <LicenceProvider key={session.tenant.id} session={session}>
+                        <CrumbProvider>
+                          <RouterProvider router={router} />
+                        </CrumbProvider>
+                      </LicenceProvider>
+                    </RealtimeProvider>
+                  )
+                }
               </SessionGate>
             )}
           </ErrorReporterProvider>

@@ -11,7 +11,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-import valkey.asyncio
 from fastapi import APIRouter, FastAPI
 from opentelemetry.sdk.metrics import MeterProvider
 
@@ -24,8 +23,9 @@ from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddlew
 from app.core.modules import ModuleRegistry, discover_modules
 from app.core.ops_server import OpsServer
 from app.core.telemetry import setup_tracing
+from app.core.valkey import client as valkey_client
 from app.shared.api.listing import CursorCodec
-from app.shared.api.openapi import add_filter_schema
+from app.shared.api.openapi import add_filter_schema, add_security, route_access
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
 from app.shared.events import EventRegistry, install_registry
 from app.shared.realtime import (
@@ -59,7 +59,7 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Created here, not at import, so the pool belongs to the server's event loop.
         app.state.db = Database.from_settings(settings)
-        valkey_client = _start_rate_limiter(app, settings)
+        limiter_valkey = _start_rate_limiter(app, settings)
         centrifugo = CentrifugoClient.from_settings(settings)
         setattr(app.state, CENTRIFUGO_STATE, centrifugo)
         await registry.start(app)
@@ -76,8 +76,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
             if ops is not None:
                 await ops.stop()
             await registry.stop(app)
-            if valkey_client is not None:
-                await valkey_client.aclose()
+            if limiter_valkey is not None:
+                await limiter_valkey.aclose()
             if centrifugo is not None:
                 await centrifugo.aclose()
             if app.state.db is not None:
@@ -143,7 +143,7 @@ def _start_rate_limiter(app: FastAPI, settings: Settings) -> Any:  # noqa: ANN40
     setattr(app.state, RATE_LIMITER_STATE, None)
     if not settings.rate_limit_enabled or settings.valkey_url is None:
         return None
-    client = valkey.asyncio.from_url(settings.valkey_url.get_secret_value())  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+    client = valkey_client(settings)
     limiter = RateLimiter(
         client, prefix=settings.valkey_key_prefix, provider=SettingsPolicyProvider(settings)
     )
@@ -157,7 +157,7 @@ def _publish_shared_schemas(app: FastAPI) -> None:
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
-            app.openapi_schema = add_filter_schema(generate())
+            app.openapi_schema = add_security(add_filter_schema(generate()), route_access(app))
         return app.openapi_schema
 
     app.openapi = openapi  # type: ignore[method-assign]  # FastAPI's documented customisation hook

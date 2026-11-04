@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: help decisions progress-log setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
+.PHONY: help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -158,6 +158,9 @@ decisions: ## Render every docs/decisions/D-NNN.md into one table at docs/_build
 
 progress-log: ## Render docs/progress-log/ newest first into docs/_build/PROGRESS-log.md (D-123)
 	$(BACKEND) uv run python -m tooling.docs_entries progress-log
+
+api-errors: generated-backend ## The API's error codes with their English text, into docs/_build/api/errors.md (WP-041)
+	$(BACKEND) uv run python -m tooling.api_errors
 
 openapi: generated-frontend ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API types (D-022)
 
@@ -327,6 +330,21 @@ deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgra
 	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 15m
 	$(HELM_TEST)
+
+cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
+	@K3D_CONFIG=cluster-ha.yaml bash deploy/k3d/up.sh
+
+deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
+	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
+	# tarball while others still read it, and k3d still reports success).
+	k3d image import --mode direct supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
+		-f $(CHART)/values-ha.yaml -f $(CHART)/values-ha-ci.yaml \
+		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 20m
+	$(HELM_TEST)
+
+cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survives, no split brain (ADR-038)
+	@bash deploy/k3d/ha-smoke.sh
 
 cluster-test: ## helm test: every internal route answers and Valkey enforces auth
 	$(HELM_TEST)

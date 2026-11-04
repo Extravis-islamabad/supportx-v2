@@ -30,6 +30,7 @@ import {
   type KbVersion,
 } from '@supportx/api-client';
 import {
+  PageHeader,
   ConflictDialog,
   inlineImageIds,
   lengthLimit,
@@ -159,9 +160,7 @@ export function NewArticlePage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 960 }}>
-      <Typography.Title level={1} style={{ margin: 0 }}>
-        {t('knowledge.new_article')}
-      </Typography.Title>
+      <PageHeader title={t('knowledge.new_article')} testId="kb-new-header" />
       <Form<NewArticleForm>
         form={form}
         layout="vertical"
