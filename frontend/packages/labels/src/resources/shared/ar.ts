@@ -457,4 +457,7 @@ export const ar: LabelResource = {
   'settings.portal_show_due_time': 'يرى مقدمو الطلبات الوقت المتوقع للحل',
   'settings.portal_show_due_time_help':
     'تعرض البوابة متى يُتوقع حل الحادثة، وفق اتفاقية مستوى الخدمة.',
+  'nav.admin_api_keys': 'مفاتيح API',
+  'api_scope_access.read': 'قراءة',
+  'api_scope_access.write': 'كتابة',
 };

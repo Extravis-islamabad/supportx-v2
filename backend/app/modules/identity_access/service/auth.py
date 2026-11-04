@@ -32,6 +32,7 @@ from app.core.errors import (
 )
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.audit import RequestFacts
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
     Identity,
@@ -56,8 +57,8 @@ from app.modules.identity_access.infra.oidc import (
     TokenSet,
 )
 from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.service import api_keys, sso_test
 from app.modules.identity_access.service import mfa as mfa_service
-from app.modules.identity_access.service import sso_test
 from app.modules.identity_access.service.users import (
     provision_user,
     record_logout,
@@ -490,7 +491,18 @@ class AuthService:
             await self.end_realtime(tenant_id, user_id)
 
     async def resolve(self, request: Request) -> TenantContext | None:
-        """`SessionResolver` for app.core.tenancy: the session's tenant and user."""
+        """`SessionResolver` for app.core.tenancy: an API key's call, or the session's user.
+
+        A key in `Authorization: Bearer sxk_…` is checked first and alone: no cookie, so no CSRF
+        either (D-128). A request carrying both is the key's call.
+        """
+        key = api_keys.bearer(request.headers.get("authorization"))
+        if key is not None:
+            if self.database is None:
+                raise ServiceUnavailable(code="api_keys_unavailable")
+            return await api_keys.authenticate(
+                self.database, self.settings, key, RequestFacts.of(request), self.clock.now()
+            )
         found = await self.session_for(request)
         if found is None:
             return None

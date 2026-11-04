@@ -94,6 +94,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.role_removed", AuditCategory.ACCESS, "identity_access"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.contact_changed", AuditCategory.ACCESS, "identity_access"),  # WP-028, REQ-PRT-013
+    # API keys (WP-041, D-128): made, revoked, refused (address not allowed), the tenant's rules
+    ("api_key.created", AuditCategory.SECURITY, "identity_access"),
+    ("api_key.revoked", AuditCategory.SECURITY, "identity_access"),
+    ("api_key.refused", AuditCategory.SECURITY, "identity_access"),
+    ("api_key.settings_changed", AuditCategory.SECURITY, "identity_access"),
     # automation (WP-029)
     ("automation.rule_created", AuditCategory.CONFIGURATION, "automation"),
     ("automation.rule_changed", AuditCategory.CONFIGURATION, "automation"),

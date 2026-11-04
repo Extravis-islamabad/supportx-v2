@@ -32,6 +32,7 @@ from app.core.tenancy import SESSION_RESOLVER_STATE
 from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.account import router as account_router
+from app.modules.identity_access.api.api_keys import router as api_keys_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
@@ -273,6 +274,7 @@ module = ModuleSpec(
         access_settings_router,
         identity_router,
         account_router,
+        api_keys_router,
         realtime_router,
     ],
     on_startup=[_startup],

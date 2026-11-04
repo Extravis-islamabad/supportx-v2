@@ -40,6 +40,7 @@ import {
 } from '@supportx/ui';
 
 import { AvailabilityCard } from '../AvailabilitySwitch';
+import { ApiKeysPanel } from './apiKeys/ApiKeysPanel';
 import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
 import { LedGroupsCard } from '../GroupMembersAvailability';
 
@@ -120,6 +121,7 @@ export function ProfilePage() {
       </Card>
       <ContactDetailsCard />
       <AccountSecurityCard />
+      <ApiKeysPanel mode="mine" />
       <NotificationPreferencesCard />
       <FormDensityCard userId={me.id} value={me.form_density} />
       {me.user_type === 'technician' && licence.has('incident') && (

@@ -502,4 +502,9 @@ export const ur: LabelResource = {
   'event_type.sla.target.escalated': 'ایس ایل اے ایسکلیشن کا درجہ چلا',
   'history.sla_escalation': '{{target}}: درجہ {{level}} چلا',
   'audit.action.user.contact_changed': 'اپنی رابطے کی تفصیلات تبدیل کیں',
+  'event_type.identity_access.api_key.changed': 'API کلید بدلی',
+  'audit.action.api_key.created': 'API کلید بنائی',
+  'audit.action.api_key.revoked': 'API کلید منسوخ کی',
+  'audit.action.api_key.refused': 'API کلید رد کی گئی',
+  'audit.action.api_key.settings_changed': 'API کلید کے قواعد بدلے',
 };

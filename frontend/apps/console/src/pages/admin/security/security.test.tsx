@@ -24,6 +24,8 @@ const DEFAULTS: IdentitySettings = {
   portal_absolute_seconds: 43200,
   create_people_on_sign_in: true,
   people_edit_contact: false,
+  people_may_create_keys: false,
+  allow_non_expiring_keys: false,
   invitation_valid_days: 7,
   password_min_length: 12,
   password_upper: true,

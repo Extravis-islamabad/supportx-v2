@@ -25,7 +25,7 @@ from app.core.modules import ModuleRegistry, discover_modules
 from app.core.ops_server import OpsServer
 from app.core.telemetry import setup_tracing
 from app.shared.api.listing import CursorCodec
-from app.shared.api.openapi import add_filter_schema
+from app.shared.api.openapi import add_filter_schema, add_security, route_access
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
 from app.shared.events import EventRegistry, install_registry
 from app.shared.realtime import (
@@ -157,7 +157,7 @@ def _publish_shared_schemas(app: FastAPI) -> None:
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
-            app.openapi_schema = add_filter_schema(generate())
+            app.openapi_schema = add_security(add_filter_schema(generate()), route_access(app))
         return app.openapi_schema
 
     app.openapi = openapi  # type: ignore[method-assign]  # FastAPI's documented customisation hook
