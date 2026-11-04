@@ -1,6 +1,6 @@
 import { Tooltip } from 'antd';
 
-import { useLabel } from '../appearance';
+import { useAppearance, useLabel } from '../appearance';
 import { CHANNEL_LOOKS, FALLBACK_LOOK } from './channelLooks';
 
 // Where a work item came from (REQ-INC-005): see ./channelLooks.
@@ -14,7 +14,9 @@ export interface ChannelIconProps {
 /** A channel's icon in its tinted square, named by the channel's label. */
 export function ChannelIcon({ channel, size = 26 }: ChannelIconProps) {
   const t = useLabel();
+  const { mode } = useAppearance();
   const look = CHANNEL_LOOKS[channel] ?? FALLBACK_LOOK;
+  const tint = mode === 'dark' ? look.dark : look;
   const name = t(`work_item_channel.${channel}`);
   return (
     <Tooltip title={name}>
@@ -30,8 +32,8 @@ export function ChannelIcon({ channel, size = 26 }: ChannelIconProps) {
           width: size,
           height: size,
           borderRadius: size > 32 ? 10 : 6,
-          background: look.bg,
-          color: look.fg,
+          background: tint.bg,
+          color: tint.fg,
           fontSize: Math.round(size * 0.54),
         }}
       >
