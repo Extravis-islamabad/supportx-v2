@@ -75,7 +75,6 @@ from app.modules.work_items.domain.closure import MOVE_FIELDS, within_reopen_win
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     FINAL_CATEGORIES,
-    USER_ACTIONS,
     PauseClock,
     ReasonList,
     ReasonMode,
@@ -393,7 +392,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
 
     transitions = _Transitions(session, subject, record)
     actions: list[ActionState] = []
-    for action in USER_ACTIONS:
+    for action in lifecycle.used_actions():
         transition = lifecycle.transitions.get((record.status, action))
         mode = transition.reason_mode if transition else ReasonMode.NONE
         reason_list = transition.reason_list if transition else None

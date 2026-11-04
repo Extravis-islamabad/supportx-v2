@@ -91,3 +91,15 @@ def test_problems_are_a_registered_type() -> None:
     assert (PROBLEM.path, PROBLEM.default_prefix, PROBLEM.feature) == ("problems", "PRB", "problem")
     assert PROBLEM.counter_key == "WI_PROBLEM"
     assert PROBLEM.permission("edit") == "problems.edit"
+
+
+def test_each_type_lists_only_its_own_actions() -> None:
+    from app.modules.work_items.domain.lifecycle import default_lifecycle  # noqa: PLC0415
+
+    incident = default_lifecycle().used_actions()
+    assert A.INVESTIGATE not in incident  # an incident never offers a problem's actions
+    assert A.HOLD not in incident
+    problem_actions = problem_lifecycle().used_actions()
+    assert A.START_WORK not in problem_actions
+    assert A.WAIT_REQUESTER not in problem_actions
+    assert problem_actions[:2] == [A.INVESTIGATE, A.CONFIRM_ROOT_CAUSE]

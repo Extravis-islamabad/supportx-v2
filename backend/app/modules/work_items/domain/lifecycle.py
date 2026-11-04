@@ -165,6 +165,14 @@ class Lifecycle:
         """User actions allowed from `status`, in the fixed order."""
         return [a for a in USER_ACTIONS if (status, a) in self.transitions]
 
+    def used_actions(self) -> list[WorkItemAction]:
+        """User actions this life cycle has at all, in the fixed order.
+
+        A type's action list: an incident never lists a problem's actions.
+        """
+        used = {action for _status, action in self.transitions}
+        return [a for a in USER_ACTIONS if a in used]
+
     def allows(self, status: str, action: WorkItemAction) -> bool:
         """Whether `action` is a transition from `status`."""
         return (status, action) in self.transitions

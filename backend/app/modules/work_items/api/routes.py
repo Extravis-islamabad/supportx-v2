@@ -867,7 +867,8 @@ class WorkItemCatalogueOut(BaseModel):
                 )
                 for s in cat.statuses
             ],
-            actions=list(USER_ACTIONS),
+            # The actions of this type's life cycle (an incident never offers a problem's).
+            actions=cat.lifecycle.used_actions(),
             transitions=[
                 WorkItemTransitionOut(
                     from_status=t.from_status,
