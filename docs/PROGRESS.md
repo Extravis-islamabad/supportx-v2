@@ -806,8 +806,18 @@ it with no reload (rule c). Not built yet.
   `required`, `internal` (0065); the last required one done fulfils the request when the item
   says so (REQ-SR-058; history automatic, rule `fulfilment`; resolution = the tasks done;
   optional tasks may stay open, a "block" open-work rule still stops it; a refused move leaves
-  the task's save standing). Tests: db 3. **Still to do:** signed action links and e-mail
-  approvals (D7, lane B's review), requester views (D9, after #178), e2e.
+  the task's save standing). Tests: db 3. Signed one-time action links (REQ-NTF-024,
+  `app/shared/action_links`, migration 0070; lane B reviewed and approved against their five
+  conditions): a 32-byte random token kept only as its SHA-256 (RLS), bound to recipient,
+  action, object and version, single use, 72 h; POST peek (never acts) and use (audited,
+  refusals too), rate-limited, no-referrer, sign-in required (D7 interim); someone else's
+  link answers exactly as an unknown one (lane B); the approval engine decides from a link
+  with channel `email_link`, a decided or withdrawn approval revokes its links (REQ-SR-061
+  AC2). Console page `/requests/approval-link#token` (the token read from the fragment and
+  removed from the address bar). Tests: domain 4, db 4 (incl. RLS), Vitest 2. **Still to
+  do:** sending the links in the approvers' e-mail (per recipient, through lane B's engine:
+  ask lane B first), the no-sign-in mode behind an off tenant setting (D7, parked), requester
+  views and the portal approve / link page (D9, after #178), e2e.
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).

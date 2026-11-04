@@ -654,8 +654,6 @@ export const en = {
   'errors.action_link_expired': 'This link has expired. Open the request in the app instead.',
   'errors.action_link_used': 'This link has already been used.',
   'errors.action_link_revoked': 'This is no longer needed: the request was decided or withdrawn.',
-  'errors.action_link_wrong_recipient':
-    'This link was sent to someone else. Sign in as that person, or open the request in the app.',
   'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
   'errors.not_an_approver': 'You are not an approver of this request.',
   'errors.approval_segregation': 'You cannot approve your own request.',

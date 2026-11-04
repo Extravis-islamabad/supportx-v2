@@ -898,6 +898,11 @@ export const ar: LabelResource = {
   'requests.new': 'طلب خدمة جديد',
   'requests.approval_filter': 'الموافقة',
   'requests.view_filter': 'العرض',
+  'requests.approval_by_link': 'موافقة أو رفض',
+  'requests.open_request': 'فتح الطلب',
+  'requests.reject_needs_reason': 'يحتاج الرفض إلى سبب.',
+  'requests.link_approved': 'تمت الموافقة. شكرًا لك.',
+  'requests.link_rejected': 'تم الرفض. سيُبلَّغ مقدم الطلب بالسبب.',
   'requests.settings.hide_approvals': 'إخفاء الموافقات عن مقدمي الطلبات',
   'requests.settings.hide_approvals_help':
     'يرى مقدمو الطلبات عندها فقط أن الطلب بانتظار الموافقة، دون أسماء الموافقين أو تعليقاتهم.',

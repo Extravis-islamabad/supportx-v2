@@ -680,6 +680,8 @@ export {
   useDecideApproval,
   useMyApprovals,
   useWithdrawRequest,
+  useActionLink,
+  usePeekActionLink,
   type Approval,
   type ApprovalDecision,
   type PendingApproval,

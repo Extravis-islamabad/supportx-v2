@@ -58,10 +58,14 @@ def test_a_link_acts_once_for_its_recipient_on_the_version_it_was_sent_for() -> 
     assert why(link(used_at=NOW)) is Refusal.USED
     assert why(link(revoked_at=NOW)) is Refusal.REVOKED
     assert why(link(expires_at=NOW)) is Refusal.EXPIRED
-    assert refusal(link(), now=NOW, actor=OTHER, current_version=3) is Refusal.WRONG_RECIPIENT
+    # Someone else's link is as unknown, whatever its state (a forwarded link reveals nothing).
+    assert refusal(link(), now=NOW, actor=OTHER, current_version=3) is Refusal.NOT_FOUND
+    assert refusal(link(used_at=NOW), now=NOW, actor=OTHER, current_version=3) is (
+        Refusal.NOT_FOUND
+    )
     assert refusal(link(), now=NOW, actor=ME, current_version=4) is Refusal.STALE
-    # Used beats everything: a second click never learns more.
-    assert refusal(link(used_at=NOW, expires_at=NOW), now=NOW, actor=OTHER, current_version=9) is (
+    # For its recipient, used beats expired and stale: a second click never learns more.
+    assert refusal(link(used_at=NOW, expires_at=NOW), now=NOW, actor=ME, current_version=9) is (
         Refusal.USED
     )
 

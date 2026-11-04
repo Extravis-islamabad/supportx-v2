@@ -22,7 +22,7 @@ from typing import Any, Protocol
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict, NotFound, PermissionDenied
+from app.core.errors import Conflict, NotFound
 from app.shared.action_links import domain as rules
 from app.shared.action_links.infra.models import ActionLink
 from app.shared.clock import Clock, system_clock
@@ -93,8 +93,6 @@ class LinkRefused(Conflict):
 def _refuse(reason: rules.Refusal) -> Exception:
     if reason is rules.Refusal.NOT_FOUND:
         return NotFound(code=reason.value)
-    if reason is rules.Refusal.WRONG_RECIPIENT:
-        return PermissionDenied(code=reason.value)
     return LinkRefused(code=reason.value)
 
 

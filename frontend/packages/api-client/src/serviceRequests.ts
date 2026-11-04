@@ -221,3 +221,24 @@ export function useWithdrawRequest() {
     },
   });
 }
+
+/** What a signed action link would do (WP-030 s3): never acts; the token goes in the body. */
+export function usePeekActionLink(token: string | undefined) {
+  return useQuery({
+    queryKey: ['action-links', 'peek', token ?? ''],
+    queryFn: () => call(api.POST('/api/v1/action-links/peek', { body: { token: token ?? '' } })),
+    enabled: token !== undefined && token !== '',
+    retry: false,
+    staleTime: Infinity,
+    meta: { silent: true }, // the page says why a link does nothing
+  });
+}
+
+/** Take a signed action link's action, once. */
+export function useActionLink() {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ token, body }: { token: string; body: Record<string, unknown> }) =>
+      call(api.POST('/api/v1/action-links/use', { body: { token, body } })),
+  });
+}

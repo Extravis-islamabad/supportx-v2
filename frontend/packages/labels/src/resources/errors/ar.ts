@@ -602,8 +602,6 @@ export const ar: LabelResource = {
   'errors.action_link_expired': 'انتهت صلاحية هذا الرابط. افتح الطلب في التطبيق بدلًا منه.',
   'errors.action_link_used': 'تم استخدام هذا الرابط من قبل.',
   'errors.action_link_revoked': 'لم يعد هذا مطلوبًا: تم البت في الطلب أو سحبه.',
-  'errors.action_link_wrong_recipient':
-    'أُرسل هذا الرابط إلى شخص آخر. سجّل الدخول باسمه، أو افتح الطلب في التطبيق.',
   'errors.action_link_stale': 'تغيّر الطلب منذ إرسال هذا الرابط. افتحه في التطبيق.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',

@@ -31,6 +31,13 @@ export const routes: RouteObject[] = [
         handle: { section: 'requests' },
         children: [
           {
+            // WP-030 s3: an approval from an e-mail link (the token is in the URL fragment).
+            path: 'approval-link',
+            lazy: async () => ({
+              Component: (await import('./pages/requests/ActionLinkPage')).ActionLinkPage,
+            }),
+          },
+          {
             index: true,
             lazy: async () => ({
               Component: (await import('./pages/requests/RequestsPage')).RequestsPage,

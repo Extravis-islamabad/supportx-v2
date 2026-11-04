@@ -831,6 +831,11 @@ export const en = {
   'requests.new': 'New service request',
   'requests.approval_filter': 'Approval',
   'requests.view_filter': 'View',
+  'requests.approval_by_link': 'Approve or reject',
+  'requests.open_request': 'Open the request',
+  'requests.reject_needs_reason': 'A rejection needs a reason.',
+  'requests.link_approved': 'Approved. Thank you.',
+  'requests.link_rejected': 'Rejected. The requester is told why.',
   'requests.settings.hide_approvals': 'Hide approvals from requesters',
   'requests.settings.hide_approvals_help':
     'Requesters then see only that a request awaits approval, without the approvers’ names or comments.',

@@ -830,6 +830,11 @@ export const ur: LabelResource = {
   'requests.new': 'نئی سروس درخواست',
   'requests.approval_filter': 'منظوری',
   'requests.view_filter': 'منظر',
+  'requests.approval_by_link': 'منظور یا مسترد کریں',
+  'requests.open_request': 'درخواست کھولیں',
+  'requests.reject_needs_reason': 'مسترد کرنے کے لیے وجہ ضروری ہے۔',
+  'requests.link_approved': 'منظور ہو گئی۔ شکریہ۔',
+  'requests.link_rejected': 'مسترد ہو گئی۔ درخواست گزار کو وجہ بتائی جائے گی۔',
   'requests.settings.hide_approvals': 'منظوریاں درخواست گزاروں سے چھپائیں',
   'requests.settings.hide_approvals_help':
     'درخواست گزار تب صرف یہ دیکھیں گے کہ درخواست منظوری کی منتظر ہے، منظوری دہندگان کے نام یا تبصروں کے بغیر۔',

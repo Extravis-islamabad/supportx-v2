@@ -36,7 +36,6 @@ class Refusal(StrEnum):
     EXPIRED = "action_link_expired"
     USED = "action_link_used"
     REVOKED = "action_link_revoked"  # e.g. the request was withdrawn (REQ-SR-061 AC2)
-    WRONG_RECIPIENT = "action_link_wrong_recipient"
     STALE = "action_link_stale"  # the object changed since the link was sent
 
 
@@ -85,12 +84,18 @@ def refusal(  # noqa: PLR0911 - one return per refusal, in their fixed order
     actor: uuid.UUID | None,
     current_version: int | None,
 ) -> Refusal | None:
-    """Why the link may not act now, or None. Order: unknown, used, revoked, expired, who, stale.
+    """Why the link may not act now, or None.
+
+    Order: unknown or not theirs (one answer, lane B), used, revoked, expired, stale.
 
     `actor` None: nobody is signed in (the no-sign-in mode, behind a tenant setting that is
     off, plan D7); the token itself then stands for the recipient.
     """
     if link is None:
+        return Refusal.NOT_FOUND
+    # Someone else's link answers exactly as an unknown one (lane B review): a forwarded link
+    # tells its holder nothing, not even that it was used or has expired.
+    if actor is not None and not hmac.compare_digest(actor.bytes, link.recipient_id.bytes):
         return Refusal.NOT_FOUND
     if link.used_at is not None:
         return Refusal.USED
@@ -98,8 +103,6 @@ def refusal(  # noqa: PLR0911 - one return per refusal, in their fixed order
         return Refusal.REVOKED
     if now >= link.expires_at:
         return Refusal.EXPIRED
-    if actor is not None and not hmac.compare_digest(actor.bytes, link.recipient_id.bytes):
-        return Refusal.WRONG_RECIPIENT
     if current_version is not None and current_version != link.object_version:
         return Refusal.STALE
     return None

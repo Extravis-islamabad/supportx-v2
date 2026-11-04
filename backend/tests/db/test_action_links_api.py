@@ -74,7 +74,7 @@ async def test_only_its_recipient_and_only_while_it_stands(world: World) -> None
     record = await waiting(world, a)
     token = await link_for(world, a, record)
     other = await post(world, a, a.tech_b, "use", token=token, body={"decision": "approve"})
-    assert problem(other) == (403, "action_link_wrong_recipient")
+    assert problem(other) == (404, "action_link_not_found")
     forged = await post(world, a, a.tech_a, "peek", token="A" * 43)
     assert problem(forged) == (404, "action_link_not_found")
     short = await post(world, a, a.tech_a, "peek", token="A" * 10)
@@ -89,6 +89,9 @@ async def test_only_its_recipient_and_only_while_it_stands(world: World) -> None
     assert withdrawn.status_code == 200, withdrawn.text
     late = await post(world, a, a.tech_a, "peek", token=token)
     assert problem(late) == (409, "action_link_revoked")  # REQ-SR-061 AC2: no longer needed
+    # Lane B review: a forwarded link tells its holder nothing, not even that it is dead.
+    forwarded = await post(world, a, a.tech_b, "peek", token=token)
+    assert problem(forwarded) == (404, "action_link_not_found")
     bad = await post(world, a, a.tech_a, "use", token=token, body={"decision": "maybe"})
     assert problem(bad)[0] == 409  # the link's own state first, never the body
 
