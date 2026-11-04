@@ -5,6 +5,7 @@ export const ur: LabelResource = {
   'custom_field_display.list': 'ڈراپ ڈاؤن فہرست',
   'custom_field_display.radio': 'بٹن',
   'custom_field_entity.incident': 'واقعات',
+  'custom_field_entity.release': 'ریلیزز',
   'custom_field_entity.service_request': 'سروس درخواستیں',
   'custom_field_index_error.busy': 'واقعات کا جدول دیگر دیکھ بھال میں مصروف تھا۔',
   'custom_field_index_error.disk_full': 'ڈیٹا بیس کی ڈسک کی جگہ ختم ہو گئی۔',
@@ -112,6 +113,8 @@ export const ur: LabelResource = {
   'pick_list.level': 'سطحیں',
   'pick_list.pause': 'درخواست گزار کا انتظار',
   'pick_list.reassign': 'دوسرے گروپ میں منتقلی کی وجوہات',
+  'pick_list.release_reason': 'ریلیز کی وجوہات',
+  'pick_list.release_type': 'ریلیز کی اقسام',
   'pick_list.reopen': 'دوبارہ کھولنے کی وجوہات',
   'pick_list.third_party': 'تیسرے فریق کا انتظار',
 };

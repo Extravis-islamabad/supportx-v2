@@ -20,7 +20,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusDef,
     TransitionDef,
 )
-from app.modules.work_items.domain.releases import RELEASE_MODEL
+from app.modules.work_items.domain.releases import RELEASE_MODEL, RELEASE_REASONS, RELEASE_TYPES
 from app.modules.work_items.domain.stages import SetBy, StageModel
 from app.shared.labels import strip_isolates
 
@@ -78,6 +78,8 @@ class WorkItemType:
     # A staged type (ADR-041): its stages, paths and listed status moves. None: no stages, and
     # status changes run through the named actions of `transitions` (incidents, requests).
     stages: StageModel | None = None
+    # Pick lists only this type has, seeded per tenant: list code → (value code, colour).
+    own_lists: Mapping[str, tuple[tuple[str, str | None], ...]] = field(default_factory=dict)
 
     @property
     def counter_key(self) -> str:
@@ -151,6 +153,10 @@ RELEASE = WorkItemType(
     transitions=(),
     fields=COMMON_FIELDS,
     stages=RELEASE_MODEL,
+    own_lists={
+        "release_type": RELEASE_TYPES,
+        "release_reason": tuple((code, None) for code in RELEASE_REASONS),
+    },
 )
 
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {

@@ -227,6 +227,15 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
         await _seed_stage_moves(session, wtype.code, staged, tenant)
     session.add_all(
         [
+            WorkItemReason(
+                tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i, colour=colour
+            )
+            for lst, values in wtype.own_lists.items()
+            for i, (code, colour) in enumerate(values)
+        ]
+    )
+    session.add_all(
+        [
             WorkItemTransition(
                 tenant_id=tenant,
                 type=wtype.code,

@@ -6,6 +6,11 @@ plain name. Approval outcomes (plan approved or rejected, acceptance accepted or
 set by the approvals code only (`system`).
 """
 
+import re
+from collections.abc import Mapping
+from enum import StrEnum
+from typing import Any
+
 from app.modules.work_items.domain.lifecycle import ReasonMode, StatusCategory
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
@@ -32,6 +37,25 @@ STAGES = (
     "closure",
 )
 EMERGENCY_PATH = "emergency"
+
+
+class ReleaseRisk(StrEnum):
+    """A release's risk (REQ-REL-004): a short list, set by hand or by an assessment later."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+# Appendix A's release types (with colours) and release reasons, seeded per tenant (REQ-REL-003,
+# REQ-REL-005); admins add, rename, recolour and retire them like any pick list.
+RELEASE_TYPES: tuple[tuple[str, str], ...] = (
+    ("major", "#CF1322"),
+    ("minor", "#1677FF"),
+    ("emergency", "#D48806"),
+    ("maintenance", "#389E0D"),
+)
+RELEASE_REASONS = ("new_features", "fixes", "security", "compliance")
 
 _BLUE, _AMBER, _GREEN, _RED, _GREY = "#1677FF", "#D48806", "#389E0D", "#CF1322", "#595959"
 
@@ -141,3 +165,53 @@ RELEASE_MODEL = StageModel(
     ),
     transitions=_MOVES + _CANCELS,
 )
+
+
+# --- a release's own fields (REQ-REL-002..005) ----------------------------------------------------
+
+DETAIL_FIELDS = (
+    "release_type",
+    "risk",
+    "release_version",
+    "build_ref",
+    "release_reason",
+    "release_notes",
+    "scheduled_start",
+    "scheduled_end",
+    "actual_start",
+    "actual_end",
+    "release_manager_id",
+    "release_engineer_id",
+)
+VERSION_MAX = 60
+BUILD_REF_MAX = 200
+# Searchable and shown in lists (REQ-REL-005 AC1): kept on the record's search text.
+SEARCHED_FIELDS = ("release_version", "build_ref")
+
+
+def detail_problems(merged: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """(field, problem code) pairs of a release's fields after an edit (values merged)."""
+    problems: list[tuple[str, str]] = []
+    for name, limit in (("release_version", VERSION_MAX), ("build_ref", BUILD_REF_MAX)):
+        value = merged.get(name)
+        if value is not None and len(value) > limit:
+            problems.append((name, "value_too_long"))
+    risk = merged.get("risk")
+    if risk is not None and risk not in {r.value for r in ReleaseRisk}:
+        problems.append(("risk", "invalid_choice"))
+    # REQ-REL-002 AC2: an end before its start is refused, on the field that is wrong.
+    for start, end in (("scheduled_start", "scheduled_end"), ("actual_start", "actual_end")):
+        began, ended = merged.get(start), merged.get(end)
+        if began is not None and ended is not None and ended < began:
+            problems.append((end, "end_before_start"))
+    return problems
+
+
+def search_terms(details: Mapping[str, Any]) -> str:
+    """The release's words for search: version and build reference.
+
+    Each value also goes in split at its separators: search reads `4.2.0` as the words 4, 2 and
+    0, while the text index keeps `4.2.0` as one token.
+    """
+    values = [str(details[n]) for n in SEARCHED_FIELDS if details.get(n)]
+    return " ".join(part for v in values for part in (v, re.sub(r"[\W_]+", " ", v).strip()))

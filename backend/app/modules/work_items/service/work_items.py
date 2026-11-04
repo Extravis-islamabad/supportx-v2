@@ -62,6 +62,7 @@ from app.modules.organization import (
     unit_heads,
     users_in_groups,
 )
+from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
@@ -71,7 +72,7 @@ from app.modules.work_items.domain.classification import (
     Urgency,
     compute_priority,
 )
-from app.modules.work_items.domain.closure import MOVE_FIELDS, within_reopen_window
+from app.modules.work_items.domain.closure import MOVE_FIELDS, missing_fields, within_reopen_window
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     FINAL_CATEGORIES,
@@ -121,6 +122,7 @@ from app.modules.work_items.infra.models import (
     WorkItemCategory,
     WorkItemConversation,
     WorkItemFollower,
+    WorkItemReleaseDetails,
 )
 from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
 from app.modules.work_items.service import catalogue as config
@@ -1184,12 +1186,22 @@ def _snapshot(record: WorkItem, names: Sequence[str] = SNAPSHOT_FIELDS) -> dict[
 
 
 async def _custom_text(
-    session: AsyncSession, wtype: WorkItemType, custom: Mapping[str, Any]
+    session: AsyncSession,
+    wtype: WorkItemType,
+    custom: Mapping[str, Any],
+    record_id: uuid.UUID | None = None,
 ) -> str | None:
-    """Free text of the custom values, kept on the record for search (WP-026, WP-027)."""
-    if not custom:
-        return None
-    return await metadata.text_for_search(session, wtype.code.value, custom)
+    """Free text kept on the record for search (WP-026, WP-027).
+
+    Custom values, and a release's version and build reference (REQ-REL-005 AC1).
+    """
+    parts = [await metadata.text_for_search(session, wtype.code.value, custom) if custom else None]
+    if record_id is not None and wtype.code is WorkItemTypeCode.RELEASE:
+        details = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record_id))
+        if details is not None:
+            parts.append(release_rules.search_terms(_detail_values(details)))
+    text = " ".join(p for p in parts if p)
+    return text or None
 
 
 def _is_uuid(value: Any) -> bool:  # noqa: ANN401 - a JSON value
@@ -1549,7 +1561,7 @@ async def _rules_on_edit(
     if custom_changes:
         merged = {**(columns.get("custom", record.custom) or {}), **custom_changes}
         columns["custom"] = {k: v for k, v in merged.items() if v is not None}
-        columns["custom_text"] = await _custom_text(session, wtype, columns["custom"])
+        columns["custom_text"] = await _custom_text(session, wtype, columns["custom"], record.id)
     return automated
 
 
@@ -2062,7 +2074,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     columns = {name: value for name, value in cleaned.items() if getattr(record, name) != value}
     if custom is not None and custom != (record.custom or {}):
         columns["custom"] = custom
-        columns["custom_text"] = await _custom_text(session, wtype, custom)
+        columns["custom_text"] = await _custom_text(session, wtype, custom, record.id)
     automated = automation.Automated()
     if columns:
         # Business rules on the edit (REQ-RUL-001, 006), before the priority matrix.
@@ -2280,6 +2292,7 @@ async def move_status(  # noqa: PLR0913 - the move and its context, explicit
     reason_code: str | None,
     reason_text: str | None,
     source: Source,
+    closing_input: closing.MoveInput | None = None,
 ) -> WorkItemView:
     """A person's listed status move on a staged type (ADR-041 §8); never a system status.
 
@@ -2300,6 +2313,7 @@ async def move_status(  # noqa: PLR0913 - the move and its context, explicit
         reason_text=reason_text,
         source=source,
         subject=subject,
+        given=closing_input or closing.MoveInput(),
     )
     return await _view(session, subject, wtype, moved)
 
@@ -2378,6 +2392,7 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     reason_text: str | None,
     source: Source,
     subject: Subject | None,
+    given: closing.MoveInput = closing.MoveInput(),  # noqa: B008 - a frozen, empty default
 ) -> WorkItem:
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     try:
@@ -2402,6 +2417,7 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     )
     if problems:
         raise _errors(problems, reason_text={"max_length": 500})
+    _check_move_fields(record, move)
     guard = stage_service.guard_of(record.type)
     refusals = [] if guard is None else await guard.check(session, record, move)
     if refusals:
@@ -2409,12 +2425,19 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
             code="stage_move_refused",
             params={"reason": refusals[0].code, "count": len(refusals)},
         )
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    # The closing rules by category (WP-020f): entering resolved runs resolve's, closed close's,
+    # leaving a final status clears the resolution as a reopen does.
+    closing_step = await closing.before_move(
+        session, cat, record, _closing_action(record, move), given
+    )
     before = _snapshot(record, (*STAMP_FIELDS, "stage"))
     from_stage = str(record.stage)
     now = _now()
-    updated = await _update(
-        session, record, expected_version, _staged_changes(record, move, reason_code, text, now)
-    )
+    changes = _staged_changes(record, move, reason_code, text, now) | closing_step.changes
+    automated = await _rules_on_edit(session, wtype, record, changes)
+    updated = await _update(session, record, expected_version, changes)
     entries = await stage_service.enter(
         session, updated, move.entered, now=now, reason_code=reason_code, reason_text=text
     )
@@ -2427,8 +2450,34 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         entries=entries,
         source=source,
         reason=text,
+        extra=closing_step.history,
     )
+    await _record_automation(session, updated, automated)
     return updated
+
+
+def _closing_action(record: WorkItem, move: Move) -> WorkItemAction:
+    """Which closing rules a stage move runs, from the categories it moves between."""
+    old = StatusCategory(record.status_category)
+    new = move.landed.category
+    if old in FINAL_CATEGORIES and new not in FINAL_CATEGORIES:
+        return WorkItemAction.REOPEN
+    if new == StatusCategory.CLOSED and old != StatusCategory.CLOSED:
+        return WorkItemAction.CLOSE
+    if new == StatusCategory.RESOLVED and old != StatusCategory.RESOLVED:
+        return WorkItemAction.RESOLVE
+    return WorkItemAction.START_WORK  # no closing rules
+
+
+def _check_move_fields(record: WorkItem, move: Move) -> None:
+    """The fields the move's transition asks for must have a value (ADR-041 §4, REQ-CHG-026)."""
+    asked = move.transition.required_fields
+    if not asked:
+        return
+    values = {name: getattr(record, name, None) for name in asked if not name.startswith("custom.")}
+    missing = missing_fields(asked, values, record.custom or {})
+    if missing:
+        raise _errors([(name, "required") for name in missing])
 
 
 def _staged_changes(
@@ -2479,6 +2528,7 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
     entries: Sequence[Any],
     source: Source,
     reason: str | None,
+    extra: Sequence[Change] = (),
 ) -> None:
     after = _snapshot(record, (*STAMP_FIELDS, "stage"))
     await record_changes(
@@ -2487,7 +2537,7 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
         record_id=record.id,
         version=record.version,
         kind="status",
-        changes=[Change(n, before[n], v) for n, v in after.items() if before[n] != v],
+        changes=[Change(n, before[n], v) for n, v in after.items() if before[n] != v] + list(extra),
         source=source,
         reason=reason,
     )
@@ -2526,6 +2576,146 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
             aggregate_id=record.id,
             aggregate_version=record.version,
         )
+
+
+# --- a release's own fields (WP-058a; REQ-REL-002..005) -----------------------------------------
+
+
+@dataclass(frozen=True)
+class ReleaseDetailsView:
+    """A release and its own fields (None before any is set)."""
+
+    record: WorkItem
+    details: WorkItemReleaseDetails | None
+
+
+def _detail_values(row: WorkItemReleaseDetails | None) -> dict[str, Any]:
+    return {n: (getattr(row, n) if row is not None else None) for n in release_rules.DETAIL_FIELDS}
+
+
+def _release_only(wtype: WorkItemType) -> None:
+    if wtype.code is not WorkItemTypeCode.RELEASE:
+        raise _not_found(wtype)
+
+
+async def release_details(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> ReleaseDetailsView:
+    """A release's own fields, within your view scope (404 otherwise)."""
+    _release_only(wtype)
+    record = await _visible(session, subject, wtype, record_id)
+    row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record.id))
+    return ReleaseDetailsView(record, row)
+
+
+def _clean_detail(name: str, value: Any) -> Any:  # noqa: ANN401 - field values of several types
+    """Trimmed text (blank: none), sanitised notes; other values as given."""
+    if isinstance(value, str):
+        if name == "release_notes":
+            cleaned = sanitize_html(value)
+            return None if is_blank(cleaned) else cleaned
+        return " ".join(value.split()) or None
+    return value
+
+
+async def _detail_problems(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    current: Mapping[str, Any],
+    given: Mapping[str, Any],
+    risk_reason: str | None,
+) -> list[tuple[str, str]]:
+    problems = release_rules.detail_problems({**current, **given})
+    cat = await config.load(session, wtype)
+    for name, pick in (
+        ("release_type", PickList.RELEASE_TYPE),
+        ("release_reason", PickList.RELEASE_REASON),
+    ):
+        # A retired value is never newly chosen; a release that has it keeps it (REQ-REL-003).
+        value = given.get(name)
+        if value is not None and value != current[name] and value not in cat.reason_codes(pick):
+            problems.append((name, "invalid_choice"))
+    people = {
+        n: given[n]
+        for n in ("release_manager_id", "release_engineer_id")
+        if given.get(n) is not None
+    }
+    if people:
+        found = await user_names(session, [str(v) for v in people.values()])
+        problems += [(n, "user_not_found") for n, v in people.items() if str(v) not in found]
+    # REQ-REL-004 AC3: a risk set by hand says why, in history.
+    if "risk" in given and given["risk"] != current["risk"] and not risk_reason:
+        problems.append(("risk_reason", "reason_required"))
+    return problems
+
+
+async def update_release_details(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    expected_version: int,
+    values: Mapping[str, Any],
+    source: Source,
+    risk_reason: str | None = None,
+) -> ReleaseDetailsView:
+    """Change the fields you send (If-Match on the release). Unchanged input: no new version."""
+    _release_only(wtype)
+    record = await _for_action(session, subject, wtype, "edit", record_id)
+    if _closed(record):
+        raise Conflict(code="record_closed", params={"status": record.status})
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    tenant = config.tenant_of(session)
+    row = await session.get(WorkItemReleaseDetails, (tenant, record.id))
+    current = _detail_values(row)
+    given = {n: _clean_detail(n, v) for n, v in values.items() if n in release_rules.DETAIL_FIELDS}
+    reason = (risk_reason or "").strip() or None
+    problems = await _detail_problems(session, wtype, current, given, reason)
+    if problems:
+        raise _errors(problems)
+    changed = {n: v for n, v in given.items() if v != current[n]}
+    if not changed:
+        return ReleaseDetailsView(record, row)
+    if row is None:
+        row = WorkItemReleaseDetails(tenant_id=tenant, work_item_id=record.id)
+        session.add(row)
+    for name, value in changed.items():
+        setattr(row, name, value)
+    await session.flush()
+    audience = _audience(record)
+    updated = await _update(
+        session,
+        record,
+        expected_version,
+        {"custom_text": await _custom_text(session, wtype, record.custom or {}, record.id)},
+    )
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[Change(n, _json(current[n]), _json(v)) for n, v in changed.items()],
+        source=source,
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(changed),
+            audience_before=audience,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return ReleaseDetailsView(updated, row)
 
 
 # --- the requester replies (WP-020f) --------------------------------------------------------------
@@ -3353,7 +3543,7 @@ async def _automated_columns(
     cleaned_custom = {k: v for k, v in custom.items() if v is not None}
     if cleaned_custom != (record.custom or {}):
         columns["custom"] = cleaned_custom
-        columns["custom_text"] = await _custom_text(session, wtype, cleaned_custom)
+        columns["custom_text"] = await _custom_text(session, wtype, cleaned_custom, record.id)
     return columns
 
 

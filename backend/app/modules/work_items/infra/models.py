@@ -1238,3 +1238,58 @@ class WorkItemStageEntry(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base)
     left_at: Mapped[datetime | None]
     reason_code: Mapped[str | None] = mapped_column(String(40))
     reason_text: Mapped[str | None] = mapped_column(String(500))
+
+
+class WorkItemReleaseDetails(TenantKeyed, Timestamps, Actors, Base):
+    """A release's own fields, one row per release (WP-058a; REQ-REL-002..005; 0092).
+
+    No version of its own: every edit goes through the release's work item, whose `version` it
+    bumps, so one If-Match covers the whole record.
+    """
+
+    __tablename__ = "work_item_release_details"
+    __table_args__ = (
+        CheckConstraint("risk IS NULL OR risk IN ('low', 'medium', 'high')", name="risk_code"),
+        CheckConstraint(
+            "scheduled_end IS NULL OR scheduled_start IS NULL OR scheduled_end >= scheduled_start",
+            name="scheduled_order",
+        ),
+        CheckConstraint(
+            "actual_end IS NULL OR actual_start IS NULL OR actual_end >= actual_start",
+            name="actual_order",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "release_manager_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_work_item_release_details_release_manager_id",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "release_engineer_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_work_item_release_details_release_engineer_id",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_work_item_release_details_tenant_version",
+            "tenant_id",
+            "release_version",
+            postgresql_where=text("release_version IS NOT NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("work_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    release_type: Mapped[str | None] = mapped_column(String(40))
+    risk: Mapped[str | None] = mapped_column(String(10))
+    release_version: Mapped[str | None] = mapped_column(String(60))
+    build_ref: Mapped[str | None] = mapped_column(String(200))
+    release_reason: Mapped[str | None] = mapped_column(String(40))
+    release_notes: Mapped[str | None] = mapped_column(Text)
+    scheduled_start: Mapped[datetime | None]
+    scheduled_end: Mapped[datetime | None]
+    actual_start: Mapped[datetime | None]
+    actual_end: Mapped[datetime | None]
+    release_manager_id: Mapped[uuid.UUID | None]
+    release_engineer_id: Mapped[uuid.UUID | None]

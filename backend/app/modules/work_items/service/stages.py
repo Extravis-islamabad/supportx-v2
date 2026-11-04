@@ -101,9 +101,10 @@ async def load_model(
     )
     paths = list(
         await session.scalars(
+            # Disabled paths stay in the model: records already on one keep moving (lane A);
+            # only new records are never placed on a disabled path.
             select(WorkItemStagePath).where(
                 WorkItemStagePath.type == wtype.code,
-                WorkItemStagePath.disabled_at.is_(None),
                 _version_in(WorkItemStagePath.lifecycle_version, version),
             )
         )
@@ -229,7 +230,8 @@ async def entries_of(session: AsyncSession, record: WorkItem) -> list[WorkItemSt
         await session.scalars(
             select(WorkItemStageEntry)
             .where(WorkItemStageEntry.work_item_id == record.id)
-            .order_by(WorkItemStageEntry.entered_at, WorkItemStageEntry.created_at)
+            # Entries of one auto-advance share entered_at: the UUIDv7 id keeps their order.
+            .order_by(WorkItemStageEntry.entered_at, WorkItemStageEntry.id)
         )
     )
 

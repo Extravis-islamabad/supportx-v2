@@ -240,3 +240,177 @@ async def test_stage_tables_are_isolated_by_rls(world: World, table: str) -> Non
                 ),
                 {"a": a.tenant},
             )
+
+
+async def _place(world: World, item: dict[str, Any], stage: str, status: str) -> dict[str, Any]:
+    """Put this test's own release in a stage directly (its own fresh data)."""
+    await world.sql(
+        "UPDATE work_items SET stage = $2, status = $3, version = version + 1 WHERE id = $1",
+        uuid.UUID(item["id"]),
+        stage,
+        status,
+    )
+    response = await world.call("GET", f"{REL}/{item['id']}", world.a, world.a.admin)
+    return dict(response.json())
+
+
+async def test_lane_a_review_closing_rules_required_fields_and_disabled_paths(
+    world: World,
+) -> None:
+    a = world.a
+    item = await _place(world, await a_release(world, a), "deployment", "deployment_rolled_back")
+    # Entering a closed status runs the closing rules: the closure code is asked for.
+    no_code = await move(world, a, item, "closure_closed")
+    assert no_code.status_code == 422, no_code.text
+    assert {e["field"] for e in no_code.json()["errors"]} == {"body.closure_code"}
+    # A transition's required fields must have a value (ADR-041 §4).
+    await world.sql(
+        "UPDATE work_item_status_transitions SET required_fields = '[\"impact\"]'::jsonb"
+        " WHERE tenant_id = $1 AND from_status = 'deployment_rolled_back'"
+        " AND to_status = 'build_in_progress'",
+        a.tenant,
+    )
+    no_impact = await move(world, a, item, "build_in_progress")
+    assert no_impact.status_code == 422, no_impact.text
+    assert {e["field"] for e in no_impact.json()["errors"]} == {"body.impact"}
+    # A disabled path keeps working for the records already on it.
+    await world.sql(
+        "UPDATE work_item_stage_paths SET disabled_at = now() WHERE tenant_id = $1", a.tenant
+    )
+    closed = await world.call(
+        "POST",
+        f"{REL}/{item['id']}/moves",
+        a,
+        a.admin,
+        json={"to_status": "closure_closed", "closure_code": "fixed"},
+        headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
+    )
+    assert closed.status_code == 200, closed.text
+    assert (closed.json()["status_category"], closed.json()["closure_code"]) == ("closed", "fixed")
+    assert rail(await panel(world, a, closed.json()))["closure"][0] == "current"
+
+
+# --- a release's own fields (REQ-REL-002..005) ----------------------------------------------------
+
+
+async def details(
+    world: World,
+    org: Org,
+    item: dict[str, Any],
+    version: int | None = None,
+    **body: Any,  # noqa: ANN401 - JSON
+) -> httpx.Response:
+    return await world.call(
+        "PATCH",
+        f"{REL}/{item['id']}/details",
+        org,
+        org.admin,
+        json=body,
+        headers={"If-Match": f'"{version or item["version"]}"', **CONSOLE},
+    )
+
+
+async def test_req_rel_002_to_005_a_release_keeps_its_own_fields_with_history_and_search(
+    world: World,
+) -> None:
+    a = world.a
+    item = await a_release(world, a)
+    empty = await world.call("GET", f"{REL}/{item['id']}/details", a, a.admin)
+    assert empty.status_code == 200, empty.text
+    assert empty.json()["release_type"] is None
+    saved = await details(
+        world,
+        a,
+        item,
+        release_type="major",
+        release_version="4.2.0",
+        build_ref="build-1887",
+        release_reason="security",
+        release_notes="<p>Fixes <script>x</script>login</p>",
+        scheduled_start="2026-11-10T08:00:00Z",
+        scheduled_end="2026-11-10T10:00:00Z",
+        release_manager_id=str(a.lead),
+    )
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    assert body["version"] == item["version"] + 1  # one If-Match for the whole record
+    assert "<script>" not in body["release_notes"]  # sanitised (REQ-REL-005 AC3)
+    history = await world.call("GET", f"{REL}/{item['id']}/history", a, a.admin)
+    fields = {c["field"] for c in history.json()["items"][0]["changes"]}
+    assert {"release_type", "release_version", "release_manager_id"} <= fields  # REQ-REL-002 AC3
+    found = await world.call("GET", f"{REL}/search?q=4.2.0", a, a.admin)
+    assert found.status_code == 200, found.text
+    assert item["id"] in {r["id"] for r in found.json()["items"]}  # REQ-REL-005 AC1
+    # The same unchanged input saves nothing.
+    again = await details(world, a, item, body["version"], release_type="major")
+    assert again.json()["version"] == body["version"]
+    stale = await details(world, a, item, item["version"], build_ref="build-1888")
+    assert stale.status_code == 409, stale.text
+
+
+async def test_req_rel_002_ac2_end_before_start_and_rel_004_risk_needs_a_reason(
+    world: World,
+) -> None:
+    a = world.a
+    item = await a_release(world, a)
+    backwards = await details(
+        world,
+        a,
+        item,
+        scheduled_start="2026-11-10T10:00:00Z",
+        scheduled_end="2026-11-10T08:00:00Z",
+    )
+    assert backwards.status_code == 422, backwards.text
+    assert {(e["field"], e["code"]) for e in backwards.json()["errors"]} == {
+        ("body.scheduled_end", "end_before_start")
+    } or {e["code"] for e in backwards.json()["errors"]} == {"end_before_start"}
+    no_reason = await details(world, a, item, risk="high")
+    assert no_reason.status_code == 422, no_reason.text
+    assert {e["code"] for e in no_reason.json()["errors"]} == {"reason_required"}
+    risky = await details(world, a, item, risk="high", risk_reason="Touches payroll")
+    assert risky.status_code == 200, risky.text
+    history = await world.call("GET", f"{REL}/{item['id']}/history", a, a.admin)
+    assert history.json()["items"][0]["reason"] == "Touches payroll"  # REQ-REL-004 AC3
+
+
+async def test_req_rel_003_a_retired_type_is_never_newly_chosen_but_kept(world: World) -> None:
+    a = world.a
+    item = await a_release(world, a)
+    kept = (await details(world, a, item, release_type="minor")).json()
+    await world.sql(
+        "UPDATE work_item_reasons SET disabled_at = now() WHERE tenant_id = $1"
+        " AND type = 'release' AND list = 'release_type' AND code = 'minor'",
+        a.tenant,
+    )
+    other = await a_release(world, a)
+    refused = await details(world, a, other, release_type="minor")
+    assert refused.status_code == 422, refused.text
+    assert {e["code"] for e in refused.json()["errors"]} == {"invalid_choice"}
+    still = await details(world, a, item, kept["version"], release_type="minor", build_ref="b2")
+    assert still.status_code == 200, still.text
+    assert still.json()["release_type"] == "minor"  # the release that had it keeps it
+    # Incidents have no release fields.
+    incident = await world.create(a, a.admin)
+    none = await world.call("GET", f"/incidents/{incident['id']}/details", a, a.admin)
+    assert none.status_code in {404, 405}
+
+
+async def test_release_details_are_isolated_by_rls(world: World) -> None:
+    a, b = world.a, world.b
+    item = await a_release(world, a)
+    assert (await details(world, a, item, release_version="9.9.9")).status_code == 200
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        seen = (
+            await session.execute(
+                text("SELECT count(*) FROM work_item_release_details WHERE tenant_id = :a"),
+                {"a": a.tenant},
+            )
+        ).scalar_one()
+        assert seen == 0
+        changed = await session.execute(
+            text("UPDATE work_item_release_details SET build_ref = 'x' WHERE tenant_id = :a"),
+            {"a": a.tenant},
+        )
+        assert changed.rowcount == 0
+    hidden = await world.call("GET", f"{REL}/{item['id']}/details", b, b.admin)
+    assert hidden.status_code == 404

@@ -95,8 +95,11 @@ class StageModel:
         return self._by_status[code]
 
     def path(self, code: str) -> PathDef:
-        """The path with this code."""
-        return next(p for p in self.paths if p.code == code)
+        """The path with this code (KeyError when the model has no such path)."""
+        found = next((p for p in self.paths if p.code == code), None)
+        if found is None:
+            raise KeyError(code)
+        return found
 
     def statuses_of(self, stage: str) -> list[StagedStatusDef]:
         """A stage's statuses, in their seed order."""

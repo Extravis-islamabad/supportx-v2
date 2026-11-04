@@ -202,6 +202,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "Urgency": "urgency",
     "WorkItemAction": "work_item_action",
     "PickList": "pick_list",
+    # The stage engine and releases (WP-058a)
+    "RailState": "rail_state",
+    "ReleaseRisk": "release_risk",
     "TemplateField": "work_item.field",
     "DeliveryReason": "delivery_reason",
     "DeliveryState": "delivery_state",
