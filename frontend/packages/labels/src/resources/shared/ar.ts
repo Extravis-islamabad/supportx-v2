@@ -169,6 +169,7 @@ export const ar: LabelResource = {
   'nav.admin_api_keys': 'مفاتيح API',
   'nav.admin_automation': 'الأتمتة',
   'nav.admin_branding': 'العلامة التجارية',
+  'nav.admin_catalog': 'كتالوج الخدمات',
   'nav.admin_files': 'الملفات',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
@@ -479,6 +480,9 @@ export const ar: LabelResource = {
   'setup.page.automation.keywords': 'أتمتة، قواعد، مشغلات، سير العمل، إسناد تلقائي، إجراءات',
   'setup.page.branding.description': 'الشعار والألوان ومظهر البوابة.',
   'setup.page.branding.keywords': 'هوية، شعار، ألوان، سمة، بوابة، مظهر',
+  'setup.page.catalog.description':
+    'الفئات والعناصر التي يطلبها الناس: نماذجها واعتمادها ومجموعتها واتفاقية الخدمة ومهام تنفيذها، بكل اللغات.',
+  'setup.page.catalog.keywords': 'كتالوج، عناصر، نماذج، طلبات الخدمة',
   'setup.page.files.description': 'حدود الرفع وأنواع الملفات المسموح بها وفحص البرامج الضارة.',
   'setup.page.files.keywords': 'ملفات، مرفقات، رفع، حجم، تخزين، برامج ضارة، فيروسات، فحص',
   'setup.page.incidents.description': 'المستويات والفئات والقوالب ورموز الإغلاق والأسباب للحوادث.',

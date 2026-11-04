@@ -242,6 +242,19 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-031: the service catalog's administration (plan D4).
+            path: 'catalog',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/catalog/CatalogAdminPage')).CatalogAdminPage,
+            }),
+          },
+          {
+            path: 'catalog/items/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/catalog/CatalogItemPage')).CatalogItemPage,
+            }),
+          },
+          {
             path: 'automation/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,
