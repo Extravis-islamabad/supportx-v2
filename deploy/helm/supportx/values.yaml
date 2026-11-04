@@ -201,9 +201,11 @@ clamav:
 # Each model has its own volume. Before a server starts, every weight file is checked against the
 # sha256 pinned below, and a mismatch stops it (fail closed). Weights come from `ai.mirror` when it
 # is set and the file is missing. Leave it "" when the installer fills the volume (air-gapped).
-# Hugging Face is for connected installs only: it has no fixed addresses, so with
-# networkPolicies.egress on, list an internal mirror or a proxy under
-# networkPolicies.egress.components.llm-cpu / llm-embed / llm-gpu.
+# Hugging Face is for connected installs only: its downloads redirect to a CDN on other hosts with
+# no fixed addresses, so with networkPolicies.egress on, use an internal mirror or a proxy (never
+# Hugging Face's own addresses), listed under networkPolicies.egress.components.llm-cpu /
+# llm-embed / llm-gpu. A file failing its check is deleted when a mirror is set (it downloads again
+# at the next start); earlier revisions are removed once the current one is verified.
 ai:
   mirror: https://huggingface.co
   # A CPU-only llama.cpp server for chat and another for embeddings (bge-m3), in every install.
@@ -259,7 +261,9 @@ ai:
     resourceName: ""
     nodeSelector: {}
     tolerations: []
+    runtimeClassName: ""              # when the cluster's GPU runtime is a RuntimeClass
     storage: {size: 20Gi, storageClass: ""}
+    # The memory limit also covers the 2Gi shared-memory volume (/dev/shm) vLLM uses.
     resources:
       requests: {cpu: "2", memory: 16Gi}
       limits: {cpu: "8", memory: 24Gi}

@@ -34,12 +34,19 @@ Only the API and the consumers worker (the gateway, the re-embed schedule) reach
         fi
         if ! echo "$sum  $dir/$path" | sha256sum -c --quiet -; then
           echo "weights: $path does not match its pinned sha256; refusing to start" >&2
+          # With a mirror, the bad copy goes, so the next start downloads it again; without one
+          # it stays for the installer or an administrator to replace.
+          if [ -n "${MIRROR}" ]; then rm -f "$dir/$path"; fi
           exit 1
         fi
       }
       {{- range .model.files }}
       fetch {{ .path | quote }} {{ .sha256 | quote }}
       {{- end }}
+      # Earlier revisions of this model are of no further use once this one is verified.
+      for old in /models/*; do
+        [ "$old" = "$dir" ] || rm -rf "$old"
+      done
       echo "weights: verified"
   env:
     - {name: MIRROR, value: {{ $root.Values.ai.mirror | trimSuffix "/" | quote }}}
@@ -109,6 +116,9 @@ spec:
       {{- with .nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .runtimeClassName }}
+      runtimeClassName: {{ . }}
       {{- end }}
       {{- with .tolerations }}
       tolerations:
@@ -195,6 +205,7 @@ spec:
   "root" . "component" "llm-gpu" "port" 8000 "image" .Values.images.vllm
   "model" $gpu.model "storage" $gpu.storage "resources" $resources
   "nodeSelector" $gpu.nodeSelector "tolerations" $gpu.tolerations "shm" true
+  "runtimeClassName" $gpu.runtimeClassName
   "command" (list "python3" "-m" "vllm.entrypoints.openai.api_server")
   "args" (list "--model" (printf "/models/%s" $gpu.model.revision)
     "--served-model-name" $gpu.model.name "--host" "0.0.0.0" "--port" "8000"
