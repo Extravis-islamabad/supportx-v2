@@ -635,6 +635,10 @@ export const en = {
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
   'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
   'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
+  'errors.contact_editing_off':
+    'Your organisation does not let you change your contact details here. Ask your service desk.',
+  'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
+  'errors.console_requester_only': 'This account uses the requester portal, not the console.',
   'errors.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
   'errors.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',

@@ -781,6 +781,9 @@ class WorkItemCatalogueOut(BaseModel):
     keep_following_on_handover: bool = Field(
         description="Hand-over dialog: 'keep following' starts ticked (D-068)."
     )
+    portal_show_due_time: bool = Field(
+        default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
+    )
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
@@ -807,6 +810,7 @@ class WorkItemCatalogueOut(BaseModel):
             default_urgency=None if cat.default_urgency is None else Urgency(cat.default_urgency),
             auto_status_on_assign=cat.auto_status_on_assign,
             keep_following_on_handover=cat.keep_following_on_handover,
+            portal_show_due_time=cat.portal_show_due_time,
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -915,6 +919,7 @@ class WorkItemSettingsPatch(BaseModel):
     default_urgency: Urgency | None = Field(default=None, description="Null: no default.")
     auto_status_on_assign: bool | None = None
     keep_following_on_handover: bool | None = None
+    portal_show_due_time: bool | None = None
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 

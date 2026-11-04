@@ -18,6 +18,7 @@ export {
   useListChannel,
   useRealtimeStatus,
   useRealtimeUser,
+  useRecordEvents,
   usePersonalChannel,
   useRecordChannel,
   useTenantChannel,

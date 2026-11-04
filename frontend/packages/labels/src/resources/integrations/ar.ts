@@ -339,6 +339,8 @@ export const ar: LabelResource = {
   'directory_attribute.companyName': 'اسم الشركة',
   'directory_attribute.state': 'الولاية أو المقاطعة',
   'directory_attribute.country': 'البلد',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': 'دليل مؤسستك (LDAP)',
   // WP-040 connector defaults (D-041)
   'connector_settings.title': 'الإعدادات الافتراضية للموصلات',
   'connector_settings.intro':

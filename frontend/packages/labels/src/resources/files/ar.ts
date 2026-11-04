@@ -87,4 +87,5 @@ export const ar: LabelResource = {
   'files.admin.check_now': 'تحقّق الآن',
   'file_owner_type.branding': 'العلامة التجارية',
   'file_owner_type.kb_article': 'مقالة معرفة',
+  'files.take_photo': 'التقاط صورة',
 };

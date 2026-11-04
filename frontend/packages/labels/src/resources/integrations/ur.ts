@@ -339,6 +339,8 @@ export const ur: LabelResource = {
   'directory_attribute.companyName': 'کمپنی کا نام',
   'directory_attribute.state': 'ریاست یا صوبہ',
   'directory_attribute.country': 'ملک',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': 'آپ کی تنظیم کی ڈائریکٹری (LDAP)',
   // WP-040 connector defaults (D-041)
   'connector_settings.title': 'کنیکٹر کی طے شدہ ترتیبات',
   'connector_settings.intro':

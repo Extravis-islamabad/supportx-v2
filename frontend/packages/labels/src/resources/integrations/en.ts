@@ -339,6 +339,8 @@ export const en = {
   'directory_attribute.companyName': 'Company name',
   'directory_attribute.state': 'State or province',
   'directory_attribute.country': 'Country',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': "your organisation's directory (LDAP)",
   // WP-040 connector defaults (D-041)
   'connector_settings.title': 'Connector defaults',
   'connector_settings.intro':

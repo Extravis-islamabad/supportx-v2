@@ -582,6 +582,23 @@ export const ur: LabelResource = {
     'کسی واقعے کی جواب یا حل کی مقررہ تاریخ وجہ کے ساتھ ہاتھ سے طے کریں یا ہٹائیں۔ پھر یہ تاریخ ہٹائے جانے تک برقرار رہتی ہے۔',
   'people.managed_by_directory':
     'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
+  'permission.work_items.view_department': 'اپنے شعبے کی درخواستیں دیکھیں',
+  'permission.work_items.view_department.description':
+    'پورٹل میں اپنے شعبے کے لوگوں کے واقعات اور درخواستیں دیکھیں۔',
+  'permission.work_items.view_reports': 'براہِ راست ماتحتوں کی درخواستیں دیکھیں',
+  'permission.work_items.view_reports.description':
+    'پورٹل میں اپنے براہِ راست ماتحتوں کے واقعات اور درخواستیں ایک الگ فلٹر میں دیکھیں۔',
+  'identity.settings.people_edit_contact': 'لوگ اپنا فون اور موبائل نمبر خود بدل سکتے ہیں',
+  'identity.settings.people_edit_contact_help':
+    'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',
+  'account.contact.title': 'رابطے کی تفصیلات',
+  'account.contact.phone': 'فون',
+  'account.contact.mobile': 'موبائل',
+  'account.contact.none': 'درج نہیں',
+  'account.contact.save': 'رابطے کی تفصیلات محفوظ کریں',
+  'account.contact.from_directory':
+    'آپ کا فون اور موبائل {{source}} سے آتا ہے۔ انہیں وہیں تبدیل کریں۔',
+  'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',

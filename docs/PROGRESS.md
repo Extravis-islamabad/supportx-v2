@@ -749,6 +749,49 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
+### [ ] WP-030 — Service requests and the approval engine (lane A, planned 2026-11-04; 3 sessions)
+- **Plan:** ~/Desktop/wp-030-plan.md (sent to the coordinator 2026-11-04). Builds after #178.
+- **Parked for the product owner (built meanwhile as the defaults):** D3 edition line (file 02
+  question 1): catalog basics with `service_request` (Essentials), the advanced parts with
+  `catalog` (Professional); D7 whether e-mail approvals may skip sign-in (file 02 question 3):
+  interim default (coordinator) is sign-in required; the one-time, bound, expiring no-sign-in
+  link is built behind a tenant setting that stays off until the product owner decides.
+- **Cross-lane:** signed action links (REQ-NTF-024): lane B's queue is full, so lane A builds them
+  in session 3 (`app/shared/action_links`, a port for notifications and work_items) under lane
+  B's security review; their five conditions are in the plan.
+
+### [x] WP-028 — Portal: shell, sign-in and requester incidents (lane A, 2026-11-03/04; 2 sessions; #178)
+- **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
+  D2 decided in D-129 (option a): engine-level `work_items.view_department` and
+  `work_items.view_reports`, behind the one scope check `service/portal.py: viewer()`.
+- [x] Session 1 (backend, #178, 2026-11-03/04): `domain/portal.py` (plain status, allow-list,
+  reach, live rule); `/api/v1/portal/incidents` list, record, templates, create, public
+  conversation, replies, confirm/reject; requester channel `t:{tenant}:portal_wi:{id}` (D4);
+  requester-side notifications use the portal status and link to the portal record
+  (`RecordContext.public_link`, lane B approved); BFF sends a requester signing in on the console
+  to the portal and sessions carry the stored type (D-029; lane B approved); contact details
+  setting `people_edit_contact` (migration 0058, lane B approved).
+- [x] Session 2 (portal UI, #178): done: My requests (filters, search, show more, live), one
+  request (fix, conversation, reply, files, camera, live), Report an issue (files, camera),
+  contact details card (both apps) and the Admin > Security toggle, manifest start_url/scope,
+  console guard; D5 expected resolution time behind `portal_show_due_time` (off by default).
+  E2E (portal.spec en/ar at 360x740 with axe, roles.spec under D-129) runs in #178's full-ci
+  run; 0058 revises #172's 0054.
+- **Paused 2026-11-04 (Haider).** Resume point: merge main into feat/wp-028, re-point 0058, then the e2e users and specs above.
+- **D-129 (product owner, 2026-11-04)** replaces the earlier AC1 reading: any role but
+  `requester` opens the console (with a Requester portal link); requester-only people always get
+  the portal, enforced at sign-in and at /auth/me (also on a shared host), audited. D2 = option
+  (a): engine-level `work_items.view_department` / `work_items.view_reports`. Lane B approved.
+  E2E: no new suite users needed; roles.spec reworked (not run yet: the shared stack is in use).
+- **Follow-ups (not #178):** revoke the dropped console refresh token at a requester's console
+  sign-in (needs an OIDC revocation call); warn an admin who gives a requester a role with
+  console permissions; requester rows of a wider reach (reports, department) are not live yet
+  (own rows are).
+- **Moved out (coordinator, 2026-11-03):** admin "preview the portal as a requester"
+  (REQ-INC-147 AC4) to WP-032; knowledge suggestions while typing (REQ-INC-028) to WP-034, the
+  form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
+  (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
+
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
 - [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the

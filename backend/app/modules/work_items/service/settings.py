@@ -131,6 +131,8 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         changes["auto_status_on_assign"] = bool(values["auto_status_on_assign"])
     if "keep_following_on_handover" in values:
         changes["keep_following_on_handover"] = bool(values["keep_following_on_handover"])
+    if "portal_show_due_time" in values:
+        changes["portal_show_due_time"] = bool(values["portal_show_due_time"])
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):
@@ -149,6 +151,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "default_priority": current.default_priority,
         "auto_status_on_assign": current.auto_status_on_assign,
         "keep_following_on_handover": current.keep_following_on_handover,
+        "portal_show_due_time": current.portal_show_due_time,
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,
         "default_urgency": current.default_urgency,

@@ -217,6 +217,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "FieldType": "custom_field_type",
     "IndexState": "custom_field_index_state",
     "IndexFailure": "custom_field_index_error",
+    # The portal (WP-028)
+    "PortalStatus": "portal_status",
+    "PortalReach": "portal_reach",
+    "PortalState": "portal_state",
 }
 
 

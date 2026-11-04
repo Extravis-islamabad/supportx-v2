@@ -29,9 +29,12 @@ from app.modules.identity_access.service.auth import (
     EnrolFirst,
     LoginAddress,
     LoginFailure,
+    PortalInstead,
 )
 from app.modules.identity_access.service.sso_test import TestFinished
+from app.modules.identity_access.service.users import requester_only
 from app.modules.organization import tenant_for_host
+from app.shared.history import CLIENT_HEADER
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     SESSION_ENDED,
@@ -207,6 +210,8 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, EnrolFirst):  # past the MFA grace period: Keycloak makes them enrol
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+    if isinstance(result, PortalInstead):  # a requester on the console: no session, the portal
+        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
         await _record_sso_test(request, result)
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
@@ -298,7 +303,9 @@ async def _address(request: Request) -> LoginAddress | None:
     return LoginAddress(host, found.slug) if found is not None else None
 
 
-async def _audit_session(request: Request, session: Session, action_code: str) -> None:
+async def _audit_session(
+    request: Request, session: Session, action_code: str, reason: str | None = None
+) -> None:
     """Audit a sign-in, sign-out or tenant switch (REQ-AUD-002) in its own transaction.
 
     A failure to write the entry is logged as an error but does not lock people out.
@@ -315,6 +322,7 @@ async def _audit_session(request: Request, session: Session, action_code: str) -
             facts=RequestFacts.of(request, client=session.client),
             object_type="user",
             object_id=session.user_id,
+            **({} if reason is None else {"details": {"reason": reason}}),
         )
     except Exception:
         log.exception("audit_session_entry_failed", action=action_code)
@@ -325,8 +333,36 @@ async def _audit_session(request: Request, session: Session, action_code: str) -
 @public_route
 async def me(found: CurrentSession, request: Request) -> MeResponse:
     """The logged-in user, active tenant, switchable tenants, CSRF token and permissions."""
-    _session_id, session = found
-    return await _describe(request, session)
+    session_id, session = found
+    described = await _describe(request, session)
+    console = session.client == "console"
+    if console or request.headers.get(CLIENT_HEADER, "").lower() == "console":
+        await _refuse_requester_only(request, session_id, session, end=console)
+    return described
+
+
+async def _refuse_requester_only(
+    request: Request, session_id: str, session: Session, *, end: bool
+) -> None:
+    """D-129: requester-only people never use the console (the same rule as at sign-in).
+
+    A console session of theirs (made before the rule, or before their last staff role went)
+    ends here, recorded and audited. Where both apps share a host the portal's cookie reaches
+    the console too: the console's calls are refused and the portal session stays. Fails closed:
+    with no database to ask, the console is refused.
+    """
+    database: Database | None = getattr(request.app.state, "db", None)
+    if database is not None and not await requester_only(
+        database, session.tenant_uuid, session.user_uuid
+    ):
+        return
+    if end:
+        auth: AuthService = request.app.state.auth
+        await auth.end_session(session_id, session)
+        await _audit_session(
+            request, session, "session.signed_out", reason="console_requester_only"
+        )
+    raise Unauthenticated(code="console_requester_only")
 
 
 async def _describe(request: Request, session: Session) -> MeResponse:

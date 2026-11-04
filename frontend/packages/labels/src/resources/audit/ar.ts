@@ -519,6 +519,7 @@ export const ar: LabelResource = {
   'event_type.sla.target.breached': 'تأخر هدف اتفاقية مستوى الخدمة',
   'event_type.sla.target.escalated': 'تنفيذ مستوى تصعيد لاتفاقية مستوى الخدمة',
   'history.sla_escalation': '{{target}}: نُفِّذ المستوى {{level}}',
+  'audit.action.user.contact_changed': 'غيّر بيانات الاتصال الخاصة به',
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'غيّر الإعدادات الافتراضية للموصلات',
   'event_type.integrations.connector_settings.changed': 'تغيّرت الإعدادات الافتراضية للموصلات',
