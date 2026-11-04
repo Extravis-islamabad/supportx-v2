@@ -385,6 +385,8 @@ export const en = {
   'federation_state.pending': 'Connecting',
   'federation_state.applied': 'Connected',
   'federation_state.failed': 'Not connected',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': "your organisation's directory (LDAP)",
   // WP-040 connector defaults (D-041)
   'connector_settings.title': 'Connector defaults',
   'connector_settings.intro':

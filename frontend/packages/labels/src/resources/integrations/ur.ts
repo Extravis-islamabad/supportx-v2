@@ -386,6 +386,8 @@ export const ur: LabelResource = {
   'federation_state.pending': 'جوڑا جا رہا ہے',
   'federation_state.applied': 'جڑی ہوئی',
   'federation_state.failed': 'نہیں جڑی',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': 'آپ کی تنظیم کی ڈائریکٹری (LDAP)',
   // WP-040 connector defaults (D-041)
   'connector_settings.title': 'کنیکٹر کی طے شدہ ترتیبات',
   'connector_settings.intro':

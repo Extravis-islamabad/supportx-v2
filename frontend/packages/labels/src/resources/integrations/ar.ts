@@ -384,6 +384,8 @@ export const ar: LabelResource = {
   'federation_state.pending': 'جارٍ الربط',
   'federation_state.applied': 'مرتبط',
   'federation_state.failed': 'غير مرتبط',
+  'directory_source.entra': 'Microsoft Entra ID',
+  'directory_source.ldap': 'دليل مؤسستك (LDAP)',
   // WP-040 connector defaults (D-041)
   'connector_settings.title': 'الإعدادات الافتراضية للموصلات',
   'connector_settings.intro':

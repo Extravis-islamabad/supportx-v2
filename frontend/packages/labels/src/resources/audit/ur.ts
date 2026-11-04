@@ -505,6 +505,7 @@ export const ur: LabelResource = {
   'audit.action.directory.federation_applied': 'شناختی سروس میں AD/LDAP ڈائریکٹری جوڑی',
   'audit.action.directory.federation_failed': 'شناختی سروس میں AD/LDAP ڈائریکٹری نہیں جوڑی جا سکی',
   'audit.action.directory.federation_removed': 'شناختی سروس سے AD/LDAP ڈائریکٹری ہٹائی',
+  'audit.action.user.contact_changed': 'اپنی رابطے کی تفصیلات تبدیل کیں',
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل کیں',
   'event_type.integrations.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل ہوئیں',

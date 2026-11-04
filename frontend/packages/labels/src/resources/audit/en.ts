@@ -518,6 +518,7 @@ export const en = {
     'Could not connect an AD/LDAP directory in the identity service',
   'audit.action.directory.federation_removed':
     'Removed an AD/LDAP directory from the identity service',
+  'audit.action.user.contact_changed': 'Changed their contact details',
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'Changed the connector defaults',
   'event_type.integrations.connector_settings.changed': 'Connector defaults changed',

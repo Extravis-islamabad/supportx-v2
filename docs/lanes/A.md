@@ -9,11 +9,11 @@ Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-02
 
 ## Current WP
 
-WP-025 sessions 1-2 merged (#152); **sessions 3-4 in #172** (warnings, breaches, escalation levels, the Temporal waker and safety net, auto-close on the record's calendar, the countdown; still to come: the bundled Temporal chart, e2e, load test, docs). Queue: QA round (WP-020e + WP-025), WP-028 (plan to the coordinator first), WP-030, WP-031, WP-032. Lane A reviews WP-038's incident-screen parts when lane C asks.
+WP-025 sessions 1-4 merged (#152, #172; still to come for WP-025: the bundled Temporal chart, e2e, load test, docs). **WP-028 in #178** (ready, full-ci): portal backend and UI, D-129 (who opens the console), lane B parts approved; still to come: D5 due time, e2e run. **WP-030 in #182** (draft): plan approved by the coordinator (D3, D7 parked for Haider). Queue after: QA round (WP-020e + WP-025), WP-031, WP-032. Lane A reviews WP-038's incident-screen parts when lane C asks.
 
 ## Branch
 
-`feat/wp-025-s3` (#172)
+`feat/wp-028` (#178), `feat/wp-030` (#182, draft)
 
 ## Worktree
 
@@ -21,8 +21,8 @@ main folder (`supportx-v2`)
 
 ## Claimed migration
 
-0038, 0039, 0040, 0044, 0047 (merged); 0054 (WP-025 s3, #172)
+0038, 0039, 0040, 0044, 0047, 0054 (merged); 0058 (WP-028, #178); 0059, 0060 (WP-030, #182); each re-points onto main's head before merge
 
 ## Claimed decisions
 
-D-105, D-115
+D-105, D-115, D-129

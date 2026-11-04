@@ -66,6 +66,8 @@ class IdentitySettingsView:
     password_expiry_days: int = 0
     password_breached_check: bool = True
     mfa_grace_days: int = 7  # REQ-SEC-024: days to enrol once MFA is required (0 to 30)
+    # REQ-PRT-013 AC2 (WP-028): people edit their own phone and mobile (off: read-only).
+    people_edit_contact: bool = False
     # REQ-INT-019, REQ-SEC-037 (D-128): people make keys for themselves; keys without expiry.
     people_may_create_keys: bool = False
     allow_non_expiring_keys: bool = False

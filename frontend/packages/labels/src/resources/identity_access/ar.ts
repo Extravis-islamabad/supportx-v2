@@ -728,6 +728,22 @@ export const ar: LabelResource = {
     'تعيين موعد استحقاق الاستجابة أو الحل لحادثة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',
   'people.managed_by_directory':
     'يأتي الاسم والعنوان والوظيفة والهاتف والموقع والقسم والمدير من الدليل. غيّرها هناك؛ وتبقى أولوية كبار الشخصيات واللغة والملاحظات لك.',
+  'permission.work_items.view_department': 'عرض طلبات قسمه',
+  'permission.work_items.view_department.description':
+    'في البوابة، رؤية حوادث وطلبات الأشخاص في قسمه.',
+  'permission.work_items.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
+  'permission.work_items.view_reports.description':
+    'في البوابة، رؤية حوادث وطلبات الأشخاص الذين يتبعونه مباشرة، ضمن عامل تصفية منفصل.',
+  'identity.settings.people_edit_contact': 'يمكن للأشخاص تغيير أرقام هواتفهم بأنفسهم',
+  'identity.settings.people_edit_contact_help':
+    'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
+  'account.contact.title': 'بيانات الاتصال',
+  'account.contact.phone': 'الهاتف',
+  'account.contact.mobile': 'الجوال',
+  'account.contact.none': 'غير مُدخل',
+  'account.contact.save': 'حفظ بيانات الاتصال',
+  'account.contact.from_directory': 'يأتي هاتفك وجوالك من {{source}}. غيّرهما هناك.',
+  'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
   'permission.api_keys.manage': 'إدارة مفاتيح API',
   'permission.api_keys.manage.description':
     'إنشاء مفاتيح API لهويات الخدمة، ورؤية كل المفاتيح وإبطالها.',

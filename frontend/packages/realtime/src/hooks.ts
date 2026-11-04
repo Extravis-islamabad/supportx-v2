@@ -97,6 +97,20 @@ export function useListChannel(list: string | null, onMessage: Listener): void {
 }
 
 /**
+ * Follow a record channel for its messages only, with no presence: the portal's requester
+ * channel (`portal_wi`, WP-028), where staff are never shown and the server grants no presence.
+ */
+export function useRecordEvents(kind: string, id: string | undefined, onMessage: Listener): void {
+  const context = useContext(RealtimeContext);
+  useChannel(
+    context === null || id === undefined || id === ''
+      ? null
+      : `t:${context.tenantId}:${kind}:${id}`,
+    onMessage,
+  );
+}
+
+/**
  * Follow one record (`kind` = channel kind, e.g. `users`; `wi` for work items) and see who else
  * has it open. Returns the other viewers (other connections; may include the same person on
  * another device).

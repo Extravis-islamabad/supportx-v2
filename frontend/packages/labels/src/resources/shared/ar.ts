@@ -453,6 +453,10 @@ export const ar: LabelResource = {
   'antd.transfer.select_all': 'تحديد كل البيانات',
   'antd.transfer.select_current': 'تحديد الصفحة الحالية',
   'antd.transfer.select_invert': 'عكس تحديد الصفحة الحالية',
+  'nav.requester_portal': 'بوابة مقدمي الطلبات',
+  'settings.portal_show_due_time': 'يرى مقدمو الطلبات الوقت المتوقع للحل',
+  'settings.portal_show_due_time_help':
+    'تعرض البوابة متى يُتوقع حل الحادثة، وفق اتفاقية مستوى الخدمة.',
   'search.knowledge': 'مقالات المعرفة',
   'nav.admin_api_keys': 'مفاتيح API',
   'api_scope_access.read': 'قراءة',

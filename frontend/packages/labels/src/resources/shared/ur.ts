@@ -371,6 +371,10 @@ export const ur: LabelResource = {
   'antd.transfer.select_all': 'تمام ڈیٹا منتخب کریں',
   'antd.transfer.select_current': 'موجودہ صفحہ منتخب کریں',
   'antd.transfer.select_invert': 'موجودہ صفحے کا انتخاب الٹ دیں',
+  'nav.requester_portal': 'درخواست گزار پورٹل',
+  'settings.portal_show_due_time': 'درخواست گزار حل کا متوقع وقت دیکھیں',
+  'settings.portal_show_due_time_help':
+    'پورٹل دکھاتا ہے کہ واقعہ کب تک حل ہونا چاہیے، اس کے SLA کے مطابق۔',
   'search.knowledge': 'علمی مضامین',
   'nav.admin_api_keys': 'API کلیدیں',
   'api_scope_access.read': 'پڑھنا',

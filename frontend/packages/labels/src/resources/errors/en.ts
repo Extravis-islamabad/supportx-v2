@@ -652,6 +652,10 @@ export const en = {
   'errors.ldap_federation_keycloak_unavailable':
     'The identity service did not answer. The directory will be connected when it is back.',
   'errors.ldap_bind_password_missing': 'No bind password is stored. Enter it again.',
+  'errors.contact_editing_off':
+    'Your organisation does not let you change your contact details here. Ask your service desk.',
+  'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
+  'errors.console_requester_only': 'This account uses the requester portal, not the console.',
   'errors.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
   'errors.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
