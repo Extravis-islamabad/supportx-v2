@@ -94,3 +94,14 @@ async def incident_texts(
         record_id: [f"{subject}\n{plain_text(description)}".strip()]
         for record_id, subject, description in rows.all()
     }
+
+
+async def incident_ids(session: AsyncSession, limit: int) -> list[uuid.UUID]:
+    """The newest live incidents' IDs (backfilling the AI index)."""
+    rows = await session.scalars(
+        select(WorkItem.id)
+        .where(WorkItem.type == INCIDENT.code, WorkItem.deleted_at.is_(None))
+        .order_by(WorkItem.created_at.desc())
+        .limit(limit)
+    )
+    return list(rows.all())

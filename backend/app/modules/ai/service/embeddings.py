@@ -43,7 +43,11 @@ TextSource = Callable[
     [AsyncSession, Sequence[uuid.UUID]], Awaitable[Mapping[uuid.UUID, Sequence[str]]]
 ]
 
+# (session, limit) → the newest live record IDs, for backfilling the index. Optional.
+IdLister = Callable[[AsyncSession, int], Awaitable[Sequence[uuid.UUID]]]
+
 _SOURCES: dict[str, TextSource] = {}
+_LISTERS: dict[str, IdLister] = {}
 
 # Pieces per provider call, and stale records re-embedded per tenant per sweep.
 BATCH = 32
@@ -54,14 +58,22 @@ class EmbeddingWidthError(ValueError):
     """The configured model answers vectors of another width than the store holds (0075)."""
 
 
-def register_embedding_source(source_type: str, source: TextSource) -> None:
-    """The owning module's text for one source type, for re-embedding (at its start-up)."""
+def register_embedding_source(
+    source_type: str, source: TextSource, ids: IdLister | None = None
+) -> None:
+    """The owning module's text for one source type, and optionally its record IDs.
+
+    The IDs backfill the index (e.g. after AI is switched back on). At its start-up.
+    """
     _SOURCES[source_type] = source
+    if ids is not None:
+        _LISTERS[source_type] = ids
 
 
 def unregister_embedding_source(source_type: str) -> None:
     """At shutdown (tests start the app more than once)."""
     _SOURCES.pop(source_type, None)
+    _LISTERS.pop(source_type, None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,6 +260,47 @@ class Embeddings:
         return done
 
 
+# Live records looked at, and records indexed, per tenant per sweep.
+BACKFILL_SCAN = 2000
+
+
+async def backfill(
+    service: "Embeddings", session: AsyncSession, *, limit: int = SWEEP_LIMIT
+) -> int:
+    """Index live records that have no vector of the configured model yet; returns how many."""
+    done = 0
+    for source_type, lister in _LISTERS.items():
+        source = _SOURCES.get(source_type)
+        if source is None or done >= limit:
+            continue
+        ids = list(await lister(session, BACKFILL_SCAN))
+        if not ids:
+            continue
+        indexed = set(
+            (
+                await session.scalars(
+                    select(AiEmbedding.source_id).where(
+                        AiEmbedding.source_type == source_type,
+                        AiEmbedding.model == service.model,
+                        AiEmbedding.source_id.in_(ids),
+                    )
+                )
+            ).all()
+        )
+        missing = [i for i in ids if i not in indexed][: limit - done]
+        if not missing:
+            continue
+        texts = await source(session, missing)
+        for source_id in missing:
+            pieces = texts.get(source_id)
+            if pieces:
+                await service.index(
+                    session, source_type=source_type, source_id=source_id, pieces=pieces
+                )
+                done += 1
+    return done
+
+
 async def reembed_job(database: Database, settings: Settings) -> None:
     """The daily schedule: the sweep with the installation's provider."""
     from app.modules.ai.service.providers import provider_from  # noqa: PLC0415 - one place
@@ -260,7 +313,11 @@ async def reembed_job(database: Database, settings: Settings) -> None:
 
 
 async def reembed_sweep(database: Database, settings: Settings, provider: Provider) -> None:
-    """In every tenant: vectors of a previous model are re-embedded with the configured one."""
+    """In every tenant: old models' vectors re-embedded, and missing ones backfilled.
+
+    Vectors of a previous model are re-embedded with the configured one; while AI is on, live
+    records with no vector yet are indexed (after a switch back on).
+    """
     del settings
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
@@ -269,6 +326,8 @@ async def reembed_sweep(database: Database, settings: Settings, provider: Provid
             async with database.tenant_session(TenantContext(tenant)) as session:
                 service = Embeddings(provider, mask_local=await _mask_local(session))
                 done = await service.reembed_stale(session)
+                if await _indexing_on(session, tenant):
+                    done += await backfill(service, session)
         except ProviderError as error:
             log.warning("ai_reembed_failed", tenant_id=str(tenant), error=str(error))
             continue

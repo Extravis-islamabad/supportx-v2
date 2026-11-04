@@ -13,8 +13,10 @@ import uuid
 from typing import Any
 
 from app.core.tenancy import TenantContext
-from app.modules.ai.service.embeddings import on_work_item_changed
+from app.modules.ai.service.embeddings import on_work_item_changed, reembed_sweep
+from app.modules.ai.service.providers import FakeProvider
 from app.modules.work_items.service.ai_sources import incident_texts
+from conftest import make_settings
 from tests.db.test_ai_summaries_api import ai_settings
 from tests.db.test_conversation_api import events_of, say
 from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, world
@@ -193,3 +195,14 @@ async def test_embedded_text_is_the_subject_and_description_never_notes(world: W
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         texts = await incident_texts(session, [uuid.UUID(item["id"])])
     assert texts == {uuid.UUID(item["id"]): [f"{MAIL}\nSince the update."]}
+
+
+async def test_switching_back_on_backfills_the_index(world: World) -> None:
+    a = world.a
+    await ai_settings(world, a, disabled_features=["possible_duplicates"])
+    await world.create(a, a.tech_a, group_id=str(a.ga), subject=MAIL)
+    await world.create(a, a.tech_a, group_id=str(a.ga), subject="VPN drops every hour")
+    assert await vectors(world, a) == 0
+    await ai_settings(world, a, disabled_features=[])
+    await reembed_sweep(world.app.state.db, make_settings(), FakeProvider())
+    assert await vectors(world, a) == 2

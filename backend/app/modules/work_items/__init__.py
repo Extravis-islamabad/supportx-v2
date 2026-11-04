@@ -82,7 +82,7 @@ def _register_ai() -> None:
     """What AI may read of an incident (WP-038): the record page's own rules, through here."""
     register_record_access(INCIDENT.code, ai_sources.may_view_incident)
     register_conversation_source(INCIDENT.code, ai_sources.conversation_for)
-    register_embedding_source(INCIDENT.code, ai_sources.incident_texts)
+    register_embedding_source(INCIDENT.code, ai_sources.incident_texts, ai_sources.incident_ids)
 
 
 async def _startup(app: FastAPI) -> None:
