@@ -109,6 +109,7 @@ function api(routes: Record<string, unknown> = {}) {
       },
       [`GET /api/v1/service-requests/${SR_ID}`]: { body: request },
       [`GET /api/v1/service-requests/${SR_ID}/approvals`]: { body: approvalsBody },
+      [`GET /api/v1/service-requests/${SR_ID}/tasks`]: { body: { items: [], done: 0, total: 0 } },
       ...routes,
     },
   });
@@ -245,5 +246,43 @@ describe('console: service requests', () => {
     fireEvent.click(opener);
     const row = await screen.findByTestId('my-approval-SR-1');
     expect(within(row).getByText('For Omar Manager', { exact: false })).toBeDefined();
+  });
+
+  it('ticks a fulfilment task done with If-Match', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const task = {
+      id: '01a1a2b3-0000-7000-8000-00000000d001',
+      work_item_id: SR_ID,
+      title: 'Order the laptop',
+      description: null,
+      owner_id: null,
+      group_id: null,
+      status: 'open',
+      priority: 'normal',
+      due_at: null,
+      done_at: null,
+      position: 0,
+      from_plan: true,
+      required: true,
+      internal: false,
+      version: 2,
+      created_at: '2026-11-04T08:00:00Z',
+      updated_at: '2026-11-04T08:00:00Z',
+    };
+    const path = `/api/v1/service-requests/${SR_ID}/tasks/${task.id}`;
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}/tasks`]: {
+        body: { items: [task], done: 0, total: 1 },
+      },
+      [`PATCH ${path}`]: { body: { ...task, status: 'done', version: 3 } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Order the laptop' }));
+    await waitFor(() => {
+      expect(fake.find('PATCH', path)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', path);
+    expect(sent?.body).toEqual({ status: 'done' });
+    expect(sent?.headers.get('If-Match')).toBe('"2"');
   });
 });

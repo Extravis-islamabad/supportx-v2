@@ -14,12 +14,14 @@ import {
   PageHeader,
   reportError,
   ToneTag,
+  useAccess,
   useAppearance,
   useDateTime,
   useLabel,
 } from '@supportx/ui';
 
 import { ApprovalsPanel, WithdrawButton } from './Approvals';
+import { RequestTasks } from './RequestTasks';
 import { itemName } from './items';
 
 function answerText(value: unknown): string {
@@ -43,6 +45,7 @@ export function RequestPage() {
   const item = useCatalogItem(record.data?.catalog_item_id ?? undefined);
   const me = useSession().data?.user.id;
   const withdraw = useWithdrawRequest();
+  const { can } = useAccess();
   useRecordChannel('wi', id === '' ? undefined : id, () => {
     void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
   });
@@ -126,6 +129,7 @@ export function RequestPage() {
       {r.approval_status != null && r.approval_status !== 'not_needed' && (
         <ApprovalsPanel recordId={r.id} />
       )}
+      <RequestTasks recordId={r.id} canEdit={can('requests.edit')} />
     </Space>
   );
 }

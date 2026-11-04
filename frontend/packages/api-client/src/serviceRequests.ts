@@ -242,3 +242,39 @@ export function useActionLink() {
       call(api.POST('/api/v1/action-links/use', { body: { token, body } })),
   });
 }
+
+export type RequestTask = components['schemas']['WorkItemTaskOut'];
+
+/** A request's tasks, its fulfilment plan's first (WP-030 s3). Under the record's key: live. */
+export function useRequestTasks(recordId: string) {
+  return useQuery({
+    queryKey: [...serviceRequestKeys.detail(recordId), 'tasks'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/service-requests/{record_id}/tasks', {
+          params: { path: { record_id: recordId } },
+        }),
+      ),
+    enabled: recordId !== '',
+  });
+}
+
+/** Set a task's status with If-Match; the last required plan task done may fulfil it. */
+export function useRequestTaskStatus(recordId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ task, status }: { task: RequestTask; status: RequestTask['status'] }) =>
+      call(
+        api.PATCH('/api/v1/service-requests/{record_id}/tasks/{task_id}', {
+          params: {
+            path: { record_id: recordId, task_id: task.id },
+            header: { 'If-Match': `"${String(task.version)}"` },
+          },
+          body: { status },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });
+    },
+  });
+}
