@@ -89,8 +89,10 @@ test('palette, vote with live feedback, suggestions beside a form that never mov
 
     // The palette finds it (REQ-KB-053) and opens it.
     await tech.page.keyboard.press('Control+k');
-    await tech.page.getByRole('combobox').fill(`printer jam ${tag}`);
-    await tech.page.getByText(title, { exact: false }).first().click();
+    // Inside the palette's dialog: the home page has comboboxes of its own (dashboard selects).
+    const palette = tech.page.getByRole('dialog');
+    await palette.getByRole('combobox').fill(`printer jam ${tag}`);
+    await palette.getByText(title, { exact: false }).first().click();
     await expect(tech.page).toHaveURL(new RegExp(`/knowledge/articles/${articleId}$`), LIVE);
 
     // The editor's Feedback tab counts the technician's vote live (REQ-KB-069 AC4).

@@ -1,4 +1,5 @@
 import { en as shared } from './shared/en.ts';
+import { en as ai } from './ai/en.ts';
 import { en as analytics } from './analytics/en.ts';
 import { en as announcements } from './announcements/en.ts';
 import { en as audit } from './audit/en.ts';
@@ -19,6 +20,7 @@ import { en as workItems } from './work_items/en.ts';
 // its labels in <module>/en.ts (README.md); this file only joins them.
 export const en = {
   ...shared,
+  ...ai,
   ...analytics,
   ...announcements,
   ...audit,
@@ -39,6 +41,7 @@ export const en = {
 /** The module files as they are, for the duplicate and coverage checks. */
 export const enByModule = {
   shared,
+  ai,
   analytics,
   announcements,
   audit,

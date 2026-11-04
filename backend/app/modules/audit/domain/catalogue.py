@@ -275,6 +275,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("knowledge.settings_changed", AuditCategory.CONFIGURATION, "knowledge"),
     ("knowledge.type_created", AuditCategory.CONFIGURATION, "knowledge"),
     ("knowledge.type_changed", AuditCategory.CONFIGURATION, "knowledge"),
+    # ai (WP-037)
+    ("ai.settings_changed", AuditCategory.CONFIGURATION, "ai"),
+    # D-131: every deletion of AI conversation text is audited (retention purge, erasure)
+    ("ai.calls_purged", AuditCategory.DATA, "ai"),
+    ("ai.calls_erased", AuditCategory.DATA, "ai"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category

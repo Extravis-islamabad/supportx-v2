@@ -19,6 +19,9 @@ from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    # AI gateway (WP-037)
+    "AiArea": "ai_area",
+    "OutcomeIn.outcome": "ai_outcome",
     # SLA set-up (WP-025)
     "ActionKind": "sla_action_kind",
     "Anchor": "sla_level_anchor",

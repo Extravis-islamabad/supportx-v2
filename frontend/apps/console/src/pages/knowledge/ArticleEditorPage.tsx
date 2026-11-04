@@ -396,7 +396,12 @@ function DraftEditor({
           </Typography.Title>
         </Space>
         <Space>
-          <Typography.Text type="secondary" role="status" data-testid="kb-save-state">
+          <Typography.Text
+            type="secondary"
+            role="status"
+            data-testid="kb-save-state"
+            data-state={state}
+          >
             {t(`knowledge.save_state.${state}`)}
           </Typography.Text>
           <Link to={`/knowledge/articles/${article.id}`} data-testid="kb-done">

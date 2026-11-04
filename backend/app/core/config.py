@@ -224,6 +224,20 @@ class Settings(BaseSettings):
     # production, whatever this says.
     dev_event_logger: bool | None = None
 
+    # AI gateway (WP-037, architecture.md §12). `fake` replays recorded answers (CI, tests and
+    # development without a model); `openai_compatible` talks to a local vLLM or llama.cpp server
+    # (or any server speaking that API). `ai_provider_external`: the server is outside the
+    # installation, so masking is always on (REQ-AI-018). The key is a secret, never logged.
+    ai_provider: Literal["fake", "openai_compatible"] = "fake"
+    ai_base_url: str | None = None
+    ai_api_key: SecretStr | None = None
+    ai_model: str = "fake"
+    ai_embedding_model: str = "fake-embeddings"
+    ai_provider_external: bool = False
+    ai_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
+    # JSON file of recorded answers for the fake provider ({"<feature>:<sha256>": "text"}).
+    ai_recordings_path: str | None = None
+
     # API conventions (WP-008, docs/architecture/api-conventions.md).
     # Key for signing list cursors. None = derived from SUPPORTX_SESSION_SECRET; with neither
     # (dev/test without login) a random per-process key is used, so cursors die with the process.
