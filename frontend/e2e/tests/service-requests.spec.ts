@@ -142,7 +142,9 @@ test('raise, approve from the drawer, fulfil and confirm receipt, all live', asy
     // The plan became a task on the request; ticking it fulfils the request.
     await tech.page.goto(`/requests/${record.id}`);
     const task = tech.page.getByRole('checkbox', { name: `E2E laptop ${tag}: hand it over` });
-    await task.check();
+    // The box follows the saved task (a controlled checkbox): click, then wait for the save.
+    await task.click();
+    await expect(task).toBeChecked(LIVE);
 
     // The requester sees it fulfilled without a reload, and confirms receipt.
     await row.getByRole('link').click();

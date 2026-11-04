@@ -10,7 +10,7 @@ import {
   Space,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
 import { ApiError, useActionLink, usePeekActionLink } from '@supportx/api-client';
@@ -20,13 +20,17 @@ const COMMENT_MAX = 4000;
 
 /** The token from the URL fragment, read once and removed from the address bar and history. */
 function useFragmentToken(): string | undefined {
+  // Read without side effects: StrictMode calls an initializer twice and keeps one result.
   const [token] = useState(() => {
     const found = window.location.hash.replace(/^#/, '');
-    if (found !== '') {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
     return found === '' ? undefined : found;
   });
+  // Then off the address bar and the history (lane B's condition 3).
+  useEffect(() => {
+    if (window.location.hash !== '') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
   return token;
 }
 
