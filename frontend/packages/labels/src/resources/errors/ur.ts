@@ -234,6 +234,8 @@ export const ur: LabelResource = {
   'errors.field.fixed_calendar_unused': 'کیلنڈر صرف تب منتخب ہوتا ہے جب ماخذ مقررہ کیلنڈر ہو۔',
   'errors.field.flow_not_available': 'اس قسم کے ریکارڈ کی درج بمقابلہ حل شدہ رپورٹ دستیاب نہیں۔',
   'errors.field.flow_without_groupings': 'درج بمقابلہ حل شدہ رپورٹ میں گروپ بندی نہیں ہوتی۔',
+  'errors.field.full_sla_off':
+    'مسائل کے لیے صرف ہدف کی تاریخیں ہیں۔ جواب کے اہداف شامل کرنے کے لیے مسائل پر مکمل SLA آن کریں۔',
   'errors.field.group_not_found': 'یہ گروپ موجود نہیں۔',
   'errors.field.group_not_yours': 'آپ اس گروپ کے رکن نہیں۔',
   'errors.field.group_required': 'چنیں کہ آپ کا کون سا گروپ اسے لے گا۔',
@@ -299,6 +301,8 @@ export const ur: LabelResource = {
   'errors.field.name_required': 'نام درج کریں۔',
   'errors.field.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
+  'errors.field.not_a_technician':
+    'صرف وہی ٹیکنیشن جو مسائل پر کام کرتا ہے کسی مسئلے کی تفتیش کر سکتا ہے۔',
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
   'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
@@ -511,6 +515,7 @@ export const ur: LabelResource = {
   'errors.invalid_tenant_id': 'ادارے کا شناخت کنندہ درست نہیں۔',
   'errors.invalid_transition':
     'موجودہ حیثیت میں یہ ممکن نہیں۔ تازہ ترین دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.investigator_not_found': 'یہ شخص اس مسئلے کا تفتیش کار نہیں ہے۔',
   'errors.invitation_already_signed_in':
     'یہ شخص پہلے ہی سائن اِن کر چکا ہے، اس لیے دعوت کی ضرورت نہیں۔',
   'errors.invitation_needs_email': 'پہلے اس شخص کا ای میل پتا شامل کریں۔',

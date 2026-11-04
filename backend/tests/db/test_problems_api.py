@@ -493,3 +493,146 @@ async def test_a_template_chooses_only_a_life_cycle_of_its_type(world: World) ->
         headers=CONSOLE,
     )
     assert field_codes(on_incident) == {"lifecycle": "invalid_choice"}
+
+
+# --- investigators (WP-044a s5; REQ-PRB-029, ADR-040) ------------------------------------------
+
+
+async def test_an_investigator_works_one_problem_and_nothing_more(world: World) -> None:
+    """AC1 access to that problem only; AC3 removal ends it, with history; audited (ADR-040)."""
+    a = world.a
+    narrow = await role(
+        world,
+        a,
+        "Site technician",
+        [("problems.view", "group"), ("problems.edit", "group"), ("problems.add_note", "group")],
+    )
+    granted = await world.call("PUT", f"/users/{a.requester2}/roles/{narrow}", a, a.admin)
+    assert granted.status_code in {200, 204}, granted.text
+    them = a.requester2  # in no group: their scope reaches no problem
+    record = (await new_problem(world, a, a.admin, group_id=str(a.ga))).json()
+    other = (await new_problem(world, a, a.admin, group_id=str(a.ga))).json()
+    path = f"{PRB}/{record['id']}"
+    assert problem(await world.call("GET", path, a, them))[0] == 404
+    # Naming needs edit on the problem, and a technician.
+    refused = await world.call("PUT", f"{path}/investigators/{them}", a, a.tech_b)
+    assert problem(refused)[0] == 403
+    not_tech = await world.call("PUT", f"{path}/investigators/{a.requester}", a, a.admin)
+    assert field_codes(not_tech) == {"user_id": "not_a_technician"}
+    named = await world.call("PUT", f"{path}/investigators/{them}", a, a.tech_a)
+    assert named.status_code == 204, named.text
+    listed = await world.call("GET", f"{path}/investigators", a, a.admin)
+    assert listed.json() == {"user_ids": [str(them)]}
+    # They see it, live in their list, and work notes, tasks and worklogs on it ...
+    assert (await world.call("GET", path, a, them)).status_code == 200
+    mine = await world.call("GET", PRB, a, them)
+    assert [r["id"] for r in mine.json()["items"]] == [record["id"]]  # this problem only
+    assert problem(await world.call("GET", f"{PRB}/{other['id']}", a, them))[0] == 404
+    note = await world.call(
+        "POST",
+        f"{path}/conversation",
+        a,
+        them,
+        json={"kind": "note", "visibility": "private", "body": "<p>Relay logs attached</p>"},
+    )
+    assert note.status_code == 201, note.text
+    task = await world.call("POST", f"{path}/tasks", a, them, json={"title": "Check relay"})
+    assert task.status_code == 201, task.text
+    done = await world.call(
+        "PATCH",
+        f"{path}/tasks/{task.json()['id']}",
+        a,
+        them,
+        json={"status": "done"},
+        headers={"If-Match": f'"{task.json()["version"]}"'},
+    )
+    assert done.status_code == 200, done.text
+    worklog = await world.call(
+        "POST",
+        f"{path}/worklogs",
+        a,
+        them,
+        json={
+            "worklog_type": "investigation",
+            "started_at": "2026-11-05T10:00:00Z",
+            "ended_at": "2026-11-05T11:00:00Z",
+        },
+    )
+    assert worklog.status_code == 201, worklog.text
+    # ... but never its fields, status or links.
+    current = (await world.call("GET", path, a, a.admin)).json()
+    edited = await world.call(
+        "PATCH",
+        path,
+        a,
+        them,
+        json={"subject": "Mine now"},
+        headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+    )
+    assert problem(edited)[0] == 403
+    assert problem(await act(world, a, them, current, "investigate"))[0] == 403
+    # Removing them ends the access; history and the audit log name both changes.
+    removed = await world.call("DELETE", f"{path}/investigators/{them}", a, a.tech_a)
+    assert removed.status_code == 204, removed.text
+    assert problem(await world.call("GET", path, a, them))[0] == 404
+    history = await world.sql(
+        "SELECT old_value, new_value FROM field_changes"
+        " WHERE tenant_id = $1 AND record_id = $2 AND field = 'investigator'",
+        a.tenant,
+        uuid.UUID(record["id"]),
+    )
+    assert len(history) == 2
+    audited = await world.sql(
+        "SELECT action FROM audit_entries WHERE tenant_id = $1 AND action LIKE"
+        " 'problem.investigator_%' AND outcome = 'done' ORDER BY occurred_at",
+        a.tenant,
+    )
+    assert [r["action"] for r in audited] == [
+        "problem.investigator_added",
+        "problem.investigator_removed",
+    ]
+
+
+async def test_full_slas_on_problems_are_a_tenant_switch(world: World) -> None:
+    """D-140 Q3: target dates by default; response targets only once full SLAs are on."""
+    a = world.a
+    policies = "/sla/record-types/problem/policies"
+    settings_path = "/sla/record-types/problem/settings"
+    body = {
+        "name": "Problems with a response",
+        "targets": [
+            {"kind": "first_response", "priority": None, "amount": 4, "unit": "hours"},
+            {"kind": "resolution", "priority": None, "amount": 5, "unit": "business_days"},
+        ],
+    }
+    keyed = {**CONSOLE, "Idempotency-Key": str(uuid.uuid4())}
+    refused = await world.call("POST", policies, a, a.admin, json=body, headers=keyed)
+    assert field_codes(refused) == {"targets.0.kind": "full_sla_off"}
+    settings = (await world.call("GET", settings_path, a, a.admin)).json()
+    assert settings["full_sla"] is False
+    switched = await world.call(
+        "PATCH",
+        settings_path,
+        a,
+        a.admin,
+        json={"full_sla": True},
+        headers={"If-Match": f'"{settings["version"]}"', **CONSOLE},
+    )
+    assert switched.status_code == 200, switched.text
+    assert switched.json()["full_sla"] is True
+    keyed = {**CONSOLE, "Idempotency-Key": str(uuid.uuid4())}
+    made = await world.call("POST", policies, a, a.admin, json=body, headers=keyed)
+    assert made.status_code == 201, made.text
+    record = (await new_problem(world, a, a.admin, group_id=str(a.ga))).json()
+    assert record["first_response_due_at"] is not None  # the full SLA applies now
+    # Every other type has full SLAs already: the switch is not theirs.
+    incident = (await world.call("GET", "/sla/record-types/incident/settings", a, a.admin)).json()
+    wrong = await world.call(
+        "PATCH",
+        "/sla/record-types/incident/settings",
+        a,
+        a.admin,
+        json={"full_sla": True},
+        headers={"If-Match": f'"{incident["version"]}"', **CONSOLE},
+    )
+    assert field_codes(wrong) == {"full_sla": "not_allowed"}

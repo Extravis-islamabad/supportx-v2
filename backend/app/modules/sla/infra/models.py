@@ -299,6 +299,8 @@ class SlaSettings(TenantKeyed, Base):
     warning_percent: Mapped[int] = mapped_column(SmallInteger, server_default="75")
     priority_rule: Mapped[str] = mapped_column(String(20), server_default="recalculate")
     reopen_rule: Mapped[str] = mapped_column(String(20), server_default="resume")
+    # Full SLAs on a type that has target dates only by default (problems, D-140 Q3).
+    full_sla: Mapped[bool] = mapped_column(Boolean, server_default="false")
     version: Mapped[int] = mapped_column(BigInteger, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]

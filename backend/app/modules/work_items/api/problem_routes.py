@@ -7,6 +7,9 @@
     POST /problems/{id}/incidents                link one incident to this problem (If-less)
     GET  /problems/{id}/copy                     a copy's values and what is left empty
     POST /problems/{id}/copy                     create the copy
+    GET  /problems/{id}/investigators            who investigates it (ADR-040)
+    PUT  /problems/{id}/investigators/{user_id}  name one (whoever may edit it); audited
+    DELETE /problems/{id}/investigators/{user_id}  remove one, or step down yourself; audited
 
 Many incidents go to "this problem instead" through the incidents' own bulk job
 (`POST /incidents/bulk`, action `link_problem`), the same path as from the create form.
@@ -20,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
+from app.modules.audit import audited
 from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.api.list_routes import BulkJobOut
 from app.modules.work_items.domain.lifecycle import StatusCategory
@@ -90,6 +94,12 @@ class LinkOneIn(BaseModel):
     move: bool = Field(
         default=False, description="Move it from the problem it is linked to now (AC2)."
     )
+
+
+class InvestigatorsOut(BaseModel):
+    """A problem's investigators, oldest first (REQ-PRB-029)."""
+
+    user_ids: list[uuid.UUID]
 
 
 class LinkedOut(BaseModel):
@@ -291,6 +301,65 @@ def add_problem_routes(
             )
 
         return await idempotency.run({"copy_of": str(record_id)}, run, status_code=201)
+
+    _add_investigator_routes(router, wtype)
+
+
+def _add_investigator_routes(router: APIRouter, wtype: WorkItemType) -> None:
+    """Investigators (ADR-040): list, name, remove; naming and removing are audited."""
+    View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
+    Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
+    audit = wtype.code.value
+
+    @router.get("/{record_id}/investigators", summary="Investigators of the problem")
+    async def list_investigators(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> InvestigatorsOut:
+        """Technicians who work it besides the owner (REQ-PRB-029)."""
+        return InvestigatorsOut(user_ids=await service.investigators(session, subject, record_id))
+
+    @router.put(
+        "/{record_id}/investigators/{user_id}",
+        summary="Name an investigator",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[
+            audited(f"{audit}.investigator_added", object_type=audit, object_param="record_id")
+        ],
+    )
+    async def add_investigator(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        user_id: uuid.UUID,
+        session: TenantSession,
+        subject: View,
+        request: Request,
+        policy: Policy,
+    ) -> Response:
+        """They reach this problem's record, notes, tasks and worklogs (ADR-040); idempotent."""
+        await service.add_investigator(
+            session, subject, record_id, user_id, policy=policy, source=source_of(request)
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.delete(
+        "/{record_id}/investigators/{user_id}",
+        summary="Remove an investigator",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[
+            audited(f"{audit}.investigator_removed", object_type=audit, object_param="record_id")
+        ],
+    )
+    async def remove_investigator(
+        record_id: uuid.UUID,
+        user_id: uuid.UUID,
+        session: TenantSession,
+        subject: View,
+        request: Request,
+    ) -> Response:
+        """Their access to it ends; history names both changes (REQ-PRB-029 AC3)."""
+        await service.remove_investigator(
+            session, subject, record_id, user_id, source=source_of(request)
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 __all__ = ["add_problem_routes"]

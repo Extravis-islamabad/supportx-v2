@@ -47,6 +47,7 @@ from app.modules.work_items.infra.models import (
     WorkItemTypeSettings,
     WorkItemWorklog,
 )
+from app.modules.work_items.service import followers
 from app.modules.work_items.service import work_items as items
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -116,6 +117,20 @@ def _text(value: object, field: str, limit: int, problems: list[tuple[str, str]]
     if len(text) > limit:
         problems.append((field, "value_too_long"))
     return text
+
+
+async def _for_work(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    """Tasks and worklogs: `edit`, or an investigator of this record (ADR-040), nothing wider."""
+    try:
+        return await items.record_for_action(session, subject, wtype, "edit", record_id)
+    except PermissionDenied:
+        if subject.holds(wtype.permission("view")) and await followers.is_investigator(
+            session, record_id, subject.user_id
+        ):
+            return await items.visible_record(session, subject, wtype, record_id)
+        raise
 
 
 # --- tasks (REQ-INC-072) --------------------------------------------------------------------------
@@ -209,7 +224,7 @@ async def create_task(  # noqa: PLR0913 - the record, the task and the source, e
     source: Source,
 ) -> WorkItemTask:
     """A new task at the end of the record's list."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     existing = await _tasks(session, record_id)
     if len(existing) >= MAX_TASKS:
         raise items.field_errors([("title", "too_many_items")], max=MAX_TASKS)
@@ -263,7 +278,11 @@ async def _task_access(
 
     Anyone else gets 404, as if the record did not exist.
     """
-    if await items.may(session, subject, wtype, "edit", record_id):
+    if await items.may(session, subject, wtype, "edit", record_id) or (
+        # An investigator works the record's tasks in full (ADR-040).
+        subject.holds(wtype.permission("view"))
+        and await followers.is_investigator(session, record_id, subject.user_id)
+    ):
         record = await items.visible_record(session, subject, wtype, record_id)
         return record, await _task(session, record_id, task_id), True
     task: WorkItemTask | None = await session.scalar(
@@ -335,7 +354,7 @@ async def delete_task(  # noqa: PLR0913 - the task, its version and the source, 
     source: Source,
 ) -> None:
     """Remove a task (soft delete)."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     task = await _task(session, record_id, task_id)
     removed = await TaskRepository(session).soft_delete(task.id, expected_version=expected_version)
     await _recorded(
@@ -360,7 +379,7 @@ async def move_task(  # noqa: PLR0913 - the task, the direction and the source, 
     source: Source,
 ) -> list[WorkItemTask]:
     """Move a task one place up (-1) or down (+1); the new order is saved for everyone."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     current = await _tasks(session, record_id)
     ids = [str(t.id) for t in current]
     if str(task_id) not in ids:
@@ -520,7 +539,7 @@ async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the sou
     source: Source,
 ) -> WorkItemWorklog:
     """Log time on a record; the owner defaults to the subject."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     times = _times(values)
     problems: list[tuple[str, str]] = []
     description = _text(values.get("description"), "description", DESCRIPTION_MAX, problems)
@@ -570,7 +589,7 @@ async def update_worklog(  # noqa: PLR0913, PLR0917 - the worklog, its version, 
     source: Source,
 ) -> WorkItemWorklog:
     """Change a worklog (If-Match); the times are checked together again."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     row = await _worklog(session, record_id, worklog_id)
     merged = {
         "started_at": row.started_at,
@@ -618,7 +637,7 @@ async def delete_worklog(  # noqa: PLR0913 - the worklog, its version and the so
     source: Source,
 ) -> None:
     """Remove a worklog (soft delete)."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     row = await _worklog(session, record_id, worklog_id)
     removed = await WorklogRepository(session).soft_delete(
         row.id, expected_version=expected_version

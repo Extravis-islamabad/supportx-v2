@@ -25,14 +25,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound
 from app.modules.identity_access import Subject
+from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.templates import PickList
 from app.modules.work_items.domain.types import INCIDENT, PROBLEM, SUBJECT_MAX
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemLink
 from app.modules.work_items.service import catalogue as config
-from app.modules.work_items.service import parts, search
+from app.modules.work_items.service import followers, parts, search
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.conversations import Subjects
 from app.shared.history import Change, Source, record_changes
 
 _DONE = frozenset({StatusCategory.RESOLVED, *FINAL_CATEGORIES})
@@ -233,14 +235,96 @@ async def copied_from(
     )
 
 
+# --- investigators (REQ-PRB-029, ADR-040) ----------------------------------------------------
+
+
+async def investigators(
+    session: AsyncSession, subject: Subject, problem_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """The problem's investigators, oldest first."""
+    record = await problem_of(session, subject, problem_id)
+    return [
+        r.user_id
+        for r in await followers.of_record(session, record.id)
+        if r.grants_access and r.reason == FollowReason.INVESTIGATOR.value
+    ]
+
+
+async def add_investigator(  # noqa: PLR0913 - the problem, the person and the context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    problem_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    policy: Subjects,
+    source: Source,
+) -> None:
+    """Name a technician as an investigator: whoever may edit the problem (ADR-040 §3)."""
+    record = await items.record_for_action(session, subject, PROBLEM, "edit", problem_id)
+    person = await policy.subject(subject.tenant_id, user_id, session)
+    if not person.holds(PROBLEM.permission("view")):
+        raise items.field_errors([("user_id", "not_a_technician")])
+    existing = await followers.current(session, record.id, user_id)
+    if existing is not None and existing.reason == FollowReason.INVESTIGATOR.value:
+        return
+    if existing is not None:  # following already: becomes the investigator row
+        await followers.unfollow(session, record, existing, source=source)
+    await followers.follow(
+        session,
+        record,
+        user_id,
+        reason=FollowReason.INVESTIGATOR,
+        grants_access=True,
+        source=source,
+    )
+    await _investigator_history(session, record, None, str(user_id), source)
+
+
+async def remove_investigator(
+    session: AsyncSession,
+    subject: Subject,
+    problem_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    source: Source,
+) -> None:
+    """End an investigator's follow, and so their access (REQ-PRB-029 AC3)."""
+    if user_id == subject.user_id:  # stepping down needs no edit right
+        record = await problem_of(session, subject, problem_id)
+    else:
+        record = await items.record_for_action(session, subject, PROBLEM, "edit", problem_id)
+    row = await followers.current(session, record.id, user_id)
+    if row is None or row.reason != FollowReason.INVESTIGATOR.value:
+        raise NotFound(code="investigator_not_found")
+    await followers.unfollow(session, record, row, source=source)
+    await _investigator_history(session, record, str(user_id), None, source)
+
+
+async def _investigator_history(
+    session: AsyncSession, record: WorkItem, old: str | None, new: str | None, source: Source
+) -> None:
+    await record_changes(
+        session,
+        record_type=parts.RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="child_added" if new is not None else "child_removed",
+        changes=[Change("investigator", old, new)],
+        source=source,
+    )
+
+
 __all__ = [
     "COPY_FIELDS",
+    "add_investigator",
     "already_caused",
     "causing_problem",
     "copied_from",
     "copy_values",
+    "investigators",
     "link_cause",
     "prefill",
     "problem_of",
+    "remove_investigator",
     "similar",
 ]

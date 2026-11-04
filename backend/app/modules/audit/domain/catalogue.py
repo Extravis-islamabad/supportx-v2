@@ -260,6 +260,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("problem.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("problem.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("problem.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    # ADR-040: an investigator reaches a problem outside their own scope.
+    ("problem.investigator_added", AuditCategory.RECORDS, "work_items"),
+    ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),

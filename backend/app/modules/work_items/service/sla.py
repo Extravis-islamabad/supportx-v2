@@ -94,6 +94,7 @@ def register_sla() -> None:
                 run_actions=_run_actions,
                 preferred_policy=_item_policy,
                 default_targets=PROBLEM_TARGETS if code is WorkItemTypeCode.PROBLEM else None,
+                target_dates_only=code is WorkItemTypeCode.PROBLEM,
             )
         )
 

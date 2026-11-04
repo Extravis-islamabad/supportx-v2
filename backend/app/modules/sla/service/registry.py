@@ -93,6 +93,9 @@ class SlaRecordType:
     # source) codes; None: the incident defaults. Problems have only a resolution target (the
     # target date) in business days, and no first response.
     default_targets: tuple[tuple[str, str, int, str, str], ...] | None = None
+    # D-140 Q3: only the resolution target (the target date) counts unless the tenant's
+    # `full_sla` setting for the type is on; response targets are refused on save while off.
+    target_dates_only: bool = False
 
 
 _TYPES: dict[str, SlaRecordType] = {}

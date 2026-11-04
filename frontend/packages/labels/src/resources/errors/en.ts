@@ -228,6 +228,8 @@ export const en = {
     'A calendar is only chosen when the source is a fixed calendar.',
   'errors.field.flow_not_available': 'This kind of record has no created-vs-resolved report.',
   'errors.field.flow_without_groupings': 'A created-vs-resolved report has no groupings.',
+  'errors.field.full_sla_off':
+    'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
   'errors.field.group_not_found': 'This group does not exist.',
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
@@ -293,6 +295,7 @@ export const en = {
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
+  'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
@@ -501,6 +504,7 @@ export const en = {
   'errors.invalid_tenant_id': 'The organisation identifier is not valid.',
   'errors.invalid_transition':
     'This is not possible in the current status. Reload to see the latest.',
+  'errors.investigator_not_found': 'This person is not an investigator of this problem.',
   'errors.invitation_already_signed_in':
     'This person has signed in already, so there is nothing to invite them to.',
   'errors.invitation_needs_email': 'Add an email address to this person first.',

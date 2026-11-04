@@ -11,6 +11,8 @@
   (existing rows: "standard"); work_items.lifecycle (from the template at creation, default
   "standard") and work_item_templates.lifecycle (NULL: standard); the guided actions
   `analyse` and `start_review`.
+- Investigators (s5, ADR-040): a follower row may have the reason `investigator`.
+- sla_settings.full_sla (s5, D-140 Q3): full SLAs on problems, off by default.
 
 Expand only. The downgrade removes the columns and the two lists' values (per tenant: the
 table forces RLS, see 0023).
@@ -42,6 +44,8 @@ TRANSITIONS = "work_item_transitions"
 TRANSITIONS_PK = "pk_work_item_transitions"
 LIFECYCLE_CHECK = "ck_work_item_transitions_lifecycle_format"
 ACTION_CHECK = "ck_work_item_transitions_action_code"
+FOLLOW_CHECK = "ck_work_item_followers_reason_code"
+FOLLOW_BEFORE = ("self", "added", "handed_over", "mentioned")
 ACTIONS_BEFORE = (
     "start_work",
     "wait_requester",
@@ -155,10 +159,23 @@ def _lifecycles_up() -> None:
         sa.Column("lifecycle", sa.String(length=40), server_default="standard", nullable=False),
     )
     op.add_column("work_item_templates", sa.Column("lifecycle", sa.String(length=40)))
+    op.drop_constraint(op.f(FOLLOW_CHECK), "work_item_followers", type_="check")
+    op.create_check_constraint(
+        op.f(FOLLOW_CHECK), "work_item_followers", _in("reason", (*FOLLOW_BEFORE, "investigator"))
+    )
+    op.add_column(
+        "sla_settings",
+        sa.Column("full_sla", sa.Boolean(), server_default="false", nullable=False),
+    )
 
 
 def _lifecycles_down() -> None:
     """Only the standard sets stay (the others are seed data the upgrade's code re-seeds)."""
+    op.drop_column("sla_settings", "full_sla")
+    op.drop_constraint(op.f(FOLLOW_CHECK), "work_item_followers", type_="check")
+    op.create_check_constraint(
+        op.f(FOLLOW_CHECK), "work_item_followers", _in("reason", FOLLOW_BEFORE)
+    )
     op.drop_column("work_item_templates", "lifecycle")
     op.drop_column("work_items", "lifecycle")
     op.execute(_DROP_OTHER_LIFECYCLES)
