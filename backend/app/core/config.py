@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     db_pool_size: int = Field(default=10, ge=1, le=200)
     db_max_overflow: int = Field(default=10, ge=0, le=200)
     db_pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    # Client-side limits (WP-014b node-loss test): a connection to a server whose node vanished
+    # gets no reset, and without a limit asyncpg waits on the kernel's retries for minutes. Both
+    # are generous: they bound a dead server, not slow work. The reporting pool's command limit
+    # is always above report_background_timeout_seconds, so no report is cut short by them.
+    db_connect_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    db_command_timeout_seconds: float = Field(default=120.0, gt=0, le=3600)
 
     # Reporting (WP-035, ADR-033). Reports run as supportx_app switched to the read-only
     # supportx_report role, on their own small pool so a burst of reports can never take the
