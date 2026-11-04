@@ -173,3 +173,12 @@ async def test_a_group_change_takes_effect_without_signing_in_again(world: World
     assert (
         offered(await as_user(world, a, a.tech_a, item), "submission_accepted")["allowed"] is True
     )
+
+
+async def test_a_groups_only_rule_never_strands_a_release(world: World) -> None:
+    """Those who configure the service desk always pass a non-empty rule (lane B's review)."""
+    a = world.a
+    await set_access(world, a, "submission", move_out={"group_ids": [str(a.gb)]})
+    item = await a_release(world, a)
+    assert offered(await as_user(world, a, a.admin, item), "submission_accepted")["allowed"] is True
+    assert (await move(world, a, item, "submission_accepted")).status_code == 200

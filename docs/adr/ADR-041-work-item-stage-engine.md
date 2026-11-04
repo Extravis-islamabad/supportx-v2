@@ -92,6 +92,11 @@ Revised after lane A's review for changes (file 05, REQ-CHG-023..031, -052, -053
    review): each offered move carries the guard's refusals as its reasons, so a screen shows
    why a move is not possible yet, and a refused move returns the guard's full refusal list,
    not only the first.
+   Stage access (who may edit a stage, who may move a record out of it) is an `AccessRule` of
+   the one policy layer (identity_access), applied after the scope check, never to visibility.
+   An empty rule restricts nobody. A non-empty rule always also admits those who configure the
+   service desk (`config.service_desk`, `settings.manage`), so no record can be stuck in a stage
+   (lane B's review).
 9. **Seeds and edits.** A tenant's stages, paths, statuses and transitions are seeded on first
    use from the type's declaration: Appendix A of file 06 for releases, file 05 for changes.
    Admins edit them later. Seeds never overwrite a tenant's edits.

@@ -180,6 +180,9 @@ async def enabled_paths(session: AsyncSession, wtype: WorkItemType) -> set[str]:
 
 
 EDIT, MOVE_OUT = "edit", "move_out"  # the two kinds of stage access (REQ-REL-019)
+# A rule that names only groups or people could leave a record in a stage nobody may move: those
+# who configure the service desk always pass (lane B's review; ADR-041 §8).
+ALWAYS_ADMITTED = frozenset({"config.service_desk", "settings.manage"})
 
 
 async def access_rule(
@@ -198,7 +201,7 @@ async def access_rule(
         return None
     return AccessRule(
         group_ids=frozenset(uuid.UUID(str(g)) for g in rule.get("group_ids") or ()),
-        permissions=frozenset(str(p) for p in rule.get("permissions") or ()),
+        permissions=frozenset(str(p) for p in rule.get("permissions") or ()) | ALWAYS_ADMITTED,
     )
 
 
