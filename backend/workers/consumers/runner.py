@@ -34,6 +34,7 @@ from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.shared.events import BusNames, ConsumerSpec, EventEnvelope, claim
+from workers.event_lag import note_lag
 from workers.metrics import ConsumerMetrics
 from workers.resilience import Connectivity, Dependency, database_reachable, unavailable
 
@@ -187,6 +188,8 @@ class ConsumerRunner:
         except ValidationError as exc:
             await self.dead_letter(message, None, exc, attempt)
             return
+        if attempt == 1:  # a retry is late on purpose (backoff): only first deliveries count
+            self.metrics.event_lag("consumer", self.name, note_lag("consumer", self.name, envelope))
         try:
             with tracer.start_as_current_span(
                 f"consume {envelope.event_type}",
