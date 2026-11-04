@@ -36,6 +36,7 @@ from app.modules.work_items.domain.templates import (
 )
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
+    STANDARD_LIFECYCLE,
     WorkItemType,
     channel_problems,
     clean_subject,
@@ -294,6 +295,18 @@ async def _known_custom(
 # --- writes ---------------------------------------------------------------------------------------
 
 
+async def _lifecycle(
+    session: AsyncSession, wtype: WorkItemType, value: object
+) -> tuple[str | None, list[tuple[str, str]]]:
+    """A template's transition set: one of the type's (NULL stored for the standard one)."""
+    if value is None or value == STANDARD_LIFECYCLE:
+        return None, []
+    cat = await config.load(session, wtype)
+    if not isinstance(value, str) or value not in cat.lifecycles:
+        return None, [("lifecycle", "invalid_choice")]
+    return value, []
+
+
 async def create_template(
     session: AsyncSession,
     wtype: WorkItemType,
@@ -321,6 +334,10 @@ async def create_template(
     defaults, codes = await _clean_defaults(session, wtype, raw_defaults)
     problems += codes
     problems += rule_problems(rules, defaults)
+    lifecycle, codes = await _lifecycle(
+        session, wtype, values.get("lifecycle", copied_from.lifecycle if copied_from else None)
+    )
+    problems += codes
     if await _name_taken(session, wtype, labels, exclude=None):
         problems.append(("labels", "duplicate_name"))
     if problems:
@@ -338,6 +355,7 @@ async def create_template(
         field_rules=rules_to_json(rules),
         defaults=defaults,
         copied_from_id=copied_from.id if copied_from else None,
+        lifecycle=lifecycle,
     )
     await TemplateRepository(session).add(template)
     await _changed(
@@ -433,6 +451,9 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         problems += codes
     if "for_requesters" in values:
         changes["for_requesters"] = bool(values["for_requesters"])
+    if "lifecycle" in values:  # new records only: running ones keep theirs (REQ-INC-049 style)
+        changes["lifecycle"], codes = await _lifecycle(session, wtype, values["lifecycle"])
+        problems += codes
     rules = rules_from_json(template.field_rules)
     defaults: dict[str, Any] = dict(template.defaults)
     if "fields" in values:

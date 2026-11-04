@@ -7,6 +7,10 @@
 - work_item_reasons may hold the two new lists.
 - work_item_links may be `caused_by` (an incident caused by a problem, at most one per incident:
   a partial unique index); bulk jobs may `link_problem` (REQ-PRB-011, -012).
+- Named transition sets (s4, REQ-PRB-025): work_item_transitions.lifecycle joins the key
+  (existing rows: "standard"); work_items.lifecycle (from the template at creation, default
+  "standard") and work_item_templates.lifecycle (NULL: standard); the guided actions
+  `analyse` and `start_review`.
 
 Expand only. The downgrade removes the columns and the two lists' values (per tenant: the
 table forces RLS, see 0023).
@@ -34,6 +38,40 @@ LINKS_BEFORE = ("related", "follows")
 BULK_CHECK = "ck_work_item_bulk_jobs_action_code"
 BULK_BEFORE = ("edit", "assign", "take", "resolve", "close")
 ONE_CAUSE = "uq_wil_tenant_one_cause"
+TRANSITIONS = "work_item_transitions"
+TRANSITIONS_PK = "pk_work_item_transitions"
+LIFECYCLE_CHECK = "ck_work_item_transitions_lifecycle_format"
+ACTION_CHECK = "ck_work_item_transitions_action_code"
+ACTIONS_BEFORE = (
+    "start_work",
+    "wait_requester",
+    "wait_third_party",
+    "resume",
+    "resolve",
+    "close",
+    "reopen",
+    "cancel",
+    "undo_cancel",
+    "assign",
+    "unassign",
+    "approve",
+    "reject",
+    "investigate",
+    "confirm_root_cause",
+    "await_fix",
+    "hold",
+)
+_DROP_OTHER_LIFECYCLES = """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        DELETE FROM work_item_transitions WHERE lifecycle <> 'standard';
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+"""
 OUTAGE_CHECK = "ck_work_items_outage_order"
 
 _DROP_LISTS = """
@@ -88,11 +126,56 @@ def upgrade() -> None:
     op.create_check_constraint(
         op.f(BULK_CHECK), "work_item_bulk_jobs", _in("action", (*BULK_BEFORE, "link_problem"))
     )
+    _lifecycles_up()
+
+
+def _lifecycles_up() -> None:
+    """Named transition sets: the key, the record's and the template's choice, two actions."""
+    op.add_column(
+        TRANSITIONS,
+        sa.Column("lifecycle", sa.String(length=40), server_default="standard", nullable=False),
+    )
+    op.create_check_constraint(
+        op.f(LIFECYCLE_CHECK), TRANSITIONS, "lifecycle ~ '^[a-z][a-z0-9_]{1,39}$'"
+    )
+    op.drop_constraint(op.f(TRANSITIONS_PK), TRANSITIONS, type_="primary")
+    op.create_primary_key(
+        op.f(TRANSITIONS_PK),
+        TRANSITIONS,
+        ["tenant_id", "type", "lifecycle", "from_status", "action"],
+    )
+    op.drop_constraint(op.f(ACTION_CHECK), TRANSITIONS, type_="check")
+    op.create_check_constraint(
+        op.f(ACTION_CHECK),
+        TRANSITIONS,
+        _in("action", (*ACTIONS_BEFORE, "analyse", "start_review")),
+    )
+    op.add_column(
+        "work_items",
+        sa.Column("lifecycle", sa.String(length=40), server_default="standard", nullable=False),
+    )
+    op.add_column("work_item_templates", sa.Column("lifecycle", sa.String(length=40)))
+
+
+def _lifecycles_down() -> None:
+    """Only the standard sets stay (the others are seed data the upgrade's code re-seeds)."""
+    op.drop_column("work_item_templates", "lifecycle")
+    op.drop_column("work_items", "lifecycle")
+    op.execute(_DROP_OTHER_LIFECYCLES)
+    op.drop_constraint(op.f(ACTION_CHECK), TRANSITIONS, type_="check")
+    op.create_check_constraint(op.f(ACTION_CHECK), TRANSITIONS, _in("action", ACTIONS_BEFORE))
+    op.drop_constraint(op.f(TRANSITIONS_PK), TRANSITIONS, type_="primary")
+    op.create_primary_key(
+        op.f(TRANSITIONS_PK), TRANSITIONS, ["tenant_id", "type", "from_status", "action"]
+    )
+    op.drop_constraint(op.f(LIFECYCLE_CHECK), TRANSITIONS, type_="check")
+    op.drop_column(TRANSITIONS, "lifecycle")
 
 
 def downgrade() -> None:
     """Back to the lists and columns before problems' fields (a downgrade refuses while a
     caused_by link or a link_problem job exists: the checks would fail, keeping data intact)."""
+    _lifecycles_down()
     op.drop_constraint(op.f(BULK_CHECK), "work_item_bulk_jobs", type_="check")
     op.create_check_constraint(op.f(BULK_CHECK), "work_item_bulk_jobs", _in("action", BULK_BEFORE))
     op.drop_index(ONE_CAUSE, table_name="work_item_links")

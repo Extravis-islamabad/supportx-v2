@@ -32,7 +32,14 @@ def test_the_appendix_statuses_and_categories() -> None:
         "root_cause_found": StatusCategory.OPEN,
         "awaiting_fix": StatusCategory.OPEN,
         "on_hold": StatusCategory.PAUSED,
+        # the guided life cycle's steps, on the same statuses table (REQ-PRB-025)
+        "gathering_facts": StatusCategory.OPEN,
+        "why_analysis": StatusCategory.OPEN,
+        "cause_confirmed": StatusCategory.OPEN,
+        "fix_planned": StatusCategory.OPEN,
         "resolved": StatusCategory.RESOLVED,
+        "fix_verified": StatusCategory.RESOLVED,
+        "in_review": StatusCategory.RESOLVED,
         "closed": StatusCategory.CLOSED,
         "canceled": StatusCategory.CANCELED,
         "merged": StatusCategory.CLOSED,
@@ -103,3 +110,35 @@ def test_each_type_lists_only_its_own_actions() -> None:
     assert A.START_WORK not in problem_actions
     assert A.WAIT_REQUESTER not in problem_actions
     assert problem_actions[:2] == [A.INVESTIGATE, A.CONFIRM_ROOT_CAUSE]
+
+
+def test_the_guided_life_cycle_walks_the_analysis_steps() -> None:
+    """REQ-PRB-025, Appendix A: facts → why → cause confirmed → fix planned → verified → review."""
+    from app.modules.work_items.domain.lifecycle import guided_problem_lifecycle  # noqa: PLC0415
+    from app.modules.work_items.domain.types import GUIDED_ANALYSIS  # noqa: PLC0415
+
+    assert set(PROBLEM.lifecycles) == {"standard", GUIDED_ANALYSIS}
+    life = guided_problem_lifecycle()
+    status = "new"
+    steps = ["investigate", "analyse", "confirm_root_cause", "await_fix", "resolve"]
+    walked = []
+    for step in steps:
+        status = life.target(status, A(step), before_cancel=None)
+        walked.append(status)
+    assert walked == [
+        "gathering_facts",
+        "why_analysis",
+        "cause_confirmed",
+        "fix_planned",
+        "fix_verified",
+    ]
+    assert not life.allows("fix_verified", A.CLOSE)  # the review comes first
+    assert life.target("fix_verified", A.START_REVIEW, before_cancel=None) == ("in_review")
+    assert life.allows("in_review", A.CLOSE)
+    # Back to the analysis when the cause is rejected or the fix fails.
+    for status in ("cause_confirmed", "fix_planned"):
+        assert life.target(status, A.INVESTIGATE, before_cancel=None) == "why_analysis"
+    # The standard life cycle never reaches a guided step.
+    standard = problem_lifecycle()
+    reached = {t.to_status for t in standard.transitions.values()}
+    assert not reached & {"gathering_facts", "why_analysis", "fix_verified", "in_review"}

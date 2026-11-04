@@ -412,3 +412,84 @@ async def test_a_copy_has_the_fields_a_marked_title_and_names_the_original(world
     assert field_codes(
         await world.call("POST", f"{PRB}/{copy['id']}/incidents", a, a.tech_a, json={})
     ) == {"incident_id": "required"}
+
+
+# --- templates and the guided life cycle (WP-044a s4; REQ-PRB-017, -025) -----------------------
+
+
+async def test_the_major_problem_template_runs_the_guided_life_cycle(world: World) -> None:
+    """REQ-PRB-017 AC1 (two templates), REQ-PRB-025 AC1 (the guided steps, review before close)."""
+    a = world.a
+    listed = (await world.call("GET", f"{PRB}/templates", a, a.admin)).json()
+    by_code = {t["code"]: t for t in listed}
+    assert set(by_code) == {"standard", "major_problem"}
+    assert by_code["standard"]["is_default"]
+    assert (by_code["standard"]["lifecycle"], by_code["major_problem"]["lifecycle"]) == (
+        "standard",
+        "guided_analysis",
+    )
+    plain = (await new_problem(world, a, a.admin, group_id=str(a.ga))).json()
+    assert plain["lifecycle"] == "standard"
+    assert "analyse" not in {x["action"] for x in plain["actions"]}
+    major = await new_problem(
+        world, a, a.admin, group_id=str(a.ga), template_id=by_code["major_problem"]["id"]
+    )
+    assert major.status_code == 201, major.text
+    record = major.json()
+    assert record["lifecycle"] == "guided_analysis"
+
+    async def move(action: str, **body: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON
+        nonlocal record
+        done = await act(world, a, a.admin, record, action, **body)
+        assert done.status_code == 200, done.text
+        record = dict(done.json())
+        return record
+
+    assert (await move("investigate"))["status"] == "gathering_facts"
+    assert (await move("analyse"))["status"] == "why_analysis"
+    assert (await move("confirm_root_cause"))["status"] == "cause_confirmed"
+    assert (await move("await_fix"))["status"] == "fix_planned"
+    verified = await move("resolve", resolution="<p>Patched the mail relay.</p>")
+    assert (verified["status"], verified["status_category"]) == ("fix_verified", "resolved")
+    early = await act(world, a, a.admin, record, "close", closure_code="fixed")
+    assert problem(early) == (409, "invalid_transition")  # the review comes first
+    assert (await move("start_review"))["status"] == "in_review"
+    assert (await move("close", closure_code="fixed"))["status"] == "closed"
+    # The catalogue lists both transition sets.
+    catalogue = (await world.call("GET", f"{PRB}/settings", a, a.admin)).json()
+    sets = {t["lifecycle"] for t in catalogue["transitions"]}
+    assert sets == {"standard", "guided_analysis"}
+    assert "start_review" in catalogue["actions"]
+
+
+async def test_a_template_chooses_only_a_life_cycle_of_its_type(world: World) -> None:
+    a = world.a
+    made = await world.call(
+        "POST",
+        f"{PRB}/templates",
+        a,
+        a.admin,
+        json={"labels": {"en": "Network problem"}, "lifecycle": "guided_analysis"},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    assert made.json()["lifecycle"] == "guided_analysis"
+    wrong = await world.call(
+        "POST",
+        f"{PRB}/templates",
+        a,
+        a.admin,
+        json={"labels": {"en": "Odd one"}, "lifecycle": "sideways"},
+        headers=CONSOLE,
+    )
+    assert field_codes(wrong) == {"lifecycle": "invalid_choice"}
+    # Incidents have no other transition set.
+    on_incident = await world.call(
+        "POST",
+        "/incidents/templates",
+        a,
+        a.admin,
+        json={"labels": {"en": "Guided incident"}, "lifecycle": "guided_analysis"},
+        headers=CONSOLE,
+    )
+    assert field_codes(on_incident) == {"lifecycle": "invalid_choice"}

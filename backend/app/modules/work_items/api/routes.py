@@ -50,6 +50,7 @@ from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBeh
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
+    STANDARD_LIFECYCLE,
     SUBJECT_MAX,
     TAGS_MAX,
     Channel,
@@ -485,6 +486,10 @@ class WorkItemOut(BaseModel):
     outage_started_at: datetime | None = None
     outage_ended_at: datetime | None = None
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
+    lifecycle: str = Field(
+        default=STANDARD_LIFECYCLE,
+        description="The transition set it follows, from its template (WP-044a; REQ-PRB-025).",
+    )
     catalog_item_id: uuid.UUID | None = Field(
         default=None, description="Service requests: the item it was raised from."
     )
@@ -595,6 +600,7 @@ _RECORD_FIELDS = (
     "outage_started_at",
     "outage_ended_at",
     "template_id",
+    "lifecycle",
     "custom",
     "status",
     "status_category",
@@ -782,6 +788,10 @@ class WorkItemTransitionOut(BaseModel):
     to_status: str | None = Field(description="Null: back to the status before canceling.")
     reason_mode: ReasonMode
     reason_list: ReasonList | None
+    lifecycle: str = Field(
+        default=STANDARD_LIFECYCLE,
+        description="The transition set: `standard`, or one a template chooses (WP-044a).",
+    )
 
 
 class WorkItemScaleValueOut(BaseModel):
@@ -904,7 +914,7 @@ class WorkItemCatalogueOut(BaseModel):
                 for s in cat.statuses
             ],
             # The actions of this type's life cycle (an incident never offers a problem's).
-            actions=cat.lifecycle.used_actions(),
+            actions=cat.used_actions(),
             transitions=[
                 WorkItemTransitionOut(
                     from_status=t.from_status,
@@ -912,10 +922,13 @@ class WorkItemCatalogueOut(BaseModel):
                     to_status=t.to_status,
                     reason_mode=t.reason_mode,
                     reason_list=t.reason_list,
+                    lifecycle=code,
                 )
-                # Life-cycle order (QA BUG-04): by status, then the fixed action order.
+                # The standard set first; life-cycle order (QA BUG-04): by status, then the
+                # fixed action order.
+                for code, lifecycle in cat.lifecycles.items()
                 for t in sorted(
-                    cat.lifecycle.transitions.values(),
+                    lifecycle.transitions.values(),
                     key=lambda t: (
                         [st.code for st in cat.statuses].index(t.from_status),
                         USER_ACTIONS.index(t.action) if t.action in USER_ACTIONS else 99,

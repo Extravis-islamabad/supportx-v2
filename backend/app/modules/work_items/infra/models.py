@@ -56,7 +56,7 @@ from app.modules.work_items.domain.lifecycle import (
 from app.modules.work_items.domain.lists import BulkAction, BulkStatus, ViewVisibility
 from app.modules.work_items.domain.parts import LinkKind, TaskPriority, TaskStatus, WorklogType
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
-from app.modules.work_items.domain.types import Channel, WorkItemTypeCode
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, Channel, WorkItemTypeCode
 from app.shared.db.models import Base, TenantEntity, TenantKeyed, utc_now
 
 
@@ -177,6 +177,7 @@ class WorkItemTransition(TenantKeyed, Base):
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint(_codes("action", WorkItemAction), name="action_code"),
+        CheckConstraint("lifecycle ~ '^[a-z][a-z0-9_]{1,39}$'", name="lifecycle_format"),
         CheckConstraint(_codes("reason_mode", ReasonMode), name="reason_mode_code"),
         CheckConstraint(
             "reason_list IS NULL OR " + _codes("reason_list", ReasonList), name="reason_list_code"
@@ -202,6 +203,10 @@ class WorkItemTransition(TenantKeyed, Base):
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
+    # Which of the type's transition sets (WP-044a s4): "standard", or one a template chooses.
+    lifecycle: Mapped[str] = mapped_column(
+        String(40), primary_key=True, server_default=STANDARD_LIFECYCLE
+    )
     from_status: Mapped[str] = mapped_column(String(40), primary_key=True)
     action: Mapped[str] = mapped_column(String(30), primary_key=True)
     to_status: Mapped[str | None] = mapped_column(String(40))
@@ -365,6 +370,8 @@ class WorkItemTemplate(TenantEntity):
     disabled_at: Mapped[datetime | None]
     # The desk the template belongs to (REQ-ESM-002, D-061).
     desk_id: Mapped[uuid.UUID]
+    # The transition set records from this template follow; NULL: the type's standard one.
+    lifecycle: Mapped[str | None] = mapped_column(String(40))
 
 
 # Description is sanitised HTML: tags and entities become spaces before indexing (migration 0020);
@@ -625,6 +632,8 @@ class WorkItem(TenantEntity):
     status_before_cancel: Mapped[str | None] = mapped_column(String(40))
     # WP-044a: where a record put on hold resumes (Appendix A, problems).
     status_before_pause: Mapped[str | None] = mapped_column(String(40))
+    # The transition set it follows, from its template at creation (WP-044a s4, REQ-PRB-025).
+    lifecycle: Mapped[str] = mapped_column(String(40), server_default=STANDARD_LIFECYCLE)
     # The fix (REQ-INC-090), sanitised rich text; cleared on reopen (history keeps it).
     resolution: Mapped[str | None] = mapped_column(Text)
     # A code of the closure_code pick list (REQ-INC-093); cleared on reopen (history keeps it).

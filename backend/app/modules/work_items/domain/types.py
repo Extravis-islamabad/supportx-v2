@@ -15,6 +15,7 @@ from enum import StrEnum
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
+    GUIDED_PROBLEM_TRANSITIONS,
     PROBLEM_STATUSES,
     PROBLEM_TRANSITIONS,
     SERVICE_REQUEST_STATUSES,
@@ -29,6 +30,9 @@ DESCRIPTION_MAX = 100_000  # sanitised HTML, characters
 TAG_MAX = 40
 TAGS_MAX = 20
 _TAG = re.compile(r"^[\w][\w .\-]{0,39}$", re.UNICODE)
+# Every type's own life cycle; a type may seed more, which a template chooses (WP-044a s4).
+STANDARD_LIFECYCLE = "standard"
+GUIDED_ANALYSIS = "guided_analysis"  # problems: the major problem template's (REQ-PRB-025)
 
 
 class WorkItemTypeCode(StrEnum):
@@ -75,6 +79,13 @@ class WorkItemType:
     statuses: Sequence[StatusDef] = DEFAULT_STATUSES
     transitions: Sequence[TransitionDef] = DEFAULT_TRANSITIONS
     fields: frozenset[str] = field(default_factory=frozenset)
+    # More transition sets on the same statuses, by code; the template chooses one.
+    other_lifecycles: Mapping[str, Sequence[TransitionDef]] = field(default_factory=dict)
+
+    @property
+    def lifecycles(self) -> Mapping[str, Sequence[TransitionDef]]:
+        """Every seeded transition set, the standard one first."""
+        return {STANDARD_LIFECYCLE: self.transitions, **self.other_lifecycles}
 
     @property
     def counter_key(self) -> str:
@@ -140,6 +151,7 @@ PROBLEM = WorkItemType(
     statuses=PROBLEM_STATUSES,
     transitions=PROBLEM_TRANSITIONS,
     fields=COMMON_FIELDS,
+    other_lifecycles={GUIDED_ANALYSIS: GUIDED_PROBLEM_TRANSITIONS},
 )
 
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {

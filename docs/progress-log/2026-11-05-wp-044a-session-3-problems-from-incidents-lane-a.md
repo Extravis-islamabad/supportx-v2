@@ -1,4 +1,4 @@
-# 2026-11-05 — WP-044a session 3: problems from incidents (lane A)
+### 2026-11-05 — WP-044a session 3: problems from incidents (lane A)
 
 **Scope:** REQ-PRB-011, -012, -014, -015 on the problem type from sessions 1-2. PR #211 (draft).
 

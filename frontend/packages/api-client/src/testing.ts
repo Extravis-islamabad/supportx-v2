@@ -464,6 +464,7 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     priority_source: 'default',
     level: null,
     template_id: STANDARD_TEMPLATE_ID,
+    lifecycle: 'standard',
     status: 'new',
     status_category: 'open',
     status_reason_code: null,
@@ -698,6 +699,7 @@ export function fakeIncidentTemplate(overrides: Partial<IncidentTemplate> = {}):
     ),
     custom_fields: {},
     defaults: {},
+    lifecycle: 'standard',
     version: 1,
     ...overrides,
   };
