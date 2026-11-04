@@ -101,7 +101,8 @@ export function CatalogItemPage() {
             {
               onSuccess: (made) => {
                 void message.success(t('portal.catalog.sent', { id: made.display_id }));
-                void navigate(`/service-requests/${made.id}`, { replace: true });
+                // What happens next (WP-032 D5, REQ-PRT-006) on the request's page.
+                void navigate(`/service-requests/${made.id}?submitted=1`, { replace: true });
               },
               onError: (error) => {
                 if (error instanceof ApiError && error.status === 422) {

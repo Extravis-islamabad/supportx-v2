@@ -237,3 +237,46 @@ export function useAnswerRequest(id: string) {
     },
   });
 }
+
+/** The portal home's counts (WP-032 D1): refetch on the person's channels to keep it live. */
+export function usePortalSummary(enabled = true) {
+  return useQuery({
+    queryKey: [...portalKeys.all, 'summary'],
+    queryFn: () => call(api.GET('/api/v1/portal/summary')),
+    enabled,
+  });
+}
+
+/** The most requested items the person may see, last 90 days (REQ-CAT-027). */
+export function usePopularCatalogItems(enabled = true) {
+  return useQuery({
+    queryKey: ['catalog', 'items', 'popular'],
+    queryFn: () =>
+      call(api.GET('/api/v1/catalog/items/popular', { params: { query: { limit: 6 } } })),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/** Published articles the person may read that match the words (portal search, WP-032 D2). */
+export function usePortalArticleSearch(q: string, language: string) {
+  const text = q.trim();
+  return useQuery({
+    queryKey: ['portal', 'search', 'articles', text, language],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/knowledge/articles', {
+          params: {
+            query: {
+              view: 'published',
+              q: text,
+              limit: 10,
+              language: language === 'ar' ? 'ar' : 'en', // knowledge has en and ar versions,
+            },
+          },
+        }),
+      ),
+    enabled: text !== '',
+    meta: { silent: true },
+  });
+}
