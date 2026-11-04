@@ -41,6 +41,7 @@ import {
 import { AvailabilityCard } from '../AvailabilitySwitch';
 import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
 import { LedGroupsCard } from '../GroupMembersAvailability';
+import { PreferencesCard } from './PreferencesCard';
 
 /** Record forms one column with labels above, or compact (WP-020c); saved with the user. */
 function FormDensityCard({ userId, value }: { userId: string; value: FormDensity }) {
@@ -119,6 +120,7 @@ export function ProfilePage() {
       </Card>
       <AccountSecurityCard />
       <NotificationPreferencesCard />
+      <PreferencesCard user={me} />
       <FormDensityCard userId={me.id} value={me.form_density} />
       {me.user_type === 'technician' && licence.has('incident') && (
         <>

@@ -15,9 +15,8 @@ import {
 } from './appearance';
 import type { Density } from './density';
 import { useDropdownFit } from './dropdownFit';
-import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
-
-const MODE_STORAGE_KEY = 'supportx.theme_mode';
+import { buildTheme, DEFAULT_BRANDING, type Branding, type ThemeMode } from './theme';
+import { MODE_STORAGE_KEY, storedMode, systemMode } from './themeMode';
 
 export interface AppearanceProviderProps {
   children: ReactNode;
@@ -29,18 +28,9 @@ export interface AppearanceProviderProps {
   density?: Density;
 }
 
-/** Remembered choice, else the OS preference. Storage may be unavailable (private mode). */
+/** Remembered choice, else the OS preference. */
 function preferredMode(): ThemeMode {
-  try {
-    const stored = window.localStorage.getItem(MODE_STORAGE_KEY);
-    if (stored !== null && (THEME_MODES as readonly string[]).includes(stored)) {
-      return stored as ThemeMode;
-    }
-  } catch {
-    // ignore: the OS preference is a fine default
-  }
-  if (window.matchMedia('(prefers-contrast: more)').matches) return 'high_contrast';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return storedMode() ?? systemMode();
 }
 
 /**
@@ -102,13 +92,15 @@ export function AppearanceProvider({
 }: AppearanceProviderProps) {
   const [mode, setModeState] = useState<ThemeMode>(() => initialMode ?? preferredMode());
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [textScale, setTextScale] = useState(100);
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
   useEffect(() => {
     document.documentElement.dir = direction;
     document.documentElement.lang = locale;
     document.documentElement.dataset.theme = mode;
-  }, [direction, locale, mode]);
+    document.documentElement.dataset.textScale = String(textScale);
+  }, [direction, locale, mode, textScale]);
 
   // Ant Design's pickers take month and weekday names from dayjs's global locale.
   useEffect(() => {
@@ -141,6 +133,8 @@ export function AppearanceProvider({
           // not persisted: still applied for this visit
         }
       },
+      textScale,
+      setTextScale,
       setDirection,
       setBranding,
       setLocale: (next) => {
@@ -148,11 +142,11 @@ export function AppearanceProvider({
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand, setBranding],
+    [mode, direction, locale, brand, setBranding, textScale],
   );
   const themeConfig = useMemo(
-    () => buildTheme(mode, brand, locale, density),
-    [mode, brand, locale, density],
+    () => buildTheme(mode, brand, locale, density, textScale),
+    [mode, brand, locale, density, textScale],
   );
 
   return (

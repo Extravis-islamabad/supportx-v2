@@ -246,6 +246,13 @@ export const en = {
   'permission.files.manage.description':
     'Set the size limit and blocked file types, see storage use and the malware scanning status, and re-check files.',
   'form_density.title': 'Form layout',
+  'preferences.title': 'Display and region',
+  'preferences.text_scale': 'Text size',
+  'preferences.week_start': 'First day of the week',
+  'preferences.date_format': 'Date format',
+  'preferences.time_format': 'Time format',
+  'preferences.default': 'Default',
+  'preferences.default_value': 'Default ({{value}})',
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'profile.form_density_help': 'Compact shows two columns with labels on the left.',

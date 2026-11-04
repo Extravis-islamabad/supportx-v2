@@ -12,6 +12,7 @@ import {
   useSetNavLayout,
   useSetUiLocale,
   useSwitchTenant,
+  useTenantSettings,
 } from '@supportx/api-client';
 import { clearAllKeptDrafts } from '@supportx/forms';
 import {
@@ -38,6 +39,7 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 
 import { AvailabilitySwitch } from './AvailabilitySwitch';
+import { usePersonalAppearance } from './personalAppearance';
 import { EventDeliveryBanner } from './EventDeliveryBanner';
 import { NotificationBell } from './notifications/NotificationBell';
 import { NotificationsBanner } from './notifications/NotificationsBanner';
@@ -108,6 +110,9 @@ export function ConsoleLayout() {
   const setNavLayout = useSetNavLayout(session?.user.id ?? '');
   const setUiLocale = useSetUiLocale(session?.user.id ?? '');
   const setFormDensity = useSetFormDensity(session?.user.id ?? '');
+  const saveMode = usePersonalAppearance(session?.user ?? undefined);
+  // Only the languages the tenant offers are offered (WP-042, REQ-ADM-052).
+  const offered = useTenantSettings(session !== undefined && session !== null).data?.languages;
   // Technicians' Available / Away in the user menu below 1200 px (WP-029).
   const availabilityItems = useAvailabilityItem(
     session?.user.id ?? '',
@@ -205,6 +210,8 @@ export function ConsoleLayout() {
           onLocaleChange={(locale) => {
             setUiLocale.mutate(locale, { onError: reportError });
           }}
+          onModeChange={saveMode}
+          languages={offered}
           onLogout={() => {
             clearAllKeptDrafts(); // an explicit sign-out: the next person at this computer starts clean
             void logout();

@@ -254,6 +254,13 @@ export const ar: LabelResource = {
   'permission.files.manage.description':
     'تحديد حد الحجم وأنواع الملفات المحظورة، ومتابعة استخدام التخزين وحالة الفحص، وإعادة فحص الملفات.',
   'form_density.title': 'تخطيط النموذج',
+  'preferences.title': 'العرض والمنطقة',
+  'preferences.text_scale': 'حجم النص',
+  'preferences.week_start': 'أول يوم في الأسبوع',
+  'preferences.date_format': 'تنسيق التاريخ',
+  'preferences.time_format': 'تنسيق الوقت',
+  'preferences.default': 'الافتراضي',
+  'preferences.default_value': 'الافتراضي ({{value}})',
   'form_density.comfortable': 'مريح',
   'form_density.compact': 'مضغوط',
   'profile.form_density_help': 'يعرض الوضع المضغوط عمودين مع التسميات على الجانب.',

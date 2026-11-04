@@ -56,6 +56,40 @@ describe('My profile', () => {
     restore();
   });
 
+  it('theme, text size and formats follow the person: saved, applied, cleared (WP-042)', async () => {
+    const me = fakeSession({ text_scale: 130, time_format: '12h', chosen: ['time_format'] });
+    const fake = api({
+      me,
+      routes: {
+        [`PATCH ${ME_PATH}`]: { body: fakeUser({ version: 4 }), headers: { ETag: '"4"' } },
+      },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('preferences');
+    // The server's text size applies to the whole page (REQ-ADM-062).
+    await waitFor(() => {
+      expect(document.documentElement.dataset.textScale).toBe('130');
+    });
+    fireEvent.click(within(within(card).getByTestId('pref-theme')).getByText('Dark'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', ME_PATH).map((c) => c.body)).toContainEqual({ theme_mode: 'dark' });
+    });
+    await waitFor(() => {
+      expect(document.documentElement.dataset.theme).toBe('dark');
+    });
+    // A chosen format goes back to the tenant's default with "Default" (sent as null).
+    const timeFormat = within(card).getByTestId('pref-time_format');
+    fireEvent.mouseDown(timeFormat.querySelector('.ant-select-selector') ?? timeFormat);
+    fireEvent.click(await screen.findByTitle('Default'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', ME_PATH).map((c) => c.body)).toContainEqual({ time_format: null });
+    });
+    // Not chosen: the default is named with the value it gives now.
+    expect(within(card).getByTestId('pref-week_start').textContent).toContain('Default (Monday)');
+    // This browser now remembers Dark: forget it, or later tests would copy it to their server.
+    window.localStorage.removeItem('supportx.theme_mode');
+  });
+
   it('saves with If-Match for the version it loaded', async () => {
     const fake = api({
       routes: {

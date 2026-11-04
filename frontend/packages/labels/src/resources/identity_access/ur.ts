@@ -91,6 +91,13 @@ export const ur: LabelResource = {
   'permission.files.manage.description':
     'سائز کی حد اور ممنوعہ فائل اقسام طے کریں، اسٹوریج کا استعمال اور اسکیننگ کی حالت دیکھیں، اور فائلیں دوبارہ جانچیں۔',
   'form_density.title': 'فارم کی ترتیب',
+  'preferences.title': 'ڈسپلے اور علاقہ',
+  'preferences.text_scale': 'متن کا سائز',
+  'preferences.week_start': 'ہفتے کا پہلا دن',
+  'preferences.date_format': 'تاریخ کا فارمیٹ',
+  'preferences.time_format': 'وقت کا فارمیٹ',
+  'preferences.default': 'طے شدہ',
+  'preferences.default_value': 'طے شدہ ({{value}})',
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'profile.form_density_help': 'مختصر ترتیب میں دو کالم اور ایک طرف لیبل ہوتے ہیں۔',

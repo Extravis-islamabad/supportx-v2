@@ -20,7 +20,6 @@ from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
 from app.modules.identity_access.domain.identity import (
     DEFAULT_TEXT_SCALE,
-    DateFormat,
     FormDensity,
     NavLayout,
     ThemeMode,
@@ -112,7 +111,8 @@ class UserOut(BaseModel):
     )
     text_scale: int = Field(default=DEFAULT_TEXT_SCALE, description="Text size in percent.")
     week_start: WeekStart = Field(default="monday", description="First day of the week.")
-    date_format: DateFormat = Field(default="dd/mm/yyyy", description="How dates are written.")
+    # A pattern shown as written (dd/mm/yyyy), not a code with a label: a plain string.
+    date_format: str = Field(default="dd/mm/yyyy", description="How dates are written.")
     time_format: TimeFormat = Field(default="24h", description="12 or 24 hours.")
     chosen: list[str] = Field(
         default_factory=list, description="The preferences the person set (not defaults)."

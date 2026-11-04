@@ -12,6 +12,9 @@ export interface Appearance {
   locale: Locale;
   branding: Branding;
   setMode: (mode: ThemeMode) => void;
+  /** Text size in percent, 90 to 150 (WP-042, REQ-ADM-062); 100 unless the person chose. */
+  textScale: number;
+  setTextScale: (percent: number) => void;
   setDirection: (direction: Direction) => void;
   setLocale: (locale: Locale) => void;
   /**

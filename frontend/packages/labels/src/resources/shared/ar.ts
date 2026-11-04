@@ -62,6 +62,7 @@ export const ar: LabelResource = {
   'appearance.theme.light': 'فاتح',
   'appearance.theme.dark': 'داكن',
   'appearance.theme.high_contrast': 'تباين عالٍ',
+  'appearance.theme.system': 'اتباع النظام',
   'palette.open': 'بحث',
   'palette.shortcut': 'Ctrl K',
   'palette.title': 'انتقال إلى',

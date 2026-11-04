@@ -39,6 +39,7 @@ export const ur: LabelResource = {
   'appearance.theme.light': 'ہلکا',
   'appearance.theme.dark': 'گہرا',
   'appearance.theme.high_contrast': 'زیادہ کنٹراسٹ',
+  'appearance.theme.system': 'سسٹم کے مطابق',
   'shell.coming_soon': 'یہ حصہ تیار کیا جا رہا ہے اور جلد دستیاب ہوگا۔',
   'connectivity.reconnecting': 'دوبارہ جوڑا جا رہا ہے…',
   'actions.save': 'محفوظ کریں',

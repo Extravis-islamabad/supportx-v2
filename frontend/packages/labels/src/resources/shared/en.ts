@@ -48,6 +48,7 @@ export const en = {
   'appearance.theme.light': 'Light',
   'appearance.theme.dark': 'Dark',
   'appearance.theme.high_contrast': 'High contrast',
+  'appearance.theme.system': 'Follow the system',
   'palette.open': 'Search',
   'palette.shortcut': 'Ctrl K',
   'palette.title': 'Go to',
