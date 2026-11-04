@@ -128,8 +128,14 @@ function fieldWords(t: ReturnType<typeof useLabel>, path: string): string {
 function changes(draft: Draft, item: CatalogItem): CatalogItemInput {
   const base = draftOf(item) as Record<string, unknown>;
   return Object.fromEntries(
-    Object.entries(draft).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(base[k])),
+    Object.entries(draft).filter(([k, v]) => compared(k, v) !== compared(k, base[k])),
   );
+}
+
+/** A field as compared: the editor marks every block `dir="auto"` when it loads (no change). */
+function compared(field: string, value: unknown): string {
+  const text = value === undefined ? '' : JSON.stringify(value);
+  return field === 'descriptions' ? text.replaceAll(' dir=\\"auto\\"', '') : text;
 }
 
 /**
@@ -237,7 +243,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
                       <li key={`${m.field}-${m.language}`}>
                         {t('catalog_admin.missing_item', {
                           field: fieldWords(t, m.field),
-                          language: t(`settings.name_in.${m.language}`),
+                          language: t(`catalog_admin.lang.${m.language}`),
                         })}
                       </li>
                     ))}

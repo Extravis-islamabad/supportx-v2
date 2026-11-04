@@ -173,6 +173,9 @@ export const en = {
   'catalog_admin.kind': 'What choosing it raises',
   'catalog_admin.kind_help':
     "A problem report opens the portal's incident form with the chosen template.",
+  'catalog_admin.lang.ar': 'Arabic',
+  'catalog_admin.lang.en': 'English',
+  'catalog_admin.lang.ur': 'Urdu',
   'catalog_admin.life_help':
     'A draft is never offered. A retired item keeps its requests. Planned changes happen within a minute of their time.',
   'catalog_admin.missing_item': '{{field}}: no {{language}} text yet',

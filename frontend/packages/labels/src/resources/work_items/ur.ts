@@ -174,6 +174,9 @@ export const ur: LabelResource = {
     'تلاش ان الفاظ سے بھی آئٹم ڈھونڈتی ہے۔ ہر لفظ کے بعد Enter دبائیں۔',
   'catalog_admin.kind': 'اسے منتخب کرنے سے کیا بنتا ہے',
   'catalog_admin.kind_help': 'مسئلے کی اطلاع پورٹل کا واقعہ فارم منتخب سانچے کے ساتھ کھولتی ہے۔',
+  'catalog_admin.lang.ar': 'عربی',
+  'catalog_admin.lang.en': 'انگریزی',
+  'catalog_admin.lang.ur': 'اردو',
   'catalog_admin.life_help':
     'مسودہ کبھی پیش نہیں ہوتا۔ ختم شدہ آئٹم اپنی درخواستیں رکھتا ہے۔ طے شدہ تبدیلیاں اپنے وقت کے ایک منٹ کے اندر ہوتی ہیں۔',
   'catalog_admin.missing_item': '{{field}}: ابھی {{language}} متن نہیں',

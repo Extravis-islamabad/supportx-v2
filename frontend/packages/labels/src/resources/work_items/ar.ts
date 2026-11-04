@@ -173,6 +173,9 @@ export const ar: LabelResource = {
   'catalog_admin.keywords_help': 'يجد البحث العنصر بهذه الكلمات أيضًا. اضغط Enter بعد كل كلمة.',
   'catalog_admin.kind': 'ما الذي يُنشئه اختياره',
   'catalog_admin.kind_help': 'يفتح الإبلاغ عن مشكلة نموذج الحادثة في البوابة بالقالب المختار.',
+  'catalog_admin.lang.ar': 'العربية',
+  'catalog_admin.lang.en': 'الإنجليزية',
+  'catalog_admin.lang.ur': 'الأردية',
   'catalog_admin.life_help':
     'لا يُعرض المسودة أبدًا. يحتفظ العنصر المتوقف بطلباته. تحدث التغييرات المخططة خلال دقيقة من موعدها.',
   'catalog_admin.missing_few': '{{count}} ترجمات ناقصة',
