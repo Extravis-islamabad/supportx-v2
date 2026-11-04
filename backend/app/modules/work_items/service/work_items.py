@@ -1682,6 +1682,7 @@ def _item_columns(
         "answers": dict(values.get("answers") or {}),
         "approval_status": status.value,
         "sla_counts_approval": item.needs_approval and item.count_approval_time,
+        "item_sla_policy_id": item.sla_policy_id,
     }
 
 

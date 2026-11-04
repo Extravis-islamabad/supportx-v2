@@ -790,11 +790,12 @@ it with no reload (rule c). Not built yet.
   (administrators' approvals: one broadcast signal); audit `service_request.approval_decided`,
   `.withdrawn`. Service requests get SLAs; the resolution clock waits in awaiting approval
   (REQ-SR-007 AC1); an item that counts approval time keeps it running (AC2,
-  `work_items.sla_counts_approval` in 0065). Console: the approvals panel on the request page (each entry, Approve /
+  `work_items.sla_counts_approval` in 0065); the item's own SLA policy wins over the conditions
+  (REQ-SR-006; `item_sla_policy_id`, the SLA module's `preferred_policy` hook). Console: the approvals panel on the request page (each entry, Approve /
   Reject dialog, Withdraw), the header approvals drawer with its live count (REQ-SR-024, -025).
-  Tests: domain 6, db 14 (incl. RLS), Vitest 3. **Still to do:** the portal approve / reject
+  Tests: domain 6, db 15 (incl. RLS), Vitest 3. **Still to do:** the portal approve / reject
   and withdraw (needs #178's portal); notifications to approvers (WP-023 engine registration);
-  the item's own SLA policy (REQ-SR-006, needs an SLA-module hook); "hide approvals from
+ "hide approvals from
   requesters" (REQ-SR-024 AC3). At the merge after #178: drop the duplicate
   `permission_module.work_items` label (both PRs add it).
 - [ ] Session 3: signed action links and e-mail approvals, fulfilment, requester views, e2e.

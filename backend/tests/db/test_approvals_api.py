@@ -338,3 +338,34 @@ async def test_an_item_that_counts_approval_time_keeps_the_clock_running(world: 
     )
     assert [r["state"] for r in rows] == ["running"]
     assert (await fresh(world, a, record))["resolution_due_at"] is not None
+
+
+async def test_the_items_own_sla_policy_applies(world: World) -> None:
+    """REQ-SR-006: the item's policy wins over the conditions (its own conditions never match)."""
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/sla/record-types/service_request/policies",
+        a,
+        a.admin,
+        json={
+            "name": "Laptops",
+            "conditions": {"field": "priority", "op": "eq", "value": "p1"},  # never p2 here
+            "targets": [{"kind": "resolution", "priority": None, "amount": 3}],
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert made.status_code == 201, made.text
+    policy = made.json()
+    item = await an_item(world, a, sla_policy_id=policy["id"])
+    record = (
+        await raise_request(world, a, a.admin, catalog_item_id=item["id"], answers={"model": "air"})
+    ).json()
+    assert (await fresh(world, a, record))["sla_policy_id"] == policy["id"]
+    plain = await an_item(world, a)
+    other = (
+        await raise_request(
+            world, a, a.admin, catalog_item_id=plain["id"], answers={"model": "air"}
+        )
+    ).json()
+    assert (await fresh(world, a, other))["sla_policy_id"] != policy["id"]

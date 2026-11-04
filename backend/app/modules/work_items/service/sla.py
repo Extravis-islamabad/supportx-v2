@@ -76,8 +76,15 @@ def register_sla() -> None:
                 lock_record=lock_record,
                 on_fired=_on_fired,
                 run_actions=_run_actions,
+                preferred_policy=_item_policy,
             )
         )
+
+
+def _item_policy(values: Mapping[str, Any]) -> uuid.UUID | None:
+    """The catalog item's own SLA policy, kept on the request (REQ-SR-006)."""
+    found = values.get("item_sla_policy_id")
+    return found if isinstance(found, uuid.UUID) else None
 
 
 async def lock_record(session: AsyncSession, record_id: uuid.UUID) -> None:
@@ -128,6 +135,7 @@ _CLOCK_FIELDS = (
     "site_id",
     "group_id",
     "first_responded_at",
+    "item_sla_policy_id",  # REQ-SR-006: the catalog item's own policy wins
 )
 SNAPSHOT_FIELDS = tuple(dict.fromkeys((*CONDITION_FIELDS.fields, *_CLOCK_FIELDS)))
 STAMP_COLUMNS = (

@@ -4,7 +4,8 @@ One row per approver of a record's approval stage. `approver_id` NULL means the 
 approval administrators hold it (never nobody, REQ-SR-023); `route_reason` keeps why. Tenant
 scoped with RLS (FORCE) and actor audit; soft delete only (no DELETE grant); same-tenant foreign
 keys to the record and the people. `work_items.sla_counts_approval` keeps the item's "count
-approval time" (REQ-SR-007 AC2). Expand only, no data step; the downgrade drops both.
+approval time" (REQ-SR-007 AC2) and `item_sla_policy_id` its own SLA policy (REQ-SR-006; no
+foreign key: the SLA module owns policies, and a removed policy simply stops applying). Expand only, no data step; the downgrade drops both.
 
 Revision ID: 0065
 Revises: 0064
@@ -121,9 +122,11 @@ def upgrade() -> None:
         "work_items",
         sa.Column("sla_counts_approval", sa.Boolean(), server_default="false", nullable=False),
     )
+    op.add_column("work_items", sa.Column("item_sla_policy_id", sa.UUID(), nullable=True))
 
 
 def downgrade() -> None:
-    """Drop the approvals table and the column."""
+    """Drop the approvals table and the columns."""
+    op.drop_column("work_items", "item_sla_policy_id")
     op.drop_column("work_items", "sla_counts_approval")
     op.drop_table(TABLE)
