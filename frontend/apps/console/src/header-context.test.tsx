@@ -112,7 +112,7 @@ describe('where you are, in the header and the tab', () => {
     expect(screen.getByTestId('header-crumbs').textContent).toBe('Incidents/INC-42');
   });
 
-  it('with the top menu, a record says where it is above the page; a section alone does not', async () => {
+  it('with the top menu too, the white top bar says where you are (UI pass 2: one top bar)', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     api({ routes: ROUTES }); // the suite's session: top menu
     render(<App />);
@@ -121,7 +121,8 @@ describe('where you are, in the header and the tab', () => {
         'IT Service Desk/Incidents/INC-42',
       );
     });
-    expect(screen.getByTestId('header-crumbs').closest('header')).toBeNull(); // not in the header
+    // The menu is a band under the top bar now, so the top bar keeps the crumbs in every layout.
+    expect(screen.getByTestId('header-crumbs').closest('header')).not.toBeNull();
     expect(document.body.textContent).not.toContain('Technician Console');
   });
 });

@@ -75,6 +75,44 @@ describe('Conversation', () => {
     restore();
   });
 
+  it('UI pass 2: automation and status events read as quiet lines among the messages', async () => {
+    api({
+      routes: {
+        ...COMMON,
+        [`GET ${PATH}/history`]: {
+          body: {
+            items: [
+              {
+                change_id: 'c-route',
+                version: 2,
+                kind: 'updated',
+                occurred_at: new Date().toISOString(),
+                actor_id: null,
+                actor_name: null,
+                actor_type: 'system',
+                source: 'rule',
+                reason: null,
+                automation: { kind: 'rule', name: 'VPN and remote access' },
+                changes: [{ field: 'priority', old: null, new: 'p2' }],
+              },
+            ],
+            next_cursor: null,
+            people: {},
+          },
+        },
+      },
+    });
+    const timeline = await openConversation();
+    const event = await within(timeline).findByTestId('conv-event');
+    expect(event.textContent).toContain('Priority');
+    expect(event.textContent).not.toMatch(/p2\b|priority\b/); // labels, never codes
+    // Only events under "System"; none under "Notes".
+    fireEvent.click(screen.getByText('Notes'));
+    await waitFor(() => {
+      expect(within(timeline).queryByTestId('conv-event')).toBeNull();
+    });
+  });
+
   it('REQ-INC-057/061: one timeline; private and public entries look different', async () => {
     api({ routes: COMMON });
     const timeline = await openConversation();

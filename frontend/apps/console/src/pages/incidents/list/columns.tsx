@@ -9,7 +9,7 @@ import type {
   ListColumn,
   ReportField,
 } from '@supportx/api-client';
-import type { useDateTime } from '@supportx/ui';
+import { ChannelIcon, type useDateTime } from '@supportx/ui';
 
 import type { ReportWords } from '../../reports/names';
 import { closureCodeLabel, personName } from '../labels';
@@ -59,9 +59,15 @@ const OWN: ColumnSpec[] = [
   {
     key: 'display_id',
     sortField: 'display_number',
-    width: 110,
+    width: 140,
     title: (c) => c.t('incidents.col.id'),
-    render: (row) => row.display_id,
+    // The channel it came from in front of the ID (UI pass 2), named by its label.
+    render: (row) => (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <ChannelIcon channel={row.channel} />
+        <strong>{row.display_id}</strong>
+      </span>
+    ),
   },
   {
     key: 'subject',

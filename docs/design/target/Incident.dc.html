@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>INC-1048 · SupportX console</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#6B33B8}a:hover{color:#4F2590}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; background: #F4F5F7; color: #14161B; font-family: system-ui, sans-serif; font-size: 14px">
+
+<nav aria-label="Main" style="flex: 1 1 220px; background: #16122B; color: #C9C4DB; padding: 16px 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px 8px">
+<div style="width: 30px; height: 30px; border-radius: 8px; background: #7E40D1; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px">S</div>
+<span style="font-weight: 700; font-size: 16px; letter-spacing: 0.6px; color: #FFFFFF">SUPPORT<span style="color: #C7A4F2">X</span></span>
+</div>
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="9">
+<a href="{{n.href}}" style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 10px; border-radius: 8px; text-decoration: none; background: {{n.bg}}; color: {{n.fg}}; font-weight: {{n.weight}}; font-size: 14px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg>
+<span style="flex: 1">{{n.label}}</span>
+<sc-if value="{{n.hasCount}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: #3A3168; color: #FFFFFF">{{n.count}}</span></sc-if>
+</a>
+</sc-for>
+</nav>
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="min-height: 56px; background: #FFFFFF; border-bottom: 1px solid #E3E5EA; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 8px 24px; box-sizing: border-box">
+<nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5A6070; flex: 1 1 240px">
+<a href="Main.dc.html" style="text-decoration: none; font-weight: 500">Incidents</a>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+<span style="font-weight: 600; color: #14161B">INC-1048</span>
+</nav>
+<label style="flex: 0 1 380px; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px solid #D5D8DF; border-radius: 8px; background: #F8F9FB; color: #5A6070; box-sizing: border-box">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"></path></svg>
+<input type="search" aria-label="Search everything" placeholder="Search incidents, people, articles" style="border: none; background: transparent; outline: none; font: inherit; font-size: 13px; flex: 1; min-width: 0; color: #14161B">
+<span style="font-size: 11px; border: 1px solid #D5D8DF; border-radius: 4px; padding: 1px 5px; background: #FFFFFF">Ctrl K</span>
+</label>
+<div style="display: flex; align-items: center; gap: 12px">
+<button type="button" aria-label="Notifications, 4 new" style="position: relative; width: 36px; height: 36px; border-radius: 8px; border: 1px solid #E3E5EA; background: #FFFFFF; color: #344054; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>
+<span style="position: absolute; top: 6px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #D92D20; border: 2px solid #FFFFFF"></span>
+</button>
+<button type="button" style="height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid #ABEFC6; background: #ECFDF3; color: #067647; font: inherit; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer"><span style="width: 8px; height: 8px; border-radius: 50%; background: #17B26A"></span>Available</button>
+<button type="button" style="display: flex; align-items: center; gap: 8px; border: none; background: transparent; font: inherit; color: #14161B; cursor: pointer">
+<span style="width: 32px; height: 32px; border-radius: 50%; background: #7E40D1; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">TM</span>
+<span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2"><span style="font-size: 13px; font-weight: 600">Tariq Mahmood</span><span style="font-size: 11px; color: #5A6070">Network team</span></span>
+</button>
+</div>
+</header>
+
+<main style="padding: 20px 24px 32px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+
+<section aria-label="Incident summary" style="background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 8px; padding: 16px 18px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<span style="width: 44px; height: 44px; border-radius: 10px; background: #EEF4FF; color: #3538CD; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Email"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg>
+</span>
+<div style="flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #5A6070; font-weight: 500">
+<span style="font-weight: 700; color: #344054">INC-1048</span>
+<button type="button" aria-label="Copy incident ID" style="border: none; background: transparent; color: #5A6070; padding: 0; cursor: pointer; display: flex"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"></path></svg></button>
+<span aria-hidden="true">·</span><span>Incident</span>
+</div>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; line-height: 1.3">VPN disconnects every 10 minutes</h1>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: #FFF6ED; color: #B93815"><span style="width: 6px; height: 6px; border-radius: 50%; background: #B93815"></span>In progress</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: #FFF4ED; color: #B93815; border: 1px solid #FEC6A1"><span style="width: 8px; height: 8px; border-radius: 2px; background: #EF6820"></span>P2 High</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: #F8F9FB; color: #344054; border: 1px solid #E3E5EA">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"></path></svg>Resolve by 15:40 · 1h 20m left</span>
+<span style="font-size: 13px; color: #5A6070">Ayesha Khan, Finance · via email · created today 09:12 · updated 6 min ago</span>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<button type="button" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; font: inherit; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6"></path></svg>Assign</button>
+<button type="button" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; font: inherit; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Resolve</button>
+<button type="button" style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #D5D8DF; background: #FFFFFF; color: #344054; font: inherit; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer">More actions
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<button type="button" style="height: 36px; padding: 0 16px; border-radius: 8px; border: none; background: #7E40D1; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>Reply</button>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+
+<div style="flex: 999 1 500px; min-width: 0; display: flex; flex-direction: column; gap: 0; background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 8px">
+<div role="tablist" aria-label="Incident sections" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px; border-bottom: 1px solid #E3E5EA">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+<button type="button" role="tab" aria-selected="{{t.selected}}" style="height: 44px; padding: 0 10px; border: none; border-bottom: 2px solid {{t.line}}; background: transparent; font: inherit; font-size: 13px; font-weight: {{t.weight}}; color: {{t.fg}}; display: flex; align-items: center; gap: 6px; cursor: pointer">{{t.label}}<sc-if value="{{t.hasCount}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: #F2F4F7; color: #344054">{{t.count}}</span></sc-if></button>
+</sc-for>
+</div>
+
+<div style="padding: 18px 18px 8px 18px; display: flex; flex-direction: column; gap: 14px">
+<sc-for list="{{timeline}}" as="e" hint-placeholder-count="6">
+<div style="display: flex; gap: 12px; align-items: flex-start">
+<span style="width: 32px; height: 32px; border-radius: 50%; background: {{e.iconBg}}; color: {{e.iconFg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: {{e.iconTop}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="{{e.kindLabel}}"><path d="{{e.icon}}"></path></svg>
+</span>
+<sc-if value="{{e.isEvent}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1; min-width: 0; padding-top: 7px; font-size: 13px; color: #5A6070; display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between">
+<span><span style="color: #344054; font-weight: 600">{{e.who}}</span> {{e.text}}</span><span style="font-size: 12px">{{e.time}}</span>
+</div>
+</sc-if>
+<sc-if value="{{e.isCard}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1; min-width: 0; border: 1px solid {{e.border}}; background: {{e.bg}}; border-radius: 8px; overflow: hidden">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid {{e.border}}">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px">
+<span style="font-weight: 600; color: #14161B">{{e.who}}</span>
+<span style="color: #5A6070">{{e.meta}}</span>
+<span style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{e.tagBg}}; color: {{e.tagFg}}">{{e.kindLabel}}</span>
+</span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #5A6070">
+<sc-if value="{{e.delivered}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 4px; color: #067647; font-weight: 600"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Delivered</span></sc-if>
+{{e.time}}</span>
+</div>
+<div style="padding: 12px 14px; font-size: 14px; line-height: 1.55; color: #14161B; white-space: pre-line">{{e.text}}</div>
+<sc-if value="{{e.hasFile}}" hint-placeholder-val="{{false}}">
+<div style="padding: 0 14px 12px 14px">
+<span style="display: inline-flex; align-items: center; gap: 8px; border: 1px solid #E3E5EA; border-radius: 8px; padding: 6px 10px; background: #FFFFFF; font-size: 12px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A6070" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21"></path></svg>
+<span style="font-weight: 600">{{e.file}}</span><span style="color: #5A6070">{{e.fileSize}}</span></span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<div style="margin: 6px 18px 18px 18px; border: 1px solid #D5D8DF; border-radius: 8px; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 4px; padding: 6px; background: #F8F9FB; border-bottom: 1px solid #E3E5EA">
+<button type="button" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; color: #4F2590; cursor: pointer">Reply to requester</button>
+<button type="button" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid transparent; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: #5A6070; display: flex; align-items: center; gap: 6px; cursor: pointer">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"></path></svg>Private note</button>
+<span style="flex: 1"></span>
+<span style="font-size: 12px; color: #5A6070; padding-right: 6px">To: <span style="font-weight: 600; color: #344054">Ayesha Khan</span> · Cc: add</span>
+</div>
+<div style="display: flex; align-items: center; gap: 2px; padding: 4px 8px; border-bottom: 1px solid #EEF0F3">
+<sc-for list="{{tools}}" as="tl" hint-placeholder-count="8">
+<button type="button" aria-label="{{tl.label}}" style="width: 30px; height: 30px; border: none; border-radius: 6px; background: transparent; color: #475467; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{tl.icon}}"></path></svg>
+</button>
+</sc-for>
+</div>
+<label for="reply" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Reply</label>
+<textarea id="reply" rows="3" placeholder="Write a reply to Ayesha. Type @ to mention a colleague." style="display: block; width: 100%; box-sizing: border-box; border: none; outline: none; resize: none; padding: 12px; font: inherit; font-size: 14px; color: #14161B"></textarea>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-top: 1px solid #EEF0F3; background: #FCFCFD">
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<button type="button" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; font: inherit; font-size: 12px; color: #344054; display: flex; align-items: center; gap: 6px; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11-8.7 8.7a5.7 5.7 0 0 1-8-8l8.6-8.7a3.8 3.8 0 0 1 5.4 5.4l-8.7 8.7a1.9 1.9 0 0 1-2.7-2.7l8-8"></path></svg>Attach</button>
+<button type="button" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; font: inherit; font-size: 12px; color: #344054; display: flex; align-items: center; gap: 6px; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM20 17v4H6.5"></path></svg>Insert article</button>
+<button type="button" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid #D5D8DF; background: #FFFFFF; font: inherit; font-size: 12px; color: #344054; cursor: pointer">Reply templates</button>
+</div>
+<div style="display: flex; gap: 8px; align-items: center">
+<span style="font-size: 12px; color: #5A6070">After sending: <span style="font-weight: 600; color: #344054">keep In progress</span></span>
+<button type="button" style="height: 32px; padding: 0 16px; border-radius: 6px; border: none; background: #7E40D1; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Send reply</button>
+</div>
+</div>
+</div>
+</div>
+
+<aside aria-label="Incident details" style="flex: 1 1 300px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; align-items: start">
+
+<section style="background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid #E3E5EA">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">Properties</h2>
+<button type="button" style="border: none; background: transparent; color: #6B33B8; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">Edit</button>
+</div>
+<dl style="margin: 0; padding: 6px 14px 10px 14px; display: grid; grid-template-columns: 112px 1fr; row-gap: 9px; column-gap: 8px; font-size: 13px">
+<sc-for list="{{props}}" as="p" hint-placeholder-count="10">
+<dt style="color: #5A6070; font-weight: 500">{{p.k}}</dt>
+<dd style="margin: 0; color: #14161B; font-weight: 500">{{p.v}}</dd>
+</sc-for>
+</dl>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">SLA</h2>
+<span style="font-size: 12px; color: #5A6070">P2 · business hours</span>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 13px">
+<span style="color: #5A6070; font-weight: 500">First response</span>
+<span style="display: inline-flex; align-items: center; gap: 5px; color: #067647; font-weight: 600"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Met in 8 min</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; font-size: 13px">
+<span style="color: #5A6070; font-weight: 500">Resolution</span>
+<span style="font-weight: 600; color: #344054">due 15:40 · 1h 20m left</span>
+</div>
+<div role="img" aria-label="62 percent of resolution time used" style="height: 6px; border-radius: 999px; background: #EEF0F3; overflow: hidden"><div style="width: 62%; height: 100%; background: #7E40D1"></div></div>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">Requester</h2>
+<div style="display: flex; gap: 10px; align-items: center">
+<span style="width: 38px; height: 38px; border-radius: 50%; background: #175CD3; color: #FFFFFF; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">AK</span>
+<span style="display: flex; flex-direction: column; line-height: 1.35"><span style="font-weight: 600">Ayesha Khan</span><span style="font-size: 12px; color: #5A6070">Senior Accountant · Finance</span></span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #344054">
+<span style="display: flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6070" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg>ayesha.khan@showcasebank.example</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6070" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1"></path></svg>Islamabad HQ, floor 4</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6070" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 5h20v12H2zM8 21h8M12 17v4"></path></svg>LAP-0412 · ThinkPad T14</span>
+</div>
+<a href="#" style="font-size: 13px; font-weight: 600; text-decoration: none">2 other open incidents</a>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">Linked</h2>
+<button type="button" style="border: none; background: transparent; color: #6B33B8; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">Link</button>
+</div>
+<a href="#" style="display: flex; gap: 8px; align-items: center; text-decoration: none; font-size: 13px; color: #14161B; border: 1px solid #EEF0F3; border-radius: 6px; padding: 8px 10px">
+<span style="font-size: 11px; font-weight: 600; color: #5A6070; text-transform: uppercase; letter-spacing: 0.3px">Related</span>
+<span style="font-weight: 600; color: #6B33B8">INC-1040</span><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Firewall FW-KHI-01 CPU above 90%</span>
+</a>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E3E5EA; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">Followers</h2>
+<button type="button" style="border: none; background: transparent; color: #6B33B8; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">Add</button>
+</div>
+<div style="display: flex; gap: 6px; align-items: center">
+<span title="Sara Malik" style="width: 28px; height: 28px; border-radius: 50%; background: #067647; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">SM</span>
+<span title="Faisal Khan" style="width: 28px; height: 28px; border-radius: 50%; background: #B93815; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">FK</span>
+<span style="font-size: 13px; color: #5A6070; margin-left: 4px">Sara Malik, Faisal Khan</span>
+</div>
+</section>
+
+</aside>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1260}}'>
+var NAV = [
+  ['Home', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z', null, '#'],
+  ['Incidents', 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z', 48, 'Main.dc.html'],
+  ['Service requests', 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0', 21, '#'],
+  ['Problems', 'M8 2v4M16 2v4M12 12h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', null, '#'],
+  ['Changes', 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3', null, '#'],
+  ['Assets', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', null, '#'],
+  ['Knowledge', 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM20 17v4H6.5', null, '#'],
+  ['Reports', 'M3 3v18h18M7 15l4-4 3 3 5-6', null, '#'],
+  ['Dashboards', 'M12 21a9 9 0 1 0-9-9M12 12l5-5M3 12h3', null, 'Dashboard.dc.html']
+];
+var MAIL = 'M4 6h16v12H4zM4 7l8 6 8-6';
+var REPLY = 'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11';
+var LOCK = 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4';
+var BOLT = 'M13 2 3 14h9l-1 8 10-12h-9z';
+var USER = 'M20 21a8 8 0 0 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z';
+var EYE = 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z';
+var TL = [
+  { kind: 'in', who: 'Ayesha Khan', meta: 'to support@showcasebank.example', time: 'Today 09:12', text: 'My VPN disconnects every 10 minutes since this morning. I am working from home today and need the finance shared drive for month-end.\n\nError on screen: "Connection lost, reconnecting".', file: 'vpn-error.png', fileSize: '214 KB' },
+  { kind: 'event', icon: BOLT, who: 'Automation', text: 'routed to Network by rule "VPN and remote access". Priority P2 from the matrix (impact: department, urgency: high).', time: '09:12' },
+  { kind: 'event', icon: USER, who: 'Automation', text: 'assigned to Tariq Mahmood (round robin in Network). Status New → Assigned.', time: '09:13' },
+  { kind: 'out', who: 'Tariq Mahmood', meta: 'to Ayesha Khan', time: 'Today 09:20', text: 'Hi Ayesha, thanks for the details. We see similar reports from two colleagues on the same internet provider. I am checking the firewall session timeout now and will update you within the hour.' },
+  { kind: 'note', who: 'Tariq Mahmood', meta: 'mentioned Sara Malik', time: 'Today 09:31', text: 'Three users on ISP-2 report the same pattern. Suspect the idle timeout on FW-ISB-01 was lowered in last night\'s change. @Sara Malik can you confirm the change window?' },
+  { kind: 'in', who: 'Ayesha Khan', meta: 'reply by email', time: 'Today 09:41', text: 'It happened again at 09:38. I have restarted my router, same result.' },
+  { kind: 'event', icon: EYE, who: 'Sara Malik', text: 'started following this incident.', time: '09:44' }
+];
+var KIND = {
+  in: { icon: MAIL, iconBg: '#EEF4FF', iconFg: '#3538CD', bg: '#FFFFFF', border: '#E3E5EA', tagBg: '#EEF4FF', tagFg: '#3538CD', label: 'Email received' },
+  out: { icon: REPLY, iconBg: '#F4EBFF', iconFg: '#6B33B8', bg: '#FCFAFF', border: '#E9D7FE', tagBg: '#F4EBFF', tagFg: '#4F2590', label: 'Public reply' },
+  note: { icon: LOCK, iconBg: '#FEF0C7', iconFg: '#93370D', bg: '#FFFCF5', border: '#FEDF89', tagBg: '#FEF0C7', tagFg: '#93370D', label: 'Private note' },
+  event: { iconBg: '#F2F4F7', iconFg: '#475467', label: 'Event' }
+};
+var TOOLS = [
+  ['Bold', 'M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z'], ['Italic', 'M19 4h-9M14 20H5M15 4 9 20'],
+  ['Bulleted list', 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'], ['Numbered list', 'M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1'],
+  ['Link', 'M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'],
+  ['Image', 'M3 3h18v18H3zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21'], ['Code', 'M16 18l6-6-6-6M8 6l-6 6 6 6'], ['Quote', 'M3 21c3 0 7-1 7-8V5H3v7h4M14 21c3 0 7-1 7-8V5h-7v7h4']
+];
+
+class Component extends DCLogic {
+  renderVals() {
+    var nav = NAV.map(function (n) {
+      var on = n[0] === 'Incidents';
+      return { label: n[0], icon: n[1], hasCount: n[2] != null, count: n[2], href: n[3], bg: on ? '#2C2552' : 'transparent', fg: on ? '#FFFFFF' : '#C9C4DB', weight: on ? 600 : 500 };
+    });
+    var tabs = [['Conversation', 7], ['Details', null], ['Tasks', '1/3'], ['Approvals', null], ['History', 12], ['Automation', 2], ['Attachments', 1]].map(function (t, i) {
+      var on = i === 0;
+      return { label: t[0], hasCount: t[1] != null, count: t[1], selected: on ? 'true' : 'false', line: on ? '#7E40D1' : 'transparent', fg: on ? '#14161B' : '#5A6070', weight: on ? 600 : 500 };
+    });
+    var timeline = TL.map(function (e) {
+      var k = KIND[e.kind], isEvent = e.kind === 'event';
+      return { isEvent: isEvent, isCard: !isEvent, icon: isEvent ? e.icon : k.icon, iconBg: k.iconBg, iconFg: k.iconFg, iconTop: isEvent ? '0px' : '4px',
+        who: e.who, meta: e.meta || '', time: e.time, text: e.text, bg: k.bg, border: k.border, tagBg: k.tagBg, tagFg: k.tagFg, kindLabel: k.label,
+        delivered: e.kind === 'out', hasFile: !!e.file, file: e.file || '', fileSize: e.fileSize || '' };
+    });
+    var props = [
+      ['Status', 'In progress'], ['Priority', 'P2 High (from matrix)'], ['Impact', 'Department'], ['Urgency', 'High'],
+      ['Category', 'Network › VPN › Disconnects'], ['Group', 'Network'], ['Assigned to', 'Tariq Mahmood'], ['Site', 'Islamabad HQ'],
+      ['Department', 'Finance'], ['Channel', 'Email'], ['Template', 'Standard incident']
+    ].map(function (p) { return { k: p[0], v: p[1] }; });
+    var tools = TOOLS.map(function (t) { return { label: t[0], icon: t[1] }; });
+    return { nav: nav, tabs: tabs, timeline: timeline, props: props, tools: tools };
+  }
+}
+</script>
+</body>
+</html>
