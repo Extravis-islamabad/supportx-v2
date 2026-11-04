@@ -7,8 +7,11 @@ edit, assign, cancel and reopen at S; releases.view stays as it is. manage never
 (delete stays with the admin roles). Per tenant with app.tenant_id set (role_permissions forces
 RLS; see 0023, 0036, 0077).
 
-The downgrade folds them back: a role with releases.edit at S gets releases.manage at S, and the
-engine's release keys other than view are removed.
+The downgrade folds back only what releases.manage can represent without losing or widening a
+grant (lane B's review, CLAUDE.md rule 5h): a role holding exactly the five keys the upgrade
+made (create at all; edit, assign, cancel and reopen at one scope S) gets releases.manage at S.
+Any other release key (delete, take, ...), a partial set, or the four at different scopes stops
+the downgrade with an error and changes nothing.
 
 Revision ID: 0091
 Revises: 0090
@@ -49,14 +52,39 @@ _SPLIT = """
         DELETE FROM role_permissions WHERE permission = 'releases.manage';
 """
 
-_JOIN = """
+_FOLDED = "('releases.edit', 'releases.assign', 'releases.cancel', 'releases.reopen')"
+_FIVE = (
+    "('releases.create', 'releases.edit', 'releases.assign', 'releases.cancel', 'releases.reopen')"
+)
+
+_REFUSE = f"""
+        IF EXISTS (
+            SELECT 1 FROM role_permissions WHERE permission LIKE 'releases.%'
+                AND permission NOT IN ('releases.view', 'releases.manage')
+                AND permission NOT IN {_FIVE}
+        ) THEN
+            RAISE EXCEPTION 'a role holds a release key releases.manage cannot represent: going'
+                ' below 0091 would lose it';
+        END IF;
+        IF EXISTS (
+            SELECT role_id FROM role_permissions WHERE permission IN {_FIVE}
+            GROUP BY role_id
+            HAVING count(*) <> 5
+                OR count(DISTINCT scope) FILTER (WHERE permission IN {_FOLDED}) <> 1
+                OR bool_or(permission = 'releases.create' AND scope <> 'all')
+        ) THEN
+            RAISE EXCEPTION 'a role holds only part of the release keys, or at different scopes:'
+                ' releases.manage cannot represent it, so going below 0091 is refused';
+        END IF;
+"""  # noqa: S608 - fixed key lists, no input
+
+_JOIN = f"""{_REFUSE}
         INSERT INTO role_permissions (tenant_id, role_id, permission, scope, condition)
         SELECT tenant_id, role_id, 'releases.manage', scope, condition
         FROM role_permissions WHERE permission = 'releases.edit'
         ON CONFLICT DO NOTHING;
-        DELETE FROM role_permissions WHERE permission LIKE 'releases.%'
-            AND permission NOT IN ('releases.view', 'releases.manage');
-"""
+        DELETE FROM role_permissions WHERE permission IN {_FIVE};
+"""  # noqa: S608 - fixed key lists, no input
 
 
 def upgrade() -> None:
@@ -65,5 +93,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """releases.edit(S) → releases.manage(S); the engine's other release keys removed."""
+    """The five keys at S → releases.manage(S); refused when that would lose a grant."""
     op.execute(_PER_TENANT.replace("STATEMENTS", _JOIN))
