@@ -10,28 +10,28 @@ setup (WP-041, WP-042, moved from lane B); AI (WP-037, WP-038, moved from lane B
 
 ## Current WP
 
-**Paused** (product owner, 2026-11-04) after the console UI pass (#159, D-124) merged. Resume
-queue, in order: (1) knowledge e2e specs 139/276/347, red on main too; (2) the label split
-(`refactor/labels-per-module`, re-run on fresh main, all lanes told before it is queued); (3)
-WP-041 public API (#176, draft: backend, outbox events and live list built; screens and D-128 to
-do); (4) WP-042 S1 (plan approved); (5) WP-034 S1 (#158, built; knowledge screens onto the D-124
-layout); (6) WP-037 then WP-038, each planned to the coordinator first. Urdu for the 370 older
-keys before the pilot.
+WP-042 sessions 1 to 3 built on #183: setup home and menu, licence page, roles screens and
+group roles, instance settings, personal preferences, announcement audiences. Reviewed by lane B
+(identity parts) and lane A (role defaults, config rights). WP-037 S1 (#188, AI gateway) is ready
+for review. #158 (WP-034 S1) is queued. Next: WP-038 (AI on incidents, plan approved,
+2 sessions), started on a fresh branch from main only once #188 has merged. Urdu for the 370
+older keys before the pilot.
 
 ## Branch
 
-`refactor/labels-per-module`, `feat/wp-034-knowledge-search` (#158), `feat/wp-041-public-api`
-(#176)
+`feat/wp-042-admin-setup` (#183), `feat/wp-037-ai-gateway` (#188),
+`feat/wp-034-knowledge-search` (#158, queued)
 
 ## Worktree
 
-`../supportx-v2-labels`, `../supportx-v2-wp034`, `../supportx-v2-wp041` (`../supportx-v2-uipass`
-done: #159 merged)
+`../supportx-v2-wp042`, `../supportx-v2-wp037`, `../supportx-v2-wp034` (`../supportx-v2-wp041`
+done: #176 merged)
 
 ## Claimed migration
 
-0027, 0029, 0031, 0035, 0036, 0041, 0046, 0048, 0051 (merged); 0050 knowledge search and votes
-(#158); 0055 API keys (#176, follows 0051)
+0027, 0029, 0031, 0035, 0036, 0041, 0046, 0048, 0051, 0055 (merged); 0050 knowledge search and
+votes (#158, follows 0055); 0060 AI gateway (#188); 0061 group roles, 0066 tenant settings, 0067
+user preferences, 0068 announcement audiences (#183); 0069 AI summaries (WP-038)
 
 ## Claimed decisions
 
