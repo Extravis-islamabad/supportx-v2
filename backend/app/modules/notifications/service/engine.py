@@ -16,9 +16,10 @@ out; the `notifications__mail_waiting` schedule hands the waiting ones over once
 """
 
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -63,11 +64,14 @@ from app.shared.mail import (
 )
 from app.shared.mail.events import MailStateChanged
 from app.shared.notifications.ports import (
+    SECRET_PLACEHOLDER,
+    SECRET_VARIABLES,
     DeliveryChange,
     LabelRef,
     Localised,
     NotificationChannel,
     NotificationEvent,
+    RecipientLinks,
     RecordAccess,
     RecordContext,
     RecordSource,
@@ -198,8 +202,13 @@ def compose(  # noqa: PLR0913 - the event, the record, the person and their read
     zone: ZoneInfo,
     origin: Callable[[RecordAccess], str],
     offered: frozenset[str] = frozenset(),
+    email_links: Mapping[str, str] | None = None,
 ) -> Message:
-    """The message in the person's language, from the content they may see (REQ-NTF-010)."""
+    """The message in the person's language, from the content they may see (REQ-NTF-010).
+
+    `email_links`: the recipient's own secret links (paths, see `RecipientLinks`), in the
+    e-mail only, never in the in-app text; other readers of a template see a placeholder.
+    """
     chosen = context.variables if access is RecordAccess.FULL else context.public_variables
     # Every offered variable exists, empty when this reader may not see it or it has no value.
     values: dict[str, str | None] = dict.fromkeys(offered)
@@ -208,8 +217,15 @@ def compose(  # noqa: PLR0913 - the event, the record, the person and their read
     link = base + context.link.lstrip("/") if access is RecordAccess.FULL else base
     values["record.link"] = link
     values["recipient.name"] = person.name
+    for name in SECRET_VARIABLES & offered:
+        values[name] = SECRET_PLACEHOLDER
     in_app = render(_template(code, "in_app", language), "", values).subject
-    email = render(_template(code, "subject", language), _template(code, "body", language), values)
+    secrets = {name: base + path.lstrip("/") for name, path in (email_links or {}).items()}
+    email = render(
+        _template(code, "subject", language),
+        _template(code, "body", language),
+        {**values, **secrets},
+    )
     return Message(language, in_app, email, link, context.link)
 
 
@@ -445,6 +461,52 @@ async def _in_app(session: AsyncSession, target: Target, message: Message) -> No
     )
 
 
+async def _email_once(  # noqa: PLR0913, PLR0917 - the delivery and how to write it, explicit
+    session: AsyncSession,
+    settings: Settings,
+    target: Target,
+    person: NotifiablePerson,
+    message: Message,
+    writer: Callable[..., Message],
+) -> None:
+    """The e-mail, once per event and person, with that person's own links (WP-030 s3)."""
+    if await _emailed_before(session, target):
+        return  # a redelivered event: no second e-mail, no second live link
+    links = await _recipient_links(
+        session, target.source, target.envelope, target.recipient.user_id
+    )
+    await _email(session, settings, target, person, writer(email_links=links) if links else message)
+
+
+async def _emailed_before(session: AsyncSession, target: Target) -> bool:
+    """Whether this event's e-mail to this person already has a delivery row (lane B)."""
+    found = await session.scalar(
+        select(NotificationDelivery.id)
+        .where(
+            NotificationDelivery.event_id == target.envelope.event_id,
+            NotificationDelivery.event_code == target.code,
+            NotificationDelivery.user_id == target.recipient.user_id,
+            NotificationDelivery.channel == NotificationChannel.EMAIL.value,
+        )
+        .limit(1)
+    )
+    return found is not None
+
+
+async def _recipient_links(
+    session: AsyncSession, source: RecordSource, envelope: EventEnvelope, user_id: uuid.UUID
+) -> Mapping[str, str]:
+    """The source's secret links for this person's e-mail, if it makes any."""
+    if not isinstance(source, RecipientLinks):
+        return {}
+    links = await source.recipient_links(session, envelope, user_id, NotificationChannel.EMAIL)
+    unknown = set(links) - SECRET_VARIABLES
+    if unknown:  # a programming error: a link that is not marked secret would leak
+        msg = f"recipient links must be secret variables: {sorted(unknown)}"
+        raise ValueError(msg)
+    return links
+
+
 def _actor_id(envelope: EventEnvelope) -> uuid.UUID | None:
     if envelope.actor.type != "user":
         return None
@@ -526,23 +588,23 @@ async def notify(  # noqa: C901 - the pipeline of one event, in order
             if channel is NotificationChannel.EMAIL and not person.email:
                 await _record(*common, DeliveryState.SUPPRESSED, reason=SuppressedReason.NO_ADDRESS)
                 continue
-            if message is None:
-                language = _language(person, defaults.language)
-                zone = _zone(person.time_zone or defaults.time_zone)
-                message = compose(
-                    code,
-                    context=context,
-                    access=access,
-                    person=person,
-                    language=language,
-                    zone=zone,
-                    origin=await origin_for(language),
-                    offered=frozenset(v.name for v in (*source.variables, *event.variables)),
-                )
+            language = _language(person, defaults.language)
+            writer = partial(
+                compose,
+                code,
+                context=context,
+                access=access,
+                person=person,
+                language=language,
+                zone=_zone(person.time_zone or defaults.time_zone),
+                origin=await origin_for(language),
+                offered=frozenset(v.name for v in (*source.variables, *event.variables)),
+            )
+            message = message or writer()
             if channel is NotificationChannel.IN_APP:
                 await _in_app(session, target, message)
             else:
-                await _email(session, settings, target, person, message)
+                await _email_once(session, settings, target, person, message, writer)
     return count
 
 

@@ -67,6 +67,22 @@ export const ar: LabelResource = {
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',
   'notification_category.status': 'تغييرات الحالة',
+  'notification_category.approval': 'الموافقات',
+  'notification_event.service_request.approval_requested': 'طلب موافقة',
+  'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
+  'notification_variable.approval_link': 'الموافقة › الرابط',
+  'notification_template.service_request.approval_requested.in_app':
+    '{{ record.display_id }} بانتظار موافقتك: {{ record.title }}',
+  'notification_template.service_request.approval_requested.subject':
+    'موافقتك: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_requested.body':
+    'مرحبًا {{ recipient.name }}،\n\nطلب {{ requester.name }} {{ record.display_id }} «{{ record.title }}» وهو بانتظار موافقتك.\n\nوافق أو ارفض: {{ approval_link }}\n\nيعمل الرابط مرة واحدة ولك وحدك بعد تسجيل الدخول.',
+  'notification_template.service_request.approval_fallback.in_app':
+    '{{ record.display_id }} ليس له موافق نشط وهو بانتظار مسؤول موافقات: {{ record.title }}',
+  'notification_template.service_request.approval_fallback.subject':
+    'موافقة بالانتظار: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_fallback.body':
+    'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_category.mention': 'الإشارات',
   'notification_category.following': 'المتابعة',
   'notification_channel.in_app': 'داخل التطبيق',

@@ -52,6 +52,7 @@ class NotificationCategory(StrEnum):
     STATUS = "status"
     MENTION = "mention"
     FOLLOWING = "following"
+    APPROVAL = "approval"  # WP-030 s3: an approval waits for you (required: never switched off)
 
 
 @dataclass(frozen=True)
@@ -149,6 +150,34 @@ class DeliveryChange(Protocol):
         at: datetime,
     ) -> None:
         """Move the entry's delivery state (the source's own rules)."""
+        ...
+
+
+# Variables that hold a secret (a signed action link, WP-030 s3; lane B's review): never in a log
+# line, delivery metadata or an error message; previews and admin test-sends show a placeholder
+# and never mint one.
+SECRET_VARIABLES = frozenset({"approval_link"})
+SECRET_PLACEHOLDER = "[link]"  # noqa: S105 - shown instead of a secret, not one itself
+
+
+@runtime_checkable
+class RecipientLinks(Protocol):
+    """Optional on a RecordSource: links made for one recipient while their e-mail renders.
+
+    Called by the engine only for the e-mail channel, on its own session, once per recipient
+    and only when that e-mail has not been delivered before (a redelivered event makes no
+    second live link). Returns `{variable: console or portal path}`; the engine makes each
+    absolute with the recipient's origin. Every name must be in SECRET_VARIABLES.
+    """
+
+    async def recipient_links(
+        self,
+        session: AsyncSession,
+        envelope: EventEnvelope,
+        recipient_id: uuid.UUID,
+        channel: NotificationChannel,
+    ) -> Mapping[str, str]:
+        """The recipient's own links for this event's e-mail."""
         ...
 
 
