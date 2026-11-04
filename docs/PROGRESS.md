@@ -278,9 +278,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   images; offline bundle (images, charts, k3s, checksums, signature) and `supportx-install`
   (verify / init / up / upgrade / check / backup-secrets / support-bundle); install test with
   egress blocked. **Requires the Nuitka build (WP-013 / ADR-009) before any customer bundle.**
-- **Local AI (REQ-AI-003, WP-037):** the installer switches on the local model for every
-  deployment (`ai.local.enabled=true`; the chart default is off). It ships the pinned weight
-  files in the bundle and fills the model volumes (`<release>-llm-cpu-models`,
+- **Local AI (REQ-AI-003, WP-037; D-139):** the installer **asks** the customer whether to install
+  the local AI model, showing the recommended choice (yes). Only when they choose it does it switch
+  on `ai.local.enabled` (the chart default stays off), and it records the decision. When
+  installed, it ships the pinned weight files in the bundle and fills the model volumes
+  (`<release>-llm-cpu-models`,
   `-llm-embed-models`, and `-llm-gpu-models` with a GPU node) at
   `/models/<revision>/<file>`. Air-gapped installs set `ai.mirror: ""`. The servers check every
   file against the chart's pinned sha256 before they start. The images are
