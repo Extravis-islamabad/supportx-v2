@@ -235,7 +235,11 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         "work_item_tasks": 0,  # with their incidents too (WP-020e)
         "work_item_worklogs": 0,
         "work_item_links": 0,
+        "action_links": 0,  # service requests: tests/db/test_e2e_fixtures_requests.py
+        "work_item_approvals": 0,
         "work_items": 0,  # incidents: covered by the e2e run (none may remain afterwards)
+        "catalog_items": 0,
+        "service_categories": 0,
         "work_item_templates": 1,
         "custom_fields": 1,
         "work_item_reasons": 1,
