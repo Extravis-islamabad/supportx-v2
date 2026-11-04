@@ -1,4 +1,4 @@
-import { App, Button, Descriptions, Input, Modal, Space, Tag, Typography } from 'antd';
+import { App, Button, Descriptions, Input, Modal, Space, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -15,11 +15,13 @@ import {
   FormProblem,
   lengthLimit,
   markHandled,
+  ToneTag,
   useConflict,
   useDateTime,
   useFormProblem,
   useLabel,
   WriteButton,
+  type Tone,
 } from '@supportx/ui';
 
 import { levelWhen } from '../admin/sla/levels';
@@ -33,12 +35,13 @@ function shownState(target: IncidentSlaTarget): IncidentSlaTarget['state'] | 'wa
 }
 
 /** Colour by state: overdue stands out, warning draws the eye, met is calm, the rest neutral. */
-function stateColour(target: IncidentSlaTarget): string | undefined {
+/** The state's tone: ToneTag's palette is contrast-checked in every theme (QA BUG-01, axe). */
+function stateTone(target: IncidentSlaTarget): Tone {
   const state = shownState(target);
   if (state === 'breached') return 'error';
   if (state === 'warning') return 'warning';
   if (state === 'met') return target.met_how === 'late' ? 'warning' : 'success';
-  return undefined;
+  return 'default';
 }
 
 /** Each escalation level: when, and whether it waits (or is held), ran or was cancelled. */
@@ -60,9 +63,9 @@ function Levels({ target }: { target: IncidentSlaTarget }) {
           <Typography.Text>
             {t('incidents.sla.level', { position: level.position })} · {levelWhen(t, level)}
           </Typography.Text>
-          <Tag color={level.state === 'ran' ? 'processing' : undefined}>
+          <ToneTag tone={level.state === 'ran' ? 'info' : 'default'}>
             {t(`sla_run_state.${level.state}`)}
-          </Tag>
+          </ToneTag>
           {level.state === 'ran' && level.ran_at !== null && (
             <Typography.Text type="secondary">{dates.format(level.ran_at)}</Typography.Text>
           )}
@@ -122,11 +125,11 @@ export function IncidentSla({ item }: { item: Incident }) {
           title={t(`sla_target_kind.${target.kind}`)}
           data-testid={`inc-sla-${target.kind}`}
           extra={
-            <Tag color={stateColour(target)} data-testid={`inc-sla-${target.kind}-state`}>
+            <ToneTag tone={stateTone(target)} testId={`inc-sla-${target.kind}-state`}>
               {target.state === 'met' && target.met_how !== null
                 ? t(`sla_met_how.${target.met_how}`)
                 : t(`sla_target_state.${shownState(target)}`)}
-            </Tag>
+            </ToneTag>
           }
         >
           {target.due_at !== null && (

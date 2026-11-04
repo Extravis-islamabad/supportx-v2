@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { ShopOutlined } from '@ant-design/icons';
 import { App as AntApp } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import {
+  loginUrl,
   queryKeys,
   readPending,
   useLogout,
@@ -227,7 +229,18 @@ export function ConsoleLayout() {
           }}
           onProfile={() => void navigate('/profile')}
           onOpenPalette={openPalette}
-          menuItems={availabilityItems}
+          menuItems={[
+            ...availabilityItems,
+            {
+              // D-129: staff open the requester portal from here (as a requester sees it).
+              key: 'requester-portal',
+              icon: <ShopOutlined />,
+              label: t('nav.requester_portal'),
+              onClick: () => {
+                window.open(loginUrl('portal', '/'), '_blank', 'noopener');
+              },
+            },
+          ]}
           extra={
             <>
               <NotificationBell />

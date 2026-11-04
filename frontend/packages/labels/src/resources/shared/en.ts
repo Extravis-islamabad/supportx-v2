@@ -516,6 +516,10 @@ export const en = {
     'Time zone, formats, fiscal year, base currency and the languages offered.',
   'setup.page.instance.keywords':
     'instance, time zone, timezone, date format, week start, fiscal year, currency, languages, country',
+  'nav.requester_portal': 'Requester portal',
+  'settings.portal_show_due_time': 'Requesters see the expected resolution time',
+  'settings.portal_show_due_time_help':
+    'The portal shows when an incident should be resolved, from its SLA.',
   'search.knowledge': 'Knowledge articles',
   'nav.admin_api_keys': 'API keys',
   'api_scope_access.read': 'Read',

@@ -95,7 +95,7 @@ async def test_new_incident_acknowledges_the_requester_never_the_actor(world: Wo
     assert entry["display_id"] == item["display_id"]
     assert item["display_id"] in entry["title"]
     assert "Mail is down" in entry["title"]
-    assert entry["link"] == f"/incidents/{item['id']}"
+    assert entry["link"] == f"/requests/{item['id']}"  # the portal's record (WP-028)
     # Nobody else sees the requester's entry.
     assert (await centre(world, org, org.tech_b))["items"] == []
     status = await world.call("GET", "/notifications/status", org, org.admin)

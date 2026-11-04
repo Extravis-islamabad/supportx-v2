@@ -777,6 +777,23 @@ export const en = {
   'permission.config.reports': 'Configure reports',
   'permission.config.reports.description':
     'Report settings: week start, export limits and every scheduled report.',
+  'permission.work_items.view_department': 'View requests of their department',
+  'permission.work_items.view_department.description':
+    'In the portal, see the incidents and requests of people in their own department.',
+  'permission.work_items.view_reports': 'View requests of their direct reports',
+  'permission.work_items.view_reports.description':
+    'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
+  'identity.settings.people_edit_contact': 'People may change their own phone and mobile',
+  'identity.settings.people_edit_contact_help':
+    'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
+  'account.contact.title': 'Contact details',
+  'account.contact.phone': 'Phone',
+  'account.contact.mobile': 'Mobile',
+  'account.contact.none': 'Not given',
+  'account.contact.save': 'Save contact details',
+  'account.contact.from_directory':
+    'Your phone and mobile come from {{source}}. Change them there.',
+  'permission_module.work_items': 'All requests (incidents and service requests)',
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',

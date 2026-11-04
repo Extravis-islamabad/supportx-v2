@@ -596,6 +596,9 @@ export const ar: LabelResource = {
   'errors.field.default_language_not_offered': 'يجب أن تكون اللغة الافتراضية إحدى اللغات المتاحة.',
   'errors.currency_change_needs_confirmation':
     'يتطلب تغيير العملة الأساسية تأكيدًا: تبقى المبالغ المسجلة سابقًا بالعملة القديمة.',
+  'errors.contact_editing_off': 'لا تسمح مؤسستك بتغيير بيانات الاتصال هنا. اسأل مكتب الخدمة.',
+  'errors.field.managed_by_directory': 'يحتفظ الدليل بهذا الحقل. غيّره هناك.',
+  'errors.console_requester_only': 'يستخدم هذا الحساب بوابة مقدمي الطلبات، وليس وحدة التحكم.',
   'errors.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
   'errors.kb_vote_reason_unknown': 'اختر أحد الأسباب المعروضة.',
   'errors.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',

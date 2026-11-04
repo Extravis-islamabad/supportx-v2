@@ -96,6 +96,16 @@ class DirectoryChanged(DomainEvent):
     change: Literal["added", "changed", "removed", "synced"]
 
 
+class ConnectorSettingsChanged(DomainEvent):
+    """A tenant's connector defaults were saved (WP-040, D-041): the settings card refetches."""
+
+    event_type: ClassVar[str] = "integrations.connector_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "connector_settings"
+
+    changed_fields: list[str]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     MailboxChanged,
     MailboxFailing,
@@ -104,4 +114,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     ConnectorFailing,
     ConnectorRecovered,
     DirectoryChanged,
+    ConnectorSettingsChanged,
 )

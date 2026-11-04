@@ -28,6 +28,7 @@ import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
   AccountSecurityCard,
+  ContactDetailsCard,
   ConflictDialog,
   FormProblem,
   PresenceAvatars,
@@ -119,6 +120,7 @@ export function ProfilePage() {
         </Descriptions>
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
+      <ContactDetailsCard />
       <AccountSecurityCard />
       <ApiKeysPanel mode="mine" />
       <NotificationPreferencesCard />

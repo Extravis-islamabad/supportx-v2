@@ -24,6 +24,12 @@ const NAV: { path: string; labelKey: LabelKey }[] = [
   { path: '/catalog', labelKey: 'nav.catalog' },
 ];
 
+/** The menu entry of a path: its own, or the area it lies in (`/requests/…` is My requests). */
+function selected(pathname: string): string {
+  const area = NAV.find((item) => item.path !== '/' && pathname.startsWith(`${item.path}/`));
+  return area?.path ?? pathname;
+}
+
 /** Portal frame: one header with a simple top navigation; no sidebar, no command palette. */
 export function PortalLayout() {
   const t = useLabel();
@@ -60,7 +66,7 @@ export function PortalLayout() {
       <nav aria-label={t('nav.main')}>
         <Menu
           mode="horizontal"
-          selectedKeys={[pathname]}
+          selectedKeys={[selected(pathname)]}
           items={NAV.map((item) => ({
             key: item.path,
             label: t(item.labelKey),

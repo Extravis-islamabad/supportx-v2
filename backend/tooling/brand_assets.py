@@ -555,6 +555,10 @@ def manifest(theme_colour: str) -> str:
         "theme_color": theme_colour,
         "background_color": "#ffffff",
         "display": "standalone",
+        # Relative to the manifest, so one file serves both apps: added to a phone's home
+        # screen, the portal opens at /portal/ and the console at / (REQ-PRT-022, WP-028 D10).
+        "start_url": ".",
+        "scope": ".",
     }
     return json.dumps(body, indent=2) + "\n"
 

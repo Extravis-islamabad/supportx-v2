@@ -12,6 +12,7 @@ import uuid
 import asyncpg
 
 from app.core.tenancy import TenantContext
+from app.modules.identity_access.service.users import requester_only
 from app.modules.organization import SYSTEM_PATH, add_member
 from tests.db.test_access_api import World, problem, world  # noqa: F401 - the fixture, reused
 
@@ -171,3 +172,18 @@ async def test_disabling_the_last_admin_s_group_is_refused(world: World) -> None
         headers={"If-Match": f'"{version}"'},
     )
     assert problem(refused) == (409, "last_tenant_admin")
+
+
+async def test_a_technician_role_through_a_group_opens_the_console(world: World) -> None:  # noqa: F811
+    """D-129 with WP-042: requester_only counts the roles a person holds through groups too."""
+    a = world.a
+    database = world.app.state.db
+    assert await requester_only(database, a.tenant, a.requester)
+    group = await _group(world, "Field techs")
+    technician = await world.role_id(a, "technician")
+    await world.call("PUT", f"/roles/{technician}/groups/{group}", a, a.admin)
+    added = await world.call(
+        "PUT", f"/organization/groups/{group}/members/{a.requester}", a, a.admin
+    )
+    assert added.status_code in {200, 204}, added.text
+    assert not await requester_only(database, a.tenant, a.requester)

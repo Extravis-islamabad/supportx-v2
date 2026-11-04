@@ -71,4 +71,5 @@ export const ur: LabelResource = {
   'files.admin.check_now': 'ابھی جانچیں',
   'file_owner_type.branding': 'برانڈنگ',
   'file_owner_type.kb_article': 'علمی مضمون',
+  'files.take_photo': 'تصویر لیں',
 };

@@ -32,6 +32,7 @@ interface Draft {
   idle: Record<AppName, number | null>;
   absolute: Record<AppName, number | null>;
   createPeople: boolean;
+  editContact: boolean;
 }
 
 function draftFrom(saved: IdentitySettings): Draft {
@@ -45,6 +46,7 @@ function draftFrom(saved: IdentitySettings): Draft {
       portal: saved.portal_absolute_seconds / 3600,
     },
     createPeople: saved.create_people_on_sign_in,
+    editContact: saved.people_edit_contact,
   };
 }
 
@@ -116,6 +118,7 @@ export function SessionsCard() {
     portal_idle_seconds: Math.round((draft.idle.portal ?? 0) * 60),
     portal_absolute_seconds: Math.round((draft.absolute.portal ?? 0) * 3600),
     create_people_on_sign_in: draft.createPeople,
+    people_edit_contact: draft.editContact,
   });
 
   const submit = (version: number) => {
@@ -215,6 +218,24 @@ export function SessionsCard() {
           </Space>
           <Typography.Text type="secondary">
             {t(draft.createPeople ? 'security.people.create_on' : 'security.people.create_off')}
+          </Typography.Text>
+        </Flex>
+        <Flex vertical gap={4}>
+          <Space>
+            <Switch
+              checked={draft.editContact}
+              onChange={(on) => {
+                update({ editContact: on }, 'people_edit_contact');
+              }}
+              aria-labelledby="security-edit-contact-label"
+              data-testid="security-edit-contact"
+            />
+            <Typography.Text id="security-edit-contact-label">
+              {t('identity.settings.people_edit_contact')}
+            </Typography.Text>
+          </Space>
+          <Typography.Text type="secondary">
+            {t('identity.settings.people_edit_contact_help')}
           </Typography.Text>
         </Flex>
         <div>

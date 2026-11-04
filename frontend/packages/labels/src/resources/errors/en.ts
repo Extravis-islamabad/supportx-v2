@@ -648,6 +648,10 @@ export const en = {
     'The default language must be one of the languages offered.',
   'errors.currency_change_needs_confirmation':
     'Changing the base currency needs a confirmation: amounts already recorded stay in the old one.',
+  'errors.contact_editing_off':
+    'Your organisation does not let you change your contact details here. Ask your service desk.',
+  'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
+  'errors.console_requester_only': 'This account uses the requester portal, not the console.',
   'errors.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
   'errors.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',

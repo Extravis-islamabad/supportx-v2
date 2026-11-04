@@ -261,6 +261,10 @@ async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> 
 async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """Sign-in settings or an SSO set-up changed: other admins' security screens refetch.
 
+    When people may now (or no longer) change their own numbers, everyone's My account
+    refetches their own record (WP-028, rule 5c): a signal with no content, on the tenant's
+    channel, as the API decides what each person may do.
+
     A change to the API key settings also reaches everyone's own key screen (WP-041), as a
     tenant-wide signal that names nothing: each screen refetches what it may offer.
     """
@@ -272,9 +276,14 @@ async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> R
         actor_id=_actor(envelope),
     )
     changed = set(envelope.payload.get("changed_fields") or ())
+    if "people_edit_contact" in changed:
+        publications.append(Publication(broadcast(envelope.tenant_id), CONTACT_EDITING_CHANGED))
     if changed & KEY_SETTINGS:
         publications.append(Publication(broadcast(envelope.tenant_id), "api_keys.rules_changed"))
     return RealtimeEffects(publications=publications)
+
+
+CONTACT_EDITING_CHANGED = "identity_access.contact_editing_changed"
 
 
 async def _invitation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:

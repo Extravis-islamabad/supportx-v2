@@ -550,6 +550,10 @@ export const ur: LabelResource = {
     'پہلے سے طے شدہ زبان دستیاب زبانوں میں سے ہونی چاہیے۔',
   'errors.currency_change_needs_confirmation':
     'بنیادی کرنسی بدلنے کے لیے تصدیق درکار ہے: پہلے سے درج رقمیں پرانی کرنسی میں رہیں گی۔',
+  'errors.contact_editing_off':
+    'آپ کی تنظیم یہاں رابطے کی تفصیلات بدلنے کی اجازت نہیں دیتی۔ سروس ڈیسک سے پوچھیں۔',
+  'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
+  'errors.console_requester_only': 'یہ اکاؤنٹ درخواست گزار پورٹل استعمال کرتا ہے، کنسول نہیں۔',
   'errors.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
   'errors.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',

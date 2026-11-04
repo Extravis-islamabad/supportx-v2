@@ -56,6 +56,7 @@ const SETTING_NAMES: Record<string, string> = {
   default_priority: 'settings.default_priority',
   auto_status_on_assign: 'settings.auto_status_on_assign',
   keep_following_on_handover: 'settings.keep_following',
+  portal_show_due_time: 'settings.portal_show_due_time',
   first_response_on: 'settings.first_response_on',
   // Whole parts, when the dialog compares two versions itself.
   statuses: 'settings.statuses',

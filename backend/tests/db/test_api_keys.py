@@ -29,7 +29,9 @@ ADMIN = ("tenant_admin", "technician")
 
 
 async def _signed_in(world: Bff, *roles: str, email: str = "admin@demo.test") -> str:
-    response = await world.login(world.user("a", email=email, roles=roles or ADMIN))
+    # D-129: a requester-only person signs in on the portal (the console sends them there).
+    app = "portal" if roles == ("requester",) else "console"
+    response = await world.login(world.user("a", email=email, roles=roles or ADMIN), app=app)
     assert response.status_code == 302, response.text
     return await world.csrf()
 

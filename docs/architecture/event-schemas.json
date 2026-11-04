@@ -1797,6 +1797,25 @@
         "type": "object"
       }
     },
+    "integrations.connector_settings.changed": {
+      "1": {
+        "description": "A tenant's connector defaults were saved (WP-040, D-041): the settings card refetches.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "ConnectorSettingsChanged",
+        "type": "object"
+      }
+    },
     "integrations.directory.changed": {
       "1": {
         "description": "A directory connector was added, changed or removed, or a sync run finished (WP-040).",

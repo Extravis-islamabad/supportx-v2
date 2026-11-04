@@ -430,6 +430,10 @@ export const ur: LabelResource = {
   'setup.page.instance.description': 'ٹائم زون، اشکال، مالی سال، بنیادی کرنسی اور دستیاب زبانیں۔',
   'setup.page.instance.keywords':
     'ٹائم زون، تاریخ کی شکل، ہفتے کا آغاز، مالی سال، کرنسی، زبانیں، ملک',
+  'nav.requester_portal': 'درخواست گزار پورٹل',
+  'settings.portal_show_due_time': 'درخواست گزار حل کا متوقع وقت دیکھیں',
+  'settings.portal_show_due_time_help':
+    'پورٹل دکھاتا ہے کہ واقعہ کب تک حل ہونا چاہیے، اس کے SLA کے مطابق۔',
   'search.knowledge': 'علمی مضامین',
   'nav.admin_api_keys': 'API کلیدیں',
   'api_scope_access.read': 'پڑھنا',

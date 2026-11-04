@@ -10,10 +10,12 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.domain.identity import (
     DateFormat,
     FormDensity,
@@ -99,6 +101,10 @@ class UserDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     version: int = Field(description="Send it back as If-Match (the ETag) to update.")
+    contact_editable: bool = Field(
+        default=False,
+        description="Your own record only: whether you may change phone and mobile here.",
+    )
 
     @field_validator("nav_layout", "form_density", mode="before")
     @classmethod
@@ -113,6 +119,14 @@ class UserDetail(BaseModel):
         data = cls.model_validate(user, from_attributes=True).model_dump()
         data["signed_in_before"] = user.external_subject is not None
         return cls.model_validate(visible(subject, directory.USERS, data))
+
+
+async def _own_detail(session: AsyncSession, user: User, subject: Subject) -> UserDetail:
+    """The detail, saying on your own record whether My account may change your numbers."""
+    detail = UserDetail.of(user, subject)
+    if user.id == subject.user_id:
+        detail.contact_editable = await directory.contact_editable(session, user)
+    return detail
 
 
 class UserPage(Page[UserDetail]):
@@ -145,6 +159,9 @@ class UserPreferencesPatch(BaseModel):
     week_start: str | None = Field(default=None, max_length=10, description="First weekday.")
     date_format: str | None = Field(default=None, max_length=12, description="e.g. dd/mm/yyyy.")
     time_format: str | None = Field(default=None, max_length=4, description="24h or 12h.")
+    # REQ-PRT-013 AC2 (WP-028): only when the tenant allows it and no directory keeps them.
+    phone: str | None = Field(default=None, max_length=100, description="Your phone number.")
+    mobile: str | None = Field(default=None, max_length=100, description="Your mobile number.")
 
 
 ViewUsers = Annotated[Subject, Depends(require_permission("users.view"))]
@@ -199,7 +216,7 @@ async def get_user(
     if cached is not None:
         return cached  # type: ignore[return-value]  # 304 without a body
     set_etag(response, user.version)
-    return UserDetail.of(user, subject)
+    return await _own_detail(session, user, subject)
 
 
 @router.patch(
@@ -218,11 +235,19 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     session: TenantSession,
     subject: EditProfile,
     request: Request,
+    note: Annotated[
+        AuditNote, audited("user.contact_changed", object_type="user", object_param="user_id")
+    ],
 ) -> UserDetail:
-    """Change your own signature or time zone. Needs `If-Match` with the ETag you read.
+    """Change your own preferences (and contact details if allowed). Needs `If-Match`.
 
     A stale If-Match gets 409 with `changed_fields`, `changed_by` and `changed_at`.
     """
+    sent_contact = body.model_fields_set & directory.CONTACT_FIELDS
+    before: dict[str, str | None] = {}
+    if sent_contact and user_id == subject.user_id:  # others are refused by the service
+        current = await directory.get_user(session, subject, user_id)
+        before = {name: getattr(current, name) for name in sent_contact}
     user = await directory.update_preferences(
         session,
         subject,
@@ -231,5 +256,14 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         changes=body.model_dump(include=body.model_fields_set),
         source=source_of(request),
     )
+    # Contact details are personal data: audited when they really changed (field names only,
+    # never the numbers); resending the same number writes no entry.
+    contact = sorted(
+        name
+        for name in body.model_fields_set & directory.CONTACT_FIELDS
+        if before.get(name) != getattr(user, name)
+    )
+    note.skip = not contact
+    note.details = {"changed_fields": contact}
     set_etag(response, user.version)
-    return UserDetail.of(user, subject)
+    return await _own_detail(session, user, subject)

@@ -1,0 +1,20 @@
+# The HA smoke on a standard CI runner (WP-014b, decision 1): the HA topology of values-ha.yaml
+# (copies, sentinels, budgets, anti-affinity) with small requests, so it fits a 4 vCPU, 16 GB
+# runner. Never for a real install.
+api:
+  autoscaling: {enabled: true, minReplicas: 3, maxReplicas: 3, targetCPUPercent: 70}
+  resources:
+    requests: {cpu: 50m, memory: 256Mi}
+keycloak:
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+postgresql:
+  cnpg:
+    resources:
+      requests: {cpu: 50m, memory: 256Mi}
+    parameters:
+      shared_buffers: 64MB
+      max_connections: "200"
+valkeyHa:
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}

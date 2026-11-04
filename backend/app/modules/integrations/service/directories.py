@@ -45,6 +45,7 @@ from app.modules.integrations.infra.models import DirectoryConnector, DirectoryP
 from app.modules.integrations.infra.oauth import Client, load_certificate
 from app.modules.integrations.service import identities, secrets
 from app.modules.integrations.service.connections import key_ring, oauth_for
+from app.modules.integrations.service.connector_settings import get_connector_settings
 from app.modules.integrations.service.directory_sync import CONNECTOR_KIND, SECRET_ROLE
 from app.modules.integrations.service.mailboxes import KeyRingMissing
 from app.modules.organization import existing_unit_ids
@@ -210,6 +211,11 @@ async def create_directory(
     by: Subject,
 ) -> DirectoryView:
     """A new directory connector; its first sync runs within a minute."""
+    if "interval_minutes" not in values:  # the tenant's default for new directories (D-041)
+        values = {
+            **values,
+            "interval_minutes": (await get_connector_settings(session)).sync_minutes,
+        }
     if errors := _problems(values, credential=credential, creating=True):
         raise ValidationFailed(errors=errors)
     ring = _ring(settings)
@@ -247,10 +253,12 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
     by: Subject,
 ) -> DirectoryView:
     """Change a connector (If-Match); a new secret replaces the old one behind the same row."""
+    current = await DirectoryRepository(session).get(directory_id)
+    if "interval_minutes" not in values:  # left out: it keeps its own interval
+        values = {**values, "interval_minutes": current.interval_minutes}
     if errors := _problems(values, credential=credential, creating=False):
         raise ValidationFailed(errors=errors)
     await _groups_exist(session, values, by)
-    current = await DirectoryRepository(session).get(directory_id)
     stored = _stored(values)
     # Who is synced changed: the next round reads everyone again (delta links start over).
     if (stored["scope"], stored["scope_groups"], stored["group_mappings"], stored["mapping"]) != (

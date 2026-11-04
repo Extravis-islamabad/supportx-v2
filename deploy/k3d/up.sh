@@ -9,7 +9,8 @@ if k3d cluster list "$NAME" >/dev/null 2>&1; then
   echo "k3d cluster $NAME exists: kept"
   kubectl config use-context "k3d-$NAME" >/dev/null
 else
-  k3d cluster create --config "$HERE/cluster.yaml"
+  # K3D_CONFIG: cluster-ha.yaml for the HA smoke (four nodes), else the one-node cluster.
+  k3d cluster create --config "$HERE/${K3D_CONFIG:-cluster.yaml}"
 fi
 
 # k3s installs Traefik (with our Gateway API settings) through Helm jobs after start-up.

@@ -38,6 +38,7 @@ spec:
       automountServiceAccountToken: true
       {{- include "supportx.pullSecrets" $ | nindent 6 }}
       {{- include "supportx.podSecurityContext" $ | nindent 6 }}
+      {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
       terminationGracePeriodSeconds: 30
       initContainers:
         {{- include "supportx.waitForMigrate" $ | nindent 8 }}

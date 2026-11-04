@@ -524,6 +524,10 @@ export const ar: LabelResource = {
   'history.sla_escalation': '{{target}}: نُفِّذ المستوى {{level}}',
   'event_type.organization.tenant_settings.changed': 'تغيّرت إعدادات المنشأة',
   'audit.action.organization.settings_changed': 'غيّر إعدادات المنشأة',
+  'audit.action.user.contact_changed': 'غيّر بيانات الاتصال الخاصة به',
+  // WP-040 connector defaults (D-041)
+  'audit.action.connector_settings.changed': 'غيّر الإعدادات الافتراضية للموصلات',
+  'event_type.integrations.connector_settings.changed': 'تغيّرت الإعدادات الافتراضية للموصلات',
   'event_type.knowledge.vote.saved': 'حُفظ تقييم مقالة معرفة',
   'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
   'audit.action.api_key.created': 'أنشأ مفتاح API',

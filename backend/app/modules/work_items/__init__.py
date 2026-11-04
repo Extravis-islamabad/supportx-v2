@@ -19,15 +19,17 @@ from fastapi import FastAPI
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.identity_access import SERVICE_DESK_MANAGER
+from app.modules.work_items.api.portal_routes import router as portal_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
-from app.modules.work_items.domain.types import TYPES
+from app.modules.work_items.domain.types import INCIDENT, TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     bulk,
     inbound_mail,
     notifications,
     parts,
+    portal,
     record_facts,
     report_names,
     resolution,
@@ -98,8 +100,8 @@ register_owner_access(FILE_ACCESS)
 
 module = ModuleSpec(
     name="work_items",
-    routers=[build_router(wtype) for wtype in TYPES.values()],
-    router_features=[wtype.feature for wtype in TYPES.values()],
+    routers=[*(build_router(wtype) for wtype in TYPES.values()), portal_router],
+    router_features=[*(wtype.feature for wtype in TYPES.values()), INCIDENT.feature],
     events=EVENTS,
     permissions=(
         *(spec for wtype in TYPES.values() for spec in permissions(wtype)),
@@ -108,6 +110,7 @@ module = ModuleSpec(
         PermissionSpec(
             "config.service_desk", "incident", defaults=((SERVICE_DESK_MANAGER, "all"),)
         ),
+        *portal.PERMISSIONS,  # WP-028 D2 (pending the product owner)
     ),
     channels=CHANNELS,
     realtime=ROUTES,
