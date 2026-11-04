@@ -18,3 +18,13 @@ postgresql:
 valkeyHa:
   resources:
     requests: {cpu: 20m, memory: 32Mi}
+# The egress allow-list on (opt-in, off by default): every HA test then runs under it, and
+# deploy/k3d/egress-check.sh shows that nothing else leaves the namespace.
+networkPolicies:
+  egress:
+    enabled: true
+    components:
+      # freshclam fetches signatures from ClamAV's CDN (no fixed addresses). A real install with
+      # egress on lists its private mirror or forward proxy here instead (clamav.privateMirror).
+      clamav:
+        - ports: [{protocol: TCP, port: 443}, {protocol: TCP, port: 80}]

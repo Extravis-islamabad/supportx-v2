@@ -553,6 +553,7 @@ export const ur: LabelResource = {
   'readiness_check.outbox_relay': 'واقعات ریلے',
   'readiness_check.event_consumers': 'واقعات کی پروسیسنگ',
   'readiness_check.realtime_fanout': 'براہ راست اپ ڈیٹس',
+  'readiness_check.malware_signatures': 'وائرس کی شناختی فہرست',
   'readiness_check.nats': 'میسج بس',
   'security.invitations.earlier_links_work':
     'پہلے بھیجے گئے لنک بھی میعاد ختم ہونے تک کام کرتے رہیں گے۔',

@@ -25,7 +25,7 @@ PROFILES=(
   "ingress|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.mode=ingress --set routing.ingress.tlsSecret=supportx-tls --set routing.hostnames={supportx.example.com}"
   "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com"
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"
-  "ha-ci|-f $CHART/values-dev.yaml -f $CHART/values-ha.yaml -f $CHART/values-ha-ci.yaml"
+  "ha-ci|-f $CHART/values-dev.yaml -f $CHART/values-ha.yaml -f $CHART/values-ha-ci.yaml --set networkPolicies.egress.kubeApiCidrs={10.0.0.10/32}"
   "ha|-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
 )
 
@@ -76,6 +76,24 @@ awk '
   }
 ' "$OUT/ha.yaml" || { echo "HA profile check failed"; exit 1; }
 echo "HA: every multi-copy component has a PodDisruptionBudget and anti-affinity"
+
+# Egress allow-list (WP-014b): offline (helm template, GitOps) the chart can't read the control
+# plane's addresses, so with egress on and no kubeApiCidrs it must refuse, never fall back to an
+# open 0.0.0.0/0. With them set (the ha-ci profile above) every kube-API rule uses exactly them.
+if helm template supportx "$CHART" --namespace supportx -f "$CHART/values-dev.yaml" \
+  --set networkPolicies.egress.enabled=true >/dev/null 2>"$OUT/egress-refused.txt"; then
+  echo "egress: the chart must refuse egress on without kubeApiCidrs when it can't read the cluster" >&2
+  exit 1
+fi
+grep -q "kubeApiCidrs" "$OUT/egress-refused.txt" || { echo "egress: the refusal must name kubeApiCidrs" >&2; exit 1; }
+# Only the egress policies: dev-only ingress rules (NodePorts) use 0.0.0.0/0 on purpose.
+if awk '/^---/ { if (egress && open) found = 1; egress = 0; open = 0 }
+        /policyTypes: \[Egress\]/ { egress = 1 }
+        /0\.0\.0\.0\/0/ { open = 1 }
+        END { if (egress && open) found = 1; exit !found }' "$OUT/ha-ci.yaml"; then
+  echo "egress: no egress rule may allow 0.0.0.0/0 (ha-ci)" >&2; exit 1
+fi
+echo "egress: refused without the control plane's addresses; no open 0.0.0.0/0 rule"
 
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"
