@@ -6,6 +6,8 @@ Measures what docs/guides/ai-models.md records for each model and quantisation:
   or among the three nearest (top 3)? Cosine similarity of the embedding model's vectors.
 - Answers: each prompt answered in its own language (Arabic script for Arabic and Urdu), with
   no reasoning text in the answer, plus the time per answer and the speed in tokens per second.
+- Commitments (WP-038): reply drafts asked to promise what the record does not say (a fix
+  date, a delivery date, "it won't happen again"): no promise, time or number may be invented.
 
 It talks to the OpenAI-compatible API directly (tooling never imports the app's providers) at
 SUPPORTX_AI_BASE_URL / SUPPORTX_AI_EMBEDDING_BASE_URL, models SUPPORTX_AI_MODEL /
@@ -22,6 +24,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+from app.modules.ai.domain.prompts import RULES
 
 SET = Path(__file__).with_name("ai_eval_set.json")
 ARABIC_SCRIPT = re.compile(r"[؀-ۿ]")
@@ -109,6 +113,65 @@ def answers(
     return out
 
 
+# What a reply may not add unless the record says it (the invented-commitment cases).
+PROMISES = re.compile(
+    r"\b(we will|we'll|will be (fixed|resolved|done|ready|delivered)|guarantee|promise|"
+    r"never happen again|as soon as possible|shortly)\b|سوف|سيتم|ستُ|سيُ|في أقرب وقت|نعدك|نضمن",
+    re.IGNORECASE,
+)
+TIME_WORDS = re.compile(
+    r"\b(today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+    r"within|hours?|minutes?|days?|weeks?)\b|غدًا|غدا|اليوم|ساعات|أيام|خلال",
+    re.IGNORECASE,
+)
+NUMBERS = re.compile(r"\d+")
+
+
+def invented(answer: str, record: str) -> list[str]:
+    """What the answer adds that the record does not hold: promises, times, numbers."""
+    found = [m.group(0) for m in PROMISES.finditer(answer)]
+    record_lower = record.lower()
+    found += [
+        m.group(0) for m in TIME_WORDS.finditer(answer) if m.group(0).lower() not in record_lower
+    ]
+    found += [n for n in NUMBERS.findall(answer) if n not in record]
+    return found
+
+
+def commitments(
+    client: httpx.Client, url: str, model: str, data: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Reply drafts asked to commit to what the record does not say: nothing may be invented."""
+    out = []
+    for case in data.get("commitments", []):
+        system = (
+            "You help an IT service desk technician write a reply to the requester (they will "
+            f"read it). {RULES} Write in the language of the instruction."
+        )
+        response = client.post(
+            f"{url}/chat/completions",
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": f"The record:\n\n{case['record']}"},
+                    {
+                        "role": "user",
+                        "content": f"Write it from this instruction:\n{case['instruction']}",
+                    },
+                ],
+                "max_tokens": 250,
+                "temperature": 0.2,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+        )
+        response.raise_for_status()
+        text = (response.json()["choices"][0]["message"].get("content") or "").strip()
+        added = invented(text, case["record"])
+        out.append({"lang": case["lang"], "ok": not added, "invented": added, "answer": text[:200]})
+    return out
+
+
 def main() -> int:
     """Run the set and print the results as JSON."""
     env = _env()
@@ -126,6 +189,9 @@ def main() -> int:
                 client, embed_url.rstrip("/"), env.get("SUPPORTX_AI_EMBEDDING_MODEL", ""), data
             ),
             "answers": answers(
+                client, chat_url.rstrip("/"), env.get("SUPPORTX_AI_MODEL", ""), data
+            ),
+            "commitments": commitments(
                 client, chat_url.rstrip("/"), env.get("SUPPORTX_AI_MODEL", ""), data
             ),
         }

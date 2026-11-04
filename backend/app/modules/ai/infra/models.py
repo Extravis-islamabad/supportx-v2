@@ -1,4 +1,4 @@
-"""The ai module's tables (WP-037): the tenant's AI settings, the call log and the embeddings."""
+"""The ai module's tables (WP-037, 038): settings, the call log, embeddings and summaries."""
 
 import uuid
 from datetime import datetime
@@ -42,12 +42,19 @@ class AiSettings(TenantKeyed, Base):
     __tablename__ = "ai_settings"
     __table_args__ = (
         CheckConstraint("log_retention_days BETWEEN 1 AND 365", name="log_retention_range"),
+        CheckConstraint(
+            "summary_sources IS NULL OR summary_sources <@ "
+            "ARRAY['description','replies','public_notes','private_notes']::varchar[]",
+            name="summary_sources_known",
+        ),
     )
 
     enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
     disabled_features: Mapped[list[str]] = mapped_column(ARRAY(String(40)), server_default="{}")
     mask_local: Mapped[bool] = mapped_column(Boolean, server_default="false")
     log_retention_days: Mapped[int] = mapped_column(Integer, server_default="30")
+    # Which parts summaries read (WP-038); None: the default, applied at read time.
+    summary_sources: Mapped[list[str] | None] = mapped_column(ARRAY(String(20)))
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
@@ -144,3 +151,27 @@ class AiEmbedding(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
     dimension: Mapped[int] = mapped_column(SmallInteger)
     content_hash: Mapped[str] = mapped_column(String(64))
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSION))
+
+
+class AiSummary(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
+    """The latest summary of a record's conversation at one level (REQ-INC-137).
+
+    `with_private` includes private notes (staff who may see them); `public` leaves them out.
+    `stale` turns true when a newer entry is added; Refresh makes a new one.
+    """
+
+    __tablename__ = "ai_summaries"
+    __table_args__ = (
+        CheckConstraint("level IN ('with_private', 'public')", name="level_code"),
+        UniqueConstraint("tenant_id", "record_type", "record_id", "level"),
+    )
+
+    record_type: Mapped[str] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID]
+    level: Mapped[str] = mapped_column(String(20))
+    text: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String(120))
+    last_entry_id: Mapped[uuid.UUID | None]
+    stale: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    call_id: Mapped[uuid.UUID | None]
+    version: Mapped[int] = mapped_column(Integer, server_default="1")

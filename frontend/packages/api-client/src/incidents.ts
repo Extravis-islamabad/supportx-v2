@@ -464,3 +464,39 @@ export function useRestoreIncident() {
   );
   return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
 }
+
+// WP-038: possible duplicates while writing an incident (REQ-INC-022, D-134). With AI on they are
+// found by meaning, with AI off by subject; only open incidents you may see.
+
+export type PossibleDuplicates = components['schemas']['DuplicatesOut'];
+
+export interface PossibleDuplicatesQuery {
+  title: string;
+  description?: string;
+  requesterId?: string;
+}
+
+const emptyToUndefined = (value: string | undefined) => (value === '' ? undefined : value);
+
+/** Open incidents that look like the draft; waits until the subject has a few characters. */
+export function usePossibleDuplicates(query: PossibleDuplicatesQuery, enabled = true) {
+  const title = query.title.trim();
+  return useQuery({
+    meta: { silent: true }, // a hint beside the form: a failure shows nothing, never a toast
+    queryKey: queryKeys.incidents.duplicates({ ...query, title }),
+    // A POST: the draft's text goes in the body, never in a URL (logs, history).
+    queryFn: () =>
+      call(
+        api.POST('/api/v1/incidents/possible-duplicates', {
+          body: {
+            title,
+            description: emptyToUndefined(query.description?.slice(0, 4000)),
+            requester_id: query.requesterId,
+          },
+        }),
+      ),
+    enabled: enabled && title.length >= 6,
+    staleTime: 30_000,
+    placeholderData: (previous) => previous,
+  });
+}

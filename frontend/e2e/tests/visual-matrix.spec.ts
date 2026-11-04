@@ -1,0 +1,448 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page } from '@playwright/test';
+
+import { PORTAL_URL, passwordOf, SEEDED, USERS } from '../stack';
+import { signIn } from './helpers';
+
+// The daily visual review (product owner, 2026-11-04): every console and portal screen in every
+// navigation layout, theme, language and width, as JPEG screenshots with cheap automatic checks
+// recorded as warnings (never failures) in index.json. Only a crash of this spec turns the job
+// red. Run by the "Visual matrix" workflow (nightly and on demand), one sixth of the screens per
+// shard (VISUAL_SHARD=n/6); never part of the stack smoke (it is skipped there).
+//
+// File names put the screen first, so a day's changed screens are easy to filter:
+//   <screen>[~<state>]__<layout>__<theme>__<lang>__<width>.jpg
+
+const RUN = process.env.VISUAL_MATRIX === '1';
+const OUT = process.env.VISUAL_OUT ?? 'visual-matrix';
+const [SHARD, SHARDS] = (process.env.VISUAL_SHARD ?? '1/1').split('/').map(Number) as [
+  number,
+  number,
+];
+const SHOWCASE_PASSWORD = process.env.SUPPORTX_SHOWCASE_PASSWORD ?? '';
+
+const LAYOUTS = ['side', 'side_compact', 'top'] as const;
+const THEMES = ['light', 'dark'] as const;
+const LANGS = ['en', 'ar'] as const;
+const WIDTHS = [1440, 1280, 390] as const;
+
+type Layout = (typeof LAYOUTS)[number];
+type Records = Partial<Record<'incident' | 'request' | 'article' | 'dashboard', string>>;
+
+interface Screen {
+  key: string;
+  /** A path, or one built from the records found at the start (none: skipped, noted). */
+  path: string | ((r: Records) => string | undefined);
+  app: 'console' | 'portal' | 'e2e';
+  /** Admin sub-sections: the side layout only (layouts do not change their bodies). */
+  sideOnly?: boolean;
+  /** An open state shot after the page settles (a menu, a drawer, a dialog ...). */
+  state?: { name: string; open: (page: Page) => Promise<void> };
+  /** Shot without waiting for the network: the loading state. */
+  loading?: boolean;
+}
+
+const click = (testId: string) => async (page: Page) => {
+  await page.getByTestId(testId).first().click();
+  await page.waitForTimeout(400);
+};
+
+const ADMIN_SECTIONS: Record<string, string[]> = {
+  incidents: [
+    'general',
+    'templates',
+    'custom-fields',
+    'statuses',
+    'reasons',
+    'priority',
+    'categories',
+    'levels',
+    'closure-codes',
+    'closing',
+    'reply-templates',
+  ],
+  sla: ['policies', 'calendars', 'holidays', 'settings'],
+  automation: ['business-rules', 'triggers', 'routing', 'transitions'],
+  organization: ['sites', 'departments', 'groups', 'desks'],
+};
+
+const incident = (r: Records) => (r.incident ? `/incidents/${r.incident}` : undefined);
+
+export const SCREENS: Screen[] = [
+  { key: 'home', path: '/', app: 'console' },
+  { key: 'incidents', path: '/incidents', app: 'console' },
+  { key: 'incident-new', path: '/incidents/new', app: 'console' },
+  {
+    key: 'incident-new',
+    path: '/incidents/new',
+    app: 'console',
+    state: {
+      name: 'validation',
+      open: async (page) => {
+        await page
+          .getByRole('button', { name: /^(Create|إنشاء)/ })
+          .first()
+          .click();
+        await page.waitForTimeout(400);
+      },
+    },
+  },
+  { key: 'incident', path: incident, app: 'console' },
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: { name: 'composer', open: click('conv-reply') },
+  },
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: { name: 'more-actions', open: click('more-actions') },
+  },
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: { name: 'assign', open: click('action-assign') },
+  },
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: { name: 'notifications', open: click('notification-bell') },
+  },
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: { name: 'user-menu', open: click('user-menu') }, // near the right edge (left in RTL)
+  },
+  { key: 'requests', path: '/requests', app: 'console' },
+  {
+    key: 'request',
+    path: (r) => (r.request ? `/requests/${r.request}` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'request',
+    path: (r) => (r.request ? `/requests/${r.request}` : undefined),
+    app: 'console',
+    state: { name: 'approvals', open: click('approvals-open') },
+  },
+  { key: 'knowledge', path: '/knowledge', app: 'console' },
+  {
+    key: 'article',
+    path: (r) => (r.article ? `/knowledge/articles/${r.article}` : undefined),
+    app: 'console',
+  },
+  { key: 'knowledge-approvals', path: '/knowledge/approvals', app: 'console' },
+  { key: 'announcements', path: '/announcements', app: 'console' },
+  { key: 'dashboards', path: '/dashboards', app: 'console' },
+  {
+    key: 'dashboard',
+    path: (r) => (r.dashboard ? `/dashboards/${r.dashboard}` : undefined),
+    app: 'console',
+  },
+  { key: 'reports', path: '/reports', app: 'console' },
+  { key: 'report', path: '/reports/builtin/incidents_open_by_priority', app: 'console' },
+  { key: 'notifications', path: '/notifications', app: 'console' },
+  { key: 'profile', path: '/profile', app: 'console' },
+  { key: 'not-found', path: '/no/such/page', app: 'console' },
+  { key: 'admin', path: '/admin', app: 'console' },
+  ...[
+    'users',
+    'roles',
+    'security',
+    'branding',
+    'instance',
+    'licence',
+    'api-keys',
+    'audit',
+    'files',
+    'mail',
+    'integrations',
+    'integrations/directories',
+    'ai',
+    'knowledge',
+    'notifications',
+  ].map<Screen>((page) => ({
+    key: `admin-${page.replace('/', '-')}`,
+    path: `/admin/${page}`,
+    app: 'console',
+    sideOnly: true,
+  })),
+  ...Object.entries(ADMIN_SECTIONS).flatMap(([area, sections]) =>
+    sections.map<Screen>((section) => ({
+      key: `admin-${area}-${section}`,
+      path: `/admin/${area}/${section}`,
+      app: 'console',
+      sideOnly: true,
+    })),
+  ),
+  // The e2e tenant: an empty list and a loading state (the showcase has rows everywhere).
+  { key: 'incidents-empty', path: '/incidents?view=unassigned_mine', app: 'e2e' },
+  { key: 'incidents-loading', path: '/incidents', app: 'e2e', loading: true },
+  // The portal: no navigation layouts.
+  { key: 'portal-home', path: '/', app: 'portal' },
+  { key: 'portal-catalog', path: '/catalog', app: 'portal' },
+  { key: 'portal-request-new', path: '/requests/new', app: 'portal' },
+  { key: 'portal-requests', path: '/requests', app: 'portal' },
+  { key: 'portal-service-requests', path: '/service-requests', app: 'portal' },
+  { key: 'portal-approvals', path: '/approvals', app: 'portal' },
+  { key: 'portal-approval-link', path: '/requests/approval-link', app: 'portal' },
+  { key: 'portal-account', path: '/account', app: 'portal' },
+];
+
+interface Shot {
+  file: string;
+  screen: string;
+  state?: string;
+  layout: Layout | 'none';
+  theme: string;
+  lang: string;
+  width: number;
+  url: string;
+  warnings: string[];
+  axe: string[];
+  error?: string;
+}
+
+/** Cheap visual checks, in the page: findings only, never failures. */
+function checks(): string[] {
+  const out: string[] = [];
+  const doc = document.documentElement;
+  if (doc.scrollWidth > doc.clientWidth + 1) out.push('horizontal_scroll');
+  const shown = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    const s = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
+  };
+  const name = (el: Element) =>
+    (el.getAttribute('data-testid') ?? el.tagName.toLowerCase()) +
+    (el.textContent ? `:${el.textContent.trim().slice(0, 24)}` : '');
+  const boxes = [
+    ...document.querySelectorAll('button, input, select, textarea, h1, h2, h3, .ant-btn'),
+  ].filter(shown);
+  const width = window.innerWidth;
+  for (const el of boxes) {
+    const r = el.getBoundingClientRect();
+    if (r.right > width + 1 || r.left < -1) out.push(`off_screen:${name(el)}`);
+  }
+  const firstBoxes = boxes.slice(0, 150);
+  firstBoxes.forEach((aEl, i) => {
+    const a = aEl.getBoundingClientRect();
+    for (const bEl of firstBoxes.slice(i + 1)) {
+      if (aEl.contains(bEl) || bEl.contains(aEl)) continue;
+      const b = bEl.getBoundingClientRect();
+      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (w > 4 && h > 4) out.push(`overlap:${name(aEl)}|${name(bEl)}`);
+    }
+  });
+  for (const el of document.querySelectorAll('body *')) {
+    if (!(el instanceof HTMLElement) || !shown(el) || el.children.length > 0) continue;
+    const s = getComputedStyle(el);
+    const clipped =
+      (s.overflow === 'hidden' || s.textOverflow === 'ellipsis') &&
+      el.scrollWidth > el.clientWidth + 1;
+    if (clipped && !el.title && !el.closest('[title]') && !el.closest('[aria-describedby]')) {
+      out.push(`clipped:${name(el)}`);
+    }
+  }
+  const primary = [...document.querySelectorAll('main .ant-btn-primary')].filter(shown).length;
+  if (primary > 1) out.push(`primary_buttons:${String(primary)}`);
+  for (const bar of document.querySelectorAll('[data-testid$="actions"], [role="toolbar"]')) {
+    if (!shown(bar)) continue;
+    const tops = new Set(
+      [...bar.children].filter(shown).map((c) => Math.round(c.getBoundingClientRect().top)),
+    );
+    if (tops.size > 1) out.push(`toolbar_wraps:${name(bar)}`);
+  }
+  return [...new Set(out)].slice(0, 40);
+}
+
+async function me(page: Page): Promise<{ csrf: string; id: string }> {
+  const body = (await (await page.request.get('/api/v1/auth/me')).json()) as {
+    csrf_token: string;
+    user: { id: string };
+  };
+  return { csrf: body.csrf_token, id: body.user.id };
+}
+
+/** The signed-in person's layout and language, through the API (If-Match, CSRF). */
+async function prefer(page: Page, values: Record<string, string | null>): Promise<void> {
+  const { csrf, id } = await me(page);
+  const path = `/api/v1/users/${id}`;
+  const current = (await (await page.request.get(path)).json()) as { version: number };
+  const saved = await page.request.patch(path, {
+    data: values,
+    headers: { 'If-Match': `"${String(current.version)}"`, 'X-CSRF-Token': csrf },
+  });
+  if (saved.status() !== 200) throw new Error(`preferences: ${String(saved.status())}`);
+}
+
+async function findRecords(page: Page): Promise<Records> {
+  const first = async (url: string, pick: (body: unknown) => string | undefined) => {
+    const response = await page.request.get(url);
+    return response.ok() ? pick(await response.json()) : undefined;
+  };
+  const firstItem = (body: unknown) => ((body as { items?: { id: string }[] }).items ?? [])[0]?.id;
+  return {
+    incident:
+      (await first('/api/v1/incidents/lookup/INC-30', (b) => (b as { id?: string }).id)) ??
+      (await first('/api/v1/incidents?limit=1', firstItem)),
+    request: await first('/api/v1/service-requests?limit=1', firstItem),
+    article: await first('/api/v1/knowledge/articles?limit=1', firstItem),
+    dashboard: await first('/api/v1/analytics/dashboards', firstItem),
+  };
+}
+
+async function shoot(page: Page, shot: Shot, screen: Screen): Promise<void> {
+  try {
+    if (screen.loading) {
+      await page.route('**/api/v1/**', async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        await route.continue();
+      });
+      await page.goto(shot.url, { waitUntil: 'commit' });
+      await page.waitForTimeout(1200);
+    } else {
+      await page.goto(shot.url);
+      await page
+        .locator('main')
+        .first()
+        .waitFor({ timeout: 15_000 })
+        .catch(() => undefined);
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForTimeout(500);
+      if (screen.state) await screen.state.open(page);
+    }
+    await page.screenshot({
+      path: `${OUT}/${shot.file}`,
+      fullPage: true,
+      type: 'jpeg',
+      quality: 80,
+    });
+    shot.warnings = await page.evaluate(checks);
+    if (!screen.loading) {
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      shot.axe = results.violations
+        .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+        .map((v) => `${v.id} (${String(v.nodes.length)})`);
+    }
+  } catch (error) {
+    // A screen that breaks is a finding, not a crash of the run.
+    shot.error = error instanceof Error ? error.message.split('\n')[0] : String(error);
+  } finally {
+    if (screen.loading) await page.unroute('**/api/v1/**');
+  }
+}
+
+test.skip(!RUN, 'the visual matrix runs in its own workflow (VISUAL_MATRIX=1)');
+
+test(`visual matrix, shard ${String(SHARD)}/${String(SHARDS)}`, async ({ browser }) => {
+  test.setTimeout(3 * 60 * 60_000);
+  mkdirSync(OUT, { recursive: true });
+  const mine = SCREENS.filter((_, index) => index % SHARDS === SHARD - 1);
+  const shots: Shot[] = [];
+  const skipped: string[] = [];
+
+  for (const app of ['console', 'e2e', 'portal'] as const) {
+    const screens = mine.filter((s) => s.app === app);
+    if (screens.length === 0) continue;
+    // The console keeps the config's own base URL: passing undefined would drop it.
+    const context = await browser.newContext({
+      baseURL: app === 'portal' ? PORTAL_URL : test.info().project.use.baseURL,
+    });
+    const page = await context.newPage();
+    if (app === 'console') {
+      expect(SHOWCASE_PASSWORD, 'SUPPORTX_SHOWCASE_PASSWORD').not.toBe('');
+      await signIn(page, 'admin@showcase.test', SHOWCASE_PASSWORD, '/');
+    } else if (app === 'e2e') {
+      await signIn(page, USERS.tech.email, passwordOf('tech'), '/');
+    } else {
+      await signIn(page, SEEDED.arabic.email, SEEDED.arabic.password, `${PORTAL_URL}/`);
+    }
+    const records = app === 'console' ? await findRecords(page) : {};
+    const before = (await (
+      await page.request.get(`/api/v1/users/${(await me(page)).id}`)
+    ).json()) as {
+      nav_layout: string | null;
+      ui_locale: string | null;
+    };
+    try {
+      const layouts: readonly (Layout | 'none')[] = app === 'portal' ? ['none'] : LAYOUTS;
+      for (const layout of layouts) {
+        for (const lang of LANGS) {
+          await prefer(
+            page,
+            layout === 'none' ? { ui_locale: lang } : { nav_layout: layout, ui_locale: lang },
+          );
+          for (const theme of THEMES) {
+            await page.goto('/');
+            await page.evaluate((mode) => {
+              window.localStorage.setItem('supportx.theme_mode', mode);
+            }, theme);
+            for (const width of WIDTHS) {
+              await page.setViewportSize({ width, height: 900 });
+              for (const screen of screens) {
+                if (screen.sideOnly && layout !== 'side') continue;
+                const path = typeof screen.path === 'string' ? screen.path : screen.path(records);
+                const label = `${screen.key}${screen.state ? `~${screen.state.name}` : ''}`;
+                if (path === undefined) {
+                  skipped.push(label);
+                  continue;
+                }
+                const shot: Shot = {
+                  file: `${label}__${layout}__${theme}__${lang}__${String(width)}.jpg`,
+                  screen: screen.key,
+                  state: screen.state?.name,
+                  layout,
+                  theme,
+                  lang,
+                  width,
+                  url: path,
+                  warnings: [],
+                  axe: [],
+                };
+                await shoot(page, shot, screen);
+                shots.push(shot);
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      await prefer(
+        page,
+        app === 'portal'
+          ? { ui_locale: before.ui_locale }
+          : { nav_layout: before.nav_layout ?? 'side', ui_locale: before.ui_locale },
+      ).catch(() => undefined);
+      await context.close();
+    }
+  }
+  writeFileSync(
+    `${OUT}/index-${String(SHARD)}.json`,
+    JSON.stringify(
+      {
+        shard: `${String(SHARD)}/${String(SHARDS)}`,
+        shots,
+        skipped: [...new Set(skipped)],
+        summary: {
+          shots: shots.length,
+          errors: shots.filter((s) => s.error).length,
+          with_warnings: shots.filter((s) => s.warnings.length > 0).length,
+          with_axe: shots.filter((s) => s.axe.length > 0).length,
+        },
+      },
+      null,
+      2,
+    ),
+  );
+});

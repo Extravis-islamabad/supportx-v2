@@ -4,6 +4,7 @@
   "tests/automation.spec.ts": 62,
   "tests/branding-admin.spec.ts": 25,
   "tests/branding.spec.ts": 55,
+  "tests/catalog.spec.ts": 40,
   "tests/closing.spec.ts": 16,
   "tests/custom-fields.spec.ts": 53,
   "tests/dashboards-conflict.spec.ts": 20,
@@ -35,5 +36,8 @@
   "tests/tenant-branding.spec.ts": 38,
   "tests/toast-contrast.spec.ts": 22,
   "tests/ui-pass-2.spec.ts": 420,
+  "tests/ai-incidents.spec.ts": 60,
+  "tests/arabic-fonts.spec.ts": 30,
+  "tests/visual-matrix.spec.ts": 1,
   "tests/users.spec.ts": 10
 }

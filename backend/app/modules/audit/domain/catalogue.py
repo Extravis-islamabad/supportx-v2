@@ -169,6 +169,13 @@ ACTIONS: dict[str, Action] = _actions(
     # the service catalog (WP-030)
     ("catalog.item_changed", AuditCategory.CONFIGURATION, "service_catalog"),
     ("catalog.category_changed", AuditCategory.CONFIGURATION, "service_catalog"),
+    # catalog administration (WP-031)
+    ("catalog.item_deleted", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.item_scheduled", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.category_deleted", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.settings_changed", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.starter_seeded", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.starter_published", AuditCategory.CONFIGURATION, "service_catalog"),
     ("identity.password_policy_reapplied", AuditCategory.SECURITY, "identity_access"),
     ("identity.mfa_policy_changed", AuditCategory.SECURITY, "identity_access"),
     ("user.mfa_reset", AuditCategory.SECURITY, "identity_access"),
@@ -301,6 +308,8 @@ ACTIONS: dict[str, Action] = _actions(
     # D-131: every deletion of AI conversation text is audited (retention purge, erasure)
     ("ai.calls_purged", AuditCategory.DATA, "ai"),
     ("ai.calls_erased", AuditCategory.DATA, "ai"),
+    ("ai.summaries_erased", AuditCategory.DATA, "ai"),
+    ("ai.embeddings_purged", AuditCategory.DATA, "ai"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category

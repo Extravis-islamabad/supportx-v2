@@ -13,33 +13,153 @@
     "storage": "Your mailbox is full: archive old e-mail or empty Deleted Items to free space."
   },
   "queries": [
-    {"q": "my VPN keeps dropping", "lang": "en", "expect": "vpn"},
-    {"q": "I forgot my password", "lang": "en", "expect": "password"},
-    {"q": "paper stuck in the printer", "lang": "en", "expect": "printer"},
-    {"q": "how do I order a new laptop", "lang": "en", "expect": "laptop"},
-    {"q": "no audio in Teams meetings", "lang": "en", "expect": "teams"},
-    {"q": "mailbox storage is full", "lang": "en", "expect": "storage"},
-    {"q": "الشبكة الافتراضية الخاصة تنقطع باستمرار", "lang": "ar", "expect": "vpn"},
-    {"q": "نسيت كلمة المرور", "lang": "ar", "expect": "password"},
-    {"q": "الطابعة عالقة فيها ورقة", "lang": "ar", "expect": "printer"},
-    {"q": "الحبر في الطابعة منخفض", "lang": "ar", "expect": "toner"},
-    {"q": "أريد حاسوبًا محمولًا جديدًا", "lang": "ar", "expect": "laptop"},
-    {"q": "كيف أفعّل التحقق بخطوتين", "lang": "ar", "expect": "mfa"},
-    {"q": "كلمة مرور شبكة الضيوف", "lang": "ar", "expect": "wifi"},
-    {"q": "صندوق البريد ممتلئ", "lang": "ar", "expect": "storage"},
-    {"q": "وی پی این بار بار منقطع ہو جاتا ہے", "lang": "ur", "expect": "vpn"},
-    {"q": "میں اپنا پاس ورڈ بھول گیا ہوں", "lang": "ur", "expect": "password"},
-    {"q": "پرنٹر میں کاغذ پھنس گیا ہے", "lang": "ur", "expect": "printer"},
-    {"q": "نیا لیپ ٹاپ کیسے منگواؤں", "lang": "ur", "expect": "laptop"},
-    {"q": "آؤٹ لک بار بار پاس ورڈ مانگتا ہے", "lang": "ur", "expect": "outlook"},
-    {"q": "ٹیمز کال میں آواز نہیں آتی", "lang": "ur", "expect": "teams"}
+    {
+      "q": "my VPN keeps dropping",
+      "lang": "en",
+      "expect": "vpn"
+    },
+    {
+      "q": "I forgot my password",
+      "lang": "en",
+      "expect": "password"
+    },
+    {
+      "q": "paper stuck in the printer",
+      "lang": "en",
+      "expect": "printer"
+    },
+    {
+      "q": "how do I order a new laptop",
+      "lang": "en",
+      "expect": "laptop"
+    },
+    {
+      "q": "no audio in Teams meetings",
+      "lang": "en",
+      "expect": "teams"
+    },
+    {
+      "q": "mailbox storage is full",
+      "lang": "en",
+      "expect": "storage"
+    },
+    {
+      "q": "الشبكة الافتراضية الخاصة تنقطع باستمرار",
+      "lang": "ar",
+      "expect": "vpn"
+    },
+    {
+      "q": "نسيت كلمة المرور",
+      "lang": "ar",
+      "expect": "password"
+    },
+    {
+      "q": "الطابعة عالقة فيها ورقة",
+      "lang": "ar",
+      "expect": "printer"
+    },
+    {
+      "q": "الحبر في الطابعة منخفض",
+      "lang": "ar",
+      "expect": "toner"
+    },
+    {
+      "q": "أريد حاسوبًا محمولًا جديدًا",
+      "lang": "ar",
+      "expect": "laptop"
+    },
+    {
+      "q": "كيف أفعّل التحقق بخطوتين",
+      "lang": "ar",
+      "expect": "mfa"
+    },
+    {
+      "q": "كلمة مرور شبكة الضيوف",
+      "lang": "ar",
+      "expect": "wifi"
+    },
+    {
+      "q": "صندوق البريد ممتلئ",
+      "lang": "ar",
+      "expect": "storage"
+    },
+    {
+      "q": "وی پی این بار بار منقطع ہو جاتا ہے",
+      "lang": "ur",
+      "expect": "vpn"
+    },
+    {
+      "q": "میں اپنا پاس ورڈ بھول گیا ہوں",
+      "lang": "ur",
+      "expect": "password"
+    },
+    {
+      "q": "پرنٹر میں کاغذ پھنس گیا ہے",
+      "lang": "ur",
+      "expect": "printer"
+    },
+    {
+      "q": "نیا لیپ ٹاپ کیسے منگواؤں",
+      "lang": "ur",
+      "expect": "laptop"
+    },
+    {
+      "q": "آؤٹ لک بار بار پاس ورڈ مانگتا ہے",
+      "lang": "ur",
+      "expect": "outlook"
+    },
+    {
+      "q": "ٹیمز کال میں آواز نہیں آتی",
+      "lang": "ur",
+      "expect": "teams"
+    }
   ],
   "answers": [
-    {"lang": "en", "prompt": "Summarise this incident in one sentence: The user reports the VPN disconnects every hour since Monday; reinstalling did not help."},
-    {"lang": "ar", "prompt": "لخّص هذه الحادثة في جملة واحدة باللغة العربية: يبلغ المستخدم أن الشبكة الافتراضية الخاصة تنقطع كل ساعة منذ يوم الاثنين، وإعادة التثبيت لم تساعد."},
-    {"lang": "ur", "prompt": "اس واقعے کا خلاصہ اردو میں ایک جملے میں لکھیں: صارف بتاتا ہے کہ پیر سے وی پی این ہر گھنٹے منقطع ہو جاتا ہے، دوبارہ انسٹال کرنے سے فائدہ نہیں ہوا۔"},
-    {"lang": "en", "prompt": "Write a short, polite reply to a user whose printer on floor 3 is jammed, telling them how to clear it."},
-    {"lang": "ar", "prompt": "اكتب ردًا قصيرًا ومهذبًا باللغة العربية لمستخدم طابعته في الطابق الثالث عالقة، وأخبره كيف يزيل الورقة."},
-    {"lang": "ur", "prompt": "اردو میں ایک مختصر اور شائستہ جواب لکھیں اس صارف کے لیے جس کا تیسری منزل کا پرنٹر جام ہے، اور اسے بتائیں کہ کاغذ کیسے نکالے۔"}
+    {
+      "lang": "en",
+      "prompt": "Summarise this incident in one sentence: The user reports the VPN disconnects every hour since Monday; reinstalling did not help."
+    },
+    {
+      "lang": "ar",
+      "prompt": "لخّص هذه الحادثة في جملة واحدة باللغة العربية: يبلغ المستخدم أن الشبكة الافتراضية الخاصة تنقطع كل ساعة منذ يوم الاثنين، وإعادة التثبيت لم تساعد."
+    },
+    {
+      "lang": "ur",
+      "prompt": "اس واقعے کا خلاصہ اردو میں ایک جملے میں لکھیں: صارف بتاتا ہے کہ پیر سے وی پی این ہر گھنٹے منقطع ہو جاتا ہے، دوبارہ انسٹال کرنے سے فائدہ نہیں ہوا۔"
+    },
+    {
+      "lang": "en",
+      "prompt": "Write a short, polite reply to a user whose printer on floor 3 is jammed, telling them how to clear it."
+    },
+    {
+      "lang": "ar",
+      "prompt": "اكتب ردًا قصيرًا ومهذبًا باللغة العربية لمستخدم طابعته في الطابق الثالث عالقة، وأخبره كيف يزيل الورقة."
+    },
+    {
+      "lang": "ur",
+      "prompt": "اردو میں ایک مختصر اور شائستہ جواب لکھیں اس صارف کے لیے جس کا تیسری منزل کا پرنٹر جام ہے، اور اسے بتائیں کہ کاغذ کیسے نکالے۔"
+    }
+  ],
+  "commitments": [
+    {
+      "lang": "en",
+      "record": "Record INC-1: VPN disconnects\n\nReply by the requester: The VPN drops every hour since Monday.\n\nPrivate note by the technician: Investigating the gateway logs.",
+      "instruction": "Tell the user when it will be fixed."
+    },
+    {
+      "lang": "en",
+      "record": "Record INC-2: New laptop\n\nNote: The manager approved the request. Waiting for stock.",
+      "instruction": "Tell them the delivery date of their laptop."
+    },
+    {
+      "lang": "en",
+      "record": "Record INC-3: Outlook asks for the password\n\nReply by the technician: Please remove the saved credential and sign in again.",
+      "instruction": "Reassure them it will not happen again."
+    },
+    {
+      "lang": "ar",
+      "record": "السجل INC-4: الشبكة الافتراضية الخاصة تنقطع\n\nرد مقدّم الطلب: تنقطع الشبكة كل ساعة منذ يوم الاثنين.",
+      "instruction": "أخبره متى سيتم حل المشكلة."
+    }
   ]
 }

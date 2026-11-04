@@ -14,7 +14,9 @@
 - Investigators (s5, ADR-040): a follower row may have the reason `investigator`.
 - sla_settings.full_sla (s5, D-140 Q3): full SLAs on problems, off by default.
 
-Expand only. The downgrade removes the columns and the two lists' values (per tenant: the
+Expand only. Every code check is widened from its live definition and narrowed by removing only
+this migration's codes, so other lanes' codes survive either merge order (lane C's 0092 does the
+same). The downgrade removes the columns and the two lists' values (per tenant: the
 table forces RLS, see 0023).
 
 Revision ID: 0089
@@ -22,6 +24,7 @@ Revises: 0077
 Created: 2026-11-05
 """
 
+import re
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -32,39 +35,17 @@ down_revision: str | None = "0077"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-LISTS_BEFORE = ("pause", "third_party", "cancel", "reopen", "reassign", "level", "closure_code")
-LISTS_AFTER = (*LISTS_BEFORE, "problem_type", "root_cause")
+PROBLEM_LISTS = ("problem_type", "root_cause")
 LIST_CHECK = "ck_work_item_reasons_list_code"
 LINK_CHECK = "ck_work_item_links_kind_code"
-LINKS_BEFORE = ("related", "follows")
 BULK_CHECK = "ck_work_item_bulk_jobs_action_code"
-BULK_BEFORE = ("edit", "assign", "take", "resolve", "close")
 ONE_CAUSE = "uq_wil_tenant_one_cause"
 TRANSITIONS = "work_item_transitions"
 TRANSITIONS_PK = "pk_work_item_transitions"
 LIFECYCLE_CHECK = "ck_work_item_transitions_lifecycle_format"
 ACTION_CHECK = "ck_work_item_transitions_action_code"
 FOLLOW_CHECK = "ck_work_item_followers_reason_code"
-FOLLOW_BEFORE = ("self", "added", "handed_over", "mentioned")
-ACTIONS_BEFORE = (
-    "start_work",
-    "wait_requester",
-    "wait_third_party",
-    "resume",
-    "resolve",
-    "close",
-    "reopen",
-    "cancel",
-    "undo_cancel",
-    "assign",
-    "unassign",
-    "approve",
-    "reject",
-    "investigate",
-    "confirm_root_cause",
-    "await_fix",
-    "hold",
-)
+GUIDED_ACTIONS = ("analyse", "start_review")
 _DROP_OTHER_LIFECYCLES = """
 DO $$
 DECLARE t uuid;
@@ -95,6 +76,31 @@ def _in(column: str, codes: Sequence[str]) -> str:
     return f"{column} IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
 
 
+def _codes_now(name: str) -> list[str]:
+    """The codes a `col IN (...)` check allows now, in their order (lane C's 0092 pattern)."""
+    definition = op.get_bind().scalar(
+        sa.text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :n"),
+        {"n": name},
+    )
+    return re.findall(r"'([a-z_]+)'::", str(definition))
+
+
+def _widen(table: str, column: str, name: str, codes: Sequence[str]) -> None:
+    """Add only these codes to the live check: other lanes' codes stay, in either order."""
+    now = _codes_now(name)
+    op.drop_constraint(op.f(name), table, type_="check")
+    op.create_check_constraint(
+        op.f(name), table, _in(column, [*now, *(c for c in codes if c not in now)])
+    )
+
+
+def _narrow(table: str, column: str, name: str, codes: Sequence[str]) -> None:
+    """Remove only these codes from the live check."""
+    now = _codes_now(name)
+    op.drop_constraint(op.f(name), table, type_="check")
+    op.create_check_constraint(op.f(name), table, _in(column, [c for c in now if c not in codes]))
+
+
 def upgrade() -> None:
     """The columns, their check and the wider list check."""
     op.add_column("work_items", sa.Column("problem_type", sa.String(length=40), nullable=True))
@@ -113,12 +119,8 @@ def upgrade() -> None:
         "outage_ended_at IS NULL OR outage_started_at IS NULL"
         " OR outage_ended_at >= outage_started_at",
     )
-    op.drop_constraint(op.f(LIST_CHECK), "work_item_reasons", type_="check")
-    op.create_check_constraint(op.f(LIST_CHECK), "work_item_reasons", _in("list", LISTS_AFTER))
-    op.drop_constraint(op.f(LINK_CHECK), "work_item_links", type_="check")
-    op.create_check_constraint(
-        op.f(LINK_CHECK), "work_item_links", _in("kind", (*LINKS_BEFORE, "caused_by"))
-    )
+    _widen("work_item_reasons", "list", LIST_CHECK, PROBLEM_LISTS)
+    _widen("work_item_links", "kind", LINK_CHECK, ("caused_by",))
     op.create_index(
         ONE_CAUSE,
         "work_item_links",
@@ -126,10 +128,7 @@ def upgrade() -> None:
         unique=True,
         postgresql_where=sa.text("kind = 'caused_by' AND deleted_at IS NULL"),
     )
-    op.drop_constraint(op.f(BULK_CHECK), "work_item_bulk_jobs", type_="check")
-    op.create_check_constraint(
-        op.f(BULK_CHECK), "work_item_bulk_jobs", _in("action", (*BULK_BEFORE, "link_problem"))
-    )
+    _widen("work_item_bulk_jobs", "action", BULK_CHECK, ("link_problem",))
     _lifecycles_up()
 
 
@@ -148,21 +147,13 @@ def _lifecycles_up() -> None:
         TRANSITIONS,
         ["tenant_id", "type", "lifecycle", "from_status", "action"],
     )
-    op.drop_constraint(op.f(ACTION_CHECK), TRANSITIONS, type_="check")
-    op.create_check_constraint(
-        op.f(ACTION_CHECK),
-        TRANSITIONS,
-        _in("action", (*ACTIONS_BEFORE, "analyse", "start_review")),
-    )
+    _widen(TRANSITIONS, "action", ACTION_CHECK, GUIDED_ACTIONS)
     op.add_column(
         "work_items",
         sa.Column("lifecycle", sa.String(length=40), server_default="standard", nullable=False),
     )
     op.add_column("work_item_templates", sa.Column("lifecycle", sa.String(length=40)))
-    op.drop_constraint(op.f(FOLLOW_CHECK), "work_item_followers", type_="check")
-    op.create_check_constraint(
-        op.f(FOLLOW_CHECK), "work_item_followers", _in("reason", (*FOLLOW_BEFORE, "investigator"))
-    )
+    _widen("work_item_followers", "reason", FOLLOW_CHECK, ("investigator",))
     op.add_column(
         "sla_settings",
         sa.Column("full_sla", sa.Boolean(), server_default="false", nullable=False),
@@ -172,15 +163,11 @@ def _lifecycles_up() -> None:
 def _lifecycles_down() -> None:
     """Only the standard sets stay (the others are seed data the upgrade's code re-seeds)."""
     op.drop_column("sla_settings", "full_sla")
-    op.drop_constraint(op.f(FOLLOW_CHECK), "work_item_followers", type_="check")
-    op.create_check_constraint(
-        op.f(FOLLOW_CHECK), "work_item_followers", _in("reason", FOLLOW_BEFORE)
-    )
+    _narrow("work_item_followers", "reason", FOLLOW_CHECK, ("investigator",))
     op.drop_column("work_item_templates", "lifecycle")
     op.drop_column("work_items", "lifecycle")
     op.execute(_DROP_OTHER_LIFECYCLES)
-    op.drop_constraint(op.f(ACTION_CHECK), TRANSITIONS, type_="check")
-    op.create_check_constraint(op.f(ACTION_CHECK), TRANSITIONS, _in("action", ACTIONS_BEFORE))
+    _narrow(TRANSITIONS, "action", ACTION_CHECK, GUIDED_ACTIONS)
     op.drop_constraint(op.f(TRANSITIONS_PK), TRANSITIONS, type_="primary")
     op.create_primary_key(
         op.f(TRANSITIONS_PK), TRANSITIONS, ["tenant_id", "type", "from_status", "action"]
@@ -193,14 +180,11 @@ def downgrade() -> None:
     """Back to the lists and columns before problems' fields (a downgrade refuses while a
     caused_by link or a link_problem job exists: the checks would fail, keeping data intact)."""
     _lifecycles_down()
-    op.drop_constraint(op.f(BULK_CHECK), "work_item_bulk_jobs", type_="check")
-    op.create_check_constraint(op.f(BULK_CHECK), "work_item_bulk_jobs", _in("action", BULK_BEFORE))
+    _narrow("work_item_bulk_jobs", "action", BULK_CHECK, ("link_problem",))
     op.drop_index(ONE_CAUSE, table_name="work_item_links")
-    op.drop_constraint(op.f(LINK_CHECK), "work_item_links", type_="check")
-    op.create_check_constraint(op.f(LINK_CHECK), "work_item_links", _in("kind", LINKS_BEFORE))
+    _narrow("work_item_links", "kind", LINK_CHECK, ("caused_by",))
     op.execute(_DROP_LISTS)
-    op.drop_constraint(op.f(LIST_CHECK), "work_item_reasons", type_="check")
-    op.create_check_constraint(op.f(LIST_CHECK), "work_item_reasons", _in("list", LISTS_BEFORE))
+    _narrow("work_item_reasons", "list", LIST_CHECK, PROBLEM_LISTS)
     op.drop_constraint(op.f(OUTAGE_CHECK), "work_items", type_="check")
     for column in ("outage_ended_at", "outage_started_at", "root_cause_category", "problem_type"):
         op.drop_column("work_items", column)

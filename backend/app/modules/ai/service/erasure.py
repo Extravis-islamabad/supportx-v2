@@ -3,6 +3,8 @@
 When identity_access erases a person (`user.status_changed` with reason `erasure`), the text of
 every AI call they made is cleared at once, whatever the retention period; the rows keep their
 counts and outcomes, like the purge. Other people's calls already hold only masked text.
+Conversation summaries hold restored names, so the tenant's summaries are deleted too (each is
+remade on request); both deletions are audited (D-131).
 """
 
 import uuid
@@ -12,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.modules.ai.infra.models import AiCall
+from app.modules.ai.service.summaries import erase_all as erase_summaries
 from app.modules.audit import WORKER, record
 from app.shared.clock import system_clock
 from app.shared.events import ConsumerSpec, EventEnvelope
@@ -44,6 +47,18 @@ async def on_status_changed(envelope: EventEnvelope, session: AsyncSession | Non
     assert session is not None  # noqa: S101 - transactional consumer
     if envelope.payload.get("reason") != "erasure":
         return
+    user_id = uuid.UUID(str(envelope.payload["user_id"]))
+    # Summaries keep restored names and are remade on request: they all go (WP-038).
+    removed = await erase_summaries(session)
+    if removed:
+        await record(
+            session,
+            action_code="ai.summaries_erased",
+            facts=WORKER,
+            object_type="user",
+            object_id=user_id,
+            details={"summaries": removed},
+        )
     cleared = await erase_person(session, uuid.UUID(str(envelope.payload["user_id"])))
     if cleared:
         log.info("ai_call_text_erased", calls=cleared)

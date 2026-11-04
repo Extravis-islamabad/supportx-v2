@@ -832,6 +832,80 @@ it with no reload (rule c). Not built yet.
   e2e.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+
+### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
+- **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
+  (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
+  Migrations 0073 (schema) and 0074 (per-tenant data step: `enabled` → `status`, existing
+  tenants marked as seeded), so the PR runs full-ci.
+- [x] Session 1 (backend, #200):
+  - Category tree (4 levels, no loops; a disabled category hides its items from requesters;
+    delete only when empty, 409 with counts).
+  - Item life: draft → published → retired → published, with planned `publish_at` /
+    `retire_at` (schedule `service_catalog__lifecycle`, every minute, audited). An incomplete
+    item stays a draft at its publish time. Copy makes a draft; delete is soft and only without
+    requests (409 → retire).
+  - Publishing needs English, a category and a group; missing translations are listed for
+    managers.
+  - D6 question kinds with option words, help text, defaults and audiences (requester,
+    technician, approver; a requester never sees or sets the others), plus a subject template.
+  - D10 "report a problem" entries: a requester incident template, checked through work_items'
+    port.
+  - D12 search on the shared port: names, keywords, summaries and descriptions in en/ar/ur, with
+    Arabic/Urdu normalisation and typo tolerance; p95 ≤ 500 ms for 1,000 items, tested.
+  - D7 tenant setting `hide_default_incident_template`; a GET never writes.
+  - D13 starter catalog (D-138): 6 categories and 14 items in en/ar/ur, seeded as drafts on the
+    new `organization.tenant.provisioned` event, once per tenant. Also: the "choose a group and
+    publish" action, `make catalog-starter TENANT=<slug>`, and the showcase seed publishes them.
+  - The WP-030 API stays compatible (`enabled` kept: true publishes, false retires; no OpenAPI
+    breaks).
+  - Tests: domain 16, API 15 (RLS, tree, life, schedule, audiences, entries, search and its
+    budget, settings, starter, tooling, the outbox event).
+- [x] Session 2 (console admin and portal wiring, #200):
+  - Admin › Service catalog: the category tree (add, nest, move up/down, edit, disable, delete
+    only when empty), the items (search, status filter, order, featured, copy, delete with the
+    "retire instead" answer), the starter banner with "choose a group and publish" (D-138), and
+    the tenant setting "hide the general incident form" (D7).
+  - One item's page with tabs (Details, Form, Approval, SLA and assignment, Fulfilment,
+    Publishing), each saying in one line what it controls.
+    - Editors: questions of all 15 kinds with words per language, help, audiences and keys;
+      the plan; the approval stage. More stages show as Professional / later (D8).
+    - Behaviour: publish, retire, publish again and planned times; missing translations named
+      in words; a save sends only what changed (If-Match, the conflict dialog on 409); a
+      preview as a requester sees it, read-only.
+  - The portal catalog:
+    - browse by category, featured items, search in every language;
+    - an item's page shows its description before the form (the password item's
+      self-service first), then only the requester's questions;
+    - "report a problem" entries open the incident form with their template;
+    - live through `service_catalog.changed`, also in the console (it was not listened to
+      before).
+  - One shared question renderer (`packages/ui/catalog`) for the console raise page, the portal
+    and the preview, and answers shown in words on both request pages (rule d: no codes or
+    IDs). The console raise page lists published service items only.
+  - The service requests list in the UI pass 2 style (QA 2026-11-04 #6): view tiles, labelled
+    pickers, channel icon and status tag, a loading state and a real empty state.
+  - Fix: the portal report form added each file twice.
+  - Tests: console admin 5, portal catalog 3, a D7 DB test; e2e `catalog.spec.ts` ("build,
+    preview, publish, request", live in the portal).
+- **Not done in WP-031 (recorded for WP-047, V1 of service requests):**
+  - The subject template is stored and checked, but a new request doesn't fill its subject from
+    it yet. That needs work_items' create to accept an empty subject for an item that has a
+    template.
+  - Ordering is by keyboard move buttons only (no drag).
+  - Missing translations use en/ar/ur; switch to `organization.offered_languages` (new on main
+    from WP-042).
+  - Person and attachment questions in the portal show a hint for now (no people picker or
+    upload in the portal form yet).
+- **Notes for later:**
+  - Popularity ranking ("most requested") is WP-032.
+  - Drop `catalog_items.enabled` in a contract migration once no client sends it.
+  - Tenant provisioning, when it is built (lane B, identity), emits
+    `organization.tenant.provisioned` once the tenant is ready.
+  - `docs/guides/urdu-review.md` gets lane C's section from #183 (union).
+  - Arabic and Urdu catalog texts wait for native-speaker review.
+
+### [x] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182, merged 2026-11-04)
 - **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
 - **Decided (product owner, 2026-11-04):** D3 in **D-133** (catalog basics in Essentials,
   `service_request`; the advanced catalog in Professional, `catalog`); D7 in **D-132** (e-mail
@@ -940,6 +1014,16 @@ it with no reload (rule c). Not built yet.
   and a `test_conversation_api` case locally (CI and clean worktrees pass). Inject the Settings
   where delivery is decided (the API passes `app.state.settings`, the worker its own); lane B
   takes any change needed in `app/shared/mail`.
+- **Also for that polish PR (from lane A's #197 review, 2026-11-04; lane C left them to lane A):**
+  in `IncidentConversation.tsx` / `PersonalCounters.tsx`:
+  - join event lines with the list formatter or a label, not a Latin "; " (Arabic and Urdu
+    use "؛");
+  - sort timeline rows with `Date.parse`, not `localeCompare`;
+  - note that event lines cover only the history pages loaded so far;
+  - check the counter tiles' hard-coded tints in dark and high contrast (tokens per mode, or
+    one dark view measured).
+  - Also drop the e2e PORTAL_URL host/port workaround in service-requests.spec once #202
+    (portal links on the portal's origin) has landed.
 
 ### [x] WP-028 — Portal: shell, sign-in and requester incidents (lane A, 2026-11-03/04; 2 sessions; #178)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).

@@ -56,3 +56,28 @@ def test_without_a_server_configured_it_says_how_to_start_one(
     monkeypatch.setattr(ai_eval, "_env", dict)
     assert ai_eval.main() == 1
     assert "make ai-dev-model" in capsys.readouterr().err
+
+
+def test_invented_promises_times_and_numbers_are_caught() -> None:
+    record = "The VPN drops every hour since Monday. Ticket 42."
+    assert ai_eval.invented("We are looking into the VPN drops.", record) == []
+    assert ai_eval.invented("It drops every hour since Monday (ticket 42).", record) == []
+    assert ai_eval.invented("We will fix it by Friday.", record) == ["We will", "Friday"]
+    assert ai_eval.invented("Expect it within 3 days.", record) == ["within", "days", "3"]
+    assert ai_eval.invented("سيتم حل المشكلة غدًا", "") == ["سيتم", "غدًا"]
+    assert ai_eval.invented("الشبكة ستُحل في أقرب وقت ممكن", "") == ["ستُ", "في أقرب وقت"]
+
+
+def test_commitment_answers_are_scored() -> None:
+    data = {"commitments": [{"lang": "en", "record": "VPN drops.", "instruction": "When?"}]}
+
+    def server(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": "It will be fixed tomorrow."}}]}
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(server)) as client:
+        (result,) = ai_eval.commitments(client, "http://m/v1", "qwen3-4b", data)
+    assert result["ok"] is False
+    assert result["invented"] == ["will be fixed", "tomorrow"]

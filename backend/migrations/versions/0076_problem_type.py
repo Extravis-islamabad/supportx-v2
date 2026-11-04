@@ -12,50 +12,56 @@ list and drops the column; it refuses while a tenant's life cycle still uses the
 (the check would fail), which keeps data intact.
 
 Revision ID: 0076
-Revises: 0075
+Revises: 0074
 Created: 2026-11-05
 """
 
+import re
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0076"
-down_revision: str | None = "0075"
+down_revision: str | None = "0074"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 TABLE = "work_item_transitions"
 NAME = "ck_work_item_transitions_action_code"
-BEFORE = (
-    "start_work",
-    "wait_requester",
-    "wait_third_party",
-    "resume",
-    "resolve",
-    "close",
-    "reopen",
-    "cancel",
-    "undo_cancel",
-    "assign",
-    "unassign",
-    "approve",
-    "reject",
-)
-AFTER = (*BEFORE, "investigate", "confirm_root_cause", "await_fix", "hold")
+PROBLEM_ACTIONS = ("investigate", "confirm_root_cause", "await_fix", "hold")
 
 
 ENTITY_CHECK = "ck_custom_fields_entity_code"
-ENTITIES_BEFORE = ("incident", "service_request")
 
 
-def _check(actions: Sequence[str]) -> str:
-    return "action IN (" + ", ".join(f"'{a}'" for a in actions) + ")"
+def _in(column: str, codes: Sequence[str]) -> str:
+    return f"{column} IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
 
 
-def _entities(codes: Sequence[str]) -> str:
-    return "entity IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
+def _codes_now(name: str) -> list[str]:
+    """The codes a `col IN (...)` check allows now, in their order (lane C's 0092 pattern)."""
+    definition = op.get_bind().scalar(
+        sa.text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :n"),
+        {"n": name},
+    )
+    return re.findall(r"'([a-z_]+)'::", str(definition))
+
+
+def _widen(table: str, column: str, name: str, codes: Sequence[str]) -> None:
+    """Add only these codes to the live check: other lanes' codes stay, in either order."""
+    now = _codes_now(name)
+    op.drop_constraint(op.f(name), table, type_="check")
+    op.create_check_constraint(
+        op.f(name), table, _in(column, [*now, *(c for c in codes if c not in now)])
+    )
+
+
+def _narrow(table: str, column: str, name: str, codes: Sequence[str]) -> None:
+    """Remove only these codes from the live check."""
+    now = _codes_now(name)
+    op.drop_constraint(op.f(name), table, type_="check")
+    op.create_check_constraint(op.f(name), table, _in(column, [c for c in now if c not in codes]))
 
 
 def upgrade() -> None:
@@ -63,18 +69,12 @@ def upgrade() -> None:
     op.add_column(
         "work_items", sa.Column("status_before_pause", sa.String(length=40), nullable=True)
     )
-    op.drop_constraint(op.f(NAME), TABLE, type_="check")
-    op.create_check_constraint(op.f(NAME), TABLE, _check(AFTER))
-    op.drop_constraint(op.f(ENTITY_CHECK), "custom_fields", type_="check")
-    op.create_check_constraint(
-        op.f(ENTITY_CHECK), "custom_fields", _entities((*ENTITIES_BEFORE, "problem"))
-    )
+    _widen(TABLE, "action", NAME, PROBLEM_ACTIONS)
+    _widen("custom_fields", "entity", ENTITY_CHECK, ("problem",))
 
 
 def downgrade() -> None:
     """Back to the incident and service request actions and entities."""
-    op.drop_constraint(op.f(ENTITY_CHECK), "custom_fields", type_="check")
-    op.create_check_constraint(op.f(ENTITY_CHECK), "custom_fields", _entities(ENTITIES_BEFORE))
-    op.drop_constraint(op.f(NAME), TABLE, type_="check")
-    op.create_check_constraint(op.f(NAME), TABLE, _check(BEFORE))
+    _narrow("custom_fields", "entity", ENTITY_CHECK, ("problem",))
+    _narrow(TABLE, "action", NAME, PROBLEM_ACTIONS)
     op.drop_column("work_items", "status_before_pause")

@@ -1,6 +1,6 @@
 import type { AnnouncementsQuery } from './announcements';
 import type { AuditEntriesQuery } from './audit';
-import type { IncidentSearchQuery, IncidentsQuery } from './incidents';
+import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
 import type { ReportDefinition } from './reports';
 import type { UsersQuery } from './users';
@@ -32,6 +32,7 @@ export const queryKeys = {
   },
   ai: {
     settings: ['ai', 'settings'] as const,
+    summary: (recordType: string, id: string) => ['ai', 'summary', recordType, id] as const,
   },
   apiKeys: {
     all: ['api-keys'] as const,
@@ -92,6 +93,9 @@ export const queryKeys = {
     list: (query: IncidentsQuery) => ['incidents', 'list', query] as const,
     // Under 'list': whatever refreshes the lists refreshes searches (WP-027).
     search: (query: IncidentSearchQuery) => ['incidents', 'list', 'search', query] as const,
+    // Under the list key: a list refresh (a record created or closed) refreshes them too.
+    duplicates: (query: PossibleDuplicatesQuery) =>
+      ['incidents', 'list', 'duplicates', query] as const,
     views: ['incidents', 'views'] as const,
     detail: (id: string) => ['incidents', 'detail', id] as const,
     history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,

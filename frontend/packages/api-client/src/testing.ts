@@ -65,6 +65,7 @@ const TECHNICIAN: Grant[] = [
   ['incidents.cancel', 'group'],
 ];
 const ADMIN_EXTRA: Grant[] = [
+  ['catalog_items.manage', 'all'], // WP-031: the catalog's administration
   ['knowledge.view', 'all'],
   ['knowledge.edit_any', 'all'],
   ['knowledge.delete', 'all'],
