@@ -881,6 +881,48 @@ export const en = {
   'portal_reach.own': 'Mine',
   'portal_reach.reports': 'My direct reports',
   'portal_reach.site': 'My site',
+  'portal_settings.approvals_hidden': 'Hide approvals from requesters',
+  'portal_settings.approvals_hidden_hint':
+    'Requesters see that a request waits for approval, but not who approves or their comments.',
+  'portal_settings.approvals_sign_in': 'Sign in to approve from e-mail',
+  'portal_settings.approvals_sign_in_hint':
+    'Approval links in e-mails ask the approver to sign in first.',
+  'portal_settings.due_incidents': 'Show when incidents should be fixed',
+  'portal_settings.due_incidents_hint':
+    'Requesters see the expected resolution time of their incidents.',
+  'portal_settings.due_requests': 'Show when requests should be delivered',
+  'portal_settings.due_requests_hint':
+    'Requesters see the expected delivery date, also right after submitting.',
+  'portal_settings.group.approvals': 'Approvals',
+  'portal_settings.group.later': 'Coming later',
+  'portal_settings.group.people': 'People',
+  'portal_settings.group.portal': 'Portal',
+  'portal_settings.group.requests': 'Requests',
+  'portal_settings.hide_default_form': 'Hide the general incident form',
+  'portal_settings.hide_default_form_hint':
+    'Requesters report issues only through the catalog entries you publish.',
+  'portal_settings.intro': 'Everything the self-service portal does for requesters, in one place.',
+  'portal_settings.later.guest_requests': 'Requests from guests',
+  'portal_settings.later.own_assets': 'Only the requester’s own assets in questions',
+  'portal_settings.later.public_pages': 'Public pages without signing in',
+  'portal_settings.later.self_registration': 'Self-registration',
+  'portal_settings.later.show_cost': 'Show cost to requesters and approvers',
+  'portal_settings.later_hint': 'Arrives with its own feature; nothing to set yet.',
+  'portal_settings.later_tag': 'Later',
+  'portal_settings.move_down': 'Move {{name}} down',
+  'portal_settings.move_up': 'Move {{name}} up',
+  'portal_settings.on_behalf': 'Requesting for others',
+  'portal_settings.on_behalf_hint':
+    'Whom a requester may raise a request for. Their own direct reports always.',
+  'portal_settings.profile_editing': 'Requesters edit their profile',
+  'portal_settings.profile_editing_hint':
+    'Requesters may change their own name, phone and language in the portal.',
+  'portal_settings.reminders': 'Reminders for requesters',
+  'portal_settings.reminders_hint':
+    'Requesters are reminded of what waits for them, such as a fix to confirm.',
+  'portal_settings.search_sources': 'What the search box looks through',
+  'portal_settings.search_sources_hint':
+    'Tick what to search, and order the groups as results show them.',
   'portal_state.closed': 'Closed',
   'portal_state.open': 'Open',
   'portal_status.awaiting_approval': 'Waiting for approval',

@@ -280,3 +280,44 @@ export function usePortalArticleSearch(q: string, language: string) {
     meta: { silent: true },
   });
 }
+
+export type PortalSettings = components['schemas']['PortalSettingsOut'];
+export type PortalSearchSource = PortalSettings['search_sources'][number];
+export const portalSettingsKey = ['portal', 'settings'] as const;
+
+/** The portal's own settings (D-143): search order and switches; live on the tenant channel. */
+export function usePortalSettings(enabled = true) {
+  return useQuery({
+    queryKey: portalSettingsKey,
+    queryFn: () => call(api.GET('/api/v1/portal/settings')),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/** Change them with If-Match on the version shown; the answer replaces the cache at once. */
+export function usePortalSettingsChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      body,
+      version,
+    }: {
+      body: components['schemas']['PortalSettingsPatch'];
+      version: number;
+    }) =>
+      call(
+        api.PATCH('/api/v1/portal/settings', {
+          params: { header: { 'If-Match': `"${String(version)}"` } },
+          body,
+        }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(portalSettingsKey, saved);
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: portalSettingsKey });
+    },
+  });
+}

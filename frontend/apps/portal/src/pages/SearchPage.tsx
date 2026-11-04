@@ -7,12 +7,13 @@ import {
   usePortalArticleSearch,
   usePortalIncidents,
   usePortalRequests,
+  usePortalSettings,
 } from '@supportx/api-client';
 import { textIn, useAppearance, useLabel, useLicence, useLiveAnnouncementFeed } from '@supportx/ui';
 
 import { useDebounced } from '../useDebounced';
 
-// The groups in their default order (Appendix A); the portal settings choose it with WP-032 S2.
+// The groups in their default order (D-143); the portal settings choose which and in what order.
 const GROUPS = ['items', 'articles', 'announcements', 'requests'] as const;
 type Group = (typeof GROUPS)[number];
 
@@ -75,9 +76,11 @@ export function SearchPage() {
   const [params, setParams] = useSearchParams();
   const [text, setText] = useState(params.get('q') ?? '');
   const q = useDebounced(text.trim(), 300);
+  const order: readonly Group[] = usePortalSettings().data?.search_sources ?? GROUPS;
   const catalog = licence.has('service_request');
-  const items = useCatalogSearch(catalog ? q : '');
-  const articles = usePortalArticleSearch(q, locale);
+  const on = (g: Group) => order.includes(g);
+  const items = useCatalogSearch(catalog && on('items') ? q : '');
+  const articles = usePortalArticleSearch(on('articles') ? q : '', locale);
   const feed = useLiveAnnouncementFeed(licence.has('incident'));
   const incidents = usePortalIncidents({ q: q === '' ? undefined : q });
   const requests = usePortalRequests(undefined);
@@ -162,7 +165,7 @@ export function SearchPage() {
           setParams(value.trim() === '' ? {} : { q: value.trim() }, { replace: true });
         }}
       />
-      {GROUPS.map((group) => (
+      {order.map((group) => (
         <GroupList key={group} group={group} hits={hits[group]} loading={loading[group]} />
       ))}
       {nothing && (
