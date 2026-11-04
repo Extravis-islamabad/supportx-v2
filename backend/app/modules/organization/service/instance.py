@@ -51,6 +51,15 @@ async def settings_row(session: AsyncSession) -> TenantSettings:
     return created
 
 
+async def offered_languages(session: AsyncSession) -> tuple[tuple[str, ...], str]:
+    """The languages the tenant offers and its default (for a person's effective language)."""
+    found = await session.execute(select(TenantSettings.languages, TenantSettings.default_language))
+    row = found.one_or_none()
+    if row is None:
+        return ("en", "ar", "ur"), "en"
+    return tuple(row.languages), row.default_language
+
+
 async def update_settings(  # noqa: PLR0913 - the change, its version and its context, explicit
     session: AsyncSession,
     subject: Any,  # noqa: ANN401 - identity_access's Subject

@@ -31,7 +31,7 @@ from app.modules.identity_access.service.auth import (
     LoginFailure,
 )
 from app.modules.identity_access.service.sso_test import TestFinished
-from app.modules.organization import tenant_for_host
+from app.modules.organization import offered_languages, tenant_for_host
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     SESSION_ENDED,
@@ -348,6 +348,7 @@ async def _describe(request: Request, session: Session) -> MeResponse:
                     ).where(User.id == session.user_uuid)
                 )
             ).first()
+            offered, default = await offered_languages(db)
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.SIDE
         described["user"]["form_density"] = (
             row.form_density if row else None
@@ -356,6 +357,9 @@ async def _describe(request: Request, session: Session) -> MeResponse:
         # The language picked in the app wins over Keycloak's (QA BUG-04): it follows the user.
         if row is not None and row.ui_locale is not None:
             described["user"]["locale"] = row.ui_locale
+        # A language the tenant switched off falls back to its default (WP-042, REQ-ADM-052).
+        if described["user"].get("locale") not in offered:
+            described["user"]["locale"] = default
     policy: PolicyService | None = getattr(request.app.state, "policy", None)
     if policy is None:
         described["user"]["roles"] = []

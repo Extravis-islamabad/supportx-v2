@@ -46,6 +46,7 @@ from app.modules.organization.service.email_branding import (
 )
 from app.modules.organization.service.file_access import FILE_ACCESS
 from app.modules.organization.service.hosts import HostTenant, tenant_for_host
+from app.modules.organization.service.instance import offered_languages
 from app.modules.organization.service.realtime import ROUTES
 from app.modules.organization.service.structure import (
     SiteDefaults,
@@ -162,6 +163,7 @@ __all__ = [
     "leave_groups",
     "memberships",
     "module",
+    "offered_languages",
     "register_calendar_check",
     "register_group_disable_guard",
     "register_member_guard",

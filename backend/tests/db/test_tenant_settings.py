@@ -10,6 +10,7 @@
 import asyncpg
 
 from tests.db.test_access_api import World, problem, world  # noqa: F401 - the fixture, reused
+from tests.db.test_auth_bff import Bff, bff  # noqa: F401 - the fixture, reused
 
 PATH = "/organization/settings"
 
@@ -116,3 +117,27 @@ async def test_a_change_writes_an_event_and_the_table_is_isolated(world: World) 
             assert [list(r["languages"]) for r in rows] == [["en", "ar", "ur"]]
     finally:
         await conn.close()
+
+
+async def test_a_language_switched_off_falls_back_to_the_tenant_default(bff: Bff) -> None:  # noqa: F811
+    """REQ-ADM-052: someone who chose Urdu sees the default once Urdu is no longer offered."""
+    admin = bff.user("a", email="langadmin@demo.test", locale="en", roles=("tenant_admin",))
+    await bff.login(admin)
+    me = (await bff.me()).json()
+    path = f"/api/v1/users/{me['user']['id']}"
+    read = await bff.client.get(path)
+    chosen = await bff.client.patch(
+        path,
+        json={"ui_locale": "ur"},
+        headers={"X-CSRF-Token": me["csrf_token"], "If-Match": read.headers["ETag"]},
+    )
+    assert chosen.status_code == 200, chosen.text
+    assert (await bff.me()).json()["user"]["locale"] == "ur"
+    settings = await bff.client.get(f"/api/v1{PATH}")
+    saved = await bff.client.patch(
+        f"/api/v1{PATH}",
+        json={"languages": ["en", "ar"], "default_language": "ar"},
+        headers={"X-CSRF-Token": me["csrf_token"], "If-Match": settings.headers["ETag"]},
+    )
+    assert saved.status_code == 200, saved.text
+    assert (await bff.me()).json()["user"]["locale"] == "ar"
