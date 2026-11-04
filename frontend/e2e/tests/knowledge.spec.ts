@@ -158,7 +158,7 @@ test('write, approve live from the inbox, send back, withdraw; an outsider never
     // 2. The inbox previews it beside "nothing published yet", image included; approve.
     await count.click();
     await expect(admin.page).toHaveURL(/\/knowledge\/approvals/);
-    await admin.page.getByText(`E2E VPN token ${tag}`).click();
+    await admin.page.getByTestId('kb-inbox-queue').getByText(`E2E VPN token ${tag}`).click();
     const preview = admin.page.getByTestId('kb-inbox-preview');
     await expect(preview.getByTestId('kb-inbox-first')).toBeVisible();
     await expect(preview.getByTestId('kb-inbox-note')).toContainText('Ready for review');
@@ -304,7 +304,7 @@ test('knowledge in Arabic: right to left, labels only, accessible', async ({ bro
       await expectAccessible(admin.page, `${path} (Arabic)`);
     }
     await admin.page.goto('/knowledge/approvals');
-    await admin.page.getByText(`E2E عربي ${tag}`).click();
+    await admin.page.getByTestId('kb-inbox-queue').getByText(`E2E عربي ${tag}`).click();
     await expect(admin.page.getByTestId('kb-inbox-preview')).toBeVisible();
     await expect(admin.page.getByTestId('kb-inbox-queue')).toContainText('بانتظارك');
   } finally {
