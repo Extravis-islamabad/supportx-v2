@@ -7,6 +7,8 @@
 - A change writes an outbox event; the table is isolated per tenant (RLS).
 """
 
+import uuid
+
 import asyncpg
 import httpx
 
@@ -25,7 +27,7 @@ async def _read(world: World, user: object, org: object = None) -> tuple[dict[st
 async def test_everyone_reads_the_defaults_and_only_configurers_change_them(world: World) -> None:  # noqa: F811
     a = world.a
     settings, etag = await _read(world, a.tech)
-    assert (settings["time_zone"], settings["base_currency"]) == ("UTC", "USD")
+    assert (settings["time_zone"], settings["base_currency"]) == (None, "USD")
     assert settings["languages"] == ["en", "ar", "ur"]
     refused = await world.call(
         "PATCH", PATH, a, a.tech, json={"time_zone": "Asia/Karachi"}, headers={"If-Match": etag}
@@ -156,7 +158,7 @@ async def test_personal_preferences_win_and_defaults_are_read_not_copied(bff: Bf
         100,
         "dd/mm/yyyy",
     )
-    assert (user["time_zone"], user["chosen"]) == ("UTC", [])
+    assert (user["time_zone"], user["chosen"]) == (None, [])
     csrf = {"X-CSRF-Token": me["csrf_token"]}
     path = f"/api/v1/users/{user['id']}"
 
@@ -188,3 +190,45 @@ async def test_personal_preferences_win_and_defaults_are_read_not_copied(bff: Bf
     cleared = await patch(path, {"time_format": None})
     assert cleared.status_code == 200, cleared.text
     assert (await bff.me()).json()["user"]["time_format"] == "24h"
+
+
+async def test_time_zone_is_the_persons_else_the_sites_else_the_tenants_else_the_browsers(
+    bff: Bff,  # noqa: F811
+) -> None:
+    """REQ-ADM-059 AC3 (lane B review): nothing set anywhere keeps the browser's (null)."""
+    admin = bff.user("a", email="tzadmin@demo.test", locale="en", roles=("tenant_admin",))
+    await bff.login(admin)
+    me = (await bff.me()).json()
+    csrf = {"X-CSRF-Token": me["csrf_token"]}
+
+    async def zone() -> object:
+        return (await bff.me()).json()["user"]["time_zone"]
+
+    async def patch(url: str, body: dict[str, object]) -> None:
+        read = await bff.client.get(url)
+        done = await bff.client.patch(
+            url, json=body, headers={**csrf, "If-Match": read.headers["ETag"]}
+        )
+        assert done.status_code == 200, done.text
+
+    assert await zone() is None  # 1. nobody set one: the browser's
+    await patch(f"/api/v1{PATH}", {"time_zone": "Asia/Dubai"})
+    assert await zone() == "Asia/Dubai"  # 2. the tenant's
+    site = await bff.client.post(
+        "/api/v1/organization/sites",
+        json={"name": "Karachi office", "time_zone": "Asia/Karachi"},
+        headers=csrf,
+    )
+    assert site.status_code == 201, site.text
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        await conn.execute(
+            "UPDATE users SET site_id = $1 WHERE id = $2",
+            uuid.UUID(site.json()["id"]),
+            uuid.UUID(me["user"]["id"]),
+        )
+    finally:
+        await conn.close()
+    assert await zone() == "Asia/Karachi"  # 3. their site's
+    await patch(f"/api/v1/users/{me['user']['id']}", {"time_zone": "Europe/London"})
+    assert await zone() == "Europe/London"  # 4. their own

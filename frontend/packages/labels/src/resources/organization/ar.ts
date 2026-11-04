@@ -135,6 +135,7 @@ export const ar: LabelResource = {
     'الإعدادات الافتراضية للأشخاص والمواقع. يُقدَّم اختيار الشخص أولًا، ثم اختيار موقعه، ثم هذه.',
   'instance.defaults': 'الإعدادات الافتراضية',
   'instance.time_zone': 'المنطقة الزمنية',
+  'instance.time_zone_browser': 'غير محددة: يحددها متصفح كل شخص',
   'instance.week_start': 'يبدأ الأسبوع يوم',
   'instance.week_start.monday': 'الاثنين',
   'instance.week_start.sunday': 'الأحد',

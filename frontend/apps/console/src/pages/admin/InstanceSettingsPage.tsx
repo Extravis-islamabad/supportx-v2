@@ -73,7 +73,12 @@ export function InstanceSettingsPage() {
   if (saved === undefined) return null;
 
   const submit = (values: FormValues, confirmCurrency = false) => {
-    const body: TenantSettingsInput = { ...values, confirm_currency: confirmCurrency };
+    // A cleared time zone is sent as null: not set, so people keep their browser's.
+    const body: TenantSettingsInput = {
+      ...values,
+      time_zone: values.time_zone ?? null,
+      confirm_currency: confirmCurrency,
+    };
     save.mutate(
       { body, version: saved.version },
       {
@@ -117,6 +122,8 @@ export function InstanceSettingsPage() {
             >
               <Select
                 showSearch
+                allowClear
+                placeholder={t('instance.time_zone_browser')}
                 data-testid="instance-time-zone"
                 options={names.zones.map((zone) => ({ value: zone, label: zone }))}
               />

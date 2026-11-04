@@ -40,7 +40,7 @@ async def read_current_tenant(session: TenantSession) -> TenantResponse:
 class TenantSettingsOut(BaseModel):
     """The tenant's defaults for people and sites, base currency and languages offered."""
 
-    time_zone: str
+    time_zone: str | None = Field(description="Null: not set (people keep their browser's).")
     week_start: str
     date_format: str
     time_format: str

@@ -31,7 +31,9 @@ def upgrade() -> None:
     op.create_table(
         "tenant_settings",
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
-        sa.Column("time_zone", sa.String(64), server_default="UTC", nullable=False),
+        # NULL: not set, so people with no time zone of their own (or of their site) keep the
+        # browser's; a UTC default would move every on-screen time.
+        sa.Column("time_zone", sa.String(64), nullable=True),
         sa.Column("week_start", sa.String(10), server_default="monday", nullable=False),
         sa.Column("date_format", sa.String(12), server_default="dd/mm/yyyy", nullable=False),
         sa.Column("time_format", sa.String(4), server_default="24h", nullable=False),

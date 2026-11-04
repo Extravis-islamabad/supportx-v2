@@ -483,6 +483,7 @@ export {
   searchFilter,
   useSetFormDensity,
   useSetNavLayout,
+  useSetPreference,
   useSetUiLocale,
   useUpdateUser,
   useUser,
@@ -494,6 +495,9 @@ export {
   type UserPage,
   type FormDensity,
   type NavLayout,
+  type PersonalPreference,
+  type PersonalPreferenceChange,
+  type ThemeMode as UserThemeMode,
   type UserPreferencesPatch,
   type UsersQuery,
 } from './users';

@@ -411,7 +411,8 @@ class TenantSettings(TenantKeyed, Base):
         CheckConstraint("default_language = ANY(languages)", name="default_offered"),
     )
 
-    time_zone: Mapped[str] = mapped_column(String(64), server_default="UTC")
+    # NULL: not set; people with no time zone of their own or their site's keep the browser's.
+    time_zone: Mapped[str | None] = mapped_column(String(64))
     week_start: Mapped[str] = mapped_column(String(10), server_default="monday")
     date_format: Mapped[str] = mapped_column(String(12), server_default="dd/mm/yyyy")
     time_format: Mapped[str] = mapped_column(String(4), server_default="24h")

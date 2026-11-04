@@ -7,6 +7,12 @@ export interface PendingPreferences {
   ui_locale?: 'en' | 'ar' | 'ur' | null;
   nav_layout?: string;
   form_density?: string;
+  // WP-042: null clears the choice (back to the default).
+  theme_mode?: 'light' | 'dark' | 'high_contrast' | 'system' | null;
+  text_scale?: number | null;
+  week_start?: 'monday' | 'sunday' | 'saturday' | null;
+  date_format?: 'dd/mm/yyyy' | 'mm/dd/yyyy' | 'yyyy-mm-dd' | 'dd.mm.yyyy' | null;
+  time_format?: '24h' | '12h' | null;
 }
 
 const key = (userId: string) => `supportx.pending_preferences.${userId}`;

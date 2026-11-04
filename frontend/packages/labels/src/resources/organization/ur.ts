@@ -132,6 +132,7 @@ export const ur: LabelResource = {
     'لوگوں اور سائٹس کے لیے پہلے سے طے شدہ۔ پہلے شخص کی اپنی پسند، پھر اس کی سائٹ کی، پھر یہ۔',
   'instance.defaults': 'پہلے سے طے شدہ',
   'instance.time_zone': 'ٹائم زون',
+  'instance.time_zone_browser': 'مقرر نہیں: ہر شخص کا براؤزر طے کرے گا',
   'instance.week_start': 'ہفتہ شروع ہوتا ہے',
   'instance.week_start.monday': 'پیر',
   'instance.week_start.sunday': 'اتوار',

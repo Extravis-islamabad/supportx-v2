@@ -205,7 +205,8 @@ def _languages(values: Mapping[str, Any]) -> list[tuple[str, str]]:
 def problems(values: Mapping[str, Any]) -> list[tuple[str, str]]:
     """(field, code) for each value that is not allowed, in a stable order."""
     found: list[tuple[str, str]] = []
-    if "time_zone" in values and values["time_zone"] not in zoneinfo.available_timezones():
+    zone = values.get("time_zone")
+    if zone is not None and zone not in zoneinfo.available_timezones():
         found.append(("time_zone", "time_zone_unknown"))
     found += [
         (field, code)

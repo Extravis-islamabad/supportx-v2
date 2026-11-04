@@ -138,6 +138,7 @@ export const en = {
     'The defaults for people and sites. A person’s own choice wins, then their site’s, then these.',
   'instance.defaults': 'Defaults',
   'instance.time_zone': 'Time zone',
+  'instance.time_zone_browser': 'Not set: each person’s browser decides',
   'instance.week_start': 'Week starts on',
   'instance.week_start.monday': 'Monday',
   'instance.week_start.sunday': 'Sunday',

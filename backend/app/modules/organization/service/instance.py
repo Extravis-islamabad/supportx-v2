@@ -63,14 +63,14 @@ async def offered_languages(session: AsyncSession) -> tuple[tuple[str, ...], str
 class RegionalDefaults:
     """What a person gets for each regional preference they have not set (REQ-ADM-059)."""
 
-    time_zone: str
+    time_zone: str | None  # None: nobody set one, the browser's applies
     week_start: str
     date_format: str
     time_format: str
 
 
 async def regional_defaults(session: AsyncSession, site_id: uuid.UUID | None) -> RegionalDefaults:
-    """Their site's time zone, else the tenant's; the tenant's formats and week start.
+    """Their site's time zone, else the tenant's (None if neither set one); the tenant's formats.
 
     Read every time, never copied onto the person: a changed default reaches everyone who has
     not chosen for themselves, and never overwrites anyone who has.
@@ -88,7 +88,7 @@ async def regional_defaults(session: AsyncSession, site_id: uuid.UUID | None) ->
     tenant = (
         RegionalDefaults(*found)
         if found is not None
-        else RegionalDefaults("UTC", "monday", "dd/mm/yyyy", "24h")
+        else RegionalDefaults(None, "monday", "dd/mm/yyyy", "24h")
     )
     if site_id is None:
         return tenant
