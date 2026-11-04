@@ -321,6 +321,16 @@ keycloak:
 # Leave false for single-tenant installations (on-prem).
 multiTenant: false
 
+# On-prem directory sign-in (WP-040, D-118; product owner 2026-11-03). On: the keycloak-identity
+# Job makes `supportx-federation` (manage-realm only) with the app secret's
+# `keycloak-federation-secret`, and only the consumers worker holds it, to write the AD/LDAP
+# connection an admin sets up into the realm. Off (the default; never on SaaS): no such account,
+# and an existing one is switched off. Refused together with `multiTenant: true`: in a shared
+# realm a directory's people would be visible to every tenant.
+directory:
+  ldap:
+    enabled: false
+
 # Outgoing mail (WP-039, D-089 D3, D-099): the one place mail is configured. SupportX sends
 # through it, and the keycloak-identity Job writes the same server into Keycloak's realm (password
 # and invitation e-mails). Empty host = not configured. The password, if any, is the app secret's
@@ -372,6 +382,18 @@ networkPolicies:
   enabled: true
   # Where the gateway / ingress controller runs (Traefik is in kube-system on k3s).
   ingressNamespace: kube-system
+  # Egress allow-list (WP-014b; templates/networkpolicies-egress.yaml). Off: egress is open.
+  # On: DNS and this namespace only, plus the rules below (NetworkPolicy `egress` rules, i.e.
+  # `to` with ipBlock CIDRs and `ports`). List here every outside address SupportX must reach.
+  egress:
+    enabled: false
+    extra: []                       # every pod, e.g. a forward proxy: [{to: [{ipBlock: {cidr: 10.0.0.5/32}}], ports: [{protocol: TCP, port: 3128}]}]
+    components: {}                  # per component, e.g. {keycloak: [LDAP servers], consumers: [SMTP relay], api: [...]}
+    # The Kubernetes API, for CloudNativePG's pods and the API and worker pods' wait-for-migrate.
+    # Empty: read from the default/kubernetes EndpointSlice at install time. `helm template` and
+    # GitOps can't read it: set them, e.g. kubeApiCidrs: [10.0.0.10/32], kubeApiPorts: [6443].
+    kubeApiCidrs: []
+    kubeApiPorts: [6443]
 
 # Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
 # the same tag, so this is what rolls them).

@@ -517,6 +517,7 @@ export const ur: LabelResource = {
   'transition_relative.department_head': 'شعبے کا سربراہ',
   'failure_reason.disconnected': 'ڈیٹا بیس یا میسج بس تک رسائی نہیں',
   'failure_reason.backlog': 'واقعات بہت دیر سے انتظار میں ہیں',
+  'failure_reason.stale_signatures': 'وائرس کی شناختی فہرست پرانی ہے',
   // WP-020f: resolving and closing, open work, the requester's answer.
   'conversation.follow_up_started':
     'یہ جواب دوبارہ کھولنے کی مدت کے بعد آیا، اس لیے ایک نیا واقعہ شروع ہوا: {{id}}۔',

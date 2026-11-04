@@ -828,6 +828,7 @@ export const ar: LabelResource = {
   'incidents.mail_no_subject': 'بريد إلكتروني بلا موضوع',
   'failure_reason.disconnected': 'لا يمكن الوصول إلى قاعدة البيانات أو ناقل الرسائل',
   'failure_reason.backlog': 'الأحداث تنتظر لمدة طويلة جدًا',
+  'failure_reason.stale_signatures': 'تواقيع الفيروسات قديمة',
   'incidents.bulk.select_page': 'تحديد كل الحوادث في هذه الصفحة',
   'action_reason.system_calendar': 'تحتفظ كل مؤسسة بهذا التقويم.',
   'action_reason.calendar_in_use': 'تستخدم مواقع أو فرق دعم هذا التقويم.',

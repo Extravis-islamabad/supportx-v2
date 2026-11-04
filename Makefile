@@ -346,6 +346,9 @@ deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA
 cluster-ha-smoke: ## HA smoke: the Valkey master dies, a signed-in session survives, no split brain (ADR-038)
 	@bash deploy/k3d/ha-smoke.sh
 
+cluster-ha-egress: ## Egress allow-list on the HA cluster: the namespace reachable, the outside blocked (WP-014b)
+	@bash deploy/k3d/egress-check.sh
+
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
 

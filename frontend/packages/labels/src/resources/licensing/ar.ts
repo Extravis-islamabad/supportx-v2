@@ -60,4 +60,6 @@ export const ar: LabelResource = {
   'licence.grace_banner_few': 'ترخيصك يحتاج إلى انتباه: تبقّت {{count}} أيام قبل وضع القراءة فقط.',
   'licence.grace_banner_many':
     'ترخيصك يحتاج إلى انتباه: تبقّى {{count}} يومًا قبل وضع القراءة فقط.',
+  // WP-040 AD/LDAP (D-130)
+  'feature.directory_federation': 'تسجيل الدخول عبر الدليل (AD/LDAP)',
 };

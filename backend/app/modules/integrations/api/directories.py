@@ -23,6 +23,7 @@ from app.modules.integrations.domain.directory import EmailFrom, SyncScope
 from app.modules.integrations.domain.mailboxes import CredentialKind
 from app.modules.integrations.service import directories as service
 from app.modules.integrations.service.catalogue import manage_permission
+from app.modules.integrations.service.entra_app import entra_app
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -141,13 +142,14 @@ class DirectoryOut(BaseModel):
     def of(cls, view: service.DirectoryView) -> "DirectoryOut":
         """From the service's view."""
         row, secret = view.row, view.secret
+        app = entra_app(row)
         return cls(
             id=row.id,
             name=row.name,
             source=row.source,
-            directory_tenant=row.directory_tenant,
-            client_id=row.client_id,
-            credential_kind=CredentialKind(row.credential_kind),
+            directory_tenant=app.directory_tenant,
+            client_id=app.client_id,
+            credential_kind=app.credential_kind,
             secret=None
             if secret is None
             else SecretOut(

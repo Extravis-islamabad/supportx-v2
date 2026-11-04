@@ -17,6 +17,8 @@ modules are registered, so this module mounts them: files (WP-022, ADR-028, `api
 permission, the `storage_gb` usage counter and the quota source.
 """
 
+from datetime import timedelta
+
 from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec
@@ -28,6 +30,7 @@ from app.modules.system.api.routes import router
 from app.modules.system.domain.readiness import DependencyProbe
 from app.modules.system.infra.probes import (
     KeycloakProbe,
+    MalwareSignaturesProbe,
     NatsProbe,
     PostgresProbe,
     ValkeyProbe,
@@ -74,9 +77,21 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
     return ReadinessService(
         probes,
         not_configured=not_configured,
-        informational=_worker_probes(settings),
+        informational=[*_worker_probes(settings), *_scanner_probes(settings)],
         timeout=settings.readiness_timeout_seconds,
     )
+
+
+def _scanner_probes(settings: Settings) -> list[DependencyProbe]:
+    """ClamAV's signature age (informational), when a scanner is installed (WP-014b)."""
+    scanner = FileServices.from_settings(settings).scanner
+    if not scanner.available:
+        return []
+    return [
+        MalwareSignaturesProbe(
+            scanner, stale_after=timedelta(hours=settings.files_signature_ready_warn_hours)
+        )
+    ]
 
 
 def _worker_probes(settings: Settings) -> list[DependencyProbe]:
