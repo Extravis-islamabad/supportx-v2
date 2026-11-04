@@ -45,7 +45,33 @@ export const DEFAULT_BRANDING: Branding = {
 const PRIMARY_HOVER_DARKEN = 0.12;
 const PRIMARY_ACTIVE_DARKEN = 0.2;
 
+// THE font token (UI pass 2): the system stack, never a web font from the internet (the product
+// runs air-gapped). Bundling a face such as Inter, with an Arabic and Urdu face beside it, is
+// the product owner's call; switching is this one line.
 const LATIN = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
+
+/**
+ * The console's frame (UI pass 2, docs/design/target): a dark indigo navigation in every theme
+ * mode, beside or above a white top bar. Measured: menu text #C9C4DB on #16122B 10.7:1, white on
+ * the selected #2C2552 14.1:1, white on the count badge #3A3168 11.5:1.
+ */
+export const SHELL = {
+  navBg: '#16122B',
+  navSelectedBg: '#2C2552',
+  navHoverBg: '#221C40',
+  navText: '#C9C4DB',
+  navBadgeBg: '#3A3168',
+} as const;
+
+/** The target's light surfaces: a cool grey page, white cards with 1px borders. */
+const LIGHT_SURFACES = {
+  colorText: '#14161B',
+  colorBgLayout: '#F4F5F7',
+  colorBorder: '#D5D8DF',
+  colorBorderSecondary: '#E3E5EA',
+  colorFillAlter: '#F8F9FB',
+  colorSplit: '#EEF0F3',
+} as const;
 
 /**
  * Fonts per UI language. Arabic is set in a Naskh face; Urdu in Nastaliq, which is much taller,
@@ -64,7 +90,7 @@ const FONTS: Record<Locale, { fontFamily: string; lineHeight?: number }> = {
 };
 
 function shared(locale: Locale): ThemeConfig['token'] {
-  return { borderRadius: 6, ...FONTS[locale] };
+  return { borderRadius: 8, ...FONTS[locale] };
 }
 
 /**
@@ -85,14 +111,37 @@ export function buildTheme(
     const key = name as keyof NonNullable<ThemeConfig['components']>;
     components[key] = { ...(components[key] as object), ...tokens } as never;
   }
-  return {
+  return withShell({
     ...base,
     algorithm: dense.algorithm,
     // The mode's own tokens win (high contrast line widths, readable colours); Urdu keeps its
     // taller line height, so rows grow rather than clip.
     token: { ...dense.token, ...base.token },
     components,
+  });
+}
+
+/** The dark navigation's tokens, in every mode (Ant Design's `dark` Sider and Menu). */
+function withShell(config: ThemeConfig): ThemeConfig {
+  const components = { ...config.components };
+  components.Layout = {
+    ...components.Layout,
+    siderBg: SHELL.navBg,
+    triggerBg: SHELL.navSelectedBg,
+    triggerColor: '#FFFFFF',
   };
+  components.Menu = {
+    ...components.Menu,
+    darkItemBg: SHELL.navBg,
+    darkSubMenuItemBg: SHELL.navBg,
+    darkPopupBg: SHELL.navBg,
+    darkItemColor: SHELL.navText,
+    darkItemHoverBg: SHELL.navHoverBg,
+    darkItemHoverColor: '#FFFFFF',
+    darkItemSelectedBg: SHELL.navSelectedBg,
+    darkItemSelectedColor: '#FFFFFF',
+  };
+  return { ...config, components };
 }
 
 function modeTheme(mode: ThemeMode, branding: Partial<Branding>, locale: Locale): ThemeConfig {
@@ -139,9 +188,10 @@ function modeTheme(mode: ThemeMode, branding: Partial<Branding>, locale: Locale)
           colorError: '#ff7875',
         }
       : {
-          colorTextSecondary: 'rgba(0, 0, 0, 0.68)',
-          colorTextTertiary: 'rgba(0, 0, 0, 0.62)',
-          colorTextDescription: 'rgba(0, 0, 0, 0.62)',
+          // #5A6070: 6.28:1 on white, 5.76:1 on the #F4F5F7 page (UI pass 2).
+          colorTextSecondary: '#5A6070',
+          colorTextTertiary: '#5A6070',
+          colorTextDescription: '#5A6070',
           colorTextPlaceholder: 'rgba(0, 0, 0, 0.58)',
           // Ant Design's #ff4d4f is about 3.3:1 on white as button text; this red is about 5:1.
           colorError: '#cf1322',
@@ -159,10 +209,12 @@ function modeTheme(mode: ThemeMode, branding: Partial<Branding>, locale: Locale)
         ...base,
         ...readable,
         ...pressed,
+        ...LIGHT_SURFACES,
         colorPrimary: brand.colorPrimary,
-        // Links in the brand colour too: Ant Design's default link blue is about 4.1:1 on white.
-        colorLink: brand.colorPrimary,
-        colorLinkHover: pressed.colorPrimaryHover,
+        // Links a shade deeper than the brand (the target's #6B33B8: 7.5:1 on white); Ant
+        // Design's default link blue is about 4.1:1.
+        colorLink: darken(brand.colorPrimary, 0.15),
+        colorLinkHover: pressed.colorPrimaryActive,
         colorLinkActive: pressed.colorPrimaryActive,
       },
     };
