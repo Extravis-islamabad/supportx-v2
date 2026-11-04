@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     db_pool_size: int = Field(default=10, ge=1, le=200)
     db_max_overflow: int = Field(default=10, ge=0, le=200)
     db_pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    # Client-side limits (WP-014b node-loss test): a connection to a server whose node vanished
+    # gets no reset, and without a limit asyncpg waits on the kernel's retries for minutes. Both
+    # are generous: they bound a dead server, not slow work. The reporting pool's command limit
+    # is always above report_background_timeout_seconds, so no report is cut short by them.
+    db_connect_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    db_command_timeout_seconds: float = Field(default=120.0, gt=0, le=3600)
 
     # Reporting (WP-035, ADR-033). Reports run as supportx_app switched to the read-only
     # supportx_report role, on their own small pool so a burst of reports can never take the
@@ -107,6 +113,10 @@ class Settings(BaseSettings):
     # policy is saved but not applied (`password_policy_not_configured`).
     keycloak_realm_client_id: str = "supportx-realm"
     keycloak_realm_client_secret: SecretStr | None = None
+    # On-prem AD/LDAP (WP-040, D-118): `supportx-federation`, manage-realm only. The chart gives
+    # the secret to the consumers worker alone, and only where LDAP is on (never on SaaS).
+    keycloak_federation_client_id: str = "supportx-federation"
+    keycloak_federation_client_secret: SecretStr | None = None
     # Single sign-on checks fetch the provider's discovery document or SAML metadata. Loopback
     # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
     # the test identity provider runs on the same machine.
@@ -285,6 +295,9 @@ class Settings(BaseSettings):
     files_clamd_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     files_scan_required: bool = True
     files_signature_max_age_days: int = Field(default=7, ge=1, le=90)
+    # /ready warns (informational, not unready) once the signatures are older than this: the
+    # early sign that freshclam can't reach its mirror, e.g. under the egress allow-list (WP-014b).
+    files_signature_ready_warn_hours: int = Field(default=48, ge=1, le=24 * 90)
     files_link_ttl_seconds: int = Field(default=300, ge=30, le=3600)
     # Uploads written to storage at once per API process; more wait their turn (their bodies stay
     # in the network, not in memory). Each holds about one 5 MiB S3 part plus its encryption.

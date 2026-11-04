@@ -509,6 +509,10 @@ export const ur: LabelResource = {
   'event_type.service_catalog.category.changed': 'کیٹلاگ کیٹیگری تبدیل ہوئی',
   'audit.action.catalog.item_changed': 'کیٹلاگ آئٹم تبدیل کیا',
   'audit.action.catalog.category_changed': 'کیٹلاگ کیٹیگری تبدیل کی',
+  // WP-040 AD/LDAP (D-130)
+  'audit.action.directory.federation_applied': 'شناختی سروس میں AD/LDAP ڈائریکٹری جوڑی',
+  'audit.action.directory.federation_failed': 'شناختی سروس میں AD/LDAP ڈائریکٹری نہیں جوڑی جا سکی',
+  'audit.action.directory.federation_removed': 'شناختی سروس سے AD/LDAP ڈائریکٹری ہٹائی',
   'audit.action.user.contact_changed': 'اپنی رابطے کی تفصیلات تبدیل کیں',
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل کیں',

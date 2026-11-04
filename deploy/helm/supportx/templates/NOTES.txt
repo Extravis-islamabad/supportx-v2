@@ -11,3 +11,13 @@ Then check everything:
     --filter '!name={{ .Release.Name }}-valkey-test-auth-existing'
 
 INTERNAL/DEV images: not for customer distribution (D-038).
+{{- $egress := .Values.networkPolicies.egress }}
+{{- if and .Values.networkPolicies.enabled $egress.enabled .Values.clamav.enabled (not .Values.clamav.privateMirror) (not (index ($egress.components | default dict) "clamav")) (not $egress.extra) }}
+
+WARNING: the egress allow-list is on, but ClamAV has no way to fetch virus signatures: no
+clamav.privateMirror, and no networkPolicies.egress rule for clamav (or for every pod). The public
+mirrors are a CDN with no fixed addresses. Files wait for a scan, and /api/v1/ready reports
+malware_signatures once the signatures are over 48 hours old. Set clamav.privateMirror, list your
+mirror or proxy under networkPolicies.egress.components.clamav, or load the offline bundle
+(deploy/scripts/clamav-signatures.sh).
+{{- end }}

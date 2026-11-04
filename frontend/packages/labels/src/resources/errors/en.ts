@@ -663,6 +663,23 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
+  // WP-040 AD/LDAP (D-130)
+  'errors.ldap_host_invalid':
+    "Enter the directory server's host name or IP address, without ldap:// or a path.",
+  'errors.plain_connection_refused':
+    'A connection without encryption is refused unless you allow it.',
+  'errors.ldap_dn_invalid': 'Enter a distinguished name such as OU=People,DC=example,DC=com.',
+  'errors.ldap_filter_invalid': 'Enter an LDAP filter in brackets, such as (objectClass=person).',
+  'errors.ldap_attribute_invalid': 'Enter a directory attribute name: letters, digits and hyphens.',
+  'errors.ldap_federation_not_installed':
+    'AD/LDAP is not turned on for this installation. Ask your administrator to enable it.',
+  'errors.ldap_single_tenant_only':
+    'AD/LDAP directories can only be connected on an installation that serves one organisation.',
+  'errors.ldap_federation_refused':
+    'The identity service refused the directory settings. Check the server, bind account and paths.',
+  'errors.ldap_federation_keycloak_unavailable':
+    'The identity service did not answer. The directory will be connected when it is back.',
+  'errors.ldap_bind_password_missing': 'No bind password is stored. Enter it again.',
   'errors.contact_editing_off':
     'Your organisation does not let you change your contact details here. Ask your service desk.',
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',

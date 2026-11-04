@@ -166,6 +166,7 @@ export const queryKeys = {
   },
   directories: {
     all: ['directories'] as const,
+    ldap: ['directories', 'ldap'] as const, // under `all`: one live event refetches both
     groups: (id: string, query: string) => ['directories', 'groups', id, query] as const,
   },
   mailboxes: {

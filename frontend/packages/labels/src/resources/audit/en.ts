@@ -519,6 +519,13 @@ export const en = {
   'event_type.service_catalog.category.changed': 'Catalog category changed',
   'audit.action.catalog.item_changed': 'Changed a catalog item',
   'audit.action.catalog.category_changed': 'Changed a catalog category',
+  // WP-040 AD/LDAP (D-130)
+  'audit.action.directory.federation_applied':
+    'Connected an AD/LDAP directory in the identity service',
+  'audit.action.directory.federation_failed':
+    'Could not connect an AD/LDAP directory in the identity service',
+  'audit.action.directory.federation_removed':
+    'Removed an AD/LDAP directory from the identity service',
   'audit.action.user.contact_changed': 'Changed their contact details',
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'Changed the connector defaults',

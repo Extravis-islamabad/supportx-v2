@@ -611,6 +611,19 @@ export const ar: LabelResource = {
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
   'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',
   'errors.withdraw_not_pending': 'لا يمكن سحب إلا طلب بانتظار الموافقة.',
+  // WP-040 AD/LDAP (D-130)
+  'errors.ldap_host_invalid': 'أدخل اسم خادم الدليل أو عنوان IP الخاص به، دون ldap:// أو مسار.',
+  'errors.plain_connection_refused': 'يُرفض الاتصال غير المشفّر ما لم تسمح به.',
+  'errors.ldap_dn_invalid': 'أدخل اسمًا مميزًا مثل OU=People,DC=example,DC=com.',
+  'errors.ldap_filter_invalid': 'أدخل عامل تصفية LDAP بين قوسين، مثل (objectClass=person).',
+  'errors.ldap_attribute_invalid': 'أدخل اسم سمة في الدليل: أحرف وأرقام وشرطات.',
+  'errors.ldap_federation_not_installed':
+    'لم يتم تفعيل AD/LDAP في هذا التثبيت. اطلب من المسؤول تفعيله.',
+  'errors.ldap_single_tenant_only': 'لا يمكن ربط أدلة AD/LDAP إلا في تثبيت يخدم مؤسسة واحدة.',
+  'errors.ldap_federation_refused':
+    'رفضت خدمة الهوية إعدادات الدليل. تحقّق من الخادم وحساب الربط والمسارات.',
+  'errors.ldap_federation_keycloak_unavailable': 'لم تستجب خدمة الهوية. سيُربط الدليل عند عودتها.',
+  'errors.ldap_bind_password_missing': 'لا توجد كلمة مرور ربط محفوظة. أدخلها مرة أخرى.',
   'errors.contact_editing_off': 'لا تسمح مؤسستك بتغيير بيانات الاتصال هنا. اسأل مكتب الخدمة.',
   'errors.field.managed_by_directory': 'يحتفظ الدليل بهذا الحقل. غيّره هناك.',
   'errors.console_requester_only': 'يستخدم هذا الحساب بوابة مقدمي الطلبات، وليس وحدة التحكم.',

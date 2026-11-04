@@ -711,6 +711,7 @@ export const ar: LabelResource = {
   'readiness_check.outbox_relay': 'مُرحّل الأحداث',
   'readiness_check.event_consumers': 'معالجة الأحداث',
   'readiness_check.realtime_fanout': 'التحديثات المباشرة',
+  'readiness_check.malware_signatures': 'تواقيع الفيروسات',
   'readiness_check.nats': 'ناقل الرسائل',
   'permission.sla.view': 'عرض إعداد اتفاقيات مستوى الخدمة',
   'permission.sla.view.description': 'رؤية تقويمات العمل والعطلات وسياسات مستوى الخدمة.',

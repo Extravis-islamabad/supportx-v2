@@ -238,6 +238,9 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** Rust and Python tests: valid licence accepted, any edited field rejected,
   fingerprint tolerance works (2 changed components pass, 3 fail); no production key in the repo.
 - **Depends on:** WP-009 (Rust/PyO3 approved by D-004; Rust toolchain must be installed)
+- **Checklist (product owner, 2026-11-04):** re-enable the pre-upgrade licence check. WP-014b's
+  pre-upgrade Job reports "no licence file: check skipped" until the licence core exists (plan
+  decision 4); WP-013 must turn that check on, and isn't done until it does.
 
 ### [x] WP-014 — Deployment part 1: images, Helm chart (dev, single-node), k3d, CI (done 2026-10-24)
 - **Goal:** The same build runs on Kubernetes from day one (§14.3). Plan approved 2026-10-24 with

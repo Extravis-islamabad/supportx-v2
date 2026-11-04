@@ -55,4 +55,6 @@ export const en = {
   'licence.upgrade_hint': 'Not included in your plan. Contact Extravis to upgrade.',
   'licence.locked': 'Not in your plan',
   'licence.ask_admin': 'Ask your administrator about upgrading the plan.',
+  // WP-040 AD/LDAP (D-130)
+  'feature.directory_federation': 'Directory Sign-in (AD/LDAP)',
 } as const;

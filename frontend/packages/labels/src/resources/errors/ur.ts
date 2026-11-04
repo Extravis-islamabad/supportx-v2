@@ -566,6 +566,22 @@ export const ur: LabelResource = {
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',
   'errors.withdraw_not_pending': 'صرف منظوری کی منتظر درخواست واپس لی جا سکتی ہے۔',
+  // WP-040 AD/LDAP (D-130)
+  'errors.ldap_host_invalid': 'ڈائریکٹری سرور کا نام یا IP پتہ درج کریں، ldap:// یا راستے کے بغیر۔',
+  'errors.plain_connection_refused':
+    'بغیر انکرپشن کا کنکشن مسترد کیا جاتا ہے جب تک آپ اس کی اجازت نہ دیں۔',
+  'errors.ldap_dn_invalid': 'ایک ممتاز نام درج کریں، جیسے OU=People,DC=example,DC=com۔',
+  'errors.ldap_filter_invalid': 'قوسین میں LDAP فلٹر درج کریں، جیسے (objectClass=person)۔',
+  'errors.ldap_attribute_invalid': 'ڈائریکٹری خصوصیت کا نام درج کریں: حروف، ہندسے اور خط فاصل۔',
+  'errors.ldap_federation_not_installed':
+    'اس تنصیب پر AD/LDAP فعال نہیں ہے۔ اپنے منتظم سے اسے فعال کرنے کو کہیں۔',
+  'errors.ldap_single_tenant_only':
+    'AD/LDAP ڈائریکٹریز صرف اس تنصیب پر جوڑی جا سکتی ہیں جو ایک ادارے کے لیے ہو۔',
+  'errors.ldap_federation_refused':
+    'شناختی سروس نے ڈائریکٹری کی ترتیبات مسترد کر دیں۔ سرور، بائنڈ اکاؤنٹ اور راستے چیک کریں۔',
+  'errors.ldap_federation_keycloak_unavailable':
+    'شناختی سروس نے جواب نہیں دیا۔ واپس آنے پر ڈائریکٹری جوڑ دی جائے گی۔',
+  'errors.ldap_bind_password_missing': 'کوئی بائنڈ پاس ورڈ محفوظ نہیں ہے۔ اسے دوبارہ درج کریں۔',
   'errors.contact_editing_off':
     'آپ کی تنظیم یہاں رابطے کی تفصیلات بدلنے کی اجازت نہیں دیتی۔ سروس ڈیسک سے پوچھیں۔',
   'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',

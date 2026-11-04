@@ -527,6 +527,10 @@ export const ar: LabelResource = {
   'event_type.service_catalog.category.changed': 'تغيّرت فئة في الكتالوج',
   'audit.action.catalog.item_changed': 'غيّر عنصرًا في الكتالوج',
   'audit.action.catalog.category_changed': 'غيّر فئة في الكتالوج',
+  // WP-040 AD/LDAP (D-130)
+  'audit.action.directory.federation_applied': 'ربط دليل AD/LDAP في خدمة الهوية',
+  'audit.action.directory.federation_failed': 'تعذّر ربط دليل AD/LDAP في خدمة الهوية',
+  'audit.action.directory.federation_removed': 'أزال دليل AD/LDAP من خدمة الهوية',
   'audit.action.user.contact_changed': 'غيّر بيانات الاتصال الخاصة به',
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'غيّر الإعدادات الافتراضية للموصلات',
