@@ -287,6 +287,8 @@ export const en = {
     'Make API keys for service identities, and see and revoke every key.',
   'permission.assets.manage': 'Manage assets',
   'permission.assets.manage.description': 'Add and change assets.',
+  'permission.assets.reinstate': 'Bring retired assets back',
+  'permission.assets.reinstate.description': 'Move a retired asset back into stock.',
   'permission.assets.view': 'View assets',
   'permission.assets.view.description': 'See hardware and software assets.',
   'permission.audit.export': 'Export the audit log',
@@ -325,6 +327,9 @@ export const en = {
   'permission.config.announcements': 'Configure announcements',
   'permission.config.announcements.description':
     'Who may publish, and whether a second person must approve.',
+  'permission.config.assets': 'Configure assets',
+  'permission.config.assets.description':
+    'Change product types, products, asset states, life cycles and asset settings.',
   'permission.config.organisation': 'Configure the organisation',
   'permission.config.organisation.description': 'Desks and the organisation’s structure settings.',
   'permission.config.reports': 'Configure reports',

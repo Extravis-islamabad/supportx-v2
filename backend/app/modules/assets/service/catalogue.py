@@ -24,6 +24,7 @@ from app.modules.assets.domain.catalogue import (
     API_NAME,
     CURRENCY,
     LIFE_CYCLES_MAX,
+    SEED_LIFE_CYCLE_CODE,
     SEED_LIFE_CYCLE_NAMES,
     SEED_MOVES,
     SEED_STATES,
@@ -32,14 +33,14 @@ from app.modules.assets.domain.catalogue import (
     STATES_MAX,
     TREE_DEPTH_MAX,
     TYPES_MAX,
-    AgeBasis,
-    DepreciationMethod,
+    AssetAgeBasis,
+    AssetDepreciationMethod,
+    AssetStateCategory,
+    AssetTypeCategory,
+    AssetTypeKind,
     Move,
     Problem,
     SeedType,
-    StateCategory,
-    TypeCategory,
-    TypeKind,
     amount_problems,
     clean_names,
     depth,
@@ -244,7 +245,11 @@ async def ensure_defaults(session: AsyncSession) -> None:
             )
         )
     life_cycle = AssetLifeCycle(
-        id=new_id(), tenant_id=tenant, names=dict(SEED_LIFE_CYCLE_NAMES), is_default=True
+        id=new_id(),
+        tenant_id=tenant,
+        code=SEED_LIFE_CYCLE_CODE,
+        names=dict(SEED_LIFE_CYCLE_NAMES),
+        is_default=True,
     )
     session.add(life_cycle)
     await session.flush()
@@ -311,7 +316,7 @@ async def get_settings(session: AsyncSession) -> AssetSettings:
 
 def _settings_problems(values: Mapping[str, Any]) -> list[Problem]:
     problems = tag_pattern_problems("tag_pattern", values.get("tag_pattern"))
-    if "age_basis" in values and values["age_basis"] not in set(AgeBasis):
+    if "age_basis" in values and values["age_basis"] not in set(AssetAgeBasis):
         problems.append(Problem("age_basis", "invalid_choice"))
     for field, low, high in (("copy_limit", 1, 500), ("scan_retention_months", 1, 60)):
         value = values.get(field)
@@ -365,7 +370,7 @@ def _state_problems(values: Mapping[str, Any], *, creating: bool) -> list[Proble
         code = values.get("code")
         if not isinstance(code, str) or not STATE_CODE.match(code):
             problems.append(Problem("code", "invalid_code"))
-    if "category" in values and values["category"] not in set(StateCategory):
+    if "category" in values and values["category"] not in set(AssetStateCategory):
         problems.append(Problem("category", "invalid_choice"))
     return problems
 
@@ -492,7 +497,7 @@ async def delete_state(
         )
     )
     if used:
-        raise Conflict(code="asset_state_in_use", params={"count": int(used)})
+        raise Conflict(code="asset_state_in_use", params={"used": int(used)})
     row.deleted_at = datetime.now(UTC)
     changes = [Change("deleted_at", None, row.deleted_at.isoformat())]
     await _saved(session, subject, row, changes, kind="state", action="deleted", source=source)
@@ -605,6 +610,11 @@ async def create_life_cycle(
     require_configure(subject)
     existing = await list_life_cycles(session)
     names, problems = clean_names("names", values.get("names"))
+    code = values.get("code")
+    if not isinstance(code, str) or not STATE_CODE.match(code):
+        problems.append(Problem("code", "invalid_code"))
+    elif any(v.record.code == code for v in existing):
+        problems.append(Problem("code", "asset_life_cycle_code_taken"))
     moves, move_problems = await _moves_from(session, values.get("moves", []))
     problems += move_problems
     if len(existing) >= LIFE_CYCLES_MAX:
@@ -613,6 +623,7 @@ async def create_life_cycle(
     cycle = AssetLifeCycle(
         id=new_id(),
         tenant_id=_tenant(session),
+        code=code,
         names=names,
         is_default=False,
         created_by=subject.user_id,
@@ -620,7 +631,11 @@ async def create_life_cycle(
     session.add(cycle)
     await session.flush()
     await _replace_moves(session, subject, cycle, moves)
-    changes = [Change("names", None, names), Change("moves", None, _move_list(moves))]
+    changes = [
+        Change("code", None, code),
+        Change("names", None, names),
+        Change("moves", None, _move_list(moves)),
+    ]
     await _saved(
         session, subject, cycle, changes, kind="life_cycle", action="created", source=source
     )
@@ -717,7 +732,7 @@ async def delete_life_cycle(
         .where(AssetProductType.life_cycle_id == cycle.id, AssetProductType.deleted_at.is_(None))
     )
     if used:
-        raise Conflict(code="asset_life_cycle_in_use", params={"count": int(used)})
+        raise Conflict(code="asset_life_cycle_in_use", params={"used": int(used)})
     cycle.deleted_at = datetime.now(UTC)
     changes = [Change("deleted_at", None, cycle.deleted_at.isoformat())]
     await _saved(
@@ -773,9 +788,9 @@ async def _type_problems(
                 problems.append(
                     Problem("parent_id", "asset_product_type_too_deep", (("max", TREE_DEPTH_MAX),))
                 )
-    if "category" in values and values["category"] not in set(TypeCategory):
+    if "category" in values and values["category"] not in set(AssetTypeCategory):
         problems.append(Problem("category", "invalid_choice"))
-    if "kind" in values and values["kind"] not in set(TypeKind):
+    if "kind" in values and values["kind"] not in set(AssetTypeKind):
         problems.append(Problem("kind", "invalid_choice"))
     if "icon" in values and values["icon"] is not None and len(values["icon"]) > ICON_MAX:
         problems.append(Problem("icon", "value_too_long", (("max", ICON_MAX),)))
@@ -939,14 +954,14 @@ async def delete_product_type(
         .where(AssetProductType.parent_id == row.id, AssetProductType.deleted_at.is_(None))
     )
     if children:
-        raise Conflict(code="asset_product_type_has_children", params={"count": int(children)})
+        raise Conflict(code="asset_product_type_has_children", params={"used": int(children)})
     products = await session.scalar(
         select(func.count())
         .select_from(AssetProduct)
         .where(AssetProduct.product_type_id == row.id, AssetProduct.deleted_at.is_(None))
     )
     if products:
-        raise Conflict(code="asset_product_type_in_use", params={"count": int(products)})
+        raise Conflict(code="asset_product_type_in_use", params={"used": int(products)})
     row.deleted_at = datetime.now(UTC)
     changes = [Change("deleted_at", None, row.deleted_at.isoformat())]
     await _saved(
@@ -1018,7 +1033,7 @@ async def _product_problems(session: AsyncSession, values: Mapping[str, Any]) ->
     if currency is not None and not CURRENCY.match(currency):
         problems.append(Problem("currency", "invalid_currency"))
     method = values.get("depreciation_method")
-    if method is not None and method not in set(DepreciationMethod):
+    if method is not None and method not in set(AssetDepreciationMethod):
         problems.append(Problem("depreciation_method", "invalid_choice"))
     years = values.get("useful_life_years")
     if years is not None and not 1 <= years <= 100:  # noqa: PLR2004 - the column's range
@@ -1068,8 +1083,7 @@ async def create_product(
         id=new_id(),
         tenant_id=_tenant(session),
         created_by=subject.user_id,
-        hide_from_purchase_orders=False,
-        **cleaned,
+        **{"hide_from_purchase_orders": False, **cleaned},
     )
     session.add(row)
     await session.flush()

@@ -25,6 +25,12 @@ ENUM_PREFIXES: dict[str, str] = {
     # AI gateway (WP-037)
     "AiArea": "ai_area",
     "OutcomeIn.outcome": "ai_outcome",
+    # Asset catalogue (WP-049a)
+    "AssetAgeBasis": "asset_age_basis",
+    "AssetDepreciationMethod": "asset_depreciation",
+    "AssetStateCategory": "asset_state_category",
+    "AssetTypeCategory": "asset_type_category",
+    "AssetTypeKind": "asset_type_kind",
     # SLA set-up (WP-025)
     "ActionKind": "sla_action_kind",
     "Anchor": "sla_level_anchor",

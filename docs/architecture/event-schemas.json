@@ -744,6 +744,100 @@
         "type": "object"
       }
     },
+    "assets.catalogue.changed": {
+      "1": {
+        "description": "A product type, state, life cycle or the asset settings changed (admin set-up).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Item Id"
+          },
+          "kind": {
+            "enum": [
+              "product_type",
+              "state",
+              "life_cycle",
+              "settings"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "action",
+          "changed_fields"
+        ],
+        "title": "CatalogueChanged",
+        "type": "object"
+      }
+    },
+    "assets.product.changed": {
+      "1": {
+        "description": "A product was created, changed or moved to the trash (REQ-AST-005).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "product_type_id": {
+            "format": "uuid",
+            "title": "Product Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "product_type_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "ProductChanged",
+        "type": "object"
+      }
+    },
     "audit.alert.raised": {
       "1": {
         "description": "Something security admins must see: a broken chain, overdue sealing, probing.\n\nREQ-AUD-005, REQ-AUD-010. The notification engine (WP-023) will deliver it; until then the\nconsole shows a banner and operations get a metric alert (D-076).",

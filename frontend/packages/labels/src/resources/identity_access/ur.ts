@@ -292,6 +292,8 @@ export const ur: LabelResource = {
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',
   'permission.assets.manage': 'اثاثوں کا انتظام کریں',
   'permission.assets.manage.description': 'اثاثے شامل اور تبدیل کریں۔',
+  'permission.assets.reinstate': 'ریٹائرڈ اثاثے واپس لائیں',
+  'permission.assets.reinstate.description': 'ریٹائرڈ اثاثہ واپس اسٹاک میں لائیں۔',
   'permission.assets.view': 'اثاثے دیکھیں',
   'permission.assets.view.description': 'ہارڈ ویئر اور سافٹ ویئر اثاثے دیکھیں۔',
   'permission.audit.export': 'آڈٹ لاگ برآمد کریں',
@@ -330,6 +332,9 @@ export const ur: LabelResource = {
   'permission.config.announcements': 'اعلانات ترتیب دیں',
   'permission.config.announcements.description':
     'کون شائع کر سکتا ہے، اور کیا دوسرے شخص کی منظوری ضروری ہے۔',
+  'permission.config.assets': 'اثاثوں کی ترتیب',
+  'permission.config.assets.description':
+    'پروڈکٹ کی اقسام، پروڈکٹس، اثاثوں کی حالتیں، لائف سائیکل اور اثاثوں کی ترتیبات تبدیل کریں۔',
   'permission.config.organisation': 'ادارہ ترتیب دیں',
   'permission.config.organisation.description': 'ڈیسک اور ادارے کے ڈھانچے کی ترتیبات۔',
   'permission.config.reports': 'رپورٹس ترتیب دیں',

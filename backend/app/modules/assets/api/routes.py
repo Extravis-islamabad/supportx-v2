@@ -16,11 +16,11 @@ from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.assets.domain.catalogue import (
-    AgeBasis,
-    DepreciationMethod,
-    StateCategory,
-    TypeCategory,
-    TypeKind,
+    AssetAgeBasis,
+    AssetDepreciationMethod,
+    AssetStateCategory,
+    AssetTypeCategory,
+    AssetTypeKind,
 )
 from app.modules.assets.infra.models import (
     AssetLifeCycleTransition,
@@ -65,11 +65,11 @@ NAMES_DOC = 'Names by language: {"en": ..., "ar": ..., "ur": ...}; English requi
 # --- settings ---------------------------------------------------------------------------------
 
 
-class SettingsOut(BaseModel):
+class AssetSettingsOut(BaseModel):
     """The tenant's asset settings (Appendix A defaults until an admin changes them)."""
 
     tag_pattern: str
-    age_basis: AgeBasis
+    age_basis: AssetAgeBasis
     cost_includes_tax: bool = Field(description="D-141: an asset's cost includes its tax.")
     copy_limit: int
     site_follows_owner: bool
@@ -79,11 +79,11 @@ class SettingsOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, row: AssetSettings) -> "SettingsOut":
+    def of(cls, row: AssetSettings) -> "AssetSettingsOut":
         """From the row."""
         return cls(
             tag_pattern=row.tag_pattern,
-            age_basis=AgeBasis(row.age_basis),
+            age_basis=AssetAgeBasis(row.age_basis),
             cost_includes_tax=row.cost_includes_tax,
             copy_limit=row.copy_limit,
             site_follows_owner=row.site_follows_owner,
@@ -94,13 +94,13 @@ class SettingsOut(BaseModel):
         )
 
 
-class SettingsIn(BaseModel):
+class AssetSettingsIn(BaseModel):
     """Settings to change (only those sent)."""
 
     model_config = ConfigDict(extra="forbid")
 
     tag_pattern: str | None = Field(default=None, max_length=40, description="e.g. AST-{n}")
-    age_basis: AgeBasis | None = None
+    age_basis: AssetAgeBasis | None = None
     cost_includes_tax: bool | None = None
     copy_limit: int | None = Field(default=None, ge=1, le=500)
     site_follows_owner: bool | None = None
@@ -110,12 +110,14 @@ class SettingsIn(BaseModel):
 
 
 @router.get("/settings", summary="Asset settings")
-async def get_settings(session: TenantSession, subject: View, response: Response) -> SettingsOut:
+async def get_settings(
+    session: TenantSession, subject: View, response: Response
+) -> AssetSettingsOut:
     """The tenant's asset settings."""
     del subject
     row = await service.get_settings(session)
     set_etag(response, row.version)
-    return SettingsOut.of(row)
+    return AssetSettingsOut.of(row)
 
 
 @router.patch(
@@ -125,13 +127,13 @@ async def get_settings(session: TenantSession, subject: View, response: Response
     dependencies=[audited("asset.settings_changed", object_type="asset_settings")],
 )
 async def patch_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
-    body: SettingsIn,
+    body: AssetSettingsIn,
     session: TenantSession,
     subject: Configure,
     version: ExpectedVersion,
     response: Response,
     request: Request,
-) -> SettingsOut:
+) -> AssetSettingsOut:
     """Change the settings sent. If-Match: the version you read."""
     row = await service.update_settings(
         session,
@@ -141,19 +143,19 @@ async def patch_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return SettingsOut.of(row)
+    return AssetSettingsOut.of(row)
 
 
 # --- states -----------------------------------------------------------------------------------
 
 
-class StateOut(BaseModel):
+class AssetStateOut(BaseModel):
     """An asset state; `category` is its fixed meaning (REQ-AST-012)."""
 
     id: uuid.UUID
     code: str
     names: Names
-    category: StateCategory
+    category: AssetStateCategory
     reason_required: bool
     is_default_for_category: bool
     system: bool = Field(description="Used by loans or disposal: it can be renamed, not deleted.")
@@ -161,13 +163,13 @@ class StateOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, row: AssetState) -> "StateOut":
+    def of(cls, row: AssetState) -> "AssetStateOut":
         """From the row."""
         return cls(
             id=row.id,
             code=row.code,
             names=row.names,
-            category=StateCategory(row.category),
+            category=AssetStateCategory(row.category),
             reason_required=row.reason_required,
             is_default_for_category=row.is_default_for_category,
             system=row.system,
@@ -176,46 +178,46 @@ class StateOut(BaseModel):
         )
 
 
-class StateIn(BaseModel):
+class AssetStateIn(BaseModel):
     """A new state."""
 
     model_config = ConfigDict(extra="forbid")
 
     code: str = Field(max_length=40, description="Stable lowercase code, e.g. with_courier.")
     names: Names = Field(description=NAMES_DOC)
-    category: StateCategory
+    category: AssetStateCategory
     reason_required: bool = False
     is_default_for_category: bool = False
 
 
-class StatePatch(BaseModel):
+class AssetStatePatch(BaseModel):
     """State fields to change (only those sent)."""
 
     model_config = ConfigDict(extra="forbid")
 
     names: Names | None = Field(default=None, description=NAMES_DOC)
-    category: StateCategory | None = None
+    category: AssetStateCategory | None = None
     reason_required: bool | None = None
     is_default_for_category: bool | None = None
     sort: int | None = Field(default=None, ge=0, le=10_000)
 
 
 @router.get("/states", summary="Asset states")
-async def list_states(session: TenantSession, subject: View) -> list[StateOut]:
+async def list_states(session: TenantSession, subject: View) -> list[AssetStateOut]:
     """Every state, in order."""
     del subject
-    return [StateOut.of(s) for s in await service.list_states(session)]
+    return [AssetStateOut.of(s) for s in await service.list_states(session)]
 
 
 @router.post(
     "/states",
     summary="Add an asset state",
     status_code=status.HTTP_201_CREATED,
-    response_model=StateOut,
+    response_model=AssetStateOut,
     dependencies=[audited("asset.state_saved", object_type="asset_state")],
 )
 async def create_state(
-    body: StateIn,
+    body: AssetStateIn,
     session: TenantSession,
     subject: Configure,
     idempotency: Idempotency,
@@ -227,7 +229,7 @@ async def create_state(
         row = await service.create_state(
             session, subject, body.model_dump(), source=source_of(request)
         )
-        return Created(body=StateOut.of(row), headers={"ETag": f'"{row.version}"'})
+        return Created(body=AssetStateOut.of(row), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -240,13 +242,13 @@ async def create_state(
 )
 async def patch_state(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     state_id: uuid.UUID,
-    body: StatePatch,
+    body: AssetStatePatch,
     session: TenantSession,
     subject: Configure,
     version: ExpectedVersion,
     response: Response,
     request: Request,
-) -> StateOut:
+) -> AssetStateOut:
     """Change the fields sent (If-Match)."""
     row = await service.update_state(
         session,
@@ -257,7 +259,7 @@ async def patch_state(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return StateOut.of(row)
+    return AssetStateOut.of(row)
 
 
 @router.delete(
@@ -285,7 +287,7 @@ async def delete_state(
 # --- life cycles ------------------------------------------------------------------------------
 
 
-class MoveIO(BaseModel):
+class AssetMoveIO(BaseModel):
     """One allowed move between two states."""
 
     model_config = ConfigDict(extra="forbid")
@@ -298,7 +300,7 @@ class MoveIO(BaseModel):
     )
 
     @classmethod
-    def of(cls, row: AssetLifeCycleTransition) -> "MoveIO":
+    def of(cls, row: AssetLifeCycleTransition) -> "AssetMoveIO":
         """From the row."""
         return cls(
             from_state_id=row.from_state_id,
@@ -308,62 +310,65 @@ class MoveIO(BaseModel):
         )
 
 
-class LifeCycleOut(BaseModel):
+class AssetLifeCycleOut(BaseModel):
     """A life cycle and its moves (REQ-AST-013)."""
 
     id: uuid.UUID
+    code: str = Field(description="Stable code for integrations; never shown to end users.")
     names: Names
     is_default: bool
-    moves: list[MoveIO]
+    moves: list[AssetMoveIO]
     version: int
 
     @classmethod
-    def of(cls, view: service.LifeCycleView) -> "LifeCycleOut":
+    def of(cls, view: service.LifeCycleView) -> "AssetLifeCycleOut":
         """From the service's view."""
         return cls(
             id=view.record.id,
+            code=view.record.code,
             names=view.record.names,
             is_default=view.record.is_default,
-            moves=[MoveIO.of(m) for m in view.moves],
+            moves=[AssetMoveIO.of(m) for m in view.moves],
             version=view.record.version,
         )
 
 
-class LifeCycleIn(BaseModel):
+class AssetLifeCycleIn(BaseModel):
     """A new life cycle."""
 
     model_config = ConfigDict(extra="forbid")
 
+    code: str = Field(max_length=40, description="Stable lowercase code, e.g. leased_laptops.")
     names: Names = Field(description=NAMES_DOC)
-    moves: list[MoveIO] = Field(default_factory=list, max_length=500)
+    moves: list[AssetMoveIO] = Field(default_factory=list, max_length=500)
 
 
-class LifeCyclePatch(BaseModel):
+class AssetLifeCyclePatch(BaseModel):
     """Life cycle fields to change; `moves` replaces every move."""
 
     model_config = ConfigDict(extra="forbid")
 
     names: Names | None = Field(default=None, description=NAMES_DOC)
-    moves: list[MoveIO] | None = Field(default=None, max_length=500)
+    moves: list[AssetMoveIO] | None = Field(default=None, max_length=500)
     is_default: bool | None = None
 
 
 @router.get("/life-cycles", summary="Asset life cycles")
-async def list_life_cycles(session: TenantSession, subject: View) -> list[LifeCycleOut]:
+async def list_life_cycles(session: TenantSession, subject: View) -> list[AssetLifeCycleOut]:
     """Every life cycle with its moves, the default first."""
     del subject
-    return [LifeCycleOut.of(v) for v in await service.list_life_cycles(session)]
+    return [AssetLifeCycleOut.of(v) for v in await service.list_life_cycles(session)]
 
 
 @router.post(
     "/life-cycles",
     summary="Add an asset life cycle",
     status_code=status.HTTP_201_CREATED,
-    response_model=LifeCycleOut,
+    response_model=AssetLifeCycleOut,
     dependencies=[audited("asset.life_cycle_saved", object_type="asset_life_cycle")],
 )
 async def create_life_cycle(
-    body: LifeCycleIn,
+    body: AssetLifeCycleIn,
     session: TenantSession,
     subject: Configure,
     idempotency: Idempotency,
@@ -375,7 +380,9 @@ async def create_life_cycle(
         view = await service.create_life_cycle(
             session, subject, body.model_dump(), source=source_of(request)
         )
-        return Created(body=LifeCycleOut.of(view), headers={"ETag": f'"{view.record.version}"'})
+        return Created(
+            body=AssetLifeCycleOut.of(view), headers={"ETag": f'"{view.record.version}"'}
+        )
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -392,13 +399,13 @@ async def create_life_cycle(
 )
 async def patch_life_cycle(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     life_cycle_id: uuid.UUID,
-    body: LifeCyclePatch,
+    body: AssetLifeCyclePatch,
     session: TenantSession,
     subject: Configure,
     version: ExpectedVersion,
     response: Response,
     request: Request,
-) -> LifeCycleOut:
+) -> AssetLifeCycleOut:
     """Change the fields sent (If-Match)."""
     view = await service.update_life_cycle(
         session,
@@ -409,7 +416,7 @@ async def patch_life_cycle(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, view.record.version)
-    return LifeCycleOut.of(view)
+    return AssetLifeCycleOut.of(view)
 
 
 @router.delete(
@@ -439,7 +446,7 @@ async def delete_life_cycle(
 # --- product types ----------------------------------------------------------------------------
 
 
-class ProductTypeOut(BaseModel):
+class AssetProductTypeOut(BaseModel):
     """A node of the product type tree (REQ-AST-003)."""
 
     id: uuid.UUID
@@ -447,8 +454,8 @@ class ProductTypeOut(BaseModel):
     api_name: str = Field(description="For integrations; never shown to end users.")
     names: Names
     icon: str | None
-    category: TypeCategory = Field(description="D-141: only IT assets count toward the limit.")
-    kind: TypeKind
+    category: AssetTypeCategory = Field(description="D-141: only IT assets count toward the limit.")
+    kind: AssetTypeKind
     description: str | None
     life_cycle_id: uuid.UUID | None = Field(description="None: the default life cycle.")
     tag_pattern: str | None = Field(description="None: the tenant's pattern.")
@@ -457,7 +464,7 @@ class ProductTypeOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, row: AssetProductType) -> "ProductTypeOut":
+    def of(cls, row: AssetProductType) -> "AssetProductTypeOut":
         """From the row."""
         return cls(
             id=row.id,
@@ -465,8 +472,8 @@ class ProductTypeOut(BaseModel):
             api_name=row.api_name,
             names=row.names,
             icon=row.icon,
-            category=TypeCategory(row.category),
-            kind=TypeKind(row.kind),
+            category=AssetTypeCategory(row.category),
+            kind=AssetTypeKind(row.kind),
             description=row.description,
             life_cycle_id=row.life_cycle_id,
             tag_pattern=row.tag_pattern,
@@ -476,7 +483,7 @@ class ProductTypeOut(BaseModel):
         )
 
 
-class ProductTypeIn(BaseModel):
+class AssetProductTypeIn(BaseModel):
     """A new type; under a parent it takes the parent's category and kind."""
 
     model_config = ConfigDict(extra="forbid")
@@ -485,15 +492,15 @@ class ProductTypeIn(BaseModel):
     names: Names = Field(description=NAMES_DOC)
     parent_id: uuid.UUID | None = None
     icon: str | None = Field(default=None, max_length=40)
-    category: TypeCategory | None = Field(default=None, description="Top-level types only.")
-    kind: TypeKind | None = Field(default=None, description="Top-level types only.")
+    category: AssetTypeCategory | None = Field(default=None, description="Top-level types only.")
+    kind: AssetTypeKind | None = Field(default=None, description="Top-level types only.")
     description: str | None = Field(default=None, max_length=service.TEXT_MAX)
     life_cycle_id: uuid.UUID | None = None
     tag_pattern: str | None = Field(default=None, max_length=40)
     ack_required: bool = False
 
 
-class ProductTypePatch(BaseModel):
+class AssetProductTypePatch(BaseModel):
     """Type fields to change (only those sent; null clears an optional one)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -501,8 +508,8 @@ class ProductTypePatch(BaseModel):
     names: Names | None = Field(default=None, description=NAMES_DOC)
     parent_id: uuid.UUID | None = None
     icon: str | None = Field(default=None, max_length=40)
-    category: TypeCategory | None = None
-    kind: TypeKind | None = None
+    category: AssetTypeCategory | None = None
+    kind: AssetTypeKind | None = None
     description: str | None = Field(default=None, max_length=service.TEXT_MAX)
     life_cycle_id: uuid.UUID | None = None
     tag_pattern: str | None = Field(default=None, max_length=40)
@@ -511,21 +518,21 @@ class ProductTypePatch(BaseModel):
 
 
 @router.get("/product-types", summary="Product types")
-async def list_product_types(session: TenantSession, subject: View) -> list[ProductTypeOut]:
+async def list_product_types(session: TenantSession, subject: View) -> list[AssetProductTypeOut]:
     """The whole tree, flat: each type names its parent."""
     del subject
-    return [ProductTypeOut.of(t) for t in await service.list_product_types(session)]
+    return [AssetProductTypeOut.of(t) for t in await service.list_product_types(session)]
 
 
 @router.post(
     "/product-types",
     summary="Add a product type",
     status_code=status.HTTP_201_CREATED,
-    response_model=ProductTypeOut,
+    response_model=AssetProductTypeOut,
     dependencies=[audited("asset.product_type_saved", object_type="asset_product_type")],
 )
 async def create_product_type(
-    body: ProductTypeIn,
+    body: AssetProductTypeIn,
     session: TenantSession,
     subject: Configure,
     idempotency: Idempotency,
@@ -537,7 +544,7 @@ async def create_product_type(
         row = await service.create_product_type(
             session, subject, body.model_dump(exclude_none=True), source=source_of(request)
         )
-        return Created(body=ProductTypeOut.of(row), headers={"ETag": f'"{row.version}"'})
+        return Created(body=AssetProductTypeOut.of(row), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -559,13 +566,13 @@ _NULLABLE_TYPE_FIELDS = {"parent_id", "icon", "description", "life_cycle_id", "t
 )
 async def patch_product_type(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     product_type_id: uuid.UUID,
-    body: ProductTypePatch,
+    body: AssetProductTypePatch,
     session: TenantSession,
     subject: Configure,
     version: ExpectedVersion,
     response: Response,
     request: Request,
-) -> ProductTypeOut:
+) -> AssetProductTypeOut:
     """Change the fields sent (If-Match). Category and kind flow down to the types below."""
     sent = body.model_dump(include=body.model_fields_set)
     values = {k: v for k, v in sent.items() if v is not None or k in _NULLABLE_TYPE_FIELDS}
@@ -578,7 +585,7 @@ async def patch_product_type(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return ProductTypeOut.of(row)
+    return AssetProductTypeOut.of(row)
 
 
 @router.delete(
@@ -610,7 +617,7 @@ async def delete_product_type(
 # --- products ---------------------------------------------------------------------------------
 
 
-class ProductOut(BaseModel):
+class AssetProductOut(BaseModel):
     """A product (REQ-AST-005); D-141: price and tax apart, `total` is their sum."""
 
     id: uuid.UUID
@@ -624,7 +631,7 @@ class ProductOut(BaseModel):
     currency: str | None
     gl_code: str | None
     hide_from_purchase_orders: bool
-    depreciation_method: DepreciationMethod | None
+    depreciation_method: AssetDepreciationMethod | None
     useful_life_years: int | None
     salvage_value: Decimal | None
     description: str | None
@@ -632,7 +639,7 @@ class ProductOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, row: AssetProduct) -> "ProductOut":
+    def of(cls, row: AssetProduct) -> "AssetProductOut":
         """From the row."""
         return cls(
             id=row.id,
@@ -647,7 +654,9 @@ class ProductOut(BaseModel):
             gl_code=row.gl_code,
             hide_from_purchase_orders=row.hide_from_purchase_orders,
             depreciation_method=(
-                DepreciationMethod(row.depreciation_method) if row.depreciation_method else None
+                AssetDepreciationMethod(row.depreciation_method)
+                if row.depreciation_method
+                else None
             ),
             useful_life_years=row.useful_life_years,
             salvage_value=row.salvage_value,
@@ -657,7 +666,7 @@ class ProductOut(BaseModel):
         )
 
 
-class ProductIn(BaseModel):
+class AssetProductIn(BaseModel):
     """A new product."""
 
     model_config = ConfigDict(extra="forbid")
@@ -671,13 +680,13 @@ class ProductIn(BaseModel):
     currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     gl_code: str | None = Field(default=None, max_length=service.GL_MAX)
     hide_from_purchase_orders: bool = False
-    depreciation_method: DepreciationMethod | None = None
+    depreciation_method: AssetDepreciationMethod | None = None
     useful_life_years: int | None = Field(default=None, ge=1, le=100)
     salvage_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     description: str | None = Field(default=None, max_length=service.TEXT_MAX)
 
 
-class ProductPatch(BaseModel):
+class AssetProductPatch(BaseModel):
     """Product fields to change (only those sent; null clears an optional one)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -691,7 +700,7 @@ class ProductPatch(BaseModel):
     currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     gl_code: str | None = Field(default=None, max_length=service.GL_MAX)
     hide_from_purchase_orders: bool | None = None
-    depreciation_method: DepreciationMethod | None = None
+    depreciation_method: AssetDepreciationMethod | None = None
     useful_life_years: int | None = Field(default=None, ge=1, le=100)
     salvage_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     description: str | None = Field(default=None, max_length=service.TEXT_MAX)
@@ -703,13 +712,13 @@ _REQUIRED_PRODUCT_FIELDS = {"product_type_id", "name", "hide_from_purchase_order
 @router.get("/products", summary="Products")
 async def list_products(
     session: TenantSession, query: ProductsQuery, subject: View
-) -> Page[ProductOut]:
+) -> Page[AssetProductOut]:
     """Products, filtered (`product_type_id=`, `manufacturer=`, the DSL) and paged."""
     del subject
     await service.ensure_defaults(session)
     page = await paginate(session, service.products_query(), query)
-    return Page[ProductOut](
-        items=[ProductOut.of(row) for row in page.rows],
+    return Page[AssetProductOut](
+        items=[AssetProductOut.of(row) for row in page.rows],
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
@@ -720,11 +729,11 @@ async def list_products(
     "/products",
     summary="Add a product",
     status_code=status.HTTP_201_CREATED,
-    response_model=ProductOut,
+    response_model=AssetProductOut,
     dependencies=[audited("asset.product_saved", object_type="asset_product")],
 )
 async def create_product(
-    body: ProductIn,
+    body: AssetProductIn,
     session: TenantSession,
     subject: Configure,
     idempotency: Idempotency,
@@ -736,7 +745,7 @@ async def create_product(
         row = await service.create_product(
             session, subject, body.model_dump(exclude_none=True), source=source_of(request)
         )
-        return Created(body=ProductOut.of(row), headers={"ETag": f'"{row.version}"'})
+        return Created(body=AssetProductOut.of(row), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -748,12 +757,12 @@ async def create_product(
 )
 async def get_product(
     product_id: uuid.UUID, session: TenantSession, subject: View, response: Response
-) -> ProductOut:
+) -> AssetProductOut:
     """One product."""
     del subject
     row = await service.get_product(session, product_id)
     set_etag(response, row.version)
-    return ProductOut.of(row)
+    return AssetProductOut.of(row)
 
 
 @router.patch(
@@ -766,13 +775,13 @@ async def get_product(
 )
 async def patch_product(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     product_id: uuid.UUID,
-    body: ProductPatch,
+    body: AssetProductPatch,
     session: TenantSession,
     subject: Configure,
     version: ExpectedVersion,
     response: Response,
     request: Request,
-) -> ProductOut:
+) -> AssetProductOut:
     """Change the fields sent (If-Match). Assets keep the cost they were bought at."""
     sent = body.model_dump(include=body.model_fields_set)
     values = {k: v for k, v in sent.items() if v is not None or k not in _REQUIRED_PRODUCT_FIELDS}
@@ -780,7 +789,7 @@ async def patch_product(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, product_id, values, expected_version=version, source=source_of(request)
     )
     set_etag(response, row.version)
-    return ProductOut.of(row)
+    return AssetProductOut.of(row)
 
 
 @router.delete(

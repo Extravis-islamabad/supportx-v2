@@ -32,6 +32,21 @@ export const ar: LabelResource = {
   'errors.approval_closed': 'تم البت في هذه الموافقة أو لم تعد مطلوبة.',
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
+  'errors.asset_life_cycle_in_use':
+    'لا تزال أنواع منتجات تستخدم دورة الحياة هذه ({{used}}). انقلها إلى دورة أخرى أولًا.',
+  'errors.asset_life_cycle_not_found': 'دورة الحياة هذه غير موجودة.',
+  'errors.asset_life_cycle_protected':
+    'لا يمكن حذف دورة الحياة الافتراضية. اجعل دورة أخرى افتراضية أولًا.',
+  'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
+  'errors.asset_product_type_has_children':
+    'توجد أنواع منتجات أخرى تحت هذا النوع ({{used}}). انقلها أو احذفها أولًا.',
+  'errors.asset_product_type_in_use': 'لا تزال منتجات تستخدم نوع المنتج هذا ({{used}}).',
+  'errors.asset_product_type_not_found': 'نوع المنتج هذا غير موجود.',
+  'errors.asset_state_in_use':
+    'لا تزال انتقالات في دورات الحياة تستخدم هذه الحالة ({{used}}). أزلها أولًا.',
+  'errors.asset_state_not_found': 'حالة الأصل هذه غير موجودة.',
+  'errors.asset_state_protected':
+    'تُستخدم هذه الحالة في الإعارة أو التخلص أو كحالة افتراضية لفئتها، لذا لا يمكن حذفها.',
   'errors.audit_archive_missing': 'لم يعد ملف الأرشيف موجودًا في التخزين.',
   'errors.audit_archive_not_found': 'هذا الأرشيف غير موجود.',
   'errors.audit_archive_not_ready': 'لا يمكن استعادة إلا أرشيف مُتحقق منه.',
@@ -125,6 +140,24 @@ export const ar: LabelResource = {
   'errors.field.api_key_name_invalid': 'أدخل اسمًا لا يتجاوز 100 حرف.',
   'errors.field.api_key_owner_not_service': 'مفاتيح الآخرين لا تكون إلا لهوية خدمة.',
   'errors.field.api_key_scope_unknown': 'اختر نطاقًا واحدًا على الأقل من النطاقات المعروضة.',
+  'errors.field.asset_api_name_taken': 'نوع منتج آخر يستخدم اسم الواجهة هذا.',
+  'errors.field.asset_life_cycle_code_taken': 'دورة حياة أخرى تستخدم هذا الرمز.',
+  'errors.field.asset_life_cycle_default_needed':
+    'يجب وجود دورة حياة افتراضية. اجعل دورة أخرى افتراضية بدلًا من ذلك.',
+  'errors.field.asset_life_cycle_not_found': 'اختر دورة حياة من القائمة.',
+  'errors.field.asset_move_duplicate':
+    'هذا الانتقال موجود في القائمة بالفعل، أو يؤدي إلى الحالة نفسها.',
+  'errors.field.asset_product_type_cycle':
+    'لا يمكن وضع نوع منتج تحت نفسه أو تحت أحد أنواعه الفرعية.',
+  'errors.field.asset_product_type_inherited': 'تأتي هذه القيمة من النوع الأصل. غيّرها هناك.',
+  'errors.field.asset_product_type_not_found': 'اختر نوع منتج من القائمة.',
+  'errors.field.asset_product_type_too_deep': 'يمكن أن تصل الشجرة إلى {{max}} مستويات كحد أقصى.',
+  'errors.field.asset_state_code_taken': 'حالة أخرى تستخدم هذا الرمز.',
+  'errors.field.asset_state_default_needed':
+    'تحتاج كل فئة إلى حالة افتراضية. اجعل حالة أخرى افتراضية بدلًا من ذلك.',
+  'errors.field.asset_state_not_found': 'اختر الحالات من القائمة.',
+  'errors.field.asset_state_system': 'تعتمد الإعارة والتخلص على هذه الحالة، لذا تبقى فئتها كما هي.',
+  'errors.field.asset_tag_pattern_invalid': 'استخدم العدّاد {n} مرة واحدة مع نص حوله، مثل AST-{n}.',
   'errors.field.auto_close_needs_notifications':
     'يحتاج الإغلاق التلقائي إلى إشعارات مقدّمي الطلبات: لا توجد بعد قناة تُبلغ مقدّمي الطلبات بالحل.',
   'errors.field.below_minimum': 'الحد الأدنى هو {{min}}.',
@@ -377,6 +410,7 @@ export const ar: LabelResource = {
   'errors.field.too_many_actions': 'يمكن أن تحتوي القاعدة على {{max}} إجراء كحد أقصى.',
   'errors.field.too_many_approvers': 'يمكن أن تضم المرحلة 10 موافقين على الأكثر.',
   'errors.field.too_many_conditions': 'يحتوي عامل التصفية على شروط كثيرة جدًا.',
+  'errors.field.too_many_decimals': 'استخدم {{max}} منازل عشرية كحد أقصى.',
   'errors.field.too_many_items': 'عدد الإدخالات كبير جدًا.',
   'errors.field.too_many_levels': 'يُسمح بـ {{max}} مستويات تصعيد على الأكثر لكل هدف.',
   'errors.field.too_many_options': 'يمكن أن يحتوي السؤال على 50 خيارًا على الأكثر.',

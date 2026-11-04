@@ -9,10 +9,10 @@ from app.modules.assets.domain.catalogue import (
     SEED_MOVES,
     SEED_STATES,
     SEED_TYPES,
+    AssetStateCategory,
+    AssetTypeKind,
     Move,
     SeedType,
-    StateCategory,
-    TypeKind,
     amount_problems,
     clean_names,
     depth,
@@ -83,7 +83,7 @@ def test_appendix_a_defaults_hold_together() -> None:
     assert len(codes) == len(set(codes)) == 7
     # One default state per category, every category covered (the automatic moves need them).
     defaults = [s.category for s in SEED_STATES if s.default_for_category]
-    assert sorted(defaults) == sorted(StateCategory)
+    assert sorted(defaults) == sorted(AssetStateCategory)
     for move in SEED_MOVES:
         assert move.from_state in codes
         assert move.to_state in codes
@@ -100,6 +100,6 @@ def test_appendix_a_defaults_hold_together() -> None:
         assert set(node.names) == set(NAME_LANGUAGES)
         assert all(node.names.values())
     kinds = {top.kind for top in SEED_TYPES}
-    assert kinds == set(TypeKind)
+    assert kinds == set(AssetTypeKind)
     for state in SEED_STATES:
         assert set(state.names) == set(NAME_LANGUAGES)

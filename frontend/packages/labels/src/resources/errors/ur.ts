@@ -35,6 +35,21 @@ export const ur: LabelResource = {
   'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
+  'errors.asset_life_cycle_in_use':
+    'پروڈکٹ اقسام ابھی یہ لائف سائیکل استعمال کرتی ہیں ({{used}})۔ پہلے انہیں کسی اور پر منتقل کریں۔',
+  'errors.asset_life_cycle_not_found': 'یہ لائف سائیکل موجود نہیں۔',
+  'errors.asset_life_cycle_protected':
+    'طے شدہ لائف سائیکل حذف نہیں ہو سکتا۔ پہلے کسی اور کو طے شدہ بنائیں۔',
+  'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
+  'errors.asset_product_type_has_children':
+    'اس کے نیچے دوسری پروڈکٹ اقسام ہیں ({{used}})۔ پہلے انہیں منتقل یا حذف کریں۔',
+  'errors.asset_product_type_in_use': 'پروڈکٹس ابھی یہ قسم استعمال کرتی ہیں ({{used}})۔',
+  'errors.asset_product_type_not_found': 'پروڈکٹ کی یہ قسم موجود نہیں۔',
+  'errors.asset_state_in_use':
+    'لائف سائیکلز کی منتقلیاں ابھی یہ حالت استعمال کرتی ہیں ({{used}})۔ پہلے انہیں ہٹائیں۔',
+  'errors.asset_state_not_found': 'اثاثے کی یہ حالت موجود نہیں۔',
+  'errors.asset_state_protected':
+    'یہ حالت ادھار، تلفی یا اپنی کیٹیگری کی طے شدہ حالت کے طور پر استعمال ہوتی ہے، اس لیے حذف نہیں ہو سکتی۔',
   'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
   'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
   'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
@@ -142,6 +157,25 @@ export const ur: LabelResource = {
   'errors.field.api_key_name_invalid': 'زیادہ سے زیادہ 100 حروف کا نام درج کریں۔',
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
+  'errors.field.asset_api_name_taken': 'پروڈکٹ کی کوئی اور قسم یہ API نام رکھتی ہے۔',
+  'errors.field.asset_life_cycle_code_taken': 'کوئی اور لائف سائیکل یہ کوڈ رکھتا ہے۔',
+  'errors.field.asset_life_cycle_default_needed':
+    'ایک طے شدہ لائف سائیکل لازمی ہے۔ اس کے بجائے کسی اور کو طے شدہ بنائیں۔',
+  'errors.field.asset_life_cycle_not_found': 'فہرست سے لائف سائیکل منتخب کریں۔',
+  'errors.field.asset_move_duplicate': 'یہ منتقلی پہلے سے فہرست میں ہے، یا اسی حالت میں جاتی ہے۔',
+  'errors.field.asset_product_type_cycle':
+    'پروڈکٹ کی قسم خود اپنے یا اپنی ذیلی قسم کے نیچے نہیں آ سکتی۔',
+  'errors.field.asset_product_type_inherited': 'یہ والدین قسم سے آتا ہے۔ اسے وہاں تبدیل کریں۔',
+  'errors.field.asset_product_type_not_found': 'فہرست سے پروڈکٹ کی قسم منتخب کریں۔',
+  'errors.field.asset_product_type_too_deep': 'درخت زیادہ سے زیادہ {{max}} درجے گہرا ہو سکتا ہے۔',
+  'errors.field.asset_state_code_taken': 'کوئی اور حالت یہ کوڈ رکھتی ہے۔',
+  'errors.field.asset_state_default_needed':
+    'ہر کیٹیگری کو ایک طے شدہ حالت چاہیے۔ اس کے بجائے کسی اور حالت کو طے شدہ بنائیں۔',
+  'errors.field.asset_state_not_found': 'فہرست سے حالتیں منتخب کریں۔',
+  'errors.field.asset_state_system':
+    'ادھار اور تلفی اس حالت پر انحصار کرتے ہیں، اس لیے اس کی کیٹیگری برقرار رہتی ہے۔',
+  'errors.field.asset_tag_pattern_invalid':
+    'کاؤنٹر {n} ایک بار، اس کے ساتھ کچھ متن کے ساتھ استعمال کریں، مثلاً AST-{n}۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
   'errors.field.below_minimum': 'کم از کم {{min}} ہے۔',
@@ -411,6 +445,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_actions': 'ایک قاعدے میں زیادہ سے زیادہ {{max}} عمل ہو سکتے ہیں۔',
   'errors.field.too_many_approvers': 'ایک مرحلے میں زیادہ سے زیادہ 10 منظور کنندگان ہو سکتے ہیں۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
+  'errors.field.too_many_decimals': 'زیادہ سے زیادہ {{max}} اعشاری مقامات استعمال کریں۔',
   'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
   'errors.field.too_many_levels': 'ہر ہدف کے لیے زیادہ سے زیادہ {{max}} ایسکلیشن درجے۔',
   'errors.field.too_many_options': 'ایک سوال میں زیادہ سے زیادہ 50 انتخاب ہو سکتے ہیں۔',

@@ -286,6 +286,8 @@ export const ar: LabelResource = {
     'إنشاء مفاتيح API لهويات الخدمة، ورؤية كل المفاتيح وإبطالها.',
   'permission.assets.manage': 'إدارة الأصول',
   'permission.assets.manage.description': 'إضافة الأصول وتغييرها.',
+  'permission.assets.reinstate': 'إعادة الأصول المتقاعدة',
+  'permission.assets.reinstate.description': 'إعادة أصل متقاعد إلى المخزون.',
   'permission.assets.view': 'عرض الأصول',
   'permission.assets.view.description': 'رؤية أصول الأجهزة والبرمجيات.',
   'permission.audit.export': 'تصدير سجل التدقيق',
@@ -322,6 +324,9 @@ export const ar: LabelResource = {
   'permission.config.announcements': 'إعداد الإعلانات',
   'permission.config.announcements.description':
     'من يمكنه النشر، وما إذا كان يلزم موافقة شخص ثانٍ.',
+  'permission.config.assets': 'تهيئة الأصول',
+  'permission.config.assets.description':
+    'تغيير أنواع المنتجات والمنتجات وحالات الأصول ودورات حياتها وإعدادات الأصول.',
   'permission.config.organisation': 'إعداد المؤسسة',
   'permission.config.organisation.description': 'المكاتب وإعدادات هيكل المؤسسة.',
   'permission.config.reports': 'إعداد التقارير',

@@ -99,12 +99,24 @@ def upgrade() -> None:
     op.create_table(
         "asset_life_cycles",
         *_entity_columns(),
+        # Stable code for logic, events and the API; names are display text only.
+        sa.Column("code", sa.String(40), nullable=False),
         sa.Column("names", postgresql.JSONB(), nullable=False),
         sa.Column("is_default", sa.Boolean(), server_default="false", nullable=False),
+        sa.CheckConstraint(
+            "code ~ '^[a-z][a-z0-9_]{1,39}$'", name=op.f("ck_asset_life_cycles_code")
+        ),
         _names_check("asset_life_cycles"),
         _tenant_fk("asset_life_cycles"),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_asset_life_cycles")),
         sa.UniqueConstraint("tenant_id", "id", name="uq_asset_life_cycles_tenant_id_id"),
+    )
+    op.create_index(
+        "uq_asset_life_cycles_code",
+        "asset_life_cycles",
+        ["tenant_id", "code"],
+        unique=True,
+        postgresql_where=sa.text("deleted_at IS NULL"),
     )
     # At most one default life cycle per tenant.
     op.create_index(

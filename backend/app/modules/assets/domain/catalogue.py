@@ -31,14 +31,14 @@ LIFE_CYCLES_MAX = 50
 AMOUNT_MAX = Decimal("999999999999.99")  # NUMERIC(14, 2)
 
 
-class TypeCategory(StrEnum):
+class AssetTypeCategory(StrEnum):
     """D-141: only `it` asset types count toward the licence's asset limit."""
 
     IT = "it"
     NON_IT = "non_it"
 
 
-class TypeKind(StrEnum):
+class AssetTypeKind(StrEnum):
     """What the type's records are (REQ-AST-003); only `asset` records are managed assets."""
 
     ASSET = "asset"
@@ -46,7 +46,7 @@ class TypeKind(StrEnum):
     CONSUMABLE = "consumable"
 
 
-class StateCategory(StrEnum):
+class AssetStateCategory(StrEnum):
     """The fixed meaning of a state (REQ-AST-012)."""
 
     IN_STOCK = "in_stock"
@@ -56,7 +56,7 @@ class StateCategory(StrEnum):
     DISPOSED = "disposed"
 
 
-class DepreciationMethod(StrEnum):
+class AssetDepreciationMethod(StrEnum):
     """REQ-AST-037; the calculation itself arrives in WP-049b."""
 
     STRAIGHT_LINE = "straight_line"
@@ -65,7 +65,7 @@ class DepreciationMethod(StrEnum):
     SUM_OF_YEARS_DIGITS = "sum_of_years_digits"
 
 
-class AgeBasis(StrEnum):
+class AssetAgeBasis(StrEnum):
     """The date an asset's age counts from (REQ-AST-011)."""
 
     ACQUISITION_DATE = "acquisition_date"
@@ -196,7 +196,7 @@ class SeedState:
 
     code: str
     names: Mapping[str, str]
-    category: StateCategory
+    category: AssetStateCategory
     reason_required: bool = False
     default_for_category: bool = False
     system: bool = False  # loans and disposal rely on it: it can be renamed, never deleted
@@ -209,8 +209,8 @@ class SeedType:
     api_name: str
     names: Mapping[str, str]
     icon: str
-    category: TypeCategory | None = None  # top-level types only
-    kind: TypeKind | None = None
+    category: AssetTypeCategory | None = None  # top-level types only
+    kind: AssetTypeKind | None = None
     children: tuple["SeedType", ...] = ()
 
 
@@ -222,31 +222,31 @@ SEED_STATES: tuple[SeedState, ...] = (
     SeedState(
         "in_stock",
         _n("In stock", "في المخزون", "اسٹاک میں"),
-        StateCategory.IN_STOCK,
+        AssetStateCategory.IN_STOCK,
         default_for_category=True,
     ),
     SeedState(
         "in_use",
         _n("In use", "قيد الاستخدام", "زیرِ استعمال"),
-        StateCategory.IN_USE,
+        AssetStateCategory.IN_USE,
         default_for_category=True,
     ),
     # Set by loans (WP-049a session 5), so it stays.
-    SeedState("on_loan", _n("On loan", "مُعار", "ادھار پر"), StateCategory.IN_USE, system=True),
+    SeedState("on_loan", _n("On loan", "مُعار", "ادھار پر"), AssetStateCategory.IN_USE, system=True),
     SeedState(
         "in_repair",
         _n("In repair", "قيد الإصلاح", "مرمت میں"),
-        StateCategory.IN_REPAIR,
+        AssetStateCategory.IN_REPAIR,
         reason_required=True,
         default_for_category=True,
     ),
     SeedState(
-        "missing", _n("Missing", "مفقود", "گمشدہ"), StateCategory.RETIRED, reason_required=True
+        "missing", _n("Missing", "مفقود", "گمشدہ"), AssetStateCategory.RETIRED, reason_required=True
     ),
     SeedState(
         "retired",
         _n("Retired", "متقاعد", "ریٹائرڈ"),
-        StateCategory.RETIRED,
+        AssetStateCategory.RETIRED,
         reason_required=True,
         default_for_category=True,
     ),
@@ -254,7 +254,7 @@ SEED_STATES: tuple[SeedState, ...] = (
     SeedState(
         "disposed",
         _n("Disposed", "تم التخلص منه", "تلف شدہ"),
-        StateCategory.DISPOSED,
+        AssetStateCategory.DISPOSED,
         reason_required=True,
         default_for_category=True,
         system=True,
@@ -274,6 +274,7 @@ SEED_MOVES: tuple[Move, ...] = (
     Move("retired", "disposed"),
 )
 
+SEED_LIFE_CYCLE_CODE = "standard"
 SEED_LIFE_CYCLE_NAMES = _n(
     "Standard asset life cycle", "دورة حياة الأصل القياسية", "اثاثے کا معیاری لائف سائیکل"
 )
@@ -288,8 +289,8 @@ SEED_TYPES: tuple[SeedType, ...] = (
         "it_hardware",
         _n("IT hardware", "أجهزة تقنية المعلومات", "آئی ٹی ہارڈویئر"),
         "cluster",
-        TypeCategory.IT,
-        TypeKind.ASSET,
+        AssetTypeCategory.IT,
+        AssetTypeKind.ASSET,
         (
             _t(
                 "computer",
@@ -338,8 +339,8 @@ SEED_TYPES: tuple[SeedType, ...] = (
         "non_it_assets",
         _n("Non-IT assets", "أصول غير تقنية", "غیر آئی ٹی اثاثے"),
         "shop",
-        TypeCategory.NON_IT,
-        TypeKind.ASSET,
+        AssetTypeCategory.NON_IT,
+        AssetTypeKind.ASSET,
         (
             _t("furniture", "Furniture", "أثاث", "فرنیچر", "shop"),
             _t("projector", "Projector", "جهاز عرض", "پروجیکٹر", "video-camera"),
@@ -351,8 +352,8 @@ SEED_TYPES: tuple[SeedType, ...] = (
         "components",
         _n("Components", "مكونات", "پرزے"),
         "build",
-        TypeCategory.IT,
-        TypeKind.COMPONENT,
+        AssetTypeCategory.IT,
+        AssetTypeKind.COMPONENT,
         (
             _t("monitor", "Monitor", "شاشة", "مانیٹر", "desktop"),
             _t("keyboard", "Keyboard", "لوحة مفاتيح", "کی بورڈ", "edit"),
@@ -366,8 +367,8 @@ SEED_TYPES: tuple[SeedType, ...] = (
         "consumables",
         _n("Consumables", "مستهلكات", "قابلِ صرف اشیاء"),
         "inbox",
-        TypeCategory.NON_IT,
-        TypeKind.CONSUMABLE,
+        AssetTypeCategory.NON_IT,
+        AssetTypeKind.CONSUMABLE,
         (
             _t("toner_and_ink", "Toner and ink", "حبر وتونر", "ٹونر اور سیاہی", "format-painter"),
             _t("cables", "Cables", "كابلات", "کیبلز", "link"),

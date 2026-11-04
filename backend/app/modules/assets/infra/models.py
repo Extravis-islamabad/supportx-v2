@@ -36,6 +36,7 @@ class AssetLifeCycle(TenantEntity):
         UniqueConstraint("tenant_id", "id", name="uq_asset_life_cycles_tenant_id_id"),
     )
 
+    code: Mapped[str] = mapped_column(String(40))  # stable; names are display text only
     names: Mapped[Names] = mapped_column(JSONB)
     is_default: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
