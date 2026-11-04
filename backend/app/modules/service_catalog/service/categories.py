@@ -26,7 +26,6 @@ from app.modules.service_catalog.domain.items import name_problems
 from app.modules.service_catalog.events import ServiceCategoryChanged
 from app.modules.service_catalog.infra.models import CatalogItem, ServiceCategory
 from app.modules.service_catalog.service.common import invalid, is_staff, require_manage
-from app.shared.db.models import utc_now
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, ChangeKind, Source, record_changes
@@ -69,6 +68,14 @@ def _snapshot(row: ServiceCategory) -> dict[str, Any]:
     return {
         name: (str(v) if isinstance(v := getattr(row, name), uuid.UUID) else v) for name in FIELDS
     }
+
+
+def _typed(values: Mapping[str, Any]) -> dict[str, Any]:
+    """The API's JSON as the columns keep it (the parent as a UUID)."""
+    out = dict(values)
+    if out.get("parent_id") is not None:
+        out["parent_id"] = uuid.UUID(str(out["parent_id"]))
+    return out
 
 
 def _shape_problems(values: Mapping[str, Any], *, creating: bool) -> list[tuple[str, str]]:
@@ -118,6 +125,7 @@ async def create_category(
 ) -> ServiceCategory:
     """A new category (an English name at least), at the root or under a parent."""
     require_manage(subject)
+    values = _typed(values)
     if problems := _shape_problems(values, creating=True):
         raise invalid(problems)
     parent_id = values.get("parent_id")
@@ -165,6 +173,7 @@ async def update_category(  # noqa: PLR0913 - the category, its version and the 
     """Change what is sent; unchanged input keeps the version and emits nothing."""
     require_manage(subject)
     row = await _live(session, category_id)
+    values = _typed(values)
     if problems := _shape_problems(values, creating=False):
         raise invalid(problems)
     changes = {k: values[k] for k in FIELDS if k in values and getattr(row, k) != values[k]}
@@ -226,8 +235,8 @@ async def delete_category(
     row = await _live(session, category_id)
     if used := await category_usage(session, row.id):
         raise Conflict(code="service_category_in_use", params=used)
-    updated = await CategoryRepository(session).update(
-        row.id, expected_version=expected_version, changes={"deleted_at": utc_now()}
+    updated = await CategoryRepository(session).soft_delete(
+        row.id, expected_version=expected_version
     )
     await _emit(
         session, updated, [Change("deleted_at", None, "deleted")], kind="deleted", source=source

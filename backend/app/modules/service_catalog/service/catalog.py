@@ -677,9 +677,7 @@ async def delete_item(  # noqa: PLR0913 - the item, its version, the source and 
     row = await _live(session, item_id)
     if used := await ports.item_usage(session, row.id):
         raise Conflict(code="catalog_item_in_use", params={"requests": used})
-    updated = await ItemRepository(session).update(
-        row.id, expected_version=expected_version, changes={"deleted_at": clock.now()}
-    )
+    updated = await ItemRepository(session).soft_delete(row.id, expected_version=expected_version)
     await record_item_change(
         session, updated, [Change("deleted_at", None, "deleted")], kind="deleted", source=source
     )
