@@ -155,7 +155,8 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         keycloak.roles[imported] = set()
 
         first = asyncio.run(_run(database, keycloak))
-        assert first.tenant == ["tenant", "subscription"]
+        assert first.tenant == ["tenant", "subscription", "starter_catalog"]
+        assert first.catalog_published == 14  # the starter catalog (D-138), with its group
         assert first.incidents == len(seed.STATES) == 60
         assert first.dashboard
         # The password is the environment's, set only on the users made here.
@@ -176,12 +177,13 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         }
 
         second = asyncio.run(_run(database, keycloak))
-        assert (second.tenant, second.keycloak, second.incidents, second.dashboard) == (
-            [],
-            [],
-            0,
-            False,
-        )
+        assert (
+            second.tenant,
+            second.keycloak,
+            second.incidents,
+            second.dashboard,
+            second.catalog_published,
+        ) == ([], [], 0, False, 0)
         assert asyncio.run(_counts(database.migrator_url, seed.TENANT_ID)) == counts
         assert asyncio.run(_counts(database.migrator_url, bystander)) == before
         assert keycloak.passwords[imported] == "Changed-By-Hand-1!"

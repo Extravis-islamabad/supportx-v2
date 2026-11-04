@@ -542,3 +542,33 @@ async def test_choosing_a_group_publishes_the_starter_items(world: World) -> Non
         "Password or MFA reset help",
     )
     assert set(json.loads(rows[0]["descriptions"])) == {"en", "ar", "ur"}
+
+
+async def test_the_tooling_command_finds_the_tenant_by_slug(world: World) -> None:
+    from tooling.catalog_starter import seed  # noqa: PLC0415 - tooling, imported where used
+
+    a = world.a
+    assert await seed(world.db.migrator_url, "no-such-tenant") is None
+    [row] = await world.sql("SELECT slug FROM tenants WHERE id = $1", a.tenant)
+    first = await seed(world.db.migrator_url, row["slug"])
+    assert first is not None
+    assert (first.categories, first.items) == (6, 14)
+    again = await seed(world.db.migrator_url, row["slug"])
+    assert again is not None
+    assert again.items == 0  # never into a catalog that has content
+
+
+async def test_provisioning_writes_the_event_in_the_tenants_transaction(world: World) -> None:
+    from app.modules.organization import record_tenant_provisioned  # noqa: PLC0415 - one test
+
+    a = world.a
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await record_tenant_provisioned(session)
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE event_type = 'organization.tenant.provisioned'"
+        " AND aggregate_id = $1",
+        str(a.tenant),
+    )
+    [envelope] = [json.loads(r["envelope"]) for r in rows]
+    assert envelope["payload"] == {"tenant_id": str(a.tenant)}
+    assert envelope["tenant_id"] == str(a.tenant)
