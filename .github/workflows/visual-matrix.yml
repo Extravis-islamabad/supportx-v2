@@ -1,0 +1,137 @@
+# The daily visual review (product owner, 2026-11-04): every console and portal screen in every
+# navigation layout, theme, language and width, as JPEG screenshots with automatic visual checks
+# recorded as warnings in index.json (frontend/e2e/tests/visual-matrix.spec.ts). The coordinator
+# downloads the artifact each evening.
+#
+# Never a required check, never on PRs: nightly and on demand only. Warnings never fail the job;
+# only a crash of the spec turns it red. Six shards, each on its own stack (one sixth of the
+# screens), merged into one artifact kept 7 days.
+name: Visual matrix
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # nightly 03:17 UTC, after the stack smoke
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  shots:
+    name: screens ${{ matrix.shard }}/6
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate throwaway .env (with a showcase password for this run only)
+        run: |
+          make dev-init
+          password="$(openssl rand -hex 16)Aa1!"
+          sed -i "s/^SHOWCASE_PASSWORD=.*/SHOWCASE_PASSWORD=${password}/" deploy/compose/.env
+          echo "::add-mask::$password"
+          grep -E '^[A-Z_]+=[0-9a-f]{32}$' deploy/compose/.env | cut -d= -f2 |
+            while read -r secret; do echo "::add-mask::$secret"; done
+      - name: Start core profile (incl. Keycloak with the supportx realm)
+        run: make dev-up
+      - uses: ./.github/actions/setup-backend
+      - name: Keycloak identity service account
+        run: make keycloak-identity
+      - uses: ./.github/actions/setup-frontend
+      - uses: ./.github/actions/generated
+        with:
+          frontend: "true"
+      - name: Configure, migrate and seed (dev tenants and the showcase)
+        run: make backend-env db-migrate db-seed showcase-seed
+      - name: Start the API, the event workers, the console and the portal
+        run: |
+          (cd backend && nohup uv run uvicorn app.main:create_app --factory \
+            --host 127.0.0.1 --port 8000 --no-access-log > ../api.log 2>&1 &)
+          (cd backend && nohup uv run python -m workers.outbox_relay > ../relay.log 2>&1 &)
+          (cd backend && nohup uv run python -m workers.consumers > ../consumers.log 2>&1 &)
+          (cd backend && nohup uv run python -m workers.realtime_fanout > ../fanout.log 2>&1 &)
+          (cd frontend && nohup pnpm --filter @supportx/console dev > ../console.log 2>&1 &)
+          (cd frontend && nohup pnpm --filter @supportx/portal dev > ../portal.log 2>&1 &)
+          for _ in $(seq 1 60); do
+            curl -fsS http://localhost:5173/api/v1/ready >/dev/null &&
+              curl -fsS http://localhost:5174/api/v1/ready >/dev/null && break
+            sleep 2
+          done
+          curl -fsS http://localhost:5173/api/v1/ready
+          curl -fsS http://localhost:5174/api/v1/ready
+      - name: Screens (this shard)
+        working-directory: frontend
+        timeout-minutes: 75
+        run: |
+          pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
+          SUPPORTX_SHOWCASE_PASSWORD="$(grep '^SHOWCASE_PASSWORD=' ../deploy/compose/.env | cut -d= -f2-)" \
+          VISUAL_MATRIX=1 VISUAL_SHARD="${{ matrix.shard }}/6" VISUAL_OUT="$PWD/e2e/visual-matrix" \
+            pnpm --filter @supportx/e2e e2e tests/visual-matrix.spec.ts
+      - name: Diagnostics on failure
+        if: ${{ failure() }}
+        run: |
+          make dev-ps
+          tail -n 120 api.log consumers.log console.log portal.log || true
+      - name: Upload this shard's screens
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-shard-${{ matrix.shard }}
+          path: frontend/e2e/visual-matrix
+          if-no-files-found: ignore
+          retention-days: 1
+      - name: Tear down
+        if: ${{ always() }}
+        run: make dev-down
+
+  merge:
+    name: one artifact
+    needs: shots
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: visual-shard-*
+          path: visual-matrix
+          merge-multiple: true
+      - name: One index.json for the day
+        run: |
+          python3 - <<'EOF'
+          import glob, json, os
+          shots, skipped, shards = [], set(), []
+          for path in sorted(glob.glob("visual-matrix/index-*.json")):
+              part = json.load(open(path))
+              shards.append(part["shard"])
+              shots += part["shots"]
+              skipped |= set(part["skipped"])
+              os.remove(path)
+          shots.sort(key=lambda s: s["file"])
+          summary = {
+              "shards": shards,
+              "shots": len(shots),
+              "errors": sum(1 for s in shots if s.get("error")),
+              "with_warnings": sum(1 for s in shots if s["warnings"]),
+              "with_axe": sum(1 for s in shots if s["axe"]),
+          }
+          json.dump({"summary": summary, "skipped": sorted(skipped), "shots": shots},
+                    open("visual-matrix/index.json", "w"), indent=2)
+          print(json.dumps(summary))
+          EOF
+          du -sh visual-matrix
+      - name: Upload the visual matrix
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-matrix
+          path: visual-matrix
+          retention-days: 7
