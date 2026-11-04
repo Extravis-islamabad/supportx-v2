@@ -1,0 +1,45 @@
+{
+  "about": "WP-037 eval set: retrieval across English, Arabic and Urdu, and short answers in each language. Original text written for SupportX.",
+  "documents": {
+    "vpn": "The VPN disconnects every hour. Reconnect from the tray icon; if it keeps dropping, reinstall the VPN client and check the office Wi-Fi.",
+    "password": "To reset your password, open the portal, choose Forgot password and follow the link sent to your work e-mail.",
+    "printer": "The printer on floor 3 shows a paper jam. Open tray 2, remove the stuck sheet and restart the printer.",
+    "toner": "When a printer reports low toner, request a new cartridge through the catalog item Printer supplies.",
+    "outlook": "Outlook keeps asking for the password: remove the saved credential in Credential Manager and sign in again.",
+    "laptop": "A new laptop is requested through the catalog item New laptop; your manager approves it before it is ordered.",
+    "wifi": "The guest Wi-Fi password changes every Monday and is shown on the reception screen.",
+    "mfa": "Set up two-step sign-in with the authenticator app: scan the QR code on My profile and enter the six-digit code.",
+    "teams": "If Teams calls have no sound, check the selected microphone and speaker in Teams settings under Devices.",
+    "storage": "Your mailbox is full: archive old e-mail or empty Deleted Items to free space."
+  },
+  "queries": [
+    {"q": "my VPN keeps dropping", "lang": "en", "expect": "vpn"},
+    {"q": "I forgot my password", "lang": "en", "expect": "password"},
+    {"q": "paper stuck in the printer", "lang": "en", "expect": "printer"},
+    {"q": "how do I order a new laptop", "lang": "en", "expect": "laptop"},
+    {"q": "no audio in Teams meetings", "lang": "en", "expect": "teams"},
+    {"q": "mailbox storage is full", "lang": "en", "expect": "storage"},
+    {"q": "الشبكة الافتراضية الخاصة تنقطع باستمرار", "lang": "ar", "expect": "vpn"},
+    {"q": "نسيت كلمة المرور", "lang": "ar", "expect": "password"},
+    {"q": "الطابعة عالقة فيها ورقة", "lang": "ar", "expect": "printer"},
+    {"q": "الحبر في الطابعة منخفض", "lang": "ar", "expect": "toner"},
+    {"q": "أريد حاسوبًا محمولًا جديدًا", "lang": "ar", "expect": "laptop"},
+    {"q": "كيف أفعّل التحقق بخطوتين", "lang": "ar", "expect": "mfa"},
+    {"q": "كلمة مرور شبكة الضيوف", "lang": "ar", "expect": "wifi"},
+    {"q": "صندوق البريد ممتلئ", "lang": "ar", "expect": "storage"},
+    {"q": "وی پی این بار بار منقطع ہو جاتا ہے", "lang": "ur", "expect": "vpn"},
+    {"q": "میں اپنا پاس ورڈ بھول گیا ہوں", "lang": "ur", "expect": "password"},
+    {"q": "پرنٹر میں کاغذ پھنس گیا ہے", "lang": "ur", "expect": "printer"},
+    {"q": "نیا لیپ ٹاپ کیسے منگواؤں", "lang": "ur", "expect": "laptop"},
+    {"q": "آؤٹ لک بار بار پاس ورڈ مانگتا ہے", "lang": "ur", "expect": "outlook"},
+    {"q": "ٹیمز کال میں آواز نہیں آتی", "lang": "ur", "expect": "teams"}
+  ],
+  "answers": [
+    {"lang": "en", "prompt": "Summarise this incident in one sentence: The user reports the VPN disconnects every hour since Monday; reinstalling did not help."},
+    {"lang": "ar", "prompt": "لخّص هذه الحادثة في جملة واحدة باللغة العربية: يبلغ المستخدم أن الشبكة الافتراضية الخاصة تنقطع كل ساعة منذ يوم الاثنين، وإعادة التثبيت لم تساعد."},
+    {"lang": "ur", "prompt": "اس واقعے کا خلاصہ اردو میں ایک جملے میں لکھیں: صارف بتاتا ہے کہ پیر سے وی پی این ہر گھنٹے منقطع ہو جاتا ہے، دوبارہ انسٹال کرنے سے فائدہ نہیں ہوا۔"},
+    {"lang": "en", "prompt": "Write a short, polite reply to a user whose printer on floor 3 is jammed, telling them how to clear it."},
+    {"lang": "ar", "prompt": "اكتب ردًا قصيرًا ومهذبًا باللغة العربية لمستخدم طابعته في الطابق الثالث عالقة، وأخبره كيف يزيل الورقة."},
+    {"lang": "ur", "prompt": "اردو میں ایک مختصر اور شائستہ جواب لکھیں اس صارف کے لیے جس کا تیسری منزل کا پرنٹر جام ہے، اور اسے بتائیں کہ کاغذ کیسے نکالے۔"}
+  ]
+}

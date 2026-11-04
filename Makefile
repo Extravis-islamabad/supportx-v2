@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -266,6 +266,9 @@ ai-model-stop: ## Stop the local model servers; the API goes back to the recorde
 
 ai-model-status: ## Which local model runs, free memory, and what backend/.env points at
 	@bash deploy/scripts/ai-model.sh status
+
+ai-eval: ## The AI eval set against the running model servers (retrieval en/ar/ur, answers); never in CI
+	$(BACKEND) uv run python -m tooling.ai_eval
 
 dev-ps: $(DEV_ENV) ## Show dev services and their health
 	$(COMPOSE) --profile full ps --all
