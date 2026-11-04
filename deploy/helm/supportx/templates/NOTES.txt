@@ -30,3 +30,20 @@ postgresql.cnpg.backup at storage outside the cluster (destinationPath, endpoint
 credentialsSecret; encrypted at rest), and keep the offsite copy (docs/deployment.md, Backups).
 {{- end }}
 
+{{- $ai := .Values.ai }}
+{{- if and .Values.networkPolicies.enabled $egress.enabled $ai.local.enabled $ai.mirror (not $egress.extra) }}
+{{- $comps := $egress.components | default dict }}
+{{- $missing := list }}
+{{- range $c := (ternary (list "llm-embed" "llm-gpu") (list "llm-cpu" "llm-embed") $ai.gpu.enabled) }}
+{{- if not (index $comps $c) }}{{- $missing = append $missing $c }}{{- end }}
+{{- end }}
+{{- if $missing }}
+
+WARNING: the egress allow-list is on, but the AI model servers cannot download their weights
+from {{ $ai.mirror }}: no networkPolicies.egress rule for {{ join ", " $missing }} (or for every
+pod). Hugging Face is a CDN with no fixed addresses. List an internal mirror or a proxy under
+networkPolicies.egress.components.<component> (and set ai.mirror to it), or set ai.mirror to ""
+and fill the model volumes with the installer (air-gapped). The servers wait until their weights
+are there and verified.
+{{- end }}
+{{- end }}

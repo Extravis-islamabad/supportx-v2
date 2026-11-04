@@ -1,7 +1,7 @@
 import { Card, Grid, Space, Switch, Tooltip, Typography } from 'antd';
 
 import { useAvailability, useSetAvailability } from '@supportx/api-client';
-import { reportError, useLabel } from '@supportx/ui';
+import { reportError, useAppearance, useLabel } from '@supportx/ui';
 
 /**
  * A technician's Available / Away switch (WP-029, REQ-ASG-006, D-097): Away people are never
@@ -16,10 +16,15 @@ export function AvailabilitySwitch({ userId }: { userId: string }) {
 }
 
 // The header's pill (UI pass 2): green "Available" or grey "Away", a switch for assistive tech.
-// Measured: #067647 on #ECFDF3 5.4:1, #475467 on #F2F4F7 7.0:1.
+// Measured: #067647 on #ECFDF3 5.4:1, #475467 on #F2F4F7 7.0:1. Dark mode keeps the hues on deep
+// tints (no light chip on the dark page): #75E0A7 on #053321 8.6:1, #CECFD2 on #1F242F 10.0:1.
 const PILL = {
   available: { bg: '#ECFDF3', border: '#ABEFC6', fg: '#067647', dot: '#17B26A' },
   away: { bg: '#F2F4F7', border: '#D5D8DF', fg: '#475467', dot: '#98A2B3' },
+} as const;
+const DARK_PILL = {
+  available: { bg: '#053321', border: '#085D3A', fg: '#75E0A7', dot: '#17B26A' },
+  away: { bg: '#1F242F', border: '#333741', fg: '#CECFD2', dot: '#85888E' },
 } as const;
 
 function Pill({ userId }: { userId: string }) {
@@ -28,7 +33,9 @@ function Pill({ userId }: { userId: string }) {
   const set = useSetAvailability();
   const state = current.data?.find((a) => a.user_id === userId)?.state ?? 'available';
   const on = state === 'available';
-  const look = on ? PILL.available : PILL.away;
+  const { mode } = useAppearance();
+  const palette = mode === 'dark' ? DARK_PILL : PILL;
+  const look = on ? palette.available : palette.away;
   return (
     <Tooltip title={t('automation.availability.help')}>
       <button

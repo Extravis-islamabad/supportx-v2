@@ -35,7 +35,17 @@ async def test_the_fake_replays_a_recording_else_answers_from_the_prompt() -> No
     assert "".join(pieces) == answer.text
     first, again = await plain.embed(["vpn"]), await plain.embed(["vpn"])
     assert first == again
-    assert len(first[0]) == 16
+    assert len(first[0]) == 1024  # as wide as the store (bge-m3)
+    # Shared words bring texts near each other; the vectors are normalised.
+    near, far, query = await plain.embed(
+        ["VPN drops every hour", "Printer out of toner", "the vpn drops"]
+    )
+    assert _cosine(query, near) > _cosine(query, far)
+    assert abs(_cosine(near, near) - 1.0) < 1e-9
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    return sum(x * y for x, y in zip(a, b, strict=True))
 
 
 def _provider(handler: httpx.MockTransport) -> OpenAICompatibleProvider:
@@ -155,3 +165,39 @@ async def test_another_configured_model_flows_through_with_no_code_change() -> N
     # The fake (CI, this Mac) carries the configured name too.
     fake = provider_from(make_settings(ai_model=ALT_CHAT))
     assert (await fake.chat(REQUEST)).model == ALT_CHAT
+
+
+async def test_embeddings_can_come_from_a_server_of_their_own() -> None:
+    hosts: list[tuple[str, str]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        hosts.append((request.url.host, request.url.path))
+        if request.url.path.endswith("/embeddings"):
+            return httpx.Response(200, json={"data": [{"embedding": [0.5]}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Hi."}}]})
+
+    provider = OpenAICompatibleProvider(
+        "http://chat:8081/v1",
+        "qwen3-4b",
+        "bge-m3",
+        api_key=None,
+        external=False,
+        timeout=5,
+        transport=httpx.MockTransport(handle),
+        embedding_base_url="http://embed:8082/v1",
+    )
+    await provider.chat(REQUEST)
+    assert await provider.embed(["vpn"]) == [[0.5]]
+    await provider.aclose()
+    assert hosts == [("chat", "/v1/chat/completions"), ("embed", "/v1/embeddings")]
+    # Configured that way through the settings too.
+    built = provider_from(
+        make_settings(
+            ai_provider="openai_compatible",
+            ai_base_url="http://chat:8081/v1",
+            ai_embedding_base_url="http://embed:8082/v1",
+        )
+    )
+    assert isinstance(built, OpenAICompatibleProvider)
+    assert built._embed_client is not built._client  # noqa: SLF001 - the wiring under test
+    await built.aclose()

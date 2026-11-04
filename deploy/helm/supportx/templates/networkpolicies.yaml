@@ -192,6 +192,33 @@ spec:
       ports:
         - {port: 3310, protocol: TCP}
 {{- end }}
+{{- if or .Values.ai.local.enabled .Values.ai.gpu.enabled }}
+---
+# Local AI model servers (WP-037): only the AI gateway's pods, the API and the consumers worker
+# (the re-embed schedule), reach them. Their /metrics shares the API port, so it is not opened to
+# the cluster-wide scrape rule above.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-llm-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/instance, operator: In, values: [{{ $rel | quote }}]}
+      - {key: app.kubernetes.io/component, operator: In, values: [llm-cpu, llm-embed, llm-gpu]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/instance, operator: In, values: [{{ $rel | quote }}]}
+              - {key: app.kubernetes.io/component, operator: In, values: [api, consumers]}
+      ports:
+        - {port: 8080, protocol: TCP}
+        - {port: 8000, protocol: TCP}
+{{- end }}
 {{- if eq .Values.postgresql.mode "cnpg" }}
 ---
 # PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the
