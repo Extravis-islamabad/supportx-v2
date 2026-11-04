@@ -166,7 +166,9 @@ render without the control plane's addresses, and that no egress rule opens `0.0
 
 `postgresql.cnpg.backup.enabled` turns on CloudNativePG's Barman Cloud plugin (a cluster
 prerequisite, installed like the operator: `deploy/k3d/prereqs.sh` with `BACKUP_PLUGIN=1` shows
-how). The database's WAL is archived continuously and a base backup is taken daily, so it can be
+how). **On HA installs, run the plugin with two copies on different nodes too, like the
+operator:** the operator won't reconcile a cluster, failover included, while its plugin is
+unreachable. The database's WAL is archived continuously and a base backup is taken daily, so it can be
 restored to any moment within `retentionPolicy` (30 days by default).
 
 **Production: back up to storage outside the cluster.** By default the backups go to this

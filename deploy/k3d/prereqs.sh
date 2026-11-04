@@ -29,10 +29,16 @@ if [ "$BACKUP_PLUGIN" = 1 ]; then
   helm upgrade --install cert-manager jetstack/cert-manager --version "$CERT_MANAGER_CHART_VERSION" \
     --namespace cert-manager --create-namespace --wait --timeout 5m --set crds.enabled=true >/dev/null
   echo "cert-manager ready (chart $CERT_MANAGER_CHART_VERSION)"
+  # As many copies as the operator, on different nodes: the operator won't reconcile a cluster
+  # (failover included) while its plugin is unreachable, so one copy on a lost node stops failover
+  # (found by the node-loss test, 2026-11-04).
   helm upgrade --install barman-cloud cnpg/plugin-barman-cloud --version "$BARMAN_CHART_VERSION" \
     --namespace cnpg-system --wait --timeout 5m \
-    --set image.tag="$BARMAN_IMAGE_TAG" --set sidecarImage.tag="$BARMAN_SIDECAR_TAG" >/dev/null
-  echo "Barman Cloud plugin ready (chart $BARMAN_CHART_VERSION)"
+    --set image.tag="$BARMAN_IMAGE_TAG" --set sidecarImage.tag="$BARMAN_SIDECAR_TAG" \
+    --set replicaCount="$CNPG_OPERATOR_REPLICAS" \
+    --set-json 'topologySpreadConstraints=[{"maxSkew":1,"topologyKey":"kubernetes.io/hostname","whenUnsatisfiable":"DoNotSchedule","labelSelector":{"matchLabels":{"app.kubernetes.io/name":"plugin-barman-cloud"}}}]' \
+    >/dev/null
+  echo "Barman Cloud plugin ready (chart $BARMAN_CHART_VERSION, $CNPG_OPERATOR_REPLICAS copies)"
 fi
 kubectl get gatewayclass traefik >/dev/null 2>&1 \
   && echo "Gateway API: GatewayClass traefik present" \
