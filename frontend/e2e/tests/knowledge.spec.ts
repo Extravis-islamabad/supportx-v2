@@ -384,7 +384,8 @@ test('knowledge in a reply: the server decides the warning, the card shows the l
         .locator('[data-testid="kb-picker-open"]:not([data-testid="kb-card"] *)')
         .click();
       const drawer = tech.page.getByTestId('kb-picker');
-      await drawer.getByTestId('kb-picker-search').locator('input').fill(title);
+      // The test id is on the <input> itself (Ant's Input.Search passes it down).
+      await drawer.getByTestId('kb-picker-search').fill(title);
       const row = drawer.locator('[data-testid^="kb-picker-item-"]').filter({ hasText: title });
       await row.locator(`[data-testid^="kb-picker-${action}-"]`).click();
     };
