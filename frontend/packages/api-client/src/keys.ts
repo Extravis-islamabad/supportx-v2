@@ -30,6 +30,9 @@ export const queryKeys = {
   instance: {
     settings: ['instance', 'settings'] as const,
   },
+  ai: {
+    settings: ['ai', 'settings'] as const,
+  },
   apiKeys: {
     all: ['api-keys'] as const,
     list: ['api-keys', 'list'] as const,
@@ -169,6 +172,7 @@ export const queryKeys = {
   },
   directories: {
     all: ['directories'] as const,
+    ldap: ['directories', 'ldap'] as const, // under `all`: one live event refetches both
     groups: (id: string, query: string) => ['directories', 'groups', id, query] as const,
   },
   mailboxes: {

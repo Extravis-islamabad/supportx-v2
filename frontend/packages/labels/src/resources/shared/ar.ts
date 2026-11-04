@@ -223,6 +223,7 @@ export const ar: LabelResource = {
   'connectivity.limited': 'بعض التحديثات المباشرة متوقفة مؤقتًا. جارٍ إعادة المحاولة…',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
+  'nav.admin_requests': 'طلبات الخدمة',
   'settings.incidents_title': 'إعدادات الحوادث',
   'settings.section.general': 'عام',
   'settings.section.templates': 'القوالب',
@@ -487,6 +488,12 @@ export const ar: LabelResource = {
   'setup.page.incidents.description': 'المستويات والفئات والقوالب ورموز الإغلاق والأسباب للحوادث.',
   'setup.page.incidents.keywords':
     'حوادث، تذاكر، فئات، قوالب، مستويات، رموز الإغلاق، أسباب، أولوية، حالات',
+  'setup.page.requests.description':
+    'طلبات الخدمة: نيابة عمن يمكن لمقدمي الطلبات تقديمها، وطرق عرض الطلبات.',
+  'setup.page.requests.keywords': 'طلبات الخدمة، الكتالوج، نيابة عن، تقديم، طلبات، طرق العرض',
+  'setup.page.ai.description':
+    'تشغيل ميزات الذكاء الاصطناعي أو إيقافها، والإخفاء، ومدة الاحتفاظ بالمحادثات، والنموذج الذي يجيب.',
+  'setup.page.ai.keywords': 'ذكاء اصطناعي، مساعد، نموذج، إخفاء، احتفاظ، ملخص، مسودات الردود',
   'setup.page.knowledge.description': 'ترقيم المقالات والموافقات وأنواع المقالات.',
   'setup.page.knowledge.keywords': 'معرفة، مقالات، موافقات، أنواع المقالات، ترقيم، بادئة',
   'setup.page.automation.description': 'قواعد العمل والمشغلات وحماية التكرار.',

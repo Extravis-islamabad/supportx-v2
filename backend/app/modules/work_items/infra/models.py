@@ -31,6 +31,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
+from app.modules.work_items.domain.approvals import (
+    ApprovalState,
+    ApproverOrigin,
+    DecisionChannel,
+    RouteReason,
+)
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.conversation import (
     DeliveryReason,
@@ -68,6 +74,10 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
+        CheckConstraint(
+            "on_behalf_scope IN ('same_department', 'same_site', 'all_requesters', 'all_users')",
+            name="on_behalf_scope_code",
+        ),
         CheckConstraint(_codes("default_priority", Priority), name="default_priority_code"),
         CheckConstraint(
             "default_impact IS NULL OR " + _codes("default_impact", Impact),
@@ -99,6 +109,12 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     auto_status_on_assign: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # D-068: whoever hands a record out of their own reach keeps following it unless they untick.
     keep_following_on_handover: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # REQ-SR-011 (WP-030, migration 0064): whom a requester may raise a record for.
+    on_behalf_scope: Mapped[str] = mapped_column(String(20), server_default="same_department")
+    # REQ-SR-024 AC3 (WP-030 s2): requesters see only "awaiting approval", no names or comments.
+    approvals_hidden_from_requesters: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # D-132: e-mailed approval links work without sign-in unless the tenant asks for it.
+    approvals_require_sign_in: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # REQ-INC-147 (WP-028 D5): requesters see the expected resolution time; off by default.
     portal_show_due_time: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
@@ -389,8 +405,28 @@ class WorkItem(TenantEntity):
         CheckConstraint("urgency IS NULL OR " + _codes("urgency", Urgency), name="urgency_code"),
         CheckConstraint(_codes("priority", Priority), name="priority_code"),
         CheckConstraint(
-            "priority_source IN ('matrix', 'manual', 'default', 'rule')",
+            "priority_source IN ('matrix', 'manual', 'default', 'rule', 'catalog_item')",
             name="priority_source_code",
+        ),
+        # Service requests (WP-030, migration 0063): the item, its answers, the approval status.
+        CheckConstraint(
+            "approval_status IS NULL OR approval_status IN "
+            "('not_needed', 'pending', 'approved', 'rejected', 'withdrawn')",
+            name="approval_status_code",
+        ),
+        CheckConstraint("jsonb_typeof(answers) = 'object'", name="answers_object"),
+        ForeignKeyConstraint(
+            ["tenant_id", "catalog_item_id"],
+            ["catalog_items.tenant_id", "catalog_items.id"],
+            name="fk_work_items_catalog_item_id_catalog_items",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_wi_tenant_catalog_item",
+            "tenant_id",
+            "catalog_item_id",
+            "id",
+            postgresql_where=text("catalog_item_id IS NOT NULL"),
         ),
         CheckConstraint("length(btrim(subject)) BETWEEN 1 AND 250", name="subject_length"),
         CheckConstraint(
@@ -556,12 +592,22 @@ class WorkItem(TenantEntity):
     # Support level, a code of the `level` pick list (REQ-INC-007); retired codes stay readable.
     level: Mapped[str | None] = mapped_column(String(40))
     template_id: Mapped[uuid.UUID | None]
+    # Service requests (WP-030): the catalog item, the form's answers (Any: JSON values), and
+    # the approval status; NULL / empty on incidents.
+    catalog_item_id: Mapped[uuid.UUID | None]
+    answers: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    approval_status: Mapped[str | None] = mapped_column(String(20))
+    # The item's "count approval time" kept at submission (REQ-SR-007 AC2, WP-030 s2): the SLA
+    # clock keeps running while it waits for approval.
+    sla_counts_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # The item's own SLA policy (REQ-SR-006), kept at submission: it wins over the conditions.
+    item_sla_policy_id: Mapped[uuid.UUID | None]
     # Custom field values by key (WP-026, metadata module); typed JSON, GIN-indexed.
     custom: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     # Their free text (text, long text, email, phone, web address), kept on every save for
     # search: a generated column cannot tell free text from choice codes (D-087).
     custom_text: Mapped[str | None] = mapped_column(Text)
-    priority_source: Mapped[str] = mapped_column(String(10))
+    priority_source: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(40))
     status_category: Mapped[str] = mapped_column(String(10))
     status_reason_code: Mapped[str | None] = mapped_column(String(40))
@@ -888,6 +934,11 @@ class WorkItemTask(TenantEntity):
     priority: Mapped[str] = mapped_column(String(10), server_default="normal")
     due_at: Mapped[datetime | None]
     position: Mapped[int] = mapped_column(Integer)
+    # WP-030 s3 (REQ-SR-046, -051, -058): a task the item's fulfilment plan made; the last
+    # required one done fulfils the request; an internal one shows requesters only "step n of m".
+    from_plan: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    required: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    internal: Mapped[bool] = mapped_column(Boolean, server_default="false")
     done_at: Mapped[datetime | None]
 
 
@@ -966,3 +1017,58 @@ class WorkItemLink(TenantEntity):
     target_id: Mapped[uuid.UUID]
     kind: Mapped[str] = mapped_column(String(20))
     comment: Mapped[str | None] = mapped_column(String(500))
+
+
+class WorkItemApproval(TenantEntity):
+    """One approver's entry on a record's approval stage (WP-030 s2, REQ-SR-021..028, -063).
+
+    `approver_id` NULL: the tenant's approval administrators hold it (REQ-SR-023); `route_reason`
+    says why it went to the backup or to them. One stage at MVP (`stage` 1); the first decision
+    decides it and closes the others as not needed.
+    """
+
+    __tablename__ = "work_item_approvals"
+    __table_args__ = (
+        _work_item_fk("fk_wia_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "approver_id"], ["users.tenant_id", "users.id"], name="fk_wia_approver"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "decided_by"], ["users.tenant_id", "users.id"], name="fk_wia_decided_by"
+        ),
+        CheckConstraint(_codes("state", ApprovalState), name="state_code"),
+        CheckConstraint(_codes("origin", ApproverOrigin), name="origin_code"),
+        CheckConstraint(
+            "route_reason IS NULL OR " + _codes("route_reason", RouteReason), name="reason_code"
+        ),
+        CheckConstraint(
+            "channel IS NULL OR " + _codes("channel", DecisionChannel), name="channel_code"
+        ),
+        CheckConstraint(
+            "(origin = 'administrators') = (approver_id IS NULL)", name="administrators_no_person"
+        ),
+        CheckConstraint("comment IS NULL OR char_length(comment) <= 4000", name="comment_length"),
+        CheckConstraint("stage >= 1", name="stage_positive"),
+        Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
+        Index(
+            "ix_wia_tenant_approver_pending",
+            "tenant_id",
+            "approver_id",
+            postgresql_where=text("deleted_at IS NULL AND state = 'pending'"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    stage: Mapped[int] = mapped_column(Integer, server_default="1")
+    approver_id: Mapped[uuid.UUID | None]
+    origin: Mapped[str] = mapped_column(String(20))
+    route_reason: Mapped[str | None] = mapped_column(String(30))
+    state: Mapped[str] = mapped_column(String(20), server_default="pending")
+    decided_at: Mapped[datetime | None]
+    decided_by: Mapped[uuid.UUID | None]
+    channel: Mapped[str | None] = mapped_column(String(20))
+    comment: Mapped[str | None] = mapped_column(Text)
+    comment_private: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # The stage's switches, kept from the item at submission (an item edit never moves them).
+    comments_required: Mapped[bool] = mapped_column(Boolean, server_default="false")

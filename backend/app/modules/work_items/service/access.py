@@ -34,7 +34,8 @@ from app.modules.identity_access import (
 )
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
-from app.modules.work_items.domain.types import Channel, WorkItemType
+from app.modules.work_items.domain.service_requests import ApprovalStatus
+from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemFollower
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 
@@ -114,6 +115,9 @@ FIELDS = ResourceFields(
         # REQ-INC-093: lists and reports group and filter by the closure code.
         "closure_code": FilterField(WorkItem.closure_code, FieldType.STRING, sortable=True),
         "template_id": FilterField(WorkItem.template_id, FieldType.UUID),
+        # Service requests (WP-030, REQ-SR-009): by item and by approval status.
+        "catalog_item_id": FilterField(WorkItem.catalog_item_id, FieldType.UUID),
+        "approval_status": _enum(WorkItem.approval_status, ApprovalStatus),
         "sla_policy_id": FilterField(WorkItem.sla_policy_id, FieldType.UUID),
         "created_by": FilterField(WorkItem.created_by, FieldType.UUID),
         "updated_by": FilterField(WorkItem.updated_by, FieldType.UUID),
@@ -230,14 +234,44 @@ def _role_defaults(action: str) -> tuple[tuple[str, Scope], ...]:
     return tuple(found)
 
 
+# Service requests (WP-030): these five keys keep the system-role grants identity has always
+# given them (SYSTEM_ROLE_GRANTS: technicians all, requesters view and close own, create all);
+# the type declares no defaults of its own for them, so nothing is added or widened.
+IDENTITY_GRANTED = frozenset({"view", "create", "edit", "assign", "close"})
+
+
 def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     """The permission catalogue entries of one type."""
+    is_sr = wtype.code is WorkItemTypeCode.SERVICE_REQUEST
     return tuple(
         PermissionSpec(
             wtype.permission(action),
             wtype.feature,
-            scopes,
-            defaults=(*defaults, *_role_defaults(action)),
+            # requests.assign keeps the scopes it always had (never "own": lane B, #182)
+            NOT_OWN if is_sr and action == "assign" else scopes,
+            # Service requests keep identity's system-role grants for these keys (WP-030, nothing
+            # widened for technicians or requesters); the WP-042 built-in roles still get theirs.
+            defaults=(
+                *(() if is_sr and action in IDENTITY_GRANTED else defaults),
+                *_role_defaults(action),
+            ),
         )
         for action, scopes, defaults in _ACTIONS
-    )
+    ) + (APPROVE_SPECS if is_sr else ())
+
+
+# The approval engine (WP-030 s2, REQ-SR-063): anyone holding the type's approve permission may
+# be named an approver, requester or technician (REQ-SR-022 AC2), so both system roles hold it.
+# Approval administrators (REQ-SR-023) decide approvals that resolved to no active person; only
+# the tenant admin holds that by default (least privilege).
+APPROVE = "approve"
+APPROVE_ANY = "work_items.approve_any"
+APPROVE_SPECS: tuple[PermissionSpec, ...] = (
+    PermissionSpec(
+        "requests.approve",
+        "service_request",
+        ("all",),
+        defaults=(("technician", "all"), ("requester", "all")),
+    ),
+    PermissionSpec(APPROVE_ANY, "service_request", ("all",)),
+)

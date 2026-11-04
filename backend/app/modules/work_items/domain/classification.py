@@ -56,6 +56,7 @@ class PrioritySource(StrEnum):
     MANUAL = "manual"  # set by hand, with a reason
     DEFAULT = "default"  # neither impact nor urgency known: the tenant default
     RULE = "rule"  # set by a business rule (WP-029; history names the rule)
+    CATALOG_ITEM = "catalog_item"  # a service request's item set it (WP-030, REQ-SR-005)
 
 
 SCALE_CODES: Mapping[Scale, tuple[str, ...]] = {

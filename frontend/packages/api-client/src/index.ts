@@ -307,6 +307,7 @@ export {
   type SsoProvider,
   type SsoTestResult,
 } from './identity';
+export { useAiSettings, useSaveAiSettings, type AiSettings, type AiSettingsInput } from './ai';
 export {
   useSaveTenantSettings,
   useTenantSettings,
@@ -640,6 +641,14 @@ export {
   type DirectoryGroup,
   type DirectoryInput,
 } from './directories';
+export {
+  useCreateLdapDirectory,
+  useLdapDirectories,
+  useRemoveLdapDirectory,
+  useUpdateLdapDirectory,
+  type LdapDirectory,
+  type LdapDirectoryInput,
+} from './ldapDirectories';
 export { useEventDelivery, type Readiness } from './system';
 export {
   KB_VIEWS,
@@ -704,6 +713,42 @@ export {
   type KbSnippetPart,
 } from './knowledge';
 export {
+  serviceRequestKeys,
+  useCatalogCategories,
+  useCatalogItem,
+  useCatalogItems,
+  useRaiseServiceRequest,
+  useServiceRequest,
+  useServiceRequests,
+  useServiceRequestViews,
+  useServiceRequestCatalogue,
+  useApprovals,
+  useDecideApproval,
+  useMyApprovals,
+  useWithdrawRequest,
+  useActionLink,
+  usePeekActionLink,
+  usePublicActionLink,
+  usePublicPeekActionLink,
+  useRequestTasks,
+  useRequestTaskStatus,
+  type RequestTask,
+  type Approval,
+  type ApprovalDecision,
+  type PendingApproval,
+  useServiceRequestSettingsChange,
+  type OnBehalfScope,
+  type ServiceRequestCatalogue,
+  type ApprovalStatus,
+  type CatalogCategory,
+  type CatalogItem,
+  type CatalogQuestion,
+  type ServiceRequest,
+  type ServiceRequestInput,
+  type ServiceRequestsQuery,
+  type ServiceRequestViewCount,
+} from './serviceRequests';
+export {
   portalKeys,
   useAnswerFix,
   usePortalConversation,
@@ -711,6 +756,15 @@ export {
   usePortalIncidents,
   usePortalReply,
   usePortalTemplates,
+  usePortalOnBehalfPeople,
+  usePortalRequest,
+  usePortalRequests,
+  usePortalRequestSteps,
+  useAnswerRequest,
+  portalRequestKeys,
+  type PortalRequest,
+  type PortalSteps,
+  type PortalPerson,
   useReportIssue,
   type PortalEntry,
   type PortalIncident,

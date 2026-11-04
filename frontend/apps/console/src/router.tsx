@@ -27,6 +27,37 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
       {
+        path: 'requests',
+        handle: { section: 'requests' },
+        children: [
+          {
+            // WP-030 s3: an approval from an e-mail link (the token is in the URL fragment).
+            path: 'approval-link',
+            lazy: async () => ({
+              Component: (await import('./pages/requests/ActionLinkPage')).ActionLinkPage,
+            }),
+          },
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/requests/RequestsPage')).RequestsPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/requests/NewRequestPage')).NewRequestPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/requests/RequestPage')).RequestPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'incidents',
         handle: { section: 'incidents' },
         children: [
@@ -204,6 +235,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'requests',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/requests/RequestSettingsPage'))
+                .RequestSettingsPage,
+            }),
+          },
+          {
             path: 'automation/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,
@@ -231,6 +269,12 @@ export const routes: RouteObject[] = [
             path: 'security',
             lazy: async () => ({
               Component: (await import('./pages/admin/security/SecurityPage')).SecurityPage,
+            }),
+          },
+          {
+            path: 'ai',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AiSettingsPage')).AiSettingsPage,
             }),
           },
           {

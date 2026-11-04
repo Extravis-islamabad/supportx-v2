@@ -134,6 +134,17 @@ class PortalIncidentIn(BaseModel):
     impact: Impact | None = None
     urgency: Urgency | None = None
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
+    on_behalf_of_id: uuid.UUID | None = Field(
+        default=None,
+        description="Report it for someone else, within the tenant's scope (REQ-SR-011; 403).",
+    )
+
+
+class PortalPersonOut(BaseModel):
+    """Someone you may report for: a name only (no address, no placement)."""
+
+    id: uuid.UUID
+    display_name: str
 
 
 class PortalEntryOut(BaseModel):
@@ -206,6 +217,20 @@ async def list_portal_incidents(  # noqa: PLR0913, PLR0917 - FastAPI dependencie
         has_more=page.has_more,
         estimated_total=page.estimated_total,
     )
+
+
+@router.get("/on-behalf-people", summary="People you may report for")
+async def on_behalf_people(
+    session: TenantSession,
+    subject: SignedIn,
+    search: Annotated[str, Query(min_length=2, max_length=100)],
+) -> list[PortalPersonOut]:
+    """Names matching `search` that the tenant's scope lets you report for (REQ-SR-011).
+
+    At most 20; nobody outside the scope is ever listed, so the search reveals no one else.
+    """
+    found = await service.on_behalf_people(session, subject, search)
+    return [PortalPersonOut(id=person, display_name=name) for person, name in found]
 
 
 @router.get("/templates", summary="The forms the portal offers")

@@ -28,6 +28,7 @@ from app.modules.work_items.domain.closure import (
     rule_field_problems,
 )
 from app.modules.work_items.domain.conversation import FirstResponseAction
+from app.modules.work_items.domain.service_requests import OnBehalfScope
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTypeSettings
@@ -131,6 +132,16 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         changes["auto_status_on_assign"] = bool(values["auto_status_on_assign"])
     if "keep_following_on_handover" in values:
         changes["keep_following_on_handover"] = bool(values["keep_following_on_handover"])
+    if "on_behalf_scope" in values:
+        if values["on_behalf_scope"] not in set(OnBehalfScope):
+            problem("on_behalf_scope", "invalid_choice")
+        changes["on_behalf_scope"] = values["on_behalf_scope"]
+    if "approvals_require_sign_in" in values:
+        changes["approvals_require_sign_in"] = bool(values["approvals_require_sign_in"])
+    if "approvals_hidden_from_requesters" in values:
+        changes["approvals_hidden_from_requesters"] = bool(
+            values["approvals_hidden_from_requesters"]
+        )
     if "portal_show_due_time" in values:
         changes["portal_show_due_time"] = bool(values["portal_show_due_time"])
     if "first_response_on" in values:
@@ -151,6 +162,9 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "default_priority": current.default_priority,
         "auto_status_on_assign": current.auto_status_on_assign,
         "keep_following_on_handover": current.keep_following_on_handover,
+        "on_behalf_scope": current.on_behalf_scope,
+        "approvals_hidden_from_requesters": current.approvals_hidden_from_requesters,
+        "approvals_require_sign_in": current.approvals_require_sign_in,
         "portal_show_due_time": current.portal_show_due_time,
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,

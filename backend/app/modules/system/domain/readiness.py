@@ -25,6 +25,7 @@ class FailureReason(StrEnum):
     STALE_HEARTBEAT = "stale_heartbeat"  # its last heartbeat is too old
     DISCONNECTED = "disconnected"  # the worker runs but cannot reach PostgreSQL or NATS
     BACKLOG = "backlog"  # events wait to be published for longer than they should
+    STALE_SIGNATURES = "stale_signatures"  # ClamAV's signatures are too old (no updates arrive)
     ERROR = "error"
 
 

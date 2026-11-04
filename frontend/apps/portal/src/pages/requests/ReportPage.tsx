@@ -22,6 +22,8 @@ import {
 } from '@supportx/api-client';
 import { lengthLimit, reportError, RichTextField, useAppearance, useLabel } from '@supportx/ui';
 
+import { ForWhom } from './ForWhom';
+
 const SUBJECT_MAX = 250;
 
 function templateName(
@@ -47,6 +49,7 @@ export function ReportPage() {
   const report = useReportIssue();
   const [templateId, setTemplateId] = useState<string | undefined>(undefined);
   const [subject, setSubject] = useState('');
+  const [onBehalf, setOnBehalf] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const key = useMemo(() => crypto.randomUUID(), []);
   const [chosenFiles, setChosenFiles] = useState<File[]>([]);
@@ -99,6 +102,7 @@ export function ReportPage() {
                 template_id: chosen.id,
                 subject: subject.trim(),
                 ...(fields.has('description') && !empty(description) ? { description } : {}),
+                ...(onBehalf !== null ? { on_behalf_of_id: onBehalf } : {}),
               },
             },
             {
@@ -125,6 +129,9 @@ export function ReportPage() {
             />
           </Form.Item>
         )}
+        <Form.Item label={t('portal.report.for_whom')}>
+          <ForWhom value={onBehalf} onChange={setOnBehalf} />
+        </Form.Item>
         <Form.Item label={t('portal.report.subject')} htmlFor="portal-report-subject" required>
           <Input
             id="portal-report-subject"

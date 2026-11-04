@@ -53,9 +53,14 @@ class WorkItemAction(StrEnum):
     UNDO_CANCEL = "undo_cancel"
     ASSIGN = "assign"  # system: a technician was set on a new record
     UNASSIGN = "unassign"  # system: the technician was removed from an assigned record
+    # system, service requests (WP-030, REQ-SR-004): the approval engine's final decision
+    APPROVE = "approve"
+    REJECT = "reject"
 
 
-SYSTEM_ACTIONS = frozenset({WorkItemAction.ASSIGN, WorkItemAction.UNASSIGN})
+SYSTEM_ACTIONS = frozenset(
+    {WorkItemAction.ASSIGN, WorkItemAction.UNASSIGN, WorkItemAction.APPROVE, WorkItemAction.REJECT}
+)
 USER_ACTIONS: tuple[WorkItemAction, ...] = tuple(
     a for a in WorkItemAction if a not in SYSTEM_ACTIONS
 )
@@ -128,7 +133,12 @@ class Lifecycle:
             if t.to_status is None and t.action != WorkItemAction.UNDO_CANCEL:
                 msg = f"only undo_cancel may return to the previous status, not {t.action}"
                 raise LifecycleError(msg)
-            if t.to_status is not None and by_code[t.to_status].system:
+            # A system status is entered only by a system action (a rejection), never chosen.
+            if (
+                t.to_status is not None
+                and by_code[t.to_status].system
+                and t.action not in SYSTEM_ACTIONS
+            ):
                 msg = f"{t.to_status!r} is set by the system only"
                 raise LifecycleError(msg)
             if t.reason_mode == ReasonMode.NONE and t.reason_list is not None:
@@ -259,6 +269,61 @@ OTHER_REASON = "other"
 def default_lifecycle() -> Lifecycle:
     """The Appendix A life cycle (validated)."""
     return Lifecycle.build(DEFAULT_STATUSES, DEFAULT_TRANSITIONS)
+
+
+# --- service requests (WP-030, REQ-SR-004, Appendix A) --------------------------------------------
+
+
+class ServiceRequestStatus(StrEnum):
+    """The statuses a service request adds: approval, its outcome, and "fulfilled"."""
+
+    AWAITING_APPROVAL = "awaiting_approval"  # paused, entered only by the system
+    FULFILLED = "fulfilled"  # the resolved category, under its own name (never "resolved")
+    REJECTED = "rejected"  # closed, entered only by an approval rejection; cannot reopen
+
+
+SR = ServiceRequestStatus
+SERVICE_REQUEST_STATUSES: tuple[StatusDef, ...] = (
+    StatusDef(S.NEW, StatusCategory.OPEN, "#1677ff"),
+    StatusDef(SR.AWAITING_APPROVAL, StatusCategory.PAUSED, "#722ed1", system=True),
+    StatusDef(S.ASSIGNED, StatusCategory.OPEN, "#2f54eb"),
+    StatusDef(S.IN_PROGRESS, StatusCategory.OPEN, "#13c2c2"),
+    StatusDef(S.AWAITING_REQUESTER, StatusCategory.PAUSED, "#faad14"),
+    StatusDef(S.AWAITING_THIRD_PARTY, StatusCategory.PAUSED, "#fa8c16"),
+    StatusDef(SR.FULFILLED, StatusCategory.RESOLVED, "#52c41a"),
+    StatusDef(S.CLOSED, StatusCategory.CLOSED, "#8c8c8c"),
+    StatusDef(SR.REJECTED, StatusCategory.CLOSED, "#cf1322", system=True),
+    StatusDef(S.CANCELED, StatusCategory.CANCELED, "#bfbfbf"),
+    StatusDef(S.MERGED, StatusCategory.CLOSED, "#bfbfbf", system=True),
+)
+
+
+def _as_fulfilled(transition: TransitionDef) -> TransitionDef:
+    def name(code: str | None) -> str | None:
+        return SR.FULFILLED.value if code == S.RESOLVED else code
+
+    return TransitionDef(
+        name(transition.from_status) or "",
+        transition.action,
+        name(transition.to_status),
+        transition.reason_mode,
+        transition.reason_list,
+    )
+
+
+SERVICE_REQUEST_TRANSITIONS: tuple[TransitionDef, ...] = (
+    *(_as_fulfilled(t) for t in DEFAULT_TRANSITIONS),
+    # The final approval opens it (then `assign` moves it on if someone is set, AC2); a
+    # rejection ends it; the requester may withdraw (cancel) while it waits (REQ-SR-061).
+    _t(SR.AWAITING_APPROVAL, A.APPROVE, S.NEW),
+    _t(SR.AWAITING_APPROVAL, A.REJECT, SR.REJECTED),
+    _t(SR.AWAITING_APPROVAL, A.CANCEL, S.CANCELED, _CANCEL),
+)
+
+
+def service_request_lifecycle() -> Lifecycle:
+    """The Appendix A service request life cycle (validated)."""
+    return Lifecycle.build(SERVICE_REQUEST_STATUSES, SERVICE_REQUEST_TRANSITIONS)
 
 
 # --- rules on top of a life cycle -----------------------------------------------------------------

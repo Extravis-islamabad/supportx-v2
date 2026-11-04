@@ -55,6 +55,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'config.service_desk',
     also: 'settings.manage',
   },
+  {
+    key: 'requests',
+    group: 'service_desk',
+    labelKey: 'nav.admin_requests',
+    permission: 'config.service_desk',
+    also: 'settings.manage',
+  },
   // Knowledge settings or its article types (D-120): either permission opens the page.
   {
     key: 'knowledge',
@@ -69,6 +76,7 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_automation',
     permission: 'automation.view',
   },
+  { key: 'ai', group: 'automation_sla', labelKey: 'nav.admin_ai', permission: 'ai.manage' },
   { key: 'sla', group: 'automation_sla', labelKey: 'nav.admin_sla', permission: 'sla.view' },
   {
     key: 'mail',

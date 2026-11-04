@@ -212,6 +212,7 @@ export const en = {
   'connectivity.limited': 'Some live updates are paused. Retrying…',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
+  'nav.admin_requests': 'Service requests',
   'settings.incidents_title': 'Incident settings',
   'settings.section.general': 'General',
   'settings.section.templates': 'Templates',
@@ -483,6 +484,14 @@ export const en = {
     'Levels, categories, templates, closure codes and reasons for incidents.',
   'setup.page.incidents.keywords':
     'incidents, tickets, categories, templates, levels, closure codes, reasons, priority, statuses',
+  'setup.page.requests.description':
+    'Service requests: on whose behalf requesters may raise them, and the request views.',
+  'setup.page.requests.keywords':
+    'service requests, catalog, on behalf, raise for, requests, views',
+  'setup.page.ai.description':
+    'AI features on or off, masking, how long AI conversations are kept, and the model that answers.',
+  'setup.page.ai.keywords':
+    'ai, artificial intelligence, assistant, model, masking, retention, summary, reply drafts',
   'setup.page.knowledge.description': 'Article numbering, approvals and article types.',
   'setup.page.knowledge.keywords':
     'knowledge, articles, kb, approvals, article types, numbering, prefix',

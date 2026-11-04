@@ -74,6 +74,8 @@ export function consoleApi({
       },
       headers: { ETag: '"1"' },
     },
+    // The approvals drawer in the header (WP-030 s2): nothing waits unless a test says otherwise.
+    'GET /api/v1/service-requests/my-approvals': { body: { items: [], people: {} } },
     ...routes,
   });
 }

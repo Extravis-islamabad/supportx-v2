@@ -17,7 +17,11 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
+from app.modules.work_items.domain.lifecycle import (
+    DefaultStatus,
+    ServiceRequestStatus,
+    StatusCategory,
+)
 from app.modules.work_items.domain.templates import FieldRule, TemplateField
 
 
@@ -30,6 +34,9 @@ class PortalStatus(StrEnum):
     RESOLVED = "resolved"  # a fix was given: confirm or reject it
     CLOSED = "closed"
     CANCELED = "canceled"
+    # Service requests (WP-030 D9): waiting for its approval; ended by a rejection.
+    AWAITING_APPROVAL = "awaiting_approval"
+    REJECTED = "rejected"
 
 
 _BY_CATEGORY: Mapping[StatusCategory, PortalStatus] = {
@@ -52,6 +59,10 @@ def portal_status(code: str, category: StatusCategory) -> PortalStatus:
         return PortalStatus.RECEIVED
     if code == DefaultStatus.AWAITING_REQUESTER:
         return PortalStatus.WAITING_FOR_YOU
+    if code == ServiceRequestStatus.AWAITING_APPROVAL:
+        return PortalStatus.AWAITING_APPROVAL
+    if code == ServiceRequestStatus.REJECTED:
+        return PortalStatus.REJECTED
     return _BY_CATEGORY[category]
 
 

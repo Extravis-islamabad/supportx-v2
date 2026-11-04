@@ -114,6 +114,7 @@ export const en = {
   'errors.cannot_publish': 'This announcement cannot be published yet.',
   'errors.field.required': 'This field is required.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
+  'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.unknown_value': 'This value does not exist (any more).',
   'errors.field.owner_not_allowed': 'This person may not manage announcements, so cannot own one.',
   'errors.field.window_end_before_start': 'Must be after the start.',
@@ -648,6 +649,50 @@ export const en = {
     'The default language must be one of the languages offered.',
   'errors.currency_change_needs_confirmation':
     'Changing the base currency needs a confirmation: amounts already recorded stay in the old one.',
+  'errors.catalog_item_not_found': 'This catalog item does not exist or is not open to you.',
+  'errors.field.too_many_questions': 'A form can have at most 30 questions.',
+  'errors.field.duplicate': 'This is already used.',
+  'errors.field.unknown_question': 'This form has no such question.',
+  'errors.field.invalid_number': 'Enter a number.',
+  'errors.field.invalid_date': 'Enter a date.',
+  'errors.field.invalid_text': 'Enter text.',
+  'errors.field.too_many_options': 'A question can have at most 50 choices.',
+  'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
+  'errors.field.too_many_tasks': 'A plan can have at most 20 tasks.',
+  'errors.field.not_found': 'This no longer exists.',
+  'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
+  'errors.on_behalf_out_of_scope':
+    "You can't raise a request for this person. Ask your service desk.",
+  'errors.action_link_not_found': 'This link is not valid.',
+  'errors.action_link_expired': 'This link has expired. Open the request in the app instead.',
+  'errors.action_link_used': 'This link has already been used.',
+  'errors.action_link_revoked': 'This is no longer needed: the request was decided or withdrawn.',
+  'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
+  'errors.action_link_sign_in_required': 'Sign in to approve or reject this request.',
+  'errors.not_an_approver': 'You are not an approver of this request.',
+  'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.approval_closed': 'This approval is already decided or no longer needed.',
+  'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
+  'errors.approval_not_found': 'This approval was not found.',
+  'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
+  'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
+  // WP-040 AD/LDAP (D-130)
+  'errors.ldap_host_invalid':
+    "Enter the directory server's host name or IP address, without ldap:// or a path.",
+  'errors.plain_connection_refused':
+    'A connection without encryption is refused unless you allow it.',
+  'errors.ldap_dn_invalid': 'Enter a distinguished name such as OU=People,DC=example,DC=com.',
+  'errors.ldap_filter_invalid': 'Enter an LDAP filter in brackets, such as (objectClass=person).',
+  'errors.ldap_attribute_invalid': 'Enter a directory attribute name: letters, digits and hyphens.',
+  'errors.ldap_federation_not_installed':
+    'AD/LDAP is not turned on for this installation. Ask your administrator to enable it.',
+  'errors.ldap_single_tenant_only':
+    'AD/LDAP directories can only be connected on an installation that serves one organisation.',
+  'errors.ldap_federation_refused':
+    'The identity service refused the directory settings. Check the server, bind account and paths.',
+  'errors.ldap_federation_keycloak_unavailable':
+    'The identity service did not answer. The directory will be connected when it is back.',
+  'errors.ldap_bind_password_missing': 'No bind password is stored. Enter it again.',
   'errors.contact_editing_off':
     'Your organisation does not let you change your contact details here. Ask your service desk.',
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',

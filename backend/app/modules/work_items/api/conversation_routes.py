@@ -256,7 +256,7 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
     Admin = Annotated[  # noqa: N806 - type alias
         Subject, Depends(require_permission("config.service_desk", "settings.manage"))
     ]
-    name = wtype.code.replace("_", " ")
+    audit = wtype.code.value  # audit codes: "incident.deleted", "service_request.deleted"
 
     @router.get("/counters", summary="Your personal counters")
     async def counters(session: TenantSession, subject: View, request: Request) -> list[CounterOut]:
@@ -275,7 +275,7 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         summary="Add a reply template",
         status_code=status.HTTP_201_CREATED,
         dependencies=[
-            audited(f"{name}.reply_template_created", object_type=f"{name}_reply_template")
+            audited(f"{audit}.reply_template_created", object_type=f"{audit}_reply_template")
         ],
     )
     async def create_template(
@@ -294,8 +294,8 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         responses=CONFLICT_409,
         dependencies=[
             audited(
-                f"{name}.reply_template_changed",
-                object_type=f"{name}_reply_template",
+                f"{audit}.reply_template_changed",
+                object_type=f"{audit}_reply_template",
                 object_param="template_id",
             )
         ],
@@ -330,8 +330,8 @@ def add_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
         responses=CONFLICT_409,
         dependencies=[
             audited(
-                f"{name}.reply_template_deleted",
-                object_type=f"{name}_reply_template",
+                f"{audit}.reply_template_deleted",
+                object_type=f"{audit}_reply_template",
                 object_param="template_id",
             )
         ],
@@ -356,7 +356,7 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
     perm = wtype.permission
     View = Annotated[Subject, Depends(require_permission(perm("view")))]  # noqa: N806 - type alias
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
-    name = wtype.code.replace("_", " ")
+    audit = wtype.code.value  # audit codes: "incident.deleted", "service_request.deleted"
 
     @router.get("/{record_id}/conversation", summary="Conversation")
     async def conversation(
@@ -429,8 +429,8 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
         responses=CONFLICT_409,
         dependencies=[
             audited(
-                f"{name}.note_visibility_changed",
-                object_type=name,
+                f"{audit}.note_visibility_changed",
+                object_type=audit,
                 object_param="record_id",
                 detail_params=("entry_id",),
             )

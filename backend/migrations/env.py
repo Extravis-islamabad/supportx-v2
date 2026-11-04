@@ -12,6 +12,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+import app.shared.action_links.infra.models
 import app.shared.api.idempotency
 import app.shared.db.display_ids
 import app.shared.files.infra.models

@@ -517,4 +517,6 @@ export const ur: LabelResource = {
   'report_field.resolution_sla_state': 'حل کا ایس ایل اے',
   'report_field.first_response_breached': 'جواب میں تاخیر',
   'report_field.resolution_breached': 'حل میں تاخیر',
+  'report_field.approval_status': 'منظوری کی حالت',
+  'report_field.catalog_item_id': 'کیٹلاگ آئٹم',
 };

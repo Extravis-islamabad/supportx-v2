@@ -18,11 +18,18 @@ import {
   type SessionGateProps,
 } from '@supportx/ui';
 
+import { PublicApprovalPage } from './pages/approvals/PublicApprovalPage';
+
 import { createRouter } from './router';
 
 export interface AppProps {
   /** For tests: replaces the browser navigation to the login page. */
   navigate?: SessionGateProps['navigate'];
+}
+
+/** The public approval page, wherever the portal is served (`/approve`, `/portal/approve`). */
+function isPublicApproval(pathname: string): boolean {
+  return pathname.replace(/\/$/, '').endsWith('/approve');
 }
 
 export function App({ navigate }: AppProps) {
@@ -37,6 +44,9 @@ export function App({ navigate }: AppProps) {
             {window.location.pathname === PASSWORD_RESET_PATH ? (
               // "Forgot password?" is for people who cannot sign in (WP-039 session 2).
               <PasswordResetPage app="portal" />
+            ) : isPublicApproval(window.location.pathname) ? (
+              // An e-mailed approval link without sign-in (D-132): its own page, no session.
+              <PublicApprovalPage />
             ) : (
               <SessionGate app="portal" navigate={navigate}>
                 {(session) => (

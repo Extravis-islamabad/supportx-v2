@@ -16,8 +16,9 @@ Bodies and attachments are cleared `mail_content_retention_days` after the messa
 
 import uuid
 from collections.abc import Collection, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
+from html import escape as html_escape
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -28,9 +29,17 @@ from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
+from app.shared import action_links
 from app.shared.events import record_event
 from app.shared.ids import new_id
-from app.shared.mail.domain.message import Attachment, OutgoingMail, build_mime, check
+from app.shared.mail.domain.message import (
+    Attachment,
+    OutgoingMail,
+    build_mime,
+    check,
+    links_from_json,
+    links_to_json,
+)
 from app.shared.mail.events import MailQueued, MailStateChanged
 from app.shared.mail.infra import smtp
 from app.shared.mail.infra.models import MailAttachment, MailMessage
@@ -87,6 +96,7 @@ async def queue_mail(session: AsyncSession, settings: Settings, mail: OutgoingMa
             subject=mail.subject,
             text_body=mail.text,
             html_body=mail.html,
+            links=links_to_json(mail.links),
             state="queued",
             version=1,
         )
@@ -128,7 +138,35 @@ async def _load(session: AsyncSession, row: MailMessage) -> OutgoingMail:
         attachments=tuple(
             Attachment(a.name, a.content_type, a.content or b"") for a in attachments
         ),
+        links=links_from_json(row.links),
     )
+
+
+async def _with_links(session: AsyncSession, mail: OutgoingMail) -> OutgoingMail:
+    """The outgoing copy with each one-time link made now (D-132), never stored or logged.
+
+    A link from an earlier attempt that was never delivered is revoked first, so only the one
+    in the e-mail that leaves works (lane B review: a fresh token invalidates the old one).
+    """
+    if not mail.links:
+        return mail
+    text, html = mail.text, mail.html
+    for link in mail.links:
+        request = link.request
+        await action_links.revoke_for(session, request.object_type, request.object_id)
+        token = await action_links.issue(
+            session,
+            recipient_id=request.recipient_id,
+            action=request.action,
+            object_type=request.object_type,
+            object_id=request.object_id,
+            object_version=request.object_version,
+        )
+        url = link.prefix + token
+        spot = action_links.marker(link.name)
+        text = text.replace(spot, url)
+        html = None if html is None else html.replace(spot, html_escape(url))
+    return replace(mail, text=text, html=html, links=())
 
 
 async def deliver(
@@ -144,7 +182,7 @@ async def deliver(
     row.attempts += 1
     row.version += 1
     mime = build_mime(
-        await _load(session, row),
+        await _with_links(session, await _load(session, row)),
         from_address=settings.mail_from_address or "",
         from_name=settings.mail_from_name,
         message_id_domain=(settings.mail_from_address or "@supportx").rsplit("@", 1)[1],
@@ -222,6 +260,7 @@ async def requeue_mail(
             reply_to=original.reply_to,
             sender_name=original.sender_name,
             attachments=original.attachments,
+            links=original.links,  # a resend makes fresh links at send (D-132)
         ),
     )
 

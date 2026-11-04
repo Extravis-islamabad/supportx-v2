@@ -85,4 +85,6 @@ export const ar: LabelResource = {
   'licence_page.days_few': '{{count}} أيام',
   'licence_page.days_many': '{{count}} يومًا',
   'licence_page.days_other': '{{count}} يوم',
+  // WP-040 AD/LDAP (D-130)
+  'feature.directory_federation': 'تسجيل الدخول عبر الدليل (AD/LDAP)',
 };

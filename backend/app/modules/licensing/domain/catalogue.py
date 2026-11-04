@@ -52,6 +52,10 @@ class Feature(StrEnum):
     CUSTOM_FUNCTIONS = "custom_functions"
     LOCAL_AI_RUNTIME = "local_ai_runtime"
     COMPLIANCE_PACKS = "compliance_packs"
+    # On-prem AD/LDAP sign-in through Keycloak federation (WP-040, D-118). In no edition: an
+    # add-on of on-prem licences only (product owner 2026-11-03: never on SaaS), so the gate is
+    # the entitlement interface, never the deployment mode (CLAUDE.md rule 5f).
+    DIRECTORY_FEDERATION = "directory_federation"
 
 
 class LimitKey(StrEnum):
@@ -97,6 +101,12 @@ _ENTERPRISE = _PROFESSIONAL | {
     Feature.LOCAL_AI_RUNTIME,
     Feature.COMPLIANCE_PACKS,
 }
+
+# Sold only as an add-on (a licence's `extra_features`), in no edition: what an edition carries
+# is offered on every deployment, and these are not (product owner decisions).
+ADD_ON_FEATURES: frozenset[Feature] = frozenset(
+    {Feature.DIRECTORY_FEDERATION}  # on-prem licences only, never SaaS (2026-11-03, D-118)
+)
 
 EDITION_FEATURES: Mapping[Edition, frozenset[Feature]] = MappingProxyType(
     {

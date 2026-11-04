@@ -131,6 +131,7 @@ export const ur: LabelResource = {
   'connectivity.limited': 'کچھ براہ راست اپ ڈیٹس رکی ہوئی ہیں۔ دوبارہ کوشش جاری ہے…',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'واقعات',
+  'nav.admin_requests': 'سروس درخواستیں',
   'settings.incidents_title': 'واقعات کی ترتیبات',
   'settings.section.general': 'عمومی',
   'settings.section.templates': 'سانچے',
@@ -405,6 +406,13 @@ export const ur: LabelResource = {
   'setup.page.incidents.description': 'واقعات کے لیول، زمرے، سانچے، بندش کوڈ اور وجوہات۔',
   'setup.page.incidents.keywords':
     'واقعات، ٹکٹ، زمرے، سانچے، لیول، بندش کوڈ، وجوہات، ترجیح، حالتیں',
+  'setup.page.requests.description':
+    'سروس کی درخواستیں: درخواست گزار کس کی طرف سے انہیں درج کر سکتے ہیں، اور درخواستوں کے منظر۔',
+  'setup.page.requests.keywords': 'سروس درخواستیں، کیٹلاگ، کی طرف سے، درج کریں، درخواستیں، منظر',
+  'setup.page.ai.description':
+    'AI خصوصیات آن یا آف، ماسکنگ، AI گفتگو کتنی دیر رکھی جائے، اور جواب دینے والا ماڈل۔',
+  'setup.page.ai.keywords':
+    'AI، مصنوعی ذہانت، معاون، ماڈل، ماسکنگ، محفوظ رکھنا، خلاصہ، جوابی مسودے',
   'setup.page.knowledge.description': 'مضامین کی نمبرنگ، منظوریاں اور مضمون کی اقسام۔',
   'setup.page.knowledge.keywords': 'نالج، مضامین، منظوریاں، مضمون کی اقسام، نمبرنگ، سابقہ',
   'setup.page.automation.description': 'کاروباری اصول، ٹرگرز اور لوپ سے حفاظت۔',

@@ -76,4 +76,6 @@ export const en = {
   'licence_page.upgrade': 'To change your plan or add seats, contact Extravis or your partner.',
   'licence_page.days_one': '{{count}} day',
   'licence_page.days_other': '{{count}} days',
+  // WP-040 AD/LDAP (D-130)
+  'feature.directory_federation': 'Directory Sign-in (AD/LDAP)',
 } as const;

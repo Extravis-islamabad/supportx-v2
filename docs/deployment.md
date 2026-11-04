@@ -83,6 +83,75 @@ hex values and never overwrites an existing one (its passwords are already insid
 - `values-single-node.yaml`: one k3s VM (8 vCPU / 32 GB / 500 GB), production profile, HTTPS on
   Traefik's websecure listener with your certificate Secret, the base realm (no users). **Internal
   evaluation only** until backups (WP-014b) and Nuitka images exist.
+- `values-ha.yaml` (WP-014b, ADR-038): three or more nodes. Two or three copies of every stateless
+  component, PostgreSQL with one primary and two standbys, two PgBouncer copies, a three-server
+  NATS cluster and Valkey with Sentinel. Copies sit on different nodes, each with a
+  PodDisruptionBudget. **Install the CloudNativePG operator with two copies on different nodes**
+  (`replicaCount=2`, a hostname spread; `deploy/k3d/prereqs.sh` shows how). With one copy,
+  losing its node stops the database failover until Kubernetes moves the operator pod, about
+  five minutes later.
+
+  Measured on the k3d HA cluster (node-loss test, 2026-11-04): the agent with the primary is
+  stopped; a standby is promoted after about 70 s, and the same signed-in session writes again
+  about 30 s after that.
+
+## Egress allow-list (opt-in)
+
+Ingress is always denied by default. Egress is open unless `networkPolicies.egress.enabled` is
+true (WP-014b). With it on, pods may reach:
+- **DNS and the namespace:** every pod may reach DNS (kube-dns) and the other pods of the
+  namespace.
+- **The Kubernetes API:** CloudNativePG's pods and the API and worker pods (their
+  wait-for-migrate step) may reach it, at its real addresses. The chart reads them from the
+  `default/kubernetes` EndpointSlice at install time. Where it can't read the cluster (`helm
+  template`, GitOps), set `networkPolicies.egress.kubeApiCidrs` (and `kubeApiPorts`, usually
+  6443); otherwise the chart refuses to install. It never falls back to `0.0.0.0/0`. Find the
+  addresses with `kubectl get endpointslice -n default kubernetes`.
+- **Everything else must be listed**, as NetworkPolicy egress rules (`to` with `ipBlock` CIDRs,
+  and `ports`):
+  - `networkPolicies.egress.extra`: rules for every pod;
+  - `networkPolicies.egress.components.<component>`: rules for one component's pods.
+
+**Addresses only.** NetworkPolicies match IP ranges, never host names. A service known only by
+name (Microsoft Graph, an AI provider, a CDN) has no fixed addresses. Without a CNI with
+host-name policies (such as Cilium), route those through a **forward proxy**, list only the
+proxy, and set the proxy for the pods (`HTTPS_PROXY`).
+
+Example for a typical on-prem install. The mail relay, the domain controllers and the proxy are
+inside the network; Graph and the AI provider go through the proxy:
+
+```yaml
+networkPolicies:
+  egress:
+    enabled: true
+    extra:                               # every pod: the forward proxy
+      - to: [{ipBlock: {cidr: 10.20.0.15/32}}]
+        ports: [{protocol: TCP, port: 3128}]
+    components:
+      consumers:                         # outgoing mail
+        - to: [{ipBlock: {cidr: 10.20.1.25/32}}]
+          ports: [{protocol: TCP, port: 587}]
+      keycloak:                          # AD/LDAP (LDAPS)
+        - to: [{ipBlock: {cidr: 10.20.2.0/28}}]
+          ports: [{protocol: TCP, port: 636}]
+      clamav:                            # a private signature mirror
+        - to: [{ipBlock: {cidr: 10.20.3.40/32}}]
+          ports: [{protocol: TCP, port: 443}]
+clamav:
+  privateMirror: https://clamav-mirror.example.internal
+```
+
+**ClamAV** needs its signature source. The public mirrors are a CDN with no fixed addresses, so
+set `clamav.privateMirror`, list your proxy, or load the offline bundle
+(`deploy/scripts/clamav-signatures.sh`). The chart prints a warning when egress is on and ClamAV
+has none of these. `/api/v1/ready` reports `malware_signatures` as a warning once the signatures
+are over 48 hours old (`SUPPORTX_FILES_SIGNATURE_READY_WARN_HOURS`), and
+`supportx_files_signature_age_seconds` carries their age for the alert. Anything not listed is
+dropped, so check every integration after turning egress on.
+
+CI runs the HA cluster with egress on (`values-ha-ci.yaml`), and `make cluster-ha-egress` checks
+that the namespace answers and the outside doesn't. chart-lint checks that the chart refuses to
+render without the control plane's addresses, and that no egress rule opens `0.0.0.0/0`.
 
 ## Observability
 
@@ -102,6 +171,7 @@ Jaeger, Perses) come with WP-014b.
 | Cluster › `images` | PRs touching `deploy/` or the Makefile, nightly | build both images (not pushed), Trivy gate (fixable HIGH/CRITICAL fail), CycloneDX SBOMs as artifacts |
 | Cluster › `smoke` | same | k3d with the pinned k3s, `make deploy-dev` (incl. `helm test`), public routes through the gateway |
 | Cluster › `e2e` | nightly, on demand | everything above, then every Playwright journey against the cluster |
+| Cluster › `ha-smoke` | nightly, on demand, PRs labelled `full-ci` | a four-node k3d cluster with `values-ha.yaml`. First the Valkey master is killed (the session survives, no split brain). Then the agent with PostgreSQL's primary is stopped (`make cluster-ha-node-loss`): a standby is promoted, the session writes again, and the node rejoins as a standby |
 
 ## Troubleshooting
 

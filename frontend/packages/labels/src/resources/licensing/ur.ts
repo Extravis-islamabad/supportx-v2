@@ -36,6 +36,8 @@ export const ur: LabelResource = {
     'اپنا پلان بدلنے یا نشستیں بڑھانے کے لیے Extravis یا اپنے پارٹنر سے رابطہ کریں۔',
   'licence_page.days_one': '{{count}} دن',
   'licence_page.days_other': '{{count}} دن',
+  // WP-040 AD/LDAP (D-130)
+  'feature.directory_federation': 'ڈائریکٹری سائن اِن (AD/LDAP)',
   'edition.enterprise': 'انٹرپرائز',
   'edition.essentials': 'بنیادی',
   'edition.professional': 'پروفیشنل',

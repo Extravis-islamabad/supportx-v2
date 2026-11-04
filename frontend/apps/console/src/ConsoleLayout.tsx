@@ -8,6 +8,7 @@ import {
   loginUrl,
   queryKeys,
   readPending,
+  serviceRequestKeys,
   useLogout,
   useSetFormDensity,
   useSession,
@@ -44,6 +45,7 @@ import { AvailabilitySwitch } from './AvailabilitySwitch';
 import { usePersonalAppearance } from './personalAppearance';
 import { EventDeliveryBanner } from './EventDeliveryBanner';
 import { NotificationBell } from './notifications/NotificationBell';
+import { ApprovalsDrawer } from './pages/requests/ApprovalsDrawer';
 import { NotificationsBanner } from './notifications/NotificationsBanner';
 import { useAvailabilityItem } from './useAvailabilityItem';
 import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
@@ -105,6 +107,7 @@ export function ConsoleLayout() {
       queryKeys.incidents.catalogue,
       queryKeys.incidents.categories,
       queryKeys.incidents.templates,
+      serviceRequestKeys.settings,
     ]) {
       void queryClient.invalidateQueries({ queryKey: key });
     }
@@ -243,6 +246,7 @@ export function ConsoleLayout() {
           ]}
           extra={
             <>
+              {licence.has('service_request') && <ApprovalsDrawer />}
               <NotificationBell />
               {session.user.user_type === 'technician' && licence.has('incident') && (
                 <AvailabilitySwitch userId={session.user.id} />

@@ -6,7 +6,7 @@ kind: Simple
 metadata:
   name: supportx
 servers: 1
-agents: 3                       # HA smoke (WP-014b): any one node may be stopped
+agents: 3                       # HA smoke and node-loss test (WP-014b): any one agent may be stopped
 image: rancher/k3s:v1.36.5-k3s1
 ports:
   # The public URL is http://supportx.localhost:8080 (browsers resolve *.localhost to 127.0.0.1).
@@ -25,6 +25,10 @@ options:
     extraArgs:
       # Secrets encrypted at rest, as on the appliance (WP-014 plan §4).
       - arg: --secrets-encryption
+        nodeFilters: [server:*]
+      # Only k3s's own add-ons (Traefik, CoreDNS) on the server: our pods go to the agents, so the
+      # node-loss test can stop any agent, PostgreSQL's primary included, and keep the control plane.
+      - arg: --node-taint=CriticalAddonsOnly=true:NoExecute
         nodeFilters: [server:*]
 files:
   # Traefik (bundled with k3s) also serves the Gateway API (D2).

@@ -424,3 +424,43 @@ async def test_the_expected_resolution_time_shows_only_if_the_tenant_shows_it(
     assert "resolution_due_at" in shown
     listed = await mine(world, a, a.requester)
     assert all("resolution_due_at" in row for row in listed["items"])
+
+
+async def test_a_requester_reports_for_a_colleague_within_the_scope(world: World) -> None:
+    """REQ-SR-011 in the portal (WP-030): same department by default; the search lists only
+    people in scope, never the requester themselves, names only."""
+    a = world.a
+    [row] = await world.sql("SELECT display_name FROM users WHERE id = $1", a.requester2)
+    name = str(row["display_name"])
+
+    async def people(text: str) -> list[dict[str, Any]]:
+        found = await world.call(
+            "GET", f"{PORTAL}/on-behalf-people", a, a.requester, params={"search": text}
+        )
+        assert found.status_code == 200, found.text
+        return list(found.json())
+
+    assert await people(name) == []  # another department: out of scope
+    stranger = await report(world, a, a.requester, on_behalf_of_id=str(a.requester2))
+    assert problem(stranger) == (403, "on_behalf_out_of_scope")
+    finance = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO departments (id, tenant_id, name) VALUES ($1, $2, 'Finance')",
+        finance,
+        a.tenant,
+    )
+    await world.sql(
+        "UPDATE users SET department_id = $1 WHERE id = ANY($2::uuid[])",
+        finance,
+        [a.requester, a.requester2],
+    )
+    listed = await people(name)
+    assert listed == [{"id": str(a.requester2), "display_name": name}]
+    made = await report(world, a, a.requester, on_behalf_of_id=str(a.requester2))
+    assert made.status_code == 201, made.text
+    [me] = await world.sql("SELECT display_name FROM users WHERE id = $1", a.requester)
+    assert all(p["id"] != str(a.requester) for p in await people(str(me["display_name"])))
+    short = await world.call(
+        "GET", f"{PORTAL}/on-behalf-people", a, a.requester, params={"search": "a"}
+    )
+    assert short.status_code == 422
