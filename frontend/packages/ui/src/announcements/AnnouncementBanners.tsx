@@ -3,7 +3,8 @@ import { useState } from 'react';
 
 import type { AnnouncementPublic } from '@supportx/api-client';
 
-import { useLabel } from '../appearance';
+import { useAppearance, useLabel } from '../appearance';
+import { clampLineHeight } from '../fonts/fonts';
 import { useLiveAnnouncementFeed } from './useLiveAnnouncementFeed';
 
 const ALERT_TYPE = { info: 'info', warning: 'warning', critical: 'error' } as const;
@@ -41,6 +42,7 @@ export interface AnnouncementBannersProps {
 /** Banners for live announcements marked "show as banner", above every page of the app. */
 export function AnnouncementBanners({ enabled = true, onOpen }: AnnouncementBannersProps) {
   const t = useLabel();
+  const { urduScript } = useAppearance();
   const feed = useLiveAnnouncementFeed(enabled);
   const [dismissed, setDismissed] = useState(readDismissed);
   const banners = (feed.data?.items ?? []).filter(
@@ -78,7 +80,12 @@ export function AnnouncementBanners({ enabled = true, onOpen }: AnnouncementBann
           description={
             <Typography.Paragraph
               ellipsis={{ rows: 2 }}
-              style={{ whiteSpace: 'pre-line', marginBottom: 0 }}
+              style={{
+                whiteSpace: 'pre-line',
+                marginBottom: 0,
+                // Room for the dots below Arabic-script letters: the clamp cuts the rest.
+                lineHeight: clampLineHeight(item.body, 1.5715, urduScript),
+              }}
             >
               {item.body}
             </Typography.Paragraph>
