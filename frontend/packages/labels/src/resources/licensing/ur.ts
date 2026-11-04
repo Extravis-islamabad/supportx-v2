@@ -2,18 +2,6 @@ import type { LabelResource } from '../en';
 
 // licensing labels (see ../README.md).
 export const ur: LabelResource = {
-  'licence.grace_banner_one':
-    'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہے۔',
-  'licence.grace_banner_other':
-    'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہیں۔',
-  'licence.read_only_banner':
-    'صرف پڑھنے کا موڈ: آپ ڈیٹا دیکھ اور ایکسپورٹ کر سکتے ہیں۔ لائسنس کی تجدید تک تبدیلیاں روک دی گئی ہیں۔',
-  'limit.technicians': 'ٹیکنیشن',
-  'limit.assets': 'زیرِ انتظام اثاثے',
-  'limit.desks': 'ڈیسک',
-  'limit.msp_customers': 'MSP صارفین',
-  'limit.ai_agent_runs_per_month': 'ماہانہ AI ایجنٹ رنز',
-  'limit.storage_gb': 'فائل اسٹوریج (GB)',
   'edition.enterprise': 'انٹرپرائز',
   'edition.essentials': 'بنیادی',
   'edition.professional': 'پروفیشنل',
@@ -52,10 +40,22 @@ export const ur: LabelResource = {
   'feature.sla': 'سروس لیول معاہدے',
   'feature.workflows': 'بصری ورک فلوز',
   'licence.ask_admin': 'پلان اپ گریڈ کرنے کے بارے میں اپنے منتظم سے پوچھیں۔',
+  'licence.grace_banner_one':
+    'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہے۔',
+  'licence.grace_banner_other':
+    'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہیں۔',
   'licence.grace_warning':
     'لائسنس انتباہ: صرف پڑھنے کی حالت سے بچنے کے لیے رعایتی مدت ختم ہونے سے پہلے تجدید کریں۔',
   'licence.locked': 'آپ کے پلان میں شامل نہیں',
   'licence.read_only_action':
     'صرف پڑھنے کی حالت میں دستیاب نہیں۔ دیکھنا اور برآمد کرنا اب بھی ممکن ہے۔',
+  'licence.read_only_banner':
+    'صرف پڑھنے کا موڈ: آپ ڈیٹا دیکھ اور ایکسپورٹ کر سکتے ہیں۔ لائسنس کی تجدید تک تبدیلیاں روک دی گئی ہیں۔',
   'licence.upgrade_hint': 'آپ کے پلان میں شامل نہیں۔ اپ گریڈ کے لیے Extravis سے رابطہ کریں۔',
+  'limit.ai_agent_runs_per_month': 'ماہانہ AI ایجنٹ رنز',
+  'limit.assets': 'زیرِ انتظام اثاثے',
+  'limit.desks': 'ڈیسک',
+  'limit.msp_customers': 'MSP صارفین',
+  'limit.storage_gb': 'فائل اسٹوریج (GB)',
+  'limit.technicians': 'ٹیکنیشن',
 };
