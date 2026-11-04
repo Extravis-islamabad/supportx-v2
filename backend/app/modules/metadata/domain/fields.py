@@ -80,6 +80,7 @@ class CustomFieldEntity(StrEnum):
     INCIDENT = "incident"
     SERVICE_REQUEST = "service_request"  # WP-030
     PROBLEM = "problem"  # WP-044a
+    RELEASE = "release"  # WP-058a
 
 
 # entity → the permission that lets someone see the entity's fields (forms need them).
@@ -87,12 +88,14 @@ VIEW_PERMISSION: Mapping[CustomFieldEntity, str] = {
     CustomFieldEntity.INCIDENT: "incidents.view",
     CustomFieldEntity.SERVICE_REQUEST: "requests.view",
     CustomFieldEntity.PROBLEM: "problems.view",
+    CustomFieldEntity.RELEASE: "releases.view",
 }
 # Where each entity's records (and their `custom` values) live: for the index worker (D-088).
 ENTITY_TABLE: Mapping[CustomFieldEntity, str] = {
     CustomFieldEntity.INCIDENT: "work_items",
     CustomFieldEntity.SERVICE_REQUEST: "work_items",
     CustomFieldEntity.PROBLEM: "work_items",
+    CustomFieldEntity.RELEASE: "work_items",
 }
 
 

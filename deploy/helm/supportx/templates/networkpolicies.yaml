@@ -157,6 +157,14 @@ spec:
         - podSelector:
             matchLabels:
               {{- toYaml $ours | nindent 14 }}
+        {{- if and (eq .Values.postgresql.mode "cnpg") .Values.postgresql.cnpg.backup.enabled }}
+        # The database's pods archive WAL and base backups here, and a restore cluster reads them
+        # back (WP-014b). CloudNativePG doesn't give them SupportX's labels: any of its clusters
+        # in this namespace.
+        - podSelector:
+            matchExpressions:
+              - {key: cnpg.io/cluster, operator: Exists}
+        {{- end }}
       ports:
         - {port: 8333, protocol: TCP}
 {{- end }}
@@ -215,7 +223,9 @@ spec:
 {{- if eq .Values.postgresql.mode "cnpg" }}
 ---
 # PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the
-# other instances (replication) and the CloudNativePG operator (instance manager on 8000).
+# other instances (replication) and the CloudNativePG operator (instance manager on 8000). Every
+# CloudNativePG cluster of this namespace, not only <release>-pg: a cluster restored from the
+# backups (docs/runbooks/restore.md) is another one, and without this its operator can't reach it.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -224,8 +234,8 @@ metadata:
     {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      cnpg.io/cluster: {{ $rel }}-pg
+    matchExpressions:
+      - {key: cnpg.io/cluster, operator: Exists}
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -233,8 +243,8 @@ spec:
             matchLabels:
               {{- toYaml $ours | nindent 14 }}
         - podSelector:
-            matchLabels:
-              cnpg.io/cluster: {{ $rel }}-pg
+            matchExpressions:
+              - {key: cnpg.io/cluster, operator: Exists}
       ports:
         - {port: 5432, protocol: TCP}
     - from:

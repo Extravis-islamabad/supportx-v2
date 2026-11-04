@@ -262,6 +262,10 @@ def _type_defaults(
         return () if action in IDENTITY_GRANTED else defaults
     if wtype.code is WorkItemTypeCode.PROBLEM:
         return _PROBLEM_TECH.get(action, _PROBLEM_GROUP)
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        # Releases (WP-058a): technicians keep only identity's releases.view grant; the type
+        # adds no technician defaults, so nothing is widened (lane B review).
+        return ()
     return defaults
 
 

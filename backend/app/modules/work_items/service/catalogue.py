@@ -45,6 +45,7 @@ from app.modules.work_items.domain.lifecycle import (
     TransitionDef,
     WorkItemAction,
 )
+from app.modules.work_items.domain.stages import FIRST_LIFECYCLE, StageModel
 from app.modules.work_items.domain.templates import (
     CONFIRMED_BY_REQUESTER,
     DEFAULT_LIST_VALUES,
@@ -62,10 +63,14 @@ from app.modules.work_items.domain.types import (
 )
 from app.modules.work_items.infra.models import (
     WorkItemCategory,
+    WorkItemPathStage,
     WorkItemPriorityCell,
     WorkItemReason,
     WorkItemScaleValue,
+    WorkItemStage,
+    WorkItemStagePath,
     WorkItemStatus,
+    WorkItemStatusTransition,
     WorkItemTemplate,
     WorkItemTransition,
     WorkItemTypeSettings,
@@ -209,6 +214,17 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     if inserted is None:  # another transaction seeded it first
         return
     _seed_v2(session, wtype, tenant, await default_desk_id(session))
+    staged = wtype.stages
+    if staged is not None:  # ADR-041: the stages first, their statuses point at them
+        session.add_all(
+            [
+                WorkItemStage(
+                    tenant_id=tenant, type=wtype.code, code=st.code, sort_order=i, system=True
+                )
+                for i, st in enumerate(staged.stages)
+            ]
+        )
+        await session.flush()
     rows: list[Any] = [
         WorkItemStatus(
             tenant_id=tenant,
@@ -220,11 +236,23 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
             system=s.system,
             # Appendix A: awaiting requester -> in progress on a requester reply (REQ-INC-051).
             resume_on_requester_reply=s.code == DefaultStatus.AWAITING_REQUESTER,
+            **_stage_columns(staged, s.code),
         )
         for index, s in enumerate(wtype.statuses)
     ]
     session.add_all(rows)
     await session.flush()
+    if staged is not None:
+        await _seed_stage_moves(session, wtype.code, staged, tenant)
+    session.add_all(
+        [
+            WorkItemReason(
+                tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i, colour=colour
+            )
+            for lst, values in wtype.own_lists.items()
+            for i, (code, colour) in enumerate(values)
+        ]
+    )
     session.add_all(
         [
             WorkItemTransition(
@@ -297,6 +325,63 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
                     )
                 )
         await session.flush()
+    await session.flush()
+
+
+def _stage_columns(staged: StageModel | None, code: str) -> dict[str, Any]:
+    """A staged status's stage, completing flag and who sets it (ADR-041 §2)."""
+    if staged is None:
+        return {}
+    status = staged.status(code)
+    return {"stage": status.stage, "completing": status.completing, "set_by": status.set_by}
+
+
+async def _seed_stage_moves(
+    session: AsyncSession, type_code: str, staged: StageModel, tenant: uuid.UUID
+) -> None:
+    """Paths, their stages and the listed status moves (ADR-041 §3, §4), life cycle 1."""
+    session.add_all(
+        [
+            WorkItemStagePath(
+                tenant_id=tenant,
+                type=type_code,
+                code=p.code,
+                lifecycle_version=FIRST_LIFECYCLE,
+                system=True,
+            )
+            for p in staged.paths
+        ]
+    )
+    await session.flush()
+    session.add_all(
+        [
+            WorkItemPathStage(
+                tenant_id=tenant,
+                type=type_code,
+                path=p.code,
+                stage=stage,
+                sort_order=i,
+                optional=stage in p.optional,
+            )
+            for p in staged.paths
+            for i, stage in enumerate(p.stages)
+        ]
+        + [
+            WorkItemStatusTransition(
+                tenant_id=tenant,
+                type=type_code,
+                path=t.path,
+                lifecycle_version=FIRST_LIFECYCLE,
+                from_status=t.from_status,
+                to_status=t.to_status,
+                reason_mode=t.reason_mode,
+                reason_list=t.reason_list,
+                permission=t.permission,
+                required_fields=list(t.required_fields) or None,
+            )
+            for t in staged.transitions
+        ]
+    )
     await session.flush()
 
 

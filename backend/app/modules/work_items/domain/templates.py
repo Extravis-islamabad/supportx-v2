@@ -42,6 +42,9 @@ class PickList(StrEnum):
     # problems (WP-044a, REQ-PRB-005): their type and root cause category, seeded for problems
     PROBLEM_TYPE = "problem_type"
     ROOT_CAUSE = "root_cause"
+    # Releases (WP-058a; REQ-REL-003, -005): their own lists, never shared with changes.
+    RELEASE_TYPE = "release_type"
+    RELEASE_REASON = "release_reason"
 
 
 REASON_LISTS = frozenset(PickList(r.value) for r in ReasonList)

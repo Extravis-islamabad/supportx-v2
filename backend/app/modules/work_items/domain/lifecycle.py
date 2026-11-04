@@ -19,6 +19,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from typing import Protocol
 
 from app.shared.domain import InvalidTransition
 
@@ -483,8 +484,22 @@ def after_assignment(
     return None
 
 
+class ReasonRule(Protocol):
+    """What a move says about its reason (a named action's or a stage engine's transition)."""
+
+    @property
+    def reason_mode(self) -> ReasonMode:
+        """None, optional or required."""
+        ...
+
+    @property
+    def reason_list(self) -> ReasonList | None:
+        """The pick list the reason code comes from, if any."""
+        ...
+
+
 def reason_problems(
-    transition: TransitionDef,
+    transition: ReasonRule,
     *,
     code: str | None,
     text: str | None,

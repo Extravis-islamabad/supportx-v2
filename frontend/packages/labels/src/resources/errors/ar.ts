@@ -653,6 +653,10 @@ export const ar: LabelResource = {
   'errors.sso_switch_off_first': 'أوقف الإعداد قبل تغيير طريقة اتصاله، حتى لا يُحرم أحد من الدخول.',
   'errors.sso_switched_off': 'شغّل الإعداد أو غيّره قبل اختباره.',
   'errors.sso_test_not_found': 'انتهى هذا الاختبار. ابدأ اختبارًا جديدًا.',
+  'errors.stage_move_not_allowed':
+    'هذا الانتقال غير مسموح به من الحالة الحالية. أعد التحميل لرؤية أحدث نسخة.',
+  'errors.stage_move_refused': 'يجب إنجاز أمر ما قبل هذا الانتقال. راجع الأسباب في السجل.',
+  'errors.stage_status_system_only': 'لا يضبط هذه الحالة إلا قرار موافقة.',
   'errors.status_not_found': 'هذه الحالة لم تعد موجودة.',
   'errors.storage_not_configured': 'لم يُعدّ تخزين الملفات لهذا التثبيت.',
   'errors.storage_quota_exceeded':
