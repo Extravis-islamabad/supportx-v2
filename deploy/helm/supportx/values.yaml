@@ -171,6 +171,10 @@ postgresql:
       retentionPolicy: "30d"
       schedule: "0 0 2 * * *"         # CloudNativePG's six fields (seconds first): daily at 02:00
       walCompression: gzip
+      # At rest, by the target (S3 server-side encryption): AES256 (SSE-S3) or aws:kms. Empty: the
+      # bucket's own policy. Production targets must encrypt, by this or by bucket policy; Barman
+      # Cloud has no client-side encryption (the offsite rclone copy adds it, WP-014b).
+      encryption: ""
 
 # --- Object storage (S3 API only, D-016; WP-018, reused by WP-022) ---------------------------------------
 # seaweedfs: a minimal single-node SeaweedFS in this release (on-prem, ADR-012, D-076).

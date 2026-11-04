@@ -21,3 +21,12 @@ malware_signatures once the signatures are over 48 hours old. Set clamav.private
 mirror or proxy under networkPolicies.egress.components.clamav, or load the offline bundle
 (deploy/scripts/clamav-signatures.sh).
 {{- end }}
+{{- $pgb := .Values.postgresql.cnpg.backup }}
+{{- if and (eq .Values.postgresql.mode "cnpg") $pgb.enabled (not $pgb.endpointURL) (eq .Values.objectStorage.mode "seaweedfs") }}
+
+WARNING: database backups go to this release's own SeaweedFS, inside the cluster. Losing the
+cluster or its storage loses the backups with it: fine for dev and CI, not for production. Point
+postgresql.cnpg.backup at storage outside the cluster (destinationPath, endpointURL,
+credentialsSecret; encrypted at rest), and keep the offsite copy (docs/deployment.md, Backups).
+{{- end }}
+

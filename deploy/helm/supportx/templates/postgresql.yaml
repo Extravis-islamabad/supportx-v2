@@ -90,8 +90,14 @@ spec:
         key: {{ $keyKey }}
     wal:
       compression: {{ $b.walCompression }}
+      {{- with $b.encryption }}
+      encryption: {{ . }}
+      {{- end }}
     data:
       compression: {{ $b.walCompression }}
+      {{- with $b.encryption }}
+      encryption: {{ . }}
+      {{- end }}
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
