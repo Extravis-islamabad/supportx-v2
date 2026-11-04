@@ -41,6 +41,7 @@ import { useTenantChannel } from '@supportx/realtime';
 import { AvailabilitySwitch } from './AvailabilitySwitch';
 import { EventDeliveryBanner } from './EventDeliveryBanner';
 import { NotificationBell } from './notifications/NotificationBell';
+import { ApprovalsDrawer } from './pages/requests/ApprovalsDrawer';
 import { NotificationsBanner } from './notifications/NotificationsBanner';
 import { useAvailabilityItem } from './useAvailabilityItem';
 import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
@@ -206,6 +207,7 @@ export function ConsoleLayout() {
           menuItems={availabilityItems}
           extra={
             <>
+              {licence.has('service_request') && <ApprovalsDrawer />}
               <NotificationBell />
               {session.user.user_type === 'technician' && licence.has('incident') && (
                 <AvailabilitySwitch userId={session.user.id} />

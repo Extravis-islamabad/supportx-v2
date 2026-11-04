@@ -20,7 +20,8 @@ from pydantic import BaseModel, Field
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.modules.audit import audited
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, user_contacts
+from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.service import approvals as service
@@ -93,6 +94,20 @@ class PendingApprovalOut(BaseModel):
     created_at: datetime
 
 
+class ApprovalsOut(BaseModel):
+    """A record's approvals with the names of the people in them."""
+
+    items: list[ApprovalOut]
+    people: dict[str, PersonOut]
+
+
+class MyApprovalsOut(BaseModel):
+    """Your waiting approvals with the names of the people they are for."""
+
+    items: list[PendingApprovalOut]
+    people: dict[str, PersonOut]
+
+
 class DecisionIn(BaseModel):
     """Approve or reject; a rejection needs a reason (REQ-SR-028)."""
 
@@ -107,32 +122,40 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType) -> None:
     audit = wtype.code.value
 
     @router.get("/my-approvals", summary="Approvals waiting for you")
-    async def my_approvals(session: TenantSession, subject: SignedIn) -> list[PendingApprovalOut]:
+    async def my_approvals(session: TenantSession, subject: SignedIn) -> MyApprovalsOut:
         """Oldest first; the console drawer and the portal inbox show these."""
         found = await service.mine(session, subject, wtype)
-        return [
-            PendingApprovalOut(
-                approval_id=p.approval.id,
-                approval_version=p.approval.version,
-                record_id=p.record.id,
-                display_id=p.record.display_id,
-                subject=p.record.subject,
-                requester_id=p.record.requester_id,
-                on_behalf_of_id=p.record.on_behalf_of_id,
-                catalog_item_id=p.record.catalog_item_id,
-                comments_required=p.approval.comments_required,
-                created_at=p.approval.created_at,
-            )
-            for p in found
-        ]
+        names = {p for f in found for p in (f.record.requester_id, f.record.on_behalf_of_id) if p}
+        return MyApprovalsOut(
+            items=[
+                PendingApprovalOut(
+                    approval_id=p.approval.id,
+                    approval_version=p.approval.version,
+                    record_id=p.record.id,
+                    display_id=p.record.display_id,
+                    subject=p.record.subject,
+                    requester_id=p.record.requester_id,
+                    on_behalf_of_id=p.record.on_behalf_of_id,
+                    catalog_item_id=p.record.catalog_item_id,
+                    comments_required=p.approval.comments_required,
+                    created_at=p.approval.created_at,
+                )
+                for p in found
+            ],
+            people=people_out(await user_contacts(session, sorted(str(n) for n in names))),
+        )
 
     @router.get("/{record_id}/approvals", summary="Approvals of the record")
     async def approvals(
         record_id: uuid.UUID, session: TenantSession, subject: SignedIn
-    ) -> list[ApprovalOut]:
+    ) -> ApprovalsOut:
         """Every approver's entry; for those who see the record and for its approvers."""
         found = await service.list_for_record(session, subject, wtype, record_id)
-        return [ApprovalOut.of(v) for v in found]
+        names = {p for v in found for p in (v.row.approver_id, v.row.decided_by) if p}
+        return ApprovalsOut(
+            items=[ApprovalOut.of(v) for v in found],
+            people=people_out(await user_contacts(session, sorted(str(n) for n in names))),
+        )
 
     @router.post(
         "/{record_id}/approvals/{approval_id}/decision",

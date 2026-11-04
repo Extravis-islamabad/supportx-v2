@@ -598,4 +598,11 @@ export const ar: LabelResource = {
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
   'errors.field.catalog_item_not_found': 'اختر عنصرًا من الكتالوج متاحًا لك.',
   'errors.on_behalf_out_of_scope': 'لا يمكنك تقديم طلب لهذا الشخص. اسأل مكتب الخدمة.',
+  'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
+  'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
+  'errors.approval_closed': 'تم البت في هذه الموافقة أو لم تعد مطلوبة.',
+  'errors.approval_changed': 'تغيّرت هذه الموافقة في هذه الأثناء. افتحها مجددًا.',
+  'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
+  'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',
+  'errors.withdraw_not_pending': 'لا يمكن سحب إلا طلب بانتظار الموافقة.',
 };

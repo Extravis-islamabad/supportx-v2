@@ -15,6 +15,9 @@ export type ServiceRequestInput = components['schemas']['WorkItemIn'];
 export type ApprovalStatus = components['schemas']['ApprovalStatus'];
 export type OnBehalfScope = components['schemas']['OnBehalfScope'];
 export type ServiceRequestCatalogue = components['schemas']['WorkItemCatalogueOut'];
+export type Approval = components['schemas']['ApprovalOut'];
+export type PendingApproval = components['schemas']['PendingApprovalOut'];
+export type ApprovalDecision = components['schemas']['DecisionIn'];
 export type ServiceRequestViewCount = components['schemas']['WorkItemViewCountOut'];
 
 export interface ServiceRequestsQuery {
@@ -32,6 +35,8 @@ export const serviceRequestKeys = {
   views: ['service-requests', 'list', 'views'] as const,
   detail: (id: string) => ['service-requests', 'detail', id] as const,
   settings: ['service-requests', 'settings'] as const,
+  approvals: (id: string) => ['service-requests', 'detail', id, 'approvals'] as const,
+  myApprovals: ['service-requests', 'my-approvals'] as const,
   catalog: ['catalog'] as const,
   items: ['catalog', 'items'] as const,
   item: (id: string) => ['catalog', 'items', id] as const,
@@ -141,6 +146,78 @@ export function useServiceRequestSettingsChange() {
       ),
     onSuccess: (catalogue) => {
       queryClient.setQueryData(serviceRequestKeys.settings, catalogue);
+    },
+  });
+}
+
+/** A request's approvals (REQ-SR-024): for those who see it and for its approvers. */
+export function useApprovals(recordId: string) {
+  return useQuery({
+    queryKey: serviceRequestKeys.approvals(recordId),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/service-requests/{record_id}/approvals', {
+          params: { path: { record_id: recordId } },
+        }),
+      ),
+    enabled: recordId !== '',
+  });
+}
+
+/** The approvals waiting for the signed-in person (the header drawer, REQ-SR-025). */
+export function useMyApprovals() {
+  return useQuery({
+    queryKey: serviceRequestKeys.myApprovals,
+    queryFn: () => call(api.GET('/api/v1/service-requests/my-approvals')),
+  });
+}
+
+/** Approve or reject with If-Match on the approval's version; the first decision decides. */
+export function useDecideApproval() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      recordId,
+      approvalId,
+      version,
+      body,
+    }: {
+      recordId: string;
+      approvalId: string;
+      version: number;
+      body: ApprovalDecision;
+    }) =>
+      call(
+        api.POST('/api/v1/service-requests/{record_id}/approvals/{approval_id}/decision', {
+          params: {
+            path: { record_id: recordId, approval_id: approvalId },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+          body,
+        }),
+      ),
+    onSettled: (_data, _error, { recordId }) => {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
+    },
+  });
+}
+
+/** The requester withdraws a request awaiting approval (REQ-SR-061). */
+export function useWithdrawRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ recordId, version }: { recordId: string; version: number }) =>
+      call(
+        api.POST('/api/v1/service-requests/{record_id}/withdraw', {
+          params: {
+            path: { record_id: recordId },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+        }),
+      ),
+    onSettled: (_data, _error, { recordId }) => {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });
     },
   });
 }

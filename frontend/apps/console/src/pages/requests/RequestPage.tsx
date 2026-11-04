@@ -2,10 +2,24 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Descriptions, Result, Skeleton, Space } from 'antd';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import { serviceRequestKeys, useCatalogItem, useServiceRequest } from '@supportx/api-client';
+import {
+  serviceRequestKeys,
+  useCatalogItem,
+  useServiceRequest,
+  useSession,
+  useWithdrawRequest,
+} from '@supportx/api-client';
 import { useRecordChannel } from '@supportx/realtime';
-import { PageHeader, ToneTag, useAppearance, useDateTime, useLabel } from '@supportx/ui';
+import {
+  PageHeader,
+  reportError,
+  ToneTag,
+  useAppearance,
+  useDateTime,
+  useLabel,
+} from '@supportx/ui';
 
+import { ApprovalsPanel, WithdrawButton } from './Approvals';
 import { itemName } from './items';
 
 function answerText(value: unknown): string {
@@ -15,8 +29,8 @@ function answerText(value: unknown): string {
 
 /**
  * One service request's summary (WP-030 s1): the item and its answers (REQ-SR-003 AC1), status,
- * approval status, priority and its source, live on the record channel. The full record page
- * (conversation, tasks, approvals) shares the incident page with session 2's approval engine.
+ * approval status, priority and its source, its approvals with Approve / Reject for the approver
+ * and Withdraw for the requester while it waits (WP-030 s2), live on the record channel.
  */
 export function RequestPage() {
   const t = useLabel();
@@ -27,6 +41,8 @@ export function RequestPage() {
   const queryClient = useQueryClient();
   const record = useServiceRequest(id);
   const item = useCatalogItem(record.data?.catalog_item_id ?? undefined);
+  const me = useSession().data?.user.id;
+  const withdraw = useWithdrawRequest();
   useRecordChannel('wi', id === '' ? undefined : id, () => {
     void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
   });
@@ -51,6 +67,18 @@ export function RequestPage() {
           </>
         }
         back={{ label: t('nav.requests'), onClick: () => void navigate('/requests') }}
+        extra={
+          r.approval_status === 'pending' &&
+          me !== undefined &&
+          [r.requester_id, r.on_behalf_of_id].includes(me) && (
+            <WithdrawButton
+              pending={withdraw.isPending}
+              onWithdraw={() => {
+                withdraw.mutate({ recordId: r.id, version: r.version }, { onError: reportError });
+              }}
+            />
+          )
+        }
       />
       <Space wrap>
         <ToneTag tone="info" testId="sr-status">
@@ -95,6 +123,9 @@ export function RequestPage() {
           </Descriptions.Item>
         ))}
       </Descriptions>
+      {r.approval_status != null && r.approval_status !== 'not_needed' && (
+        <ApprovalsPanel recordId={r.id} />
+      )}
     </Space>
   );
 }

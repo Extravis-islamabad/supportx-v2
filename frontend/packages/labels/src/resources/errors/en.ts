@@ -650,4 +650,11 @@ export const en = {
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
+  'errors.not_an_approver': 'You are not an approver of this request.',
+  'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.approval_closed': 'This approval is already decided or no longer needed.',
+  'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
+  'errors.approval_not_found': 'This approval was not found.',
+  'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
+  'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
 } as const;

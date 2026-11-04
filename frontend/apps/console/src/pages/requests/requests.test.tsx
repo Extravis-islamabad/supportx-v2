@@ -58,6 +58,31 @@ const request = fakeIncident({
   priority_source: 'catalog_item',
 });
 
+const APPROVAL_ID = '01a1a2b3-0000-7000-8000-00000000a001';
+const MANAGER = '01a1a2b3-0000-7000-8000-00000000b001';
+const pendingApproval = {
+  id: APPROVAL_ID,
+  stage: 1,
+  approver_id: MANAGER,
+  origin: 'manager',
+  route_reason: null,
+  state: 'pending',
+  decided_at: null,
+  decided_by: null,
+  channel: null,
+  comment: null,
+  comment_private: false,
+  comments_required: false,
+  self_approved: false,
+  can_decide: true,
+  created_at: '2026-11-04T08:00:00Z',
+  version: 1,
+};
+const approvalsBody = {
+  items: [pendingApproval],
+  people: { [MANAGER]: { display_name: 'Omar Manager', email: 'omar@example.com' } },
+};
+
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
@@ -83,6 +108,7 @@ function api(routes: Record<string, unknown> = {}) {
         ],
       },
       [`GET /api/v1/service-requests/${SR_ID}`]: { body: request },
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: { body: approvalsBody },
       ...routes,
     },
   });
@@ -147,5 +173,77 @@ describe('console: service requests', () => {
     await waitFor(() => {
       expect(within(answers).getByText('air')).toBeDefined();
     });
+  });
+
+  it('shows the approvals and the approver approves with If-Match', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const fake = api({
+      [`POST /api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/decision`]: {
+        body: { ...pendingApproval, state: 'approved', can_decide: false, version: 2 },
+      },
+    });
+    render(<App />);
+    const entry = await screen.findByTestId(`sr-approval-${APPROVAL_ID}`);
+    expect(within(entry).getByText('Omar Manager')).toBeDefined();
+    expect(within(entry).getByTestId('approval-state').textContent).toBe('Waiting');
+    fireEvent.click(within(entry).getByTestId('approval-approve'));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => {
+      expect(
+        fake.find('POST', `/api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/decision`),
+      ).toHaveLength(1);
+    });
+    const [sent] = fake.find(
+      'POST',
+      `/api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/decision`,
+    );
+    expect(sent?.body).toEqual({ decision: 'approve', comment: null, private: false });
+    expect(sent?.headers.get('If-Match')).toBe('"1"');
+  });
+
+  it('a rejection cannot be sent without a reason', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api();
+    render(<App />);
+    const entry = await screen.findByTestId(`sr-approval-${APPROVAL_ID}`);
+    fireEvent.click(within(entry).getByTestId('approval-reject'));
+    const dialog = await screen.findByRole('dialog');
+    const send = within(dialog).getByRole('button', { name: 'Reject' });
+    expect((send as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByTestId('approval-comment'), {
+      target: { value: 'Not in budget' },
+    });
+    expect((send as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('the header drawer lists the approvals waiting for me', async () => {
+    window.history.pushState({}, '', '/requests');
+    api({
+      'GET /api/v1/service-requests/my-approvals': {
+        body: {
+          items: [
+            {
+              approval_id: APPROVAL_ID,
+              approval_version: 1,
+              record_id: SR_ID,
+              display_id: 'SR-1',
+              subject: 'Laptop for Sara',
+              requester_id: MANAGER,
+              on_behalf_of_id: null,
+              catalog_item_id: ITEM_ID,
+              comments_required: false,
+              created_at: '2026-11-04T08:00:00Z',
+            },
+          ],
+          people: { [MANAGER]: { display_name: 'Omar Manager', email: 'omar@example.com' } },
+        },
+      },
+    });
+    render(<App />);
+    const opener = await screen.findByRole('button', { name: '1 approval waiting for you' });
+    fireEvent.click(opener);
+    const row = await screen.findByTestId('my-approval-SR-1');
+    expect(within(row).getByText('For Omar Manager', { exact: false })).toBeDefined();
   });
 });
