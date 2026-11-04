@@ -292,6 +292,8 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     # A release's own field names: (start, end) pairs and (name, limit) checks, not problems.
     found -= set(DETAIL_FIELDS)
     found -= {"stage_rules"}  # a template's stage settings, ("stage_path", "stage_rules")
+    # S4: date pairs and a role event's holder lists, ("starts_at", "ends_at") and the like.
+    found -= {"ends_at", "users_after", "groups_after"}
     assert found <= FIELD_PROBLEMS, sorted(found - FIELD_PROBLEMS)
 
 

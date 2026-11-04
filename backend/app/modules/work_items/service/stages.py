@@ -40,6 +40,7 @@ from app.modules.work_items.infra.models import (
     WorkItemStage,
     WorkItemStageEntry,
     WorkItemStagePath,
+    WorkItemStageSchedule,
     WorkItemStatus,
     WorkItemStatusTransition,
     WorkItemTemplate,
@@ -267,6 +268,7 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
     stages: Sequence[str],
     *,
     now: datetime,
+    left: str | None = None,
     reason_code: str | None = None,
     reason_text: str | None = None,
 ) -> list[WorkItemStageEntry]:
@@ -277,6 +279,7 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
     """
     if not stages:
         return []
+    await _stamp_actual(session, record, stages, left=left, now=now)
     await session.execute(
         update(WorkItemStageEntry)
         .where(WorkItemStageEntry.work_item_id == record.id, WorkItemStageEntry.left_at.is_(None))
@@ -303,6 +306,52 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
         for entry in entries:
             await guard.on_entered(session, record, entry)
     return entries
+
+
+async def _stamp_actual(
+    session: AsyncSession,
+    record: WorkItem,
+    stages: Sequence[str],
+    *,
+    left: str | None,
+    now: datetime,
+) -> None:
+    """The engine's actual dates (REQ-REL-026 AC1).
+
+    The stage left ends; each stage entered starts (its first start kept on going back); each
+    stage passed through on an automatic advance ends at once.
+    """
+    tenant = catalogue.tenant_of(session)
+    if left is not None:
+        await _upsert_schedule(session, tenant, record.id, left, actual_end=now)
+    for index, stage in enumerate(stages):
+        passed = index < len(stages) - 1
+        await _upsert_schedule(
+            session, tenant, record.id, stage, actual_start=now, actual_end=now if passed else None
+        )
+
+
+async def _upsert_schedule(  # noqa: PLR0913 - the row's key and the dates, explicit
+    session: AsyncSession,
+    tenant: uuid.UUID,
+    record_id: uuid.UUID,
+    stage: str,
+    *,
+    actual_start: datetime | None = None,
+    actual_end: datetime | None = None,
+) -> None:
+    row = await session.get(WorkItemStageSchedule, (tenant, record_id, stage))
+    if row is None:
+        row = WorkItemStageSchedule(tenant_id=tenant, work_item_id=record_id, stage=stage)
+        session.add(row)
+    if actual_start is not None and row.actual_start is None:
+        row.actual_start = actual_start
+    if actual_start is not None:
+        row.actual_end = None  # entered again (going back): open until it is left
+    if actual_end is not None:
+        row.actual_end = actual_end
+    row.version = (row.version or 0) + 1
+    await session.flush()
 
 
 async def start(session: AsyncSession, record: WorkItem, *, now: datetime) -> None:

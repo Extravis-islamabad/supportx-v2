@@ -265,7 +265,7 @@ class WorkItemReason(TenantKeyed, Base):
     colour: Mapped[str | None] = mapped_column(String(7))
     disabled_at: Mapped[datetime | None]
     # A value's own settings (0093): a release type's default template and default risk.
-    attributes: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    attributes: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class WorkItemScaleValue(TenantKeyed, Base):
@@ -416,7 +416,7 @@ class WorkItemTemplate(TenantEntity):
     # Staged types (ADR-041; 0093): the path its records take, and per stage, per field, whether
     # it is shown, required to leave the stage, or read-only while in it (REQ-REL-011, -013).
     stage_path: Mapped[str | None] = mapped_column(String(40))
-    stage_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    stage_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
 
 # Description is sanitised HTML: tags and entities become spaces before indexing (migration 0020);
@@ -1153,7 +1153,7 @@ class WorkItemStage(TenantKeyed, Base):
     # Who may edit the stage and move a record out of it (0094; REQ-REL-019): for `edit` and
     # `move_out`, {"group_ids": [...], "permissions": [...], "roles": [...]}; NULL: anyone who
     # may edit the record.
-    access: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    access: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class WorkItemStagePath(TenantKeyed, Base):
@@ -1248,7 +1248,7 @@ class WorkItemStatusTransition(UuidPrimaryKey, TenantScoped, Base):
     reason_mode: Mapped[str] = mapped_column(String(10), server_default="none")
     reason_list: Mapped[str | None] = mapped_column(String(20))
     permission: Mapped[str | None] = mapped_column(String(40))
-    required_fields: Mapped[list[str] | None] = mapped_column(JSONB)
+    required_fields: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class WorkItemStageEntry(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
@@ -1341,11 +1341,11 @@ class WorkItemRoleDef(TenantKeyed, Base):
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
     code: Mapped[str] = mapped_column(String(40), primary_key=True)
     sort_order: Mapped[int] = mapped_column(Integer)
-    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
-    description: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB(none_as_null=True))
+    description: Mapped[dict[str, str] | None] = mapped_column(JSONB(none_as_null=True))
     single: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # Who may hold it (REQ-REL-024): {"permissions": [...], "group_ids": [...], "user_ids": [...]}.
-    eligibility: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    eligibility: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
     system: Mapped[bool] = mapped_column(Boolean, server_default="false")
     disabled_at: Mapped[datetime | None]
 

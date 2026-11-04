@@ -242,6 +242,13 @@ PLAN_SECTIONS = ("impact", "rollout", "backout")
 OUTCOME_STAGES = frozenset({"build", "testing", "acceptance_testing", "deployment", "training"})
 
 
+class DowntimePhase(StrEnum):
+    """Whether a downtime window is planned or happened (REQ-REL-027)."""
+
+    PLANNED = "planned"
+    ACTUAL = "actual"
+
+
 class StageOutcome(StrEnum):
     """How a stage went (REQ-REL-028)."""
 

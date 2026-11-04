@@ -21,6 +21,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
+from app.modules.identity_access import active_user_ids
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain.classification import (
     Impact,
@@ -732,4 +733,158 @@ async def stage_rows(session: AsyncSession, wtype: WorkItemType) -> list[WorkIte
             .where(WorkItemStage.type == wtype.code)
             .order_by(WorkItemStage.sort_order)
         )
+    )
+
+
+# --- role definitions (WP-058a s4; REQ-REL-023, -024; REQ-CHG-035) -------------------------------
+
+ELIGIBILITY_KEYS = frozenset({"permissions", "group_ids", "user_ids"})
+
+
+async def role_def_rows(session: AsyncSession, wtype: WorkItemType) -> list[WorkItemRoleDef]:
+    """A type's role definitions in order (seeding first)."""
+    await config.ensure_seeded(session, wtype)
+    return list(
+        await session.scalars(
+            select(WorkItemRoleDef)
+            .where(WorkItemRoleDef.type == wtype.code)
+            .order_by(WorkItemRoleDef.sort_order, WorkItemRoleDef.code)
+        )
+    )
+
+
+async def _clean_eligibility(
+    session: AsyncSession,
+    raw: Any,  # noqa: ANN401 - JSON
+    known_permission: Callable[[str], bool],
+) -> dict[str, Any] | None:
+    """Who may hold a role, checked: known permissions, live groups, active people."""
+    if not raw:
+        return None
+    if not isinstance(raw, Mapping) or set(raw) - ELIGIBILITY_KEYS:
+        raise invalid(field="eligibility", field_code="not_allowed")
+    permissions = sorted({str(p) for p in raw.get("permissions") or ()})
+    if any(not known_permission(p) for p in permissions):
+        raise invalid(field="eligibility.permissions", field_code="invalid_choice")
+    groups = [_uuid_or_none(g) for g in raw.get("group_ids") or ()]
+    people = [_uuid_or_none(u) for u in raw.get("user_ids") or ()]
+    if None in groups or None in people:
+        raise invalid(field="eligibility", field_code="invalid_value")
+    wanted_groups = [g for g in groups if g is not None]
+    if set(wanted_groups) - await existing_unit_ids(session, "group", wanted_groups):
+        raise invalid(field="eligibility.group_ids", field_code="group_not_found")
+    wanted_people = [u for u in people if u is not None]
+    if set(wanted_people) - await active_user_ids(session, wanted_people):
+        raise invalid(field="eligibility.user_ids", field_code="user_not_found")
+    cleaned = {
+        "permissions": permissions,
+        "group_ids": sorted(str(g) for g in set(wanted_groups)),
+        "user_ids": sorted(str(u) for u in set(wanted_people)),
+    }
+    return cleaned if any(cleaned.values()) else None
+
+
+async def add_role_def(  # noqa: PLR0913 - the role and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    *,
+    expected_version: int,
+    values: Mapping[str, Any],
+    known_permission: Callable[[str], bool],
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> tuple[Catalogue, str]:
+    """An admin's own role (REQ-CHG-035): named, optionally for several holders."""
+    if not wtype.roles:
+        raise NotFound(code="role_not_found")
+    current = await config.load(session, wtype)
+    await _check_version(session, wtype, current, expected_version)
+    labels = labels_of(values.get("labels"), allow_none=False)
+    existing = await role_def_rows(session, wtype)
+    english = (labels or {}).get("en", "").casefold()
+    if any((d.labels or {}).get("en", "").casefold() == english for d in existing):
+        raise invalid(field="labels", field_code="duplicate_name")
+    code = new_value_code()
+    session.add(
+        WorkItemRoleDef(
+            tenant_id=config.tenant_of(session),
+            type=wtype.code,
+            code=code,
+            sort_order=len(existing),
+            labels=labels,
+            description=labels_of(values.get("description"), allow_none=True),
+            single=bool(values.get("single", True)),
+            eligibility=await _clean_eligibility(
+                session, values.get("eligibility"), known_permission
+            ),
+            system=False,
+        )
+    )
+    await session.flush()
+    cat = await _bump(
+        session,
+        wtype,
+        current=current,
+        expected_version=expected_version,
+        changes=[Change(f"roles.{code}", None, labels)],
+        changed_fields=["roles"],
+        source=source,
+        user_id=user_id,
+    )
+    return cat, code
+
+
+async def update_role_def(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    code: str,
+    *,
+    expected_version: int,
+    values: Mapping[str, Any],
+    known_permission: Callable[[str], bool],
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> Catalogue:
+    """Rename, describe, set who may hold it, retire or bring back; never deleted."""
+    current = await config.load(session, wtype)
+    await _check_version(session, wtype, current, expected_version)
+    row = await session.get(WorkItemRoleDef, (config.tenant_of(session), wtype.code, code))
+    if row is None:
+        raise NotFound(code="role_not_found")
+    changes: dict[str, Any] = {}
+    if "labels" in values:
+        changes["labels"] = labels_of(values["labels"], allow_none=row.system)
+    if "description" in values:
+        changes["description"] = labels_of(values["description"], allow_none=True)
+    if "eligibility" in values:
+        changes["eligibility"] = await _clean_eligibility(
+            session, values["eligibility"], known_permission
+        )
+    if "disabled" in values:
+        changes["disabled_at"] = (
+            (row.disabled_at or datetime.now(UTC)) if values["disabled"] else None
+        )
+    before = {k: getattr(row, k) for k in changes}
+    changes = {k: v for k, v in changes.items() if before[k] != v}
+    if not changes:
+        return current
+    for name, value in changes.items():
+        setattr(row, name, value)
+    await session.flush()
+    return await _bump(
+        session,
+        wtype,
+        current=current,
+        expected_version=expected_version,
+        changes=[
+            Change(
+                f"roles.{code}.{'disabled' if k == 'disabled_at' else k}",
+                before[k] is not None if k == "disabled_at" else before[k],
+                v is not None if k == "disabled_at" else v,
+            )
+            for k, v in changes.items()
+        ],
+        changed_fields=["roles"],
+        source=source,
+        user_id=user_id,
     )

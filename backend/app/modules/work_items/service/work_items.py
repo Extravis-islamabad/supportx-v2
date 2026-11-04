@@ -117,6 +117,7 @@ from app.modules.work_items.events import (
     WorkItemAssigned,
     WorkItemCreated,
     WorkItemDeleted,
+    WorkItemPartChanged,
     WorkItemRestored,
     WorkItemRolesChanged,
     WorkItemStageChanged,
@@ -127,10 +128,13 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemCategory,
     WorkItemConversation,
+    WorkItemDowntime,
     WorkItemFollower,
+    WorkItemPlanSection,
     WorkItemReleaseDetails,
     WorkItemRoleDef,
     WorkItemRoleHolder,
+    WorkItemStageSchedule,
     WorkItemTemplate,
 )
 from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
@@ -2574,7 +2578,13 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     automated = await _rules_on_edit(session, wtype, record, changes)
     updated = await _update(session, record, expected_version, changes)
     entries = await stage_service.enter(
-        session, updated, move.entered, now=now, reason_code=reason_code, reason_text=text
+        session,
+        updated,
+        move.entered,
+        now=now,
+        left=from_stage,
+        reason_code=reason_code,
+        reason_text=text,
     )
     await _record_stage_move(
         session,
@@ -3102,7 +3112,8 @@ async def _person_holder_problems(
             continue
         if any([await holders.user_holds(session, tenant, user, p) for p in permissions]):
             continue
-        return [("user_ids", "not_eligible")], {"permission": permissions[0] if permissions else ""}
+        missing = permissions[0] if permissions else ""
+        return [("user_ids", "not_eligible")], {"user_ids": {"permission": missing}}
     return [], {}
 
 
@@ -3256,6 +3267,363 @@ async def role_candidates(  # noqa: PLR0913 - the role and the search, explicit
             if user in active:
                 found.setdefault(user, names.get(str(user), ""))
     return sorted(found.items(), key=lambda kv: (kv[1].casefold(), str(kv[0])))[:limit]
+
+
+# --- plan sections, stage schedules, downtimes (WP-058a s4; REQ-REL-025..028) --------------------
+
+
+def _part_id(record_id: uuid.UUID, name: str) -> uuid.UUID:
+    """A stable ID for a part keyed by name (a plan section, a stage's schedule)."""
+    return uuid.uuid5(record_id, name)
+
+
+async def _part_event(
+    session: AsyncSession, record: WorkItem, part: str, part_id: uuid.UUID, change: str
+) -> None:
+    await record_event(
+        session,
+        WorkItemPartChanged(
+            work_item_id=record.id,
+            part=part,  # type: ignore[arg-type]  # one of the part literals, checked by pydantic
+            part_id=part_id,
+            change=change,  # type: ignore[arg-type]  # added / changed / removed
+        ),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
+
+
+async def _part_history(
+    session: AsyncSession,
+    record: WorkItem,
+    changes: Sequence[Change],
+    *,
+    source: Source,
+    reason: str | None = None,
+) -> None:
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=list(changes),
+        source=source,
+        reason=reason,
+    )
+
+
+def _stale_part(current: int, expected: int) -> Conflict:
+    return Conflict(
+        code="version_conflict",
+        params={"expected_version": expected, "current_version": current},
+    )
+
+
+async def plan_sections(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> tuple[WorkItem, list[tuple[str, WorkItemPlanSection | None]]]:
+    """Every plan section of the type, in order, with what is written (REQ-REL-025)."""
+    if not wtype.plan_sections:
+        raise _not_found(wtype)
+    record = await _visible(session, subject, wtype, record_id)
+    rows = {
+        r.section: r
+        for r in await session.scalars(
+            select(WorkItemPlanSection).where(WorkItemPlanSection.work_item_id == record.id)
+        )
+    }
+    return record, [(name, rows.get(name)) for name in wtype.plan_sections]
+
+
+async def put_plan_section(  # noqa: PLR0913 - the section and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    section: str,
+    *,
+    content: str | None,
+    expected_version: int,
+    source: Source,
+) -> WorkItemPlanSection:
+    """One section's text, with that section's own If-Match (0: not written yet).
+
+    Two people editing different sections both keep their work; the same section conflicts
+    (REQ-REL-025 AC2). Its history names the section, the editor and the time (AC1).
+    """
+    if section not in wtype.plan_sections:
+        raise NotFound(code="plan_section_not_found")
+    record = await _for_action(
+        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+    )
+    if _closed(record):
+        raise Conflict(code="record_closed", params={"status": record.status})
+    tenant = config.tenant_of(session)
+    row = await session.get(WorkItemPlanSection, (tenant, record.id, section))
+    if (row.version if row else 0) != expected_version:
+        raise _stale_part(row.version if row else 0, expected_version)
+    text = sanitize_html(content) if content else None
+    text = None if text is None or is_blank(text) else text
+    before = row.content if row else None
+    if row is not None and before == text:
+        return row
+    if text is not None and len(text) > DESCRIPTION_MAX:
+        raise _errors([("content", "value_too_long")])
+    if row is None:
+        row = WorkItemPlanSection(tenant_id=tenant, work_item_id=record.id, section=section)
+        session.add(row)
+        row.version = 1
+    else:
+        row.version += 1
+    row.content = text
+    await session.flush()
+    await _part_history(session, record, [Change(f"plan.{section}", before, text)], source=source)
+    await _part_event(session, record, "plan_section", _part_id(record.id, section), "changed")
+    return row
+
+
+async def stage_schedules(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> tuple[WorkItem, list[tuple[str, WorkItemStageSchedule | None]]]:
+    """Each stage on the record's path with its dates and outcome (REQ-REL-026, -028)."""
+    if wtype.stages is None:
+        raise _not_found(wtype)
+    record = await _visible(session, subject, wtype, record_id)
+    model = await stage_service.load_model(session, wtype, record.lifecycle_version)
+    rows = {
+        r.stage: r
+        for r in await session.scalars(
+            select(WorkItemStageSchedule).where(WorkItemStageSchedule.work_item_id == record.id)
+        )
+    }
+    return record, [(s, rows.get(s)) for s in model.path(str(record.stage_path)).stages]
+
+
+SCHEDULE_FIELDS = (
+    "scheduled_start",
+    "scheduled_end",
+    "actual_start",
+    "actual_end",
+    "outcome",
+    "outcome_notes",
+    "issues",
+)
+_ACTUAL = ("actual_start", "actual_end")
+
+
+async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    stage: str,
+    *,
+    values: Mapping[str, Any],
+    expected_version: int,
+    reason: str | None,
+    source: Source,
+) -> WorkItemStageSchedule:
+    """A stage's dates and outcome, with the stage row's own If-Match (0: none yet).
+
+    The engine sets the actual dates; correcting one needs a reason (REQ-REL-026). A failed
+    outcome needs its issues (REQ-REL-028 AC1).
+    """
+    if wtype.stages is None:
+        raise _not_found(wtype)
+    record = await _for_action(
+        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+    )
+    model = await stage_service.load_model(session, wtype, record.lifecycle_version)
+    if stage not in model.path(str(record.stage_path)).stages:
+        raise NotFound(code="stage_not_found")
+    tenant = config.tenant_of(session)
+    row = await session.get(WorkItemStageSchedule, (tenant, record.id, stage))
+    if (row.version if row else 0) != expected_version:
+        raise _stale_part(row.version if row else 0, expected_version)
+    current = {n: getattr(row, n) if row else None for n in SCHEDULE_FIELDS}
+    given = {n: _clean_detail(n, v) for n, v in values.items() if n in SCHEDULE_FIELDS}
+    text = (reason or "").strip() or None
+    changed = {n: v for n, v in given.items() if v != current[n]}
+    problems = _schedule_problems(wtype, stage, {**current, **given}, changed, text)
+    if problems:
+        raise _errors(list(dict.fromkeys(problems)))
+    if not changed:
+        if row is None:
+            raise _errors([("values", "required")])
+        return row
+    if row is None:
+        row = WorkItemStageSchedule(tenant_id=tenant, work_item_id=record.id, stage=stage)
+        session.add(row)
+        row.version = 1
+    else:
+        row.version += 1
+    for name, value in changed.items():
+        setattr(row, name, value)
+    await session.flush()
+    await _part_history(
+        session,
+        record,
+        [Change(f"schedule.{stage}.{n}", _json(current[n]), _json(v)) for n, v in changed.items()],
+        source=source,
+        reason=text,
+    )
+    await _part_event(session, record, "stage_schedule", _part_id(record.id, stage), "changed")
+    return row
+
+
+def _schedule_problems(
+    wtype: WorkItemType,
+    stage: str,
+    merged: Mapping[str, Any],
+    changed: Mapping[str, Any],
+    reason: str | None,
+) -> list[tuple[str, str]]:
+    problems = release_rules.outcome_problems(stage, merged)
+    if stage not in wtype.outcome_stages and any(
+        n in changed for n in ("outcome", "outcome_notes", "issues")
+    ):
+        problems.append(("outcome", "not_allowed"))
+    if any(n in changed for n in _ACTUAL) and not reason:
+        problems.append(("reason", "reason_required"))
+    return problems
+
+
+DOWNTIME_FIELDS = ("phase", "kind", "starts_at", "ends_at", "description", "service_ids", "ci_ids")
+
+
+async def downtimes(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> tuple[WorkItem, list[WorkItemDowntime]]:
+    """A record's downtime windows, planned and actual, by start (REQ-REL-027)."""
+    if wtype.stages is None:
+        raise _not_found(wtype)
+    record = await _visible(session, subject, wtype, record_id)
+    rows = await session.scalars(
+        select(WorkItemDowntime)
+        .where(WorkItemDowntime.work_item_id == record.id, WorkItemDowntime.deleted_at.is_(None))
+        .order_by(WorkItemDowntime.starts_at, WorkItemDowntime.id)
+    )
+    return record, list(rows)
+
+
+async def _downtime_problems(
+    session: AsyncSession, wtype: WorkItemType, merged: Mapping[str, Any]
+) -> list[tuple[str, str]]:
+    problems = [(n, "required") for n in ("starts_at", "ends_at") if merged.get(n) is None]
+    if (
+        merged.get("starts_at")
+        and merged.get("ends_at")
+        and merged["ends_at"] < merged["starts_at"]
+    ):
+        problems.append(("ends_at", "end_before_start"))
+    if merged.get("phase") not in {"planned", "actual"}:
+        problems.append(("phase", "invalid_choice"))
+    kind = merged.get("kind")
+    if kind is not None:
+        cat = await config.load(session, wtype)
+        if kind not in cat.reason_codes(PickList.DOWNTIME_KIND):
+            problems.append(("kind", "invalid_choice"))
+    return problems
+
+
+async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    downtime_id: uuid.UUID | None,
+    *,
+    values: Mapping[str, Any],
+    expected_version: int,
+    source: Source,
+) -> WorkItemDowntime:
+    """Add (no ID, version 0) or change a downtime window (its own If-Match)."""
+    if wtype.stages is None:
+        raise _not_found(wtype)
+    record = await _for_action(
+        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+    )
+    row = None
+    if downtime_id is not None:
+        row = await session.scalar(
+            select(WorkItemDowntime).where(
+                WorkItemDowntime.id == downtime_id,
+                WorkItemDowntime.work_item_id == record.id,
+                WorkItemDowntime.deleted_at.is_(None),
+            )
+        )
+        if row is None:
+            raise NotFound(code="downtime_not_found")
+    if (row.version if row else 0) != expected_version:
+        raise _stale_part(row.version if row else 0, expected_version)
+    current = {n: getattr(row, n) if row else None for n in DOWNTIME_FIELDS}
+    if row is None:
+        current |= {"phase": "planned", "service_ids": [], "ci_ids": []}
+    given = {n: _clean_detail(n, v) for n, v in values.items() if n in DOWNTIME_FIELDS}
+    merged = {**current, **given}
+    problems = await _downtime_problems(session, wtype, merged)
+    if problems:
+        raise _errors(problems)
+    changed = {n: v for n, v in given.items() if v != current[n]}
+    if row is not None and not changed:
+        return row
+    if row is None:
+        row = WorkItemDowntime(
+            id=new_id(), tenant_id=config.tenant_of(session), work_item_id=record.id
+        )
+        session.add(row)
+        row.version = 1
+        changed = {n: merged[n] for n in DOWNTIME_FIELDS if merged[n] not in (None, [])}
+        row.phase, row.service_ids, row.ci_ids = "planned", [], []
+    else:
+        row.version += 1
+    for name, value in changed.items():
+        setattr(row, name, value)
+    await session.flush()
+    await _part_history(
+        session,
+        record,
+        [Change(f"downtime.{row.id}.{n}", _json(current[n]), _json(v)) for n, v in changed.items()],
+        source=source,
+    )
+    await _part_event(
+        session, record, "downtime", row.id, "added" if downtime_id is None else "changed"
+    )
+    return row
+
+
+async def remove_downtime(  # noqa: PLR0913 - the window and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    downtime_id: uuid.UUID,
+    *,
+    expected_version: int,
+    source: Source,
+) -> None:
+    """Remove a window (kept, marked removed: soft delete)."""
+    record = await _for_action(
+        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+    )
+    row = await session.scalar(
+        select(WorkItemDowntime).where(
+            WorkItemDowntime.id == downtime_id,
+            WorkItemDowntime.work_item_id == record.id,
+            WorkItemDowntime.deleted_at.is_(None),
+        )
+    )
+    if row is None:
+        raise NotFound(code="downtime_not_found")
+    if row.version != expected_version:
+        raise _stale_part(row.version, expected_version)
+    row.deleted_at, row.version = _now(), row.version + 1
+    await session.flush()
+    await _part_history(
+        session, record, [Change(f"downtime.{row.id}", "present", None)], source=source
+    )
+    await _part_event(session, record, "downtime", row.id, "removed")
 
 
 # --- the requester replies (WP-020f) --------------------------------------------------------------

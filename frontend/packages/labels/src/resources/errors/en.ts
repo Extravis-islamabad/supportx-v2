@@ -129,6 +129,7 @@ export const en = {
   'errors.domain_wrong_answer':
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
+  'errors.downtime_not_found': 'This downtime window does not exist.',
   'errors.entitlement_required': 'Your plan does not include this feature.',
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
   'errors.entitlements_unavailable':
@@ -306,6 +307,7 @@ export const en = {
   'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
+  'errors.field.not_eligible': 'This person or group may not hold this role.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
@@ -356,6 +358,7 @@ export const en = {
   'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
+  'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
@@ -639,6 +642,7 @@ export const en = {
   'errors.pick_list_value_not_found': 'That value no longer exists.',
   'errors.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
+  'errors.plan_section_not_found': 'This plan section does not exist.',
   // WP-008: API conventions (concurrency, idempotency, filters, sorting, paging).
   'errors.precondition_required':
     'This change needs the version you are editing. Reload the item and try again.',

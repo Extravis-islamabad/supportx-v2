@@ -114,6 +114,7 @@ export const ar: LabelResource = {
   'errors.domain_taken': 'هذا النطاق مستخدم بالفعل.',
   'errors.domain_wrong_answer': 'النطاق لا يشير إلى SupportX هذا بعد: تحقق من سجل DNS.',
   'errors.domains_not_configured': 'النطاقات المخصصة غير مهيأة في هذا التثبيت.',
+  'errors.downtime_not_found': 'نافذة التوقف هذه غير موجودة.',
   'errors.entitlement_required': 'خطتك لا تتضمن هذه الميزة.',
   'errors.entitlement_required.detail': '{{feature}} غير مشمول في خطة مؤسستك.',
   'errors.entitlements_unavailable':
@@ -283,6 +284,7 @@ export const ar: LabelResource = {
   'errors.field.not_a_field': 'هذا الحقل غير موجود لهذا النوع.',
   'errors.field.not_allowed': 'هذا غير مسموح مع القيم الأخرى.',
   'errors.field.not_allowed_for_notes': 'الملاحظات ليس لها مستلمون.',
+  'errors.field.not_eligible': 'لا يمكن لهذا الشخص أو هذه المجموعة شغل هذا الدور.',
   'errors.field.not_for_this_status': 'هذا الإعداد للحالات التي تنتظر شخصًا ما فقط.',
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
   'errors.field.note_too_long': 'يمكن أن تحتوي الملاحظة على {{max}} حرفًا على الأكثر.',
@@ -330,6 +332,7 @@ export const ar: LabelResource = {
   'errors.field.required_to_leave_stage': 'املأ هذا الحقل قبل مغادرة هذه المرحلة.',
   'errors.field.required_to_resolve': 'مطلوب قبل الحل.',
   'errors.field.review_date_past': 'اختر اليوم أو تاريخًا لاحقًا.',
+  'errors.field.role_disabled': 'هذا الدور متوقف: لا يمكن منحه لأي شخص جديد.',
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',
   'errors.field.schedule_never_runs': 'بهذه التواريخ لن تعمل الجدولة أبدًا.',
   'errors.field.scope_not_allowed': 'هذا النطاق غير متاح لهذه الصلاحية.',
@@ -584,6 +587,7 @@ export const ar: LabelResource = {
   'errors.pick_list_not_found': 'هذه القائمة غير موجودة.',
   'errors.pick_list_value_not_found': 'هذه القيمة لم تعد موجودة.',
   'errors.plain_connection_refused': 'يُرفض الاتصال غير المشفّر ما لم تسمح به.',
+  'errors.plan_section_not_found': 'قسم الخطة هذا غير موجود.',
   // WP-008: API conventions (concurrency, idempotency, filters, sorting, paging).
   'errors.precondition_required':
     'يحتاج هذا التغيير إلى إصدار العنصر الذي تعدّله. أعد تحميل العنصر وحاول مرة أخرى.',

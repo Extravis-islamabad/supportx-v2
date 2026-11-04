@@ -130,6 +130,7 @@ export const ur: LabelResource = {
   'errors.domain_wrong_answer':
     'ڈومین ابھی اس SupportX کی طرف اشارہ نہیں کرتا: اس کا DNS ریکارڈ دیکھیں۔',
   'errors.domains_not_configured': 'اس انسٹالیشن پر کسٹم ڈومین ترتیب نہیں دیے گئے۔',
+  'errors.downtime_not_found': 'یہ بندش کا وقفہ موجود نہیں۔',
   'errors.entitlement_required': 'آپ کے پلان میں یہ خصوصیت شامل نہیں۔',
   'errors.entitlement_required.detail': '{{feature}} آپ کے ادارے کے پلان کا حصہ نہیں۔',
   'errors.entitlements_unavailable':
@@ -311,6 +312,7 @@ export const ur: LabelResource = {
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
   'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
+  'errors.field.not_eligible': 'یہ شخص یا گروپ یہ کردار نہیں رکھ سکتا۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
   'errors.field.note_too_long': 'نوٹ زیادہ سے زیادہ {{max}} حروف کا ہو سکتا ہے۔',
@@ -363,6 +365,7 @@ export const ur: LabelResource = {
   'errors.field.required_to_leave_stage': 'اس مرحلے سے نکلنے سے پہلے یہ بھریں۔',
   'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
   'errors.field.review_date_past': 'آج یا بعد کی تاریخ منتخب کریں۔',
+  'errors.field.role_disabled': 'یہ کردار ختم کیا جا چکا ہے: کسی نئے کو نہیں دیا جا سکتا۔',
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
@@ -648,6 +651,7 @@ export const ur: LabelResource = {
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
   'errors.plain_connection_refused':
     'بغیر انکرپشن کا کنکشن مسترد کیا جاتا ہے جب تک آپ اس کی اجازت نہ دیں۔',
+  'errors.plan_section_not_found': 'منصوبے کا یہ حصہ موجود نہیں۔',
   'errors.precondition_required':
     'اس تبدیلی کے لیے وہ ورژن درکار ہے جس میں آپ ترمیم کر رہے ہیں۔ آئٹم دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.private_key_unreadable':

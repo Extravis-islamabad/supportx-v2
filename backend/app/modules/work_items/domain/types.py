@@ -315,6 +315,8 @@ FIELD_PROBLEMS = frozenset(
         "read_only_in_stage",
         "not_a_field",
         "required_to_leave_stage",  # WP-058a s3 (REQ-REL-018)
+        "not_eligible",  # WP-058a s4: a role holder the role does not allow (REQ-REL-024)
+        "role_disabled",
     }
 )
 

@@ -272,7 +272,8 @@ class WorkItemPartChanged(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item"
 
     work_item_id: uuid.UUID
-    part: Literal["task", "worklog", "link"]
+    # WP-058a s4 adds a staged record's plan sections, stage schedules and downtimes.
+    part: Literal["task", "worklog", "link", "plan_section", "stage_schedule", "downtime"]
     part_id: uuid.UUID
     change: Literal["added", "changed", "removed"]
 

@@ -146,6 +146,50 @@ class StageSettingsOut(BaseModel):
     access: StageAccessIn | None
 
 
+class EligibilityIO(BaseModel):
+    """Who may hold a role: any of these permissions, groups or people (all empty: anyone)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    permissions: list[str] = Field(default_factory=list, max_length=20)
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    user_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
+
+
+class RoleDefOut(BaseModel):
+    """One named role of the type (REQ-REL-023, -024)."""
+
+    code: str
+    labels: dict[str, str] | None = Field(description="Null: labelled by the UI from the code.")
+    description: dict[str, str] | None
+    single: bool
+    eligibility: EligibilityIO | None
+    system: bool
+    disabled: bool
+
+
+class RoleDefIn(BaseModel):
+    """An admin's own role."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    labels: dict[str, str]
+    description: dict[str, str] | None = None
+    single: bool = True
+    eligibility: EligibilityIO | None = None
+
+
+class RoleDefPatch(BaseModel):
+    """What to change (only what is sent)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    labels: dict[str, str] | None = None
+    description: dict[str, str] | None = None
+    eligibility: EligibilityIO | None = None
+    disabled: bool | None = None
+
+
 class ListOrderIn(BaseModel):
     """Every code of the list, in the new order."""
 
@@ -417,6 +461,92 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             user_id=subject.user_id,
         )
         return await done(session, cat, response)
+
+    if wtype.roles:  # REQ-REL-023, -024: the type's named roles
+
+        def known(policy: PolicyService) -> Any:  # noqa: ANN401 - a key check
+            return lambda key: policy.catalogue.get(key) is not None
+
+        @router.get("/settings/roles", summary="Roles and who may hold them")
+        async def get_role_defs(session: TenantSession, subject: Admin) -> list[RoleDefOut]:
+            """Every role in order, retired ones included (marked)."""
+            del subject
+            return [
+                RoleDefOut(
+                    code=r.code,
+                    labels=r.labels,
+                    description=r.description,
+                    single=r.single,
+                    eligibility=EligibilityIO.model_validate(r.eligibility)
+                    if r.eligibility
+                    else None,
+                    system=r.system,
+                    disabled=r.disabled_at is not None,
+                )
+                for r in await configuration.role_def_rows(session, wtype)
+            ]
+
+        @router.post(
+            "/settings/roles",
+            summary="Add a role",
+            status_code=status.HTTP_201_CREATED,
+            responses=CONFLICT,
+            response_model=response_model,
+        )
+        async def add_role_def(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            body: RoleDefIn,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Settings,
+            policy: Annotated[PolicyService, Depends(get_policy)],
+        ) -> Any:  # noqa: ANN401 - the catalogue model
+            """A role of the admin's own: named, for one holder or several (REQ-CHG-035)."""
+            cat, code = await configuration.add_role_def(
+                session,
+                wtype,
+                expected_version=version,
+                values=body.model_dump(mode="json", exclude_none=True),
+                known_permission=known(policy),
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            note.details = {"role": code, "change": "added"}
+            response.headers["Location"] = f"{request.url.path}/{code}"
+            return await done(session, cat, response)
+
+        @router.patch(
+            "/settings/roles/{code}",
+            summary="Change a role",
+            responses=CONFLICT,
+            response_model=response_model,
+        )
+        async def patch_role_def(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            code: str,
+            body: RoleDefPatch,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Settings,
+            policy: Annotated[PolicyService, Depends(get_policy)],
+        ) -> Any:  # noqa: ANN401 - the catalogue model
+            """Rename, describe, set who may hold it, retire or bring it back (never deleted)."""
+            note.details = {"role": code, "changed_fields": sorted(body.model_fields_set)}
+            cat = await configuration.update_role_def(
+                session,
+                wtype,
+                code,
+                expected_version=version,
+                values=body.model_dump(mode="json", include=body.model_fields_set),
+                known_permission=known(policy),
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            return await done(session, cat, response)
 
     if wtype.stages is not None:  # ADR-041: a staged type's stages and their access
 

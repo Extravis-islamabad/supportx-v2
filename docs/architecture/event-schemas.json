@@ -3950,7 +3950,10 @@
             "enum": [
               "task",
               "worklog",
-              "link"
+              "link",
+              "plan_section",
+              "stage_schedule",
+              "downtime"
             ],
             "title": "Part",
             "type": "string"
@@ -4296,6 +4299,84 @@
           "status_category"
         ],
         "title": "WorkItemRestored",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.roles_changed": {
+      "1": {
+        "description": "Who holds a named role on the record changed (WP-058a s4; REQ-REL-023).\n\nThe holders before and after, as IDs, so the lists of both the old and the new holders\nrefresh (lane B's review).",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "groups_after": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Groups After",
+            "type": "array"
+          },
+          "groups_before": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Groups Before",
+            "type": "array"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "users_after": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Users After",
+            "type": "array"
+          },
+          "users_before": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Users Before",
+            "type": "array"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "role",
+          "users_before",
+          "users_after",
+          "groups_before",
+          "groups_after"
+        ],
+        "title": "WorkItemRolesChanged",
         "type": "object"
       }
     },
