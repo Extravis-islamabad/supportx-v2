@@ -5,7 +5,7 @@ import { LOCALES, type Locale } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
 import { NAV_LAYOUTS } from './shell/nav';
-import { THEME_MODES } from './theme';
+import { THEME_MODES, type ThemeMode } from './theme';
 
 export interface AppearanceControlsProps {
   /** The user's navigation layout; with `onNavLayoutChange` the choice is offered (console). */
@@ -13,6 +13,10 @@ export interface AppearanceControlsProps {
   onNavLayoutChange?: (layout: NavLayout) => void;
   /** Store the language with the user (QA BUG-04); without it the choice lasts this visit. */
   onLocaleChange?: (locale: Locale) => void;
+  /** Store the theme with the user (WP-042); without it the choice stays in this browser. */
+  onModeChange?: (mode: ThemeMode) => void;
+  /** The languages the tenant offers (WP-042, REQ-ADM-052); all of them when not given. */
+  languages?: readonly string[];
   /** One control per row: a narrow panel that leaves the page title visible (QA C5). */
   vertical?: boolean;
 }
@@ -22,6 +26,8 @@ export function AppearanceControls({
   navLayout,
   onNavLayoutChange,
   onLocaleChange,
+  onModeChange,
+  languages = LOCALES,
   vertical = false,
 }: AppearanceControlsProps) {
   const { mode, direction, locale, setMode, setDirection, setLocale } = useAppearance();
@@ -53,7 +59,10 @@ export function AppearanceControls({
         <Segmented
           aria-labelledby="appearance-theme-label"
           value={mode}
-          onChange={setMode}
+          onChange={(next: ThemeMode) => {
+            setMode(next);
+            onModeChange?.(next);
+          }}
           options={THEME_MODES.map((value) => ({ value, label: t(`appearance.theme.${value}`) }))}
         />
       </Space>
@@ -75,7 +84,9 @@ export function AppearanceControls({
           setLocale(next);
           onLocaleChange?.(next);
         }}
-        options={LOCALES.map((value) => ({ value, label: t(`locale.${value}`) }))}
+        options={LOCALES.filter((value) => value === locale || languages.includes(value)).map(
+          (value) => ({ value, label: t(`locale.${value}`) }),
+        )}
         style={{ minWidth: 120 }}
       />
     </Space>

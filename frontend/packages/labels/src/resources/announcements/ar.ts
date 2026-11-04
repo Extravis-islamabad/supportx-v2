@@ -65,6 +65,8 @@ export const ar: LabelResource = {
   'announcement_audience.everyone': 'الجميع',
   'announcement_audience.sites': 'مواقع محددة',
   'announcement_audience.groups': 'مجموعات دعم محددة',
+  'announcement_audience.requesters': 'مقدمو الطلبات فقط',
+  'announcement_audience.technicians': 'الفنيون فقط',
   'announcement_visibility.hidden': 'غير معروض',
   'announcement_visibility.scheduled': 'مجدول',
   'announcement_visibility.live': 'معروض الآن',

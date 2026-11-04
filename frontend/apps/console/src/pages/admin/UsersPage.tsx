@@ -53,7 +53,7 @@ function equals(field: string, value: string | undefined): FilterExpression | un
  */
 export function UsersPage() {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const { can } = useAccess();
   const allowed = can('users.view');
   const manage = can('users.manage');
@@ -112,7 +112,10 @@ export function UsersPage() {
 
   if (!allowed) return <NoAccess titleKey="nav.admin_users" />;
 
-  const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  const dateFormat = new Intl.DateTimeFormat(intlLocale, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
   const anyOption = { value: '', label: t('users.any') };
 
   return (

@@ -113,4 +113,5 @@ export const ur: LabelResource = {
   'custom_fields.part.deleted': 'ہٹانا',
   'custom_fields.part.order': 'ترتیب',
   'custom_fields.part.field_type': 'قسم',
+  'custom_field_entity.service_request': 'سروس درخواستیں',
 };

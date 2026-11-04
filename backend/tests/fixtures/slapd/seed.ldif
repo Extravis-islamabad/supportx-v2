@@ -1,0 +1,28 @@
+dn: dc=example,dc=org
+objectClass: dcObject
+objectClass: organization
+o: Example
+dc: example
+
+dn: ou=People,dc=example,dc=org
+objectClass: organizationalUnit
+ou: People
+
+dn: uid=sam.lee,ou=People,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: sam.lee
+cn: Sam Lee
+givenName: Sam
+sn: Lee
+mail: sam.lee@example.org
+departmentNumber: IT
+physicalDeliveryOfficeName: HQ
+
+dn: uid=noor.khan,ou=People,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: noor.khan
+cn: Noor Khan
+givenName: Noor
+sn: Khan
+mail: noor.khan@example.org
+departmentNumber: Finance

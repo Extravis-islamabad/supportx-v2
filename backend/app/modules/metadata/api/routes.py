@@ -43,7 +43,8 @@ CONFLICT: dict[int | str, dict[str, Any]] = {
         "description": "version_conflict, or custom_field_in_use (retire it instead).",
     }
 }
-Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]
+# Per-area configure right (WP-042), settings.manage still grants every area.
+Admin = Annotated[Subject, Depends(require_permission("config.service_desk", "settings.manage"))]
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
 IncludeRemoved = Annotated[
     bool, Query(description="Also fields removed while in use (to show old values).")
@@ -179,7 +180,8 @@ class CustomFieldOrderIn(BaseModel):
 
 def _may_read(subject: Subject, entity: CustomFieldEntity) -> None:
     permission = VIEW_PERMISSION[entity]
-    if not subject.holds(permission) and not subject.holds("settings.manage"):
+    configures = subject.holds("config.service_desk") or subject.holds("settings.manage")
+    if not subject.holds(permission) and not configures:
         raise PermissionDenied(params={"permission": permission, "reason": "no_permission"})
 
 

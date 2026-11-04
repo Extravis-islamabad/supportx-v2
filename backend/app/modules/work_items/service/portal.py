@@ -23,7 +23,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import PermissionSpec
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules.identity_access import Subject, direct_reports, person_placement, user_contacts
+from app.modules.identity_access import (
+    Subject,
+    direct_reports,
+    people_matching,
+    person_placement,
+    user_contacts,
+    user_names,
+)
 from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.portal import (
@@ -315,7 +322,9 @@ async def create_record(  # noqa: PLR0913 - the form's inputs and the engine's c
                 )
             ]
         )
-    refused = unfillable(values.keys(), rules_from_json(chosen.field_rules))
+    # Not a form field: the engine checks it against the tenant's scope (REQ-SR-011, 403).
+    fields = {k: v for k, v in values.items() if k != "on_behalf_of_id"}
+    refused = unfillable(fields.keys(), rules_from_json(chosen.field_rules))
     if refused:
         raise ValidationFailed(
             errors=[
@@ -335,6 +344,21 @@ async def create_record(  # noqa: PLR0913 - the form's inputs and the engine's c
         channel=Channel.PORTAL,
     )
     return await get_record(session, subject, made.record.id, wtype)
+
+
+ON_BEHALF_LIMIT = 20
+
+
+async def on_behalf_people(
+    session: AsyncSession, subject: Subject, text: str, wtype: WorkItemType = INCIDENT
+) -> list[tuple[uuid.UUID, str]]:
+    """(id, name) of people matching `text` the subject may report for, best match first."""
+    candidates = await people_matching(session, text.strip(), limit=ON_BEHALF_LIMIT * 5)
+    allowed = (await items.may_raise_for_people(session, subject, wtype, candidates))[
+        :ON_BEHALF_LIMIT
+    ]
+    names = await user_names(session, [str(p) for p in allowed])
+    return [(p, names[str(p)]) for p in allowed if str(p) in names]
 
 
 # --- the public conversation (REQ-INC-147) ----------------------------------------------------

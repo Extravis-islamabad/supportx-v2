@@ -519,4 +519,6 @@ export const en = {
   'report_field.resolution_sla_state': 'Resolution SLA',
   'report_field.first_response_breached': 'Response overdue',
   'report_field.resolution_breached': 'Resolution overdue',
+  'report_field.approval_status': 'Approval status',
+  'report_field.catalog_item_id': 'Catalog item',
 } as const;

@@ -18,6 +18,7 @@ export const ur: LabelResource = {
   'permission.announcements.publish.description':
     'اعلانات کو ان کے سامعین کے لیے نظر آنے والا بنائیں۔',
   'permission_module.incidents': 'واقعات',
+  'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'permission.incidents.view': 'واقعات دیکھیں',
   'permission.incidents.view.description':
     'واقعات اور ان کی تاریخ دیکھیں۔ گروپ دائرہ آپ کے مقامات کے وہ واقعات بھی دکھاتا ہے جو ابھی کسی نے نہیں لیے۔',
@@ -59,6 +60,12 @@ export const ur: LabelResource = {
   'permission.requests.assign.description': 'سروس درخواستیں ٹیکنیشنز اور گروپوں کو تفویض کریں۔',
   'permission.requests.close': 'سروس درخواستیں بند کریں',
   'permission.requests.close.description': 'سروس درخواستیں حل اور بند کریں۔',
+  'permission.requests.approve': 'سروس درخواستیں منظور کریں',
+  'permission.requests.approve.description':
+    'ان سروس درخواستوں کی منظوری کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
+  'permission.work_items.approve_any': 'متبادل منظوریوں کا فیصلہ کریں',
+  'permission.work_items.approve_any.description':
+    'ان منظوریوں کا فیصلہ کریں جن کا کوئی فعال منظوری دہندہ نہیں (منظوری کے منتظمین)۔',
   'role.security_admin': 'سکیورٹی ایڈمنسٹریٹر',
   'role.security_admin.description':
     'سائن اِن اور سکیورٹی: سنگل سائن آن، پاس ورڈ، ایم ایف اے، سیشن اور دعوت نامے؛ ریکارڈز تک رسائی نہیں۔',
@@ -91,6 +98,19 @@ export const ur: LabelResource = {
   'permission.files.manage.description':
     'سائز کی حد اور ممنوعہ فائل اقسام طے کریں، اسٹوریج کا استعمال اور اسکیننگ کی حالت دیکھیں، اور فائلیں دوبارہ جانچیں۔',
   'form_density.title': 'فارم کی ترتیب',
+  'preferences.title': 'ڈسپلے اور علاقہ',
+  'preferences.text_scale': 'متن کا سائز',
+  'preferences.week_start': 'ہفتے کا پہلا دن',
+  'preferences.date_format': 'تاریخ کا فارمیٹ',
+  'preferences.time_format': 'وقت کا فارمیٹ',
+  'preferences.digits': 'ہندسے',
+  'preferences.digits.western': 'مغربی (0 1 2 3)',
+  'preferences.digits.arabic_indic': 'عربی ہندی (۰ ۱ ۲ ۳)',
+  'preferences.urdu_script': 'اردو رسم الخط',
+  'preferences.urdu_script.naskh': 'نسخ',
+  'preferences.urdu_script.nastaliq': 'نستعلیق',
+  'preferences.default': 'طے شدہ',
+  'preferences.default_value': 'طے شدہ ({{value}})',
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'profile.form_density_help': 'مختصر ترتیب میں دو کالم اور ایک طرف لیبل ہوتے ہیں۔',
@@ -553,6 +573,7 @@ export const ur: LabelResource = {
   'readiness_check.outbox_relay': 'واقعات ریلے',
   'readiness_check.event_consumers': 'واقعات کی پروسیسنگ',
   'readiness_check.realtime_fanout': 'براہ راست اپ ڈیٹس',
+  'readiness_check.malware_signatures': 'وائرس کی شناختی فہرست',
   'readiness_check.nats': 'میسج بس',
   'security.invitations.earlier_links_work':
     'پہلے بھیجے گئے لنک بھی میعاد ختم ہونے تک کام کرتے رہیں گے۔',
@@ -582,6 +603,77 @@ export const ur: LabelResource = {
     'کسی واقعے کی جواب یا حل کی مقررہ تاریخ وجہ کے ساتھ ہاتھ سے طے کریں یا ہٹائیں۔ پھر یہ تاریخ ہٹائے جانے تک برقرار رہتی ہے۔',
   'people.managed_by_directory':
     'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
+  'roles.copy': 'کاپی کریں',
+  'roles.copy_name': '{{name}} کی کاپی',
+  'roles.editor.copy': '“{{name}}” سے نیا کردار',
+  'roles.compare': 'کرداروں کا موازنہ',
+  'roles.compare_first': 'پہلا کردار',
+  'roles.compare_second': 'دوسرا کردار',
+  'roles.compare_differences': 'صرف فرق',
+  'roles.compare_pick': 'موازنے کے لیے دو کردار چنیں۔',
+  'roles.compare_same': 'یہ کردار ایک جیسی اجازتیں دیتے ہیں۔',
+  'roles.compare_not_granted': 'نہیں دی گئی',
+  'roles.compare_differs': 'مختلف',
+  'role.service_desk_manager': 'سروس ڈیسک مینیجر',
+  'role.service_desk_manager.description':
+    'سروس ڈیسک چلاتا ہے: ہر واقعہ اور درخواست، ڈیسک کے SLA، آٹومیشن، رپورٹس اور اعلانات۔',
+  'role.site_admin': 'سائٹ ایڈمنسٹریٹر',
+  'role.site_admin.description':
+    'ایک سائٹ کی دیکھ بھال کرتا ہے: اس کے واقعات اور درخواستیں، لوگ، اثاثے اور اعلانات۔',
+  'role.report_viewer': 'رپورٹ دیکھنے والا',
+  'role.report_viewer.description':
+    'ہر واقعہ اور درخواست اور ان کی رپورٹس پڑھتا ہے، بغیر کچھ بدلے۔',
+  'roles.groups': 'سپورٹ گروپس',
+  'roles.groups_help':
+    'ان گروپس کے ارکان جب تک رکن ہیں یہ کردار رکھتے ہیں۔ ڈائریکٹری سنک سے بھرا گروپ یہ کردار ہر اس شخص کو دیتا ہے جسے سنک شامل کرے۔',
+  'roles.groups_add': 'گروپ شامل کریں',
+  'roles.groups_none': 'کوئی گروپ یہ کردار نہیں رکھتا۔',
+  'access.through_groups': '{{groups}} کے ذریعے',
+  'permission_module.config': 'ترتیب',
+  'permission.config.service_desk': 'سروس ڈیسک ترتیب دیں',
+  'permission.config.service_desk.description':
+    'واقعات کے لیول، زمرے، سانچے، جواب کے سانچے اور حسب ضرورت فیلڈز۔',
+  'permission.config.organisation': 'ادارہ ترتیب دیں',
+  'permission.config.organisation.description': 'ڈیسک اور ادارے کے ڈھانچے کی ترتیبات۔',
+  'permission.config.announcements': 'اعلانات ترتیب دیں',
+  'permission.config.announcements.description':
+    'کون شائع کر سکتا ہے، اور کیا دوسرے شخص کی منظوری ضروری ہے۔',
+  'permission.config.reports': 'رپورٹس ترتیب دیں',
+  'permission.config.reports.description':
+    'رپورٹ کی ترتیبات: ہفتے کا آغاز، برآمد کی حدیں اور ہر شیڈول شدہ رپورٹ۔',
+  'permission.catalog_items.manage': 'سروس کیٹلاگ کا انتظام',
+  'permission.catalog_items.manage.description':
+    'کیٹلاگ کی کیٹیگریز اور آئٹمز شامل اور تبدیل کریں: ان کے فارم، منظوری اور تکمیل۔',
+  'permission_module.catalog_items': 'سروس کیٹلاگ',
+  'permission.requests.take': 'سروس درخواستیں خود لیں',
+  'permission.requests.take.description': 'ایسی سروس درخواست خود لیں جو ابھی کسی نے نہیں لی۔',
+  'permission.requests.change_priority': 'درخواست کی ترجیح ہاتھ سے بدلیں',
+  'permission.requests.change_priority.description':
+    'سروس درخواست کو اس کے آئٹم یا میٹرکس سے ملی ترجیح کو وجہ کے ساتھ بدلیں۔',
+  'permission.requests.resolve': 'سروس درخواستیں پوری کریں',
+  'permission.requests.resolve.description': 'سروس درخواستوں کو پوری شدہ نشان زد کریں۔',
+  'permission.requests.reopen': 'سروس درخواستیں دوبارہ کھولیں',
+  'permission.requests.reopen.description':
+    'پوری شدہ یا بند سروس درخواستیں وجہ کے ساتھ دوبارہ کھولیں۔',
+  'permission.requests.cancel': 'سروس درخواستیں منسوخ کریں',
+  'permission.requests.cancel.description':
+    'سروس درخواستیں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
+  'permission.requests.delete': 'سروس درخواستیں حذف کریں',
+  'permission.requests.delete.description': 'سروس درخواستیں کوڑے دان میں ڈالیں اور واپس لائیں۔',
+  'permission.requests.add_note': 'درخواستوں پر نجی نوٹس شامل کریں',
+  'permission.requests.add_note.description': 'سروس درخواستوں پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.requests.reply': 'درخواستوں پر جواب اور عوامی نوٹس',
+  'permission.requests.reply.description':
+    'سروس درخواستوں پر درخواست گزاروں کو جواب دیں، ایسے نوٹس شامل کریں جو وہ دیکھ سکیں، اور نجی نوٹس عوامی بنائیں۔',
+  'permission.requests.manage_followers': 'درخواستوں کے فالوورز کا انتظام',
+  'permission.requests.manage_followers.description':
+    'دوسرے لوگوں کو سروس درخواستوں کے فالوور بنائیں اور ہٹائیں۔',
+  'permission.requests.edit_due_dates': 'درخواستوں کی آخری تاریخ ہاتھ سے مقرر کریں',
+  'permission.requests.edit_due_dates.description':
+    'سروس درخواست کی جواب یا تکمیل کی آخری تاریخ وجہ کے ساتھ ہاتھ سے مقرر کریں یا مٹائیں۔ پھر وہ مٹانے تک رہتی ہے۔',
+  'permission.requests.assign_outside_group': 'درخواستیں گروپ سے باہر تفویض کریں',
+  'permission.requests.assign_outside_group.description':
+    'ایسے ٹیکنیشن کو سروس درخواست تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.work_items.view_department': 'اپنے شعبے کی درخواستیں دیکھیں',
   'permission.work_items.view_department.description':
     'پورٹل میں اپنے شعبے کے لوگوں کے واقعات اور درخواستیں دیکھیں۔',
@@ -598,7 +690,6 @@ export const ur: LabelResource = {
   'account.contact.save': 'رابطے کی تفصیلات محفوظ کریں',
   'account.contact.from_directory':
     'آپ کا فون اور موبائل {{source}} سے آتا ہے۔ انہیں وہیں تبدیل کریں۔',
-  'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',

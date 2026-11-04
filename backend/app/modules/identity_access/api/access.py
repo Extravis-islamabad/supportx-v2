@@ -93,9 +93,10 @@ class RoleSummary(BaseModel):
 
 
 class RoleDetailOut(RoleSummary):
-    """A role with its permission matrix."""
+    """A role with its permission matrix and the support groups carrying it (WP-042)."""
 
     permissions: list[GrantIO]
+    group_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class RoleCreate(BaseModel):
@@ -114,13 +115,21 @@ class RolePatch(BaseModel):
     permissions: list[GrantIO] | None = Field(default=None, max_length=300)
 
 
+class GroupRoleOut(BaseModel):
+    """A role a person holds through one of their support groups (WP-042)."""
+
+    role_id: uuid.UUID
+    group_id: uuid.UUID
+
+
 class UserAccessOut(BaseModel):
-    """Roles, sites and support groups of a user."""
+    """Roles, sites and support groups of a user, and the roles held through those groups."""
 
     user_id: uuid.UUID
     role_ids: list[uuid.UUID]
     site_ids: list[uuid.UUID]
     group_ids: list[uuid.UUID]
+    group_roles: list[GroupRoleOut] = Field(default_factory=list)
 
 
 def _grants(items: list[GrantIO]) -> list[role_service.PermissionGrant]:
@@ -141,6 +150,7 @@ def _detail(detail: role_service.RoleDetail) -> RoleDetailOut:
             GrantIO(permission=g.permission, scope=g.scope, condition=g.condition)
             for g in detail.grants
         ],
+        group_ids=detail.group_ids,
     )
 
 
@@ -322,12 +332,67 @@ async def get_user_access(
     del subject
     role_ids = await role_service.user_role_ids(session, user_id)
     units = await memberships(session, user_id)
+    through = await role_service.roles_through_groups(session, units.group_ids)
     return UserAccessOut(
         user_id=user_id,
         role_ids=sorted(role_ids),
         site_ids=sorted(units.site_ids),
         group_ids=sorted(units.group_ids),
+        group_roles=[GroupRoleOut(role_id=r, group_id=g) for r, g in through],
     )
+
+
+@router.put(
+    "/roles/{role_id}/groups/{group_id}",
+    summary="A support group carries a role",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "role.group_added",
+            object_type="role",
+            object_param="role_id",
+            detail_params=("group_id",),
+        )
+    ],
+)
+async def add_group_role(
+    role_id: uuid.UUID,
+    group_id: uuid.UUID,
+    session: TenantSession,
+    subject: ManageRoles,
+    policy: Policy,
+) -> Response:
+    """Idempotent. The group's members hold the role while members (WP-042, REQ-ADM-015 AC2).
+
+    Only roles within your own permissions (tenant admins: any), as for a person.
+    """
+    await role_service.add_group_role(session, policy, subject, group_id, role_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/roles/{role_id}/groups/{group_id}",
+    summary="A support group no longer carries a role",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "role.group_removed",
+            object_type="role",
+            object_param="role_id",
+            detail_params=("group_id",),
+        )
+    ],
+)
+async def remove_group_role(
+    role_id: uuid.UUID,
+    group_id: uuid.UUID,
+    session: TenantSession,
+    subject: ManageRoles,
+    policy: Policy,
+) -> Response:
+    """Idempotent. The tenant never loses its last admin this way (409 last_tenant_admin)."""
+    await role_service.remove_group_role(session, policy, subject, group_id, role_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put(

@@ -68,7 +68,10 @@ View = Annotated[Subject, Depends(require_permission(service.VIEW))]
 Manage = Annotated[Subject, Depends(require_permission(service.MANAGE))]
 Publish = Annotated[Subject, Depends(require_permission(service.PUBLISH))]
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
-SettingsAdmin = Annotated[Subject, Depends(require_permission("settings.manage"))]
+# Per-area configure right (WP-042), settings.manage still grants every area.
+SettingsAdmin = Annotated[
+    Subject, Depends(require_permission("config.announcements", "settings.manage"))
+]
 Policy = Annotated[PolicyService, Depends(get_policy)]
 AnnouncementsQuery = Annotated[ListQuery, Depends(list_query(service.ANNOUNCEMENT_FIELDS))]
 

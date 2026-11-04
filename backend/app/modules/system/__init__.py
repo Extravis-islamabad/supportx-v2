@@ -14,20 +14,26 @@ declaring routers, lifecycle hooks and consumers.
 Platform services (architecture.md §6.8) live in `app/shared` and own their tables there; only
 modules are registered, so this module mounts them: files (WP-022, ADR-028, `api/files.py`,
 `service/files.py`): routes, the scan consumer, schedules, events, realtime, the `files.manage`
-permission, the `storage_gb` usage counter and the quota source.
+permission, the `storage_gb` usage counter and the quota source; action links (WP-030 s3,
+`api/action_links.py`): the peek and use routes.
 """
+
+from datetime import timedelta
 
 from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec
 from app.core.config import Settings
 from app.core.modules import ModuleSpec
+from app.modules.system.api.action_links import public_router as public_links_router
+from app.modules.system.api.action_links import router as action_links_router
 from app.modules.system.api.files import MANAGE as FILES_MANAGE
 from app.modules.system.api.files import router as files_router
 from app.modules.system.api.routes import router
 from app.modules.system.domain.readiness import DependencyProbe
 from app.modules.system.infra.probes import (
     KeycloakProbe,
+    MalwareSignaturesProbe,
     NatsProbe,
     PostgresProbe,
     ValkeyProbe,
@@ -74,9 +80,21 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
     return ReadinessService(
         probes,
         not_configured=not_configured,
-        informational=_worker_probes(settings),
+        informational=[*_worker_probes(settings), *_scanner_probes(settings)],
         timeout=settings.readiness_timeout_seconds,
     )
+
+
+def _scanner_probes(settings: Settings) -> list[DependencyProbe]:
+    """ClamAV's signature age (informational), when a scanner is installed (WP-014b)."""
+    scanner = FileServices.from_settings(settings).scanner
+    if not scanner.available:
+        return []
+    return [
+        MalwareSignaturesProbe(
+            scanner, stale_after=timedelta(hours=settings.files_signature_ready_warn_hours)
+        )
+    ]
 
 
 def _worker_probes(settings: Settings) -> list[DependencyProbe]:
@@ -126,7 +144,7 @@ MAIL_SEND = ConsumerSpec(
 
 module = ModuleSpec(
     name="system",
-    routers=[router, files_router],
+    routers=[router, files_router, action_links_router, public_links_router],
     on_startup=[_startup],
     consumers=[DEV_EVENT_LOGGER, FILE_SCAN, MAIL_SEND],
     events=(*FILE_EVENTS, *MAIL_EVENTS),

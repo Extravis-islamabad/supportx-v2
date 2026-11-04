@@ -195,3 +195,38 @@ async def test_another_tenant_gets_404(world: World, fake: FakeDirectory) -> Non
     other = await world.call("GET", f"{BASE}/{out['id']}", world.b, world.b.admin)
     assert other.status_code == 404
     assert (await world.call("GET", BASE, world.b, world.b.admin)).json() == []
+
+
+async def test_mapping_onto_a_group_that_carries_roles_needs_those_roles_rights(
+    world: World, fake: FakeDirectory
+) -> None:
+    """Lane B (WP-042): sync adds people with no person behind it, so the mapping is the check."""
+    del fake
+    a = world.a
+    owners = await unit(world, a, "groups", "Owners", [])
+    roles = (await world.call("GET", "/roles", a, a.admin)).json()
+    admin_role = next(r["id"] for r in roles if r["key"] == "tenant_admin")
+    given = await world.call("PUT", f"/roles/{admin_role}/groups/{owners}", a, a.admin)
+    assert given.status_code == 204, given.text
+    made = await world.call(
+        "POST",
+        "/roles",
+        a,
+        a.admin,
+        json={
+            "name": "Directory keeper",
+            "permissions": [{"permission": "integrations.manage_identity", "scope": "all"}],
+        },
+    )
+    await world.call("PUT", f"/users/{a.lead}/roles/{made.json()['id']}", a, a.admin)
+    mapping = [
+        {
+            "external_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "name": "IT",
+            "group_id": str(owners),
+        }
+    ]
+    refused = await _add(world, a.lead, name="Keeper's", group_mappings=mapping)
+    assert (refused.status_code, refused.json()["code"]) == (403, "privilege_escalation")
+    allowed = await _add(world, name="Admin's", group_mappings=mapping)
+    assert allowed.status_code == 201, allowed.text

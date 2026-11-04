@@ -27,7 +27,7 @@ from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules import metadata
+from app.modules import metadata, service_catalog
 from app.modules.automation import (
     TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
 )
@@ -42,6 +42,7 @@ from app.modules.automation import (
     transition_settings,
 )
 from app.modules.identity_access import (
+    Placement,
     RoleName,
     Subject,
     authorize_stored,
@@ -61,6 +62,7 @@ from app.modules.organization import (
     unit_heads,
     users_in_groups,
 )
+from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -83,11 +85,13 @@ from app.modules.work_items.domain.lifecycle import (
     move_pause_clock,
     reason_problems,
 )
+from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     Channel,
     WorkItemType,
+    WorkItemTypeCode,
     channel_problems,
     clean_subject,
     clean_tags,
@@ -108,7 +112,7 @@ from app.modules.work_items.infra.models import (
     WorkItemConversation,
     WorkItemFollower,
 )
-from app.modules.work_items.service import automation, closing, followers, templates
+from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service.access import RESOURCE
@@ -591,6 +595,15 @@ def view_predicates(
         ),
         "closed": WorkItem.status_category == StatusCategory.CLOSED,
         "canceled": WorkItem.status_category == StatusCategory.CANCELED,
+        # Service requests (WP-030, REQ-SR-009): waiting for approval; approved (or needing
+        # none) and still open, i.e. waiting to be fulfilled.
+        "pending_approval": WorkItem.approval_status == ApprovalStatus.PENDING.value,
+        "awaiting_fulfilment": and_(
+            _open(),
+            WorkItem.approval_status.in_(
+                [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value]
+            ),
+        ),
         "all": WorkItem.id.is_not(None),
         **_personal(subject, now=now, today_end=tomorrow),
     }
@@ -687,6 +700,15 @@ async def view_filters(
         ),
         "closed": _cond("status_category", "eq", StatusCategory.CLOSED.value),
         "canceled": _cond("status_category", "eq", StatusCategory.CANCELED.value),
+        "pending_approval": _cond("approval_status", "eq", ApprovalStatus.PENDING.value),
+        "awaiting_fulfilment": _all(
+            open_,
+            {
+                "field": "approval_status",
+                "op": "in",
+                "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
+            },
+        ),
         "all": None,
         "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
@@ -772,7 +794,16 @@ VIEW_CODES = (
     "canceled",
     "all",
 )
+# Service requests add their approval views (WP-030, REQ-SR-009); incidents never show them.
+SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
 COUNT_CAP = 1000
+
+
+def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
+    """The built-in views of one type, in the menu's order."""
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
+        return (*VIEW_CODES[:-1], *SR_VIEW_CODES, VIEW_CODES[-1])
+    return VIEW_CODES
 
 
 def staff_rows(
@@ -832,7 +863,7 @@ async def view_counts(
     predicates = await views_for(session, subject, zone=zone)
     base = staff_rows(subject, wtype)
     found: list[tuple[str, int, bool]] = []
-    for code in VIEW_CODES:
+    for code in view_codes(wtype):
         limited = base.where(predicates[code]).with_only_columns(WorkItem.id).limit(COUNT_CAP + 1)
         total = int(await session.scalar(select(func.count()).select_from(limited.subquery())) or 0)
         found.append((code, min(total, COUNT_CAP), total > COUNT_CAP))
@@ -1553,6 +1584,172 @@ async def _place(session: AsyncSession, cleaned: dict[str, Any]) -> None:
             cleaned["site_id"] = next(iter(sites))
 
 
+async def _request_item(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, values: Mapping[str, Any]
+) -> service_catalog.RequestItem | None:
+    """The catalog item of a new service request (refused without one); None for other types."""
+    given = values.get("catalog_item_id")
+    if wtype.code is not WorkItemTypeCode.SERVICE_REQUEST:
+        if given is not None or values.get("answers"):
+            raise ValidationFailed(
+                errors=[
+                    FieldError(
+                        field="body.catalog_item_id",
+                        code="not_allowed",
+                        message_key="errors.field.not_allowed",
+                    )
+                ]
+            )
+        return None
+    if not given:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.catalog_item_id",
+                    code="required",
+                    message_key="errors.field.required",
+                )
+            ]
+        )
+    try:
+        return await service_catalog.request_item(
+            session, subject, uuid.UUID(str(given)), values.get("answers") or {}
+        )
+    except NotFound as error:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.catalog_item_id",
+                    code="catalog_item_not_found",
+                    message_key="errors.field.catalog_item_not_found",
+                )
+            ]
+        ) from error
+
+
+def _started(item: service_catalog.RequestItem | None, cat: Catalogue) -> sr_rules.Start | None:
+    """How a service request starts from its item (None for other types)."""
+    if item is None:
+        return None
+    return sr_rules.start(
+        sr_rules.ItemDecides(
+            needs_approval=item.needs_approval,
+            default_priority=item.default_priority,
+            group_id=item.group_id,
+            technician_id=item.technician_id,
+            technician_after_approval=item.technician_after_approval,
+        ),
+        tenant_default_priority=cat.default_priority,
+    )
+
+
+def _from_item(
+    started: sr_rules.Start | None,
+    initial: str,
+    group_id: uuid.UUID | None,
+    technician_id: uuid.UUID | None,
+) -> tuple[str, uuid.UUID | None, uuid.UUID | None]:
+    """The first status and assignment: the item's, where the person set none."""
+    if started is None:
+        return initial, group_id, technician_id
+    return started.status, group_id or started.group_id, technician_id or started.technician_id
+
+
+def _item_priority(
+    started: sr_rules.Start | None, priority: str, source: PrioritySource
+) -> tuple[str, PrioritySource]:
+    """A rule's or the person's priority stays; else the item's default (REQ-SR-005)."""
+    if started is None or not started.priority_from_item:
+        return priority, source
+    if source in {PrioritySource.RULE, PrioritySource.MANUAL}:
+        return priority, source
+    return started.priority, PrioritySource.CATALOG_ITEM
+
+
+def _item_columns(
+    item: service_catalog.RequestItem | None, values: Mapping[str, Any]
+) -> dict[str, Any]:
+    """A service request's own columns (incidents keep their defaults)."""
+    if item is None:
+        return {}
+    status = (
+        sr_rules.ApprovalStatus.PENDING
+        if item.needs_approval
+        else sr_rules.ApprovalStatus.NOT_NEEDED
+    )
+    return {
+        "catalog_item_id": item.item_id,
+        "answers": dict(values.get("answers") or {}),
+        "approval_status": status.value,
+        "sla_counts_approval": item.needs_approval and item.count_approval_time,
+        "item_sla_policy_id": item.sla_policy_id,
+    }
+
+
+def _person_facts(user_id: uuid.UUID, placement: Placement) -> sr_rules.PersonFacts:
+    return sr_rules.PersonFacts(
+        user_id=user_id,
+        department_id=placement.department_id,
+        site_id=placement.site_id,
+        is_requester=placement.user_type == "requester",
+        manager_id=placement.manager_id,
+        active=placement.active,
+        can_sign_in=placement.can_sign_in,
+        is_service=placement.user_type == "service",
+    )
+
+
+async def may_raise_for_people(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, candidates: Sequence[uuid.UUID]
+) -> list[uuid.UUID]:
+    """Of `candidates`, those the subject may raise a record for (REQ-SR-011), in order.
+
+    The same rule as creation: the tenant's on-behalf scope, their own direct reports always,
+    never a deactivated person or a service identity; never the subject themselves (the portal
+    form offers "myself" on its own).
+    """
+    cat = await config.load(session, wtype)
+    scope = sr_rules.OnBehalfScope(cat.on_behalf_scope)
+    me = _person_facts(subject.user_id, await person_placement(session, subject.user_id))
+    found: list[uuid.UUID] = []
+    for person in candidates:
+        if person == subject.user_id:
+            continue
+        theirs = _person_facts(person, await person_placement(session, person))
+        if sr_rules.may_raise_for(scope, me, theirs):
+            found.append(person)
+    return found
+
+
+async def _on_behalf_problems(
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    cat: Catalogue,
+    cleaned: Mapping[str, Any],
+) -> None:
+    """A requester raising a record for someone else stays within the tenant's scope (REQ-SR-011).
+
+    Staff (who may assign records) raise for anyone; a requester for themselves, their direct
+    reports, and the people the scope allows; anyone else is refused with 403 (AC1).
+    """
+    target = cleaned.get("on_behalf_of_id")
+    if target is None or subject.holds(wtype.permission("assign")):
+        return
+    if cleaned.get("requester_id") != subject.user_id:
+        return  # raising as someone else needs staff rights, checked with the requester
+    mine, theirs = (
+        await person_placement(session, subject.user_id),
+        await person_placement(session, target),
+    )
+    if not sr_rules.may_raise_for(
+        sr_rules.OnBehalfScope(cat.on_behalf_scope),
+        _person_facts(subject.user_id, mine),
+        _person_facts(target, theirs),
+    ):
+        raise PermissionDenied(code="on_behalf_out_of_scope")
+
+
 async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1587,6 +1784,12 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         )
     custom, custom_problems = await _custom_in(session, wtype, values, current=None, creating=True)
     problems += custom_problems
+    # A service request comes from its catalog item (REQ-SR-001 AC2), which decides its first
+    # status, priority and assignment (REQ-SR-005, -008, -021); the person's own choices of
+    # group and technician were checked above, the item's were checked when it was saved.
+    item = await _request_item(session, subject, wtype, values)
+    started = _started(item, cat)
+    problems += [] if item is None else list(item.answer_problems)
     template = await templates.for_create(session, wtype, values.get("template_id"))
     problems += await templates.required_problems(
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
@@ -1595,6 +1798,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     if problems:
         raise await _value_errors(session, wtype, problems)
     problems += await _check_people(session, cleaned)
+    await _on_behalf_problems(session, subject, wtype, cat, cleaned)
     problems += await _check_units(
         session,
         {"site_id": cleaned.get("site_id"), "department_id": cleaned.get("department_id")},
@@ -1606,7 +1810,12 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     if problems:
         raise await _value_errors(session, wtype, problems)
     await _place(session, cleaned)
-    initial = next(s.code for s in cat.statuses if not s.system and not s.disabled)
+    initial, group_id, technician_id = _from_item(
+        started,
+        next(s.code for s in cat.statuses if not s.system and not s.disabled),
+        group_id,
+        technician_id,
+    )
     channel_given = channel
     channel = (
         channel or cleaned.get("channel") or (Channel.PHONE if source == "ui" else Channel.API)
@@ -1642,7 +1851,9 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     custom, group_id, technician_id = _apply_automated(
         automated.values, cleaned, custom, group_id, technician_id
     )
-    priority, priority_source = _first_priority(cat, cleaned, manual, automated.values)
+    priority, priority_source = _item_priority(
+        started, *_first_priority(cat, cleaned, manual, automated.values)
+    )
     now = _now()
     number = await next_display_number(session, wtype.counter_key)
     record = WorkItem(
@@ -1668,6 +1879,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         priority_source=priority_source,
         level=cleaned.get("level"),
         template_id=template.id,
+        **_item_columns(item, values),
         custom=custom or {},
         custom_text=await _custom_text(session, wtype, custom or {}),
         status=initial,
@@ -1732,6 +1944,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await approval_stage.after_submission(session, record, item, source=source)  # REQ-SR-021
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
             cat.lifecycle, record.status, had_technician=False, has_technician=True
@@ -2063,6 +2276,87 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         if by_requester
         else (),
     )
+    return updated
+
+
+async def decided_move(  # noqa: PLR0913 - the move and what the approval decided, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    cat: Catalogue,
+    record: WorkItem,
+    action: WorkItemAction,
+    *,
+    approval_status: str,
+    technician_id: uuid.UUID | None,
+    source: Source,
+    reason_code: str | None = None,
+) -> WorkItem:
+    """The approval engine's move (WP-030 s2): approve, reject, or a withdrawal's cancel.
+
+    The decider's own act, never automation: history keeps them as the person, from their
+    channel, with the record's new approval status. On approval the item's technician (after
+    approval, REQ-SR-008 AC2) is set in the same save, then the usual move to "assigned".
+    """
+    target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
+    old_approval, old_technician = record.approval_status, record.technician_id
+    audience = _audience(record)
+    assigning = technician_id != old_technician
+    before = _snapshot(record, STAMP_FIELDS)
+    changes = await _status_change(
+        session, wtype, record, action, target=target, reason_code=reason_code, reason_text=None
+    )
+    changes["approval_status"] = approval_status
+    if assigning:
+        changes["technician_id"] = technician_id
+    updated = await _update(session, record, record.version, changes)
+    extra = [Change("approval_status", old_approval, approval_status)]
+    if assigning:
+        extra.append(
+            Change(
+                "technician_id",
+                None if old_technician is None else str(old_technician),
+                None if technician_id is None else str(technician_id),
+            )
+        )
+    await _record_status(
+        session, before, updated, action, source=source, reason=None, automatic=False, extra=extra
+    )
+    if not assigning:
+        return updated
+    await record_event(
+        session,
+        WorkItemAssigned(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            group_id=updated.group_id,
+            technician_id=updated.technician_id,
+            audience_before=audience,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    move = (
+        after_assignment(cat.lifecycle, updated.status, had_technician=False, has_technician=True)
+        if cat.auto_status_on_assign
+        else None
+    )
+    if move is None:
+        return updated
+    before = _snapshot(updated, STAMP_FIELDS)
+    moved = await _status_change(
+        session,
+        wtype,
+        updated,
+        move,
+        target=cat.lifecycle.target(updated.status, move, before_cancel=None),
+        reason_code=None,
+        reason_text=None,
+    )
+    updated = await _update(session, updated, updated.version, moved)
+    await _record_status(session, before, updated, move, source=source, reason=None, automatic=True)
     return updated
 
 
@@ -2649,6 +2943,7 @@ may = _may
 audience_of = _audience
 now = _now
 field_errors = _errors
+now = _now
 
 
 async def update_columns(

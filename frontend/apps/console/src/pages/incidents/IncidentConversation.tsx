@@ -771,7 +771,7 @@ function Composer({
         templates={templates.data}
         extraTools={knowledgeTools}
         onManageTemplates={
-          can('settings.manage')
+          can('config.service_desk') || can('settings.manage')
             ? () => {
                 // A new tab, so this draft stays; the list here reloads live when saved there.
                 window.open(REPLY_TEMPLATES_SETTINGS, '_blank', 'noopener');

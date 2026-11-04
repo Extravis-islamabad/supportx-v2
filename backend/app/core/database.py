@@ -107,8 +107,20 @@ def create_engine(  # noqa: PLR0913 - keyword-only pool settings, all optional
     max_overflow: int = 10,
     pool_timeout: float = 10.0,
     use_null_pool: bool = False,
+    connect_timeout: float | None = None,
+    command_timeout: float | None = None,
 ) -> AsyncEngine:
-    """Async engine for the application role. `use_null_pool` is for tests and one-shot tools."""
+    """Async engine for the application role. `use_null_pool` is for tests and one-shot tools.
+
+    `connect_timeout` and `command_timeout` (seconds) bound how long asyncpg waits on a server
+    that stopped answering; None keeps asyncpg's own behaviour (no limit on commands), for work
+    that may legitimately run long, such as index builds.
+    """
+    connect_args = pgbouncer_safe_connect_args(application_name)
+    if connect_timeout is not None:
+        connect_args["timeout"] = connect_timeout
+    if command_timeout is not None:
+        connect_args["command_timeout"] = command_timeout
     pool_args: dict[str, Any] = (
         {"poolclass": NullPool}
         if use_null_pool
@@ -121,9 +133,17 @@ def create_engine(  # noqa: PLR0913 - keyword-only pool settings, all optional
     )
     return create_async_engine(
         to_async_url(url),
-        connect_args=pgbouncer_safe_connect_args(application_name),
+        connect_args=connect_args,
         **pool_args,
     )
+
+
+def reporting_command_timeout(settings: Settings) -> float:
+    """The reporting pool's command limit: always above the longest report.
+
+    PostgreSQL's own statement_timeout ends a slow report first (as report_timeout), never this.
+    """
+    return max(settings.db_command_timeout_seconds, settings.report_background_timeout_seconds + 60)
 
 
 class TenantAwareSession(Session):
@@ -175,6 +195,8 @@ class Database:
                 pool_size=settings.db_pool_size,
                 max_overflow=settings.db_max_overflow,
                 pool_timeout=settings.db_pool_timeout_seconds,
+                connect_timeout=settings.db_connect_timeout_seconds,
+                command_timeout=settings.db_command_timeout_seconds,
             )
         )
 
@@ -203,6 +225,8 @@ class Database:
                 pool_size=settings.reporting_pool_size,
                 max_overflow=settings.reporting_max_overflow,
                 pool_timeout=settings.db_pool_timeout_seconds,
+                connect_timeout=settings.db_connect_timeout_seconds,
+                command_timeout=reporting_command_timeout(settings),
             )
         )
 

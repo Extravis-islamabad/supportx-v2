@@ -169,6 +169,53 @@ describe('portal: report an issue', () => {
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
     expect((await screen.findByTestId('portal-request-id')).textContent).toBe('INC-42');
   });
+
+  it('reports for someone else picked from the people in scope (WP-030, REQ-SR-011)', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const COLLEAGUE = '01a1a2b3-0000-7000-8000-00000000e001';
+    const fake = fakeApi({
+      ...BASE,
+      'GET /api/v1/portal/incidents/templates': {
+        body: [
+          {
+            id: 't1',
+            code: 'standard',
+            labels: null,
+            description: null,
+            is_default: true,
+            fields: [{ name: 'subject', required: true }],
+          },
+        ],
+      },
+      'GET /api/v1/portal/incidents/on-behalf-people': {
+        body: [{ id: COLLEAGUE, display_name: 'Sara Colleague' }],
+      },
+      'POST /api/v1/portal/incidents': { status: 201, body: portalIncident() },
+      [`GET /api/v1/portal/incidents/${ID}`]: { body: portalIncident() },
+      [`GET /api/v1/portal/incidents/${ID}/conversation`]: { body: { items: [] } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText('For someone else'));
+    const picker = await screen.findByRole('combobox', { name: 'Search by name' });
+    fireEvent.change(picker, { target: { value: 'Sa' } });
+    fireEvent.click(await screen.findByTitle('Sara Colleague'));
+    fireEvent.change(screen.getByTestId('portal-report-subject'), {
+      target: { value: 'Her laptop will not start' },
+    });
+    fireEvent.click(screen.getByTestId('portal-report-send'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/portal/incidents')).toHaveLength(1);
+    });
+    const [asked] = fake.find('GET', '/api/v1/portal/incidents/on-behalf-people');
+    expect(asked?.url.searchParams.get('search')).toBe('Sa');
+    const [sent] = fake.find('POST', '/api/v1/portal/incidents');
+    expect(sent?.body).toEqual({
+      template_id: 't1',
+      subject: 'Her laptop will not start',
+      on_behalf_of_id: COLLEAGUE,
+    });
+  });
 });
 
 describe('portal: my requests, long lists', () => {

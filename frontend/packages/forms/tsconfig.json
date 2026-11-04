@@ -1,4 +1,4 @@
 {
   "extends": "../../../tsconfig.base.json",
-  "include": ["src", "vitest.config.ts", "../ui/src/brand/png.d.ts"]
+  "include": ["src", "vitest.config.ts", "../ui/src/brand/png.d.ts", "../ui/src/fonts/woff2.d.ts"]
 }

@@ -541,7 +541,8 @@ class DeskPatch(BaseModel):
 desks = APIRouter(
     prefix="/organization/desks", tags=["organization"], dependencies=RATE, responses=RESPONSES
 )
-SETTINGS_MANAGE = Depends(require_permission("settings.manage"))
+# Per-area configure right (WP-042), settings.manage still grants every area.
+SETTINGS_MANAGE = Depends(require_permission("config.organisation", "settings.manage"))
 ESM = Depends(route_guard("esm"))
 
 

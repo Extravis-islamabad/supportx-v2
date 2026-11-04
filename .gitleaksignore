@@ -6,3 +6,15 @@
 # nowhere else (no chart, env file or secrets store). The next commit on that branch (b19d016)
 # replaced it with a value generated at test time.
 2f23862774f224f08b52f9a36167a9f6c473f4da:backend/tests/test_keycloak_identity.py:generic-api-key:279
+
+# Not a secret: plain text in a Helm template's fail() message (Centrifugo with more than one copy
+# needs the HA Valkey turned on), which generic-api-key read as a key/value pair. It is in the
+# history of feat/wp-014b-ha (#189, superseded by #192); later commits reworded it. Ignored by
+# the product owner's decision (2026-11-04), this exact finding only.
+ca01882f3ba3c2c70783507012fa5d5474b86c01:deploy/helm/supportx/templates/_helpers.tpl:generic-api-key:27
+
+# Not a secret: the comment above, as first written in commit c2335b8c (#195), quoted that same
+# Helm message, and generic-api-key fired on the quote. Documentation text only, no credential.
+# Ignored by the product owner's decision (2026-11-04), this exact finding only; the comment was
+# reworded in the next commit.
+c2335b8cd3c634c06a67dee7e78a59e5df488117:.gitleaksignore:generic-api-key:11

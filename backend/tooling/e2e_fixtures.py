@@ -207,6 +207,13 @@ async def create(url: str) -> int:
                     f"E2E Scroll {n:02d}",
                 )
                 created += status.endswith(" 1")
+            # Every run starts on the defaults (WP-042): the suite's own users' theme and text
+            # size, which one spec's browser may have copied to the server in the last run.
+            await conn.execute(
+                "UPDATE users SET theme_mode = NULL, text_scale = NULL, updated_at = now()"
+                " WHERE email LIKE $1",
+                SUITE_USERS,
+            )
             return created
     finally:
         await conn.close()

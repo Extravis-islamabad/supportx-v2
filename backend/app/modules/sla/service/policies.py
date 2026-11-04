@@ -294,6 +294,22 @@ async def levels_of(
     return found
 
 
+async def existing_policy_ids(
+    session: AsyncSession, record_type: str, ids: Sequence[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """Which of `ids` are live policies of `record_type` (other modules check references)."""
+    if not ids:
+        return frozenset()
+    rows = await session.scalars(
+        select(SlaPolicy.id).where(
+            SlaPolicy.id.in_(ids),
+            SlaPolicy.record_type == record_type,
+            SlaPolicy.deleted_at.is_(None),
+        )
+    )
+    return frozenset(rows)
+
+
 async def list_policies(session: AsyncSession, subject: Subject, code: str) -> list[PolicyView]:
     """A record type's policies in order, each with its targets and a "never matches" flag."""
     require(subject, VIEW)

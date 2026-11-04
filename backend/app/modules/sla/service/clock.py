@@ -278,10 +278,13 @@ async def _choose(run: _Run, code: str) -> tuple[SlaPolicy | None, list[TargetRo
         tree = policy.conditions
         return lambda record: evaluate(tree, run.rtype.fields, record, now=run.now)
 
-    chosen = match(rules_of(policies, matcher), run.after)
-    if chosen is None:  # pragma: no cover - ensure_defaults always makes the fallback
-        return None, [], []
-    row = next(p for p in policies if p.id == chosen.id)
+    named = run.rtype.preferred_policy(run.after) if run.rtype.preferred_policy else None
+    row = next((p for p in policies if p.id == named and p.enabled), None) if named else None
+    if row is None:
+        chosen = match(rules_of(policies, matcher), run.after)
+        if chosen is None:  # pragma: no cover - ensure_defaults always makes the fallback
+            return None, [], []
+        row = next(p for p in policies if p.id == chosen.id)
     rows = target_rows((await targets_of(run.session, [row.id]))[row.id])
     return row, rows, (await levels_of(run.session, [row.id]))[row.id]
 

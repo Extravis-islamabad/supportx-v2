@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
-from app.modules.identity_access import release_from_directory
+from app.modules.identity_access import Subject, check_group_grantable, release_from_directory
 from app.modules.integrations.domain.connector_health import SYNC_MINUTES
 from app.modules.integrations.domain.directory import (
     ATTRIBUTES,
@@ -47,6 +47,7 @@ from app.modules.integrations.service import identities, secrets
 from app.modules.integrations.service.connections import key_ring, oauth_for
 from app.modules.integrations.service.connector_settings import get_connector_settings
 from app.modules.integrations.service.directory_sync import CONNECTOR_KIND, SECRET_ROLE
+from app.modules.integrations.service.entra_app import ENTRA, entra_app
 from app.modules.integrations.service.mailboxes import KeyRingMissing
 from app.modules.organization import existing_unit_ids
 from app.shared.db.repository import Repository
@@ -134,12 +135,16 @@ def _problems(  # noqa: C901, PLR0912 - one check per field, in screen order
     return errors
 
 
-async def _groups_exist(session: AsyncSession, values: Mapping[str, Any]) -> None:
+async def _groups_exist(session: AsyncSession, values: Mapping[str, Any], by: Subject) -> None:
     wanted = {
         uuid.UUID(m.group_id) for m in group_mappings_from_json(values.get("group_mappings", []))
     }
     if wanted and await existing_unit_ids(session, "group", sorted(wanted)) != wanted:
         raise ValidationFailed(errors=[_error("group_mappings", "group_not_found")])
+    # Sync adds people to these groups with no person behind it, so whoever maps a directory group
+    # onto a SupportX group that carries roles must be able to give those roles (lane B, WP-042).
+    for group in sorted(wanted):
+        await check_group_grantable(session, by, group)
 
 
 def _stored(values: Mapping[str, Any]) -> dict[str, Any]:
@@ -199,7 +204,12 @@ def _ring(settings: Settings) -> Any:  # noqa: ANN401 - a KeyRing
 
 
 async def create_directory(
-    session: AsyncSession, settings: Settings, values: Mapping[str, Any], *, credential: str | None
+    session: AsyncSession,
+    settings: Settings,
+    values: Mapping[str, Any],
+    *,
+    credential: str | None,
+    by: Subject,
 ) -> DirectoryView:
     """A new directory connector; its first sync runs within a minute."""
     if "interval_minutes" not in values:  # the tenant's default for new directories (D-041)
@@ -210,7 +220,7 @@ async def create_directory(
     if errors := _problems(values, credential=credential, creating=True):
         raise ValidationFailed(errors=errors)
     ring = _ring(settings)
-    await _groups_exist(session, values)
+    await _groups_exist(session, values, by)
     stored = _stored(values)
     row = DirectoryConnector(id=new_id(), **stored)
     try:
@@ -224,7 +234,7 @@ async def create_directory(
         owner_kind=CONNECTOR_KIND,
         owner_id=row.id,
         role=SECRET_ROLE,
-        secret_type=SECRET_TYPES[CredentialKind(row.credential_kind)],
+        secret_type=SECRET_TYPES[entra_app(row).credential_kind],
         value=credential,
     )
     await identities.ensure_identity(session, CONNECTOR_KIND, row.id, name=row.name)
@@ -241,14 +251,16 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
     *,
     expected_version: int,
     credential: str | None,
+    by: Subject,
 ) -> DirectoryView:
     """Change a connector (If-Match); a new secret replaces the old one behind the same row."""
     current = await DirectoryRepository(session).get(directory_id)
+    entra_app(current)  # 404 for an AD/LDAP directory: it has its own screen
     if "interval_minutes" not in values:  # left out: it keeps its own interval
         values = {**values, "interval_minutes": current.interval_minutes}
     if errors := _problems(values, credential=credential, creating=False):
         raise ValidationFailed(errors=errors)
-    await _groups_exist(session, values)
+    await _groups_exist(session, values, by)
     stored = _stored(values)
     # Who is synced changed: the next round reads everyone again (delta links start over).
     if (stored["scope"], stored["scope_groups"], stored["group_mappings"], stored["mapping"]) != (
@@ -268,7 +280,7 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
             owner_kind=CONNECTOR_KIND,
             owner_id=row.id,
             role=SECRET_ROLE,
-            secret_type=SECRET_TYPES[CredentialKind(row.credential_kind)],
+            secret_type=SECRET_TYPES[entra_app(row).credential_kind],
             value=credential,
         )
         row.next_sync_at = None  # try the new secret at once
@@ -282,6 +294,7 @@ async def remove_directory(
     session: AsyncSession, directory_id: uuid.UUID, *, expected_version: int
 ) -> None:
     """Stop syncing: the connector and its secret go, its people stay and SupportX keeps them."""
+    entra_app(await DirectoryRepository(session).get(directory_id))  # 404 for AD/LDAP
     row = await DirectoryRepository(session).soft_delete(
         directory_id, expected_version=expected_version
     )
@@ -299,6 +312,7 @@ async def remove_directory(
 async def sync_now(session: AsyncSession, directory_id: uuid.UUID) -> DirectoryView:
     """Run at the next minute's schedule instead of waiting for the interval."""
     row = await DirectoryRepository(session).get(directory_id)
+    entra_app(row)  # 404 for an AD/LDAP directory: Keycloak syncs it
     if not row.enabled:
         raise Conflict(code="directory_disabled")
     row.next_sync_at = datetime.now(UTC)
@@ -310,7 +324,7 @@ async def list_directories(session: AsyncSession) -> Sequence[DirectoryView]:
     """Every directory connector, by name."""
     rows = await session.scalars(
         select(DirectoryConnector)
-        .where(DirectoryConnector.deleted_at.is_(None))
+        .where(DirectoryConnector.deleted_at.is_(None), DirectoryConnector.source == ENTRA)
         .order_by(DirectoryConnector.name)
     )
     return [await _view(session, row) for row in rows]
@@ -319,7 +333,7 @@ async def list_directories(session: AsyncSession) -> Sequence[DirectoryView]:
 async def get_directory(session: AsyncSession, directory_id: uuid.UUID) -> DirectoryView:
     """One connector (404 when removed or another tenant's)."""
     row = await session.get(DirectoryConnector, directory_id)
-    if row is None or row.deleted_at is not None:
+    if row is None or row.deleted_at is not None or row.source != ENTRA:
         raise NotFound(code="directory_not_found")
     return await _view(session, row)
 
@@ -334,12 +348,13 @@ async def find_groups(
     secret = await secrets.read_owned(session, _ring(settings), row.secret_ref)
     if secret is None:
         raise Conflict(code="directory_secret_missing")
+    app = entra_app(row)
     client = Client(
         protocol=MailboxProtocol.GRAPH,
-        client_id=row.client_id,
-        credential_kind=CredentialKind(row.credential_kind),
+        client_id=app.client_id,
+        credential_kind=app.credential_kind,
         credential=secret,
-        directory_id=row.directory_tenant,
+        directory_id=app.directory_tenant,
     )
     oauth = oauth_for(settings)
     try:

@@ -38,6 +38,7 @@ from app.modules.sla.service.calendars import (
     system_calendar_id,
 )
 from app.modules.sla.service.clock import SlaStamp, on_change, set_due_by_hand
+from app.modules.sla.service.policies import existing_policy_ids
 from app.modules.sla.service.realtime import ROUTES
 from app.modules.sla.service.records import (
     SlaRecordView,
@@ -54,8 +55,10 @@ FEATURE = "sla"  # in every edition (licensing catalogue): SLAs have no licence 
 
 # Technicians read the set-up (the SLA panel names the calendar); admins change it.
 PERMISSIONS = (
-    PermissionSpec(VIEW, FEATURE, defaults=(("technician", "all"),)),
-    PermissionSpec(MANAGE, FEATURE),
+    PermissionSpec(
+        VIEW, FEATURE, defaults=(("technician", "all"), ("service_desk_manager", "all"))
+    ),
+    PermissionSpec(MANAGE, FEATURE, defaults=(("service_desk_manager", "all"),)),
 )
 
 # Sites and groups name a calendar; organization asks here whether the ID is one (D-115 D3).
@@ -93,6 +96,7 @@ __all__ = [
     "SystemCalendar",
     "calendar_for_maths",
     "escalation_run",
+    "existing_policy_ids",
     "fire",
     "module",
     "next_wake",

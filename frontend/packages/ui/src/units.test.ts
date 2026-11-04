@@ -164,7 +164,7 @@ describe('C2: fonts per language', () => {
     const naskh = buildTheme('dark', {}, 'ur').token;
     expect(String(naskh?.fontFamily)).toContain('Noto Sans Arabic');
     expect(String(naskh?.fontFamily)).not.toMatch(/Nastaliq/);
-    const nastaliq = buildTheme('dark', {}, 'ur', 'comfortable', 'nastaliq').token;
+    const nastaliq = buildTheme('dark', {}, 'ur', 'comfortable', 100, 'nastaliq').token;
     expect(String(nastaliq?.fontFamily)).toContain('Noto Nastaliq Urdu');
     expect(nastaliq?.lineHeight).toBeGreaterThan(1.8);
     expect(buildTheme('high_contrast', {}, 'ar').token?.fontFamily).toBe(arabic);

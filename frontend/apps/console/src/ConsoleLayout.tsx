@@ -8,12 +8,14 @@ import {
   loginUrl,
   queryKeys,
   readPending,
+  serviceRequestKeys,
   useLogout,
   useSetFormDensity,
   useSession,
   useSetNavLayout,
   useSetUiLocale,
   useSwitchTenant,
+  useTenantSettings,
 } from '@supportx/api-client';
 import { clearAllKeptDrafts } from '@supportx/forms';
 import {
@@ -40,14 +42,17 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 
 import { AvailabilitySwitch } from './AvailabilitySwitch';
+import { usePersonalAppearance } from './personalAppearance';
 import { EventDeliveryBanner } from './EventDeliveryBanner';
 import { NotificationBell } from './notifications/NotificationBell';
+import { ApprovalsDrawer } from './pages/requests/ApprovalsDrawer';
 import { NotificationsBanner } from './notifications/NotificationsBanner';
 import { useAvailabilityItem } from './useAvailabilityItem';
 import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
 import { LoopBanner } from './pages/admin/automation/LoopBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
+import { pagesFor } from './pages/admin/setupMap';
 import { usePaletteIncidents } from './pages/incidents/usePaletteIncidents';
 import { usePaletteKnowledge } from './pages/knowledge/usePaletteKnowledge';
 
@@ -102,6 +107,7 @@ export function ConsoleLayout() {
       queryKeys.incidents.catalogue,
       queryKeys.incidents.categories,
       queryKeys.incidents.templates,
+      serviceRequestKeys.settings,
     ]) {
       void queryClient.invalidateQueries({ queryKey: key });
     }
@@ -110,6 +116,9 @@ export function ConsoleLayout() {
   const setNavLayout = useSetNavLayout(session?.user.id ?? '');
   const setUiLocale = useSetUiLocale(session?.user.id ?? '');
   const setFormDensity = useSetFormDensity(session?.user.id ?? '');
+  const saveMode = usePersonalAppearance(session?.user ?? undefined);
+  // Only the languages the tenant offers are offered (WP-042, REQ-ADM-052).
+  const offered = useTenantSettings(session !== undefined && session !== null).data?.languages;
   // Technicians' Available / Away in the user menu below 1200 px (WP-029).
   const availabilityItems = useAvailabilityItem(
     session?.user.id ?? '',
@@ -146,8 +155,17 @@ export function ConsoleLayout() {
         .filter((item) => !item.locked)
         .map((item) => ({ key: item.key, title: t(item.labelKey), path: item.path })),
       { key: 'profile', title: t('nav.profile'), path: '/profile' },
+      // Setup pages by name, explanation and keywords (WP-042, REQ-ADM-107), once typing.
+      ...pagesFor(access.can).map((page) => ({
+        key: `setup-${page.key}`,
+        title: `${t('setup.title')} › ${t(page.labelKey)}`,
+        subtitle: t(`setup.page.${page.key}.description`),
+        keywords: `${t(`setup.page.${page.key}.description`)} ${t(`setup.page.${page.key}.keywords`)}`,
+        path: `/admin/${page.key}`,
+        searchOnly: true,
+      })),
     ],
-    [nav, t],
+    [nav, t, access.can],
   );
   const paletteRecords = usePaletteIncidents(
     paletteOpen,
@@ -206,6 +224,8 @@ export function ConsoleLayout() {
           onLocaleChange={(locale) => {
             setUiLocale.mutate(locale, { onError: reportError });
           }}
+          onModeChange={saveMode}
+          languages={offered}
           onLogout={() => {
             clearAllKeptDrafts(); // an explicit sign-out: the next person at this computer starts clean
             void logout();
@@ -226,6 +246,7 @@ export function ConsoleLayout() {
           ]}
           extra={
             <>
+              {licence.has('service_request') && <ApprovalsDrawer />}
               <NotificationBell />
               {session.user.user_type === 'technician' && licence.has('incident') && (
                 <AvailabilitySwitch userId={session.user.id} />

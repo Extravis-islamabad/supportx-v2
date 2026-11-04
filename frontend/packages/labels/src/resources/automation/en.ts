@@ -226,6 +226,7 @@ export const en = {
   'automation.why.requester_rejected': 'The requester said it is not fixed, so it was reopened.',
   'automation.why.auto_closed':
     'Closed automatically: the requester was told of the resolution and did not answer in time.',
+  'automation.why.fulfilled': 'Fulfilled: every required task is done',
   'automation.why.assignment_move': 'Moved automatically when it was assigned.',
   'automation.why.sla_escalation': 'By SLA escalation: {{target}}, level {{level}}',
 } as const;

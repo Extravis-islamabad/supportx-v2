@@ -245,7 +245,7 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
     perm = wtype.permission
     View = Annotated[Subject, Depends(require_permission(perm("view")))]  # noqa: N806 - type alias
     Query_ = Annotated[ListQuery, Depends(list_dependency(wtype))]  # noqa: N806 - type alias
-    name = wtype.code.replace("_", " ")
+    audit = wtype.code.value  # audit codes: "incident.deleted", "service_request.deleted"
 
     @router.get("/list-fields", summary="Fields of the list (filter, sort, columns)")
     async def list_fields(session: TenantSession, subject: View) -> list[ListFieldOut]:
@@ -404,7 +404,7 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
         summary=f"Change many {wtype.path} at once",
         status_code=status.HTTP_202_ACCEPTED,
         response_model=BulkJobOut,
-        dependencies=[audited(f"{name}.bulk_started", object_type=f"{name}_bulk_job")],
+        dependencies=[audited(f"{audit}.bulk_started", object_type=f"{audit}_bulk_job")],
     )
     async def start_bulk(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options
         body: BulkJobIn,

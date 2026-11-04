@@ -20,9 +20,11 @@ from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from app.modules.work_items.service.reporting import WorkItemSource
 from app.shared.reporting import provider_for
+from conftest import assign_system_role
 from tests.db import test_incidents_api
 from tests.db.test_custom_fields_api import add_field, choices
 from tests.db.test_incidents_api import BASE, CONSOLE, World
+from tests.db.test_users_api import seed_users
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = pytest.mark.db
@@ -437,3 +439,40 @@ async def test_rename_folder_edit_definition_and_delete_a_report(reports: World)
     )
     assert [h["kind"] for h in history][:1] == ["created"]
     assert "deleted" in {h["kind"] for h in history}
+
+
+async def test_reports_apply_the_viewer_s_own_scope_report_viewer_reads_all(reports: World) -> None:
+    """Lane B (WP-042): a report never reads with its own rights.
+
+    A person whose only right is reports.view is refused an incident report outright (no view
+    right on its records); the report viewer role reads every incident.
+    """
+    world = reports
+    a = world.a
+    await seed(world)
+    reader, viewer = await seed_users(
+        world.db,
+        a.tenant,
+        [
+            {"user_type": "technician", "display_name": "Only reports"},
+            {"user_type": "technician", "display_name": "Report viewer"},
+        ],
+    )
+    made = await world.call(
+        "POST",
+        "/roles",
+        a,
+        a.admin,
+        json={
+            "name": "Reports only",
+            "permissions": [{"permission": "reports.view", "scope": "all"}],
+        },
+    )
+    assert made.status_code == 201, made.text
+    await world.call("PUT", f"/users/{reader}/roles/{made.json()['id']}", a, a.admin)
+    await assign_system_role(world.db.admin_url, a.tenant, viewer, "report_viewer")
+    refused = await run(world, a, reader)
+    assert (refused.status_code, refused.json()["code"]) == (403, "report_not_allowed")
+    assert (await ran(world, a, viewer))["totals"] == [6]  # every incident of org A, read-only
+    edit = await world.call("GET", "/incidents", a, viewer)
+    assert edit.status_code == 200

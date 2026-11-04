@@ -63,6 +63,22 @@ export async function resetLanguage(page: Page): Promise<boolean> {
   return true;
 }
 
+/** Clear the suite user's theme and text size (WP-042), so later specs start from the defaults. */
+export async function resetPreferences(page: Page): Promise<void> {
+  const request = page.context().request;
+  const me = (await (await request.get('/api/v1/auth/me')).json()) as {
+    csrf_token: string;
+    user: { id: string };
+  };
+  const path = `/api/v1/users/${me.user.id}`;
+  const user = (await (await request.get(path)).json()) as { version: number };
+  const cleared = await request.patch(path, {
+    data: { theme_mode: null, text_scale: null },
+    headers: { 'If-Match': `"${String(user.version)}"`, 'X-CSRF-Token': me.csrf_token },
+  });
+  expect(cleared.status(), await cleared.text()).toBe(200);
+}
+
 /**
  * axe on the current page: no serious or critical WCAG 2.1 A/AA violations. With a modal drawer
  * or dialog open only the dialog is scanned: the page behind it sits under the dimming mask and

@@ -45,7 +45,35 @@ async def _scenario(database: db_testing.ThrowawayDatabase) -> None:
     assert len(await _users(database.admin_url)) == e2e_fixtures.COUNT + 1
     assert await e2e_fixtures.delete(database.migrator_url) == e2e_fixtures.COUNT
     assert await _users(database.admin_url) == ["keep@demo.test"]
+    await _preferences_reset(database)
     await _suite_records(database)
+
+
+async def _preferences_reset(database: db_testing.ThrowawayDatabase) -> None:
+    """WP-042: `create` puts the suite's own users back on the default theme and text size;
+    anyone else's choice stays."""
+    conn = await asyncpg.connect(database.admin_url)
+    try:
+        await conn.execute(
+            "INSERT INTO users (id, tenant_id, external_subject, email, display_name, first_name,"
+            " user_type) VALUES (gen_random_uuid(), $1, 'e2e-tech', 'e2e.tech@demo.test',"
+            " 'E2E Tech', 'E2E', 'technician')",
+            seed_dev.DEMO_TENANT_ID,
+        )
+        await conn.execute("UPDATE users SET theme_mode = 'dark', text_scale = 130")
+        await e2e_fixtures.create(database.migrator_url)
+        rows = await conn.fetch(
+            "SELECT email, theme_mode, text_scale FROM users"
+            " WHERE email IN ('e2e.tech@demo.test', 'keep@demo.test') ORDER BY email"
+        )
+        assert [tuple(r) for r in rows] == [
+            ("e2e.tech@demo.test", None, None),
+            ("keep@demo.test", "dark", 130),
+        ]
+        await e2e_fixtures.delete(database.migrator_url)
+        await conn.execute("DELETE FROM users WHERE email = 'e2e.tech@demo.test'")
+    finally:
+        await conn.close()
 
 
 async def _people(conn: asyncpg.Connection) -> None:

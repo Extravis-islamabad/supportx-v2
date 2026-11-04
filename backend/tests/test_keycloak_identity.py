@@ -1,6 +1,7 @@
 """The upgrade step creating SupportX's identity service account (tooling/keycloak_identity.py)."""
 
 import json
+import secrets
 from typing import Any
 
 import httpx
@@ -9,6 +10,7 @@ import pytest
 from tooling.keycloak_identity import (
     CLIENT_ID,
     EVENT_TYPES,
+    FEDERATION_CLIENT_ID,
     LOCKOUT,
     OLD_DEFAULT_POLICY,
     PROFILE_ATTRIBUTES,
@@ -134,9 +136,21 @@ class FakeKeycloak:
         return httpx.Response(404)
 
 
-async def _run(keycloak: FakeKeycloak, password: str = "right", realm_secret: str = "") -> Result:  # noqa: S107 - test data
+async def _run(
+    keycloak: FakeKeycloak,
+    password: str = "right",  # noqa: S107 - test data
+    realm_secret: str = "",
+    federation_secret: str = "",
+) -> Result:
     return await run(
-        Target(BASE, user="admin", password=password, secret=SECRET, realm_secret=realm_secret),
+        Target(
+            BASE,
+            user="admin",
+            password=password,
+            secret=SECRET,
+            realm_secret=realm_secret,
+            federation_secret=federation_secret,
+        ),
         wait_seconds=0,
         transport=httpx.MockTransport(keycloak.handler),
         retry_seconds=0,
@@ -261,6 +275,50 @@ async def test_a_second_client_holds_only_manage_realm_for_the_password_policy()
     keycloak.writes.clear()
     again = await _run(keycloak, realm_secret=REALM_SECRET)
     assert (again.outcome, keycloak.writes) == (Outcome.READY, [])
+
+
+# Made at run time: a fixed random-looking constant reads as a leaked key to the secret scan.
+FEDERATION_SECRET = secrets.token_urlsafe(24)
+
+
+async def test_the_federation_account_exists_only_where_ldap_is_on() -> None:
+    """WP-040 (D-118, product owner 2026-11-03): on-prem LDAP only, manage-realm only.
+
+    The identity account stays limited.
+    """
+    keycloak = FakeKeycloak()
+    await _run(keycloak)
+    assert FEDERATION_CLIENT_ID not in {c["clientId"] for c in keycloak.clients}  # LDAP off
+    result = await _run(keycloak, federation_secret=FEDERATION_SECRET)
+    federation = keycloak.client(FEDERATION_CLIENT_ID)
+    assert f"client {FEDERATION_CLIENT_ID} created" in result.changes
+    assert (federation["serviceAccountsEnabled"], federation["standardFlowEnabled"]) == (
+        True,
+        False,
+    )
+    assert keycloak.secrets[federation["id"]] == FEDERATION_SECRET
+    assert [r["name"] for r in keycloak.held_by[f"sa-{federation['id']}"]] == ["manage-realm"]
+    assert "manage-realm" not in {r["name"] for r in keycloak.held}  # never on the identity account
+    keycloak.writes.clear()
+    again = await _run(keycloak, federation_secret=FEDERATION_SECRET)
+    assert (again.outcome, keycloak.writes) == (Outcome.READY, [])
+
+
+async def test_turning_ldap_off_switches_the_federation_account_off_and_never_deletes_it() -> None:
+    keycloak = FakeKeycloak()
+    await _run(keycloak, federation_secret=FEDERATION_SECRET)
+    result = await _run(keycloak)  # the chart no longer passes the secret
+    federation = keycloak.client(FEDERATION_CLIENT_ID)
+    assert federation["enabled"] is False
+    assert f"client {FEDERATION_CLIENT_ID} switched off (LDAP not enabled)" in result.changes
+    assert not any(w.startswith("DELETE") and "clients" in w for w in keycloak.writes)
+    keycloak.writes.clear()
+    again = await _run(keycloak)
+    assert keycloak.writes == []  # already off: nothing more
+    assert again.outcome == Outcome.READY
+    back = await _run(keycloak, federation_secret=FEDERATION_SECRET)  # LDAP on again
+    assert keycloak.client(FEDERATION_CLIENT_ID)["enabled"] is True
+    assert f"client {FEDERATION_CLIENT_ID} settings or secret set" in back.changes
 
 
 async def test_only_the_old_shipped_password_policy_is_upgraded() -> None:

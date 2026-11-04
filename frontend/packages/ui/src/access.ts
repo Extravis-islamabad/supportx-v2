@@ -13,6 +13,7 @@ export const ADMIN_PERMISSIONS = [
   'files.manage',
   'licence.manage',
   'audit.view',
+  'ai.manage',
   'api_keys.manage',
 ] as const;
 

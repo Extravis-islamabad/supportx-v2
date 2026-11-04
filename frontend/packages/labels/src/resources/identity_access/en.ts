@@ -82,6 +82,12 @@ export const en = {
   'permission.requests.assign.description': 'Assign service requests to technicians and groups.',
   'permission.requests.close': 'Close service requests',
   'permission.requests.close.description': 'Resolve and close service requests.',
+  'permission.requests.approve': 'Approve service requests',
+  'permission.requests.approve.description':
+    'Decide the service request approvals you are named for.',
+  'permission.work_items.approve_any': 'Decide fallback approvals',
+  'permission.work_items.approve_any.description':
+    'Decide approvals that have no active approver (approval administrators).',
   'permission.problems.view': 'View problems',
   'permission.problems.view.description': 'See problem records.',
   'permission.problems.manage': 'Manage problems',
@@ -109,6 +115,7 @@ export const en = {
   'permission_module.users': 'Users',
   'permission_module.roles': 'Roles',
   'permission_module.profile': 'Profile',
+  'permission_module.work_items': 'All requests (incidents and service requests)',
   'permission_module.sites': 'Sites',
   'permission_module.groups': 'Support groups',
   'permission_module.settings': 'Settings',
@@ -246,6 +253,19 @@ export const en = {
   'permission.files.manage.description':
     'Set the size limit and blocked file types, see storage use and the malware scanning status, and re-check files.',
   'form_density.title': 'Form layout',
+  'preferences.title': 'Display and region',
+  'preferences.text_scale': 'Text size',
+  'preferences.week_start': 'First day of the week',
+  'preferences.date_format': 'Date format',
+  'preferences.time_format': 'Time format',
+  'preferences.digits': 'Digits',
+  'preferences.digits.western': 'Western (0 1 2 3)',
+  'preferences.digits.arabic_indic': 'Arabic-Indic (٠ ١ ٢ ٣)',
+  'preferences.urdu_script': 'Urdu script',
+  'preferences.urdu_script.naskh': 'Naskh',
+  'preferences.urdu_script.nastaliq': 'Nastaliq',
+  'preferences.default': 'Default',
+  'preferences.default_value': 'Default ({{value}})',
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'profile.form_density_help': 'Compact shows two columns with labels on the left.',
@@ -706,6 +726,7 @@ export const en = {
   'readiness_check.outbox_relay': 'Event relay',
   'readiness_check.event_consumers': 'Event processing',
   'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.malware_signatures': 'Virus signatures',
   'readiness_check.nats': 'Message bus',
   'permission.sla.view': 'View SLA set-up',
   'permission.sla.view.description': 'See working calendars, holidays and SLA policies.',
@@ -732,6 +753,77 @@ export const en = {
     "Set or clear an incident's response or resolution due date by hand, with a reason. The date then stays until cleared.",
   'people.managed_by_directory':
     'Name, address, job, phone, site, department and manager come from the directory. Change them there; VIP, language and notes stay yours.',
+  'roles.copy': 'Copy',
+  'roles.copy_name': 'Copy of {{name}}',
+  'roles.editor.copy': 'New role from “{{name}}”',
+  'roles.compare': 'Compare roles',
+  'roles.compare_first': 'First role',
+  'roles.compare_second': 'Second role',
+  'roles.compare_differences': 'Differences only',
+  'roles.compare_pick': 'Choose two roles to compare.',
+  'roles.compare_same': 'These roles grant the same permissions.',
+  'roles.compare_not_granted': 'Not granted',
+  'roles.compare_differs': 'Differs',
+  'role.service_desk_manager': 'Service desk manager',
+  'role.service_desk_manager.description':
+    'Runs the service desk: every incident and request, the desk’s SLAs, automation, reports and announcements.',
+  'role.site_admin': 'Site administrator',
+  'role.site_admin.description':
+    'Looks after one site: its incidents and requests, people, assets and announcements.',
+  'role.report_viewer': 'Report viewer',
+  'role.report_viewer.description':
+    'Reads every incident and request and their reports, without changing anything.',
+  'roles.groups': 'Support groups',
+  'roles.groups_help':
+    'Members of these groups hold this role while they are members. A group filled by directory sync gives it to everyone the sync adds.',
+  'roles.groups_add': 'Add a group',
+  'roles.groups_none': 'No group carries this role.',
+  'access.through_groups': 'through {{groups}}',
+  'permission_module.config': 'Configuration',
+  'permission.config.service_desk': 'Configure the service desk',
+  'permission.config.service_desk.description':
+    'Incident levels, categories, templates, reply templates and custom fields.',
+  'permission.config.organisation': 'Configure the organisation',
+  'permission.config.organisation.description': 'Desks and the organisation’s structure settings.',
+  'permission.config.announcements': 'Configure announcements',
+  'permission.config.announcements.description':
+    'Who may publish, and whether a second person must approve.',
+  'permission.config.reports': 'Configure reports',
+  'permission.config.reports.description':
+    'Report settings: week start, export limits and every scheduled report.',
+  'permission.catalog_items.manage': 'Manage the service catalog',
+  'permission.catalog_items.manage.description':
+    'Add and change catalog categories and items: their forms, approval and fulfilment.',
+  'permission_module.catalog_items': 'Service catalog',
+  'permission.requests.take': 'Take service requests',
+  'permission.requests.take.description': 'Take a service request nobody has taken yet.',
+  'permission.requests.change_priority': "Change a request's priority by hand",
+  'permission.requests.change_priority.description':
+    'Override the priority a service request got from its item or the matrix, with a reason.',
+  'permission.requests.resolve': 'Fulfil service requests',
+  'permission.requests.resolve.description': 'Mark service requests as fulfilled.',
+  'permission.requests.reopen': 'Reopen service requests',
+  'permission.requests.reopen.description':
+    'Reopen fulfilled or closed service requests, with a reason.',
+  'permission.requests.cancel': 'Cancel service requests',
+  'permission.requests.cancel.description':
+    'Cancel service requests with a reason, and undo a cancellation.',
+  'permission.requests.delete': 'Delete service requests',
+  'permission.requests.delete.description': 'Move service requests to the trash and restore them.',
+  'permission.requests.add_note': 'Add private notes on requests',
+  'permission.requests.add_note.description': 'Write staff-only notes on service requests.',
+  'permission.requests.reply': 'Reply on requests and add public notes',
+  'permission.requests.reply.description':
+    'Reply to requesters on service requests, add notes they can see, and make private notes public.',
+  'permission.requests.manage_followers': 'Manage followers of requests',
+  'permission.requests.manage_followers.description':
+    'Add other people as followers of service requests and remove them.',
+  'permission.requests.edit_due_dates': 'Set request due dates by hand',
+  'permission.requests.edit_due_dates.description':
+    "Set or clear a service request's response or fulfilment due time by hand, with a reason. It then stays until cleared.",
+  'permission.requests.assign_outside_group': 'Assign requests outside the group',
+  'permission.requests.assign_outside_group.description':
+    'Assign a technician who is not a member of the chosen group to a service request.',
   'permission.work_items.view_department': 'View requests of their department',
   'permission.work_items.view_department.description':
     'In the portal, see the incidents and requests of people in their own department.',
@@ -748,7 +840,6 @@ export const en = {
   'account.contact.save': 'Save contact details',
   'account.contact.from_directory':
     'Your phone and mobile come from {{source}}. Change them there.',
-  'permission_module.work_items': 'All requests (incidents and service requests)',
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',

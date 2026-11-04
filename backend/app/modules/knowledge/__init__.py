@@ -43,7 +43,12 @@ _WIDE: tuple[Scope, ...] = ("all", "group")
 # requesters read what is published for them; approving, withdrawing and the rest are for
 # administrators (and the knowledge manager role) by default.
 PERMISSIONS = (
-    PermissionSpec(VIEW, FEATURE, _READ, defaults=(("technician", "group"), ("requester", "own"))),
+    PermissionSpec(
+        VIEW,
+        FEATURE,
+        _READ,
+        defaults=(("technician", "group"), ("requester", "own"), ("service_desk_manager", "all")),
+    ),
     PermissionSpec(CREATE, FEATURE, _WIDE, defaults=(("technician", "group"),)),
     PermissionSpec(EDIT_OWN, FEATURE, ("own",), defaults=(("technician", "own"),)),
     PermissionSpec(EDIT_ANY, FEATURE, _WIDE),

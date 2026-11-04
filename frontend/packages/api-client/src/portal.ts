@@ -149,3 +149,91 @@ export function useAnswerFix(id: string) {
     onSuccess: saved,
   });
 }
+
+export type PortalPerson = components['schemas']['PortalPersonOut'];
+
+/** People the signed-in requester may report for (WP-030, REQ-SR-011): names only, in scope. */
+export function usePortalOnBehalfPeople(search: string) {
+  const text = search.trim();
+  return useQuery({
+    queryKey: ['portal', 'on-behalf-people', text] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/incidents/on-behalf-people', {
+          params: { query: { search: text } },
+        }),
+      ),
+    enabled: text.length >= 2,
+    staleTime: 30_000,
+  });
+}
+
+export type PortalRequest = components['schemas']['PortalRequestOut'];
+export type PortalSteps = components['schemas']['PortalStepsOut'];
+
+export const portalRequestKeys = {
+  all: ['portal', 'service-requests'] as const,
+  list: (state: PortalState | undefined) => ['portal', 'service-requests', 'list', state] as const,
+  detail: (id: string) => ['portal', 'service-requests', 'detail', id] as const,
+};
+
+/** The requester's own service requests (WP-030 D9, REQ-SR-062). */
+export function usePortalRequests(state: PortalState | undefined) {
+  return useQuery({
+    queryKey: portalRequestKeys.list(state),
+    queryFn: () =>
+      call(api.GET('/api/v1/portal/service-requests', { params: { query: { state } } })),
+  });
+}
+
+export function usePortalRequest(id: string) {
+  return useQuery({
+    queryKey: portalRequestKeys.detail(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: id !== '',
+    retry: false,
+  });
+}
+
+/** Fulfilment progress, internal step names hidden (REQ-SR-051 AC2). */
+export function usePortalRequestSteps(id: string) {
+  return useQuery({
+    queryKey: [...portalRequestKeys.detail(id), 'steps'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}/steps', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Confirm receipt of a fulfilled request, or say it is not done (REQ-SR-059). */
+export function useAnswerRequest(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ confirmed, comment }: { confirmed: boolean; comment?: string }) =>
+      confirmed
+        ? call(
+            api.POST('/api/v1/portal/service-requests/{record_id}/resolution/confirm', {
+              params: { path: { record_id: id } },
+            }),
+          )
+        : call(
+            api.POST('/api/v1/portal/service-requests/{record_id}/resolution/reject', {
+              params: { path: { record_id: id } },
+              body: { comment: comment ?? '' },
+            }),
+          ),
+    onSuccess: (found) => {
+      queryClient.setQueryData(portalRequestKeys.detail(id), found);
+      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.all });
+    },
+  });
+}
