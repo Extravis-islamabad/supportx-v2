@@ -17,7 +17,7 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.ai.domain.features import FEATURES, AiArea
 from app.modules.ai.infra.models import AiSettings, AiSummary
-from app.modules.ai.service import calls, summaries
+from app.modules.ai.service import calls, summaries, writing
 from app.modules.ai.service.gateway import Gateway
 from app.modules.ai.service.settings import (
     RETENTION_DAYS,
@@ -258,3 +258,65 @@ async def refresh_summary(
     """Through the gateway: your permission, the plan, the switches, masking and the log."""
     row = await summaries.refresh(session, subject, gateway, record_type, record_id)
     return SummaryOut.of(row, includes_private=row.level == summaries.WITH_PRIVATE)
+
+
+# --- writing help (WP-038, REQ-INC-136) -----------------------------------------------------------
+
+
+WritingStyle = Literal["correct", "shorter", "longer", "formal", "friendly", "translate"]
+
+
+class WritingIn(BaseModel):
+    """A draft from an instruction, or the person's own text improved."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["draft", "improve"]
+    # Where it goes: a reply reaches the requester (private notes are never read for it).
+    kind: Literal["reply", "note"]
+    instruction: str | None = Field(default=None, max_length=writing.INSTRUCTION_MAX)
+    text: str | None = Field(default=None, max_length=writing.TEXT_MAX)
+    style: WritingStyle | None = None
+    language: Literal["en", "ar", "ur"] | None = None
+
+
+class WritingOut(BaseModel):
+    """The suggested text, for the review panel (Insert, Replace or Discard); never sent here."""
+
+    text: str
+    model: str
+    call_id: uuid.UUID
+
+
+@router.post(
+    "/writing/{record_type}/{record_id}",
+    summary="Writing help: a draft or an improved text",
+    responses={
+        **SUMMARY_ERRORS,
+        422: {"model": ProblemDetail, "description": "Nothing to work from."},
+        503: {"model": ProblemDetail, "description": "The model did not answer."},
+    },
+)
+async def post_writing(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_type: SummaryRecordType,
+    record_id: uuid.UUID,
+    body: WritingIn,
+    session: TenantSession,
+    subject: SignedIn,
+    gateway: Gw,
+) -> WritingOut:
+    """Through the gateway: your permission, the plan, the switches, masking and the log."""
+    answer = await writing.write(
+        session,
+        subject,
+        gateway,
+        record_type=record_type,
+        record_id=record_id,
+        mode=body.mode,
+        kind=body.kind,
+        instruction=body.instruction,
+        text=body.text,
+        style=body.style,
+        language=body.language,
+    )
+    return WritingOut(text=answer.text, model=answer.model, call_id=answer.call_id)

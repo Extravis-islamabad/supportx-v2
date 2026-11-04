@@ -312,8 +312,13 @@ export {
 } from './identity';
 export {
   useAiSettings,
+  useAiOutcome,
   useAiSummary,
   useRefreshAiSummary,
+  useWritingHelp,
+  type AiOutcome,
+  type WritingAnswer,
+  type WritingRequest,
   useSaveAiSettings,
   type AiSettings,
   type AiSettingsInput,

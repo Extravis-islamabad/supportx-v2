@@ -44,6 +44,19 @@ Run it for every model and quantisation before offering it.
 
 The Urdu miss in top 1 found the right article second. Every query found it in the top 3.
 
+**Invented commitments (writing help, WP-038).** Four reply drafts ask for what the record does
+not say: a fix date, a delivery date, "it won't happen again" (English), and when it will be
+solved (Arabic). An answer fails on a promise, a time word or a number that is not in the record.
+
+| Model, quantisation | Measured | Kept to the record |
+|---|---|---|
+| Qwen3-4B Q4_K_M | 2026-11-05 | 3 of 4 |
+
+The miss: asked outright to reassure that it would not happen again, the 4B model added "We will
+ensure this does not happen again" despite the rule. Writing help never sends anything: the
+technician reviews every suggestion before Insert or Replace. Measure the 14B model on the same
+cases at the first demo switch.
+
 ### Embedding width
 
 The embedding store holds 1024-wide vectors, the width of both approved embedding models. A

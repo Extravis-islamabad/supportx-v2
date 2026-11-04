@@ -83,6 +83,7 @@ import { useTenantChannel } from '@supportx/realtime';
 import { useIncidentFieldName } from './conflict';
 import { REQUESTER_ACTION, useHistoryWords } from './historyWords';
 import { useKnowledgeTools } from './knowledgeSlot';
+import { WritingHelp } from './WritingHelp';
 import { useTypingSignal } from './typing';
 
 type Filter = 'all' | 'messages' | 'notes' | 'system';
@@ -769,7 +770,19 @@ function Composer({
         )}
         mentions={mentions}
         templates={templates.data}
-        extraTools={knowledgeTools}
+        extraTools={(insert) => (
+          <>
+            {knowledgeTools?.(insert)}
+            {/* Writing help (WP-038): a draft or the text improved, reviewed before use. */}
+            <WritingHelp
+              recordId={item.id}
+              kind={draft.kind}
+              html={body}
+              insert={insert}
+              replace={setBody}
+            />
+          </>
+        )}
         onManageTemplates={
           can('config.service_desk') || can('settings.manage')
             ? () => {

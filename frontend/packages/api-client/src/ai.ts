@@ -85,3 +85,38 @@ export function useRefreshAiSummary(recordType: SummaryRecordType, id: string) {
     },
   });
 }
+
+// WP-038: writing help in the reply and note editors (REQ-INC-136). The answer goes to a
+// review panel only; what the person did with it is recorded (REQ-AI-031).
+
+export type WritingRequest = components['schemas']['WritingIn'];
+export type WritingAnswer = components['schemas']['WritingOut'];
+export type AiOutcome = 'accepted' | 'edited' | 'discarded';
+
+/** A draft from an instruction, or the person's text improved. */
+export function useWritingHelp(recordType: SummaryRecordType, id: string) {
+  return useMutation({
+    meta: { silent: true }, // the panel shows the refusal or failure itself
+    mutationFn: (body: WritingRequest) =>
+      call(
+        api.POST('/api/v1/ai/writing/{record_type}/{record_id}', {
+          params: { path: { record_type: recordType, record_id: id } },
+          body,
+        }),
+      ),
+  });
+}
+
+/** What the person did with an AI answer: kept, edited or thrown away. */
+export function useAiOutcome() {
+  return useMutation({
+    meta: { silent: true }, // usage reporting only: never in the person's way
+    mutationFn: ({ callId, outcome }: { callId: string; outcome: AiOutcome }) =>
+      call(
+        api.POST('/api/v1/ai/calls/{call_id}/outcome', {
+          params: { path: { call_id: callId } },
+          body: { outcome },
+        }),
+      ),
+  });
+}
