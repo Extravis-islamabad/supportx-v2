@@ -132,7 +132,11 @@ test('raise, approve from the drawer, fulfil and confirm receipt, all live', asy
     await tech.page.getByTestId('approvals-drawer-open').click();
     const entry = tech.page.getByTestId(`my-approval-${record.display_id}`);
     await entry.getByRole('button', { name: 'Approve' }).click();
-    await tech.page.getByRole('dialog').getByRole('button', { name: 'Approve' }).click();
+    // The drawer is a dialog too: the decision is the dialog named "Approve".
+    await tech.page
+      .getByRole('dialog', { name: 'Approve' })
+      .getByRole('button', { name: 'Approve' })
+      .click();
     await expect(entry).toBeHidden(LIVE);
 
     // The plan became a task on the request; ticking it fulfils the request.
@@ -178,9 +182,13 @@ test('a requester-only approver approves from the e-mailed link in the portal', 
 
     // The e-mail carries this approver's own link: the token only after '#'.
     const mail = await mailTo(USERS.limited.email, sentAt);
-    const link = /(https?:\/\/[^"\s<]*requests\/approval-link#[A-Za-z0-9_-]{43})/.exec(mail.html);
+    const link = /https?:\/\/[^"\s<]*(requests\/approval-link#[A-Za-z0-9_-]{43})/.exec(mail.html);
     expect(link, 'the e-mail has the approval link').not.toBeNull();
-    await approver.page.goto((link?.[1] ?? '').replaceAll('&amp;', '&'));
+    // Deployed, the portal is served on the tenant's origin under /portal/, which is where the
+    // link points; the dev stack serves it on a port of its own, so the path and token are
+    // opened on the suite's portal (lane B: email_branding on the dev stack).
+    const url = `${PORTAL_URL}/${link?.[1] ?? ''}`;
+    await approver.page.goto(url);
     await expect(approver.page.getByTestId('approval-link-summary')).toContainText(
       record.display_id,
     );
@@ -188,8 +196,9 @@ test('a requester-only approver approves from the e-mailed link in the portal', 
     await approver.page.getByTestId('approval-link-approve').click();
     await expect(approver.page.getByTestId('approval-link-done')).toBeVisible(LIVE);
 
-    // Once used, the link does nothing more.
-    await approver.page.goto((link?.[1] ?? '').replaceAll('&amp;', '&'));
+    // Once used, the link does nothing more (from a fresh load, not a same-page hash change).
+    await approver.page.goto(`${PORTAL_URL}/approvals`);
+    await approver.page.goto(url);
     await expect(approver.page.getByTestId('approval-link-refused')).toContainText(
       'already been used',
     );
