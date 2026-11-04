@@ -1,12 +1,13 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Badge, Flex, Table, Typography } from 'antd';
+import { Badge, Button, Flex, Table, Typography } from 'antd';
 import { useState } from 'react';
 
 import { queryKeys, useRoles, type RoleSummary } from '@supportx/api-client';
 import { refreshList, useListChannel } from '@supportx/realtime';
 import { NoAccess, PageHeader, useAccess, useLabel, WriteButton } from '@supportx/ui';
 
+import { RoleCompare } from './RoleCompare';
 import { RoleEditor } from './RoleEditor';
 import { TechnicianVisibilityCard } from './TechnicianVisibility';
 import { roleName } from './roleName';
@@ -25,6 +26,8 @@ export function RolesPage() {
   });
   // undefined = closed; null = a new role; a role = edit (or view, for system roles).
   const [editing, setEditing] = useState<RoleSummary | null>();
+  const [copyFrom, setCopyFrom] = useState<RoleSummary>();
+  const [comparing, setComparing] = useState(false);
 
   if (!allowed) return <NoAccess titleKey="nav.admin_roles" />;
 
@@ -34,18 +37,28 @@ export function RolesPage() {
         level={2}
         title={t('roles.title')}
         extra={
-          can('roles.manage') && (
-            <WriteButton
-              type="primary"
-              icon={<PlusOutlined />}
-              data-testid="new-role"
+          <Flex gap={8}>
+            <Button
+              data-testid="compare-roles"
               onClick={() => {
-                setEditing(null);
+                setComparing(true);
               }}
             >
-              {t('roles.new')}
-            </WriteButton>
-          )
+              {t('roles.compare')}
+            </Button>
+            {can('roles.manage') && (
+              <WriteButton
+                type="primary"
+                icon={<PlusOutlined />}
+                data-testid="new-role"
+                onClick={() => {
+                  setEditing(null);
+                }}
+              >
+                {t('roles.new')}
+              </WriteButton>
+            )}
+          </Flex>
         }
       />
       <Table<RoleSummary>
@@ -92,8 +105,21 @@ export function RolesPage() {
       </div>
       <RoleEditor
         role={editing}
+        copyFrom={copyFrom}
         onClose={() => {
           setEditing(undefined);
+          setCopyFrom(undefined);
+        }}
+        onCopy={(role) => {
+          setCopyFrom(role);
+          setEditing(null);
+        }}
+      />
+      <RoleCompare
+        open={comparing}
+        roles={roles.data ?? []}
+        onClose={() => {
+          setComparing(false);
         }}
       />
     </>

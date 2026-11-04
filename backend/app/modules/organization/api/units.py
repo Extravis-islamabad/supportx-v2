@@ -4,11 +4,11 @@ The sites and groups themselves (list, add, change, remove) are in structure.py 
 """
 
 import uuid
-from typing import Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Response, status
 
-from app.core.authorization import require_permission
+from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import audited
@@ -49,10 +49,17 @@ def build_router(kind: Literal["site", "group"]) -> APIRouter:
         ],
     )
     async def add_member(
-        unit_id: uuid.UUID, user_id: uuid.UUID, session: TenantSession
+        unit_id: uuid.UUID,
+        user_id: uuid.UUID,
+        session: TenantSession,
+        subject: Annotated[Any, Depends(require_signed_in())],  # noqa: ANN401 - identity's Subject
     ) -> Response:
-        """Idempotent: adding an existing member changes nothing."""
-        await units.add_member(session, kind, unit_id, user_id)
+        """Idempotent: adding an existing member changes nothing.
+
+        A group that carries roles takes new members only from someone who could give those roles
+        directly (403 privilege_escalation, WP-042).
+        """
+        await units.add_member(session, kind, unit_id, user_id, by=subject)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.delete(

@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -18,7 +18,17 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
-from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
+from app.modules.identity_access.domain.identity import (
+    DEFAULT_TEXT_SCALE,
+    Digits,
+    FormDensity,
+    NavLayout,
+    ThemeMode,
+    TimeFormat,
+    UrduScript,
+    UserType,
+    WeekStart,
+)
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import password_reset as password_reset_service
@@ -29,9 +39,17 @@ from app.modules.identity_access.service.auth import (
     EnrolFirst,
     LoginAddress,
     LoginFailure,
+    PortalInstead,
 )
 from app.modules.identity_access.service.sso_test import TestFinished
-from app.modules.organization import tenant_for_host
+from app.modules.identity_access.service.users import requester_only
+from app.modules.organization import (
+    RegionalDefaults,
+    offered_languages,
+    regional_defaults,
+    tenant_for_host,
+)
+from app.shared.history import CLIENT_HEADER
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     SESSION_ENDED,
@@ -89,8 +107,57 @@ class UserOut(BaseModel):
     )
     time_zone: str | None = Field(
         default=None,
-        description="The user's time zone preference (IANA); null: use the browser's.",
+        description="Time zone (IANA): the person's own, else their site's, else the tenant's.",
     )
+    # WP-042 (REQ-ADM-058, 059, 062): what to apply, the person's choice or else the default
+    # read now; `chosen` lists the ones the person set themselves (the rest follow the default).
+    theme_mode: ThemeMode | None = Field(
+        default=None, description="Null: not chosen, the browser decides."
+    )
+    text_scale: int = Field(default=DEFAULT_TEXT_SCALE, description="Text size in percent.")
+    week_start: WeekStart = Field(default="monday", description="First day of the week.")
+    # A pattern shown as written (dd/mm/yyyy), not a code with a label: a plain string.
+    date_format: str = Field(default="dd/mm/yyyy", description="How dates are written.")
+    time_format: TimeFormat = Field(default="24h", description="12 or 24 hours.")
+    digits: Digits = Field(default="western", description="Digits on screen (D-135).")
+    urdu_script: UrduScript = Field(default="naskh", description="How Urdu is set (D-137).")
+    chosen: list[str] = Field(
+        default_factory=list, description="The preferences the person set (not defaults)."
+    )
+
+
+# Preferences a person may leave to the default (WP-042): applied at read time, never copied.
+_PERSONAL = (
+    "theme_mode",
+    "text_scale",
+    "week_start",
+    "date_format",
+    "time_format",
+    "digits",
+    "urdu_script",
+)
+# Their `chosen` entries too: NULL since 0071 means the default (side bar, comfortable).
+_LAYOUT = ("nav_layout", "form_density")
+
+
+def _personal(row: Any, regional: RegionalDefaults) -> dict[str, Any]:  # noqa: ANN401 - a Row
+    """The time zone, theme, text size and formats to apply, and which the person chose."""
+    own: dict[str, Any] = {} if row is None else {n: getattr(row, n) for n in _PERSONAL}
+    own["time_zone"] = row.time_zone if row is not None else None
+    defaults = {
+        "theme_mode": None,
+        "text_scale": DEFAULT_TEXT_SCALE,
+        "week_start": regional.week_start,
+        "date_format": regional.date_format,
+        "time_format": regional.time_format,
+        "digits": "western",
+        "urdu_script": "naskh",
+        "time_zone": regional.time_zone,
+    }
+    applied = {n: own[n] if own.get(n) is not None else d for n, d in defaults.items()}
+    layout = {} if row is None else {n: getattr(row, n) for n in _LAYOUT}
+    applied["chosen"] = sorted(n for n, v in {**own, **layout}.items() if v is not None)
+    return applied
 
 
 class TenantOut(BaseModel):
@@ -207,6 +274,8 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, EnrolFirst):  # past the MFA grace period: Keycloak makes them enrol
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+    if isinstance(result, PortalInstead):  # a requester on the console: no session, the portal
+        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
         await _record_sso_test(request, result)
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
@@ -298,7 +367,9 @@ async def _address(request: Request) -> LoginAddress | None:
     return LoginAddress(host, found.slug) if found is not None else None
 
 
-async def _audit_session(request: Request, session: Session, action_code: str) -> None:
+async def _audit_session(
+    request: Request, session: Session, action_code: str, reason: str | None = None
+) -> None:
     """Audit a sign-in, sign-out or tenant switch (REQ-AUD-002) in its own transaction.
 
     A failure to write the entry is logged as an error but does not lock people out.
@@ -315,6 +386,7 @@ async def _audit_session(request: Request, session: Session, action_code: str) -
             facts=RequestFacts.of(request, client=session.client),
             object_type="user",
             object_id=session.user_id,
+            **({} if reason is None else {"details": {"reason": reason}}),
         )
     except Exception:
         log.exception("audit_session_entry_failed", action=action_code)
@@ -325,8 +397,36 @@ async def _audit_session(request: Request, session: Session, action_code: str) -
 @public_route
 async def me(found: CurrentSession, request: Request) -> MeResponse:
     """The logged-in user, active tenant, switchable tenants, CSRF token and permissions."""
-    _session_id, session = found
-    return await _describe(request, session)
+    session_id, session = found
+    described = await _describe(request, session)
+    console = session.client == "console"
+    if console or request.headers.get(CLIENT_HEADER, "").lower() == "console":
+        await _refuse_requester_only(request, session_id, session, end=console)
+    return described
+
+
+async def _refuse_requester_only(
+    request: Request, session_id: str, session: Session, *, end: bool
+) -> None:
+    """D-129: requester-only people never use the console (the same rule as at sign-in).
+
+    A console session of theirs (made before the rule, or before their last staff role went)
+    ends here, recorded and audited. Where both apps share a host the portal's cookie reaches
+    the console too: the console's calls are refused and the portal session stays. Fails closed:
+    with no database to ask, the console is refused.
+    """
+    database: Database | None = getattr(request.app.state, "db", None)
+    if database is not None and not await requester_only(
+        database, session.tenant_uuid, session.user_uuid
+    ):
+        return
+    if end:
+        auth: AuthService = request.app.state.auth
+        await auth.end_session(session_id, session)
+        await _audit_session(
+            request, session, "session.signed_out", reason="console_requester_only"
+        )
+    raise Unauthenticated(code="console_requester_only")
 
 
 async def _describe(request: Request, session: Session) -> MeResponse:
@@ -344,18 +444,28 @@ async def _describe(request: Request, session: Session) -> MeResponse:
             row = (
                 await db.execute(
                     select(
-                        User.nav_layout, User.form_density, User.time_zone, User.ui_locale
+                        User.nav_layout,
+                        User.form_density,
+                        User.time_zone,
+                        User.ui_locale,
+                        User.site_id,
+                        *(getattr(User, name) for name in _PERSONAL),
                     ).where(User.id == session.user_uuid)
                 )
             ).first()
+            offered, default = await offered_languages(db)
+            regional = await regional_defaults(db, row.site_id if row else None)
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.SIDE
         described["user"]["form_density"] = (
             row.form_density if row else None
         ) or FormDensity.COMFORTABLE
-        described["user"]["time_zone"] = row.time_zone if row else None
+        described["user"].update(_personal(row, regional))
         # The language picked in the app wins over Keycloak's (QA BUG-04): it follows the user.
         if row is not None and row.ui_locale is not None:
             described["user"]["locale"] = row.ui_locale
+        # A language the tenant switched off falls back to its default (WP-042, REQ-ADM-052).
+        if described["user"].get("locale") not in offered:
+            described["user"]["locale"] = default
     policy: PolicyService | None = getattr(request.app.state, "policy", None)
     if policy is None:
         described["user"]["roles"] = []

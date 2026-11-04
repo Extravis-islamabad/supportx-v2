@@ -390,8 +390,8 @@ async def delete_view(  # noqa: PLR0913 - the view and its version, explicit
 # --- list settings (REQ-INC-104, 110) -------------------------------------------------------------
 
 
-def _view_key(key: str) -> str:
-    if not view_key_valid(key, (*items.VIEW_CODES, *items.COUNTERS, ALL)):
+def _view_key(wtype: WorkItemType, key: str) -> str:
+    if not view_key_valid(key, (*items.view_codes(wtype), *items.COUNTERS, ALL)):
         raise items.field_errors([("view_key", "invalid_choice")])
     return key
 
@@ -405,7 +405,7 @@ async def list_setting(
         select(WorkItemListSetting).where(
             WorkItemListSetting.type == wtype.code,
             WorkItemListSetting.user_id == subject.user_id,
-            WorkItemListSetting.view_key == _view_key(view_key),
+            WorkItemListSetting.view_key == _view_key(wtype, view_key),
             WorkItemListSetting.deleted_at.is_(None),
         )
     )
@@ -428,7 +428,7 @@ async def save_list_setting(  # noqa: PLR0913 - the view, its version and the se
     """
     if view_key.startswith(CUSTOM_VIEW):  # a saved view the subject may use
         await view(
-            session, subject, wtype, uuid.UUID(_view_key(view_key).removeprefix(CUSTOM_VIEW))
+            session, subject, wtype, uuid.UUID(_view_key(wtype, view_key).removeprefix(CUSTOM_VIEW))
         )
     existing = await list_setting(session, subject, wtype, view_key)
     problems: list[tuple[str, str]] = []

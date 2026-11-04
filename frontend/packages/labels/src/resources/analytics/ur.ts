@@ -330,6 +330,8 @@ export const ur: LabelResource = {
   'report_export_status.failed': 'ناکام',
   'report_export_status.ready': 'تیار',
   'report_export_status.running': 'تیار ہو رہی ہے',
+  'report_field.approval_status': 'منظوری کی حالت',
+  'report_field.catalog_item_id': 'کیٹلاگ آئٹم',
   'report_field.created_at': 'بنانے کی تاریخ',
   'report_field.created_by': 'بنانے والا',
   'report_field.desk_id': 'ڈیسک',

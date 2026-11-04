@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { PlusOutlined } from '@ant-design/icons';
 import {
   Button,
@@ -68,17 +69,37 @@ export function UserAccessPanel({ user }: { user: UserDetail }) {
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="user-access">
       <PresenceAvatars viewers={viewers} selfUserId={self} />
-      <RolesSection userId={user.id} roleIds={access.data.role_ids} />
+      <RolesSection
+        userId={user.id}
+        roleIds={access.data.role_ids}
+        throughGroups={access.data.group_roles ?? []}
+      />
       <UnitsSection kind="sites" userId={user.id} memberOf={access.data.site_ids} />
       <UnitsSection kind="groups" userId={user.id} memberOf={access.data.group_ids} />
     </Space>
   );
 }
 
-function RolesSection({ userId, roleIds }: { userId: string; roleIds: string[] }) {
+function RolesSection({
+  userId,
+  roleIds,
+  throughGroups,
+}: {
+  userId: string;
+  roleIds: string[];
+  /** Roles held through a support group (WP-042): each grant's source is shown. */
+  throughGroups: { role_id: string; group_id: string }[];
+}) {
   const t = useLabel();
   const { can } = useAccess();
   const roles = useRoles(can('roles.view'));
+  const list = useListFormat();
+  const groups = useUnits('groups', throughGroups.length > 0);
+  const groupName = new Map((groups.data ?? []).map((g) => [g.id, g.name]));
+  const sources = (roleId: string) =>
+    throughGroups
+      .filter((link) => link.role_id === roleId)
+      .map((link) => groupName.get(link.group_id) ?? '…');
   const { assign, remove } = useRoleAssignment();
   const editable = can('users.manage');
   const busy = assign.isPending || remove.isPending;
@@ -104,6 +125,15 @@ function RolesSection({ userId, roleIds }: { userId: string; roleIds: string[] }
               }}
             >
               {roleName(role, t)}
+              {sources(role.id).length > 0 && (
+                <Typography.Text
+                  type="secondary"
+                  style={{ marginInlineStart: 8, fontSize: 12 }}
+                  data-testid={`role-through-${role.key}`}
+                >
+                  {t('access.through_groups', { groups: list(sources(role.id)) })}
+                </Typography.Text>
+              )}
             </Checkbox>
           ))}
         </Flex>

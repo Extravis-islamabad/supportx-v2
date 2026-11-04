@@ -25,6 +25,7 @@ from typing import Protocol, runtime_checkable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.action_links.domain import LinkRequest
 from app.shared.events import EventEnvelope
 
 
@@ -52,6 +53,7 @@ class NotificationCategory(StrEnum):
     STATUS = "status"
     MENTION = "mention"
     FOLLOWING = "following"
+    APPROVAL = "approval"  # WP-030 s3: an approval waits for you (required: never switched off)
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,16 @@ class RecordContext:
     # The part of the record the message carries (a reply's conversation entry): the source's
     # `delivery_changed` hears how the e-mail to the requester went (REQ-INC-059).
     entry_id: uuid.UUID | None = None
+    # The record in the portal, a path from the portal's base starting with "/" (e.g.
+    # "/requests/<id>"): people with PUBLIC access are sent there (REQ-PRT-024 AC2). None sends
+    # them to the portal's home, as before.
+    public_link: str | None = None
+
+    def __post_init__(self) -> None:
+        """A portal link is a path, never an address elsewhere."""
+        if self.public_link is not None and not self.public_link.startswith("/"):
+            msg = f"public_link must start with '/': {self.public_link!r}"
+            raise ValueError(msg)
 
 
 class DeliveryChange(Protocol):
@@ -149,6 +161,35 @@ class DeliveryChange(Protocol):
         at: datetime,
     ) -> None:
         """Move the entry's delivery state (the source's own rules)."""
+        ...
+
+
+# Variables that hold a secret (a signed action link, WP-030 s3; lane B's review): never in a log
+# line, delivery metadata or an error message; previews and admin test-sends show a placeholder
+# and never mint one.
+SECRET_VARIABLES = frozenset({"approval_link"})
+SECRET_PLACEHOLDER = "[link]"  # noqa: S105 - shown instead of a secret, not one itself
+
+
+@runtime_checkable
+class RecipientLinks(Protocol):
+    """Optional on a RecordSource: links made for one recipient while their e-mail renders.
+
+    Called by the engine only for the e-mail channel, once per recipient and only when that
+    e-mail has not been delivered before. Returns `{variable: LinkRequest}`: who, which action,
+    on which object at which version. No token exists yet: the body holds a marker and the mail
+    sender makes the link at send (D-132), so no stored body or log ever holds one. Every name
+    must be in SECRET_VARIABLES.
+    """
+
+    async def recipient_links(
+        self,
+        session: AsyncSession,
+        envelope: EventEnvelope,
+        recipient_id: uuid.UUID,
+        channel: NotificationChannel,
+    ) -> Mapping[str, LinkRequest]:
+        """The recipient's own links for this event's e-mail."""
         ...
 
 

@@ -93,7 +93,8 @@ function userIds(result: ReportResult | undefined): string[] {
 /** Names for one report result (and for the field pickers). */
 export function useReportWords(result?: ReportResult): ReportWords {
   const t = useLabels();
-  const { locale } = useAppearance();
+  // Labels by `locale`; numbers and months by `intlLocale` (digits pinned, D-135).
+  const { locale, intlLocale } = useAppearance();
   const dates = useDateTime();
   const catalogue = useIncidentCatalogue();
   const categories = useIncidentCategories();
@@ -111,8 +112,8 @@ export function useReportWords(result?: ReportResult): ReportWords {
     (users.data?.pages ?? []).flatMap((page) => page.items).map((u) => [u.id, u.display_name]),
   );
   const customFields = custom.data ?? [];
-  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
-  const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 });
+  const number = new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 1 });
+  const percent = new Intl.NumberFormat(intlLocale, { style: 'percent', maximumFractionDigits: 1 });
 
   const named = (rows: { id: string; name: string }[] | undefined, id: string) =>
     rows?.find((row) => row.id === id)?.name;
@@ -149,7 +150,7 @@ export function useReportWords(result?: ReportResult): ReportWords {
       case 'week':
         return t('reports.week_of', { day: dates.formatDay(key.slice(0, 10)) });
       case 'month':
-        return new Intl.DateTimeFormat(locale, {
+        return new Intl.DateTimeFormat(intlLocale, {
           month: 'long',
           year: 'numeric',
           timeZone: 'UTC',

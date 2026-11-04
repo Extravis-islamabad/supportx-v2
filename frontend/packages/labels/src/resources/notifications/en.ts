@@ -26,6 +26,7 @@ export const en = {
   'event_delivery_state.ok': 'Delivering',
   'event_delivery_state.stalled': 'Stalled',
   'notification.open_record': 'Open {{id}}',
+  'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',
   'notification_category.created': 'New records',
@@ -63,6 +64,8 @@ export const en = {
   'notification_event.mailbox.credential_expiring': 'Mailbox app secret or certificate expiring',
   'notification_event.mailbox.failing': 'Mailbox stopped working',
   'notification_event.mailbox.mail_held': 'A sender is flooding a mailbox',
+  'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
+  'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
@@ -265,7 +268,20 @@ export const en = {
     'Mail to {{ record.title }} is held for review: a sender sent more than 10 messages in an hour',
   'notification_template.mailbox.mail_held.subject':
     'Mailbox {{ record.title }}: mail held for review',
+  'notification_template.service_request.approval_fallback.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
+  'notification_template.service_request.approval_fallback.in_app':
+    '{{ record.display_id }} has no active approver and waits for an approval administrator: {{ record.title }}',
+  'notification_template.service_request.approval_fallback.subject':
+    'Approval waiting: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_requested.body':
+    'Hello {{ recipient.name }},\n\n{{ requester.name }} asks for {{ record.display_id }} "{{ record.title }}", and it waits for your approval.\n\nApprove or reject: {{ approval_link }}\n\nThe link works once, for you only, after you sign in.',
+  'notification_template.service_request.approval_requested.in_app':
+    '{{ record.display_id }} waits for your approval: {{ record.title }}',
+  'notification_template.service_request.approval_requested.subject':
+    'Your approval: {{ record.display_id }} {{ record.title }}',
   'notification_variable.actor.name': 'Changed by › Name',
+  'notification_variable.approval_link': 'Approval › Link',
   'notification_variable.article.reason': 'Article › Reason',
   'notification_variable.article.review_on': 'Article › Review date',
   'notification_variable.assignee.name': 'Technician › Name',

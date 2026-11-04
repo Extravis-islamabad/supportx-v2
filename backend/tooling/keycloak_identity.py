@@ -25,6 +25,12 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   tenant admins save; no API process can change the realm. Without its secret
   (SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET) the client is not made and the policy stays as the
   deploy left it;
+- a third client, `supportx-federation`, holds only manage-realm for directory federation
+  (WP-040, D-118, product owner 2026-11-03): SupportX writes an on-prem customer's AD/LDAP
+  connection into the realm with it. It exists only where LDAP is enabled: the chart passes its
+  secret (SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET) only on an on-prem install that turned
+  LDAP on, never on SaaS. Without the secret an existing client is switched off, never deleted,
+  so nothing can use it; the identity account never gets manage-realm;
 - a realm still on the password policy SupportX shipped before WP-039 gets the new default
   (Appendix A, with the breached list); a policy anyone chose is never touched;
 - the browser flow offers recovery codes as a second step (REQ-SEC-025): Keycloak ships that
@@ -47,6 +53,7 @@ operator then creates the client by hand once: docs/architecture/identity.md).
 Environment: SUPPORTX_KEYCLOAK_URL, SUPPORTX_KEYCLOAK_ADMIN_USER (default admin),
 SUPPORTX_KEYCLOAK_ADMIN_PASSWORD, SUPPORTX_KEYCLOAK_REALM (default supportx),
 SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET, SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET (optional),
+SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET (optional: on-prem installs with LDAP only),
 SUPPORTX_KEYCLOAK_WAIT_SECONDS (default 300).
 """
 
@@ -71,6 +78,8 @@ CLIENT_ID = "supportx-identity"
 ROLES = ("manage-users", "manage-identity-providers", "manage-organizations", "view-events")
 REALM_CLIENT_ID = "supportx-realm"
 REALM_ROLES = ("manage-realm",)  # the password policy; held by the consumers worker only
+FEDERATION_CLIENT_ID = "supportx-federation"
+FEDERATION_ROLES = ("manage-realm",)  # the LDAP user-federation component (D-118); nothing else
 # Lock-out (REQ-SEC-005 AC2, D-104), and what the realm import shipped before WP-039 session 3.
 LOCKOUT = {
     "bruteForceProtected": True,
@@ -143,6 +152,8 @@ class Target:
     secret: str = field(repr=False, default="")
     realm: str = "supportx"
     realm_secret: str = field(repr=False, default="")  # supportx-realm; empty = not made
+    # supportx-federation: only on an on-prem install with LDAP on; empty = off (never deleted).
+    federation_secret: str = field(repr=False, default="")
     smtp: dict[str, str] | None = field(repr=False, default=None)  # Keycloak's smtpServer
 
 
@@ -154,6 +165,10 @@ CLIENT_TEXTS = {
     REALM_CLIENT_ID: (
         "SupportX realm settings",
         "Service account the SupportX worker applies the password policy with (WP-039).",
+    ),
+    FEDERATION_CLIENT_ID: (
+        "SupportX directory federation",
+        "Service account SupportX writes the on-prem AD/LDAP connection with (WP-040, D-118).",
     ),
 }
 
@@ -378,6 +393,28 @@ async def _ensure_realm_client(
     return changes + await _ensure_roles(client, headers, realm, internal, REALM_ROLES)
 
 
+async def _ensure_federation_client(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str, secret: str
+) -> list[str]:
+    """`supportx-federation` with exactly FEDERATION_ROLES when LDAP is on; switched off if not."""
+    if secret:
+        internal, changes = await _ensure_client(
+            client, headers, realm, secret, FEDERATION_CLIENT_ID
+        )
+        return changes + await _ensure_roles(client, headers, realm, internal, FEDERATION_ROLES)
+    base = f"/admin/realms/{realm}/clients"
+    found = await client.get(base, headers=headers, params={"clientId": FEDERATION_CLIENT_ID})
+    found.raise_for_status()
+    current = next(iter(found.json()), None)
+    if current is None or current.get("enabled") is False:
+        return []
+    off = await client.put(
+        f"{base}/{current['id']}", headers=headers, json={**current, "enabled": False}
+    )
+    off.raise_for_status()
+    return [f"client {FEDERATION_CLIENT_ID} switched off (LDAP not enabled)"]
+
+
 async def _upgrade_password_policy(
     client: httpx.AsyncClient, headers: dict[str, str], realm: str
 ) -> list[str]:
@@ -446,6 +483,9 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     internal, changes = await _ensure_client(client, headers, target.realm, target.secret)
     changes += await _ensure_roles(client, headers, target.realm, internal)
     changes += await _ensure_realm_client(client, headers, target.realm, target.realm_secret)
+    changes += await _ensure_federation_client(
+        client, headers, target.realm, target.federation_secret
+    )
     changes += await _upgrade_password_policy(client, headers, target.realm)
     changes += await _upgrade_lockout(client, headers, target.realm)
     changes += await _enable_recovery_codes(client, headers, target.realm)
@@ -496,6 +536,7 @@ def main() -> int:  # pragma: no cover - thin CLI over tested functions
         secret=secret,
         realm=realm,
         realm_secret=env.get("SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET", ""),
+        federation_secret=env.get("SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET", ""),
         smtp=smtp_from_env(dict(env)),
     )
     try:

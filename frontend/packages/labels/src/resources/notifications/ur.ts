@@ -28,6 +28,7 @@ export const ur: LabelResource = {
   'event_delivery_state.ok': 'ترسیل جاری',
   'event_delivery_state.stalled': 'رکی ہوئی',
   'notification.open_record': '{{id}} کھولیں',
+  'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
   'notification_category.created': 'نئے ریکارڈ',
@@ -66,6 +67,8 @@ export const ur: LabelResource = {
     'میل باکس ایپ کا سیکرٹ یا سرٹیفکیٹ ختم ہونے والا ہے',
   'notification_event.mailbox.failing': 'میل باکس نے کام کرنا بند کر دیا',
   'notification_event.mailbox.mail_held': 'ایک بھیجنے والا میل باکس کو پیغامات سے بھر رہا ہے',
+  'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
+  'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_preferences.col.category': 'قسم',
   'notification_preferences.dnd_help':
     'کوئی پاپ اپ نہیں اور فوری و لازمی کے سوا کوئی ای میل نہیں؛ سب کچھ آپ کی اطلاعات میں پھر بھی آتا ہے۔',
@@ -269,7 +272,20 @@ export const ur: LabelResource = {
     '{{ record.title }} کی میل جائزے کے لیے روکی گئی: ایک بھیجنے والے نے ایک گھنٹے میں 10 سے زیادہ پیغامات بھیجے',
   'notification_template.mailbox.mail_held.subject':
     'میل باکس {{ record.title }}: میل جائزے کے لیے روکی گئی',
+  'notification_template.service_request.approval_fallback.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
+  'notification_template.service_request.approval_fallback.in_app':
+    '{{ record.display_id }} کا کوئی فعال منظوری دہندہ نہیں، یہ منظوری کے منتظم کا منتظر ہے: {{ record.title }}',
+  'notification_template.service_request.approval_fallback.subject':
+    'منظوری منتظر: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_requested.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ requester.name }} نے {{ record.display_id }} «{{ record.title }}» کی درخواست کی ہے، اور یہ آپ کی منظوری کی منتظر ہے۔\n\nمنظور یا مسترد کریں: {{ approval_link }}\n\nیہ لنک سائن ان کے بعد صرف آپ کے لیے، ایک بار کام کرتا ہے۔',
+  'notification_template.service_request.approval_requested.in_app':
+    '{{ record.display_id }} آپ کی منظوری کا منتظر ہے: {{ record.title }}',
+  'notification_template.service_request.approval_requested.subject':
+    'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
+  'notification_variable.approval_link': 'منظوری › لنک',
   'notification_variable.article.reason': 'مضمون › وجہ',
   'notification_variable.article.review_on': 'مضمون › جائزے کی تاریخ',
   'notification_variable.assignee.name': 'تکنیکی ماہر › نام',

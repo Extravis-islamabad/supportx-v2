@@ -1,5 +1,11 @@
 // errors labels (see ../README.md). English is the reference.
 export const en = {
+  'errors.action_link_expired': 'This link has expired. Open the request in the app instead.',
+  'errors.action_link_not_found': 'This link is not valid.',
+  'errors.action_link_revoked': 'This is no longer needed: the request was decided or withdrawn.',
+  'errors.action_link_sign_in_required': 'Sign in to approve or reject this request.',
+  'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
+  'errors.action_link_used': 'This link has already been used.',
   'errors.already_taken': '{{taken_by}} has just taken this. Reload to see it.',
   'errors.already_yours': 'It is already assigned to you.',
   'errors.announcement_not_found': 'This announcement does not exist or is not available to you.',
@@ -23,6 +29,10 @@ export const en = {
   'errors.api_keys_people_off': 'Your organisation does not let people make their own API keys.',
   'errors.api_keys_unavailable': 'API keys are not set up on this installation.',
   'errors.api_scope_missing': 'This API key does not have the scope {{scope}}.',
+  'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
+  'errors.approval_closed': 'This approval is already decided or no longer needed.',
+  'errors.approval_not_found': 'This approval was not found.',
+  'errors.approval_segregation': 'You cannot approve your own request.',
   'errors.audit_archive_missing': 'The archive file is no longer in storage.',
   'errors.audit_archive_not_found': 'This archive does not exist.',
   'errors.audit_archive_not_ready': 'Only a verified archive can be restored.',
@@ -53,6 +63,7 @@ export const en = {
   'errors.cannot_deactivate_self': 'You cannot deactivate yourself.',
   'errors.cannot_publish': 'This announcement cannot be published yet.',
   'errors.cannot_stop_own_sign_in': 'You cannot stop your own sign-in.',
+  'errors.catalog_item_not_found': 'This catalog item does not exist or is not open to you.',
   'errors.category_not_found': 'This category does not exist.',
   'errors.certificate_invalid':
     'The certificate could not be read. Paste the PEM with its private key.',
@@ -63,9 +74,14 @@ export const en = {
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.conflict': 'Someone else changed this item. Reload to see the latest version.',
+  'errors.console_requester_only': 'This account uses the requester portal, not the console.',
+  'errors.contact_editing_off':
+    'Your organisation does not let you change your contact details here. Ask your service desk.',
   'errors.conversation_entry_not_found': 'This reply or note no longer exists.',
   'errors.copy_reference': 'Copy reference',
   'errors.csrf_failed': 'This request could not be verified. Please reload the page and try again.',
+  'errors.currency_change_needs_confirmation':
+    'Changing the base currency needs a confirmation: amounts already recorded stay in the old one.',
   'errors.custom_field_entity_not_found':
     'Custom fields are not available for this kind of record.',
   'errors.custom_field_in_use':
@@ -141,6 +157,7 @@ export const en = {
   'errors.field.calendar_not_found': 'Choose a calendar from the list.',
   'errors.field.cannot_link_itself': 'A record cannot be linked to itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
+  'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
   'errors.field.category_disabled': 'This category is no longer in use.',
   'errors.field.category_not_found': 'This category does not exist.',
   'errors.field.certificate_key_mismatch': 'The private key does not belong to this certificate.',
@@ -151,11 +168,17 @@ export const en = {
     'Only phone or walk-up can be chosen; other channels are set automatically.',
   'errors.field.choices_required': 'Add at least one choice.',
   'errors.field.code_taken': 'Another one already uses this code.',
+  'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
+  'errors.field.country_invalid': 'Choose a country from the list.',
+  'errors.field.currency_unknown': 'Choose a currency from the list.',
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
+  'errors.field.date_format_unknown': 'Choose a date format from the list.',
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',
+  'errors.field.default_language_not_offered':
+    'The default language must be one of the languages offered.',
   'errors.field.default_required':
     'There is always a default template. Make another template the default instead.',
   'errors.field.department_not_found': 'Choose an active department.',
@@ -167,6 +190,7 @@ export const en = {
   'errors.field.domain_reserved':
     "Addresses under this installation's own domain are given automatically.",
   'errors.field.due_in_past': 'Choose a moment in the future.',
+  'errors.field.duplicate': 'This is already used.',
   'errors.field.duplicate_column': 'Each column can be listed once.',
   'errors.field.duplicate_dimension': 'This grouping is already used.',
   'errors.field.duplicate_measure': 'Each measure can be used once.',
@@ -174,6 +198,7 @@ export const en = {
   'errors.field.duplicate_permission': 'This permission is listed twice.',
   'errors.field.duplicate_sort_field': 'Each field can be used only once in the sort.',
   'errors.field.duration_mismatch': 'The duration does not match the start and end times.',
+  'errors.field.email_invalid': 'Enter an e-mail address like name@example.com.',
   'errors.field.email_not_valid': 'Enter an email address, such as name@example.com.',
   'errors.field.email_required_for_sign_in':
     'An email address is needed to sign in. Add one, or make this person a contact.',
@@ -219,6 +244,7 @@ export const en = {
   'errors.field.invalid_code': 'Use letters, digits, dots, dashes or underscores (up to 50).',
   'errors.field.invalid_colour': 'Choose a colour such as #1677ff.',
   'errors.field.invalid_currency': 'Use a three-letter currency code, such as USD or SAR.',
+  'errors.field.invalid_date': 'Enter a date.',
   'errors.field.invalid_email': 'These addresses are not valid: {{addresses}}',
   'errors.field.invalid_group': 'A group needs at least one condition.',
   'errors.field.invalid_json': 'The filter is not valid.',
@@ -226,17 +252,20 @@ export const en = {
   'errors.field.invalid_language':
     'Names can be given in English, Arabic and Urdu, up to 200 characters each.',
   'errors.field.invalid_node': 'This part of the filter is not a condition or a group.',
+  'errors.field.invalid_number': 'Enter a number.',
   'errors.field.invalid_pattern': 'This pattern is not a valid regular expression.',
   'errors.field.invalid_prefix': 'Use 2 to 6 capital letters.',
   'errors.field.invalid_range': 'The start of the range is after its end.',
   'errors.field.invalid_sort': 'Choose between one and three sort fields.',
   'errors.field.invalid_tag': 'Tags may use letters, digits, spaces, dots and dashes (up to 40).',
+  'errors.field.invalid_text': 'Enter text.',
   'errors.field.invalid_value': 'This value is not valid for the field.',
   'errors.field.invitation_days_out_of_range': 'Use between {{min}} and {{max}} days.',
   'errors.field.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.field.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.field.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
   'errors.field.key_cannot_change': "The field's API name cannot change.",
+  'errors.field.languages_invalid': 'English is always offered; choose any of Arabic and Urdu too.',
   'errors.field.last_value': 'At least one value must stay in use.',
   'errors.field.level_does_nothing':
     'This level tells no one and does nothing. Add recipients or an action.',
@@ -247,6 +276,7 @@ export const en = {
   'errors.field.logo_required': 'Upload a logo first.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
+  'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
   'errors.field.manager_loop':
     'This person already manages that manager (directly or through others).',
   'errors.field.matrix_incomplete': 'Every impact and urgency pair needs a priority.',
@@ -254,6 +284,7 @@ export const en = {
   'errors.field.message_required': 'Write the message in English at least.',
   'errors.field.mfa_grace_out_of_range': 'Use between {{min}} and {{max}} days.',
   'errors.field.mfa_mode_invalid': 'Choose off, optional or required.',
+  'errors.field.month_out_of_range': 'Choose a month from the list.',
   'errors.field.move_articles_first': 'This topic still holds articles. Choose where they go.',
   'errors.field.my_groups_in_records':
     'A list cannot use "my groups". Use a chart, or choose groups.',
@@ -264,6 +295,7 @@ export const en = {
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
+  'errors.field.not_found': 'This no longer exists.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
   'errors.field.number_already_used': 'That number is already used. Choose {{minimum}} or higher.',
   'errors.field.oauth_certificate_invalid':
@@ -361,16 +393,22 @@ export const en = {
   'errors.field.technician_not_in_group': 'This technician is not a member of the chosen group.',
   'errors.field.template_disabled': 'This template was turned off. Choose another template.',
   'errors.field.template_not_found': 'That template no longer exists. Choose another one.',
+  'errors.field.time_format_unknown': 'Choose 24-hour or 12-hour time.',
+  'errors.field.time_zone_unknown': 'Choose a time zone from the list.',
   'errors.field.timezone_required': 'Include a time zone.',
   'errors.field.title_required': 'Enter a title.',
   'errors.field.too_deep': 'Categories have at most three levels.',
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.too_many_actions': 'A rule can have at most {{max}} actions.',
+  'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
   'errors.field.too_many_items': 'There are too many entries.',
   'errors.field.too_many_levels': 'At most {{max}} escalation levels per target.',
+  'errors.field.too_many_options': 'A question can have at most 50 choices.',
+  'errors.field.too_many_questions': 'A form can have at most 30 questions.',
   'errors.field.too_many_recipients': 'Up to 50 people and 20 groups.',
   'errors.field.too_many_records': 'Choose at most {{max}} records.',
+  'errors.field.too_many_tasks': 'A plan can have at most 20 tasks.',
   'errors.field.too_many_values': 'Choose at most {{max}}.',
   'errors.field.topic_too_deep': 'Topics can be at most {{max}} levels deep.',
   'errors.field.topic_under_itself': 'A topic cannot go under itself or one of its subtopics.',
@@ -390,6 +428,7 @@ export const en = {
   'errors.field.unknown_parameter': 'This list option is not recognised.',
   'errors.field.unknown_permission': 'This permission does not exist.',
   'errors.field.unknown_priority': 'Choose a priority from the list.',
+  'errors.field.unknown_question': 'This form has no such question.',
   'errors.field.unknown_recipient':
     'Someone chosen is no longer active, or a group no longer exists.',
   'errors.field.unknown_record_type': 'Choose what the rule applies to.',
@@ -407,6 +446,7 @@ export const en = {
   'errors.field.value_too_long_max': 'Use at most {{max_length}} characters.',
   'errors.field.value_too_short': 'Use at least {{min}} characters.',
   'errors.field.week_empty': 'Add at least one working period.',
+  'errors.field.week_start_unknown': 'Choose the day the week starts.',
   'errors.field.week_too_many_periods': 'A week can have at most 28 working periods.',
   'errors.field.whole_number_required': 'Enter a whole number.',
   'errors.field.wider_than_topic':
@@ -498,6 +538,21 @@ export const en = {
   'errors.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
   'errors.last_tenant_admin': 'The organisation must keep at least one tenant administrator.',
+  'errors.ldap_attribute_invalid': 'Enter a directory attribute name: letters, digits and hyphens.',
+  'errors.ldap_bind_password_missing': 'No bind password is stored. Enter it again.',
+  'errors.ldap_dn_invalid': 'Enter a distinguished name such as OU=People,DC=example,DC=com.',
+  'errors.ldap_federation_keycloak_unavailable':
+    'The identity service did not answer. The directory will be connected when it is back.',
+  'errors.ldap_federation_not_installed':
+    'AD/LDAP is not turned on for this installation. Ask your administrator to enable it.',
+  'errors.ldap_federation_refused':
+    'The identity service refused the directory settings. Check the server, bind account and paths.',
+  'errors.ldap_filter_invalid': 'Enter an LDAP filter in brackets, such as (objectClass=person).',
+  // WP-040 AD/LDAP (D-130)
+  'errors.ldap_host_invalid':
+    "Enter the directory server's host name or IP address, without ldap:// or a path.",
+  'errors.ldap_single_tenant_only':
+    'AD/LDAP directories can only be connected on an installation that serves one organisation.',
   'errors.limit_reached':
     'Your plan’s limit for this has been reached. Ask your administrator to extend the plan.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
@@ -538,11 +593,14 @@ export const en = {
     'Your account is not linked to any organisation yet. Please contact your administrator.',
   'errors.not_a_member': 'You are not a member of that organisation.',
   'errors.not_acceptable': 'The requested format is not supported.',
+  'errors.not_an_approver': 'You are not an approver of this request.',
   'errors.not_found': 'The item was not found.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
+  'errors.on_behalf_out_of_scope':
+    "You can't raise a request for this person. Ask your service desk.",
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
   'errors.open_work_unconfirmed': 'Work is still open: {{items}}. Confirm to go ahead anyway.',
   'errors.order_out_of_date': 'The list changed meanwhile. Reload it and order again.',
@@ -560,6 +618,8 @@ export const en = {
   'errors.permission_denied': 'You do not have permission to do this.',
   'errors.pick_list_not_found': 'That list does not exist.',
   'errors.pick_list_value_not_found': 'That value no longer exists.',
+  'errors.plain_connection_refused':
+    'A connection without encryption is refused unless you allow it.',
   // WP-008: API conventions (concurrency, idempotency, filters, sorting, paging).
   'errors.precondition_required':
     'This change needs the version you are editing. Reload the item and try again.',
@@ -666,6 +726,8 @@ export const en = {
   'errors.validation_failed': 'Some fields need your attention.',
   'errors.version_conflict':
     'Someone else saved this item after you opened it. Reload to see their changes.',
+  'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
+  'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',

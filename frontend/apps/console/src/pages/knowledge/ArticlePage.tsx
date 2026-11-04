@@ -89,7 +89,7 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
   const t = useLabel();
   const navigate = useNavigate();
   const joinParts = useJoinParts();
-  const { locale } = useAppearance();
+  const { locale, intlLocale } = useAppearance();
   const queryClient = useQueryClient();
   const me = useSession().data?.user.id ?? null;
   const [wanted, setWanted] = useState<KbLanguage>(articleLanguage(locale));
@@ -117,7 +117,7 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
   const path = topicPath(topics.data ?? [], article.topic_id, language);
   const type = (types.data ?? []).find((row) => row.code === article.type_code);
   const contents = useMemo(() => headings(shown?.body_html ?? ''), [shown?.body_html]);
-  const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+  const dateFormat = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' });
   const work = article.can_edit || article.can_approve || article.can_withdraw;
 
   const jump = (index: number) => {
@@ -344,9 +344,9 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
 
 function Versions({ id }: { id: string }) {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const versions = useKbVersions(id);
-  const format = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  const format = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <List
       size="small"
@@ -378,9 +378,9 @@ function Versions({ id }: { id: string }) {
 
 function History({ id }: { id: string }) {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const history = useKbHistory(id);
-  const format = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  const format = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   const entries = history.data?.pages.flatMap((page) => page.items) ?? [];
   if (entries.length === 0) return <EmptyText>{t('knowledge.no_history')}</EmptyText>;
   return (

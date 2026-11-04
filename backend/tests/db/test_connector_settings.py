@@ -73,11 +73,13 @@ async def test_appendix_a_until_saved_then_the_tenants_own(world: World) -> None
         ("body.error_retention_days", "out_of_range"),
     }
     assert "connector_settings.changed" in await audit_actions(world, world.a)
+    # The stale and the out-of-range saves are audited too (not done): only the one that saved.
     details = await world.sql(
         "SELECT details FROM audit_entries WHERE tenant_id = $1"
-        " AND action = 'connector_settings.changed'",
+        " AND action = 'connector_settings.changed' AND outcome = 'done'",
         world.a.tenant,
     )
+    assert len(details) == 1
     assert '"from": 3' in details[0]["details"]  # each change, before and after
     events = await world.sql(
         "SELECT count(*) AS n FROM outbox_events WHERE tenant_id = $1"

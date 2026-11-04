@@ -9,11 +9,13 @@ export { ToneTag } from './ToneTag';
 export { contrastRatio, TAG_TONES, TONES, type Tone } from './tones';
 export { PresenceAvatars, type PresenceAvatarsProps } from './PresenceAvatars';
 export { AppearanceProvider, type AppearanceProviderProps } from './AppearanceProvider';
+export { storedMode, systemMode } from './themeMode';
 export * from './errors';
 export * from './files';
 export * from './licence';
 export * from './richtext';
 export { AccountSecurityCard } from './AccountSecurityCard';
+export { ContactDetailsCard } from './ContactDetailsCard';
 export { MfaReminder } from './MfaReminder';
 export { PASSWORD_RESET_PATH, PasswordResetPage } from './PasswordResetPage';
 export { SessionGate, type SessionGateProps } from './SessionGate';
@@ -23,6 +25,7 @@ export {
   darken,
   lighten,
   DEFAULT_BRANDING,
+  TEXT_SCALES,
   THEME_MODES,
   type Branding,
   type BrandTextKey,

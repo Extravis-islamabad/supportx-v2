@@ -28,6 +28,7 @@ export const ar: LabelResource = {
   'event_delivery_state.ok': 'يجري التسليم',
   'event_delivery_state.stalled': 'متوقف',
   'notification.open_record': 'فتح {{id}}',
+  'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',
   'notification_category.created': 'السجلات الجديدة',
@@ -66,6 +67,8 @@ export const ar: LabelResource = {
     'سرّ تطبيق صندوق البريد أو شهادته على وشك الانتهاء',
   'notification_event.mailbox.failing': 'توقف صندوق البريد عن العمل',
   'notification_event.mailbox.mail_held': 'مُرسِل يُغرق صندوق بريد بالرسائل',
+  'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
+  'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_preferences.col.category': 'النوع',
   'notification_preferences.dnd_help':
     'لا نوافذ منبثقة ولا بريد إلا العاجل والإلزامي؛ ويبقى كل شيء في إشعاراتك.',
@@ -267,7 +270,20 @@ export const ar: LabelResource = {
     'البريد الوارد إلى {{ record.title }} محتجز للمراجعة: أرسل مُرسِل أكثر من 10 رسائل خلال ساعة',
   'notification_template.mailbox.mail_held.subject':
     'صندوق البريد {{ record.title }}: بريد محتجز للمراجعة',
+  'notification_template.service_request.approval_fallback.body':
+    'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
+  'notification_template.service_request.approval_fallback.in_app':
+    '{{ record.display_id }} ليس له موافق نشط وهو بانتظار مسؤول موافقات: {{ record.title }}',
+  'notification_template.service_request.approval_fallback.subject':
+    'موافقة بالانتظار: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_requested.body':
+    'مرحبًا {{ recipient.name }}،\n\nطلب {{ requester.name }} {{ record.display_id }} «{{ record.title }}» وهو بانتظار موافقتك.\n\nوافق أو ارفض: {{ approval_link }}\n\nيعمل الرابط مرة واحدة ولك وحدك بعد تسجيل الدخول.',
+  'notification_template.service_request.approval_requested.in_app':
+    '{{ record.display_id }} بانتظار موافقتك: {{ record.title }}',
+  'notification_template.service_request.approval_requested.subject':
+    'موافقتك: {{ record.display_id }} {{ record.title }}',
   'notification_variable.actor.name': 'غيّره › الاسم',
+  'notification_variable.approval_link': 'الموافقة › الرابط',
   'notification_variable.article.reason': 'المقالة › السبب',
   'notification_variable.article.review_on': 'المقالة › تاريخ المراجعة',
   'notification_variable.assignee.name': 'الفني › الاسم',

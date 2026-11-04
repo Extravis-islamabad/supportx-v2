@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 from urllib.parse import unquote, urlsplit
 
 ORGANIZATIONS_CLAIM = "supportx_organizations"
@@ -63,6 +63,34 @@ class FormDensity(StrEnum):
 
     COMFORTABLE = "comfortable"
     COMPACT = "compact"
+
+
+class ThemeMode(StrEnum):
+    """The person's theme (WP-042, REQ-ADM-062); not set: the browser picks (system)."""
+
+    LIGHT = "light"
+    DARK = "dark"
+    HIGH_CONTRAST = "high_contrast"
+    SYSTEM = "system"
+
+
+# Text size in percent, in steps of ten (REQ-ADM-062); not set: 100.
+TEXT_SCALES = frozenset(range(90, 151, 10))
+DEFAULT_TEXT_SCALE = 100
+# The regional choices a person may make (REQ-ADM-059); the same codes as the tenant's instance
+# settings (organization), which supply the default for anyone who has not chosen.
+WeekStart = Literal["monday", "sunday", "saturday"]
+DateFormat = Literal["dd/mm/yyyy", "mm/dd/yyyy", "yyyy-mm-dd", "dd.mm.yyyy"]
+TimeFormat = Literal["24h", "12h"]
+# D-135: Western digits by default in every language; Arabic-Indic per person.
+Digits = Literal["western", "arabic_indic"]
+DIGITS: frozenset[str] = frozenset(get_args(Digits))
+# D-137: how Urdu is set; Naskh by default, Nastaliq per person.
+UrduScript = Literal["naskh", "nastaliq"]
+URDU_SCRIPTS: frozenset[str] = frozenset(get_args(UrduScript))
+WEEK_STARTS: frozenset[str] = frozenset(get_args(WeekStart))
+DATE_FORMATS: frozenset[str] = frozenset(get_args(DateFormat))
+TIME_FORMATS: frozenset[str] = frozenset(get_args(TimeFormat))
 
 
 class ClaimsError(ValueError):

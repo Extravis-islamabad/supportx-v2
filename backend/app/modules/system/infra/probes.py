@@ -8,7 +8,8 @@ Library-specific errors are translated to stable FailureReason codes here, at th
 import asyncio
 import json
 import math
-from datetime import UTC, datetime
+import time
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -20,10 +21,12 @@ import nats.js.errors
 import valkey.asyncio
 import valkey.exceptions
 from nats.aio.client import Client as NatsClient
+from opentelemetry import metrics
 
 from app.core.config import Settings
 from app.core.valkey import client as valkey_client
 from app.modules.system.domain.readiness import FailureReason, ProbeFailedError
+from app.shared.files.infra.scanner import Scanner, ScannerUnavailableError
 
 
 class PostgresProbe:
@@ -229,3 +232,50 @@ class KeycloakProbe:
             raise ProbeFailedError(FailureReason.UNREACHABLE) from exc
         if response.status_code != 200 or "issuer" not in response.text:  # noqa: PLR2004 - HTTP OK
             raise ProbeFailedError(FailureReason.UNEXPECTED_RESPONSE)
+
+
+_signature_age = metrics.get_meter("supportx.files").create_gauge(
+    "supportx_files_signature_age_seconds",
+    unit="s",
+    description="Age of ClamAV's virus signatures, as clamd reports them (WP-014b).",
+)
+
+
+class MalwareSignaturesProbe:
+    """Informational: are ClamAV's virus signatures fresh? Also records their age as a gauge.
+
+    Stale signatures mean freshclam can't reach its mirror (with the egress allow-list on and no
+    mirror or proxy listed, for instance). Files then wait for a scan, so it shows in /ready as
+    a warning, not as unready. clamd is asked at most once a minute: /ready runs every few seconds.
+    """
+
+    name = "malware_signatures"
+
+    def __init__(
+        self, scanner: Scanner, *, stale_after: timedelta, cache_seconds: float = 60.0
+    ) -> None:
+        self._scanner = scanner
+        self._stale_after = stale_after
+        self._cache_seconds = cache_seconds
+        self._checked_at: float | None = None
+        self._failure: FailureReason | None = None
+
+    async def check(self, timeout_s: float) -> None:
+        """Raise ProbeFailedError(STALE_SIGNATURES or UNREACHABLE); the answer is cached."""
+        now = time.monotonic()
+        if self._checked_at is None or now - self._checked_at >= self._cache_seconds:
+            self._failure = await self._ask(timeout_s)
+            self._checked_at = now
+        if self._failure is not None:
+            raise ProbeFailedError(self._failure)
+
+    async def _ask(self, timeout_s: float) -> FailureReason | None:
+        try:
+            version = await asyncio.wait_for(self._scanner.version(), timeout_s)
+        except (ScannerUnavailableError, TimeoutError):
+            return FailureReason.UNREACHABLE
+        if version.signature_date is None:
+            return None  # an engine that doesn't say: nothing to judge
+        age = datetime.now(UTC) - version.signature_date
+        _signature_age.set(age.total_seconds())
+        return FailureReason.STALE_SIGNATURES if age > self._stale_after else None

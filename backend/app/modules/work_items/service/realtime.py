@@ -3,6 +3,9 @@
 Channels this module decides about:
 
     t:{tenant}:wi:{id}                         one work item (staff in view scope, with presence)
+    t:{tenant}:portal_wi:{id}                  the same record for its requester's side (WP-028
+                                               D4): its requester or the person it is for only,
+                                               and only what they may see changed
     t:{tenant}:queue:incidents…                the incident lists, one channel per audience:
                                                all / site / group / own (personal) and the
                                                unassigned queue of each site (D-052)
@@ -25,6 +28,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import authorize_stored
+from app.modules.work_items.domain.conversation import Visibility
+from app.modules.work_items.domain.lifecycle import DEFAULT_STATUSES, StatusCategory
+from app.modules.work_items.domain.portal import portal_changes
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemTask
 from app.modules.work_items.service.access import RESOURCE
@@ -43,6 +49,10 @@ from app.shared.realtime import (
 )
 
 RECORD_KIND = "wi"
+PORTAL_KIND = "portal_wi"
+PORTAL_CHANGED = "work_items.portal_changed"
+PORTAL_CONVERSATION = "work_items.portal_conversation_changed"
+_DEFAULT_CATEGORY = {s.code: s.category for s in DEFAULT_STATUSES}
 CHANGED = "work_items.changed"
 SETTINGS_CHANGED = "work_items.settings_changed"
 CONVERSATION_CHANGED = "work_items.conversation_changed"
@@ -56,6 +66,9 @@ LISTS_CHANGED = "work_items.lists_changed"
 # Correlation ID of a bulk job's events (service/bulk.py): lists refresh once per batch instead.
 BULK_PREFIX = "bulk:"
 PART_CHANGED = "work_items.part_changed"
+# WP-030 s2: a record's approvals (its screens refetch), and an approver's own inbox count.
+APPROVALS_CHANGED = "work_items.approvals_changed"
+MY_APPROVALS_CHANGED = "work_items.my_approvals_changed"
 MY_TASKS_CHANGED = "work_items.my_tasks_changed"
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
@@ -81,10 +94,64 @@ async def _record_channel(request: ChannelRequest) -> ChannelAccess | None:
     return None
 
 
+async def _portal_channel(request: ChannelRequest) -> ChannelAccess | None:
+    """Only the record's requester or the person it is for; no presence (staff stay unseen)."""
+    try:
+        record_id = uuid.UUID(request.channel.key or "")
+    except ValueError:
+        return None
+    row = (
+        await request.session.execute(
+            select(WorkItem.requester_id, WorkItem.on_behalf_of_id).where(
+                WorkItem.id == record_id, WorkItem.deleted_at.is_(None)
+            )
+        )
+    ).one_or_none()
+    if row is None or request.subject.user_id not in {row.requester_id, row.on_behalf_of_id}:
+        return None
+    return ChannelAccess(presence=False)
+
+
 CHANNELS = [
     *(lst.spec() for lst in LISTS.values()),
     ChannelSpec(kind=RECORD_KIND, authorize=_record_channel),
+    ChannelSpec(kind=PORTAL_KIND, authorize=_portal_channel),
 ]
+
+
+def _portal(envelope: EventEnvelope, row: WorkItem, fields: tuple[str, ...]) -> list[Publication]:
+    """The requester's side hears a change only when something they see changed (D4)."""
+    payload = envelope.payload
+    if envelope.event_type in {
+        "work_items.work_item.created",
+        "work_items.work_item.deleted",
+        "work_items.work_item.restored",
+    }:
+        heard: tuple[str, ...] = ("portal_status",)
+    else:
+        # The event's own statuses: it may be routed after later changes, so not the row's.
+        before, after = payload.get("from_status"), payload.get("to_status")
+        after_category = _DEFAULT_CATEGORY.get(str(after)) if after else None
+        if after and after_category is None and after == row.status:  # a tenant's own status
+            after_category = StatusCategory(row.status_category)
+        heard = portal_changes(
+            [f for f in fields if f != "status"],
+            status_before=(str(before), _DEFAULT_CATEGORY.get(str(before))) if before else None,
+            status_after=(str(after), after_category) if after and after_category else None,
+        )
+        if after and after_category is None:  # unknown now: say it changed, the API decides
+            heard = tuple(sorted({*heard, "portal_status"}))
+    if not heard:
+        return []
+    return [
+        Publication(
+            record(envelope.tenant_id, PORTAL_KIND, row.id),
+            PORTAL_CHANGED,
+            ids=(str(row.id),),
+            fields=heard,
+            version=envelope.aggregate_version,
+        )
+    ]
 
 
 def _actor(envelope: EventEnvelope) -> str | None:
@@ -142,10 +209,12 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
         version=envelope.aggregate_version,
         actor_id=_actor(envelope),
     )
+    portal = _portal(envelope, row, fields)
     if (envelope.correlation_id or "").startswith(BULK_PREFIX):  # the batch refreshes lists
-        return RealtimeEffects(publications=[own])
+        return RealtimeEffects(publications=[own, *portal])
     publications = [
         own,
+        *portal,
         *live.publications(
             tenant,
             CHANGED,
@@ -185,7 +254,8 @@ async def _conversation_changed(envelope: EventEnvelope, session: AsyncSession) 
             CONVERSATION_CHANGED,
             ids=(str(payload["entry_id"]),),
             actor_id=_actor(envelope),
-        )
+        ),
+        *_portal_entry(envelope, record_id),
     ]
     if envelope.event_type == "work_items.conversation.added":
         technician = await session.scalar(
@@ -201,6 +271,26 @@ async def _conversation_changed(envelope: EventEnvelope, session: AsyncSession) 
             _lists_changed(envelope.tenant_id, u, record_id) for u in sorted(people, key=str)
         ]
     return RealtimeEffects(publications=publications)
+
+
+def _portal_entry(envelope: EventEnvelope, record_id: uuid.UUID) -> list[Publication]:
+    """A public entry was added, or one changed sides: the requester's conversation refetches.
+
+    A private entry says nothing there (REQ-INC-147 AC2), nor does an e-mail delivery update.
+    """
+    payload = envelope.payload
+    public = Visibility.PUBLIC.value
+    if envelope.event_type == "work_items.conversation.delivery_changed":
+        return []
+    if public not in {payload.get("visibility"), payload.get("from_visibility")}:
+        return []
+    return [
+        Publication(
+            record(envelope.tenant_id, PORTAL_KIND, record_id),
+            PORTAL_CONVERSATION,
+            ids=(str(payload["entry_id"]),),
+        )
+    ]
 
 
 def _lists_changed(tenant: uuid.UUID, user: uuid.UUID, record_id: uuid.UUID) -> Publication:
@@ -349,6 +439,34 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     return RealtimeEffects(publications=publications)
 
 
+async def _approval_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An approval opened or was decided: the record's screens and the approver's inbox.
+
+    The administrators' approvals (no approver) signal every screen once (broadcast, coalesced);
+    only those with `work_items.approve_any` get rows back when their inbox refetches.
+    """
+    del session
+    payload = envelope.payload
+    tenant = envelope.tenant_id
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    approval = str(payload["approval_id"])
+    publications = [
+        Publication(
+            record(tenant, RECORD_KIND, record_id),
+            APPROVALS_CHANGED,
+            ids=(approval,),
+            actor_id=_actor(envelope),
+        )
+    ]
+    approver = _uuid(payload.get("approver_id"))
+    publications.append(
+        Publication(personal(tenant, approver), MY_APPROVALS_CHANGED, ids=(approval,))
+        if approver is not None
+        else Publication(broadcast(tenant), MY_APPROVALS_CHANGED, ids=(approval,), coalesce=True)
+    )
+    return RealtimeEffects(publications=publications)
+
+
 ROUTES = [
     RealtimeRoute(
         (
@@ -376,4 +494,5 @@ ROUTES = [
     RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
     RealtimeRoute(("work_items.part.changed",), _part_changed),
+    RealtimeRoute(("work_items.approval.changed",), _approval_changed),
 ]

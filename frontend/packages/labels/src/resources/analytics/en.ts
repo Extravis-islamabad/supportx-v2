@@ -332,6 +332,8 @@ export const en = {
   'report_export_status.failed': 'Failed',
   'report_export_status.ready': 'Ready',
   'report_export_status.running': 'Preparing',
+  'report_field.approval_status': 'Approval status',
+  'report_field.catalog_item_id': 'Catalog item',
   'report_field.created_at': 'Created',
   'report_field.created_by': 'Created by',
   'report_field.desk_id': 'Desk',

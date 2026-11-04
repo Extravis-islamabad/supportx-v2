@@ -29,7 +29,9 @@ ADMIN = ("tenant_admin", "technician")
 
 
 async def _signed_in(world: Bff, *roles: str, email: str = "admin@demo.test") -> str:
-    response = await world.login(world.user("a", email=email, roles=roles or ADMIN))
+    # D-129: a requester-only person signs in on the portal (the console sends them there).
+    app = "portal" if roles == ("requester",) else "console"
+    response = await world.login(world.user("a", email=email, roles=roles or ADMIN), app=app)
     assert response.status_code == 302, response.text
     return await world.csrf()
 
@@ -158,7 +160,10 @@ async def test_a_key_made_and_revoked_writes_outbox_events_without_its_text(bff:
     finally:
         await conn.close()
     assert [r["change"] for r in rows] == ["created", "revoked"]
-    secret = made["key"].rsplit("_", 1)[-1]
+    # sxk_<tenant>_<key id>_<secret>: the IDs are base32 (no "_"), the secret base64url (may have
+    # "_"), so split at the first three. rsplit took a short tail that could appear by chance.
+    secret = made["key"].split("_", 3)[3]
+    assert len(secret) >= 40
     assert all(secret not in r["raw"] and made["key"] not in r["raw"] for r in rows)
     # Live (rule c): key managers' list and the owner's own channel, IDs only.
     route = next(r for r in ROUTES if "identity_access.api_key.changed" in r.event_types)

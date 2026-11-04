@@ -137,7 +137,7 @@ export function AnnouncementFields({
           />
         )}
       />
-      {audience !== 'everyone' && (
+      {(audience === 'sites' || audience === 'groups') && (
         <FormField
           control={form.control}
           name={audience === 'sites' ? 'site_ids' : 'group_ids'}

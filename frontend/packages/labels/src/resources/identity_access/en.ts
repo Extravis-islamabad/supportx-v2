@@ -7,9 +7,17 @@ export const en = {
   'access.none': 'None',
   'access.roles': 'Roles',
   'access.sites': 'Sites',
+  'access.through_groups': 'through {{groups}}',
   'access.title': 'Access of {{name}}',
   'account.cancelled': 'Nothing was changed.',
   'account.change_password': 'Change password',
+  'account.contact.from_directory':
+    'Your phone and mobile come from {{source}}. Change them there.',
+  'account.contact.mobile': 'Mobile',
+  'account.contact.none': 'Not given',
+  'account.contact.phone': 'Phone',
+  'account.contact.save': 'Save contact details',
+  'account.contact.title': 'Contact details',
   'account.details_unavailable':
     'The sign-in service cannot be reached right now, so some details are missing.',
   'account.done.mfa': 'Two-step sign-in is set up.',
@@ -118,6 +126,9 @@ export const en = {
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'form_density.title': 'Form layout',
+  'identity.settings.people_edit_contact': 'People may change their own phone and mobile',
+  'identity.settings.people_edit_contact_help':
+    'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
   'invitation_delivery.email': 'By e-mail',
   'invitation_delivery.existing_account': 'Already has an account',
   'invitation_status.accepted': 'Accepted',
@@ -298,6 +309,9 @@ export const en = {
   'permission.branding.manage': 'Manage branding',
   'permission.branding.manage.description':
     "Change the logo, colours and names shown on the console, portal, sign-in page and emails, and the organisation's own addresses.",
+  'permission.catalog_items.manage': 'Manage the service catalog',
+  'permission.catalog_items.manage.description':
+    'Add and change catalog categories and items: their forms, approval and fulfilment.',
   'permission.changes.approve': 'Approve changes',
   'permission.changes.approve.description': 'Approve or reject change requests.',
   'permission.changes.create': 'Create changes',
@@ -308,6 +322,17 @@ export const en = {
   'permission.cmdb.manage.description': 'Change configuration items and relationships.',
   'permission.cmdb.view': 'View CMDB',
   'permission.cmdb.view.description': 'See configuration items and their relationships.',
+  'permission.config.announcements': 'Configure announcements',
+  'permission.config.announcements.description':
+    'Who may publish, and whether a second person must approve.',
+  'permission.config.organisation': 'Configure the organisation',
+  'permission.config.organisation.description': 'Desks and the organisation’s structure settings.',
+  'permission.config.reports': 'Configure reports',
+  'permission.config.reports.description':
+    'Report settings: week start, export limits and every scheduled report.',
+  'permission.config.service_desk': 'Configure the service desk',
+  'permission.config.service_desk.description':
+    'Incident levels, categories, templates, reply templates and custom fields.',
   'permission.dashboards.create': 'Create dashboards',
   'permission.dashboards.create.description':
     'Make your own dashboards and copy ready-made or shared ones.',
@@ -443,14 +468,46 @@ export const en = {
     'Send reports by e-mail on a schedule to people and groups; each gets only what they may see.',
   'permission.reports.view': 'View reports',
   'permission.reports.view.description': 'Open reports and dashboards.',
+  'permission.requests.add_note': 'Add private notes on requests',
+  'permission.requests.add_note.description': 'Write staff-only notes on service requests.',
+  'permission.requests.approve': 'Approve service requests',
+  'permission.requests.approve.description':
+    'Decide the service request approvals you are named for.',
   'permission.requests.assign': 'Assign service requests',
   'permission.requests.assign.description': 'Assign service requests to technicians and groups.',
+  'permission.requests.assign_outside_group': 'Assign requests outside the group',
+  'permission.requests.assign_outside_group.description':
+    'Assign a technician who is not a member of the chosen group to a service request.',
+  'permission.requests.cancel': 'Cancel service requests',
+  'permission.requests.cancel.description':
+    'Cancel service requests with a reason, and undo a cancellation.',
+  'permission.requests.change_priority': "Change a request's priority by hand",
+  'permission.requests.change_priority.description':
+    'Override the priority a service request got from its item or the matrix, with a reason.',
   'permission.requests.close': 'Close service requests',
   'permission.requests.close.description': 'Resolve and close service requests.',
   'permission.requests.create': 'Create service requests',
   'permission.requests.create.description': 'Log new service requests.',
+  'permission.requests.delete': 'Delete service requests',
+  'permission.requests.delete.description': 'Move service requests to the trash and restore them.',
   'permission.requests.edit': 'Edit service requests',
   'permission.requests.edit.description': 'Change the details of service requests.',
+  'permission.requests.edit_due_dates': 'Set request due dates by hand',
+  'permission.requests.edit_due_dates.description':
+    "Set or clear a service request's response or fulfilment due time by hand, with a reason. It then stays until cleared.",
+  'permission.requests.manage_followers': 'Manage followers of requests',
+  'permission.requests.manage_followers.description':
+    'Add other people as followers of service requests and remove them.',
+  'permission.requests.reopen': 'Reopen service requests',
+  'permission.requests.reopen.description':
+    'Reopen fulfilled or closed service requests, with a reason.',
+  'permission.requests.reply': 'Reply on requests and add public notes',
+  'permission.requests.reply.description':
+    'Reply to requesters on service requests, add notes they can see, and make private notes public.',
+  'permission.requests.resolve': 'Fulfil service requests',
+  'permission.requests.resolve.description': 'Mark service requests as fulfilled.',
+  'permission.requests.take': 'Take service requests',
+  'permission.requests.take.description': 'Take a service request nobody has taken yet.',
   'permission.requests.view': 'View service requests',
   'permission.requests.view.description':
     'See service requests (when the service request module is available).',
@@ -474,14 +531,25 @@ export const en = {
   // Authorization (WP-016)
   'permission.users.view': 'View users',
   'permission.users.view.description': 'See the people in the organisation and their details.',
+  'permission.work_items.approve_any': 'Decide fallback approvals',
+  'permission.work_items.approve_any.description':
+    'Decide approvals that have no active approver (approval administrators).',
+  'permission.work_items.view_department': 'View requests of their department',
+  'permission.work_items.view_department.description':
+    'In the portal, see the incidents and requests of people in their own department.',
+  'permission.work_items.view_reports': 'View requests of their direct reports',
+  'permission.work_items.view_reports.description':
+    'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
   'permission_module.announcements': 'Announcements',
   'permission_module.api_keys': 'API keys',
   'permission_module.assets': 'Assets',
   'permission_module.audit': 'Audit log',
   'permission_module.automation': 'Automation',
   'permission_module.branding': 'Branding',
+  'permission_module.catalog_items': 'Service catalog',
   'permission_module.changes': 'Changes',
   'permission_module.cmdb': 'CMDB',
+  'permission_module.config': 'Configuration',
   'permission_module.dashboards': 'Dashboards',
   'permission_module.departments': 'Departments',
   'permission_module.files': 'Files',
@@ -503,6 +571,20 @@ export const en = {
   'permission_module.sites': 'Sites',
   'permission_module.sla': 'SLA',
   'permission_module.users': 'Users',
+  'permission_module.work_items': 'All requests (incidents and service requests)',
+  'preferences.date_format': 'Date format',
+  'preferences.default': 'Default',
+  'preferences.default_value': 'Default ({{value}})',
+  'preferences.digits': 'Digits',
+  'preferences.digits.arabic_indic': 'Arabic-Indic (٠ ١ ٢ ٣)',
+  'preferences.digits.western': 'Western (0 1 2 3)',
+  'preferences.text_scale': 'Text size',
+  'preferences.time_format': 'Time format',
+  'preferences.title': 'Display and region',
+  'preferences.urdu_script': 'Urdu script',
+  'preferences.urdu_script.naskh': 'Naskh',
+  'preferences.urdu_script.nastaliq': 'Nastaliq',
+  'preferences.week_start': 'First day of the week',
   'presence.label': 'Also viewing',
   'presence.viewing': 'Also viewing: {{names}}',
   'presence.you_elsewhere': 'You (another window)',
@@ -515,6 +597,7 @@ export const en = {
   'profile.time_zone_help': 'Used to show dates and times, e.g. Asia/Dubai.',
   'profile.title': 'My profile',
   'readiness_check.event_consumers': 'Event processing',
+  'readiness_check.malware_signatures': 'Virus signatures',
   'readiness_check.nats': 'Message bus',
   'readiness_check.outbox_relay': 'Event relay',
   'readiness_check.realtime_fanout': 'Live updates',
@@ -526,12 +609,21 @@ export const en = {
   'role.knowledge_manager': 'Knowledge manager',
   'role.knowledge_manager.description':
     'Writes, reviews and publishes knowledge articles for the whole organisation.',
+  'role.report_viewer': 'Report viewer',
+  'role.report_viewer.description':
+    'Reads every incident and request and their reports, without changing anything.',
   'role.requester': 'Requester',
   'role.requester.description':
     'Raises and follows their own requests and reads the knowledge base.',
   'role.security_admin': 'Security administrator',
   'role.security_admin.description':
     'Sign-in and security: single sign-on, passwords, MFA, sessions and invitations; no access to records.',
+  'role.service_desk_manager': 'Service desk manager',
+  'role.service_desk_manager.description':
+    'Runs the service desk: every incident and request, the desk’s SLAs, automation, reports and announcements.',
+  'role.site_admin': 'Site administrator',
+  'role.site_admin.description':
+    'Looks after one site: its incidents and requests, people, assets and announcements.',
   'role.technician': 'Technician',
   'role.technician.description':
     'Works requests, problems, changes and assets; reads the knowledge base.',
@@ -541,6 +633,16 @@ export const en = {
   'roles.col.name': 'Role',
   'roles.col.type': 'Type',
   'roles.col.users': 'Users',
+  'roles.compare': 'Compare roles',
+  'roles.compare_differences': 'Differences only',
+  'roles.compare_differs': 'Differs',
+  'roles.compare_first': 'First role',
+  'roles.compare_not_granted': 'Not granted',
+  'roles.compare_pick': 'Choose two roles to compare.',
+  'roles.compare_same': 'These roles grant the same permissions.',
+  'roles.compare_second': 'Second role',
+  'roles.copy': 'Copy',
+  'roles.copy_name': 'Copy of {{name}}',
   'roles.delete': 'Delete role',
   'roles.delete_confirm': 'Nobody has this role. It will be deleted.',
   'roles.delete_in_use_one':
@@ -550,8 +652,14 @@ export const en = {
   'roles.delete_title': 'Delete {{name}}?',
   'roles.deleted': 'The role was deleted.',
   'roles.description': 'Description',
+  'roles.editor.copy': 'New role from “{{name}}”',
   'roles.editor.edit': 'Role: {{name}}',
   'roles.editor.new': 'New role',
+  'roles.groups': 'Support groups',
+  'roles.groups_add': 'Add a group',
+  'roles.groups_help':
+    'Members of these groups hold this role while they are members. A group filled by directory sync gives it to everyone the sync adds.',
+  'roles.groups_none': 'No group carries this role.',
   'roles.has_rule': 'Limited by a rule',
   'roles.name': 'Name',
   'roles.new': 'New role',

@@ -168,13 +168,13 @@ export function HelpfulPrompt({ article, version }: { article: KbArticle; versio
 export function FeedbackPanel({ article }: { article: KbArticle }) {
   const t = useLabel();
   const isolate = useIsolate();
-  const { locale } = useAppearance();
+  const { intlLocale } = useAppearance();
   const allowed = article.can_edit || article.can_approve;
   const scores = useKbScores(article.id, allowed);
   if (!allowed) return <EmptyText>{t('knowledge.feedback.for_editors')}</EmptyText>;
   if (scores.data === undefined) return null;
   const { helpful, not_helpful: notHelpful, versions, feedback } = scores.data;
-  const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+  const dateFormat = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' });
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }} data-testid="kb-feedback">
       <Typography.Text data-testid="kb-feedback-score">

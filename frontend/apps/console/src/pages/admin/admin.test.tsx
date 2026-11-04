@@ -146,6 +146,100 @@ describe('Admin › Roles', () => {
     expect(screen.queryByTestId('save-role')).toBeNull();
   });
 
+  it('REQ-ADM-017: a built-in role is copied into a new custom role with the same grants', async () => {
+    const fake = adminRoutes({
+      routes: {
+        'POST /api/v1/roles': {
+          status: 201,
+          body: { ...HR, id: 'r-copy', name: 'Copy of Technician' },
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('role-row-technician'));
+    fireEvent.click(await screen.findByTestId('copy-role'));
+    const name = await screen.findByTestId('role-name');
+    expect((name as HTMLInputElement).value).toBe('Copy of Technician');
+    fireEvent.click(screen.getByTestId('save-role'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/roles')).toHaveLength(1);
+    });
+    const body = fake.find('POST', '/api/v1/roles')[0]?.body as {
+      name: string;
+      permissions: { permission: string; scope: string }[];
+    };
+    expect(body.name).toBe('Copy of Technician');
+    expect(body.permissions).toEqual([
+      { permission: 'requests.view', scope: 'all', condition: null },
+    ]);
+  });
+
+  it('REQ-ADM-017: two roles compared side by side, by module, the differences marked', async () => {
+    adminRoutes({
+      routes: {
+        'GET /api/v1/roles/r-hr': {
+          body: {
+            ...HR,
+            permissions: [
+              { permission: 'requests.view', scope: 'group', condition: null },
+              { permission: 'users.view', scope: 'all', condition: null },
+            ],
+          },
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('compare-roles'));
+    const drawer = await screen.findByTestId('role-compare');
+    const pick = async (testId: string, label: string) => {
+      fireEvent.mouseDown(within(drawer).getByTestId(testId).querySelector('input') ?? drawer);
+      // The newest list is the last one in the page (the other select's list stays mounted).
+      const found = await screen.findAllByText(label, {
+        selector: '.ant-select-item-option-content',
+      });
+      const last = found.at(-1);
+      if (last !== undefined) fireEvent.click(last);
+    };
+    await pick('role-compare-first', 'Technician');
+    await pick('role-compare-second', 'HR desk');
+    expect(await screen.findByTestId('role-compare-diff-requests.view')).toBeDefined();
+    expect(await screen.findByTestId('role-compare-diff-users.view')).toBeDefined();
+    const table = screen.getByTestId('role-compare-table');
+    expect(table.textContent).toContain('Not granted');
+    expect(table.textContent).not.toMatch(/requests\.view|users\.view/);
+  });
+
+  it('REQ-ADM-015 AC2: the groups carrying a role are listed by name; adding one gives it them', async () => {
+    const fake = adminRoutes({
+      routes: {
+        'GET /api/v1/roles/r-hr': {
+          body: { ...HR, permissions: [], group_ids: ['g-night'] },
+          headers: { ETag: '"4"' },
+        },
+        'GET /api/v1/organization/groups': {
+          body: [
+            { id: 'g-night', name: 'Night shift', member_ids: [], disabled: false, version: 1 },
+            { id: 'g-day', name: 'Day shift', member_ids: [], disabled: false, version: 1 },
+          ],
+        },
+        'PUT /api/v1/roles/r-hr/groups/g-day': { status: 204 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('role-row-custom_abc'));
+    const groups = await screen.findByTestId('role-groups');
+    expect(await within(groups).findByText('Night shift')).toBeDefined();
+    fireEvent.mouseDown(
+      within(groups).getByTestId('role-groups-add').querySelector('input') ?? groups,
+    );
+    fireEvent.click(
+      await screen.findByText('Day shift', { selector: '.ant-select-item-option-content' }),
+    );
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/roles/r-hr/groups/g-day')).toHaveLength(1);
+    });
+  });
+
   it('explains a refused escalation', async () => {
     adminRoutes({
       routes: { 'POST /api/v1/roles': { status: 403, body: problem(403, 'privilege_escalation') } },
@@ -208,13 +302,61 @@ describe('Admin › Users access drawer', () => {
   });
 });
 
+describe('Access drawer: roles held through groups (WP-042)', () => {
+  afterEach(() => {
+    restore();
+  });
+
+  it('names the group a role comes from', async () => {
+    window.history.pushState({}, '', '/admin/users');
+    const target = fakeUser({ id: 'u-9', display_name: 'Bilal Tech', user_type: 'technician' });
+    adminRoutes({
+      routes: {
+        'GET /api/v1/users': { body: { items: [target], has_more: false, next_cursor: null } },
+        'GET /api/v1/users/u-9': { body: target },
+        'GET /api/v1/organization/departments': { body: [] },
+        'GET /api/v1/users/u-9/access': {
+          body: {
+            user_id: 'u-9',
+            role_ids: [],
+            site_ids: [],
+            group_ids: ['g-night'],
+            group_roles: [{ role_id: 'r-hr', group_id: 'g-night' }],
+          },
+        },
+        'GET /api/v1/organization/sites': { body: [] },
+        'GET /api/v1/organization/groups': {
+          body: [
+            {
+              id: 'g-night',
+              name: 'Night shift',
+              member_ids: ['u-9'],
+              disabled: false,
+              version: 1,
+            },
+          ],
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByText('Bilal Tech'));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Access' }));
+    const drawer = await screen.findByTestId('user-access');
+    expect((await within(drawer).findByTestId('role-through-custom_abc')).textContent).toBe(
+      'through Night shift',
+    );
+  });
+});
+
 describe('menus follow permissions', () => {
   afterEach(() => {
     restore();
   });
 
-  it('a requester sees only the sections their role allows, and no Admin', async () => {
-    api({ me: fakeSession({ roles: ['requester'], user_type: 'requester' }) });
+  // Requester-only people never reach the console (D-129): menus follow the permissions of a
+  // console user, here one with a narrow custom role beside the requester role.
+  it('a narrow role sees only the sections it allows, and no Admin', async () => {
+    api({ me: fakeSession({ roles: ['requester', 'custom_narrow'], user_type: 'technician' }) });
     window.history.pushState({}, '', '/');
     render(<App />);
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' });
@@ -228,7 +370,7 @@ describe('menus follow permissions', () => {
   });
 
   it('a custom grant adds exactly its section', async () => {
-    const me = fakeSession({ roles: ['requester', 'custom_x'], user_type: 'requester' });
+    const me = fakeSession({ roles: ['requester', 'custom_x'], user_type: 'technician' });
     me.permissions = [
       ...(me.permissions ?? []),
       { key: 'reports.view', scope: 'all', scopes: ['all'], conditional: false },

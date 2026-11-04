@@ -24,7 +24,7 @@ from app.modules.identity_access.infra.models import User, UserRole
 from app.modules.identity_access.service.authz_consumer import handler as authz_handler
 from app.modules.identity_access.service.directory import USERS
 from app.modules.identity_access.service.policy import authorize_stored
-from app.modules.organization import memberships
+from app.modules.organization import memberships, users_in_groups
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
     BROADCAST,
@@ -183,6 +183,22 @@ async def _role_assignment(envelope: EventEnvelope, session: AsyncSession) -> Re
     )
 
 
+async def _group_role_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A group gained or lost a role: every member's access, and the role's list entry."""
+    await _fresh_access(envelope)
+    tenant = envelope.tenant_id
+    group_id = uuid.UUID(str(envelope.payload["group_id"]))
+    role_id = uuid.UUID(str(envelope.payload["role_id"]))
+    members = list(await session.scalars(users_in_groups(frozenset({group_id}))))
+    return RealtimeEffects(
+        publications=[
+            *ROLES_LIST.publications(tenant, "roles.changed", role_id),
+            *_access_changed(tenant, members),
+        ],
+        revoke_users=members,
+    )
+
+
 async def _role_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A role was created, edited or deleted: the roles list; holders' access if it changed."""
     await _fresh_access(envelope)
@@ -245,6 +261,10 @@ async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> 
 async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """Sign-in settings or an SSO set-up changed: other admins' security screens refetch.
 
+    When people may now (or no longer) change their own numbers, everyone's My account
+    refetches their own record (WP-028, rule 5c): a signal with no content, on the tenant's
+    channel, as the API decides what each person may do.
+
     A change to the API key settings also reaches everyone's own key screen (WP-041), as a
     tenant-wide signal that names nothing: each screen refetches what it may offer.
     """
@@ -256,9 +276,14 @@ async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> R
         actor_id=_actor(envelope),
     )
     changed = set(envelope.payload.get("changed_fields") or ())
+    if "people_edit_contact" in changed:
+        publications.append(Publication(broadcast(envelope.tenant_id), CONTACT_EDITING_CHANGED))
     if changed & KEY_SETTINGS:
         publications.append(Publication(broadcast(envelope.tenant_id), "api_keys.rules_changed"))
     return RealtimeEffects(publications=publications)
+
+
+CONTACT_EDITING_CHANGED = "identity_access.contact_editing_changed"
 
 
 async def _invitation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -311,6 +336,7 @@ ROUTES = [
         _user_changed,
     ),
     RealtimeRoute(("identity_access.user_role.changed",), _role_assignment),
+    RealtimeRoute(("identity_access.group_role.changed",), _group_role_changed),
     RealtimeRoute(("identity_access.role.changed",), _role_changed),
     RealtimeRoute(("organization.membership.changed",), _membership_changed),
     RealtimeRoute(("licensing.entitlement.changed",), _plan_changed),

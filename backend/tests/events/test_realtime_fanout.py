@@ -151,14 +151,24 @@ async def test_a_burst_of_profile_edits_becomes_one_list_message(
     await relay.connect()
     list_channel = f"t:{tenant}:queue:users"
 
+    # All 60 events are in the stream before the fan-out reads any: its first fetch (a batch of
+    # up to 256) then takes them in one window, whatever the runner's speed. Waiting on the
+    # stream, not on wall time, keeps the assertions strict (the test used to race the 0.25 s
+    # window on slow runners and see a record twice).
+    async def all_events_waiting() -> bool:
+        info = await event_bus.js.consumer_info(event_bus.names.events_stream, runner.name)
+        pending: int = info.num_pending  # nats-py types it loosely
+        return pending >= len(edited) * 2
+
+    await run_until([relay.run], all_events_waiting)
+
     async def all_records_out() -> bool:
         records = [c for c in client.channels() if c.startswith(f"t:{tenant}:users:")]
         return len(records) == len(edited)
 
-    await run_until([relay.run, runner.run], all_records_out)
+    await run_until([runner.run], all_records_out)
     messages = client.channels()[list_channel]
-    # 60 events in one commit: one list message (or very few, if the window split them).
-    assert len(messages) <= 2
+    assert len(messages) == 1  # 60 events, one window: one list message
     assert sorted({i for m in messages for i in m["ids"]}) == sorted(str(u) for u in edited)  # type: ignore[attr-defined]
     record = client.channels()[f"t:{tenant}:users:{edited[0]}"]
     assert record == [

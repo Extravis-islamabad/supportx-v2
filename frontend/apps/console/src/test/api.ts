@@ -56,6 +56,26 @@ export function consoleApi({
       body: { choices: [], do_not_disturb: false, version: 0 },
     },
     'GET /api/v1/notifications/status': { body: { mail_configured: true, waiting: 0 } },
+    // Instance settings (WP-042): the built-in defaults; the header offers every language.
+    'GET /api/v1/organization/settings': {
+      body: {
+        time_zone: null,
+        week_start: 'monday',
+        date_format: 'dd/mm/yyyy',
+        time_format: '24h',
+        country: null,
+        fiscal_year_start_month: 1,
+        contact_email: null,
+        contact_phone: null,
+        base_currency: 'USD',
+        languages: ['en', 'ar', 'ur'],
+        default_language: 'en',
+        version: 1,
+      },
+      headers: { ETag: '"1"' },
+    },
+    // The approvals drawer in the header (WP-030 s2): nothing waits unless a test says otherwise.
+    'GET /api/v1/service-requests/my-approvals': { body: { items: [], people: {} } },
     ...routes,
   });
 }

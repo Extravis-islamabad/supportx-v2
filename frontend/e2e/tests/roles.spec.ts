@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { CONSOLE_URL, PORTAL_URL } from '../stack';
 import { deleteE2eRoles, expectAccessible, mainNav, navItems, signInAs } from './helpers';
 
 /** The sections the user's navigation offers, read live (no reload: WP-011 pushes changes). */
@@ -12,9 +13,9 @@ async function menu(page: Page): Promise<string[]> {
 const LIVE = { timeout: 3_000 };
 
 /**
- * WP-016 journey: an admin builds a custom role, gives it to a test user, the user sees exactly
- * the allowed menus; taking the role away takes effect on the user's next request. The role is
- * deleted at the end (suite-owned data only).
+ * WP-016 journey under D-129: an admin builds a custom role and gives it to the requester-only
+ * test user, who then opens the console with exactly the allowed menus; taking the role away
+ * sends them back to the portal. The role is deleted at the end (suite-owned data only).
  */
 test('custom role: create, assign, see the menus, remove', async ({ browser }) => {
   const adminContext = await browser.newContext();
@@ -36,9 +37,10 @@ test('custom role: create, assign, see the menus, remove', async ({ browser }) =
 });
 
 async function journey(admin: Page, user: Page, roleName: string): Promise<void> {
-  // The limited user signs in once (JIT: requester, mapped once from Keycloak).
+  // The limited user signs in once (JIT: requester, mapped once from Keycloak). Requester-only,
+  // so the console sends them to the portal (D-129).
   await signInAs(user, 'limited');
-  expect(await menu(user)).toEqual(['home', 'requests', 'knowledge']);
+  await expect(user).toHaveURL(new RegExp(`^${PORTAL_URL}`));
 
   // Admin builds the role in Admin › Roles.
   await admin.reload();
@@ -70,18 +72,19 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   await expect(drawer.getByLabel(roleName)).toBeChecked();
   await expectAccessible(admin, 'user access drawer');
 
-  // The user's next request: exactly the role's sections are added (reports.view also opens
-  // dashboards: a dashboard is made of reports, WP-036).
+  // A role beside requester opens the console (D-129), with exactly the role's sections
+  // (reports.view also opens dashboards: a dashboard is made of reports, WP-036).
+  await user.goto(`${CONSOLE_URL}/`);
   await expect
     .poll(async () => menu(user), LIVE)
     .toEqual(['home', 'requests', 'problems', 'knowledge', 'dashboards', 'reports']);
 
-  // Removing the role takes effect on the next request too.
+  // Removing the role makes them requester-only again: the console sends them back to the
+  // portal on its next call (the server refuses it, not only the routing).
   await drawer.getByLabel(roleName).click();
   await expect(drawer.getByLabel(roleName)).not.toBeChecked();
-  await expect.poll(async () => menu(user), LIVE).toEqual(['home', 'requests', 'knowledge']);
-  await user.goto('/problems');
-  await expect(user.getByText(/Ask your administrator for access/)).toBeVisible();
+  await user.goto(`${CONSOLE_URL}/problems`);
+  await expect(user).toHaveURL(new RegExp(`^${PORTAL_URL}`), LIVE);
 
   // Clean up: delete the suite's role (nobody holds it any more).
   // Close the drawer with its button: Escape only reaches it while focus is inside, and the

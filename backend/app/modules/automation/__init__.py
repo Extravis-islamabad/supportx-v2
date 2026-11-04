@@ -68,8 +68,10 @@ from app.shared.schedules import ScheduleSpec
 FEATURE = "incident"  # rules work on incidents first; other types join with their modules
 
 PERMISSIONS = (
-    PermissionSpec("automation.view", feature=FEATURE),
-    PermissionSpec("automation.manage", feature=FEATURE),
+    PermissionSpec("automation.view", feature=FEATURE, defaults=(("service_desk_manager", "all"),)),
+    PermissionSpec(
+        "automation.manage", feature=FEATURE, defaults=(("service_desk_manager", "all"),)
+    ),
 )
 
 register_usage_checks()

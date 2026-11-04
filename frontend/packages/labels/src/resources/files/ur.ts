@@ -66,6 +66,7 @@ export const ur: LabelResource = {
   'files.preview_hint': 'یہ پیش منظر صرف آپ کے لیے ہے اور چند منٹ میں ختم ہو جائے گا۔',
   'files.rescan': 'دوبارہ جانچیں',
   'files.staff_only': 'صرف عملے کے لیے',
+  'files.take_photo': 'تصویر لیں',
   // Files UI (WP-022).
   'files.title': 'منسلکات',
   'files.too_large_local': '{{name}} {{limit}} MB کی حد سے بڑی ہے۔',

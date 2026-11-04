@@ -168,6 +168,7 @@ export const ur: LabelResource = {
   'automation.why.assignment_move': 'تفویض ہونے پر خودکار طور پر منتقل ہوا۔',
   'automation.why.auto_closed':
     'خودکار طور پر بند: درخواست گزار کو حل کی اطلاع دی گئی اور اس نے وقت پر جواب نہیں دیا۔',
+  'automation.why.fulfilled': 'تکمیل شدہ: تمام لازمی کام مکمل ہو گئے',
   'automation.why.matrix': 'ترجیحی میٹرکس سے (اثر اور فوریت)۔',
   'automation.why.requester_confirmed': 'درخواست گزار نے حل کی تصدیق کی، اس لیے یہ بند کیا گیا۔',
   'automation.why.requester_rejected':

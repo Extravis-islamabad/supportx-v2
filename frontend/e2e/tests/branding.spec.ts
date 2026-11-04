@@ -29,7 +29,12 @@ async function applyTheme(page: Page, mode: Mode): Promise<void> {
 
 /** The visible header logo has loaded (a broken file would have no natural size). */
 async function expectHeaderLogo(page: Page, mode: Mode): Promise<void> {
-  const logo = page.getByRole('banner').getByTestId('brand-logo-full');
+  // Where the frame puts it (D-124): the top bar in the top layout, else the head of the wide
+  // sidebar (the side menu is the default layout since migration 0051).
+  const layout = await page.locator('[data-layout]').first().getAttribute('data-layout');
+  const frame =
+    layout === 'top' || layout === null ? page.getByRole('banner') : page.locator('aside').first();
+  const logo = frame.getByTestId('brand-logo-full');
   await expect(logo).toBeVisible();
   await expect(logo).toHaveAttribute('alt', 'SupportX');
   await expect(logo).toHaveAttribute('src', new RegExp(LOGO_FILE[mode]));

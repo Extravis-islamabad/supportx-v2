@@ -919,16 +919,28 @@ async def test_req_inc_105_ac1_wp020d_views_match_their_definitions(world: World
     reported = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
     expectations = {
         "overdue": {late["id"]},
-        # the users' zone is UTC: a minute-away due time is today unless run at midnight
-        "due_today": {today["id"]}
-        if (await world.sql("SELECT (now() AT TIME ZONE 'UTC')::time < '23:58'"))[0][0]
-        else set(),
         "followed_by_me": {later["id"], today["id"]},
         "shared_with_me": {later["id"]},
         "from_my_reports": {reported["id"]},
     }
     for view, expected in expectations.items():
         assert await ids(world, a, a.tech_a, f"?view={view}") == expected, view
+
+    # Due today: the users' zone is UTC, and the minute-away due time is today unless the clock
+    # crosses midnight. Ask the database before and after the call (each statement reads the
+    # clock afresh), so a run at the day boundary accepts what either moment says (queue run
+    # 41738347954 read "tomorrow" at 23:59 and the view ran at 00:00).
+    due_is_today = (
+        "SELECT resolution_due_at > statement_timestamp() AND (resolution_due_at AT TIME ZONE"
+        " 'UTC')::date = (statement_timestamp() AT TIME ZONE 'UTC')::date"
+        " FROM work_items WHERE id = $1"
+    )
+    record_id = uuid.UUID(today["id"])
+    before = (await world.sql(due_is_today, record_id))[0][0]
+    found = await ids(world, a, a.tech_a, "?view=due_today")
+    after = (await world.sql(due_is_today, record_id))[0][0]
+    allowed = [{today["id"]} if moment else set() for moment in (before, after)]
+    assert found in allowed, ("due_today", found, allowed)
     assert await ids(world, a, a.tech_b, "?view=from_my_reports") == set()  # not their reports
     counts = {
         c["view"]: c["count"]

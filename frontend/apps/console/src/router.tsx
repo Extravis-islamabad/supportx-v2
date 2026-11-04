@@ -27,6 +27,37 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
       {
+        path: 'requests',
+        handle: { section: 'requests' },
+        children: [
+          {
+            // WP-030 s3: an approval from an e-mail link (the token is in the URL fragment).
+            path: 'approval-link',
+            lazy: async () => ({
+              Component: (await import('./pages/requests/ActionLinkPage')).ActionLinkPage,
+            }),
+          },
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/requests/RequestsPage')).RequestsPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/requests/NewRequestPage')).NewRequestPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/requests/RequestPage')).RequestPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'incidents',
         handle: { section: 'incidents' },
         children: [
@@ -159,7 +190,22 @@ export const routes: RouteObject[] = [
         handle: { section: 'admin' },
         lazy: async () => ({ Component: (await import('./pages/admin/AdminLayout')).AdminLayout }),
         children: [
-          { index: true, element: null },
+          {
+            index: true,
+            lazy: async () => ({ Component: (await import('./pages/admin/SetupHome')).SetupHome }),
+          },
+          {
+            path: 'instance',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/InstanceSettingsPage')).InstanceSettingsPage,
+            }),
+          },
+          {
+            path: 'licence',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/LicencePage')).LicencePage,
+            }),
+          },
           {
             path: 'users',
             lazy: async () => ({ Component: (await import('./pages/admin/UsersPage')).UsersPage }),
@@ -186,6 +232,13 @@ export const routes: RouteObject[] = [
             lazy: async () => ({
               Component: (await import('./pages/admin/incidents/IncidentSettingsPage'))
                 .IncidentSettingsPage,
+            }),
+          },
+          {
+            path: 'requests',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/requests/RequestSettingsPage'))
+                .RequestSettingsPage,
             }),
           },
           {
@@ -216,6 +269,12 @@ export const routes: RouteObject[] = [
             path: 'security',
             lazy: async () => ({
               Component: (await import('./pages/admin/security/SecurityPage')).SecurityPage,
+            }),
+          },
+          {
+            path: 'ai',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AiSettingsPage')).AiSettingsPage,
             }),
           },
           {

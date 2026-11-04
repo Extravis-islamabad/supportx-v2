@@ -5,6 +5,7 @@ export const ar: LabelResource = {
   'custom_field_display.list': 'قائمة منسدلة',
   'custom_field_display.radio': 'أزرار',
   'custom_field_entity.incident': 'الحوادث',
+  'custom_field_entity.service_request': 'طلبات الخدمة',
   'custom_field_index_error.busy': 'كان جدول الحوادث مشغولًا بأعمال صيانة أخرى.',
   'custom_field_index_error.disk_full': 'نفدت مساحة القرص في قاعدة البيانات.',
   'custom_field_index_error.out_of_memory': 'نفدت ذاكرة قاعدة البيانات.',

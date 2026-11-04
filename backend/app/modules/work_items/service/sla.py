@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import sla
 from app.modules.work_items.domain.classification import Priority
+from app.modules.work_items.domain.lifecycle import ServiceRequestStatus, StatusCategory
 from app.modules.work_items.domain.types import WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.access import FIELDS
@@ -56,18 +57,34 @@ CONDITION_FIELDS = ResourceFields(
 )
 
 
+AWAITING_APPROVAL = ServiceRequestStatus.AWAITING_APPROVAL.value
+SLA_TYPES = frozenset({WorkItemTypeCode.INCIDENT.value, WorkItemTypeCode.SERVICE_REQUEST.value})
+
+
 def register_sla() -> None:
-    """Incidents have SLAs (called at import; idempotent)."""
-    sla.register_record_type(
-        sla.SlaRecordType(
-            code=WorkItemTypeCode.INCIDENT.value,
-            fields=CONDITION_FIELDS,
-            priorities=tuple(p.value for p in Priority),
-            lock_record=lock_record,
-            on_fired=_on_fired,
-            run_actions=_run_actions,
+    """Incidents and service requests have SLAs (called at import; idempotent).
+
+    Service requests (WP-030) take the same policies, conditions and firing; the item's own SLA
+    and the clock waiting for approval (REQ-SR-006, -007) come with the approval engine.
+    """
+    for code in (WorkItemTypeCode.INCIDENT, WorkItemTypeCode.SERVICE_REQUEST):
+        sla.register_record_type(
+            sla.SlaRecordType(
+                code=code.value,
+                fields=CONDITION_FIELDS,
+                priorities=tuple(p.value for p in Priority),
+                lock_record=lock_record,
+                on_fired=_on_fired,
+                run_actions=_run_actions,
+                preferred_policy=_item_policy,
+            )
         )
-    )
+
+
+def _item_policy(values: Mapping[str, Any]) -> uuid.UUID | None:
+    """The catalog item's own SLA policy, kept on the request (REQ-SR-006)."""
+    found = values.get("item_sla_policy_id")
+    return found if isinstance(found, uuid.UUID) else None
 
 
 async def lock_record(session: AsyncSession, record_id: uuid.UUID) -> None:
@@ -118,6 +135,7 @@ _CLOCK_FIELDS = (
     "site_id",
     "group_id",
     "first_responded_at",
+    "item_sla_policy_id",  # REQ-SR-006: the catalog item's own policy wins
 )
 SNAPSHOT_FIELDS = tuple(dict.fromkeys((*CONDITION_FIELDS.fields, *_CLOCK_FIELDS)))
 STAMP_COLUMNS = (
@@ -134,12 +152,21 @@ STAMP_COLUMNS = (
 def snapshot(record: WorkItem, changes: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """The record as sla sees it, with `changes` applied (field name -> value)."""
     values = {name: getattr(record, name) for name in SNAPSHOT_FIELDS}
-    return values | {k: v for k, v in (changes or {}).items() if k in values}
+    values |= {k: v for k, v in (changes or {}).items() if k in values}
+    # An item that counts approval time keeps the clock running while it waits (REQ-SR-007 AC2):
+    # the SLA sees "awaiting approval" as open work, not a pause.
+    if record.sla_counts_approval and values["status"] == AWAITING_APPROVAL:
+        values["status_category"] = StatusCategory.OPEN.value
+    return values
 
 
 def has_sla(record: WorkItem) -> bool:
-    """Whether this record's type has SLAs (registered above)."""
-    return record.type == WorkItemTypeCode.INCIDENT.value
+    """Whether this record's type has SLAs (registered above).
+
+    Service requests too (WP-030 s2, D6): "awaiting approval" is a paused status, so the
+    resolution clock waits for the approval by default (REQ-SR-007 AC1, AC3).
+    """
+    return record.type in SLA_TYPES
 
 
 async def sla_columns(

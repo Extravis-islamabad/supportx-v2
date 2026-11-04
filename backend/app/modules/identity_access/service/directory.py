@@ -23,14 +23,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
 from app.modules.identity_access.domain.identity import (
+    DATE_FORMATS,
+    DIGITS,
     PERSON_TYPES,
+    TEXT_SCALES,
+    TIME_FORMATS,
+    URDU_SCRIPTS,
+    WEEK_STARTS,
     FormDensity,
     NavLayout,
+    ThemeMode,
     UserType,
 )
+from app.modules.identity_access.domain.people import clean_text, person_problems
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service.identity_settings import get_identity_settings
 from app.modules.identity_access.service.policy import (
     PEOPLE,
     FieldRule,
@@ -57,8 +66,38 @@ from app.shared.search import ENGINE
 
 USER_RECORD_TYPE = "user"
 
-EDITABLE_FIELDS = frozenset({"signature", "time_zone", "nav_layout", "form_density", "ui_locale"})
+# The person's own contact details (REQ-PRT-013 AC2, WP-028): only when the tenant allows it
+# (identity settings `people_edit_contact`) and no directory keeps them.
+CONTACT_FIELDS = frozenset({"phone", "mobile"})
 UI_LOCALES = frozenset({"en", "ar", "ur"})
+EDITABLE_FIELDS = frozenset(
+    {
+        "signature",
+        "time_zone",
+        "nav_layout",
+        "form_density",
+        "ui_locale",
+        "theme_mode",
+        "text_scale",
+        "week_start",
+        "date_format",
+        "time_format",
+        "digits",
+        "urdu_script",
+        *CONTACT_FIELDS,
+    }
+)
+# Preferences that may be cleared (null: back to the default) and the values each may take.
+_CHOICES: dict[str, frozenset[object]] = {
+    "ui_locale": frozenset(UI_LOCALES),
+    "theme_mode": frozenset(mode.value for mode in ThemeMode),
+    "text_scale": frozenset(TEXT_SCALES),
+    "week_start": frozenset(WEEK_STARTS),
+    "date_format": frozenset(DATE_FORMATS),
+    "time_format": frozenset(TIME_FORMATS),
+    "digits": frozenset(DIGITS),
+    "urdu_script": frozenset(URDU_SCRIPTS),
+}
 MAX_SIGNATURE_LENGTH = 2000
 
 USER_FIELDS = ResourceFields(
@@ -183,10 +222,26 @@ async def get_user(session: AsyncSession, subject: Subject, user_id: uuid.UUID) 
     return user
 
 
+def _contact_values(changes: Mapping[str, Any]) -> tuple[dict[str, Any], list[FieldError]]:
+    """Phone and mobile, trimmed, with the people rules (length, characters)."""
+    given = {name: clean_text(changes[name]) for name in CONTACT_FIELDS if name in changes}
+    errors = [
+        FieldError(
+            field=f"body.{field}",
+            code=code,
+            message_key=f"errors.field.{code}",
+            params=dict(params),
+        )
+        for field, code, params in person_problems(given)
+    ]
+    found: dict[str, Any] = {} if errors else dict(given)
+    return found, errors
+
+
 def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
-    clean: dict[str, Any] = {}
-    errors: list[FieldError] = []
-    for name, value in changes.items():
+    clean, errors = _contact_values(changes)
+    others = {name: value for name, value in changes.items() if name not in CONTACT_FIELDS}
+    for name, value in others.items():
         if name not in EDITABLE_FIELDS:
             errors.append(
                 FieldError(
@@ -201,15 +256,19 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "ui_locale" and value is not None and value not in UI_LOCALES:
+        elif name in _CHOICES and value is not None and value not in _CHOICES[name]:
             errors.append(
                 FieldError(
-                    field="body.ui_locale",
+                    field=f"body.{name}",
                     code="invalid_choice",
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "nav_layout" and value not in {layout.value for layout in NavLayout}:
+        elif (
+            name == "nav_layout"
+            and value is not None
+            and value not in {layout.value for layout in NavLayout}
+        ):
             errors.append(
                 FieldError(
                     field="body.nav_layout",
@@ -217,7 +276,11 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "form_density" and value not in {d.value for d in FormDensity}:
+        elif (
+            name == "form_density"
+            and value is not None
+            and value not in {d.value for d in FormDensity}
+        ):
             errors.append(
                 FieldError(
                     field="body.form_density",
@@ -239,6 +302,33 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
     if errors:
         raise ValidationFailed(errors=errors)
     return clean
+
+
+async def contact_editable(session: AsyncSession, user: User) -> bool:
+    """Whether the person may change their own phone and mobile (My account shows the fields)."""
+    return (
+        user.directory_source is None and (await get_identity_settings(session)).people_edit_contact
+    )
+
+
+async def _check_contact(session: AsyncSession, current: User, contact: Sequence[str]) -> None:
+    """Own contact details change only when the tenant allows it and no directory keeps them."""
+    if not contact:
+        return
+    if not (await get_identity_settings(session)).people_edit_contact:
+        raise PermissionDenied(code="contact_editing_off")
+    if current.directory_source is not None:  # the next sync would undo it (#168's lock)
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field=f"body.{name}",
+                    code="managed_by_directory",
+                    message_key="errors.field.managed_by_directory",
+                    params={"source": current.directory_source},
+                )
+                for name in contact
+            ]
+        )
 
 
 async def update_preferences(  # noqa: PLR0913 - the record, the version and the change, explicit
@@ -264,6 +354,7 @@ async def update_preferences(  # noqa: PLR0913 - the record, the version and the
     clean = _validate(changes)
     current = await UserRepository(session).get(user_id)
     changed = sorted(name for name, value in clean.items() if getattr(current, name) != value)
+    await _check_contact(session, current, [n for n in changed if n in CONTACT_FIELDS])
     if not changed:
         if current.version != expected_version:
             raise await explain_user_conflict(

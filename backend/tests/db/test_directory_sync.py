@@ -51,7 +51,11 @@ async def fake(world: World) -> AsyncIterator[FakeDirectory]:
 async def _create(world: World, fake: FakeDirectory, **values: Any) -> uuid.UUID:  # noqa: ANN401 - JSON
     async with world.app.state.db.tenant_session(TenantContext(world.a.tenant, world.a.admin)) as s:
         view = await directories.create_directory(
-            s, world.app.state.settings, DIRECTORY | values, credential=fake.client_secret
+            s,
+            world.app.state.settings,
+            DIRECTORY | values,
+            credential=fake.client_secret,
+            by=await world.app.state.policy.subject(world.a.tenant, world.a.admin, s),
         )
     return view.row.id
 

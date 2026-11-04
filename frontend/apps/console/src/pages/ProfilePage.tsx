@@ -28,6 +28,7 @@ import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
   AccountSecurityCard,
+  ContactDetailsCard,
   ConflictDialog,
   FormProblem,
   PresenceAvatars,
@@ -42,6 +43,7 @@ import { AvailabilityCard } from '../AvailabilitySwitch';
 import { ApiKeysPanel } from './apiKeys/ApiKeysPanel';
 import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
 import { LedGroupsCard } from '../GroupMembersAvailability';
+import { PreferencesCard } from './PreferencesCard';
 
 /** Record forms one column with labels above, or compact (WP-020c); saved with the user. */
 function FormDensityCard({ userId, value }: { userId: string; value: FormDensity }) {
@@ -118,9 +120,11 @@ export function ProfilePage() {
         </Descriptions>
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
+      <ContactDetailsCard />
       <AccountSecurityCard />
       <ApiKeysPanel mode="mine" />
       <NotificationPreferencesCard />
+      <PreferencesCard user={me} />
       <FormDensityCard userId={me.id} value={me.form_density} />
       {me.user_type === 'technician' && licence.has('incident') && (
         <>

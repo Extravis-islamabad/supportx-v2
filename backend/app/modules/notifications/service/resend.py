@@ -26,6 +26,7 @@ from app.shared.mail import (
     Language,
     MailContentGone,
     OutgoingMail,
+    links_from_json,
     mail_configured,
     queue_mail,
     requeue_mail,
@@ -91,6 +92,7 @@ async def _queue_again(session: AsyncSession, row: NotificationDelivery, to: str
             subject=row.subject or row.display_id,
             text=row.text_body,
             html=row.html_body,
+            links=links_from_json(row.links),  # fresh one-time links at send (D-132)
         ),
     )
 

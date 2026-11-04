@@ -82,6 +82,7 @@ export const ar: LabelResource = {
   'files.preview_hint': 'هذه المعاينة لك وحدك وتنتهي خلال دقائق.',
   'files.rescan': 'إعادة الفحص',
   'files.staff_only': 'للموظفين فقط',
+  'files.take_photo': 'التقاط صورة',
   // Files UI (WP-022).
   'files.title': 'المرفقات',
   'files.too_large_local': '{{name}} أكبر من الحد المسموح ({{limit}} ميغابايت).',

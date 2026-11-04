@@ -238,6 +238,9 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** Rust and Python tests: valid licence accepted, any edited field rejected,
   fingerprint tolerance works (2 changed components pass, 3 fail); no production key in the repo.
 - **Depends on:** WP-009 (Rust/PyO3 approved by D-004; Rust toolchain must be installed)
+- **Checklist (product owner, 2026-11-04):** re-enable the pre-upgrade licence check. WP-014b's
+  pre-upgrade Job reports "no licence file: check skipped" until the licence core exists (plan
+  decision 4); WP-013 must turn that check on, and isn't done until it does.
 
 ### [x] WP-014 — Deployment part 1: images, Helm chart (dev, single-node), k3d, CI (done 2026-10-24)
 - **Goal:** The same build runs on Kubernetes from day one (§14.3). Plan approved 2026-10-24 with
@@ -748,6 +751,148 @@ that publishes **public-entry events only**: public replies and their files, sta
 resolution changes the requester may see; never private notes, internal fields or their files.
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
+
+### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+- **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
+- **Decided (product owner, 2026-11-04):** D3 in **D-133** (catalog basics in Essentials,
+  `service_request`; the advanced catalog in Professional, `catalog`); D7 in **D-132** (e-mail
+  approval links work without sign-in by default, a confirmation page first, single use, 72 h,
+  bound to the approver, audited; reject needs a reason; "require sign-in for approvals" off by
+  default; lane B's precondition: bodies holding a link are cleared once sent).
+- [x] Session 1 (2026-11-04): done: the service request life cycle (awaiting_approval,
+  fulfilled, rejected; system actions approve/reject; migration 0059); the `service_catalog`
+  module (categories and items with form questions, one approval stage, plan, priority, SLA
+  policy, group, technician; API with If-Match, audit, RLS; migration 0062); the service request
+  type in TYPES (`/api/v1/service-requests`, SR counter; requests.* moved from identity under
+  lane B's pins); creation from an item (refused without one, answers checked, awaiting approval
+  when needed, item priority marked `catalog_item`, group and technician from the item,
+  technician after approval; migration 0063 also widens priority_source and
+  custom_fields.entity); SLA record type. Tests: domain (life cycle 4, start 4, items 5), db
+  (catalog 5, service requests 7, requests.* pins 4). Then: list filters by item and approval
+  status (REQ-SR-009); the console's service requests (list, raise from the catalog, one
+  request's item details; REQ-SR-010, REQ-SR-003 AC1; Vitest 3); on behalf of within the
+  tenant's scope `on_behalf_scope` (REQ-SR-011, migration 0064; never a deactivated person,
+  "any requester" can sign in; lane B approved); labels in module files (#181). Then: built-in
+  views per type: service requests add "pending approval" and "awaiting fulfilment" (incidents
+  never show them; "from my direct reports" already serves both; the requests page picks a view
+  with its live count; db 1, Vitest 1); Admin > Service requests sets the on-behalf scope
+  (If-Match, a conflict reloads; Vitest 1). The portal's "for someone else" followed once #178
+  landed (see session 3's portal work). Migrations: 0059, 0062, 0063, 0064, 0065 (coordinator).
+- [ ] Session 2 (in progress, 2026-11-04): done: the approval engine (`domain/approvals.py`;
+  migration 0065 `work_item_approvals`, RLS): the item's stage snapshotted at submission
+  (approvers by name or the requested-for person's manager, REQ-SR-022; a later manager change
+  never moves it), never the requester or the person it is for unless the item allows
+  self-approval (REQ-SR-027, 403 `approval_segregation`), never nobody: the backup, else the
+  approval administrators (`work_items.approve_any`) with the reason (REQ-SR-023 AC1); the
+  first decision decides the stage, a rejection needs a reason, comments when the item says so,
+  private comments for staff only (REQ-SR-028); approve moves it on with the item's technician
+  after approval (then "assigned"); reject ends it; withdraw while it waits (REQ-SR-061 AC1);
+  a deactivated approver's approvals go to the fallback (the first work_items consumer,
+  REQ-SR-023 AC2) and a daily check catches what the event missed (AC3); `requests.approve`
+  for requesters and technicians (REQ-SR-022 AC2, -063).
+  API: `my-approvals`, `{id}/approvals`, `…/decision` (If-Match), `{id}/withdraw`; outbox event
+  `work_items.approval.changed` on the record channel and the approver's personal channel
+  (administrators' approvals: one broadcast signal); audit `service_request.approval_decided`,
+  `.withdrawn`. Service requests get SLAs; the resolution clock waits in awaiting approval
+  (REQ-SR-007 AC1); an item that counts approval time keeps it running (AC2,
+  `work_items.sla_counts_approval` in 0065); the item's own SLA policy wins over the conditions
+  (REQ-SR-006; `item_sla_policy_id`, the SLA module's `preferred_policy` hook). Console: the
+  approvals panel on the request page (each entry, Approve / Reject dialog, Withdraw), the
+  header approvals drawer with its live count (REQ-SR-024, -025); Admin › Service requests
+  can hide approvals from requesters (REQ-SR-024 AC3, a setting in 0065).
+  Tests: domain 6, db 16 (incl. RLS), Vitest 3. **Still to do:** the portal approve / reject
+  and withdraw (needs #178's portal); notifications to approvers (WP-023 engine registration,
+  with session 3's e-mail approvals under lane B's review). At the merge after #178: drop the duplicate
+  `permission_module.work_items` label (both PRs add it).
+- [ ] Session 3 (started 2026-11-04): done: fulfilment from the item's plan (D8): the plan
+  becomes the request's tasks in order at submission without approval or on approval, never
+  before and never after a rejection (REQ-SR-021 AC1, -046 AC1, -060); tasks carry `from_plan`,
+  `required`, `internal` (0065); the last required one done fulfils the request when the item
+  says so (REQ-SR-058; history automatic, rule `fulfilment`; resolution = the tasks done;
+  optional tasks may stay open, a "block" open-work rule still stops it; a refused move leaves
+  the task's save standing). Tests: db 3. Signed one-time action links (REQ-NTF-024,
+  `app/shared/action_links`, migration 0070; lane B reviewed and approved against their five
+  conditions): a 32-byte random token kept only as its SHA-256 (RLS), bound to recipient,
+  action, object and version, single use, 72 h; POST peek (never acts) and use (audited,
+  refusals too), rate-limited, no-referrer, sign-in required (D7 interim); someone else's
+  link answers exactly as an unknown one (lane B); the approval engine decides from a link
+  with channel `email_link`, a decided or withdrawn approval revokes its links (REQ-SR-061
+  AC2). Console page `/requests/approval-link#token` (the token read from the fragment and
+  removed from the address bar). Tests: domain 4, db 4 (incl. RLS), Vitest 2. Approval
+  notifications (lane B's design and review): `service_request.approval_requested` to the
+  approver (urgent, required; the e-mail carries that approver's own link, made by the
+  engine's new `RecordSource.recipient_links` hook during their render, in the delivery's
+  transaction, skipped when that e-mail already exists; `SECRET_VARIABLES` shows a
+  placeholder everywhere else), `service_request.approval_fallback` to `approve_any` holders
+  in-app only without a link; category `approval`. Tests: db 3 (one link per recipient, no
+  second link on a redelivery, none in-app, no token in the outbox or the logs).
+  **Precondition of any no-sign-in mode (D7, lane B):** mail_messages and
+  notification_deliveries keep the rendered body, link included, until purge; safe today as a
+  link is recipient-bound and needs sign-in, but bodies with links must be cleared at send
+  before that mode exists (to go in WP-030's D-file when D7 is decided). Portal (after #178 landed,
+  2026-11-04): "for me / for someone else" on the report form, the search listing only the
+  people the on-behalf scope allows, names only (`/portal/incidents/on-behalf-people`); the
+  Approvals page (a requester-only approver decides there, REQ-SR-022 AC2) and the portal's
+  `/requests/approval-link` page; My service requests (`/portal/service-requests`, `/{id}`,
+  `/{id}/steps`): plain statuses (new: waiting for approval, not approved), the item's answers,
+  only the approvals the tenant shows requesters, the steps with internal names hidden
+  (REQ-SR-051 AC2), Withdraw while it waits, and receipt confirmation of a fulfilled request
+  (REQ-SR-059). Tests: db 3 + 1, portal Vitest 6. D-132 built (2026-11-04): e-mailed approval
+  links work without sign-in by default on the portal's public page `/approve#token` (a
+  confirmation page first, nothing decided until a click); `POST /public/action-links/peek|use`
+  find the tenant by the address used, run the action as the recipient (their permissions,
+  audit and history), ask the entitlement gate for the action's feature (and read-only), are
+  rate-limited per tenant and address, and refuse with `action_link_sign_in_required` when the
+  tenant's "require sign-in for approvals" is on (Admin › Service requests; then the signed-in
+  page); single use by one atomic UPDATE, 72 h, a used or someone else's link answers as an
+  unknown one, a link the step no longer needs is spent ("no longer needed"), refused uses
+  capped at 5 (lane B's review). Never stored, never logged (Haider's addition): bodies hold a
+  marker and the message keeps only the link request; the mail sender mints the token at send,
+  a retry or resend mints a fresh one and revokes the old. Tests: db 6 public + 3 notification,
+  portal Vitest 2.
+  E2E (`e2e/tests/service-requests.spec.ts`, green on the stack smoke 2026-11-04): raise,
+  approve from the console drawer, the plan's task done, fulfilled, receipt confirmed in the
+  portal, all live; the e-mailed link approved in a window with nobody signed in, once; the
+  portal pages in Arabic with axe. **Still to do:** out of draft after #183 (the final
+  re-point of 0059, with the coordinator). (E2E: see below.)
+- **Found outside WP-030 (lane A's next polish PR, agreed with lane B 2026-11-04):**
+  `work_items/service/conversations.py` decides a reply's delivery state from the global
+  `get_settings()`, so a checkout whose `backend/.env` sets SMTP fails `test_reply_delivery`
+  and a `test_conversation_api` case locally (CI and clean worktrees pass). Inject the Settings
+  where delivery is decided (the API passes `app.state.settings`, the worker its own); lane B
+  takes any change needed in `app/shared/mail`.
+
+### [x] WP-028 — Portal: shell, sign-in and requester incidents (lane A, 2026-11-03/04; 2 sessions; #178)
+- **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
+  D2 decided in D-129 (option a): engine-level `work_items.view_department` and
+  `work_items.view_reports`, behind the one scope check `service/portal.py: viewer()`.
+- [x] Session 1 (backend, #178, 2026-11-03/04): `domain/portal.py` (plain status, allow-list,
+  reach, live rule); `/api/v1/portal/incidents` list, record, templates, create, public
+  conversation, replies, confirm/reject; requester channel `t:{tenant}:portal_wi:{id}` (D4);
+  requester-side notifications use the portal status and link to the portal record
+  (`RecordContext.public_link`, lane B approved); BFF sends a requester signing in on the console
+  to the portal and sessions carry the stored type (D-029; lane B approved); contact details
+  setting `people_edit_contact` (migration 0058, lane B approved).
+- [x] Session 2 (portal UI, #178): done: My requests (filters, search, show more, live), one
+  request (fix, conversation, reply, files, camera, live), Report an issue (files, camera),
+  contact details card (both apps) and the Admin > Security toggle, manifest start_url/scope,
+  console guard; D5 expected resolution time behind `portal_show_due_time` (off by default).
+  E2E (portal.spec en/ar at 360x740 with axe, roles.spec under D-129) runs in #178's full-ci
+  run; 0058 revises #172's 0054.
+- **Paused 2026-11-04 (Haider).** Resume point: merge main into feat/wp-028, re-point 0058, then the e2e users and specs above.
+- **D-129 (product owner, 2026-11-04)** replaces the earlier AC1 reading: any role but
+  `requester` opens the console (with a Requester portal link); requester-only people always get
+  the portal, enforced at sign-in and at /auth/me (also on a shared host), audited. D2 = option
+  (a): engine-level `work_items.view_department` / `work_items.view_reports`. Lane B approved.
+  E2E: no new suite users needed; roles.spec reworked (not run yet: the shared stack is in use).
+- **Follow-ups (not #178):** revoke the dropped console refresh token at a requester's console
+  sign-in (needs an OIDC revocation call); warn an admin who gives a requester a role with
+  console permissions; requester rows of a wider reach (reports, department) are not live yet
+  (own rows are).
+- **Moved out (coordinator, 2026-11-03):** admin "preview the portal as a requester"
+  (REQ-INC-147 AC4) to WP-032; knowledge suggestions while typing (REQ-INC-028) to WP-034, the
+  form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
+  (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).

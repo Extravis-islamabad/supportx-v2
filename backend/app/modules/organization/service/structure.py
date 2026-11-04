@@ -9,7 +9,7 @@ registry (usage.py), since other modules own those rows.
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -431,6 +431,33 @@ async def _calendar(
     return []
 
 
+# Checks run before a group is made inactive (WP-042): identity_access registers one so that the
+# tenant never loses its last admin when a group carrying tenant_admin is disabled.
+GroupDisableGuard = Callable[[AsyncSession, uuid.UUID], Awaitable[None]]
+_DISABLE_GUARDS: list[GroupDisableGuard] = []
+
+
+def register_group_disable_guard(guard: GroupDisableGuard) -> None:
+    """At start-up."""
+    if guard not in _DISABLE_GUARDS:
+        _DISABLE_GUARDS.append(guard)
+
+
+def unregister_group_disable_guard(guard: GroupDisableGuard) -> None:
+    """At shutdown."""
+    if guard in _DISABLE_GUARDS:
+        _DISABLE_GUARDS.remove(guard)
+
+
+async def _before_disable(
+    session: AsyncSession, group_id: uuid.UUID | None, *, disabling: bool
+) -> None:
+    """A group carrying roles may be the tenant's last admin's source (WP-042)."""
+    if disabling and group_id is not None:
+        for guard in _DISABLE_GUARDS:
+            await guard(session, group_id)
+
+
 async def save_group(  # noqa: C901 - one rule per setting, flat
     session: AsyncSession,
     group_id: uuid.UUID | None,
@@ -449,6 +476,7 @@ async def save_group(  # noqa: C901 - one rule per setting, flat
             problems.append(("desk_id", "desk_not_found"))
         changes["desk_id"] = values["desk_id"]
     if "disabled" in values:
+        await _before_disable(session, group_id, disabling=bool(values["disabled"]))
         changes["disabled_at"] = _now() if values["disabled"] else None
     site_ids: list[uuid.UUID] | None = None
     if "site_ids" in values:

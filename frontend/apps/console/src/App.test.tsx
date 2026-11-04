@@ -203,6 +203,31 @@ describe('console shell', () => {
     });
   });
 
+  it('sends a requester-only person to the portal, never showing the console (D-129)', async () => {
+    api({ me: fakeSession({ user_type: 'requester', roles: ['requester'] }) });
+    const navigate = vi.fn();
+    at('/incidents');
+    render(<App navigate={navigate} />);
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/api/v1/auth/login?app=portal&returnTo=%2F');
+    });
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
+  });
+
+  it('staff open the requester portal from the user menu (D-129)', async () => {
+    api();
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null);
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('user-menu'));
+    fireEvent.click(await screen.findByText('Requester portal'));
+    expect(opened).toHaveBeenCalledWith(
+      '/api/v1/auth/login?app=portal&returnTo=%2F',
+      '_blank',
+      'noopener',
+    );
+    opened.mockRestore();
+  });
+
   it('follows the user locale: an Arabic user gets Arabic labels right-to-left', async () => {
     api({ me: fakeSession({ locale: 'ar' }) });
     render(<App />);
@@ -257,7 +282,13 @@ describe('console shell', () => {
   });
 
   it('shows the reconnecting banner when the API stops answering', async () => {
-    api({ routes: { 'GET /api/v1/health': 'network-error' } });
+    // Down means down: the requests made after the probe fail too (an answer means online).
+    api({
+      routes: {
+        'GET /api/v1/health': 'network-error',
+        'GET /api/v1/organization/settings': 'network-error',
+      },
+    });
     render(<App />);
     // The health tag is silent (it is its own message); the banner still reports the outage.
     expect(await screen.findByTestId('reconnecting-banner')).toBeDefined();

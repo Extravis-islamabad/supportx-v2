@@ -87,7 +87,8 @@ test('accessibility: main screens have no serious or critical axe violations', a
   await expect(page.getByTestId('profile-signature')).toBeVisible();
   await expectAccessible(page, 'my profile');
   await page.getByTestId('appearance-menu').click();
-  await page.getByText('Dark', { exact: true }).click();
+  // The header's control: My profile has a theme choice of its own (WP-042).
+  await page.getByTestId('appearance-controls').getByText('Dark', { exact: true }).click();
   await page.keyboard.press('Escape');
   await expectAccessible(page, 'my profile (dark)');
 });
@@ -110,14 +111,19 @@ test('where you are: breadcrumbs and the tab title, never "Technician Console", 
     user: { id: string };
   };
   const path = `/api/v1/users/${me.user.id}`;
-  const setLocale = async (ui_locale: string | null) => {
+  const save = async (data: Record<string, string | null>) => {
     const user = (await (await page.request.get(path)).json()) as { version: number };
     const saved = await page.request.patch(path, {
-      data: { ui_locale },
+      data,
       headers: { 'If-Match': `"${String(user.version)}"`, 'X-CSRF-Token': me.csrf_token },
     });
     expect(saved.status(), await saved.text()).toBe(200);
   };
+  const setLocale = (ui_locale: string | null) => save({ ui_locale });
+  // The top-menu check needs the top bar; the side bar is the default since D-124, and
+  // boundingBox() would wait for a menu that is never there. Put back afterwards.
+  const before = (await (await page.request.get(path)).json()) as { nav_layout: string };
+  await save({ nav_layout: 'top' });
   try {
     // The phone-width header in English: no axe violations, the user menu included (its name
     // and its visible initials agree; QA WP-036 BUG-07 and WP-020d).
@@ -154,6 +160,6 @@ test('where you are: breadcrumbs and the tab title, never "Technician Console", 
     // The loop ends at 390 px: the phone-width header in Arabic, the user menu included.
     await expectAccessible(page, 'header at 390 px (Arabic)');
   } finally {
-    await setLocale(null);
+    await save({ ui_locale: null, nav_layout: before.nav_layout });
   }
 });

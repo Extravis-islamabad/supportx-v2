@@ -174,6 +174,7 @@ export const ar: LabelResource = {
   'automation.why.assignment_move': 'نُقلت تلقائيًا عند إسنادها.',
   'automation.why.auto_closed':
     'أُغلقت تلقائيًا: أُبلغ مقدّم الطلب بالحل ولم يردّ في الوقت المحدد.',
+  'automation.why.fulfilled': 'تم التنفيذ: أُنجزت كل المهام المطلوبة',
   'automation.why.matrix': 'من مصفوفة الأولوية (الأثر والإلحاح).',
   'automation.why.requester_confirmed': 'أكّد مقدّم الطلب الحل، فأُغلقت.',
   'automation.why.requester_rejected': 'أفاد مقدّم الطلب بأن المشكلة لم تُحل، فأُعيد فتحها.',

@@ -64,6 +64,7 @@ export const en = {
   'files.preview_hint': 'This preview is for you only and expires in a few minutes.',
   'files.rescan': 'Check again',
   'files.staff_only': 'Staff only',
+  'files.take_photo': 'Take a photo',
   // Files UI (WP-022).
   'files.title': 'Attachments',
   'files.too_large_local': '{{name}} is larger than the limit of {{limit}} MB.',

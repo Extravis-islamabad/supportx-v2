@@ -90,6 +90,10 @@ class Placement:
     vip: bool = False
     # "The requester's manager" may run a transition (WP-029 part 2, REQ-WF-004).
     manager_id: uuid.UUID | None = None
+    # technician / requester: whom a requester may raise a request for (WP-030, REQ-SR-011).
+    user_type: str | None = None
+    active: bool = True  # an active, not deleted person (lane B review, #182)
+    can_sign_in: bool = True
 
 
 @dataclass(frozen=True)
@@ -568,9 +572,16 @@ async def person_placement(session: AsyncSession, user_id: uuid.UUID | None) -> 
         return Placement(None, None)
     row = (
         await session.execute(
-            select(User.site_id, User.department_id, User.vip, User.manager_id).where(
-                User.id == user_id
-            )
+            select(
+                User.site_id,
+                User.department_id,
+                User.vip,
+                User.manager_id,
+                User.user_type,
+                User.status,
+                User.deleted_at,
+                User.can_sign_in,
+            ).where(User.id == user_id)
         )
     ).one_or_none()
     if row is None:
@@ -578,7 +589,15 @@ async def person_placement(session: AsyncSession, user_id: uuid.UUID | None) -> 
     site_id = row.site_id
     if site_id is None and row.department_id is not None:
         site_id = await department_site(session, row.department_id)
-    return Placement(site_id, row.department_id, row.vip, row.manager_id)
+    return Placement(
+        site_id,
+        row.department_id,
+        row.vip,
+        row.manager_id,
+        row.user_type,
+        active=row.status == "active" and row.deleted_at is None,
+        can_sign_in=bool(row.can_sign_in),
+    )
 
 
 async def _people_using(column: Any, session: AsyncSession, unit_id: uuid.UUID) -> int:  # noqa: ANN401 - a User column

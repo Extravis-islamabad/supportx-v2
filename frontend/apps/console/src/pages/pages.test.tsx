@@ -1,5 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../App';
 import { consoleApi, fakeEntitlements, fakeSession, fakeUser, ME_PATH, problem } from '../test/api';
@@ -54,6 +58,88 @@ describe('My profile', () => {
   });
   afterEach(() => {
     restore();
+  });
+
+  it('theme, text size and formats follow the person: saved, applied, cleared (WP-042)', async () => {
+    const me = fakeSession({ text_scale: 130, time_format: '12h', chosen: ['time_format'] });
+    const fake = api({
+      me,
+      routes: {
+        [`PATCH ${ME_PATH}`]: { body: fakeUser({ version: 4 }), headers: { ETag: '"4"' } },
+      },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('preferences');
+    // The server's text size applies to the whole page (REQ-ADM-062).
+    await waitFor(() => {
+      expect(document.documentElement.dataset.textScale).toBe('130');
+    });
+    fireEvent.click(within(within(card).getByTestId('pref-theme')).getByText('Dark'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', ME_PATH).map((c) => c.body)).toContainEqual({ theme_mode: 'dark' });
+    });
+    await waitFor(() => {
+      expect(document.documentElement.dataset.theme).toBe('dark');
+    });
+    // A chosen format goes back to the tenant's default with "Default" (sent as null).
+    const timeFormat = within(card).getByTestId('pref-time_format');
+    fireEvent.mouseDown(timeFormat.querySelector('.ant-select-selector') ?? timeFormat);
+    fireEvent.click(await screen.findByTitle('Default'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', ME_PATH).map((c) => c.body)).toContainEqual({ time_format: null });
+    });
+    // Not chosen: the default is named with the value it gives now.
+    expect(within(card).getByTestId('pref-week_start').textContent).toContain('Default (Monday)');
+    // This browser now remembers Dark: forget it, or later tests would copy it to their server.
+    window.localStorage.removeItem('supportx.theme_mode');
+  });
+
+  it('a browser keeps its own theme as it opens; one with none copies it to the server once', async () => {
+    window.localStorage.setItem('supportx.theme_mode', 'dark');
+    try {
+      const fake = api({
+        me: fakeSession({ theme_mode: 'light' }),
+        routes: { [`PATCH ${ME_PATH}`]: { body: fakeUser({ version: 4 }) } },
+      });
+      // StrictMode, as in the dev build the e2e stack runs: effects run twice there, and the
+      // second run once applied the server's theme over this browser's own.
+      render(
+        <StrictMode>
+          <App />
+        </StrictMode>,
+      );
+      await screen.findByTestId('preferences');
+      await new Promise((resolve) => setTimeout(resolve, 50)); // let both effect runs settle
+      expect(document.documentElement.dataset.theme).toBe('dark'); // its own, not the server's
+      expect(fake.find('PATCH', ME_PATH)).toHaveLength(0); // the person already chose
+    } finally {
+      window.localStorage.removeItem('supportx.theme_mode');
+    }
+  });
+
+  it('contact details open live when an admin allows them (WP-028, rule 5c)', async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    let editable = false;
+    api({
+      routes: {
+        [`GET ${ME_PATH}`]: () => ({ body: fakeUser({ contact_editable: editable }) }),
+      },
+    });
+    try {
+      render(<App />);
+      expect(await screen.findByTestId('account-contact-locked')).toBeDefined();
+      editable = true;
+      act(() => {
+        realtime.publish(':broadcast', {
+          type: 'identity_access.contact_editing_changed',
+          ids: [],
+        });
+      });
+      expect(await screen.findByTestId('account-phone')).toBeDefined();
+    } finally {
+      setDefaultClientFactory(inertClientFactory);
+    }
   });
 
   it('saves with If-Match for the version it loaded', async () => {
@@ -281,8 +367,9 @@ describe('Admin › Users', () => {
     ).toBe('req-500');
   });
 
-  it('is not available to requesters (no users.view)', async () => {
-    api({ me: fakeSession({ roles: ['requester'], user_type: 'requester' }) });
+  it('is not available without users.view', async () => {
+    // A console user with a narrow custom role (requester-only people go to the portal, D-129).
+    api({ me: fakeSession({ roles: ['requester', 'custom_narrow'], user_type: 'technician' }) });
     render(<App />);
     expect(await screen.findByText(/Ask your administrator for access/)).toBeDefined();
   });

@@ -9,12 +9,24 @@ from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
-from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
+from app.modules.audit import AuditNote, audited
+from app.modules.identity_access.domain.identity import (
+    DateFormat,
+    Digits,
+    FormDensity,
+    NavLayout,
+    ThemeMode,
+    TimeFormat,
+    UrduScript,
+    UserType,
+    WeekStart,
+)
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import directory
@@ -75,15 +87,35 @@ class UserDetail(BaseModel):
     locale: Literal["en", "ar", "ur"]
     time_zone: str | None
     signature: str | None
+    # Not chosen (NULL): read as the default (the validator below), so both stay required and
+    # non-null in the contract (0071).
     nav_layout: NavLayout
     form_density: FormDensity
     ui_locale: Literal["en", "ar", "ur"] | None = Field(
         default=None, description="Language picked in the app; null: Keycloak's `locale`."
     )
+    theme_mode: ThemeMode | None = Field(default=None, description="Null: the browser's.")
+    text_scale: int | None = Field(default=None, description="Percent; null: 100.")
+    week_start: WeekStart | None = Field(default=None, description="Null: the tenant's.")
+    date_format: DateFormat | None = Field(default=None, description="Null: the tenant's.")
+    time_format: TimeFormat | None = Field(default=None, description="Null: the tenant's.")
+    digits: Digits | None = Field(default=None, description="Null: Western digits (D-135).")
+    urdu_script: UrduScript | None = Field(default=None, description="Null: Naskh (D-137).")
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime
     version: int = Field(description="Send it back as If-Match (the ETag) to update.")
+    contact_editable: bool = Field(
+        default=False,
+        description="Your own record only: whether you may change phone and mobile here.",
+    )
+
+    @field_validator("nav_layout", "form_density", mode="before")
+    @classmethod
+    def _default_when_not_chosen(cls, value: object, info: ValidationInfo) -> object:
+        if value is not None:
+            return value
+        return NavLayout.SIDE if info.field_name == "nav_layout" else FormDensity.COMFORTABLE
 
     @classmethod
     def of(cls, user: User, subject: Subject) -> "UserDetail":
@@ -91,6 +123,14 @@ class UserDetail(BaseModel):
         data = cls.model_validate(user, from_attributes=True).model_dump()
         data["signed_in_before"] = user.external_subject is not None
         return cls.model_validate(visible(subject, directory.USERS, data))
+
+
+async def _own_detail(session: AsyncSession, user: User, subject: Subject) -> UserDetail:
+    """The detail, saying on your own record whether My account may change your numbers."""
+    detail = UserDetail.of(user, subject)
+    if user.id == subject.user_id:
+        detail.contact_editable = await directory.contact_editable(session, user)
+    return detail
 
 
 class UserPage(Page[UserDetail]):
@@ -115,6 +155,23 @@ class UserPreferencesPatch(BaseModel):
         max_length=8,
         description="UI language (en, ar, ur); null: follow the identity provider's locale.",
     )
+    # WP-042 (REQ-ADM-059, 062). Null clears the choice: the default applies again.
+    theme_mode: str | None = Field(
+        default=None, max_length=16, description="light, dark, high_contrast or system."
+    )
+    text_scale: int | None = Field(default=None, description="Text size: 90 to 150, in tens.")
+    week_start: str | None = Field(default=None, max_length=10, description="First weekday.")
+    date_format: str | None = Field(default=None, max_length=12, description="e.g. dd/mm/yyyy.")
+    time_format: str | None = Field(default=None, max_length=4, description="24h or 12h.")
+    digits: str | None = Field(
+        default=None, max_length=16, description="western or arabic_indic (D-135)."
+    )
+    urdu_script: str | None = Field(
+        default=None, max_length=16, description="naskh or nastaliq (D-137)."
+    )
+    # REQ-PRT-013 AC2 (WP-028): only when the tenant allows it and no directory keeps them.
+    phone: str | None = Field(default=None, max_length=100, description="Your phone number.")
+    mobile: str | None = Field(default=None, max_length=100, description="Your mobile number.")
 
 
 ViewUsers = Annotated[Subject, Depends(require_permission("users.view"))]
@@ -169,7 +226,7 @@ async def get_user(
     if cached is not None:
         return cached  # type: ignore[return-value]  # 304 without a body
     set_etag(response, user.version)
-    return UserDetail.of(user, subject)
+    return await _own_detail(session, user, subject)
 
 
 @router.patch(
@@ -188,11 +245,19 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     session: TenantSession,
     subject: EditProfile,
     request: Request,
+    note: Annotated[
+        AuditNote, audited("user.contact_changed", object_type="user", object_param="user_id")
+    ],
 ) -> UserDetail:
-    """Change your own signature or time zone. Needs `If-Match` with the ETag you read.
+    """Change your own preferences (and contact details if allowed). Needs `If-Match`.
 
     A stale If-Match gets 409 with `changed_fields`, `changed_by` and `changed_at`.
     """
+    sent_contact = body.model_fields_set & directory.CONTACT_FIELDS
+    before: dict[str, str | None] = {}
+    if sent_contact and user_id == subject.user_id:  # others are refused by the service
+        current = await directory.get_user(session, subject, user_id)
+        before = {name: getattr(current, name) for name in sent_contact}
     user = await directory.update_preferences(
         session,
         subject,
@@ -201,5 +266,14 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         changes=body.model_dump(include=body.model_fields_set),
         source=source_of(request),
     )
+    # Contact details are personal data: audited when they really changed (field names only,
+    # never the numbers); resending the same number writes no entry.
+    contact = sorted(
+        name
+        for name in body.model_fields_set & directory.CONTACT_FIELDS
+        if before.get(name) != getattr(user, name)
+    )
+    note.skip = not contact
+    note.details = {"changed_fields": contact}
     set_etag(response, user.version)
-    return UserDetail.of(user, subject)
+    return await _own_detail(session, user, subject)

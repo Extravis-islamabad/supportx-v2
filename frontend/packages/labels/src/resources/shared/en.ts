@@ -55,6 +55,7 @@ export const en = {
   'appearance.theme.dark': 'Dark',
   'appearance.theme.high_contrast': 'High contrast',
   'appearance.theme.light': 'Light',
+  'appearance.theme.system': 'Follow the system',
   'appearance.title': 'Appearance',
   'check_status.failed': 'Failed',
   'check_status.not_configured': 'Not configured',
@@ -160,12 +161,15 @@ export const en = {
   'nav.admin_files': 'Files',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
+  'nav.admin_instance': 'Instance settings',
   // WP-040: the connector catalogue.
   'nav.admin_integrations': 'Integrations',
   'nav.admin_knowledge': 'Knowledge',
+  'nav.admin_licence': 'Licence and plan',
   'nav.admin_mail': 'Mail',
   'nav.admin_notifications': 'Notifications',
   'nav.admin_organization': 'Organisation',
+  'nav.admin_requests': 'Service requests',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'Roles',
   'nav.admin_security': 'Sign-in and security',
@@ -191,6 +195,7 @@ export const en = {
   'nav.profile': 'My profile',
   'nav.releases': 'Releases',
   'nav.reports': 'Reports',
+  'nav.requester_portal': 'Requester portal',
   'nav.requests': 'Service requests',
   'palette.no_results': 'Nothing matches',
   'palette.open': 'Search',
@@ -375,6 +380,9 @@ export const en = {
     'Every incident gets an ID made of the prefix and the next number. Old IDs keep working after a change.',
   'settings.order': 'Order',
   'settings.other_stays': '"Other" always stays: it is the way out when no reason fits.',
+  'settings.portal_show_due_time': 'Requesters see the expected resolution time',
+  'settings.portal_show_due_time_help':
+    'The portal shows when an incident should be resolved, from its SLA.',
   'settings.prefix': 'Prefix',
   'settings.prefix_help': '2 to 6 capital letters, for example INC.',
   'settings.previous_status': 'The status before',
@@ -438,6 +446,84 @@ export const en = {
   'settings.to_status': 'To',
   'settings.use_shipped_name': 'Use the built-in name (translated for every language)',
   'settings.yes': 'Yes',
+  'setup.group.audit': 'Audit',
+  'setup.group.automation_sla': 'Automation and SLA',
+  'setup.group.channels': 'Channels and integrations',
+  'setup.group.licence': 'Licence and plan',
+  'setup.group.organisation': 'Organisation and branding',
+  'setup.group.people_access': 'People and access',
+  'setup.group.service_desk': 'Service desk',
+  'setup.home': 'Setup home',
+  'setup.intro':
+    'Everything you can set up, grouped by task. You see only what your role lets you change.',
+  'setup.menu': 'Setup sections',
+  'setup.no_results': 'Nothing in setup matches “{{query}}”.',
+  'setup.page.ai.description':
+    'AI features on or off, masking, how long AI conversations are kept, and the model that answers.',
+  'setup.page.ai.keywords':
+    'ai, artificial intelligence, assistant, model, masking, retention, summary, reply drafts',
+  'setup.page.api-keys.description':
+    'Keys that let other systems use the API: who made them, their scopes, expiry and use.',
+  'setup.page.api-keys.keywords':
+    'api keys, tokens, integrations, scopes, automation, scripts, revoke',
+  'setup.page.audit.description': 'Every change and sign-in, with its tamper-evident chain.',
+  'setup.page.audit.keywords': 'audit, log, history, changes, sign-ins, compliance, trail',
+  'setup.page.automation.description': 'Business rules, triggers and the loop guard.',
+  'setup.page.automation.keywords': 'automation, rules, triggers, workflows, auto assign, actions',
+  'setup.page.branding.description': 'Logo, colours and the portal’s look.',
+  'setup.page.branding.keywords': 'branding, logo, colours, colors, theme, portal, look',
+  'setup.page.files.description': 'Upload limits, allowed file types and malware scanning.',
+  'setup.page.files.keywords':
+    'files, attachments, uploads, size, storage, malware, virus, scanning',
+  'setup.page.incidents.description':
+    'Levels, categories, templates, closure codes and reasons for incidents.',
+  'setup.page.incidents.keywords':
+    'incidents, tickets, categories, templates, levels, closure codes, reasons, priority, statuses',
+  'setup.page.instance.description':
+    'Time zone, formats, fiscal year, base currency and the languages offered.',
+  'setup.page.instance.keywords':
+    'instance, time zone, timezone, date format, week start, fiscal year, currency, languages, country',
+  'setup.page.integrations.description': 'Connectors and directories such as Entra ID and LDAP.',
+  'setup.page.integrations.keywords':
+    'integrations, connectors, directory, entra, azure ad, ldap, active directory, sync',
+  'setup.page.knowledge.description': 'Article numbering, approvals and article types.',
+  'setup.page.knowledge.keywords':
+    'knowledge, articles, kb, approvals, article types, numbering, prefix',
+  'setup.page.licence.description': 'Your edition, what it includes, and how much of it is used.',
+  'setup.page.licence.keywords':
+    'licence, license, plan, subscription, edition, seats, usage, upgrade, expiry',
+  'setup.page.mail.description':
+    'Mailboxes that turn e-mail into incidents, and the sending address.',
+  'setup.page.mail.keywords':
+    'mail, email, mailboxes, smtp, imap, inbound, outgoing, domains, sender',
+  'setup.page.notifications.description': 'Who is told what, and the messages they receive.',
+  'setup.page.notifications.keywords':
+    'notifications, alerts, messages, templates, email templates, recipients',
+  'setup.page.organization.description':
+    'Sites, departments and support groups, and who belongs to them.',
+  'setup.page.organization.keywords':
+    'sites, departments, groups, teams, locations, offices, members',
+  'setup.page.requests.description':
+    'Service requests: on whose behalf requesters may raise them, and the request views.',
+  'setup.page.requests.keywords':
+    'service requests, catalog, on behalf, raise for, requests, views',
+  'setup.page.roles.description': 'What each role may do, and who has it.',
+  'setup.page.roles.keywords': 'roles, permissions, rights, access, privileges, admin',
+  'setup.page.security.description':
+    'Sign-in, passwords, two-step sign-in, single sign-on, sessions and API keys.',
+  'setup.page.security.keywords':
+    'security, password, mfa, two-step, 2fa, sso, saml, oidc, sessions, timeout, invitations, api keys',
+  'setup.page.sla.description': 'Service targets, working hours, holidays and escalations.',
+  'setup.page.sla.keywords':
+    'sla, targets, response time, resolution, business hours, calendar, holidays, escalation',
+  'setup.page.users.description':
+    'Add people, change their type and status, import them from a file.',
+  'setup.page.users.keywords':
+    'people, users, technicians, requesters, import, staff, accounts, deactivate',
+  'setup.palette_group': 'Setup',
+  'setup.search': 'Search setup',
+  'setup.search_placeholder': 'e.g. password, holidays, logo',
+  'setup.title': 'Setup',
   'shell.breadcrumbs': 'You are here',
   'shell.coming_soon': 'This area is being built and will be available in a coming release.',
   'shell.go_home': 'Go to home',

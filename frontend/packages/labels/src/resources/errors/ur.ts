@@ -2,6 +2,13 @@ import type { LabelResource } from '../en';
 
 // errors labels (see ../README.md).
 export const ur: LabelResource = {
+  'errors.action_link_expired':
+    'اس لنک کی میعاد ختم ہو گئی ہے۔ اس کے بجائے درخواست ایپ میں کھولیں۔',
+  'errors.action_link_not_found': 'یہ لنک درست نہیں۔',
+  'errors.action_link_revoked': 'اب اس کی ضرورت نہیں: درخواست کا فیصلہ ہو چکا یا واپس لے لی گئی۔',
+  'errors.action_link_sign_in_required': 'اس درخواست کو منظور یا مسترد کرنے کے لیے سائن ان کریں۔',
+  'errors.action_link_stale': 'یہ لنک بھیجے جانے کے بعد درخواست بدل گئی۔ اسے ایپ میں کھولیں۔',
+  'errors.action_link_used': 'یہ لنک پہلے ہی استعمال ہو چکا ہے۔',
   'errors.already_taken': '{{taken_by}} نے ابھی اسے لے لیا ہے۔ دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.already_yours': 'یہ پہلے ہی آپ کو تفویض ہے۔',
   'errors.announcement_not_found': 'یہ اعلان موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
@@ -24,6 +31,10 @@ export const ur: LabelResource = {
   'errors.api_keys_people_off': 'آپ کا ادارہ لوگوں کو اپنی API کلیدیں بنانے کی اجازت نہیں دیتا۔',
   'errors.api_keys_unavailable': 'اس تنصیب پر API کلیدیں ترتیب نہیں دی گئیں۔',
   'errors.api_scope_missing': 'اس API کلید کے پاس دائرہ {{scope}} نہیں ہے۔',
+  'errors.approval_changed': 'یہ منظوری اس دوران بدل گئی۔ اسے دوبارہ کھولیں۔',
+  'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',
+  'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
+  'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
   'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
   'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
   'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
@@ -53,6 +64,7 @@ export const ur: LabelResource = {
   'errors.cannot_deactivate_self': 'آپ خود کو غیر فعال نہیں کر سکتے۔',
   'errors.cannot_publish': 'یہ اعلان ابھی شائع نہیں کیا جا سکتا۔',
   'errors.cannot_stop_own_sign_in': 'آپ اپنا سائن اِن خود بند نہیں کر سکتے۔',
+  'errors.catalog_item_not_found': 'یہ کیٹلاگ آئٹم موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
   'errors.category_not_found': 'یہ زمرہ موجود نہیں۔',
   'errors.certificate_invalid':
     'سرٹیفکیٹ پڑھا نہیں جا سکا۔ PEM کو اس کی پرائیویٹ کی کے ساتھ پیسٹ کریں۔',
@@ -64,10 +76,15 @@ export const ur: LabelResource = {
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.conflict':
     'کسی اور نے یہ آئٹم تبدیل کر دیا۔ تازہ ترین ورژن دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.console_requester_only': 'یہ اکاؤنٹ درخواست گزار پورٹل استعمال کرتا ہے، کنسول نہیں۔',
+  'errors.contact_editing_off':
+    'آپ کی تنظیم یہاں رابطے کی تفصیلات بدلنے کی اجازت نہیں دیتی۔ سروس ڈیسک سے پوچھیں۔',
   'errors.conversation_entry_not_found': 'یہ جواب یا نوٹ اب موجود نہیں ہے۔',
   'errors.copy_reference': 'حوالہ کاپی کریں',
   'errors.csrf_failed':
     'اس درخواست کی تصدیق نہیں ہو سکی۔ براہِ کرم صفحہ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
+  'errors.currency_change_needs_confirmation':
+    'بنیادی کرنسی بدلنے کے لیے تصدیق درکار ہے: پہلے سے درج رقمیں پرانی کرنسی میں رہیں گی۔',
   'errors.custom_field_entity_not_found': 'اس قسم کے ریکارڈ کے لیے اپنی مرضی کے خانے دستیاب نہیں۔',
   'errors.custom_field_in_use':
     'ریکارڈز میں اس خانے کی قدریں موجود ہیں۔ پرانے ریکارڈز پر رکھنے کے لیے اسے ریٹائر کریں، یا ہٹا دیں: پرانی قدریں تاریخچے میں رہیں گی۔',
@@ -143,6 +160,7 @@ export const ur: LabelResource = {
   'errors.field.cannot_link_itself': 'ریکارڈ کو خود سے منسلک نہیں کیا جا سکتا۔',
   'errors.field.cannot_see_record':
     'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
+  'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
   'errors.field.category_disabled': 'یہ زمرہ اب استعمال میں نہیں۔',
   'errors.field.category_not_found': 'یہ زمرہ موجود نہیں۔',
   'errors.field.certificate_key_mismatch': 'نجی کلید اس سرٹیفکیٹ کی نہیں ہے۔',
@@ -155,12 +173,18 @@ export const ur: LabelResource = {
     'صرف فون یا بالمشافہ چنا جا سکتا ہے؛ دوسرے ذرائع خود بخود طے ہوتے ہیں۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
+  'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
+  'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
+  'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
   'errors.field.dashboard_not_shared':
     'کسی کردار کا ہوم صرف بلٹ اِن یا شیئر شدہ ڈیش بورڈ ہو سکتا ہے۔',
+  'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
+  'errors.field.default_language_not_offered':
+    'پہلے سے طے شدہ زبان دستیاب زبانوں میں سے ہونی چاہیے۔',
   'errors.field.default_required':
     'ہمیشہ ایک ڈیفالٹ سانچہ ہوتا ہے۔ اس کے بجائے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.department_not_found': 'کوئی فعال شعبہ منتخب کریں۔',
@@ -171,6 +195,7 @@ export const ur: LabelResource = {
   'errors.field.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
   'errors.field.domain_reserved': 'اس انسٹالیشن کے اپنے ڈومین کے پتے خودکار طور پر دیے جاتے ہیں۔',
   'errors.field.due_in_past': 'مستقبل کا کوئی وقت منتخب کریں۔',
+  'errors.field.duplicate': 'یہ پہلے سے استعمال میں ہے۔',
   'errors.field.duplicate_column': 'ہر کالم ایک بار درج کیا جا سکتا ہے۔',
   'errors.field.duplicate_dimension': 'یہ گروپ بندی پہلے سے استعمال میں ہے۔',
   'errors.field.duplicate_measure': 'ہر پیمانہ ایک ہی بار استعمال ہو سکتا ہے۔',
@@ -178,6 +203,7 @@ export const ur: LabelResource = {
   'errors.field.duplicate_permission': 'یہ اجازت دو بار درج ہے۔',
   'errors.field.duplicate_sort_field': 'ترتیب میں ہر فیلڈ صرف ایک بار استعمال ہو سکتی ہے۔',
   'errors.field.duration_mismatch': 'دورانیہ آغاز اور اختتام کے اوقات سے میل نہیں کھاتا۔',
+  'errors.field.email_invalid': 'name@example.com جیسا ای میل پتہ درج کریں۔',
   'errors.field.email_not_valid': 'ای میل پتہ درج کریں، جیسے name@example.com۔',
   'errors.field.email_required_for_sign_in':
     'سائن اِن کے لیے ای میل ضروری ہے۔ ای میل شامل کریں یا اس فرد کو رابطہ بنائیں۔',
@@ -224,6 +250,7 @@ export const ur: LabelResource = {
   'errors.field.invalid_code': 'حروف، اعداد، نقطے یا ڈیش استعمال کریں (زیادہ سے زیادہ 50)۔',
   'errors.field.invalid_colour': '#1677ff جیسا رنگ منتخب کریں۔',
   'errors.field.invalid_currency': 'تین حرفی کرنسی کوڈ استعمال کریں، جیسے USD یا PKR۔',
+  'errors.field.invalid_date': 'تاریخ درج کریں۔',
   'errors.field.invalid_email': 'یہ پتے درست نہیں ہیں: {{addresses}}',
   'errors.field.invalid_group': 'گروپ میں کم از کم ایک شرط ہونی چاہیے۔',
   'errors.field.invalid_json': 'فلٹر درست نہیں ہے۔',
@@ -231,17 +258,20 @@ export const ur: LabelResource = {
   'errors.field.invalid_language':
     'نام انگریزی، عربی اور اردو میں دیے جا سکتے ہیں، ہر ایک 200 حروف تک۔',
   'errors.field.invalid_node': 'فلٹر کا یہ حصہ نہ شرط ہے نہ گروپ۔',
+  'errors.field.invalid_number': 'عدد درج کریں۔',
   'errors.field.invalid_pattern': 'یہ پیٹرن درست ریگولر ایکسپریشن نہیں ہے۔',
   'errors.field.invalid_prefix': '2 سے 6 بڑے انگریزی حروف استعمال کریں۔',
   'errors.field.invalid_range': 'حد کا آغاز اس کے اختتام کے بعد ہے۔',
   'errors.field.invalid_sort': 'ترتیب کے لیے ایک سے تین فیلڈز منتخب کریں۔',
   'errors.field.invalid_tag': 'ٹیگ میں حروف، ہندسے، خالی جگہ، نقطے اور ڈیش ہو سکتے ہیں (40 تک)۔',
-  'errors.field.invalid_value': 'یہ قدر اس فیلڈ کے لیے درست نہیں ہے۔',
+  'errors.field.invalid_text': 'متن درج کریں۔',
+  'errors.field.invalid_value': 'یہ قدر درست نہیں۔',
   'errors.field.invitation_days_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
   'errors.field.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.field.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.field.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
   'errors.field.key_cannot_change': 'خانے کا API نام تبدیل نہیں ہو سکتا۔',
+  'errors.field.languages_invalid': 'انگریزی ہمیشہ دستیاب ہے؛ عربی اور اردو میں سے بھی چنیں۔',
   'errors.field.last_value': 'کم از کم ایک قدر استعمال میں رہنی چاہیے۔',
   'errors.field.level_does_nothing':
     'یہ درجہ نہ کسی کو بتاتا ہے نہ کچھ کرتا ہے۔ وصول کنندگان یا کوئی کارروائی شامل کریں۔',
@@ -252,6 +282,7 @@ export const ur: LabelResource = {
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
   'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
+  'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
   'errors.field.manager_loop':
     'یہ فرد پہلے ہی اس مینیجر کا مینیجر ہے (براہِ راست یا دوسروں کے ذریعے)۔',
   'errors.field.matrix_incomplete': 'اثر اور فوریت کے ہر جوڑے کو ترجیح درکار ہے۔',
@@ -259,6 +290,7 @@ export const ur: LabelResource = {
   'errors.field.message_required': 'کم از کم انگریزی میں پیغام لکھیں۔',
   'errors.field.mfa_grace_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
   'errors.field.mfa_mode_invalid': 'بند، اختیاری یا لازمی منتخب کریں۔',
+  'errors.field.month_out_of_range': 'فہرست میں سے مہینہ چنیں۔',
   'errors.field.move_articles_first': 'اس موضوع میں ابھی مضامین ہیں۔ منتخب کریں کہ وہ کہاں جائیں۔',
   'errors.field.my_groups_in_records':
     'فہرست "میرے گروپ" استعمال نہیں کر سکتی۔ چارٹ استعمال کریں یا گروپ منتخب کریں۔',
@@ -269,6 +301,7 @@ export const ur: LabelResource = {
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
   'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
+  'errors.field.not_found': 'یہ اب موجود نہیں۔',
   'errors.field.note_too_long': 'نوٹ زیادہ سے زیادہ {{max}} حروف کا ہو سکتا ہے۔',
   'errors.field.number_already_used':
     'یہ نمبر پہلے ہی استعمال ہو چکا ہے۔ {{minimum}} یا اس سے زیادہ منتخب کریں۔',
@@ -369,16 +402,22 @@ export const ur: LabelResource = {
   'errors.field.technician_not_in_group': 'یہ ٹیکنیشن منتخب گروپ کا رکن نہیں۔',
   'errors.field.template_disabled': 'یہ سانچہ بند کر دیا گیا ہے۔ کوئی اور سانچہ منتخب کریں۔',
   'errors.field.template_not_found': 'یہ سانچہ اب موجود نہیں۔ کوئی اور منتخب کریں۔',
+  'errors.field.time_format_unknown': '24 گھنٹے یا 12 گھنٹے کا وقت چنیں۔',
+  'errors.field.time_zone_unknown': 'فہرست میں سے ٹائم زون چنیں۔',
   'errors.field.timezone_required': 'ٹائم زون شامل کریں۔',
   'errors.field.title_required': 'عنوان درج کریں۔',
   'errors.field.too_deep': 'زمروں کی زیادہ سے زیادہ تین سطحیں ہیں۔',
   'errors.field.too_many': 'وصول کنندگان بہت زیادہ ہیں۔',
   'errors.field.too_many_actions': 'ایک قاعدے میں زیادہ سے زیادہ {{max}} عمل ہو سکتے ہیں۔',
+  'errors.field.too_many_approvers': 'ایک مرحلے میں زیادہ سے زیادہ 10 منظور کنندگان ہو سکتے ہیں۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
   'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
   'errors.field.too_many_levels': 'ہر ہدف کے لیے زیادہ سے زیادہ {{max}} ایسکلیشن درجے۔',
+  'errors.field.too_many_options': 'ایک سوال میں زیادہ سے زیادہ 50 انتخاب ہو سکتے ہیں۔',
+  'errors.field.too_many_questions': 'فارم میں زیادہ سے زیادہ 30 سوال ہو سکتے ہیں۔',
   'errors.field.too_many_recipients': 'زیادہ سے زیادہ 50 افراد اور 20 گروپ۔',
   'errors.field.too_many_records': 'زیادہ سے زیادہ {{max}} ریکارڈ منتخب کریں۔',
+  'errors.field.too_many_tasks': 'ایک منصوبے میں زیادہ سے زیادہ 20 کام ہو سکتے ہیں۔',
   'errors.field.too_many_values': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
   'errors.field.topic_too_deep': 'موضوعات زیادہ سے زیادہ {{max}} درجے گہرے ہو سکتے ہیں۔',
   'errors.field.topic_under_itself': 'کوئی موضوع خود اپنے یا اپنے ذیلی موضوع کے نیچے نہیں جا سکتا۔',
@@ -398,6 +437,7 @@ export const ur: LabelResource = {
   'errors.field.unknown_parameter': 'فہرست کا یہ اختیار پہچانا نہیں گیا۔',
   'errors.field.unknown_permission': 'یہ اجازت موجود نہیں ہے۔',
   'errors.field.unknown_priority': 'فہرست سے ترجیح منتخب کریں۔',
+  'errors.field.unknown_question': 'اس فارم میں یہ سوال نہیں ہے۔',
   'errors.field.unknown_recipient': 'منتخب کردہ کوئی شخص اب فعال نہیں یا کوئی گروپ اب موجود نہیں۔',
   'errors.field.unknown_record_type': 'منتخب کریں کہ قاعدہ کس پر لاگو ہو۔',
   'errors.field.unknown_reference': 'یہاں بتایا گیا کوئی شخص یا گروپ اب موجود نہیں۔',
@@ -414,6 +454,7 @@ export const ur: LabelResource = {
   'errors.field.value_too_long_max': 'زیادہ سے زیادہ {{max_length}} حروف استعمال کریں۔',
   'errors.field.value_too_short': 'کم از کم {{min}} حروف استعمال کریں۔',
   'errors.field.week_empty': 'کم از کم ایک کام کا دورانیہ شامل کریں۔',
+  'errors.field.week_start_unknown': 'ہفتہ شروع ہونے کا دن چنیں۔',
   'errors.field.week_too_many_periods':
     'ایک ہفتے میں زیادہ سے زیادہ 28 کام کے دورانیے ہو سکتے ہیں۔',
   'errors.field.whole_number_required': 'مکمل عدد درج کریں۔',
@@ -505,6 +546,20 @@ export const ur: LabelResource = {
   'errors.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
   'errors.last_tenant_admin': 'ادارے میں کم از کم ایک ادارہ منتظم ہونا ضروری ہے۔',
+  'errors.ldap_attribute_invalid': 'ڈائریکٹری خصوصیت کا نام درج کریں: حروف، ہندسے اور خط فاصل۔',
+  'errors.ldap_bind_password_missing': 'کوئی بائنڈ پاس ورڈ محفوظ نہیں ہے۔ اسے دوبارہ درج کریں۔',
+  'errors.ldap_dn_invalid': 'ایک ممتاز نام درج کریں، جیسے OU=People,DC=example,DC=com۔',
+  'errors.ldap_federation_keycloak_unavailable':
+    'شناختی سروس نے جواب نہیں دیا۔ واپس آنے پر ڈائریکٹری جوڑ دی جائے گی۔',
+  'errors.ldap_federation_not_installed':
+    'اس تنصیب پر AD/LDAP فعال نہیں ہے۔ اپنے منتظم سے اسے فعال کرنے کو کہیں۔',
+  'errors.ldap_federation_refused':
+    'شناختی سروس نے ڈائریکٹری کی ترتیبات مسترد کر دیں۔ سرور، بائنڈ اکاؤنٹ اور راستے چیک کریں۔',
+  'errors.ldap_filter_invalid': 'قوسین میں LDAP فلٹر درج کریں، جیسے (objectClass=person)۔',
+  // WP-040 AD/LDAP (D-130)
+  'errors.ldap_host_invalid': 'ڈائریکٹری سرور کا نام یا IP پتہ درج کریں، ldap:// یا راستے کے بغیر۔',
+  'errors.ldap_single_tenant_only':
+    'AD/LDAP ڈائریکٹریز صرف اس تنصیب پر جوڑی جا سکتی ہیں جو ایک ادارے کے لیے ہو۔',
   'errors.limit_reached':
     'آپ کے پلان کی اس کے لیے حد پوری ہو چکی ہے۔ پلان بڑھانے کے لیے اپنے منتظم سے کہیں۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
@@ -546,11 +601,13 @@ export const ur: LabelResource = {
     'آپ کا اکاؤنٹ ابھی کسی ادارے سے منسلک نہیں۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
   'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
+  'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
   'errors.not_found': 'آئٹم نہیں ملا۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
   'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
   'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
   'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.on_behalf_out_of_scope': 'آپ اس شخص کے لیے درخواست نہیں دے سکتے۔ سروس ڈیسک سے پوچھیں۔',
   'errors.open_work_blocked': 'یہ کام کھلا ہونے تک یہ نہیں ہو سکتا: {{items}}۔',
   'errors.open_work_unconfirmed':
     'کام ابھی کھلا ہے: {{items}}۔ پھر بھی آگے بڑھنے کے لیے تصدیق کریں۔',
@@ -569,6 +626,8 @@ export const ur: LabelResource = {
   'errors.permission_denied': 'آپ کو یہ کرنے کی اجازت نہیں ہے۔',
   'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
+  'errors.plain_connection_refused':
+    'بغیر انکرپشن کا کنکشن مسترد کیا جاتا ہے جب تک آپ اس کی اجازت نہ دیں۔',
   'errors.precondition_required':
     'اس تبدیلی کے لیے وہ ورژن درکار ہے جس میں آپ ترمیم کر رہے ہیں۔ آئٹم دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.private_key_unreadable':
@@ -675,6 +734,8 @@ export const ur: LabelResource = {
   'errors.validation_failed': 'کچھ فیلڈز پر توجہ درکار ہے۔',
   'errors.version_conflict':
     'آپ کے کھولنے کے بعد کسی اور نے یہ آئٹم محفوظ کر دیا۔ ان کی تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',
+  'errors.withdraw_not_pending': 'صرف منظوری کی منتظر درخواست واپس لی جا سکتی ہے۔',
   'errors.work_item_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.work_item_not_found': 'یہ ریکارڈ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',

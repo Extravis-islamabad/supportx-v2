@@ -56,8 +56,15 @@ for _ in $(seq 1 90); do
 done
 [ -n "$promoted" ] || { echo "no replica promoted"; exit 1; }
 echo "promoted: $promoted"
-for _ in $(seq 1 60); do [ "$(me)" = 200 ] && break; sleep 2; done
-[ "$(me)" = 200 ] || { echo "the session did not survive the failover"; exit 1; }
+# Steady, not once: for a moment after the promotion a request can still reach an API copy that
+# hasn't followed the new master. Five answers in a row, within two minutes.
+steady=0
+for _ in $(seq 1 120); do
+  if [ "$(me)" = 200 ]; then steady=$((steady + 1)); else steady=0; fi
+  [ "$steady" -ge 5 ] && break
+  sleep 1
+done
+[ "$steady" -ge 5 ] || { echo "the session did not survive the failover"; exit 1; }
 echo "the same session works after the failover"
 
 echo "== $master starts again"

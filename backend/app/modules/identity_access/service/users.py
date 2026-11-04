@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import Boolean, func, literal_column, select, update
+from sqlalchemy import Boolean, func, literal_column, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,12 +34,19 @@ from app.modules.identity_access.events import (
     UserProvisioned,
     UserUpdated,
 )
-from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.infra.models import GroupRole, Role, User, UserRole
 from app.modules.identity_access.service.identity_settings import get_identity_settings
 from app.modules.identity_access.service.invitations import mark_accepted
 from app.modules.identity_access.service.roles import map_identity_roles
 from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
-from app.modules.organization import TenantStatus, find_department, find_site, get_current_tenant
+from app.modules.organization import (
+    TenantStatus,
+    active_groups,
+    find_department,
+    find_site,
+    get_current_tenant,
+    memberships,
+)
 from app.shared.events import Actor, DomainEvent, record_event
 from app.shared.ids import new_id
 
@@ -78,6 +85,9 @@ class ProvisionedUser:
     # The tenant's session limits for the app signed in to (REQ-SEC-029), in seconds.
     session_idle_seconds: int
     session_absolute_seconds: int
+    # The stored type (technician / requester): SupportX's record decides after the first
+    # sign-in, never Keycloak's roles (D-029); the console/portal landing follows it (WP-028).
+    user_type: str = "requester"
 
 
 async def count_technicians(session: AsyncSession) -> int:
@@ -283,6 +293,9 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
             )
         # First login since WP-016: Keycloak roles become SupportX role assignments, once (D-029).
         mapped = await map_identity_roles(session, user_id, identity.roles, now)
+        stored_type = str(
+            (await session.execute(select(User.user_type).where(User.id == user_id))).scalar_one()
+        )
     if mapped and on_roles_mapped is not None:
         # Committed: drop any compiled permissions cached from before (the events do it too,
         # but the browser asks for /auth/me immediately after this login).
@@ -294,7 +307,51 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
         tenant_name=tenant.name,
         session_idle_seconds=idle,
         session_absolute_seconds=absolute,
+        user_type=stored_type,
     )
+
+
+async def requester_only(database: Database, tenant_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Whether every SupportX role the person holds is `requester` (D-129).
+
+    Requester-only people never open the console; holding any other role (a technician or
+    admin role, system or custom) does; holding no role at all does not. Read from SupportX's
+    records (D-029); someone whose roles were never mapped holds their type's default role, as
+    the policy compiles it.
+    """
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        # Their own roles and those of the active groups they belong to (WP-042), as the policy
+        # compiles them: a technician role reached through a group opens the console too.
+        carrying = await active_groups(session, (await memberships(session, user_id)).group_ids)
+        keys = set(
+            await session.scalars(
+                select(Role.key).where(
+                    Role.deleted_at.is_(None),
+                    or_(
+                        Role.id.in_(select(UserRole.role_id).where(UserRole.user_id == user_id)),
+                        Role.id.in_(
+                            select(GroupRole.role_id).where(GroupRole.group_id.in_(carrying))
+                        ),
+                    ),
+                )
+            )
+        )
+        if not keys:  # as the policy compiles it: never mapped = the type's default role
+            person = (
+                await session.execute(
+                    select(User.user_type, User.roles_mapped_at).where(User.id == user_id)
+                )
+            ).one_or_none()
+            if person is not None and person.roles_mapped_at is None:
+                keys = {
+                    "technician"
+                    if person.user_type == UserType.TECHNICIAN.value
+                    else REQUESTER_ROLE
+                }
+    return keys <= {REQUESTER_ROLE}
+
+
+REQUESTER_ROLE = "requester"
 
 
 async def record_logout(

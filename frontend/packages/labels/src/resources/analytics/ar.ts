@@ -326,6 +326,8 @@ export const ar: LabelResource = {
   'report_export_status.failed': 'فشل',
   'report_export_status.ready': 'جاهز',
   'report_export_status.running': 'قيد التحضير',
+  'report_field.approval_status': 'حالة الموافقة',
+  'report_field.catalog_item_id': 'عنصر الكتالوج',
   'report_field.created_at': 'تاريخ الإنشاء',
   'report_field.created_by': 'أنشأه',
   'report_field.desk_id': 'المكتب',
