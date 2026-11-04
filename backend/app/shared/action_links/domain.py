@@ -25,18 +25,21 @@ from enum import StrEnum
 
 TOKEN_BYTES = 32
 TOKEN_LENGTH = 43  # base64url of 32 bytes, unpadded
-DEFAULT_TTL = timedelta(hours=72)  # plan D7: e-mail approval links
+DEFAULT_TTL = timedelta(hours=72)  # D-132: e-mail approval links
 MAX_TTL = timedelta(days=7)
+MAX_FAILED_USES = 5  # refused uses of one link before it is revoked (lane B review)
 
 
 class Refusal(StrEnum):
     """Why a link does nothing (shown as a plain page; audited)."""
 
-    NOT_FOUND = "action_link_not_found"  # unknown, malformed or another tenant's
+    # Unknown, malformed, another tenant's, someone else's, or already used: one answer, so a
+    # forwarded or replayed link tells its holder nothing (lane B review).
+    NOT_FOUND = "action_link_not_found"
     EXPIRED = "action_link_expired"
-    USED = "action_link_used"
-    REVOKED = "action_link_revoked"  # e.g. the request was withdrawn (REQ-SR-061 AC2)
-    STALE = "action_link_stale"  # the object changed since the link was sent
+    # No longer needed: decided another way, withdrawn, its approver changed (REQ-SR-061 AC2).
+    REVOKED = "action_link_revoked"
+    SIGN_IN_REQUIRED = "action_link_sign_in_required"  # the tenant asks for a signed-in approver
 
 
 @dataclass(frozen=True)
@@ -77,7 +80,7 @@ class LinkState:
     revoked_at: datetime | None
 
 
-def refusal(  # noqa: PLR0911 - one return per refusal, in their fixed order
+def refusal(
     link: LinkState | None,
     *,
     now: datetime,
@@ -86,26 +89,46 @@ def refusal(  # noqa: PLR0911 - one return per refusal, in their fixed order
 ) -> Refusal | None:
     """Why the link may not act now, or None.
 
-    Order: unknown or not theirs (one answer, lane B), used, revoked, expired, stale.
-
-    `actor` None: nobody is signed in (the no-sign-in mode, behind a tenant setting that is
-    off, plan D7); the token itself then stands for the recipient.
+    Order: unknown, not theirs or used (one answer, lane B), revoked, expired, stale. `actor`
+    None: the no-sign-in mode (D-132), where the token itself stands for its recipient.
+    `current_version` None: the object is gone or no longer waits, so the link is spent.
     """
-    if link is None:
+    if link is None or link.used_at is not None:
         return Refusal.NOT_FOUND
-    # Someone else's link answers exactly as an unknown one (lane B review): a forwarded link
-    # tells its holder nothing, not even that it was used or has expired.
     if actor is not None and not hmac.compare_digest(actor.bytes, link.recipient_id.bytes):
         return Refusal.NOT_FOUND
-    if link.used_at is not None:
-        return Refusal.USED
     if link.revoked_at is not None:
         return Refusal.REVOKED
     if now >= link.expires_at:
         return Refusal.EXPIRED
-    if current_version is not None and current_version != link.object_version:
-        return Refusal.STALE
+    if current_version is None or current_version != link.object_version:
+        return Refusal.REVOKED
     return None
+
+
+@dataclass(frozen=True)
+class LinkRequest:
+    """A link to make for one recipient when their message is sent, never before (D-132).
+
+    What is stored with a queued message instead of the token: rendered bodies carry a marker
+    where the link goes, and the mail sender mints the token at send time, so no stored body,
+    delivery row or log ever holds one (Haider's addition to D-132).
+    """
+
+    recipient_id: uuid.UUID
+    action: str
+    object_type: str
+    object_id: uuid.UUID
+    object_version: int
+
+
+# The portal's public confirmation page (D-132): the token follows in the URL fragment.
+PUBLIC_PAGE = "approve#"
+
+
+def marker(name: str) -> str:
+    """Where a link goes in a stored body (plain ASCII, unchanged by HTML escaping)."""
+    return f"[[supportx-link:{name}]]"
 
 
 def expiry(now: datetime, ttl: timedelta = DEFAULT_TTL) -> datetime:
@@ -115,13 +138,17 @@ def expiry(now: datetime, ttl: timedelta = DEFAULT_TTL) -> datetime:
 
 __all__ = [
     "DEFAULT_TTL",
+    "MAX_FAILED_USES",
     "MAX_TTL",
+    "PUBLIC_PAGE",
     "TOKEN_LENGTH",
+    "LinkRequest",
     "LinkState",
     "NewToken",
     "Refusal",
     "digest_of",
     "expiry",
+    "marker",
     "new_token",
     "refusal",
     "well_formed",

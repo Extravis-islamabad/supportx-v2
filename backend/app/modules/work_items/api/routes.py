@@ -816,6 +816,10 @@ class WorkItemCatalogueOut(BaseModel):
         default=False,
         description="Requesters see only 'awaiting approval', no names or comments (REQ-SR-024).",
     )
+    approvals_require_sign_in: bool = Field(
+        default=False,
+        description="E-mailed approval links need the approver signed in (D-132; off).",
+    )
     portal_show_due_time: bool = Field(
         default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
     )
@@ -847,6 +851,7 @@ class WorkItemCatalogueOut(BaseModel):
             keep_following_on_handover=cat.keep_following_on_handover,
             on_behalf_scope=OnBehalfScope(cat.on_behalf_scope),
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
+            approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
@@ -958,6 +963,7 @@ class WorkItemSettingsPatch(BaseModel):
     keep_following_on_handover: bool | None = None
     on_behalf_scope: OnBehalfScope | None = None
     approvals_hidden_from_requesters: bool | None = None
+    approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 

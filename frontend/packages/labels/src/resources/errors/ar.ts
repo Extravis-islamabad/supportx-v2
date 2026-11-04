@@ -603,6 +603,7 @@ export const ar: LabelResource = {
   'errors.action_link_used': 'تم استخدام هذا الرابط من قبل.',
   'errors.action_link_revoked': 'لم يعد هذا مطلوبًا: تم البت في الطلب أو سحبه.',
   'errors.action_link_stale': 'تغيّر الطلب منذ إرسال هذا الرابط. افتحه في التطبيق.',
+  'errors.action_link_sign_in_required': 'سجّل الدخول للموافقة على هذا الطلب أو رفضه.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
   'errors.approval_closed': 'تم البت في هذه الموافقة أو لم تعد مطلوبة.',

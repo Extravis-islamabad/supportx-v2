@@ -708,6 +708,8 @@ export {
   useWithdrawRequest,
   useActionLink,
   usePeekActionLink,
+  usePublicActionLink,
+  usePublicPeekActionLink,
   useRequestTasks,
   useRequestTaskStatus,
   type RequestTask,

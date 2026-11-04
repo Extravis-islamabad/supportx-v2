@@ -23,6 +23,7 @@ from fastapi import FastAPI
 from app.core.authorization import PermissionSpec
 from app.core.config import Settings
 from app.core.modules import ModuleSpec
+from app.modules.system.api.action_links import public_router as public_links_router
 from app.modules.system.api.action_links import router as action_links_router
 from app.modules.system.api.files import MANAGE as FILES_MANAGE
 from app.modules.system.api.files import router as files_router
@@ -128,7 +129,7 @@ MAIL_SEND = ConsumerSpec(
 
 module = ModuleSpec(
     name="system",
-    routers=[router, files_router, action_links_router],
+    routers=[router, files_router, action_links_router, public_links_router],
     on_startup=[_startup],
     consumers=[DEV_EVENT_LOGGER, FILE_SCAN, MAIL_SEND],
     events=(*FILE_EVENTS, *MAIL_EVENTS),

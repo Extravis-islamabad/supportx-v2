@@ -830,6 +830,9 @@ export const ur: LabelResource = {
   'requests.new': 'نئی سروس درخواست',
   'requests.approval_filter': 'منظوری',
   'requests.view_filter': 'منظر',
+  'requests.settings.require_sign_in': 'منظوریوں کے لیے سائن ان لازمی',
+  'requests.settings.require_sign_in_help':
+    'بند: منظوری دہندگان سائن ان کیے بغیر ای میل لنک سے فیصلہ کر سکتے ہیں (تصدیقی صفحے کے بعد)۔ آن: لنک صرف اپنے منظوری دہندہ کے لیے، سائن ان کے بعد کام کرتا ہے۔',
   'requests.tasks': 'تکمیل',
   'requests.task_optional': 'اختیاری',
   'requests.task_internal': 'اندرونی',

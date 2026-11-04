@@ -58,7 +58,7 @@ async def test_the_approver_peeks_then_decides_once(world: World) -> None:
     [entry] = await approvals(world, a, a.admin, record)
     assert entry["channel"] == "email_link"
     again = await post(world, a, a.tech_a, "use", token=token, body={"decision": "reject"})
-    assert problem(again) == (409, "action_link_used")
+    assert problem(again) == (404, "action_link_not_found")  # used: as unknown (lane B)
     audit = await world.sql(
         "SELECT count(*) AS n FROM audit_entries WHERE tenant_id = $1 AND action = $2",
         a.tenant,

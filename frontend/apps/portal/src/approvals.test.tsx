@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeApi, fakeEntitlements, fakeSession } from '@supportx/api-client/testing';
 
@@ -209,5 +209,76 @@ describe('portal: approvals', () => {
     await waitFor(() => {
       expect(screen.getByTestId('portal-status').textContent).toBe('Closed');
     });
+  });
+
+  it('without sign-in: a confirmation page first, the decision only on a click (D-132)', async () => {
+    window.history.pushState({}, '', `/approve#${TOKEN}`);
+    const fake = fakeApi({
+      'POST /api/v1/public/action-links/peek': {
+        body: {
+          action: 'service_request.approval',
+          object_type: 'work_item_approval',
+          object_id: APPROVAL,
+          expires_at: '2026-11-07T08:00:00Z',
+          summary: { display_id: 'SR-9', subject: 'Desk for Omar', comments_required: false },
+        },
+      },
+      'POST /api/v1/public/action-links/use': { body: { state: 'approved', record_id: RECORD } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('public-approval-summary')).textContent).toContain('SR-9');
+    expect(window.location.hash).toBe('');
+    expect(fake.find('GET', '/api/v1/auth/me')).toHaveLength(0); // no session asked for
+    expect(fake.find('POST', '/api/v1/public/action-links/use')).toHaveLength(0);
+    fireEvent.click(screen.getByTestId('public-approval-approve'));
+    await screen.findByTestId('public-approval-done');
+    const [used] = fake.find('POST', '/api/v1/public/action-links/use');
+    expect(used?.body).toEqual({
+      token: TOKEN,
+      body: { decision: 'approve', comment: null, private: false },
+    });
+  });
+
+  it('sends the person to sign in when the tenant requires it', async () => {
+    window.history.pushState({}, '', `/approve#${TOKEN}`);
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: original.href,
+        origin: original.origin,
+        hash: original.hash,
+        pathname: original.pathname,
+        search: original.search,
+        assign,
+      },
+    });
+    const fake = fakeApi({
+      'POST /api/v1/public/action-links/peek': {
+        status: 403,
+        body: {
+          type: 'about:blank',
+          title: 'Forbidden',
+          status: 403,
+          code: 'action_link_sign_in_required',
+          message_key: 'errors.action_link_sign_in_required',
+          params: {},
+          errors: [],
+        },
+      },
+    });
+    restore = () => {
+      fake.restore();
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    };
+    render(<App />);
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledTimes(1);
+    });
+    const target = String(assign.mock.calls[0]?.[0]);
+    expect(target).toContain('app=portal');
+    expect(decodeURIComponent(target)).toContain(`/requests/approval-link#${TOKEN}`);
   });
 });

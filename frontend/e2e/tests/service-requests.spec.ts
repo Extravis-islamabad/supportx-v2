@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { mailTo, mailUnavailable } from '../mail';
+import { mailTo, mailUnavailable, privateWindow } from '../mail';
 import { PORTAL_URL, USERS } from '../stack';
 import { expectAccessible, resetLanguage, signInAs } from './helpers';
 
@@ -160,7 +160,7 @@ test('raise, approve from the drawer, fulfil and confirm receipt, all live', asy
   }
 });
 
-test('a requester-only approver approves from the e-mailed link in the portal', async ({
+test('an approver approves from the e-mailed link without signing in (D-132)', async ({
   browser,
 }) => {
   const noMail = mailUnavailable();
@@ -184,26 +184,26 @@ test('a requester-only approver approves from the e-mailed link in the portal', 
 
     // The e-mail carries this approver's own link: the token only after '#'.
     const mail = await mailTo(USERS.limited.email, sentAt);
-    const link = /https?:\/\/[^"\s<]*(requests\/approval-link#[A-Za-z0-9_-]{43})/.exec(mail.html);
+    const link = /https?:\/\/[^"\s<]*\/(approve#[A-Za-z0-9_-]{43})/.exec(mail.html);
     expect(link, 'the e-mail has the approval link').not.toBeNull();
     // Deployed, the portal is served on the tenant's origin under /portal/, which is where the
     // link points; the dev stack serves it on a port of its own, so the path and token are
-    // opened on the suite's portal (lane B: email_branding on the dev stack).
+    // opened on the suite's portal (lane B fixes email_branding on the dev stack).
     const url = `${PORTAL_URL}/${link?.[1] ?? ''}`;
-    await approver.page.goto(url);
-    await expect(approver.page.getByTestId('approval-link-summary')).toContainText(
-      record.display_id,
-    );
-    expect(new URL(approver.page.url()).hash).toBe(''); // gone from the address bar
-    await approver.page.getByTestId('approval-link-approve').click();
-    await expect(approver.page.getByTestId('approval-link-done')).toBeVisible(LIVE);
 
-    // Once used, the link does nothing more (from a fresh load, not a same-page hash change).
-    await approver.page.goto(`${PORTAL_URL}/approvals`);
-    await approver.page.goto(url);
-    await expect(approver.page.getByTestId('approval-link-refused')).toContainText(
-      'already been used',
-    );
+    // D-132: no sign-in needed: a window with nobody signed in shows a confirmation page.
+    const outside = await privateWindow(browser);
+    await outside.goto(url);
+    await expect(outside.getByTestId('public-approval-summary')).toContainText(record.display_id);
+    expect(new URL(outside.url()).hash).toBe(''); // gone from the address bar
+    await outside.getByTestId('public-approval-approve').click();
+    await expect(outside.getByTestId('public-approval-done')).toBeVisible(LIVE);
+
+    // Once used, the link does nothing more (a fresh load, not a same-page hash change).
+    await outside.goto(`${PORTAL_URL}/`);
+    await outside.goto(url);
+    await expect(outside.getByTestId('public-approval-refused')).toContainText('not valid');
+    await outside.context().close();
     const after = (await (
       await call(admin.page, 'GET', `/service-requests/${record.id}`)
     ).json()) as { approval_status: string };

@@ -278,3 +278,25 @@ export function useRequestTaskStatus(recordId: string) {
     },
   });
 }
+
+/** An e-mailed link without sign-in (D-132): what it would do; never acts. */
+export function usePublicPeekActionLink(token: string | undefined) {
+  return useQuery({
+    queryKey: ['action-links', 'public-peek', token ?? ''],
+    queryFn: () =>
+      call(api.POST('/api/v1/public/action-links/peek', { body: { token: token ?? '' } })),
+    enabled: token !== undefined && token !== '',
+    retry: false,
+    staleTime: Infinity,
+    meta: { silent: true }, // the page says why a link does nothing
+  });
+}
+
+/** Take an e-mailed link's action without sign-in, once (D-132). */
+export function usePublicActionLink() {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ token, body }: { token: string; body: Record<string, unknown> }) =>
+      call(api.POST('/api/v1/public/action-links/use', { body: { token, body } })),
+  });
+}

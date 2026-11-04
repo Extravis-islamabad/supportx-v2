@@ -29,7 +29,12 @@ from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.lifecycle import WorkItemAction
 from app.modules.work_items.domain.service_requests import ApprovalStatus
-from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
+from app.modules.work_items.domain.types import (
+    SERVICE_REQUEST,
+    TYPES,
+    WorkItemType,
+    WorkItemTypeCode,
+)
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import fulfilment
@@ -453,6 +458,13 @@ async def issue_links(session: AsyncSession, rows: list[WorkItemApproval]) -> di
 
 class ApprovalLinkHandler:
     """Approve or reject from a link: the same decision as the app, run again now (condition 5)."""
+
+    feature = SERVICE_REQUEST.feature
+
+    async def sign_in_required(self, session: AsyncSession) -> bool:
+        """The tenant's "require sign-in for approvals" (D-132; off by default), read now."""
+        cat = await config.load(session, TYPES[WorkItemTypeCode.SERVICE_REQUEST])
+        return cat.approvals_require_sign_in
 
     async def version_of(self, session: AsyncSession, object_id: uuid.UUID) -> int | None:
         """The approval's version; None once it is no longer pending or is gone."""

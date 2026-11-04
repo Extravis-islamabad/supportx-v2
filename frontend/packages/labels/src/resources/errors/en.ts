@@ -655,6 +655,7 @@ export const en = {
   'errors.action_link_used': 'This link has already been used.',
   'errors.action_link_revoked': 'This is no longer needed: the request was decided or withdrawn.',
   'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
+  'errors.action_link_sign_in_required': 'Sign in to approve or reject this request.',
   'errors.not_an_approver': 'You are not an approver of this request.',
   'errors.approval_segregation': 'You cannot approve your own request.',
   'errors.approval_closed': 'This approval is already decided or no longer needed.',

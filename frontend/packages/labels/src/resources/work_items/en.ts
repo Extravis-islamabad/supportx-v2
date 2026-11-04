@@ -831,6 +831,9 @@ export const en = {
   'requests.new': 'New service request',
   'requests.approval_filter': 'Approval',
   'requests.view_filter': 'View',
+  'requests.settings.require_sign_in': 'Require sign-in for approvals',
+  'requests.settings.require_sign_in_help':
+    'Off: approvers can decide from the e-mail link without signing in (after a confirmation page). On: the link works only for its approver, signed in.',
   'requests.tasks': 'Fulfilment',
   'requests.task_optional': 'Optional',
   'requests.task_internal': 'Internal',

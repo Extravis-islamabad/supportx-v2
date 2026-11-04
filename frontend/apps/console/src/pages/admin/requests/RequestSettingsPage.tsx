@@ -31,18 +31,21 @@ export function RequestSettingsPage() {
   const [draft, setDraft] = useState<{
     scope: OnBehalfScope;
     hidden: boolean;
+    signIn: boolean;
     version: number;
   }>();
   if (catalogue.isLoading || catalogue.data === undefined) return <Skeleton active />;
   const saved = catalogue.data;
   const scope = draft?.scope ?? saved.on_behalf_scope;
   const hidden = draft?.hidden ?? saved.approvals_hidden_from_requesters;
+  const signIn = draft?.signIn ?? saved.approvals_require_sign_in;
   const dirty =
     draft !== undefined &&
     (draft.scope !== saved.on_behalf_scope ||
-      draft.hidden !== saved.approvals_hidden_from_requesters);
-  const edit = (next: Partial<{ scope: OnBehalfScope; hidden: boolean }>) => {
-    setDraft({ scope, hidden, version: draft?.version ?? saved.version, ...next });
+      draft.hidden !== saved.approvals_hidden_from_requesters ||
+      draft.signIn !== saved.approvals_require_sign_in);
+  const edit = (next: Partial<{ scope: OnBehalfScope; hidden: boolean; signIn: boolean }>) => {
+    setDraft({ scope, hidden, signIn, version: draft?.version ?? saved.version, ...next });
   };
   return (
     <Flex vertical gap={16} style={{ maxWidth: 760 }}>
@@ -58,6 +61,9 @@ export function RequestSettingsPage() {
                   ...(draft.scope !== saved.on_behalf_scope && { on_behalf_scope: draft.scope }),
                   ...(draft.hidden !== saved.approvals_hidden_from_requesters && {
                     approvals_hidden_from_requesters: draft.hidden,
+                  }),
+                  ...(draft.signIn !== saved.approvals_require_sign_in && {
+                    approvals_require_sign_in: draft.signIn,
                   }),
                 },
                 version: draft.version,
@@ -118,6 +124,24 @@ export function RequestSettingsPage() {
                 edit({ hidden: value });
               }}
               data-testid="sr-hide-approvals"
+            />
+          </Form.Item>
+          <Form.Item
+            label={t('requests.settings.require_sign_in')}
+            htmlFor="sr-require-sign-in"
+            extra={
+              <Typography.Text type="secondary">
+                {t('requests.settings.require_sign_in_help')}
+              </Typography.Text>
+            }
+          >
+            <Switch
+              id="sr-require-sign-in"
+              checked={signIn}
+              onChange={(value) => {
+                edit({ signIn: value });
+              }}
+              data-testid="sr-require-sign-in"
             />
           </Form.Item>
           <WriteButton

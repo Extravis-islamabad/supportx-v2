@@ -51,12 +51,17 @@ from app.modules.notifications.infra.models import (
     NotificationRule,
 )
 from app.modules.organization import email_branding, site_defaults, users_in_groups
+from app.shared import action_links
+from app.shared.action_links import LinkRequest
 from app.shared.events import Actor, ConsumerSpec, EventEnvelope, Handler, record_event
 from app.shared.labels import label
 from app.shared.mail import (
     Language,
+    MailLink,
     MailRefused,
     OutgoingMail,
+    links_from_json,
+    links_to_json,
     mail_configured,
     queue_mail,
     with_token,
@@ -206,8 +211,8 @@ def compose(  # noqa: PLR0913 - the event, the record, the person and their read
 ) -> Message:
     """The message in the person's language, from the content they may see (REQ-NTF-010).
 
-    `email_links`: the recipient's own secret links (paths, see `RecipientLinks`), in the
-    e-mail only, never in the in-app text; other readers of a template see a placeholder.
+    `email_links`: where the recipient's own one-time links go in the e-mail (markers: the mail
+    sender makes the links at send, D-132), never in the in-app text; elsewhere a placeholder.
     """
     chosen = context.variables if access is RecordAccess.FULL else context.public_variables
     # Every offered variable exists, empty when this reader may not see it or it has no value.
@@ -225,7 +230,7 @@ def compose(  # noqa: PLR0913 - the event, the record, the person and their read
     for name in SECRET_VARIABLES & offered:
         values[name] = SECRET_PLACEHOLDER
     in_app = render(_template(code, "in_app", language), "", values).subject
-    secrets = {name: base + path.lstrip("/") for name, path in (email_links or {}).items()}
+    secrets = dict(email_links or {})
     email = render(
         _template(code, "subject", language),
         _template(code, "body", language),
@@ -263,6 +268,7 @@ async def _record(  # noqa: PLR0913 - one delivery row, explicit
     mail_id: uuid.UUID | None = None,
     waiting: Rendered | None = None,
     html: str | None = None,
+    links: tuple[MailLink, ...] = (),
 ) -> NotificationDelivery:
     envelope, code, source, context, recipient = (
         target.envelope,
@@ -290,6 +296,7 @@ async def _record(  # noqa: PLR0913 - one delivery row, explicit
         subject=waiting.subject if waiting else None,
         text_body=waiting.body if waiting else None,
         html_body=html if waiting else None,
+        links=links_to_json(links) if waiting else None,
     )
     session.add(delivery)
     await session.flush()
@@ -319,12 +326,13 @@ def _text_with_link(message: Message, open_text: str) -> str:
     return f"{message.email.body}\n\n{open_text}: {message.link}"
 
 
-async def _email(
+async def _email(  # noqa: PLR0913, PLR0917 - the delivery, its message and its links, explicit
     session: AsyncSession,
     settings: Settings,
     target: Target,
     person: NotifiablePerson,
     message: Message,
+    links: tuple[MailLink, ...] = (),
 ) -> None:
     tenant, context, code = target.envelope.tenant_id, target.context, target.code
     # The record's token in the subject: a reply finds its record (REQ-NTF-002, WP-024).
@@ -340,7 +348,12 @@ async def _email(
     if not mail_configured(settings):
         waiting = Rendered(subject, plain)
         await _record(
-            *common, DeliveryState.WAITING, language=message.language, waiting=waiting, html=html
+            *common,
+            DeliveryState.WAITING,
+            language=message.language,
+            waiting=waiting,
+            html=html,
+            links=links,
         )
         return
     if person.email is None:  # checked by the caller; kept for the type checker
@@ -357,6 +370,7 @@ async def _email(
                 text=plain,
                 html=html,
                 sender_name=brand.product_name,
+                links=links,
             ),
         )
     except MailRefused as refused:
@@ -476,14 +490,28 @@ async def _email_once(  # noqa: PLR0913, PLR0917 - the delivery and how to write
     person: NotifiablePerson,
     message: Message,
     writer: Callable[..., Message],
+    portal: str,
 ) -> None:
-    """The e-mail, once per event and person, with that person's own links (WP-030 s3)."""
+    """The e-mail, once per event and person, with that person's own links (D-132).
+
+    The source names the links (who, what, on which object); the body gets a marker where each
+    goes and the mail sender makes the token at send, so no stored body holds one. Every link
+    opens the portal's public page (`portal`), which asks for sign-in when the tenant wants it.
+    """
     if await _emailed_before(session, target):
         return  # a redelivered event: no second e-mail, no second live link
-    links = await _recipient_links(
+    requests = await _recipient_links(
         session, target.source, target.envelope, target.recipient.user_id
     )
-    await _email(session, settings, target, person, writer(email_links=links) if links else message)
+    if not requests:
+        await _email(session, settings, target, person, message)
+        return
+    spots = {name: action_links.marker(name) for name in requests}
+    links = tuple(
+        MailLink(name=name, prefix=portal + action_links.PUBLIC_PAGE, request=request)
+        for name, request in requests.items()
+    )
+    await _email(session, settings, target, person, writer(email_links=spots), links)
 
 
 async def _emailed_before(session: AsyncSession, target: Target) -> bool:
@@ -503,8 +531,8 @@ async def _emailed_before(session: AsyncSession, target: Target) -> bool:
 
 async def _recipient_links(
     session: AsyncSession, source: RecordSource, envelope: EventEnvelope, user_id: uuid.UUID
-) -> Mapping[str, str]:
-    """The source's secret links for this person's e-mail, if it makes any."""
+) -> Mapping[str, LinkRequest]:
+    """The one-time links the source wants in this person's e-mail, if any."""
     if not isinstance(source, RecipientLinks):
         return {}
     links = await source.recipient_links(session, envelope, user_id, NotificationChannel.EMAIL)
@@ -612,7 +640,8 @@ async def notify(  # noqa: C901 - the pipeline of one event, in order
             if channel is NotificationChannel.IN_APP:
                 await _in_app(session, target, message)
             else:
-                await _email_once(session, settings, target, person, message, writer)
+                portal = (await origin_for(language))(RecordAccess.PUBLIC)
+                await _email_once(session, settings, target, person, message, writer, portal)
     return count
 
 
@@ -700,6 +729,7 @@ async def send_waiting(session: AsyncSession, settings: Settings) -> int:
                         subject=row.subject or row.display_id,
                         text=row.text_body or "",
                         html=row.html_body,
+                        links=links_from_json(row.links),
                     ),
                 )
                 row.state = DeliveryState.QUEUED.value

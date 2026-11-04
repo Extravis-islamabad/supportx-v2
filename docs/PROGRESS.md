@@ -751,10 +751,11 @@ it with no reload (rule c). Not built yet.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 - **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
-- **Parked for the product owner:** D3 edition line (catalog basics with `service_request`,
-  advanced parts with `catalog`); D7 e-mail approvals: interim default sign-in required, the
-  no-sign-in link behind an off setting. Signed action links (REQ-NTF-024) are built by lane A
-  in session 3 under lane B's security review (their five conditions are in the plan).
+- **Decided (product owner, 2026-11-04):** D3 in **D-133** (catalog basics in Essentials,
+  `service_request`; the advanced catalog in Professional, `catalog`); D7 in **D-132** (e-mail
+  approval links work without sign-in by default, a confirmation page first, single use, 72 h,
+  bound to the approver, audited; reject needs a reason; "require sign-in for approvals" off by
+  default; lane B's precondition: bodies holding a link are cleared once sent).
 - [x] Session 1 (2026-11-04): done: the service request life cycle (awaiting_approval,
   fulfilled, rejected; system actions approve/reject; migration 0059); the `service_catalog`
   module (categories and items with form questions, one approval stage, plan, priority, SLA
@@ -833,7 +834,19 @@ it with no reload (rule c). Not built yet.
   `/{id}/steps`): plain statuses (new: waiting for approval, not approved), the item's answers,
   only the approvals the tenant shows requesters, the steps with internal names hidden
   (REQ-SR-051 AC2), Withdraw while it waits, and receipt confirmation of a fulfilled request
-  (REQ-SR-059). Tests: db 3 + 1, portal Vitest 6. **Still to do:** the e2e journey in English
+  (REQ-SR-059). Tests: db 3 + 1, portal Vitest 6. D-132 built (2026-11-04): e-mailed approval
+  links work without sign-in by default on the portal's public page `/approve#token` (a
+  confirmation page first, nothing decided until a click); `POST /public/action-links/peek|use`
+  find the tenant by the address used, run the action as the recipient (their permissions,
+  audit and history), ask the entitlement gate for the action's feature (and read-only), are
+  rate-limited per tenant and address, and refuse with `action_link_sign_in_required` when the
+  tenant's "require sign-in for approvals" is on (Admin › Service requests; then the signed-in
+  page); single use by one atomic UPDATE, 72 h, a used or someone else's link answers as an
+  unknown one, a link the step no longer needs is spent ("no longer needed"), refused uses
+  capped at 5 (lane B's review). Never stored, never logged (Haider's addition): bodies hold a
+  marker and the message keeps only the link request; the mail sender mints the token at send,
+  a retry or resend mints a fresh one and revokes the old. Tests: db 6 public + 3 notification,
+  portal Vitest 2. **Still to do:** the e2e journey in English
   and Arabic (needs the shared stack, QA lock), then out of draft (the final re-point of 0059
   with the coordinator).
 - **Found outside WP-030 (lane A's next polish PR, agreed with lane B 2026-11-04):**

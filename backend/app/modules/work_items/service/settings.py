@@ -136,6 +136,8 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         if values["on_behalf_scope"] not in set(OnBehalfScope):
             problem("on_behalf_scope", "invalid_choice")
         changes["on_behalf_scope"] = values["on_behalf_scope"]
+    if "approvals_require_sign_in" in values:
+        changes["approvals_require_sign_in"] = bool(values["approvals_require_sign_in"])
     if "approvals_hidden_from_requesters" in values:
         changes["approvals_hidden_from_requesters"] = bool(
             values["approvals_hidden_from_requesters"]
@@ -162,6 +164,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "keep_following_on_handover": current.keep_following_on_handover,
         "on_behalf_scope": current.on_behalf_scope,
         "approvals_hidden_from_requesters": current.approvals_hidden_from_requesters,
+        "approvals_require_sign_in": current.approvals_require_sign_in,
         "portal_show_due_time": current.portal_show_due_time,
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,

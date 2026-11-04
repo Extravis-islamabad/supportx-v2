@@ -898,6 +898,9 @@ export const ar: LabelResource = {
   'requests.new': 'طلب خدمة جديد',
   'requests.approval_filter': 'الموافقة',
   'requests.view_filter': 'العرض',
+  'requests.settings.require_sign_in': 'طلب تسجيل الدخول للموافقات',
+  'requests.settings.require_sign_in_help':
+    'عند الإيقاف: يمكن للموافقين البت من رابط البريد الإلكتروني دون تسجيل الدخول (بعد صفحة تأكيد). عند التشغيل: يعمل الرابط فقط لموافقه بعد تسجيل الدخول.',
   'requests.tasks': 'التنفيذ',
   'requests.task_optional': 'اختياري',
   'requests.task_internal': 'داخلي',

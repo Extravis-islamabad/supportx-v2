@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, Index, LargeBinary, String
+from sqlalchemy import CheckConstraint, Index, Integer, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.models import TenantEntity
@@ -34,3 +34,4 @@ class ActionLink(TenantEntity):
     used_at: Mapped[datetime | None]
     used_by: Mapped[uuid.UUID | None]
     revoked_at: Mapped[datetime | None]
+    failed_uses: Mapped[int] = mapped_column(Integer, server_default="0")  # lane B review

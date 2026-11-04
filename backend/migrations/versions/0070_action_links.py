@@ -3,7 +3,9 @@
 One row per link: only the SHA-256 of its token (32 bytes), the recipient, the action, the
 object and the object's version, the expiry, and when it was used or revoked. Tenant scoped
 with RLS (FORCE) and actor audit; soft delete only (no DELETE grant). Expand only, no data step;
-the downgrade drops the table (every link it held simply stops working).
+`mail_messages.links` and `notification_deliveries.links` keep the links to make at send
+(D-132: never a token in a stored body). The downgrade drops the table and the columns (every
+link simply stops working).
 
 Revision ID: 0070
 Revises: 0065
@@ -14,6 +16,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
@@ -41,6 +44,7 @@ def upgrade() -> None:
         sa.Column("used_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("used_by", sa.UUID(), nullable=True),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("failed_uses", sa.Integer(), server_default="0", nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -78,8 +82,14 @@ def upgrade() -> None:
     enable_tenant_rls(TABLE)
     enable_actor_audit(TABLE)
     grant_app(TABLE, ("SELECT", "INSERT", "UPDATE"))
+    # D-132: a queued message or a waiting delivery keeps the links to make at send, never a
+    # token (its bodies hold markers where the links go).
+    for table in ("mail_messages", "notification_deliveries"):
+        op.add_column(table, sa.Column("links", postgresql.JSONB(), nullable=True))
 
 
 def downgrade() -> None:
-    """Drop the table."""
+    """Drop the table and the columns."""
+    for table in ("notification_deliveries", "mail_messages"):
+        op.drop_column(table, "links")
     op.drop_table(TABLE)

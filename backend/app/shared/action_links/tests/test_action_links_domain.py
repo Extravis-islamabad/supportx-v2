@@ -50,24 +50,23 @@ def test_only_a_well_formed_token_is_looked_up() -> None:
 
 
 def test_a_link_acts_once_for_its_recipient_on_the_version_it_was_sent_for() -> None:
-    def why(state: LinkState | None) -> Refusal | None:
-        return refusal(state, now=NOW, actor=ME, current_version=3)
+    def why(
+        state: LinkState | None, actor: uuid.UUID | None = ME, version: int | None = 3
+    ) -> Refusal | None:
+        return refusal(state, now=NOW, actor=actor, current_version=version)
 
     assert why(link()) is None
+    assert why(link(), actor=None) is None  # the no-sign-in mode: the token stands for ME (D-132)
     assert why(None) is Refusal.NOT_FOUND
-    assert why(link(used_at=NOW)) is Refusal.USED
     assert why(link(revoked_at=NOW)) is Refusal.REVOKED
     assert why(link(expires_at=NOW)) is Refusal.EXPIRED
-    # Someone else's link is as unknown, whatever its state (a forwarded link reveals nothing).
-    assert refusal(link(), now=NOW, actor=OTHER, current_version=3) is Refusal.NOT_FOUND
-    assert refusal(link(used_at=NOW), now=NOW, actor=OTHER, current_version=3) is (
-        Refusal.NOT_FOUND
-    )
-    assert refusal(link(), now=NOW, actor=ME, current_version=4) is Refusal.STALE
-    # For its recipient, used beats expired and stale: a second click never learns more.
-    assert refusal(link(used_at=NOW, expires_at=NOW), now=NOW, actor=ME, current_version=9) is (
-        Refusal.USED
-    )
+    # Used, or someone else's: the same answer as an unknown link (lane B review).
+    assert why(link(used_at=NOW)) is Refusal.NOT_FOUND
+    assert why(link(), actor=OTHER) is Refusal.NOT_FOUND
+    assert why(link(revoked_at=NOW), actor=OTHER) is Refusal.NOT_FOUND
+    # The approval changed or no longer waits: the link is spent ("no longer needed").
+    assert why(link(), version=4) is Refusal.REVOKED
+    assert why(link(), version=None) is Refusal.REVOKED
 
 
 def test_a_link_never_lives_longer_than_a_week() -> None:

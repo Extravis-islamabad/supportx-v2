@@ -4,9 +4,10 @@ Registered through `app.shared.notifications.ports` like incidents (service/noti
 under lane B's review (2026-11-04):
 
 - `service_request.approval_requested`: to the approval's own approver, in-app and by e-mail;
-  urgent (never held for a digest) and required. The e-mail carries that approver's own signed
-  link, made while their e-mail renders (`recipient_links`), never at event time, so no token
-  sits in the outbox; the in-app entry has the record link only.
+  urgent (never held for a digest) and required. The e-mail carries that approver's own
+  one-time link: `recipient_links` names it and the mail sender makes the token at send
+  (D-132), so no token sits in the outbox, a stored body or a log; the in-app entry has the
+  record link only.
 - `service_request.approval_fallback`: an approval held by the approval administrators
   (REQ-SR-023), to everyone with `work_items.approve_any`, in-app only and with no link, as no
   single person holds it.
@@ -30,6 +31,7 @@ from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE_ANY
 from app.modules.work_items.service.file_access import sees_private
 from app.modules.work_items.service.realtime import RECORD_KIND
+from app.shared.action_links import LinkRequest
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
     EventDefault,
@@ -169,16 +171,22 @@ class ServiceRequestNotifications:
         envelope: EventEnvelope,
         recipient_id: uuid.UUID,
         channel: NotificationChannel,
-    ) -> Mapping[str, str]:
-        """The approver's own signed link, made now in the delivery's transaction."""
+    ) -> Mapping[str, LinkRequest]:
+        """The approver's own one-time link, made by the mail sender at send (D-132)."""
         if channel is not NotificationChannel.EMAIL or not _opened(envelope):
             return {}
         row = await session.get(WorkItemApproval, uuid.UUID(str(envelope.payload["approval_id"])))
         if row is None or row.approver_id != recipient_id:
             return {}  # only the approval's own approver, never anyone else on the message
-        tokens = await approvals.issue_links(session, [row])
-        token = tokens.get(row.id)
-        return {} if token is None else {"approval_link": LINK_PATH + token}
+        return {
+            "approval_link": LinkRequest(
+                recipient_id=recipient_id,
+                action=approvals.LINK_ACTION,
+                object_type=approvals.LINK_OBJECT,
+                object_id=row.id,
+                object_version=row.version,
+            )
+        }
 
 
 SOURCE = ServiceRequestNotifications()

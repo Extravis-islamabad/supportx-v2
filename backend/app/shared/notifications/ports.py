@@ -25,6 +25,7 @@ from typing import Protocol, runtime_checkable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.action_links.domain import LinkRequest
 from app.shared.events import EventEnvelope
 
 
@@ -174,10 +175,11 @@ SECRET_PLACEHOLDER = "[link]"  # noqa: S105 - shown instead of a secret, not one
 class RecipientLinks(Protocol):
     """Optional on a RecordSource: links made for one recipient while their e-mail renders.
 
-    Called by the engine only for the e-mail channel, on its own session, once per recipient
-    and only when that e-mail has not been delivered before (a redelivered event makes no
-    second live link). Returns `{variable: console or portal path}`; the engine makes each
-    absolute with the recipient's origin. Every name must be in SECRET_VARIABLES.
+    Called by the engine only for the e-mail channel, once per recipient and only when that
+    e-mail has not been delivered before. Returns `{variable: LinkRequest}`: who, which action,
+    on which object at which version. No token exists yet: the body holds a marker and the mail
+    sender makes the link at send (D-132), so no stored body or log ever holds one. Every name
+    must be in SECRET_VARIABLES.
     """
 
     async def recipient_links(
@@ -186,7 +188,7 @@ class RecipientLinks(Protocol):
         envelope: EventEnvelope,
         recipient_id: uuid.UUID,
         channel: NotificationChannel,
-    ) -> Mapping[str, str]:
+    ) -> Mapping[str, LinkRequest]:
         """The recipient's own links for this event's e-mail."""
         ...
 
