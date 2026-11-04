@@ -210,7 +210,8 @@ async def create(url: str) -> int:
             # Every run starts on the defaults (WP-042): the suite's own users' theme and text
             # size, which one spec's browser may have copied to the server in the last run.
             await conn.execute(
-                "UPDATE users SET theme_mode = NULL, text_scale = NULL WHERE email LIKE $1",
+                "UPDATE users SET theme_mode = NULL, text_scale = NULL, updated_at = now()"
+                " WHERE email LIKE $1",
                 SUITE_USERS,
             )
             return created
