@@ -827,6 +827,12 @@ it with no reload (rule c). Not built yet.
   link is recipient-bound and needs sign-in, but bodies with links must be cleared at send
   before that mode exists (to go in WP-030's D-file when D7 is decided). **Still to do:**
   requester views and the portal approve / link page (D9, after #178), e2e.
+- **Found outside WP-030 (lane A's next polish PR, agreed with lane B 2026-11-04):**
+  `work_items/service/conversations.py` decides a reply's delivery state from the global
+  `get_settings()`, so a checkout whose `backend/.env` sets SMTP fails `test_reply_delivery`
+  and a `test_conversation_api` case locally (CI and clean worktrees pass). Inject the Settings
+  where delivery is decided (the API passes `app.state.settings`, the worker its own); lane B
+  takes any change needed in `app/shared/mail`.
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
