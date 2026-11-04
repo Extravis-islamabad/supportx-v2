@@ -1,5 +1,13 @@
 // ai labels (see ../README.md). English is the reference.
 export const en = {
+  'ai.summary.check': 'Check it against the conversation before relying on it.',
+  'ai.summary.empty': 'No summary yet. Summarise the conversation with AI.',
+  'ai.summary.includes_private': 'Includes private notes',
+  'ai.summary.made_by': 'Written by AI ({{model}}), {{when}}',
+  'ai.summary.make': 'Summarise',
+  'ai.summary.refresh': 'Refresh',
+  'ai.summary.stale': 'Out of date: newer replies or notes',
+  'ai.summary.title': 'Conversation summary',
   'ai_area.knowledge': 'Knowledge',
   'ai_area.predictions': 'Predictions',
   'ai_area.summaries': 'Summaries',
@@ -35,6 +43,9 @@ export const en = {
   'ai_settings.retention_help':
     'After this, the text of each call is deleted; who used which feature and the outcome stay for reports.',
   'ai_settings.saved': 'Saved.',
+  'ai_settings.summary_sources': 'What a conversation summary reads',
+  'ai_settings.summary_sources_help':
+    'Private notes are read only when chosen here, and a summary that read them is shown only to staff.',
   'ai_settings.switch_off': 'Switch off',
   'ai_settings.title': 'AI',
   'ai_summary_source.description': 'Description',

@@ -330,6 +330,7 @@ export const en = {
   'incidents.done.undo_cancel': 'Cancellation undone.',
   'incidents.done.wait_requester': 'Now waiting for the requester.',
   'incidents.done.wait_third_party': 'Now waiting for a third party.',
+  'incidents.duplicates.title': 'Possible duplicates',
   'incidents.edit_field': 'Edit {{field}}',
   'incidents.empty': 'No incidents in this view.',
   'incidents.export.button': 'Export',

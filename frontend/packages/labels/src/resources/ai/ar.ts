@@ -2,6 +2,14 @@ import type { LabelResource } from '../en';
 
 // ai labels (see ../README.md).
 export const ar: LabelResource = {
+  'ai.summary.check': 'تحقّق منه مقابل المحادثة قبل الاعتماد عليه.',
+  'ai.summary.empty': 'لا يوجد ملخص بعد. لخّص المحادثة بالذكاء الاصطناعي.',
+  'ai.summary.includes_private': 'يشمل الملاحظات الخاصة',
+  'ai.summary.made_by': 'كتبه الذكاء الاصطناعي ({{model}})، {{when}}',
+  'ai.summary.make': 'لخّص',
+  'ai.summary.refresh': 'تحديث',
+  'ai.summary.stale': 'غير محدَّث: ردود أو ملاحظات أحدث',
+  'ai.summary.title': 'ملخص المحادثة',
   'ai_area.knowledge': 'المعرفة',
   'ai_area.predictions': 'التنبؤات',
   'ai_area.summaries': 'الملخصات',
@@ -36,6 +44,9 @@ export const ar: LabelResource = {
   'ai_settings.retention_help':
     'بعد ذلك يُحذف نص كل طلب؛ ويبقى من استخدم أي ميزة والنتيجة للتقارير.',
   'ai_settings.saved': 'تم الحفظ.',
+  'ai_settings.summary_sources': 'ما تقرؤه الملخصات',
+  'ai_settings.summary_sources_help':
+    'لا تُقرأ الملاحظات الخاصة إلا إذا اخترتها هنا، ولا تُعرض تلك الملخصات إلا للموظفين.',
   'ai_settings.switch_off': 'إيقاف',
   'ai_settings.title': 'الذكاء الاصطناعي',
   'ai_summary_source.description': 'الوصف',

@@ -336,6 +336,7 @@ export const ur: LabelResource = {
   'incidents.done.undo_cancel': 'منسوخی واپس لے لی گئی۔',
   'incidents.done.wait_requester': 'اب درخواست گزار کا انتظار ہے۔',
   'incidents.done.wait_third_party': 'اب تیسرے فریق کا انتظار ہے۔',
+  'incidents.duplicates.title': 'ممکنہ ڈپلیکیٹس',
   'incidents.edit_field': '{{field}} میں ترمیم',
   'incidents.empty': 'اس منظر میں کوئی واقعہ نہیں۔',
   'incidents.export.button': 'ایکسپورٹ',

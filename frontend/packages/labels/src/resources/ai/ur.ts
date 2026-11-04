@@ -2,6 +2,14 @@ import type { LabelResource } from '../en';
 
 // ai labels (see ../README.md).
 export const ur: LabelResource = {
+  'ai.summary.check': 'اس پر بھروسہ کرنے سے پہلے گفتگو سے ملا لیں۔',
+  'ai.summary.empty': 'ابھی کوئی خلاصہ نہیں۔ AI سے گفتگو کا خلاصہ بنائیں۔',
+  'ai.summary.includes_private': 'نجی نوٹس شامل ہیں',
+  'ai.summary.made_by': 'AI نے لکھا ({{model}})، {{when}}',
+  'ai.summary.make': 'خلاصہ بنائیں',
+  'ai.summary.refresh': 'تازہ کریں',
+  'ai.summary.stale': 'پرانا: نئے جوابات یا نوٹس',
+  'ai.summary.title': 'گفتگو کا خلاصہ',
   'ai_area.knowledge': 'نالج',
   'ai_area.predictions': 'پیش گوئیاں',
   'ai_area.summaries': 'خلاصے',
@@ -37,6 +45,9 @@ export const ur: LabelResource = {
   'ai_settings.retention_help':
     'اس کے بعد ہر کال کا متن حذف ہو جاتا ہے؛ کس نے کون سی خصوصیت استعمال کی اور نتیجہ رپورٹس کے لیے رہتے ہیں۔',
   'ai_settings.saved': 'محفوظ ہو گیا۔',
+  'ai_settings.summary_sources': 'خلاصے کیا پڑھیں',
+  'ai_settings.summary_sources_help':
+    'نجی نوٹس صرف یہاں منتخب کرنے پر پڑھے جاتے ہیں، اور وہ خلاصے صرف عملے کو دکھائے جاتے ہیں۔',
   'ai_settings.switch_off': 'بند کریں',
   'ai_settings.title': 'AI',
   'ai_summary_source.description': 'تفصیل',

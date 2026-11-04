@@ -374,6 +374,7 @@ export const ar: LabelResource = {
   'incidents.done.undo_cancel': 'تم التراجع عن الإلغاء.',
   'incidents.done.wait_requester': 'بانتظار مقدم الطلب الآن.',
   'incidents.done.wait_third_party': 'بانتظار طرف ثالث الآن.',
+  'incidents.duplicates.title': 'تكرارات محتملة',
   'incidents.edit_field': 'تعديل {{field}}',
   'incidents.empty': 'لا توجد حوادث في هذا العرض.',
   'incidents.export.button': 'تصدير',
