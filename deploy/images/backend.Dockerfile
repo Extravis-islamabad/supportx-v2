@@ -106,4 +106,6 @@ RUN test -f app/shared/labels/resources.json \
 RUN python -m compileall -q app workers migrations tooling
 USER 10001:10001
 EXPOSE 8000 9464
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*", "--no-server-header"]
+# --proxy-headers trusts X-Forwarded-For only from FORWARDED_ALLOW_IPS (the chart sets it to the
+# gateway's network): never "*", which let any client choose its own address (rate limits, audit).
+CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--no-server-header"]
