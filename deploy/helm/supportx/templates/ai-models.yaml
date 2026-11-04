@@ -43,9 +43,13 @@ Only the API and the consumers worker (the gateway, the re-embed schedule) reach
       {{- range .model.files }}
       fetch {{ .path | quote }} {{ .sha256 | quote }}
       {{- end }}
-      # Earlier revisions of this model are of no further use once this one is verified.
-      for old in /models/*; do
-        [ "$old" = "$dir" ] || rm -rf "$old"
+      # Earlier revisions of this model are of no further use once this one is verified. Only
+      # revision directories; never lost+found (root-owned on ext4 volumes). A failed removal is
+      # a warning: the sha256 check above is what gates the start.
+      for old in /models/*/; do
+        old="${old%/}"
+        case "$(basename "$old")" in "{{ .model.revision }}"|lost+found) continue ;; esac
+        rm -rf "$old" 2>/dev/null || echo "weights: could not remove $old (left in place)" >&2
       done
       echo "weights: verified"
   env:
