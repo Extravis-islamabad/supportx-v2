@@ -20,6 +20,10 @@ from urllib.parse import urljoin
 import httpx
 
 FORM = re.compile(r'<form[^>]*id="kc-form-login"[^>]*>', re.IGNORECASE)
+# Any form that posts to Keycloak's sign-in actions (a step after the first page).
+LOGIN_FORM = re.compile(
+    r'<form[^>]*action="[^"]*login-actions/authenticate[^"]*"[^>]*>', re.IGNORECASE
+)
 ACTION = re.compile(r'action="([^"]+)"')
 MAX_HOPS = 20
 
@@ -60,26 +64,40 @@ def main(public_url: str, user: str, out: Path) -> int:
     with httpx.Client(follow_redirects=False, timeout=30) as client:
         start = client.get(f"{public_url}/api/v1/auth/login?app=console&returnTo=/")
         page = _follow(client, cookies, start)
-        form = FORM.search(page.text)
-        action = ACTION.search(form.group(0)) if form else None
-        if action is None:
+        # Keycloak may ask in steps (with organizations: the e-mail first, then the password):
+        # answer each sign-in form it shows, until the flow leaves Keycloak.
+        ended = page
+        for _ in range(3):
+            form = FORM.search(ended.text) or LOGIN_FORM.search(ended.text)
+            action = ACTION.search(form.group(0)) if form else None
+            if action is None:
+                break
+            posted = client.post(
+                action.group(1).replace("&amp;", "&"),
+                data={"username": user, "password": password},
+                headers={"Cookie": _header(cookies)},
+            )
+            ended = _follow(client, cookies, posted)
+        if ended is page:
             sys.stdout.write(f"no Keycloak login form (status {page.status_code})\n")
             return 1
-        posted = client.post(
-            action.group(1).replace("&amp;", "&"),
-            data={"username": user, "password": password},
-            headers={"Cookie": _header(cookies)},
-        )
-        ended = _follow(client, cookies, posted)
         me = client.get(
             f"{public_url}/api/v1/auth/me",
             headers={"Cookie": _header(cookies), "X-SupportX-Client": "console"},
         )
     if me.status_code != 200:  # noqa: PLR2004 - HTTP OK
         where = str(ended.url).split("?", 1)[0]
+        # Which Keycloak page it stopped on, and its visible message: neither is secret.
+        forms = " ".join(re.findall(r'<form[^>]*id="([^"]+)"', ended.text)) or "-"
+        notice = re.search(
+            r'(?:id="input-error[^"]*"|class="[^"]*(?:kc-feedback-text|alert-error)[^"]*")[^>]*>'
+            r"\s*([^<]{1,200})",
+            ended.text,
+        )
         sys.stdout.write(
             f"not signed in: the flow ended at {ended.status_code} {where}; "
             f"/auth/me {me.status_code}\ncookies held: {' '.join(sorted(cookies))}\n"
+            f"page forms: {forms}; message: {notice.group(1).strip() if notice else '-'}\n"
         )
         return 1
     out.write_text(_header(cookies))
