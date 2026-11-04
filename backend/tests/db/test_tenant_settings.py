@@ -235,7 +235,7 @@ async def test_time_zone_is_the_persons_else_the_sites_else_the_tenants_else_the
 
 
 async def test_layout_and_density_follow_the_default_until_chosen(bff: Bff) -> None:  # noqa: F811
-    """0070, Haider's rule: NULL reads as the default; a choice is kept; null clears it."""
+    """0071, Haider's rule: NULL reads as the default; a choice is kept; null clears it."""
     admin = bff.user("a", email="layoutadmin@demo.test", locale="en", roles=("tenant_admin",))
     await bff.login(admin)
     me = (await bff.me()).json()

@@ -41,10 +41,15 @@
   Neither audience names sites or groups.
 - The role editor's groups section now says that a group filled by directory sync gives the
   role to everyone the sync adds (lane B's hint).
-- Navigation layout and form density (migration 0070, coordinator's go-ahead): nullable with no
+- Navigation layout and form density (migration 0071, coordinator's go-ahead): nullable with no
   server default, so they too follow the default until a person chooses. Stored values stay.
   Responses keep both required and non-null (the default is filled in when read), and a PATCH
   may send null to clear a choice. openapi-diff against main: no breaking change.
+  Consequence (lane B review): every existing user already holds a stored value (the old server
+  default), so they all count as "chosen". A changed default reaches only people added from 0071
+  on, unless the product owner decides a one-time reset. There is no tenant default for these
+  two yet: the built-in default (side bar, comfortable) applies. A tenant default would be
+  filled in at the same place when it exists.
 - Home dashboard (REQ-ADM-058): already per person in analytics (`set_home`). The preferences
   page does not duplicate it.
 

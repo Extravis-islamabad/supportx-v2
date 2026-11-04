@@ -8,7 +8,7 @@ Expand only: no data step. Values already stored stay as they are (they may be r
 The downgrade fills the NULLs with today's defaults, once per tenant (FORCE RLS, D-113), and
 restores NOT NULL and the server defaults.
 
-Revision ID: 0070
+Revision ID: 0071
 Revises: 0068
 Created: 2026-11-04
 """
@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0070"
+revision: str = "0071"
 down_revision: str | None = "0068"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

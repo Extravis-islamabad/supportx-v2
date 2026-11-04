@@ -84,7 +84,7 @@ class UserDetail(BaseModel):
     time_zone: str | None
     signature: str | None
     # Not chosen (NULL): read as the default (the validator below), so both stay required and
-    # non-null in the contract (0070).
+    # non-null in the contract (0071).
     nav_layout: NavLayout
     form_density: FormDensity
     ui_locale: Literal["en", "ar", "ur"] | None = Field(

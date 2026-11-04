@@ -64,7 +64,7 @@ class User(TenantEntity):
         CheckConstraint("char_length(signature) <= 2000", name="signature_length"),
         CheckConstraint("nav_layout IN ('top', 'side', 'side_compact')", name="nav_layout_code"),
         CheckConstraint("form_density IN ('comfortable', 'compact')", name="form_density_code"),
-        # NULL passes both checks: not chosen, the default applies when read (0070).
+        # NULL passes both checks: not chosen, the default applies when read (0071).
         CheckConstraint(
             "ui_locale IS NULL OR ui_locale IN ('en', 'ar', 'ur')", name="ui_locale_code"
         ),
@@ -151,7 +151,7 @@ class User(TenantEntity):
     # Owned by SupportX, editable by the user (WP-008); identity fields above come from Keycloak.
     signature: Mapped[str | None] = mapped_column(Text)
     time_zone: Mapped[str | None] = mapped_column(String(64))
-    # NULL: not chosen; read as the side bar (D-124) and comfortable forms (0070).
+    # NULL: not chosen; read as the side bar (D-124) and comfortable forms (0071).
     nav_layout: Mapped[str | None]
     form_density: Mapped[str | None]
     # The language picked in the app (QA BUG-04); NULL: follow `locale` from Keycloak.

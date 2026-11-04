@@ -121,7 +121,7 @@ class UserOut(BaseModel):
 
 # Preferences a person may leave to the default (WP-042): applied at read time, never copied.
 _PERSONAL = ("theme_mode", "text_scale", "week_start", "date_format", "time_format")
-# Their `chosen` entries too: NULL since 0070 means the default (side bar, comfortable).
+# Their `chosen` entries too: NULL since 0071 means the default (side bar, comfortable).
 _LAYOUT = ("nav_layout", "form_density")
 
 
