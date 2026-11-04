@@ -86,6 +86,7 @@ from app.modules.work_items.domain.lifecycle import (
     reason_problems,
 )
 from app.modules.work_items.domain.service_requests import ApprovalStatus
+from app.modules.work_items.domain.stages import DEFAULT_PATH, Move, MoveRefused, SetBy, plan_move
 from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
@@ -103,6 +104,7 @@ from app.modules.work_items.events import (
     WorkItemCreated,
     WorkItemDeleted,
     WorkItemRestored,
+    WorkItemStageChanged,
     WorkItemStatusChanged,
     WorkItemUpdated,
 )
@@ -115,6 +117,7 @@ from app.modules.work_items.infra.models import (
 from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
+from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service.access import RESOURCE
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
@@ -1750,6 +1753,22 @@ async def _on_behalf_problems(
         raise PermissionDenied(code="on_behalf_out_of_scope")
 
 
+async def _first_stage(session: AsyncSession, wtype: WorkItemType) -> dict[str, Any]:
+    """Stage columns and first status of a new staged record ({} for other types)."""
+    if wtype.stages is None:
+        return {}
+    model = await stage_service.load_model(session, wtype)
+    return stage_service.first_columns(model, DEFAULT_PATH)
+
+
+def _initial(cat: Catalogue, stage_columns: dict[str, Any]) -> str:
+    """The first status: a staged type's first stage's, else the first status a person can set."""
+    staged_first = stage_columns.pop("status", None)
+    if staged_first is not None:
+        return str(staged_first)
+    return next(s.code for s in cat.statuses if not s.system and not s.disabled)
+
+
 async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1810,9 +1829,11 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     if problems:
         raise await _value_errors(session, wtype, problems)
     await _place(session, cleaned)
+    # A staged type starts in its path's first stage and that stage's first status (ADR-041).
+    stage_columns = await _first_stage(session, wtype)
     initial, group_id, technician_id = _from_item(
         started,
-        next(s.code for s in cat.statuses if not s.system and not s.disabled),
+        _initial(cat, stage_columns),
         group_id,
         technician_id,
     )
@@ -1890,12 +1911,14 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         paused_seconds=0,
         reopen_count=0,
         reassignment_count=0,
+        **stage_columns,
     )
     await WorkItemRepository(session).add(record)
     stamped = await sla_glue.sla_columns(session, record, None, now=now)
     for name, value in stamped.items():  # the same insert: the record is still at version 1
         setattr(record, name, value)
     await session.flush()
+    await stage_service.start(session, record, now=now)
     if custom:
         await metadata.mark_used(session, wtype.code.value, list(custom))
     # An entry point (e-mail, the portal) creates as the requester, who never had console
@@ -2230,6 +2253,231 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     )
     await _record_automation(session, updated, automated)
     return await _view(session, subject, wtype, updated)
+
+
+# --- stage moves (ADR-041) -----------------------------------------------------------------------
+
+# The `action` of a status event for a listed move of a staged type (no named action ran).
+STAGE_MOVE = "stage_move"
+
+
+async def move_status(  # noqa: PLR0913 - the move and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    target: str,
+    expected_version: int,
+    reason_code: str | None,
+    reason_text: str | None,
+    source: Source,
+) -> WorkItemView:
+    """A person's listed status move on a staged type (ADR-041 §8); never a system status.
+
+    Checks in order: the move is listed for the record's path and version, the target is not
+    system-only, the edit permission and the move's own (cancel, reopen), the reason, the type's
+    guard, then the version.
+    """
+    if wtype.stages is None:
+        raise Conflict(code="stage_move_not_allowed", params={"to": target})
+    record = await _for_action(session, subject, wtype, "edit", record_id)
+    moved = await _stage_move(
+        session,
+        wtype,
+        record,
+        target=target,
+        expected_version=expected_version,
+        reason_code=reason_code,
+        reason_text=reason_text,
+        source=source,
+        subject=subject,
+    )
+    return await _view(session, subject, wtype, moved)
+
+
+async def system_stage_move(  # noqa: PLR0913 - the move and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    target: str,
+    source: Source,
+    reason_text: str | None = None,
+) -> WorkItem:
+    """The approvals code's entry point: the only one that may set a system status (§2)."""
+    return await _stage_move(
+        session,
+        wtype,
+        record,
+        target=target,
+        expected_version=record.version,
+        reason_code=None,
+        reason_text=reason_text,
+        source=source,
+        subject=None,
+    )
+
+
+async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    target: str,
+    expected_version: int,
+    reason_code: str | None,
+    reason_text: str | None,
+    source: Source,
+    subject: Subject | None,
+) -> WorkItem:
+    model = await stage_service.load_model(session, wtype, record.lifecycle_version)
+    try:
+        move = plan_move(
+            model,
+            current=record.status,
+            target=target,
+            path=str(record.stage_path),
+            system=subject is None,
+        )
+    except MoveRefused as error:
+        raise Conflict(code=error.code, params={"from": record.status, "to": target}) from error
+    if subject is not None and move.transition.permission is not None:
+        await _for_action(session, subject, wtype, move.transition.permission, record.id)
+    cat = await config.load(session, wtype)
+    text = (reason_text or "").strip() or None
+    problems = reason_problems(
+        move.transition,
+        code=reason_code,
+        text=text,
+        allowed_codes=cat.reason_codes(move.transition.reason_list),
+    )
+    if problems:
+        raise _errors(problems, reason_text={"max_length": 500})
+    guard = stage_service.guard_of(record.type)
+    refusals = [] if guard is None else await guard.check(session, record, move)
+    if refusals:
+        raise Conflict(
+            code="stage_move_refused",
+            params={"reason": refusals[0].code, "count": len(refusals)},
+        )
+    before = _snapshot(record, (*STAMP_FIELDS, "stage"))
+    from_stage = str(record.stage)
+    now = _now()
+    updated = await _update(
+        session, record, expected_version, _staged_changes(record, move, reason_code, text, now)
+    )
+    entries = await stage_service.enter(
+        session, updated, move.entered, now=now, reason_code=reason_code, reason_text=text
+    )
+    await _record_stage_move(
+        session,
+        before,
+        updated,
+        move=move,
+        from_stage=from_stage,
+        entries=entries,
+        source=source,
+        reason=text,
+    )
+    return updated
+
+
+def _staged_changes(
+    record: WorkItem,
+    move: Move,
+    reason_code: str | None,
+    reason_text: str | None,
+    now: datetime,
+) -> dict[str, Any]:
+    """Columns of a stage-engine move: where it landed, the clock and the time stamps."""
+    old = StatusCategory(record.status_category)
+    new = move.landed.category
+    clock = move_pause_clock(
+        PauseClock(record.paused_since, record.paused_seconds), old=old, new=new, now=now
+    )
+    changes: dict[str, Any] = {
+        "status": move.landed.code,
+        "status_category": new,
+        "stage": move.landed.stage,
+        "status_changed_at": now,
+        "status_reason_code": reason_code,
+        "status_reason_text": reason_text,
+        "paused_since": clock.paused_since,
+        "paused_seconds": clock.paused_seconds,
+    }
+    if new == StatusCategory.RESOLVED and record.resolved_at is None:
+        changes["resolved_at"] = now
+    if new == StatusCategory.CLOSED:
+        changes["closed_at"] = now
+        changes["resolved_at"] = record.resolved_at or now
+    if old in FINAL_CATEGORIES and new not in FINAL_CATEGORIES:  # a reopen (a listed move)
+        changes |= {
+            "reopen_count": record.reopen_count + 1,
+            "last_reopened_at": now,
+            "resolved_at": None,
+            "closed_at": None,
+        }
+    return changes
+
+
+async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its source, explicit
+    session: AsyncSession,
+    before: Mapping[str, Any],
+    record: WorkItem,
+    *,
+    move: Move,
+    from_stage: str,
+    entries: Sequence[Any],
+    source: Source,
+    reason: str | None,
+) -> None:
+    after = _snapshot(record, (*STAMP_FIELDS, "stage"))
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="status",
+        changes=[Change(n, before[n], v) for n, v in after.items() if before[n] != v],
+        source=source,
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemStatusChanged(
+            work_item_id=record.id,
+            type=record.type,
+            display_id=record.display_id,
+            status=record.status,
+            status_category=record.status_category,
+            action=STAGE_MOVE,
+            from_status=str(before["status"]),
+            to_status=record.status,
+            automatic=move.target.set_by == SetBy.SYSTEM,
+        ),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
+    if entries:
+        await record_event(
+            session,
+            WorkItemStageChanged(
+                work_item_id=record.id,
+                type=record.type,
+                display_id=record.display_id,
+                status=record.status,
+                status_category=record.status_category,
+                from_stage=from_stage,
+                to_stage=str(record.stage),
+                stages_entered=list(move.entered),
+                entry_id=entries[-1].id,
+                path=str(record.stage_path),
+                automatic=move.target.set_by == SetBy.SYSTEM,
+            ),
+            aggregate_id=record.id,
+            aggregate_version=record.version,
+        )
 
 
 # --- the requester replies (WP-020f) --------------------------------------------------------------

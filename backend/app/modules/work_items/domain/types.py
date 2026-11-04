@@ -20,6 +20,8 @@ from app.modules.work_items.domain.lifecycle import (
     StatusDef,
     TransitionDef,
 )
+from app.modules.work_items.domain.releases import RELEASE_MODEL
+from app.modules.work_items.domain.stages import SetBy, StageModel
 from app.shared.labels import strip_isolates
 
 SUBJECT_MAX = 250
@@ -73,6 +75,9 @@ class WorkItemType:
     statuses: Sequence[StatusDef] = DEFAULT_STATUSES
     transitions: Sequence[TransitionDef] = DEFAULT_TRANSITIONS
     fields: frozenset[str] = field(default_factory=frozenset)
+    # A staged type (ADR-041): its stages, paths and listed status moves. None: no stages, and
+    # status changes run through the named actions of `transitions` (incidents, requests).
+    stages: StageModel | None = None
 
     @property
     def counter_key(self) -> str:
@@ -123,6 +128,29 @@ SERVICE_REQUEST = WorkItemType(
     statuses=SERVICE_REQUEST_STATUSES,
     transitions=SERVICE_REQUEST_TRANSITIONS,
     fields=COMMON_FIELDS,
+)
+
+
+def staged_statuses(model: StageModel) -> tuple[StatusDef, ...]:
+    """A staged type's statuses as the shared engine sees them (category, colour, system)."""
+    return tuple(
+        StatusDef(s.code, s.category, s.colour, system=s.set_by == SetBy.SYSTEM)
+        for s in model.statuses
+    )
+
+
+# WP-058a (REQ-REL-001..006): releases move through the stages of file 06 Appendix A; no named
+# actions (`transitions` empty), every move is a listed status transition (ADR-041 §4).
+RELEASE = WorkItemType(
+    code=WorkItemTypeCode.RELEASE,
+    path="releases",
+    default_prefix="REL",
+    feature="release",
+    permission_prefix="releases",
+    statuses=staged_statuses(RELEASE_MODEL),
+    transitions=(),
+    fields=COMMON_FIELDS,
+    stages=RELEASE_MODEL,
 )
 
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {

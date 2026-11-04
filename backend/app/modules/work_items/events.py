@@ -66,6 +66,24 @@ class WorkItemStatusChanged(_WorkItemEvent):
     automatic: bool = False
 
 
+class WorkItemStageChanged(_WorkItemEvent):
+    """A staged record entered another stage (ADR-041 §6), with the status move that did it.
+
+    `stages_entered` lists every stage entered in order (an automatic advance from a completing
+    status can pass through more than one); `entry_id` is the entry of the stage it is in now.
+    """
+
+    event_type: ClassVar[str] = "work_items.work_item.stage_changed"
+    schema_version: ClassVar[int] = 1
+
+    from_stage: str
+    to_stage: str
+    stages_entered: list[str]
+    entry_id: uuid.UUID
+    path: str
+    automatic: bool = False
+
+
 class WorkItemAssigned(_WorkItemEvent):
     """The group or technician changed (assign, reassign, take, unassign)."""
 

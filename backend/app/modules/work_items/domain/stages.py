@@ -21,6 +21,7 @@ from enum import StrEnum
 from app.modules.work_items.domain.lifecycle import ReasonList, ReasonMode, StatusCategory
 
 DEFAULT_PATH = "default"
+FIRST_LIFECYCLE = 1  # session 1 ships one life cycle version (ADR-041 §10)
 
 
 class SetBy(StrEnum):

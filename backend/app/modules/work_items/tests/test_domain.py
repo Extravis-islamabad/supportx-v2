@@ -37,6 +37,7 @@ from app.modules.work_items.domain.lifecycle import (
     move_pause_clock,
     reason_problems,
 )
+from app.modules.work_items.domain.releases import RELEASE_MODEL
 from app.modules.work_items.domain.types import (
     FIELD_PROBLEMS,
     INCIDENT,
@@ -287,6 +288,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         "worklog_type",
         "awaiting_fulfilment",  # the service request view codes (work_items.SR_VIEW_CODES)
     }
+    found -= {s.code for s in RELEASE_MODEL.statuses}  # releases' seeded moves (from, to)
     assert found <= FIELD_PROBLEMS, sorted(found - FIELD_PROBLEMS)
 
 
