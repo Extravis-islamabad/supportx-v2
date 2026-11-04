@@ -24,7 +24,8 @@ import httpx
 from app.core.config import Settings
 
 Role = Literal["system", "user", "assistant"]
-EMBEDDING_DIMENSIONS_FAKE = 16
+# The fake's vectors are as wide as the store's (bge-m3's 1024).
+EMBEDDING_DIMENSIONS_FAKE = 1024
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,7 @@ class Provider(Protocol):
 
     name: str
     model: str
+    embedding_model: str
     # Outside the installation: masking is always on (REQ-AI-018).
     external: bool
     supports_tools: bool
@@ -117,17 +119,25 @@ class FakeProvider:
     external = False
     supports_tools = False
 
-    def __init__(self, model: str = "fake", recordings: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        model: str = "fake",
+        recordings: dict[str, str] | None = None,
+        embedding_model: str = "fake-embeddings",
+    ) -> None:
         self.model = model
         self.recordings = recordings or {}
+        self.embedding_model = embedding_model
 
     @classmethod
-    def from_file(cls, model: str, path: str | None) -> "FakeProvider":
+    def from_file(
+        cls, model: str, path: str | None, embedding_model: str = "fake-embeddings"
+    ) -> "FakeProvider":
         """With the recordings in `path` (a JSON object), when given."""
         if path is None:
-            return cls(model)
+            return cls(model, embedding_model=embedding_model)
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        return cls(model, {str(k): str(v) for k, v in data.items()})
+        return cls(model, {str(k): str(v) for k, v in data.items()}, embedding_model)
 
     def _answer(self, request: ChatRequest) -> str:
         recorded = self.recordings.get(prompt_key(request))
@@ -149,11 +159,19 @@ class FakeProvider:
             yield word if index == len(words) - 1 else f"{word} "
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
-        """A stable vector per text from its hash (similar texts are not similar here)."""
+        """A stable, normalised vector per text: its words hashed into buckets.
+
+        Texts sharing words are near each other, so retrieval can be tested without a model; it
+        knows nothing of meaning ("laptop" and "notebook" are unrelated here).
+        """
         out: list[list[float]] = []
         for text in texts:
-            digest = hashlib.sha256(text.encode()).digest()
-            out.append([b / 255 for b in digest[:EMBEDDING_DIMENSIONS_FAKE]])
+            vector = [0.0] * EMBEDDING_DIMENSIONS_FAKE
+            for word in text.lower().split():
+                digest = hashlib.sha256(word.strip(".,;:!?\"'()").encode()).digest()
+                vector[int.from_bytes(digest[:4], "big") % EMBEDDING_DIMENSIONS_FAKE] += 1.0
+            norm = sum(v * v for v in vector) ** 0.5 or 1.0
+            out.append([v / norm for v in vector])
         return out
 
     async def aclose(self) -> None:
@@ -297,4 +315,6 @@ def provider_from(settings: Settings) -> Provider:
             timeout=settings.ai_timeout_seconds,
             embedding_base_url=settings.ai_embedding_base_url,
         )
-    return FakeProvider.from_file(settings.ai_model, settings.ai_recordings_path)
+    return FakeProvider.from_file(
+        settings.ai_model, settings.ai_recordings_path, settings.ai_embedding_model
+    )

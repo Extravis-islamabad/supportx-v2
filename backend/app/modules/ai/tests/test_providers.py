@@ -35,7 +35,17 @@ async def test_the_fake_replays_a_recording_else_answers_from_the_prompt() -> No
     assert "".join(pieces) == answer.text
     first, again = await plain.embed(["vpn"]), await plain.embed(["vpn"])
     assert first == again
-    assert len(first[0]) == 16
+    assert len(first[0]) == 1024  # as wide as the store (bge-m3)
+    # Shared words bring texts near each other; the vectors are normalised.
+    near, far, query = await plain.embed(
+        ["VPN drops every hour", "Printer out of toner", "the vpn drops"]
+    )
+    assert _cosine(query, near) > _cosine(query, far)
+    assert abs(_cosine(near, near) - 1.0) < 1e-9
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    return sum(x * y for x, y in zip(a, b, strict=True))
 
 
 def _provider(handler: httpx.MockTransport) -> OpenAICompatibleProvider:
