@@ -167,3 +167,49 @@ export function usePortalOnBehalfPeople(search: string) {
     staleTime: 30_000,
   });
 }
+
+export type PortalRequest = components['schemas']['PortalRequestOut'];
+export type PortalSteps = components['schemas']['PortalStepsOut'];
+
+export const portalRequestKeys = {
+  all: ['portal', 'service-requests'] as const,
+  list: (state: PortalState | undefined) => ['portal', 'service-requests', 'list', state] as const,
+  detail: (id: string) => ['portal', 'service-requests', 'detail', id] as const,
+};
+
+/** The requester's own service requests (WP-030 D9, REQ-SR-062). */
+export function usePortalRequests(state: PortalState | undefined) {
+  return useQuery({
+    queryKey: portalRequestKeys.list(state),
+    queryFn: () =>
+      call(api.GET('/api/v1/portal/service-requests', { params: { query: { state } } })),
+  });
+}
+
+export function usePortalRequest(id: string) {
+  return useQuery({
+    queryKey: portalRequestKeys.detail(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: id !== '',
+    retry: false,
+  });
+}
+
+/** Fulfilment progress, internal step names hidden (REQ-SR-051 AC2). */
+export function usePortalRequestSteps(id: string) {
+  return useQuery({
+    queryKey: [...portalRequestKeys.detail(id), 'steps'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}/steps', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: id !== '',
+  });
+}

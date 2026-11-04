@@ -97,4 +97,68 @@ describe('portal: approvals', () => {
     });
     expect(used?.url.toString()).not.toContain(TOKEN);
   });
+
+  it('a service request: its answers, its steps (an internal one unnamed), and withdraw', async () => {
+    const ITEM = '01a1a2b3-0000-7000-8000-00000000c001';
+    const me = fakeSession({ user_type: 'requester', roles: ['requester'] });
+    window.history.pushState({}, '', `/service-requests/${RECORD}`);
+    const withdraw = `/api/v1/service-requests/${RECORD}/withdraw`;
+    const fake = fakeApi({
+      ...BASE,
+      'GET /api/v1/auth/me': { body: me },
+      [`GET /api/v1/portal/service-requests/${RECORD}`]: {
+        body: {
+          id: RECORD,
+          display_id: 'SR-7',
+          subject: 'Laptop for Sara',
+          portal_status: 'awaiting_approval',
+          reach: 'own',
+          requester_id: me.user.id,
+          on_behalf_of_id: null,
+          catalog_item_id: ITEM,
+          answers: { model: 'air' },
+          approval_status: 'pending',
+          created_at: '2026-11-04T08:00:00Z',
+          updated_at: '2026-11-04T08:00:00Z',
+          resolution: null,
+          version: 4,
+        },
+      },
+      [`GET /api/v1/portal/service-requests/${RECORD}/steps`]: {
+        body: {
+          items: [
+            { position: 1, title: 'Order the laptop', done: true },
+            { position: 2, title: null, done: false },
+          ],
+          done: 1,
+          total: 2,
+        },
+      },
+      [`GET /api/v1/service-requests/${RECORD}/approvals`]: { body: { items: [], people: {} } },
+      [`GET /api/v1/catalog/items/${ITEM}`]: {
+        body: {
+          id: ITEM,
+          names: { en: 'New laptop' },
+          questions: [{ key: 'model', label: { en: 'Model' }, kind: 'choice', required: true }],
+        },
+      },
+      [`POST ${withdraw}`]: { body: { id: RECORD, status: 'canceled', version: 5 } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('portal-status')).textContent).toBe('Waiting for approval');
+    await waitFor(() => {
+      expect(screen.getByTestId('portal-service-request-answers').textContent).toContain('air');
+    });
+    const steps = await screen.findByTestId('portal-service-request-steps');
+    expect(within(steps).getByText('Order the laptop')).toBeDefined();
+    expect(within(steps).getByText('Step 2 of 2')).toBeDefined();
+    fireEvent.click(screen.getByTestId('portal-withdraw'));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Withdraw request' }));
+    await waitFor(() => {
+      expect(fake.find('POST', withdraw)).toHaveLength(1);
+    });
+    expect(fake.find('POST', withdraw)[0]?.headers.get('If-Match')).toBe('"4"');
+  });
 });

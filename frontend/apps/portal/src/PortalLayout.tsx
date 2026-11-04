@@ -21,7 +21,12 @@ import {
 const NAV: { path: string; labelKey: LabelKey; feature?: Feature }[] = [
   { path: '/', labelKey: 'nav.home' },
   { path: '/requests', labelKey: 'nav.my_requests' },
-  // WP-030: approvals waiting for you (a requester can be an approver, REQ-SR-022 AC2).
+  // WP-030 D9: the requester's service requests, and approvals waiting for them (a requester can be an approver, REQ-SR-022 AC2).
+  {
+    path: '/service-requests',
+    labelKey: 'portal.service_requests.title',
+    feature: 'service_request',
+  },
   { path: '/approvals', labelKey: 'portal.approvals.title', feature: 'service_request' },
   { path: '/catalog', labelKey: 'nav.catalog' },
 ];

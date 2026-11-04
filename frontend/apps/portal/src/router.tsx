@@ -59,6 +59,22 @@ export const routes: RouteObject[] = [
           Component: (await import('./pages/requests/RequestPage')).RequestPage,
         }),
       },
+      {
+        path: 'service-requests',
+        handle: { titleKey: 'portal.service_requests.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/service-requests/ServiceRequestsPage'))
+            .ServiceRequestsPage,
+        }),
+      },
+      {
+        path: 'service-requests/:id',
+        handle: { titleKey: 'portal.service_requests.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/service-requests/ServiceRequestPage'))
+            .ServiceRequestPage,
+        }),
+      },
       { path: 'catalog', handle: { titleKey: 'nav.catalog' }, lazy: comingSoon },
       { path: '*', handle: { titleKey: 'shell.not_found' }, lazy: comingSoon },
     ],
