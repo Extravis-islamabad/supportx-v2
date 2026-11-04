@@ -97,6 +97,14 @@ Revised after lane A's review for changes (file 05, REQ-CHG-023..031, -052, -053
    An empty rule restricts nobody. A non-empty rule always also admits those who configure the
    service desk (`config.service_desk`, `settings.manage`), so no record can be stuck in a stage
    (lane B's review).
+11. **Roles and the parts of a staged record (session 4).** Types may opt into named roles
+    (`work_item_role_defs`, holders in `work_item_role_holders`: people or groups, one or
+    several), rich-text plan sections, per-stage schedules and outcomes, and downtime windows.
+    Role holders count as the record's owners in the policy layer (`ResourceType.owner_extra`,
+    OR'ed into the `own` scope only). So a holder with an own-scope grant reaches the record in
+    lists, on the record, live and in search. Any future four-eyes rule (lane A's change
+    approvals) must not treat "holds a role" as "is the requester" by accident. Stage access
+    can name roles; their current holders join the rule at once.
 9. **Seeds and edits.** A tenant's stages, paths, statuses and transitions are seeded on first
    use from the type's declaration: Appendix A of file 06 for releases, file 05 for changes.
    Admins edit them later. Seeds never overwrite a tenant's edits.

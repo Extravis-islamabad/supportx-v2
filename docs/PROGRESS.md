@@ -985,7 +985,7 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-3 of 6 built 2026-11-05, #214, #219)
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-4 of 6 built 2026-11-05; #214 merged, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
 with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
@@ -1014,7 +1014,21 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   - A group change takes effect without signing in again.
   - Not done: bulk stage moves (REQ-REL-018 AC2) go to WP-058b with the release lists. Record
     roles in stage access come with S4.
-- [ ] S4 — roles, planning and deployment, planned and actual dates per stage (REQ-REL-023..028).
+- [x] **S4 — roles, plan, schedules, outcomes, downtimes (#219, migration 0095; REQ-REL-023..028).**
+  - Roles are held by people or groups, with eligibility through the policy layer; holders
+    are part of the own scope. Lane B reviewed the policy part; lane A checked the tables for
+    changes.
+  - Plan sections have their own If-Match.
+  - The engine stamps actual stage dates; corrections need a reason.
+  - Stage outcomes: a failed outcome needs its issues.
+  - Downtime windows name the affected services and CIs.
+  - Not done:
+    - Notifying a new role holder (REQ-REL-023 AC1) and the "behind schedule" list column
+      (REQ-REL-026 AC3) come with WP-058b's notifications and lists.
+    - Copying downtime from a linked change (REQ-REL-027 AC1) needs changes (058b).
+    - Listing a person's open roles before a permission is removed (REQ-REL-024 AC2) is a
+      lane B admin-screen hook, recorded for them.
+    - REQ-REL-029 (environments) is LATER.
 - [ ] S5 — approvals per stage through the system entry point, associations (REQ-REL-030..037).
 - [ ] S6 — the console screens (rail, moves dialog, details), e2e and RTL; without workflows.
 - **Not done in S1 (recorded for later sessions):**
