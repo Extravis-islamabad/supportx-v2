@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import PermissionSpec
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.modules import service_catalog
 from app.modules.identity_access import (
     Subject,
     direct_reports,
@@ -290,7 +291,16 @@ async def portal_templates(
     """
     rows = await templates.list_templates(session, wtype)
     offered = [t for t in rows if t.for_requesters and t.disabled_at is None]
-    return offered or [t for t in rows if t.is_default]
+    offered = offered or [t for t in rows if t.is_default]
+    # WP-031 plan D7 (REQ-CAT-014): the catalog may hide the general incident form, so
+    # requesters report through its "report a problem" entries; never down to no form at all.
+    if (
+        wtype is INCIDENT
+        and (await service_catalog.catalog_settings(session)).hide_default_incident_template
+    ):
+        narrowed = [t for t in offered if not t.is_default]
+        offered = narrowed or offered
+    return offered
 
 
 async def create_record(  # noqa: PLR0913 - the form's inputs and the engine's context

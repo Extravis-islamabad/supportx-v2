@@ -18,7 +18,7 @@ All composite foreign keys carry tenant_id. Seeds are made per tenant on first u
 type's declaration (no data step here). The downgrade drops it all.
 
 Revision ID: 0090
-Revises: 0069
+Revises: 0074
 Created: 2026-11-05
 """
 
@@ -31,7 +31,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0090"
-down_revision: str | None = "0069"
+down_revision: str | None = "0074"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

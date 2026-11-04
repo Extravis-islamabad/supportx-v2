@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 .PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed db-guard custom-field-indexes dev-subscription e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -76,6 +76,9 @@ db-current: ## Show the database's current migration
 
 db-seed: ## Create the dev tenants and their plans if missing (idempotent, never deletes or updates)
 	$(BACKEND) uv run python -m tooling.seed_dev
+
+catalog-starter: ## Add the starter catalog (D-138) to an existing tenant with an empty catalog: TENANT=<slug>
+	$(BACKEND) uv run python -m tooling.catalog_starter $(TENANT)
 
 showcase-seed: $(DEV_ENV) ## Fill Showcase Company (slug showcase) for demos; idempotent, never touches demo or other (D-124)
 	@env_value() { grep "^$$1=" $(CURDIR)/$(DEV_ENV) | cut -d= -f2-; }; \
