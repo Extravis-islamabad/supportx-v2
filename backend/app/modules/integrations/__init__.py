@@ -11,6 +11,7 @@ Public interface for other modules: none yet.
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.integrations.api.catalogue import catalogue_router
+from app.modules.integrations.api.connector_settings import router as connector_settings_router
 from app.modules.integrations.api.directories import router as directories_router
 from app.modules.integrations.api.routes import oauth_router, router
 from app.modules.integrations.events import EVENTS
@@ -30,7 +31,7 @@ connector_notifications.register()  # failing and recovered connectors (WP-040)
 
 module = ModuleSpec(
     name="integrations",
-    routers=[router, oauth_router, catalogue_router, directories_router],
+    routers=[router, oauth_router, catalogue_router, directories_router, connector_settings_router],
     # Tenant admins hold every permission; mailboxes are theirs (and custom roles').
     permissions=(
         PermissionSpec(MANAGE),

@@ -501,6 +501,9 @@ export const ur: LabelResource = {
   'event_type.sla.target.breached': 'ایس ایل اے ہدف میں تاخیر',
   'event_type.sla.target.escalated': 'ایس ایل اے ایسکلیشن کا درجہ چلا',
   'history.sla_escalation': '{{target}}: درجہ {{level}} چلا',
+  // WP-040 connector defaults (D-041)
+  'audit.action.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل کیں',
+  'event_type.integrations.connector_settings.changed': 'کنیکٹر کی طے شدہ ترتیبات تبدیل ہوئیں',
   'event_type.knowledge.vote.saved': 'علمی مضمون کی رائے محفوظ ہوئی',
   'event_type.identity_access.api_key.changed': 'API کلید بدلی',
   'audit.action.api_key.created': 'API کلید بنائی',

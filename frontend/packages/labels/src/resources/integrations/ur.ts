@@ -339,4 +339,18 @@ export const ur: LabelResource = {
   'directory_attribute.companyName': 'کمپنی کا نام',
   'directory_attribute.state': 'ریاست یا صوبہ',
   'directory_attribute.country': 'ملک',
+  // WP-040 connector defaults (D-041)
+  'connector_settings.title': 'کنیکٹر کی طے شدہ ترتیبات',
+  'connector_settings.intro':
+    'ہر کنیکٹر کیسے کام کرتا ہے جب تک اس کی اپنی ترتیبات کچھ اور نہ کہیں۔ تصدیق کی ناکامی ہمیشہ فوراً شمار ہوتی ہے۔',
+  'connector_settings.failing_after_runs': 'ناکام قرار دیا جائے (مسلسل ناکام رنز کے بعد)',
+  'connector_settings.failing_after_runs_help':
+    '{{min}} اور {{max}} کے درمیان۔ کنیکٹر کے ناکام ہونے پر منتظمین کو ایک بار بتایا جاتا ہے۔',
+  'connector_settings.error_retention_days': 'کنیکٹر کی خرابیاں رکھیں (دن)',
+  'connector_settings.error_retention_days_help': '{{min}} اور {{max}} دن کے درمیان۔',
+  'connector_settings.sync_minutes': 'نئی ڈائریکٹریز ہر (منٹ) میں سنک ہوں',
+  'connector_settings.sync_minutes_help':
+    '{{min}} اور {{max}} کے درمیان۔ ہر ڈائریکٹری اپنا وقفہ بدل سکتی ہے۔',
+  'connector_settings.saved': 'کنیکٹر کی طے شدہ ترتیبات محفوظ ہو گئیں',
+  'directories.interval_default': 'ادارے کی طے شدہ قدر',
 };
