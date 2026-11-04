@@ -787,11 +787,42 @@ it with no reload (rule c). Not built yet.
     breaks).
   - Tests: domain 16, API 15 (RLS, tree, life, schedule, audiences, entries, search and its
     budget, settings, starter, tooling, the outbox event).
-- [ ] Session 2 (console admin and portal wiring): D4 admin list and item page with tabs, D8
-  and D9 editors, D11 ordering (drag and keyboard) and featured, preview as a requester, the
-  starter banner, live updates, en/ar/ur labels, RTL, axe; e2e "build, preview, publish,
-  request". The portal shows an item's description before its form (the password item's
-  self-service first, D-138).
+- [x] Session 2 (console admin and portal wiring, #200):
+  - Admin › Service catalog: the category tree (add, nest, move up/down, edit, disable, delete
+    only when empty), the items (search, status filter, order, featured, copy, delete with the
+    "retire instead" answer), the starter banner with "choose a group and publish" (D-138), and
+    the tenant setting "hide the general incident form" (D7).
+  - One item's page with tabs (Details, Form, Approval, SLA and assignment, Fulfilment,
+    Publishing), each saying in one line what it controls.
+    - Editors: questions of all 15 kinds with words per language, help, audiences and keys;
+      the plan; the approval stage. More stages show as Professional / later (D8).
+    - Behaviour: publish, retire, publish again and planned times; missing translations named
+      in words; a save sends only what changed (If-Match, the conflict dialog on 409); a
+      preview as a requester sees it, read-only.
+  - The portal catalog:
+    - browse by category, featured items, search in every language;
+    - an item's page shows its description before the form (the password item's
+      self-service first), then only the requester's questions;
+    - "report a problem" entries open the incident form with their template;
+    - live through `service_catalog.changed`, also in the console (it was not listened to
+      before).
+  - One shared question renderer (`packages/ui/catalog`) for the console raise page, the portal
+    and the preview, and answers shown in words on both request pages (rule d: no codes or
+    IDs). The console raise page lists published service items only.
+  - The service requests list in the UI pass 2 style (QA 2026-11-04 #6): view tiles, labelled
+    pickers, channel icon and status tag, a loading state and a real empty state.
+  - Fix: the portal report form added each file twice.
+  - Tests: console admin 5, portal catalog 3, a D7 DB test; e2e `catalog.spec.ts` ("build,
+    preview, publish, request", live in the portal).
+- **Not done in WP-031 (recorded for WP-047, V1 of service requests):**
+  - The subject template is stored and checked, but a new request doesn't fill its subject from
+    it yet. That needs work_items' create to accept an empty subject for an item that has a
+    template.
+  - Ordering is by keyboard move buttons only (no drag).
+  - Missing translations use en/ar/ur; switch to `organization.offered_languages` (new on main
+    from WP-042).
+  - Person and attachment questions in the portal show a hint for now (no people picker or
+    upload in the portal form yet).
 - **Notes for later:**
   - Popularity ranking ("most requested") is WP-032.
   - Drop `catalog_items.enabled` in a contract migration once no client sends it.
