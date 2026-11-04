@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CHANNEL_LOOKS } from './channelLooks';
 
 // Every channel of REQ-INC-005 has a look, and its icon reads at 3:1 or more on its tint
-// (WCAG 1.4.11, non-text contrast).
+// (WCAG 1.4.11, non-text contrast), in light and dark.
 const CHANNELS = [
   'phone',
   'walk_up',
@@ -36,6 +36,12 @@ describe('channel icons', () => {
       const look = CHANNEL_LOOKS[channel];
       expect(look, channel).toBeDefined();
       expect(contrast(look?.fg ?? '', look?.bg ?? ''), channel).toBeGreaterThanOrEqual(4.5);
+      const dark = look?.dark;
+      expect(contrast(dark?.fg ?? '', dark?.bg ?? ''), `${channel} (dark)`).toBeGreaterThanOrEqual(
+        4.5,
+      );
+      // A deep tint on the dark page, never a light chip.
+      expect(luminance(dark?.bg ?? '#ffffff'), `${channel} (dark tint)`).toBeLessThan(0.05);
     }
   });
 });

@@ -170,7 +170,9 @@ export function AppearanceProvider({
       <style>{FONT_FACES + PAGE_CSS}</style>
       <LabelsProvider locale={locale}>
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
-          <AntApp>{children}</AntApp>
+          {/* Messages start below the header, never over its search field (UI pass 2, agreed
+              with lane B); the header grows with the text size. Notifications stay top-right. */}
+          <AntApp message={{ top: Math.round((56 * textScale) / 100) + 8 }}>{children}</AntApp>
         </ConfigProvider>
       </LabelsProvider>
     </AppearanceContext.Provider>
