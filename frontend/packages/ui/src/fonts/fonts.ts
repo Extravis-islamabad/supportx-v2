@@ -17,6 +17,7 @@ import interViet400 from '@fontsource/inter/files/inter-vietnamese-400-normal.wo
 import nastaliq400 from '@fontsource/noto-nastaliq-urdu/files/noto-nastaliq-urdu-arabic-400-normal.woff2';
 import nastaliq700 from '@fontsource/noto-nastaliq-urdu/files/noto-nastaliq-urdu-arabic-700-normal.woff2';
 import naskh400 from '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff2';
+import naskh500 from '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-500-normal.woff2';
 import naskh600 from '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-600-normal.woff2';
 import naskh700 from '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-700-normal.woff2';
 
@@ -47,6 +48,7 @@ export const FONT_FACES = [
   face('Inter', 700, interExt700, LATIN_EXT_RANGE),
   face('Inter', 400, interViet400, VIETNAMESE_RANGE),
   face('Noto Sans Arabic', 400, naskh400, ARABIC_RANGE),
+  face('Noto Sans Arabic', 500, naskh500, ARABIC_RANGE), // as Inter: every weight we use
   face('Noto Sans Arabic', 600, naskh600, ARABIC_RANGE),
   face('Noto Sans Arabic', 700, naskh700, ARABIC_RANGE),
   face('Noto Nastaliq Urdu', 400, nastaliq400, ARABIC_RANGE),
