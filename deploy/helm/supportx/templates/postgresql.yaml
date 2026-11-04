@@ -45,10 +45,70 @@ spec:
   {{- end }}
   resources:
     {{- toYaml $pg.resources | nindent 4 }}
+  {{- if $pg.backup.enabled }}
+  # WAL archiving and base backups through the Barman Cloud plugin (WP-014b).
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ .Release.Name }}-pg-backups
+  {{- end }}
   {{- if include "supportx.podMonitorsEnabled" . }}
   monitoring:
     enablePodMonitor: true
   {{- end }}
+{{- if $pg.backup.enabled }}
+{{- $b := $pg.backup }}
+{{- $endpoint := $b.endpointURL }}
+{{- if not $endpoint }}
+{{- $endpoint = ternary (printf "http://%s-seaweedfs:8333" .Release.Name) .Values.objectStorage.external.endpoint (eq .Values.objectStorage.mode "seaweedfs") }}
+{{- end }}
+{{- $secret := $b.credentialsSecret | default .Values.secrets.app }}
+{{- $idKey := ternary "ACCESS_KEY_ID" "s3-access-key" (not (empty $b.credentialsSecret)) }}
+{{- $keyKey := ternary "ACCESS_SECRET_KEY" "s3-secret-key" (not (empty $b.credentialsSecret)) }}
+---
+# Where the backups go (the plugin's ObjectStore): WAL continuously, base backups on schedule.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ .Release.Name }}-pg-backups
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  retentionPolicy: {{ $b.retentionPolicy | quote }}
+  configuration:
+    destinationPath: {{ $b.destinationPath | default (printf "s3://%s/backups/postgres" .Values.objectStorage.bucket) | quote }}
+    {{- with $endpoint }}
+    endpointURL: {{ . | quote }}
+    {{- end }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ $secret }}
+        key: {{ $idKey }}
+      secretAccessKey:
+        name: {{ $secret }}
+        key: {{ $keyKey }}
+    wal:
+      compression: {{ $b.walCompression }}
+    data:
+      compression: {{ $b.walCompression }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ .Release.Name }}-pg-daily
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  schedule: {{ $b.schedule | quote }}
+  backupOwnerReference: self
+  immediate: true                     # a first base backup as soon as the cluster is up
+  cluster:
+    name: {{ .Release.Name }}-pg
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+{{- end }}
 {{- if $pg.devNodePort }}
 ---
 # DEV ONLY: the primary on a NodePort for the e2e suite's fixture tools (values-dev.yaml).
