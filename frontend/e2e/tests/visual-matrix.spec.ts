@@ -355,8 +355,9 @@ test(`visual matrix, shard ${String(SHARD)}/${String(SHARDS)}`, async ({ browser
   for (const app of ['console', 'e2e', 'portal'] as const) {
     const screens = mine.filter((s) => s.app === app);
     if (screens.length === 0) continue;
+    // The console keeps the config's own base URL: passing undefined would drop it.
     const context = await browser.newContext({
-      baseURL: app === 'portal' ? PORTAL_URL : undefined,
+      baseURL: app === 'portal' ? PORTAL_URL : test.info().project.use.baseURL,
     });
     const page = await context.newPage();
     if (app === 'console') {
