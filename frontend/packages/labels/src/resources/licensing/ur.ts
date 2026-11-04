@@ -2,42 +2,6 @@ import type { LabelResource } from '../en';
 
 // licensing labels (see ../README.md).
 export const ur: LabelResource = {
-  'licence.grace_banner_one':
-    'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہے۔',
-  'licence.grace_banner_other':
-    'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہیں۔',
-  'licence.read_only_banner':
-    'صرف پڑھنے کا موڈ: آپ ڈیٹا دیکھ اور ایکسپورٹ کر سکتے ہیں۔ لائسنس کی تجدید تک تبدیلیاں روک دی گئی ہیں۔',
-  'limit.technicians': 'ٹیکنیشن',
-  'limit.assets': 'زیرِ انتظام اثاثے',
-  'limit.desks': 'ڈیسک',
-  'limit.msp_customers': 'MSP صارفین',
-  'limit.ai_agent_runs_per_month': 'ماہانہ AI ایجنٹ رنز',
-  'limit.storage_gb': 'فائل اسٹوریج (GB)',
-  'licence_page.plan': 'آپ کا پلان',
-  'licence_page.edition': 'ایڈیشن',
-  'licence_page.no_edition': 'کوئی نہیں',
-  'licence_page.state': 'حالت',
-  'licence_page.starts': 'کب سے درست',
-  'licence_page.expires': 'کب تک درست',
-  'licence_page.maintenance': 'دیکھ بھال کب تک',
-  'licence_page.no_end': 'کوئی آخری تاریخ نہیں',
-  'licence_page.grace_days': 'رعایتی مدت',
-  'licence_page.grace_until': 'رعایتی مدت {{when}} کو ختم ہو گی۔',
-  'licence_page.limits': 'حدیں اور استعمال',
-  'licence_page.limit': 'حد',
-  'licence_page.usage': 'استعمال',
-  'licence_page.used_of': '{{limit}} میں سے {{used}}',
-  'licence_page.used_unlimited': '{{used}}، کوئی حد نہیں',
-  'licence_page.unlimited': 'کوئی حد نہیں',
-  'licence_page.not_counted': 'شمار نہیں ہوتا',
-  'licence_page.features': 'شامل',
-  'licence_page.upgrade':
-    'اپنا پلان بدلنے یا نشستیں بڑھانے کے لیے Extravis یا اپنے پارٹنر سے رابطہ کریں۔',
-  'licence_page.days_one': '{{count}} دن',
-  'licence_page.days_other': '{{count}} دن',
-  // WP-040 AD/LDAP (D-130)
-  'feature.directory_federation': 'ڈائریکٹری سائن اِن (AD/LDAP)',
   'edition.enterprise': 'انٹرپرائز',
   'edition.essentials': 'بنیادی',
   'edition.professional': 'پروفیشنل',
@@ -60,6 +24,8 @@ export const ur: LabelResource = {
   'feature.compliance_packs': 'تعمیل کے پیکس',
   'feature.config_as_code': 'کوڈ کے طور پر کنفیگریشن',
   'feature.custom_functions': 'حسب ضرورت فنکشنز',
+  // WP-040 AD/LDAP (D-130)
+  'feature.directory_federation': 'ڈائریکٹری سائن اِن (AD/LDAP)',
   'feature.discovery': 'اثاثوں کی دریافت',
   'feature.esm': 'انٹرپرائز سروس مینجمنٹ',
   'feature.incident': 'واقعات کا انتظام',
@@ -76,10 +42,44 @@ export const ur: LabelResource = {
   'feature.sla': 'سروس لیول معاہدے',
   'feature.workflows': 'بصری ورک فلوز',
   'licence.ask_admin': 'پلان اپ گریڈ کرنے کے بارے میں اپنے منتظم سے پوچھیں۔',
+  'licence.grace_banner_one':
+    'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہے۔',
+  'licence.grace_banner_other':
+    'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہیں۔',
   'licence.grace_warning':
     'لائسنس انتباہ: صرف پڑھنے کی حالت سے بچنے کے لیے رعایتی مدت ختم ہونے سے پہلے تجدید کریں۔',
   'licence.locked': 'آپ کے پلان میں شامل نہیں',
   'licence.read_only_action':
     'صرف پڑھنے کی حالت میں دستیاب نہیں۔ دیکھنا اور برآمد کرنا اب بھی ممکن ہے۔',
+  'licence.read_only_banner':
+    'صرف پڑھنے کا موڈ: آپ ڈیٹا دیکھ اور ایکسپورٹ کر سکتے ہیں۔ لائسنس کی تجدید تک تبدیلیاں روک دی گئی ہیں۔',
   'licence.upgrade_hint': 'آپ کے پلان میں شامل نہیں۔ اپ گریڈ کے لیے Extravis سے رابطہ کریں۔',
+  'licence_page.days_one': '{{count}} دن',
+  'licence_page.days_other': '{{count}} دن',
+  'licence_page.edition': 'ایڈیشن',
+  'licence_page.expires': 'کب تک درست',
+  'licence_page.features': 'شامل',
+  'licence_page.grace_days': 'رعایتی مدت',
+  'licence_page.grace_until': 'رعایتی مدت {{when}} کو ختم ہو گی۔',
+  'licence_page.limit': 'حد',
+  'licence_page.limits': 'حدیں اور استعمال',
+  'licence_page.maintenance': 'دیکھ بھال کب تک',
+  'licence_page.no_edition': 'کوئی نہیں',
+  'licence_page.no_end': 'کوئی آخری تاریخ نہیں',
+  'licence_page.not_counted': 'شمار نہیں ہوتا',
+  'licence_page.plan': 'آپ کا پلان',
+  'licence_page.starts': 'کب سے درست',
+  'licence_page.state': 'حالت',
+  'licence_page.unlimited': 'کوئی حد نہیں',
+  'licence_page.upgrade':
+    'اپنا پلان بدلنے یا نشستیں بڑھانے کے لیے Extravis یا اپنے پارٹنر سے رابطہ کریں۔',
+  'licence_page.usage': 'استعمال',
+  'licence_page.used_of': '{{limit}} میں سے {{used}}',
+  'licence_page.used_unlimited': '{{used}}، کوئی حد نہیں',
+  'limit.ai_agent_runs_per_month': 'ماہانہ AI ایجنٹ رنز',
+  'limit.assets': 'زیرِ انتظام اثاثے',
+  'limit.desks': 'ڈیسک',
+  'limit.msp_customers': 'MSP صارفین',
+  'limit.storage_gb': 'فائل اسٹوریج (GB)',
+  'limit.technicians': 'ٹیکنیشن',
 };

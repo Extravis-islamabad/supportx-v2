@@ -12,6 +12,10 @@ export function CrumbProvider({ children }: { children: ReactNode }) {
   return <CrumbContext.Provider value={value}>{children}</CrumbContext.Provider>;
 }
 
+// The crumbs keep a share of the header (UI pass 2): with a zero basis the search field, which
+// asks for 380 px, took all the room at 1280 px and squeezed "Knowledge" to one letter a line.
+const SHARE = { flex: '1 1 200px', minWidth: 120 } as const;
+
 /**
  * The header's breadcrumbs. Narrow screens show only the page itself, cut short with an
  * ellipsis (its full text as a tooltip), so the header never wraps.
@@ -41,7 +45,7 @@ export function HeaderCrumbs({
     );
   }
   return (
-    <nav aria-label={t('shell.breadcrumbs')} style={{ flex: 1, minWidth: 0 }}>
+    <nav aria-label={t('shell.breadcrumbs')} style={SHARE}>
       <Breadcrumb
         data-testid="header-crumbs"
         items={crumbs.map((crumb, index) => {
