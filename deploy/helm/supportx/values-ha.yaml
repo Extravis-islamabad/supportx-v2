@@ -8,8 +8,6 @@
 # Copies of a component never share a node (ha.antiAffinity hard), every component with more
 # than one copy has a PodDisruptionBudget, and the API scales on CPU. Still to come in WP-014b:
 # backups and the restore runbook. Images are INTERNAL/DEV builds (D-038).
-app:
-  profile: production
 
 ha:
   enabled: true
