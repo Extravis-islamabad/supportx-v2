@@ -447,6 +447,7 @@ export const en = {
   'settings.portal_show_due_time': 'Requesters see the expected resolution time',
   'settings.portal_show_due_time_help':
     'The portal shows when an incident should be resolved, from its SLA.',
+  'search.knowledge': 'Knowledge articles',
   'nav.admin_api_keys': 'API keys',
   'api_scope_access.read': 'Read',
   'api_scope_access.write': 'Write',

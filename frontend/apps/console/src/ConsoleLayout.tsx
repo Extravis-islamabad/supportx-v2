@@ -49,6 +49,7 @@ import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
 import { LoopBanner } from './pages/admin/automation/LoopBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
 import { usePaletteIncidents } from './pages/incidents/usePaletteIncidents';
+import { usePaletteKnowledge } from './pages/knowledge/usePaletteKnowledge';
 
 import { NAV } from './nav';
 
@@ -153,6 +154,14 @@ export function ConsoleLayout() {
     paletteQuery,
     session?.user.id ?? null,
     access.can('incidents.view') && licence.has('incident'),
+  );
+  const paletteKnowledge = usePaletteKnowledge(
+    paletteOpen,
+    paletteQuery,
+    access.can('knowledge.view'),
+  );
+  const paletteGroups = [paletteRecords, paletteKnowledge].filter(
+    (group): group is NonNullable<typeof group> => group !== undefined,
   );
   const section = pathname.split('/')[1] ?? '';
   const activeKey = section === '' ? 'home' : section;
@@ -266,7 +275,7 @@ export function ConsoleLayout() {
         commands={commands}
         onNavigate={(path) => void navigate(path)}
         onQueryChange={setPaletteQuery}
-        records={paletteRecords}
+        records={paletteGroups.length > 0 ? paletteGroups : undefined}
       />
     </AppShell>
   );

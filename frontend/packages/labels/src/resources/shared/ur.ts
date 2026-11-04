@@ -375,6 +375,7 @@ export const ur: LabelResource = {
   'settings.portal_show_due_time': 'درخواست گزار حل کا متوقع وقت دیکھیں',
   'settings.portal_show_due_time_help':
     'پورٹل دکھاتا ہے کہ واقعہ کب تک حل ہونا چاہیے، اس کے SLA کے مطابق۔',
+  'search.knowledge': 'علمی مضامین',
   'nav.admin_api_keys': 'API کلیدیں',
   'api_scope_access.read': 'پڑھنا',
   'api_scope_access.write': 'لکھنا',

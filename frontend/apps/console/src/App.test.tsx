@@ -99,6 +99,48 @@ describe('console shell', () => {
     expect(window.location.pathname).toBe('/knowledge');
   });
 
+  it('REQ-KB-053: the palette finds knowledge articles beside the pages', async () => {
+    const id = '01900000-0000-7000-8000-00000000b001';
+    const fake = api({
+      routes: {
+        'GET /api/v1/knowledge/articles': {
+          body: [
+            {
+              id,
+              display_id: 'KB-7',
+              topic_id: '01900000-0000-7000-8000-00000000c001',
+              type_code: 'how_to',
+              language: 'en',
+              title: 'Reset your VPN token',
+              status: 'published',
+              review_on: null,
+              updated_at: '2026-11-02T08:00:00Z',
+              owner_id: '01900000-0000-7000-8000-000000000101',
+              expired: false,
+              withdrawn: false,
+              review_due: false,
+              snippet: [{ text: 'Open the VPN portal.', mark: false }],
+            },
+          ],
+        },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('user-name');
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const input = await screen.findByRole('combobox');
+    fireEvent.change(input, { target: { value: 'vpn token' } });
+    const option = await screen.findByText('KB-7 · Reset your VPN token', {}, { timeout: 3000 });
+    expect(screen.getByText('Knowledge articles')).toBeDefined();
+    const [asked] = fake.find('GET', '/api/v1/knowledge/articles');
+    expect(asked?.url.searchParams.get('q')).toBe('vpn token');
+    expect(asked?.url.searchParams.get('view')).toBe('published');
+    fireEvent.click(option);
+    await waitFor(() => {
+      expect(window.location.pathname).toBe(`/knowledge/articles/${id}`);
+    });
+  });
+
   it('switches tenant through the BFF and reloads the plan of the new tenant', async () => {
     const both = fakeSession(
       {},
