@@ -8,7 +8,12 @@ from pydantic import BaseModel, Field
 from app import __version__
 from app.core.authorization import public_route
 from app.core.entitlements import entitlement_exempt
-from app.modules.system.domain.readiness import CheckStatus, FailureReason, ReadinessReport
+from app.modules.system.domain.readiness import (
+    EVENT_DELIVERY_CHECKS,
+    CheckStatus,
+    FailureReason,
+    ReadinessReport,
+)
 from app.modules.system.service.readiness import ReadinessService
 
 router = APIRouter(tags=["system"])
@@ -105,5 +110,9 @@ def _to_response(report: ReadinessReport) -> ReadinessResponse:
         },
         failed=report.failed,
         degraded=report.degraded,
-        event_delivery=("stalled" if report.degraded or "nats" in report.failed else "ok"),
+        event_delivery=(
+            "stalled"
+            if EVENT_DELIVERY_CHECKS.intersection(report.degraded) or "nats" in report.failed
+            else "ok"
+        ),
     )
