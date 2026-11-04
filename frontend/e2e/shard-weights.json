@@ -34,5 +34,6 @@
   "tests/sso.spec.ts": 32,
   "tests/tenant-branding.spec.ts": 38,
   "tests/toast-contrast.spec.ts": 22,
+  "tests/ui-pass-2.spec.ts": 420,
   "tests/users.spec.ts": 10
 }
