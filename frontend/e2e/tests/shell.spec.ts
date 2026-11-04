@@ -87,7 +87,8 @@ test('accessibility: main screens have no serious or critical axe violations', a
   await expect(page.getByTestId('profile-signature')).toBeVisible();
   await expectAccessible(page, 'my profile');
   await page.getByTestId('appearance-menu').click();
-  await page.getByText('Dark', { exact: true }).click();
+  // The header's control: My profile has a theme choice of its own (WP-042).
+  await page.getByTestId('appearance-controls').getByText('Dark', { exact: true }).click();
   await page.keyboard.press('Escape');
   await expectAccessible(page, 'my profile (dark)');
 });

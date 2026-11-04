@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { App } from '../App';
@@ -97,8 +98,15 @@ describe('My profile', () => {
         me: fakeSession({ theme_mode: 'light' }),
         routes: { [`PATCH ${ME_PATH}`]: { body: fakeUser({ version: 4 }) } },
       });
-      render(<App />);
+      // StrictMode, as in the dev build the e2e stack runs: effects run twice there, and the
+      // second run once applied the server's theme over this browser's own.
+      render(
+        <StrictMode>
+          <App />
+        </StrictMode>,
+      );
       await screen.findByTestId('preferences');
+      await new Promise((resolve) => setTimeout(resolve, 50)); // let both effect runs settle
       expect(document.documentElement.dataset.theme).toBe('dark'); // its own, not the server's
       expect(fake.find('PATCH', ME_PATH)).toHaveLength(0); // the person already chose
     } finally {

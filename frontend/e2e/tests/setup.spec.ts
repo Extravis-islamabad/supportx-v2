@@ -16,7 +16,8 @@ test('setup home, search, menu and licence page: labelled and accessible', async
   await expectAccessible(page, 'setup home');
 
   // A synonym finds the page; the menu stays and marks where you are.
-  await page.getByTestId('setup-search').locator('input').fill('2fa');
+  // The test id is on the <input> itself (Ant's Input.Search passes it down).
+  await page.getByTestId('setup-search').fill('2fa');
   await expect(home.getByTestId('setup-page-security')).toBeVisible();
   await expect(home.getByTestId('setup-page-users')).toHaveCount(0);
   await page.getByTestId('admin-sections').getByRole('link', { name: 'Licence and plan' }).click();

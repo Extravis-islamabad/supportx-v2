@@ -26,7 +26,10 @@ export function usePersonalAppearance(
   const { setMode, setTextScale } = useAppearance();
   const save = useSetPreference(user?.id ?? '');
   const copied = useRef(false);
-  const opened = useRef(true); // the first theme read from the server since this tab opened
+  // The first theme read from the server since this tab opened. A value, not a "done" flag:
+  // React's StrictMode runs effects twice in development, and a flag would let the second run
+  // apply the server's theme over this browser's own.
+  const firstSeen = useRef<{ value: string | null } | 'changed' | null>(null);
   const userId = user?.id;
   const themeMode = user?.theme_mode;
   const textScale = user?.text_scale;
@@ -45,8 +48,12 @@ export function usePersonalAppearance(
   useEffect(() => {
     if (userId === undefined) return;
     const remembered = storedMode();
-    const opening = opened.current;
-    opened.current = false;
+    const value = themeMode ?? null;
+    if (firstSeen.current === null) firstSeen.current = { value };
+    else if (firstSeen.current !== 'changed' && firstSeen.current.value !== value) {
+      firstSeen.current = 'changed';
+    }
+    const opening = firstSeen.current !== 'changed';
     if (themeMode === null || themeMode === undefined) {
       if (remembered !== null && !copied.current) {
         copied.current = true;
