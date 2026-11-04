@@ -788,9 +788,23 @@ it with no reload (rule c). Not built yet.
   - target dates on the SLA engine: resolution only, P1 5 to P4 40 business days, no first
     response; pausing and escalation as for incidents;
   - problem-only fields refused on other types; field history; labels en/ar/ur.
-- [ ] S3 create
-  from incidents · [ ] S4 templates and guided life cycle · [ ] S5 owner and investigators,
-  console screens, e2e.
+- [x] Session 3 (#211, 0089 extended): creating problems.
+  - From an incident: prefilled (subject, description, impact, urgency, site, the same seeded
+    category; reported by the creator) and linked "caused by" on both records with history.
+  - From many incidents: the already-caused ones are listed first and moved only when
+    confirmed; the others are linked by an incidents bulk job (`link_problem`, ≤ 1,000).
+  - An incident has at most one problem (partial unique index); a second gives 409
+    `incident_has_problem` unless moved.
+  - Similar open problems while typing (search port, visible ones only).
+  - Copy with the fields, a title marked with the original's ID, retired values left empty and
+    named, and history naming the original.
+  - Record links show caused_by / causes and the other record's type, checked against that
+    type's own permissions.
+  - Not yet (recorded): copying attachments (REQ-PRB-011 AC3), and the analysis and solution
+    parts of a copy (their fields come in WP-044b); creating from changes, releases, CIs and
+    reviews (REQ-PRB-013) waits for those records.
+- [ ] S4 templates and guided life cycle · [ ] S5 owner and investigators, console screens,
+  e2e.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 - **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
