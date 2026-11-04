@@ -75,6 +75,15 @@ from app.modules.identity_access.service.directory_people import (
     release_from_directory,
     sync_directory_person,
 )
+from app.modules.identity_access.service.federation import (
+    FederationFailed,
+    FederationNotInstalled,
+    federated_users,
+    federation_installed,
+    put_ldap_federation,
+    remove_ldap_federation,
+    sync_ldap_federation,
+)
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
@@ -303,6 +312,8 @@ register_people_usage()
 
 __all__ = [
     "KNOWLEDGE_MANAGER",
+    "FederationFailed",
+    "FederationNotInstalled",
     "FieldRule",
     "LeaverOutcome",
     "MailRecipient",
@@ -325,6 +336,8 @@ __all__ = [
     "directory_leaver",
     "directory_returner",
     "display_names",
+    "federated_users",
+    "federation_installed",
     "get_policy",
     "mail_recipients",
     "module",
@@ -332,13 +345,16 @@ __all__ = [
     "people_matching",
     "person_by_email",
     "person_placement",
+    "put_ldap_federation",
     "release_from_directory",
+    "remove_ldap_federation",
     "require",
     "role_names",
     "scope_filter",
     "set_service_identity_active",
     "subject_for",
     "sync_directory_person",
+    "sync_ldap_federation",
     "user_contacts",
     "user_names",
     "visible",

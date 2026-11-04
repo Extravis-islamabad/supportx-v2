@@ -584,6 +584,19 @@ export const ar: LabelResource = {
   'errors.field.unknown_reference': 'لم يعد أحد الأشخاص أو المجموعات المذكورة هنا موجودًا.',
   'errors.field.level_too_many_recipients': 'يُسمح بـ {{max}} مستلمًا على الأكثر لكل مستوى.',
   'errors.field.level_too_many_actions': 'يُسمح بـ {{max}} إجراءات على الأكثر لكل مستوى.',
+  // WP-040 AD/LDAP (D-130)
+  'errors.ldap_host_invalid': 'أدخل اسم خادم الدليل أو عنوان IP الخاص به، دون ldap:// أو مسار.',
+  'errors.plain_connection_refused': 'يُرفض الاتصال غير المشفّر ما لم تسمح به.',
+  'errors.ldap_dn_invalid': 'أدخل اسمًا مميزًا مثل OU=People,DC=example,DC=com.',
+  'errors.ldap_filter_invalid': 'أدخل عامل تصفية LDAP بين قوسين، مثل (objectClass=person).',
+  'errors.ldap_attribute_invalid': 'أدخل اسم سمة في الدليل: أحرف وأرقام وشرطات.',
+  'errors.ldap_federation_not_installed':
+    'لم يتم تفعيل AD/LDAP في هذا التثبيت. اطلب من المسؤول تفعيله.',
+  'errors.ldap_single_tenant_only': 'لا يمكن ربط أدلة AD/LDAP إلا في تثبيت يخدم مؤسسة واحدة.',
+  'errors.ldap_federation_refused':
+    'رفضت خدمة الهوية إعدادات الدليل. تحقّق من الخادم وحساب الربط والمسارات.',
+  'errors.ldap_federation_keycloak_unavailable': 'لم تستجب خدمة الهوية. سيُربط الدليل عند عودتها.',
+  'errors.ldap_bind_password_missing': 'لا توجد كلمة مرور ربط محفوظة. أدخلها مرة أخرى.',
   'errors.contact_editing_off': 'لا تسمح مؤسستك بتغيير بيانات الاتصال هنا. اسأل مكتب الخدمة.',
   'errors.field.managed_by_directory': 'يحتفظ الدليل بهذا الحقل. غيّره هناك.',
   'errors.console_requester_only': 'يستخدم هذا الحساب بوابة مقدمي الطلبات، وليس وحدة التحكم.',

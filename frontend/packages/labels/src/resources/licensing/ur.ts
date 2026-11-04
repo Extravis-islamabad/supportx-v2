@@ -14,6 +14,8 @@ export const ur: LabelResource = {
   'limit.msp_customers': 'MSP صارفین',
   'limit.ai_agent_runs_per_month': 'ماہانہ AI ایجنٹ رنز',
   'limit.storage_gb': 'فائل اسٹوریج (GB)',
+  // WP-040 AD/LDAP (D-130)
+  'feature.directory_federation': 'ڈائریکٹری سائن اِن (AD/LDAP)',
   'edition.enterprise': 'انٹرپرائز',
   'edition.essentials': 'بنیادی',
   'edition.professional': 'پروفیشنل',

@@ -511,6 +511,13 @@ export const en = {
   'event_type.sla.target.breached': 'SLA target overdue',
   'event_type.sla.target.escalated': 'SLA escalation level ran',
   'history.sla_escalation': '{{target}}: level {{level}} ran',
+  // WP-040 AD/LDAP (D-130)
+  'audit.action.directory.federation_applied':
+    'Connected an AD/LDAP directory in the identity service',
+  'audit.action.directory.federation_failed':
+    'Could not connect an AD/LDAP directory in the identity service',
+  'audit.action.directory.federation_removed':
+    'Removed an AD/LDAP directory from the identity service',
   'audit.action.user.contact_changed': 'Changed their contact details',
   // WP-040 connector defaults (D-041)
   'audit.action.connector_settings.changed': 'Changed the connector defaults',
