@@ -127,11 +127,12 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
     });
     expect(saved.logos.full).toMatch(/\/api\/v1\/public\/branding\/[0-9a-f-]{36}\/logo\.png/);
 
-    // The signed-in console shows the tenant's logo and favicon.
+    // The signed-in console shows the tenant's logo and favicon: on the dark navigation (UI pass
+    // 2) its dark-surface variant, which is the logo itself when no dark one could be made.
     await page.reload();
     await expect(page.getByTestId('brand-logo-full').first()).toHaveAttribute(
       'src',
-      /\/public\/branding\/[0-9a-f-]{36}\/logo\.png/,
+      /\/public\/branding\/[0-9a-f-]{36}\/logo(-dark)?\.png/,
     );
     await expect(page.getByTestId('brand-logo-full').first()).toHaveAttribute('alt', 'Demo Desk');
     await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute(

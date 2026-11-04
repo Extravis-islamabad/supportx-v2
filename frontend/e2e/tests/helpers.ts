@@ -24,9 +24,16 @@ export async function signIn(
 
 export async function signInAs(page: Page, user: E2eUser, path = '/'): Promise<void> {
   await signIn(page, USERS[user].email, passwordOf(user), path);
-  // The UI language is stored with the user (QA BUG-04): a test that switched a suite user to
-  // Arabic must not leave the next test in Arabic. Back to the identity provider's language.
+  // The UI language (QA BUG-04) and, since WP-042, the theme, text size, digits and Urdu style
+  // are stored with the user: a test that switched a suite user to Arabic or dark must not leave
+  // the next test in it. Back to the defaults (the identity provider's language).
   if (await resetLanguage(page)) {
+    // The page already applied the stored theme and mirrored it in this browser; left there, the
+    // app would copy it back to the server on reload (a person who never chose takes the
+    // browser's) and move the user's version under the test.
+    await page.evaluate(() => {
+      window.localStorage.removeItem('supportx.theme_mode');
+    });
     await page.reload();
     await expect(page.getByTestId('user-menu')).toBeVisible();
   }
@@ -42,7 +49,10 @@ export async function storedLanguage(page: Page): Promise<string | null> {
   return user.ui_locale;
 }
 
-/** Clear the suite user's stored UI language; true when there was one. */
+/** The personal choices `signInAs` puts back on the defaults (null: the default applies). */
+const PERSONAL = ['ui_locale', 'theme_mode', 'text_scale', 'digits', 'urdu_script'] as const;
+
+/** Clear the suite user's stored language and personal choices; true when any was set. */
 export async function resetLanguage(page: Page): Promise<boolean> {
   const request = page.context().request;
   const me = (await (await request.get('/api/v1/auth/me')).json()) as {
@@ -50,13 +60,13 @@ export async function resetLanguage(page: Page): Promise<boolean> {
     user: { id: string };
   };
   const path = `/api/v1/users/${me.user.id}`;
-  const user = (await (await request.get(path)).json()) as {
-    ui_locale: string | null;
+  const user = (await (await request.get(path)).json()) as Record<string, unknown> & {
     version: number;
   };
-  if (user.ui_locale === null) return false;
+  const set = PERSONAL.filter((field) => (user[field] ?? null) !== null);
+  if (set.length === 0) return false;
   const cleared = await request.patch(path, {
-    data: { ui_locale: null },
+    data: Object.fromEntries(set.map((field) => [field, null])),
     headers: { 'If-Match': `"${String(user.version)}"`, 'X-CSRF-Token': me.csrf_token },
   });
   expect(cleared.status(), await cleared.text()).toBe(200);
@@ -65,18 +75,7 @@ export async function resetLanguage(page: Page): Promise<boolean> {
 
 /** Clear the suite user's theme and text size (WP-042), so later specs start from the defaults. */
 export async function resetPreferences(page: Page): Promise<void> {
-  const request = page.context().request;
-  const me = (await (await request.get('/api/v1/auth/me')).json()) as {
-    csrf_token: string;
-    user: { id: string };
-  };
-  const path = `/api/v1/users/${me.user.id}`;
-  const user = (await (await request.get(path)).json()) as { version: number };
-  const cleared = await request.patch(path, {
-    data: { theme_mode: null, text_scale: null },
-    headers: { 'If-Match': `"${String(user.version)}"`, 'X-CSRF-Token': me.csrf_token },
-  });
-  expect(cleared.status(), await cleared.text()).toBe(200);
+  await resetLanguage(page);
 }
 
 /**
@@ -93,12 +92,10 @@ export async function expectAccessible(
 ): Promise<void> {
   // Ant Design animates colour changes (~0.3 s); measure contrast after they settle.
   await page.waitForTimeout(600);
-  // Toasts first, until they are fully gone: one can start fading while axe is scanning, so no
-  // check for "leaving" before the scan closes that race, and a half-transparent toast fails on
-  // contrast (lane C, automation.spec). The app has no persistent toasts; the longest lasts 4.5 s.
-  await expect(page.locator('.ant-message-notice, .ant-notification-notice')).toHaveCount(0, {
-    timeout: 10_000,
-  });
+  // Toasts are left out of the scan, not waited for: one can arrive (a notification, seconds late
+  // in CI) or start fading at any moment, and a half-transparent toast fails on contrast (lane C,
+  // automation.spec). Their own accessibility is checked by expectToastsAccessible
+  // (toast-contrast.spec).
   // Any other element leaving (a closing popup) is half transparent on its way out of the page: its
   // contrast says nothing about what users read, so wait until it is gone. "-leave" covers both
   // stages of the animation. Not a button's spinner: a button disabled as its save ends leaves it
@@ -111,6 +108,7 @@ export async function expectAccessible(
   if ((await page.locator('[aria-modal="true"]:visible').count()) > 0) {
     builder = builder.include('[aria-modal="true"]');
   }
+  builder = builder.exclude('.ant-message').exclude('.ant-notification');
   if (exclude !== undefined) builder = builder.exclude(exclude);
   const results = await builder.analyze();
   const blocking = results.violations.filter(

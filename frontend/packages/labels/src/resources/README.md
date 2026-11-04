@@ -12,7 +12,8 @@ resources/{en,ar,ur}.ts    join the modules into the one dictionary the app, i18
 ```
 
 Lanes adding labels in different modules never touch the same file, so label additions stop
-conflicting between PRs.
+conflicting between PRs. Within a file the keys are kept in order (code point order), so two PRs
+adding keys to the same module land in different places instead of both at the end.
 
 ## How to add a label
 
@@ -21,7 +22,9 @@ conflicting between PRs.
    words (actions, appearance, shell); `errors` for every `errors.*` code.
 2. Add the key to `<module>/en.ts`, `<module>/ar.ts` and `<module>/ur.ts`. Counted labels need
    the plural forms: English and Urdu `_one`/`_other`, Arabic all six (`_zero` … `_other`).
-3. Run `make labels-json` (the backend's copy) and `pnpm --filter @supportx/labels test`.
+3. Run `make labels-sort` to put the new keys in their place; `pnpm lint` (the fast checks)
+   fails while a file is out of order. Run it again after merging main.
+4. Run `make labels-json` (the backend's copy) and `pnpm --filter @supportx/labels test`.
    `modules.test.ts` fails when a key sits in two modules, sits in a different module in another
    language, lacks Arabic, or lacks Urdu (except the frozen list below).
 

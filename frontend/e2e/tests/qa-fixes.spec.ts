@@ -268,14 +268,26 @@ test('C3: in the side bar layout the sidebar border runs the full height of a lo
     const item = await incident(page, `E2E Tall ${stamp()}`);
     await page.goto(`/incidents/${item.id}`);
     await expect(page.getByTestId('inc-heading')).toBeVisible();
-    await page.evaluate(() => {
-      window.scrollTo(0, document.documentElement.scrollHeight);
-    });
-    const sider = await settledBox(page.locator('.ant-layout-sider'));
-    const doc = await page.evaluate(() => document.documentElement.scrollHeight);
-    const scrolled = await page.evaluate(() => window.scrollY);
-    // The sider reaches the bottom of the page (its border with it).
-    expect((sider?.y ?? 0) + scrolled + (sider?.height ?? 0)).toBeGreaterThanOrEqual(doc - 1);
+    // UI pass 2: the dark navigation is sticky and as tall as the window, so at the very end of a
+    // long page it still runs from the top of the window to the bottom. Polled: the record keeps
+    // loading below after the first scroll, and a sticky box never moves to show it settled.
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          window.scrollTo(0, document.documentElement.scrollHeight);
+          const atEnd =
+            window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1;
+          const box = document.querySelector('.ant-layout-sider')?.getBoundingClientRect();
+          return (
+            atEnd &&
+            box !== undefined &&
+            box.top <= 1 &&
+            box.bottom >= window.innerHeight - 1 &&
+            document.documentElement.scrollHeight > window.innerHeight
+          );
+        }),
+      )
+      .toBe(true);
   } finally {
     await prefer(page, { nav_layout: 'top' });
   }
