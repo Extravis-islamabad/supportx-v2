@@ -229,6 +229,7 @@ export const ur: LabelResource = {
     'درخواست گزار نے کہا کہ مسئلہ حل نہیں ہوا، اس لیے یہ دوبارہ کھولا گیا۔',
   'automation.why.auto_closed':
     'خودکار طور پر بند: درخواست گزار کو حل کی اطلاع دی گئی اور اس نے وقت پر جواب نہیں دیا۔',
+  'automation.why.fulfilled': 'تکمیل شدہ: تمام لازمی کام مکمل ہو گئے',
   'automation.why.assignment_move': 'تفویض ہونے پر خودکار طور پر منتقل ہوا۔',
   'automation.why.sla_escalation': 'ایس ایل اے ایسکلیشن سے: {{target}}، درجہ {{level}}',
 };

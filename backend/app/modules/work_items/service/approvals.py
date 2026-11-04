@@ -31,6 +31,7 @@ from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import fulfilment
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE, APPROVE_ANY
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
@@ -262,6 +263,7 @@ async def _finish(
     cat = await config.load(session, wtype)
     action = WorkItemAction.APPROVE if status is ApprovalStatus.APPROVED else WorkItemAction.REJECT
     technician = record.technician_id
+    item = None
     if status is ApprovalStatus.APPROVED and record.catalog_item_id is not None:
         item = await service_catalog.item_decides(session, record.catalog_item_id)
         if item is not None:
@@ -285,6 +287,7 @@ async def _finish(
         technician_id=technician,
         source=source,
     )
+    await fulfilment.start_plan(session, record, item, source=source)  # REQ-SR-021 AC1
 
 
 async def withdraw(  # noqa: PLR0913 - the withdrawal and its context, explicit

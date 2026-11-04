@@ -800,7 +800,14 @@ it with no reload (rule c). Not built yet.
   and withdraw (needs #178's portal); notifications to approvers (WP-023 engine registration,
   with session 3's e-mail approvals under lane B's review). At the merge after #178: drop the duplicate
   `permission_module.work_items` label (both PRs add it).
-- [ ] Session 3: signed action links and e-mail approvals, fulfilment, requester views, e2e.
+- [ ] Session 3 (started 2026-11-04): done: fulfilment from the item's plan (D8): the plan
+  becomes the request's tasks in order at submission without approval or on approval, never
+  before and never after a rejection (REQ-SR-021 AC1, -046 AC1, -060); tasks carry `from_plan`,
+  `required`, `internal` (0065); the last required one done fulfils the request when the item
+  says so (REQ-SR-058; history automatic, rule `fulfilment`; resolution = the tasks done;
+  optional tasks may stay open, a "block" open-work rule still stops it; a refused move leaves
+  the task's save standing). Tests: db 3. **Still to do:** signed action links and e-mail
+  approvals (D7, lane B's review), requester views (D9, after #178), e2e.
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).

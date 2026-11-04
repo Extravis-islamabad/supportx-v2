@@ -461,6 +461,17 @@ async def create_category(
 
 
 @dataclass(frozen=True)
+class PlanStep:
+    """One task of the item's fulfilment plan, as plain values (REQ-SR-046)."""
+
+    title: Mapping[str, str]  # per language
+    group_id: uuid.UUID | None
+    owner_id: uuid.UUID | None
+    required: bool
+    internal: bool
+
+
+@dataclass(frozen=True)
 class RequestItem:
     """What a service request takes from its item (plain values; work_items decides with them)."""
 
@@ -480,6 +491,7 @@ class RequestItem:
     backup_id: uuid.UUID | None = None
     self_approval: bool = False
     comments_required: bool = False
+    plan: tuple[PlanStep, ...] = ()  # WP-030 s3: the fulfilment tasks, in order
 
 
 async def request_item(
@@ -516,6 +528,16 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
         backup_id=stage.backup_id if stage else None,
         self_approval=stage.self_approval if stage else False,
         comments_required=stage.comments_required if stage else False,
+        plan=tuple(
+            PlanStep(
+                title=dict(t.title),
+                group_id=t.group_id,
+                owner_id=t.owner_id,
+                required=t.required,
+                internal=t.internal,
+            )
+            for t in rules.plan
+        ),
     )
 
 
@@ -532,6 +554,7 @@ async def item_decides(session: AsyncSession, item_id: uuid.UUID) -> RequestItem
 __all__ = [
     "MANAGE",
     "ItemView",
+    "PlanStep",
     "RequestItem",
     "create_category",
     "create_item",

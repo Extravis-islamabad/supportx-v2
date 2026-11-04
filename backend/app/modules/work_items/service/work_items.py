@@ -1922,7 +1922,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
-    await approval_stage.open_stage(session, record, item)  # REQ-SR-021
+    await approval_stage.after_submission(session, record, item, source=source)  # REQ-SR-021
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
             cat.lifecycle, record.status, had_technician=False, has_technician=True

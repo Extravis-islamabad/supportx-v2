@@ -18,6 +18,7 @@ from app.modules.service_catalog.events import EVENTS
 from app.modules.service_catalog.infra import models  # noqa: F401 - registers the tables
 from app.modules.service_catalog.service.catalog import (
     MANAGE,
+    PlanStep,
     RequestItem,
     item_decides,
     request_item,
@@ -39,4 +40,4 @@ module = ModuleSpec(
     realtime=ROUTES,
 )
 
-__all__ = ["RequestItem", "item_decides", "module", "request_item", "rules_of"]
+__all__ = ["PlanStep", "RequestItem", "item_decides", "module", "request_item", "rules_of"]

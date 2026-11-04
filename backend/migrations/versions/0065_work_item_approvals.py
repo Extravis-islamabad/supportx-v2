@@ -7,7 +7,8 @@ keys to the record and the people. `work_items.sla_counts_approval` keeps the it
 approval time" (REQ-SR-007 AC2) and `item_sla_policy_id` its own SLA policy (REQ-SR-006; no
 foreign key: the SLA module owns policies, and a removed policy simply stops applying);
 `work_item_type_settings.approvals_hidden_from_requesters` is the tenant's "hide approvals from
-requesters" (REQ-SR-024 AC3, off). Expand only, no data step; the downgrade drops both.
+requesters" (REQ-SR-024 AC3, off); `work_item_tasks.from_plan`, `required` and `internal` mark the
+tasks an item's fulfilment plan makes (REQ-SR-046, -051, -058). Expand only, no data step; the downgrade drops both.
 
 Revision ID: 0065
 Revises: 0064
@@ -125,6 +126,11 @@ def upgrade() -> None:
         sa.Column("sla_counts_approval", sa.Boolean(), server_default="false", nullable=False),
     )
     op.add_column("work_items", sa.Column("item_sla_policy_id", sa.UUID(), nullable=True))
+    for name, default in (("from_plan", "false"), ("required", "true"), ("internal", "false")):
+        op.add_column(
+            "work_item_tasks",
+            sa.Column(name, sa.Boolean(), server_default=default, nullable=False),
+        )
     op.add_column(
         "work_item_type_settings",
         sa.Column(
@@ -139,6 +145,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Drop the approvals table and the columns."""
     op.drop_column("work_item_type_settings", "approvals_hidden_from_requesters")
+    for name in ("internal", "required", "from_plan"):
+        op.drop_column("work_item_tasks", name)
     op.drop_column("work_items", "item_sla_policy_id")
     op.drop_column("work_items", "sla_counts_approval")
     op.drop_table(TABLE)

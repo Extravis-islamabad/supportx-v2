@@ -930,6 +930,11 @@ class WorkItemTask(TenantEntity):
     priority: Mapped[str] = mapped_column(String(10), server_default="normal")
     due_at: Mapped[datetime | None]
     position: Mapped[int] = mapped_column(Integer)
+    # WP-030 s3 (REQ-SR-046, -051, -058): a task the item's fulfilment plan made; the last
+    # required one done fulfils the request; an internal one shows requesters only "step n of m".
+    from_plan: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    required: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    internal: Mapped[bool] = mapped_column(Boolean, server_default="false")
     done_at: Mapped[datetime | None]
 
 

@@ -316,6 +316,11 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
     changes = _task_history(before, updated)
     if len(changes) > 1:  # something besides the task's name changed
         await _recorded(session, record, "task", updated.id, "child_changed", changes, source)
+    if "status" in clean and updated.from_plan:
+        # Imported here: fulfilment uses this module's tasks (WP-030 s3, REQ-SR-058).
+        from app.modules.work_items.service import fulfilment  # noqa: PLC0415 - see above
+
+        await fulfilment.after_task_change(session, record.id, source=source)
     return updated
 
 
@@ -785,3 +790,7 @@ async def add_follows(
     )
     await _link_recorded(session, newer, older, link, "child_added", source)
     return link
+
+
+tasks_of = _tasks
+recorded = _recorded

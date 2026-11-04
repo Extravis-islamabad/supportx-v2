@@ -16,6 +16,7 @@ from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.events import ApprovalChange, WorkItemApprovalChanged
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.shared.events import record_event
+from app.shared.history import Source
 
 
 def requested_for(record: WorkItem) -> uuid.UUID:
@@ -75,6 +76,25 @@ async def open_stage(
     return opened
 
 
+async def after_submission(
+    session: AsyncSession,
+    record: WorkItem,
+    item: service_catalog.RequestItem | None,
+    *,
+    source: Source,
+) -> None:
+    """A new request from an item: its approval stage, or its fulfilment plan when none."""
+    if item is None:
+        return
+    if item.needs_approval:
+        await open_stage(session, record, item)
+        return
+    # Imported here: fulfilment reaches the work item service, which imports this module.
+    from app.modules.work_items.service import fulfilment  # noqa: PLC0415 - see above
+
+    await fulfilment.start_plan(session, record, item, source=source)  # REQ-SR-046
+
+
 async def approval_event(
     session: AsyncSession, record: WorkItem, row: WorkItemApproval, change: ApprovalChange
 ) -> None:
@@ -94,4 +114,4 @@ async def approval_event(
     )
 
 
-__all__ = ["approval_event", "open_stage", "requested_for"]
+__all__ = ["after_submission", "approval_event", "open_stage", "requested_for"]
