@@ -68,7 +68,7 @@ interface Form {
   department_from: string;
   site_from: string;
   include_guests: boolean;
-  interval_minutes: number;
+  interval_minutes: number | null; // null: the tenant's default (D-041), set by the server
   enabled: boolean;
 }
 
@@ -87,7 +87,7 @@ function formFrom(directory: Directory | null): Form {
     department_from: (mapping.department_from as string | undefined) ?? 'department',
     site_from: (mapping.site_from as string | undefined) ?? 'officeLocation',
     include_guests: mapping.include_guests === true,
-    interval_minutes: directory?.interval_minutes ?? 30,
+    interval_minutes: directory?.interval_minutes ?? null,
     enabled: directory?.enabled ?? true,
   };
 }
@@ -154,24 +154,30 @@ function DirectoryEditor({
     form.client_id.trim() !== '' &&
     (editing || form.credential !== '') &&
     (form.scope === 'all_users' || form.scope_groups.length > 0);
-  const body = (): DirectoryInput => ({
-    name: form.name.trim(),
-    directory_tenant: form.directory_tenant.trim(),
-    client_id: form.client_id.trim(),
-    credential_kind: form.credential_kind,
-    ...(form.credential === '' ? {} : { credential: form.credential }),
-    scope: form.scope,
-    scope_groups: form.scope_groups,
-    group_mappings: form.group_mappings,
-    mapping: {
-      email_from: form.email_from,
-      department_from: form.department_from,
-      site_from: form.site_from,
-      include_guests: form.include_guests,
-    },
-    interval_minutes: form.interval_minutes,
-    enabled: form.enabled,
-  });
+  const body = (): DirectoryInput => {
+    // openapi-typescript makes a field with a default required; the API accepts interval_minutes
+    // left out (the tenant's default, D-041), so it is typed optional here only.
+    const found: Omit<DirectoryInput, 'interval_minutes'> & { interval_minutes?: number } = {
+      name: form.name.trim(),
+      directory_tenant: form.directory_tenant.trim(),
+      client_id: form.client_id.trim(),
+      credential_kind: form.credential_kind,
+      ...(form.credential === '' ? {} : { credential: form.credential }),
+      scope: form.scope,
+      scope_groups: form.scope_groups,
+      group_mappings: form.group_mappings,
+      mapping: {
+        email_from: form.email_from,
+        department_from: form.department_from,
+        site_from: form.site_from,
+        include_guests: form.include_guests,
+      },
+      enabled: form.enabled,
+    };
+    // Left empty: the tenant's default applies on the server (D-041).
+    if (form.interval_minutes !== null) found.interval_minutes = form.interval_minutes;
+    return found as DirectoryInput;
+  };
   const onError = (error: unknown) => {
     if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
       markHandled(error);
@@ -437,8 +443,9 @@ function DirectoryEditor({
             min={15}
             max={1440}
             value={form.interval_minutes}
+            placeholder={t('directories.interval_default')}
             onChange={(value) => {
-              set({ interval_minutes: value ?? 30 });
+              set({ interval_minutes: value });
             }}
           />
           <Typography.Text type="secondary">{t('directories.interval_hint')}</Typography.Text>

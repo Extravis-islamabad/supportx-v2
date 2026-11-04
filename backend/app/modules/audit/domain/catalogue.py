@@ -210,6 +210,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("directory.federation_applied", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.federation_failed", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.federation_removed", AuditCategory.CONFIGURATION, "integrations"),
+    ("connector_settings.changed", AuditCategory.CONFIGURATION, "integrations"),  # D-041
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),

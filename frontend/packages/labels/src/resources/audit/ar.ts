@@ -523,6 +523,10 @@ export const ar: LabelResource = {
   'audit.action.directory.federation_applied': 'ربط دليل AD/LDAP في خدمة الهوية',
   'audit.action.directory.federation_failed': 'تعذّر ربط دليل AD/LDAP في خدمة الهوية',
   'audit.action.directory.federation_removed': 'أزال دليل AD/LDAP من خدمة الهوية',
+  // WP-040 connector defaults (D-041)
+  'audit.action.connector_settings.changed': 'غيّر الإعدادات الافتراضية للموصلات',
+  'event_type.integrations.connector_settings.changed': 'تغيّرت الإعدادات الافتراضية للموصلات',
+  'event_type.knowledge.vote.saved': 'حُفظ تقييم مقالة معرفة',
   'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
   'audit.action.api_key.created': 'أنشأ مفتاح API',
   'audit.action.api_key.revoked': 'أبطل مفتاح API',

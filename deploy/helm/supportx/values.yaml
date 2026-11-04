@@ -37,6 +37,7 @@ images:
   seaweedfs: chrislusf/seaweedfs:4.48
   clamav: clamav/clamav:1.5.4-debian
   mailpit: axllent/mailpit:v1.31.6   # dev profile only (mailCatcher)
+  valkey: valkey/valkey:9.1.2        # HA only (valkeyHa, ADR-038); the bundled chart's own otherwise
 
 # --- secrets (never in values) ---------------------------------------------------------------------
 # Created before install by deploy/scripts/secrets.sh (random values, never overwritten), later
@@ -58,6 +59,8 @@ app:
 
 api:
   replicas: 1
+  # On CPU, between minReplicas and maxReplicas (HA). Replaces `replicas` while enabled.
+  autoscaling: {enabled: false, minReplicas: 3, maxReplicas: 6, targetCPUPercent: 70}
   # One uvicorn process per pod; scale with replicas so each pod has one metrics registry.
   resources:
     requests: {cpu: 250m, memory: 384Mi}
@@ -271,8 +274,22 @@ valkey:
         capabilities: {drop: ["ALL"]}
 
 # --- Centrifugo (realtime gateway, ADR-005) ---------------------------------------------------------
+# HA Valkey (WP-014b, ADR-038): three pods, each a Valkey server and a Sentinel, on the official
+# image. No pod reclaims the master role by itself: each asks the sentinels at start. values-ha.yaml
+# turns it on and the bundled `valkey` chart off (that chart always makes pod 0 the master).
+valkeyHa:
+  enabled: false
+  replicas: 3
+  quorum: 2                         # sentinels that must agree the master is down
+  downAfterMilliseconds: 5000
+  failoverTimeoutMilliseconds: 60000
+  maxmemory: 256mb
+  resources:
+    requests: {cpu: 50m, memory: 96Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+
 centrifugo:
-  replicas: 1                       # more than one needs the Valkey engine (WP-014b)
+  replicas: 1                       # more than one needs the Valkey engine: valkeyHa (ADR-038)
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: "1", memory: 512Mi}
@@ -367,6 +384,16 @@ networkPolicies:
 
 # Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
 # the same tag, so this is what rolls them).
+# High availability (WP-014b; values-ha.yaml turns it on). Off: one copy of each component,
+# scheduled anywhere, as a single-node install needs.
+ha:
+  enabled: false
+  # "hard": never two copies of a component on one node (3 nodes or more); "soft": prefer not to.
+  antiAffinity: hard
+  # Kept during a voluntary disruption (a node drain, an upgrade) for every component running
+  # more than one copy.
+  minAvailable: 1
+
 podAnnotations: {}
 
 podSecurity:

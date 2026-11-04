@@ -9,15 +9,15 @@ Identity, mail, notifications, CI
 
 ## Current WP
 
-**Paused 2026-11-04 (product owner, via the coordinator).** Resume: write `integrations/service/ldap_directories.py` (create/update/remove/list; `has_feature(DIRECTORY_FEDERATION)`; refused unless single-tenant (`settings.multi_tenant` off, as identity_settings does) and the federation secret is installed; bind password in the secrets store as type `password`; audited plain choice), then the consumer applying it to Keycloak. Done so far on #175: federation account, chart, licence add-on, LDAP domain rules, KeycloakAdmin federation calls, migration 0055. Also open: #179 (stack-smoke shards, full-ci, not yet on --auto: queue it once its own stack smoke shows both shards finish). WP-040 session 2's rest on #175: AD/LDAP through Keycloak federation (D-118; product owner 2026-11-03: separate supportx-federation account, manage-realm only, on-prem LDAP only), then the connector defaults screen (D-041). Merged: #150, #168, #171 (D-127). Queue after WP-040: QA round, WP-013 (licence core, private repo), WP-014b, WP-014c. WP-037/038 (AI) moved to lane C; lane B reviews the gateway's security parts when asked.
+WP-014b session 1 merged (#192, replacing #189; ADR-038), plus connector defaults (#185, D-041). Now: WP-040 AD/LDAP (#175, D-130) into the queue after #178; the WP-014b node-loss test (#193, draft). Queue after WP-014b: QA round, WP-013 (licence core, private repo: Haider), WP-014c. WP-037/038 are lane C's; lane B reviews their security parts. Parked: the e2e frozen-page watchdog (branch ci/e2e-timeout-capture, low priority).
 
 ## Branch
 
-`feat/wp-040-ldap` (#175)
+`feat/wp-040-ldap` (#175); `feat/wp-014b-node-loss` (#193); `feat/wp-014b-ha` (#189, superseded, kept until Haider decides)
 
 ## Worktree
 
-`../supportx-v2-entra`
+`../supportx-v2-entra`, `../supportx-v2-nodeloss`, `../supportx-v2-ha`
 
 ## Claimed migration
 

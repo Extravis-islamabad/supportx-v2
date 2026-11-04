@@ -21,6 +21,8 @@ import valkey.asyncio
 import valkey.exceptions
 from nats.aio.client import Client as NatsClient
 
+from app.core.config import Settings
+from app.core.valkey import client as valkey_client
 from app.modules.system.domain.readiness import FailureReason, ProbeFailedError
 
 
@@ -58,15 +60,19 @@ class ValkeyProbe:
 
     name = "valkey"
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, settings: Settings | None = None) -> None:
         self._url = url
+        self._settings = settings  # with sentinels configured: the master they name (WP-014b)
 
     async def check(self, timeout_s: float) -> None:
         """Connect, PING, disconnect."""
-        # valkey-py ships no annotations for from_url; the return type is declared here.
-        client: valkey.asyncio.Valkey = valkey.asyncio.from_url(  # type: ignore[no-untyped-call]
-            self._url, socket_connect_timeout=timeout_s, socket_timeout=timeout_s
-        )
+        timeouts = {"socket_connect_timeout": timeout_s, "socket_timeout": timeout_s}
+        client: valkey.asyncio.Valkey
+        if self._settings is not None and self._settings.valkey_sentinels:
+            client = valkey_client(self._settings, **timeouts)
+        else:
+            # valkey-py ships no annotations for from_url; the return type is declared here.
+            client = valkey.asyncio.from_url(self._url, **timeouts)  # type: ignore[no-untyped-call]
         try:
             if await client.ping() is not True:
                 raise ProbeFailedError(FailureReason.UNEXPECTED_RESPONSE)

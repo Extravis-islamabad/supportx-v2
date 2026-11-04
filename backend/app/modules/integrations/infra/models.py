@@ -28,7 +28,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantEntity, TenantKeyed, Timestamps, utc_now
+from app.shared.db.models import (
+    Actors,
+    Base,
+    TenantEntity,
+    TenantKeyed,
+    Timestamps,
+    Versioned,
+    utc_now,
+)
 
 
 class Mailbox(TenantEntity):
@@ -434,3 +442,21 @@ class DirectoryMembership(TenantKeyed, Base):
     connector_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     group_external_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     external_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+
+class ConnectorSettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
+    """A tenant's connector defaults (WP-040, D-041; migration 0057). No row: Appendix A's."""
+
+    __tablename__ = "connector_settings"
+    __table_args__ = (
+        CheckConstraint(
+            "failing_after_runs BETWEEN 1 AND 20"
+            " AND error_retention_days BETWEEN 7 AND 365"
+            " AND sync_minutes BETWEEN 15 AND 1440",
+            name="ranges",
+        ),
+    )
+
+    failing_after_runs: Mapped[int] = mapped_column(Integer, server_default="3")
+    error_retention_days: Mapped[int] = mapped_column(Integer, server_default="90")
+    sync_minutes: Mapped[int] = mapped_column(Integer, server_default="30")

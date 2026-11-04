@@ -89,6 +89,8 @@ HEAVY = {
     "core profile, integration and e2e ${{ matrix.shard }}/3",  # three shards, by time
     "images (build, Trivy, SBOM)",
     "ldap federation",  # WP-040, D-130
+    "k3d HA smoke (Valkey failover)",  # WP-014b, ADR-038
+    "valkey failover",  # WP-014b, ADR-038
     "k3d install and smoke test",
     "pdf (worker image)",
     "worker resilience",

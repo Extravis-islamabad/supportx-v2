@@ -613,6 +613,12 @@ export {
 } from './mailboxes';
 export { useConnectorCatalogue, type ConnectorInstance, type ConnectorKind } from './connectors';
 export {
+  useConnectorSettings,
+  useSaveConnectorSettings,
+  type ConnectorSettings,
+  type ConnectorSettingsInput,
+} from './connectorSettings';
+export {
   useCreateDirectory,
   useDirectories,
   useDirectoryGroups,
@@ -685,4 +691,12 @@ export {
   type KbApplied,
   type KbFromRecord,
   type KbAudience,
+  useKbSuggestions,
+  useKbScores,
+  useKbVote,
+  type KbVote,
+  type KbVoteInput,
+  type KbVoteReason,
+  type KbScores,
+  type KbSnippetPart,
 } from './knowledge';

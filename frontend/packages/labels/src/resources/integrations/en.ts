@@ -385,4 +385,18 @@ export const en = {
   'federation_state.pending': 'Connecting',
   'federation_state.applied': 'Connected',
   'federation_state.failed': 'Not connected',
+  // WP-040 connector defaults (D-041)
+  'connector_settings.title': 'Connector defaults',
+  'connector_settings.intro':
+    'How every connector behaves unless its own settings say otherwise. An authentication failure always counts at once.',
+  'connector_settings.failing_after_runs': 'Failing after (failed runs in a row)',
+  'connector_settings.failing_after_runs_help':
+    'Between {{min}} and {{max}}. Admins are told once when a connector starts failing.',
+  'connector_settings.error_retention_days': 'Keep connector errors (days)',
+  'connector_settings.error_retention_days_help': 'Between {{min}} and {{max}} days.',
+  'connector_settings.sync_minutes': 'New directories sync every (minutes)',
+  'connector_settings.sync_minutes_help':
+    'Between {{min}} and {{max}}. Each directory can change its own.',
+  'connector_settings.saved': 'Connector defaults saved',
+  'directories.interval_default': "The tenant's default",
 } as const;

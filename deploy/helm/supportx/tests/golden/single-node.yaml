@@ -652,6 +652,7 @@ data:
   SUPPORTX_OIDC_ISSUER: "https://supportx.example.com/auth/realms/supportx"
   SUPPORTX_OIDC_INTERNAL_URL: "http://supportx-keycloak:8080/auth/realms/supportx"
   SUPPORTX_CENTRIFUGO_API_URL: "http://supportx-centrifugo:8000"
+  # As many stream copies as NATS servers (a cluster in values-ha.yaml, WP-014b); else one.
   SUPPORTX_EVENTS_STREAM_REPLICAS: "1"
   # /metrics (and the workers' /healthz, /readyz) on the internal port (WP-014).
   SUPPORTX_METRICS_EXPORTER: prometheus
@@ -2230,7 +2231,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
+        checksum/env: 19f6c5e1b2777e8ec907a80b6901ab1c79853f757a7e783240993812cf0836af
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -2698,7 +2699,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
+        checksum/env: 19f6c5e1b2777e8ec907a80b6901ab1c79853f757a7e783240993812cf0836af
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -2848,7 +2849,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
+        checksum/env: 19f6c5e1b2777e8ec907a80b6901ab1c79853f757a7e783240993812cf0836af
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3002,7 +3003,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
+        checksum/env: 19f6c5e1b2777e8ec907a80b6901ab1c79853f757a7e783240993812cf0836af
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3147,7 +3148,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
+        checksum/env: 19f6c5e1b2777e8ec907a80b6901ab1c79853f757a7e783240993812cf0836af
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
