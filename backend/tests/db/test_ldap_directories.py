@@ -261,10 +261,14 @@ async def test_the_api_takes_the_password_and_never_returns_it(world: World) -> 
     assert [d["id"] for d in listed.json()] == [body["id"]]
     entra = await world.call("GET", "/integrations/directories", world.a, world.a.admin)
     assert entra.json() == []
+    # The refused create is audited too (outcome failed): read the one that made this directory.
     details = await world.sql(
-        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = 'directory.created'",
+        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = 'directory.created'"
+        " AND outcome = 'done' AND object_id = $2",
         world.a.tenant,
+        body["id"],
     )
+    assert len(details) == 1
     assert '"security": "ldaps"' in details[0]["details"]
 
 
@@ -278,9 +282,11 @@ async def test_the_api_refuses_plain_unless_chosen_and_records_the_choice(world:
     assert allowed.json()["settings"]["port"] == 389
     details = await world.sql(
         "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = 'directory.created'"
-        " ORDER BY occurred_at DESC LIMIT 1",
+        " AND outcome = 'done' AND object_id = $2",
         world.a.tenant,
+        allowed.json()["id"],
     )
+    assert len(details) == 1
     assert '"allow_plain": true' in details[0]["details"]
 
 
