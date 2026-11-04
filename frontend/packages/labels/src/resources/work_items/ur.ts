@@ -909,6 +909,8 @@ export const ur: LabelResource = {
   'release_risk.high': 'زیادہ',
   'release_risk.low': 'کم',
   'release_risk.medium': 'درمیانہ',
+  'release_template.emergency': 'ہنگامی ریلیز',
+  'release_template.standard': 'معیاری ریلیز',
   'release_type.emergency': 'ہنگامی',
   'release_type.maintenance': 'دیکھ بھال',
   'release_type.major': 'بڑی',

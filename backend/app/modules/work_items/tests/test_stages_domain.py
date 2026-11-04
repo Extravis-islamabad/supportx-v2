@@ -106,6 +106,17 @@ def test_cancel_from_any_stage_before_closure_needs_a_reason_and_its_permission(
         plan_move(M, current="closure_closed", target="closure_canceled", path=DEFAULT_PATH)
 
 
+def test_req_rel_012_ac2_an_emergency_release_cannot_close_without_its_review() -> None:
+    assert (
+        plan_move(
+            M, current="deployment_rolled_back", target="closure_closed", path=DEFAULT_PATH
+        ).landed.code
+        == "closure_closed"
+    )
+    with pytest.raises(MoveRefused):
+        plan_move(M, current="deployment_rolled_back", target="closure_closed", path=EMERGENCY_PATH)
+
+
 def test_stages_off_the_path_are_never_offered() -> None:
     offered = {t.to_status for t in M.moves_from("submission_requested", EMERGENCY_PATH)}
     assert "planning_in_planning" not in offered

@@ -44,6 +44,13 @@ class PickList(StrEnum):
     RELEASE_REASON = "release_reason"
 
 
+# The settings a list's values may carry (0093, `work_item_reasons.attributes`).
+LIST_ATTRIBUTES: Mapping[PickList, frozenset[str]] = {
+    # REQ-REL-003: a release type may set the default template and a default risk.
+    PickList.RELEASE_TYPE: frozenset({"default_template_id", "default_risk"}),
+}
+
+
 REASON_LISTS = frozenset(PickList(r.value) for r in ReasonList)
 
 # Appendix A has no levels or closure codes; these defaults are D-083 (WP-020c plan).

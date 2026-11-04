@@ -110,6 +110,11 @@ class ListValuePatch(BaseModel):
     labels: dict[str, str] | None = None
     colour: str | None = Field(default=None, max_length=7)
     disabled: bool | None = None
+    attributes: dict[str, Any] | None = Field(
+        default=None,
+        description="The value's own settings, replacing all of them (release types:"
+        " default_template_id, default_risk).",
+    )
 
 
 class ListOrderIn(BaseModel):
@@ -149,6 +154,16 @@ class FieldRuleIO(BaseModel):
         )
 
 
+class StageFieldRuleIO(BaseModel):
+    """One field's rule in one stage (unset flags keep their defaults)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    shown: bool = True
+    required: bool = False
+    read_only: bool = False
+
+
 class TemplateOut(BaseModel):
     """A template as admins and the create form see it."""
 
@@ -166,6 +181,10 @@ class TemplateOut(BaseModel):
         description="Custom field rules by key (WP-026); sent as `fields['custom.<key>']`."
     )
     defaults: dict[str, Any] = Field(description="Starting values by field.")
+    stage_path: str | None = Field(default=None, description="Staged types: the path it sets.")
+    stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
+        default=None, description="Staged types: rules per stage (only what differs)."
+    )
     version: int
 
     @classmethod
@@ -193,6 +212,8 @@ class TemplateOut(BaseModel):
                 if is_custom(name)
             },
             defaults=dict(row.defaults),
+            stage_path=row.stage_path,
+            stage_rules=row.stage_rules,
             version=row.version,
         )
 
@@ -208,6 +229,14 @@ class TemplateIn(BaseModel):
     for_requesters: bool = False
     fields: dict[str, FieldRuleIO] | None = None
     defaults: dict[str, Any] | None = None
+    stage_path: str | None = Field(
+        default=None, max_length=40, description="Staged types: the path its records take."
+    )
+    stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
+        default=None,
+        description="Staged types, per stage and field (standard, the type's own, custom.<key>):"
+        " shown, required to leave the stage, read-only while in it. Replaces all of them.",
+    )
 
 
 class TemplatePatch(BaseModel):
@@ -223,6 +252,14 @@ class TemplatePatch(BaseModel):
     defaults: dict[str, Any] | None = Field(default=None, description="Replaces all of them.")
     is_default: bool | None = None
     disabled: bool | None = None
+    stage_path: str | None = Field(
+        default=None, max_length=40, description="Staged types: the path its records take."
+    )
+    stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
+        default=None,
+        description="Staged types, per stage and field (standard, the type's own, custom.<key>):"
+        " shown, required to leave the stage, read-only while in it. Replaces all of them.",
+    )
 
 
 class TemplateCopyIn(BaseModel):

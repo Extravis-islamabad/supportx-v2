@@ -986,6 +986,8 @@ export const ar: LabelResource = {
   'release_risk.high': 'مرتفع',
   'release_risk.low': 'منخفض',
   'release_risk.medium': 'متوسط',
+  'release_template.emergency': 'إصدار طارئ',
+  'release_template.standard': 'إصدار عادي',
   'release_type.emergency': 'طارئ',
   'release_type.maintenance': 'صيانة',
   'release_type.major': 'رئيسي',

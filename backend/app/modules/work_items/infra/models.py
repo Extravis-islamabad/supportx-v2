@@ -252,6 +252,9 @@ class WorkItemReason(TenantKeyed, Base):
         CheckConstraint(_codes("list", PickList), name="list_code"),
         CheckConstraint("code ~ '^[a-z][a-z0-9_]{1,39}$'", name="code_format"),
         CheckConstraint("colour IS NULL OR colour ~ '^#[0-9a-fA-F]{6}$'", name="colour_format"),
+        CheckConstraint(
+            "attributes IS NULL OR jsonb_typeof(attributes) = 'object'", name="attributes_object"
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -261,6 +264,8 @@ class WorkItemReason(TenantKeyed, Base):
     sort_order: Mapped[int] = mapped_column(Integer)
     colour: Mapped[str | None] = mapped_column(String(7))
     disabled_at: Mapped[datetime | None]
+    # A value's own settings (0093): a release type's default template and default risk.
+    attributes: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class WorkItemScaleValue(TenantKeyed, Base):
@@ -371,6 +376,20 @@ class WorkItemTemplate(TenantEntity):
         ForeignKeyConstraint(
             ["tenant_id", "desk_id"], ["desks.tenant_id", "desks.id"], name="fk_wit_desk"
         ),
+        # A staged type's template picks the path (ADR-041; 0093).
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "stage_path"],
+            [
+                "work_item_stage_paths.tenant_id",
+                "work_item_stage_paths.type",
+                "work_item_stage_paths.code",
+            ],
+            name="fk_work_item_templates_stage_path",
+        ),
+        CheckConstraint(
+            "stage_rules IS NULL OR jsonb_typeof(stage_rules) = 'object'",
+            name="stage_rules_object",
+        ),
         Index("ix_work_item_templates_tenant_type", "tenant_id", "type", "disabled_at"),
         Index(
             "uq_work_item_templates_tenant_type_default",
@@ -394,6 +413,10 @@ class WorkItemTemplate(TenantEntity):
     disabled_at: Mapped[datetime | None]
     # The desk the template belongs to (REQ-ESM-002, D-061).
     desk_id: Mapped[uuid.UUID]
+    # Staged types (ADR-041; 0093): the path its records take, and per stage, per field, whether
+    # it is shown, required to leave the stage, or read-only while in it (REQ-REL-011, -013).
+    stage_path: Mapped[str | None] = mapped_column(String(40))
+    stage_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 # Description is sanitised HTML: tags and entities become spaces before indexing (migration 0020);

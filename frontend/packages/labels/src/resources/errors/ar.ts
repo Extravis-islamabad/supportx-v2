@@ -216,6 +216,8 @@ export const ar: LabelResource = {
   'errors.field.group_not_yours': 'لست عضوًا في هذه المجموعة.',
   'errors.field.group_required': 'اختر أي من مجموعاتك سيتولاه.',
   'errors.field.half_day_single_date': 'الإجازة الصباحية أو بعد الظهر ليوم واحد فقط.',
+  'errors.field.hidden_cannot_be_required':
+    'لا يمكن أن يكون الحقل المخفي إلزاميًا، إذ لا يستطيع أحد تعبئته.',
   'errors.field.hidden_required_needs_default':
     'الحقل المطلوب المخفي يحتاج إلى قيمة أولية، وإلا فلن يستطيع أحد ملأه.',
   'errors.field.holiday_list_not_found': 'اختر قوائم العطلات من القائمة.',
@@ -278,6 +280,7 @@ export const ar: LabelResource = {
   'errors.field.name_required': 'أدخل اسمًا.',
   'errors.field.name_taken': 'هذا الاسم مستخدم بالفعل.',
   'errors.field.no_default_allowed': 'لا يمكن أن يكون لهذا الحقل قيمة أولية.',
+  'errors.field.not_a_field': 'هذا الحقل غير موجود لهذا النوع.',
   'errors.field.not_allowed': 'هذا غير مسموح مع القيم الأخرى.',
   'errors.field.not_allowed_for_notes': 'الملاحظات ليس لها مستلمون.',
   'errors.field.not_for_this_status': 'هذا الإعداد للحالات التي تنتظر شخصًا ما فقط.',
@@ -310,6 +313,7 @@ export const ar: LabelResource = {
   'errors.field.range_end_before_start': 'يجب أن تكون النهاية بعد البداية.',
   'errors.field.read_category_unknown': 'لا يمكن تسجيل هذا النوع من القراءة.',
   'errors.field.read_only': 'لا يمكن تغيير هذا الحقل هنا.',
+  'errors.field.read_only_in_stage': 'لا يمكن تغيير هذا الحقل في المرحلة الحالية.',
   'errors.field.reason_required': 'اذكر السبب.',
   'errors.field.recipient_shape': 'اختر الشخص أو المجموعة لهذا المستلم.',
   'errors.field.recipients_required': 'اختر شخصًا أو مجموعة واحدة على الأقل.',
@@ -417,6 +421,7 @@ export const ar: LabelResource = {
   'errors.field.unknown_record_type': 'اختر ما تنطبق عليه القاعدة.',
   'errors.field.unknown_reference': 'لم يعد أحد الأشخاص أو المجموعات المذكورة هنا موجودًا.',
   'errors.field.unknown_sort_field': 'لا يمكن ترتيب القائمة حسب هذا الحقل.',
+  'errors.field.unknown_stage': 'لا توجد مرحلة بهذا الاسم لهذا النوع.',
   'errors.field.unknown_time_zone': 'اختر منطقة زمنية من القائمة.',
   'errors.field.unknown_value': 'هذه القيمة غير موجودة (لم تعد موجودة).',
   'errors.field.url_not_valid': 'أدخل عنوان ويب يبدأ بـ https:// أو http://.',

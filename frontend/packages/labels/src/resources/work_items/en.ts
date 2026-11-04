@@ -902,6 +902,8 @@ export const en = {
   'release_risk.high': 'High',
   'release_risk.low': 'Low',
   'release_risk.medium': 'Medium',
+  'release_template.emergency': 'Emergency release',
+  'release_template.standard': 'Standard release',
   'release_type.emergency': 'Emergency',
   'release_type.maintenance': 'Maintenance',
   'release_type.major': 'Major',

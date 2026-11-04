@@ -239,6 +239,8 @@ export const en = {
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
   'errors.field.half_day_single_date': 'A morning or afternoon off is one day only.',
+  'errors.field.hidden_cannot_be_required':
+    'A hidden field cannot be required: nobody could fill it in.',
   'errors.field.hidden_required_needs_default':
     'A hidden required field needs a starting value, or nobody could fill it in.',
   'errors.field.holiday_list_not_found': 'Choose holiday lists from the list.',
@@ -301,6 +303,7 @@ export const en = {
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
+  'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
@@ -335,6 +338,7 @@ export const en = {
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',
+  'errors.field.read_only_in_stage': 'This field cannot be changed in the current stage.',
   'errors.field.reason_required': 'Give a reason.',
   'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
   'errors.field.recipients_required': 'Choose at least one person or group.',
@@ -447,6 +451,7 @@ export const en = {
   'errors.field.unknown_record_type': 'Choose what the rule applies to.',
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
   'errors.field.unknown_sort_field': 'The list cannot be sorted by this field.',
+  'errors.field.unknown_stage': 'This type has no such stage.',
   'errors.field.unknown_time_zone': 'Choose a time zone from the list.',
   'errors.field.unknown_value': 'This value does not exist (any more).',
   'errors.field.url_not_valid': 'Enter a web address starting with https:// or http://.',

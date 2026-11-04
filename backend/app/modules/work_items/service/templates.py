@@ -19,6 +19,11 @@ from app.core.errors import FieldError, NotFound, ValidationFailed
 from app.modules import metadata
 from app.modules.organization import default_desk_id, existing_departments, existing_unit_ids
 from app.modules.work_items.domain.classification import Impact, Urgency
+from app.modules.work_items.domain.stages import (
+    DEFAULT_PATH,
+    parse_stage_rules,
+    stage_rules_to_json,
+)
 from app.modules.work_items.domain.templates import (
     CUSTOM_PREFIX,
     FIXED_FIELDS,
@@ -44,6 +49,7 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTemplate
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service.settings import labels_of
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -291,6 +297,51 @@ async def _known_custom(
     )
 
 
+# --- stage settings (staged types; ADR-041, REQ-REL-011, -013) -----------------------------------
+
+
+async def _stage_settings(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    values: Mapping[str, Any],
+    current: WorkItemTemplate | None,
+) -> tuple[dict[str, Any], list[tuple[str, str]]]:
+    """The template's path and stage rules from `values`, checked (columns, problems).
+
+    Unknown stages, fields or paths are refused, so a bad template is never saved; types
+    without stages may set neither.
+    """
+    sent = [k for k in ("stage_path", "stage_rules") if k in values]
+    if not sent:
+        return {}, []
+    if wtype.stages is None:
+        return {}, [(k, "not_allowed") for k in sent]
+    model = await stage_service.load_model(session, wtype)
+    columns: dict[str, Any] = {}
+    problems: list[tuple[str, str]] = []
+    if "stage_path" in values:
+        path = values["stage_path"]
+        paths = await stage_service.enabled_paths(session, wtype)
+        if path is None:
+            problems.append(("stage_path", "required"))
+        elif path not in paths and (current is None or current.stage_path != path):
+            problems.append(("stage_path", "invalid_choice"))
+        columns["stage_path"] = path
+    if "stage_rules" in values:
+        known = await metadata.definitions(session, wtype.code.value)
+        fields = (
+            {f.value for f in TemplateField}
+            | set(wtype.own_fields)
+            | {f"{CUSTOM_PREFIX}{k}" for k in known}
+        )
+        rules, codes = parse_stage_rules(
+            values["stage_rules"] or {}, stages=[s.code for s in model.stages], fields=fields
+        )
+        problems += codes
+        columns["stage_rules"] = stage_rules_to_json(rules) or None
+    return columns, problems
+
+
 # --- writes ---------------------------------------------------------------------------------------
 
 
@@ -323,9 +374,17 @@ async def create_template(
     problems += rule_problems(rules, defaults)
     if await _name_taken(session, wtype, labels, exclude=None):
         problems.append(("labels", "duplicate_name"))
+    stage_columns, codes = await _stage_settings(session, wtype, values, None)
+    problems += codes
     if problems:
         raise _problems(problems)
+    if wtype.stages is not None:  # a copy keeps the path and rules unless new ones are sent
+        stage_columns.setdefault(
+            "stage_path", copied_from.stage_path if copied_from else DEFAULT_PATH
+        )
+        stage_columns.setdefault("stage_rules", copied_from.stage_rules if copied_from else None)
     template = WorkItemTemplate(
+        **stage_columns,
         type=wtype.code,
         desk_id=copied_from.desk_id if copied_from else await default_desk_id(session),
         labels=labels,
@@ -433,6 +492,9 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         problems += codes
     if "for_requesters" in values:
         changes["for_requesters"] = bool(values["for_requesters"])
+    stage_columns, codes = await _stage_settings(session, wtype, values, template)
+    changes.update(stage_columns)
+    problems += codes
     rules = rules_from_json(template.field_rules)
     defaults: dict[str, Any] = dict(template.defaults)
     if "fields" in values:

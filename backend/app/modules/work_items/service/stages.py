@@ -28,6 +28,7 @@ from app.modules.work_items.domain.stages import (
     StageModel,
     StatusTransitionDef,
     rail,
+    read_only_in,
 )
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import (
@@ -38,6 +39,7 @@ from app.modules.work_items.infra.models import (
     WorkItemStagePath,
     WorkItemStatus,
     WorkItemStatusTransition,
+    WorkItemTemplate,
 )
 from app.modules.work_items.service import catalogue
 from app.shared.ids import new_id
@@ -161,6 +163,26 @@ async def load_model(
 def _version_in(column: Any, version: int) -> Any:  # noqa: ANN401 - SQL expressions
     """Rows for every version (NULL) or for this one."""
     return column.is_(None) | (column == version)
+
+
+async def enabled_paths(session: AsyncSession, wtype: WorkItemType) -> set[str]:
+    """The paths a new record or a template may be put on (disabled ones are kept for old ones)."""
+    await catalogue.ensure_seeded(session, wtype)
+    return set(
+        await session.scalars(
+            select(WorkItemStagePath.code).where(
+                WorkItemStagePath.type == wtype.code, WorkItemStagePath.disabled_at.is_(None)
+            )
+        )
+    )
+
+
+async def read_only_fields(session: AsyncSession, record: WorkItem) -> frozenset[str]:
+    """Fields the record's template makes read-only in its current stage (REQ-REL-013 AC1)."""
+    if record.stage is None or record.template_id is None:
+        return frozenset()
+    template = await session.get(WorkItemTemplate, record.template_id)
+    return read_only_in(template.stage_rules if template else None, record.stage)
 
 
 def first_columns(model: StageModel, path: str) -> dict[str, Any]:

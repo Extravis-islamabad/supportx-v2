@@ -35,8 +35,10 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.releases import ReleaseRisk
 from app.modules.work_items.domain.templates import (
     ACTION_REASON_LIST,
+    LIST_ATTRIBUTES,
     LIST_VALUES_MAX,
     REASON_LISTS,
     PickList,
@@ -51,6 +53,7 @@ from app.modules.work_items.infra.models import (
     WorkItemReason,
     WorkItemScaleValue,
     WorkItemStatus,
+    WorkItemTemplate,
     WorkItemTransition,
     WorkItemTypeSettings,
 )
@@ -408,6 +411,47 @@ async def add_list_value(  # noqa: PLR0913 - the value and its context, explicit
     return cat, code
 
 
+async def _attributes(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    pick_list: PickList,
+    raw: Any,  # noqa: ANN401 - JSON
+) -> dict[str, Any] | None:
+    """A value's own settings, checked: only the list's keys, each with a valid value."""
+    if not raw:
+        return None
+    allowed = LIST_ATTRIBUTES.get(pick_list, frozenset())
+    if not isinstance(raw, Mapping) or set(raw) - allowed:
+        raise invalid(field="attributes", field_code="not_allowed")
+    cleaned: dict[str, Any] = {}
+    template_id = raw.get("default_template_id")
+    if template_id is not None:
+        found = await session.scalar(
+            select(WorkItemTemplate.id).where(
+                WorkItemTemplate.type == wtype.code,
+                WorkItemTemplate.id == _uuid_or_none(template_id),
+                WorkItemTemplate.deleted_at.is_(None),
+                WorkItemTemplate.disabled_at.is_(None),
+            )
+        )
+        if found is None:
+            raise invalid(field="attributes.default_template_id", field_code="template_not_found")
+        cleaned["default_template_id"] = str(found)
+    risk = raw.get("default_risk")
+    if risk is not None:
+        if risk not in {r.value for r in ReleaseRisk}:
+            raise invalid(field="attributes.default_risk", field_code="invalid_choice")
+        cleaned["default_risk"] = risk
+    return cleaned or None
+
+
+def _uuid_or_none(value: Any) -> uuid.UUID | None:  # noqa: ANN401 - a JSON value
+    try:
+        return uuid.UUID(str(value))
+    except ValueError:
+        return None
+
+
 async def update_list_value(  # noqa: PLR0913, C901 - the change and its context, explicit
     session: AsyncSession,
     wtype: WorkItemType,
@@ -438,6 +482,8 @@ async def update_list_value(  # noqa: PLR0913, C901 - the change and its context
         changes["labels"] = labels_of(values["labels"], allow_none=not is_admin_code(code))
     if "colour" in values:
         changes["colour"] = _colour(values["colour"])
+    if "attributes" in values:
+        changes["attributes"] = await _attributes(session, wtype, pick_list, values["attributes"])
     if "disabled" in values:
         disabled = bool(values["disabled"])
         if disabled and code == OTHER_REASON and pick_list in _REASON_PICK_LISTS:

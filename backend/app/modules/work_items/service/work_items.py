@@ -18,7 +18,7 @@ status moves (REQ-INC-050); priority comes from the matrix unless set by hand wi
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol
@@ -123,6 +123,7 @@ from app.modules.work_items.infra.models import (
     WorkItemConversation,
     WorkItemFollower,
     WorkItemReleaseDetails,
+    WorkItemTemplate,
 )
 from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
 from app.modules.work_items.service import catalogue as config
@@ -1773,12 +1774,25 @@ async def _on_behalf_problems(
         raise PermissionDenied(code="on_behalf_out_of_scope")
 
 
-async def _first_stage(session: AsyncSession, wtype: WorkItemType) -> dict[str, Any]:
-    """Stage columns and first status of a new staged record ({} for other types)."""
+async def _first_stage(
+    session: AsyncSession, wtype: WorkItemType, template: WorkItemTemplate
+) -> dict[str, Any]:
+    """Stage columns and first status of a new staged record ({} for other types).
+
+    The template decides the path (REQ-REL-007: no separate workflow picker).
+    """
     if wtype.stages is None:
         return {}
     model = await stage_service.load_model(session, wtype)
-    return stage_service.first_columns(model, DEFAULT_PATH)
+    return stage_service.first_columns(model, template.stage_path or DEFAULT_PATH)
+
+
+async def _read_only_problems(
+    session: AsyncSession, record: WorkItem, sent: Iterable[str]
+) -> list[tuple[str, str]]:
+    """Fields sent that the template makes read-only in the record's stage (REQ-REL-013 AC1)."""
+    locked = await stage_service.read_only_fields(session, record)
+    return [(name, "read_only_in_stage") for name in sorted(set(sent) & locked)]
 
 
 def _initial(cat: Catalogue, stage_columns: dict[str, Any]) -> str:
@@ -1850,7 +1864,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         raise await _value_errors(session, wtype, problems)
     await _place(session, cleaned)
     # A staged type starts in its path's first stage and that stage's first status (ADR-041).
-    stage_columns = await _first_stage(session, wtype)
+    stage_columns = await _first_stage(session, wtype, template)
     initial, group_id, technician_id = _from_item(
         started,
         _initial(cat, stage_columns),
@@ -2040,6 +2054,14 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         )
     if "channel" in cleaned and record.channel not in {Channel.PHONE, Channel.WALK_UP}:
         problems.append(("channel", "channel_reserved"))
+    # Only a changed value counts: a form may send back a read-only field unchanged.
+    custom_now = record.custom or {}
+    sent = [
+        n
+        for n, v in values.items()
+        if n != "custom" and _json(getattr(record, n, None)) != _json(v)
+    ] + [f"custom.{k}" for k, v in (values.get("custom") or {}).items() if custom_now.get(k) != v]
+    problems += await _read_only_problems(session, record, sent)
     if problems:
         raise _errors(problems)
     problems += await _check_people(session, cleaned)
@@ -2649,6 +2671,76 @@ async def _detail_problems(
     return problems
 
 
+async def _risk_from_type(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    current: Mapping[str, Any],
+    given: Mapping[str, Any],
+) -> str | None:
+    """A release type's default risk, when the type is set now and no risk is (REQ-REL-003)."""
+    chosen = given.get("release_type")
+    if chosen is None or "risk" in given or current["risk"] is not None:
+        return None
+    cat = await config.load(session, wtype)
+    for value in cat.list_values(PickList.RELEASE_TYPE):
+        if value.code == chosen and value.attributes:
+            risk = value.attributes.get("default_risk")
+            return str(risk) if risk else None
+    return None
+
+
+# What a copy of a release takes (REQ-REL-009): fields, never stage progress, approvals, dates
+# or worklogs; it starts in its template's first stage and status.
+COPIED_FIELDS = (
+    "subject",
+    "description",
+    "requester_id",
+    "on_behalf_of_id",
+    "site_id",
+    "department_id",
+    "category_id",
+    "impact",
+    "urgency",
+    "tags",
+    "template_id",
+)
+COPIED_DETAILS = tuple(n for n in release_rules.DETAIL_FIELDS if n not in release_rules.DATE_FIELDS)
+
+
+async def copy_release(  # noqa: PLR0913 - the copy and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    source: Source,
+    holders: PermissionHolders,
+) -> WorkItemView:
+    """A new release from this one's fields (REQ-REL-009 AC1: first stage, no dates)."""
+    _release_only(wtype)
+    original = await _visible(session, subject, wtype, record_id)
+    values: dict[str, Any] = {n: getattr(original, n) for n in COPIED_FIELDS}
+    values["custom"] = dict(original.custom or {})
+    made = await create(session, subject, wtype, values, source=source, holders=holders)
+    row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), original.id))
+    copied = {n: getattr(row, n) for n in COPIED_DETAILS} if row is not None else {}
+    copied = {n: v for n, v in copied.items() if v is not None}
+    if copied:
+        await update_release_details(
+            session,
+            subject,
+            wtype,
+            made.record.id,
+            expected_version=made.record.version,
+            values=copied,
+            source=source,
+            copying=True,
+        )
+    return await _view(
+        session, subject, wtype, await _visible(session, subject, wtype, made.record.id)
+    )
+
+
 async def update_release_details(  # noqa: PLR0913 - the change and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -2659,8 +2751,12 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
     values: Mapping[str, Any],
     source: Source,
     risk_reason: str | None = None,
+    copying: bool = False,
 ) -> ReleaseDetailsView:
-    """Change the fields you send (If-Match on the release). Unchanged input: no new version."""
+    """Change the fields you send (If-Match on the release). Unchanged input: no new version.
+
+    `copying`: a copy takes the original's risk, which was set (with its reason) there.
+    """
     _release_only(wtype)
     record = await _for_action(session, subject, wtype, "edit", record_id)
     if _closed(record):
@@ -2672,7 +2768,15 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
     current = _detail_values(row)
     given = {n: _clean_detail(n, v) for n, v in values.items() if n in release_rules.DETAIL_FIELDS}
     reason = (risk_reason or "").strip() or None
-    problems = await _detail_problems(session, wtype, current, given, reason)
+    by_type = await _risk_from_type(session, wtype, current, given)
+    if by_type is not None:  # the type's default risk, not set by hand: no reason asked
+        given["risk"] = by_type
+    problems = await _detail_problems(
+        session, wtype, current, given, reason if by_type is None and not copying else "given"
+    )
+    problems += await _read_only_problems(
+        session, record, [n for n, v in given.items() if v != current[n]]
+    )
     if problems:
         raise _errors(problems)
     changed = {n: v for n, v in given.items() if v != current[n]}

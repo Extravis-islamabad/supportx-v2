@@ -113,9 +113,10 @@ def _t(
     *,
     reason: bool = False,
     permission: str | None = None,
+    path: str | None = None,
 ) -> StatusTransitionDef:
     return StatusTransitionDef(
-        source, target, REQUIRED if reason else ReasonMode.NONE, permission=permission
+        source, target, REQUIRED if reason else ReasonMode.NONE, permission=permission, path=path
     )
 
 
@@ -140,7 +141,9 @@ _MOVES = (
     _t("deployment_in_progress", "deployment_failed", reason=True),
     _t("deployment_failed", "deployment_rolled_back", reason=True),
     _t("deployment_rolled_back", "build_in_progress"),
-    _t("deployment_rolled_back", "closure_closed"),
+    # REQ-REL-012 AC2: an emergency release always gets its review, so only the default path may
+    # close straight after a rollback.
+    _t("deployment_rolled_back", "closure_closed", path=DEFAULT_PATH),
     _t("training_in_progress", "training_completed"),
     _t("review_in_progress", "review_completed"),
     # Reopen a closed release into review: its own permission and a reason.
@@ -183,6 +186,8 @@ DETAIL_FIELDS = (
     "release_manager_id",
     "release_engineer_id",
 )
+# Dates are never copied (REQ-REL-009).
+DATE_FIELDS = ("scheduled_start", "scheduled_end", "actual_start", "actual_end")
 VERSION_MAX = 60
 BUILD_REF_MAX = 200
 # Searchable and shown in lists (REQ-REL-005 AC1): kept on the record's search text.

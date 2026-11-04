@@ -653,6 +653,10 @@ class WorkItemListItem(BaseModel):
     priority: Priority
     priority_source: PrioritySource
     level: str | None
+    stage: str | None = Field(default=None, description="Staged types: the current stage.")
+    stage_path: str | None = Field(
+        default=None, description="Staged types: the path (releases: `emergency` is the flag)."
+    )
     status: str
     status_category: StatusCategory
     status_reason_code: str | None
@@ -824,6 +828,10 @@ class WorkItemListValueOut(BaseModel):
     sort_order: int
     colour: str | None
     disabled: bool
+    attributes: dict[str, Any] | None = Field(
+        default=None,
+        description="A value's own settings (a release type's default template, risk).",
+    )
 
 
 class WorkItemMatrixCellOut(BaseModel):
@@ -834,6 +842,10 @@ class WorkItemMatrixCellOut(BaseModel):
     priority: Priority
 
 
+# Pick lists every type has: the reason lists, levels and closure codes.
+SHARED_LISTS = frozenset({*REASON_LISTS, PickList.LEVEL, PickList.CLOSURE_CODE})
+
+
 def _value(v: ReasonInfo) -> WorkItemListValueOut:
     return WorkItemListValueOut(
         code=v.code,
@@ -841,6 +853,7 @@ def _value(v: ReasonInfo) -> WorkItemListValueOut:
         sort_order=v.sort_order,
         colour=v.colour,
         disabled=v.disabled,
+        attributes=dict(v.attributes) if v.attributes else None,
     )
 
 
@@ -882,6 +895,10 @@ class WorkItemCatalogueOut(BaseModel):
     reasons: list[WorkItemReasonOut]
     levels: list[WorkItemListValueOut] = Field(description="Support levels (REQ-INC-007).")
     closure_codes: list[WorkItemListValueOut] = Field(description="REQ-INC-093.")
+    own_lists: dict[str, list[WorkItemListValueOut]] = Field(
+        default_factory=dict,
+        description="The type's own pick lists (releases: release_type, release_reason).",
+    )
     closure: WorkItemClosureOut
     next_number: int = Field(description="The display number the next record gets.")
 
@@ -957,6 +974,11 @@ class WorkItemCatalogueOut(BaseModel):
             ],
             levels=[_value(v) for v in cat.list_values(PickList.LEVEL)],
             closure_codes=[_value(v) for v in cat.list_values(PickList.CLOSURE_CODE)],
+            # The lists only this type has (any list beyond the shared ones it was seeded with).
+            own_lists={
+                name: [_value(v) for v in cat.list_values(PickList(name))]
+                for name in sorted({r.list for r in cat.reasons} - SHARED_LISTS)
+            },
             closure=WorkItemClosureOut(
                 resolve_requires=list(cat.closure.resolve_requires),
                 close_requires=list(cat.closure.close_requires),
@@ -1807,6 +1829,38 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             found = await service.release_details(session, subject, wtype, record_id)
             set_etag(response, found.record.version)
             return ReleaseDetailsOut.of(found)
+
+        @router.post(
+            "/{record_id}/copy",
+            summary="Copy the release into a new one",
+            status_code=status.HTTP_201_CREATED,
+            response_model=WorkItemOut,
+        )
+        async def copy_release(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+        ) -> Response:
+            """A new release from this one's fields (REQ-REL-009).
+
+            Never stage progress, approvals, dates or worklogs. Send an Idempotency-Key: a retry
+            returns the same 201.
+            """
+
+            async def run() -> Created:
+                view = await service.copy_release(
+                    session, subject, wtype, record_id, source=source_of(request), holders=policy
+                )
+                out = WorkItemOut.of(view)
+                return Created(
+                    body=out,
+                    headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'},
+                )
+
+            return await idempotency.run({"copy_of": str(record_id)}, run)
 
         @router.patch(
             "/{record_id}/details", summary="Change the release's own fields", responses=CONFLICT

@@ -20,7 +20,12 @@ from app.modules.work_items.domain.lifecycle import (
     StatusDef,
     TransitionDef,
 )
-from app.modules.work_items.domain.releases import RELEASE_MODEL, RELEASE_REASONS, RELEASE_TYPES
+from app.modules.work_items.domain.releases import (
+    DETAIL_FIELDS,
+    RELEASE_MODEL,
+    RELEASE_REASONS,
+    RELEASE_TYPES,
+)
 from app.modules.work_items.domain.stages import SetBy, StageModel
 from app.shared.labels import strip_isolates
 
@@ -80,6 +85,8 @@ class WorkItemType:
     stages: StageModel | None = None
     # Pick lists only this type has, seeded per tenant: list code → (value code, colour).
     own_lists: Mapping[str, tuple[tuple[str, str | None], ...]] = field(default_factory=dict)
+    # Fields only this type has (an extension table): templates may name them in stage rules.
+    own_fields: frozenset[str] = frozenset()
 
     @property
     def counter_key(self) -> str:
@@ -153,6 +160,7 @@ RELEASE = WorkItemType(
     transitions=(),
     fields=COMMON_FIELDS,
     stages=RELEASE_MODEL,
+    own_fields=frozenset(DETAIL_FIELDS),
     own_lists={
         "release_type": RELEASE_TYPES,
         "release_reason": tuple((code, None) for code in RELEASE_REASONS),
@@ -288,6 +296,11 @@ FIELD_PROBLEMS = frozenset(
         "no_default_allowed",
         # WP-020c-FIX (D-086)
         "requester_always_needed",
+        # WP-058a s2: stage rules on templates (ADR-041, REQ-REL-013)
+        "unknown_stage",
+        "hidden_cannot_be_required",
+        "read_only_in_stage",
+        "not_a_field",
     }
 )
 
