@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import sla
 from app.modules.work_items.domain.classification import Priority
+from app.modules.work_items.domain.lifecycle import ServiceRequestStatus, StatusCategory
 from app.modules.work_items.domain.types import WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.access import FIELDS
@@ -56,6 +57,7 @@ CONDITION_FIELDS = ResourceFields(
 )
 
 
+AWAITING_APPROVAL = ServiceRequestStatus.AWAITING_APPROVAL.value
 SLA_TYPES = frozenset({WorkItemTypeCode.INCIDENT.value, WorkItemTypeCode.SERVICE_REQUEST.value})
 
 
@@ -142,7 +144,12 @@ STAMP_COLUMNS = (
 def snapshot(record: WorkItem, changes: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """The record as sla sees it, with `changes` applied (field name -> value)."""
     values = {name: getattr(record, name) for name in SNAPSHOT_FIELDS}
-    return values | {k: v for k, v in (changes or {}).items() if k in values}
+    values |= {k: v for k, v in (changes or {}).items() if k in values}
+    # An item that counts approval time keeps the clock running while it waits (REQ-SR-007 AC2):
+    # the SLA sees "awaiting approval" as open work, not a pause.
+    if record.sla_counts_approval and values["status"] == AWAITING_APPROVAL:
+        values["status_category"] = StatusCategory.OPEN.value
+    return values
 
 
 def has_sla(record: WorkItem) -> bool:

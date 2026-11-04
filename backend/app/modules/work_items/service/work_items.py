@@ -1681,6 +1681,7 @@ def _item_columns(
         "catalog_item_id": item.item_id,
         "answers": dict(values.get("answers") or {}),
         "approval_status": status.value,
+        "sla_counts_approval": item.needs_approval and item.count_approval_time,
     }
 
 

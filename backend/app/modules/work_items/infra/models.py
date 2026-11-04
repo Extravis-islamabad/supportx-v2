@@ -591,6 +591,9 @@ class WorkItem(TenantEntity):
     catalog_item_id: Mapped[uuid.UUID | None]
     answers: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     approval_status: Mapped[str | None] = mapped_column(String(20))
+    # The item's "count approval time" kept at submission (REQ-SR-007 AC2, WP-030 s2): the SLA
+    # clock keeps running while it waits for approval.
+    sla_counts_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Custom field values by key (WP-026, metadata module); typed JSON, GIN-indexed.
     custom: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     # Their free text (text, long text, email, phone, web address), kept on every save for

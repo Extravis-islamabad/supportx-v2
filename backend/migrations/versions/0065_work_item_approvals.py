@@ -3,7 +3,8 @@
 One row per approver of a record's approval stage. `approver_id` NULL means the tenant's
 approval administrators hold it (never nobody, REQ-SR-023); `route_reason` keeps why. Tenant
 scoped with RLS (FORCE) and actor audit; soft delete only (no DELETE grant); same-tenant foreign
-keys to the record and the people. Expand only, no data step; the downgrade drops the table.
+keys to the record and the people. `work_items.sla_counts_approval` keeps the item's "count
+approval time" (REQ-SR-007 AC2). Expand only, no data step; the downgrade drops both.
 
 Revision ID: 0065
 Revises: 0064
@@ -116,8 +117,13 @@ def upgrade() -> None:
     enable_tenant_rls(TABLE)
     enable_actor_audit(TABLE)
     grant_app(TABLE, ("SELECT", "INSERT", "UPDATE"))
+    op.add_column(
+        "work_items",
+        sa.Column("sla_counts_approval", sa.Boolean(), server_default="false", nullable=False),
+    )
 
 
 def downgrade() -> None:
-    """Drop the approvals table."""
+    """Drop the approvals table and the column."""
+    op.drop_column("work_items", "sla_counts_approval")
     op.drop_table(TABLE)

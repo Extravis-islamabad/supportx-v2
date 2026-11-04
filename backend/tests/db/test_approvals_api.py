@@ -325,3 +325,16 @@ async def test_the_daily_check_reroutes_what_the_event_missed(world: World) -> N
         assert await reroute_inactive(session) == 0  # nothing left to move
     [entry] = await approvals(world, a, a.admin, record)
     assert (entry["origin"], entry["route_reason"]) == ("administrators", "approver_inactive")
+
+
+async def test_an_item_that_counts_approval_time_keeps_the_clock_running(world: World) -> None:
+    """REQ-SR-007 AC2: with "count approval time" the due date does not move."""
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    record = await waiting(world, a, count_approval_time=True)
+    rows = await world.sql(
+        "SELECT state FROM sla_targets WHERE record_id = $1 AND kind = 'resolution'",
+        uuid.UUID(record["id"]),
+    )
+    assert [r["state"] for r in rows] == ["running"]
+    assert (await fresh(world, a, record))["resolution_due_at"] is not None
