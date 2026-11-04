@@ -132,6 +132,9 @@ MIT.
 `@fontsource/noto-nastaliq-urdu` (SIL OFL fonts, MIT packaging): bundled, subset woff2, never
 loaded from Google's servers.
 
+**Approved additions (D-134):** PostgreSQL's pg_trgm extension (trigram similarity; created by
+migration 0020).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.
