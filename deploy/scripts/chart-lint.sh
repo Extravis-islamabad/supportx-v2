@@ -111,6 +111,23 @@ if awk '/^---/ { if (egress && open) found = 1; egress = 0; open = 0 }
 fi
 echo "egress: refused without the control plane's addresses; no open 0.0.0.0/0 rule"
 
+# Backups (WP-014b): the in-cluster dev target renders as it is; any external target must be
+# encrypted at rest, by `encryption` or a stated bucket policy, or the chart refuses (fails closed).
+BK="helm template supportx $CHART --namespace supportx -f $CHART/values-dev.yaml --set postgresql.cnpg.backup.enabled=true"
+EXT="--set postgresql.cnpg.backup.endpointURL=https://s3.example.com --set postgresql.cnpg.backup.destinationPath=s3://backups/pg"
+# shellcheck disable=SC2086 # the flags are meant to be split
+$BK >/dev/null || { echo "backups: the in-cluster target must render" >&2; exit 1; }
+# shellcheck disable=SC2086
+if $BK $EXT >/dev/null 2>"$OUT/backup-refused.txt"; then
+  echo "backups: an unencrypted external target must be refused" >&2; exit 1
+fi
+grep -q "encrypted at rest" "$OUT/backup-refused.txt" || { echo "backups: the refusal must say why" >&2; exit 1; }
+# shellcheck disable=SC2086
+$BK $EXT --set postgresql.cnpg.backup.encryption=AES256 >/dev/null || { echo "backups: an encrypted external target must render" >&2; exit 1; }
+# shellcheck disable=SC2086
+$BK $EXT --set postgresql.cnpg.backup.encryptionByBucketPolicy=true >/dev/null || { echo "backups: a stated bucket policy must render" >&2; exit 1; }
+echo "backups: in-cluster renders; external refused unless encrypted (value or bucket policy)"
+
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"
 SN_ARGS="${PROFILES[1]#*|}"

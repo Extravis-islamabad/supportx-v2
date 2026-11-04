@@ -175,6 +175,9 @@ postgresql:
       # bucket's own policy. Production targets must encrypt, by this or by bucket policy; Barman
       # Cloud has no client-side encryption (the offsite rclone copy adds it, WP-014b).
       encryption: ""
+      # A target outside this release must encrypt: set `encryption`, or set this to true to state
+      # that the bucket's own policy encrypts every object. Otherwise the chart refuses to render.
+      encryptionByBucketPolicy: false
 
 # --- Object storage (S3 API only, D-016; WP-018, reused by WP-022) ---------------------------------------
 # seaweedfs: a minimal single-node SeaweedFS in this release (on-prem, ADR-012, D-076).

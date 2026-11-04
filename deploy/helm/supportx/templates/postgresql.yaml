@@ -63,6 +63,12 @@ spec:
 {{- if not $endpoint }}
 {{- $endpoint = ternary (printf "http://%s-seaweedfs:8333" .Release.Name) .Values.objectStorage.external.endpoint (eq .Values.objectStorage.mode "seaweedfs") }}
 {{- end }}
+{{- /* In this release's own SeaweedFS (dev, CI) or anywhere else (production): elsewhere it must
+be encrypted at rest, by us or by the bucket's stated policy (fails closed). */ -}}
+{{- $inCluster := and (not $b.endpointURL) (eq .Values.objectStorage.mode "seaweedfs") }}
+{{- if and (not $inCluster) (not $b.encryption) (not $b.encryptionByBucketPolicy) }}
+{{- fail "postgresql.cnpg.backup: an external backup target must be encrypted at rest. Set postgresql.cnpg.backup.encryption (AES256 or aws:kms), or postgresql.cnpg.backup.encryptionByBucketPolicy: true if the bucket's own policy encrypts every object." }}
+{{- end }}
 {{- $secret := $b.credentialsSecret | default .Values.secrets.app }}
 {{- $idKey := ternary "ACCESS_KEY_ID" "s3-access-key" (not (empty $b.credentialsSecret)) }}
 {{- $keyKey := ternary "ACCESS_SECRET_KEY" "s3-secret-key" (not (empty $b.credentialsSecret)) }}
