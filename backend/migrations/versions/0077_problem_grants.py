@@ -6,8 +6,11 @@ problems.manage at scope S gets create (scope all: create has no other), edit, a
 at S; problems.view stays as it is. manage never becomes delete (delete stays with the admin
 roles). Per tenant with app.tenant_id set (role_permissions forces RLS; see 0023, 0036).
 
-The downgrade folds them back: a role with problems.edit at S gets problems.manage at S, and
-the engine's problem keys other than view are removed.
+The downgrade folds back only what problems.manage can represent without losing or widening a
+grant (lane B's review, CLAUDE.md rule 5h; the same as lane C's 0091). A role holding exactly the
+four keys the upgrade made (create at all; edit, assign and close at one scope S) gets
+problems.manage at S. Any other problem key (delete, take, ...), a partial set, or the three at
+different scopes stops the downgrade with an error and changes nothing.
 
 Revision ID: 0077
 Revises: 0076
@@ -48,14 +51,37 @@ _SPLIT = """
         DELETE FROM role_permissions WHERE permission = 'problems.manage';
 """
 
-_JOIN = """
+_FOLDED = "('problems.edit', 'problems.assign', 'problems.close')"
+_FOUR = "('problems.create', 'problems.edit', 'problems.assign', 'problems.close')"
+
+_REFUSE = f"""
+        IF EXISTS (
+            SELECT 1 FROM role_permissions WHERE permission LIKE 'problems.%'
+                AND permission NOT IN ('problems.view', 'problems.manage')
+                AND permission NOT IN {_FOUR}
+        ) THEN
+            RAISE EXCEPTION 'a role holds a problem key problems.manage cannot represent: going'
+                ' below 0077 would lose it';
+        END IF;
+        IF EXISTS (
+            SELECT role_id FROM role_permissions WHERE permission IN {_FOUR}
+            GROUP BY role_id
+            HAVING count(*) <> 4
+                OR count(DISTINCT scope) FILTER (WHERE permission IN {_FOLDED}) <> 1
+                OR bool_or(permission = 'problems.create' AND scope <> 'all')
+        ) THEN
+            RAISE EXCEPTION 'a role holds only part of the problem keys, or at different scopes:'
+                ' problems.manage cannot represent it, so going below 0077 is refused';
+        END IF;
+"""  # noqa: S608 - fixed key lists, no input
+
+_JOIN = f"""{_REFUSE}
         INSERT INTO role_permissions (tenant_id, role_id, permission, scope, condition)
         SELECT tenant_id, role_id, 'problems.manage', scope, condition
         FROM role_permissions WHERE permission = 'problems.edit'
         ON CONFLICT DO NOTHING;
-        DELETE FROM role_permissions WHERE permission LIKE 'problems.%'
-            AND permission NOT IN ('problems.view', 'problems.manage');
-"""
+        DELETE FROM role_permissions WHERE permission IN {_FOUR};
+"""  # noqa: S608 - fixed key lists, no input
 
 
 def upgrade() -> None:
@@ -64,5 +90,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """problems.edit(S) → problems.manage(S); the engine's other problem keys removed."""
+    """The four keys at S → problems.manage(S); refused when that would lose a grant."""
     op.execute(_PER_TENANT.replace("STATEMENTS", _JOIN))

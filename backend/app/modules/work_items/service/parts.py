@@ -119,18 +119,34 @@ def _text(value: object, field: str, limit: int, problems: list[tuple[str, str]]
     return text
 
 
-async def _for_work(
+async def _work_access(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
-) -> WorkItem:
-    """Tasks and worklogs: `edit`, or an investigator of this record (ADR-040), nothing wider."""
+) -> tuple[WorkItem, bool]:
+    """Tasks and worklogs: (record, full). Full with `edit`; else an investigator (ADR-040)."""
     try:
-        return await items.record_for_action(session, subject, wtype, "edit", record_id)
+        return await items.record_for_action(session, subject, wtype, "edit", record_id), True
     except PermissionDenied:
         if subject.holds(wtype.permission("view")) and await followers.is_investigator(
             session, record_id, subject.user_id
         ):
-            return await items.visible_record(session, subject, wtype, record_id)
+            return await items.visible_record(session, subject, wtype, record_id), False
         raise
+
+
+async def _for_work(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    """Tasks: `edit`, or an investigator of this record (ADR-040), nothing wider."""
+    record, _full = await _work_access(session, subject, wtype, record_id)
+    return record
+
+
+def _own_time_only(wtype: WorkItemType, subject: Subject, owner_id: uuid.UUID | None) -> None:
+    """An investigator logs, changes and removes only their own time (lane B, ADR-040)."""
+    if owner_id is not None and owner_id != subject.user_id:
+        raise PermissionDenied(
+            params={"permission": wtype.permission("edit"), "reason": "own_worklogs_only"}
+        )
 
 
 # --- tasks (REQ-INC-072) --------------------------------------------------------------------------
@@ -539,7 +555,10 @@ async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the sou
     source: Source,
 ) -> WorkItemWorklog:
     """Log time on a record; the owner defaults to the subject."""
-    record = await _for_work(session, subject, wtype, record_id)
+    record, full = await _work_access(session, subject, wtype, record_id)
+    if not full:
+        owner = values.get("owner_id")
+        _own_time_only(wtype, subject, uuid.UUID(str(owner)) if owner else None)
     times = _times(values)
     problems: list[tuple[str, str]] = []
     description = _text(values.get("description"), "description", DESCRIPTION_MAX, problems)
@@ -589,8 +608,12 @@ async def update_worklog(  # noqa: PLR0913, PLR0917 - the worklog, its version, 
     source: Source,
 ) -> WorkItemWorklog:
     """Change a worklog (If-Match); the times are checked together again."""
-    record = await _for_work(session, subject, wtype, record_id)
+    record, full = await _work_access(session, subject, wtype, record_id)
     row = await _worklog(session, record_id, worklog_id)
+    if not full:
+        _own_time_only(wtype, subject, row.owner_id)
+        if values.get("owner_id"):
+            _own_time_only(wtype, subject, uuid.UUID(str(values["owner_id"])))
     merged = {
         "started_at": row.started_at,
         "ended_at": row.ended_at,
@@ -637,8 +660,10 @@ async def delete_worklog(  # noqa: PLR0913 - the worklog, its version and the so
     source: Source,
 ) -> None:
     """Remove a worklog (soft delete)."""
-    record = await _for_work(session, subject, wtype, record_id)
+    record, full = await _work_access(session, subject, wtype, record_id)
     row = await _worklog(session, record_id, worklog_id)
+    if not full:
+        _own_time_only(wtype, subject, row.owner_id)
     removed = await WorklogRepository(session).soft_delete(
         row.id, expected_version=expected_version
     )

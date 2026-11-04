@@ -28,6 +28,8 @@ export const ur: LabelResource = {
   'action_reason.not_offered': 'اس ریکارڈ کے لیے دستیاب نہیں: اس کی شرائط پوری نہیں ہوتیں۔',
   'action_reason.out_of_scope': 'یہ آپ کے مقامات یا سپورٹ گروپس سے باہر ہے۔',
   'action_reason.own_request_approval': 'آپ اپنی درخواست کردہ ریکارڈ کی منظوری نہیں دے سکتے۔',
+  'action_reason.own_worklogs_only':
+    'آپ صرف وہی وقت تبدیل یا حذف کر سکتے ہیں جو آپ نے خود درج کیا ہے۔',
   'action_reason.record_closed': 'بند یا منسوخ ریکارڈ تبدیل نہیں ہو سکتے۔',
   'action_reason.relative.assignee': 'تفویض شدہ ٹیکنیشن',
   'action_reason.relative.department_head': 'شعبے کا سربراہ',

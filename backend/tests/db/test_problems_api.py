@@ -636,3 +636,78 @@ async def test_full_slas_on_problems_are_a_tenant_switch(world: World) -> None:
         headers={"If-Match": f'"{incident["version"]}"', **CONSOLE},
     )
     assert field_codes(wrong) == {"full_sla": "not_allowed"}
+
+
+async def test_an_investigator_logs_only_their_own_time_and_may_step_down(world: World) -> None:
+    """Lane B's review of ADR-040: own worklogs only; no links; one record; the channel too."""
+    a = world.a
+    narrow = await role(
+        world,
+        a,
+        "Site technician",
+        [("problems.view", "group"), ("problems.edit", "group"), ("problems.add_note", "group")],
+    )
+    await world.call("PUT", f"/users/{a.requester2}/roles/{narrow}", a, a.admin)
+    them = a.requester2
+    record = (await new_problem(world, a, a.admin, group_id=str(a.ga))).json()
+    other = (await new_problem(world, a, a.admin, group_id=str(a.ga))).json()
+    path = f"{PRB}/{record['id']}"
+    times = {"started_at": "2026-11-05T10:00:00Z", "ended_at": "2026-11-05T11:00:00Z"}
+    owners = await world.call(
+        "POST", f"{path}/worklogs", a, a.tech_a, json={"worklog_type": "fix", **times}
+    )
+    assert owners.status_code == 201, owners.text
+    channel = {"channel": f"t:{a.tenant}:wi:{record['id']}"}
+    token = "/realtime/subscription-token"
+    assert (await world.call("POST", token, a, them, json=channel)).status_code == 403
+    await world.call("PUT", f"{path}/investigators/{them}", a, a.tech_a)
+    assert (await world.call("POST", token, a, them, json=channel)).status_code == 200
+    # Someone else's time: never changed, removed or logged in their name.
+    foreign = owners.json()
+    changed = await world.call(
+        "PATCH",
+        f"{path}/worklogs/{foreign['id']}",
+        a,
+        them,
+        json={"minutes": 30},
+        headers={"If-Match": f'"{foreign["version"]}"'},
+    )
+    assert problem(changed) == (403, "permission_denied")
+    assert changed.json()["params"]["reason"] == "own_worklogs_only"
+    removed = await world.call(
+        "DELETE",
+        f"{path}/worklogs/{foreign['id']}",
+        a,
+        them,
+        headers={"If-Match": f'"{foreign["version"]}"'},
+    )
+    assert problem(removed)[0] == 403
+    for_owner = await world.call(
+        "POST",
+        f"{path}/worklogs",
+        a,
+        them,
+        json={"worklog_type": "fix", "owner_id": str(a.tech_a), **times},
+    )
+    assert problem(for_owner)[0] == 403
+    mine = await world.call(
+        "POST", f"{path}/worklogs", a, them, json={"worklog_type": "investigation", **times}
+    )
+    assert mine.status_code == 201, mine.text
+    # No links, and nothing on another problem.
+    incident = await world.create(a, a.admin, group_id=str(a.ga))
+    link = await world.call("POST", f"{path}/links", a, them, json={"other_id": str(other["id"])})
+    assert problem(link)[0] == 403
+    cause = await world.call(
+        "POST", f"{path}/incidents", a, them, json={"incident_id": incident["id"]}
+    )
+    assert problem(cause)[0] in {403, 404}
+    elsewhere = await world.call(
+        "POST", f"{PRB}/{other['id']}/tasks", a, them, json={"title": "Not mine"}
+    )
+    assert problem(elsewhere)[0] == 404
+    # Stepping down needs no edit right and ends the access, the channel included.
+    down = await world.call("DELETE", f"{path}/investigators/{them}", a, them)
+    assert down.status_code == 204, down.text
+    assert problem(await world.call("GET", path, a, them))[0] == 404
+    assert (await world.call("POST", token, a, them, json=channel)).status_code == 403

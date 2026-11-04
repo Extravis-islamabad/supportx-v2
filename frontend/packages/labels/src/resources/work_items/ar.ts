@@ -27,6 +27,7 @@ export const ar: LabelResource = {
   'action_reason.not_offered': 'غير متاح لهذا السجل: شروطه غير متحققة.',
   'action_reason.out_of_scope': 'هذا السجل خارج نطاق السجلات التي يمكنك العمل عليها.',
   'action_reason.own_request_approval': 'لا يمكنك اعتماد سجل طلبته بنفسك.',
+  'action_reason.own_worklogs_only': 'يمكنك تغيير الوقت الذي سجلته بنفسك وإزالته فقط.',
   'action_reason.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
   'action_reason.relative.assignee': 'الفني المسند إليه',
   'action_reason.relative.department_head': 'رئيس القسم',

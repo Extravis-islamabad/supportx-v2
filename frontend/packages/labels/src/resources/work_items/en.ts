@@ -25,6 +25,7 @@ export const en = {
   'action_reason.not_offered': 'Not offered for this record: its conditions do not hold.',
   'action_reason.out_of_scope': 'This record is outside the records you can work on.',
   'action_reason.own_request_approval': 'You cannot approve a record you requested yourself.',
+  'action_reason.own_worklogs_only': 'You can change and remove only the time you logged yourself.',
   'action_reason.record_closed': 'Closed and canceled records cannot be changed.',
   'action_reason.relative.assignee': 'the assigned technician',
   'action_reason.relative.department_head': 'the department head',

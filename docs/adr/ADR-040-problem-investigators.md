@@ -22,8 +22,9 @@ record check use the same predicate, so the list and the record never disagree (
 1. **An investigator is a follower row with reason `investigator` and `grants_access`.** There
    is no new table. They follow the problem, so they hear what followers hear, and see it, and
    add private notes on it, through the existing shared scope.
-2. **On top of that, investigators work the record's tasks and worklogs** (create, move,
-   delete tasks; create, change, delete worklogs). The parts service checks `edit` *or* "an
+2. **On top of that, investigators work the record's tasks and worklogs** (create, change, move,
+   delete tasks; log time). Worklogs are their own: they log time only in their own name, and
+   change or remove only the time they logged (lane B's review; `own_worklogs_only`). The parts service checks `edit` *or* "an
    investigator of this record who holds `<type>.view` at some scope". Nothing else is widened:
    not field edits, assignment, status moves, links, replies to the requester or deleting.
 3. **Who may name one:** whoever may `edit` the problem (the owner and the problem's group). The
@@ -38,6 +39,8 @@ record check use the same predicate, so the list and the record never disagree (
   view, notes, tasks and worklogs opens up.
 - Unfollowing as an investigator ends the access, the same as a hand-over follower who
   unfollows.
+- A hand-over follower who is named an investigator gets the investigator row in place of the
+  hand-over one, so removing them later also ends the access the hand-over gave.
 - Problem notifications to followers arrive with WP-044c S2 (D15). Until then investigators see
   the record live.
 
