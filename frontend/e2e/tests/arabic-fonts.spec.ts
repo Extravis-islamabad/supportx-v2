@@ -116,7 +116,15 @@ test('Arabic in headings and body uses the bundled Noto Sans Arabic in every wei
     expect(room, 'room below the subject line, in font sizes').toBeGreaterThanOrEqual(0.25);
     await page.goto(`/incidents/${incident.id}`);
     // The description's body text, the same way.
-    expectNotoForArabic(await usedFonts(page, '[data-testid="inc-description"] p'), 'body');
+    // The description's text wherever the record shows it (the conversation's first entry).
+    await expect(page.locator('main p', { hasText: 'مكتب' }).first()).toBeVisible();
+    await page
+      .locator('main p', { hasText: 'مكتب' })
+      .first()
+      .evaluate((el) => {
+        el.setAttribute('data-arabic-body', '');
+      });
+    expectNotoForArabic(await usedFonts(page, '[data-arabic-body]'), 'body');
   } finally {
     await page.request.delete(`/api/v1/incidents/${incident.id}`, {
       headers: { 'If-Match': `"${String(incident.version)}"`, 'X-CSRF-Token': me.csrf_token },
