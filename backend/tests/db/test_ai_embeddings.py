@@ -248,3 +248,21 @@ async def test_a_model_of_another_width_is_refused_never_stored(world: World) ->
                 session, source_type="kb_article", source_id=uuid.uuid4(), pieces=["vpn"]
             )
     assert await world.rows() == []
+
+
+async def test_text_is_masked_before_embedding_when_the_admin_asks(world: World) -> None:
+    provider = Counting()
+    async with world.session() as session:
+        await Embeddings(provider, mask_local=True).index(
+            session,
+            source_type="kb_article",
+            source_id=uuid.uuid4(),
+            pieces=["Mail ali@example.com about the VPN"],
+        )
+        await Embeddings(provider).index(
+            session, source_type="kb_article", source_id=uuid.uuid4(), pieces=["Plain VPN text"]
+        )
+    masked, plain = provider.embedded
+    assert "ali@example.com" not in masked
+    assert "⟦EMAIL_1⟧" in masked
+    assert plain == "Plain VPN text"  # local, masking not asked for: as for calls

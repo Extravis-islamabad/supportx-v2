@@ -8,16 +8,17 @@ audit (on the route) and an outbox event.
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
-from app.modules.ai.domain.features import BY_CODE
+from app.modules.ai.domain.features import BY_CODE, INDEX_FEATURE
 from app.modules.ai.events import AiSettingsChanged
-from app.modules.ai.infra.models import AiSettings
+from app.modules.ai.infra.models import AiEmbedding, AiSettings
 from app.modules.ai.service.conversations import DEFAULT_SUMMARY_SOURCES, SUMMARY_SOURCES
+from app.modules.audit import WORKER, record
 from app.modules.identity_access import Subject
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
@@ -50,6 +51,21 @@ async def settings_row(session: AsyncSession) -> AiSettings:
     created: AiSettings | None = await session.scalar(select(AiSettings))
     assert created is not None  # noqa: S101 - just inserted in this transaction
     return created
+
+
+async def _purge_embeddings(session: AsyncSession, subject: Subject) -> None:
+    """AI or possible duplicates switched off: no AI data kept around (D-134), audited."""
+    removed = await session.execute(delete(AiEmbedding))
+    count = int(getattr(removed, "rowcount", 0) or 0)
+    if count:
+        await record(
+            session,
+            action_code="ai.embeddings_purged",
+            facts=WORKER,
+            object_type="ai_settings",
+            object_id=subject.tenant_id,
+            details={"embeddings": count},
+        )
 
 
 def summary_sources(settings: AiSettings) -> tuple[str, ...]:
@@ -113,8 +129,11 @@ async def update_settings(
     ]
     if not changes:
         return current
+    indexed_before = feature_on(current, INDEX_FEATURE)
     for key, value in values.items():
         setattr(current, key, value)
+    if indexed_before and not feature_on(current, INDEX_FEATURE):
+        await _purge_embeddings(session, subject)
     current.version += 1
     current.updated_by = subject.user_id
     await record_changes(

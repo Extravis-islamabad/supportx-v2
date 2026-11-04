@@ -44,6 +44,8 @@ export const ar: LabelResource = {
   'ai_summary_source.replies': 'الردود',
   'audit.action.ai.calls_erased': 'حُذف نص محادثات شخص مع الذكاء الاصطناعي (محو البيانات)',
   'audit.action.ai.calls_purged': 'حُذف نص محادثات الذكاء الاصطناعي بعد انتهاء مدة الاحتفاظ',
+  'audit.action.ai.embeddings_purged':
+    'حُذف فهرس البحث بالذكاء الاصطناعي للسجلات (أُوقف الذكاء الاصطناعي)',
   'audit.action.ai.settings_changed': 'غيّر إعدادات الذكاء الاصطناعي',
   'audit.action.ai.summaries_erased': 'حُذفت ملخصات المحادثات التي قد تذكر شخصًا مُحيت بياناته',
   'errors.ai_call_not_found': 'إجابة الذكاء الاصطناعي هذه غير موجودة أو ليست لك.',

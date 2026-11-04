@@ -43,6 +43,7 @@ export const en = {
   'ai_summary_source.replies': 'Replies',
   'audit.action.ai.calls_erased': 'Deleted a person\u2019s AI conversation text (erasure)',
   'audit.action.ai.calls_purged': 'Deleted AI conversation text after its retention period',
+  'audit.action.ai.embeddings_purged': 'Deleted the AI search index of records (AI switched off)',
   'audit.action.ai.settings_changed': 'Changed the AI settings',
   'audit.action.ai.summaries_erased':
     'Deleted the conversation summaries that could name an erased person',

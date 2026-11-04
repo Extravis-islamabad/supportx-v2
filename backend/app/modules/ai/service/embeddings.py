@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.database import Database
 from app.core.tenancy import TenantContext
+from app.modules.ai.domain.features import INDEX_FEATURE
 from app.modules.ai.domain.masking import mask
 from app.modules.ai.infra.models import EMBEDDING_DIMENSION, AiEmbedding
 from app.modules.ai.service.providers import Provider, ProviderError
@@ -93,8 +94,11 @@ async def remove_record(session: AsyncSession, *, source_type: str, source_id: u
 class Embeddings:
     """The service over the installation's provider (its embedding model)."""
 
-    def __init__(self, provider: Provider) -> None:
+    def __init__(self, provider: Provider, *, mask_local: bool = False) -> None:
         self.provider = provider
+        # As for calls: masked for an external provider always, for the local one when the
+        # tenant's admin asks (AI settings), so a vector never carries what a prompt would not.
+        self.masked = provider.external or mask_local
 
     @property
     def model(self) -> str:
@@ -102,7 +106,7 @@ class Embeddings:
         return self.provider.embedding_model
 
     async def _embed(self, pieces: Sequence[str]) -> list[list[float]]:
-        sent = mask(list(pieces), names=())[0] if self.provider.external else list(pieces)
+        sent = mask(list(pieces), names=())[0] if self.masked else list(pieces)
         vectors: list[list[float]] = []
         for start in range(0, len(sent), BATCH):
             vectors.extend(await self.provider.embed(sent[start : start + BATCH]))
@@ -258,24 +262,24 @@ async def reembed_job(database: Database, settings: Settings) -> None:
 async def reembed_sweep(database: Database, settings: Settings, provider: Provider) -> None:
     """In every tenant: vectors of a previous model are re-embedded with the configured one."""
     del settings
-    service = Embeddings(provider)
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
     for tenant in tenants:
         try:
             async with database.tenant_session(TenantContext(tenant)) as session:
+                service = Embeddings(provider, mask_local=await _mask_local(session))
                 done = await service.reembed_stale(session)
         except ProviderError as error:
             log.warning("ai_reembed_failed", tenant_id=str(tenant), error=str(error))
             continue
         if done:
-            log.info("ai_reembedded", tenant_id=str(tenant), records=done, model=service.model)
+            log.info(
+                "ai_reembedded", tenant_id=str(tenant), records=done, model=provider.embedding_model
+            )
 
 
 # --- keeping records indexed (WP-038) -------------------------------------------------------------
 
-# The feature whose switch decides whether records are embedded at all (D-134: AI off, no model).
-INDEX_FEATURE = "possible_duplicates"
 TEXT_FIELDS = {"subject", "description"}
 
 
@@ -308,7 +312,7 @@ async def on_work_item_changed(envelope: EventEnvelope, session: AsyncSession | 
     try:
         texts = await source(session, [record_id])
         pieces = texts.get(record_id)
-        service = Embeddings(provider)
+        service = Embeddings(provider, mask_local=await _mask_local(session))
         if pieces is None:
             await service.remove(session, source_type=source_type, source_id=record_id)
         else:
@@ -320,6 +324,12 @@ async def on_work_item_changed(envelope: EventEnvelope, session: AsyncSession | 
         log.warning("ai_index_failed", record_id=str(record_id), error=type(error).__name__)
     finally:
         await provider.aclose()
+
+
+async def _mask_local(session: AsyncSession) -> bool:
+    from app.modules.ai.service.settings import settings_row  # noqa: PLC0415 - cycle
+
+    return (await settings_row(session)).mask_local
 
 
 async def _indexing_on(session: AsyncSession, tenant_id: uuid.UUID) -> bool:

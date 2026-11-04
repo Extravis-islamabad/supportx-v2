@@ -45,6 +45,7 @@ export const ur: LabelResource = {
   'ai_summary_source.replies': 'جوابات',
   'audit.action.ai.calls_erased': 'کسی شخص کی AI گفتگو کا متن حذف کیا (ڈیٹا مٹانا)',
   'audit.action.ai.calls_purged': 'محفوظ رکھنے کی مدت کے بعد AI گفتگو کا متن حذف کیا',
+  'audit.action.ai.embeddings_purged': 'ریکارڈز کا AI تلاش انڈیکس حذف کیا (AI بند کیا گیا)',
   'audit.action.ai.settings_changed': 'AI کی ترتیبات بدلیں',
   'audit.action.ai.summaries_erased':
     'وہ گفتگو کے خلاصے حذف کیے جن میں مٹائے گئے شخص کا نام ہو سکتا تھا',

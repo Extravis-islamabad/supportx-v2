@@ -368,7 +368,8 @@ class Gateway:
             "masked_input": masked_texts[0],
         }
         try:
-            hits = await Embeddings(self.provider).search(
+            settings = await settings_row(session)
+            hits = await Embeddings(self.provider, mask_local=settings.mask_local).search(
                 session, subject, source_type=source_type, query=query, limit=limit, exclude=exclude
             )
         except (ProviderError, EmbeddingWidthError):
