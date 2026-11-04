@@ -519,6 +519,15 @@ export const en = {
   'event_type.service_catalog.category.changed': 'Catalog category changed',
   'audit.action.catalog.item_changed': 'Changed a catalog item',
   'audit.action.catalog.category_changed': 'Changed a catalog category',
+  'event_type.organization.tenant.provisioned': 'Organisation set up',
+  'event_type.service_catalog.settings.changed': 'Catalog settings changed',
+  'event_type.service_catalog.starter.seeded': 'Starter catalog added',
+  'audit.action.catalog.item_deleted': 'Deleted a catalog item',
+  'audit.action.catalog.item_scheduled': 'Ran a planned catalog change',
+  'audit.action.catalog.category_deleted': 'Deleted a catalog category',
+  'audit.action.catalog.settings_changed': 'Changed the catalog settings',
+  'audit.action.catalog.starter_seeded': 'Added the starter catalog',
+  'audit.action.catalog.starter_published': 'Published the starter catalog',
   // WP-040 AD/LDAP (D-130)
   'audit.action.directory.federation_applied':
     'Connected an AD/LDAP directory in the identity service',

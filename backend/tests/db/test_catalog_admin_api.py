@@ -75,7 +75,7 @@ async def test_categories_form_a_tree_and_a_disabled_one_hides_its_items(world: 
         json={"names": {"en": "Fifth"}, "parent_id": deepest},
         headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
     )
-    assert codes(too_deep) == {"parent_id": "too_deep"}
+    assert codes(too_deep) == {"parent_id": "catalog_too_deep"}
     listed = {c["id"]: c for c in (await world.call("GET", CATEGORIES_PATH, a, a.admin)).json()}
     loop = await patch(
         world, a, a.admin, f"{CATEGORIES_PATH}/{root}", listed[root]["version"], parent_id=deeper

@@ -637,6 +637,22 @@ export const en = {
   'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
   'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
   'errors.catalog_item_not_found': 'This catalog item does not exist or is not open to you.',
+  'errors.catalog_item_in_use':
+    'This item has requests, so it cannot be deleted. Retire it instead.',
+  'errors.service_category_in_use':
+    'This category still holds items or categories. Move or delete them first.',
+  'errors.service_category_not_found': 'This category does not exist.',
+  'errors.catalog_item_incomplete':
+    'The item was not complete at its planned publish time, so it stayed a draft.',
+  'errors.field.category_loop':
+    'A category cannot sit inside itself or one of its own subcategories.',
+  'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
+  'errors.field.unknown_option': "This choice is not one of the question's options.",
+  'errors.field.unknown_placeholder': "Use only the form's question keys, or {person}, in braces.",
+  'errors.field.must_be_future': 'Choose a time in the future.',
+  'errors.field.before_publish': 'Retiring must come after publishing.',
+  'errors.field.too_many_keywords': 'Use at most 20 keywords per language.',
+  'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_questions': 'A form can have at most 30 questions.',
   'errors.field.duplicate': 'This is already used.',
   'errors.field.unknown_question': 'This form has no such question.',

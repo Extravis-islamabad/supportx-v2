@@ -20,8 +20,8 @@ from app.modules.service_catalog.domain.catalog import (
     subject_template_problems,
 )
 from app.modules.service_catalog.domain.items import (
-    Audience,
     Question,
+    QuestionAudience,
     QuestionKind,
     answer_problems,
     question_problems,
@@ -38,13 +38,15 @@ def test_categories_nest_four_deep_without_loops() -> None:
     a, b, c, d = _chain(4)
     parents = {a: None, b: a, c: b, d: c}
     assert category_problems(None, c, parents) == []  # a new fourth level
-    assert category_problems(None, d, parents) == [("parent_id", "too_deep")]
+    assert category_problems(None, d, parents) == [("parent_id", "catalog_too_deep")]
     assert category_problems(a, d, parents) == [("parent_id", "category_loop")]
     assert category_problems(b, b, parents) == [("parent_id", "category_loop")]
     assert category_problems(None, uuid.uuid4(), parents) == [("parent_id", "not_found")]
     e, f = _chain(2)
     # Moving b (with c and d below it) under e > f makes five levels; under e alone, four.
-    assert category_problems(b, f, {**parents, e: None, f: e}) == [("parent_id", "too_deep")]
+    assert category_problems(b, f, {**parents, e: None, f: e}) == [
+        ("parent_id", "catalog_too_deep")
+    ]
     assert category_problems(b, e, {**parents, e: None}) == []
     assert category_problems(d, f, {**parents, e: None, f: e}) == []
 
@@ -189,16 +191,23 @@ def test_questions_shown_to_others_are_unknown_to_the_requester() -> None:
         "asset_tag",
         {"en": "Asset tag"},
         QuestionKind.TEXT,
-        shown_to=frozenset({Audience.TECHNICIAN}),
+        shown_to=frozenset({QuestionAudience.TECHNICIAN}),
     )
     asked = Question("why", {"en": "Why"}, QuestionKind.TEXT, required=True)
     assert answer_problems([internal, asked], {"why": "x", "asset_tag": "A1"}) == [
         ("answers.asset_tag", "unknown_question")
     ]
-    assert answer_problems([internal, asked], {"asset_tag": "A1"}, by=Audience.TECHNICIAN) == []
+    assert (
+        answer_problems([internal, asked], {"asset_tag": "A1"}, by=QuestionAudience.TECHNICIAN)
+        == []
+    )
     # Required but nobody on the form sees it.
     hidden = Question(
-        "x", {"en": "X"}, QuestionKind.TEXT, required=True, shown_to=frozenset({Audience.APPROVER})
+        "x",
+        {"en": "X"},
+        QuestionKind.TEXT,
+        required=True,
+        shown_to=frozenset({QuestionAudience.APPROVER}),
     )
     assert question_problems([hidden]) == [("questions.0.required", "not_allowed")]
 

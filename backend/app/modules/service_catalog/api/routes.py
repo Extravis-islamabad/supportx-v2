@@ -31,8 +31,8 @@ from app.modules.identity_access import Subject
 from app.modules.service_catalog.domain.catalog import ItemKind, ItemStatus
 from app.modules.service_catalog.domain.items import (
     ApproverKind,
-    Audience,
     ItemAudience,
+    QuestionAudience,
     QuestionKind,
 )
 from app.modules.service_catalog.infra.models import CatalogSettings, ServiceCategory
@@ -66,7 +66,7 @@ class QuestionIO(BaseModel):
     option_labels: dict[str, dict[str, str]] = Field(default_factory=dict)
     help: dict[str, str] = Field(default_factory=dict)
     default: Any = None
-    shown_to: list[Audience] = Field(default_factory=lambda: list(Audience))
+    shown_to: list[QuestionAudience] = Field(default_factory=lambda: list(QuestionAudience))
 
 
 class ApproverIO(BaseModel):
@@ -144,7 +144,7 @@ class CatalogItemIn(BaseModel):
     auto_fulfil: bool | None = None
 
 
-class MissingTranslation(BaseModel):
+class CatalogMissingTranslation(BaseModel):
     """A text with English but nothing in one of the tenant's languages (plan D5)."""
 
     field: str
@@ -166,7 +166,9 @@ class CatalogItemOut(BaseModel):
     template_id: uuid.UUID | None
     audience: ItemAudience
     status: ItemStatus
-    enabled: bool = Field(deprecated=True, description="True when the item is published.")
+    enabled: bool = Field(
+        description="True when the item is published (WP-030 clients; read status)."
+    )
     publish_at: datetime | None
     retire_at: datetime | None
     published_at: datetime | None
@@ -187,7 +189,7 @@ class CatalogItemOut(BaseModel):
     technician_after_approval: bool
     count_approval_time: bool
     auto_fulfil: bool
-    missing_translations: list[MissingTranslation]
+    missing_translations: list[CatalogMissingTranslation]
     can_manage: bool
     version: int
 
@@ -198,7 +200,9 @@ class CatalogItemOut(BaseModel):
         questions = [
             q
             for q in item.questions
-            if staff or Audience.REQUESTER.value in (q.get("shown_to") or [Audience.REQUESTER])
+            if staff
+            or QuestionAudience.REQUESTER.value
+            in (q.get("shown_to") or [QuestionAudience.REQUESTER])
         ]
         return cls.model_validate(
             {
@@ -219,7 +223,20 @@ class CatalogItemOut(BaseModel):
 
 
 class CategoryIn(BaseModel):
-    """A category (only what is sent changes, on PATCH)."""
+    """A new category (the WP-030 contract, plus the tree's fields)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    names: dict[str, str]
+    sort_order: int = Field(default=0, ge=0, le=10_000)
+    descriptions: dict[str, str] | None = None
+    parent_id: uuid.UUID | None = None
+    icon: str | None = Field(default=None, max_length=40)
+    enabled: bool | None = None
+
+
+class CategoryPatchIn(BaseModel):
+    """A change to a category (only what is sent changes)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -258,7 +275,7 @@ class CategoryOut(BaseModel):
         )
 
 
-class SettingsIn(BaseModel):
+class CatalogSettingsIn(BaseModel):
     """The tenant's catalog settings."""
 
     model_config = ConfigDict(extra="forbid")
@@ -266,14 +283,14 @@ class SettingsIn(BaseModel):
     hide_default_incident_template: bool | None = None
 
 
-class SettingsOut(BaseModel):
+class CatalogSettingsOut(BaseModel):
     """The tenant's catalog settings."""
 
     hide_default_incident_template: bool
     version: int
 
     @classmethod
-    def of(cls, row: CatalogSettings) -> "SettingsOut":
+    def of(cls, row: CatalogSettings) -> "CatalogSettingsOut":
         """From the row (or the defaults)."""
         return cls(
             hide_default_incident_template=row.hide_default_incident_template,
@@ -281,13 +298,13 @@ class SettingsOut(BaseModel):
         )
 
 
-class StarterOut(BaseModel):
+class CatalogStarterOut(BaseModel):
     """The starter catalog's drafts still waiting for a group (D-138)."""
 
     drafts: int
 
 
-class StarterPublishIn(BaseModel):
+class CatalogStarterPublishIn(BaseModel):
     """The fulfilment group the starter drafts get."""
 
     model_config = ConfigDict(extra="forbid")
@@ -295,7 +312,7 @@ class StarterPublishIn(BaseModel):
     group_id: uuid.UUID
 
 
-class StarterPublishOut(BaseModel):
+class CatalogStarterPublishOut(BaseModel):
     """How many were published, and which still need work before they can be."""
 
     published: int
@@ -351,7 +368,7 @@ async def create_category(
 )
 async def update_category(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     category_id: uuid.UUID,
-    body: CategoryIn,
+    body: CategoryPatchIn,
     version: ExpectedVersion,
     session: TenantSession,
     subject: SignedIn,
@@ -556,12 +573,12 @@ async def delete_item(
 @router.get("/settings", summary="The catalog settings")
 async def get_settings(
     session: TenantSession, subject: SignedIn, response: Response
-) -> SettingsOut:
+) -> CatalogSettingsOut:
     """The tenant's catalog settings (everyone signed in may read them)."""
     del subject
     row = await settings.read(session)
     set_etag(response, row.version)
-    return SettingsOut.of(row)
+    return CatalogSettingsOut.of(row)
 
 
 @router.patch(
@@ -570,37 +587,39 @@ async def get_settings(
     dependencies=[audited("catalog.settings_changed", object_type="catalog_settings")],
 )
 async def update_settings(
-    body: SettingsIn,
+    body: CatalogSettingsIn,
     version: ExpectedVersion,
     session: TenantSession,
     subject: SignedIn,
     response: Response,
-) -> SettingsOut:
+) -> CatalogSettingsOut:
     """Change what is sent (catalog_items.manage, If-Match)."""
     row = await settings.update(session, subject, expected_version=version, values=_fields(body))
     set_etag(response, row.version)
-    return SettingsOut.of(row)
+    return CatalogSettingsOut.of(row)
 
 
 @router.get("/starter", summary="Starter items still to publish")
-async def starter_status(session: TenantSession, subject: SignedIn) -> StarterOut:
+async def starter_status(session: TenantSession, subject: SignedIn) -> CatalogStarterOut:
     """How many starter items are drafts (staff only see the banner; 0 for others)."""
-    return StarterOut(drafts=await starter.starter_drafts(session) if is_staff(subject) else 0)
+    return CatalogStarterOut(
+        drafts=await starter.starter_drafts(session) if is_staff(subject) else 0
+    )
 
 
 @router.post("/starter/publish", summary="Choose a group and publish the starter items")
 async def publish_starter(
-    body: StarterPublishIn,
+    body: CatalogStarterPublishIn,
     session: TenantSession,
     subject: SignedIn,
     request: Request,
     note: Annotated[AuditNote, audited("catalog.starter_published", object_type="support_group")],
-) -> StarterPublishOut:
+) -> CatalogStarterPublishOut:
     """The starter drafts get the group; those whose checks pass are published."""
     done = await starter.publish_starter(session, subject, body.group_id, source=source_of(request))
     note.object_id = str(body.group_id)
     note.details = {"published": done.published, "skipped": len(done.skipped)}
-    return StarterPublishOut(published=done.published, skipped=done.skipped)
+    return CatalogStarterPublishOut(published=done.published, skipped=done.skipped)
 
 
 __all__ = ["router"]

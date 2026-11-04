@@ -47,11 +47,11 @@ from app.modules.service_catalog.domain.items import (
     ApprovalStage,
     Approver,
     ApproverKind,
-    Audience,
     ItemAudience,
     ItemRules,
     PlannedTask,
     Question,
+    QuestionAudience,
     QuestionKind,
     answer_problems,
     name_problems,
@@ -136,7 +136,9 @@ def _question(q: Mapping[str, Any]) -> Question:
         option_labels=dict(q.get("option_labels") or {}),
         help=dict(q.get("help") or {}),
         default=q.get("default"),
-        shown_to=frozenset(Audience(a) for a in q.get("shown_to") or list(Audience)),
+        shown_to=frozenset(
+            QuestionAudience(a) for a in q.get("shown_to") or list(QuestionAudience)
+        ),
     )
 
 
@@ -203,7 +205,7 @@ def _shape_problems(values: Mapping[str, Any]) -> list[tuple[str, str]]:  # noqa
     for i, q in enumerate(values.get("questions") or []):
         if not isinstance(q, Mapping) or q.get("kind") not in set(QuestionKind):
             found.append((f"questions.{i}.kind", "invalid_choice"))
-        elif any(a not in set(Audience) for a in q.get("shown_to") or []):
+        elif any(a not in set(QuestionAudience) for a in q.get("shown_to") or []):
             found.append((f"questions.{i}.shown_to", "invalid_choice"))
     approval = values.get("approval")
     if approval is not None:
@@ -226,7 +228,7 @@ def _stored_question(q: Mapping[str, Any]) -> dict[str, Any]:
         "option_labels": {k: dict(v) for k, v in (q.get("option_labels") or {}).items()},
         "help": dict(q.get("help") or {}),
         "default": q.get("default"),
-        "shown_to": sorted(set(q.get("shown_to") or [a.value for a in Audience])),
+        "shown_to": sorted(set(q.get("shown_to") or [a.value for a in QuestionAudience])),
     }
 
 

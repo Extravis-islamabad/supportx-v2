@@ -107,7 +107,7 @@ def category_problems(
             above += 1
     below = 0 if category_id is None else _height(category_id, parents)
     if above + 1 + below > MAX_DEPTH:
-        return [("parent_id", "too_deep")]
+        return [("parent_id", "catalog_too_deep")]
     return []
 
 

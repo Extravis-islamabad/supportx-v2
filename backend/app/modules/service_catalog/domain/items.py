@@ -52,7 +52,7 @@ class QuestionKind(StrEnum):
     ATTACHMENT = "attachment"
 
 
-class Audience(StrEnum):
+class QuestionAudience(StrEnum):
     """Who sees a form question (REQ-CAT-008): the requester, the technician, the approver."""
 
     REQUESTER = "requester"
@@ -105,7 +105,7 @@ class Question:
     option_labels: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
     help: Mapping[str, str] = field(default_factory=dict)
     default: Any = None
-    shown_to: frozenset[Audience] = frozenset(Audience)
+    shown_to: frozenset[QuestionAudience] = frozenset(QuestionAudience)
 
     def as_json(self) -> dict[str, Any]:
         """For the item's JSON column."""
@@ -215,7 +215,7 @@ def question_problems(questions: Sequence[Question]) -> list[Problem]:
         found += _option_problems(at, q)
         if not q.shown_to:
             found.append((f"{at}.shown_to", "required"))
-        elif q.required and Audience.REQUESTER not in q.shown_to:
+        elif q.required and QuestionAudience.REQUESTER not in q.shown_to:
             # Nobody on the form could answer it.
             found.append((f"{at}.required", "not_allowed"))
         if q.default is not None and (
@@ -327,7 +327,7 @@ def answer_problems(
     questions: Sequence[Question],
     answers: Mapping[str, Any],
     *,
-    by: Audience = Audience.REQUESTER,
+    by: QuestionAudience = QuestionAudience.REQUESTER,
 ) -> list[Problem]:
     """The form's answers (REQ-SR-003): required ones given, values of their kind, no strangers.
 
@@ -341,7 +341,7 @@ def answer_problems(
     for q in by_key.values():
         value = answers.get(q.key)
         if _empty(value):
-            if q.required and by is Audience.REQUESTER:
+            if q.required and by is QuestionAudience.REQUESTER:
                 found.append((f"answers.{q.key}", "required"))
             continue
         if (code := _value_problem(q, value)) is not None:

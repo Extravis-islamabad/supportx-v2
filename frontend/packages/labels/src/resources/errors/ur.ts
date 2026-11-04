@@ -539,6 +539,23 @@ export const ur: LabelResource = {
   'errors.field.level_too_many_recipients': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} وصول کنندگان۔',
   'errors.field.level_too_many_actions': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} کارروائیاں۔',
   'errors.catalog_item_not_found': 'یہ کیٹلاگ آئٹم موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.catalog_item_in_use':
+    'اس آئٹم کی درخواستیں موجود ہیں، اس لیے اسے حذف نہیں کیا جا سکتا۔ اس کے بجائے اسے ختم کریں۔',
+  'errors.service_category_in_use':
+    'اس کیٹیگری میں ابھی آئٹمز یا کیٹیگریز موجود ہیں۔ پہلے انہیں منتقل یا حذف کریں۔',
+  'errors.service_category_not_found': 'یہ کیٹیگری موجود نہیں۔',
+  'errors.catalog_item_incomplete': 'طے شدہ وقت پر آئٹم مکمل نہیں تھا، اس لیے یہ مسودہ ہی رہا۔',
+  'errors.field.category_loop':
+    'کوئی کیٹیگری خود اپنے اندر یا اپنی ذیلی کیٹیگری کے اندر نہیں رکھی جا سکتی۔',
+  'errors.field.catalog_too_deep': 'کیٹلاگ کیٹیگریز کے زیادہ سے زیادہ چار درجے ہو سکتے ہیں۔',
+  'errors.field.unknown_option': 'یہ انتخاب سوال کے اختیارات میں شامل نہیں۔',
+  'errors.field.unknown_placeholder':
+    'قوسین میں صرف فارم کے سوالات کی کلیدیں، یا {person}، استعمال کریں۔',
+  'errors.field.must_be_future': 'مستقبل کا کوئی وقت منتخب کریں۔',
+  'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
+  'errors.field.too_many_keywords': 'ہر زبان میں زیادہ سے زیادہ 20 کلیدی الفاظ استعمال کریں۔',
+  'errors.field.too_many_categories':
+    'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
   'errors.field.too_many_questions': 'فارم میں زیادہ سے زیادہ 30 سوال ہو سکتے ہیں۔',
   'errors.field.duplicate': 'یہ پہلے سے استعمال میں ہے۔',
   'errors.field.unknown_question': 'اس فارم میں یہ سوال نہیں ہے۔',
