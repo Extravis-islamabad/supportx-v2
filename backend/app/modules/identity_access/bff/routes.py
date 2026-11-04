@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -18,7 +18,16 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
-from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
+from app.modules.identity_access.domain.identity import (
+    DEFAULT_TEXT_SCALE,
+    DateFormat,
+    FormDensity,
+    NavLayout,
+    ThemeMode,
+    TimeFormat,
+    UserType,
+    WeekStart,
+)
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import password_reset as password_reset_service
@@ -31,7 +40,12 @@ from app.modules.identity_access.service.auth import (
     LoginFailure,
 )
 from app.modules.identity_access.service.sso_test import TestFinished
-from app.modules.organization import offered_languages, tenant_for_host
+from app.modules.organization import (
+    RegionalDefaults,
+    offered_languages,
+    regional_defaults,
+    tenant_for_host,
+)
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     SESSION_ENDED,
@@ -89,8 +103,41 @@ class UserOut(BaseModel):
     )
     time_zone: str | None = Field(
         default=None,
-        description="The user's time zone preference (IANA); null: use the browser's.",
+        description="Time zone (IANA): the person's own, else their site's, else the tenant's.",
     )
+    # WP-042 (REQ-ADM-058, 059, 062): what to apply, the person's choice or else the default
+    # read now; `chosen` lists the ones the person set themselves (the rest follow the default).
+    theme_mode: ThemeMode | None = Field(
+        default=None, description="Null: not chosen, the browser decides."
+    )
+    text_scale: int = Field(default=DEFAULT_TEXT_SCALE, description="Text size in percent.")
+    week_start: WeekStart = Field(default="monday", description="First day of the week.")
+    date_format: DateFormat = Field(default="dd/mm/yyyy", description="How dates are written.")
+    time_format: TimeFormat = Field(default="24h", description="12 or 24 hours.")
+    chosen: list[str] = Field(
+        default_factory=list, description="The preferences the person set (not defaults)."
+    )
+
+
+# Preferences a person may leave to the default (WP-042): applied at read time, never copied.
+_PERSONAL = ("theme_mode", "text_scale", "week_start", "date_format", "time_format")
+
+
+def _personal(row: Any, regional: RegionalDefaults) -> dict[str, Any]:  # noqa: ANN401 - a Row
+    """The time zone, theme, text size and formats to apply, and which the person chose."""
+    own: dict[str, Any] = {} if row is None else {n: getattr(row, n) for n in _PERSONAL}
+    own["time_zone"] = row.time_zone if row is not None else None
+    defaults = {
+        "theme_mode": None,
+        "text_scale": DEFAULT_TEXT_SCALE,
+        "week_start": regional.week_start,
+        "date_format": regional.date_format,
+        "time_format": regional.time_format,
+        "time_zone": regional.time_zone,
+    }
+    applied = {n: own[n] if own.get(n) is not None else d for n, d in defaults.items()}
+    applied["chosen"] = sorted(n for n, v in own.items() if v is not None)
+    return applied
 
 
 class TenantOut(BaseModel):
@@ -344,16 +391,22 @@ async def _describe(request: Request, session: Session) -> MeResponse:
             row = (
                 await db.execute(
                     select(
-                        User.nav_layout, User.form_density, User.time_zone, User.ui_locale
+                        User.nav_layout,
+                        User.form_density,
+                        User.time_zone,
+                        User.ui_locale,
+                        User.site_id,
+                        *(getattr(User, name) for name in _PERSONAL),
                     ).where(User.id == session.user_uuid)
                 )
             ).first()
             offered, default = await offered_languages(db)
+            regional = await regional_defaults(db, row.site_id if row else None)
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.SIDE
         described["user"]["form_density"] = (
             row.form_density if row else None
         ) or FormDensity.COMFORTABLE
-        described["user"]["time_zone"] = row.time_zone if row else None
+        described["user"].update(_personal(row, regional))
         # The language picked in the app wins over Keycloak's (QA BUG-04): it follows the user.
         if row is not None and row.ui_locale is not None:
             described["user"]["locale"] = row.ui_locale

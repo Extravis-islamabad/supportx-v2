@@ -6,7 +6,9 @@ and an outbox event that reaches every screen. The base currency, once set, chan
 explicit confirmation: amounts recorded later are in it.
 """
 
-from typing import TYPE_CHECKING, Any
+import uuid
+from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -16,12 +18,9 @@ from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
 from app.modules.organization.domain.instance import problems
 from app.modules.organization.events import TenantSettingsChanged
-from app.modules.organization.infra.models import TenantSettings
+from app.modules.organization.infra.models import Site, TenantSettings
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
-
-if TYPE_CHECKING:
-    import uuid
 
 CONFIGURE = ("config.organisation", "settings.manage")
 EDITABLE = (
@@ -58,6 +57,47 @@ async def offered_languages(session: AsyncSession) -> tuple[tuple[str, ...], str
     if row is None:
         return ("en", "ar", "ur"), "en"
     return tuple(row.languages), row.default_language
+
+
+@dataclass(frozen=True, slots=True)
+class RegionalDefaults:
+    """What a person gets for each regional preference they have not set (REQ-ADM-059)."""
+
+    time_zone: str
+    week_start: str
+    date_format: str
+    time_format: str
+
+
+async def regional_defaults(session: AsyncSession, site_id: uuid.UUID | None) -> RegionalDefaults:
+    """Their site's time zone, else the tenant's; the tenant's formats and week start.
+
+    Read every time, never copied onto the person: a changed default reaches everyone who has
+    not chosen for themselves, and never overwrites anyone who has.
+    """
+    found = (
+        await session.execute(
+            select(
+                TenantSettings.time_zone,
+                TenantSettings.week_start,
+                TenantSettings.date_format,
+                TenantSettings.time_format,
+            )
+        )
+    ).one_or_none()
+    tenant = (
+        RegionalDefaults(*found)
+        if found is not None
+        else RegionalDefaults("UTC", "monday", "dd/mm/yyyy", "24h")
+    )
+    if site_id is None:
+        return tenant
+    site_zone = await session.scalar(
+        select(Site.time_zone).where(Site.id == site_id, Site.deleted_at.is_(None))
+    )
+    if site_zone is None:
+        return tenant
+    return RegionalDefaults(site_zone, tenant.week_start, tenant.date_format, tenant.time_format)
 
 
 async def update_settings(  # noqa: PLR0913 - the change, its version and its context, explicit

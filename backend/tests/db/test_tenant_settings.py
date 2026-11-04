@@ -8,6 +8,7 @@
 """
 
 import asyncpg
+import httpx
 
 from tests.db.test_access_api import World, problem, world  # noqa: F401 - the fixture, reused
 from tests.db.test_auth_bff import Bff, bff  # noqa: F401 - the fixture, reused
@@ -141,3 +142,49 @@ async def test_a_language_switched_off_falls_back_to_the_tenant_default(bff: Bff
     )
     assert saved.status_code == 200, saved.text
     assert (await bff.me()).json()["user"]["locale"] == "ar"
+
+
+async def test_personal_preferences_win_and_defaults_are_read_not_copied(bff: Bff) -> None:  # noqa: F811
+    """REQ-ADM-059, 062 and Haider's rule: a changed tenant default reaches everyone who has not
+    chosen, never anyone who has; clearing a choice goes back to the default."""
+    admin = bff.user("a", email="prefadmin@demo.test", locale="en", roles=("tenant_admin",))
+    await bff.login(admin)
+    me = (await bff.me()).json()
+    user = me["user"]
+    assert (user["theme_mode"], user["text_scale"], user["date_format"]) == (
+        None,
+        100,
+        "dd/mm/yyyy",
+    )
+    assert (user["time_zone"], user["chosen"]) == ("UTC", [])
+    csrf = {"X-CSRF-Token": me["csrf_token"]}
+    path = f"/api/v1/users/{user['id']}"
+
+    async def patch(url: str, body: dict[str, object]) -> httpx.Response:
+        read = await bff.client.get(url)
+        return await bff.client.patch(
+            url, json=body, headers={**csrf, "If-Match": read.headers["ETag"]}
+        )
+
+    bad = await patch(path, {"theme_mode": "neon", "text_scale": 95, "date_format": "yy"})
+    assert bad.status_code == 422, bad.text
+    assert {e["field"] for e in bad.json()["errors"]} == {
+        "body.theme_mode",
+        "body.text_scale",
+        "body.date_format",
+    }
+    chosen = await patch(path, {"theme_mode": "dark", "text_scale": 130, "time_format": "12h"})
+    assert chosen.status_code == 200, chosen.text
+    # The tenant changes its defaults: only what the person left alone follows.
+    saved = await patch(
+        f"/api/v1{PATH}",
+        {"time_format": "24h", "date_format": "yyyy-mm-dd", "time_zone": "Asia/Dubai"},
+    )
+    assert saved.status_code == 200, saved.text
+    user = (await bff.me()).json()["user"]
+    assert (user["theme_mode"], user["text_scale"], user["time_format"]) == ("dark", 130, "12h")
+    assert (user["date_format"], user["time_zone"]) == ("yyyy-mm-dd", "Asia/Dubai")
+    assert user["chosen"] == ["text_scale", "theme_mode", "time_format"]
+    cleared = await patch(path, {"time_format": None})
+    assert cleared.status_code == 200, cleared.text
+    assert (await bff.me()).json()["user"]["time_format"] == "24h"

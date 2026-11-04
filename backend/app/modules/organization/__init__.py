@@ -46,7 +46,11 @@ from app.modules.organization.service.email_branding import (
 )
 from app.modules.organization.service.file_access import FILE_ACCESS
 from app.modules.organization.service.hosts import HostTenant, tenant_for_host
-from app.modules.organization.service.instance import offered_languages
+from app.modules.organization.service.instance import (
+    RegionalDefaults,
+    offered_languages,
+    regional_defaults,
+)
 from app.modules.organization.service.realtime import ROUTES
 from app.modules.organization.service.structure import (
     SiteDefaults,
@@ -142,6 +146,7 @@ __all__ = [
     "EmailBranding",
     "HostTenant",
     "Memberships",
+    "RegionalDefaults",
     "SiteDefaults",
     "TenantStatus",
     "TenantView",
@@ -164,6 +169,7 @@ __all__ = [
     "memberships",
     "module",
     "offered_languages",
+    "regional_defaults",
     "register_calendar_check",
     "register_group_disable_guard",
     "register_member_guard",

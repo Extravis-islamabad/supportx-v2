@@ -23,9 +23,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
 from app.modules.identity_access.domain.identity import (
+    DATE_FORMATS,
     PERSON_TYPES,
+    TEXT_SCALES,
+    TIME_FORMATS,
+    WEEK_STARTS,
     FormDensity,
     NavLayout,
+    ThemeMode,
     UserType,
 )
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
@@ -57,8 +62,30 @@ from app.shared.search import ENGINE
 
 USER_RECORD_TYPE = "user"
 
-EDITABLE_FIELDS = frozenset({"signature", "time_zone", "nav_layout", "form_density", "ui_locale"})
 UI_LOCALES = frozenset({"en", "ar", "ur"})
+EDITABLE_FIELDS = frozenset(
+    {
+        "signature",
+        "time_zone",
+        "nav_layout",
+        "form_density",
+        "ui_locale",
+        "theme_mode",
+        "text_scale",
+        "week_start",
+        "date_format",
+        "time_format",
+    }
+)
+# Preferences that may be cleared (null: back to the default) and the values each may take.
+_CHOICES: dict[str, frozenset[object]] = {
+    "ui_locale": frozenset(UI_LOCALES),
+    "theme_mode": frozenset(mode.value for mode in ThemeMode),
+    "text_scale": frozenset(TEXT_SCALES),
+    "week_start": frozenset(WEEK_STARTS),
+    "date_format": frozenset(DATE_FORMATS),
+    "time_format": frozenset(TIME_FORMATS),
+}
 MAX_SIGNATURE_LENGTH = 2000
 
 USER_FIELDS = ResourceFields(
@@ -201,10 +228,10 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
                     message_key="errors.field.invalid_choice",
                 )
             )
-        elif name == "ui_locale" and value is not None and value not in UI_LOCALES:
+        elif name in _CHOICES and value is not None and value not in _CHOICES[name]:
             errors.append(
                 FieldError(
-                    field="body.ui_locale",
+                    field=f"body.{name}",
                     code="invalid_choice",
                     message_key="errors.field.invalid_choice",
                 )

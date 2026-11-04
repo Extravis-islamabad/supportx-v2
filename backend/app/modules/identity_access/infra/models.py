@@ -9,6 +9,7 @@ from sqlalchemy import (
     Computed,
     ForeignKeyConstraint,
     Index,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -64,6 +65,27 @@ class User(TenantEntity):
         CheckConstraint("form_density IN ('comfortable', 'compact')", name="form_density_code"),
         CheckConstraint(
             "ui_locale IS NULL OR ui_locale IN ('en', 'ar', 'ur')", name="ui_locale_code"
+        ),
+        # Personal preferences (WP-042): NULL means "the default", read at sign-in, never copied.
+        CheckConstraint(
+            "theme_mode IS NULL OR theme_mode IN ('light', 'dark', 'high_contrast', 'system')",
+            name="theme_mode_code",
+        ),
+        CheckConstraint(
+            "text_scale IS NULL OR (text_scale BETWEEN 90 AND 150 AND text_scale % 10 = 0)",
+            name="text_scale_range",
+        ),
+        CheckConstraint(
+            "week_start IS NULL OR week_start IN ('monday', 'sunday', 'saturday')",
+            name="week_start_code",
+        ),
+        CheckConstraint(
+            "date_format IS NULL"
+            " OR date_format IN ('dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd', 'dd.mm.yyyy')",
+            name="date_format_code",
+        ),
+        CheckConstraint(
+            "time_format IS NULL OR time_format IN ('24h', '12h')", name="time_format_code"
         ),
         CheckConstraint("length(btrim(first_name)) BETWEEN 1 AND 100", name="first_name_length"),
         CheckConstraint("manager_id IS NULL OR manager_id <> id", name="not_own_manager"),
@@ -131,6 +153,14 @@ class User(TenantEntity):
     form_density: Mapped[str] = mapped_column(server_default="comfortable")
     # The language picked in the app (QA BUG-04); NULL: follow `locale` from Keycloak.
     ui_locale: Mapped[str | None]
+    # WP-042 (REQ-ADM-059, 062). NULL: not chosen, so the default applies when read (the
+    # browser's theme, 100 %, the site's or tenant's formats). A changed default never
+    # overwrites anyone's own choice.
+    theme_mode: Mapped[str | None] = mapped_column(String(16))
+    text_scale: Mapped[int | None] = mapped_column(SmallInteger)
+    week_start: Mapped[str | None] = mapped_column(String(10))
+    date_format: Mapped[str | None] = mapped_column(String(12))
+    time_format: Mapped[str | None] = mapped_column(String(4))
     # When the Keycloak roles were mapped to SupportX roles (once, D-029); NULL = not yet.
     roles_mapped_at: Mapped[datetime | None]
     # Which directory keeps this person (entra | ldap); NULL: SupportX does (WP-040 session 2).

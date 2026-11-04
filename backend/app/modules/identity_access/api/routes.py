@@ -14,7 +14,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
-from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
+from app.modules.identity_access.domain.identity import (
+    DateFormat,
+    FormDensity,
+    NavLayout,
+    ThemeMode,
+    TimeFormat,
+    UserType,
+    WeekStart,
+)
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import directory
@@ -80,6 +88,11 @@ class UserDetail(BaseModel):
     ui_locale: Literal["en", "ar", "ur"] | None = Field(
         default=None, description="Language picked in the app; null: Keycloak's `locale`."
     )
+    theme_mode: ThemeMode | None = Field(default=None, description="Null: the browser's.")
+    text_scale: int | None = Field(default=None, description="Percent; null: 100.")
+    week_start: WeekStart | None = Field(default=None, description="Null: the tenant's.")
+    date_format: DateFormat | None = Field(default=None, description="Null: the tenant's.")
+    time_format: TimeFormat | None = Field(default=None, description="Null: the tenant's.")
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -115,6 +128,14 @@ class UserPreferencesPatch(BaseModel):
         max_length=8,
         description="UI language (en, ar, ur); null: follow the identity provider's locale.",
     )
+    # WP-042 (REQ-ADM-059, 062). Null clears the choice: the default applies again.
+    theme_mode: str | None = Field(
+        default=None, max_length=16, description="light, dark, high_contrast or system."
+    )
+    text_scale: int | None = Field(default=None, description="Text size: 90 to 150, in tens.")
+    week_start: str | None = Field(default=None, max_length=10, description="First weekday.")
+    date_format: str | None = Field(default=None, max_length=12, description="e.g. dd/mm/yyyy.")
+    time_format: str | None = Field(default=None, max_length=4, description="24h or 12h.")
 
 
 ViewUsers = Annotated[Subject, Depends(require_permission("users.view"))]

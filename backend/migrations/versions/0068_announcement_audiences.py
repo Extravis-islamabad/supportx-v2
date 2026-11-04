@@ -5,7 +5,7 @@ The downgrade restores the old check; it fails while any announcement uses a new
 no row is changed silently (rule 5h).
 
 Revision ID: 0068
-Revises: 0066
+Revises: 0067
 Created: 2026-11-04
 """
 
@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0068"
-down_revision: str | None = "0066"
+down_revision: str | None = "0067"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
