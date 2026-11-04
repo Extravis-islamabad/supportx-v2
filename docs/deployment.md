@@ -95,6 +95,15 @@ hex values and never overwrites an existing one (its passwords are already insid
   stopped; a standby is promoted after about 70 s, and the same signed-in session writes again
   about 30 s after that.
 
+## Client addresses behind the gateway
+
+The API believes `X-Forwarded-For` only from `api.trustedProxies` (addresses or CIDRs; default
+`10.42.0.0/16`, k3s's pod network, where Traefik runs). The client address it uses for rate limits
+and the audit log is the last one in the header that isn't a trusted proxy, so a client can't
+choose its own. Set it to your cluster's pod CIDR, or to your load balancer's addresses if one
+sits in front of the gateway. If it doesn't match, every request seems to come from the gateway,
+so per-address rate limits are shared by everyone.
+
 ## Egress allow-list (opt-in)
 
 Ingress is always denied by default. Egress is open unless `networkPolicies.egress.enabled` is

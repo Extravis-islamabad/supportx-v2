@@ -16,6 +16,8 @@ data:
   # address (back channel).
   SUPPORTX_OIDC_ISSUER: {{ printf "%s/auth/realms/supportx" .Values.publicUrl | quote }}
   SUPPORTX_OIDC_INTERNAL_URL: {{ printf "http://%s-keycloak:8080/auth/realms/supportx" .Release.Name | quote }}
+  # uvicorn's own setting: whose X-Forwarded-For counts (never "*").
+  FORWARDED_ALLOW_IPS: {{ .Values.api.trustedProxies | quote }}
   SUPPORTX_CENTRIFUGO_API_URL: {{ printf "http://%s-centrifugo:8000" .Release.Name | quote }}
   # As many stream copies as NATS servers (a cluster in values-ha.yaml, WP-014b); else one.
   SUPPORTX_EVENTS_STREAM_REPLICAS: {{ ternary .Values.nats.config.cluster.replicas 1 .Values.nats.config.cluster.enabled | toString | quote }}

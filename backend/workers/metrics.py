@@ -109,9 +109,16 @@ class ConsumerMetrics:
     dead_lettered: dict[str, int] = field(default_factory=dict)
     lag: dict[str, int] = field(default_factory=dict)
     dlq_messages: int = 0
+    _event_lag: Histogram | None = field(default=None, init=False, repr=False)
 
     def bind(self, meter: Meter) -> None:
         """Register the observable instruments."""
+        # supportx_event_lag_seconds in Prometheus: occurrence to handling, per hop (rule c).
+        self._event_lag = meter.create_histogram(
+            "supportx.event.lag",
+            unit="s",
+            description="Time from an event's occurrence to its handling, by stage and consumer",
+        )
         meter.create_observable_gauge(
             "supportx.consumer.lag",
             callbacks=[self._observe_lag],
@@ -129,6 +136,11 @@ class ConsumerMetrics:
             callbacks=[self._observe_processed],
             unit="{event}",
         )
+
+    def event_lag(self, stage: str, consumer: str, seconds: float) -> None:
+        """Record one first delivery's lag (no-op until bound to a meter)."""
+        if self._event_lag is not None:
+            self._event_lag.record(max(seconds, 0.0), {"stage": stage, "consumer": consumer})
 
     def _observe_lag(self, _options: CallbackOptions) -> Iterable[Observation]:
         for name, value in self.lag.items():
