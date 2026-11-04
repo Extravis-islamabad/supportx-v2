@@ -42,6 +42,32 @@ spec:
       ports:
         - {port: {{ $target.port }}, protocol: TCP}
 {{- end }}
+{{- if gt (int .Values.keycloak.replicas) 1 }}
+---
+# Keycloak's copies form one Infinispan cluster (HA, WP-014b): JGroups (7800) and its failure
+# detection (57800), between Keycloak pods only. Discovery is through the database (jdbc-ping).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-keycloak-cluster-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+      app.kubernetes.io/component: keycloak
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ $rel }}
+              app.kubernetes.io/component: keycloak
+      ports:
+        - {port: 7800, protocol: TCP}
+        - {port: 57800, protocol: TCP}
+{{- end }}
 ---
 # Every SupportX pod's /metrics (9464), Keycloak's management port (9000) and the exporters of
 # NATS (7777) and Valkey (9121): scraping from anywhere in the cluster.
@@ -86,6 +112,31 @@ spec:
       ports:
         - {port: 4222, protocol: TCP}
         - {port: 6379, protocol: TCP}
+{{- if .Values.nats.config.cluster.enabled }}
+---
+# The NATS servers form one cluster (HA, WP-014b): their route port (6222) between NATS pods
+# only. Without it JetStream elects no leader and every server stays unready.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-nats-cluster-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+      app.kubernetes.io/name: nats
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ $rel }}
+              app.kubernetes.io/name: nats
+      ports:
+        - {port: {{ .Values.nats.config.cluster.port | default 6222 }}, protocol: TCP}
+{{- end }}
 {{- if eq .Values.objectStorage.mode "seaweedfs" }}
 ---
 # SeaweedFS (S3 API): only SupportX's own pods.

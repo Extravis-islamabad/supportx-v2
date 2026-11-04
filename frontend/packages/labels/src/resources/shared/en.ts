@@ -211,6 +211,7 @@ export const en = {
   'connectivity.limited': 'Some live updates are paused. Retrying…',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
+  'nav.admin_requests': 'Service requests',
   'settings.incidents_title': 'Incident settings',
   'settings.section.general': 'General',
   'settings.section.templates': 'Templates',
@@ -443,6 +444,10 @@ export const en = {
   'antd.transfer.select_all': 'Select all data',
   'antd.transfer.select_current': 'Select current page',
   'antd.transfer.select_invert': 'Invert current page',
+  'nav.requester_portal': 'Requester portal',
+  'settings.portal_show_due_time': 'Requesters see the expected resolution time',
+  'settings.portal_show_due_time_help':
+    'The portal shows when an incident should be resolved, from its SLA.',
   'search.knowledge': 'Knowledge articles',
   'nav.admin_api_keys': 'API keys',
   'api_scope_access.read': 'Read',

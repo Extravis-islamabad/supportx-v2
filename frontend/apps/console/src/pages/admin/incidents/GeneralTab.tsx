@@ -285,6 +285,7 @@ function AutomationCard({ catalogue }: { catalogue: IncidentCatalogue }) {
   const source = {
     auto: catalogue.auto_status_on_assign,
     follow: catalogue.keep_following_on_handover,
+    dueTime: catalogue.portal_show_due_time,
     first: [...catalogue.first_response_on] as string[],
   };
   const { draft, edit, reset, stale, dirty, base } = useDraft(source, catalogue.version);
@@ -325,6 +326,23 @@ function AutomationCard({ catalogue }: { catalogue: IncidentCatalogue }) {
             <Typography.Text type="secondary">{t('settings.keep_following_help')}</Typography.Text>
           </label>
         </Flex>
+        <Flex gap={12} align="start">
+          <Switch
+            id="settings-portal-due-time"
+            checked={draft.dueTime}
+            onChange={(checked) => {
+              edit({ ...draft, dueTime: checked });
+            }}
+            data-testid="settings-portal-due-time"
+          />
+          <label htmlFor="settings-portal-due-time">
+            <Typography.Text strong>{t('settings.portal_show_due_time')}</Typography.Text>
+            <br />
+            <Typography.Text type="secondary">
+              {t('settings.portal_show_due_time_help')}
+            </Typography.Text>
+          </label>
+        </Flex>
         <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
           <legend>
             <Typography.Text strong>{t('settings.first_response_on')}</Typography.Text>
@@ -356,6 +374,7 @@ function AutomationCard({ catalogue }: { catalogue: IncidentCatalogue }) {
                   body: {
                     auto_status_on_assign: draft.auto,
                     keep_following_on_handover: draft.follow,
+                    portal_show_due_time: draft.dueTime,
                     first_response_on: draft.first as never,
                   },
                 },

@@ -1,0 +1,65 @@
+# Standard high availability (WP-014b, D-038): three nodes or more, any one of which may be lost.
+# Install with your own host and certificate, e.g.
+#   helm install supportx deploy/helm/supportx -n supportx \
+#     -f deploy/helm/supportx/values-ha.yaml \
+#     --set publicUrl=https://supportx.example.com \
+#     --set routing.hostnames={supportx.example.com} \
+#     --set routing.gateway.tlsSecret=supportx-tls
+# Copies of a component never share a node (ha.antiAffinity hard), every component with more
+# than one copy has a PodDisruptionBudget, and the API scales on CPU. Still to come in WP-014b:
+# backups and the restore runbook. Images are INTERNAL/DEV builds (D-038).
+
+ha:
+  enabled: true
+  antiAffinity: hard
+  minAvailable: 1
+
+api:
+  autoscaling: {enabled: true, minReplicas: 3, maxReplicas: 6, targetCPUPercent: 70}
+
+web:
+  replicas: 2
+
+# Several relays share the outbox (FOR UPDATE SKIP LOCKED); several consumers share each
+# durable consumer. The fan-out and the custom field index worker stay single by design
+# (ADR-023, D-088): a rollout surges the new copy first.
+relay:
+  replicas: 2
+
+consumers:
+  replicas: 2
+
+slaTimers:
+  replicas: 2
+
+# Infinispan between the copies (the chart switches the cache stack above one replica).
+keycloak:
+  replicas: 2
+
+# One primary and two standbys; CloudNativePG fails over to a standby by itself.
+postgresql:
+  cnpg:
+    instances: 3
+    # PgBouncer is every API request's way to the database: two copies on different nodes, and
+    # dead server connections dropped in 10 s (the node-loss test lost the only copy).
+    pooler:
+      instances: 2
+      tcpUserTimeoutMs: "10000"
+
+# A three-server NATS cluster; streams keep three replicas.
+nats:
+  config:
+    cluster:
+      enabled: true
+      replicas: 3
+
+# Valkey with Sentinel (ADR-038): three pods, each a server and a sentinel; the app follows a
+# failover by itself. It replaces the bundled single Valkey.
+valkey:
+  enabled: false
+valkeyHa:
+  enabled: true
+
+# Realtime: three copies sharing the Valkey engine through the sentinels.
+centrifugo:
+  replicas: 3

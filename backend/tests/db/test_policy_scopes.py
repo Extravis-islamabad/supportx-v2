@@ -113,7 +113,9 @@ def subject(tenant: uuid.UUID, *grants: tuple[str, Grant]) -> Subject:
         role_keys=["custom"],
         grants=grants,
         catalogue=CATALOGUE,
-        entitled_features=frozenset({"incident", "change"}),
+        entitled_features=frozenset(
+            {"incident", "change", "service_request"}
+        ),  # requests.* (WP-030)
         site_ids=frozenset({MY_SITE}),
         group_ids=frozenset({MY_GROUP}),
     )

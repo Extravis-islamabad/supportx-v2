@@ -56,6 +56,8 @@ export function consoleApi({
       body: { choices: [], do_not_disturb: false, version: 0 },
     },
     'GET /api/v1/notifications/status': { body: { mail_configured: true, waiting: 0 } },
+    // The approvals drawer in the header (WP-030 s2): nothing waits unless a test says otherwise.
+    'GET /api/v1/service-requests/my-approvals': { body: { items: [], people: {} } },
     ...routes,
   });
 }

@@ -8,6 +8,7 @@ const TABS = [
   { key: 'organization', labelKey: 'nav.admin_organization', permission: 'sites.view' },
   { key: 'roles', labelKey: 'nav.admin_roles', permission: 'roles.view' },
   { key: 'incidents', labelKey: 'nav.admin_incidents', permission: 'settings.manage' },
+  { key: 'requests', labelKey: 'nav.admin_requests', permission: 'settings.manage' },
   { key: 'automation', labelKey: 'nav.admin_automation', permission: 'automation.view' },
   { key: 'sla', labelKey: 'nav.admin_sla', permission: 'sla.view' },
   { key: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },

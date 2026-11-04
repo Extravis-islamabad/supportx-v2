@@ -25,6 +25,9 @@ PROFILES=(
   "ingress|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.mode=ingress --set routing.ingress.tlsSecret=supportx-tls --set routing.hostnames={supportx.example.com}"
   "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com"
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"
+  "ha-ci|-f $CHART/values-dev.yaml -f $CHART/values-ha.yaml -f $CHART/values-ha-ci.yaml --set networkPolicies.egress.kubeApiCidrs={10.0.0.10/32}"
+  "ha|-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
+  "ldap|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set directory.ldap.enabled=true"
 )
 
 for entry in "${PROFILES[@]}"; do
@@ -43,6 +46,69 @@ for entry in "${PROFILES[@]}"; do
     echo "kubeconform not installed: schema validation skipped (CI always runs it)"
   fi
 done
+
+# On-prem LDAP (D-118, product owner 2026-11-03): the federation secret reaches exactly the
+# keycloak-identity Job and the consumers worker with LDAP on, no pod without it, and the chart
+# refuses LDAP on a multi-tenant installation (a shared realm would show its people to everyone).
+federation_pods() { grep -c 'SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET' "$1" || true; }
+[ "$(federation_pods "$OUT/ldap.yaml")" = "2" ] || { echo "ldap: the federation secret must reach exactly 2 pods" >&2; exit 1; }
+[ "$(federation_pods "$OUT/single-node.yaml")" = "0" ] || { echo "single-node: no pod may hold the federation secret without LDAP" >&2; exit 1; }
+LDAP_ARGS=""  # found by name, so adding a profile never shifts it
+for entry in "${PROFILES[@]}"; do [ "${entry%%|*}" = ldap ] && LDAP_ARGS="${entry#*|}"; done
+[ -n "$LDAP_ARGS" ] || { echo "chart-lint: no ldap profile" >&2; exit 1; }
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $LDAP_ARGS --set multiTenant=true >/dev/null 2>&1; then
+  echo "ldap: the chart must refuse directory.ldap.enabled with multiTenant: true" >&2
+  exit 1
+fi
+# HA (WP-014b): every SupportX Deployment that runs more than one copy (or scales), and the
+# PgBouncer Pooler, has a PodDisruptionBudget of the same name and podAntiAffinity, so losing or
+# draining one node never takes every copy. The Pooler must run more than one copy: every API
+# request goes through it (the node-loss test lost the only one).
+awk '
+  /^---/ { flush(); kind = ""; name = ""; copies = 0; anti = 0; next }
+  /^kind: / { kind = $2 }
+  /^  name: supportx-/ && name == "" { name = $2 }
+  /^  replicas: [0-9]+/ { copies = $2 }
+  /^  minReplicas: [0-9]+/ { copies = $2 }
+  /^  instances: [0-9]+/ { copies = $2 }
+  /podAntiAffinity:/ { anti = 1 }
+  function flush() {
+    if (kind == "Deployment" && copies > 1) { multi[name] = 1; if (!anti) bare[name] = 1 }
+    if (kind == "HorizontalPodAutoscaler") { multi[name] = 1 }
+    if (kind == "Pooler") { poolers++; if (copies > 1) { multi[name] = 1; if (!anti) bare[name] = 1 } else single[name] = 1 }
+    if (kind == "PodDisruptionBudget") { pdb[name] = 1 }
+  }
+  END {
+    flush(); bad = 0
+    if (poolers == 0) { print "HA: no PgBouncer Pooler rendered"; bad = 1 }
+    for (n in single) { print "HA: " n " runs one copy"; bad = 1 }
+    for (n in multi) {
+      if (!(n in pdb)) { print "HA: " n " runs several copies without a PodDisruptionBudget"; bad = 1 }
+      if (n in bare) { print "HA: " n " runs several copies without podAntiAffinity"; bad = 1 }
+    }
+    exit bad
+  }
+' "$OUT/ha.yaml" || { echo "HA profile check failed"; exit 1; }
+echo "HA: every multi-copy component has a PodDisruptionBudget and anti-affinity"
+
+# Egress allow-list (WP-014b): offline (helm template, GitOps) the chart can't read the control
+# plane's addresses, so with egress on and no kubeApiCidrs it must refuse, never fall back to an
+# open 0.0.0.0/0. With them set (the ha-ci profile above) every kube-API rule uses exactly them.
+if helm template supportx "$CHART" --namespace supportx -f "$CHART/values-dev.yaml" \
+  --set networkPolicies.egress.enabled=true >/dev/null 2>"$OUT/egress-refused.txt"; then
+  echo "egress: the chart must refuse egress on without kubeApiCidrs when it can't read the cluster" >&2
+  exit 1
+fi
+grep -q "kubeApiCidrs" "$OUT/egress-refused.txt" || { echo "egress: the refusal must name kubeApiCidrs" >&2; exit 1; }
+# Only the egress policies: dev-only ingress rules (NodePorts) use 0.0.0.0/0 on purpose.
+if awk '/^---/ { if (egress && open) found = 1; egress = 0; open = 0 }
+        /policyTypes: \[Egress\]/ { egress = 1 }
+        /0\.0\.0\.0\/0/ { open = 1 }
+        END { if (egress && open) found = 1; exit !found }' "$OUT/ha-ci.yaml"; then
+  echo "egress: no egress rule may allow 0.0.0.0/0 (ha-ci)" >&2; exit 1
+fi
+echo "egress: refused without the control plane's addresses; no open 0.0.0.0/0 rule"
 
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"

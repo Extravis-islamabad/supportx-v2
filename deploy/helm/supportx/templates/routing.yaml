@@ -103,6 +103,16 @@ spec:
     - {{- if $host }} host: {{ $host }}{{ end }}
       http:
         paths:
+          {{- if not $.Values.keycloak.exposeAdmin }}
+          # Keycloak's admin console and admin API stay off the public host: the longest prefix
+          # wins, so /auth/admin goes to the web server, which answers 404 (deploy/images/nginx.conf).
+          - path: /auth/admin
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ printf "%s-web" $.Release.Name }}
+                port: {number: 8080}
+          {{- end }}
           {{- range $backends }}
           - path: {{ .path }}
             pathType: Prefix

@@ -6,7 +6,9 @@ metadata:
   labels:
     {{- include "supportx.labels" $c | nindent 4 }}
 spec:
+  {{- if not .Values.api.autoscaling.enabled }}
   replicas: {{ .Values.api.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "supportx.selector" $c | nindent 6 }}
@@ -24,6 +26,7 @@ spec:
       automountServiceAccountToken: true
       {{- include "supportx.pullSecrets" . | nindent 6 }}
       {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
       initContainers:
         {{- include "supportx.waitForMigrate" . | nindent 8 }}
       containers:

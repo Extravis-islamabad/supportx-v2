@@ -17,7 +17,6 @@ import uuid
 from typing import TYPE_CHECKING
 
 import httpx
-import valkey.asyncio
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +28,7 @@ from app.core.authorization import (
 from app.core.logging import get_logger
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE
+from app.core.valkey import client as valkey_client
 from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.account import router as account_router
@@ -74,6 +74,15 @@ from app.modules.identity_access.service.directory_people import (
     directory_returner,
     release_from_directory,
     sync_directory_person,
+)
+from app.modules.identity_access.service.federation import (
+    FederationFailed,
+    FederationNotInstalled,
+    federated_users,
+    federation_installed,
+    put_ldap_federation,
+    remove_ldap_federation,
+    sync_ldap_federation,
 )
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
@@ -180,7 +189,7 @@ def _start_policy(app: FastAPI, settings: "Settings") -> None:
         return
     cache = None
     if settings.valkey_url is not None:
-        client = valkey.asyncio.from_url(settings.valkey_url.get_secret_value())  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+        client = valkey_client(settings)
         app.state.policy_client = client
         cache = ValkeySubjectCache(
             client, prefix=settings.valkey_key_prefix, ttl_seconds=AUTHZ_CACHE_TTL_SECONDS
@@ -213,7 +222,7 @@ async def _startup(app: FastAPI) -> None:
     ):
         return  # unreachable: auth_configured checked these; narrows the types for mypy
     http = httpx.AsyncClient(timeout=settings.oidc_timeout_seconds, follow_redirects=False)
-    kv = valkey.asyncio.from_url(settings.valkey_url.get_secret_value())  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+    kv = valkey_client(settings)
     service = AuthService(
         settings=settings,
         store=SessionStore(
@@ -303,6 +312,8 @@ register_people_usage()
 
 __all__ = [
     "KNOWLEDGE_MANAGER",
+    "FederationFailed",
+    "FederationNotInstalled",
     "FieldRule",
     "LeaverOutcome",
     "MailRecipient",
@@ -325,6 +336,8 @@ __all__ = [
     "directory_leaver",
     "directory_returner",
     "display_names",
+    "federated_users",
+    "federation_installed",
     "get_policy",
     "mail_recipients",
     "module",
@@ -332,13 +345,16 @@ __all__ = [
     "people_matching",
     "person_by_email",
     "person_placement",
+    "put_ldap_federation",
     "release_from_directory",
+    "remove_ldap_federation",
     "require",
     "role_names",
     "scope_filter",
     "set_service_identity_active",
     "subject_for",
     "sync_directory_person",
+    "sync_ldap_federation",
     "user_contacts",
     "user_names",
     "visible",

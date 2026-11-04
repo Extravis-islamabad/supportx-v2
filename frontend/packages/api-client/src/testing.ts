@@ -313,6 +313,7 @@ export function fakeUser(overrides: Partial<UserDetail> = {}): UserDetail {
     id: '01900000-0000-7000-8000-000000000101',
     email: 'tech@demo.test',
     display_name: 'Tariq Technician',
+    contact_editable: false,
     first_name: 'Tariq',
     last_name: 'Technician',
     name_custom: false,
@@ -561,6 +562,10 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     default_urgency: 'medium',
     auto_status_on_assign: true,
     keep_following_on_handover: true,
+    on_behalf_scope: 'same_department',
+    approvals_hidden_from_requesters: false,
+    approvals_require_sign_in: false,
+    portal_show_due_time: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,
     statuses: [

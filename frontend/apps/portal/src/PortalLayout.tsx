@@ -2,7 +2,7 @@ import { Flex, Layout, Menu, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { clearAllKeptDrafts } from '@supportx/forms';
-import { useLogout, useSession, useSetUiLocale } from '@supportx/api-client';
+import { useLogout, useSession, useSetUiLocale, type Feature } from '@supportx/api-client';
 import type { LabelKey } from '@supportx/labels';
 import {
   AnnouncementBanners,
@@ -18,11 +18,24 @@ import {
   useLicence,
 } from '@supportx/ui';
 
-const NAV: { path: string; labelKey: LabelKey }[] = [
+const NAV: { path: string; labelKey: LabelKey; feature?: Feature }[] = [
   { path: '/', labelKey: 'nav.home' },
   { path: '/requests', labelKey: 'nav.my_requests' },
+  // WP-030 D9: the requester's service requests, and approvals waiting for them (a requester can be an approver, REQ-SR-022 AC2).
+  {
+    path: '/service-requests',
+    labelKey: 'portal.service_requests.title',
+    feature: 'service_request',
+  },
+  { path: '/approvals', labelKey: 'portal.approvals.title', feature: 'service_request' },
   { path: '/catalog', labelKey: 'nav.catalog' },
 ];
+
+/** The menu entry of a path: its own, or the area it lies in (`/requests/…` is My requests). */
+function selected(pathname: string): string {
+  const area = NAV.find((item) => item.path !== '/' && pathname.startsWith(`${item.path}/`));
+  return area?.path ?? pathname;
+}
 
 /** Portal frame: one header with a simple top navigation; no sidebar, no command palette. */
 export function PortalLayout() {
@@ -60,8 +73,8 @@ export function PortalLayout() {
       <nav aria-label={t('nav.main')}>
         <Menu
           mode="horizontal"
-          selectedKeys={[pathname]}
-          items={NAV.map((item) => ({
+          selectedKeys={[selected(pathname)]}
+          items={NAV.filter((item) => !item.feature || licence.has(item.feature)).map((item) => ({
             key: item.path,
             label: t(item.labelKey),
             onClick: () => void navigate(item.path),

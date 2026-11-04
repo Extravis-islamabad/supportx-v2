@@ -8,11 +8,11 @@ Not transactional: bumping twice is harmless.
 
 from collections.abc import Awaitable, Callable
 
-import valkey.asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
+from app.core.valkey import client as valkey_client
 from app.modules.identity_access.service.policy import ValkeySubjectCache
 from app.shared.events import ConsumerSpec, EventEnvelope
 
@@ -39,7 +39,7 @@ def handler(
         current = settings()
         if current.valkey_url is None:
             return
-        client = valkey.asyncio.from_url(current.valkey_url.get_secret_value())  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+        client = valkey_client(current)
         try:
             cache = ValkeySubjectCache(client, prefix=current.valkey_key_prefix, ttl_seconds=1)
             await cache.invalidate(envelope.tenant_id)

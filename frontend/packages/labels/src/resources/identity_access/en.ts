@@ -82,6 +82,12 @@ export const en = {
   'permission.requests.assign.description': 'Assign service requests to technicians and groups.',
   'permission.requests.close': 'Close service requests',
   'permission.requests.close.description': 'Resolve and close service requests.',
+  'permission.requests.approve': 'Approve service requests',
+  'permission.requests.approve.description':
+    'Decide the service request approvals you are named for.',
+  'permission.work_items.approve_any': 'Decide fallback approvals',
+  'permission.work_items.approve_any.description':
+    'Decide approvals that have no active approver (approval administrators).',
   'permission.problems.view': 'View problems',
   'permission.problems.view.description': 'See problem records.',
   'permission.problems.manage': 'Manage problems',
@@ -109,6 +115,7 @@ export const en = {
   'permission_module.users': 'Users',
   'permission_module.roles': 'Roles',
   'permission_module.profile': 'Profile',
+  'permission_module.work_items': 'All requests (incidents and service requests)',
   'permission_module.sites': 'Sites',
   'permission_module.groups': 'Support groups',
   'permission_module.settings': 'Settings',
@@ -706,6 +713,7 @@ export const en = {
   'readiness_check.outbox_relay': 'Event relay',
   'readiness_check.event_consumers': 'Event processing',
   'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.malware_signatures': 'Virus signatures',
   'readiness_check.nats': 'Message bus',
   'permission.sla.view': 'View SLA set-up',
   'permission.sla.view.description': 'See working calendars, holidays and SLA policies.',
@@ -732,6 +740,55 @@ export const en = {
     "Set or clear an incident's response or resolution due date by hand, with a reason. The date then stays until cleared.",
   'people.managed_by_directory':
     'Name, address, job, phone, site, department and manager come from the directory. Change them there; VIP, language and notes stay yours.',
+  'permission.catalog_items.manage': 'Manage the service catalog',
+  'permission.catalog_items.manage.description':
+    'Add and change catalog categories and items: their forms, approval and fulfilment.',
+  'permission_module.catalog_items': 'Service catalog',
+  'permission.requests.take': 'Take service requests',
+  'permission.requests.take.description': 'Take a service request nobody has taken yet.',
+  'permission.requests.change_priority': "Change a request's priority by hand",
+  'permission.requests.change_priority.description':
+    'Override the priority a service request got from its item or the matrix, with a reason.',
+  'permission.requests.resolve': 'Fulfil service requests',
+  'permission.requests.resolve.description': 'Mark service requests as fulfilled.',
+  'permission.requests.reopen': 'Reopen service requests',
+  'permission.requests.reopen.description':
+    'Reopen fulfilled or closed service requests, with a reason.',
+  'permission.requests.cancel': 'Cancel service requests',
+  'permission.requests.cancel.description':
+    'Cancel service requests with a reason, and undo a cancellation.',
+  'permission.requests.delete': 'Delete service requests',
+  'permission.requests.delete.description': 'Move service requests to the trash and restore them.',
+  'permission.requests.add_note': 'Add private notes on requests',
+  'permission.requests.add_note.description': 'Write staff-only notes on service requests.',
+  'permission.requests.reply': 'Reply on requests and add public notes',
+  'permission.requests.reply.description':
+    'Reply to requesters on service requests, add notes they can see, and make private notes public.',
+  'permission.requests.manage_followers': 'Manage followers of requests',
+  'permission.requests.manage_followers.description':
+    'Add other people as followers of service requests and remove them.',
+  'permission.requests.edit_due_dates': 'Set request due dates by hand',
+  'permission.requests.edit_due_dates.description':
+    "Set or clear a service request's response or fulfilment due time by hand, with a reason. It then stays until cleared.",
+  'permission.requests.assign_outside_group': 'Assign requests outside the group',
+  'permission.requests.assign_outside_group.description':
+    'Assign a technician who is not a member of the chosen group to a service request.',
+  'permission.work_items.view_department': 'View requests of their department',
+  'permission.work_items.view_department.description':
+    'In the portal, see the incidents and requests of people in their own department.',
+  'permission.work_items.view_reports': 'View requests of their direct reports',
+  'permission.work_items.view_reports.description':
+    'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
+  'identity.settings.people_edit_contact': 'People may change their own phone and mobile',
+  'identity.settings.people_edit_contact_help':
+    'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
+  'account.contact.title': 'Contact details',
+  'account.contact.phone': 'Phone',
+  'account.contact.mobile': 'Mobile',
+  'account.contact.none': 'Not given',
+  'account.contact.save': 'Save contact details',
+  'account.contact.from_directory':
+    'Your phone and mobile come from {{source}}. Change them there.',
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',

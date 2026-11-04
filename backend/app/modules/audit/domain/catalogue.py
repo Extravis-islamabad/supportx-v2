@@ -93,6 +93,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.role_assigned", AuditCategory.ACCESS, "identity_access"),
     ("user.role_removed", AuditCategory.ACCESS, "identity_access"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
+    ("user.contact_changed", AuditCategory.ACCESS, "identity_access"),  # WP-028, REQ-PRT-013
     # API keys (WP-041, D-128): made, revoked, refused (address not allowed), the tenant's rules
     ("api_key.created", AuditCategory.SECURITY, "identity_access"),
     ("api_key.revoked", AuditCategory.SECURITY, "identity_access"),
@@ -162,6 +163,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("desk.changed", AuditCategory.CONFIGURATION, "organization"),
     # branding and addresses (WP-017)
     ("identity.settings_changed", AuditCategory.SECURITY, "identity_access"),
+    # the service catalog (WP-030)
+    ("catalog.item_changed", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.category_changed", AuditCategory.CONFIGURATION, "service_catalog"),
     ("identity.password_policy_reapplied", AuditCategory.SECURITY, "identity_access"),
     ("identity.mfa_policy_changed", AuditCategory.SECURITY, "identity_access"),
     ("user.mfa_reset", AuditCategory.SECURITY, "identity_access"),
@@ -206,6 +210,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("directory.changed", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.removed", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.sync_requested", AuditCategory.CONFIGURATION, "integrations"),
+    # Every use of the supportx-federation account (WP-040, D-118; product owner 2026-11-03).
+    ("directory.federation_applied", AuditCategory.CONFIGURATION, "integrations"),
+    ("directory.federation_failed", AuditCategory.CONFIGURATION, "integrations"),
+    ("directory.federation_removed", AuditCategory.CONFIGURATION, "integrations"),
+    ("connector_settings.changed", AuditCategory.CONFIGURATION, "integrations"),  # D-041
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),
@@ -213,6 +222,26 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("incident.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("incident.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    # service requests (WP-030): the same actions, by the type's own code
+    ("service_request.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.category_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("service_request.deleted", AuditCategory.RECORDS, "work_items"),
+    ("service_request.restored", AuditCategory.RECORDS, "work_items"),
+    # WP-030 s2: approval decisions and withdrawals (REQ-SR-025, -061).
+    ("service_request.approval_decided", AuditCategory.RECORDS, "work_items"),
+    ("service_request.withdrawn", AuditCategory.RECORDS, "work_items"),
+    # WP-030 s3: a signed one-time action link was used, or refused (REQ-NTF-024).
+    ("action_link.used", AuditCategory.SECURITY, "system"),
+    ("service_request.bulk_started", AuditCategory.RECORDS, "work_items"),
+    ("service_request.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
+    ("service_request.closed_record_edited", AuditCategory.RECORDS, "work_items"),
+    ("service_request.due_date_changed", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),

@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from app.modules.licensing.domain.catalogue import (
+    ADD_ON_FEATURES,
     EDITION_DEFAULT_LIMITS,
     EDITION_FEATURES,
     EDITION_RATE_LIMIT_MULTIPLIER,
@@ -39,7 +40,9 @@ def plan(edition: Edition = Edition.PROFESSIONAL, **term: Any) -> Entitlement:  
 def test_each_edition_includes_the_one_below() -> None:
     essentials, professional, enterprise = (EDITION_FEATURES[e] for e in Edition)
     assert essentials < professional < enterprise
-    assert enterprise == frozenset(Feature)  # every catalogue feature is sold somewhere
+    # Every catalogue feature is sold somewhere: in an edition, or as an add-on only.
+    assert enterprise | ADD_ON_FEATURES == frozenset(Feature)
+    assert not enterprise & ADD_ON_FEATURES  # an add-on is never in an edition
 
 
 def test_every_edition_has_every_limit_and_a_rate_multiplier() -> None:

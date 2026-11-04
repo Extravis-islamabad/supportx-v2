@@ -86,6 +86,11 @@ export const ar: LabelResource = {
   'permission.requests.assign.description': 'إسناد طلبات الخدمة إلى الفنيين والمجموعات.',
   'permission.requests.close': 'إغلاق طلبات الخدمة',
   'permission.requests.close.description': 'حل طلبات الخدمة وإغلاقها.',
+  'permission.requests.approve': 'الموافقة على طلبات الخدمة',
+  'permission.requests.approve.description': 'البت في موافقات طلبات الخدمة المسمّى لها.',
+  'permission.work_items.approve_any': 'البت في الموافقات البديلة',
+  'permission.work_items.approve_any.description':
+    'البت في الموافقات التي ليس لها موافق نشط (مسؤولو الموافقات).',
   'permission.problems.view': 'عرض المشكلات',
   'permission.problems.view.description': 'رؤية سجلات المشكلات.',
   'permission.problems.manage': 'إدارة المشكلات',
@@ -113,6 +118,7 @@ export const ar: LabelResource = {
   'permission_module.users': 'المستخدمون',
   'permission_module.roles': 'الأدوار',
   'permission_module.profile': 'الملف الشخصي',
+  'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
   'permission_module.sites': 'المواقع',
   'permission_module.groups': 'مجموعات الدعم',
   'permission_module.settings': 'الإعدادات',
@@ -705,6 +711,7 @@ export const ar: LabelResource = {
   'readiness_check.outbox_relay': 'مُرحّل الأحداث',
   'readiness_check.event_consumers': 'معالجة الأحداث',
   'readiness_check.realtime_fanout': 'التحديثات المباشرة',
+  'readiness_check.malware_signatures': 'تواقيع الفيروسات',
   'readiness_check.nats': 'ناقل الرسائل',
   'permission.sla.view': 'عرض إعداد اتفاقيات مستوى الخدمة',
   'permission.sla.view.description': 'رؤية تقويمات العمل والعطلات وسياسات مستوى الخدمة.',
@@ -728,6 +735,53 @@ export const ar: LabelResource = {
     'تعيين موعد استحقاق الاستجابة أو الحل لحادثة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',
   'people.managed_by_directory':
     'يأتي الاسم والعنوان والوظيفة والهاتف والموقع والقسم والمدير من الدليل. غيّرها هناك؛ وتبقى أولوية كبار الشخصيات واللغة والملاحظات لك.',
+  'permission.catalog_items.manage': 'إدارة كتالوج الخدمات',
+  'permission.catalog_items.manage.description':
+    'إضافة فئات الكتالوج وعناصره وتغييرها: نماذجها والموافقة والتنفيذ.',
+  'permission_module.catalog_items': 'كتالوج الخدمات',
+  'permission.requests.take': 'تولي طلبات الخدمة',
+  'permission.requests.take.description': 'تولي طلب خدمة لم يتولّه أحد بعد.',
+  'permission.requests.change_priority': 'تغيير أولوية الطلب يدويًا',
+  'permission.requests.change_priority.description':
+    'تجاوز الأولوية التي حصل عليها طلب الخدمة من عنصره أو من المصفوفة، مع ذكر السبب.',
+  'permission.requests.resolve': 'تنفيذ طلبات الخدمة',
+  'permission.requests.resolve.description': 'تعليم طلبات الخدمة كمنفذة.',
+  'permission.requests.reopen': 'إعادة فتح طلبات الخدمة',
+  'permission.requests.reopen.description':
+    'إعادة فتح طلبات الخدمة المنفذة أو المغلقة مع ذكر السبب.',
+  'permission.requests.cancel': 'إلغاء طلبات الخدمة',
+  'permission.requests.cancel.description': 'إلغاء طلبات الخدمة مع ذكر السبب والتراجع عن الإلغاء.',
+  'permission.requests.delete': 'حذف طلبات الخدمة',
+  'permission.requests.delete.description': 'نقل طلبات الخدمة إلى سلة المحذوفات واستعادتها.',
+  'permission.requests.add_note': 'إضافة ملاحظات خاصة على الطلبات',
+  'permission.requests.add_note.description': 'كتابة ملاحظات للموظفين فقط على طلبات الخدمة.',
+  'permission.requests.reply': 'الرد على الطلبات وإضافة ملاحظات عامة',
+  'permission.requests.reply.description':
+    'الرد على مقدمي طلبات الخدمة، وإضافة ملاحظات يمكنهم رؤيتها، وجعل الملاحظات الخاصة عامة.',
+  'permission.requests.manage_followers': 'إدارة متابعي الطلبات',
+  'permission.requests.manage_followers.description':
+    'إضافة أشخاص آخرين كمتابعين لطلبات الخدمة وإزالتهم.',
+  'permission.requests.edit_due_dates': 'تعيين مواعيد استحقاق الطلبات يدويًا',
+  'permission.requests.edit_due_dates.description':
+    'تعيين موعد استحقاق الاستجابة أو التنفيذ لطلب خدمة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',
+  'permission.requests.assign_outside_group': 'إسناد الطلبات خارج المجموعة',
+  'permission.requests.assign_outside_group.description':
+    'إسناد فني ليس عضوًا في المجموعة المختارة إلى طلب خدمة.',
+  'permission.work_items.view_department': 'عرض طلبات قسمه',
+  'permission.work_items.view_department.description':
+    'في البوابة، رؤية حوادث وطلبات الأشخاص في قسمه.',
+  'permission.work_items.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
+  'permission.work_items.view_reports.description':
+    'في البوابة، رؤية حوادث وطلبات الأشخاص الذين يتبعونه مباشرة، ضمن عامل تصفية منفصل.',
+  'identity.settings.people_edit_contact': 'يمكن للأشخاص تغيير أرقام هواتفهم بأنفسهم',
+  'identity.settings.people_edit_contact_help':
+    'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
+  'account.contact.title': 'بيانات الاتصال',
+  'account.contact.phone': 'الهاتف',
+  'account.contact.mobile': 'الجوال',
+  'account.contact.none': 'غير مُدخل',
+  'account.contact.save': 'حفظ بيانات الاتصال',
+  'account.contact.from_directory': 'يأتي هاتفك وجوالك من {{source}}. غيّرهما هناك.',
   'permission.api_keys.manage': 'إدارة مفاتيح API',
   'permission.api_keys.manage.description':
     'إنشاء مفاتيح API لهويات الخدمة، ورؤية كل المفاتيح وإبطالها.',

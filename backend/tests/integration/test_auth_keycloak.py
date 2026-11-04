@@ -132,9 +132,17 @@ async def test_each_test_user_logs_in_and_is_provisioned(
     locale: str,
     name: str,
 ) -> None:
-    callback = await session.login(email)
-    assert callback.status_code == 302, callback.text
-    assert callback.headers["location"] == f"{CONSOLE}/home"
+    if user_type == "requester":
+        # D-129: requester-only people are sent from the console to the portal, with no session.
+        sent = await session.login(email)
+        assert sent.status_code == 303, sent.text
+        callback = await session.login(email, app="portal")
+        assert callback.status_code == 302, callback.text
+        assert callback.headers["location"].endswith("/home")
+    else:
+        callback = await session.login(email)
+        assert callback.status_code == 302, callback.text
+        assert callback.headers["location"] == f"{CONSOLE}/home"
     me = (await session.me()).json()
     assert me["tenant"]["name"] == tenant
     assert me["user"]["display_name"] == name

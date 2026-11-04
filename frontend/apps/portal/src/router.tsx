@@ -23,7 +23,58 @@ export const routes: RouteObject[] = [
         handle: { titleKey: 'nav.profile' },
         lazy: async () => ({ Component: (await import('./pages/AccountPage')).AccountPage }),
       },
-      { path: 'requests', handle: { titleKey: 'nav.my_requests' }, lazy: comingSoon },
+      {
+        path: 'requests',
+        handle: { titleKey: 'nav.my_requests' },
+        lazy: async () => ({
+          Component: (await import('./pages/requests/RequestsPage')).RequestsPage,
+        }),
+      },
+      {
+        path: 'requests/new',
+        handle: { titleKey: 'portal.report.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/requests/ReportPage')).ReportPage,
+        }),
+      },
+      {
+        // WP-030 s3: approve or reject from an e-mail link (the token is in the URL fragment).
+        path: 'requests/approval-link',
+        handle: { titleKey: 'portal.approvals.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/approvals/ApprovalLinkPage')).ApprovalLinkPage,
+        }),
+      },
+      {
+        path: 'approvals',
+        handle: { titleKey: 'portal.approvals.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/approvals/ApprovalsPage')).ApprovalsPage,
+        }),
+      },
+      {
+        path: 'requests/:id',
+        handle: { titleKey: 'nav.my_requests' },
+        lazy: async () => ({
+          Component: (await import('./pages/requests/RequestPage')).RequestPage,
+        }),
+      },
+      {
+        path: 'service-requests',
+        handle: { titleKey: 'portal.service_requests.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/service-requests/ServiceRequestsPage'))
+            .ServiceRequestsPage,
+        }),
+      },
+      {
+        path: 'service-requests/:id',
+        handle: { titleKey: 'portal.service_requests.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/service-requests/ServiceRequestPage'))
+            .ServiceRequestPage,
+        }),
+      },
       { path: 'catalog', handle: { titleKey: 'nav.catalog' }, lazy: comingSoon },
       { path: '*', handle: { titleKey: 'shell.not_found' }, lazy: comingSoon },
     ],

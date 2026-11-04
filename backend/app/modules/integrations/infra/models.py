@@ -28,7 +28,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantEntity, TenantKeyed, Timestamps, utc_now
+from app.shared.db.models import (
+    Actors,
+    Base,
+    TenantEntity,
+    TenantKeyed,
+    Timestamps,
+    Versioned,
+    utc_now,
+)
 
 
 class Mailbox(TenantEntity):
@@ -341,7 +349,18 @@ class DirectoryConnector(TenantEntity):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
-        CheckConstraint("source IN ('entra')", name="source_code"),
+        CheckConstraint("source IN ('entra', 'ldap')", name="source_code"),
+        # Entra needs its sync app; AD/LDAP (migration 0055) its settings, applied in Keycloak.
+        CheckConstraint(
+            "source <> 'entra' OR (directory_tenant IS NOT NULL AND client_id IS NOT NULL"
+            " AND credential_kind IS NOT NULL)",
+            name="entra_app",
+        ),
+        CheckConstraint("source <> 'ldap' OR ldap IS NOT NULL", name="ldap_settings"),
+        CheckConstraint(
+            "federation_state IS NULL OR federation_state IN ('pending', 'applied', 'failed')",
+            name="federation_state_code",
+        ),
         CheckConstraint("scope IN ('all_users', 'groups')", name="scope_code"),
         CheckConstraint(
             "credential_kind IN ('secret', 'certificate')", name="credential_kind_code"
@@ -351,9 +370,9 @@ class DirectoryConnector(TenantEntity):
 
     name: Mapped[str] = mapped_column(String(200))
     source: Mapped[str] = mapped_column(String(20), server_default="entra")
-    directory_tenant: Mapped[str] = mapped_column(String(200))  # Entra tenant ID or domain
-    client_id: Mapped[str] = mapped_column(String(200))
-    credential_kind: Mapped[str] = mapped_column(String(20))
+    directory_tenant: Mapped[str | None] = mapped_column(String(200))  # Entra tenant ID or domain
+    client_id: Mapped[str | None] = mapped_column(String(200))
+    credential_kind: Mapped[str | None] = mapped_column(String(20))
     secret_ref: Mapped[uuid.UUID | None]
     scope: Mapped[str] = mapped_column(String(20), server_default="all_users")
     # Any: JSON lists and objects, read through the domain's types.
@@ -369,6 +388,13 @@ class DirectoryConnector(TenantEntity):
     # The last run's skipped people and values by reason code ({"unknown_site": 3}), shown on
     # the connector page: never names or addresses.
     last_skips: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    # AD/LDAP through Keycloak federation (WP-040, D-118; migration 0055): the admin's settings
+    # (domain.ldap.LdapSettings; the bind password sealed in connector_secrets), the component
+    # SupportX made in the realm, and whether the worker applied the latest settings there.
+    ldap: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    keycloak_component_id: Mapped[str | None] = mapped_column(String(64))
+    federation_state: Mapped[str | None] = mapped_column(String(20))
+    federation_error: Mapped[str | None] = mapped_column(String(60))
 
 
 class DirectoryPersonLink(TenantKeyed, Base):
@@ -416,3 +442,21 @@ class DirectoryMembership(TenantKeyed, Base):
     connector_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     group_external_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     external_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+
+class ConnectorSettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
+    """A tenant's connector defaults (WP-040, D-041; migration 0057). No row: Appendix A's."""
+
+    __tablename__ = "connector_settings"
+    __table_args__ = (
+        CheckConstraint(
+            "failing_after_runs BETWEEN 1 AND 20"
+            " AND error_retention_days BETWEEN 7 AND 365"
+            " AND sync_minutes BETWEEN 15 AND 1440",
+            name="ranges",
+        ),
+    )
+
+    failing_after_runs: Mapped[int] = mapped_column(Integer, server_default="3")
+    error_retention_days: Mapped[int] = mapped_column(Integer, server_default="90")
+    sync_minutes: Mapped[int] = mapped_column(Integer, server_default="30")

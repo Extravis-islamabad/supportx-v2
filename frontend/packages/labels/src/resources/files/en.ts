@@ -69,4 +69,5 @@ export const en = {
   'files.admin.check_now': 'Check now',
   'file_owner_type.branding': 'Branding',
   'file_owner_type.kb_article': 'Knowledge article',
+  'files.take_photo': 'Take a photo',
 } as const;

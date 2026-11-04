@@ -1,0 +1,22 @@
+{{- /* The API scales on CPU in HA (WP-014b); one uvicorn process per pod, so one registry each. */ -}}
+{{- if .Values.api.autoscaling.enabled }}
+{{- $c := dict "root" . "component" "api" }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "supportx.name" $c }}
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: {{ .Values.api.autoscaling.targetCPUPercent }}}
+{{- end }}

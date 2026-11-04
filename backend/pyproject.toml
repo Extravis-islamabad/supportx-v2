@@ -129,6 +129,8 @@ markers = [
     "scale: volume test, runs only with SUPPORTX_AUDIT_SCALE_ROWS (CI 100k, nightly 10M) or SUPPORTX_REPORT_SCALE_ROWS (nightly 1M)",
     "timing: asserts a speed (tooling/timing.py): 10x the target in PRs, the target nightly (perf.yml)",
     "resilience: restarts its own PostgreSQL and NATS containers under running workers; only with SUPPORTX_RESILIENCE_TESTS=1 (CI job worker resilience)",
+    "ldap_federation: starts its own Keycloak and test OpenLDAP; only with SUPPORTX_LDAP_FEDERATION_TESTS=1 (CI job ldap federation)",
+    "ha: starts its own Valkey and Sentinel containers from the HA chart; only with SUPPORTX_HA_TESTS=1 (CI job valkey failover)",
 ]
 
 [tool.coverage.run]
@@ -184,6 +186,12 @@ layers = ["api", "service", "infra", "domain"]
 name = "work_items layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.work_items"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "service_catalog layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.service_catalog"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]

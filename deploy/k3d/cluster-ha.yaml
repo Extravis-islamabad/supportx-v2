@@ -1,0 +1,37 @@
+# The HA smoke's cluster (WP-014b): one server and three agents, so copies of a component sit on
+# different nodes (values-ha.yaml, hard anti-affinity) and one node can be stopped. `make
+# cluster-up-ha` creates it; otherwise the same as cluster.yaml.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: supportx
+servers: 1
+agents: 3                       # HA smoke and node-loss test (WP-014b): any one agent may be stopped
+image: rancher/k3s:v1.36.5-k3s1
+ports:
+  # The public URL is http://supportx.localhost:8080 (browsers resolve *.localhost to 127.0.0.1).
+  - port: 127.0.0.1:8080:80
+    nodeFilters: [loadbalancer]
+  # Dev only: PostgreSQL's primary for the e2e suite's fixture tools (values-dev.yaml
+  # postgresql.cnpg.devNodePort), on this machine's loopback only. A kubectl port-forward exits
+  # on the first reset connection, which made the suite flaky.
+  - port: 127.0.0.1:25433:30432
+    nodeFilters: [server:0]
+  # Dev only: the mail catcher's web UI and API for the e2e suite (values-dev.yaml mailCatcher).
+  - port: 127.0.0.1:28025:30825
+    nodeFilters: [server:0]
+options:
+  k3s:
+    extraArgs:
+      # Secrets encrypted at rest, as on the appliance (WP-014 plan §4).
+      - arg: --secrets-encryption
+        nodeFilters: [server:*]
+      # Only k3s's own add-ons (Traefik, CoreDNS) on the server: our pods go to the agents, so the
+      # node-loss test can stop any agent, PostgreSQL's primary included, and keep the control plane.
+      - arg: --node-taint=CriticalAddonsOnly=true:NoExecute
+        nodeFilters: [server:*]
+files:
+  # Traefik (bundled with k3s) also serves the Gateway API (D2).
+  - source: traefik-config.yaml
+    destination: k3s-manifests-custom/traefik-config.yaml
+    nodeFilters: [server:*]

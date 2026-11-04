@@ -17,20 +17,25 @@ at startup.
 from fastapi import FastAPI
 
 from app.core.modules import ModuleSpec
+from app.modules.work_items.api.portal_request_routes import router as portal_request_router
+from app.modules.work_items.api.portal_routes import router as portal_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
-from app.modules.work_items.domain.types import TYPES
+from app.modules.work_items.domain.types import INCIDENT, PERMISSION_TYPES, SERVICE_REQUEST, TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     bulk,
     inbound_mail,
     notifications,
     parts,
+    portal,
     record_facts,
     report_names,
+    request_notifications,
     resolution,
 )
 from app.modules.work_items.service.access import permissions
+from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.closing import (
@@ -87,6 +92,7 @@ register_sources()
 report_names.register()
 # Incident notifications (WP-023, lane B with lane A's review): at import, for the worker too.
 notifications.register()
+request_notifications.register()
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
@@ -96,17 +102,32 @@ register_owner_access(FILE_ACCESS)
 
 module = ModuleSpec(
     name="work_items",
-    routers=[build_router(wtype) for wtype in TYPES.values()],
-    router_features=[wtype.feature for wtype in TYPES.values()],
+    routers=[
+        *(build_router(wtype) for wtype in TYPES.values()),
+        portal_router,
+        portal_request_router,  # WP-030 D9
+    ],
+    router_features=[
+        *(wtype.feature for wtype in TYPES.values()),
+        INCIDENT.feature,
+        SERVICE_REQUEST.feature,
+    ],
     events=EVENTS,
-    permissions=tuple(spec for wtype in TYPES.values() for spec in permissions(wtype)),
+    permissions=(
+        *(spec for wtype in PERMISSION_TYPES for spec in permissions(wtype)),
+        *portal.PERMISSIONS,  # WP-028 D2 (pending the product owner)
+    ),
     channels=CHANNELS,
     realtime=ROUTES,
+    # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
+    consumers=[APPROVER_LEFT],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     # REQ-INC-096: resolved records the requester was told about close after N business days.
     schedules=[
         ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule),
+        # REQ-SR-023 AC3: daily, no approval waits on someone no longer active.
+        ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),
         # Bulk jobs (WP-020d): picked up within seconds of being asked for, like people imports.
         ScheduleSpec("work_items__bulk_jobs", 5, bulk.run_bulk_jobs),
     ],

@@ -165,9 +165,11 @@ export const queryKeys = {
   },
   connectors: {
     catalogue: ['connectors', 'catalogue'] as const,
+    settings: ['connectors', 'settings'] as const, // D-041: the tenant's connector defaults
   },
   directories: {
     all: ['directories'] as const,
+    ldap: ['directories', 'ldap'] as const, // under `all`: one live event refetches both
     groups: (id: string, query: string) => ['directories', 'groups', id, query] as const,
   },
   mailboxes: {

@@ -50,31 +50,38 @@ spec:
               ok = got == want
               failed += not ok
               print(f"{'ok  ' if ok else 'FAIL'} {name}: {got}")
+          targets = []
           {{- if .Values.valkey.enabled }}
-          host = f"{rel}-valkey"
-          # Without a password: Valkey must answer, and answer NOAUTH (an unreachable server fails).
-          try:
-              valkey.Valkey(host=host, port=6379, socket_timeout=5).ping()
-              got = "PONG without a password"
-          except (AuthenticationError, ResponseError) as exc:
-              got = "NOAUTH" if "auth" in str(exc).lower() else f"error {exc}"
-          except ConnectionError as exc:
-              got = f"unreachable ({exc})"
-          ok = got == "NOAUTH"
-          failed += not ok
-          print(f"{'ok  ' if ok else 'FAIL'} valkey auth without password: {got}")
-          # With the password: PONG.
-          try:
-              pong = valkey.Valkey(
-                  host=host, port=6379, password=os.environ["VALKEY_PASSWORD"], socket_timeout=5
-              ).ping()
-              got = "PONG" if pong else "no PONG"
-          except Exception as exc:  # noqa: BLE001 - every failure is a test failure here
-              got = f"{type(exc).__name__}"
-          ok = got == "PONG"
-          failed += not ok
-          print(f"{'ok  ' if ok else 'FAIL'} valkey auth with password: {got}")
+          targets.append(("valkey", f"{rel}-valkey", 6379))
           {{- end }}
+          {{- if .Values.valkeyHa.enabled }}
+          # HA (ADR-038): a server and a sentinel each refuse without the password.
+          targets.append(("valkey", f"{rel}-valkey-0.{rel}-valkey-headless", 6379))
+          targets.append(("sentinel", f"{rel}-valkey-0.{rel}-valkey-headless", 26379))
+          {{- end }}
+          for label, host, port in targets:
+              # Without a password: it must answer, and answer NOAUTH (an unreachable one fails).
+              try:
+                  valkey.Valkey(host=host, port=port, socket_timeout=5).ping()
+                  got = "PONG without a password"
+              except (AuthenticationError, ResponseError) as exc:
+                  got = "NOAUTH" if "auth" in str(exc).lower() else f"error {exc}"
+              except ConnectionError as exc:
+                  got = f"unreachable ({exc})"
+              ok = got == "NOAUTH"
+              failed += not ok
+              print(f"{'ok  ' if ok else 'FAIL'} {label} auth without password: {got}")
+              # With the password: PONG.
+              try:
+                  pong = valkey.Valkey(
+                      host=host, port=port, password=os.environ["VALKEY_PASSWORD"], socket_timeout=5
+                  ).ping()
+                  got = "PONG" if pong else "no PONG"
+              except Exception as exc:  # noqa: BLE001 - every failure is a test failure here
+                  got = f"{type(exc).__name__}"
+              ok = got == "PONG"
+              failed += not ok
+              print(f"{'ok  ' if ok else 'FAIL'} {label} auth with password: {got}")
           sys.exit(1 if failed else 0)
       {{- include "supportx.containerSecurityContext" . | nindent 6 }}
       resources:

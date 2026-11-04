@@ -16,7 +16,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.models import TenantEntity
@@ -45,6 +45,8 @@ class MailMessage(TenantEntity):
     subject: Mapped[str] = mapped_column(String(300))
     text_body: Mapped[str | None] = mapped_column(Text)
     html_body: Mapped[str | None] = mapped_column(Text)
+    # D-132: one-time links to make at send (no token: bodies hold markers where they go).
+    links: Mapped[list[dict[str, object]] | None] = mapped_column(JSONB)
     state: Mapped[str] = mapped_column(String(10), server_default="queued")
     attempts: Mapped[int] = mapped_column(server_default="0")
     failure: Mapped[str | None] = mapped_column(String(40))

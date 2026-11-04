@@ -1784,6 +1784,25 @@
         "type": "object"
       }
     },
+    "integrations.connector_settings.changed": {
+      "1": {
+        "description": "A tenant's connector defaults were saved (WP-040, D-041): the settings card refetches.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "ConnectorSettingsChanged",
+        "type": "object"
+      }
+    },
     "integrations.directory.changed": {
       "1": {
         "description": "A directory connector was added, changed or removed, or a sync run finished (WP-040).",
@@ -2641,6 +2660,56 @@
         "type": "object"
       }
     },
+    "service_catalog.category.changed": {
+      "1": {
+        "description": "A category was added or changed.",
+        "properties": {
+          "category_id": {
+            "format": "uuid",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "category_id",
+          "changed_fields"
+        ],
+        "title": "ServiceCategoryChanged",
+        "type": "object"
+      }
+    },
+    "service_catalog.item.changed": {
+      "1": {
+        "description": "An item was added or changed (names only of the changed fields).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "changed_fields"
+        ],
+        "title": "CatalogItemChanged",
+        "type": "object"
+      }
+    },
     "sla.calendar.deleted": {
       "1": {
         "description": "A working calendar went to the trash (only when no site, group or policy uses it).",
@@ -3371,6 +3440,62 @@
           "at"
         ],
         "title": "MailStateChanged",
+        "type": "object"
+      }
+    },
+    "work_items.approval.changed": {
+      "1": {
+        "description": "An approval was opened, decided, closed or withdrawn (WP-030 s2, REQ-SR-024).\n\n`approver_id` None: the approval administrators hold it. IDs and codes only, never the\ncomment; the record's screens and the approver's drawer refetch through the API.",
+        "properties": {
+          "approval_id": {
+            "format": "uuid",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "approver_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approver Id"
+          },
+          "change": {
+            "enum": [
+              "opened",
+              "decided",
+              "closed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "approval_id",
+          "approver_id",
+          "state",
+          "change"
+        ],
+        "title": "WorkItemApprovalChanged",
         "type": "object"
       }
     },

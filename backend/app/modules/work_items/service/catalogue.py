@@ -133,6 +133,10 @@ class Catalogue:
     settings_version: int
     default_impact: str | None
     default_urgency: str | None
+    on_behalf_scope: str  # WP-030, REQ-SR-011
+    approvals_hidden_from_requesters: bool  # WP-030 s2, REQ-SR-024 AC3
+    approvals_require_sign_in: bool  # D-132: e-mailed approval links need a signed-in approver
+    portal_show_due_time: bool  # WP-028 D5: requesters see the expected resolution time
     lifecycle: Lifecycle
     statuses: list[StatusInfo]
     matrix: Mapping[tuple[str, str], str]
@@ -386,6 +390,10 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         default_priority=settings.default_priority,
         auto_status_on_assign=settings.auto_status_on_assign,
         keep_following_on_handover=settings.keep_following_on_handover,
+        on_behalf_scope=settings.on_behalf_scope,
+        approvals_hidden_from_requesters=settings.approvals_hidden_from_requesters,
+        approvals_require_sign_in=settings.approvals_require_sign_in,
+        portal_show_due_time=settings.portal_show_due_time,
         first_response_on=tuple(settings.first_response_on),
         settings_version=settings.version,
         default_impact=settings.default_impact,

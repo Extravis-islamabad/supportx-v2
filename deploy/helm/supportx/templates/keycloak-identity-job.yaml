@@ -40,6 +40,14 @@ spec:
             # supportx-realm (manage-realm, the password policy); without it the client is not made.
             - name: SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-realm-secret, optional: true}}
+            {{- if .Values.directory.ldap.enabled }}
+            {{- if .Values.multiTenant }}
+            {{- fail "directory.ldap.enabled needs a single-tenant installation (multiTenant: false): a shared realm would show a directory's people to every tenant (D-118)" }}
+            {{- end }}
+            # supportx-federation (manage-realm, the AD/LDAP connection): only with LDAP on.
+            - name: SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-federation-secret}}
+            {{- end }}
             {{- if .Values.mail.smtpHost }}
             - {name: SUPPORTX_MAIL_SMTP_HOST, value: {{ .Values.mail.smtpHost | quote }}}
             - {name: SUPPORTX_MAIL_SMTP_PORT, value: {{ .Values.mail.smtpPort | quote }}}

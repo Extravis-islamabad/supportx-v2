@@ -65,6 +65,22 @@ export const en = {
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',
   'notification_category.status': 'Status changes',
+  'notification_category.approval': 'Approvals',
+  'notification_event.service_request.approval_requested': 'Approval requested',
+  'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
+  'notification_variable.approval_link': 'Approval › Link',
+  'notification_template.service_request.approval_requested.in_app':
+    '{{ record.display_id }} waits for your approval: {{ record.title }}',
+  'notification_template.service_request.approval_requested.subject':
+    'Your approval: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_requested.body':
+    'Hello {{ recipient.name }},\n\n{{ requester.name }} asks for {{ record.display_id }} "{{ record.title }}", and it waits for your approval.\n\nApprove or reject: {{ approval_link }}\n\nThe link works once, for you only, after you sign in.',
+  'notification_template.service_request.approval_fallback.in_app':
+    '{{ record.display_id }} has no active approver and waits for an approval administrator: {{ record.title }}',
+  'notification_template.service_request.approval_fallback.subject':
+    'Approval waiting: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_fallback.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_category.mention': 'Mentions',
   'notification_category.following': 'Following',
   'notification_channel.in_app': 'In the app',
