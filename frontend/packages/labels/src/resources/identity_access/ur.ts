@@ -610,7 +610,8 @@ export const ur: LabelResource = {
   'role.report_viewer.description':
     'ہر واقعہ اور درخواست اور ان کی رپورٹس پڑھتا ہے، بغیر کچھ بدلے۔',
   'roles.groups': 'سپورٹ گروپس',
-  'roles.groups_help': 'ان گروپس کے ارکان جب تک رکن ہیں یہ کردار رکھتے ہیں۔',
+  'roles.groups_help':
+    'ان گروپس کے ارکان جب تک رکن ہیں یہ کردار رکھتے ہیں۔ ڈائریکٹری سنک سے بھرا گروپ یہ کردار ہر اس شخص کو دیتا ہے جسے سنک شامل کرے۔',
   'roles.groups_add': 'گروپ شامل کریں',
   'roles.groups_none': 'کوئی گروپ یہ کردار نہیں رکھتا۔',
   'access.through_groups': '{{groups}} کے ذریعے',

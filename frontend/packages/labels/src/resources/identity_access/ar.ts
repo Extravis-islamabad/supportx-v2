@@ -754,7 +754,8 @@ export const ar: LabelResource = {
   'role.report_viewer': 'مستعرض التقارير',
   'role.report_viewer.description': 'يطّلع على كل الحوادث والطلبات وتقاريرها دون تغيير أي شيء.',
   'roles.groups': 'مجموعات الدعم',
-  'roles.groups_help': 'يحمل أعضاء هذه المجموعات هذا الدور ما داموا أعضاء.',
+  'roles.groups_help':
+    'يحمل أعضاء هذه المجموعات هذا الدور ما داموا أعضاء. والمجموعة التي تملؤها مزامنة الدليل تمنحه لكل من تضيفه المزامنة.',
   'roles.groups_add': 'إضافة مجموعة',
   'roles.groups_none': 'لا تحمل أي مجموعة هذا الدور.',
   'access.through_groups': 'عبر {{groups}}',

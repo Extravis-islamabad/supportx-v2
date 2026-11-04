@@ -760,7 +760,8 @@ export const en = {
   'role.report_viewer.description':
     'Reads every incident and request and their reports, without changing anything.',
   'roles.groups': 'Support groups',
-  'roles.groups_help': 'Members of these groups hold this role while they are members.',
+  'roles.groups_help':
+    'Members of these groups hold this role while they are members. A group filled by directory sync gives it to everyone the sync adds.',
   'roles.groups_add': 'Add a group',
   'roles.groups_none': 'No group carries this role.',
   'access.through_groups': 'through {{groups}}',
