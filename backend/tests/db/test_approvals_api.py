@@ -42,13 +42,13 @@ async def fresh(world: World, org: Org, record: dict[str, Any]) -> dict[str, Any
 async def approvals(world: World, org: Org, user: uuid.UUID, record: dict[str, Any]) -> Any:  # noqa: ANN401 - JSON
     found = await world.call("GET", f"{SR}/{record['id']}/approvals", org, user)
     assert found.status_code == 200, found.text
-    return found.json()
+    return found.json()["items"]
 
 
 async def inbox(world: World, org: Org, user: uuid.UUID) -> list[str]:
     found = await world.call("GET", f"{SR}/my-approvals", org, user)
     assert found.status_code == 200, found.text
-    return [a["record_id"] for a in found.json()]
+    return [a["record_id"] for a in found.json()["items"]]
 
 
 async def decide(
