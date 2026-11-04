@@ -350,7 +350,7 @@ deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgra
 	$(HELM_TEST)
 
 cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
-	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 bash deploy/k3d/up.sh
+	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 BACKUP_PLUGIN=1 bash deploy/k3d/up.sh
 
 deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
 	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
@@ -369,6 +369,9 @@ cluster-ha-egress: ## Egress allow-list on the HA cluster: the namespace reachab
 
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
+
+cluster-ha-restore: ## Restore drill: back up, restore into a new cluster to a chosen moment, check the rows (WP-014b)
+	@bash deploy/k3d/restore-drill.sh
 
 cluster-test: ## helm test: every internal route answers and Valkey enforces auth
 	$(HELM_TEST)

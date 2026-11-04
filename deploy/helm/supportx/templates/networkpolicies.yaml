@@ -158,11 +158,12 @@ spec:
             matchLabels:
               {{- toYaml $ours | nindent 14 }}
         {{- if and (eq .Values.postgresql.mode "cnpg") .Values.postgresql.cnpg.backup.enabled }}
-        # The database's own pods archive WAL and base backups here (WP-014b). CloudNativePG
-        # doesn't give them SupportX's labels, so they are named by their cluster.
+        # The database's pods archive WAL and base backups here, and a restore cluster reads them
+        # back (WP-014b). CloudNativePG doesn't give them SupportX's labels: any of its clusters
+        # in this namespace.
         - podSelector:
-            matchLabels:
-              cnpg.io/cluster: {{ $rel }}-pg
+            matchExpressions:
+              - {key: cnpg.io/cluster, operator: Exists}
         {{- end }}
       ports:
         - {port: 8333, protocol: TCP}
