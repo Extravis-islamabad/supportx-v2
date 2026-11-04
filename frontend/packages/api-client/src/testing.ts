@@ -558,6 +558,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     auto_status_on_assign: true,
     keep_following_on_handover: true,
     on_behalf_scope: 'same_department',
+    approvals_hidden_from_requesters: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,
     statuses: [

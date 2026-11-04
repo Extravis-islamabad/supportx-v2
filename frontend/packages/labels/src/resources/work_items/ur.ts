@@ -830,6 +830,9 @@ export const ur: LabelResource = {
   'requests.new': 'نئی سروس درخواست',
   'requests.approval_filter': 'منظوری',
   'requests.view_filter': 'منظر',
+  'requests.settings.hide_approvals': 'منظوریاں درخواست گزاروں سے چھپائیں',
+  'requests.settings.hide_approvals_help':
+    'درخواست گزار تب صرف یہ دیکھیں گے کہ درخواست منظوری کی منتظر ہے، منظوری دہندگان کے نام یا تبصروں کے بغیر۔',
   'requests.approvals': 'منظوریاں',
   'requests.no_approvals': 'ابھی کوئی منظوری نہیں۔',
   'requests.approval_admins': 'منظوری کے منتظمین',

@@ -131,6 +131,9 @@ async def list_for_record(
     )
     if not is_approver:
         await items.get(session, subject, wtype, record_id)  # 404 outside the view scope
+        hidden = (await config.load(session, wtype)).approvals_hidden_from_requesters
+        if hidden and not _staff(subject, wtype):
+            return []  # REQ-SR-024 AC3: the record's own status still says it waits
     return [_shown(subject, wtype, record, r) for r in found]
 
 

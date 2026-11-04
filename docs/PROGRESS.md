@@ -794,11 +794,11 @@ it with no reload (rule c). Not built yet.
   `work_items.sla_counts_approval` in 0065); the item's own SLA policy wins over the conditions
   (REQ-SR-006; `item_sla_policy_id`, the SLA module's `preferred_policy` hook). Console: the
   approvals panel on the request page (each entry, Approve / Reject dialog, Withdraw), the
-  header approvals drawer with its live count (REQ-SR-024, -025).
-  Tests: domain 6, db 15 (incl. RLS), Vitest 3. **Still to do:** the portal approve / reject
+  header approvals drawer with its live count (REQ-SR-024, -025); Admin › Service requests
+  can hide approvals from requesters (REQ-SR-024 AC3, a setting in 0065).
+  Tests: domain 6, db 16 (incl. RLS), Vitest 3. **Still to do:** the portal approve / reject
   and withdraw (needs #178's portal); notifications to approvers (WP-023 engine registration,
-  with session 3's e-mail approvals under lane B's review); "hide approvals from requesters"
-  (REQ-SR-024 AC3). At the merge after #178: drop the duplicate
+  with session 3's e-mail approvals under lane B's review). At the merge after #178: drop the duplicate
   `permission_module.work_items` label (both PRs add it).
 - [ ] Session 3: signed action links and e-mail approvals, fulfilment, requester views, e2e.
 

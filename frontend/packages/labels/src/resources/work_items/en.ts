@@ -831,6 +831,9 @@ export const en = {
   'requests.new': 'New service request',
   'requests.approval_filter': 'Approval',
   'requests.view_filter': 'View',
+  'requests.settings.hide_approvals': 'Hide approvals from requesters',
+  'requests.settings.hide_approvals_help':
+    'Requesters then see only that a request awaits approval, without the approvers’ names or comments.',
   'requests.approvals': 'Approvals',
   'requests.no_approvals': 'No approvals yet.',
   'requests.approval_admins': 'Approval administrators',

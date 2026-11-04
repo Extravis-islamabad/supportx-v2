@@ -812,6 +812,10 @@ class WorkItemCatalogueOut(BaseModel):
         default=OnBehalfScope.SAME_DEPARTMENT,
         description="Whom a requester may raise a record for (REQ-SR-011).",
     )
+    approvals_hidden_from_requesters: bool = Field(
+        default=False,
+        description="Requesters see only 'awaiting approval', no names or comments (REQ-SR-024).",
+    )
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
@@ -839,6 +843,7 @@ class WorkItemCatalogueOut(BaseModel):
             auto_status_on_assign=cat.auto_status_on_assign,
             keep_following_on_handover=cat.keep_following_on_handover,
             on_behalf_scope=OnBehalfScope(cat.on_behalf_scope),
+            approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -948,6 +953,7 @@ class WorkItemSettingsPatch(BaseModel):
     auto_status_on_assign: bool | None = None
     keep_following_on_handover: bool | None = None
     on_behalf_scope: OnBehalfScope | None = None
+    approvals_hidden_from_requesters: bool | None = None
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 

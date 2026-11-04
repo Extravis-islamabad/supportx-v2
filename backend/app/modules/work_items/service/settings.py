@@ -136,6 +136,10 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         if values["on_behalf_scope"] not in set(OnBehalfScope):
             problem("on_behalf_scope", "invalid_choice")
         changes["on_behalf_scope"] = values["on_behalf_scope"]
+    if "approvals_hidden_from_requesters" in values:
+        changes["approvals_hidden_from_requesters"] = bool(
+            values["approvals_hidden_from_requesters"]
+        )
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):
@@ -155,6 +159,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "auto_status_on_assign": current.auto_status_on_assign,
         "keep_following_on_handover": current.keep_following_on_handover,
         "on_behalf_scope": current.on_behalf_scope,
+        "approvals_hidden_from_requesters": current.approvals_hidden_from_requesters,
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,
         "default_urgency": current.default_urgency,

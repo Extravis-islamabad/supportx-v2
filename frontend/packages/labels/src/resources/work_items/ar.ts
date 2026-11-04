@@ -898,6 +898,9 @@ export const ar: LabelResource = {
   'requests.new': 'طلب خدمة جديد',
   'requests.approval_filter': 'الموافقة',
   'requests.view_filter': 'العرض',
+  'requests.settings.hide_approvals': 'إخفاء الموافقات عن مقدمي الطلبات',
+  'requests.settings.hide_approvals_help':
+    'يرى مقدمو الطلبات عندها فقط أن الطلب بانتظار الموافقة، دون أسماء الموافقين أو تعليقاتهم.',
   'requests.approvals': 'الموافقات',
   'requests.no_approvals': 'لا توجد موافقات بعد.',
   'requests.approval_admins': 'مسؤولو الموافقات',

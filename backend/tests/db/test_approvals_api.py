@@ -369,3 +369,26 @@ async def test_the_items_own_sla_policy_applies(world: World) -> None:
         )
     ).json()
     assert (await fresh(world, a, other))["sla_policy_id"] != policy["id"]
+
+
+async def test_the_tenant_may_hide_approvals_from_requesters(world: World) -> None:
+    """REQ-SR-024 AC3: no names or comments for the requester; staff still see everything."""
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    record = await waiting(world, a)
+    assert len(await approvals(world, a, a.requester, record)) == 1
+    settings = await world.call("GET", f"{SR}/settings", a, a.admin)
+    hidden = await world.call(
+        "PATCH",
+        f"{SR}/settings",
+        a,
+        a.admin,
+        json={"approvals_hidden_from_requesters": True},
+        headers={"If-Match": settings.headers["ETag"], **CONSOLE},
+    )
+    assert hidden.status_code == 200, hidden.text
+    assert hidden.json()["approvals_hidden_from_requesters"] is True
+    assert await approvals(world, a, a.requester, record) == []
+    assert (await fresh(world, a, record))["approval_status"] == "pending"
+    assert len(await approvals(world, a, a.admin, record)) == 1
+    assert len(await approvals(world, a, a.tech_a, record)) == 1  # the approver, of course

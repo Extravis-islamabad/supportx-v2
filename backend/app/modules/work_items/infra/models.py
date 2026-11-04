@@ -111,6 +111,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     keep_following_on_handover: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # REQ-SR-011 (WP-030, migration 0064): whom a requester may raise a record for.
     on_behalf_scope: Mapped[str] = mapped_column(String(20), server_default="same_department")
+    # REQ-SR-024 AC3 (WP-030 s2): requesters see only "awaiting approval", no names or comments.
+    approvals_hidden_from_requesters: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"

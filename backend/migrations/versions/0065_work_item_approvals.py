@@ -5,7 +5,9 @@ approval administrators hold it (never nobody, REQ-SR-023); `route_reason` keeps
 scoped with RLS (FORCE) and actor audit; soft delete only (no DELETE grant); same-tenant foreign
 keys to the record and the people. `work_items.sla_counts_approval` keeps the item's "count
 approval time" (REQ-SR-007 AC2) and `item_sla_policy_id` its own SLA policy (REQ-SR-006; no
-foreign key: the SLA module owns policies, and a removed policy simply stops applying). Expand only, no data step; the downgrade drops both.
+foreign key: the SLA module owns policies, and a removed policy simply stops applying);
+`work_item_type_settings.approvals_hidden_from_requesters` is the tenant's "hide approvals from
+requesters" (REQ-SR-024 AC3, off). Expand only, no data step; the downgrade drops both.
 
 Revision ID: 0065
 Revises: 0064
@@ -123,10 +125,20 @@ def upgrade() -> None:
         sa.Column("sla_counts_approval", sa.Boolean(), server_default="false", nullable=False),
     )
     op.add_column("work_items", sa.Column("item_sla_policy_id", sa.UUID(), nullable=True))
+    op.add_column(
+        "work_item_type_settings",
+        sa.Column(
+            "approvals_hidden_from_requesters",
+            sa.Boolean(),
+            server_default="false",
+            nullable=False,
+        ),
+    )
 
 
 def downgrade() -> None:
     """Drop the approvals table and the columns."""
+    op.drop_column("work_item_type_settings", "approvals_hidden_from_requesters")
     op.drop_column("work_items", "item_sla_policy_id")
     op.drop_column("work_items", "sla_counts_approval")
     op.drop_table(TABLE)
