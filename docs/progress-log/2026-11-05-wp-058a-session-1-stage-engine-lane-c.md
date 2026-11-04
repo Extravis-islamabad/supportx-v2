@@ -37,7 +37,7 @@
   - 0092 widens two shared checks from their live definitions, so either landing order with
     lane A's problem lists keeps both.
 - **Tests:**
-  - Releases API: 16, including RLS on all six new tables.
+  - Releases API: 15, including RLS on all six new tables.
   - 0091 up, down and refused-down: 3.
   - Permission pins: 3.
   - Stage domain: 9.
