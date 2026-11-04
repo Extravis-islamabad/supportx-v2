@@ -64,6 +64,9 @@ export const en = {
   'errors.ai_summary_nothing':
     'There is nothing to summarise yet: no description, replies or notes.',
   'errors.ai_unavailable': 'The AI model is not answering. Try again in a moment.',
+  'errors.ai_writing_instruction_required': 'Say what the text should say.',
+  'errors.ai_writing_language_required': 'Choose the language to translate into.',
+  'errors.ai_writing_text_required': 'Write some text first, then ask for help with it.',
   'errors.field.ai_feature_unknown': 'Choose only features from the list.',
   'errors.field.ai_retention_out_of_range': 'Keep the text between 1 and 365 days.',
   'errors.field.ai_summary_source_unknown':

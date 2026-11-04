@@ -65,6 +65,9 @@ export const ar: LabelResource = {
     'لا يمكنك رؤية هذا السجل، لذا لا يمكن للذكاء الاصطناعي العمل عليه.',
   'errors.ai_summary_nothing': 'لا يوجد ما يُلخَّص بعد: لا وصف ولا ردود ولا ملاحظات.',
   'errors.ai_unavailable': 'نموذج الذكاء الاصطناعي لا يستجيب. حاول مرة أخرى بعد قليل.',
+  'errors.ai_writing_instruction_required': 'اكتب ما يجب أن يقوله النص.',
+  'errors.ai_writing_language_required': 'اختر اللغة المراد الترجمة إليها.',
+  'errors.ai_writing_text_required': 'اكتب نصًا أولًا، ثم اطلب المساعدة فيه.',
   'errors.field.ai_feature_unknown': 'اختر ميزات من القائمة فقط.',
   'errors.field.ai_retention_out_of_range': 'احتفظ بالنص بين يوم واحد و365 يومًا.',
   'errors.field.ai_summary_source_unknown':
