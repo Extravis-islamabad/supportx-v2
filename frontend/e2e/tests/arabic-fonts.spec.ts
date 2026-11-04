@@ -9,8 +9,11 @@ import { signInAs } from './helpers';
 
 const ARABIC = 'الشبكة بطيئة جدًا في مكتب دبي';
 
-/** The platform fonts Chrome used for the text directly inside the first match. */
-async function usedFonts(page: Page, selector: string): Promise<string[]> {
+/**
+ * The platform fonts Chrome used for the text directly inside the first match, with how many
+ * glyphs each drew. Platform names carry the weight ("Noto Sans Arabic SemiBold").
+ */
+async function usedFonts(page: Page, selector: string): Promise<Record<string, number>> {
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('DOM.enable');
   await cdp.send('CSS.enable');
@@ -18,7 +21,20 @@ async function usedFonts(page: Page, selector: string): Promise<string[]> {
   const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector });
   expect(nodeId, selector).toBeGreaterThan(0);
   const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId });
-  return fonts.map((f) => f.familyName);
+  return Object.fromEntries(fonts.map((f) => [f.familyName, f.glyphCount]));
+}
+
+/** Arabic letters drawn by Noto Sans Arabic (any weight); only spaces and Latin by Inter. */
+function expectNotoForArabic(fonts: Record<string, number>, where: string): void {
+  const names = Object.keys(fonts);
+  expect(
+    names.some((n) => n.startsWith('Noto Sans Arabic')),
+    `${where}: ${JSON.stringify(fonts)}`,
+  ).toBe(true);
+  expect(
+    names.filter((n) => !n.startsWith('Noto Sans Arabic') && !n.startsWith('Inter')),
+    `${where}: no other font draws it (${JSON.stringify(fonts)})`,
+  ).toEqual([]);
 }
 
 test('Arabic in headings and body uses the bundled Noto Sans Arabic in every weight', async ({
@@ -48,16 +64,11 @@ test('Arabic in headings and body uses the bundled Noto Sans Arabic in every wei
         .sort();
     });
     expect(weights, 'Noto Sans Arabic faces declared').toEqual(['400', '500', '600', '700']);
-    const headingFonts = await usedFonts(page, '[data-testid="inc-heading"] bdi');
-    expect(headingFonts, 'the heading draws Arabic with Noto Sans Arabic').toEqual([
-      'Noto Sans Arabic',
-    ]);
+    expectNotoForArabic(await usedFonts(page, '[data-testid="inc-heading"] bdi'), 'heading');
     const weight = await title.evaluate((el) => getComputedStyle(el).fontWeight);
     test.info().annotations.push({ type: 'heading weight', description: weight });
     // The description's body text, the same way.
-    expect(await usedFonts(page, '[data-testid="inc-description"] p'), 'body text').toEqual([
-      'Noto Sans Arabic',
-    ]);
+    expectNotoForArabic(await usedFonts(page, '[data-testid="inc-description"] p'), 'body');
   } finally {
     await page.request.delete(`/api/v1/incidents/${incident.id}`, {
       headers: { 'If-Match': `"${String(incident.version)}"`, 'X-CSRF-Token': me.csrf_token },
