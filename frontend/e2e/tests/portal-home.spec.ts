@@ -96,12 +96,12 @@ test('the home summary follows a resolve live, and the search box finds or repor
     await expect(summary).not.toHaveText(before, LIVE); // "Resolved" now counts it
 
     // Search: their own request in its group; nonsense offers a report with the words.
-    await page.getByTestId('portal-home-search').locator('input').fill(subject);
-    await page.getByTestId('portal-home-search').locator('input').press('Enter');
+    await page.getByTestId('portal-home-search').fill(subject);
+    await page.getByTestId('portal-home-search').press('Enter');
     await expect(page.getByTestId('portal-search-requests')).toContainText(subject, LIVE);
     await expectAccessible(page, 'portal search');
     const words = `zz-e2e-nothing-${String(Date.now())}`;
-    await page.getByTestId('portal-search-input').locator('input').fill(words);
+    await page.getByTestId('portal-search-input').fill(words);
     await expect(page.getByTestId('portal-search-nothing')).toBeVisible(LIVE);
     await page.getByTestId('portal-search-report').click();
     await expect(page.getByTestId('portal-report-subject')).toHaveValue(words);
@@ -126,7 +126,7 @@ test('a change to the search sources reaches an open portal at once', async ({ b
     });
     expect(changed.status(), await changed.text()).toBe(200);
     // Only "your requests" is searched now: the catalog group never shows, with no reload.
-    await requester.page.getByTestId('portal-search-input').locator('input').fill('vpn');
+    await requester.page.getByTestId('portal-search-input').fill('vpn');
     await expect(requester.page.getByTestId('portal-search-items')).toHaveCount(0, LIVE);
   } finally {
     const now = (await (await call(admin.page, 'GET', '/portal/settings')).json()) as {

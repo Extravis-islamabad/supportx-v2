@@ -119,7 +119,7 @@ test('build, preview, publish and request a catalog item, live in the portal', a
     await requester.page.getByTestId('sr-q-desk').fill('Desk 12');
     await expectAccessible(requester.page, 'portal catalog item');
     await requester.page.getByTestId('portal-cat-send').click();
-    await expect(requester.page).toHaveURL(/\/service-requests\/[0-9a-f-]{36}$/, LIVE);
+    await expect(requester.page).toHaveURL(/\/service-requests\/[0-9a-f-]{36}\?submitted=1$/, LIVE);
     requestId = requester.page.url().split('/').pop();
     await expect(requester.page.getByTestId('portal-service-request-answers')).toContainText(
       'Desk 12',
