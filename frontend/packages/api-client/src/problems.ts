@@ -330,3 +330,78 @@ export function useProblemEvidence(id: string) {
     enabled: id !== '',
   });
 }
+
+/** Unlink one incident (needs that incident's edit right; 404 when you cannot see it). */
+export function useUnlinkIncident(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (incidentId: string) =>
+      call(
+        api.DELETE('/api/v1/problems/{record_id}/incidents/{incident_id}', {
+          params: { path: { record_id: id, incident_id: incidentId } },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+    },
+  });
+}
+
+/** Link another problem as related (both sides show it), or remove such a link. */
+export function useRelatedProblem(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: async (
+      change: { add: string } | { remove: string; version: number },
+    ): Promise<unknown> => {
+      if ('add' in change) {
+        return call(
+          api.POST('/api/v1/problems/{record_id}/links', {
+            params: {
+              path: { record_id: id },
+              header: { 'Idempotency-Key': crypto.randomUUID() },
+            },
+            body: { other_id: change.add },
+          }),
+        );
+      }
+      return call(
+        api.DELETE('/api/v1/problems/{record_id}/links/{link_id}', {
+          params: {
+            path: { record_id: id, link_id: change.remove },
+            header: ifMatch(change.version),
+          },
+        }),
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.links(id) });
+    },
+  });
+}
+
+/** Merge this problem into another (REQ-PRB-046), or undo the merge; both need If-Match. */
+export function useMergeProblem(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (change: { into: string; version: number } | { undo: true; version: number }) =>
+      'into' in change
+        ? call(
+            api.POST('/api/v1/problems/{record_id}/merge', {
+              params: { path: { record_id: id }, header: ifMatch(change.version) },
+              body: { into_id: change.into },
+            }),
+          )
+        : call(
+            api.POST('/api/v1/problems/{record_id}/undo-merge', {
+              params: { path: { record_id: id }, header: ifMatch(change.version) },
+            }),
+          ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.all });
+    },
+  });
+}

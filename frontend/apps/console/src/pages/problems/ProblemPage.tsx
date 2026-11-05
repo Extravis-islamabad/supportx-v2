@@ -1,6 +1,6 @@
 import { BugOutlined, CloseOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Flex, List, Result, Select, Skeleton, Steps, Tabs, Typography } from 'antd';
+import { Button, Flex, Result, Select, Skeleton, Steps, Tabs, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -12,7 +12,6 @@ import {
   useProblem,
   useProblemAction,
   useProblemCatalogue,
-  useProblemLinks,
   useProblemPeople,
   useSession,
   type Problem,
@@ -37,6 +36,7 @@ import { useStatusActions } from '../incidents/StatusActions';
 import { PriorityTag, StatusTag } from '../incidents/tags';
 import { useDebounced } from '../../useDebounced';
 import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
+import { CausedIncidents, MergeDialog, MergedBanner, RelatedProblems } from './ProblemLinks';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
 const GUIDED = [
@@ -67,36 +67,6 @@ function GuidedSteps({ record }: { record: Problem }) {
         title: t(`work_item_status.${step}`),
         status: index < 0 ? 'wait' : position < index ? 'finish' : undefined,
       }))}
-    />
-  );
-}
-
-/** The incidents this problem causes (caused by links), each opening the incident. */
-function CausedIncidents({ id }: { id: string }) {
-  const t = useLabel();
-  const links = useProblemLinks(id);
-  const rows = (links.data ?? []).filter((l) => l.relation === 'causes');
-  if (links.isLoading) return <Skeleton active paragraph={{ rows: 2 }} />;
-  if (rows.length === 0) {
-    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('problems.no_incidents')} />;
-  }
-  return (
-    <List
-      size="small"
-      dataSource={rows}
-      data-testid="prb-incidents"
-      renderItem={(link) => (
-        <List.Item>
-          {link.other_id === null ? (
-            t('problems.hidden_incident')
-          ) : (
-            <Link to={`/incidents/${link.other_id}`}>
-              <strong dir="ltr">{link.other_display_id}</strong>{' '}
-              <bdi dir="auto">{link.other_subject}</bdi>
-            </Link>
-          )}
-        </List.Item>
-      )}
     />
   );
 }
@@ -223,6 +193,15 @@ function ProblemView({
   const copy = useCopyProblem();
   const canEdit = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const me = useSession().data?.user.id ?? '';
+  const [merging, setMerging] = useState(false);
+  const mergeAction: RecordAction = {
+    key: 'merge',
+    label: t('problems.merge.action'),
+    allowed: canEdit && item.status_category !== 'closed' && item.status !== 'merged',
+    onClick: () => {
+      setMerging(true);
+    },
+  };
   const copyAction: RecordAction = {
     key: 'copy',
     label: t('problems.copy'),
@@ -268,7 +247,11 @@ function ProblemView({
           />
         }
         actions={
-          <ActionBar actions={[...status.actions, copyAction]} max={3} testId="prb-actions" />
+          <ActionBar
+            actions={[...status.actions, copyAction, mergeAction]}
+            max={3}
+            testId="prb-actions"
+          />
         }
         panel={
           <PropertiesPanel
@@ -307,13 +290,19 @@ function ProblemView({
               {
                 key: 'incidents',
                 title: t('problems.incidents'),
-                children: <CausedIncidents id={item.id} />,
+                children: <CausedIncidents id={item.id} canEdit={canEdit} />,
+              },
+              {
+                key: 'related',
+                title: t('problems.related.title'),
+                children: <RelatedProblems id={item.id} canEdit={canEdit} />,
               },
             ]}
           />
         }
       >
         <Flex vertical gap={16} style={{ padding: 16 }}>
+          <MergedBanner item={item} />
           {item.lifecycle === 'guided_analysis' && <GuidedSteps record={item} />}
           <Tabs
             data-testid="prb-tabs"
@@ -346,6 +335,13 @@ function ProblemView({
         </Flex>
       </RecordPage>
       {status.dialogs}
+      <MergeDialog
+        item={item}
+        open={merging}
+        onClose={() => {
+          setMerging(false);
+        }}
+      />
     </>
   );
 }

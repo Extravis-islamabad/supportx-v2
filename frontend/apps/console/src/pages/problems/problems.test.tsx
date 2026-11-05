@@ -230,6 +230,67 @@ describe('console: problems', () => {
     });
   });
 
+  it('links: unlink a caused incident; a merged problem says where it went, with undo', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const SURVIVOR = '01a1a2b3-0000-7000-8000-00000000e002';
+    const merged = {
+      ...record,
+      status: 'merged',
+      status_category: 'closed' as const,
+      operations: [{ action: 'edit', allowed: true, reason: null, reason_mode: 'none' as const }],
+    };
+    const link = (over: Record<string, unknown>) => ({
+      id: crypto.randomUUID(),
+      kind: 'caused_by',
+      other_type: 'incident',
+      comment: null,
+      version: 1,
+      created_at: '2026-11-04T09:00:00Z',
+      ...over,
+    });
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}`]: { body: merged },
+      [`GET /api/v1/problems/${PRB_ID}/links`]: {
+        body: [
+          link({
+            relation: 'causes',
+            other_id: INC_ID,
+            other_display_id: 'INC-41',
+            other_subject: 'Mail slow',
+          }),
+          link({
+            kind: 'merged_into',
+            relation: 'merged_into',
+            other_type: 'problem',
+            other_id: SURVIVOR,
+            other_display_id: 'PRB-9',
+            other_subject: 'Mail relay drops messages',
+          }),
+        ],
+      },
+      [`DELETE /api/v1/problems/${PRB_ID}/incidents/${INC_ID}`]: { body: { unlinked: true } },
+      [`POST /api/v1/problems/${PRB_ID}/undo-merge`]: {
+        body: {
+          id: PRB_ID,
+          status: 'gathering_facts',
+          version: 2,
+          moved_incident_ids: [],
+          stayed_incident_ids: [],
+        },
+      },
+    });
+    render(<App />);
+    const banner = await screen.findByTestId('prb-merged');
+    expect(await within(banner).findByText('PRB-9')).toBeDefined();
+    fireEvent.click(within(banner).getByTestId('prb-undo-merge'));
+    fireEvent.click(await screen.findByTestId('prb-unlink-INC-41'));
+    await waitFor(() => {
+      const undo = fake.calls.find((c) => c.path.endsWith('/undo-merge'));
+      expect(undo?.headers.get('If-Match')).toBe('"1"');
+      expect(fake.calls.some((c) => c.method === 'DELETE' && c.path.endsWith(INC_ID))).toBe(true);
+    });
+  });
+
   it('evidence: the caused incidents in report order, and what is not there yet', async () => {
     window.history.pushState({}, '', `/problems/${PRB_ID}`);
     api({
