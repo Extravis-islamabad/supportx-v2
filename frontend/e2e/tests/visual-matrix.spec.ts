@@ -56,6 +56,18 @@ const click = (testId: string) => async (page: Page) => {
   await page.waitForTimeout(400);
 };
 
+// A record operation: on the bar when it fits, else in the "more" menu (as helpers' clickAction).
+const operation = (testId: string) => async (page: Page) => {
+  const button = page.getByTestId(testId);
+  if (await button.isVisible()) {
+    await button.click({ timeout: STATE_TIMEOUT });
+  } else {
+    await page.getByTestId('inc-operations-more').click({ timeout: STATE_TIMEOUT });
+    await page.getByTestId(`${testId}-menu`).click({ timeout: STATE_TIMEOUT });
+  }
+  await page.waitForTimeout(400);
+};
+
 const ADMIN_SECTIONS: Record<string, string[]> = {
   incidents: [
     'general',
@@ -88,10 +100,7 @@ export const SCREENS: Screen[] = [
     state: {
       name: 'validation',
       open: async (page) => {
-        await page
-          .getByRole('button', { name: /^(Create|إنشاء)/ })
-          .first()
-          .click();
+        await page.getByTestId('inc-save').click();
         await page.waitForTimeout(400);
       },
     },
@@ -107,19 +116,19 @@ export const SCREENS: Screen[] = [
     key: 'incident',
     path: incident,
     app: 'console',
-    state: { name: 'more-actions', open: click('more-actions') },
+    state: { name: 'more-actions', open: click('inc-operations-more') },
   },
   {
     key: 'incident',
     path: incident,
     app: 'console',
-    state: { name: 'assign', open: click('action-assign') },
+    state: { name: 'assign', open: operation('inc-op-assign') },
   },
   {
     key: 'incident',
     path: incident,
     app: 'console',
-    state: { name: 'notifications', open: click('notification-bell') },
+    state: { name: 'notifications', open: click('notifications-bell') },
   },
   {
     key: 'incident',
