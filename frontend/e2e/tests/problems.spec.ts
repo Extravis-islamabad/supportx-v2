@@ -12,6 +12,9 @@ import { expectAccessible, resetLanguage, signInAs } from './helpers';
  * 2. A problem from the major problem template walks the guided analysis: the steps show, and
  *    the next moves run from the status bar.
  * 3. The problem pages in Arabic: right to left, accessible.
+ * 4. WP-044b: the analysis tab. A technician writes the symptoms and the root cause in place;
+ *    an admin with the record open sees them live. Linking an incident moves the impact and
+ *    puts it on the evidence timeline, live.
  *
  * Suite-owned data only: incidents, problems and the group are named "E2E …" and go with the
  * suite's teardown (tooling/e2e_fixtures.py).
@@ -156,6 +159,58 @@ test('the major problem template walks the guided analysis', async ({ browser })
     'why_analysis',
     LIVE,
   );
+  await tech.context.close();
+  await admin.context.close();
+});
+
+test('analysis written in place shows live; a linked incident moves impact and evidence', async ({
+  browser,
+}) => {
+  const stamp = String(Date.now());
+  const admin = await open(browser, 'admin', '/');
+  const tech = await open(browser, 'tech', '/');
+  const techId = await userId(tech.page);
+  const groupId = await groupWith(admin.page, `E2E Analysis ${stamp}`, techId);
+  const problem = await made(
+    await call(tech.page, 'POST', '/problems', {
+      body: { subject: `E2E Relay drops ${stamp}`, requester_id: techId, group_id: groupId },
+    }),
+  );
+  await admin.page.goto(`/problems/${problem.id}`);
+  await admin.page.getByTestId('prb-tab-analysis').click();
+  await expect(admin.page.getByTestId('prb-impact-incidents')).toContainText('0', LIVE);
+
+  await tech.page.goto(`/problems/${problem.id}`);
+  await tech.page.getByTestId('prb-tab-analysis').click();
+  for (const [name, words] of [
+    ['symptoms', 'Mail stalls every morning'],
+    ['root-cause', 'The relay certificate expired'],
+  ] as const) {
+    await tech.page.getByTestId(`prb-${name}-edit`).click();
+    await tech.page.getByTestId(`prb-${name}-editor`).click();
+    await tech.page.keyboard.type(words);
+    await tech.page.getByTestId(`prb-${name}-save`).click();
+    await expect(tech.page.getByTestId(`prb-${name}-view`)).toContainText(words, LIVE);
+    // The admin's open page follows, with no reload.
+    await expect(admin.page.getByTestId(`prb-${name}-view`)).toContainText(words, LIVE);
+  }
+  await expect(tech.page.getByTestId('prb-symptoms-changed')).toBeVisible();
+  await expectAccessible(tech.page, 'problem analysis');
+
+  // A linked incident: the figures and the timeline move on the open page.
+  const incident = await made(
+    await call(admin.page, 'POST', '/incidents', {
+      body: { subject: `E2E Mail slow ${stamp}`, requester_id: techId, group_id: groupId },
+    }),
+  );
+  const linked = await call(admin.page, 'POST', `/problems/${problem.id}/incidents`, {
+    body: { incident_id: incident.id },
+  });
+  expect(linked.status(), await linked.text()).toBe(200);
+  await expect(admin.page.getByTestId('prb-impact-incidents')).toContainText('1', LIVE);
+  await admin.page.getByTestId('prb-tab-evidence').click();
+  await expect(admin.page.getByTestId(`prb-evidence-${incident.display_id}`)).toBeVisible(LIVE);
+  await expect(admin.page.getByTestId('prb-evidence-pending')).toBeVisible();
   await tech.context.close();
   await admin.context.close();
 });
