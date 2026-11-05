@@ -888,10 +888,17 @@ it with no reload (rule c). Not built yet.
     - copying the analysis with a problem (REQ-PRB-015) comes with S3's known errors.
 - [ ] S2 links and merge (in progress, 0104):
   - done:
-    - merge with undo;
-    - unlinking incidents, one at a time or in bulk;
+    - merge with undo: `merged` status, incidents move, undo leaves since-moved ones and names
+      them;
+    - unlinking incidents, one at a time or in bulk (`unlink_problem`);
+    - related problems through the generic link;
     - the `merged_into` / `merged_from` relations;
-  - to do: related problems and the console screens.
+    - console: unlink buttons, related problems, a Merge into dialog, a merged banner with undo.
+  - Not yet (recorded):
+    - `fixed_by` (to changes) and `released_in` (to releases) stay hidden until those types
+      register (WP-045, lane C's releases);
+    - an announcement from a problem waits for lane C's announcements to accept a source record
+      (asked, rule 8).
   - **Gap on record (D-140 Applied):** the generic link delete could remove an incident's cause
     with problem edit alone (since WP-044a). The fix (409 `link_has_own_route`) ships as its own
     small PR from main after #211 lands; it is not held for this WP.

@@ -350,3 +350,32 @@ async def test_unlinking_incidents_one_or_in_bulk(world: World) -> None:
         json={"action": "unlink_problem", "record_ids": [prb["id"]]},
     )
     assert problem(on_problem)[0] == 422  # only incidents have a cause
+
+
+async def test_related_problems_show_on_both_and_go_through_the_generic_link(world: World) -> None:
+    """REQ-PRB-045 (WP-044b s2): related problems, on both records, removable from either."""
+    a = world.a
+    one = (await new_problem(world, a, a.tech_a, group_id=str(a.ga))).json()
+    two = (await new_problem(world, a, a.tech_a, group_id=str(a.ga))).json()
+    made = await world.call(
+        "POST",
+        f"{PRB}/{one['id']}/links",
+        a,
+        a.tech_a,
+        json={"other_id": two["id"]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert made.status_code == 201, made.text
+    theirs = (await world.call("GET", f"{PRB}/{two['id']}/links", a, a.tech_a)).json()
+    related = [link for link in theirs if link["relation"] == "related"]
+    assert [(link["other_id"], link["other_type"]) for link in related] == [(one["id"], "problem")]
+    gone = await world.call(
+        "DELETE",
+        f"{PRB}/{two['id']}/links/{related[0]['id']}",
+        a,
+        a.tech_a,
+        headers={"If-Match": f'"{related[0]["version"]}"', **CONSOLE},
+    )
+    assert gone.status_code == 204, gone.text
+    mine = (await world.call("GET", f"{PRB}/{one['id']}/links", a, a.tech_a)).json()
+    assert [link for link in mine if link["relation"] == "related"] == []
