@@ -5,7 +5,7 @@ Payloads carry IDs, status codes and changed field *names* only, never titles or
 """
 
 import uuid
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from app.shared.events import DomainEvent
 
@@ -90,7 +90,7 @@ class AnnouncementPersonalChanged(DomainEvent):
 
     announcement_id: uuid.UUID
     user_id: uuid.UUID
-    change: str  # "dismissed", "followed", "unfollowed"
+    change: Literal["dismissed", "followed", "unfollowed"]
 
 
 EVENTS: tuple[type[DomainEvent], ...] = (

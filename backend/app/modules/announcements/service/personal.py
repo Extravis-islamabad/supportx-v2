@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
@@ -47,8 +48,11 @@ async def _live(session: AsyncSession, subject: Subject, announcement_id: uuid.U
         raise NotFound(code="announcement_not_found")
 
 
+Change = Literal["dismissed", "followed", "unfollowed"]
+
+
 async def _changed(
-    session: AsyncSession, subject: Subject, announcement_id: uuid.UUID, change: str
+    session: AsyncSession, subject: Subject, announcement_id: uuid.UUID, change: Change
 ) -> None:
     await record_event(
         session,

@@ -735,6 +735,11 @@
             "type": "string"
           },
           "change": {
+            "enum": [
+              "dismissed",
+              "followed",
+              "unfollowed"
+            ],
             "title": "Change",
             "type": "string"
           },

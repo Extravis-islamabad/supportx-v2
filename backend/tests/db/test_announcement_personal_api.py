@@ -8,7 +8,9 @@ import json
 import uuid
 
 import asyncpg
+import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
@@ -72,6 +74,16 @@ async def test_dismissals_and_follows_stay_in_their_tenant(world: World) -> None
             assert rows == [], table
             gone = await session.execute(text(f"DELETE FROM {table}"))  # noqa: S608 - fixed names
             assert gone.rowcount == 0, table
+            # Nor write one for tenant A (RLS's WITH CHECK refuses another tenant's row).
+            with pytest.raises(DBAPIError):
+                async with session.begin_nested():
+                    await session.execute(
+                        text(
+                            f"INSERT INTO {table} (tenant_id, announcement_id, user_id)"  # noqa: S608 - fixed names
+                            " VALUES (:t, :a, :u)"
+                        ),
+                        {"t": a.tenant, "a": uuid.UUID(live["id"]), "u": a.requester},
+                    )
     assert (
         problem(await world.call("PUT", f"{BASE}/{live['id']}/dismissal", b, b.requester))[0] == 404
     )
@@ -96,7 +108,8 @@ async def _deliveries(
             await database.dispose()
         found = await conn.fetch(
             "SELECT DISTINCT event_code, user_id FROM notification_deliveries"
-            " WHERE tenant_id = $1 AND record_id = $2 AND channel = 'in_app'",
+            " WHERE tenant_id = $1 AND record_id = $2 AND channel = 'in_app'"
+            " AND state <> 'suppressed'",
             org_tenant,
             uuid.UUID(record_id),
         )
@@ -126,3 +139,30 @@ async def test_followers_hear_of_an_update_and_of_the_end(world: World) -> None:
         ("announcement.ended", a.requester),
         ("announcement.updated", a.requester),
     ]
+
+
+async def test_a_follower_left_out_of_a_narrowed_audience_is_told_nothing(world: World) -> None:
+    """Lane C's review: the audience is checked when the notification is sent, not at follow."""
+    a = world.a
+    live = await world.published(a, title="Building works")
+    await world.call("PUT", f"{BASE}/{live['id']}/follow", a, a.requester)
+    narrowed = await world.call(
+        "PATCH",
+        f"{BASE}/{live['id']}",
+        a,
+        a.admin,
+        json={"audience": "sites", "site_ids": [str(a.s2)], "body": "Only the second site now."},
+        headers={"If-Match": f'"{live["version"]}"'},
+    )
+    assert narrowed.status_code == 200, narrowed.text
+    assert await _deliveries(world, a.tenant, live["id"]) == []
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        held = await conn.fetch(
+            "SELECT reason FROM notification_deliveries WHERE tenant_id = $1 AND record_id = $2",
+            a.tenant,
+            uuid.UUID(live["id"]),
+        )
+    finally:
+        await conn.close()
+    assert {r["reason"] for r in held} == {"no_access"}  # the delivery log says why

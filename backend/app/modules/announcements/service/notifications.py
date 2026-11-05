@@ -15,11 +15,14 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import SESSION_TENANT_KEY
 from app.modules.announcements.domain.announcement import AnnouncementStatus
 from app.modules.announcements.events import AnnouncementStatusChanged, AnnouncementUpdated
 from app.modules.announcements.infra.models import Announcement, AnnouncementFollow
+from app.modules.announcements.service.announcements import addressed_to
 from app.modules.announcements.service.personal import followers_of
 from app.modules.announcements.service.realtime import RECORD_KIND
+from app.modules.identity_access import subject_for
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
     EventDefault,
@@ -112,14 +115,24 @@ class AnnouncementNotifications:
     async def access(
         self, session: AsyncSession, user_id: uuid.UUID, record_id: uuid.UUID
     ) -> RecordAccess:
-        """A follower was in its audience when they followed: they get the public text."""
+        """A follower still in its audience now gets the public text (lane C's review).
+
+        The audience is checked at send time: someone who followed and is no longer addressed
+        (the audience was narrowed, or they moved site or group) is told nothing.
+        """
         follows = await session.scalar(
             select(AnnouncementFollow.user_id).where(
                 AnnouncementFollow.announcement_id == record_id,
                 AnnouncementFollow.user_id == user_id,
             )
         )
-        return RecordAccess.PUBLIC if follows is not None else RecordAccess.NONE
+        if follows is None:
+            return RecordAccess.NONE
+        subject = await subject_for(session, session.info[SESSION_TENANT_KEY].tenant_id, user_id)
+        addressed = await session.scalar(
+            select(Announcement.id).where(Announcement.id == record_id, addressed_to(subject))
+        )
+        return RecordAccess.PUBLIC if addressed is not None else RecordAccess.NONE
 
 
 SOURCE = AnnouncementNotifications()
