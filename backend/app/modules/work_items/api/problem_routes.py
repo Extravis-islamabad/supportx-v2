@@ -510,6 +510,7 @@ def _add_approval_request_route(
 ) -> None:
     """Ask for approval on a problem (WP-044b s4); deciding uses the engine's routes."""
     Edit = Annotated[Subject, Depends(require_permission(wtype.permission("edit")))]  # noqa: N806 - type alias
+    Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
 
     @router.post(
         "/{record_id}/approvals",
@@ -527,6 +528,7 @@ def _add_approval_request_route(
         subject: Edit,
         request: Request,
         response: Response,
+        policy: Policy,
     ) -> BaseModel:
         """The approval status becomes pending; the first decision decides (If-Match)."""
         await problem_approvals.request(
@@ -537,6 +539,7 @@ def _add_approval_request_route(
             purpose=body.purpose,
             expected_version=version,
             source=source_of(request),
+            policy=policy,
         )
         view = await items.get(session, subject, PROBLEM, record_id)
         set_etag(response, view.record.version)

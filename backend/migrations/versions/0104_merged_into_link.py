@@ -62,7 +62,27 @@ def upgrade() -> None:
         _replace(name, table, column, [*now, *(c for c in codes if c not in now)])
 
 
+# Rule 5h (lane B's review): refuse up front, per tenant with app.tenant_id set (RLS), while a
+# merge link or an unlink job exists, instead of failing midway on the narrowed check.
+_REFUSE_IF_ANY_ROW = """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        IF EXISTS (SELECT 1 FROM work_item_links WHERE kind = 'merged_into')
+           OR EXISTS (SELECT 1 FROM work_item_bulk_jobs WHERE action = 'unlink_problem') THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has merged problems or unlink jobs'
+                ' (rule 5h)', t;
+        END IF;
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+"""
+
+
 def downgrade() -> None:
-    """Remove only these codes (fails while a row uses one, so nothing is lost)."""
+    """Remove only these codes, while no tenant has a row using them; otherwise refuses."""
+    op.execute(_REFUSE_IF_ANY_ROW)
     for (name, table, column), codes in WIDENED.items():
         _replace(name, table, column, [c for c in _codes_now(name) if c not in codes])

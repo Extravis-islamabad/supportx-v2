@@ -129,6 +129,9 @@ export const ar: LabelResource = {
   'errors.field.api_key_name_invalid': 'أدخل اسمًا لا يتجاوز 100 حرف.',
   'errors.field.api_key_owner_not_service': 'مفاتيح الآخرين لا تكون إلا لهوية خدمة.',
   'errors.field.api_key_scope_unknown': 'اختر نطاقًا واحدًا على الأقل من النطاقات المعروضة.',
+  'errors.field.approver_is_requester': 'لا يمكنك الموافقة على طلبك؛ سمِّ شخصًا آخر.',
+  'errors.field.approver_not_eligible':
+    'أحد المسمَّين لا يمكنه الموافقة على هذه المشكلة (غير نشط، أو بلا صلاحية).',
   'errors.field.auto_close_needs_notifications':
     'يحتاج الإغلاق التلقائي إلى إشعارات مقدّمي الطلبات: لا توجد بعد قناة تُبلغ مقدّمي الطلبات بالحل.',
   'errors.field.before_publish': 'يجب أن يأتي الإيقاف بعد النشر.',

@@ -12,12 +12,13 @@ E-mailed decision links stay with service requests (D-132) for now.
 
 import uuid
 from collections.abc import Sequence
+from typing import Protocol
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, UserType, person_placement
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
 from app.modules.work_items.domain.service_requests import ApprovalStatus
@@ -30,6 +31,31 @@ from app.shared.history import Source
 MAX_APPROVERS = 10
 
 
+class Subjects(Protocol):
+    """The policy service as this needs it: another person's compiled rights."""
+
+    async def subject(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, session: AsyncSession | None = None
+    ) -> Subject:
+        """The person's compiled subject."""
+        ...
+
+
+async def _eligible(
+    session: AsyncSession,
+    policy: Subjects,
+    subject: Subject,
+    person: uuid.UUID,
+    problem_id: uuid.UUID,
+) -> bool:
+    """An active person (never a service identity) whose problems.approve reaches the problem."""
+    placed = await person_placement(session, person)
+    if not placed.active or placed.user_type == UserType.SERVICE.value:
+        return False
+    other = await policy.subject(subject.tenant_id, person, session)
+    return await items.may(session, other, PROBLEM, "approve", problem_id)
+
+
 async def request(  # noqa: PLR0913 - the problem, the people, the purpose and the source
     session: AsyncSession,
     subject: Subject,
@@ -39,6 +65,7 @@ async def request(  # noqa: PLR0913 - the problem, the people, the purpose and t
     purpose: rules.ApprovalPurpose,
     expected_version: int,
     source: Source,
+    policy: Subjects,
 ) -> WorkItem:
     """Ask these people to approve; the record's approval status becomes pending."""
     record = await items.record_for_action(session, subject, PROBLEM, "edit", problem_id)
@@ -47,6 +74,13 @@ async def request(  # noqa: PLR0913 - the problem, the people, the purpose and t
         raise items.field_errors([("approver_ids", "required")])
     if len(people) > MAX_APPROVERS:
         raise items.field_errors([("approver_ids", "too_many_records")], max=MAX_APPROVERS)
+    # Four eyes (lane B's review): whoever asks never approves their own request, and every
+    # approver can actually decide, so the problem never waits on someone who cannot.
+    if subject.user_id in people:
+        raise items.field_errors([("approver_ids", "approver_is_requester")])
+    for person in people:
+        if not await _eligible(session, policy, subject, person, record.id):
+            raise items.field_errors([("approver_ids", "approver_not_eligible")])
     if StatusCategory(record.status_category) in FINAL_CATEGORIES:
         raise Conflict(code="record_closed", params={"display_id": record.display_id})
     if purpose is rules.ApprovalPurpose.ACCEPT_WITHOUT_FIX and (

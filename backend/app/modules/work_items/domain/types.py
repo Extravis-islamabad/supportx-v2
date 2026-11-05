@@ -296,6 +296,8 @@ FIELD_PROBLEMS = frozenset(
         "cannot_link_itself",
         "cannot_merge_itself",
         "required_for_known_error",
+        "approver_is_requester",
+        "approver_not_eligible",
         "record_not_found",
         # WP-020b: conversation, followers, reply templates
         "not_allowed_for_notes",
