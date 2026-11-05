@@ -1,5 +1,5 @@
 import type { AnnouncementsQuery } from './announcements';
-import type { AssetProductsQuery } from './assets';
+import type { AssetProductsQuery, AssetRecordsQuery } from './assets';
 import type { AuditEntriesQuery } from './audit';
 import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
@@ -67,6 +67,13 @@ export const queryKeys = {
     lifeCycles: ['assets', 'life-cycles'] as const,
     productTypes: ['assets', 'product-types'] as const,
     products: (query: AssetProductsQuery) => ['assets', 'products', query] as const,
+    records: (query: AssetRecordsQuery) => ['assets', 'records', query] as const,
+    record: (id: string) => ['assets', 'record', id] as const,
+    history: (id: string) => ['assets', 'history', id] as const,
+  },
+  vendors: {
+    all: ['vendors'] as const, // procurement.vendors_changed refetches everything here
+    list: (activeOnly: boolean) => ['vendors', 'list', activeOnly] as const,
   },
   announcements: {
     all: ['announcements'] as const,

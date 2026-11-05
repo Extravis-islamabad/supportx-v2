@@ -1,0 +1,193 @@
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import type { AssetProductType, AssetRecord, AssetState, Vendor } from '@supportx/api-client';
+
+import { App } from '../../App';
+import { consoleApi, fakeSession } from '../../test/api';
+
+// WP-049a s2: the asset list, one asset and vendors.
+
+let restore: () => void = () => undefined;
+afterEach(() => {
+  restore();
+});
+
+const type: AssetProductType = {
+  id: '01900000-0000-7000-8000-00000000c001',
+  parent_id: null,
+  api_name: 'laptop',
+  names: { en: 'Laptop', ar: 'حاسوب محمول' },
+  icon: null,
+  category: 'it',
+  kind: 'asset',
+  description: null,
+  life_cycle_id: null,
+  tag_pattern: null,
+  ack_required: false,
+  sort: 0,
+  version: 1,
+};
+const state: AssetState = {
+  id: '01900000-0000-7000-8000-00000000a001',
+  code: 'in_stock',
+  names: { en: 'In stock' },
+  category: 'in_stock',
+  reason_required: false,
+  is_default_for_category: true,
+  system: false,
+  sort: 0,
+  version: 1,
+};
+const asset: AssetRecord = {
+  id: '01900000-0000-7000-8000-00000000d001',
+  name: 'Finance laptop',
+  product_id: '01900000-0000-7000-8000-00000000e001',
+  product_type_id: type.id,
+  state_id: state.id,
+  tag: 'AST-7',
+  serial_number: 'CN0X7Q',
+  discovered_serial: null,
+  barcode: null,
+  vendor_id: null,
+  site_id: null,
+  location: null,
+  purchase_order_id: null,
+  purchase_price: '1000.00',
+  purchase_tax: '170.00',
+  purchase_total: '1170.00',
+  currency: null,
+  acquired_on: null,
+  warranty_expires_on: null,
+  expires_on: null,
+  description: null,
+  custom: {},
+  created_at: '2026-11-05T00:00:00Z',
+  updated_at: '2026-11-05T00:00:00Z',
+  version: 3,
+};
+const vendor: Vendor = {
+  id: '01900000-0000-7000-8000-00000000f001',
+  name: 'Acme Supplies',
+  currency: null,
+  description: null,
+  contact_person: 'Sara',
+  address: null,
+  email: 'sales@acme.test',
+  phone: null,
+  fax: null,
+  website: null,
+  is_active: true,
+  updated_at: '2026-11-05T00:00:00Z',
+  version: 1,
+};
+const page = <T,>(items: T[]) => ({
+  items,
+  next_cursor: null,
+  has_more: false,
+  estimated_total: items.length,
+});
+
+function assetsApi(routes = {}) {
+  return consoleApi({
+    me: fakeSession({ roles: ['tenant_admin'] }),
+    routes: {
+      'GET /api/v1/assets': { body: page([asset]) },
+      'GET /api/v1/assets/product-types': { body: [type] },
+      'GET /api/v1/assets/states': { body: [state] },
+      'GET /api/v1/assets/products': { body: page([]) },
+      'GET /api/v1/procurement/vendors': { body: page([vendor]) },
+      [`GET /api/v1/assets/${asset.id}`]: { body: asset, headers: { ETag: '"3"' } },
+      [`GET /api/v1/assets/${asset.id}/history`]: { body: { items: [], next_cursor: null } },
+      ...routes,
+    },
+  });
+}
+
+describe('console: assets', () => {
+  it('lists assets by tag, name, type and state, and searches by identifier', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    const row = (await screen.findByTestId(`asset-row-${asset.id}`)).closest('tr');
+    expect(row).not.toBeNull();
+    const cells = within(row as HTMLElement);
+    expect(cells.getByText('AST-7')).toBeTruthy();
+    expect(cells.getByText('Finance laptop')).toBeTruthy();
+    expect(cells.getByText('Laptop')).toBeTruthy();
+    expect(cells.getByText('In stock')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('assets-search'), { target: { value: 'CN0X7Q' } });
+    await waitFor(() => {
+      expect(
+        fake
+          .find('GET', '/api/v1/assets')
+          .some((call) => call.url.searchParams.get('search') === 'CN0X7Q'),
+      ).toBe(true);
+    });
+  });
+
+  it('adds an asset with an Idempotency-Key and opens it', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi({
+      'GET /api/v1/assets/products': {
+        body: page([{ id: asset.product_id, product_type_id: type.id, name: 'XPS 13' }]),
+      },
+      'POST /api/v1/assets': { status: 201, body: asset },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-add'));
+    fireEvent.change(await screen.findByTestId('asset-name'), {
+      target: { value: 'Finance laptop' },
+    });
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Product' }));
+    fireEvent.click(await screen.findByTitle('XPS 13'));
+    fireEvent.click(screen.getByTestId('asset-add-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/assets')).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', '/api/v1/assets');
+    expect(sent?.body).toEqual({ name: 'Finance laptop', product_id: asset.product_id });
+    expect(sent?.headers.get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await screen.findByTestId('asset-tabs')).toBeTruthy();
+  });
+
+  it('shows one asset with price, tax and total, and saves an edit with If-Match', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      [`PATCH /api/v1/assets/${asset.id}`]: { body: { ...asset, location: 'Floor 3', version: 4 } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('asset-total')).textContent).toContain('1,170.00');
+    expect(screen.getByTestId('asset-state').textContent).toBe('In stock');
+    fireEvent.click(screen.getByTestId('asset-edit'));
+    fireEvent.change(await screen.findByTestId('asset-location'), {
+      target: { value: 'Floor 3' },
+    });
+    fireEvent.click(screen.getByTestId('asset-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/assets/${asset.id}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/assets/${asset.id}`);
+    expect(sent?.body).toEqual({ location: 'Floor 3' });
+    expect(sent?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('lists vendors and adds one', async () => {
+    window.history.pushState({}, '', '/assets/vendors');
+    const fake = assetsApi({ 'POST /api/v1/procurement/vendors': { status: 201, body: vendor } });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByTestId(`vendor-name-${vendor.id}`)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('vendor-add'));
+    fireEvent.change(await screen.findByTestId('vendor-name'), { target: { value: 'Globex' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/procurement/vendors')).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', '/api/v1/procurement/vendors');
+    expect(sent?.body).toEqual({ name: 'Globex' });
+  });
+});

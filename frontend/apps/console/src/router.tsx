@@ -27,6 +27,29 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
       {
+        // WP-049a s2: the asset list, vendors and one asset.
+        path: 'assets',
+        handle: { section: 'assets' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/assets/AssetsPage')).AssetsPage,
+            }),
+          },
+          {
+            path: 'vendors',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/VendorsPage')).VendorsPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({ Component: (await import('./pages/assets/AssetPage')).AssetPage }),
+          },
+        ],
+      },
+      {
         path: 'requests',
         handle: { section: 'requests' },
         children: [
