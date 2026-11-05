@@ -13,10 +13,13 @@ from pydantic import BaseModel, Field
 
 from app.core.authorization import Scope, require_permission
 from app.core.database import TenantSession
-from app.core.errors import ProblemDetail, ServiceUnavailable
+from app.core.errors import NotFound, ProblemDetail, ServiceUnavailable
 from app.modules.audit import AuditNote, ReadCategory, audit_read, audited
 from app.modules.identity_access.domain.policy import Subject
+from app.modules.identity_access.infra.models import Role, User
+from app.modules.identity_access.service import duties as duty_service
 from app.modules.identity_access.service import roles as role_service
+from app.modules.identity_access.service.directory import user_names
 from app.modules.identity_access.service.policy import PolicyService
 from app.modules.organization import memberships
 from app.shared.api.concurrency import ExpectedVersion, not_modified, set_etag
@@ -443,6 +446,121 @@ async def remove_role(
     """Idempotent. The last tenant admin cannot lose the role (409 last_tenant_admin)."""
     await role_service.remove_role(session, policy, subject, user_id, role_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+class OpenDutyOut(BaseModel):
+    """An open record on which the person holds a duty that needs a permission they'd lose."""
+
+    record_type: str = Field(description="e.g. release; shown through its record-type label.")
+    record_id: uuid.UUID
+    display_id: str = Field(description="e.g. REL-12, shown as is.")
+    duty: str = Field(description="Stable code; shown through the label duty.<code>.")
+    permission: str
+
+
+class AffectedPersonOut(BaseModel):
+    """One person who would lose permissions, with the open duties that need them."""
+
+    user_id: uuid.UUID
+    name: str
+    lost_permissions: list[str]
+    duties: list[OpenDutyOut]
+
+
+class DutyPreviewOut(BaseModel):
+    """People who would lose a permission their open duties need (REQ-REL-024 AC2)."""
+
+    affected: list[AffectedPersonOut]
+    truncated: bool = Field(description="More duties exist than listed.")
+
+
+class RoleChangePreviewIn(BaseModel):
+    """The role change being considered: permissions taken out, groups no longer carrying it."""
+
+    remove_permissions: list[str] = Field(default_factory=list, max_length=500)
+    remove_groups: list[uuid.UUID] = Field(default_factory=list, max_length=500)
+
+
+class UserRolePreviewIn(BaseModel):
+    """The person's own roles being considered for removal."""
+
+    remove_roles: list[uuid.UUID] = Field(min_length=1, max_length=100)
+
+
+async def _preview_out(
+    session: TenantSession, lost: dict[uuid.UUID, frozenset[str]]
+) -> DutyPreviewOut:
+    preview = await duty_service.open_duties(session, lost)
+    names = await user_names(session, [str(user) for user in preview.lost])
+    by_user: dict[uuid.UUID, list[OpenDutyOut]] = {user: [] for user in preview.lost}
+    for duty in preview.duties:
+        by_user[duty.user_id].append(
+            OpenDutyOut(
+                record_type=duty.record_type,
+                record_id=duty.record_id,
+                display_id=duty.display_id,
+                duty=duty.duty,
+                permission=duty.permission,
+            )
+        )
+    return DutyPreviewOut(
+        affected=[
+            AffectedPersonOut(
+                user_id=user,
+                name=names.get(str(user), ""),
+                lost_permissions=sorted(lost),
+                duties=by_user[user],
+            )
+            for user, lost in preview.lost.items()
+        ],
+        truncated=preview.truncated,
+    )
+
+
+@router.post(
+    "/roles/{role_id}/change-preview",
+    summary="Open duties a role change strands",
+    dependencies=[Depends(require_permission("roles.manage"))],
+)
+async def role_change_preview(
+    role_id: uuid.UUID, body: RoleChangePreviewIn, session: TenantSession, policy: Policy
+) -> DutyPreviewOut:
+    """Who would lose a permission their open duties need, before the role change is saved.
+
+    The change: the role loses `remove_permissions` and/or `remove_groups` stop carrying it.
+    Changes nothing.
+    """
+    if await session.get(Role, role_id) is None:
+        raise NotFound(code="role_not_found")
+    lost = await duty_service.lost_by_role_change(
+        session,
+        policy.catalogue,
+        role_id,
+        remove_permissions=frozenset(body.remove_permissions),
+        remove_groups=frozenset(body.remove_groups),
+    )
+    return await _preview_out(session, lost)
+
+
+@router.post(
+    "/users/{user_id}/role-preview",
+    summary="Open duties a role removal strands",
+    dependencies=[Depends(require_permission("users.manage"))],
+)
+async def user_role_preview(
+    user_id: uuid.UUID, body: UserRolePreviewIn, session: TenantSession, policy: Policy
+) -> DutyPreviewOut:
+    """The open duties this person could no longer do, before their roles are removed.
+
+    Only their own `remove_roles` go (a role they also hold through a group stays). Changes
+    nothing.
+    """
+    if await session.get(User, user_id) is None:
+        raise NotFound(code="user_not_found")
+    lost = await duty_service.lost_by_user_roles(
+        session, policy.catalogue, user_id, frozenset(body.remove_roles)
+    )
+    return await _preview_out(session, lost)
 
 
 def _grant_codes(grants: list[role_service.PermissionGrant]) -> list[str]:

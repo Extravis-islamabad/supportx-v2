@@ -6,7 +6,9 @@ Also the authorization policy layer (WP-016, architecture.md §11.2): permission
 assignments and the one policy service the API, search, realtime and AI agents use.
 
 Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `authorize`,
-`authorize_stored`, `scope_filter`, `visible`, `require`, `user_names`, `user_contacts`, and
+`authorize_stored`, `scope_filter`, `visible`, `require`, `user_names`, `user_contacts`,
+`register_duties` with `DutyLookup` and `OpenDuty` (REQ-REL-024 AC2: a module's open duties for
+the role editor's preview), and
 `get_policy` (FastAPI dependency giving the policy service, e.g. who holds a permission, for
 owner pickers). Sessions reach the rest of the app only as the `TenantContext` resolved by
 app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
@@ -78,6 +80,7 @@ from app.modules.identity_access.service.directory_people import (
     release_from_directory,
     sync_directory_person,
 )
+from app.modules.identity_access.service.duties import DutyLookup, OpenDuty, register_duties
 from app.modules.identity_access.service.federation import (
     FederationFailed,
     FederationNotInstalled,
@@ -368,12 +371,14 @@ __all__ = [
     "REPORT_VIEWER",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",
+    "DutyLookup",
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",
     "LeaverOutcome",
     "MailRecipient",
     "NotifiablePerson",
+    "OpenDuty",
     "Placement",
     "PolicyService",
     "RecordFacts",
@@ -403,6 +408,7 @@ __all__ = [
     "person_by_email",
     "person_placement",
     "put_ldap_federation",
+    "register_duties",
     "release_from_directory",
     "remove_ldap_federation",
     "require",
