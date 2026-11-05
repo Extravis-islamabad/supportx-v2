@@ -1086,6 +1086,15 @@ class WorkItemApproval(TenantEntity):
 
     __tablename__ = "work_item_approvals"
     __table_args__ = (
+        CheckConstraint("rule IS NULL OR rule IN ('any', 'all', 'majority')", name="rule_code"),
+        Index(
+            "ix_work_item_approvals_tenant_record_stage",
+            "tenant_id",
+            "work_item_id",
+            "record_stage",
+            "stage",
+            postgresql_where=text("record_stage IS NOT NULL"),
+        ),
         _work_item_fk("fk_wia_work_item"),
         ForeignKeyConstraint(
             ["tenant_id", "approver_id"], ["users.tenant_id", "users.id"], name="fk_wia_approver"
@@ -1116,6 +1125,10 @@ class WorkItemApproval(TenantEntity):
     )
 
     work_item_id: Mapped[uuid.UUID]
+    # A staged record's approvals (0098): the record stage they belong to, and how the level
+    # (`stage`) is decided. NULL for service requests: today's behaviour.
+    record_stage: Mapped[str | None] = mapped_column(String(40))
+    rule: Mapped[str | None] = mapped_column(String(10))
     stage: Mapped[int] = mapped_column(Integer, server_default="1")
     approver_id: Mapped[uuid.UUID | None]
     origin: Mapped[str] = mapped_column(String(20))
