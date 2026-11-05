@@ -574,6 +574,12 @@ class WorkItemOut(BaseModel):
     known_error_at: datetime | None = Field(
         default=None, description="Problems: when it was marked a known error."
     )
+    accepted_at: datetime | None = Field(
+        default=None, description="Problems: a known error accepted without a fix (approved)."
+    )
+    accept_review_at: datetime | None = Field(
+        default=None, description="Problems: when the accepted known error is looked at again."
+    )
     known_error_retired_at: datetime | None = Field(
         default=None, description="Problems: when the known error was retired (a permanent fix)."
     )
@@ -723,6 +729,8 @@ _RECORD_FIELDS = (
     "review_actions",
     "known_error_at",
     "known_error_retired_at",
+    "accepted_at",
+    "accept_review_at",
     "template_id",
     "lifecycle",
     "status_before_pause",
@@ -1818,6 +1826,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        add_approval_routes(router, wtype, with_withdraw=False)  # WP-044b s4
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)

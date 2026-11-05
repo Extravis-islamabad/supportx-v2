@@ -33,6 +33,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
 from app.modules.work_items.domain.approvals import (
+    ApprovalPurpose,
     ApprovalState,
     ApproverOrigin,
     DecisionChannel,
@@ -664,6 +665,9 @@ class WorkItem(TenantEntity):
     review_summary: Mapped[str | None] = mapped_column(Text)
     review_lessons: Mapped[str | None] = mapped_column(Text)
     review_actions: Mapped[str | None] = mapped_column(Text)
+    # A known error accepted without a fix (s4, REQ-PRB-050): when, and when to look again.
+    accepted_at: Mapped[datetime | None]
+    accept_review_at: Mapped[datetime | None]
     known_error_at: Mapped[datetime | None]
     known_error_retired_at: Mapped[datetime | None]
     template_id: Mapped[uuid.UUID | None]
@@ -1141,6 +1145,7 @@ class WorkItemApproval(TenantEntity):
         ),
         CheckConstraint("comment IS NULL OR char_length(comment) <= 4000", name="comment_length"),
         CheckConstraint("stage >= 1", name="stage_positive"),
+        CheckConstraint(_codes("purpose", ApprovalPurpose), name="purpose_code"),
         Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
         Index(
             "ix_wia_tenant_approver_pending",
@@ -1164,6 +1169,8 @@ class WorkItemApproval(TenantEntity):
     self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # The stage's switches, kept from the item at submission (an item edit never moves them).
     comments_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # What it decides (WP-044b s4): the record's approval, or accepting a known error unfixed.
+    purpose: Mapped[str] = mapped_column(String(30), server_default="record")
 
 
 # --- stages (WP-058a, ADR-041) ------------------------------------------------------------------

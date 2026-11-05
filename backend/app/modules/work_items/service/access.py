@@ -298,14 +298,24 @@ VIEW_ROOT_CAUSE = "view_root_cause"
 # WP-044b s3 (REQ-PRB-034, -036): the solution (workaround) and the known error flag.
 EDIT_SOLUTION = "edit_solution"
 MARK_KNOWN_ERROR = "mark_known_error"
-PROBLEM_SPECS: tuple[PermissionSpec, ...] = tuple(
+PROBLEM_SPECS: tuple[PermissionSpec, ...] = (
+    *(
+        PermissionSpec(
+            f"problems.{action}",
+            "problem",
+            ALL_SCOPES,
+            defaults=(("technician", "group"), *_role_defaults(action)),
+        )
+        for action in (EDIT_ANALYSIS, VIEW_ROOT_CAUSE, EDIT_SOLUTION, MARK_KNOWN_ERROR)
+    ),
+    # Deciding a problem's approvals when named (s4): technicians and the service desk
+    # managers, as the problem manager role does in Appendix A.
     PermissionSpec(
-        f"problems.{action}",
+        "problems.approve",
         "problem",
-        ALL_SCOPES,
-        defaults=(("technician", "group"), *_role_defaults(action)),
-    )
-    for action in (EDIT_ANALYSIS, VIEW_ROOT_CAUSE, EDIT_SOLUTION, MARK_KNOWN_ERROR)
+        ("all",),
+        defaults=(("technician", "all"), (SERVICE_DESK_MANAGER, "all")),
+    ),
 )
 
 

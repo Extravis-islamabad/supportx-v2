@@ -114,6 +114,8 @@ export const en = {
   'audit.action.notification.rule_changed': 'Changed a notification rule',
   'audit.action.notification.rule_reset': 'Reset a notification rule to the default',
   'audit.action.organization.settings_changed': 'Changed the instance settings',
+  'audit.action.problem.approval_decided': 'Approved or rejected a problem',
+  'audit.action.problem.approval_requested': 'Asked for approval on a problem',
   'audit.action.problem.bulk_started': 'Started a bulk change of problems',
   'audit.action.problem.category_changed': 'Changed a problem category',
   'audit.action.problem.category_created': 'Added a problem category',

@@ -19,6 +19,7 @@
     GET  /problems/known-errors/suggestions?incident_id=  known errors like an incident (044b)
     POST /problems/{id}/known-error              mark it a known error (If-Match; 044b)
     POST /problems/{id}/known-error/remove       remove the flag, with a reason (If-Match; 044b)
+    POST /problems/{id}/approvals                ask named people to approve (If-Match; 044b)
 
 Many incidents go to "this problem instead" through the incidents' own bulk job
 (`POST /incidents/bulk`, action `link_problem`), the same path as from the create form.
@@ -39,12 +40,18 @@ from app.modules.audit import audited
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.list_routes import BulkJobOut
 from app.modules.work_items.api.people import PersonOut, people_out
+from app.modules.work_items.domain.approvals import ApprovalPurpose
 from app.modules.work_items.domain.classification import Priority
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.lists import MAX_BULK
 from app.modules.work_items.domain.types import PROBLEM, WorkItemType
 from app.modules.work_items.service import bulk as bulk_service
-from app.modules.work_items.service import known_errors, problem_impact, problem_merge
+from app.modules.work_items.service import (
+    known_errors,
+    problem_approvals,
+    problem_impact,
+    problem_merge,
+)
 from app.modules.work_items.service import problems as service
 from app.modules.work_items.service import work_items as items
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -338,6 +345,53 @@ def add_problem_routes(
     _add_merge_routes(router, wtype)
     _add_unlink_route(router, wtype)
     _add_known_error_routes(router, wtype, record_out)
+    _add_approval_request_route(router, wtype, record_out)
+
+
+class ApprovalRequestIn(BaseModel):
+    """Whom to ask, and what for."""
+
+    approver_ids: list[uuid.UUID] = Field(min_length=1, max_length=problem_approvals.MAX_APPROVERS)
+    purpose: ApprovalPurpose = ApprovalPurpose.RECORD
+
+
+def _add_approval_request_route(
+    router: APIRouter, wtype: WorkItemType, record_out: type[BaseModel]
+) -> None:
+    """Ask for approval on a problem (WP-044b s4); deciding uses the engine's routes."""
+    Edit = Annotated[Subject, Depends(require_permission(wtype.permission("edit")))]  # noqa: N806 - type alias
+
+    @router.post(
+        "/{record_id}/approvals",
+        summary="Ask named people to approve",
+        response_model=record_out,
+        dependencies=[
+            audited("problem.approval_requested", object_type="problem", object_param="record_id")
+        ],
+    )
+    async def request_approval(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        body: ApprovalRequestIn,
+        version: ExpectedVersion,
+        session: TenantSession,
+        subject: Edit,
+        request: Request,
+        response: Response,
+    ) -> BaseModel:
+        """The approval status becomes pending; the first decision decides (If-Match)."""
+        await problem_approvals.request(
+            session,
+            subject,
+            record_id,
+            body.approver_ids,
+            purpose=body.purpose,
+            expected_version=version,
+            source=source_of(request),
+        )
+        view = await items.get(session, subject, PROBLEM, record_id)
+        set_etag(response, view.record.version)
+        out: BaseModel = record_out.of(view)  # type: ignore[attr-defined]  # WorkItemOut.of
+        return out
 
 
 class KnownErrorOut(BaseModel):

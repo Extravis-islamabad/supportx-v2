@@ -449,6 +449,9 @@ export const ur: LabelResource = {
     'منتخب کریں کہ کون سے واقعات کسے اور کن ذرائع سے اطلاع دیں۔',
   'permission.problems.add_note': 'مسائل پر نجی نوٹس شامل کریں',
   'permission.problems.add_note.description': 'مسائل پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.problems.approve': 'مسائل منظور کریں',
+  'permission.problems.approve.description':
+    'ان مسئلہ منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں، جیسے معلوم خرابی کو حل کے بغیر قبول کرنا۔',
   'permission.problems.assign': 'مسائل تفویض کریں',
   'permission.problems.assign.description': 'مسائل کا گروپ اور مالک منتخب کریں۔',
   'permission.problems.assign_outside_group': 'مسائل گروپ سے باہر تفویض کریں',

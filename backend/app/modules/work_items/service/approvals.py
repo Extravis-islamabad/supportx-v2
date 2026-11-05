@@ -14,6 +14,7 @@ record's approval status, history and events are written in the same transaction
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import timedelta
 
 from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -230,6 +231,10 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
         session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
     )
     status = ApprovalStatus.APPROVED if approved else ApprovalStatus.REJECTED
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        # A problem's approvals decide, but never move its status (WP-044b s4).
+        await _problem_decided(session, record, status, purpose=row.purpose, source=source)
+        return _shown(subject, wtype, record, row)
     await _finish(session, wtype, record, status, source=source)
     return _shown(subject, wtype, record, row)
 
@@ -297,6 +302,28 @@ async def _finish(
         source=source,
     )
     await fulfilment.start_plan(session, record, item, source=source)  # REQ-SR-021 AC1
+
+
+ACCEPT_REVIEW_DAYS = 90  # REQ-PRB-050, Appendix A: accepted known errors are looked at again
+
+
+async def _problem_decided(
+    session: AsyncSession,
+    record: WorkItem,
+    status: ApprovalStatus,
+    *,
+    purpose: str,
+    source: Source,
+) -> None:
+    """The problem's approval status; an approved acceptance sets its review date."""
+    fresh = await session.get(WorkItem, record.id, populate_existing=True)
+    assert fresh is not None  # noqa: S101 - locked by the decision above
+    columns: dict[str, object] = {"approval_status": status.value}
+    if status is ApprovalStatus.APPROVED and purpose == rules.ApprovalPurpose.ACCEPT_WITHOUT_FIX:
+        now = items.now()
+        review = now + timedelta(days=ACCEPT_REVIEW_DAYS)
+        columns |= {"accepted_at": now, "accept_review_at": review}
+    await items.set_fields(session, fresh, columns, expected_version=fresh.version, source=source)
 
 
 async def withdraw(  # noqa: PLR0913 - the withdrawal and its context, explicit

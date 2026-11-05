@@ -438,6 +438,9 @@ export const ar: LabelResource = {
     'اختيار الأحداث التي تُرسل إشعارات ولمن وعبر أي قنوات.',
   'permission.problems.add_note': 'إضافة ملاحظات خاصة على المشكلات',
   'permission.problems.add_note.description': 'كتابة ملاحظات للموظفين فقط على المشكلات.',
+  'permission.problems.approve': 'الموافقة على المشكلات',
+  'permission.problems.approve.description':
+    'البت في موافقات المشكلات المسمّى لها، مثل قبول خطأ معروف دون إصلاح.',
   'permission.problems.assign': 'إسناد المشكلات',
   'permission.problems.assign.description': 'اختيار مجموعة المشكلات ومالكها.',
   'permission.problems.assign_outside_group': 'إسناد المشكلات خارج المجموعة',

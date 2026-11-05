@@ -116,8 +116,13 @@ class DecisionIn(BaseModel):
     private: bool = Field(default=False, description="Hidden from the requester (REQ-SR-028 AC3).")
 
 
-def add_approval_routes(router: APIRouter, wtype: WorkItemType) -> None:
-    """The approval routes of `wtype` on its router (before the `/{record_id}` routes)."""
+def add_approval_routes(
+    router: APIRouter, wtype: WorkItemType, *, with_withdraw: bool = True
+) -> None:
+    """The approval routes of `wtype` on its router (before the `/{record_id}` routes).
+
+    `with_withdraw` adds the requester's withdrawal of a request; problems have none (WP-044b s4).
+    """
     SignedIn = Annotated[Subject, Depends(require_signed_in())]  # noqa: N806 - type alias
     audit = wtype.code.value
 
@@ -193,25 +198,34 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType) -> None:
         set_etag(response, view.row.version)
         return ApprovalOut.of(view)
 
-    @router.post(
-        "/{record_id}/withdraw",
-        summary="Withdraw a request awaiting approval",
-        dependencies=[audited(f"{audit}.withdrawn", object_type=audit, object_param="record_id")],
-    )
-    async def withdraw(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
-        record_id: uuid.UUID,
-        version: ExpectedVersion,
-        session: TenantSession,
-        subject: SignedIn,
-        request: Request,
-        response: Response,
-    ) -> dict[Literal["id", "status", "version"], str | int]:
-        """The requester (or the person it is for) withdraws it; pending approvals close."""
-        record = await service.withdraw(
-            session, subject, wtype, record_id, expected_version=version, source=source_of(request)
+    if with_withdraw:
+
+        @router.post(
+            "/{record_id}/withdraw",
+            summary="Withdraw a request awaiting approval",
+            dependencies=[
+                audited(f"{audit}.withdrawn", object_type=audit, object_param="record_id")
+            ],
         )
-        set_etag(response, record.version)
-        return {"id": str(record.id), "status": record.status, "version": record.version}
+        async def withdraw(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: SignedIn,
+            request: Request,
+            response: Response,
+        ) -> dict[Literal["id", "status", "version"], str | int]:
+            """The requester (or the person it is for) withdraws it; pending approvals close."""
+            record = await service.withdraw(
+                session,
+                subject,
+                wtype,
+                record_id,
+                expected_version=version,
+                source=source_of(request),
+            )
+            set_etag(response, record.version)
+            return {"id": str(record.id), "status": record.status, "version": record.version}
 
 
 __all__ = ["add_approval_routes"]

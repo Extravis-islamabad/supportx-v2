@@ -28,6 +28,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "AiArea": "ai_area",
     # Problems' evidence panel (WP-044b)
     "EvidenceSource": "problem_evidence_source",
+    "ApprovalPurpose": "approval_purpose",
     "OutcomeIn.outcome": "ai_outcome",
     # SLA set-up (WP-025)
     "ActionKind": "sla_action_kind",

@@ -32,6 +32,7 @@ export const ar: LabelResource = {
   'errors.approval_changed': 'تغيّرت هذه الموافقة في هذه الأثناء. افتحها مجددًا.',
   'errors.approval_closed': 'تم البت في هذه الموافقة أو لم تعد مطلوبة.',
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
+  'errors.approval_pending': '{{display_id}} ينتظر موافقة بالفعل.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
   'errors.audit_archive_missing': 'لم يعد ملف الأرشيف موجودًا في التخزين.',
   'errors.audit_archive_not_found': 'هذا الأرشيف غير موجود.',

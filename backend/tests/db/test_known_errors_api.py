@@ -7,6 +7,7 @@ words to open known errors the technician may see.
 """
 
 import uuid
+from datetime import datetime
 from typing import Any
 
 from tests.db.test_incidents_api import CONSOLE, Org, World, field_codes, problem, role, world
@@ -265,3 +266,58 @@ async def test_the_review_is_a_closure_rule_for_p1_and_the_listed_priorities(
 
     settings = (await world.call("GET", f"{PRB}/settings", a, a.admin)).json()
     assert settings["review_required_priorities"] == ["p1"]
+
+
+async def test_problem_approvals_decide_and_accept_a_known_error_without_a_fix(
+    world: World,
+) -> None:
+    """WP-044b s4 (REQ-PRB-050): ad hoc approvals on a problem; acceptance sets a review date."""
+    a = world.a
+    record = (
+        await new_problem(
+            world, a, a.tech_a, group_id=str(a.ga), workaround="<p>Restart the relay.</p>"
+        )
+    ).json()
+
+    async def ask(rec: dict[str, Any], purpose: str) -> Any:  # noqa: ANN401 - an httpx response
+        return await post(
+            world,
+            a,
+            a.tech_a,
+            rec,
+            "approvals",
+            {"approver_ids": [str(a.tech_b)], "purpose": purpose},
+        )
+
+    not_known = await ask(record, "accept_without_fix")
+    assert problem(not_known) == (409, "not_known_error")
+    record = (await post(world, a, a.tech_a, record, "known-error", {})).json()
+    asked = await ask(record, "accept_without_fix")
+    assert asked.status_code == 200, asked.text
+    record = asked.json()
+    assert record["approval_status"] == "pending"
+    assert problem(await ask(record, "record")) == (409, "approval_pending")
+
+    inbox = (await world.call("GET", f"{PRB}/my-approvals", a, a.tech_b)).json()
+    mine = [p for p in inbox["items"] if p["record_id"] == record["id"]]
+    assert len(mine) == 1, inbox
+    rows = (await world.call("GET", f"{PRB}/{record['id']}/approvals", a, a.tech_b)).json()
+    row = rows["items"][0] if isinstance(rows, dict) else rows[0]
+    decided = await world.call(
+        "POST",
+        f"{PRB}/{record['id']}/approvals/{row['id']}/decision",
+        a,
+        a.tech_b,
+        json={"decision": "approve", "comment": "Too costly to fix now"},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    assert decided.status_code == 200, decided.text
+    after = await fresh(world, a, a.tech_a, record)
+    assert after["approval_status"] == "approved"
+    assert after["status"] == record["status"]  # a decision never moves a problem
+    assert after["accepted_at"] is not None
+    days = (
+        datetime.fromisoformat(after["accept_review_at"])
+        - datetime.fromisoformat(after["accepted_at"])
+    ).days
+    assert days == 90

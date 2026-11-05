@@ -46,6 +46,8 @@ export const ar: LabelResource = {
   'approval_origin.backup': 'موافق احتياطي',
   'approval_origin.manager': 'المدير',
   'approval_origin.named': 'موافق مسمّى',
+  'approval_purpose.accept_without_fix': 'القبول دون إصلاح',
+  'approval_purpose.record': 'موافقة',
   'approval_route_reason.approver_inactive': 'الموافق لم يعد نشطًا، لذا أُحيلت إلى الموافق البديل.',
   'approval_route_reason.no_manager': 'لا يوجد مدير مسجّل، لذا أُحيلت إلى الموافق البديل.',
   'approval_route_reason.self_approval_blocked':

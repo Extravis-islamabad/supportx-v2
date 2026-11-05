@@ -446,6 +446,9 @@ export const en = {
     'Choose which events notify whom, on which channels.',
   'permission.problems.add_note': 'Add private notes on problems',
   'permission.problems.add_note.description': 'Write staff-only notes on problems.',
+  'permission.problems.approve': 'Approve problems',
+  'permission.problems.approve.description':
+    'Decide the problem approvals you are named for, such as accepting a known error without a fix.',
   'permission.problems.assign': 'Assign problems',
   'permission.problems.assign.description': 'Choose the group and owner of problems.',
   'permission.problems.assign_outside_group': 'Assign problems outside the group',

@@ -113,6 +113,8 @@ export const ar: LabelResource = {
   'audit.action.notification.rule_changed': 'غيّر قاعدة إشعار',
   'audit.action.notification.rule_reset': 'أعاد قاعدة إشعار إلى الافتراضي',
   'audit.action.organization.settings_changed': 'غيّر إعدادات المنشأة',
+  'audit.action.problem.approval_decided': 'وافق على مشكلة أو رفضها',
+  'audit.action.problem.approval_requested': 'طلب موافقة على مشكلة',
   'audit.action.problem.bulk_started': 'بدأ تغييرًا جماعيًا للمشكلات',
   'audit.action.problem.category_changed': 'غيّر فئة مشكلات',
   'audit.action.problem.category_created': 'أضاف فئة مشكلات',
