@@ -738,7 +738,9 @@ async def links(
     return found
 
 
-Relation = Literal["related", "follows", "followed_by", "caused_by", "causes"]
+Relation = Literal[
+    "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
+]
 
 
 def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
@@ -750,6 +752,8 @@ def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
             return "follows" if mine_is_source else "followed_by"
         case LinkKind.CAUSED_BY:
             return "caused_by" if mine_is_source else "causes"
+        case LinkKind.MERGED_INTO:
+            return "merged_into" if mine_is_source else "merged_from"
 
 
 def _pair(record_id: uuid.UUID, other_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID]:
