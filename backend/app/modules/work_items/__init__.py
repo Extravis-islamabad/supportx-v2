@@ -61,6 +61,7 @@ from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.sla import register_sla
+from app.modules.work_items.service.stage_approvals import register as register_stage_approvals
 from app.modules.work_items.service.usage import register_record_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 from app.shared.schedules import ScheduleSpec
@@ -106,6 +107,7 @@ register_record_usage()
 _register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()
+register_stage_approvals(tuple(TYPES.values()))  # WP-058a s5: releases' stage approval guard
 register_sla()
 # At import, not only at app startup: the consumers worker imports modules without running
 # their startup hooks, and report exports run there (lane C, WP-035 session 3).

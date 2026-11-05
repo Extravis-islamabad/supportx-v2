@@ -29,6 +29,7 @@ from app.modules.work_items.domain.releases import (
     RELEASE_REASONS,
     RELEASE_ROLES,
     RELEASE_TYPES,
+    STAGE_APPROVALS,
 )
 from app.modules.work_items.domain.stages import SetBy, StageModel
 from app.shared.labels import strip_isolates
@@ -96,6 +97,8 @@ class WorkItemType:
     roles: tuple[str, ...] = ()
     plan_sections: tuple[str, ...] = ()
     outcome_stages: frozenset[str] = frozenset()
+    # Seeded stage approvals (stage -> settings; REQ-REL-031), copied per tenant on first use.
+    stage_approvals: Mapping[str, Mapping[str, object]] = field(default_factory=dict)
 
     @property
     def counter_key(self) -> str:
@@ -173,6 +176,7 @@ RELEASE = WorkItemType(
     roles=RELEASE_ROLES,
     plan_sections=PLAN_SECTIONS,
     outcome_stages=OUTCOME_STAGES,
+    stage_approvals=STAGE_APPROVALS,
     own_lists={
         "release_type": RELEASE_TYPES,
         "release_reason": tuple((code, None) for code in RELEASE_REASONS),

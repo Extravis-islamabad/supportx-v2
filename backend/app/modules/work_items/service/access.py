@@ -262,21 +262,25 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     # Releases (WP-058a): technicians keep only identity's releases.view grant; the type adds no
     # technician defaults, so nothing is widened (lane B review). Admin roles get theirs.
     is_release = wtype.code is WorkItemTypeCode.RELEASE
-    return tuple(
-        PermissionSpec(
-            wtype.permission(action),
-            wtype.feature,
-            # requests.assign keeps the scopes it always had (never "own": lane B, #182)
-            NOT_OWN if is_sr and action == "assign" else scopes,
-            # Service requests keep identity's system-role grants for these keys (WP-030, nothing
-            # widened for technicians or requesters); the WP-042 built-in roles still get theirs.
-            defaults=(
-                *(() if is_release or (is_sr and action in IDENTITY_GRANTED) else defaults),
-                *_role_defaults(action),
-            ),
+    return (
+        tuple(
+            PermissionSpec(
+                wtype.permission(action),
+                wtype.feature,
+                # requests.assign keeps the scopes it always had (never "own": lane B, #182)
+                NOT_OWN if is_sr and action == "assign" else scopes,
+                # Service requests keep identity's system-role grants for these keys (WP-030,
+                # nothing widened); the WP-042 built-in roles still get theirs.
+                defaults=(
+                    *(() if is_release or (is_sr and action in IDENTITY_GRANTED) else defaults),
+                    *_role_defaults(action),
+                ),
+            )
+            for action, scopes, defaults in _ACTIONS
         )
-        for action, scopes, defaults in _ACTIONS
-    ) + (APPROVE_SPECS if is_sr else ())
+        + (APPROVE_SPECS if is_sr else ())
+        + (RELEASE_APPROVE_SPECS if is_release else ())
+    )
 
 
 # The approval engine (WP-030 s2, REQ-SR-063): anyone holding the type's approve permission may
@@ -284,6 +288,11 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
 # Approval administrators (REQ-SR-023) decide approvals that resolved to no active person; only
 # the tenant admin holds that by default (least privilege).
 APPROVE = "approve"
+# Releases (WP-058a s5; lane B's review): a release sign-off is a change-control duty, so only the
+# admin roles hold it by default; an approver without it is routed to approve_any, never stuck.
+RELEASE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
+    PermissionSpec("releases.approve", "release", ("all",), defaults=_role_defaults("approve")),
+)
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec(

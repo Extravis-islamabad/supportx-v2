@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFound
 from app.modules.identity_access import active_user_ids
 from app.modules.organization import existing_unit_ids
+from app.modules.work_items.domain import approvals as approval_rules
 from app.modules.work_items.domain.classification import (
     Impact,
     MatrixError,
@@ -885,6 +886,63 @@ async def update_role_def(  # noqa: PLR0913 - the change and its context, explic
             for k, v in changes.items()
         ],
         changed_fields=["roles"],
+        source=source,
+        user_id=user_id,
+    )
+
+
+async def update_stage_approvals(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    stage: str,
+    *,
+    expected_version: int,
+    approvals: Any,  # noqa: ANN401 - JSON
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> Catalogue:
+    """A stage's approvals (REQ-REL-031), checked so a stage never waits on nobody; None: none."""
+    if wtype.stages is None:
+        raise NotFound(code="stage_not_found")
+    current = await config.load(session, wtype)
+    await _check_version(session, wtype, current, expected_version)
+    row = await session.get(WorkItemStage, (config.tenant_of(session), wtype.code, stage))
+    if row is None:
+        raise NotFound(code="stage_not_found")
+    statuses = {
+        s.code: s.set_by == "system"
+        for s in await session.scalars(
+            select(WorkItemStatus).where(
+                WorkItemStatus.type == wtype.code, WorkItemStatus.stage == stage
+            )
+        )
+    }
+    settings, problems = approval_rules.parse_stage_approvals(
+        approvals, stage_statuses=statuses, roles=wtype.roles
+    )
+    if problems:
+        field, code = problems[0]
+        raise invalid(field=field, field_code=code)
+    if settings is not None:
+        people = [u for level in settings.levels for u in level.user_ids]
+        if set(people) - await active_user_ids(session, people):
+            raise invalid(field="approvals.levels", field_code="user_not_found")
+        groups = [g for level in settings.levels for g in level.group_ids]
+        if set(groups) - await existing_unit_ids(session, "group", groups):
+            raise invalid(field="approvals.levels", field_code="group_not_found")
+    cleaned = approval_rules.stage_approvals_to_json(settings) if settings else None
+    if cleaned == row.approvals:
+        return current
+    before = row.approvals
+    row.approvals = cleaned
+    await session.flush()
+    return await _bump(
+        session,
+        wtype,
+        current=current,
+        expected_version=expected_version,
+        changes=[Change(f"stages.{stage}.approvals", before, cleaned)],
+        changed_fields=[f"stages.{stage}"],
         source=source,
         user_id=user_id,
     )

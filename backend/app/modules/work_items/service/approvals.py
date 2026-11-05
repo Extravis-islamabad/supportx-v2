@@ -37,7 +37,7 @@ from app.modules.work_items.domain.types import (
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
-from app.modules.work_items.service import fulfilment
+from app.modules.work_items.service import fulfilment, stage_approvals
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE, APPROVE_ANY
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
@@ -226,6 +226,9 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     await session.flush()
     await approval_event(session, record, row, "decided")
     await action_links.revoke_for(session, LINK_OBJECT, row.id)  # decided another way
+    if row.record_stage is not None:  # a staged record: the level's rule decides (WP-058a s5)
+        await stage_approvals.after_decision(session, wtype, record, row, source=source)
+        return _shown(subject, wtype, record, row)
     await _close_others(
         session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
     )

@@ -202,7 +202,14 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
         session.add_all(
             [
                 WorkItemStage(
-                    tenant_id=tenant, type=wtype.code, code=st.code, sort_order=i, system=True
+                    tenant_id=tenant,
+                    type=wtype.code,
+                    code=st.code,
+                    sort_order=i,
+                    system=True,
+                    approvals=dict(wtype.stage_approvals[st.code])
+                    if st.code in wtype.stage_approvals
+                    else None,
                 )
                 for i, st in enumerate(staged.stages)
             ]

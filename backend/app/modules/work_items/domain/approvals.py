@@ -12,7 +12,7 @@ longer needed. Multi-stage and "everyone must approve" stages come with `catalog
 """
 
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -47,6 +47,9 @@ class RouteReason(StrEnum):
     NO_MANAGER = "no_manager"
     APPROVER_INACTIVE = "approver_inactive"
     SELF_APPROVAL_BLOCKED = "self_approval_blocked"
+    # WP-058a s5 (staged types; lane B's review): never a stage stuck silently.
+    LACKS_PERMISSION = "lacks_permission"  # the named approver may not approve this type
+    NO_HOLDER = "no_holder"  # a role named as approver has nobody holding it
 
 
 class DecisionChannel(StrEnum):
@@ -235,3 +238,122 @@ def _majority(approved: int, rejected: int, total: int) -> LevelOutcome:
     if total - rejected < needed:  # the rest approving can no longer make a majority
         return LevelOutcome.REJECTED
     return LevelOutcome.PENDING
+
+
+@dataclass(frozen=True)
+class LevelApprovers:
+    """Who approves one level: people, groups (each member) and record roles (the holders)."""
+
+    rule: LevelRule
+    user_ids: tuple[uuid.UUID, ...] = ()
+    group_ids: tuple[uuid.UUID, ...] = ()
+    roles: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class StageApprovals:
+    """A stage's approvals: raised by one status, ending in its approved or rejected status."""
+
+    raised_by: str
+    approved: str
+    rejected: str
+    levels: tuple[LevelApprovers, ...]
+    self_approval: bool = False  # segregation of duties: the requester may not approve (AC4)
+
+
+MAX_LEVELS = 5
+
+
+def parse_stage_approvals(  # noqa: C901, PLR0912 - one check per part of the settings, flat
+    raw: object, *, stage_statuses: Mapping[str, bool], roles: Iterable[str]
+) -> tuple[StageApprovals | None, list[tuple[str, str]]]:
+    """Settings from JSON, plus (field, code) problems.
+
+    Checked against the stage's statuses (code -> system-only) and the type's roles. The outcome
+    statuses must be system-only, so only the approvals set them (ADR-041 §2).
+    """
+    if raw is None:
+        return None, []
+    if not isinstance(raw, Mapping):
+        return None, [("approvals", "invalid_value")]
+    problems: list[tuple[str, str]] = []
+    known_roles = set(roles)
+    raised_by, approved, rejected = (raw.get(k) for k in ("raised_by", "approved", "rejected"))
+    if raised_by not in stage_statuses or stage_statuses.get(str(raised_by)):
+        problems.append(("approvals.raised_by", "invalid_choice"))
+    for name, status in (("approved", approved), ("rejected", rejected)):
+        if status not in stage_statuses or not stage_statuses[str(status)]:
+            problems.append((f"approvals.{name}", "invalid_choice"))
+    raw_levels = raw.get("levels")
+    if not isinstance(raw_levels, list) or not raw_levels:
+        problems.append(("approvals.levels", "required"))
+        raw_levels = []
+    if len(raw_levels) > MAX_LEVELS:
+        problems.append(("approvals.levels", "too_many_items"))
+    levels: list[LevelApprovers] = []
+    for index, level in enumerate(raw_levels):
+        where = f"approvals.levels.{index}"
+        if not isinstance(level, Mapping):
+            problems.append((where, "invalid_value"))
+            continue
+        try:
+            rule = LevelRule(level.get("rule", LevelRule.ANY))
+        except ValueError:
+            problems.append((f"{where}.rule", "invalid_choice"))
+            continue
+        users: list[uuid.UUID] = []
+        groups: list[uuid.UUID] = []
+        named_roles: list[str] = []
+        for approver in level.get("approvers") or []:
+            if not isinstance(approver, Mapping) or len(approver) != 1:
+                problems.append((f"{where}.approvers", "invalid_value"))
+                continue
+            ((key, value),) = approver.items()
+            if key == "role" and str(value) in known_roles:
+                named_roles.append(str(value))
+            elif key in {"user_id", "group_id"} and _is_uuid(value):
+                (users if key == "user_id" else groups).append(uuid.UUID(str(value)))
+            else:
+                problems.append((f"{where}.approvers", "invalid_value"))
+        if not (users or groups or named_roles):
+            problems.append((f"{where}.approvers", "required"))
+        levels.append(LevelApprovers(rule, tuple(users), tuple(groups), tuple(named_roles)))
+    if problems:
+        return None, problems
+    return (
+        StageApprovals(
+            str(raised_by),
+            str(approved),
+            str(rejected),
+            tuple(levels),
+            bool(raw.get("self_approval", False)),
+        ),
+        [],
+    )
+
+
+def _is_uuid(value: object) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except ValueError:
+        return False
+    return True
+
+
+def stage_approvals_to_json(settings: StageApprovals) -> dict[str, object]:
+    """The stored form."""
+    return {
+        "raised_by": settings.raised_by,
+        "approved": settings.approved,
+        "rejected": settings.rejected,
+        "self_approval": settings.self_approval,
+        "levels": [
+            {
+                "rule": level.rule.value,
+                "approvers": [{"user_id": str(u)} for u in level.user_ids]
+                + [{"group_id": str(g)} for g in level.group_ids]
+                + [{"role": r} for r in level.roles],
+            }
+            for level in settings.levels
+        ],
+    }

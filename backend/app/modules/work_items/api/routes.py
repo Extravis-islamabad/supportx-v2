@@ -1822,6 +1822,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
+    elif wtype.code is WorkItemTypeCode.RELEASE:  # WP-058a s5: stage approvals, no withdrawal
+        add_approval_routes(router, wtype, withdraw=False)
     add_parts_collection_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)

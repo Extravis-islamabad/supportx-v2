@@ -1155,6 +1155,9 @@ class WorkItemStage(TenantKeyed, Base):
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("code ~ '^[a-z][a-z0-9_]{1,39}$'", name="code_format"),
         CheckConstraint("access IS NULL OR jsonb_typeof(access) = 'object'", name="access_object"),
+        CheckConstraint(
+            "approvals IS NULL OR jsonb_typeof(approvals) = 'object'", name="approvals_object"
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -1167,6 +1170,10 @@ class WorkItemStage(TenantKeyed, Base):
     # `move_out`, {"group_ids": [...], "permissions": [...], "roles": [...]}; NULL: anyone who
     # may edit the record.
     access: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    # The stage's approvals (0098; REQ-REL-031): {"raised_by": status, "approved": status,
+    # "rejected": status, "self_approval": bool, "levels": [{"rule": "any", "approvers":
+    # [{"user_id"} | {"group_id"} | {"role"}]}]}; NULL: the stage needs none.
+    approvals: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class WorkItemStagePath(TenantKeyed, Base):

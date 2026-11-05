@@ -2598,6 +2598,10 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         extra=closing_step.history,
     )
     await _record_automation(session, updated, automated)
+    # A guard may act after the move (ADR-041 §5): releases open a stage's approvals here.
+    on_moved = getattr(stage_service.guard_of(updated.type), "on_moved", None)
+    if on_moved is not None:
+        await on_moved(session, updated, move)
     return updated
 
 

@@ -22,6 +22,7 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import PolicyService, Subject, get_policy
+from app.modules.work_items.domain.approvals import LevelRule
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.lifecycle import ReasonMode, WorkItemAction
 from app.modules.work_items.domain.templates import (
@@ -138,12 +139,54 @@ class StageAccessIn(BaseModel):
     move_out: StageAccessRuleIO | None = None
 
 
+class StageApproverIO(BaseModel):
+    """One approver of a level: a person, a group (each member) or a record role (its holders)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: uuid.UUID | None = None
+    group_id: uuid.UUID | None = None
+    role: str | None = Field(default=None, max_length=40)
+
+
+class ApprovalLevelIO(BaseModel):
+    """One level: its approvers and how they decide it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule: LevelRule = LevelRule.ANY
+    approvers: list[StageApproverIO] = Field(max_length=50)
+
+
+class StageApprovalsIO(BaseModel):
+    """A stage's approvals (REQ-REL-031): the status that raises them and the outcomes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    raised_by: str = Field(max_length=40)
+    approved: str = Field(max_length=40)
+    rejected: str = Field(max_length=40)
+    self_approval: bool = Field(
+        default=False, description="False: the requester may not approve (segregation)."
+    )
+    levels: list[ApprovalLevelIO] = Field(min_length=1, max_length=5)
+
+
+class StageApprovalsIn(BaseModel):
+    """Set the stage's approvals, or clear them (null)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    approvals: StageApprovalsIO | None
+
+
 class StageSettingsOut(BaseModel):
-    """One stage of a staged type, with its access."""
+    """One stage of a staged type, with its access and approvals."""
 
     code: str
     sort_order: int
     access: StageAccessIn | None
+    approvals: StageApprovalsIO | None = None
 
 
 class EligibilityIO(BaseModel):
@@ -560,6 +603,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
                     code=r.code,
                     sort_order=r.sort_order,
                     access=StageAccessIn.model_validate(r.access) if r.access else None,
+                    approvals=StageApprovalsIO.model_validate(r.approvals) if r.approvals else None,
                 )
                 for r in rows
             ]
@@ -593,6 +637,43 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
                 expected_version=version,
                 access=body.model_dump(mode="json", exclude_none=True),
                 known_permission=lambda key: policy.catalogue.get(key) is not None,
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            return await done(session, cat, response)
+
+    if wtype.stages is not None:
+
+        @router.put(
+            "/settings/stages/{stage}/approvals",
+            summary="Set a stage's approvals",
+            responses=CONFLICT,
+            response_model=response_model,
+        )
+        async def put_stage_approvals(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            stage: str,
+            body: StageApprovalsIn,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Settings,
+        ) -> Any:  # noqa: ANN401 - the catalogue model
+            """Statuses, roles, people and groups are checked; null clears the approvals."""
+            note.details = {"changed_fields": [f"stages.{stage}.approvals"]}
+            raw = body.approvals.model_dump(mode="json") if body.approvals else None
+            if raw is not None:  # one key per approver, as stored
+                for level in raw["levels"]:
+                    level["approvers"] = [
+                        {k: v for k, v in a.items() if v is not None} for a in level["approvers"]
+                    ]
+            cat = await configuration.update_stage_approvals(
+                session,
+                wtype,
+                stage,
+                expected_version=version,
+                approvals=raw,
                 source=source_of(request),
                 user_id=subject.user_id,
             )

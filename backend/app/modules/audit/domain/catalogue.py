@@ -267,6 +267,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("release.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("release.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    ("release.approval_decided", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),

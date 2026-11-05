@@ -71,6 +71,9 @@ class StageGuard(Protocol):
         ...
 
 
+# A guard may also define `async on_moved(session, record, move)`, called after every move of
+# the record in the same transaction (releases open a stage's approvals from it). Optional, so a
+# guard written against the protocol above keeps working.
 _GUARDS: dict[str, StageGuard] = {}
 
 

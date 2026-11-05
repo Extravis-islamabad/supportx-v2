@@ -236,6 +236,22 @@ RELEASE_ROLES = (
     "uat_owner",
     "reviewer",
 )
+# Appendix A's stage approvals (REQ-REL-031): the plan by the release manager, acceptance by the
+# acceptance (UAT) owner, one level each; admins add levels, people, groups and roles.
+STAGE_APPROVALS: Mapping[str, Mapping[str, Any]] = {
+    "planning": {
+        "raised_by": "planning_waiting_approval",
+        "approved": "planning_plan_approved",
+        "rejected": "planning_plan_rejected",
+        "levels": [{"rule": "any", "approvers": [{"role": "release_manager"}]}],
+    },
+    "acceptance_testing": {
+        "raised_by": "acceptance_in_progress",
+        "approved": "acceptance_accepted",
+        "rejected": "acceptance_rejected",
+        "levels": [{"rule": "any", "approvers": [{"role": "uat_owner"}]}],
+    },
+}
 # The planning stage's rich-text sections (REQ-REL-025), each with its own version and history.
 PLAN_SECTIONS = ("impact", "rollout", "backout")
 # Stages that record an outcome, notes, issues and evidence (REQ-REL-028).
