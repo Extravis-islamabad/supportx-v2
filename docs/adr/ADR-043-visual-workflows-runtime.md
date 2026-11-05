@@ -117,10 +117,18 @@ How problems are used:
 
 - These services enforce every check, history and SLA stamp, with source `workflow` and the
   instance in `automation_ref`:
-  - **Moves:** work_items' public move service (`transition`/`move_status` or `_stage_move`, the
-    same functions as API, bulk and triggers, ADR-041 §8). A move is by action code and honours
-    reason mode, required fields and closure rules.
-  - **Field updates:** work_items' public update service.
+  - **Moves:** work_items' public move functions only: `transition`, `move_status`, `system_move`
+    and `system_stage_move`. These are the same functions as API, bulk and triggers (ADR-041 §8).
+    A move is by action code and honours reason mode, required fields and closure rules.
+    Type-internal moves, such as a problem's merge `set_status`, are not offered to workflows.
+  - **Field updates:** work_items' public `update`.
+- **Run-as identity.** Each workflow runs as its own service identity (WP-040), which holds the
+  roles an admin gives it.
+  - Every command is checked against that identity's rights, exactly as for a person. That
+    includes field-level rights, such as a problem's analysis, solution and review fields.
+  - Publishing needs `workflows.manage` and the right to grant those roles.
+  - History shows "by workflow W", with the instance in `automation_ref`.
+  - The rights do not lapse when the person who built the workflow leaves.
 - A refusal is never forced. It takes the node's `error` output if there is one; otherwise the
   instance stops at the node (REQ-WF-024).
 - System-only statuses are refused at design time.
@@ -149,12 +157,16 @@ A's WP-048a triggers adopt it unchanged, and today's `_set` and `_note` move ont
     public update service. Never direct column writes.
   - **Status move:** by action code through the public move service.
   - **Note:** public or private, from a template rendered with label-safe variables.
+  - **What templates and webhooks may read** is an explicit allow-list of fields per type, and the
+    run-as identity's rights apply. Fields the owning type keeps out never appear in a template
+    variable or a webhook payload; for example, a problem's `root_cause` (D-140 Q7).
   - **Task:** title, owner (a person or a group), due offset in business days on the record's
     calendar.
   - **Notification:** only through the one notification engine. The audience is checked at send
     time, and each recipient gets their own language (REQ-WF-015 AC3).
   - **Webhook:** always driven from the outbox, never inside a request. It goes through the shared
-    guarded HTTP client (§8). Its result can be stored in workflow variables (REQ-WF-016).
+    guarded HTTP client (§8). It sends only the allow-listed fields, and its result can be stored
+    in workflow variables (REQ-WF-016).
 - **Retries.** Action nodes retry 3 times with backoff and can have an `error` output. "Continue on
   failure" is a per-node setting (Appendix A, REQ-WF-024).
 - **The loop guard** carries over: the per-record depth and cooldown from triggers.
