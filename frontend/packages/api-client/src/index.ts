@@ -780,6 +780,7 @@ export {
   useProblemEvidence,
   useProblemImpact,
   knownErrorKeys,
+  useApplyKnownError,
   useKnownErrorFlag,
   useKnownErrors,
   useKnownErrorSuggestions,

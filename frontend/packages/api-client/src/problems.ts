@@ -472,3 +472,22 @@ export function useKnownErrorFlag(id: string) {
     },
   });
 }
+
+/** Apply a known error to an incident: caused by that problem (REQ-PRB-038 AC2). */
+export function useApplyKnownError(incidentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (problemId: string) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/incidents', {
+          params: { path: { record_id: problemId } },
+          body: { incident_id: incidentId, move: false },
+        }),
+      ),
+    onSuccess: (_, problemId) => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.links(problemId) });
+      void queryClient.invalidateQueries({ queryKey: knownErrorKeys.all });
+    },
+  });
+}
