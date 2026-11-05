@@ -857,6 +857,38 @@ it with no reload (rule c). Not built yet.
       URL form works now).
 - WP-044a is complete once #211's full-ci is green; it then leaves draft.
 
+### [ ] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
+- **Plan:** ~/Desktop/wp-044-plan.md (D8..D12). The branch starts from #211's head; main is
+  merged in once #211 lands. Migration 0078 (already allotted in the WP-044 numbers).
+- [x] Session 1 (#222, 0078): analysis, evidence and impact (REQ-PRB-030, -032, -033).
+  - Root cause and symptoms on problems (rich text, sanitised; each save is one history entry).
+    Changing them needs `problems.edit_analysis`.
+  - Reading the root cause needs `problems.view_root_cause` (D-140 Q7). Without it:
+    - the record says `root_cause_hidden`;
+    - the history leaves the change out;
+    - the console shows it locked, never empty.
+
+    Technicians hold both rights for their groups' problems, and admins can widen them. Search
+    and notifications never carried the root cause.
+  - Who last changed each field, and when (from the field history).
+  - Confirming the cause (`confirm_root_cause`, standard and guided) needs a root cause written.
+  - `GET /problems/{id}/impact` counts over the caused incidents the reader may see:
+    - open, by priority and site, people, worklog time;
+    - total time open;
+    - an 8-week trend;
+    - `partial` when some incidents are left out.
+  - `GET /problems/{id}/evidence`: the caused incidents by report time. Changes, releases and
+    other problems on the same items are named as not yet available, never faked.
+  - Console: overview, analysis and evidence tabs, live on the record channel; labels in en, ar
+    and ur.
+  - Not yet (recorded):
+    - impact by service and CI, and the evidence from changes, releases and the same items,
+      wait for WP-045, lane C's releases and lane B's CMDB;
+    - cost waits for worklog costs (D-047);
+    - copying the analysis with a problem (REQ-PRB-015) comes with S3's known errors.
+- [ ] S2 links and merge. [ ] S3 known errors. [ ] S4 tasks, approvals, messages, review.
+  [ ] S5 closure and follow-up, e2e.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
