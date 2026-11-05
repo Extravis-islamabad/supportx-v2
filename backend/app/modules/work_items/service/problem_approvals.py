@@ -80,7 +80,10 @@ async def request(  # noqa: PLR0913 - the problem, the people, the purpose and t
         raise items.field_errors([("approver_ids", "approver_is_requester")])
     for person in people:
         if not await _eligible(session, policy, subject, person, record.id):
-            raise items.field_errors([("approver_ids", "approver_not_eligible")])
+            raise items.field_errors(
+                [("approver_ids", "approver_not_eligible")],
+                approver_ids={"user_id": str(person)},  # the form marks whom to remove
+            )
     if StatusCategory(record.status_category) in FINAL_CATEGORIES:
         raise Conflict(code="record_closed", params={"display_id": record.display_id})
     if purpose is rules.ApprovalPurpose.ACCEPT_WITHOUT_FIX and (

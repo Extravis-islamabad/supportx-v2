@@ -301,6 +301,9 @@ async def test_problem_approvals_decide_and_accept_a_known_error_without_a_fix(
             world, a, a.tech_a, record, "approvals", {"approver_ids": people, "purpose": "record"}
         )
         assert field_codes(refused) == {"approver_ids": code}
+        if code == "approver_not_eligible":
+            params = refused.json()["errors"][0]["params"]
+            assert params == {"user_id": str(a.requester)}
     record = (await post(world, a, a.tech_a, record, "known-error", {})).json()
     asked = await ask(record, "accept_without_fix")
     assert asked.status_code == 200, asked.text
