@@ -39,6 +39,7 @@ import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
 import { KnownErrorTag } from './KnownErrors';
 import { CausedIncidents, MergeDialog, MergedBanner, RelatedProblems } from './ProblemLinks';
 import { useKnownErrorAction } from './useKnownErrorAction';
+import { MessageRequestersDialog } from './MessageRequesters';
 import { ProblemApprovals, RequestApprovalDialog } from './ProblemApprovals';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
@@ -206,6 +207,15 @@ function ProblemView({
       setAsking(true);
     },
   };
+  const [messaging, setMessaging] = useState(false);
+  const messageAction: RecordAction = {
+    key: 'message_requesters',
+    label: t('problems.message.title'),
+    allowed: canEdit,
+    onClick: () => {
+      setMessaging(true);
+    },
+  };
   const [merging, setMerging] = useState(false);
   const mergeAction: RecordAction = {
     key: 'merge',
@@ -262,7 +272,14 @@ function ProblemView({
         }
         actions={
           <ActionBar
-            actions={[...status.actions, knownError.action, askAction, copyAction, mergeAction]}
+            actions={[
+              ...status.actions,
+              knownError.action,
+              askAction,
+              messageAction,
+              copyAction,
+              mergeAction,
+            ]}
             max={3}
             testId="prb-actions"
           />
@@ -355,6 +372,13 @@ function ProblemView({
       </RecordPage>
       {status.dialogs}
       {knownError.dialog}
+      <MessageRequestersDialog
+        problemId={item.id}
+        open={messaging}
+        onClose={() => {
+          setMessaging(false);
+        }}
+      />
       <RequestApprovalDialog
         item={item}
         open={asking}

@@ -970,6 +970,13 @@ export const en = {
   'problems.merge.merged_into': 'Merged into',
   'problems.merge.title': 'Merge {{id}}',
   'problems.merge.undo': 'Undo merge',
+  'problems.message.body': 'Message',
+  'problems.message.explain':
+    'Each requester of a linked incident gets this as a reply on their incident. Write it for them: nothing internal is added.',
+  'problems.message.send': 'Send',
+  'problems.message.sent_one': 'Sent on 1 incident; {{skipped}} left out.',
+  'problems.message.sent_other': 'Sent on {{count}} incidents; {{skipped}} left out.',
+  'problems.message.title': 'Message the affected requesters',
   'problems.new': 'New problem',
   'problems.no_description': 'No description.',
   'problems.no_incidents': 'No incidents are linked yet.',

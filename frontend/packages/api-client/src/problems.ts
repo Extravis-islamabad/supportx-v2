@@ -566,3 +566,21 @@ export function useDecideProblemApproval(id: string) {
     },
   });
 }
+
+/** One message to every requester of the linked incidents, through each incident (REQ-PRB-052). */
+export function useMessageIncidentRequesters(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (body: string) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/messages/incident-requesters', {
+          params: { path: { record_id: id } },
+          body: { body },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+    },
+  });
+}

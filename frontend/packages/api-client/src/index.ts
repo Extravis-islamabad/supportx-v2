@@ -786,6 +786,7 @@ export {
   useKnownErrorSuggestions,
   useDecideProblemApproval,
   useMergeProblem,
+  useMessageIncidentRequesters,
   useProblemApprovals,
   useRequestProblemApproval,
   useProblemLinks,

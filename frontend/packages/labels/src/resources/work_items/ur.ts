@@ -976,6 +976,13 @@ export const ur: LabelResource = {
   'problems.merge.merged_into': 'اس میں ضم ہوا',
   'problems.merge.title': '{{id}} ضم کریں',
   'problems.merge.undo': 'ضم کرنا واپس لیں',
+  'problems.message.body': 'پیغام',
+  'problems.message.explain':
+    'منسلک واقعے کا ہر درخواست گزار اسے اپنے واقعے پر جواب کی صورت میں پائے گا۔ انہی کے لیے لکھیں: اس میں کچھ اندرونی شامل نہیں ہوتا۔',
+  'problems.message.send': 'بھیجیں',
+  'problems.message.sent_one': '1 واقعے پر بھیجا گیا؛ {{skipped}} رہ گئے۔',
+  'problems.message.sent_other': '{{count}} واقعات پر بھیجا گیا؛ {{skipped}} رہ گئے۔',
+  'problems.message.title': 'متاثرہ درخواست گزاروں کو پیغام',
   'problems.new': 'نیا مسئلہ',
   'problems.no_description': 'کوئی تفصیل نہیں۔',
   'problems.no_incidents': 'ابھی کوئی واقعہ جڑا نہیں۔',
