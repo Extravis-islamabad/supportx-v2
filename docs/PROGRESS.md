@@ -761,6 +761,58 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
+### [ ] WP-032 — Portal: home, catalog, approvals inbox and preview (lane A, 2026-11-05; 3 sessions; #220)
+- **Plan:** ~/Desktop/wp-032-plan.md (coordinator approved 2026-11-05; 3 sessions). Numbers:
+  0096, 0097, D-143.
+- **Decided (D-143):**
+  - the portal's own settings live in work_items (one row per tenant);
+  - most requested counts the last 90 days;
+  - bulk approve takes at most 20, approve only;
+  - the decided list covers 30 days.
+  - Lane C asked me to build announcement dismissal and follow in their module (reviewed,
+    approved).
+  - Preview as a person (S3) waits for Haider's OK on the conditions the coordinator listed
+    (dedicated permission and MFA, read-only on the server, a banner, a time limit, audited,
+    nothing notified).
+- [x] Session 1 (#220):
+  - The home (REQ-PRT-002): the greeting with the search box, three starting points, a live
+    summary (`GET /portal/summary`: my open requests by status, approvals waiting, open tasks),
+    featured then most requested items (`GET /catalog/items/popular`, through a new
+    request-count port), and the announcements.
+  - One search box (REQ-PRT-003): items, articles, announcements and my requests, each from its
+    own search, in groups. With nothing found, a report with the words as its subject.
+  - Cards say "needs approval" (unless hidden from requesters).
+  - After submitting (REQ-PRT-006): whose approval it waits for, when to expect it (shown due
+    times only), and links.
+- [x] Session 2 (#220, 0096, 0097):
+  - Bulk approve (REQ-PRT-008): ≤ 20, one comment, a confirmation that names each request, each
+    one a decision of its own (audited). There is no bulk reject. The decided list covers 30
+    days, and delegated approvals are marked.
+  - Portal settings (REQ-PRT-031): `work_item_portal_settings` (RLS; search sources and order,
+    profile editing, reminders; audited with old and new values; live). Admin › Portal shows
+    every portal setting in groups, each saved where it lives, with the later ones marked.
+  - Attachments on the catalog item form (REQ-PRT-005).
+  - Announcements (REQ-PRT-009):
+    - dismissed on every device (stored, per person);
+    - follow and unfollow;
+    - followers are told of updates and the end through the one notification engine, with the
+      audience checked at send time.
+  - Not yet (recorded):
+    - the item cards' expected delivery and price wait for item cost and SLA estimates
+      (WP-047);
+    - related articles and the help card on the item page wait for WP-034's portal knowledge
+      (lane C), which also brings the portal's article page (search shows titles until then);
+    - expiry has no event yet, so followers hear of unpublish and archive only (lane C's
+      WP-062b);
+    - the acknowledgement e-mail's "what happens next" text needs lane B's template (REQ-PRT-006
+      AC3);
+    - REQ-PRT-031's preview links come with S3.
+- **Shipping (2026-11-05):** S1-S2 merge through the queue as #220 (stack smoke green, run
+  41944547602; 0096 now follows 0092). The coordinator approved this exception to one PR per
+  WP because S3 is blocked on a decision.
+- [ ] S3 preview as a person (REQ-PRT-032): **open, waiting for Haider's OK** of the conditions.
+  It ships as its own PR once approved; lane B builds the read-only preview session.
+
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
   (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).

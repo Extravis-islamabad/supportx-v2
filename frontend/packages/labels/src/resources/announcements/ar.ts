@@ -51,6 +51,8 @@ export const ar: LabelResource = {
   'announcements.done.reopen': 'أُعيد فتحه كمسودة.',
   'announcements.done.unpublish': 'أُلغي النشر: أصبح مسودة من جديد.',
   'announcements.empty': 'لا توجد إعلانات مطابقة.',
+  'announcements.follow': 'متابعة',
+  'announcements.following': 'تتابعه',
   'announcements.four_eyes': 'يجب أن ينشر شخص آخر',
   'announcements.four_eyes_help': 'لا يمكن لكاتب الإعلان أو مالكه نشره.',
   'announcements.from': 'يظهر من {{time}}',

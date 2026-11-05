@@ -56,6 +56,10 @@ class PortalRequestOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     resolution: str | None = None
+    resolution_due_at: datetime | None = Field(
+        default=None,
+        description="Expected delivery, when the tenant shows it to requesters (WP-028 D5).",
+    )
     version: int
 
 
@@ -99,6 +103,7 @@ def _out(found: service.PortalRecord) -> PortalRequestOut:
         created_at=r.created_at,
         updated_at=r.updated_at,
         resolution=r.resolution,
+        resolution_due_at=r.resolution_due_at if "resolution_due_at" in found.fields else None,
         version=r.version,
     )
 

@@ -126,7 +126,10 @@ describe('announcement banners', () => {
       items: [item('1'), item('2', { show_as_banner: false })],
       next_change_in_seconds: null,
     };
-    api = fakeApi({ 'GET /api/v1/announcements/feed': () => ({ body: feed }) });
+    api = fakeApi({
+      'GET /api/v1/announcements/feed': () => ({ body: feed }),
+      'PUT /api/v1/announcements/1/dismissal': { status: 204 },
+    });
   });
   afterEach(() => {
     api.restore();
@@ -134,7 +137,7 @@ describe('announcement banners', () => {
     vi.useRealTimers();
   });
 
-  it('shows live banners only, with the severity in words, and can be dismissed', async () => {
+  it('shows live banners only, with the severity in words, and dismisses them for the person', async () => {
     renderUi(<AnnouncementBanners />);
     expect(await screen.findByTestId('announcement-banner-1')).toBeDefined();
     expect(screen.queryByTestId('announcement-banner-2')).toBeNull(); // not marked as banner
@@ -143,7 +146,8 @@ describe('announcement banners', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('announcement-banner-1')).toBeNull();
     });
-    expect(localStorage.getItem('supportx.announcements.dismissed')).toContain('1@');
+    // Stored for the person, so it stays dismissed on every device (WP-032 D7).
+    expect(api.find('PUT', '/api/v1/announcements/1/dismissal')).toHaveLength(1);
   });
 
   it('refetches when the server says the feed changes (a scheduled start), with no reload', async () => {

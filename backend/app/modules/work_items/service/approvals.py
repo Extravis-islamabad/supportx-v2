@@ -14,6 +14,7 @@ record's approval status, history and events are written in the same transaction
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -167,6 +168,30 @@ async def mine(
     )
     found = [PendingApproval(a, r) for a, r in rows.all()]
     return [p for p in found if _may_decide(subject, wtype, p.approval)]
+
+
+DECIDED_DAYS = 30  # the portal inbox lists what you decided this long ago (WP-032 D6)
+
+
+async def decided_by_me(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType
+) -> list[PendingApproval]:
+    """The approvals the subject decided in the last 30 days, newest first (REQ-PRT-008)."""
+    since = datetime.now(UTC) - timedelta(days=DECIDED_DAYS)
+    rows = await session.execute(
+        select(WorkItemApproval, WorkItem)
+        .join(WorkItem, WorkItem.id == WorkItemApproval.work_item_id)
+        .where(
+            WorkItemApproval.decided_by == subject.user_id,
+            WorkItemApproval.decided_at >= since,
+            WorkItemApproval.deleted_at.is_(None),
+            WorkItem.type == wtype.code,
+            WorkItem.deleted_at.is_(None),
+        )
+        .order_by(WorkItemApproval.decided_at.desc(), WorkItemApproval.id)
+        .limit(200)
+    )
+    return [PendingApproval(a, r) for a, r in rows.all()]
 
 
 async def decide(  # noqa: PLR0913 - the decision and its context, explicit
@@ -347,6 +372,7 @@ __all__ = [
     "ApprovalView",
     "PendingApproval",
     "decide",
+    "decided_by_me",
     "inactive_approvers_schedule",
     "issue_links",
     "list_for_record",

@@ -62,6 +62,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'config.service_desk',
     also: 'settings.manage',
   },
+  // WP-032 D8 (REQ-PRT-031): every portal setting on one page.
+  {
+    key: 'portal',
+    group: 'service_desk',
+    labelKey: 'nav.admin_portal',
+    permission: 'config.service_desk',
+    also: 'settings.manage',
+  },
   // WP-031: what people can request (catalog_items.manage; admins hold every permission).
   {
     key: 'catalog',

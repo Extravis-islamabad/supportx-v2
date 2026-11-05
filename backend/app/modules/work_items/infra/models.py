@@ -66,6 +66,7 @@ from app.shared.db.models import (
     TenantScoped,
     Timestamps,
     UuidPrimaryKey,
+    Versioned,
     utc_now,
 )
 
@@ -1106,6 +1107,39 @@ class WorkItemApproval(TenantEntity):
     self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # The stage's switches, kept from the item at submission (an item edit never moves them).
     comments_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+# The portal's own search sources, in their default order (WP-032 D2, D-143).
+PORTAL_SEARCH_SOURCES = ("items", "articles", "announcements", "requests")
+
+
+class WorkItemPortalSettings(Timestamps, Actors, Versioned, Base):
+    """The tenant's portal settings that have no other home (WP-032 D8, D-143; one row, RLS).
+
+    Settings that already live elsewhere stay there (type settings, the catalog's, knowledge's);
+    the portal settings page reads and saves each through its own endpoint.
+    """
+
+    __tablename__ = "work_item_portal_settings"
+    __table_args__ = (
+        CheckConstraint(
+            "search_sources <@ ARRAY['items', 'articles', 'announcements', 'requests']::varchar[]",
+            name="search_sources_known",
+        ),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="RESTRICT"), primary_key=True
+    )
+    # Which sources the one search box looks through, in this order (REQ-PRT-003 AC1).
+    search_sources: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)),
+        server_default="{items,articles,announcements,requests}",
+    )
+    # Requesters may edit their own profile in the portal (REQ-PRT-031 "profile editing").
+    profile_editing: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # Requesters get reminders about what waits for them (REQ-PRT-031 "requester reminders").
+    requester_reminders: Mapped[bool] = mapped_column(Boolean, server_default="true")
 
 
 # --- stages (WP-058a, ADR-041) ------------------------------------------------------------------

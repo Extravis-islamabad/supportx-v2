@@ -289,6 +289,11 @@ def _audience_includes(subject: Subject) -> ColumnElement[bool]:
     return or_(*parts)
 
 
+def addressed_to(subject: Subject) -> ColumnElement[bool]:
+    """Addressed to the subject now (its audience), whatever its status or window."""
+    return _audience_includes(subject)
+
+
 def live_for(subject: Subject, now: datetime) -> ColumnElement[bool]:
     """Published, inside its window, addressed to the subject: what their screens show."""
     return and_(
