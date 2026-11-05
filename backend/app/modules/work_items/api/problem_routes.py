@@ -10,6 +10,7 @@
     GET  /problems/{id}/investigators            who investigates it (ADR-040)
     PUT  /problems/{id}/investigators/{user_id}  name one (whoever may edit it); audited
     DELETE /problems/{id}/investigators/{user_id}  remove one, or step down yourself; audited
+    GET  /problems/{id}/impact                   counts over the caused incidents you see (044b)
 
 Many incidents go to "this problem instead" through the incidents' own bulk job
 (`POST /incidents/bulk`, action `link_problem`), the same path as from the create form.
@@ -31,6 +32,7 @@ from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.lists import MAX_BULK
 from app.modules.work_items.domain.types import PROBLEM, WorkItemType
 from app.modules.work_items.service import bulk as bulk_service
+from app.modules.work_items.service import problem_impact
 from app.modules.work_items.service import problems as service
 from app.modules.work_items.service import work_items as items
 from app.shared.api.idempotency import Created, Idempotency
@@ -305,6 +307,61 @@ def add_problem_routes(
         return await idempotency.run({"copy_of": str(record_id)}, run, status_code=201)
 
     _add_investigator_routes(router, wtype)
+    _add_analysis_routes(router, wtype)
+
+
+class SiteCountOut(BaseModel):
+    """Caused incidents at one site (null: no site)."""
+
+    site_id: uuid.UUID | None
+    count: int
+
+
+class PriorityCountOut(BaseModel):
+    """Caused incidents of one priority."""
+
+    priority: str = Field(description="A `priority` code.")
+    count: int
+
+
+class ProblemImpactOut(BaseModel):
+    """The problem's impact from the incidents it causes (REQ-PRB-031)."""
+
+    incidents: int
+    open_incidents: int
+    by_priority: list[PriorityCountOut]
+    by_site: list[SiteCountOut]
+    people: int = Field(description="Distinct people the incidents were raised by or for.")
+    minutes: int = Field(description="Time logged on those incidents.")
+    partial: bool = Field(
+        description="Some caused incidents are not visible to you and are not counted."
+    )
+
+
+def _add_analysis_routes(router: APIRouter, wtype: WorkItemType) -> None:
+    """The analysis section's read-outs (WP-044b)."""
+    View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
+
+    @router.get("/{record_id}/impact", summary="The problem's impact")
+    async def impact(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> ProblemImpactOut:
+        """Counts over the incidents it causes that you may see; `partial` when some are not."""
+        found = await problem_impact.impact(session, subject, record_id)
+        return ProblemImpactOut(
+            incidents=found.incidents,
+            open_incidents=found.open_incidents,
+            by_priority=[
+                PriorityCountOut(priority=k, count=v) for k, v in sorted(found.by_priority.items())
+            ],
+            by_site=[
+                SiteCountOut(site_id=k, count=v)
+                for k, v in sorted(found.by_site.items(), key=lambda kv: -kv[1])
+            ],
+            people=found.people,
+            minutes=found.minutes,
+            partial=found.partial,
+        )
 
 
 def _add_investigator_routes(router: APIRouter, wtype: WorkItemType) -> None:

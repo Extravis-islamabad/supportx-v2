@@ -454,6 +454,8 @@ export const ar: LabelResource = {
   'permission.problems.delete.description': 'نقل المشكلات إلى سلة المحذوفات واستعادتها.',
   'permission.problems.edit': 'العمل على المشكلات',
   'permission.problems.edit.description': 'تغيير تفاصيل المشكلات وتحليلها ومهامها.',
+  'permission.problems.edit_analysis': 'تعديل تحليل المشكلة',
+  'permission.problems.edit_analysis.description': 'تغيير السبب الجذري والأعراض في المشكلات.',
   'permission.problems.edit_due_dates': 'تعيين المواعيد المستهدفة للمشكلات يدويًا',
   'permission.problems.edit_due_dates.description':
     'تغيير الموعد المستهدف للمشكلة بدلًا من سياستها.',
@@ -469,6 +471,9 @@ export const ar: LabelResource = {
   'permission.problems.take.description': 'تولي مشكلة ليس لها مالك بعد.',
   'permission.problems.view': 'عرض المشكلات',
   'permission.problems.view.description': 'رؤية سجلات المشكلات.',
+  'permission.problems.view_root_cause': 'رؤية الأسباب الجذرية',
+  'permission.problems.view_root_cause.description':
+    'قراءة السبب الجذري للمشكلات، وقد يصف ثغرة أمنية.',
   'permission.profile.edit': 'تعديل الملف الشخصي',
   'permission.profile.edit.description': 'تغيير توقيع الردود والمنطقة الزمنية الخاصة بك.',
   'permission.releases.add_note': 'إضافة ملاحظات خاصة على الإصدارات',

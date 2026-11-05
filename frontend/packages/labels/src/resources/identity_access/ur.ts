@@ -466,6 +466,8 @@ export const ur: LabelResource = {
   'permission.problems.delete.description': 'مسائل کوڑے دان میں ڈالیں اور واپس لائیں۔',
   'permission.problems.edit': 'مسائل پر کام کریں',
   'permission.problems.edit.description': 'مسائل کی تفصیلات، ان کا تجزیہ اور ان کے کام بدلیں۔',
+  'permission.problems.edit_analysis': 'مسئلے کا تجزیہ تبدیل کریں',
+  'permission.problems.edit_analysis.description': 'مسائل کی بنیادی وجہ اور علامات تبدیل کریں۔',
   'permission.problems.edit_due_dates': 'مسائل کی ہدف تاریخ ہاتھ سے مقرر کریں',
   'permission.problems.edit_due_dates.description': 'مسئلے کی ہدف تاریخ پالیسی کے بجائے خود بدلیں۔',
   'permission.problems.manage_followers': 'مسائل کے فالوورز کا انتظام',
@@ -482,6 +484,9 @@ export const ur: LabelResource = {
   'permission.problems.take.description': 'ایسا مسئلہ خود لیں جس کا ابھی کوئی مالک نہیں۔',
   'permission.problems.view': 'مسائل دیکھیں',
   'permission.problems.view.description': 'مسئلے کے ریکارڈ دیکھیں۔',
+  'permission.problems.view_root_cause': 'بنیادی وجوہات دیکھیں',
+  'permission.problems.view_root_cause.description':
+    'مسائل کی بنیادی وجہ پڑھیں، جو کسی حفاظتی کمزوری کو بیان کر سکتی ہے۔',
   'permission.profile.edit': 'اپنی پروفائل میں ترمیم کریں',
   'permission.profile.edit.description': 'اپنا جوابی دستخط اور ٹائم زون تبدیل کریں۔',
   'permission.releases.add_note': 'ریلیزز پر نجی نوٹس شامل کریں',

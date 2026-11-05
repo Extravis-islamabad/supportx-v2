@@ -464,6 +464,9 @@ export const en = {
   'permission.problems.edit': 'Work on problems',
   'permission.problems.edit.description':
     'Change the details of problems, their analysis and their tasks.',
+  'permission.problems.edit_analysis': 'Edit problem analysis',
+  'permission.problems.edit_analysis.description':
+    'Change the root cause and symptoms of problems.',
   'permission.problems.edit_due_dates': 'Set problem target dates by hand',
   'permission.problems.edit_due_dates.description':
     "Change a problem's target date instead of its policy.",
@@ -482,6 +485,9 @@ export const en = {
   'permission.problems.take.description': 'Take a problem nobody owns yet.',
   'permission.problems.view': 'View problems',
   'permission.problems.view.description': 'See problem records.',
+  'permission.problems.view_root_cause': 'See root causes',
+  'permission.problems.view_root_cause.description':
+    'Read the root cause of problems, which may describe a security weakness.',
   'permission.profile.edit': 'Edit own profile',
   'permission.profile.edit.description': 'Change your own reply signature and time zone.',
   'permission.releases.add_note': 'Add private notes on releases',
