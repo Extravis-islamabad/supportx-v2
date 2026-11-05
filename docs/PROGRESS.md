@@ -1004,10 +1004,25 @@ it with no reload (rule c). Not built yet.
     tax are stored apart, the total is worked out, and costs include tax by default.
   - The admin page `/admin/assets` (new "Assets" setup group) with tabs for types, products,
     states, life cycles and settings. Live through the broadcast; If-Match and Idempotency-Key.
-- [ ] Session 2: the asset record (tag pattern, serial, `custom` JSONB as CustomFieldEntity
-  `asset`, list, search, history, live), the IT usage counter (D-141), and the minimal
-  `procurement` module with vendors only (moved here from session 1: the record is the first
-  thing that needs a vendor).
+- [x] **Session 2, the asset record and vendors:**
+  - Minimal `procurement` module (migration 0081): vendors with their own list and API, active
+    flag (an inactive vendor stays on old records only), and deletion refused while records name
+    a vendor.
+  - Migration 0082, assets:
+    - tag and serial unique per tenant ignoring case, trash included;
+    - tags from the nearest type pattern, else the tenant's, never reused;
+    - search over the name, every identifier and the custom text;
+    - history, outbox, audit, a live list and record channels, trash and restore.
+  - Migration 0083: `asset` custom fields (live-check pattern).
+  - D-141 counter: only IT assets of kind asset that aren't disposed take a slot (reserve on
+    create, restore, product change).
+  - Console: /assets list, /assets/:id (Details, History) and /assets/vendors.
+  - Downgrades of 0080-0083 refuse while tenants have data (rule 5h).
+  - **Still open, for session 3:**
+    - the product picker loads the first 50 products (needs a searching picker);
+    - the asset form doesn't show custom fields yet (the API takes them);
+    - asset age is computed in the domain but not shown;
+    - region and the hardware tab come with discovery (WP-050).
 - [ ] Session 3: life cycle in use (reasons, retire and dispose, bulk, copy, trash).
 - [ ] Session 4: ownership, acknowledgement, components, groups, relationships.
 - [ ] Session 5: loans, warranty, notifications, e2e.
