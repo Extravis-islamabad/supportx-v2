@@ -901,6 +901,34 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
+### [~] WP-049a — Assets: foundations, products, the asset record, life cycle, ownership, components, loans (lane B; D-141; 5 sessions; session 1 built 2026-11-05, draft #216)
+
+- **Scope:** parity 07 §1-7, REQ-AST-001..031, plus 058 (permissions by action), 059
+  (notifications) and 062 (warranty), folded in by the approved plan. Licence feature `assets`.
+  Migrations 0080-0088 are lane B's.
+- [x] **Session 1, module and catalogue:**
+  - The `assets` module: ModuleSpec, import-linter contract, outbox events, tenant broadcast
+    `assets.catalogue_changed` (no IDs).
+  - `assets.view` and `assets.manage` moved from the reserved list into the module; added
+    `assets.reinstate` and `config.assets`.
+  - Migration 0080: life cycles, states, moves, product types, products, settings. RLS FORCE and
+    an RLS test on all six tables.
+  - Appendix A seeded per tenant on first use: 35 product types, 7 states, 21 moves, the
+    standard life cycle. Names are en/ar/ur data (D-041); every row has a stable lowercase code
+    that is never shown.
+  - D-141: IT or non-IT and the kind are set on top-level types and inherited below. Price and
+    tax are stored apart, the total is worked out, and costs include tax by default.
+  - The admin page `/admin/assets` (new "Assets" setup group) with tabs for types, products,
+    states, life cycles and settings. Live through the broadcast; If-Match and Idempotency-Key.
+- [ ] Session 2: the asset record (tag pattern, serial, `custom` JSONB as CustomFieldEntity
+  `asset`, list, search, history, live), the IT usage counter (D-141), and the minimal
+  `procurement` module with vendors only (moved here from session 1: the record is the first
+  thing that needs a vendor).
+- [ ] Session 3: life cycle in use (reasons, retire and dispose, bulk, copy, trash).
+- [ ] Session 4: ownership, acknowledgement, components, groups, relationships.
+- [ ] Session 5: loans, warranty, notifications, e2e.
+- **Later in lane B:** the REL-024 AC2 duty-preview hook (`register_duties`), after session 1.
+
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
 - [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
