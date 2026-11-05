@@ -42,6 +42,7 @@ from app.modules.work_items.service import (
     parts,
     portal,
     record_facts,
+    release_duties,
     report_names,
     request_notifications,
     resolution,
@@ -109,6 +110,8 @@ _register_ai()  # at import too: the consumers worker runs the re-embed sweep wi
 register_types()
 register_triggers()
 register_stage_approvals(tuple(TYPES.values()))  # WP-058a s5: releases' stage approval guard
+# Release roles as open duties in the role editor's preview (REQ-REL-024 AC2, lane B's #223).
+release_duties.register()
 register_sla()
 # At import, not only at app startup: the consumers worker imports modules without running
 # their startup hooks, and report exports run there (lane C, WP-035 session 3).
