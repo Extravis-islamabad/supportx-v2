@@ -336,6 +336,13 @@ class PriorityCountOut(BaseModel):
     count: int
 
 
+class WeekCountOut(BaseModel):
+    """Caused incidents reported in one week."""
+
+    week_start: datetime
+    count: int
+
+
 class ProblemImpactOut(BaseModel):
     """The problem's impact from the incidents it causes (REQ-PRB-033)."""
 
@@ -345,6 +352,12 @@ class ProblemImpactOut(BaseModel):
     by_site: list[SiteCountOut]
     people: int = Field(description="Distinct people the incidents were raised by or for.")
     minutes: int = Field(description="Time logged on those incidents.")
+    open_seconds: int = Field(
+        description="Total time they were open: until resolved, or until now for open ones."
+    )
+    weekly: list[WeekCountOut] = Field(
+        description="Incidents reported per week (UTC weeks from Monday), the last 8 weeks."
+    )
     partial: bool = Field(
         description="Some caused incidents are not visible to you and are not counted."
     )
@@ -399,6 +412,8 @@ def _add_analysis_routes(router: APIRouter, wtype: WorkItemType) -> None:
             ],
             people=found.people,
             minutes=found.minutes,
+            open_seconds=found.open_seconds,
+            weekly=[WeekCountOut(week_start=w, count=c) for w, c in found.weekly],
             partial=found.partial,
         )
 

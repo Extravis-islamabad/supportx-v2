@@ -7,7 +7,7 @@ they could not open. `partial` says some caused incidents were left out, so the 
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import Select, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,21 @@ class Impact:
     by_site: dict[uuid.UUID | None, int]
     people: int  # distinct requesters (and those they raised it for)
     minutes: int  # time logged on those incidents
+    open_seconds: int  # total time they were open (until resolved, or until now)
+    weekly: list[tuple[datetime, int]]  # reported per week (UTC, from Monday), every one of the
+    # last TREND_WEEKS weeks, oldest first, zero when none
     partial: bool
+
+
+TREND_WEEKS = 8
+
+
+def _last_weeks(now: datetime) -> list[datetime]:
+    """The Monday 00:00 UTC of the last TREND_WEEKS weeks, oldest first (this week last)."""
+    monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    return [monday - timedelta(weeks=n) for n in range(TREND_WEEKS - 1, -1, -1)]
 
 
 def _caused(problem_id: uuid.UUID) -> Select[uuid.UUID]:
@@ -78,6 +92,29 @@ async def impact(session: AsyncSession, subject: Subject, problem_id: uuid.UUID)
             WorkItemWorklog.deleted_at.is_(None),
         )
     )
+    open_seconds = await session.scalar(
+        select(
+            func.coalesce(
+                func.sum(
+                    func.extract(
+                        "epoch",
+                        func.coalesce(visible.c.resolved_at, func.now()) - visible.c.created_at,
+                    )
+                ),
+                0,
+            )
+        )
+    )
+    week = func.date_trunc("week", func.timezone("UTC", visible.c.created_at))
+    counted = {
+        start.replace(tzinfo=UTC): int(count)
+        for start, count in await session.execute(
+            select(week, func.count())
+            .where(visible.c.created_at >= _last_weeks(datetime.now(UTC))[0])
+            .group_by(week)
+        )
+    }
+    weekly = [(start, counted.get(start, 0)) for start in _last_weeks(datetime.now(UTC))]
     total = sum(priorities.values())
     return Impact(
         incidents=total,
@@ -86,6 +123,8 @@ async def impact(session: AsyncSession, subject: Subject, problem_id: uuid.UUID)
         by_site=sites,
         people=int(people or 0),
         minutes=int(minutes or 0),
+        open_seconds=int(open_seconds or 0),
+        weekly=weekly,
         partial=int(all_caused or 0) > total,
     )
 

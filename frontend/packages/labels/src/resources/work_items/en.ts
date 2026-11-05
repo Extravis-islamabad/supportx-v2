@@ -909,11 +909,15 @@ export const en = {
   'problems.impact.hours': 'Hours logged',
   'problems.impact.incidents': 'Incidents',
   'problems.impact.open': 'Still open',
+  'problems.impact.open_hours': 'Hours open',
   'problems.impact.partial':
     'Counted from the incidents you can see. Some linked incidents are not visible to you.',
   'problems.impact.people': 'People affected',
   'problems.impact.sites': 'Sites',
   'problems.impact.title': 'Impact',
+  'problems.impact.trend': 'Reported per week',
+  'problems.impact.trend_summary':
+    'Incidents reported per week over the last {{weeks}} weeks: {{total}} in all.',
   'problems.incidents': 'Incidents',
   'problems.investigators.add': 'Add an investigator',
   'problems.investigators.none': 'No investigators yet.',

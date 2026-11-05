@@ -916,11 +916,15 @@ export const ur: LabelResource = {
   'problems.impact.hours': 'درج گھنٹے',
   'problems.impact.incidents': 'واقعات',
   'problems.impact.open': 'ابھی کھلے',
+  'problems.impact.open_hours': 'کھلے رہنے کے گھنٹے',
   'problems.impact.partial':
     'ان واقعات سے شمار جو آپ دیکھ سکتے ہیں۔ کچھ منسلک واقعات آپ کو نظر نہیں آتے۔',
   'problems.impact.people': 'متاثرہ افراد',
   'problems.impact.sites': 'مقامات',
   'problems.impact.title': 'اثر',
+  'problems.impact.trend': 'ہر ہفتے رپورٹ ہوئے',
+  'problems.impact.trend_summary':
+    'پچھلے {{weeks}} ہفتوں میں ہر ہفتے رپورٹ ہونے والے واقعات: کل {{total}}۔',
   'problems.incidents': 'واقعات',
   'problems.investigators.add': 'تفتیش کار شامل کریں',
   'problems.investigators.none': 'ابھی کوئی تفتیش کار نہیں۔',

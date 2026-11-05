@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
@@ -9,6 +9,17 @@ import { consoleApi } from '../../test/api';
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
 // similar problems), and the record with the guided steps and investigators. WP-044b s1: the
 // analysis and evidence tabs.
+
+// jsdom has no canvas: the impact trend gets a stand-in chart (its options are tested in charts).
+vi.mock('../../../../../packages/charts/node_modules/echarts/core', async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  init: () => ({
+    on: () => undefined,
+    setOption: () => undefined,
+    resize: () => undefined,
+    dispose: () => undefined,
+  }),
+}));
 
 const PRB_ID = '01a1a2b3-0000-7000-8000-00000000e001';
 const INC_ID = '01a1a2b3-0000-7000-8000-00000000c101';
@@ -180,6 +191,11 @@ describe('console: problems', () => {
           by_site: [{ site_id: null, count: 4 }],
           people: 2,
           minutes: 90,
+          open_seconds: 7200,
+          weekly: [
+            { week_start: '2026-10-26T00:00:00Z', count: 1 },
+            { week_start: '2026-11-02T00:00:00Z', count: 3 },
+          ],
           partial: true,
         },
       },
@@ -194,6 +210,8 @@ describe('console: problems', () => {
       within(impact).getByText('4', { selector: '.ant-statistic-content-value-int' }),
     ).toBeDefined();
     expect(within(impact).getByTestId('prb-impact-partial')).toBeDefined();
+    expect(within(impact).getByTestId('prb-impact-open-hours').textContent).toContain('2');
+    expect(within(impact).getByTestId('prb-impact-trend')).toBeDefined();
     expect(within(impact).getByTestId('prb-impact-hours').textContent).toContain('1.5'); // 90 min
     // The root cause is locked, never shown as empty, and offers no edit.
     const cause = screen.getByTestId('prb-root-cause');

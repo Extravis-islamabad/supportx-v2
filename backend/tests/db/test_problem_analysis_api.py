@@ -141,6 +141,9 @@ async def test_impact_and_evidence_count_only_incidents_you_may_see(world: World
     assert (body["incidents"], body["open_incidents"], body["partial"]) == (3, 3, False)
     assert sum(p["count"] for p in body["by_priority"]) == 3
     assert body["people"] == 2  # requester and requester2
+    assert body["open_seconds"] >= 0
+    assert len(body["weekly"]) == 8  # every week, oldest first, zero when none
+    assert body["weekly"][-1]["count"] == 3  # all reported this week
 
     # Someone who sees GA's incidents only gets GA's figures, marked partial.
     narrow = await role(

@@ -24,6 +24,7 @@ import {
   useUpdateProblem,
   type Problem,
 } from '@supportx/api-client';
+import { Chart, kitOption } from '@supportx/charts';
 import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
@@ -203,9 +204,13 @@ function AnalysisField({
 function ImpactFigures({ id }: { id: string }) {
   const t = useLabel();
   const impact = useProblemImpact(id);
+  const { formatDay } = useDateTime();
   if (impact.data === undefined) return <Skeleton active paragraph={{ rows: 1 }} />;
   const d = impact.data;
   const hours = Math.round((d.minutes / 60) * 10) / 10;
+  const openHours = Math.round((d.open_seconds / 3600) * 10) / 10;
+  const weeks = d.weekly.map((w) => formatDay(w.week_start.slice(0, 10)));
+  const counts = d.weekly.map((w) => w.count);
   return (
     <Card size="small" title={t('problems.impact.title')} data-testid="prb-impact">
       <Flex vertical gap={12}>
@@ -218,6 +223,11 @@ function ImpactFigures({ id }: { id: string }) {
           <Statistic title={t('problems.impact.open')} value={d.open_incidents} />
           <Statistic title={t('problems.impact.people')} value={d.people} />
           <Statistic title={t('problems.impact.sites')} value={d.by_site.length} />
+          <Statistic
+            title={t('problems.impact.open_hours')}
+            value={openHours}
+            data-testid="prb-impact-open-hours"
+          />
           <Statistic
             title={t('problems.impact.hours')}
             value={hours}
@@ -233,6 +243,23 @@ function ImpactFigures({ id }: { id: string }) {
               </Space>
             ))}
           </Flex>
+        )}
+        {d.incidents > 0 && (
+          <div data-testid="prb-impact-trend">
+            <Typography.Text type="secondary">{t('problems.impact.trend')}</Typography.Text>
+            <Chart
+              height={140}
+              ariaLabel={t('problems.impact.trend_summary', {
+                weeks: weeks.length,
+                total: counts.reduce((a, b) => a + b, 0),
+              })}
+              option={kitOption({
+                type: 'bar',
+                categories: weeks,
+                series: [{ name: t('problems.impact.incidents'), values: counts }],
+              })}
+            />
+          </div>
         )}
         {d.partial && (
           <Typography.Text type="secondary" data-testid="prb-impact-partial">

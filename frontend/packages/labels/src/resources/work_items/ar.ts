@@ -1005,11 +1005,15 @@ export const ar: LabelResource = {
   'problems.impact.hours': 'الساعات المسجلة',
   'problems.impact.incidents': 'الحوادث',
   'problems.impact.open': 'لا تزال مفتوحة',
+  'problems.impact.open_hours': 'ساعات الفتح',
   'problems.impact.partial':
     'محسوبة من الحوادث التي يمكنك رؤيتها. بعض الحوادث المرتبطة غير مرئية لك.',
   'problems.impact.people': 'الأشخاص المتأثرون',
   'problems.impact.sites': 'المواقع',
   'problems.impact.title': 'الأثر',
+  'problems.impact.trend': 'المُبلّغ عنها أسبوعيًا',
+  'problems.impact.trend_summary':
+    'الحوادث المُبلّغ عنها أسبوعيًا خلال آخر {{weeks}} أسابيع: {{total}} في المجموع.',
   'problems.incidents': 'الحوادث',
   'problems.investigators.add': 'أضف محققًا',
   'problems.investigators.none': 'لا يوجد محققون بعد.',

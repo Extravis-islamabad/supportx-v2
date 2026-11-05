@@ -24,6 +24,7 @@ from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol
 
 from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
@@ -1253,7 +1254,7 @@ async def _analysis_changes(
             FieldChange.field.in_(shown),
         )
         .order_by(FieldChange.field, FieldChange.occurred_at.desc())
-        .distinct(FieldChange.field)
+        .ext(distinct_on(FieldChange.field))
     )
     return tuple(
         AnalysisChange(
@@ -1261,7 +1262,7 @@ async def _analysis_changes(
             actor_id=actor if actor_type == "user" and actor and _is_uuid(actor) else None,
             at=at,
         )
-        for name, actor_type, actor, at in rows.tuples()
+        for name, actor_type, actor, at in rows
     )
 
 
