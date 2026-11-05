@@ -67,7 +67,41 @@ def upgrade() -> None:
         _table(name)
 
 
+# Rule 5h: never drop people's dismissals or follows. Each tenant is checked with app.tenant_id
+# set, as both tables force RLS.
+_REFUSE_IF_ANY_ROW = (
+    """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        IF EXISTS (SELECT 1 FROM announcement_dismissals) THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has announcement dismissals (rule 5h)', t;
+        END IF;
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+""",
+    """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        IF EXISTS (SELECT 1 FROM announcement_follows) THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has announcement follows (rule 5h)', t;
+        END IF;
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+""",
+)
+
+
 def downgrade() -> None:
-    """Remove both (dismissed banners show again; follows end)."""
+    """Drops both tables only while no tenant has a dismissal or a follow; otherwise refuses."""
+    for check in _REFUSE_IF_ANY_ROW:  # one DO block per statement (asyncpg prepares each)
+        op.execute(check)
     for name in reversed(TABLES):
         op.drop_table(name)

@@ -48,7 +48,7 @@ class BulkApproveIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    items: list[BulkApproveItem] = Field(min_length=1, max_length=100)
+    items: list[BulkApproveItem] = Field(min_length=1, max_length=bulk_approvals.BULK_APPROVE_MAX)
     comment: str | None = Field(default=None, max_length=4000)
 
 

@@ -13,13 +13,13 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import Conflict, PermissionDenied
+from app.core.errors import PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.work_items.events import WorkItemPortalSettingsChanged
 from app.modules.work_items.infra.models import PORTAL_SEARCH_SOURCES, WorkItemPortalSettings
 from app.modules.work_items.service import work_items as items
 from app.shared.events import record_event
-from app.shared.history import Change, Source, record_changes
+from app.shared.history import Change, Source, record_changes, stale_version
 
 MANAGE = ("config.service_desk", "settings.manage")
 RECORD_TYPE = "work_item_portal_settings"
@@ -83,9 +83,13 @@ async def update(
     row = await session.scalar(select(WorkItemPortalSettings).with_for_update())
     assert row is not None  # noqa: S101 - inserted just above (RLS: this tenant's row only)
     if row.version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": row.version},
+        # §5g: the 409 says who changed what since (from this row's field history).
+        raise await stale_version(
+            session,
+            row,
+            expected_version=expected_version,
+            record_type=RECORD_TYPE,
+            record_id=row.tenant_id,
         )
     changed = [k for k in EDITABLE if k in clean and getattr(row, k) != clean[k]]
     if not changed:

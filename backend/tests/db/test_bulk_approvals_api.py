@@ -71,7 +71,10 @@ async def test_not_more_than_twenty_and_nobody_else_s_approvals(world: World) ->
     refused = await world.call(
         "POST", f"{SR}/approvals/decisions", a, a.tech_a, json={"items": too_many}
     )
-    assert field_codes(refused) == {"items": "too_many_records"}
+    # The request schema stops a 21st item (lane B's review: the same limit as the service).
+    assert field_codes(refused) == {"items": "too_long"}
+    errors = {e["field"]: e for e in refused.json()["errors"]}
+    assert errors["body.items"]["params"]["max_length"] == 20
     await manager_of(world, a.requester, a.tech_a)
     record = await waiting(world, a)
     [entry] = await approvals(world, a, a.tech_a, record)

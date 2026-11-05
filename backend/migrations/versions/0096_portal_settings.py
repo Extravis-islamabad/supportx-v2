@@ -61,6 +61,24 @@ def upgrade() -> None:
     grant_app(TABLE, ("SELECT", "INSERT", "UPDATE"))
 
 
+# Rule 5h: never drop tenants' data. Each tenant is checked with app.tenant_id set, as the table
+# forces RLS (a bare SELECT would see nothing and pass).
+_REFUSE_IF_ANY_SETTINGS = """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        IF EXISTS (SELECT 1 FROM work_item_portal_settings) THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has portal settings (rule 5h)', t;
+        END IF;
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+"""
+
+
 def downgrade() -> None:
-    """Remove the table (its settings return to the defaults)."""
+    """Drops the table only while no tenant has saved portal settings; otherwise refuses."""
+    op.execute(_REFUSE_IF_ANY_SETTINGS)
     op.drop_table(TABLE)
