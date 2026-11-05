@@ -12,6 +12,8 @@ import { expectAccessible, resetLanguage, signInAs } from './helpers';
  * 2. A problem from the major problem template walks the guided analysis: the steps show, and
  *    the next moves run from the status bar.
  * 3. The problem pages in Arabic: right to left, accessible.
+ * 5. WP-044b: a known error. Marking it shows on an open incident at once, and the known error
+ *    database finds it by its symptoms.
  * 4. WP-044b: the analysis tab. A technician writes the symptoms and the root cause in place;
  *    an admin with the record open sees them live. Linking an incident moves the impact and
  *    puts it on the evidence timeline, live.
@@ -211,6 +213,54 @@ test('analysis written in place shows live; a linked incident moves impact and e
   await admin.page.getByTestId('prb-tab-evidence').click();
   await expect(admin.page.getByTestId(`prb-evidence-${incident.display_id}`)).toBeVisible(LIVE);
   await expect(admin.page.getByTestId('prb-evidence-pending')).toBeVisible();
+  await tech.context.close();
+  await admin.context.close();
+});
+
+test('a known error shows live on its incident and is found in the database', async ({
+  browser,
+}) => {
+  const stamp = String(Date.now());
+  const admin = await open(browser, 'admin', '/');
+  const tech = await open(browser, 'tech', '/');
+  const techId = await userId(tech.page);
+  const groupId = await groupWith(admin.page, `E2E Known ${stamp}`, techId);
+  const problem = await made(
+    await call(tech.page, 'POST', '/problems', {
+      body: {
+        subject: `E2E Relay drops ${stamp}`,
+        requester_id: techId,
+        group_id: groupId,
+        symptoms: `<p>Error E2E-${stamp} on send</p>`,
+        workaround: '<p>Restart the relay service.</p>',
+      },
+    }),
+  );
+  const incident = await made(
+    await call(admin.page, 'POST', '/incidents', {
+      body: { subject: `E2E Mail fails ${stamp}`, requester_id: techId, group_id: groupId },
+    }),
+  );
+  const linked = await call(admin.page, 'POST', `/problems/${problem.id}/incidents`, {
+    body: { incident_id: incident.id },
+  });
+  expect(linked.status(), await linked.text()).toBe(200);
+
+  // The incident is open in the admin's browser; the technician marks the problem.
+  await admin.page.goto(`/incidents/${incident.id}`);
+  await expect(admin.page.getByTestId(`inc-link-${problem.display_id}`)).toBeVisible(LIVE);
+  await expect(admin.page.getByTestId('inc-known-error')).toHaveCount(0);
+  await tech.page.goto(`/problems/${problem.id}`);
+  await tech.page.getByTestId('prb-actions-more').click();
+  await tech.page.getByText('Mark as known error').click();
+  await tech.page.getByTestId('prb-known-error-ok').click();
+  await expect(tech.page.getByTestId('prb-known-error')).toBeVisible(LIVE);
+  await expect(admin.page.getByTestId('inc-known-error')).toBeVisible(LIVE); // no reload
+
+  await tech.page.goto('/problems/known-errors');
+  await tech.page.getByTestId('known-errors-search').fill(`E2E-${stamp}`);
+  await expect(tech.page.getByTestId(`known-error-${problem.display_id}`)).toBeVisible(LIVE);
+  await expectAccessible(tech.page, 'known error database');
   await tech.context.close();
   await admin.context.close();
 });

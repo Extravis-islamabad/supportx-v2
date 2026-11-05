@@ -857,7 +857,7 @@ it with no reload (rule c). Not built yet.
       URL form works now).
 - WP-044a is complete once #211's full-ci is green; it then leaves draft.
 
-### [ ] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
+### [x] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
 - **Plan:** ~/Desktop/wp-044-plan.md (D8..D12). The branch starts from #211's head; main is
   merged in once #211 lands. Migration 0078 (already allotted in the WP-044 numbers).
 - [x] Session 1 (#222, 0078): analysis, evidence and impact (REQ-PRB-030, -032, -033).
@@ -956,7 +956,24 @@ it with no reload (rule c). Not built yet.
     - Stopping worklogs on closed problems (REQ-PRB-051).
     - The admin control for `review_required_priorities` (API only for now).
     - A "due for review" view for accepted known errors (044c's views).
-- [ ] S5 closure and follow-up, e2e.
+- [x] S5 closure and follow-up:
+  - Pending approvals block closing (409 `approval_pending`, REQ-PRB-054).
+  - Follow-up on linked incidents (REQ-PRB-055, D-140 Q1):
+    - `GET /problems/{id}/follow-up` lists the open linked incidents the technician may see;
+    - `POST` resolves the chosen ones (unticked ones stay) through the incidents' own bulk
+      resolve job, so each one's transition and closure rules apply;
+    - each gets the resolution, the workaround or both, lands in resolved for its requester to
+      confirm, and its history names the problem.
+  - Console: a follow-up dialog, ticked by default, with the bulk drawer showing progress and
+    results live.
+  - e2e (problems.spec.ts):
+    - the analysis tab, written in place and live;
+    - a linked incident moving the impact and evidence;
+    - a known error showing live on its incident and found in the database.
+  - Not yet (recorded):
+    - Close conditions on linked changes and releases (REQ-PRB-054) wait for those types.
+    - Problem-specific closure codes (REQ-PRB-056) use the shared closure code list for now.
+    - The tenant defaults for the follow-up (notify, copy as a note) beyond Q1's resolve.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
