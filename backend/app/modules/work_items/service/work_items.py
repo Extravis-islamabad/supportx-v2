@@ -138,6 +138,7 @@ from app.shared.events import record_event
 from app.shared.history import (
     Actors,
     Change,
+    FieldChange,
     HistoryCursor,
     HistoryEntry,
     Source,
@@ -264,6 +265,8 @@ class WorkItemView:
     conversation_count: int = 0
     # Fields this subject may not read (problems: the root cause without view_root_cause).
     hidden: frozenset[str] = frozenset()
+    # Problems: who last changed each analysis field, and when (REQ-PRB-030).
+    analysis_changes: tuple["AnalysisChange", ...] = ()
 
 
 def _now() -> datetime:
@@ -462,6 +465,12 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         if refused is None and final:
             refused = RECORD_CLOSED
         operations.append(ActionState("edit_analysis", allowed=refused is None, reason=refused))
+    hidden = await hidden_fields(session, subject, wtype, record.id)
+    analysis = (
+        await _analysis_changes(session, record.id, hidden)
+        if wtype.code is WorkItemTypeCode.PROBLEM
+        else ()
+    )
     people = [
         str(u)
         for u in (
@@ -473,6 +482,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         )
         if u is not None
     ] + [v for v in (record.custom or {}).values() if _is_uuid(v)]  # custom person fields
+    people += [c.actor_id for c in analysis if c.actor_id is not None]
     conversation = [
         ActionState(name, allowed=(refused := await reason(name)) is None, reason=refused)
         for name in CONVERSATION_ACTIONS
@@ -494,7 +504,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation=conversation,
         following=await followers.current(session, record.id, subject.user_id) is not None,
         conversation_count=int(entries or 0),
-        hidden=await hidden_fields(session, subject, wtype, record.id),
+        hidden=hidden,
+        analysis_changes=analysis,
     )
 
 
@@ -1214,6 +1225,44 @@ def _may_give_analysis(subject: Subject, wtype: WorkItemType, cleaned: dict[str,
             raise PermissionDenied(
                 params={"permission": wtype.permission(action), "reason": NO_PERMISSION}
             )
+
+
+@dataclass(frozen=True)
+class AnalysisChange:
+    """The last change of one analysis field."""
+
+    field: str
+    actor_id: str | None  # a user ID, or None for the system
+    at: datetime
+
+
+async def _analysis_changes(
+    session: AsyncSession, record_id: uuid.UUID, hidden: frozenset[str]
+) -> tuple[AnalysisChange, ...]:
+    """The latest change per analysis field the subject may read (one query, DISTINCT ON)."""
+    shown = [n for n in ANALYSIS_FIELDS if n not in hidden]
+    if not shown:
+        return ()
+    rows = await session.execute(
+        select(
+            FieldChange.field, FieldChange.actor_type, FieldChange.actor_id, FieldChange.occurred_at
+        )
+        .where(
+            FieldChange.record_type == RECORD_TYPE,
+            FieldChange.record_id == record_id,
+            FieldChange.field.in_(shown),
+        )
+        .order_by(FieldChange.field, FieldChange.occurred_at.desc())
+        .distinct(FieldChange.field)
+    )
+    return tuple(
+        AnalysisChange(
+            field=name,
+            actor_id=actor if actor_type == "user" and actor and _is_uuid(actor) else None,
+            at=at,
+        )
+        for name, actor_type, actor, at in rows.tuples()
+    )
 
 
 async def hidden_fields(

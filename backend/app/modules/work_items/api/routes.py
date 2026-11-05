@@ -489,6 +489,14 @@ class AllowedForOut(BaseModel):
     relatives: list[str]
 
 
+class AnalysisChangeOut(BaseModel):
+    """The last change of one analysis field (REQ-PRB-030)."""
+
+    field: str = Field(description="`root_cause` or `symptoms`.")
+    changed_by: uuid.UUID | None = Field(description="Null when the system changed it.")
+    changed_at: datetime
+
+
 class WorkItemOut(BaseModel):
     """A work item as staff see it."""
 
@@ -524,6 +532,10 @@ class WorkItemOut(BaseModel):
         default=False, description="Problems: you may not read the root cause."
     )
     symptoms: str | None = None
+    analysis_changes: list[AnalysisChangeOut] = Field(
+        default_factory=list,
+        description="Problems: who last changed each analysis field you may read, and when.",
+    )
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
     lifecycle: str = Field(
         default=STANDARD_LIFECYCLE,
@@ -611,6 +623,14 @@ class WorkItemOut(BaseModel):
             **{name: getattr(r, name) for name in _RECORD_FIELDS},
             root_cause=None if "root_cause" in view.hidden else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
+            analysis_changes=[
+                AnalysisChangeOut(
+                    field=c.field,
+                    changed_by=None if c.actor_id is None else uuid.UUID(c.actor_id),
+                    changed_at=c.at,
+                )
+                for c in view.analysis_changes
+            ],
             actions=[_state(a) for a in view.actions],
             operations=[_state(a) for a in view.operations],
             history_count=view.history_count,

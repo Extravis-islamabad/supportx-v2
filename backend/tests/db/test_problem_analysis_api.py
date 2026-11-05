@@ -73,6 +73,13 @@ async def test_the_root_cause_is_for_problem_roles_only(world: World) -> None:
         return {c["field"] for e in page.json()["items"] for c in e["changes"]}
 
     assert {"root_cause", "symptoms"} <= await fields(a.tech_a)
+    # Who last changed each field, and when (REQ-PRB-030); the hidden one is left out.
+    mine = (await world.call("GET", f"{PRB}/{record['id']}", a, a.tech_a)).json()
+    last = {c["field"]: c["changed_by"] for c in mine["analysis_changes"]}
+    assert last == {"root_cause": str(a.tech_a), "symptoms": str(a.tech_a)}
+    assert str(a.tech_a) in mine["people"]
+    theirs = (await world.call("GET", f"{PRB}/{record['id']}", a, a.tech_b)).json()
+    assert {c["field"] for c in theirs["analysis_changes"]} == {"symptoms"}
     hidden = await fields(a.tech_b)
     assert "root_cause" not in hidden
     assert "symptoms" in hidden

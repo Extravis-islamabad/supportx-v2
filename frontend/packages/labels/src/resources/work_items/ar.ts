@@ -973,6 +973,8 @@ export const ar: LabelResource = {
   'problems.already_caused.title_two':
     'لحادثتين محددتين مشكلة بالفعل. حدّدهما لنقلهما إلى هذه المشكلة.',
   'problems.already_caused.title_zero': 'لا توجد حادثة محددة لها مشكلة.',
+  'problems.analysis.changed': 'آخر تغيير بواسطة {{name}}، {{date}}',
+  'problems.analysis.changed_system': 'آخر تغيير تلقائيًا، {{date}}',
   'problems.analysis.edit': 'تعديل {{field}}',
   'problems.analysis.empty': 'لم يُملأ بعد.',
   'problems.analysis.root_cause_hidden':

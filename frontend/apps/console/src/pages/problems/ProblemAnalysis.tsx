@@ -38,6 +38,7 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { personName } from '../incidents/labels';
 import { PriorityTag } from '../incidents/tags';
 
 type AnalysisName = 'root_cause' | 'symptoms';
@@ -61,6 +62,7 @@ function AnalysisField({
   const t = useLabel();
   const { message } = App.useApp();
   const me = useSession().data?.user.id ?? null;
+  const { format } = useDateTime();
   const update = useUpdateProblem(item.id);
   const problem = useFormProblem();
   const value = item[name] ?? null;
@@ -88,6 +90,7 @@ function AnalysisField({
     );
   };
   const title = t(`work_item.field.${name}`);
+  const last = (item.analysis_changes ?? []).find((c) => c.field === name);
   if (hidden) {
     return (
       <Card size="small" title={title} data-testid={testId}>
@@ -158,6 +161,20 @@ function AnalysisField({
         <Typography.Text type="secondary">{t('problems.analysis.empty')}</Typography.Text>
       ) : (
         <RichTextView html={value} testId={`${testId}-view`} />
+      )}
+      {last !== undefined && !editing && (
+        <Typography.Text
+          type="secondary"
+          style={{ display: 'block', marginTop: 8 }}
+          data-testid={`${testId}-changed`}
+        >
+          {last.changed_by === null
+            ? t('problems.analysis.changed_system', { date: format(last.changed_at) })
+            : t('problems.analysis.changed', {
+                name: personName(item.people, last.changed_by),
+                date: format(last.changed_at),
+              })}
+        </Typography.Text>
       )}
       <ConflictDialog
         open={conflict !== null}

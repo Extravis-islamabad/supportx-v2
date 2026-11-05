@@ -890,6 +890,8 @@ export const ur: LabelResource = {
     '1 منتخب واقعے کا پہلے سے ایک مسئلہ ہے۔ اسے اس مسئلے میں منتقل کرنے کے لیے نشان لگائیں۔',
   'problems.already_caused.title_other':
     '{{count}} منتخب واقعات کا پہلے سے ایک مسئلہ ہے۔ جنہیں اس مسئلے میں منتقل کرنا ہے ان پر نشان لگائیں۔',
+  'problems.analysis.changed': 'آخری تبدیلی {{name}} نے کی، {{date}}',
+  'problems.analysis.changed_system': 'آخری تبدیلی خودکار طور پر، {{date}}',
   'problems.analysis.edit': '{{field}} تبدیل کریں',
   'problems.analysis.empty': 'ابھی نہیں بھرا گیا۔',
   'problems.analysis.root_cause_hidden':

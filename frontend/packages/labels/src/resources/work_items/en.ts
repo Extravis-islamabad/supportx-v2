@@ -882,6 +882,8 @@ export const en = {
     '1 selected incident already has a problem. Tick it to move it to this one.',
   'problems.already_caused.title_other':
     '{{count}} selected incidents already have a problem. Tick those to move to this one.',
+  'problems.analysis.changed': 'Last changed by {{name}}, {{date}}',
+  'problems.analysis.changed_system': 'Last changed automatically, {{date}}',
   'problems.analysis.edit': 'Edit {{field}}',
   'problems.analysis.empty': 'Not filled in yet.',
   'problems.analysis.root_cause_hidden':

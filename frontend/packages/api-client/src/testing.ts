@@ -474,6 +474,7 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     lifecycle: 'standard',
     root_cause: null,
     root_cause_hidden: false,
+    analysis_changes: [],
     symptoms: null,
     status_before_pause: null,
     status: 'new',

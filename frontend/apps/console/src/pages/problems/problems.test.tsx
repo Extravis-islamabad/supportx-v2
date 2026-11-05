@@ -158,6 +158,13 @@ describe('console: problems', () => {
       root_cause: null,
       root_cause_hidden: true,
       symptoms: '<p>Mail stalls at 9.</p>',
+      analysis_changes: [
+        { field: 'symptoms', changed_by: TECH, changed_at: '2026-11-04T09:00:00Z' },
+      ],
+      people: {
+        ...record.people,
+        [TECH]: { display_name: 'Nadia Network', email: 'nadia@example.com' },
+      },
       operations: [
         ...record.operations,
         { action: 'edit_analysis', allowed: true, reason: null, reason_mode: 'none' as const },
@@ -193,6 +200,7 @@ describe('console: problems', () => {
     expect(within(cause).getByTestId('prb-root-cause-hidden')).toBeDefined();
     expect(within(cause).queryByRole('button', { name: /Edit/ })).toBeNull();
     expect(within(screen.getByTestId('prb-symptoms')).getByText('Mail stalls at 9.')).toBeDefined();
+    expect(screen.getByTestId('prb-symptoms-changed').textContent).toContain('Nadia Network');
     fireEvent.click(screen.getByTestId('prb-symptoms-edit'));
     expect(await screen.findByTestId('prb-symptoms-editor')).toBeDefined();
     fireEvent.click(screen.getByTestId('prb-symptoms-save'));
