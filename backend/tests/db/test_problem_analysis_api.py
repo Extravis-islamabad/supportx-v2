@@ -1,4 +1,6 @@
-"""A problem's analysis and impact (WP-044b s1; REQ-PRB-030, -031, -070; D-140 Q7). Real Postgres.
+"""A problem's analysis, impact and evidence (WP-044b s1; REQ-PRB-030, -032, -033, -070).
+
+D-140 Q7. Real Postgres.
 
 Root cause and symptoms are rich text, sanitised. Changing them needs `problems.edit_analysis`.
 The root cause is read only with `problems.view_root_cause`: without it, the record says
@@ -114,7 +116,7 @@ async def test_analysis_fields_are_for_problems_and_need_the_right_on_create(
     assert (await new_problem(world, a, a.requester2)).status_code == 201
 
 
-async def test_the_impact_counts_only_incidents_you_may_see(world: World) -> None:
+async def test_impact_and_evidence_count_only_incidents_you_may_see(world: World) -> None:
     a, b = world.a, world.b
     prb = (await new_problem(world, a, a.admin, group_id=str(a.ga))).json()
     in_ga = await world.create(a, a.admin, group_id=str(a.ga))
@@ -144,3 +146,14 @@ async def test_the_impact_counts_only_incidents_you_may_see(world: World) -> Non
 
     other = await world.call("GET", f"{PRB}/{prb['id']}/impact", b, b.admin)
     assert problem(other)[0] == 404  # RLS
+
+    # The evidence timeline: oldest report first, the same records left out, and what's pending.
+    full_ev = (await world.call("GET", f"{PRB}/{prb['id']}/evidence", a, a.admin)).json()
+    assert [i["id"] for i in full_ev["incidents"]] == [in_ga["id"], in_ga2["id"], in_gb["id"]]
+    assert full_ev["left_out"] is False
+    assert full_ev["pending_sources"] == ["changes", "releases", "same_items"]
+    part_ev = (await world.call("GET", f"{PRB}/{prb['id']}/evidence", a, a.requester2)).json()
+    assert {i["id"] for i in part_ev["incidents"]} == {in_ga["id"], in_ga2["id"]}
+    assert part_ev["left_out"] is True
+    gone = await world.call("GET", f"{PRB}/{prb['id']}/evidence", b, b.admin)
+    assert problem(gone)[0] == 404

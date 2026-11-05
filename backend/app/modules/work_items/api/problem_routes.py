@@ -11,12 +11,15 @@
     PUT  /problems/{id}/investigators/{user_id}  name one (whoever may edit it); audited
     DELETE /problems/{id}/investigators/{user_id}  remove one, or step down yourself; audited
     GET  /problems/{id}/impact                   counts over the caused incidents you see (044b)
+    GET  /problems/{id}/evidence                 the caused incidents' timeline you see (044b)
 
 Many incidents go to "this problem instead" through the incidents' own bulk job
 (`POST /incidents/bulk`, action `link_problem`), the same path as from the create form.
 """
 
 import uuid
+from datetime import datetime
+from enum import StrEnum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -39,6 +42,14 @@ from app.shared.api.idempotency import Created, Idempotency
 from app.shared.history import source_of
 
 MAX_INCIDENTS = MAX_BULK
+
+
+class EvidenceSource(StrEnum):
+    """An evidence source the panel names when it is not available yet."""
+
+    CHANGES = "changes"
+    RELEASES = "releases"
+    SAME_ITEMS = "same_items"
 
 
 class ProblemPrefillOut(BaseModel):
@@ -325,7 +336,7 @@ class PriorityCountOut(BaseModel):
 
 
 class ProblemImpactOut(BaseModel):
-    """The problem's impact from the incidents it causes (REQ-PRB-031)."""
+    """The problem's impact from the incidents it causes (REQ-PRB-033)."""
 
     incidents: int
     open_incidents: int
@@ -335,6 +346,32 @@ class ProblemImpactOut(BaseModel):
     minutes: int = Field(description="Time logged on those incidents.")
     partial: bool = Field(
         description="Some caused incidents are not visible to you and are not counted."
+    )
+
+
+class EvidenceIncidentOut(BaseModel):
+    """A caused incident on the timeline."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    priority: str = Field(description="A `priority` code.")
+    status: str = Field(description="A status code of the incident type.")
+    status_category: str
+    site_id: uuid.UUID | None
+    reported_at: datetime
+    resolved_at: datetime | None
+
+
+class ProblemEvidenceOut(BaseModel):
+    """The evidence panel (REQ-PRB-032): what is known now, and what is not there yet."""
+
+    incidents: list[EvidenceIncidentOut] = Field(description="Oldest report first (≤ 200).")
+    left_out: bool = Field(
+        description="Some caused incidents are not shown: not visible to you, or past 200."
+    )
+    pending_sources: list[EvidenceSource] = Field(
+        description="Evidence sources not available yet (changes, releases, the same items)."
     )
 
 
@@ -361,6 +398,20 @@ def _add_analysis_routes(router: APIRouter, wtype: WorkItemType) -> None:
             people=found.people,
             minutes=found.minutes,
             partial=found.partial,
+        )
+
+    @router.get("/{record_id}/evidence", summary="The problem's evidence")
+    async def evidence(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> ProblemEvidenceOut:
+        """The caused incidents you may see, by when they were reported, and what is pending."""
+        found = await problem_impact.evidence(session, subject, record_id)
+        return ProblemEvidenceOut(
+            incidents=[
+                EvidenceIncidentOut.model_validate(i, from_attributes=True) for i in found.incidents
+            ],
+            left_out=found.left_out,
+            pending_sources=[EvidenceSource(s) for s in found.pending_sources],
         )
 
 

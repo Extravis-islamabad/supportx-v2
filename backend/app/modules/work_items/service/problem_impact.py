@@ -1,4 +1,4 @@
-"""A problem's impact from the incidents it causes (WP-044b; REQ-PRB-031).
+"""A problem's impact and evidence from the incidents it causes (WP-044b; REQ-PRB-032, -033).
 
 Counted only over the caused incidents the subject may see, so the figures never leak a record
 they could not open. `partial` says some caused incidents were left out, so the screen shows
@@ -7,8 +7,9 @@ they could not open. `partial` says some caused incidents were left out, so the 
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
-from sqlalchemy import distinct, func, select
+from sqlalchemy import Select, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import Subject
@@ -35,14 +36,19 @@ class Impact:
     partial: bool
 
 
-async def impact(session: AsyncSession, subject: Subject, problem_id: uuid.UUID) -> Impact:
-    """The problem's impact (404 when the subject may not see the problem)."""
-    await problems.problem_of(session, subject, problem_id)
-    caused = select(WorkItemLink.source_id).where(
+def _caused(problem_id: uuid.UUID) -> Select[uuid.UUID]:
+    """The incidents the problem causes (live links)."""
+    return select(WorkItemLink.source_id).where(
         WorkItemLink.target_id == problem_id,
         WorkItemLink.kind == LinkKind.CAUSED_BY.value,
         WorkItemLink.deleted_at.is_(None),
     )
+
+
+async def impact(session: AsyncSession, subject: Subject, problem_id: uuid.UUID) -> Impact:
+    """The problem's impact (404 when the subject may not see the problem)."""
+    await problems.problem_of(session, subject, problem_id)
+    caused = _caused(problem_id)
     visible = items.staff_rows(subject, INCIDENT).where(WorkItem.id.in_(caused)).subquery("visible")
     all_caused = await session.scalar(
         select(func.count())
@@ -81,4 +87,73 @@ async def impact(session: AsyncSession, subject: Subject, problem_id: uuid.UUID)
         people=int(people or 0),
         minutes=int(minutes or 0),
         partial=int(all_caused or 0) > total,
+    )
+
+
+# Evidence sources not there yet (REQ-PRB-032): changes and releases on the affected items join
+# when those types are registered (WP-045, lane C's releases), other problems on the same items
+# with the CMDB (lane B). Named so the panel says what is missing; never faked.
+PENDING_SOURCES = ("changes", "releases", "same_items")
+EVIDENCE_LIMIT = 200
+
+
+@dataclass(frozen=True)
+class EvidenceIncident:
+    """One caused incident on the timeline, by when it was reported."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    priority: str
+    status: str
+    status_category: str
+    site_id: uuid.UUID | None
+    reported_at: datetime
+    resolved_at: datetime | None
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """The evidence panel's timeline (REQ-PRB-032)."""
+
+    incidents: list[EvidenceIncident]
+    left_out: bool  # caused incidents the subject may not see, or past the limit
+    pending_sources: tuple[str, ...]
+
+
+async def evidence(session: AsyncSession, subject: Subject, problem_id: uuid.UUID) -> Evidence:
+    """The visible caused incidents, oldest report first (404 when the problem is not visible)."""
+    await problems.problem_of(session, subject, problem_id)
+    caused = _caused(problem_id)
+    rows = list(
+        await session.scalars(
+            items.staff_rows(subject, INCIDENT)
+            .where(WorkItem.id.in_(caused))
+            .order_by(WorkItem.created_at, WorkItem.id)
+            .limit(EVIDENCE_LIMIT + 1)
+        )
+    )
+    total = await session.scalar(
+        select(func.count())
+        .select_from(WorkItem)
+        .where(WorkItem.id.in_(caused), WorkItem.deleted_at.is_(None))
+    )
+    shown = rows[:EVIDENCE_LIMIT]
+    return Evidence(
+        incidents=[
+            EvidenceIncident(
+                id=r.id,
+                display_id=r.display_id,
+                subject=r.subject,
+                priority=r.priority,
+                status=r.status,
+                status_category=r.status_category,
+                site_id=r.site_id,
+                reported_at=r.created_at,
+                resolved_at=r.resolved_at,
+            )
+            for r in shown
+        ],
+        left_out=int(total or 0) > len(shown),
+        pending_sources=PENDING_SOURCES,
     )
