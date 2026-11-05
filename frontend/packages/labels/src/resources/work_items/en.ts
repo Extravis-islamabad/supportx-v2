@@ -895,6 +895,16 @@ export const en = {
   'problems.analysis.root_cause_hidden':
     'The root cause is visible to problem roles only. Ask an administrator if you need it.',
   'problems.analysis.saved': 'Saved.',
+  'problems.approvals.accepted':
+    'Accepted without a fix on {{date}}; to be reviewed on {{review}}.',
+  'problems.approvals.add': 'Add an approver',
+  'problems.approvals.approvers': 'Approvers',
+  'problems.approvals.ask': 'Ask for approval',
+  'problems.approvals.none': 'No approvals asked for.',
+  'problems.approvals.purpose': 'What for',
+  'problems.approvals.remove': 'Remove this approver',
+  'problems.approvals.send': 'Ask',
+  'problems.approvals.title': 'Approvals',
   'problems.copy': 'Copy',
   'problems.create': 'Create problem',
   'problems.create_from_incident': 'Create problem',

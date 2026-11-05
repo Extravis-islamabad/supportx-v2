@@ -491,3 +491,78 @@ export function useApplyKnownError(incidentId: string) {
     },
   });
 }
+
+export type ProblemApprovalPurpose = components['schemas']['ApprovalPurpose'];
+
+/** A problem's approvals (WP-044b s4): its approvers decide; the first decision decides. */
+export function useProblemApprovals(id: string) {
+  return useQuery({
+    queryKey: [...problemKeys.detail(id), 'approvals'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/{record_id}/approvals', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Ask named people to approve (If-Match on the problem's version). */
+export function useRequestProblemApproval(id: string) {
+  const saved = useSavedProblem();
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      approverIds,
+      purpose,
+      version,
+    }: {
+      approverIds: string[];
+      purpose: ProblemApprovalPurpose;
+      version: number;
+    }) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/approvals', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { approver_ids: approverIds, purpose },
+        }),
+      ),
+    onSuccess: (record) => {
+      saved(record);
+      void queryClient.invalidateQueries({ queryKey: [...problemKeys.detail(id), 'approvals'] });
+    },
+  });
+}
+
+/** Approve or reject one of the problem's approvals (If-Match on the approval's version). */
+export function useDecideProblemApproval(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      approvalId,
+      version,
+      decision,
+      comment,
+      isPrivate,
+    }: {
+      approvalId: string;
+      version: number;
+      decision: 'approve' | 'reject';
+      comment: string;
+      isPrivate: boolean;
+    }) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/approvals/{approval_id}/decision', {
+          params: {
+            path: { record_id: id, approval_id: approvalId },
+            header: ifMatch(version),
+          },
+          body: { decision, comment: comment.trim() === '' ? null : comment, private: isPrivate },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+    },
+  });
+}

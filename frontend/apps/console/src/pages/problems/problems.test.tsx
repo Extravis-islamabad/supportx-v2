@@ -353,6 +353,48 @@ describe('console: problems', () => {
     expect(screen.getByText('Retired known error')).toBeDefined();
   });
 
+  it('approvals: the named approver approves through the decision dialog', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const APPROVAL = '01a1a2b3-0000-7000-8000-00000000a001';
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              id: APPROVAL,
+              stage: 1,
+              approver_id: TECH,
+              origin: 'named',
+              route_reason: null,
+              state: 'pending',
+              decided_at: null,
+              decided_by: null,
+              channel: null,
+              comment: null,
+              comment_private: false,
+              comments_required: false,
+              self_approved: false,
+              can_decide: true,
+              created_at: '2026-11-05T08:00:00Z',
+              version: 1,
+            },
+          ],
+          people: { [TECH]: { display_name: 'Nadia Network', email: 'nadia@example.com' } },
+        },
+      },
+      [`POST /api/v1/problems/${PRB_ID}/approvals/${APPROVAL}/decision`]: { body: {} },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId(`prb-approval-${APPROVAL}-approve`));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => {
+      const sent = fake.calls.find((c) => c.path.endsWith('/decision'));
+      expect(sent?.headers.get('If-Match')).toBe('"1"');
+      expect((sent?.body as { decision: string }).decision).toBe('approve');
+    });
+  });
+
   it('evidence: the caused incidents in report order, and what is not there yet', async () => {
     window.history.pushState({}, '', `/problems/${PRB_ID}`);
     api({

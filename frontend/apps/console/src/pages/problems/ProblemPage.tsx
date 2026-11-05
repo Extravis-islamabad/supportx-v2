@@ -39,6 +39,7 @@ import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
 import { KnownErrorTag } from './KnownErrors';
 import { CausedIncidents, MergeDialog, MergedBanner, RelatedProblems } from './ProblemLinks';
 import { useKnownErrorAction } from './useKnownErrorAction';
+import { ProblemApprovals, RequestApprovalDialog } from './ProblemApprovals';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
 const GUIDED = [
@@ -196,6 +197,15 @@ function ProblemView({
   const canEdit = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const me = useSession().data?.user.id ?? '';
   const knownError = useKnownErrorAction(item);
+  const [asking, setAsking] = useState(false);
+  const askAction: RecordAction = {
+    key: 'ask_approval',
+    label: t('problems.approvals.ask'),
+    allowed: canEdit && item.status_category !== 'closed' && item.approval_status !== 'pending',
+    onClick: () => {
+      setAsking(true);
+    },
+  };
   const [merging, setMerging] = useState(false);
   const mergeAction: RecordAction = {
     key: 'merge',
@@ -252,7 +262,7 @@ function ProblemView({
         }
         actions={
           <ActionBar
-            actions={[...status.actions, knownError.action, copyAction, mergeAction]}
+            actions={[...status.actions, knownError.action, askAction, copyAction, mergeAction]}
             max={3}
             testId="prb-actions"
           />
@@ -295,6 +305,11 @@ function ProblemView({
                 key: 'incidents',
                 title: t('problems.incidents'),
                 children: <CausedIncidents id={item.id} canEdit={canEdit} />,
+              },
+              {
+                key: 'approvals',
+                title: t('problems.approvals.title'),
+                children: <ProblemApprovals item={item} />,
               },
               {
                 key: 'related',
@@ -340,6 +355,13 @@ function ProblemView({
       </RecordPage>
       {status.dialogs}
       {knownError.dialog}
+      <RequestApprovalDialog
+        item={item}
+        open={asking}
+        onClose={() => {
+          setAsking(false);
+        }}
+      />
       <MergeDialog
         item={item}
         open={merging}
