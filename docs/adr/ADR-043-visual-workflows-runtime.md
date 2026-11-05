@@ -162,12 +162,41 @@ A's WP-048a triggers adopt it unchanged, and today's `_set` and `_note` move ont
 ### 8. Outbound HTTP and custom functions
 
 - **One guarded HTTP client in `app/shared`**, which lane B's WP-055 outbound webhooks reuse.
-  Lane B reviews its security.
-  - It blocks loopback, link-local and private ranges unless they are allow-listed.
-  - It follows no redirects.
-  - It has size and time limits (Appendix A: 10 s).
-  - It resolves a name once and connects to that IP, so DNS rebinding does not work.
-  - Every call is checked against an egress policy entry.
+  Lane B reviewed its security on #233, and these are its constraints:
+  - **Pinned at the connection.** The client resolves a name once and checks every A and AAAA
+    answer. It then connects to the checked IP through an `httpcore` network backend, while TLS
+    keeps SNI and verifies the certificate against the hostname. So DNS rebinding does not work.
+    identity_access's `fetch.py` resolves twice, and lane B moves it onto this client.
+  - **Blocked addresses:**
+    - loopback and link-local, which covers cloud metadata;
+    - private ranges, CGNAT (100.64/10), 0/8, multicast, broadcast and reserved addresses;
+    - IPv4-mapped and translated IPv6, checked as their IPv4 address.
+    Ports are 80 and 443, plus any configured explicitly.
+  - **Allow-lists for private ranges** come from the installation's configuration only (by
+    hostname or CIDR), never from a tenant. This is configuration, not a branch on deployment
+    mode.
+  - **No redirects.** A 3xx response is returned as the result.
+  - **Limits:**
+    - 10 s in total, with separate connect and read limits under it;
+    - a response size cap, 1 MB unless the caller sets another;
+    - request body and header size caps;
+    - no retries inside the client: callers retry idempotently.
+  - **TLS:** verification is always on, with TLS 1.2 at least. A destination can have its own CA
+    bundle and an optional mTLS client certificate and key, read from the secret store by
+    reference.
+  - **Headers and body:**
+    - Hop-by-hop headers and `Host` overrides are refused.
+    - Secret header values arrive by secret reference. They are never logged, put in errors or
+      recorded.
+    - The body is sent byte for byte as given, because WP-055 signs it.
+  - **Proxy:** an HTTPS proxy with NO_PROXY can be set at installation level only, and
+    `trust_env` is off otherwise. Through a proxy, the client still resolves and checks locally
+    where it can; the proxy enforces egress beyond that.
+  - **The egress record** has one entry per call: tenant, calling module, host, port, status or
+    error code, duration and bytes. It never holds bodies, query strings or headers.
+  - **Stable error codes:** `blocked`, `unreachable`, `timeout`, `too_large`, `tls`, `redirect`,
+    `http_status`.
+  - Lane B's chart adds a worker egress NetworkPolicy to match.
 - **Custom functions:** only a `FunctionRunner` port in this WP. ADR-011 (the sandbox) is Haider's
   decision and is still open.
   - The function node is offered only when the `SANDBOX` and `CUSTOM_FUNCTIONS` entitlements are
