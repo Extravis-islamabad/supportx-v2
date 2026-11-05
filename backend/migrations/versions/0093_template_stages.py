@@ -15,7 +15,7 @@ staged types are seeded per tenant on first use.
 The downgrade drops the three columns (the stage rules and attributes go with them).
 
 Revision ID: 0093
-Revises: 0092
+Revises: 0097
 Created: 2026-11-05
 """
 
@@ -26,7 +26,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0093"
-down_revision: str | None = "0092"
+down_revision: str | None = "0097"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

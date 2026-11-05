@@ -39,6 +39,8 @@ export const ar: LabelResource = {
   'notification_channel.in_app': 'داخل التطبيق',
   'notification_condition_operator.in': 'أحد',
   'notification_condition_operator.not_in': 'ليس أحد',
+  'notification_event.announcement.ended': 'انتهاء إعلان تتابعه',
+  'notification_event.announcement.updated': 'تحديث إعلان تتابعه',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.incident.assigned': 'أُسند حادث',
@@ -116,6 +118,14 @@ export const ar: LabelResource = {
   'notification_state.sent': 'أُرسل',
   'notification_state.suppressed': 'لم يُرسل',
   'notification_state.waiting': 'بانتظار إعداد البريد',
+  'notification_template.announcement.ended.body':
+    'مرحبًا {{ recipient.name }}،\n\nانتهى الإعلان "{{ record.title }}" الذي تتابعه.',
+  'notification_template.announcement.ended.in_app': 'انتهى: {{ record.title }}',
+  'notification_template.announcement.ended.subject': 'انتهى: {{ record.title }}',
+  'notification_template.announcement.updated.body':
+    'مرحبًا {{ recipient.name }}،\n\nتم تحديث الإعلان "{{ record.title }}" الذي تتابعه.',
+  'notification_template.announcement.updated.in_app': 'تم التحديث: {{ record.title }}',
+  'notification_template.announcement.updated.subject': 'تم التحديث: {{ record.title }}',
   'notification_template.connector.failing.body':
     'مرحبًا {{ recipient.name }}،\n\nتوقف {{ record.title }} عن العمل: {{ connector.reason }}.\n\nستُبلَّغ مرة واحدة لا عند كل محاولة، ومرة أخرى عندما يعود إلى العمل. افتح الإدارة › التكاملات لرؤيته.',
   'notification_template.connector.failing.in_app':

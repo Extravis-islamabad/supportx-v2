@@ -267,6 +267,14 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-032 D8: every portal setting on one page (REQ-PRT-031).
+            path: 'portal',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/portal/PortalSettingsPage'))
+                .PortalSettingsPage,
+            }),
+          },
+          {
             // WP-031: the service catalog's administration (plan D4).
             path: 'catalog',
             lazy: async () => ({

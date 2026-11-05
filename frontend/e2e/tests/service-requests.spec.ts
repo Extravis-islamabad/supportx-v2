@@ -175,6 +175,8 @@ test('raise, approve from the drawer, fulfil and confirm receipt, all live', asy
 
     // The requester sees it fulfilled without a reload, and confirms receipt.
     await row.getByRole('link').click();
+    // Until the record page replaces the list, every row's tag matches: wait for the one.
+    await expect(requester.page.getByTestId('portal-status')).toHaveCount(1, LIVE);
     await expect(requester.page.getByTestId('portal-status')).toHaveText(
       'Resolved: please confirm',
       LIVE,

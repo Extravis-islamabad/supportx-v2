@@ -234,6 +234,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.due_date_changed", AuditCategory.RECORDS, "work_items"),
     # service requests (WP-030): the same actions, by the type's own code
     ("service_request.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("portal.settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-032 D8
     ("service_request.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.template_created", AuditCategory.CONFIGURATION, "work_items"),

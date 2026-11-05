@@ -28,6 +28,7 @@ from app.modules.service_catalog.service.catalog import (
 )
 from app.modules.service_catalog.service.ports import (
     register_item_usage,
+    register_request_counts,
     register_template_check,
 )
 from app.modules.service_catalog.service.realtime import ROUTES
@@ -66,6 +67,7 @@ __all__ = [
     "item_decides",
     "module",
     "register_item_usage",
+    "register_request_counts",
     "register_template_check",
     "request_item",
     "rules_of",

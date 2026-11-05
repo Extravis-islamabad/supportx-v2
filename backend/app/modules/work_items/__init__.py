@@ -27,6 +27,7 @@ from app.modules.ai import (
     unregister_record_access,
 )
 from app.modules.identity_access import SERVICE_DESK_MANAGER
+from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
 from app.modules.work_items.api.routes import build_router
@@ -131,11 +132,13 @@ module = ModuleSpec(
         *(build_router(wtype) for wtype in TYPES.values()),
         portal_router,
         portal_request_router,  # WP-030 D9
+        portal_home_router,  # WP-032 D1
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
         INCIDENT.feature,
         SERVICE_REQUEST.feature,
+        INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
     ],
     events=EVENTS,
     permissions=(
