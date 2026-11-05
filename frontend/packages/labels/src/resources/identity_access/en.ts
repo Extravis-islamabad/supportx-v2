@@ -570,6 +570,12 @@ export const en = {
   // Authorization (WP-016)
   'permission.users.view': 'View users',
   'permission.users.view.description': 'See the people in the organisation and their details.',
+  'permission.vendors.create': 'Add vendors',
+  'permission.vendors.create.description': 'Add a vendor, also from another form.',
+  'permission.vendors.manage': 'Manage vendors',
+  'permission.vendors.manage.description': 'Change, deactivate and delete vendors.',
+  'permission.vendors.view': 'See vendors',
+  'permission.vendors.view.description': 'See vendors and their details, and pick them on records.',
   'permission.work_items.approve_any': 'Decide fallback approvals',
   'permission.work_items.approve_any.description':
     'Decide approvals that have no active approver (approval administrators).',
@@ -610,6 +616,7 @@ export const en = {
   'permission_module.sites': 'Sites',
   'permission_module.sla': 'SLA',
   'permission_module.users': 'Users',
+  'permission_module.vendors': 'Vendors',
   'permission_module.work_items': 'All requests (incidents and service requests)',
   'preferences.date_format': 'Date format',
   'preferences.default': 'Default',

@@ -2854,6 +2854,41 @@
         "type": "object"
       }
     },
+    "procurement.vendor.changed": {
+      "1": {
+        "description": "A vendor was added, changed or moved to the trash (REQ-PUR-001).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "vendor_id": {
+            "format": "uuid",
+            "title": "Vendor Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "VendorChanged",
+        "type": "object"
+      }
+    },
     "service_catalog.category.changed": {
       "1": {
         "description": "A category was added or changed.",

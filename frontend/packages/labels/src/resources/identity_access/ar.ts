@@ -559,6 +559,12 @@ export const ar: LabelResource = {
   // Authorization (WP-016)
   'permission.users.view': 'عرض المستخدمين',
   'permission.users.view.description': 'رؤية الأشخاص في المؤسسة وتفاصيلهم.',
+  'permission.vendors.create': 'إضافة موردين',
+  'permission.vendors.create.description': 'إضافة مورد، حتى من نموذج آخر.',
+  'permission.vendors.manage': 'إدارة الموردين',
+  'permission.vendors.manage.description': 'تعديل الموردين وإيقافهم وحذفهم.',
+  'permission.vendors.view': 'عرض الموردين',
+  'permission.vendors.view.description': 'عرض الموردين وتفاصيلهم واختيارهم في السجلات.',
   'permission.work_items.approve_any': 'البت في الموافقات البديلة',
   'permission.work_items.approve_any.description':
     'البت في الموافقات التي ليس لها موافق نشط (مسؤولو الموافقات).',
@@ -599,6 +605,7 @@ export const ar: LabelResource = {
   'permission_module.sites': 'المواقع',
   'permission_module.sla': 'اتفاقيات مستوى الخدمة',
   'permission_module.users': 'المستخدمون',
+  'permission_module.vendors': 'الموردون',
   'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
   'preferences.date_format': 'تنسيق التاريخ',
   'preferences.default': 'الافتراضي',
