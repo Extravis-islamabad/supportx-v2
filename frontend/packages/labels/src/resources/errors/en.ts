@@ -353,6 +353,7 @@ export const en = {
   'errors.field.requester_only': "Only the requester's confirmation sets this code.",
   'errors.field.required': 'This field is required.',
   'errors.field.required_to_close': 'Needed before closing.',
+  'errors.field.required_to_confirm_cause': 'Write the root cause before confirming it.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
   'errors.field.same_folder': 'Choose a different folder for its reports.',

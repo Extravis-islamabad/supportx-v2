@@ -327,6 +327,7 @@ export const ar: LabelResource = {
   'errors.field.requester_only': 'لا يعيّن هذا الرمز إلا تأكيد مقدم الطلب.',
   'errors.field.required': 'هذا الحقل مطلوب.',
   'errors.field.required_to_close': 'مطلوب قبل الإغلاق.',
+  'errors.field.required_to_confirm_cause': 'اكتب السبب الجذري قبل تأكيده.',
   'errors.field.required_to_resolve': 'مطلوب قبل الحل.',
   'errors.field.review_date_past': 'اختر اليوم أو تاريخًا لاحقًا.',
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',

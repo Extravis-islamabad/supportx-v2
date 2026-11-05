@@ -38,6 +38,7 @@ from app.modules.work_items.domain.closure import (
 )
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.templates import CONFIRMED_BY_REQUESTER, PickList
+from app.modules.work_items.domain.types import WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.history import Change
@@ -56,6 +57,9 @@ RESOLVE = WorkItemAction.RESOLVE
 CLOSE = WorkItemAction.CLOSE
 DONE_MOVES = frozenset({RESOLVE, CLOSE})
 REOPENING = frozenset({WorkItemAction.REOPEN})
+# A problem's cause is confirmed only with a root cause written (WP-044b, REQ-PRB-025): in the
+# standard and the guided life cycle alike, the move is `confirm_root_cause`.
+CONFIRM_CAUSE = WorkItemAction.CONFIRM_ROOT_CAUSE
 
 
 def register_open_work(
@@ -148,6 +152,10 @@ async def before_move(
         # History keeps the earlier resolution and closure code; the next resolve asks again.
         step.changes.update({RESOLUTION: None, CLOSURE_CODE: None, "resolution_notified_at": None})
         return step
+    if action == CONFIRM_CAUSE:
+        if _no_root_cause(record):
+            raise _refused([("root_cause", "required_to_confirm_cause", {})])
+        return step
     if action not in DONE_MOVES:
         return step
     _check_rules(cat, record, action, given, step, custom_keys=await _custom_keys(session, record))
@@ -220,6 +228,10 @@ def _listed(items: Sequence[OpenItem]) -> dict[str, str | int]:
     return {"count": len(items), "items": ", ".join(i.title for i in items)}
 
 
+def _no_root_cause(record: WorkItem) -> bool:
+    return record.type == WorkItemTypeCode.PROBLEM and is_blank(record.root_cause or "")
+
+
 def _record_fields() -> tuple[str, ...]:
     return (
         RESOLUTION,
@@ -254,7 +266,9 @@ def _required(cat: Catalogue, action: WorkItemAction, custom_keys: frozenset[str
 async def missing_for(
     session: AsyncSession, cat: Catalogue, record: WorkItem, action: WorkItemAction
 ) -> list[str]:
-    """Fields the record still lacks for a resolve or close (the move asks for its own)."""
+    """Fields the record still lacks for a resolve, a close or confirming a problem's cause."""
+    if action == CONFIRM_CAUSE:
+        return ["root_cause"] if _no_root_cause(record) else []
     if action not in DONE_MOVES:
         return []
     values = {name: getattr(record, name, None) for name in _record_fields()}
