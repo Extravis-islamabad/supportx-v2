@@ -47,7 +47,6 @@ export const en = {
   'approval_origin.named': 'Named approver',
   'approval_route_reason.approver_inactive':
     'The approver is no longer active, so it went to the fallback approver.',
-  'approval_route_reason.lacks_permission': 'The named approver may not approve releases',
   'approval_route_reason.no_holder': 'Nobody holds the approving role yet',
   'approval_route_reason.no_manager': 'No manager on record, so it went to the fallback approver.',
   'approval_route_reason.self_approval_blocked':

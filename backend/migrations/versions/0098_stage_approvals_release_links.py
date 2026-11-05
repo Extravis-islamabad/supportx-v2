@@ -37,7 +37,7 @@ APPROVALS = "work_item_approvals"
 LINK_CHECK = "ck_work_item_links_kind_code"
 ADDED_KINDS = ("caused_by_release", "started_release", "sub_release_of")
 ROUTE_CHECK = "ck_work_item_approvals_reason_code"
-ADDED_REASONS = ("lacks_permission", "no_holder")
+ADDED_REASONS = ("no_holder",)
 
 
 def _in(column: str, codes: Sequence[str]) -> str:

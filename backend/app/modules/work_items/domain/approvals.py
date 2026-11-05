@@ -48,7 +48,6 @@ class RouteReason(StrEnum):
     APPROVER_INACTIVE = "approver_inactive"
     SELF_APPROVAL_BLOCKED = "self_approval_blocked"
     # WP-058a s5 (staged types; lane B's review): never a stage stuck silently.
-    LACKS_PERMISSION = "lacks_permission"  # the named approver may not approve this type
     NO_HOLDER = "no_holder"  # a role named as approver has nobody holding it
 
 

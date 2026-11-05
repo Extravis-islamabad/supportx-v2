@@ -5,8 +5,8 @@ Real PostgreSQL with RLS, on the work-item approval engine (WP-030):
 - a second level opens only after the first is approved (AC3);
 - majority rejects on an exact split (the tie case);
 - the requester may not approve their own release (AC4);
-- an approver who lacks releases.approve, or a role nobody holds, goes to the approval
-  administrators with the reason shown, so a stage never waits on nobody (lane B's review);
+- a named approver decides by being named, with no releases.approve, and only their own row;
+- a role nobody holds goes to the approval administrators with the reason shown;
 - canceling the release closes its open approvals.
 """
 
@@ -159,22 +159,41 @@ async def test_ac4_the_requester_may_not_approve_their_own_release(world: World)
     ]
 
 
-async def test_nobody_able_to_approve_goes_to_the_administrators(world: World) -> None:
+async def test_a_named_approver_decides_by_being_named_and_only_their_own(world: World) -> None:
+    """Named approvers need no releases.approve (as WP-030); it is for approvals one is not
+    named on (the coordinator's and lane B's rule)."""
     a = world.a
-    item = await a_release(world, a)
-    # The release manager holds the role but not releases.approve.
-    worker = await role(world, a, "Release worker", [("releases.view", "all")])
-    await world.call("PUT", f"/users/{a.tech_a}/roles/{worker}", a, a.admin)
-    held = await put_role(world, a, item, "release_manager", users=[a.tech_a])
-    waiting = await to_waiting(world, a, {**item, "version": held.json()["version"]})
+    viewer = await role(world, a, "Release viewer", [("releases.view", "all")])
+    for person in (a.tech_a, a.tech_b):
+        await world.call("PUT", f"/users/{person}/roles/{viewer}", a, a.admin)
+    await planning_levels(
+        world,
+        a,
+        [
+            {
+                "rule": "all",
+                "approvers": [{"user_id": str(a.tech_a)}, {"user_id": str(a.tech_b)}],
+            }
+        ],
+    )
+    waiting = await to_waiting(world, a, await a_release(world, a))
+    rows = {r["approver_id"]: r for r in await approvals(world, a, waiting)}
+    assert set(rows) == {str(a.tech_a), str(a.tech_b)}  # named, not routed away
+    someone_elses = await decide(world, a, waiting, rows[str(a.tech_b)], a.tech_a)
+    assert someone_elses.status_code == 403, someone_elses.text  # not named on it
+    assert (await decide(world, a, waiting, rows[str(a.tech_a)], a.tech_a)).status_code == 200
+    assert (await decide(world, a, waiting, rows[str(a.tech_b)], a.tech_b)).status_code == 200
+    assert (await current(world, a, waiting))["status"] == "build_in_progress"
+
+
+async def test_a_role_nobody_holds_goes_to_the_administrators(world: World) -> None:
+    a = world.a
+    waiting = await to_waiting(world, a, await a_release(world, a))  # no release manager set
     rows = await approvals(world, a, waiting)
-    assert [(r["approver_id"], r["route_reason"]) for r in rows] == [(None, "lacks_permission")]
+    assert [(r["approver_id"], r["route_reason"]) for r in rows] == [(None, "no_holder")]
     assert (await decide(world, a, waiting, rows[0], a.tech_a)).status_code == 403
     assert (await decide(world, a, waiting, rows[0], a.admin)).status_code == 200  # approve_any
     assert (await current(world, a, waiting))["status"] == "build_in_progress"
-    # A role nobody holds: the administrators again, with that reason.
-    other = await to_waiting(world, a, await a_release(world, a))
-    assert [r["route_reason"] for r in await approvals(world, a, other)] == ["no_holder"]
 
 
 async def test_canceling_closes_the_open_approvals(world: World) -> None:

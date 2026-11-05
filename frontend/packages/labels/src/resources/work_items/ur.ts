@@ -50,7 +50,6 @@ export const ur: LabelResource = {
   'approval_origin.named': 'نامزد منظوری دہندہ',
   'approval_route_reason.approver_inactive':
     'منظوری دہندہ اب فعال نہیں، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
-  'approval_route_reason.lacks_permission': 'نامزد منظور کنندہ ریلیزز کی منظوری نہیں دے سکتا',
   'approval_route_reason.no_holder': 'منظوری والا کردار ابھی کسی کے پاس نہیں',
   'approval_route_reason.no_manager': 'کوئی مینیجر درج نہیں، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
   'approval_route_reason.self_approval_blocked':

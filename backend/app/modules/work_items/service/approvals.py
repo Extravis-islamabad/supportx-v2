@@ -74,6 +74,13 @@ def _staff(subject: Subject, wtype: WorkItemType) -> bool:
 def _may_decide(subject: Subject, wtype: WorkItemType, row: WorkItemApproval) -> bool:
     if row.state != rules.ApprovalState.PENDING:
         return False
+    if row.record_stage is not None:
+        # A staged record's approval (WP-058a s5; the coordinator's and lane B's rule): the person
+        # named on it decides it by being named, with no extra permission. The type's approve
+        # permission, or approve_any, is for deciding an approval one is not named on.
+        if row.approver_id == subject.user_id:
+            return True
+        return subject.holds(APPROVE_ANY) or subject.holds(wtype.permission(APPROVE))
     if row.approver_id is None:
         return subject.holds(APPROVE_ANY)
     return row.approver_id == subject.user_id and subject.holds(wtype.permission(APPROVE))

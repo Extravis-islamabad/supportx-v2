@@ -7,9 +7,11 @@ status raises them, which system-only statuses their outcome sets, and the level
 approvers: people, groups (each member) and record roles (the holders when the level opens,
 REQ-REL-023 AC2).
 
-Nobody is left without someone who can decide (lane B's review): an approver who may not approve
-the type, a role nobody holds, or a requester barred by segregation of duties is replaced by one
-row for the approval administrators (`work_items.approve_any`), with the reason shown.
+A named approver decides their approval by being named (as in WP-030), with no extra permission;
+`releases.approve` (admins by default) or `work_items.approve_any` decides approvals one is not
+named on. Nobody is left without someone who can decide: an inactive approver, a role nobody
+holds, or a requester barred by segregation of duties is replaced by one row for the approval
+administrators, with the reason shown.
 
 The release guard registered here keeps the rules inside the move's transaction: it opens level 1
 when a record reaches the raising status, closes a stage's open approvals when the record goes back,
@@ -22,7 +24,7 @@ from collections.abc import Sequence
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity_access import active_user_ids, subject_for
+from app.modules.identity_access import active_user_ids
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.stages import Move, SetBy
@@ -99,9 +101,8 @@ async def _candidates(
     return list(dict.fromkeys(people)), unheld
 
 
-async def open_level(  # noqa: PLR0913 - the level and its context, explicit
+async def open_level(
     session: AsyncSession,
-    wtype: WorkItemType,
     record: WorkItem,
     settings: rules.StageApprovals,
     *,
@@ -112,8 +113,6 @@ async def open_level(  # noqa: PLR0913 - the level and its context, explicit
     level = settings.levels[index]
     people, unheld = await _candidates(session, record, level)
     active = await active_user_ids(session, people)
-    tenant = catalogue.tenant_of(session)
-    permission = wtype.permission("approve")
     named: list[uuid.UUID] = []
     reason: rules.RouteReason | None = rules.RouteReason.NO_HOLDER if unheld else None
     for person in people:
@@ -123,10 +122,7 @@ async def open_level(  # noqa: PLR0913 - the level and its context, explicit
         if not settings.self_approval and person == record.requester_id:
             reason = reason or rules.RouteReason.SELF_APPROVAL_BLOCKED
             continue
-        if not (await subject_for(session, tenant, person)).holds(permission):
-            reason = rules.RouteReason.LACKS_PERMISSION
-            continue
-        named.append(person)
+        named.append(person)  # named: decides by being named, no extra permission needed
     if not people and reason is None:
         reason = rules.RouteReason.NO_HOLDER
     rows = [
@@ -229,7 +225,7 @@ async def after_decision(
     from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - see above
 
     if outcome is rules.LevelOutcome.APPROVED and decided.stage < len(settings.levels):
-        await open_level(session, wtype, record, settings, stage=stage, index=decided.stage)
+        await open_level(session, record, settings, stage=stage, index=decided.stage)
         return
     target = settings.approved if outcome is rules.LevelOutcome.APPROVED else settings.rejected
     await items.system_stage_move(session, wtype, record, target=target, source=source)
@@ -276,7 +272,7 @@ class StagedApprovalGuard:
         stage = str(record.stage)
         if any(r.state == rules.ApprovalState.PENDING for r in await _rows(session, record, stage)):
             return
-        await open_level(session, self.wtype, record, settings, stage=stage, index=0)
+        await open_level(session, record, settings, stage=stage, index=0)
         del move
 
 

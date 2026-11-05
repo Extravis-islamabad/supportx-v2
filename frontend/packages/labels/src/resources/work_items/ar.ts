@@ -48,7 +48,6 @@ export const ar: LabelResource = {
   'approval_origin.manager': 'المدير',
   'approval_origin.named': 'موافق مسمّى',
   'approval_route_reason.approver_inactive': 'الموافق لم يعد نشطًا، لذا أُحيلت إلى الموافق البديل.',
-  'approval_route_reason.lacks_permission': 'لا يملك المعتمد المسمّى صلاحية الموافقة على الإصدارات',
   'approval_route_reason.no_holder': 'لا أحد يشغل دور الموافقة بعد',
   'approval_route_reason.no_manager': 'لا يوجد مدير مسجّل، لذا أُحيلت إلى الموافق البديل.',
   'approval_route_reason.self_approval_blocked':
