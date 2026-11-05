@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeIncident, fakeSession } from '@supportx/api-client/testing';
+import { fakeCustomField, fakeIncident, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -64,6 +64,20 @@ const panel = {
       allowed: true,
       reason: null,
       missing: [],
+    },
+    {
+      to_status: 'testing_in_progress',
+      to_stage: 'testing',
+      reason_mode: 'none',
+      reason_list: null,
+      required_fields: [],
+      allowed: true,
+      reason: null,
+      missing: [
+        { field: 'release_type', code: 'required_to_leave_stage' },
+        { field: 'release_manager_id', code: 'required_to_leave_stage' },
+        { field: 'custom.cab_ref', code: 'required_to_leave_stage' },
+      ],
     },
     {
       to_status: 'closure_canceled',
@@ -142,7 +156,17 @@ function api() {
           release_engineer_id: null,
         },
       },
-      'GET /api/v1/releases/settings': { body: { closure_codes: [], own_lists: {} } },
+      'GET /api/v1/releases/settings': {
+        body: {
+          closure_codes: [],
+          own_lists: { release_type: [{ code: 'major', labels: null, disabled: false }] },
+        },
+      },
+      'GET /api/v1/custom-fields': {
+        body: [
+          fakeCustomField({ entity: 'release', key: 'cab_ref', labels: { en: 'CAB reference' } }),
+        ],
+      },
       [`POST /api/v1/releases/${REL_ID}/moves`]: { body: { ...release, version: 8 } },
       [`GET /api/v1/releases/${REL_ID}/approvals`]: { body: { items: [approval] } },
       [`POST /api/v1/releases/${REL_ID}/approvals/${APPROVAL_ID}/decision`]: {
@@ -234,5 +258,26 @@ describe('console: releases', () => {
     const [sent] = fake.find('POST', path);
     expect(sent?.body).toMatchObject({ decision: 'reject', comment: 'Backout plan missing' });
     expect(sent?.headers.get('If-Match')).toBe('"2"');
+  });
+
+  it('asks for lists and people with their own controls, and names custom fields', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    // The Details tab with nothing changed: its Save is not a second primary action.
+    const save = await screen.findByTestId('release-details-save');
+    expect(save.className).not.toContain('ant-btn-primary');
+    fireEvent.click(screen.getByTestId('move-testing_in_progress'));
+    const dialog = await screen.findByTestId('move-dialog');
+    // The custom field reads by its name, never its key (rule d).
+    expect(await within(dialog).findByText('CAB reference')).toBeTruthy();
+    expect(within(dialog).queryByText(/cab_ref/)).toBeNull();
+    // The release type and the release manager are pickers, not text boxes.
+    expect(
+      within(screen.getByTestId('move-field-release_type')).getByRole('combobox'),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByTestId('move-field-release_manager_id')).getByRole('combobox'),
+    ).toBeTruthy();
   });
 });

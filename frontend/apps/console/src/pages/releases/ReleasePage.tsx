@@ -1,7 +1,7 @@
 import { RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Card, Flex, Result, Skeleton, Space, Tabs, Tooltip } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { releaseKeys, useRelease, useStagePanel, type StageMove } from '@supportx/api-client';
@@ -36,7 +36,10 @@ export function ReleasePage() {
   useRecordChannel('wi', id === '' ? undefined : id, () => {
     void queryClient.invalidateQueries({ queryKey: releaseKeys.detail(id) });
   });
-  if (record.error) reportError(record.error);
+  // Once per error, not on every render (lane A's review of #219).
+  useEffect(() => {
+    if (record.error) reportError(record.error);
+  }, [record.error]);
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
     return (

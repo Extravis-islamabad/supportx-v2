@@ -1,6 +1,7 @@
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Flex, Table } from 'antd';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
 import { releaseKeys, useReleases, type ReleaseListItem } from '@supportx/api-client';
@@ -33,7 +34,10 @@ export function ReleasesPage() {
   useListChannel('releases', () => {
     void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
   });
-  if (list.error) reportError(list.error);
+  // Once per error, not on every render (lane A's review of #219).
+  useEffect(() => {
+    if (list.error) reportError(list.error);
+  }, [list.error]);
   return (
     <Flex vertical gap={16} style={{ width: '100%' }}>
       <PageHeader

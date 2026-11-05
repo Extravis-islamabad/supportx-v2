@@ -10,7 +10,6 @@ import {
   useReleaseApprovals,
   useReleaseDetails,
   useReleaseRoles,
-  useReleaseSettings,
   useRemoveDowntime,
   useRoleCandidates,
   useSaveDowntime,
@@ -27,6 +26,7 @@ import {
 import { useListFormat } from '@supportx/labels';
 import {
   DateTimeField,
+  EmptyText,
   FormProblem,
   RichTextField,
   RichTextView,
@@ -40,17 +40,19 @@ import {
 } from '@supportx/ui';
 
 import { labelled } from '../incidents/labels';
+import { RISKS, useOwnList } from './lists';
 import { DecisionDialog } from '../requests/DecisionDialog';
 import { listValueName, stageName, statusName } from './labels';
 
-const RISKS = ['low', 'medium', 'high'] as const;
 const REVIEW_OUTCOMES = ['successful', 'successful_with_issues', 'failed'] as const;
 const WORK_OUTCOMES = ['passed', 'failed', 'partly_done'] as const;
 
-function useOwnList(name: string) {
-  const settings = useReleaseSettings();
-  return (settings.data?.own_lists?.[name] ?? []).filter((v) => !v.disabled);
-}
+const EMPTY_HTML = new Set(['', '<p></p>']);
+const same = (a: unknown, b: unknown) => {
+  const empty = (v: unknown) =>
+    v === null || v === undefined || (typeof v === 'string' && EMPTY_HTML.has(v));
+  return (empty(a) && empty(b)) || a === b;
+};
 
 /** The release's own fields (REQ-REL-002..005), with the release's version for If-Match. */
 export function DetailsPart({ id }: { id: string }) {
@@ -71,6 +73,10 @@ export function DetailsPart({ id }: { id: string }) {
     setDraft((now) => ({ ...now, [k]: v }));
   };
   const riskChanged = 'risk' in draft && draft.risk !== d.risk;
+  // The editor reports its empty document on mount: only a value that differs is a change.
+  const dirty = Object.entries(draft).some(
+    ([k, v]) => !same(v, (d as unknown as Record<string, unknown>)[k]),
+  );
   const submit = () => {
     save.mutate(
       {
@@ -189,9 +195,11 @@ export function DetailsPart({ id }: { id: string }) {
         />
       </Form.Item>
       <FormProblem problem={problem} />
+      {/* Primary only with changes to save: the header's move is the page's one primary action
+          otherwise (visual QA, lane A's review of #219). */}
       <WriteButton
-        type="primary"
-        disabled={Object.keys(draft).length === 0 || (riskChanged && riskReason.trim() === '')}
+        type={dirty ? 'primary' : 'default'}
+        disabled={!dirty || (riskChanged && riskReason.trim() === '')}
         loading={save.isPending}
         onClick={submit}
         data-testid="release-details-save"
@@ -509,7 +517,7 @@ export function DowntimePart({ id }: { id: string }) {
     <Flex vertical gap={16} data-testid="release-downtimes">
       <List
         dataSource={downtimes.data ?? []}
-        locale={{ emptyText: t('releases.downtime.none') }}
+        locale={{ emptyText: <EmptyText>{t('releases.downtime.none')}</EmptyText> }}
         renderItem={(d) => (
           <List.Item
             key={d.id}
@@ -617,7 +625,7 @@ export function ApprovalsPart({ id }: { id: string }) {
     <Flex vertical gap={8} data-testid="release-approvals">
       <List
         dataSource={rows}
-        locale={{ emptyText: t('releases.approvals.none') }}
+        locale={{ emptyText: <EmptyText>{t('releases.approvals.none')}</EmptyText> }}
         renderItem={(a) => (
           <List.Item
             key={a.id}
@@ -628,6 +636,7 @@ export function ApprovalsPart({ id }: { id: string }) {
                     <WriteButton
                       key="approve"
                       size="small"
+                      disabled={decide.isPending}
                       onClick={() => {
                         start(a, 'approve');
                       }}
@@ -639,6 +648,7 @@ export function ApprovalsPart({ id }: { id: string }) {
                       key="reject"
                       size="small"
                       danger
+                      disabled={decide.isPending}
                       onClick={() => {
                         start(a, 'reject');
                       }}
@@ -726,7 +736,7 @@ export function SubReleasesPart({ id }: { id: string }) {
     <List
       data-testid="release-sub-releases"
       dataSource={subs.data ?? []}
-      locale={{ emptyText: t('releases.sub.none') }}
+      locale={{ emptyText: <EmptyText>{t('releases.sub.none')}</EmptyText> }}
       renderItem={(s) => (
         <List.Item key={s.id} data-testid={`sub-release-${s.id}`}>
           {s.visible ? (
