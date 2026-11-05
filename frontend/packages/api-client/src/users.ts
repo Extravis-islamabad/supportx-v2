@@ -134,7 +134,9 @@ type UserPatch = components['schemas']['UserPreferencesPatch'];
 // record's version and sends If-Match; two at once (the start-up resends, or a quick language and
 // layout change) read the same version and the second got a 409, shown as "someone else saved
 // this". A save sends only its own field, so after a 409 it is safe to read the version again and
-// send the same field once more: nothing anyone else changed is overwritten.
+// send the same field once more. Other fields anyone else changed are kept; the same field
+// changed meanwhile (on another device) is replaced by this save, which is fine for one's own
+// preference. Only version_conflict is retried, and only here: never on shared records.
 const queues = new Map<string, Promise<unknown>>();
 const RETRIES = 2;
 
@@ -162,7 +164,12 @@ export function saveOwnPreference(
           }),
         );
       } catch (error) {
-        if (!(error instanceof ApiError && error.status === 409) || attempt >= RETRIES) throw error;
+        if (
+          !(error instanceof ApiError && error.code === 'version_conflict') ||
+          attempt >= RETRIES
+        ) {
+          throw error;
+        }
       }
     }
   };

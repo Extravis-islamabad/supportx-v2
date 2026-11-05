@@ -35,7 +35,9 @@ export const ar: LabelResource = {
   'account.mfa.policy.required': 'مطلوبة لأدوارك: بعد كلمة المرور تُدخل رمزًا من تطبيق مصادقة.',
   'account.mfa.reminder':
     'تشترط مؤسستك تسجيل الدخول بخطوتين. أعِدّه بحلول {{date}}؛ بعد ذلك سيُطلب منك إعداده قبل أي شيء آخر.',
+  'account.mfa.reminder_short': 'تسجيل الدخول بخطوتين مطلوب قبل {{date}}',
   'account.mfa.set_up': 'إعداد تسجيل الدخول بخطوتين',
+  'account.mfa.set_up_short': 'إعداد',
   'account.mfa.title': 'تسجيل الدخول بخطوتين',
   'account.password': 'كلمة المرور',
   'account.recent': 'عمليات تسجيل الدخول الأخيرة',

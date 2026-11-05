@@ -193,6 +193,7 @@ export const en = {
   'nav.main': 'Main navigation',
   'nav.more': 'More',
   'nav.my_requests': 'My requests',
+  'nav.open_menu': 'Open the menu',
   'nav.problems': 'Problems',
   'nav.profile': 'My profile',
   'nav.releases': 'Releases',

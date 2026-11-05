@@ -35,7 +35,9 @@ export const en = {
     'Required for your roles: after your password, you enter a code from an authenticator app.',
   'account.mfa.reminder':
     'Your organisation requires two-step sign-in. Set it up by {{date}}; after that you will be asked to before anything else.',
+  'account.mfa.reminder_short': 'Two-step sign-in due {{date}}',
   'account.mfa.set_up': 'Set up two-step sign-in',
+  'account.mfa.set_up_short': 'Set up',
   'account.mfa.title': 'Two-step sign-in',
   'account.password': 'Password',
   'account.recent': 'Recent sign-ins',
