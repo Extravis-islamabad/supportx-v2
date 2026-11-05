@@ -332,13 +332,37 @@ def upgrade() -> None:
     _finish("asset_settings")
 
 
+_TABLES = (
+    "asset_settings",
+    "asset_products",
+    "asset_product_types",
+    "asset_life_cycle_transitions",
+    "asset_states",
+    "asset_life_cycles",
+)
+
+# Rule 5h: a downgrade never loses data. Each tenant's rows are visible only with its
+# app.tenant_id set (RLS FORCE), so the check runs per tenant; any row refuses the downgrade.
+_REFUSE_IF_ANY_ROWS = """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        IF EXISTS (SELECT 1 FROM asset_states) OR EXISTS (SELECT 1 FROM asset_life_cycles)
+            OR EXISTS (SELECT 1 FROM asset_product_types) OR EXISTS (SELECT 1 FROM asset_products)
+            OR EXISTS (SELECT 1 FROM asset_settings)
+        THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has asset catalogue data (rule 5h)', t;
+        END IF;
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+"""
+
+
 def downgrade() -> None:
-    for table in (
-        "asset_settings",
-        "asset_products",
-        "asset_product_types",
-        "asset_life_cycle_transitions",
-        "asset_states",
-        "asset_life_cycles",
-    ):
+    """Drops the tables only while every tenant's catalogue is empty; otherwise refuses."""
+    op.execute(_REFUSE_IF_ANY_ROWS)
+    for table in _TABLES:
         op.drop_table(table)
