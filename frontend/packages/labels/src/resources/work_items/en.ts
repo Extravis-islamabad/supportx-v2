@@ -921,6 +921,14 @@ export const en = {
   'problems.evidence.pending':
     'Not shown yet: {{sources}}. They appear here when those records are available.',
   'problems.evidence.resolved': 'Resolved {{date}}',
+  'problems.follow_up.copy': 'Each incident gets',
+  'problems.follow_up.explain':
+    'Each ticked incident gets the chosen text as its resolution and moves to resolved through its own rules, so its requester confirms the fix. Untick any to leave them as they are.',
+  'problems.follow_up.no_text': 'Write a resolution or a workaround on the problem first.',
+  'problems.follow_up.none': 'No open linked incidents.',
+  'problems.follow_up.start_one': 'Resolve 1 incident',
+  'problems.follow_up.start_other': 'Resolve {{count}} incidents',
+  'problems.follow_up.title': 'Follow up linked incidents',
   'problems.from_incidents_one':
     'Created from 1 incident: it will be linked as caused by this problem.',
   'problems.from_incidents_other':

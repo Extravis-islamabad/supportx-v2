@@ -584,3 +584,31 @@ export function useMessageIncidentRequesters(id: string) {
     },
   });
 }
+
+export type ProblemFollowUpCopy = components['schemas']['CopyPart'];
+
+/** The open linked incidents a follow-up can resolve, and the texts the problem has. */
+export function useProblemFollowUp(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...problemKeys.detail(id), 'follow-up'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/{record_id}/follow-up', { params: { path: { record_id: id } } }),
+      ),
+    enabled: enabled && id !== '',
+  });
+}
+
+/** Resolve the chosen linked incidents through their own bulk job (REQ-PRB-055). */
+export function useStartFollowUp(id: string) {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ incidentIds, copy }: { incidentIds: string[]; copy: ProblemFollowUpCopy }) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/follow-up', {
+          params: { path: { record_id: id } },
+          body: { incident_ids: incidentIds, copy_text: copy },
+        }),
+      ),
+  });
+}

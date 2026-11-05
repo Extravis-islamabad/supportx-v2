@@ -928,6 +928,14 @@ export const ur: LabelResource = {
   'problems.evidence.pending':
     'ابھی نہیں دکھائے گئے: {{sources}}۔ یہ ریکارڈ دستیاب ہونے پر یہاں نظر آئیں گے۔',
   'problems.evidence.resolved': '{{date}} کو حل ہوا',
+  'problems.follow_up.copy': 'ہر واقعے کو ملے گا',
+  'problems.follow_up.explain':
+    'ہر منتخب واقعے کو چنا ہوا متن بطور حل ملتا ہے اور وہ اپنے قواعد کے مطابق حل شدہ ہو جاتا ہے، تاکہ درخواست گزار حل کی تصدیق کرے۔ جنہیں ویسا ہی رکھنا ہو ان کا انتخاب ہٹائیں۔',
+  'problems.follow_up.no_text': 'پہلے مسئلے پر حل یا عارضی حل لکھیں۔',
+  'problems.follow_up.none': 'کوئی کھلا منسلک واقعہ نہیں۔',
+  'problems.follow_up.start_one': '1 واقعہ حل کریں',
+  'problems.follow_up.start_other': '{{count}} واقعات حل کریں',
+  'problems.follow_up.title': 'منسلک واقعات کا فالو اپ',
   'problems.from_incidents_one': '1 واقعے سے بنایا گیا: اسے اس مسئلے کی وجہ سے جوڑا جائے گا۔',
   'problems.from_incidents_other':
     '{{count}} واقعات سے بنایا گیا: انہیں اس مسئلے کی وجہ سے جوڑا جائے گا۔',

@@ -39,6 +39,7 @@ import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
 import { KnownErrorTag } from './KnownErrors';
 import { CausedIncidents, MergeDialog, MergedBanner, RelatedProblems } from './ProblemLinks';
 import { useKnownErrorAction } from './useKnownErrorAction';
+import { FollowUpDialog } from './FollowUp';
 import { MessageRequestersDialog } from './MessageRequesters';
 import { ProblemApprovals, RequestApprovalDialog } from './ProblemApprovals';
 
@@ -207,6 +208,15 @@ function ProblemView({
       setAsking(true);
     },
   };
+  const [following, setFollowing] = useState(false);
+  const followUpAction: RecordAction = {
+    key: 'follow_up',
+    label: t('problems.follow_up.title'),
+    allowed: canEdit,
+    onClick: () => {
+      setFollowing(true);
+    },
+  };
   const [messaging, setMessaging] = useState(false);
   const messageAction: RecordAction = {
     key: 'message_requesters',
@@ -277,6 +287,7 @@ function ProblemView({
               knownError.action,
               askAction,
               messageAction,
+              followUpAction,
               copyAction,
               mergeAction,
             ]}
@@ -372,6 +383,13 @@ function ProblemView({
       </RecordPage>
       {status.dialogs}
       {knownError.dialog}
+      <FollowUpDialog
+        item={item}
+        open={following}
+        onClose={() => {
+          setFollowing(false);
+        }}
+      />
       <MessageRequestersDialog
         problemId={item.id}
         open={messaging}

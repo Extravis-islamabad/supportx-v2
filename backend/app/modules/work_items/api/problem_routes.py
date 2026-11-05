@@ -361,7 +361,7 @@ def _add_work_routes(router: APIRouter, wtype: WorkItemType, record_out: type[Ba
     _add_follow_up_routes(router, wtype)
 
 
-class FollowUpIncidentOut(BaseModel):
+class ProblemFollowUpIncidentOut(BaseModel):
     """An open linked incident the follow-up can resolve."""
 
     id: uuid.UUID
@@ -370,15 +370,15 @@ class FollowUpIncidentOut(BaseModel):
     status: str
 
 
-class FollowUpOut(BaseModel):
+class ProblemFollowUpOut(BaseModel):
     """What the follow-up offers: the incidents, and which texts the problem has."""
 
-    incidents: list[FollowUpIncidentOut]
+    incidents: list[ProblemFollowUpIncidentOut]
     has_resolution: bool
     has_workaround: bool
 
 
-class FollowUpIn(BaseModel):
+class ProblemFollowUpIn(BaseModel):
     """The chosen incidents (any unticked are left as they are) and what each gets."""
 
     incident_ids: list[uuid.UUID] = Field(min_length=1, max_length=MAX_INCIDENTS)
@@ -396,12 +396,12 @@ def _add_follow_up_routes(router: APIRouter, wtype: WorkItemType) -> None:
     @router.get("/{record_id}/follow-up", summary="Open linked incidents to follow up")
     async def follow_up_preview(
         record_id: uuid.UUID, session: TenantSession, subject: View
-    ) -> FollowUpOut:
+    ) -> ProblemFollowUpOut:
         """The list shown before confirming (REQ-PRB-055 AC1): open, linked and visible."""
         problem, found = await problem_followup.open_incidents(session, subject, record_id)
-        return FollowUpOut(
+        return ProblemFollowUpOut(
             incidents=[
-                FollowUpIncidentOut(
+                ProblemFollowUpIncidentOut(
                     id=i.id, display_id=i.display_id, subject=i.subject, status=i.status
                 )
                 for i in found
@@ -417,7 +417,7 @@ def _add_follow_up_routes(router: APIRouter, wtype: WorkItemType) -> None:
     )
     async def follow_up(
         record_id: uuid.UUID,
-        body: FollowUpIn,
+        body: ProblemFollowUpIn,
         session: TenantSession,
         subject: Edit,
         request: Request,
