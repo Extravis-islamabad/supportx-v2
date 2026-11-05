@@ -69,32 +69,43 @@ data:
         echo "valkey: peers exist but none answered in 60 s; starting as master" >&2
       fi
     fi
-    if [ "$master" = "$SELF" ]; then
+    # Whether any peer's server ever replicated from a master (its offset moves past 0 on the
+    # first sync): then the set holds data that a fresh, empty master would wipe out.
+    peer_synced() {
+      for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
+        peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
+        [ "$peer" = "$SELF" ] && continue
+        offset=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
+          info replication 2>/dev/null | tr -d '\r' | sed -n 's/^master_repl_offset://p')
+        [ "${offset:-0}" -gt 0 ] 2>/dev/null && return 0
+      done
+      return 1
+    }
+    if [ "$master" = "$SELF" ] && ! peer_synced; then
+      # The sentinels name this pod, but no replica ever synced: the set's first start (a peer's
+      # sentinel came up first and named pod 0). Nothing to protect: start as master at once.
+      echo "valkey: named master and no replica ever synced (first start); starting as master"
+    elif [ "$master" = "$SELF" ]; then
       # Back before the sentinels noticed it was gone (inside down-after-milliseconds): they
-      # still name this pod master, but it has no data (no persistence). Starting as master
-      # would make every replica copy the empty set. Hand over first: ask a sentinel to fail
-      # over, wait for another master, then follow it. Only when no replica can take over
-      # (NOGOODSLAVE: none ever synced, as on the set's first start when a peer's sentinel
-      # came up first, or the others are gone too) does it start as master, at once.
-      nogood=0
+      # still name this pod master, but it has no data (no persistence), and the replicas hold
+      # the set. Starting as master would make every replica copy the empty set. Hand over
+      # first: ask a sentinel to fail over until another master is named, then follow it. A
+      # NOGOODSLAVE reply can be momentary (the sentinels' view of the replicas is a few seconds
+      # old), so it is retried too. Only when no other master appears in 60 s does it start
+      # as master.
       for _ in $(seq 1 30); do
         for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
           peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
           [ "$peer" = "$SELF" ] && continue
-          reply=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 \
-            --no-auth-warning SENTINEL FAILOVER supportx 2>&1) || true
-          case "$reply" in
-            *NOGOODSLAVE*) nogood=1 ;;
-            OK*|*INPROG*) nogood=0; break ;;
-          esac
+          REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 --no-auth-warning \
+            SENTINEL FAILOVER supportx >/dev/null 2>&1 && break
         done
-        [ "$nogood" = 1 ] && break
         sleep 2
         master=$(ask_sentinels)
         [ "$master" != "$SELF" ] && [ -n "$master" ] && break
       done
       if [ "$master" = "$SELF" ] || [ -z "$master" ]; then
-        echo "valkey: no replica could take over; starting as master"
+        echo "valkey: no replica took over in 60 s; starting as master"
         master="$SELF"
       fi
     fi

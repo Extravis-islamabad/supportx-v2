@@ -124,15 +124,27 @@ def _until(check: object, seconds: float) -> None:
 
 
 @pytest.fixture
-def valkeys(tmp_path: Path) -> Iterator[Valkeys]:
+def valkeys(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Valkeys]:
     tmp_path.chmod(0o755)  # the containers' own user reads the scripts
     found = Valkeys(tmp_path, _scripts(tmp_path))
     _run("docker", "network", "create", found.network)
+    failed_before = request.session.testsfailed
     try:
         for index in range(3):
             found.start(index)
         yield found
     finally:
+        if request.session.testsfailed > failed_before:
+            # What each pod decided ("starting as master", "replica of ..."), for the CI log.
+            for index in range(3):
+                logs = subprocess.run(  # noqa: S603 - the test's own container
+                    ["docker", "logs", "--tail", "60", found.name(index)],  # noqa: S607
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                print(f"--- pod {index} ---\n{logs.stdout}{logs.stderr}")  # noqa: T201
+
         for index in range(3):
             found.stop(index)
         _run("docker", "network", "rm", found.network, check=False)
