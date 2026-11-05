@@ -141,7 +141,7 @@ def valkeys(tmp_path: Path) -> Iterator[Valkeys]:
 def test_a_failover_keeps_the_data_and_the_old_master_rejoins_as_a_replica(
     valkeys: Valkeys,
 ) -> None:
-    _until(lambda: [valkeys.role(i) for i in range(3)] == ["master", "slave", "slave"], 60)
+    _until(lambda: [valkeys.role(i) for i in range(3)] == ["master", "slave", "slave"], 30)
     _until(lambda: valkeys.master(1).startswith("supportx-valkey-0."), 30)
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     # Both replicas have it before the master is lost (WAIT: replicas that acknowledged).
@@ -165,7 +165,7 @@ def test_a_master_back_before_the_sentinels_notice_never_starts_empty(valkeys: V
     """The k3d HA smoke found it (2026-11-04): a force-deleted master pod was back in about 1 s,
     before down-after-milliseconds, so the sentinels still named it master and it started as an
     empty master; the replicas would then copy the empty set. It must hand over first."""
-    _until(lambda: [valkeys.role(i) for i in range(3)] == ["master", "slave", "slave"], 60)
+    _until(lambda: [valkeys.role(i) for i in range(3)] == ["master", "slave", "slave"], 30)
     _until(lambda: valkeys.master(1).startswith("supportx-valkey-0."), 30)
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
