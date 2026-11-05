@@ -420,6 +420,27 @@ jobs:
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make build
 
+  # The mobile app (D-138, docs/architecture/mobile.md) is its own pnpm project; it links the
+  # shared packages from frontend/, whose own dependencies come from the frontend install.
+  # Native Android and iOS builds come with WP-M6.
+  mobile:
+    name: mobile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Install mobile dependencies (lockfile only)
+        run: make mobile-install-check
+      - name: Lint (ESLint, Prettier check)
+        run: make mobile-lint
+      - name: Type-check (tsc strict)
+        run: make mobile-typecheck
+      - name: Test (Jest, jest-expo)
+        run: make mobile-test
+
   # Report PDFs (D-100 D8): WeasyPrint and Pango exist only in the worker image, so the PDF tests run
   # inside that image (its `worker-test` target), the real production setup. The sharded backend
   # tests skip them (no Pango there); here SUPPORTX_REQUIRE_PDF_TESTS=1 makes a skip a failure.

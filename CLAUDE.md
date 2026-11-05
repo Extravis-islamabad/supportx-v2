@@ -132,6 +132,13 @@ MIT.
 `@fontsource/noto-nastaliq-urdu` (SIL OFL fonts, MIT packaging): bundled, subset woff2, never
 loaded from Google's servers.
 
+**Approved additions (D-138, mobile):** Expo SDK 58 (React Native 0.88.1, local builds only, no
+EAS cloud or Expo push relay) with React 19.3 in `mobile/` only; `expo-router`, `expo-dev-client`,
+`expo-web-browser`, `expo-linking`, `expo-secure-store`, `expo-localization`, `react-native-mmkv`,
+`@shopify/flash-list`, `react-native-reanimated`, `react-native-gesture-handler`,
+`react-native-render-html`, `@expo/vector-icons`, `jest-expo`, `@testing-library/react-native`,
+Maestro; later `expo-notifications`, `expo-camera`. Plan: `docs/architecture/mobile.md`.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

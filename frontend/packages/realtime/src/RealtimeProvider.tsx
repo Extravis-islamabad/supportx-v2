@@ -65,9 +65,11 @@ export function RealtimeProvider({ tenantId, userId, children, factory }: Realti
     const leave = () => {
       connection.close();
     };
-    window.addEventListener('pagehide', leave);
+    // A page only: React Native's global has no events (the app closes its connection itself).
+    const page = typeof window.addEventListener === 'function' ? window : null;
+    page?.addEventListener('pagehide', leave);
     return () => {
-      window.removeEventListener('pagehide', leave);
+      page?.removeEventListener('pagehide', leave);
       leaveOwn();
       leaveTenant();
       stopWatching();

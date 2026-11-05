@@ -476,6 +476,8 @@ export const ur: LabelResource = {
   'errors.files_not_configured': 'فائلیں محفوظ نہیں ہو سکتیں: انکرپشن کیز ترتیب نہیں دی گئیں۔',
   'errors.follower_not_found': 'یہ شخص اسے فالو نہیں کر رہا۔',
   'errors.group_not_found': 'سپورٹ گروپ نہیں ملا۔',
+  'errors.handoff_invalid':
+    'یہ سائن اِن ختم ہو چکا ہے یا پہلے استعمال ہو چکا ہے۔ براہِ کرم دوبارہ سائن اِن کریں۔',
   'errors.holiday_list_not_found': 'تعطیلات کی یہ فہرست موجود نہیں یا حذف ہو چکی ہے۔',
   'errors.holiday_not_found': 'یہ تعطیل موجود نہیں یا حذف ہو چکی ہے۔',
   'errors.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
@@ -502,6 +504,8 @@ export const ur: LabelResource = {
   'errors.invalid_idempotency_key': 'درخواست کا شناخت کنندہ درست نہیں۔',
   'errors.invalid_login_state':
     'اس سائن اِن لنک کی میعاد ختم ہو گئی ہے۔ براہِ کرم دوبارہ شروع کریں۔',
+  'errors.invalid_mobile_challenge':
+    'ایپ سائن اِن شروع نہیں کر سکی۔ براہِ کرم ایپ اپ ڈیٹ کر کے دوبارہ کوشش کریں۔',
   'errors.invalid_page_size': 'ایک صفحے کے لیے بہت زیادہ قطاریں مانگی گئیں۔',
   'errors.invalid_report': 'یہ رپورٹ اس حالت میں نہیں چل سکتی۔ نمایاں حصے چیک کریں۔',
   'errors.invalid_sort': 'فہرست کو اس طرح ترتیب نہیں دیا جا سکتا۔',

@@ -437,6 +437,8 @@ export const ar: LabelResource = {
   'errors.files_not_configured': 'لا يمكن تخزين الملفات: مفاتيح التشفير غير مُعدّة.',
   'errors.follower_not_found': 'هذا الشخص لا يتابعه.',
   'errors.group_not_found': 'مجموعة الدعم غير موجودة.',
+  'errors.handoff_invalid':
+    'انتهت صلاحية تسجيل الدخول هذا أو تم استخدامه من قبل. يرجى تسجيل الدخول مرة أخرى.',
   'errors.holiday_list_not_found': 'قائمة العطلات هذه غير موجودة أو حُذفت.',
   'errors.holiday_not_found': 'هذه العطلة غير موجودة أو حُذفت.',
   'errors.ical_too_large': 'حجم الملف أكبر من 1 ميغابايت.',
@@ -457,6 +459,8 @@ export const ar: LabelResource = {
   'errors.invalid_filter': 'تعذّر تطبيق عامل التصفية. تحقّق من الشرط المحدّد.',
   'errors.invalid_idempotency_key': 'معرّف الطلب غير صالح.',
   'errors.invalid_login_state': 'انتهت صلاحية رابط تسجيل الدخول هذا. يرجى البدء من جديد.',
+  'errors.invalid_mobile_challenge':
+    'تعذّر على التطبيق بدء تسجيل الدخول. يرجى تحديث التطبيق والمحاولة مرة أخرى.',
   'errors.invalid_page_size': 'عدد الصفوف المطلوبة لصفحة واحدة كبير جدًا.',
   'errors.invalid_report': 'لا يمكن تشغيل هذا التقرير كما هو. تحقق من الأجزاء المحددة.',
   'errors.invalid_sort': 'لا يمكن ترتيب القائمة بهذه الطريقة.',
