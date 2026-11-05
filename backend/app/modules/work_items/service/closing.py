@@ -158,6 +158,13 @@ async def before_move(
         return step
     if action not in DONE_MOVES:
         return step
+    if (
+        action == CLOSE
+        and record.type == WorkItemTypeCode.PROBLEM
+        and record.approval_status == "pending"
+    ):
+        # REQ-PRB-054: a problem closes only once its approvals are decided.
+        raise Conflict(code="approval_pending", params={"display_id": record.display_id})
     if action == CLOSE and _review_missing(cat, record):
         # REQ-PRB-053 (D-140 Q4): the review is a closure rule for major problems and the
         # priorities the tenant lists (P1 by default).

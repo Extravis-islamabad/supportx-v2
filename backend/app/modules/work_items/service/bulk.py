@@ -47,7 +47,7 @@ from app.modules.work_items.service.realtime import BULK_PREFIX
 from app.shared.api.listing import ListQuery, order_by
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
-from app.shared.history import Source, in_batch
+from app.shared.history import Change, Source, in_batch, record_changes
 
 log = get_logger(__name__)
 BATCH_PREFIX = BULK_PREFIX  # correlation ID of a job's events: "bulk:<job id>"
@@ -65,7 +65,8 @@ _KEYS = {
     BulkAction.EDIT: None,  # any field the edit form has; the update checks each one
     BulkAction.ASSIGN: {"group_id", "technician_id", "confirm_lose_access"},
     BulkAction.TAKE: set(),
-    BulkAction.RESOLVE: {"resolution", "confirm_open_work"},
+    # follow_up_of: a problem's display id, named in each incident's history (REQ-PRB-055 AC4).
+    BulkAction.RESOLVE: {"resolution", "confirm_open_work", "follow_up_of"},
     BulkAction.CLOSE: {"closure_code", "confirm_open_work"},
     BulkAction.LINK_PROBLEM: {"problem_id", "move"},
     BulkAction.UNLINK_PROBLEM: {"problem_id"},
@@ -444,6 +445,26 @@ async def _apply(
                     confirm_open_work=bool(changes.get("confirm_open_work")),
                 ),
             )
+            if changes.get("follow_up_of"):
+                await _note_follow_up(session, record_id, str(changes["follow_up_of"]), source)
+
+
+async def _note_follow_up(
+    session: AsyncSession, record_id: uuid.UUID, problem: str, source: Source
+) -> None:
+    """The incident's history says the move came from the problem (REQ-PRB-055 AC4)."""
+    record = await session.get(WorkItem, record_id, populate_existing=True)
+    if record is None:  # pragma: no cover - just moved
+        return
+    await record_changes(
+        session,
+        record_type=items.RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=[Change("follow_up_of", None, problem)],
+        source=source,
+    )
 
 
 def _uuid(value: object) -> uuid.UUID | None:

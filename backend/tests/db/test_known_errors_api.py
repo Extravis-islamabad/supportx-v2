@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from app.modules.work_items.service.bulk import run_bulk_jobs
 from tests.db.test_incidents_api import CONSOLE, Org, World, field_codes, problem, role, world
 from tests.db.test_knowledge_api import _new, _topic
 from tests.db.test_problems_api import PRB, new_problem
@@ -365,3 +366,79 @@ async def test_messages_go_to_sets_and_to_each_linked_incident(world: World) -> 
     history = await world.call("GET", f"{PRB}/{prb['id']}/history", a, a.tech_a)
     fields = {c["field"] for e in history.json()["items"] for c in e["changes"]}
     assert "requester_message" in fields
+
+
+async def test_follow_up_resolves_the_chosen_linked_incidents(world: World) -> None:
+    """REQ-PRB-055, D-140 Q1: preview, untick, then each incident resolved by its own rules."""
+    a = world.a
+    record = (await new_problem(world, a, a.tech_a, group_id=str(a.ga))).json()
+    incidents = [await world.create(a, a.admin, group_id=str(a.ga)) for _ in range(3)]
+    for incident in incidents:
+        linked = await world.call(
+            "POST",
+            f"{PRB}/{record['id']}/incidents",
+            a,
+            a.admin,
+            json={"incident_id": incident["id"]},
+        )
+        assert linked.json() == {"linked": True}, linked.text
+    record = await fresh(world, a, a.tech_a, record)
+    for action, body in (("investigate", {}), ("resolve", {"resolution": "<p>New cert.</p>"})):
+        moved = await post(world, a, a.tech_a, record, f"actions/{action}", body)
+        assert moved.status_code == 200, moved.text
+        record = moved.json()
+
+    preview = (await world.call("GET", f"{PRB}/{record['id']}/follow-up", a, a.tech_a)).json()
+    assert {i["id"] for i in preview["incidents"]} == {i["id"] for i in incidents}
+    assert (preview["has_resolution"], preview["has_workaround"]) == (True, False)
+    chosen = [incidents[0]["id"], incidents[1]["id"]]  # the third is unticked (AC1)
+    started = await world.call(
+        "POST",
+        f"{PRB}/{record['id']}/follow-up",
+        a,
+        a.tech_a,
+        json={"incident_ids": chosen, "copy_text": "resolution"},
+        headers=CONSOLE,
+    )
+    assert started.status_code == 202, started.text
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+
+    async def read(item: dict[str, Any]) -> dict[str, Any]:
+        return dict((await world.call("GET", f"/incidents/{item['id']}", a, a.admin)).json())
+
+    for item in incidents[:2]:
+        done = await read(item)
+        assert done["status_category"] == "resolved", done["status"]  # the requester confirms
+        assert "New cert." in (done["resolution"] or "")
+        history = await world.call("GET", f"/incidents/{item['id']}/history", a, a.admin)
+        named = [
+            c["new"]
+            for e in history.json()["items"]
+            for c in e["changes"]
+            if c["field"] == "follow_up_of"
+        ]
+        assert named == [record["display_id"]]  # AC4
+    assert (await read(incidents[2]))["status_category"] != "resolved"  # left as it was
+    nothing = await world.call(
+        "POST",
+        f"{PRB}/{record['id']}/follow-up",
+        a,
+        a.tech_a,
+        json={"incident_ids": [incidents[0]["id"]], "copy_text": "workaround"},
+        headers=CONSOLE,
+    )
+    assert problem(nothing)[0] == 422  # resolved already, and no workaround written
+
+
+async def test_a_problem_waiting_for_approval_cannot_close(world: World) -> None:
+    """REQ-PRB-054: approvals must be decided before closing."""
+    a = world.a
+    record = (await new_problem(world, a, a.tech_a, group_id=str(a.ga))).json()
+    for action, body in (("investigate", {}), ("resolve", {"resolution": "<p>Fixed.</p>"})):
+        record = (await post(world, a, a.tech_a, record, f"actions/{action}", body)).json()
+    asked = await post(world, a, a.tech_a, record, "approvals", {"approver_ids": [str(a.tech_b)]})
+    assert asked.status_code == 200, asked.text
+    refused = await post(
+        world, a, a.tech_a, asked.json(), "actions/close", {"closure_code": "fixed"}
+    )
+    assert problem(refused) == (409, "approval_pending")

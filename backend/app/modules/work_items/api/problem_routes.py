@@ -22,6 +22,8 @@
     POST /problems/{id}/approvals                ask named people to approve (If-Match; 044b)
     GET  /problems/{id}/message-recipients?set=  followers, incident technicians or requesters
     POST /problems/{id}/messages/incident-requesters  a reply on each linked incident (044b)
+    GET  /problems/{id}/follow-up                its open linked incidents you see (044b)
+    POST /problems/{id}/follow-up                resolve the chosen ones, as a bulk job (044b)
 
 Many incidents go to "this problem instead" through the incidents' own bulk job
 (`POST /incidents/bulk`, action `link_problem`), the same path as from the create form.
@@ -51,6 +53,7 @@ from app.modules.work_items.service import bulk as bulk_service
 from app.modules.work_items.service import (
     known_errors,
     problem_approvals,
+    problem_followup,
     problem_impact,
     problem_merge,
     problem_messages,
@@ -343,6 +346,11 @@ def add_problem_routes(
 
         return await idempotency.run({"copy_of": str(record_id)}, run, status_code=201)
 
+    _add_work_routes(router, wtype, record_out)
+
+
+def _add_work_routes(router: APIRouter, wtype: WorkItemType, record_out: type[BaseModel]) -> None:
+    """The routes of WP-044a s5 and WP-044b, each group in its own function."""
     _add_investigator_routes(router, wtype)
     _add_analysis_routes(router, wtype)
     _add_merge_routes(router, wtype)
@@ -350,6 +358,80 @@ def add_problem_routes(
     _add_known_error_routes(router, wtype, record_out)
     _add_approval_request_route(router, wtype, record_out)
     _add_message_routes(router, wtype)
+    _add_follow_up_routes(router, wtype)
+
+
+class FollowUpIncidentOut(BaseModel):
+    """An open linked incident the follow-up can resolve."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    status: str
+
+
+class FollowUpOut(BaseModel):
+    """What the follow-up offers: the incidents, and which texts the problem has."""
+
+    incidents: list[FollowUpIncidentOut]
+    has_resolution: bool
+    has_workaround: bool
+
+
+class FollowUpIn(BaseModel):
+    """The chosen incidents (any unticked are left as they are) and what each gets."""
+
+    incident_ids: list[uuid.UUID] = Field(min_length=1, max_length=MAX_INCIDENTS)
+    copy_text: problem_followup.CopyPart = Field(
+        default=problem_followup.CopyPart.RESOLUTION,
+        description="What each incident gets as its resolution.",
+    )
+
+
+def _add_follow_up_routes(router: APIRouter, wtype: WorkItemType) -> None:
+    """Follow-up on linked incidents (WP-044b s5; REQ-PRB-055, D-140 Q1)."""
+    View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
+    Edit = Annotated[Subject, Depends(require_permission(wtype.permission("edit")))]  # noqa: N806 - type alias
+
+    @router.get("/{record_id}/follow-up", summary="Open linked incidents to follow up")
+    async def follow_up_preview(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> FollowUpOut:
+        """The list shown before confirming (REQ-PRB-055 AC1): open, linked and visible."""
+        problem, found = await problem_followup.open_incidents(session, subject, record_id)
+        return FollowUpOut(
+            incidents=[
+                FollowUpIncidentOut(
+                    id=i.id, display_id=i.display_id, subject=i.subject, status=i.status
+                )
+                for i in found
+            ],
+            has_resolution=bool((problem.resolution or "").strip()),
+            has_workaround=bool((problem.workaround or "").strip()),
+        )
+
+    @router.post(
+        "/{record_id}/follow-up",
+        summary="Resolve the chosen linked incidents",
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def follow_up(
+        record_id: uuid.UUID,
+        body: FollowUpIn,
+        session: TenantSession,
+        subject: Edit,
+        request: Request,
+    ) -> BulkJobOut:
+        """A background job: each through its own rules, with a result per incident (AC2, AC3)."""
+        job = await problem_followup.start(
+            session,
+            subject,
+            record_id,
+            body.incident_ids,
+            copy=body.copy_text,
+            source=source_of(request),
+        )
+        return BulkJobOut.of(job)
 
 
 class RecipientOut(BaseModel):
