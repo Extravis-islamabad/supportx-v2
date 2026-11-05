@@ -42,7 +42,8 @@ import {
 import { personName } from '../incidents/labels';
 import { PriorityTag } from '../incidents/tags';
 
-type AnalysisName = 'root_cause' | 'symptoms' | 'workaround';
+type AnalysisName =
+  'root_cause' | 'symptoms' | 'workaround' | 'review_summary' | 'review_lessons' | 'review_actions';
 
 /**
  * One analysis field (REQ-PRB-030): read, or edited in place with its own save, so each change
@@ -271,7 +272,7 @@ function ImpactFigures({ id }: { id: string }) {
   );
 }
 
-/** The analysis tab: impact figures, root cause, symptoms and the workaround (WP-044b D8, D10). */
+/** The analysis tab: impact, root cause, symptoms, workaround and the review (WP-044b D8, D10, D11). */
 export function ProblemAnalysis({
   item,
   reload,
@@ -279,6 +280,7 @@ export function ProblemAnalysis({
   item: Problem;
   reload: () => Promise<unknown>;
 }) {
+  const t = useLabel();
   const may = (op: string) => item.operations.find((o) => o.action === op)?.allowed === true;
   const canEdit = may('edit_analysis');
   return (
@@ -288,6 +290,23 @@ export function ProblemAnalysis({
       <AnalysisField item={item} name="symptoms" canEdit={canEdit} reload={reload} />
       {/* The solution (REQ-PRB-034): its own right; incident technicians see it (D-140 Q7). */}
       <AnalysisField item={item} name="workaround" canEdit={may('edit_solution')} reload={reload} />
+      {/* The review (REQ-PRB-053): needed before closing major and listed-priority problems. */}
+      <Flex vertical gap={8} data-testid="prb-review">
+        <Typography.Title level={2} style={{ fontSize: 16, margin: 0 }}>
+          {t('problems.review.title')}
+        </Typography.Title>
+        {item.review_required && (item.review_summary ?? '') === '' && (
+          <Alert
+            type="warning"
+            showIcon
+            message={t('problems.review.required')}
+            data-testid="prb-review-required"
+          />
+        )}
+        <AnalysisField item={item} name="review_summary" canEdit={canEdit} reload={reload} />
+        <AnalysisField item={item} name="review_lessons" canEdit={canEdit} reload={reload} />
+        <AnalysisField item={item} name="review_actions" canEdit={canEdit} reload={reload} />
+      </Flex>
     </Flex>
   );
 }

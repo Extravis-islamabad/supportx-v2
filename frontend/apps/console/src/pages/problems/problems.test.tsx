@@ -168,6 +168,7 @@ describe('console: problems', () => {
       ...record,
       root_cause: null,
       root_cause_hidden: true,
+      review_required: true,
       symptoms: '<p>Mail stalls at 9.</p>',
       analysis_changes: [
         { field: 'symptoms', changed_by: TECH, changed_at: '2026-11-04T09:00:00Z' },
@@ -218,6 +219,7 @@ describe('console: problems', () => {
     expect(within(cause).getByTestId('prb-root-cause-hidden')).toBeDefined();
     expect(within(cause).queryByRole('button', { name: /Edit/ })).toBeNull();
     expect(within(screen.getByTestId('prb-symptoms')).getByText('Mail stalls at 9.')).toBeDefined();
+    expect(screen.getByTestId('prb-review-required')).toBeDefined(); // no summary yet
     expect(screen.getByTestId('prb-symptoms-changed').textContent).toContain('Nadia Network');
     fireEvent.click(screen.getByTestId('prb-symptoms-edit'));
     expect(await screen.findByTestId('prb-symptoms-editor')).toBeDefined();

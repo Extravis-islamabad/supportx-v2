@@ -1068,6 +1068,8 @@ export const ar: LabelResource = {
   'problems.related.remove': 'إزالة الرابط إلى {{id}}',
   'problems.related.title': 'مشكلات ذات صلة',
   'problems.reported_by': 'أبلغ عنها {{name}}',
+  'problems.review.required': 'تحتاج هذه المشكلة إلى ملخص المراجعة قبل إغلاقها.',
+  'problems.review.title': 'مراجعة المشكلة',
   'problems.similar.link_instead': 'اربط الحوادث بهذه المشكلة بدلًا من ذلك',
   'problems.similar.title': 'مشكلات مفتوحة تبدو مشابهة',
   'problems.tab.analysis': 'التحليل',

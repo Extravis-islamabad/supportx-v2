@@ -968,6 +968,8 @@ export const en = {
   'problems.related.remove': 'Remove the link to {{id}}',
   'problems.related.title': 'Related problems',
   'problems.reported_by': 'Reported by {{name}}',
+  'problems.review.required': 'This problem needs its review summary before it can be closed.',
+  'problems.review.title': 'Problem review',
   'problems.similar.link_instead': 'Link the incidents to this one instead',
   'problems.similar.title': 'Open problems that look similar',
   'problems.tab.analysis': 'Analysis',

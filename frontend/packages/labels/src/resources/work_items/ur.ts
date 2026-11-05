@@ -975,6 +975,8 @@ export const ur: LabelResource = {
   'problems.related.remove': '{{id}} سے لنک ہٹائیں',
   'problems.related.title': 'متعلقہ مسائل',
   'problems.reported_by': '{{name}} نے رپورٹ کیا',
+  'problems.review.required': 'بند کرنے سے پہلے اس مسئلے کے جائزے کا خلاصہ ضروری ہے۔',
+  'problems.review.title': 'مسئلے کا جائزہ',
   'problems.similar.link_instead': 'اس کے بجائے واقعات کو اس مسئلے سے جوڑیں',
   'problems.similar.title': 'ملتے جلتے کھلے مسائل',
   'problems.tab.analysis': 'تجزیہ',
