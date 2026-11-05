@@ -7,7 +7,7 @@
 Expand only, no data step: a tenant without a row reads the defaults.
 
 Revision ID: 0096
-Revises: 0074
+Revises: 0092
 Created: 2026-11-05
 """
 
@@ -20,7 +20,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0096"
-down_revision: str | None = "0074"
+down_revision: str | None = "0092"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

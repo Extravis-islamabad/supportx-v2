@@ -253,6 +253,21 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("service_request.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("service_request.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    # releases (WP-058a): the same actions, by the type's own code
+    ("release.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.category_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.deleted", AuditCategory.RECORDS, "work_items"),
+    ("release.restored", AuditCategory.RECORDS, "work_items"),
+    ("release.bulk_started", AuditCategory.RECORDS, "work_items"),
+    ("release.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
+    ("release.closed_record_edited", AuditCategory.RECORDS, "work_items"),
+    ("release.due_date_changed", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),

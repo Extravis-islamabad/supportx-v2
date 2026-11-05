@@ -708,6 +708,11 @@ export const en = {
     'Switch the set-up off before changing how it connects, so nobody is locked out.',
   'errors.sso_switched_off': 'Switch the set-up on, or change it, before testing it.',
   'errors.sso_test_not_found': 'This test has ended. Start a new one.',
+  'errors.stage_move_not_allowed':
+    'This move is not allowed from the current status. Reload to see the latest.',
+  'errors.stage_move_refused':
+    'Something must be done before this move. See the reasons on the record.',
+  'errors.stage_status_system_only': 'Only an approval decision sets this status.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',
   'errors.storage_quota_exceeded':

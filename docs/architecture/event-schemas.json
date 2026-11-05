@@ -4351,6 +4351,77 @@
         "type": "object"
       }
     },
+    "work_items.work_item.stage_changed": {
+      "1": {
+        "description": "A staged record entered another stage (ADR-041 §6), with the status move that did it.\n\n`stages_entered` lists every stage entered in order (an automatic advance from a completing\nstatus can pass through more than one); `entry_id` is the entry of the stage it is in now.",
+        "properties": {
+          "automatic": {
+            "default": false,
+            "title": "Automatic",
+            "type": "boolean"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "from_stage": {
+            "title": "From Stage",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "stages_entered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stages Entered",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "to_stage": {
+            "title": "To Stage",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "from_stage",
+          "to_stage",
+          "stages_entered",
+          "entry_id",
+          "path"
+        ],
+        "title": "WorkItemStageChanged",
+        "type": "object"
+      }
+    },
     "work_items.work_item.status_changed": {
       "1": {
         "description": "A status action ran (by a person, or automatically after an assignment).",

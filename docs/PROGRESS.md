@@ -807,8 +807,11 @@ it with no reload (rule c). Not built yet.
     - the acknowledgement e-mail's "what happens next" text needs lane B's template (REQ-PRT-006
       AC3);
     - REQ-PRT-031's preview links come with S3.
-- [ ] S3 preview as a person (REQ-PRT-032), waiting for Haider's OK; lane B builds the
-  read-only preview session.
+- **Shipping (2026-11-05):** S1-S2 merge through the queue as #220 (stack smoke green, run
+  41944547602; 0096 now follows 0092). The coordinator approved this exception to one PR per
+  WP because S3 is blocked on a decision.
+- [ ] S3 preview as a person (REQ-PRT-032): **open, waiting for Haider's OK** of the conditions.
+  It ships as its own PR once approved; lane B builds the read-only preview session.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -1033,6 +1036,34 @@ it with no reload (rule c). Not built yet.
   (REQ-INC-147 AC4) to WP-032; knowledge suggestions while typing (REQ-INC-028) to WP-034, the
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
+
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; session 1 of 6 built 2026-11-05, #214)
+
+Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
+with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
+WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
+
+- [x] **S1 — the stage engine and the release record.**
+  - ADR-041, reviewed by lane A for changes' reuse.
+  - Migrations: 0090 (the five stage tables), 0091 (saved `releases.manage` grants), 0092
+    (release details and lists).
+  - Releases live at `/api/v1/releases`, with the rail (`/stages`), listed moves (`/moves`) and
+    the release's own fields (`/details`).
+  - Appendix A seeds.
+  - Labels in en, ar and ur.
+- [ ] S2 — templates per release type, the create form and stage sections (REQ-REL-007..013).
+- [ ] S3 — guards: required fields per stage, stage access by role (REQ-REL-018, -019), guard
+  reasons on offered moves and the full refusal list (lane A's review, ADR-041 §8).
+- [ ] S4 — roles, planning and deployment, planned and actual dates per stage (REQ-REL-023..028).
+- [ ] S5 — approvals per stage through the system entry point, associations (REQ-REL-030..037).
+- [ ] S6 — the console screens (rail, moves dialog, details), e2e and RTL; without workflows.
+- **Not done in S1 (recorded for later sessions):**
+  - REQ-REL-003: a type's default template and default risk come with templates in S2.
+  - REQ-REL-005 AC2: the "unique versions per service" tenant setting comes with services in
+    S5 (REQ-REL-035).
+  - REQ-REL-006: custom fields placed per stage come in S2. The `release` entity exists.
+  - No console screens yet (S6). The API is complete and public (mobile-ready, the
+    coordinator's 2026-11-05 note).
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).

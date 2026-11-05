@@ -45,3 +45,14 @@
 **Reviews:**
 - Lane C approved the announcements part after one fix (audience at send time).
 - I reviewed lane C's #219 (0095 fits file 05; 0098 breaks nothing here).
+
+**Shipping S1-S2 (later on 2026-11-05):**
+- Stack smoke run 41940208014 failed on four of this WP's e2e specs:
+  - the Ant search inputs carry the test id on the `<input>` itself, so the specs' `.locator('input')` never matched (two portal-home specs);
+  - the catalog request now lands on `?submitted=1`;
+  - the requester's record could be read while the list was still on screen.
+
+  Fixed in 7642c755; re-run 41944547602 is green.
+- Main merged in: kept both sides of the models conflict (portal settings beside lane C's stage models); 0096 now follows 0092, one head (0097).
+- Checks after the merge: ruff, mypy (660 files), import-linter, 55 DB and contract tests, eslint, prettier, tsc, every frontend package's tests (console 514, portal 35, ui 147, labels 65).
+- The coordinator approved queueing S1-S2 now. S3 (preview as a person) becomes its own PR once Haider approves its conditions.

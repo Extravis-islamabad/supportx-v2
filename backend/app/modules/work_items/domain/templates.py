@@ -39,6 +39,9 @@ class PickList(StrEnum):
     REASSIGN = ReasonList.REASSIGN.value
     LEVEL = "level"
     CLOSURE_CODE = "closure_code"
+    # Releases (WP-058a; REQ-REL-003, -005): their own lists, never shared with changes.
+    RELEASE_TYPE = "release_type"
+    RELEASE_REASON = "release_reason"
 
 
 REASON_LISTS = frozenset(PickList(r.value) for r in ReasonList)

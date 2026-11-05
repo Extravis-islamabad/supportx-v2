@@ -63,7 +63,9 @@ from app.shared.db.models import (
     Base,
     TenantEntity,
     TenantKeyed,
+    TenantScoped,
     Timestamps,
+    UuidPrimaryKey,
     Versioned,
     utc_now,
 )
@@ -161,6 +163,20 @@ class WorkItemStatus(TenantKeyed, Base):
     __tablename__ = "work_item_statuses"
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint("set_by IN ('person', 'system')", name="set_by_code"),
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "stage"],
+            ["work_item_stages.tenant_id", "work_item_stages.type", "work_item_stages.code"],
+            name="fk_work_item_statuses_stage",
+        ),
+        Index(
+            "uq_work_item_statuses_one_completing",
+            "tenant_id",
+            "type",
+            "stage",
+            unique=True,
+            postgresql_where=text("completing"),
+        ),
         CheckConstraint(_codes("category", StatusCategory), name="category_code"),
         CheckConstraint("code ~ '^[a-z][a-z0-9_]{1,39}$'", name="code_format"),
         CheckConstraint("colour ~ '^#[0-9a-fA-F]{6}$'", name="colour_format"),
@@ -177,6 +193,11 @@ class WorkItemStatus(TenantKeyed, Base):
     disabled_at: Mapped[datetime | None]
     # A requester reply moves a record in this (paused) status back to in progress (REQ-INC-051).
     resume_on_requester_reply: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Staged types (ADR-041): the stage that owns it, whether reaching it completes the stage,
+    # and who may set it (`system`: approval outcomes only).
+    stage: Mapped[str | None] = mapped_column(String(40))
+    completing: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    set_by: Mapped[str] = mapped_column(String(10), server_default="person")
 
 
 class WorkItemTransition(TenantKeyed, Base):
@@ -632,6 +653,11 @@ class WorkItem(TenantEntity):
     follows_id: Mapped[uuid.UUID | None]
     status_changed_at: Mapped[datetime] = mapped_column(server_default=func.now())
     tags: Mapped[list[str]] = mapped_column(ARRAY(String(40)), server_default="{}")
+    # Staged types (ADR-041): the current stage, the path it follows and the life cycle version
+    # it runs on (REQ-CHG-030). NULL for types without stages.
+    stage: Mapped[str | None] = mapped_column(String(40))
+    stage_path: Mapped[str | None] = mapped_column(String(40))
+    lifecycle_version: Mapped[int | None] = mapped_column(Integer)
     first_assigned_at: Mapped[datetime | None]
     first_responded_at: Mapped[datetime | None]
     resolved_at: Mapped[datetime | None]
@@ -1114,3 +1140,190 @@ class WorkItemPortalSettings(Timestamps, Actors, Versioned, Base):
     profile_editing: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # Requesters get reminders about what waits for them (REQ-PRT-031 "requester reminders").
     requester_reminders: Mapped[bool] = mapped_column(Boolean, server_default="true")
+
+
+# --- stages (WP-058a, ADR-041) ------------------------------------------------------------------
+
+
+class WorkItemStage(TenantKeyed, Base):
+    """One stage of a staged type, in order (REQ-REL-014, REQ-WI-026)."""
+
+    __tablename__ = "work_item_stages"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint("code ~ '^[a-z][a-z0-9_]{1,39}$'", name="code_format"),
+    )
+
+    type: Mapped[str] = mapped_column(String(20), primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer)
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    system: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    disabled_at: Mapped[datetime | None]
+
+
+class WorkItemStagePath(TenantKeyed, Base):
+    """A path: the stages a record takes (per sub-type or template), with its version."""
+
+    __tablename__ = "work_item_stage_paths"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint("code ~ '^[a-z][a-z0-9_]{1,39}$'", name="code_format"),
+    )
+
+    type: Mapped[str] = mapped_column(String(20), primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), primary_key=True)
+    lifecycle_version: Mapped[int | None] = mapped_column(Integer)
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    system: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    disabled_at: Mapped[datetime | None]
+
+
+class WorkItemPathStage(TenantKeyed, Base):
+    """A stage on a path, in order, optionally optional (REQ-CHG-027)."""
+
+    __tablename__ = "work_item_path_stages"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "path"],
+            [
+                "work_item_stage_paths.tenant_id",
+                "work_item_stage_paths.type",
+                "work_item_stage_paths.code",
+            ],
+            name="fk_work_item_path_stages_path",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "stage"],
+            ["work_item_stages.tenant_id", "work_item_stages.type", "work_item_stages.code"],
+            name="fk_work_item_path_stages_stage",
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20), primary_key=True)
+    path: Mapped[str] = mapped_column(String(40), primary_key=True)
+    stage: Mapped[str] = mapped_column(String(40), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer)
+    optional: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class WorkItemStatusTransition(UuidPrimaryKey, TenantScoped, Base):
+    """A listed move from status to status (ADR-041 §4); `path` NULL: on every path."""
+
+    __tablename__ = "work_item_status_transitions"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint(_codes("reason_mode", ReasonMode), name="reason_mode_code"),
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "from_status"],
+            ["work_item_statuses.tenant_id", "work_item_statuses.type", "work_item_statuses.code"],
+            name="fk_work_item_status_transitions_from",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "to_status"],
+            ["work_item_statuses.tenant_id", "work_item_statuses.type", "work_item_statuses.code"],
+            name="fk_work_item_status_transitions_to",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "type", "path"],
+            [
+                "work_item_stage_paths.tenant_id",
+                "work_item_stage_paths.type",
+                "work_item_stage_paths.code",
+            ],
+            name="fk_work_item_status_transitions_path",
+        ),
+        Index(
+            "uq_work_item_status_transitions_move",
+            "tenant_id",
+            "type",
+            text("coalesce(path, '')"),
+            text("coalesce(lifecycle_version, 0)"),
+            "from_status",
+            "to_status",
+            unique=True,
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    path: Mapped[str | None] = mapped_column(String(40))
+    lifecycle_version: Mapped[int | None] = mapped_column(Integer)
+    from_status: Mapped[str] = mapped_column(String(40))
+    to_status: Mapped[str] = mapped_column(String(40))
+    reason_mode: Mapped[str] = mapped_column(String(10), server_default="none")
+    reason_list: Mapped[str | None] = mapped_column(String(20))
+    permission: Mapped[str | None] = mapped_column(String(40))
+    required_fields: Mapped[list[str] | None] = mapped_column(JSONB)
+
+
+class WorkItemStageEntry(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
+    """A record entering a stage (ADR-041 §6): never rewritten except for when it left."""
+
+    __tablename__ = "work_item_stage_entries"
+    __table_args__ = (
+        Index("ix_work_item_stage_entries_tenant_item", "tenant_id", "work_item_id", "entered_at"),
+    )
+
+    work_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"))
+    stage: Mapped[str] = mapped_column(String(40))
+    path: Mapped[str] = mapped_column(String(40))
+    entered_at: Mapped[datetime]
+    left_at: Mapped[datetime | None]
+    reason_code: Mapped[str | None] = mapped_column(String(40))
+    reason_text: Mapped[str | None] = mapped_column(String(500))
+
+
+class WorkItemReleaseDetails(TenantKeyed, Timestamps, Actors, Base):
+    """A release's own fields, one row per release (WP-058a; REQ-REL-002..005; 0092).
+
+    No version of its own: every edit goes through the release's work item, whose `version` it
+    bumps, so one If-Match covers the whole record.
+    """
+
+    __tablename__ = "work_item_release_details"
+    __table_args__ = (
+        CheckConstraint("risk IS NULL OR risk IN ('low', 'medium', 'high')", name="risk_code"),
+        CheckConstraint(
+            "scheduled_end IS NULL OR scheduled_start IS NULL OR scheduled_end >= scheduled_start",
+            name="scheduled_order",
+        ),
+        CheckConstraint(
+            "actual_end IS NULL OR actual_start IS NULL OR actual_end >= actual_start",
+            name="actual_order",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "release_manager_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_work_item_release_details_release_manager_id",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "release_engineer_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_work_item_release_details_release_engineer_id",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_work_item_release_details_tenant_version",
+            "tenant_id",
+            "release_version",
+            postgresql_where=text("release_version IS NOT NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("work_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    release_type: Mapped[str | None] = mapped_column(String(40))
+    risk: Mapped[str | None] = mapped_column(String(10))
+    release_version: Mapped[str | None] = mapped_column(String(60))
+    build_ref: Mapped[str | None] = mapped_column(String(200))
+    release_reason: Mapped[str | None] = mapped_column(String(40))
+    release_notes: Mapped[str | None] = mapped_column(Text)
+    scheduled_start: Mapped[datetime | None]
+    scheduled_end: Mapped[datetime | None]
+    actual_start: Mapped[datetime | None]
+    actual_end: Mapped[datetime | None]
+    release_manager_id: Mapped[uuid.UUID | None]
+    release_engineer_id: Mapped[uuid.UUID | None]
