@@ -110,6 +110,7 @@ export const ar: LabelResource = {
   'list.separator': '، ',
   'pick_list.cancel': 'أسباب الإلغاء',
   'pick_list.closure_code': 'رموز الإغلاق',
+  'pick_list.downtime_kind': 'أنواع التوقف',
   'pick_list.level': 'المستويات',
   'pick_list.pause': 'بانتظار مقدم الطلب',
   'pick_list.reassign': 'أسباب النقل إلى مجموعة أخرى',

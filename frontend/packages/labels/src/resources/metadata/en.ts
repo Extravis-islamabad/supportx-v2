@@ -108,6 +108,7 @@ export const en = {
   'list.separator': ', ',
   'pick_list.cancel': 'Cancel reasons',
   'pick_list.closure_code': 'Closure codes',
+  'pick_list.downtime_kind': 'Downtime kinds',
   'pick_list.level': 'Levels',
   'pick_list.pause': 'Waiting on the requester',
   'pick_list.reassign': 'Reasons for moving to another group',

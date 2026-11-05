@@ -129,6 +129,7 @@ export const en = {
   'errors.domain_wrong_answer':
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
+  'errors.downtime_not_found': 'This downtime window does not exist.',
   'errors.entitlement_required': 'Your plan does not include this feature.',
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
   'errors.entitlements_unavailable':
@@ -239,6 +240,8 @@ export const en = {
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
   'errors.field.half_day_single_date': 'A morning or afternoon off is one day only.',
+  'errors.field.hidden_cannot_be_required':
+    'A hidden field cannot be required: nobody could fill it in.',
   'errors.field.hidden_required_needs_default':
     'A hidden required field needs a starting value, or nobody could fill it in.',
   'errors.field.holiday_list_not_found': 'Choose holiday lists from the list.',
@@ -301,8 +304,10 @@ export const en = {
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
+  'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
+  'errors.field.not_eligible': 'This person or group may not hold this role.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
@@ -335,6 +340,7 @@ export const en = {
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',
+  'errors.field.read_only_in_stage': 'This field cannot be changed in the current stage.',
   'errors.field.reason_required': 'Give a reason.',
   'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
   'errors.field.recipients_required': 'Choose at least one person or group.',
@@ -349,8 +355,10 @@ export const en = {
   'errors.field.requester_only': "Only the requester's confirmation sets this code.",
   'errors.field.required': 'This field is required.',
   'errors.field.required_to_close': 'Needed before closing.',
+  'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
+  'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
@@ -447,6 +455,7 @@ export const en = {
   'errors.field.unknown_record_type': 'Choose what the rule applies to.',
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
   'errors.field.unknown_sort_field': 'The list cannot be sorted by this field.',
+  'errors.field.unknown_stage': 'This type has no such stage.',
   'errors.field.unknown_time_zone': 'Choose a time zone from the list.',
   'errors.field.unknown_value': 'This value does not exist (any more).',
   'errors.field.url_not_valid': 'Enter a web address starting with https:// or http://.',
@@ -465,6 +474,7 @@ export const en = {
   'errors.field.wider_than_topic':
     "An article can only narrow its topic's audience, never widen it.",
   'errors.field.window_end_before_start': 'Must be after the start.',
+  'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
@@ -633,6 +643,7 @@ export const en = {
   'errors.pick_list_value_not_found': 'That value no longer exists.',
   'errors.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
+  'errors.plan_section_not_found': 'This plan section does not exist.',
   // WP-008: API conventions (concurrency, idempotency, filters, sorting, paging).
   'errors.precondition_required':
     'This change needs the version you are editing. Reload the item and try again.',
@@ -712,6 +723,7 @@ export const en = {
     'This move is not allowed from the current status. Reload to see the latest.',
   'errors.stage_move_refused':
     'Something must be done before this move. See the reasons on the record.',
+  'errors.stage_not_found': 'This stage does not exist.',
   'errors.stage_status_system_only': 'Only an approval decision sets this status.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',
