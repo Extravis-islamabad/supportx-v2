@@ -261,7 +261,15 @@ function checks(): string[] {
   for (const el of document.querySelectorAll('body *')) {
     if (!(el instanceof HTMLElement) || !shown(el) || el.children.length > 0) continue;
     const s = getComputedStyle(el);
+    // Text for screen readers only is clipped on purpose (a 1 px box or a clip rectangle, e.g.
+    // the phone header's "Menu: <name>" on the avatar button): not a finding.
+    const forScreenReaders =
+      el.closest('.sx-visually-hidden') !== null ||
+      s.getPropertyValue('clip').startsWith('rect(') ||
+      s.clipPath.startsWith('inset(50%') ||
+      el.clientWidth <= 1;
     const clipped =
+      !forScreenReaders &&
       (s.overflow === 'hidden' || s.textOverflow === 'ellipsis') &&
       el.scrollWidth > el.clientWidth + 1;
     if (clipped && !el.title && !el.closest('[title]') && !el.closest('[aria-describedby]')) {
