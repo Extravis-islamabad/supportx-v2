@@ -156,6 +156,7 @@ export const ur: LabelResource = {
   'locale.ur': 'اردو',
   'nav.admin': 'ایڈمن',
   'nav.admin_api_keys': 'API کلیدیں',
+  'nav.admin_assets': 'اثاثے',
   'nav.admin_automation': 'آٹومیشن',
   'nav.admin_branding': 'برانڈنگ',
   'nav.admin_files': 'فائلیں',
@@ -447,6 +448,7 @@ export const ur: LabelResource = {
   'settings.to_status': 'تک',
   'settings.use_shipped_name': 'بلٹ اِن نام استعمال کریں (ہر زبان میں ترجمہ شدہ)',
   'settings.yes': 'ہاں',
+  'setup.group.assets': 'اثاثے',
   'setup.group.audit': 'آڈٹ',
   'setup.group.automation_sla': 'آٹومیشن اور SLA',
   'setup.group.channels': 'چینلز اور انٹیگریشنز',
@@ -466,6 +468,10 @@ export const ur: LabelResource = {
   'setup.page.api-keys.description':
     'وہ کلیدیں جن سے دوسرے سسٹم API استعمال کرتے ہیں: کس نے بنائیں، ان کے دائرے، میعاد اور استعمال۔',
   'setup.page.api-keys.keywords': 'API کلیدیں، ٹوکن، انضمام، دائرے، خودکاری، اسکرپٹ، منسوخ',
+  'setup.page.assets.description':
+    'پروڈکٹ کی اقسام، پروڈکٹس، اثاثوں کی حالتیں، لائف سائیکلز اور اثاثوں کے ٹیگ۔',
+  'setup.page.assets.keywords':
+    'اثاثے، پروڈکٹس، پروڈکٹ کی اقسام، ہارڈویئر، انوینٹری، حالتیں، لائف سائیکل، ٹیگ، فرسودگی',
   'setup.page.audit.description': 'ہر تبدیلی اور سائن اِن، چھیڑ چھاڑ ظاہر کرنے والی زنجیر کے ساتھ۔',
   'setup.page.audit.keywords': 'آڈٹ، لاگ، تاریخ، تبدیلیاں، سائن اِن، تعمیل',
   'setup.page.automation.description': 'کاروباری اصول، ٹرگرز اور لوپ سے حفاظت۔',

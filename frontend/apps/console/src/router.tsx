@@ -242,6 +242,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'assets',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/assets/AssetCatalogPage')).AssetCatalogPage,
+            }),
+          },
+          {
             path: 'automation/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,

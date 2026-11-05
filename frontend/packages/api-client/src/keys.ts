@@ -1,4 +1,5 @@
 import type { AnnouncementsQuery } from './announcements';
+import type { AssetProductsQuery } from './assets';
 import type { AuditEntriesQuery } from './audit';
 import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
@@ -58,6 +59,14 @@ export const queryKeys = {
     domains: ['branding', 'domains'] as const,
     check: (primary: string | null, gradient: readonly [string, string] | null) =>
       ['branding', 'check', primary, gradient] as const,
+  },
+  assets: {
+    all: ['assets'] as const, // one live `assets.catalogue_changed` refetches everything here
+    settings: ['assets', 'settings'] as const,
+    states: ['assets', 'states'] as const,
+    lifeCycles: ['assets', 'life-cycles'] as const,
+    productTypes: ['assets', 'product-types'] as const,
+    products: (query: AssetProductsQuery) => ['assets', 'products', query] as const,
   },
   announcements: {
     all: ['announcements'] as const,
