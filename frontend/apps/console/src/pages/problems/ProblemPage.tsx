@@ -1,6 +1,6 @@
 import { BugOutlined, CloseOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Flex, List, Result, Select, Skeleton, Steps, Typography } from 'antd';
+import { Button, Empty, Flex, List, Result, Select, Skeleton, Steps, Tabs, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -36,6 +36,7 @@ import { labelled, personName } from '../incidents/labels';
 import { useStatusActions } from '../incidents/StatusActions';
 import { PriorityTag, StatusTag } from '../incidents/tags';
 import { useDebounced } from '../../useDebounced';
+import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
 const GUIDED = [
@@ -162,7 +163,8 @@ function Investigators({ id, canEdit, me }: { id: string; canEdit: boolean; me: 
  * One problem (WP-044a s5): the header with its status moves (the incidents' status bar and
  * dialogs, run on the problem), the guided steps on the major problem template's life cycle,
  * the description, the incidents it causes and its investigators; copy makes a new problem.
- * Live on the record channel. Tabs for analysis, tasks and the conversation come with WP-044b/c.
+ * Live on the record channel. Tabs: overview, analysis and evidence (WP-044b); tasks and the
+ * conversation come with WP-044b/c.
  */
 export function ProblemPage() {
   const t = useLabel();
@@ -176,6 +178,9 @@ export function ProblemPage() {
     void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
     void queryClient.invalidateQueries({ queryKey: problemKeys.links(id) });
     void queryClient.invalidateQueries({ queryKey: problemKeys.investigators(id) });
+    // A linked or resolved incident moves the figures and the timeline (REQ-PRB-032 AC2).
+    void queryClient.invalidateQueries({ queryKey: problemKeys.impact(id) });
+    void queryClient.invalidateQueries({ queryKey: problemKeys.evidence(id) });
   });
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
@@ -187,7 +192,15 @@ export function ProblemPage() {
       />
     );
   }
-  return <ProblemView item={record.data} navigate={navigate} locale={locale} dates={dates} />;
+  return (
+    <ProblemView
+      item={record.data}
+      navigate={navigate}
+      locale={locale}
+      dates={dates}
+      reload={async () => (await record.refetch()).data}
+    />
+  );
 }
 
 function ProblemView({
@@ -195,11 +208,13 @@ function ProblemView({
   navigate,
   locale,
   dates,
+  reload,
 }: {
   item: Problem;
   navigate: ReturnType<typeof useNavigate>;
   locale: string;
   dates: ReturnType<typeof useDateTime>;
+  reload: () => Promise<unknown>;
 }) {
   const t = useLabel();
   const catalogue = useProblemCatalogue();
@@ -300,11 +315,34 @@ function ProblemView({
       >
         <Flex vertical gap={16} style={{ padding: 16 }}>
           {item.lifecycle === 'guided_analysis' && <GuidedSteps record={item} />}
-          {item.description === null || item.description === '' ? (
-            <Typography.Text type="secondary">{t('problems.no_description')}</Typography.Text>
-          ) : (
-            <RichTextView html={item.description} testId="prb-description" />
-          )}
+          <Tabs
+            data-testid="prb-tabs"
+            destroyOnHidden
+            items={[
+              {
+                key: 'overview',
+                label: t('problems.tab.overview'),
+                children:
+                  item.description === null || item.description === '' ? (
+                    <Typography.Text type="secondary">
+                      {t('problems.no_description')}
+                    </Typography.Text>
+                  ) : (
+                    <RichTextView html={item.description} testId="prb-description" />
+                  ),
+              },
+              {
+                key: 'analysis',
+                label: <span data-testid="prb-tab-analysis">{t('problems.tab.analysis')}</span>,
+                children: <ProblemAnalysis item={item} reload={reload} />,
+              },
+              {
+                key: 'evidence',
+                label: <span data-testid="prb-tab-evidence">{t('problems.tab.evidence')}</span>,
+                children: <ProblemEvidence id={item.id} />,
+              },
+            ]}
+          />
         </Flex>
       </RecordPage>
       {status.dialogs}

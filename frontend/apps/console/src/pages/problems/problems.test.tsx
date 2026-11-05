@@ -7,7 +7,8 @@ import { App } from '../../App';
 import { consoleApi } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
-// similar problems), and the record with the guided steps and investigators.
+// similar problems), and the record with the guided steps and investigators. WP-044b s1: the
+// analysis and evidence tabs.
 
 const PRB_ID = '01a1a2b3-0000-7000-8000-00000000e001';
 const INC_ID = '01a1a2b3-0000-7000-8000-00000000c101';
@@ -148,5 +149,90 @@ describe('console: problems', () => {
     expect(within(steps).getByText('In review')).toBeDefined();
     expect(await screen.findByRole('button', { name: 'Start the why-analysis' })).toBeDefined();
     expect(await screen.findByText('Nadia Network')).toBeDefined();
+  });
+
+  it('analysis: impact figures, a locked root cause, and symptoms edited in place', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const hidden = {
+      ...record,
+      root_cause: null,
+      root_cause_hidden: true,
+      symptoms: '<p>Mail stalls at 9.</p>',
+      operations: [
+        ...record.operations,
+        { action: 'edit_analysis', allowed: true, reason: null, reason_mode: 'none' as const },
+      ],
+    };
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}`]: { body: hidden },
+      [`GET /api/v1/problems/${PRB_ID}/impact`]: {
+        body: {
+          incidents: 4,
+          open_incidents: 3,
+          by_priority: [{ priority: 'p2', count: 4 }],
+          by_site: [{ site_id: null, count: 4 }],
+          people: 2,
+          minutes: 90,
+          partial: true,
+        },
+      },
+      [`PATCH /api/v1/problems/${PRB_ID}`]: {
+        body: { ...hidden, symptoms: '<p>Mail stalls at 9 and 2.</p>', version: 2 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('prb-tab-analysis'));
+    const impact = await screen.findByTestId('prb-impact');
+    expect(
+      within(impact).getByText('4', { selector: '.ant-statistic-content-value-int' }),
+    ).toBeDefined();
+    expect(within(impact).getByTestId('prb-impact-partial')).toBeDefined();
+    expect(within(impact).getByTestId('prb-impact-hours').textContent).toContain('1.5'); // 90 min
+    // The root cause is locked, never shown as empty, and offers no edit.
+    const cause = screen.getByTestId('prb-root-cause');
+    expect(within(cause).getByTestId('prb-root-cause-hidden')).toBeDefined();
+    expect(within(cause).queryByRole('button', { name: /Edit/ })).toBeNull();
+    expect(within(screen.getByTestId('prb-symptoms')).getByText('Mail stalls at 9.')).toBeDefined();
+    fireEvent.click(screen.getByTestId('prb-symptoms-edit'));
+    expect(await screen.findByTestId('prb-symptoms-editor')).toBeDefined();
+    fireEvent.click(screen.getByTestId('prb-symptoms-save'));
+    await waitFor(() => {
+      const patch = fake.calls.find((c) => c.method === 'PATCH');
+      expect(patch?.headers.get('If-Match')).toBe('"1"');
+      expect(Object.keys(patch?.body as object)).toContain('symptoms');
+      expect(Object.keys(patch?.body as object)).not.toContain('root_cause');
+    });
+  });
+
+  it('evidence: the caused incidents in report order, and what is not there yet', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api({
+      [`GET /api/v1/problems/${PRB_ID}/evidence`]: {
+        body: {
+          incidents: [
+            {
+              id: INC_ID,
+              display_id: 'INC-41',
+              subject: 'Mail slow',
+              priority: 'p3',
+              status: 'resolved',
+              status_category: 'resolved',
+              site_id: null,
+              reported_at: '2026-11-01T08:00:00Z',
+              resolved_at: '2026-11-01T10:00:00Z',
+            },
+          ],
+          left_out: true,
+          pending_sources: ['changes', 'releases', 'same_items'],
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('prb-tab-evidence'));
+    expect(await screen.findByTestId('prb-evidence-INC-41')).toBeDefined();
+    expect(screen.getByTestId('prb-evidence-pending').textContent).toContain(
+      'Changes, Releases, and Other problems on the same items',
+    );
+    expect(screen.getByTestId('prb-evidence-left-out')).toBeDefined();
   });
 });

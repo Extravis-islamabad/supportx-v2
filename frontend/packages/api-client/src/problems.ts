@@ -15,6 +15,9 @@ export type ProblemTemplate = components['schemas']['TemplateOut'];
 export type ProblemPrefill = components['schemas']['ProblemPrefillOut'];
 export type SimilarProblem = components['schemas']['SimilarProblemOut'];
 export type ProblemLink = components['schemas']['WorkItemLinkOut'];
+export type ProblemPatch = Partial<components['schemas']['WorkItemPatch']>;
+export type ProblemImpact = components['schemas']['ProblemImpactOut'];
+export type ProblemEvidence = components['schemas']['ProblemEvidenceOut'];
 
 export interface ProblemsQuery {
   view?: string;
@@ -27,6 +30,8 @@ export const problemKeys = {
   detail: (id: string) => ['problems', 'detail', id] as const,
   links: (id: string) => ['problems', 'detail', id, 'links'] as const,
   investigators: (id: string) => ['problems', 'detail', id, 'investigators'] as const,
+  impact: (id: string) => ['problems', 'detail', id, 'impact'] as const,
+  evidence: (id: string) => ['problems', 'detail', id, 'evidence'] as const,
   settings: ['problems', 'settings'] as const,
   templates: ['problems', 'templates'] as const,
   similar: (q: string) => ['problems', 'similar', q] as const,
@@ -287,5 +292,41 @@ export function useProblemPeople(id: string, search: string) {
       ),
     enabled: id !== '',
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Change a problem's fields with If-Match (409 `version_conflict` names what changed). */
+export function useUpdateProblem(id: string) {
+  const saved = useSavedProblem();
+  const once = useSingleFlight(({ changes, version }: { changes: ProblemPatch; version: number }) =>
+    call(
+      api.PATCH('/api/v1/problems/{record_id}', {
+        params: { path: { record_id: id }, header: ifMatch(version) },
+        body: { confirm_lose_access: false, ...changes },
+      }),
+    ),
+  );
+  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
+}
+
+/** Figures from the caused incidents you may see (REQ-PRB-033); `partial` when some are not. */
+export function useProblemImpact(id: string) {
+  return useQuery({
+    queryKey: problemKeys.impact(id),
+    queryFn: () =>
+      call(api.GET('/api/v1/problems/{record_id}/impact', { params: { path: { record_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+/** The evidence timeline (REQ-PRB-032) and the sources not there yet. */
+export function useProblemEvidence(id: string) {
+  return useQuery({
+    queryKey: problemKeys.evidence(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/{record_id}/evidence', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
   });
 }

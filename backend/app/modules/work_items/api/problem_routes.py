@@ -31,6 +31,7 @@ from app.modules.audit import audited
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.list_routes import BulkJobOut
 from app.modules.work_items.api.people import PersonOut, people_out
+from app.modules.work_items.domain.classification import Priority
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.lists import MAX_BULK
 from app.modules.work_items.domain.types import PROBLEM, WorkItemType
@@ -331,7 +332,7 @@ class SiteCountOut(BaseModel):
 class PriorityCountOut(BaseModel):
     """Caused incidents of one priority."""
 
-    priority: str = Field(description="A `priority` code.")
+    priority: Priority
     count: int
 
 
@@ -355,7 +356,7 @@ class EvidenceIncidentOut(BaseModel):
     id: uuid.UUID
     display_id: str
     subject: str
-    priority: str = Field(description="A `priority` code.")
+    priority: Priority
     status: str = Field(description="A status code of the incident type.")
     status_category: str
     site_id: uuid.UUID | None
@@ -389,7 +390,8 @@ def _add_analysis_routes(router: APIRouter, wtype: WorkItemType) -> None:
             incidents=found.incidents,
             open_incidents=found.open_incidents,
             by_priority=[
-                PriorityCountOut(priority=k, count=v) for k, v in sorted(found.by_priority.items())
+                PriorityCountOut(priority=Priority(k), count=v)
+                for k, v in sorted(found.by_priority.items())
             ],
             by_site=[
                 SiteCountOut(site_id=k, count=v)

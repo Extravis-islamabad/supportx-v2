@@ -882,15 +882,36 @@ export const en = {
     '1 selected incident already has a problem. Tick it to move it to this one.',
   'problems.already_caused.title_other':
     '{{count}} selected incidents already have a problem. Tick those to move to this one.',
+  'problems.analysis.edit': 'Edit {{field}}',
+  'problems.analysis.empty': 'Not filled in yet.',
+  'problems.analysis.root_cause_hidden':
+    'The root cause is visible to problem roles only. Ask an administrator if you need it.',
+  'problems.analysis.saved': 'Saved.',
   'problems.copy': 'Copy',
   'problems.create': 'Create problem',
   'problems.create_from_incident': 'Create problem',
   'problems.empty': 'No problems yet.',
+  'problems.evidence.left_out':
+    'Some linked incidents are not shown: you cannot see them, or there are more than 200.',
+  'problems.evidence.none': 'No incidents are linked to this problem yet.',
+  'problems.evidence.pending':
+    'Not shown yet: {{sources}}. They appear here when those records are available.',
+  'problems.evidence.resolved': 'Resolved {{date}}',
   'problems.from_incidents_one':
     'Created from 1 incident: it will be linked as caused by this problem.',
   'problems.from_incidents_other':
     'Created from {{count}} incidents: they will be linked as caused by this problem.',
   'problems.hidden_incident': 'An incident you cannot see',
+  'problems.impact.count_one': '1 incident',
+  'problems.impact.count_other': '{{count}} incidents',
+  'problems.impact.hours': 'Hours logged',
+  'problems.impact.incidents': 'Incidents',
+  'problems.impact.open': 'Still open',
+  'problems.impact.partial':
+    'Counted from the incidents you can see. Some linked incidents are not visible to you.',
+  'problems.impact.people': 'People affected',
+  'problems.impact.sites': 'Sites',
+  'problems.impact.title': 'Impact',
   'problems.incidents': 'Incidents',
   'problems.investigators.add': 'Add an investigator',
   'problems.investigators.none': 'No investigators yet.',
@@ -907,6 +928,9 @@ export const en = {
   'problems.reported_by': 'Reported by {{name}}',
   'problems.similar.link_instead': 'Link the incidents to this one instead',
   'problems.similar.title': 'Open problems that look similar',
+  'problems.tab.analysis': 'Analysis',
+  'problems.tab.evidence': 'Evidence',
+  'problems.tab.overview': 'Overview',
   'problems.target_date': 'Target date',
   'rail_state.current': 'Current',
   'rail_state.done': 'Done',
