@@ -1,13 +1,4 @@
-import {
-  Button,
-  Card,
-  ConfigProvider,
-  Flex,
-  Input,
-  Segmented,
-  Typography,
-  theme as antdTheme,
-} from 'antd';
+import { Card, ConfigProvider, Flex, Input, Segmented, Typography, theme as antdTheme } from 'antd';
 import { useMemo, useState } from 'react';
 
 import {
@@ -62,9 +53,7 @@ function Sample({ brand, mode, surface }: { brand: Branding; mode: ThemeMode; su
           }}
         >
           <Logo brand={brand} mode={mode} height={24} />
-          <Button type="primary" size="small">
-            {t('branding.preview.new_incident')}
-          </Button>
+          <SampleButton>{t('branding.preview.new_incident')}</SampleButton>
         </Flex>
         <Typography.Link>{t('branding.preview.link')}</Typography.Link>
       </Flex>
@@ -111,9 +100,7 @@ function Sample({ brand, mode, surface }: { brand: Branding; mode: ThemeMode; su
           placeholder={t('branding.preview.email')}
           aria-label={t('branding.preview.email')}
         />
-        <Button type="primary" size="small" block>
-          {t('branding.preview.sign_in')}
-        </Button>
+        <SampleButton block>{t('branding.preview.sign_in')}</SampleButton>
       </Flex>
     </Card>
   );
@@ -156,5 +143,31 @@ export function BrandPreview({ branding }: { branding: Partial<Branding> }) {
         ))}
       </Flex>
     </Card>
+  );
+}
+
+/**
+ * A primary button as the brand would draw it, but only a picture of one: the screen keeps
+ * a single real primary action (the page's save), and nothing in a preview can be pressed.
+ */
+function SampleButton({ children, block = false }: { children: string; block?: boolean }) {
+  const { token } = antdTheme.useToken();
+  return (
+    <span
+      aria-hidden
+      data-testid="branding-preview-button"
+      style={{
+        display: block ? 'block' : 'inline-block',
+        textAlign: 'center',
+        background: token.colorPrimary,
+        color: token.colorTextLightSolid,
+        borderRadius: token.borderRadiusSM,
+        padding: `0 ${String(token.paddingXS)}px`,
+        lineHeight: `${String(token.controlHeightSM)}px`,
+        fontSize: token.fontSizeSM,
+      }}
+    >
+      {children}
+    </span>
   );
 }

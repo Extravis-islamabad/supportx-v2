@@ -241,7 +241,6 @@ export function SessionsCard() {
         <div>
           <FormProblem problem={problem} />
           <WriteButton
-            type="primary"
             loading={save.isPending}
             disabled={Object.keys(typed).length > 0 || edited === null}
             onClick={() => {
