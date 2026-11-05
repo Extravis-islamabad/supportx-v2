@@ -127,6 +127,16 @@ How problems are used:
   - Every command is checked against that identity's rights, exactly as for a person. That
     includes field-level rights, such as a problem's analysis, solution and review fields.
   - Publishing needs `workflows.manage` and the right to grant those roles.
+  - The identity is created through identity_access's `create_service_identity` with source
+    `workflow`, named "Workflow: <name>". It never signs in, takes no seat and is never in people
+    lists.
+  - Roles are given only through identity_access's guarded `assign_service_identity_role`, in the
+    admin's own request, so an admin can grant only roles within their own rights. Tenant
+    administration, and any role holding `identity.manage`, `roles.manage` or `users.preview`, is
+    refused with `service_identity_role_not_allowed`.
+  - Disabling or deleting the workflow deactivates its identity and never deletes it. History
+    keeps the name.
+  - Commands run through the identity's compiled Subject, as a worker's do (lane B's review).
   - History shows "by workflow W", with the instance in `automation_ref`.
   - The rights do not lapse when the person who built the workflow leaves.
 - A refusal is never forced. It takes the node's `error` output if there is one; otherwise the
