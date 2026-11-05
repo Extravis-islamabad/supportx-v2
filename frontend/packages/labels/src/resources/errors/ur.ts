@@ -163,6 +163,7 @@ export const ur: LabelResource = {
   'errors.field.builtin_type_names': 'پہلے سے موجود قسم کے نام نہیں بدلتے۔',
   'errors.field.calendar_not_found': 'فہرست سے کیلنڈر منتخب کریں۔',
   'errors.field.cannot_link_itself': 'ریکارڈ کو خود سے منسلک نہیں کیا جا سکتا۔',
+  'errors.field.cannot_merge_itself': 'کسی مسئلے کو خود میں ضم نہیں کیا جا سکتا۔',
   'errors.field.cannot_see_record':
     'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
   'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
@@ -626,6 +627,7 @@ export const ur: LabelResource = {
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
   'errors.not_found': 'آئٹم نہیں ملا۔',
+  'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
   'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
   'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
@@ -656,6 +658,7 @@ export const ur: LabelResource = {
   'errors.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
   'errors.privilege_escalation': 'آپ وہ رسائی نہیں دے سکتے جو خود آپ کے پاس نہیں۔',
+  'errors.problem_closed': '{{display_id}} بند ہے، اس لیے ضم نہیں ہو سکتا۔',
   'errors.range_not_satisfiable': 'فائل کا یہ حصہ موجود نہیں۔',
   'errors.rate_limited': 'بہت زیادہ درخواستیں۔ براہِ کرم ذرا انتظار کر کے دوبارہ کوشش کریں۔',
   'errors.read_only_mode':

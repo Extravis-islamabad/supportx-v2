@@ -162,6 +162,7 @@ export const en = {
   'errors.field.builtin_type_names': 'A built-in type keeps its names.',
   'errors.field.calendar_not_found': 'Choose a calendar from the list.',
   'errors.field.cannot_link_itself': 'A record cannot be linked to itself.',
+  'errors.field.cannot_merge_itself': 'A problem cannot be merged into itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
   'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
@@ -616,6 +617,7 @@ export const en = {
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
   'errors.not_found': 'The item was not found.',
+  'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
@@ -647,6 +649,7 @@ export const en = {
   'errors.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.privilege_escalation': 'You cannot give access you do not have yourself.',
+  'errors.problem_closed': '{{display_id}} is closed, so it cannot be merged.',
   'errors.range_not_satisfiable': 'That part of the file does not exist.',
   'errors.rate_limited': 'Too many requests. Please wait a moment and try again.',
   // Entitlements (WP-009)

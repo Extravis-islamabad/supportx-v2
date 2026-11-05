@@ -167,3 +167,119 @@ async def test_impact_and_evidence_count_only_incidents_you_may_see(world: World
     assert part_ev["left_out"] is True
     gone = await world.call("GET", f"{PRB}/{prb['id']}/evidence", b, b.admin)
     assert problem(gone)[0] == 404
+
+
+async def _merge_refusals(
+    merge: Any,  # noqa: ANN401 - the test's own merge call
+    a: Org,
+    duplicate: dict[str, Any],
+    survivor: dict[str, Any],
+) -> None:
+    """An old version, another group's technician, itself, and an unknown problem."""
+    stale = await merge(a.tech_a, {**duplicate, "version": duplicate["version"] - 1}, survivor)
+    assert problem(stale) == (409, "version_conflict")
+    assert problem(await merge(a.tech_b, duplicate, survivor))[0] == 403  # GA's problems
+    assert problem(await merge(a.tech_a, duplicate, duplicate))[0] == 422
+    assert problem(await merge(a.tech_a, duplicate, {"id": str(uuid.uuid4())}))[0] == 404
+
+
+async def test_merge_moves_the_incidents_and_undo_puts_them_back(world: World) -> None:
+    """REQ-PRB-046 (WP-044b s2): merge duplicates with undo; both problems need edit."""
+    a, b = world.a, world.b
+
+    async def made(**values: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON
+        done = await new_problem(world, a, a.tech_a, group_id=str(a.ga), **values)
+        assert done.status_code == 201, done.text
+        return dict(done.json())
+
+    duplicate = await made(subject="Mail drops at 9")
+    survivor = await made(subject="Mail relay drops messages")
+    elsewhere = await made(subject="Another cause")
+    first = await world.create(a, a.admin, group_id=str(a.ga))
+    second = await world.create(a, a.admin, group_id=str(a.ga))
+    for incident in (first, second):
+        linked = await world.call(
+            "POST",
+            f"{PRB}/{duplicate['id']}/incidents",
+            a,
+            a.tech_a,
+            json={"incident_id": incident["id"]},
+        )
+        assert linked.json() == {"linked": True}, linked.text
+
+    async def fresh(record: dict[str, Any], user: uuid.UUID = a.tech_a) -> dict[str, Any]:
+        return dict((await world.call("GET", f"{PRB}/{record['id']}", a, user)).json())
+
+    async def merge(user: uuid.UUID, record: dict[str, Any], into: dict[str, Any]) -> Any:  # noqa: ANN401
+        return await world.call(
+            "POST",
+            f"{PRB}/{record['id']}/merge",
+            a,
+            user,
+            json={"into_id": into["id"]},
+            headers={"If-Match": f'"{record["version"]}"', **CONSOLE},
+        )
+
+    duplicate = await fresh(duplicate)
+    await _merge_refusals(merge, a, duplicate, survivor)
+
+    done = await merge(a.tech_a, duplicate, survivor)
+    assert done.status_code == 200, done.text
+    body = done.json()
+    assert body["status"] == "merged"
+    assert set(body["moved_incident_ids"]) == {first["id"], second["id"]}
+    links = (await world.call("GET", f"{PRB}/{survivor['id']}/links", a, a.tech_a)).json()
+    assert {(link["relation"], link["other_id"]) for link in links} >= {
+        ("causes", first["id"]),
+        ("causes", second["id"]),
+        ("merged_from", duplicate["id"]),
+    }
+    mine = (await world.call("GET", f"{PRB}/{duplicate['id']}/links", a, a.tech_a)).json()
+    assert [(link["relation"], link["other_id"]) for link in mine] == [
+        ("merged_into", survivor["id"])
+    ]
+    merged = await fresh(duplicate)
+    again = await merge(a.tech_a, merged, survivor)
+    assert problem(again) == (409, "problem_closed")  # a merged problem is closed
+    assert problem(await merge(a.tech_a, await fresh(elsewhere), merged)) == (
+        409,
+        "problem_closed",
+    )
+
+    # Since the merge, one incident went to another problem: the undo leaves it there.
+    moved = await world.call(
+        "POST",
+        f"{PRB}/{elsewhere['id']}/incidents",
+        a,
+        a.tech_a,
+        json={"incident_id": second["id"], "move": True},
+    )
+    assert moved.json() == {"linked": True}, moved.text
+    merged = await fresh(duplicate)
+    undo = await world.call(
+        "POST",
+        f"{PRB}/{duplicate['id']}/undo-merge",
+        a,
+        a.tech_a,
+        headers={"If-Match": f'"{merged["version"]}"', **CONSOLE},
+    )
+    assert undo.status_code == 200, undo.text
+    back = undo.json()
+    assert back["status"] == "new"  # the status it had
+    assert back["moved_incident_ids"] == [first["id"]]
+    assert back["stayed_incident_ids"] == [second["id"]]
+    mine = (await world.call("GET", f"{PRB}/{duplicate['id']}/links", a, a.tech_a)).json()
+    assert {(link["relation"], link["other_id"]) for link in mine} == {("causes", first["id"])}
+    restored = await fresh(duplicate)
+    nothing = await world.call(
+        "POST",
+        f"{PRB}/{duplicate['id']}/undo-merge",
+        a,
+        a.tech_a,
+        headers={"If-Match": f'"{restored["version"]}"', **CONSOLE},
+    )
+    assert problem(nothing) == (409, "not_merged")
+    history = await world.call("GET", f"{PRB}/{duplicate['id']}/history", a, a.tech_a)
+    assert "merge" in {c["field"] for e in history.json()["items"] for c in e["changes"]}
+    # Another tenant never reaches it.
+    assert problem(await world.call("GET", f"{PRB}/{duplicate['id']}", b, b.admin))[0] == 404

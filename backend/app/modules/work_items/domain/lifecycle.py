@@ -64,12 +64,22 @@ class WorkItemAction(StrEnum):
     # system, service requests (WP-030, REQ-SR-004): the approval engine's final decision
     APPROVE = "approve"
     REJECT = "reject"
+    # system, problems (WP-044b, REQ-PRB-046): merged into another problem, and its undo
+    MERGE = "merge"
+    UNDO_MERGE = "undo_merge"
 
 
 # Transitions that may return to an earlier status instead of naming one (to_status None).
 RETURNING_ACTIONS = frozenset({WorkItemAction.UNDO_CANCEL, WorkItemAction.RESUME})
 SYSTEM_ACTIONS = frozenset(
-    {WorkItemAction.ASSIGN, WorkItemAction.UNASSIGN, WorkItemAction.APPROVE, WorkItemAction.REJECT}
+    {
+        WorkItemAction.ASSIGN,
+        WorkItemAction.UNASSIGN,
+        WorkItemAction.APPROVE,
+        WorkItemAction.REJECT,
+        WorkItemAction.MERGE,
+        WorkItemAction.UNDO_MERGE,
+    }
 )
 USER_ACTIONS: tuple[WorkItemAction, ...] = tuple(
     a for a in WorkItemAction if a not in SYSTEM_ACTIONS

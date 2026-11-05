@@ -145,6 +145,7 @@ export const ar: LabelResource = {
   'errors.field.builtin_type_names': 'يحتفظ النوع المضمّن بأسمائه.',
   'errors.field.calendar_not_found': 'اختر تقويمًا من القائمة.',
   'errors.field.cannot_link_itself': 'لا يمكن ربط سجل بنفسه.',
+  'errors.field.cannot_merge_itself': 'لا يمكن دمج مشكلة في نفسها.',
   'errors.field.cannot_see_record': 'لا يستطيع هذا الشخص رؤية هذا السجل، لذا لا يمكنه متابعته.',
   'errors.field.catalog_item_not_found': 'اختر عنصرًا من الكتالوج متاحًا لك.',
   'errors.field.catalog_too_deep': 'لفئات الكتالوج أربعة مستويات كحد أقصى.',
@@ -563,6 +564,7 @@ export const ar: LabelResource = {
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
   'errors.not_found': 'العنصر غير موجود.',
+  'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
   'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
   'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
   'errors.notification_not_found': 'هذا الإشعار غير موجود أو ليس لك.',
@@ -590,6 +592,7 @@ export const ar: LabelResource = {
     'يحتاج هذا التغيير إلى إصدار العنصر الذي تعدّله. أعد تحميل العنصر وحاول مرة أخرى.',
   'errors.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
   'errors.privilege_escalation': 'لا يمكنك منح صلاحيات لا تملكها بنفسك.',
+  'errors.problem_closed': '{{display_id}} مغلقة، لذا لا يمكن دمجها.',
   'errors.range_not_satisfiable': 'هذا الجزء من الملف غير موجود.',
   'errors.rate_limited': 'طلبات كثيرة جدًا. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.',
   // Entitlements (WP-009)

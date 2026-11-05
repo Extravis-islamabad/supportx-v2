@@ -1191,7 +1191,8 @@ def _json(value: Any) -> Any:  # noqa: ANN401 - field values of several types
 PROBLEM_FIELDS = ("problem_type", "root_cause_category", "outage_started_at", "outage_ended_at")
 # The analysis (WP-044b, REQ-PRB-030): changing it needs problems.edit_analysis; the root cause
 # is read only with problems.view_root_cause (D-140 Q7).
-ANALYSIS_FIELDS = ("root_cause", "symptoms")
+# A list, not a pair: the field-problem scanner reads two-string tuples as (field, code).
+ANALYSIS_FIELDS = ["root_cause", "symptoms"]
 HIDDEN_WITHOUT = {"root_cause": "view_root_cause"}
 _PROBLEM_LISTS = {"problem_type": PickList.PROBLEM_TYPE, "root_cause_category": PickList.ROOT_CAUSE}
 
@@ -1464,6 +1465,11 @@ async def _update(
         raise await _conflict(session, error, record.id) from error
     await sla_glue.record_sla_history(session, updated, before, stamped)
     return updated
+
+
+async def stale_record(session: AsyncSession, record: WorkItem, expected_version: int) -> Conflict:
+    """The 409 for a save at an old version, saying who changed what since (§5g)."""
+    return await _conflict(session, _stale(record, expected_version), record.id)
 
 
 def _stale(record: WorkItem, expected_version: int) -> Conflict:
@@ -2964,6 +2970,33 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         extra=[Change("requester_action", None, requester_action(rule, action))]
         if by_requester
         else (),
+    )
+    return updated
+
+
+async def set_status(  # noqa: PLR0913 - the move, its version and its record, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    action: WorkItemAction,
+    *,
+    target: str,
+    expected_version: int,
+    source: Source,
+    extra: Sequence[Change] = (),
+) -> WorkItem:
+    """A system status a person's act sets (a problem merged, or its undo; WP-044b).
+
+    Not a transition: the caller checked who may do it. History keeps it as the person, with
+    `extra` saying what else happened; the usual status event follows.
+    """
+    before = _snapshot(record, STAMP_FIELDS)
+    changes = await _status_change(
+        session, wtype, record, action, target=target, reason_code=None, reason_text=None
+    )
+    updated = await _update(session, record, expected_version, changes)
+    await _record_status(
+        session, before, updated, action, source=source, reason=None, automatic=False, extra=extra
     )
     return updated
 

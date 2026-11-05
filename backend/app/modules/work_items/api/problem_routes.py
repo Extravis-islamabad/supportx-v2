@@ -12,6 +12,8 @@
     DELETE /problems/{id}/investigators/{user_id}  remove one, or step down yourself; audited
     GET  /problems/{id}/impact                   counts over the caused incidents you see (044b)
     GET  /problems/{id}/evidence                 the caused incidents' timeline you see (044b)
+    POST /problems/{id}/merge                    merge into another problem (If-Match; 044b)
+    POST /problems/{id}/undo-merge               put a merged problem back (If-Match; 044b)
 
 Many incidents go to "this problem instead" through the incidents' own bulk job
 (`POST /incidents/bulk`, action `link_problem`), the same path as from the create form.
@@ -36,9 +38,10 @@ from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.lists import MAX_BULK
 from app.modules.work_items.domain.types import PROBLEM, WorkItemType
 from app.modules.work_items.service import bulk as bulk_service
-from app.modules.work_items.service import problem_impact
+from app.modules.work_items.service import problem_impact, problem_merge
 from app.modules.work_items.service import problems as service
 from app.modules.work_items.service import work_items as items
+from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.history import source_of
 
@@ -320,6 +323,76 @@ def add_problem_routes(
 
     _add_investigator_routes(router, wtype)
     _add_analysis_routes(router, wtype)
+    _add_merge_routes(router, wtype)
+
+
+class MergeIn(BaseModel):
+    """The problem to merge this one into."""
+
+    into_id: uuid.UUID
+
+
+class MergeOut(BaseModel):
+    """The merged (or restored) problem's new state, and the incidents that moved or stayed."""
+
+    id: uuid.UUID
+    status: str = Field(description="`merged` after a merge; the earlier status after an undo.")
+    version: int = Field(description="The new version (also the ETag).")
+    moved_incident_ids: list[uuid.UUID]
+    stayed_incident_ids: list[uuid.UUID] = Field(
+        description="Undo: incidents linked elsewhere since the merge, left where they are."
+    )
+
+
+def _add_merge_routes(router: APIRouter, wtype: WorkItemType) -> None:
+    """Merge duplicates and undo it (REQ-PRB-046): both problems need edit."""
+    Edit = Annotated[Subject, Depends(require_permission(wtype.permission("edit")))]  # noqa: N806 - type alias
+
+    def answer(done: problem_merge.MergeOutcome, response: Response) -> MergeOut:
+        set_etag(response, done.record.version)
+        return MergeOut(
+            id=done.record.id,
+            status=done.record.status,
+            version=done.record.version,
+            moved_incident_ids=done.moved,
+            stayed_incident_ids=done.stayed,
+        )
+
+    @router.post("/{record_id}/merge", summary="Merge into another problem")
+    async def merge(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        body: MergeIn,
+        version: ExpectedVersion,
+        session: TenantSession,
+        subject: Edit,
+        request: Request,
+        response: Response,
+    ) -> MergeOut:
+        """Mark it `merged` and move its incidents to `into_id`. Needs If-Match."""
+        done = await problem_merge.merge(
+            session,
+            subject,
+            record_id,
+            body.into_id,
+            expected_version=version,
+            source=source_of(request),
+        )
+        return answer(done, response)
+
+    @router.post("/{record_id}/undo-merge", summary="Undo a merge")
+    async def undo_merge(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        version: ExpectedVersion,
+        session: TenantSession,
+        subject: Edit,
+        request: Request,
+        response: Response,
+    ) -> MergeOut:
+        """Back to the status it had; the moved incidents return unless linked elsewhere since."""
+        done = await problem_merge.undo_merge(
+            session, subject, record_id, expected_version=version, source=source_of(request)
+        )
+        return answer(done, response)
 
 
 class SiteCountOut(BaseModel):
