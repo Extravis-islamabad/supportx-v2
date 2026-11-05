@@ -442,6 +442,7 @@ export const ar: LabelResource = {
   'errors.field.whole_number_required': 'أدخل عددًا صحيحًا.',
   'errors.field.wider_than_topic': 'يمكن للمقالة تضييق جمهور موضوعها فقط، وليس توسيعه.',
   'errors.field.window_end_before_start': 'يجب أن يكون بعد البداية.',
+  'errors.field.would_loop': 'لا يمكن أن يكون الإصدار جزءًا من نفسه، مباشرة أو عبر غيره.',
   'errors.file_link_expired': 'انتهت صلاحية الرابط. افتح الملف مجددًا.',
   'errors.file_not_an_image': 'هذا الملف ليس صورة.',
   'errors.file_not_found': 'هذا الملف غير موجود أو لا يمكنك رؤيته.',

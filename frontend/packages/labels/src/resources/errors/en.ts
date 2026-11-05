@@ -474,6 +474,7 @@ export const en = {
   'errors.field.wider_than_topic':
     "An article can only narrow its topic's audience, never widen it.",
   'errors.field.window_end_before_start': 'Must be after the start.',
+  'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',

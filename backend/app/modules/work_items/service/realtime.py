@@ -30,11 +30,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.identity_access import authorize_stored
 from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import DEFAULT_STATUSES, StatusCategory
+from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.portal import portal_changes
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemFollower,
+    WorkItemLink,
     WorkItemRoleHolder,
     WorkItemTask,
 )
@@ -234,8 +236,30 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     portal = _portal(envelope, row, fields)
     if (envelope.correlation_id or "").startswith(BULK_PREFIX):  # the batch refreshes lists
         return RealtimeEffects(publications=[own, *portal])
+    # A sub-release moved: its parent's screens refresh too (REQ-REL-037 AC3).
+    parent = await session.scalar(
+        select(WorkItemLink.target_id).where(
+            WorkItemLink.source_id == record_id,
+            WorkItemLink.kind == LinkKind.SUB_RELEASE_OF,
+            WorkItemLink.deleted_at.is_(None),
+        )
+    )
+    upward = (
+        [
+            Publication(
+                record(tenant, RECORD_KIND, parent),
+                PART_CHANGED,
+                ids=(str(record_id),),
+                fields=("sub_releases",),
+                actor_id=_actor(envelope),
+            )
+        ]
+        if parent is not None
+        else []
+    )
     publications = [
         own,
+        *upward,
         *portal,
         *live.publications(
             tenant,

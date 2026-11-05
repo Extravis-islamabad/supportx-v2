@@ -213,13 +213,14 @@ def _plan_and_schedule_tables() -> None:
         sa.Column("scheduled_end", sa.DateTime(timezone=True), nullable=True),
         sa.Column("actual_start", sa.DateTime(timezone=True), nullable=True),
         sa.Column("actual_end", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("outcome", sa.String(20), nullable=True),
+        sa.Column("outcome", sa.String(30), nullable=True),
         sa.Column("outcome_notes", sa.Text(), nullable=True),
         sa.Column("issues", sa.Text(), nullable=True),
         sa.Column("version", sa.Integer(), server_default="1", nullable=False),
         *_stamps(),
         sa.CheckConstraint(
-            "outcome IS NULL OR outcome IN ('passed', 'failed', 'partly_done')",
+            "outcome IS NULL OR outcome IN"
+            " ('passed', 'failed', 'partly_done', 'successful', 'successful_with_issues')",
             name=op.f(f"ck_{table}_outcome_code"),
         ),
         sa.CheckConstraint(

@@ -240,13 +240,20 @@ class StagedApprovalGuard:
     async def check(
         self, session: AsyncSession, record: WorkItem, move: Move
     ) -> list[stage_service.Refusal]:
-        """A person may not complete a stage that still needs its approvals."""
+        """The release's own refusals for a move.
+
+        A person may not complete a stage that still needs its approvals; a parent may not enter
+        deployment before its sub-releases pass testing (REQ-REL-037).
+        """
+        from app.modules.work_items.service import release_links  # noqa: PLC0415 - cycle
+
+        refusals = await release_links.sub_release_refusals(session, self.wtype, record, move)
         if move.target.set_by == SetBy.SYSTEM or not move.target.completing:
-            return []
+            return refusals
         settings = await settings_of(session, self.wtype, record, move.target.stage)
         if settings is None:
-            return []
-        return [stage_service.Refusal(APPROVALS_PENDING, {"stage": move.target.stage})]
+            return refusals
+        return [*refusals, stage_service.Refusal(APPROVALS_PENDING, {"stage": move.target.stage})]
 
     async def on_entered(
         self, session: AsyncSession, record: WorkItem, entry: WorkItemStageEntry

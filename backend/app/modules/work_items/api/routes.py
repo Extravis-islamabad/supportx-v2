@@ -68,7 +68,7 @@ from app.modules.work_items.domain.types import (
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
 from app.modules.work_items.service import duplicates as duplicates_service
-from app.modules.work_items.service import resolution
+from app.modules.work_items.service import release_links, resolution
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
@@ -1389,6 +1389,31 @@ class DowntimeIn(BaseModel):
     ci_ids: list[uuid.UUID] | None = Field(default=None, max_length=200)
 
 
+class SubReleaseOut(BaseModel):
+    """A sub-release as its parent lists it (REQ-REL-037); hidden ones show only that they exist."""
+
+    id: uuid.UUID
+    visible: bool
+    display_id: str | None
+    subject: str | None
+    stage: str | None
+    status: str | None
+
+
+class ParentIn(BaseModel):
+    """The release's parent (null: none)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parent_id: uuid.UUID | None
+
+
+class ParentOut(BaseModel):
+    """The release's parent now."""
+
+    parent_id: uuid.UUID | None
+
+
 class StageMoveIn(BaseModel):
     """A listed status move of a staged type (ADR-041): the target status and its reason."""
 
@@ -2227,6 +2252,30 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             )
             set_etag(response, view.record.version)
             return RolesOut.of(view)
+
+    if wtype.code is WorkItemTypeCode.RELEASE:  # REQ-REL-037: parent and sub-releases
+
+        @router.get("/{record_id}/sub-releases", summary="The release's sub-releases")
+        async def get_sub_releases(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[SubReleaseOut]:
+            """With their stage and status, live; ones you may not see show only that they exist."""
+            found = await release_links.sub_releases(session, subject, wtype, record_id)
+            return [SubReleaseOut(**vars(s)) for s in found]
+
+        @router.put("/{record_id}/parent", summary="Make it a sub-release of another release")
+        async def put_parent(
+            record_id: uuid.UUID,
+            body: ParentIn,
+            session: TenantSession,
+            subject: Edit,
+            request: Request,
+        ) -> ParentOut:
+            """One parent at most; loops are refused (REQ-REL-037 AC1). Null removes it."""
+            parent = await release_links.set_parent(
+                session, subject, wtype, record_id, body.parent_id, source=source_of(request)
+            )
+            return ParentOut(parent_id=parent)
 
     if wtype.code is WorkItemTypeCode.RELEASE:  # REQ-REL-002..005: a release's own fields
 

@@ -483,6 +483,7 @@ export const ur: LabelResource = {
   'errors.field.whole_number_required': 'مکمل عدد درج کریں۔',
   'errors.field.wider_than_topic': 'مضمون اپنے موضوع کے سامعین کو صرف محدود کر سکتا ہے، وسیع نہیں۔',
   'errors.field.window_end_before_start': 'شروع کے بعد ہونا چاہیے۔',
+  'errors.field.would_loop': 'کوئی ریلیز خود اپنا حصہ نہیں بن سکتی، براہ راست یا دوسروں کے ذریعے۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
   'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',

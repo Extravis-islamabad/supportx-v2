@@ -1446,7 +1446,9 @@ class WorkItemStageSchedule(TenantKeyed, Timestamps, Actors, Base):
     __tablename__ = "work_item_stage_schedules"
     __table_args__ = (
         CheckConstraint(
-            "outcome IS NULL OR outcome IN ('passed', 'failed', 'partly_done')", name="outcome_code"
+            "outcome IS NULL OR outcome IN"
+            " ('passed', 'failed', 'partly_done', 'successful', 'successful_with_issues')",
+            name="outcome_code",
         ),
         CheckConstraint(
             "scheduled_end IS NULL OR scheduled_start IS NULL OR scheduled_end >= scheduled_start",
@@ -1472,7 +1474,7 @@ class WorkItemStageSchedule(TenantKeyed, Timestamps, Actors, Base):
     scheduled_end: Mapped[datetime | None]
     actual_start: Mapped[datetime | None]
     actual_end: Mapped[datetime | None]
-    outcome: Mapped[str | None] = mapped_column(String(20))
+    outcome: Mapped[str | None] = mapped_column(String(30))
     outcome_notes: Mapped[str | None] = mapped_column(Text)
     issues: Mapped[str | None] = mapped_column(Text)
     version: Mapped[int] = mapped_column(Integer, server_default="1")

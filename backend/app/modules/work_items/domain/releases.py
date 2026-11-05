@@ -253,9 +253,19 @@ STAGE_APPROVALS: Mapping[str, Mapping[str, Any]] = {
     },
 }
 # The planning stage's rich-text sections (REQ-REL-025), each with its own version and history.
-PLAN_SECTIONS = ("impact", "rollout", "backout")
+PLAN_SECTIONS = (
+    "impact",
+    "rollout",
+    "backout",
+    # The post-release review (REQ-REL-030): findings, and what went well and what did not.
+    "review_findings",
+    "review_went_well",
+    "review_went_badly",
+)
 # Stages that record an outcome, notes, issues and evidence (REQ-REL-028).
-OUTCOME_STAGES = frozenset({"build", "testing", "acceptance_testing", "deployment", "training"})
+OUTCOME_STAGES = frozenset(
+    {"build", "testing", "acceptance_testing", "deployment", "training", "review"}
+)
 
 
 class DowntimePhase(StrEnum):
@@ -271,6 +281,20 @@ class StageOutcome(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     PARTLY_DONE = "partly_done"
+    # The review stage's overall result (REQ-REL-030): successful, with issues, or failed.
+    SUCCESSFUL = "successful"
+    SUCCESSFUL_WITH_ISSUES = "successful_with_issues"
+
+
+REVIEW_OUTCOMES = frozenset(
+    {StageOutcome.SUCCESSFUL, StageOutcome.SUCCESSFUL_WITH_ISSUES, StageOutcome.FAILED}
+)
+WORK_OUTCOMES = frozenset({StageOutcome.PASSED, StageOutcome.FAILED, StageOutcome.PARTLY_DONE})
+
+
+def outcomes_for(stage: str) -> frozenset[str]:
+    """The outcome codes a stage takes: the review its result, the others how the work went."""
+    return frozenset(o.value for o in (REVIEW_OUTCOMES if stage == "review" else WORK_OUTCOMES))
 
 
 def outcome_problems(stage: str, merged: Mapping[str, Any]) -> list[tuple[str, str]]:
@@ -279,7 +303,7 @@ def outcome_problems(stage: str, merged: Mapping[str, Any]) -> list[tuple[str, s
     outcome = merged.get("outcome")
     if outcome is not None and stage not in OUTCOME_STAGES:
         problems.append(("outcome", "not_allowed"))
-    elif outcome is not None and outcome not in {o.value for o in StageOutcome}:
+    elif outcome is not None and outcome not in outcomes_for(stage):
         problems.append(("outcome", "invalid_choice"))
     # REQ-REL-028 AC1: a failed outcome says what went wrong.
     if outcome == StageOutcome.FAILED and not (merged.get("issues") or "").strip():
