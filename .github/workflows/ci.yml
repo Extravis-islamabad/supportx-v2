@@ -164,23 +164,36 @@ jobs:
     # containers. Sentinel promotes a replica when the master stops, data survives, and the old
     # master rejoins as a replica (no split brain). The test runs its own containers.
     name: valkey failover
-    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
-    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
+    # Not a required check. Runs nightly, manually, and on a PR that touches deployment or
+    # Valkey (the changes step below decides; other PRs finish at once), never in the merge
+    # queue. Not tied to the full-ci label (coordinator, 2026-11-05): a migration PR needs the
+    # core profile and e2e, not the HA cluster.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Changes (only deployment and Valkey changes need this job)
+        id: changes
+        uses: ./.github/actions/changes
+        with:
+          needs: '^(deploy/|Makefile$|\.github/workflows/(ci|cluster)\.yml$|\.github/actions/|backend/app/core/valkey\.py$|backend/tests/ha/)'
+          skipped: "skipped: no deployment or Valkey change"
       - uses: ./.github/actions/setup-backend
+        if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: ./.github/actions/generated
+        if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        if: ${{ steps.changes.outputs.run == 'true' }}
         with:
           version: v4.3.1
       - name: Chart dependencies (the test renders the chart's own scripts)
+        if: ${{ steps.changes.outputs.run == 'true' }}
         run: make chart-deps
       - name: Valkey and Sentinel fail over
+        if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
         env:
           SUPPORTX_HA_TESTS: "1"
