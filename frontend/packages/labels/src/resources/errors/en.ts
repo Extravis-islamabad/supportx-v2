@@ -577,6 +577,8 @@ export const en = {
     'AD/LDAP directories can only be connected on an installation that serves one organisation.',
   'errors.limit_reached':
     'Your plan’s limit for this has been reached. Ask your administrator to extend the plan.',
+  'errors.link_has_own_route':
+    'This link is removed in its own place: unlink the incident, or undo the merge.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',

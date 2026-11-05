@@ -23,7 +23,7 @@ from typing import Any, Literal
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound, PermissionDenied
+from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.parts import (
@@ -822,6 +822,9 @@ async def add_link(  # noqa: PLR0913 - both records, the comment and the source,
     return link
 
 
+_OWN_ROUTE = frozenset({LinkKind.CAUSED_BY.value, LinkKind.MERGED_INTO.value})
+
+
 async def remove_link(  # noqa: PLR0913 - the record, the link, its version and the source
     session: AsyncSession,
     subject: Subject,
@@ -843,6 +846,10 @@ async def remove_link(  # noqa: PLR0913 - the record, the link, its version and 
     )
     if link is None:
         raise NotFound(code="work_item_link_not_found")
+    if link.kind in _OWN_ROUTE:
+        # A cause needs the incident's edit right (unlink), a merge its undo (WP-044b): the
+        # generic delete would skip those rules.
+        raise Conflict(code="link_has_own_route", params={"kind": link.kind})
     other_id = link.target_id if link.source_id == record_id else link.source_id
     other = await session.get(WorkItem, other_id)
     removed = await LinkRepository(session).soft_delete(link.id, expected_version=expected_version)

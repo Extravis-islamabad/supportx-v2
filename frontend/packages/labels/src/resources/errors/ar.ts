@@ -527,6 +527,8 @@ export const ar: LabelResource = {
   'errors.ldap_host_invalid': 'أدخل اسم خادم الدليل أو عنوان IP الخاص به، دون ldap:// أو مسار.',
   'errors.ldap_single_tenant_only': 'لا يمكن ربط أدلة AD/LDAP إلا في تثبيت يخدم مؤسسة واحدة.',
   'errors.limit_reached': 'تم الوصول إلى الحد المسموح به في خطتك. اطلب من المسؤول توسيع الخطة.',
+  'errors.link_has_own_route':
+    'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',

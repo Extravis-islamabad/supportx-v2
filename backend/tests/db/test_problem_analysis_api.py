@@ -300,6 +300,17 @@ async def test_unlinking_incidents_one_or_in_bulk(world: World) -> None:
             json={"incident_id": incident["id"]},
         )
         assert linked.json() == {"linked": True}, linked.text
+    # The generic link delete never removes a cause: that needs the incident's edit right.
+    causes = (await world.call("GET", f"{PRB}/{prb['id']}/links", a, a.admin)).json()
+    cause = next(link for link in causes if link["relation"] == "causes")
+    generic = await world.call(
+        "DELETE",
+        f"{PRB}/{prb['id']}/links/{cause['id']}",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{cause["version"]}"', **CONSOLE},
+    )
+    assert problem(generic) == (409, "link_has_own_route")
     path = f"{PRB}/{prb['id']}/incidents/{incidents[0]['id']}"
     # tech_b cannot see GA's incident at all: 404, never a hint that it exists.
     assert problem(await world.call("DELETE", path, a, a.tech_b))[0] == 404
