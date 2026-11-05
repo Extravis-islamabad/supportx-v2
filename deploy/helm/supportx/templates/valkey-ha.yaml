@@ -74,14 +74,21 @@ data:
       # still name this pod master, but it has no data (no persistence). Starting as master
       # would make every replica copy the empty set. Hand over first: ask a sentinel to fail
       # over, wait for another master, then follow it. Only when no replica can take over
-      # (NOGOODSLAVE, e.g. the others are gone too) does it start as master.
+      # (NOGOODSLAVE: none ever synced, as on the set's first start when a peer's sentinel
+      # came up first, or the others are gone too) does it start as master, at once.
+      nogood=0
       for _ in $(seq 1 30); do
         for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
           peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
           [ "$peer" = "$SELF" ] && continue
-          REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 --no-auth-warning \
-            SENTINEL FAILOVER supportx >/dev/null 2>&1 && break
+          reply=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 \
+            --no-auth-warning SENTINEL FAILOVER supportx 2>&1) || true
+          case "$reply" in
+            *NOGOODSLAVE*) nogood=1 ;;
+            OK*|*INPROG*) nogood=0; break ;;
+          esac
         done
+        [ "$nogood" = 1 ] && break
         sleep 2
         master=$(ask_sentinels)
         [ "$master" != "$SELF" ] && [ -n "$master" ] && break

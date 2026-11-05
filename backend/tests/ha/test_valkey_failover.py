@@ -180,3 +180,16 @@ def test_a_master_back_before_the_sentinels_notice_never_starts_empty(valkeys: V
     assert masters == [promoted]
     for index in range(3):  # nobody lost the session
         _until(lambda i=index: valkeys.cli(i, "get", "session:probe") == "kept", 30)
+
+
+def test_a_first_start_with_pod_0_last_is_still_quick(valkeys: Valkeys) -> None:
+    """CI found it (2026-11-05, #211): when a peer's sentinel is up before pod 0, it names pod 0
+    master, so pod 0 took the hand-over path and retried a failover for 60 s although no replica
+    had ever synced (NOGOODSLAVE). Pod 0 last, on purpose: it must start as master at once."""
+    for index in range(3):
+        valkeys.stop(index)
+    valkeys.start(2)
+    valkeys.start(1)
+    _until(lambda: valkeys.master(1) != "" or valkeys.master(2) != "", 30)  # a sentinel names pod 0
+    valkeys.start(0)
+    _until(lambda: [valkeys.role(i) for i in range(3)] == ["master", "slave", "slave"], 30)
