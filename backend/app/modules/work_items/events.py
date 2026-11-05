@@ -120,6 +120,16 @@ class WorkItemSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class WorkItemPortalSettingsChanged(DomainEvent):
+    """The tenant's portal settings changed (WP-032 D8): open portals reload them live."""
+
+    event_type: ClassVar[str] = "work_items.portal_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_portal_settings"
+
+    changed_fields: list[str]
+
+
 class _ConversationEvent(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item_conversation"
 
@@ -291,6 +301,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemDeleted,
     WorkItemRestored,
     WorkItemSettingsChanged,
+    WorkItemPortalSettingsChanged,
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,

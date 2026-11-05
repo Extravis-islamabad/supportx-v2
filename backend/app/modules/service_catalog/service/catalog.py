@@ -16,7 +16,7 @@ offering retire otherwise).
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import Select, or_, select
@@ -423,6 +423,31 @@ async def list_items(
     )
     manage = subject.holds(MANAGE)
     return [ItemView(r, rules_of(r), manage) for r in rows]
+
+
+POPULAR_DAYS = 90  # "most requested" looks back this far (WP-032 D1)
+
+
+async def popular_items(session: AsyncSession, subject: Subject, *, limit: int) -> list[ItemView]:
+    """The items the viewer may see, most requested first over the last 90 days (REQ-CAT-027).
+
+    Items nobody requested in that time are left out; ties keep the catalog's own order.
+    """
+    since = datetime.now(UTC) - timedelta(days=POPULAR_DAYS)
+    counts = await ports.request_counts(session, since)
+    if not counts:
+        return []
+    query = await offered(session, subject)
+    rows = list(
+        await session.scalars(
+            query.where(CatalogItem.id.in_(list(counts))).order_by(
+                CatalogItem.sort_order, CatalogItem.created_at, CatalogItem.id
+            )
+        )
+    )
+    rows.sort(key=lambda r: -counts.get(r.id, 0))  # stable: the catalog order breaks ties
+    manage = subject.holds(MANAGE)
+    return [ItemView(r, rules_of(r), manage) for r in rows[:limit]]
 
 
 async def get_item(session: AsyncSession, subject: Subject, item_id: uuid.UUID) -> ItemView:

@@ -131,3 +131,53 @@ class AnnouncementSettings(TenantKeyed, Base):
     version: Mapped[int] = mapped_column(default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
+
+
+class AnnouncementDismissal(TenantKeyed, Base):
+    """A person dismissed an announcement's banner, on every device (REQ-PRT-009 AC2)."""
+
+    __tablename__ = "announcement_dismissals"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "announcement_id"],
+            ["announcements.tenant_id", "announcements.id"],
+            ondelete="CASCADE",
+            name="fk_announcement_dismissals_announcement",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            ondelete="CASCADE",
+            name="fk_announcement_dismissals_user",
+        ),
+        Index("ix_announcement_dismissals_tenant_user", "tenant_id", "user_id"),
+    )
+
+    announcement_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AnnouncementFollow(TenantKeyed, Base):
+    """A person follows an announcement to hear when it is updated or ends (REQ-PRT-009 AC3)."""
+
+    __tablename__ = "announcement_follows"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "announcement_id"],
+            ["announcements.tenant_id", "announcements.id"],
+            ondelete="CASCADE",
+            name="fk_announcement_follows_announcement",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            ondelete="CASCADE",
+            name="fk_announcement_follows_user",
+        ),
+        Index("ix_announcement_follows_tenant_user", "tenant_id", "user_id"),
+    )
+
+    announcement_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

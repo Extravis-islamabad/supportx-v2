@@ -13,6 +13,7 @@ from app.core.authorization import ALL_SCOPES, PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.announcements.api.routes import router
 from app.modules.announcements.events import EVENTS
+from app.modules.announcements.service import notifications
 from app.modules.announcements.service.announcements import MANAGE, PUBLISH, VIEW
 from app.modules.announcements.service.realtime import CHANNELS, ROUTES
 
@@ -36,6 +37,9 @@ PERMISSIONS = (
     PermissionSpec(PUBLISH, FEATURE, defaults=(("service_desk_manager", "all"),)),
     PermissionSpec("config.announcements", FEATURE, defaults=(("service_desk_manager", "all"),)),
 )
+
+# Followers hear of updates and of the end (WP-032 D7): at import, for the worker too.
+notifications.register()
 
 module = ModuleSpec(
     name="announcements",

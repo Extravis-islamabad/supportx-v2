@@ -48,6 +48,8 @@ export const en = {
   'announcements.done.reopen': 'Reopened as a draft.',
   'announcements.done.unpublish': 'Unpublished: it is a draft again.',
   'announcements.empty': 'No announcements match.',
+  'announcements.follow': 'Follow',
+  'announcements.following': 'Following',
   'announcements.four_eyes': 'A second person must publish',
   'announcements.four_eyes_help': 'The author or owner of an announcement cannot publish it.',
   'announcements.from': 'Shown from {{time}}',

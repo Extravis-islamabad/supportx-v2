@@ -90,6 +90,12 @@ export const routes: RouteObject[] = [
           Component: (await import('./pages/catalog/CatalogItemPage')).CatalogItemPage,
         }),
       },
+      {
+        // WP-032 D2: one search box for everything (REQ-PRT-003).
+        path: 'search',
+        handle: { titleKey: 'portal.search.title' },
+        lazy: async () => ({ Component: (await import('./pages/SearchPage')).SearchPage }),
+      },
       { path: '*', handle: { titleKey: 'shell.not_found' }, lazy: comingSoon },
     ],
   },

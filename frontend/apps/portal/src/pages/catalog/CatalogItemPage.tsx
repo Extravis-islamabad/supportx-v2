@@ -18,6 +18,8 @@ import {
   type QuestionValue,
 } from '@supportx/ui';
 
+import { AttachFiles } from '../requests/attachFiles';
+import { useFilesToAttach } from '../requests/useFilesToAttach';
 import { ForWhom } from '../requests/ForWhom';
 
 const SUBJECT_MAX = 250;
@@ -37,6 +39,7 @@ export function CatalogItemPage() {
   const session = useSession().data;
   const loaded = useCatalogItem(id);
   const raise = useRaiseServiceRequest();
+  const files = useFilesToAttach();
   const [key] = useState(() => crypto.randomUUID());
   const item = loaded.data;
   const questions = useMemo(() => requesterQuestions(item?.questions ?? []), [item]);
@@ -101,7 +104,12 @@ export function CatalogItemPage() {
             {
               onSuccess: (made) => {
                 void message.success(t('portal.catalog.sent', { id: made.display_id }));
-                void navigate(`/service-requests/${made.id}`, { replace: true });
+                // The files go to the new request, then what happens next (WP-032 D4, D5).
+                void files
+                  .attach(made.id)
+                  .then(() =>
+                    navigate(`/service-requests/${made.id}?submitted=1`, { replace: true }),
+                  );
               },
               onError: (error) => {
                 if (error instanceof ApiError && error.status === 422) {
@@ -157,12 +165,20 @@ export function CatalogItemPage() {
             />
           </Form.Item>
         ))}
+        <Form.Item label={t('portal.report.files')}>
+          <AttachFiles
+            files={files.files}
+            keep={files.keep}
+            remove={files.remove}
+            testId="portal-cat"
+          />
+        </Form.Item>
         <Button
           type="primary"
           size="large"
           htmlType="submit"
           disabled={!ready}
-          loading={raise.isPending}
+          loading={raise.isPending || files.sending}
           data-testid="portal-cat-send"
         >
           {t('portal.catalog.send')}
