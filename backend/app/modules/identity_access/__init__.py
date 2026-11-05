@@ -52,7 +52,7 @@ from app.modules.identity_access.domain.permissions import (
     SITE_ADMIN,
     Catalogue,
 )
-from app.modules.identity_access.domain.policy import RecordFacts, Subject
+from app.modules.identity_access.domain.policy import AccessRule, RecordFacts, Subject
 from app.modules.identity_access.events import EVENTS
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
@@ -64,6 +64,7 @@ from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATIO
 from app.modules.identity_access.service.directory import (
     MailRecipient,
     NotifiablePerson,
+    active_user_ids,
     direct_reports,
     display_names,
     mail_recipients,
@@ -371,6 +372,7 @@ __all__ = [
     "REPORT_VIEWER",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",
+    "AccessRule",
     "DutyLookup",
     "FederationFailed",
     "FederationNotInstalled",
@@ -389,6 +391,7 @@ __all__ = [
     "SyncedPerson",
     "TenantSessionEnder",
     "UserType",
+    "active_user_ids",
     "authorize",
     "authorize_stored",
     "check_group_grantable",

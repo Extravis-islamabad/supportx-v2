@@ -285,8 +285,9 @@ function ComposeButtons({
   return (
     <Space wrap>
       <Tooltip title={why(reply)}>
+        {/* Default, not primary: the record header's Reply is the page's one primary action
+            (the coordinator's visual QA, one primary per screen). */}
         <Dropdown.Button
-          type="primary"
           disabled={disabled || reply?.allowed !== true}
           icon={<DownOutlined />}
           trigger={['click']}
