@@ -78,6 +78,28 @@ const panel = {
   ],
 };
 
+const APPROVAL_ID = '01a1a2b3-0000-7000-8000-0000000a0001';
+const approval = {
+  id: APPROVAL_ID,
+  stage: 1,
+  record_stage: 'planning',
+  rule: 'any',
+  approver_id: '01a1a2b3-0000-7000-8000-0000000b0001',
+  origin: 'named',
+  route_reason: null,
+  state: 'pending',
+  decided_at: null,
+  decided_by: null,
+  channel: null,
+  comment: null,
+  comment_private: false,
+  comments_required: true,
+  self_approved: false,
+  can_decide: true,
+  created_at: '2026-11-05T08:00:00Z',
+  version: 2,
+};
+
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
@@ -122,6 +144,10 @@ function api() {
       },
       'GET /api/v1/releases/settings': { body: { closure_codes: [], own_lists: {} } },
       [`POST /api/v1/releases/${REL_ID}/moves`]: { body: { ...release, version: 8 } },
+      [`GET /api/v1/releases/${REL_ID}/approvals`]: { body: { items: [approval] } },
+      [`POST /api/v1/releases/${REL_ID}/approvals/${APPROVAL_ID}/decision`]: {
+        body: { ...approval, state: 'rejected', version: 3 },
+      },
     },
   });
   restore = fake.restore;
@@ -181,5 +207,32 @@ describe('console: releases', () => {
       to_status: 'build_completed',
       fields: { release_version: '4.2.0' },
     });
+  });
+
+  it('asks for the reason of a rejection and the comment a level requires, then decides', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const fake = api();
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: /Approvals/ }));
+    fireEvent.click(await screen.findByTestId(`approval-${APPROVAL_ID}-approve`));
+    // comments_required: approving without a comment is not offered.
+    const approveOk = screen.getAllByRole('button', { name: 'Approve' }).at(-1);
+    expect((approveOk as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    fireEvent.click(screen.getByTestId(`approval-${APPROVAL_ID}-reject`));
+    const rejectOk = screen.getAllByRole('button', { name: 'Reject' }).at(-1) as HTMLButtonElement;
+    expect(rejectOk.disabled).toBe(true); // a rejection needs its own reason
+    fireEvent.change(screen.getByTestId('approval-comment'), {
+      target: { value: 'Backout plan missing' },
+    });
+    fireEvent.click(rejectOk);
+    const path = `/api/v1/releases/${REL_ID}/approvals/${APPROVAL_ID}/decision`;
+    await waitFor(() => {
+      expect(fake.find('POST', path)).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', path);
+    expect(sent?.body).toMatchObject({ decision: 'reject', comment: 'Backout plan missing' });
+    expect(sent?.headers.get('If-Match')).toBe('"2"');
   });
 });

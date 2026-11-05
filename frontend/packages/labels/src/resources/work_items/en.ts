@@ -1012,7 +1012,6 @@ export const en = {
   'release_type.minor': 'Minor',
   'releases.approvals.level': 'Level {{level}}',
   'releases.approvals.none': 'No approvals yet.',
-  'releases.approvals.rejected_from_list': "Rejected from the release's approvals.",
   'releases.col.id': 'Number',
   'releases.col.updated': 'Updated',
   'releases.create': 'Create release',

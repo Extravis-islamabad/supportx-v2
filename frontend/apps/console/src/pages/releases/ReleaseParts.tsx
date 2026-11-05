@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
 import {
+  ApiError,
   useDecideReleaseApproval,
   useDowntimes,
   usePlanSections,
@@ -19,6 +20,7 @@ import {
   useUpdateReleaseDetails,
   useUpdateStageSchedule,
   useWritePlanSection,
+  type ReleaseApproval,
   type ReleaseDetailsInput,
   type StageSchedule,
 } from '@supportx/api-client';
@@ -38,6 +40,7 @@ import {
 } from '@supportx/ui';
 
 import { labelled } from '../incidents/labels';
+import { DecisionDialog } from '../requests/DecisionDialog';
 import { listValueName, stageName, statusName } from './labels';
 
 const RISKS = ['low', 'medium', 'high'] as const;
@@ -585,16 +588,31 @@ export function DowntimePart({ id }: { id: string }) {
   );
 }
 
-/** Stage approvals (REQ-REL-031): who is pending and each decision, live; approve or reject. */
+/** Stage approvals (REQ-REL-031): who is pending and each decision, live; approve or reject.
+ * Both go through the requests' decision dialog: every rejection gives its own reason, and an
+ * approval asks for a comment when the level requires one (lane B's review of #219). */
 export function ApprovalsPart({ id }: { id: string }) {
   const t = useLabel();
   const { format } = useDateTime();
   const approvals = useReleaseApprovals(id);
   const decide = useDecideReleaseApproval();
   const problem = useFormProblem();
+  const [deciding, setDeciding] = useState<{
+    approval: ReleaseApproval;
+    decision: 'approve' | 'reject';
+  }>();
+  const [fieldProblems, setFieldProblems] = useState<string[]>([]);
   const rows = approvals.data?.items ?? [];
   const routed = (reason: string | null | undefined) =>
     reason ? t(`approval_route_reason.${reason}`) : '';
+  const start = (approval: ReleaseApproval, decision: 'approve' | 'reject') => {
+    setFieldProblems([]);
+    setDeciding({ approval, decision });
+  };
+  const close = () => {
+    setDeciding(undefined);
+    setFieldProblems([]);
+  };
   return (
     <Flex vertical gap={8} data-testid="release-approvals">
       <List
@@ -611,14 +629,7 @@ export function ApprovalsPart({ id }: { id: string }) {
                       key="approve"
                       size="small"
                       onClick={() => {
-                        decide.mutate(
-                          { id, approvalId: a.id, version: a.version, decision: 'approve' },
-                          {
-                            onError: (error) => {
-                              problem.show(error);
-                            },
-                          },
-                        );
+                        start(a, 'approve');
                       }}
                       data-testid={`approval-${a.id}-approve`}
                     >
@@ -629,20 +640,7 @@ export function ApprovalsPart({ id }: { id: string }) {
                       size="small"
                       danger
                       onClick={() => {
-                        decide.mutate(
-                          {
-                            id,
-                            approvalId: a.id,
-                            version: a.version,
-                            decision: 'reject',
-                            comment: t('releases.approvals.rejected_from_list'),
-                          },
-                          {
-                            onError: (error) => {
-                              problem.show(error);
-                            },
-                          },
-                        );
+                        start(a, 'reject');
                       }}
                       data-testid={`approval-${a.id}-reject`}
                     >
@@ -681,6 +679,40 @@ export function ApprovalsPart({ id }: { id: string }) {
           </List.Item>
         )}
       />
+      {deciding && (
+        <DecisionDialog
+          decision={deciding.decision}
+          commentsRequired={deciding.approval.comments_required}
+          pending={decide.isPending}
+          problems={fieldProblems}
+          onClose={close}
+          onSend={(comment, isPrivate) => {
+            decide.mutate(
+              {
+                id,
+                approvalId: deciding.approval.id,
+                version: deciding.approval.version,
+                decision: deciding.decision,
+                comment,
+                isPrivate,
+              },
+              {
+                onSuccess: close,
+                onError: (error) => {
+                  if (error instanceof ApiError && error.status === 422) {
+                    setFieldProblems(
+                      error.fieldErrors.map((f) => t(f.message_key, f.params ?? {})),
+                    );
+                    return;
+                  }
+                  close();
+                  problem.show(error);
+                },
+              },
+            );
+          }}
+        />
+      )}
       <FormProblem problem={problem} />
     </Flex>
   );

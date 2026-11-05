@@ -1101,7 +1101,6 @@ export const ar: LabelResource = {
   'release_type.minor': 'ثانوي',
   'releases.approvals.level': 'المستوى {{level}}',
   'releases.approvals.none': 'لا توجد موافقات بعد.',
-  'releases.approvals.rejected_from_list': 'رُفض من موافقات الإصدار.',
   'releases.col.id': 'الرقم',
   'releases.col.updated': 'آخر تحديث',
   'releases.create': 'إنشاء الإصدار',

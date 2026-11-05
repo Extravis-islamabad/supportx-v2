@@ -385,12 +385,14 @@ export function useDecideReleaseApproval() {
       version,
       decision,
       comment,
+      isPrivate,
     }: {
       id: string;
       approvalId: string;
       version: number;
       decision: 'approve' | 'reject';
       comment?: string;
+      isPrivate?: boolean;
     }) =>
       call(
         api.POST('/api/v1/releases/{record_id}/approvals/{approval_id}/decision', {
@@ -398,7 +400,11 @@ export function useDecideReleaseApproval() {
             path: { record_id: id, approval_id: approvalId },
             header: ifMatch(version),
           },
-          body: { decision, comment: comment ?? null, private: false },
+          body: {
+            decision,
+            comment: comment === undefined || comment === '' ? null : comment,
+            private: isPrivate ?? false,
+          },
         }),
       ),
     onSettled: (_data, _error, { id }) => {

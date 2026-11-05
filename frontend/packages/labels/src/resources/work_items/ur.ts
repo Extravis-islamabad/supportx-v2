@@ -1017,7 +1017,6 @@ export const ur: LabelResource = {
   'release_type.minor': 'چھوٹی',
   'releases.approvals.level': 'سطح {{level}}',
   'releases.approvals.none': 'ابھی کوئی منظوری نہیں۔',
-  'releases.approvals.rejected_from_list': 'ریلیز کی منظوریوں سے مسترد کیا گیا۔',
   'releases.col.id': 'نمبر',
   'releases.col.updated': 'تازہ کاری',
   'releases.create': 'ریلیز بنائیں',

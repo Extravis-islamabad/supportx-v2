@@ -56,7 +56,9 @@ A misspelt stage or field is refused when you save.
   approvers. An exact split under majority is a rejection.
 - People named on an approval decide it in the Approvals tab, or from the e-mailed link. No mail
   server is needed.
-- The requester cannot approve their own release.
+- The requester cannot approve their own release, unless an admin allows it in that stage's
+  approval settings.
+- A rejection always needs its reason. An approval needs a comment when the level asks for one.
 - If nobody can be named (a role nobody holds, for example), the approval administrators get it,
   and the reason is shown.
 
