@@ -10,6 +10,7 @@ import uuid
 from typing import Any
 
 from tests.db.test_incidents_api import CONSOLE, Org, World, field_codes, problem, role, world
+from tests.db.test_knowledge_api import _new, _topic
 from tests.db.test_problems_api import PRB, new_problem
 
 __all__ = ["world"]  # the fixture, re-used
@@ -181,3 +182,34 @@ async def test_a_role_without_the_rights_cannot_write_the_workaround(world: Worl
         for o in (await fresh(world, a, a.requester2, record))["operations"]
     }
     assert (ops["edit_solution"], ops["mark_known_error"]) == (False, False)
+
+
+async def test_a_problem_resolution_saves_as_knowledge(world: World) -> None:
+    """REQ-PRB-041: a draft from the problem's title and resolution, linked to it."""
+    a = world.a
+    topic = await _topic(world, a, "Problems")
+    record = (await new_problem(world, a, a.tech_a, group_id=str(a.ga))).json()
+    for action, body in (
+        ("investigate", {}),
+        ("resolve", {"resolution": "<p>Renew the relay certificate.</p>"}),
+    ):
+        moved = await post(world, a, a.tech_a, record, f"actions/{action}", body)
+        assert moved.status_code == 200, moved.text
+        record = moved.json()
+    body = {"record_type": "problem", "record_id": record["id"], "topic_id": topic["id"]}
+    made = await world.call(
+        "POST", "/knowledge/articles/from-record", a, a.tech_a, json=body, headers=_new()
+    )
+    assert made.status_code == 201, made.text
+    draft = made.json()["article"]["drafts"]["en"]
+    assert draft["title"] == record["subject"]
+    assert "Renew the relay certificate" in draft["body_html"]
+    links = await world.call(
+        "GET", f"/knowledge/records/problem/{record['id']}/articles", a, a.tech_a
+    )
+    assert [i["source"] for i in links.json()["items"]] == ["created_from"]
+    # Someone who cannot see problems: not found, and nothing is made.
+    hidden = await world.call(
+        "POST", "/knowledge/articles/from-record", a, a.requester, json=body, headers=_new()
+    )
+    assert problem(hidden)[0] in {403, 404}
