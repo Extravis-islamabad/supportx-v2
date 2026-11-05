@@ -155,6 +155,17 @@ class WorkItemIn(BaseModel):
         max_length=DESCRIPTION_MAX * 2,
         description="Problems: the workaround, rich text (needs problems.edit_solution).",
     )
+    review_summary: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the review's summary (needs problems.edit_analysis).",
+    )
+    review_lessons: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: lessons learned."
+    )
+    review_actions: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
+    )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )
@@ -226,6 +237,17 @@ class WorkItemPatch(BaseModel):
         default=None,
         max_length=DESCRIPTION_MAX * 2,
         description="Problems: the workaround, rich text (needs problems.edit_solution).",
+    )
+    review_summary: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the review's summary (needs problems.edit_analysis).",
+    )
+    review_lessons: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: lessons learned."
+    )
+    review_actions: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
     )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key (null clears one); others kept."
@@ -543,6 +565,12 @@ class WorkItemOut(BaseModel):
     )
     symptoms: str | None = None
     workaround: str | None = None
+    review_summary: str | None = None
+    review_lessons: str | None = None
+    review_actions: str | None = None
+    review_required: bool = Field(
+        default=False, description="Problems: closing needs the review summary (REQ-PRB-053)."
+    )
     known_error_at: datetime | None = Field(
         default=None, description="Problems: when it was marked a known error."
     )
@@ -640,6 +668,7 @@ class WorkItemOut(BaseModel):
             **{name: getattr(r, name) for name in _RECORD_FIELDS},
             root_cause=None if "root_cause" in view.hidden else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
+            review_required=view.review_required,
             analysis_changes=[
                 AnalysisChangeOut(
                     field=c.field,
@@ -689,6 +718,9 @@ _RECORD_FIELDS = (
     "outage_ended_at",
     "symptoms",
     "workaround",
+    "review_summary",
+    "review_lessons",
+    "review_actions",
     "known_error_at",
     "known_error_retired_at",
     "template_id",
@@ -996,6 +1028,10 @@ class WorkItemCatalogueOut(BaseModel):
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
+    review_required_priorities: list[Priority] = Field(
+        default_factory=list,
+        description="Problems: priorities that need a review before closing (major ones always).",
+    )
     version: int
     statuses: list[WorkItemStatusOut]
     actions: list[WorkItemAction] = Field(description="User actions in their fixed order.")
@@ -1029,6 +1065,7 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
+            review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -1147,6 +1184,7 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
+    review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 

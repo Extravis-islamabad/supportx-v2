@@ -151,6 +151,7 @@ class Catalogue:
     approvals_hidden_from_requesters: bool  # WP-030 s2, REQ-SR-024 AC3
     approvals_require_sign_in: bool  # D-132: e-mailed approval links need a signed-in approver
     portal_show_due_time: bool  # WP-028 D5: requesters see the expected resolution time
+    review_required_priorities: tuple[str, ...]  # WP-044b s4: problems needing a review
     lifecycle: Lifecycle  # the standard one; a record follows `lifecycle_of(record.lifecycle)`
     lifecycles: Mapping[str, Lifecycle]  # every transition set by code (WP-044a s4)
     statuses: list[StatusInfo]
@@ -527,6 +528,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         approvals_hidden_from_requesters=settings.approvals_hidden_from_requesters,
         approvals_require_sign_in=settings.approvals_require_sign_in,
         portal_show_due_time=settings.portal_show_due_time,
+        review_required_priorities=tuple(settings.review_required_priorities),
         first_response_on=tuple(settings.first_response_on),
         settings_version=settings.version,
         default_impact=settings.default_impact,

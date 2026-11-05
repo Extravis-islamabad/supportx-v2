@@ -213,3 +213,55 @@ async def test_a_problem_resolution_saves_as_knowledge(world: World) -> None:
         "POST", "/knowledge/articles/from-record", a, a.requester, json=body, headers=_new()
     )
     assert problem(hidden)[0] in {403, 404}
+
+
+async def _closed_attempt(
+    world: World, org: Org, user: uuid.UUID, priority_impact: tuple[str, str]
+) -> tuple[dict[str, Any], Any]:
+    """A resolved problem of that impact and urgency, and its first close attempt."""
+    impact, urgency = priority_impact
+    record = (
+        await new_problem(world, org, user, group_id=str(org.ga), impact=impact, urgency=urgency)
+    ).json()
+    for action, body in (
+        ("investigate", {}),
+        ("resolve", {"resolution": "<p>Fixed.</p>"}),
+    ):
+        moved = await post(world, org, user, record, f"actions/{action}", body)
+        assert moved.status_code == 200, moved.text
+        record = moved.json()
+    closing = await post(world, org, user, record, "actions/close", {"closure_code": "fixed"})
+    return record, closing
+
+
+async def test_the_review_is_a_closure_rule_for_p1_and_the_listed_priorities(
+    world: World,
+) -> None:
+    """REQ-PRB-053, D-140 Q4: P1 (and major) need the review; P2 only when the admin lists it."""
+    a = world.a
+    p1, refused = await _closed_attempt(world, a, a.tech_a, ("organisation", "critical"))
+    assert p1["priority"] == "p1", p1["priority"]
+    assert p1["review_required"] is True
+    assert field_codes(refused) == {"review_summary": "required_to_close"}
+    close = {o["action"]: o for o in p1["actions"]}["close"]
+    assert "review_summary" in close["missing"]
+    reviewed = await world.call(
+        "PATCH",
+        f"{PRB}/{p1['id']}",
+        a,
+        a.tech_a,
+        json={"review_summary": "<p>Cert monitoring added.</p>"},
+        headers={"If-Match": f'"{p1["version"]}"', **CONSOLE},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    closed = await post(
+        world, a, a.tech_a, reviewed.json(), "actions/close", {"closure_code": "fixed"}
+    )
+    assert closed.status_code == 200, closed.text
+
+    low, done = await _closed_attempt(world, a, a.tech_a, ("one_person", "low"))
+    assert low["review_required"] is False
+    assert done.status_code == 200, done.text  # no review needed
+
+    settings = (await world.call("GET", f"{PRB}/settings", a, a.admin)).json()
+    assert settings["review_required_priorities"] == ["p1"]

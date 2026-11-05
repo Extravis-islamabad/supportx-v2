@@ -108,6 +108,12 @@ class WorkItemTypeSettings(TenantKeyed, Base):
             name="auto_close_days_range",
         ),
         CheckConstraint("reopen_window_days BETWEEN 1 AND 30", name="reopen_window_days_range"),
+        CheckConstraint(
+            "review_required_priorities <@ ARRAY["
+            + ", ".join(f"'{v}'" for v in Priority)
+            + "]::varchar[]",
+            name="review_required_priorities_codes",
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -149,6 +155,11 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     reopen_window_days: Mapped[int] = mapped_column(Integer, server_default="7")
     # REQ-INC-072 AC3 (D-112): a task's owner may work on it without access to the record.
     task_owner_access: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Problems (WP-044b s4, D-140 Q4): priorities whose problems need a review before closing;
+    # the major problem template's always do. P1 by default, P2 at the admin's choice.
+    review_required_priorities: Mapped[list[str]] = mapped_column(
+        ARRAY(String(10)), server_default="{p1}"
+    )
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
@@ -649,6 +660,10 @@ class WorkItem(TenantEntity):
     # Known errors (WP-044b s3, REQ-PRB-034..042): the workaround incident technicians see,
     # when it was marked a known error, and when that was retired by a permanent fix.
     workaround: Mapped[str | None] = mapped_column(Text)
+    # The problem review (WP-044b s4, REQ-PRB-053): what happened, lessons, follow-up actions.
+    review_summary: Mapped[str | None] = mapped_column(Text)
+    review_lessons: Mapped[str | None] = mapped_column(Text)
+    review_actions: Mapped[str | None] = mapped_column(Text)
     known_error_at: Mapped[datetime | None]
     known_error_retired_at: Mapped[datetime | None]
     template_id: Mapped[uuid.UUID | None]

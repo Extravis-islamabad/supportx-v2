@@ -475,6 +475,7 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     root_cause: null,
     root_cause_hidden: false,
     analysis_changes: [],
+    review_required: false,
     symptoms: null,
     status_before_pause: null,
     status: 'new',

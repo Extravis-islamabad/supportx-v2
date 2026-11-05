@@ -480,6 +480,19 @@ async def test_the_major_problem_template_runs_the_guided_life_cycle(world: Worl
     early = await act(world, a, a.admin, record, "close", closure_code="fixed")
     assert problem(early) == (409, "invalid_transition")  # the review comes first
     assert (await move("start_review"))["status"] == "in_review"
+    # A major problem closes only with its review written (WP-044b s4, REQ-PRB-053).
+    unreviewed = await act(world, a, a.admin, record, "close", closure_code="fixed")
+    assert problem(unreviewed)[0] == 422
+    reviewed = await world.call(
+        "PATCH",
+        f"{PRB}/{record['id']}",
+        a,
+        a.admin,
+        json={"review_summary": "<p>Monitoring added.</p>"},
+        headers={"If-Match": f'"{record["version"]}"', **CONSOLE},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    record = dict(reviewed.json())
     assert (await move("close", closure_code="fixed"))["status"] == "closed"
     # The catalogue lists both transition sets.
     catalogue = (await world.call("GET", f"{PRB}/settings", a, a.admin)).json()

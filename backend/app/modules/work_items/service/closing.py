@@ -38,7 +38,7 @@ from app.modules.work_items.domain.closure import (
 )
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.templates import CONFIRMED_BY_REQUESTER, PickList
-from app.modules.work_items.domain.types import WorkItemTypeCode
+from app.modules.work_items.domain.types import GUIDED_ANALYSIS, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.history import Change
@@ -158,6 +158,10 @@ async def before_move(
         return step
     if action not in DONE_MOVES:
         return step
+    if action == CLOSE and _review_missing(cat, record):
+        # REQ-PRB-053 (D-140 Q4): the review is a closure rule for major problems and the
+        # priorities the tenant lists (P1 by default).
+        raise _refused([("review_summary", "required_to_close", {})])
     _check_rules(cat, record, action, given, step, custom_keys=await _custom_keys(session, record))
     await _check_open_work(session, cat, record, given, step)
     if action == RESOLVE and _live_known_error(record):
@@ -167,6 +171,17 @@ async def before_move(
         step.changes["known_error_retired_at"] = now
         step.history.append(Change("known_error_retired_at", None, now.isoformat()))
     return step
+
+
+def review_required(cat: Catalogue, record: WorkItem) -> bool:
+    """A problem that needs its review before closing: major ones, and the listed priorities."""
+    return record.type == WorkItemTypeCode.PROBLEM and (
+        record.lifecycle == GUIDED_ANALYSIS or record.priority in cat.review_required_priorities
+    )
+
+
+def _review_missing(cat: Catalogue, record: WorkItem) -> bool:
+    return review_required(cat, record) and is_blank(record.review_summary or "")
 
 
 def _live_known_error(record: WorkItem) -> bool:
@@ -287,7 +302,8 @@ async def missing_for(
         return []
     values = {name: getattr(record, name, None) for name in _record_fields()}
     required = _required(cat, action, await _custom_keys(session, record))
-    return missing_fields(required, values, record.custom or {})
+    review = ["review_summary"] if action == CLOSE and _review_missing(cat, record) else []
+    return review + missing_fields(required, values, record.custom or {})
 
 
 async def resolution_notified(

@@ -7,10 +7,14 @@
   (D-140 Q7), so it is what suggestions on incidents show.
 - work_items.known_error_at / known_error_retired_at: when the problem was marked a known error,
   and when that was retired (a permanent fix). A retirement needs a marking first.
+- work_items.review_summary / review_lessons / review_actions (s4, REQ-PRB-053): the problem
+  review, sanitised rich text.
+- work_item_type_settings.review_required_priorities (s4, D-140 Q4): which priorities need the
+  review before closing; P1 by default (the major template's always do).
 
-Expand only, no data step. The downgrade refuses while any tenant has a value in these columns
-(rule 5h: checked per tenant with app.tenant_id set, as work_items forces RLS). Otherwise it
-drops them.
+Expand only, no data step. The downgrade refuses while any tenant has a value in these columns,
+or a review setting other than the default (rule 5h: checked per tenant with app.tenant_id set,
+as both tables force RLS). Otherwise it drops them.
 
 Revision ID: 0078
 Revises: 0089
@@ -21,15 +25,24 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0078"
 down_revision: str | None = "0089"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-TEXT_COLUMNS = ("root_cause", "symptoms", "workaround")
+TEXT_COLUMNS = (
+    "root_cause",
+    "symptoms",
+    "workaround",
+    "review_summary",
+    "review_lessons",
+    "review_actions",
+)
 TIME_COLUMNS = ("known_error_at", "known_error_retired_at")
 RETIRED_CHECK = "ck_work_items_known_error_retired_after"
+REVIEW_CHECK = "ck_work_item_type_settings_review_required_priorities_codes"
 
 _REFUSE_IF_ANY_VALUE = """
 DO $$
@@ -40,7 +53,12 @@ BEGIN
         IF EXISTS (
             SELECT 1 FROM work_items
             WHERE root_cause IS NOT NULL OR symptoms IS NOT NULL OR workaround IS NOT NULL
+               OR review_summary IS NOT NULL OR review_lessons IS NOT NULL
+               OR review_actions IS NOT NULL
                OR known_error_at IS NOT NULL OR known_error_retired_at IS NOT NULL
+        ) OR EXISTS (
+            SELECT 1 FROM work_item_type_settings
+            WHERE review_required_priorities <> ARRAY['p1']::varchar[]
         ) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has problem analysis (rule 5h)', t;
         END IF;
@@ -56,6 +74,20 @@ def upgrade() -> None:
         op.add_column("work_items", sa.Column(name, sa.Text(), nullable=True))
     for name in TIME_COLUMNS:
         op.add_column("work_items", sa.Column(name, sa.DateTime(timezone=True), nullable=True))
+    op.add_column(
+        "work_item_type_settings",
+        sa.Column(
+            "review_required_priorities",
+            postgresql.ARRAY(sa.String(length=10)),
+            server_default="{p1}",
+            nullable=False,
+        ),
+    )
+    op.create_check_constraint(
+        op.f(REVIEW_CHECK),
+        "work_item_type_settings",
+        "review_required_priorities <@ ARRAY['p1', 'p2', 'p3', 'p4']::varchar[]",
+    )
     op.create_check_constraint(
         op.f(RETIRED_CHECK),
         "work_items",
@@ -67,6 +99,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Drop them, only while no tenant has a value in them."""
     op.execute(_REFUSE_IF_ANY_VALUE)
+    op.drop_constraint(op.f(REVIEW_CHECK), "work_item_type_settings", type_="check")
+    op.drop_column("work_item_type_settings", "review_required_priorities")
     op.drop_constraint(op.f(RETIRED_CHECK), "work_items", type_="check")
     for name in reversed((*TEXT_COLUMNS, *TIME_COLUMNS)):
         op.drop_column("work_items", name)

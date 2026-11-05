@@ -268,6 +268,8 @@ class WorkItemView:
     hidden: frozenset[str] = frozenset()
     # Problems: who last changed each analysis field, and when (REQ-PRB-030).
     analysis_changes: tuple["AnalysisChange", ...] = ()
+    # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
+    review_required: bool = False
 
 
 def _now() -> datetime:
@@ -508,6 +510,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation_count=int(entries or 0),
         hidden=hidden,
         analysis_changes=analysis,
+        review_required=closing.review_required(cat, record),
     )
 
 
@@ -1195,7 +1198,15 @@ PROBLEM_FIELDS = ("problem_type", "root_cause_category", "outage_started_at", "o
 # A list, not a pair: the field-problem scanner reads two-string tuples as (field, code).
 # The workaround (s3, REQ-PRB-034) is the solution: its own right, and seen by everyone who
 # sees the problem (D-140 Q7), so it is never hidden.
-ANALYSIS_FIELDS = ["root_cause", "symptoms", "workaround"]
+# The review (s4, REQ-PRB-053) is edited with the analysis right.
+ANALYSIS_FIELDS = [
+    "root_cause",
+    "symptoms",
+    "workaround",
+    "review_summary",
+    "review_lessons",
+    "review_actions",
+]
 HIDDEN_WITHOUT = {"root_cause": "view_root_cause"}
 EDITED_WITH = {"workaround": "edit_solution"}  # otherwise edit_analysis
 _PROBLEM_LISTS = {"problem_type": PickList.PROBLEM_TYPE, "root_cause_category": PickList.ROOT_CAUSE}
