@@ -11,6 +11,7 @@ groups' problems. The impact counts only the caused incidents the reader may see
 import uuid
 from typing import Any
 
+from app.modules.work_items.service.bulk import run_bulk_jobs
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
 from tests.db.test_problems_api import PRB, new_problem
 
@@ -283,3 +284,58 @@ async def test_merge_moves_the_incidents_and_undo_puts_them_back(world: World) -
     assert "merge" in {c["field"] for e in history.json()["items"] for c in e["changes"]}
     # Another tenant never reaches it.
     assert problem(await world.call("GET", f"{PRB}/{duplicate['id']}", b, b.admin))[0] == 404
+
+
+async def test_unlinking_incidents_one_or_in_bulk(world: World) -> None:
+    """REQ-PRB-043 (WP-044b s2): unlink with history on both; the incident's edit counts."""
+    a = world.a
+    prb = (await new_problem(world, a, a.tech_a, group_id=str(a.ga))).json()
+    incidents = [await world.create(a, a.admin, group_id=str(a.ga)) for _ in range(3)]
+    for incident in incidents:
+        linked = await world.call(
+            "POST",
+            f"{PRB}/{prb['id']}/incidents",
+            a,
+            a.admin,
+            json={"incident_id": incident["id"]},
+        )
+        assert linked.json() == {"linked": True}, linked.text
+    path = f"{PRB}/{prb['id']}/incidents/{incidents[0]['id']}"
+    # tech_b cannot see GA's incident at all: 404, never a hint that it exists.
+    assert problem(await world.call("DELETE", path, a, a.tech_b))[0] == 404
+    gone = await world.call("DELETE", path, a, a.tech_a)
+    assert gone.json() == {"unlinked": True}, gone.text
+    again = await world.call("DELETE", path, a, a.tech_a)
+    assert again.json() == {"unlinked": False}
+    history = await world.call("GET", f"{PRB}/{prb['id']}/history", a, a.tech_a)
+    removed = [
+        c
+        for e in history.json()["items"]
+        for c in e["changes"]
+        if c["field"] == "link" and c["new"] is None
+    ]
+    assert [c["old"]["id"] for c in removed] == [incidents[0]["id"]]
+
+    started = await world.call(
+        "POST",
+        "/incidents/bulk",
+        a,
+        a.tech_a,
+        json={
+            "action": "unlink_problem",
+            "record_ids": [i["id"] for i in incidents[1:]],
+            "changes": {"problem_id": prb["id"]},
+        },
+    )
+    assert started.status_code in {200, 202}, started.text
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+    left = (await world.call("GET", f"{PRB}/{prb['id']}/links", a, a.tech_a)).json()
+    assert [link for link in left if link["relation"] == "causes"] == []
+    on_problem = await world.call(
+        "POST",
+        f"{PRB}/bulk",
+        a,
+        a.tech_a,
+        json={"action": "unlink_problem", "record_ids": [prb["id"]]},
+    )
+    assert problem(on_problem)[0] == 422  # only incidents have a cause

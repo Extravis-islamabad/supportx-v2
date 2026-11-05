@@ -59,6 +59,7 @@ _PERMISSION = {
     BulkAction.RESOLVE: "view",
     BulkAction.CLOSE: "view",
     BulkAction.LINK_PROBLEM: "edit",
+    BulkAction.UNLINK_PROBLEM: "edit",
 }
 _KEYS = {
     BulkAction.EDIT: None,  # any field the edit form has; the update checks each one
@@ -67,6 +68,7 @@ _KEYS = {
     BulkAction.RESOLVE: {"resolution", "confirm_open_work"},
     BulkAction.CLOSE: {"closure_code", "confirm_open_work"},
     BulkAction.LINK_PROBLEM: {"problem_id", "move"},
+    BulkAction.UNLINK_PROBLEM: {"problem_id"},
 }
 
 
@@ -134,7 +136,10 @@ async def start(  # noqa: PLR0913 - the job's inputs, explicit
     permission = wtype.permission(_PERMISSION[action])
     if not subject.holds(permission):
         raise PermissionDenied(params={"permission": permission, "reason": "no_permission"})
-    if action is BulkAction.LINK_PROBLEM and wtype.code is not WorkItemTypeCode.INCIDENT:
+    if (
+        action in {BulkAction.LINK_PROBLEM, BulkAction.UNLINK_PROBLEM}
+        and wtype.code is not WorkItemTypeCode.INCIDENT
+    ):
         raise items.field_errors([("action", "invalid_choice")])  # only incidents have a cause
     clean = _check_changes(action, changes)
     ids = list(dict.fromkeys(record_ids))
@@ -410,6 +415,15 @@ async def _apply(
                 record_id,
                 uuid.UUID(str(changes["problem_id"])),
                 move=bool(changes.get("move")),
+                source=source,
+            )
+        case BulkAction.UNLINK_PROBLEM:
+            given = changes.get("problem_id")
+            await problem_links.unlink_cause(
+                session,
+                subject,
+                record_id,
+                uuid.UUID(str(given)) if given else None,
                 source=source,
             )
         case BulkAction.RESOLVE | BulkAction.CLOSE as action:

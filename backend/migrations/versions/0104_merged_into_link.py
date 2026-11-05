@@ -3,7 +3,8 @@
 work_item_links may be `merged_into`: the merged problem (source) points to the one it was
 merged into (target), so the record says where it went and an undo knows the pair. The status
 moves are the system actions `merge` and `undo_merge` (never transitions; widened in the
-transitions' action check like 0089's guided actions).
+transitions' action check like 0089's guided actions). Bulk jobs may `unlink_problem`
+(incidents no longer caused by their problem).
 
 Expand only. Both checks are widened from their live definitions, and narrowed by removing only
 these codes. Lane C's 0098 widens the link kinds too, so neither drops the other's codes in
@@ -28,9 +29,11 @@ depends_on: str | Sequence[str] | None = None
 
 LINK_CHECK = "ck_work_item_links_kind_code"
 ACTION_CHECK = "ck_work_item_transitions_action_code"
+BULK_CHECK = "ck_work_item_bulk_jobs_action_code"
 WIDENED = {
     (LINK_CHECK, "work_item_links", "kind"): ("merged_into",),
     (ACTION_CHECK, "work_item_transitions", "action"): ("merge", "undo_merge"),
+    (BULK_CHECK, "work_item_bulk_jobs", "action"): ("unlink_problem",),
 }
 
 

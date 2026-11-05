@@ -71,6 +71,7 @@ export const ur: LabelResource = {
   'bulk_action.link_problem': 'کسی مسئلے سے جوڑیں',
   'bulk_action.resolve': 'حل کریں',
   'bulk_action.take': 'اپنے ذمے لیں',
+  'bulk_action.unlink_problem': 'مسئلے سے الگ کریں',
   'bulk_outcome.done': 'تبدیل ہوا',
   'bulk_outcome.skipped': 'چھوڑ دیا گیا',
   'bulk_status.done': 'مکمل',

@@ -68,6 +68,7 @@ export const ar: LabelResource = {
   'bulk_action.link_problem': 'ربط بمشكلة',
   'bulk_action.resolve': 'حل',
   'bulk_action.take': 'تولّي',
+  'bulk_action.unlink_problem': 'إلغاء الربط بالمشكلة',
   'bulk_outcome.done': 'تغيّر',
   'bulk_outcome.skipped': 'تم التخطي',
   'bulk_status.done': 'اكتمل',

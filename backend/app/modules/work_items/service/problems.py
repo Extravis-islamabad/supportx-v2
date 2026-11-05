@@ -132,6 +132,32 @@ async def link_cause(  # noqa: PLR0913 - both records, the move and the source, 
     return link
 
 
+async def unlink_cause(
+    session: AsyncSession,
+    subject: Subject,
+    incident_id: uuid.UUID,
+    problem_id: uuid.UUID | None,
+    *,
+    source: Source,
+) -> bool:
+    """The incident is no longer caused by its problem (only by `problem_id`, when given).
+
+    Like linking, the change is the incident's: editing it is the right that counts. False when
+    there was nothing to remove.
+    """
+    incident = await items.record_for_action(session, subject, INCIDENT, "edit", incident_id)
+    current = await causing_problem(session, incident.id)
+    if current is None or (problem_id is not None and current.target_id != problem_id):
+        return False
+    problem = await session.get(WorkItem, current.target_id)
+    removed = await parts.LinkRepository(session).soft_delete(
+        current.id, expected_version=current.version
+    )
+    if problem is not None:
+        await parts.link_recorded(session, incident, problem, removed, "child_removed", source)
+    return True
+
+
 async def already_caused(
     session: AsyncSession, subject: Subject, incident_ids: list[uuid.UUID]
 ) -> Mapping[uuid.UUID, str]:

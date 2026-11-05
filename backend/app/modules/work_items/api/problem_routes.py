@@ -5,6 +5,7 @@
     POST /problems/from-incidents/preview        which selected incidents already have a problem
     POST /problems/from-incidents                create one problem and link the incidents
     POST /problems/{id}/incidents                link one incident to this problem (If-less)
+    DELETE /problems/{id}/incidents/{incident}   unlink it (needs incident edit; 044b)
     GET  /problems/{id}/copy                     a copy's values and what is left empty
     POST /problems/{id}/copy                     create the copy
     GET  /problems/{id}/investigators            who investigates it (ADR-040)
@@ -125,6 +126,12 @@ class LinkedOut(BaseModel):
     """The link's outcome."""
 
     linked: bool = Field(description="False: the incident was already caused by this problem.")
+
+
+class UnlinkedOut(BaseModel):
+    """The unlink's outcome."""
+
+    unlinked: bool = Field(description="False: the incident was not caused by this problem.")
 
 
 def add_problem_routes(
@@ -324,6 +331,29 @@ def add_problem_routes(
     _add_investigator_routes(router, wtype)
     _add_analysis_routes(router, wtype)
     _add_merge_routes(router, wtype)
+    _add_unlink_route(router, wtype)
+
+
+def _add_unlink_route(router: APIRouter, wtype: WorkItemType) -> None:
+    """Unlink one incident (WP-044b; REQ-PRB-043): the incident's edit right counts."""
+    View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
+
+    @router.delete(
+        "/{record_id}/incidents/{incident_id}", summary="Unlink an incident from this problem"
+    )
+    async def unlink_incident(
+        record_id: uuid.UUID,
+        incident_id: uuid.UUID,
+        session: TenantSession,
+        subject: View,
+        request: Request,
+    ) -> UnlinkedOut:
+        """No longer caused by this problem, with history on both (needs incident edit)."""
+        await service.problem_of(session, subject, record_id)
+        done = await service.unlink_cause(
+            session, subject, incident_id, record_id, source=source_of(request)
+        )
+        return UnlinkedOut(unlinked=done)
 
 
 class MergeIn(BaseModel):

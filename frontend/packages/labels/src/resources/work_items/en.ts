@@ -67,6 +67,7 @@ export const en = {
   'bulk_action.link_problem': 'Link to a problem',
   'bulk_action.resolve': 'Resolve',
   'bulk_action.take': 'Take',
+  'bulk_action.unlink_problem': 'Unlink from problem',
   'bulk_outcome.done': 'Changed',
   'bulk_outcome.skipped': 'Skipped',
   'bulk_status.done': 'Finished',
