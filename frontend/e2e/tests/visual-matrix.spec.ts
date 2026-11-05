@@ -44,8 +44,15 @@ interface Screen {
   loading?: boolean;
 }
 
+// The config sets no action timeout and this test runs for hours: an element a screen no longer
+// has would wait forever and hang the shard (the second and third full runs). Ten seconds, then
+// the shot records the error as a finding and the run goes on.
+const STATE_TIMEOUT = 10_000;
+// Every action and navigation of a shot, so nothing waits forever.
+const SHOT_TIMEOUT = 30_000;
+
 const click = (testId: string) => async (page: Page) => {
-  await page.getByTestId(testId).first().click();
+  await page.getByTestId(testId).first().click({ timeout: STATE_TIMEOUT });
   await page.waitForTimeout(400);
 };
 
@@ -305,6 +312,7 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
   // requests still held back, so none of them is left hanging on the page every later shot uses
   // (the second full run waited out 75 minutes on such requests).
   const page = screen.loading ? await main.context().newPage() : main;
+  page.setDefaultTimeout(SHOT_TIMEOUT);
   try {
     if (screen.loading) {
       await page.setViewportSize(main.viewportSize() ?? { width: 1280, height: 900 });
@@ -366,6 +374,7 @@ test(`visual matrix, shard ${String(SHARD)}/${String(SHARDS)}`, async ({ browser
       baseURL: app === 'portal' ? PORTAL_URL : test.info().project.use.baseURL,
     });
     const page = await context.newPage();
+    page.setDefaultTimeout(SHOT_TIMEOUT);
     if (app === 'console') {
       expect(SHOWCASE_PASSWORD, 'SUPPORTX_SHOWCASE_PASSWORD').not.toBe('');
       await signIn(page, 'admin@showcase.test', SHOWCASE_PASSWORD, '/');
