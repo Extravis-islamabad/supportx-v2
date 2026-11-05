@@ -18,8 +18,10 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -223,3 +225,162 @@ class AutomationRun(UuidPrimaryKey, TenantScoped, Base):
     detail: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     change_id: Mapped[uuid.UUID | None]
     occurred_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+# --- visual workflows (WP-048b S1, ADR-043; migration 0105) -----------------------------------
+
+_WORKFLOW_RECORD_TYPES = (
+    "record_type IN ('incident', 'service_request', 'problem', 'change', 'release')"
+)
+
+
+class Workflow(TenantEntity):
+    """A workflow: its draft definition, whether it runs, and its published version."""
+
+    __tablename__ = "workflows"
+    __table_args__ = (
+        CheckConstraint(_WORKFLOW_RECORD_TYPES, name="record_type_code"),
+        CheckConstraint("char_length(btrim(name)) BETWEEN 1 AND 200", name="name_length"),
+        CheckConstraint("draft_problems >= 0", name="draft_problems"),
+        CheckConstraint("jsonb_typeof(draft) = 'object'", name="draft_object"),
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_workflows_owner",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "service_identity_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_workflows_service_identity",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("tenant_id", "id", name="uq_workflows_tenant_id_id"),
+        Index(
+            "uq_workflows_tenant_type_name",
+            "tenant_id",
+            "record_type",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    record_type: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    draft: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    draft_problems: Mapped[int] = mapped_column(Integer, server_default="0")
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    owner_id: Mapped[uuid.UUID | None]
+    service_identity_id: Mapped[uuid.UUID | None]
+    published_version: Mapped[int | None] = mapped_column(Integer)
+
+
+class WorkflowVersion(TenantKeyed, Base):
+    """A published definition; never changed (REQ-WF-021)."""
+
+    __tablename__ = "workflow_versions"
+    __table_args__ = (
+        CheckConstraint("number >= 1", name="number"),
+        CheckConstraint("jsonb_typeof(definition) = 'object'", name="definition_object"),
+        ForeignKeyConstraint(
+            ["tenant_id", "workflow_id"],
+            ["workflows.tenant_id", "workflows.id"],
+            name="fk_workflow_versions_workflow",
+            ondelete="RESTRICT",
+        ),
+    )
+
+    workflow_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    definition: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    published_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    published_by: Mapped[uuid.UUID | None]
+
+
+class WorkflowInstance(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Versioned, Base):
+    """One run of a workflow on one record; PostgreSQL holds its state (ADR-043 §3)."""
+
+    __tablename__ = "workflow_instances"
+    __table_args__ = (
+        CheckConstraint(_WORKFLOW_RECORD_TYPES, name="record_type_code"),
+        CheckConstraint(
+            "status IN ('running', 'waiting', 'failed', 'finished', 'cancelled')",
+            name="status_code",
+        ),
+        CheckConstraint(
+            "started_how IN ('template', 'trigger', 'manual', 'sub_flow')",
+            name="started_how_code",
+        ),
+        CheckConstraint("jsonb_typeof(state) = 'object'", name="state_object"),
+        CheckConstraint(
+            "failure IS NULL OR jsonb_typeof(failure) = 'object'", name="failure_object"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "workflow_id", "version_number"],
+            [
+                "workflow_versions.tenant_id",
+                "workflow_versions.workflow_id",
+                "workflow_versions.number",
+            ],
+            name="fk_workflow_instances_version",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("tenant_id", "id", name="uq_workflow_instances_tenant_id_id"),
+        Index(
+            "uq_workflow_instances_live",
+            "tenant_id",
+            "workflow_id",
+            "record_id",
+            unique=True,
+            postgresql_where=text("status IN ('running', 'waiting', 'failed')"),
+        ),
+        Index("ix_workflow_instances_tenant_record", "tenant_id", "record_type", "record_id"),
+        Index("ix_workflow_instances_tenant_status", "tenant_id", "status", "workflow_id"),
+        Index(
+            "ix_workflow_instances_tenant_wake",
+            "tenant_id",
+            "wake_at",
+            postgresql_where=text("wake_at IS NOT NULL"),
+        ),
+    )
+
+    workflow_id: Mapped[uuid.UUID]
+    version_number: Mapped[int] = mapped_column(Integer)
+    record_type: Mapped[str] = mapped_column(String(20))
+    record_id: Mapped[uuid.UUID]
+    status: Mapped[str] = mapped_column(String(20))
+    state: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    failure: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    wake_at: Mapped[datetime | None]
+    started_how: Mapped[str] = mapped_column(String(20))
+    started_at: Mapped[datetime]
+    finished_at: Mapped[datetime | None]
+    stopped_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class WorkflowStep(TenantKeyed, Base):
+    """One line of an instance's log; insert-only (REQ-WF-023, -026)."""
+
+    __tablename__ = "workflow_steps"
+    __table_args__ = (
+        CheckConstraint("seq >= 1", name="seq"),
+        CheckConstraint("detail IS NULL OR jsonb_typeof(detail) = 'object'", name="detail_object"),
+        ForeignKeyConstraint(
+            ["tenant_id", "instance_id"],
+            ["workflow_instances.tenant_id", "workflow_instances.id"],
+            name="fk_workflow_steps_instance",
+            ondelete="CASCADE",
+        ),
+    )
+
+    instance_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    seq: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token: Mapped[str] = mapped_column(String(20))
+    node: Mapped[str] = mapped_column(String(40))
+    node_type: Mapped[str] = mapped_column(String(20))
+    result: Mapped[str] = mapped_column(String(40))
+    at: Mapped[datetime]
+    actor_id: Mapped[uuid.UUID | None]
+    detail: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
