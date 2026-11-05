@@ -187,9 +187,11 @@ jobs:
     # four-node k3d cluster. The Valkey master dies, Sentinel promotes a replica, a signed-in
     # person's session keeps working, and the restarted pod comes back as a replica (one master).
     name: k3d HA smoke (Valkey failover)
-    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
-    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
+    # Not a required check. Runs nightly, manually, and on a PR that touches deployment or
+    # Valkey (the changes step below decides; other PRs finish at once), never in the merge
+    # queue. Not tied to the full-ci label (coordinator, 2026-11-05): a migration PR needs the
+    # core profile and e2e, not the HA cluster.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
@@ -200,7 +202,7 @@ jobs:
         id: changes
         uses: ./.github/actions/changes
         with:
-          needs: '^(deploy/|Makefile$|\.github/workflows/cluster\.yml$|\.github/actions/|backend/app/core/valkey\.py$)'
+          needs: '^(deploy/|Makefile$|\.github/workflows/(ci|cluster)\.yml$|\.github/actions/|backend/app/core/valkey\.py$|backend/tests/ha/)'
           skipped: "skipped: no deployment change"
       - uses: ./.github/actions/setup-backend
         if: ${{ steps.changes.outputs.run != 'false' }}

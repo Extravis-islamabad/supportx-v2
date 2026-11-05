@@ -435,6 +435,18 @@ async def list_items(
     return [CatalogItemOut.of(v, staff=staff) for v in views]
 
 
+@router.get("/items/popular", summary="The most requested catalog items you may see")
+async def popular_items(
+    session: TenantSession,
+    subject: SignedIn,
+    limit: Annotated[int, Query(ge=1, le=20)] = 6,
+) -> list[CatalogItemOut]:
+    """Most requested over the last 90 days first (REQ-CAT-027, the portal home, WP-032)."""
+    staff = is_staff(subject)
+    views = await service.popular_items(session, subject, limit=limit)
+    return [CatalogItemOut.of(v, staff=staff) for v in views]
+
+
 @router.get("/items/search", summary="Search the catalog items you may see")
 async def search_items(
     session: TenantSession,

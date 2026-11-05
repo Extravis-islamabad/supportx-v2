@@ -39,6 +39,8 @@ export const ur: LabelResource = {
   'notification_channel.in_app': 'ایپ میں',
   'notification_condition_operator.in': 'ان میں سے ایک ہے',
   'notification_condition_operator.not_in': 'ان میں سے کوئی نہیں',
+  'notification_event.announcement.ended': 'آپ کا فالو کردہ اعلان ختم ہوا',
+  'notification_event.announcement.updated': 'آپ کا فالو کردہ اعلان اپ ڈیٹ ہوا',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
@@ -117,6 +119,14 @@ export const ur: LabelResource = {
   'notification_state.sent': 'بھیج دی گئی',
   'notification_state.suppressed': 'نہیں بھیجی گئی',
   'notification_state.waiting': 'میل سیٹ اپ کا انتظار',
+  'notification_template.announcement.ended.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کا فالو کردہ اعلان "{{ record.title }}" ختم ہو گیا ہے۔',
+  'notification_template.announcement.ended.in_app': 'ختم: {{ record.title }}',
+  'notification_template.announcement.ended.subject': 'ختم: {{ record.title }}',
+  'notification_template.announcement.updated.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کا فالو کردہ اعلان "{{ record.title }}" اپ ڈیٹ ہو گیا ہے۔',
+  'notification_template.announcement.updated.in_app': 'اپ ڈیٹ: {{ record.title }}',
+  'notification_template.announcement.updated.subject': 'اپ ڈیٹ: {{ record.title }}',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':

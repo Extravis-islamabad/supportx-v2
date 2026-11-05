@@ -1,57 +1,16 @@
-import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Breadcrumb, Card, Empty, Flex, Input, Skeleton, Typography } from 'antd';
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 
 import {
   useCatalogCategories,
   useCatalogItemList,
   useCatalogSearch,
   type CatalogCategory,
-  type CatalogItem,
 } from '@supportx/api-client';
 import { textIn, useAppearance, useLabel } from '@supportx/ui';
 
-import { entryPath } from './entries';
-
-function ItemCard({ item }: { item: CatalogItem }) {
-  const { locale, direction } = useAppearance();
-  return (
-    <Link
-      to={entryPath(item)}
-      data-testid={`portal-cat-item-${item.id}`}
-      style={{ display: 'block' }}
-    >
-      <Card size="small" hoverable style={{ height: '100%' }}>
-        <Flex align="center" justify="space-between" gap={8}>
-          <Flex vertical gap={2} style={{ minWidth: 0 }}>
-            <Typography.Text strong>{textIn(item.names, locale)}</Typography.Text>
-            <Typography.Text type="secondary" ellipsis>
-              {textIn(item.summaries, locale)}
-            </Typography.Text>
-          </Flex>
-          {direction === 'rtl' ? <LeftOutlined aria-hidden /> : <RightOutlined aria-hidden />}
-        </Flex>
-      </Card>
-    </Link>
-  );
-}
-
-function Grid({ items }: { items: CatalogItem[] }) {
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-        gap: 12,
-      }}
-    >
-      {items.map((item) => (
-        <ItemCard key={item.id} item={item} />
-      ))}
-    </div>
-  );
-}
+import { Grid } from './cards';
 
 /**
  * The catalog for requesters (WP-031, REQ-CAT-001, -027, -028): search across every language,

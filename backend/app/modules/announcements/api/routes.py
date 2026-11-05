@@ -30,6 +30,7 @@ from app.modules.announcements.domain.announcement import (
 )
 from app.modules.announcements.infra.models import Announcement
 from app.modules.announcements.service import announcements as service
+from app.modules.announcements.service import personal
 from app.modules.audit import audited
 from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -220,6 +221,10 @@ class AnnouncementPublicOut(BaseModel):
     publish_until: datetime | None
     visibility: AnnouncementVisibility
     next_change_in_seconds: float | None
+    dismissed: bool = Field(
+        default=False, description="You dismissed its banner (on every device, WP-032 D7)."
+    )
+    following: bool = Field(default=False, description="You follow it (updates and its end).")
 
     @classmethod
     def of(
@@ -406,19 +411,58 @@ async def list_trash(
 async def feed(session: TenantSession, subject: SignedIn) -> FeedOut:
     """Published, inside their window, addressed to you. Used by banners and the portal."""
     found = await service.feed(session, subject)
+    mine = await personal.state_of(session, subject, [row.id for row in found.items])
     now = datetime.now(UTC)
     items = []
     for row in found.items:
         window = Window(row.publish_from, row.publish_until)
         moment = next_change(row.status, window, now)
-        items.append(
-            AnnouncementPublicOut.of(
-                row,
-                visibility(row.status, window, now),
-                None if moment is None else round((moment - now).total_seconds(), 3),
-            )
+        out = AnnouncementPublicOut.of(
+            row,
+            visibility(row.status, window, now),
+            None if moment is None else round((moment - now).total_seconds(), 3),
         )
+        out.dismissed = row.id in mine.dismissed
+        out.following = row.id in mine.following
+        items.append(out)
     return FeedOut(items=items, next_change_in_seconds=found.next_change_in_seconds)
+
+
+@router.put(
+    "/{announcement_id}/dismissal",
+    summary="Dismiss its banner, on every device",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def dismiss(
+    announcement_id: uuid.UUID, session: TenantSession, subject: SignedIn
+) -> Response:
+    """Only for an announcement live for you; doing it again is not an error (REQ-PRT-009 AC2)."""
+    await personal.dismiss(session, subject, announcement_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/{announcement_id}/follow",
+    summary="Follow it: hear when it is updated or ends",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def follow(announcement_id: uuid.UUID, session: TenantSession, subject: SignedIn) -> Response:
+    """Only for an announcement live for you (REQ-PRT-009 AC3)."""
+    await personal.follow(session, subject, announcement_id, on=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/{announcement_id}/follow",
+    summary="Stop following it",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def unfollow(
+    announcement_id: uuid.UUID, session: TenantSession, subject: SignedIn
+) -> Response:
+    """Doing it when not following is not an error."""
+    await personal.follow(session, subject, announcement_id, on=False)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/owner-candidates", summary="People who may own an announcement")

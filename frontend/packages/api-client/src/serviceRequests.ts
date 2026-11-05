@@ -172,6 +172,29 @@ export function useMyApprovals() {
   });
 }
 
+/** The approvals you decided in the last 30 days, newest first (WP-032 D6). */
+export function useMyDecidedApprovals() {
+  return useQuery({
+    queryKey: [...serviceRequestKeys.myApprovals, 'decided'],
+    queryFn: () => call(api.GET('/api/v1/service-requests/my-approvals/decided')),
+  });
+}
+
+/** Approve several at once with one comment (≤ 20, approve only); each outcome comes back. */
+export function useApproveMany() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (body: {
+      items: { record_id: string; approval_id: string; version: number }[];
+      comment: string | null;
+    }) => call(api.POST('/api/v1/service-requests/approvals/decisions', { body })),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
+    },
+  });
+}
+
 /** Approve or reject with If-Match on the approval's version; the first decision decides. */
 export function useDecideApproval() {
   const queryClient = useQueryClient();

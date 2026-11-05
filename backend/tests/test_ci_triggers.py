@@ -85,16 +85,25 @@ def test_required_checks_run_on_every_pr_and_in_the_merge_queue() -> None:
 # Too slow to gate every merge until the pilot (WP-043 brings them back as required). They run
 # nightly on main, on a manual run and on a PR labelled `full-ci`; a job-level `if:` skips them
 # everywhere else, so they take no runner. None may be a required check.
-HEAVY = {
+LABELLED = {
     "core profile, integration and e2e ${{ matrix.shard }}/3",  # three shards, by time
     "images (build, Trivy, SBOM)",
     "ldap federation",  # WP-040, D-130
-    "k3d HA smoke (Valkey failover)",  # WP-014b, ADR-038
-    "valkey failover",  # WP-014b, ADR-038
     "k3d install and smoke test",
     "pdf (worker image)",
     "worker resilience",
 }
+# The HA jobs follow deployment and Valkey changes instead of the label (the coordinator,
+# 2026-11-05): a migration PR labelled full-ci needs the core profile and e2e, not the HA
+# cluster. They run nightly, manually and on every PR, where their first step (the changes
+# action) finishes at once unless the PR touches deployment or Valkey.
+BY_PATH = {
+    "k3d HA smoke (Valkey failover)",  # WP-014b, ADR-038: failover, node loss, restore drill
+    "valkey failover",  # WP-014b, ADR-038
+}
+# Paths each of them must react to (the `needs:` pattern of its changes step).
+BY_PATH_NEEDS = ("deploy/", "backend/app/core/valkey\\.py", "backend/tests/ha/")
+HEAVY = LABELLED | BY_PATH
 FULL_CI = "contains(github.event.pull_request.labels.*.name, 'full-ci')"
 # Workflows with required checks: the queue tested the merge commit, so no push run on main.
 GATING = ("ci.yml", "security.yml")
@@ -128,11 +137,61 @@ def _job_if(job: list[str]) -> str:
 def test_heavy_jobs_run_nightly_and_with_the_label_only() -> None:
     jobs = _all_jobs()
     assert set(jobs) >= HEAVY, sorted(HEAVY - set(jobs))
-    for name in HEAVY:
+    for name in LABELLED:
         condition = _job_if(jobs[name])
         for needed in ("'schedule'", "'workflow_dispatch'", FULL_CI):
             assert needed in condition, f"{name}: runs on {needed}"
         assert "merge_group" not in condition, f"{name}: never gates the queue"
+
+
+def test_ha_jobs_follow_deployment_changes_not_the_label() -> None:
+    jobs = _all_jobs()
+    for name in BY_PATH:
+        job = jobs[name]
+        condition = _job_if(job)
+        for needed in ("'schedule'", "'workflow_dispatch'", "'pull_request'"):
+            assert needed in condition, f"{name}: runs on {needed}"
+        assert "full-ci" not in condition, f"{name}: not pulled in by the label"
+        assert "merge_group" not in condition, f"{name}: never gates the queue"
+        text = "\n".join(job)
+        assert "uses: ./.github/actions/changes" in text, f"{name}: decides from the PR's files"
+        needs = next(x for x in job if x.strip().startswith("needs: '"))
+        for path in BY_PATH_NEEDS:
+            assert path in needs, f"{name}: reacts to {path}"
+        # Every step after checkout and the changes step is skipped when it says so, including
+        # steps reused through a YAML alias (`- *free-disk`): their anchor carries the guard.
+        unguarded = [
+            step[0].strip()
+            for step in _steps(job)[2:]
+            if not any("steps.changes.outputs.run" in x for x in step)
+            and not _guarded_alias(step[0])
+        ]
+        assert unguarded == [], f"{name}: steps run without the changes guard: {unguarded}"
+
+
+def _steps(job: list[str]) -> list[list[str]]:
+    """The job's steps, each as its lines (a step starts at `      - `)."""
+    found: list[list[str]] = []
+    for line in job:
+        if line.startswith("      - "):
+            found.append([line])
+        elif found and line.startswith("        "):
+            found[-1].append(line)
+    return found
+
+
+def _guarded_alias(first: str) -> bool:
+    """Whether a `- *anchor` step's anchor, wherever it is defined, has the changes guard."""
+    alias = re.match(r"^      - \*([a-z0-9-]+)$", first)
+    if alias is None:
+        return False
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if line.strip() == f"- &{alias.group(1)}":
+                body = lines[index + 1 : index + 4]
+                return any("steps.changes.outputs.run" in x for x in body)
+    return False
 
 
 def test_no_heavy_job_is_a_required_check() -> None:
