@@ -37,10 +37,11 @@ from app.modules.work_items.domain.lists import (
     BulkOutcome,
     BulkStatus,
 )
-from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
+from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemBulkJobProgressed
 from app.modules.work_items.infra.models import WorkItem, WorkItemBulkJob
 from app.modules.work_items.service import closing
+from app.modules.work_items.service import problems as problem_links
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.realtime import BULK_PREFIX
 from app.shared.api.listing import ListQuery, order_by
@@ -57,6 +58,7 @@ _PERMISSION = {
     BulkAction.TAKE: "take",
     BulkAction.RESOLVE: "view",
     BulkAction.CLOSE: "view",
+    BulkAction.LINK_PROBLEM: "edit",
 }
 _KEYS = {
     BulkAction.EDIT: None,  # any field the edit form has; the update checks each one
@@ -64,6 +66,7 @@ _KEYS = {
     BulkAction.TAKE: set(),
     BulkAction.RESOLVE: {"resolution", "confirm_open_work"},
     BulkAction.CLOSE: {"closure_code", "confirm_open_work"},
+    BulkAction.LINK_PROBLEM: {"problem_id", "move"},
 }
 
 
@@ -80,6 +83,8 @@ def _check_changes(action: BulkAction, changes: dict[str, Any]) -> dict[str, Any
         problems.append(("changes", "invalid_choice"))
     if action == BulkAction.EDIT and not changes:
         problems.append(("changes", "required"))  # AC2: only what the user changed, and something
+    if action == BulkAction.LINK_PROBLEM and not changes.get("problem_id"):
+        problems.append(("changes", "required"))
     if action == BulkAction.ASSIGN and not (
         changes.get("group_id") or changes.get("technician_id")
     ):
@@ -129,6 +134,8 @@ async def start(  # noqa: PLR0913 - the job's inputs, explicit
     permission = wtype.permission(_PERMISSION[action])
     if not subject.holds(permission):
         raise PermissionDenied(params={"permission": permission, "reason": "no_permission"})
+    if action is BulkAction.LINK_PROBLEM and wtype.code is not WorkItemTypeCode.INCIDENT:
+        raise items.field_errors([("action", "invalid_choice")])  # only incidents have a cause
     clean = _check_changes(action, changes)
     ids = list(dict.fromkeys(record_ids))
     if not ids:
@@ -152,6 +159,38 @@ async def start(  # noqa: PLR0913 - the job's inputs, explicit
     )
     await _progress(session, job)
     return job
+
+
+async def start_problem_links(  # noqa: PLR0913 - the problem, the incidents and the move, explicit
+    session: AsyncSession,
+    subject: Subject,
+    problem_id: uuid.UUID,
+    incident_ids: Sequence[uuid.UUID],
+    *,
+    moving: set[uuid.UUID],
+    source: Source,
+) -> list[WorkItemBulkJob]:
+    """Link incidents to a new problem (REQ-PRB-012): one job to link, one to move (AC2).
+
+    Those not in `moving` that turn out to have a problem by the time the job runs are left
+    there (skipped with the reason), never moved without the person's say.
+    """
+    jobs: list[WorkItemBulkJob] = []
+    for move in (False, True):
+        ids = [i for i in incident_ids if (i in moving) is move]
+        if ids:
+            jobs.append(
+                await start(
+                    session,
+                    subject,
+                    INCIDENT,
+                    action=BulkAction.LINK_PROBLEM,
+                    changes={"problem_id": str(problem_id), "move": move},
+                    record_ids=ids,
+                    source=source,
+                )
+            )
+    return jobs
 
 
 async def job(
@@ -363,6 +402,15 @@ async def _apply(
                 group_id=None,
                 source=source,
                 holders=holders,
+            )
+        case BulkAction.LINK_PROBLEM:
+            await problem_links.link_cause(
+                session,
+                subject,
+                record_id,
+                uuid.UUID(str(changes["problem_id"])),
+                move=bool(changes.get("move")),
+                source=source,
             )
         case BulkAction.RESOLVE | BulkAction.CLOSE as action:
             await items.transition(

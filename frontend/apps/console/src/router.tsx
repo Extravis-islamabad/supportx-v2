@@ -27,6 +27,56 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
       {
+        // WP-058a s6: releases on the stage engine (ADR-041).
+        path: 'releases',
+        handle: { section: 'releases' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleasesPage')).ReleasesPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/NewReleasePage')).NewReleasePage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleasePage')).ReleasePage,
+            }),
+          },
+        ],
+      },
+      {
+        // WP-044a s5: problems (the list, creating one, the record).
+        path: 'problems',
+        handle: { section: 'problems' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/problems/ProblemsPage')).ProblemsPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/problems/NewProblemPage')).NewProblemPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/problems/ProblemPage')).ProblemPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'requests',
         handle: { section: 'requests' },
         children: [
@@ -239,6 +289,27 @@ export const routes: RouteObject[] = [
             lazy: async () => ({
               Component: (await import('./pages/admin/requests/RequestSettingsPage'))
                 .RequestSettingsPage,
+            }),
+          },
+          {
+            // WP-032 D8: every portal setting on one page (REQ-PRT-031).
+            path: 'portal',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/portal/PortalSettingsPage'))
+                .PortalSettingsPage,
+            }),
+          },
+          {
+            // WP-031: the service catalog's administration (plan D4).
+            path: 'catalog',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/catalog/CatalogAdminPage')).CatalogAdminPage,
+            }),
+          },
+          {
+            path: 'catalog/items/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/catalog/CatalogItemPage')).CatalogItemPage,
             }),
           },
           {

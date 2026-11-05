@@ -1,8 +1,8 @@
-### 2026-11-04 — WP-M1 mobile scaffold (D-138)
+### 2026-11-04 — WP-M1 mobile scaffold (D-145)
 
 - **Version change:** npm showed Expo SDK 58 (React Native 0.88.1, React 19.3.0) as the stable
   release since 2026-09-29, while the 2026-11-03 plan named SDK 57. The product owner chose SDK 58.
-  The decision approved as "D-112" was renumbered to D-138, because main had taken D-112.
+  The decision approved as "D-112" was renumbered to D-138, then to D-145, because main had taken D-112 and D-138 first.
 - **mobile/:** its own pnpm project (`nodeLinker: hoisted`, `link:` to api-client, labels and ui).
   Expo Router with three routes: index (redirect), server, about.
   - Server address screen: an https-only address check (http in development builds only), then

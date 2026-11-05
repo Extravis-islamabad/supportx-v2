@@ -30,7 +30,7 @@ export function currentCsrfToken(): string | null {
 }
 
 /**
- * The mobile app's session ID (ADR-039), sent in a header instead of a cookie. The web apps never
+ * The mobile app's session ID (ADR-042), sent in a header instead of a cookie. The web apps never
  * set it: their session stays in the HttpOnly cookie, out of JavaScript's reach.
  */
 export const SESSION_HEADER = 'X-SupportX-Session';
@@ -156,7 +156,7 @@ const conventions: Middleware = {
     reportConnectivity([502, 503, 504].includes(response.status) ? 'offline' : 'online');
     const renewed = response.headers.get(SESSION_HEADER);
     if (response.ok && sessionId !== null && renewed !== null && renewed !== sessionId) {
-      sessionId = renewed; // a tenant switch issues a new session (ADR-039)
+      sessionId = renewed; // a tenant switch issues a new session (ADR-042)
       sessionListeners.forEach((listener) => {
         listener(renewed);
       });
@@ -241,7 +241,7 @@ export async function call<T>(promise: Promise<Result<T>>): Promise<T> {
 }
 
 export type App = 'console' | 'portal';
-/** Who makes the calls (X-SupportX-Client): a web app, or the native app (D-138). */
+/** Who makes the calls (X-SupportX-Client): a web app, or the native app (D-145). */
 export type ClientApp = App | 'mobile';
 
 /** Where to send the browser to log in, coming back to `returnTo` (same-origin path). */

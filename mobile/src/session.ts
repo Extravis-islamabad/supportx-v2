@@ -6,7 +6,7 @@ import { useSettings } from './settings';
 
 export type Me = components['schemas']['MeResponse'];
 
-/** Which side of the one app a person gets (D-139). The server still decides every permission. */
+/** Which side of the one app a person gets (D-146). The server still decides every permission. */
 export type AppSide = 'technician' | 'requester';
 
 /** Requester-only people get the requester screens, as on the web (D-129); everyone else works. */

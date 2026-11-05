@@ -10,7 +10,7 @@ import { setClientApp } from '@supportx/api-client';
 import { AppProviders } from '../src/AppProviders';
 import { useSettings } from '../src/settings';
 
-// Every call says it comes from the mobile app: history records it as UI, not API (D-138).
+// Every call says it comes from the mobile app: history records it as UI, not API (D-145).
 setClientApp('mobile');
 
 export default function RootLayout() {

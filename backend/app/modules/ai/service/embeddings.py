@@ -27,12 +27,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.database import Database
 from app.core.tenancy import TenantContext
+from app.modules.ai.domain.features import INDEX_FEATURE
 from app.modules.ai.domain.masking import mask
 from app.modules.ai.infra.models import EMBEDDING_DIMENSION, AiEmbedding
 from app.modules.ai.service.providers import Provider, ProviderError
 from app.modules.ai.service.records import may_see
 from app.modules.ai.service.settings import session_tenant
 from app.modules.identity_access import Subject
+from app.shared.events import EventEnvelope
 
 log = structlog.get_logger(__name__)
 
@@ -41,7 +43,11 @@ TextSource = Callable[
     [AsyncSession, Sequence[uuid.UUID]], Awaitable[Mapping[uuid.UUID, Sequence[str]]]
 ]
 
+# (session, limit) → the newest live record IDs, for backfilling the index. Optional.
+IdLister = Callable[[AsyncSession, int], Awaitable[Sequence[uuid.UUID]]]
+
 _SOURCES: dict[str, TextSource] = {}
+_LISTERS: dict[str, IdLister] = {}
 
 # Pieces per provider call, and stale records re-embedded per tenant per sweep.
 BATCH = 32
@@ -52,14 +58,22 @@ class EmbeddingWidthError(ValueError):
     """The configured model answers vectors of another width than the store holds (0075)."""
 
 
-def register_embedding_source(source_type: str, source: TextSource) -> None:
-    """The owning module's text for one source type, for re-embedding (at its start-up)."""
+def register_embedding_source(
+    source_type: str, source: TextSource, ids: IdLister | None = None
+) -> None:
+    """The owning module's text for one source type, and optionally its record IDs.
+
+    The IDs backfill the index (e.g. after AI is switched back on). At its start-up.
+    """
     _SOURCES[source_type] = source
+    if ids is not None:
+        _LISTERS[source_type] = ids
 
 
 def unregister_embedding_source(source_type: str) -> None:
     """At shutdown (tests start the app more than once)."""
     _SOURCES.pop(source_type, None)
+    _LISTERS.pop(source_type, None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,11 +94,23 @@ def _literal(vector: Sequence[float]) -> str:
     return "[" + ",".join(repr(float(v)) for v in vector) + "]"
 
 
+async def remove_record(session: AsyncSession, *, source_type: str, source_id: uuid.UUID) -> None:
+    """A record's vectors, of every model, go (no model call)."""
+    await session.execute(
+        delete(AiEmbedding).where(
+            AiEmbedding.source_type == source_type, AiEmbedding.source_id == source_id
+        )
+    )
+
+
 class Embeddings:
     """The service over the installation's provider (its embedding model)."""
 
-    def __init__(self, provider: Provider) -> None:
+    def __init__(self, provider: Provider, *, mask_local: bool = False) -> None:
         self.provider = provider
+        # As for calls: masked for an external provider always, for the local one when the
+        # tenant's admin asks (AI settings), so a vector never carries what a prompt would not.
+        self.masked = provider.external or mask_local
 
     @property
     def model(self) -> str:
@@ -92,7 +118,7 @@ class Embeddings:
         return self.provider.embedding_model
 
     async def _embed(self, pieces: Sequence[str]) -> list[list[float]]:
-        sent = mask(list(pieces), names=())[0] if self.provider.external else list(pieces)
+        sent = mask(list(pieces), names=())[0] if self.masked else list(pieces)
         vectors: list[list[float]] = []
         for start in range(0, len(sent), BATCH):
             vectors.extend(await self.provider.embed(sent[start : start + BATCH]))
@@ -167,11 +193,7 @@ class Embeddings:
         self, session: AsyncSession, *, source_type: str, source_id: uuid.UUID
     ) -> None:
         """Forget a record (deleted, or no longer to be found), for every model."""
-        await session.execute(
-            delete(AiEmbedding).where(
-                AiEmbedding.source_type == source_type, AiEmbedding.source_id == source_id
-            )
-        )
+        await remove_record(session, source_type=source_type, source_id=source_id)
 
     async def search(  # noqa: PLR0913 - the query's parts, explicit
         self,
@@ -238,6 +260,47 @@ class Embeddings:
         return done
 
 
+# Live records looked at, and records indexed, per tenant per sweep.
+BACKFILL_SCAN = 2000
+
+
+async def backfill(
+    service: "Embeddings", session: AsyncSession, *, limit: int = SWEEP_LIMIT
+) -> int:
+    """Index live records that have no vector of the configured model yet; returns how many."""
+    done = 0
+    for source_type, lister in _LISTERS.items():
+        source = _SOURCES.get(source_type)
+        if source is None or done >= limit:
+            continue
+        ids = list(await lister(session, BACKFILL_SCAN))
+        if not ids:
+            continue
+        indexed = set(
+            (
+                await session.scalars(
+                    select(AiEmbedding.source_id).where(
+                        AiEmbedding.source_type == source_type,
+                        AiEmbedding.model == service.model,
+                        AiEmbedding.source_id.in_(ids),
+                    )
+                )
+            ).all()
+        )
+        missing = [i for i in ids if i not in indexed][: limit - done]
+        if not missing:
+            continue
+        texts = await source(session, missing)
+        for source_id in missing:
+            pieces = texts.get(source_id)
+            if pieces:
+                await service.index(
+                    session, source_type=source_type, source_id=source_id, pieces=pieces
+                )
+                done += 1
+    return done
+
+
 async def reembed_job(database: Database, settings: Settings) -> None:
     """The daily schedule: the sweep with the installation's provider."""
     from app.modules.ai.service.providers import provider_from  # noqa: PLC0415 - one place
@@ -250,17 +313,88 @@ async def reembed_job(database: Database, settings: Settings) -> None:
 
 
 async def reembed_sweep(database: Database, settings: Settings, provider: Provider) -> None:
-    """In every tenant: vectors of a previous model are re-embedded with the configured one."""
+    """In every tenant: old models' vectors re-embedded, and missing ones backfilled.
+
+    Vectors of a previous model are re-embedded with the configured one; while AI is on, live
+    records with no vector yet are indexed (after a switch back on).
+    """
     del settings
-    service = Embeddings(provider)
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
     for tenant in tenants:
         try:
             async with database.tenant_session(TenantContext(tenant)) as session:
+                service = Embeddings(provider, mask_local=await _mask_local(session))
                 done = await service.reembed_stale(session)
+                if await _indexing_on(session, tenant):
+                    done += await backfill(service, session)
         except ProviderError as error:
             log.warning("ai_reembed_failed", tenant_id=str(tenant), error=str(error))
             continue
         if done:
-            log.info("ai_reembedded", tenant_id=str(tenant), records=done, model=service.model)
+            log.info(
+                "ai_reembedded", tenant_id=str(tenant), records=done, model=provider.embedding_model
+            )
+
+
+# --- keeping records indexed (WP-038) -------------------------------------------------------------
+
+TEXT_FIELDS = {"subject", "description"}
+
+
+async def on_work_item_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: an incident was created, its text changed, or it was deleted or restored.
+
+    Deleted: its vectors go, whatever the switches (no model needed). Otherwise it is embedded
+    through its module's text source, only while AI and possible duplicates are on for the
+    tenant and its plan includes AI. Indexing is the system's work, not a person's call, so it
+    is not in the AI call log; searches are (`Gateway.similar`).
+    """
+    assert session is not None  # noqa: S101 - transactional consumer
+    payload = envelope.payload
+    source_type = str(payload.get("type"))
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    if envelope.event_type.endswith(".deleted"):
+        await remove_record(session, source_type=source_type, source_id=record_id)
+        return
+    if envelope.event_type.endswith(".updated") and not TEXT_FIELDS & set(
+        payload.get("changed_fields") or ()
+    ):
+        return
+    source = _SOURCES.get(source_type)
+    if source is None or not await _indexing_on(session, envelope.tenant_id):
+        return
+    from app.core.config import get_settings  # noqa: PLC0415 - consumers have no app state
+    from app.modules.ai.service.providers import provider_from  # noqa: PLC0415 - one place
+
+    provider = provider_from(get_settings())
+    try:
+        texts = await source(session, [record_id])
+        pieces = texts.get(record_id)
+        service = Embeddings(provider, mask_local=await _mask_local(session))
+        if pieces is None:
+            await service.remove(session, source_type=source_type, source_id=record_id)
+        else:
+            await service.index(
+                session, source_type=source_type, source_id=record_id, pieces=pieces
+            )
+    except (ProviderError, EmbeddingWidthError) as error:
+        # The model is down or misconfigured: the record waits; searches fall back meanwhile.
+        log.warning("ai_index_failed", record_id=str(record_id), error=type(error).__name__)
+    finally:
+        await provider.aclose()
+
+
+async def _mask_local(session: AsyncSession) -> bool:
+    from app.modules.ai.service.settings import settings_row  # noqa: PLC0415 - cycle
+
+    return (await settings_row(session)).mask_local
+
+
+async def _indexing_on(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
+    from app.modules.ai.service.settings import feature_on, settings_row  # noqa: PLC0415 - cycle
+    from app.modules.licensing import has_feature  # noqa: PLC0415 - cycle
+
+    if not await has_feature(tenant_id, "ai_assist"):
+        return False
+    return feature_on(await settings_row(session), INDEX_FEATURE)

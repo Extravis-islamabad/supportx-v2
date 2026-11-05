@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 .PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed db-guard custom-field-indexes dev-subscription e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -11,7 +11,7 @@
 
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
-# The mobile app is its own pnpm project (React 19, D-138; docs/architecture/mobile.md).
+# The mobile app is its own pnpm project (React 19, D-145; docs/architecture/mobile.md).
 MOBILE := cd mobile &&
 PIP_AUDIT_VERSION := 2.10.1
 OPENAPI_FILE := ../frontend/packages/api-client/openapi.json
@@ -80,6 +80,9 @@ db-current: ## Show the database's current migration
 
 db-seed: ## Create the dev tenants and their plans if missing (idempotent, never deletes or updates)
 	$(BACKEND) uv run python -m tooling.seed_dev
+
+catalog-starter: ## Add the starter catalog (D-138) to an existing tenant with an empty catalog: TENANT=<slug>
+	$(BACKEND) uv run python -m tooling.catalog_starter $(TENANT)
 
 showcase-seed: $(DEV_ENV) ## Fill Showcase Company (slug showcase) for demos; idempotent, never touches demo or other (D-124)
 	@env_value() { grep "^$$1=" $(CURDIR)/$(DEV_ENV) | cut -d= -f2-; }; \
@@ -366,7 +369,7 @@ deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgra
 	$(HELM_TEST)
 
 cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
-	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 bash deploy/k3d/up.sh
+	@K3D_CONFIG=cluster-ha.yaml CNPG_OPERATOR_REPLICAS=2 BACKUP_PLUGIN=1 bash deploy/k3d/up.sh
 
 deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
 	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
@@ -385,6 +388,9 @@ cluster-ha-egress: ## Egress allow-list on the HA cluster: the namespace reachab
 
 cluster-ha-node-loss: ## Node-loss test: stop the agent with PostgreSQL's primary; the session keeps writing (WP-014b)
 	@bash deploy/k3d/node-loss.sh
+
+cluster-ha-restore: ## Restore drill: back up, restore into a new cluster to a chosen moment, check the rows (WP-014b)
+	@bash deploy/k3d/restore-drill.sh
 
 cluster-test: ## helm test: every internal route answers and Valkey enforces auth
 	$(HELM_TEST)

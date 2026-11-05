@@ -35,6 +35,7 @@ from app.modules.work_items.domain.classification import (
 )
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_REASONS,
+    USER_ACTIONS,
     DefaultStatus,
     Lifecycle,
     ReasonList,
@@ -44,20 +45,33 @@ from app.modules.work_items.domain.lifecycle import (
     TransitionDef,
     WorkItemAction,
 )
+from app.modules.work_items.domain.stages import DEFAULT_PATH, FIRST_LIFECYCLE, StageModel
 from app.modules.work_items.domain.templates import (
     CONFIRMED_BY_REQUESTER,
     DEFAULT_LIST_VALUES,
+    PROBLEM_LIST_VALUES,
     PickList,
     default_rules,
     rules_to_json,
 )
-from app.modules.work_items.domain.types import DEFAULT_CATEGORIES, WorkItemType
+from app.modules.work_items.domain.types import (
+    DEFAULT_CATEGORIES,
+    GUIDED_ANALYSIS,
+    STANDARD_LIFECYCLE,
+    WorkItemType,
+    WorkItemTypeCode,
+)
 from app.modules.work_items.infra.models import (
     WorkItemCategory,
+    WorkItemPathStage,
     WorkItemPriorityCell,
     WorkItemReason,
+    WorkItemRoleDef,
     WorkItemScaleValue,
+    WorkItemStage,
+    WorkItemStagePath,
     WorkItemStatus,
+    WorkItemStatusTransition,
     WorkItemTemplate,
     WorkItemTransition,
     WorkItemTypeSettings,
@@ -69,6 +83,7 @@ from app.shared.ids import new_id
 # codes, the standard template).
 SEED_VERSION = 3  # 3: the closure code "confirmed by requester" (D-107)
 STANDARD_TEMPLATE = "standard"
+MAJOR_PROBLEM_TEMPLATE = "major_problem"  # REQ-PRB-017, Appendix A: the guided life cycle
 
 
 @dataclass(frozen=True)
@@ -119,6 +134,7 @@ class ReasonInfo:
     sort_order: int = 0
     colour: str | None = None
     disabled: bool = False
+    attributes: Mapping[str, Any] | None = None  # LIST_ATTRIBUTES (0093)
 
 
 @dataclass(frozen=True)
@@ -137,13 +153,23 @@ class Catalogue:
     approvals_hidden_from_requesters: bool  # WP-030 s2, REQ-SR-024 AC3
     approvals_require_sign_in: bool  # D-132: e-mailed approval links need a signed-in approver
     portal_show_due_time: bool  # WP-028 D5: requesters see the expected resolution time
-    lifecycle: Lifecycle
+    lifecycle: Lifecycle  # the standard one; a record follows `lifecycle_of(record.lifecycle)`
+    lifecycles: Mapping[str, Lifecycle]  # every transition set by code (WP-044a s4)
     statuses: list[StatusInfo]
     matrix: Mapping[tuple[str, str], str]
     scales: list[ScaleValue]
     reasons: list[ReasonInfo]  # every pick list, retired values included (marked)
     closure: ClosureSettings
     last_number: int = 0  # the last display number handed out (0: none yet)
+
+    def lifecycle_of(self, code: str | None) -> Lifecycle:
+        """The transition set a record follows; the standard one for an unknown code."""
+        return self.lifecycles.get(code or STANDARD_LIFECYCLE, self.lifecycle)
+
+    def used_actions(self) -> list[WorkItemAction]:
+        """Every user action any of the type's transition sets has, in the fixed order."""
+        used = {a for lc in self.lifecycles.values() for a in lc.used_actions()}
+        return [a for a in USER_ACTIONS if a in used]
 
     def reason_codes(self, reason_list: ReasonList | PickList | None) -> list[str]:
         """Enabled codes of a pick list (offered for new input)."""
@@ -190,6 +216,24 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     if inserted is None:  # another transaction seeded it first
         return
     _seed_v2(session, wtype, tenant, await default_desk_id(session))
+    staged = wtype.stages
+    if staged is not None:  # ADR-041: the stages first, their statuses point at them
+        session.add_all(
+            [
+                WorkItemStage(
+                    tenant_id=tenant,
+                    type=wtype.code,
+                    code=st.code,
+                    sort_order=i,
+                    system=True,
+                    approvals=dict(wtype.stage_approvals[st.code])
+                    if st.code in wtype.stage_approvals
+                    else None,
+                )
+                for i, st in enumerate(staged.stages)
+            ]
+        )
+        await session.flush()
     rows: list[Any] = [
         WorkItemStatus(
             tenant_id=tenant,
@@ -201,23 +245,44 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
             system=s.system,
             # Appendix A: awaiting requester -> in progress on a requester reply (REQ-INC-051).
             resume_on_requester_reply=s.code == DefaultStatus.AWAITING_REQUESTER,
+            **_stage_columns(staged, s.code),
         )
         for index, s in enumerate(wtype.statuses)
     ]
     session.add_all(rows)
     await session.flush()
+    if staged is not None:
+        await _seed_stage_moves(session, wtype.code, staged, tenant)
+        await _seed_path_templates(session, wtype.code, staged, tenant)
+    session.add_all(
+        [
+            WorkItemRoleDef(tenant_id=tenant, type=wtype.code, code=code, sort_order=i, system=True)
+            for i, code in enumerate(wtype.roles)
+        ]
+    )
+    session.add_all(
+        [
+            WorkItemReason(
+                tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i, colour=colour
+            )
+            for lst, values in wtype.own_lists.items()
+            for i, (code, colour) in enumerate(values)
+        ]
+    )
     session.add_all(
         [
             WorkItemTransition(
                 tenant_id=tenant,
                 type=wtype.code,
+                lifecycle=code,
                 from_status=t.from_status,
                 action=t.action,
                 to_status=t.to_status,
                 reason_mode=t.reason_mode,
                 reason_list=t.reason_list,
             )
-            for t in wtype.transitions
+            for code, transitions in wtype.lifecycles.items()
+            for t in transitions
         ]
         + [
             WorkItemReason(tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i)
@@ -279,12 +344,105 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     await session.flush()
 
 
+def _stage_columns(staged: StageModel | None, code: str) -> dict[str, Any]:
+    """A staged status's stage, completing flag and who sets it (ADR-041 §2)."""
+    if staged is None:
+        return {}
+    status = staged.status(code)
+    return {"stage": status.stage, "completing": status.completing, "set_by": status.set_by}
+
+
+async def _seed_stage_moves(
+    session: AsyncSession, type_code: str, staged: StageModel, tenant: uuid.UUID
+) -> None:
+    """Paths, their stages and the listed status moves (ADR-041 §3, §4), life cycle 1."""
+    session.add_all(
+        [
+            WorkItemStagePath(
+                tenant_id=tenant,
+                type=type_code,
+                code=p.code,
+                lifecycle_version=FIRST_LIFECYCLE,
+                system=True,
+            )
+            for p in staged.paths
+        ]
+    )
+    await session.flush()
+    session.add_all(
+        [
+            WorkItemPathStage(
+                tenant_id=tenant,
+                type=type_code,
+                path=p.code,
+                stage=stage,
+                sort_order=i,
+                optional=stage in p.optional,
+            )
+            for p in staged.paths
+            for i, stage in enumerate(p.stages)
+        ]
+        + [
+            WorkItemStatusTransition(
+                tenant_id=tenant,
+                type=type_code,
+                path=t.path,
+                lifecycle_version=FIRST_LIFECYCLE,
+                from_status=t.from_status,
+                to_status=t.to_status,
+                reason_mode=t.reason_mode,
+                reason_list=t.reason_list,
+                permission=t.permission,
+                required_fields=list(t.required_fields) or None,
+            )
+            for t in staged.transitions
+        ]
+    )
+    await session.flush()
+
+
+async def _seed_path_templates(
+    session: AsyncSession, type_code: str, staged: StageModel, tenant: uuid.UUID
+) -> None:
+    """One template per path (REQ-REL-011).
+
+    The standard one follows the default path; each other path gets a template of its own name
+    (releases: emergency, Appendix A).
+    """
+    await session.execute(
+        update(WorkItemTemplate)
+        .where(WorkItemTemplate.type == type_code, WorkItemTemplate.code == STANDARD_TEMPLATE)
+        .values(stage_path=DEFAULT_PATH)
+    )
+    desk = await default_desk_id(session)
+    session.add_all(
+        [
+            WorkItemTemplate(
+                tenant_id=tenant,
+                type=type_code,
+                code=p.code,
+                is_default=False,
+                desk_id=desk,
+                field_rules=rules_to_json(default_rules()),
+                defaults={},
+                stage_path=p.code,
+            )
+            for p in staged.paths
+            if p.code != DEFAULT_PATH
+        ]
+    )
+    await session.flush()
+
+
 def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any, desk: Any) -> None:  # noqa: ANN401 - uuids
     """Levels, closure codes and the standard (default) template."""
     session.add_all(
         [
             WorkItemReason(tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i)
-            for lst, codes in DEFAULT_LIST_VALUES.items()
+            for lst, codes in {
+                **DEFAULT_LIST_VALUES,
+                **(PROBLEM_LIST_VALUES if wtype.code is WorkItemTypeCode.PROBLEM else {}),
+            }.items()
             for i, code in enumerate(codes)
         ]
     )
@@ -299,6 +457,18 @@ def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any, desk: Any)
             defaults={},
         )
     )
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        session.add(
+            WorkItemTemplate(
+                tenant_id=tenant,
+                type=wtype.code,
+                code=MAJOR_PROBLEM_TEMPLATE,
+                desk_id=desk,
+                field_rules=rules_to_json(default_rules()),
+                defaults={},
+                lifecycle=GUIDED_ANALYSIS,
+            )
+        )
 
 
 async def _top_up(
@@ -359,19 +529,31 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             select(WorkItemTransition).where(WorkItemTransition.type == wtype.code)
         )
     )
-    lifecycle = Lifecycle.build(
-        [StatusDef(s.code, StatusCategory(s.category), s.colour, s.system) for s in status_rows],
-        [
-            TransitionDef(
-                t.from_status,
-                WorkItemAction(t.action),
-                t.to_status,
-                ReasonMode(t.reason_mode),
-                ReasonList(t.reason_list) if t.reason_list else None,
-            )
-            for t in transition_rows
-        ],
-    )
+    status_defs = [
+        StatusDef(s.code, StatusCategory(s.category), s.colour, s.system) for s in status_rows
+    ]
+    lifecycles = {
+        code: Lifecycle.build(
+            status_defs,
+            [
+                TransitionDef(
+                    t.from_status,
+                    WorkItemAction(t.action),
+                    t.to_status,
+                    ReasonMode(t.reason_mode),
+                    ReasonList(t.reason_list) if t.reason_list else None,
+                )
+                for t in transition_rows
+                if t.lifecycle == code
+            ],
+        )
+        # The standard set first, then the others by code.
+        for code in [
+            STANDARD_LIFECYCLE,
+            *sorted({t.lifecycle for t in transition_rows} - {STANDARD_LIFECYCLE}),
+        ]
+    }
+    lifecycle = lifecycles[STANDARD_LIFECYCLE]
     cells = await session.scalars(
         select(WorkItemPriorityCell).where(WorkItemPriorityCell.type == wtype.code)
     )
@@ -399,6 +581,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         default_impact=settings.default_impact,
         default_urgency=settings.default_urgency,
         lifecycle=lifecycle,
+        lifecycles=lifecycles,
         statuses=[
             StatusInfo(
                 s.code,
@@ -414,7 +597,15 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         matrix={(c.impact, c.urgency): c.priority for c in cells},
         scales=[ScaleValue(v.scale, v.code, v.rank, v.colour, v.labels) for v in scales],
         reasons=[
-            ReasonInfo(r.list, r.code, r.labels, r.sort_order, r.colour, r.disabled_at is not None)
+            ReasonInfo(
+                r.list,
+                r.code,
+                r.labels,
+                r.sort_order,
+                r.colour,
+                r.disabled_at is not None,
+                r.attributes,
+            )
             for r in reasons
         ],
         closure=ClosureSettings(

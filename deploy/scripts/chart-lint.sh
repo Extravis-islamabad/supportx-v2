@@ -27,6 +27,7 @@ PROFILES=(
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"
   "ha-ci|-f $CHART/values-dev.yaml -f $CHART/values-ha.yaml -f $CHART/values-ha-ci.yaml --set networkPolicies.egress.kubeApiCidrs={10.0.0.10/32}"
   "ha|-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
+  "backups|-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set postgresql.cnpg.backup.enabled=true"
   "ldap|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set directory.ldap.enabled=true"
   "ai-models|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set ai.local.enabled=true"
   "ai-gpu|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set ai.local.enabled=true --set ai.gpu.enabled=true --set ai.gpu.resourceName=nvidia.com/gpu"
@@ -111,6 +112,23 @@ if awk '/^---/ { if (egress && open) found = 1; egress = 0; open = 0 }
   echo "egress: no egress rule may allow 0.0.0.0/0 (ha-ci)" >&2; exit 1
 fi
 echo "egress: refused without the control plane's addresses; no open 0.0.0.0/0 rule"
+
+# Backups (WP-014b): the in-cluster dev target renders as it is; any external target must be
+# encrypted at rest, by `encryption` or a stated bucket policy, or the chart refuses (fails closed).
+BK="helm template supportx $CHART --namespace supportx -f $CHART/values-dev.yaml --set postgresql.cnpg.backup.enabled=true"
+EXT="--set postgresql.cnpg.backup.endpointURL=https://s3.example.com --set postgresql.cnpg.backup.destinationPath=s3://backups/pg"
+# shellcheck disable=SC2086 # the flags are meant to be split
+$BK >/dev/null || { echo "backups: the in-cluster target must render" >&2; exit 1; }
+# shellcheck disable=SC2086
+if $BK $EXT >/dev/null 2>"$OUT/backup-refused.txt"; then
+  echo "backups: an unencrypted external target must be refused" >&2; exit 1
+fi
+grep -q "encrypted at rest" "$OUT/backup-refused.txt" || { echo "backups: the refusal must say why" >&2; exit 1; }
+# shellcheck disable=SC2086
+$BK $EXT --set postgresql.cnpg.backup.encryption=AES256 >/dev/null || { echo "backups: an encrypted external target must render" >&2; exit 1; }
+# shellcheck disable=SC2086
+$BK $EXT --set postgresql.cnpg.backup.encryptionByBucketPolicy=true >/dev/null || { echo "backups: a stated bucket policy must render" >&2; exit 1; }
+echo "backups: in-cluster renders; external refused unless encrypted (value or bucket policy)"
 
 # Local AI (WP-037): off by default; on, every weight file is checked against its pinned sha256
 # before the server starts, only the gateway's pods reach the servers, and the GPU node needs its

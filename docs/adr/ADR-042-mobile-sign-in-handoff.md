@@ -1,20 +1,20 @@
-# ADR-039: Mobile sign-in through the BFF with a one-time hand-off code
+# ADR-042: Mobile sign-in through the BFF with a one-time hand-off code
 
-- **Status:** Proposed (WP-M2; the design approved by the product owner in D-138 (4), this
+- **Status:** Proposed (WP-M2; the design approved by the product owner in D-145 (4), this
   record written with the build, 2026-11-05)
 - **Date:** 2026-11-05
 - **Deciders:** Haider (Product Owner)
 
 ## Context
 
-The mobile app (D-138, docs/architecture/mobile.md) must sign in with the same Keycloak realm,
+The mobile app (D-145, docs/architecture/mobile.md) must sign in with the same Keycloak realm,
 the same tenant rules and the same sessions as the web apps. The backend-for-frontend (D-009)
 keeps Keycloak's tokens on the server. The browser holds only an opaque session ID in an
 HttpOnly cookie, and the OIDC callback is always `<web origin>/api/v1/auth/callback`. A phone
 app cannot read a cookie set in the system browser, and Keycloak's tokens must not reach the
 device.
 
-D-139 makes the app one app for everyone. Technicians and admins get console sessions;
+D-146 makes the app one app for everyone. Technicians and admins get console sessions;
 requester-only people get portal sessions (D-129, REQ-PRT-001).
 
 ## Decision
@@ -56,7 +56,7 @@ requester-only people get portal sessions (D-129, REQ-PRT-001).
    client is sent to `/auth/login?app=portal` with the same challenge. Keycloak's own session
    stands, so there is no second prompt, and the hand-off then carries a portal session. The
    console is never opened to them (D-129).
-7. **Lifetimes as on the web:** 12 h absolute, the tenant's idle limit (D-138 (5)). The app keeps
+7. **Lifetimes as on the web:** 12 h absolute, the tenant's idle limit (D-145 (5)). The app keeps
    the ID in the phone's secure storage (Keychain or Keystore, `expo-secure-store`) and forgets
    it on sign-out or on any 401.
 

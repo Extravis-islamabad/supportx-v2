@@ -69,15 +69,12 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
 RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
-    # requests.* (service requests) moved to work_items' ModuleSpec (WP-030, lane B review); the
-    # system-role grants below still name them, unchanged.
-    PermissionSpec("problems.view", "problem", ALL),
-    PermissionSpec("problems.manage", "problem", NOT_OWN),
+    # requests.* (service requests), problems.* (WP-044a) and releases.* (WP-058a) moved to
+    # work_items' ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the
+    # engine's actions); the system-role grants below still name requests.*, unchanged.
     PermissionSpec("changes.view", "change", ALL),
     PermissionSpec("changes.create", "change"),
     PermissionSpec("changes.approve", "change", NOT_OWN),
-    PermissionSpec("releases.view", "release", ALL),
-    PermissionSpec("releases.manage", "release"),
     PermissionSpec("assets.view", "assets", ALL),
     PermissionSpec("assets.manage", "assets", NOT_OWN),
     PermissionSpec("cmdb.view", "cmdb", NOT_OWN),
@@ -115,8 +112,6 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("requests.edit", "all"),
             ("requests.assign", "all"),
             ("requests.close", "all"),
-            ("problems.view", "all"),
-            ("problems.manage", "group"),
             ("changes.view", "all"),
             ("changes.create", "all"),
             ("releases.view", "all"),

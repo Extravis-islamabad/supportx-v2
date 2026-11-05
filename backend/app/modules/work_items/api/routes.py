@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
+from app.modules.ai import GATEWAY_STATE, Gateway
 from app.modules.audit import AuditNote, audited, entries_for_changes
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
@@ -27,6 +28,7 @@ from app.modules.work_items.api.conversation_routes import (
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
+from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
@@ -45,18 +47,30 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.releases import (
+    BUILD_REF_MAX,
+    DETAIL_FIELDS,
+    VERSION_MAX,
+    DowntimePhase,
+    ReleaseRisk,
+    StageOutcome,
+)
 from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBehalfScope
+from app.modules.work_items.domain.stages import RailState
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
+    INCIDENT,
+    STANDARD_LIFECYCLE,
     SUBJECT_MAX,
     TAGS_MAX,
     Channel,
     WorkItemType,
     WorkItemTypeCode,
 )
-from app.modules.work_items.infra.models import WorkItem, WorkItemCategory
-from app.modules.work_items.service import resolution
+from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
+from app.modules.work_items.service import duplicates as duplicates_service
+from app.modules.work_items.service import release_links, resolution
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
@@ -114,6 +128,19 @@ class WorkItemIn(BaseModel):
     )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
+    # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
+    problem_type: str | None = Field(
+        default=None, max_length=40, description="Problems: a `problem_type` list code."
+    )
+    root_cause_category: str | None = Field(
+        default=None, max_length=40, description="Problems: a `root_cause` list code."
+    )
+    outage_started_at: datetime | None = Field(
+        default=None, description="Problems: when the outage began."
+    )
+    outage_ended_at: datetime | None = Field(
+        default=None, description="Problems: when it ended (not before it began)."
+    )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )
@@ -157,6 +184,19 @@ class WorkItemPatch(BaseModel):
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40)
+    # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
+    problem_type: str | None = Field(
+        default=None, max_length=40, description="Problems: a `problem_type` list code."
+    )
+    root_cause_category: str | None = Field(
+        default=None, max_length=40, description="Problems: a `root_cause` list code."
+    )
+    outage_started_at: datetime | None = Field(
+        default=None, description="Problems: when the outage began."
+    )
+    outage_ended_at: datetime | None = Field(
+        default=None, description="Problems: when it ended (not before it began)."
+    )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key (null clears one); others kept."
     )
@@ -452,7 +492,19 @@ class WorkItemOut(BaseModel):
     priority: Priority
     priority_source: PrioritySource
     level: str | None = Field(description="A `level` list code (may be a retired one).")
+    # Problems (WP-044a s2); null on other types.
+    problem_type: str | None = None
+    root_cause_category: str | None = None
+    outage_started_at: datetime | None = None
+    outage_ended_at: datetime | None = None
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
+    lifecycle: str = Field(
+        default=STANDARD_LIFECYCLE,
+        description="The transition set it follows, from its template (WP-044a; REQ-PRB-025).",
+    )
+    status_before_pause: str | None = Field(
+        default=None, description="On hold: the status it resumes to (problems, Appendix A)."
+    )
     catalog_item_id: uuid.UUID | None = Field(
         default=None, description="Service requests: the item it was raised from."
     )
@@ -463,6 +515,12 @@ class WorkItemOut(BaseModel):
         default=None, description="Service requests: not needed, pending, approved ..."
     )
     custom: dict[str, Any] = Field(description="Custom field values by key (WP-026).")
+    stage: str | None = Field(
+        default=None, description="Staged types (releases): the stage it is in (ADR-041)."
+    )
+    stage_path: str | None = Field(
+        default=None, description="Staged types: the path of stages it follows."
+    )
     status: str
     status_category: StatusCategory
     status_reason_code: str | None
@@ -558,8 +616,16 @@ _RECORD_FIELDS = (
     "priority",
     "priority_source",
     "level",
+    "problem_type",
+    "root_cause_category",
+    "outage_started_at",
+    "outage_ended_at",
     "template_id",
+    "lifecycle",
+    "status_before_pause",
     "custom",
+    "stage",
+    "stage_path",
     "status",
     "status_category",
     "status_reason_code",
@@ -635,6 +701,10 @@ class WorkItemListItem(BaseModel):
     priority: Priority
     priority_source: PrioritySource
     level: str | None
+    stage: str | None = Field(default=None, description="Staged types: the current stage.")
+    stage_path: str | None = Field(
+        default=None, description="Staged types: the path (releases: `emergency` is the flag)."
+    )
     status: str
     status_category: StatusCategory
     status_reason_code: str | None
@@ -674,6 +744,35 @@ class WorkItemSearchOut(BaseModel):
     """Search results, best first, with the people on them (name and email)."""
 
     items: list[WorkItemListItem]
+    people: dict[str, PersonOut] = Field(default_factory=dict)
+
+
+class DuplicatesQuery(BaseModel):
+    """A draft incident, to look for possible duplicates of (REQ-INC-022)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(max_length=250)
+    description: str | None = Field(default=None, max_length=4000)
+    requester_id: uuid.UUID | None = None
+    exclude: uuid.UUID | None = None
+
+
+class DuplicateOut(BaseModel):
+    """An open incident that may be the same issue (REQ-INC-022)."""
+
+    item: WorkItemListItem
+    # 0 to about 1.2: similarity, plus a weight for the same requester within the hour.
+    score: float
+    reasons: list[Literal["similar_meaning", "similar_subject", "same_requester"]]
+
+
+class DuplicatesOut(BaseModel):
+    """Possible duplicates of a draft, best first, and how they were found (D-134)."""
+
+    items: list[DuplicateOut]
+    # "meaning": AI embeddings (AI on); "text": subject similarity, no model (AI off).
+    method: Literal["meaning", "text"]
     people: dict[str, PersonOut] = Field(default_factory=dict)
 
 
@@ -746,6 +845,10 @@ class WorkItemTransitionOut(BaseModel):
     to_status: str | None = Field(description="Null: back to the status before canceling.")
     reason_mode: ReasonMode
     reason_list: ReasonList | None
+    lifecycle: str = Field(
+        default=STANDARD_LIFECYCLE,
+        description="The transition set: `standard`, or one a template chooses (WP-044a).",
+    )
 
 
 class WorkItemScaleValueOut(BaseModel):
@@ -777,6 +880,10 @@ class WorkItemListValueOut(BaseModel):
     sort_order: int
     colour: str | None
     disabled: bool
+    attributes: dict[str, Any] | None = Field(
+        default=None,
+        description="A value's own settings (a release type's default template, risk).",
+    )
 
 
 class WorkItemMatrixCellOut(BaseModel):
@@ -787,6 +894,10 @@ class WorkItemMatrixCellOut(BaseModel):
     priority: Priority
 
 
+# Pick lists every type has: the reason lists, levels and closure codes.
+SHARED_LISTS = frozenset({*REASON_LISTS, PickList.LEVEL, PickList.CLOSURE_CODE})
+
+
 def _value(v: ReasonInfo) -> WorkItemListValueOut:
     return WorkItemListValueOut(
         code=v.code,
@@ -794,6 +905,7 @@ def _value(v: ReasonInfo) -> WorkItemListValueOut:
         sort_order=v.sort_order,
         colour=v.colour,
         disabled=v.disabled,
+        attributes=dict(v.attributes) if v.attributes else None,
     )
 
 
@@ -835,6 +947,16 @@ class WorkItemCatalogueOut(BaseModel):
     reasons: list[WorkItemReasonOut]
     levels: list[WorkItemListValueOut] = Field(description="Support levels (REQ-INC-007).")
     closure_codes: list[WorkItemListValueOut] = Field(description="REQ-INC-093.")
+    problem_types: list[WorkItemListValueOut] = Field(
+        default_factory=list, description="Problems: the problem type list (WP-044a)."
+    )
+    root_causes: list[WorkItemListValueOut] = Field(
+        default_factory=list, description="Problems: the root cause category list (WP-044a)."
+    )
+    own_lists: dict[str, list[WorkItemListValueOut]] = Field(
+        default_factory=dict,
+        description="The type's own pick lists (releases: release_type, release_reason).",
+    )
     closure: WorkItemClosureOut
     next_number: int = Field(description="The display number the next record gets.")
 
@@ -867,7 +989,8 @@ class WorkItemCatalogueOut(BaseModel):
                 )
                 for s in cat.statuses
             ],
-            actions=list(USER_ACTIONS),
+            # The actions of this type's life cycle (an incident never offers a problem's).
+            actions=cat.used_actions(),
             transitions=[
                 WorkItemTransitionOut(
                     from_status=t.from_status,
@@ -875,10 +998,13 @@ class WorkItemCatalogueOut(BaseModel):
                     to_status=t.to_status,
                     reason_mode=t.reason_mode,
                     reason_list=t.reason_list,
+                    lifecycle=code,
                 )
-                # Life-cycle order (QA BUG-04): by status, then the fixed action order.
+                # The standard set first; life-cycle order (QA BUG-04): by status, then the
+                # fixed action order.
+                for code, lifecycle in cat.lifecycles.items()
                 for t in sorted(
-                    cat.lifecycle.transitions.values(),
+                    lifecycle.transitions.values(),
                     key=lambda t: (
                         [st.code for st in cat.statuses].index(t.from_status),
                         USER_ACTIONS.index(t.action) if t.action in USER_ACTIONS else 99,
@@ -910,6 +1036,13 @@ class WorkItemCatalogueOut(BaseModel):
             ],
             levels=[_value(v) for v in cat.list_values(PickList.LEVEL)],
             closure_codes=[_value(v) for v in cat.list_values(PickList.CLOSURE_CODE)],
+            problem_types=[_value(v) for v in cat.list_values(PickList.PROBLEM_TYPE)],
+            root_causes=[_value(v) for v in cat.list_values(PickList.ROOT_CAUSE)],
+            # The lists only this type has (any list beyond the shared ones it was seeded with).
+            own_lists={
+                name: [_value(v) for v in cat.list_values(PickList(name))]
+                for name in sorted({r.list for r in cat.reasons} - SHARED_LISTS)
+            },
             closure=WorkItemClosureOut(
                 resolve_requires=list(cat.closure.resolve_requires),
                 close_requires=list(cat.closure.close_requires),
@@ -1124,6 +1257,335 @@ class AutomationRunOut(BaseModel):
     occurred_at: datetime
 
 
+class ReleaseDetailsIn(BaseModel):
+    """A release's own fields to change (send only those you change; null clears one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    release_type: str | None = Field(
+        default=None, max_length=40, description="A release type code."
+    )
+    risk: ReleaseRisk | None = None
+    risk_reason: str | None = Field(
+        default=None,
+        max_length=REASON_TEXT_MAX,
+        description="Why the risk changed (required then).",
+    )
+    release_version: str | None = Field(default=None, max_length=VERSION_MAX)
+    build_ref: str | None = Field(default=None, max_length=BUILD_REF_MAX)
+    release_reason: str | None = Field(default=None, max_length=40)
+    release_notes: str | None = Field(
+        default=None, max_length=RESOLUTION_MAX, description="Rich text, sanitised on save."
+    )
+    scheduled_start: datetime | None = None
+    scheduled_end: datetime | None = None
+    actual_start: datetime | None = None
+    actual_end: datetime | None = None
+    release_manager_id: uuid.UUID | None = None
+    release_engineer_id: uuid.UUID | None = None
+
+
+class ReleaseDetailsOut(BaseModel):
+    """A release's own fields (REQ-REL-002..005), with the release's version for If-Match."""
+
+    work_item_id: uuid.UUID
+    version: int = Field(description="The release's version: send it back as If-Match.")
+    release_type: str | None
+    risk: ReleaseRisk | None
+    release_version: str | None
+    build_ref: str | None
+    release_reason: str | None
+    release_notes: str | None
+    scheduled_start: datetime | None
+    scheduled_end: datetime | None
+    actual_start: datetime | None
+    actual_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+
+    @classmethod
+    def of(cls, view: service.ReleaseDetailsView) -> "ReleaseDetailsOut":
+        """From the service view (all empty before any field is set)."""
+        row = view.details
+        return cls(
+            work_item_id=view.record.id,
+            version=view.record.version,
+            **{n: (getattr(row, n) if row is not None else None) for n in DETAIL_FIELDS},
+        )
+
+
+class RoleHoldingOut(BaseModel):
+    """One role of the record and who holds it."""
+
+    code: str
+    labels: dict[str, str] | None = Field(description="Null: labelled by the UI from the code.")
+    single: bool = Field(description="Held by one person; otherwise people and groups.")
+    system: bool
+    disabled: bool
+    user_ids: list[uuid.UUID]
+    group_ids: list[uuid.UUID]
+
+
+class RolesOut(BaseModel):
+    """A record's roles tab (REQ-REL-023), with the record's version for If-Match."""
+
+    version: int
+    roles: list[RoleHoldingOut]
+    people: dict[str, str] = Field(description="Holders' display names, by user ID.")
+
+    @classmethod
+    def of(cls, view: service.RolesView) -> "RolesOut":
+        """From the service view."""
+        return cls(
+            version=view.record.version,
+            roles=[
+                RoleHoldingOut(
+                    code=r.definition.code,
+                    labels=r.definition.labels,
+                    single=r.definition.single,
+                    system=r.definition.system,
+                    disabled=r.definition.disabled_at is not None,
+                    user_ids=list(r.user_ids),
+                    group_ids=list(r.group_ids),
+                )
+                for r in view.roles
+            ],
+            people=dict(view.names),
+        )
+
+
+class RoleHoldersIn(BaseModel):
+    """Who holds the role now (replaces the holders; both empty clears it)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
+
+
+class PersonOptionOut(BaseModel):
+    """A person a picker may offer."""
+
+    id: uuid.UUID
+    name: str
+
+
+class PlanSectionOut(BaseModel):
+    """One plan section (REQ-REL-025), with its own version for If-Match (0: not written)."""
+
+    section: str
+    content: str | None = Field(description="Sanitised rich text.")
+    version: int
+    updated_at: datetime | None
+    updated_by: uuid.UUID | None
+
+
+class PlanSectionIn(BaseModel):
+    """A plan section's text (rich text, sanitised on save; empty clears it)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    content: str | None = Field(default=None, max_length=RESOLUTION_MAX)
+
+
+class StageScheduleOut(BaseModel):
+    """A stage's dates and outcome on the record's path (REQ-REL-026, -028)."""
+
+    stage: str
+    scheduled_start: datetime | None
+    scheduled_end: datetime | None
+    actual_start: datetime | None
+    actual_end: datetime | None
+    outcome: StageOutcome | None
+    outcome_notes: str | None
+    issues: str | None
+    version: int = Field(description="This stage row's version for If-Match (0: none yet).")
+
+
+class StageScheduleIn(BaseModel):
+    """What to change (only what is sent). Correcting an actual date needs a reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scheduled_start: datetime | None = None
+    scheduled_end: datetime | None = None
+    actual_start: datetime | None = None
+    actual_end: datetime | None = None
+    outcome: StageOutcome | None = None
+    outcome_notes: str | None = Field(default=None, max_length=10_000)
+    issues: str | None = Field(default=None, max_length=10_000)
+    reason: str | None = Field(default=None, max_length=REASON_TEXT_MAX)
+
+
+class DowntimeOut(BaseModel):
+    """A planned or actual downtime window (REQ-REL-027)."""
+
+    id: uuid.UUID
+    phase: DowntimePhase
+    kind: str | None = Field(description="A downtime_kind list code.")
+    starts_at: datetime
+    ends_at: datetime
+    description: str | None
+    service_ids: list[uuid.UUID]
+    ci_ids: list[uuid.UUID]
+    source_work_item_id: uuid.UUID | None
+    version: int
+
+    @classmethod
+    def of(cls, row: WorkItemDowntime) -> "DowntimeOut":
+        """From a row."""
+        return cls.model_validate(row, from_attributes=True)
+
+
+class DowntimeIn(BaseModel):
+    """A downtime window's fields (only what is sent, on a change)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    phase: DowntimePhase | None = None
+    kind: str | None = Field(default=None, max_length=40)
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    description: str | None = Field(default=None, max_length=10_000)
+    service_ids: list[uuid.UUID] | None = Field(default=None, max_length=100)
+    ci_ids: list[uuid.UUID] | None = Field(default=None, max_length=200)
+
+
+class SubReleaseOut(BaseModel):
+    """A sub-release as its parent lists it (REQ-REL-037); hidden ones show only that they exist."""
+
+    id: uuid.UUID
+    visible: bool
+    display_id: str | None
+    subject: str | None
+    stage: str | None
+    status: str | None
+
+
+class ParentIn(BaseModel):
+    """The release's parent (null: none)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parent_id: uuid.UUID | None
+
+
+class ParentOut(BaseModel):
+    """The release's parent now."""
+
+    parent_id: uuid.UUID | None
+
+
+class StageMoveIn(BaseModel):
+    """A listed status move of a staged type (ADR-041): the target status and its reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to_status: str = Field(max_length=40, description="A status listed as a move from here.")
+    reason_code: str | None = Field(default=None, max_length=40)
+    reason_text: str | None = Field(default=None, max_length=REASON_TEXT_MAX)
+    resolution: str | None = Field(
+        default=None,
+        max_length=RESOLUTION_MAX,
+        description="Moving into a resolved status: the outcome, rich text (sanitised).",
+    )
+    closure_code: str | None = Field(
+        default=None, max_length=40, description="Moving into a closed status: a closure code."
+    )
+    confirm_open_work: bool = Field(
+        default=False, description="Closing with open tasks or approvals: you confirm."
+    )
+    fields: dict[str, Any] | None = Field(
+        default=None,
+        description="Values the move asks for (see `missing` on the stages panel), saved in the"
+        " same request with the usual edit checks and history.",
+    )
+
+
+class StageEntryOut(BaseModel):
+    """One time the record was in a stage."""
+
+    entered_at: datetime
+    left_at: datetime | None
+
+
+class RailStageOut(BaseModel):
+    """One stage on the rail, in path order."""
+
+    stage: str
+    state: RailState
+    optional: bool
+    entries: list[StageEntryOut]
+
+
+class MissingFieldOut(BaseModel):
+    """A value a move still needs."""
+
+    field: str
+    code: str = Field(description="`required` (the move) or `required_to_leave_stage`.")
+
+
+class StageMoveOut(BaseModel):
+    """A move offered from the current status."""
+
+    to_status: str
+    to_stage: str
+    reason_mode: ReasonMode
+    reason_list: ReasonList | None
+    required_fields: list[str]
+    allowed: bool
+    reason: str | None = Field(description="Why you may not (a code), when not allowed.")
+    missing: list[MissingFieldOut] = Field(
+        default_factory=list, description="Values the move asks for in its dialog (REQ-REL-018)."
+    )
+
+
+class StagePanelOut(BaseModel):
+    """A staged record's rail and its offered moves."""
+
+    stage: str
+    stage_path: str
+    status: str
+    version: int
+    rail: list[RailStageOut]
+    moves: list[StageMoveOut]
+
+    @classmethod
+    def of(cls, panel: service.StagePanel) -> "StagePanelOut":
+        """From the service panel."""
+        r = panel.record
+        return cls(
+            stage=str(r.stage),
+            stage_path=str(r.stage_path),
+            status=r.status,
+            version=r.version,
+            rail=[
+                RailStageOut(
+                    stage=s.stage,
+                    state=s.state,
+                    optional=s.optional,
+                    entries=[
+                        StageEntryOut(entered_at=e.entered_at, left_at=e.left_at) for e in s.entries
+                    ],
+                )
+                for s in panel.rail
+            ],
+            moves=[
+                StageMoveOut(
+                    to_status=m.transition.to_status,
+                    to_stage=m.to_stage,
+                    reason_mode=m.transition.reason_mode,
+                    reason_list=m.transition.reason_list,
+                    required_fields=list(m.transition.required_fields),
+                    allowed=m.allowed,
+                    reason=m.reason,
+                    missing=[MissingFieldOut(field=f, code=c) for f, c in m.missing],
+                )
+                for m in panel.moves
+            ],
+        )
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -1261,6 +1723,48 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             items=[_item(r) for r in rows],
             people=_people(await user_contacts(session, people)),
         )
+
+    if wtype is INCIDENT:
+
+        @router.post("/possible-duplicates", summary="Possible duplicates of a new incident")
+        async def possible_duplicates(
+            body: DuplicatesQuery,
+            session: TenantSession,
+            subject: Create,
+            request: Request,
+        ) -> DuplicatesOut:
+            """Open incidents you may see that look like the one being written (REQ-INC-022).
+
+            A POST: the draft's text travels in the body, never in a URL (proxy logs, history).
+            With AI on: by meaning (logged as an AI call). With AI off: by subject, no model
+            (D-134). The same requester's incidents from the last hour count extra.
+            """
+            gateway: Gateway = getattr(request.app.state, GATEWAY_STATE)
+            found, method = await duplicates_service.possible_duplicates(
+                session,
+                subject,
+                gateway,
+                title=strip_isolates(body.title).strip(),
+                description=body.description,
+                requester_id=body.requester_id,
+                exclude=body.exclude,
+            )
+            people = sorted(
+                {
+                    str(u)
+                    for c in found
+                    for u in (c.record.requester_id, c.record.technician_id)
+                    if u
+                }
+            )
+            return DuplicatesOut(
+                items=[
+                    DuplicateOut(item=_item(c.record), score=c.score, reasons=list(c.reasons))
+                    for c in found
+                ],
+                method=method,
+                people=_people(await user_contacts(session, people)),
+            )
 
     @router.get("/lookup/{value}", summary="Find by display ID")
     async def lookup(
@@ -1405,6 +1909,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
+    elif wtype.code is WorkItemTypeCode.RELEASE:  # WP-058a s5: stage approvals, no withdrawal
+        add_approval_routes(router, wtype, withdraw=False)
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        # WP-044a s3: before the /{record_id} routes
+        add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
     add_parts_collection_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
@@ -1512,6 +2021,396 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
+
+    if wtype.stages is not None:  # ADR-041: staged types move by listed status transitions
+
+        @router.get("/{record_id}/stages", summary="The stage rail and the moves from here")
+        async def stage_panel(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> StagePanelOut:
+            """Each stage on the record's path (done, current, skipped, future) and its moves."""
+            panel = await service.stage_panel(session, subject, wtype, record_id)
+            set_etag(response, panel.record.version)
+            return StagePanelOut.of(panel)
+
+        @router.get("/{record_id}/schedule", summary="Each stage's dates and outcome")
+        async def get_schedule(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[StageScheduleOut]:
+            """The stages on the record's path, in order; actual dates are set by the engine."""
+            _record, rows = await service.stage_schedules(session, subject, wtype, record_id)
+            return [
+                StageScheduleOut(
+                    stage=stage,
+                    **{n: getattr(row, n) if row else None for n in service.SCHEDULE_FIELDS},
+                    version=row.version if row else 0,
+                )
+                for stage, row in rows
+            ]
+
+        @router.patch(
+            "/{record_id}/schedule/{stage}",
+            summary="Change a stage's dates or outcome",
+            responses=CONFLICT,
+        )
+        async def patch_schedule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            stage: str,
+            body: StageScheduleIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> StageScheduleOut:
+            """If-Match: the stage row's version (0 before anything is set)."""
+            sent = body.model_dump(include=body.model_fields_set - {"reason"})
+            row = await service.update_stage_schedule(
+                session,
+                subject,
+                wtype,
+                record_id,
+                stage,
+                values=sent,
+                expected_version=version,
+                reason=body.reason,
+                source=source_of(request),
+            )
+            set_etag(response, row.version)
+            return StageScheduleOut(
+                stage=stage,
+                **{n: getattr(row, n) for n in service.SCHEDULE_FIELDS},
+                version=row.version,
+            )
+
+        @router.get("/{record_id}/downtimes", summary="Downtime windows")
+        async def get_downtimes(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[DowntimeOut]:
+            """Planned and actual windows, by start."""
+            _record, rows = await service.downtimes(session, subject, wtype, record_id)
+            return [DowntimeOut.of(r) for r in rows]
+
+        @router.post(
+            "/{record_id}/downtimes",
+            summary="Add a downtime window",
+            status_code=status.HTTP_201_CREATED,
+            response_model=DowntimeOut,
+        )
+        async def add_downtime(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: DowntimeIn,
+            session: TenantSession,
+            subject: Edit,
+            idempotency: Idempotency,
+            request: Request,
+        ) -> Response:
+            """Send an Idempotency-Key: a retry returns the same 201."""
+
+            async def run() -> Created:
+                row = await service.save_downtime(
+                    session,
+                    subject,
+                    wtype,
+                    record_id,
+                    None,
+                    values=body.model_dump(include=body.model_fields_set),
+                    expected_version=0,
+                    source=source_of(request),
+                )
+                out = DowntimeOut.of(row)
+                return Created(body=out, headers={"ETag": f'"{out.version}"'})
+
+            return await idempotency.run(body, run)
+
+        @router.patch(
+            "/{record_id}/downtimes/{downtime_id}",
+            summary="Change a downtime window",
+            responses=CONFLICT,
+        )
+        async def patch_downtime(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            downtime_id: uuid.UUID,
+            body: DowntimeIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> DowntimeOut:
+            """If-Match: the window's version."""
+            row = await service.save_downtime(
+                session,
+                subject,
+                wtype,
+                record_id,
+                downtime_id,
+                values=body.model_dump(include=body.model_fields_set),
+                expected_version=version,
+                source=source_of(request),
+            )
+            set_etag(response, row.version)
+            return DowntimeOut.of(row)
+
+        @router.delete(
+            "/{record_id}/downtimes/{downtime_id}",
+            summary="Remove a downtime window",
+            status_code=status.HTTP_204_NO_CONTENT,
+            responses=CONFLICT,
+        )
+        async def delete_downtime(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            downtime_id: uuid.UUID,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            request: Request,
+        ) -> Response:
+            """If-Match: the window's version."""
+            await service.remove_downtime(
+                session,
+                subject,
+                wtype,
+                record_id,
+                downtime_id,
+                expected_version=version,
+                source=source_of(request),
+            )
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+        @router.post("/{record_id}/moves", summary="Move to a listed status", responses=CONFLICT)
+        async def move(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: StageMoveIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: View,
+            response: Response,
+            request: Request,
+        ) -> WorkItemOut:
+            """Only moves listed from the current status on the record's path.
+
+            A completing status moves on to the next stage in the same save. Needs If-Match.
+            """
+            view = await service.move_status(
+                session,
+                subject,
+                wtype,
+                record_id,
+                target=body.to_status,
+                expected_version=version,
+                reason_code=body.reason_code,
+                reason_text=body.reason_text,
+                source=source_of(request),
+                closing_input=MoveInput(
+                    resolution=body.resolution,
+                    closure_code=body.closure_code,
+                    confirm_open_work=body.confirm_open_work,
+                ),
+                fields=body.fields,
+            )
+            set_etag(response, view.record.version)
+            return WorkItemOut.of(view)
+
+    if wtype.plan_sections:  # REQ-REL-025: the plan's rich-text sections
+
+        @router.get("/{record_id}/plan", summary="The plan's sections")
+        async def get_plan(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[PlanSectionOut]:
+            """Every section of the type, in order (version 0: not written yet)."""
+            _record, rows = await service.plan_sections(session, subject, wtype, record_id)
+            return [
+                PlanSectionOut(
+                    section=name,
+                    content=row.content if row else None,
+                    version=row.version if row else 0,
+                    updated_at=row.updated_at if row else None,
+                    updated_by=row.updated_by if row else None,
+                )
+                for name, row in rows
+            ]
+
+        @router.put(
+            "/{record_id}/plan/{section}", summary="Write a plan section", responses=CONFLICT
+        )
+        async def put_plan(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            section: str,
+            body: PlanSectionIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> PlanSectionOut:
+            """If-Match: this section's version (0 the first time); other sections never clash."""
+            row = await service.put_plan_section(
+                session,
+                subject,
+                wtype,
+                record_id,
+                section,
+                content=body.content,
+                expected_version=version,
+                source=source_of(request),
+            )
+            set_etag(response, row.version)
+            return PlanSectionOut(
+                section=section,
+                content=row.content,
+                version=row.version,
+                updated_at=row.updated_at,
+                updated_by=row.updated_by,
+            )
+
+    if wtype.roles:  # REQ-REL-023, -024: named roles on the record
+
+        @router.get("/roles/{role}/candidates", summary="People who may hold a role")
+        async def role_candidates(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query
+            role: str,
+            session: TenantSession,
+            subject: View,
+            policy: Policy,
+            search: Annotated[str | None, Query(max_length=200)] = None,
+            limit: Annotated[int, Query(ge=1, le=50)] = 20,
+        ) -> list[PersonOptionOut]:
+            """Only people the role allows (REQ-REL-024): active, and eligible by its rule."""
+            found = await service.role_candidates(
+                session, subject, wtype, role, search=search, holders=policy, limit=limit
+            )
+            return [PersonOptionOut(id=i, name=n) for i, n in found]
+
+        @router.get("/{record_id}/roles", summary="The record's roles and their holders")
+        async def get_roles(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> RolesOut:
+            """Every role in order with its holders (people and groups)."""
+            view = await service.roles_of(session, subject, wtype, record_id)
+            set_etag(response, view.record.version)
+            return RolesOut.of(view)
+
+        @router.put("/{record_id}/roles/{role}", summary="Set who holds a role", responses=CONFLICT)
+        async def put_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            role: str,
+            body: RoleHoldersIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+            policy: Policy,
+        ) -> RolesOut:
+            """Needs If-Match (the record's version). Only eligible, active people (REQ-REL-024)."""
+            view = await service.set_role(
+                session,
+                subject,
+                wtype,
+                record_id,
+                role,
+                user_ids=body.user_ids,
+                group_ids=body.group_ids,
+                expected_version=version,
+                source=source_of(request),
+                holders=policy,
+            )
+            set_etag(response, view.record.version)
+            return RolesOut.of(view)
+
+    if wtype.code is WorkItemTypeCode.RELEASE:  # REQ-REL-037: parent and sub-releases
+
+        @router.get("/{record_id}/sub-releases", summary="The release's sub-releases")
+        async def get_sub_releases(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[SubReleaseOut]:
+            """With their stage and status, live; ones you may not see show only that they exist."""
+            found = await release_links.sub_releases(session, subject, wtype, record_id)
+            return [SubReleaseOut(**vars(s)) for s in found]
+
+        @router.put("/{record_id}/parent", summary="Make it a sub-release of another release")
+        async def put_parent(
+            record_id: uuid.UUID,
+            body: ParentIn,
+            session: TenantSession,
+            subject: Edit,
+            request: Request,
+        ) -> ParentOut:
+            """One parent at most; loops are refused (REQ-REL-037 AC1). Null removes it."""
+            parent = await release_links.set_parent(
+                session, subject, wtype, record_id, body.parent_id, source=source_of(request)
+            )
+            return ParentOut(parent_id=parent)
+
+    if wtype.code is WorkItemTypeCode.RELEASE:  # REQ-REL-002..005: a release's own fields
+
+        @router.get("/{record_id}/details", summary="The release's own fields")
+        async def get_details(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> ReleaseDetailsOut:
+            """Type, risk, version, build, reason, notes, dates and the release's people."""
+            found = await service.release_details(session, subject, wtype, record_id)
+            set_etag(response, found.record.version)
+            return ReleaseDetailsOut.of(found)
+
+        @router.post(
+            "/{record_id}/copy",
+            summary="Copy the release into a new one",
+            status_code=status.HTTP_201_CREATED,
+            response_model=WorkItemOut,
+        )
+        async def copy_release(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+        ) -> Response:
+            """A new release from this one's fields (REQ-REL-009).
+
+            Never stage progress, approvals, dates or worklogs. Send an Idempotency-Key: a retry
+            returns the same 201.
+            """
+
+            async def run() -> Created:
+                view = await service.copy_release(
+                    session, subject, wtype, record_id, source=source_of(request), holders=policy
+                )
+                out = WorkItemOut.of(view)
+                return Created(
+                    body=out,
+                    headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'},
+                )
+
+            return await idempotency.run({"copy_of": str(record_id)}, run)
+
+        @router.patch(
+            "/{record_id}/details", summary="Change the release's own fields", responses=CONFLICT
+        )
+        async def patch_details(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ReleaseDetailsIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> ReleaseDetailsOut:
+            """Needs If-Match (the release's version). A risk change needs `risk_reason`."""
+            sent = body.model_dump(include=body.model_fields_set - {"risk_reason"})
+            view = await service.update_release_details(
+                session,
+                subject,
+                wtype,
+                record_id,
+                expected_version=version,
+                values=sent,
+                source=source_of(request),
+                risk_reason=body.risk_reason,
+            )
+            set_etag(response, view.record.version)
+            return ReleaseDetailsOut.of(view)
 
     @router.post(
         "/{record_id}/resolution/confirm",

@@ -20,7 +20,7 @@ LOCK_PREFIX = "sx:session-lock:"
 # A person's sessions started before this moment are over (deactivation, sign-in turned off).
 ENDED_PREFIX = "sx:sessions-ended:"
 SSO_TEST_PREFIX = "sx:sso-test:"
-# A mobile sign-in's one-time hand-off code (ADR-039): the session it stands for, briefly.
+# A mobile sign-in's one-time hand-off code (ADR-042): the session it stands for, briefly.
 HANDOFF_PREFIX = "sx:handoff:"
 LIMIT_PREFIX = "sx:limit:"
 

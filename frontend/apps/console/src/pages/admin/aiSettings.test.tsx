@@ -23,6 +23,7 @@ const SETTINGS: AiSettings = {
   disabled_features: [],
   mask_local: false,
   log_retention_days: 30,
+  summary_sources: ['description', 'replies', 'public_notes'],
   version: 4,
   features: [
     { code: 'reply_draft', area: 'writing', enabled: true },

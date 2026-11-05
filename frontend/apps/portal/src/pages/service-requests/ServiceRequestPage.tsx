@@ -1,6 +1,7 @@
 import { CheckOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  Alert,
   Button,
   Card,
   Descriptions,
@@ -14,7 +15,7 @@ import {
   Typography,
 } from 'antd';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 
 import {
   portalRequestKeys,
@@ -27,15 +28,18 @@ import {
   useSession,
   useWithdrawRequest,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useRecordEvents } from '@supportx/realtime';
-import { reportError, RichTextView, useAppearance, useLabel } from '@supportx/ui';
+import {
+  reportError,
+  RichTextView,
+  useAnswerWords,
+  useAppearance,
+  useDateTime,
+  useLabel,
+} from '@supportx/ui';
 
 import { PortalStatusTag } from '../requests/PortalStatusTag';
-
-function answerText(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  return typeof value === 'string' ? value : JSON.stringify(value);
-}
 
 /**
  * One service request as its requester sees it (WP-030 D9; REQ-SR-051, -061, -062): the plain
@@ -45,7 +49,12 @@ function answerText(value: unknown): string {
  */
 export function ServiceRequestPage() {
   const t = useLabel();
+  const answerWords = useAnswerWords();
   const { id = '' } = useParams();
+  const [params] = useSearchParams();
+  const submitted = params.get('submitted') === '1';
+  const listFormat = useListFormat();
+  const { format } = useDateTime();
   const { locale } = useAppearance();
   const queryClient = useQueryClient();
   const me = useSession().data?.user.id;
@@ -78,8 +87,47 @@ export function ServiceRequestPage() {
   const total = steps.data?.total ?? 0;
   const done = steps.data?.done ?? 0;
   const decided = (approvals.data?.items ?? []).filter((a) => a.state !== 'pending');
+  const waitingOn = (approvals.data?.items ?? [])
+    .filter((a) => a.state === 'pending')
+    .map((a) =>
+      a.approver_id === null
+        ? t('portal.next.approval_admins')
+        : (approvals.data?.people[a.approver_id]?.display_name ?? ''),
+    )
+    .filter((name) => name !== '');
   return (
     <Flex vertical gap={16} style={{ maxWidth: 760 }}>
+      {submitted && (
+        <Alert
+          type="success"
+          showIcon
+          data-testid="portal-next"
+          message={t('portal.next.title', { id: r.display_id })}
+          description={
+            <Flex vertical gap={8}>
+              {waitingOn.length > 0 && (
+                <Typography.Text data-testid="portal-next-approval">
+                  {t('portal.next.waiting_for', { names: listFormat(waitingOn, 'conjunction') })}
+                </Typography.Text>
+              )}
+              {r.resolution_due_at != null && (
+                <Typography.Text data-testid="portal-next-due">
+                  {t('portal.next.expected', { date: format(r.resolution_due_at) })}
+                </Typography.Text>
+              )}
+              <Typography.Text>{t('portal.next.follow')}</Typography.Text>
+              <Flex gap={8} wrap>
+                <Link to="/catalog" data-testid="portal-next-another">
+                  {t('portal.next.another')}
+                </Link>
+                <Link to="/" data-testid="portal-next-home">
+                  {t('portal.next.home')}
+                </Link>
+              </Flex>
+            </Flex>
+          }
+        />
+      )}
       <Link to="/service-requests">{t('portal.service_requests.back')}</Link>
       <Flex justify="space-between" align="center" gap={12} wrap>
         <Typography.Title level={1} style={{ margin: 0 }}>
@@ -185,7 +233,7 @@ export function ServiceRequestPage() {
       >
         {questions.map((q) => (
           <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
-            {answerText(r.answers?.[q.key])}
+            {answerWords(q, r.answers?.[q.key])}
           </Descriptions.Item>
         ))}
       </Descriptions>

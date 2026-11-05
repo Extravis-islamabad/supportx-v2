@@ -15,8 +15,8 @@ import { expectAccessible, resetLanguage, signInAs } from './helpers';
  *    and approves there (lane B's conditions: the token only in the URL fragment, one use).
  * 3. The portal's service request pages in Arabic: right to left, accessible.
  *
- * Suite-owned data only: items and requests are named "E2E …"; the requests go to the trash and
- * the items are disabled at the end.
+ * Suite-owned data only: items, their categories and groups, and requests are named "E2E …"; the
+ * requests go to the trash and the items are retired at the end.
  */
 
 const LIVE = { timeout: 5_000 };
@@ -64,10 +64,36 @@ async function userId(page: Page): Promise<string> {
   return me.user.id;
 }
 
-async function item(admin: Page, name: string, approverId: string): Promise<Made> {
+/**
+ * A published item (WP-031: a new item is a draft; publishing needs a category and a
+ * fulfilment group). Its own E2E category and group; `memberId` joins the group, so the
+ * technician who fulfils the request sees it.
+ */
+async function item(
+  admin: Page,
+  name: string,
+  approverId: string,
+  memberId?: string,
+): Promise<Made> {
+  const category = await call(admin, 'POST', '/catalog/categories', {
+    body: { names: { en: `${name} category` } },
+  });
+  expect(category.status(), await category.text()).toBe(201);
+  const group = await call(admin, 'POST', '/organization/groups', {
+    body: { name: `${name} group` },
+  });
+  expect(group.status(), await group.text()).toBe(201);
+  const groupId = ((await group.json()) as { id: string }).id;
+  if (memberId !== undefined) {
+    const joined = await call(admin, 'PUT', `/organization/groups/${groupId}/members/${memberId}`);
+    expect([200, 204]).toContain(joined.status());
+  }
   const made = await call(admin, 'POST', '/catalog/items', {
     body: {
       names: { en: name, ar: name },
+      category_id: ((await category.json()) as { id: string }).id,
+      group_id: groupId,
+      status: 'published',
       approval: { approvers: [{ kind: 'person', person_id: approverId }] },
       plan: [{ title: { en: `${name}: hand it over` } }],
       default_priority: 'p3',
@@ -116,7 +142,8 @@ test('raise, approve from the drawer, fulfil and confirm receipt, all live', asy
   const made: string[] = [];
   const items: string[] = [];
   try {
-    const laptop = await item(admin.page, `E2E laptop ${tag}`, await userId(tech.page));
+    const techId = await userId(tech.page);
+    const laptop = await item(admin.page, `E2E laptop ${tag}`, techId, techId);
     items.push(laptop.id);
     const record = await raise(requester.page, laptop.id, `E2E laptop for Lina ${tag}`);
     made.push(record.id);
@@ -148,6 +175,8 @@ test('raise, approve from the drawer, fulfil and confirm receipt, all live', asy
 
     // The requester sees it fulfilled without a reload, and confirms receipt.
     await row.getByRole('link').click();
+    // Until the record page replaces the list, every row's tag matches: wait for the one.
+    await expect(requester.page.getByTestId('portal-status')).toHaveCount(1, LIVE);
     await expect(requester.page.getByTestId('portal-status')).toHaveText(
       'Resolved: please confirm',
       LIVE,

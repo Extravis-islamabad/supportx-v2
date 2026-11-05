@@ -1,4 +1,4 @@
-"""Event contracts of the service catalog (WP-030 s1). IDs and field names only (§8.2)."""
+"""Event contracts of the service catalog (WP-030, WP-031). IDs, field names, counts (§8.2)."""
 
 import uuid
 from typing import ClassVar
@@ -28,6 +28,38 @@ class ServiceCategoryChanged(DomainEvent):
     changed_fields: list[str]
 
 
-EVENTS: list[type[DomainEvent]] = [CatalogItemChanged, ServiceCategoryChanged]
+class CatalogSettingsChanged(DomainEvent):
+    """The tenant's catalog settings changed (WP-031)."""
 
-__all__ = ["EVENTS", "CatalogItemChanged", "ServiceCategoryChanged"]
+    event_type: ClassVar[str] = "service_catalog.settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "catalog_settings"
+
+    changed_fields: list[str]
+
+
+class StarterCatalogSeeded(DomainEvent):
+    """The starter catalog was added to the tenant (D-138): counts only."""
+
+    event_type: ClassVar[str] = "service_catalog.starter.seeded"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "catalog_settings"
+
+    categories: int
+    items: int
+
+
+EVENTS: list[type[DomainEvent]] = [
+    CatalogItemChanged,
+    ServiceCategoryChanged,
+    CatalogSettingsChanged,
+    StarterCatalogSeeded,
+]
+
+__all__ = [
+    "EVENTS",
+    "CatalogItemChanged",
+    "CatalogSettingsChanged",
+    "ServiceCategoryChanged",
+    "StarterCatalogSeeded",
+]

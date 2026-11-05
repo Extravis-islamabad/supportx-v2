@@ -36,6 +36,12 @@ const DESTRUCTIVE = new Set<string>(['cancel']);
 // Which available moves earn one of the four buttons (D-124); the rest stay in the menu.
 const RANK: Record<string, number> = {
   resolve: 1,
+  // Problems (WP-044a): the next step of the life cycle earns a button (REQ-PRB-025 AC1).
+  investigate: 2,
+  analyse: 2,
+  confirm_root_cause: 2,
+  await_fix: 2,
+  start_review: 2,
   start_work: 3,
   reopen: 4,
   resume: 5,
@@ -63,13 +69,16 @@ interface Pending {
 export function useStatusActions(
   item: Incident,
   catalogue: IncidentCatalogue | undefined,
+  /** Another type's action mutation (problems, WP-044a); the incident one by default. */
+  override?: ReturnType<typeof useIncidentAction>,
 ): { actions: RecordAction[]; dialogs: ReactNode } {
   const t = useLabel();
   const reasonText = useActionReason();
   const previousResolution = usePreviousResolution(item);
   const { message, modal } = App.useApp();
   const { locale } = useAppearance();
-  const act = useIncidentAction(item.id);
+  const incidentAct = useIncidentAction(item.id);
+  const act = override ?? incidentAct;
   const [asking, setAsking] = useState<IncidentActionState | null>(null);
   // The action waiting for "which of your groups" (start work on an unassigned incident).
   const [choosing, setChoosing] = useState<Pending | null>(null);

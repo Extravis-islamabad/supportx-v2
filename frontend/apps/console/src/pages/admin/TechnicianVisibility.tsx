@@ -140,8 +140,8 @@ export function TechnicianVisibilityQuestion() {
         message={t('access_settings.question')}
         description={t('access_settings.banner')}
         action={
+          // Default: the roles page's "New role" is its one primary action (visual QA).
           <Button
-            type="primary"
             onClick={() => {
               setOpened(settings.data);
               setOpen(true);

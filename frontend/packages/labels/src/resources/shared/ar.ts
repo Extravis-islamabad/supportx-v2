@@ -289,6 +289,7 @@ export const ar: LabelResource = {
   'nav.admin_api_keys': 'مفاتيح API',
   'nav.admin_automation': 'الأتمتة',
   'nav.admin_branding': 'العلامة التجارية',
+  'nav.admin_catalog': 'كتالوج الخدمات',
   'nav.admin_files': 'الملفات',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
@@ -300,6 +301,7 @@ export const ar: LabelResource = {
   'nav.admin_mail': 'البريد',
   'nav.admin_notifications': 'الإشعارات',
   'nav.admin_organization': 'المؤسسة',
+  'nav.admin_portal': 'البوابة',
   'nav.admin_requests': 'طلبات الخدمة',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'الأدوار',
@@ -599,6 +601,9 @@ export const ar: LabelResource = {
   'setup.page.automation.keywords': 'أتمتة، قواعد، مشغلات، سير العمل، إسناد تلقائي، إجراءات',
   'setup.page.branding.description': 'الشعار والألوان ومظهر البوابة.',
   'setup.page.branding.keywords': 'هوية، شعار، ألوان، سمة، بوابة، مظهر',
+  'setup.page.catalog.description':
+    'الفئات والعناصر التي يطلبها الناس: نماذجها واعتمادها ومجموعتها واتفاقية الخدمة ومهام تنفيذها، بكل اللغات.',
+  'setup.page.catalog.keywords': 'كتالوج، عناصر، نماذج، طلبات الخدمة',
   'setup.page.files.description': 'حدود الرفع وأنواع الملفات المسموح بها وفحص البرامج الضارة.',
   'setup.page.files.keywords': 'ملفات، مرفقات، رفع، حجم، تخزين، برامج ضارة، فيروسات، فحص',
   'setup.page.incidents.description': 'المستويات والفئات والقوالب ورموز الإغلاق والأسباب للحوادث.',
@@ -620,6 +625,10 @@ export const ar: LabelResource = {
   'setup.page.notifications.keywords': 'إشعارات، تنبيهات، رسائل، قوالب، قوالب البريد، المستلمون',
   'setup.page.organization.description': 'المواقع والأقسام ومجموعات الدعم ومن ينتمي إليها.',
   'setup.page.organization.keywords': 'مواقع، أقسام، مجموعات، فرق، أماكن، مكاتب، أعضاء',
+  'setup.page.portal.description':
+    'كل ما تفعله بوابة الخدمة الذاتية لمقدمي الطلبات، في صفحة واحدة.',
+  'setup.page.portal.keywords':
+    'البوابة، الخدمة الذاتية، البحث، مصادر البحث، إخفاء نموذج الحوادث، الموعد، تاريخ التسليم، نيابة عن، الموافقات، تسجيل الدخول، تعديل الملف، التذكيرات، التكلفة، الضيوف، التسجيل الذاتي',
   'setup.page.requests.description':
     'طلبات الخدمة: نيابة عمن يمكن لمقدمي الطلبات تقديمها، وطرق عرض الطلبات.',
   'setup.page.requests.keywords': 'طلبات الخدمة، الكتالوج، نيابة عن، تقديم، طلبات، طرق العرض',

@@ -75,7 +75,27 @@ export const routes: RouteObject[] = [
             .ServiceRequestPage,
         }),
       },
-      { path: 'catalog', handle: { titleKey: 'nav.catalog' }, lazy: comingSoon },
+      {
+        // WP-031: the catalog for requesters, and one item's request form.
+        path: 'catalog',
+        handle: { titleKey: 'nav.catalog' },
+        lazy: async () => ({
+          Component: (await import('./pages/catalog/CatalogPage')).CatalogPage,
+        }),
+      },
+      {
+        path: 'catalog/items/:id',
+        handle: { titleKey: 'nav.catalog' },
+        lazy: async () => ({
+          Component: (await import('./pages/catalog/CatalogItemPage')).CatalogItemPage,
+        }),
+      },
+      {
+        // WP-032 D2: one search box for everything (REQ-PRT-003).
+        path: 'search',
+        handle: { titleKey: 'portal.search.title' },
+        lazy: async () => ({ Component: (await import('./pages/SearchPage')).SearchPage }),
+      },
       { path: '*', handle: { titleKey: 'shell.not_found' }, lazy: comingSoon },
     ],
   },

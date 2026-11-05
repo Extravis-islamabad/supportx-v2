@@ -17,6 +17,7 @@ import interViet400 from '@fontsource/inter/files/inter-vietnamese-400-normal.wo
 import nastaliq400 from '@fontsource/noto-nastaliq-urdu/files/noto-nastaliq-urdu-arabic-400-normal.woff2';
 import nastaliq700 from '@fontsource/noto-nastaliq-urdu/files/noto-nastaliq-urdu-arabic-700-normal.woff2';
 import naskh400 from '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff2';
+import naskh500 from '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-500-normal.woff2';
 import naskh600 from '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-600-normal.woff2';
 import naskh700 from '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-700-normal.woff2';
 
@@ -35,8 +36,7 @@ const face = (family: string, weight: number, url: string, range: string) =>
   `@font-face{font-family:'${family}';font-style:normal;font-weight:${String(weight)};` +
   `font-display:swap;src:url(${url}) format('woff2');unicode-range:${range};}`;
 
-/** Every @font-face rule, in one stylesheet (the appearance provider adds it once). */
-export const FONT_FACES = [
+const LATIN_AND_ARABIC = [
   face('Inter', 400, interLatin400, LATIN_RANGE),
   face('Inter', 500, interLatin500, LATIN_RANGE),
   face('Inter', 600, interLatin600, LATIN_RANGE),
@@ -47,11 +47,35 @@ export const FONT_FACES = [
   face('Inter', 700, interExt700, LATIN_EXT_RANGE),
   face('Inter', 400, interViet400, VIETNAMESE_RANGE),
   face('Noto Sans Arabic', 400, naskh400, ARABIC_RANGE),
+  face('Noto Sans Arabic', 500, naskh500, ARABIC_RANGE), // as Inter: every weight we use
   face('Noto Sans Arabic', 600, naskh600, ARABIC_RANGE),
   face('Noto Sans Arabic', 700, naskh700, ARABIC_RANGE),
+].join('');
+const NASTALIQ = [
   face('Noto Nastaliq Urdu', 400, nastaliq400, ARABIC_RANGE),
   face('Noto Nastaliq Urdu', 700, nastaliq700, ARABIC_RANGE),
 ].join('');
+
+/**
+ * Every @font-face rule, in one stylesheet (the appearance provider adds it once). Nastaliq is
+ * declared only for people who chose it, so nobody else downloads it.
+ */
+export function fontFaces(urduScript: UrduScript): string {
+  return urduScript === 'nastaliq' ? LATIN_AND_ARABIC + NASTALIQ : LATIN_AND_ARABIC;
+}
+
+/** Arabic-script letters (Arabic, Urdu, Persian), their presentation forms included. */
+const ARABIC_SCRIPT = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+/**
+ * The line height for clamped or cut-off text (two-line titles, ellipsis): Arabic-script text
+ * needs room for the dots below its letters, or `overflow: hidden` cuts them off (QA
+ * 2026-11-04: "في" read as "فى"). Naskh 1.7, Nastaliq 1.9, else `base`.
+ */
+export function clampLineHeight(text: string, base: number, urduScript: UrduScript): number {
+  if (!ARABIC_SCRIPT.test(text)) return base;
+  return Math.max(base, urduScript === 'nastaliq' ? 1.9 : 1.7);
+}
 
 /** How Urdu is set (D-137): Naskh by default, Nastaliq for those who choose it. */
 export type UrduScript = 'naskh' | 'nastaliq';

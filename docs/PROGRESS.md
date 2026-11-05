@@ -278,9 +278,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   images; offline bundle (images, charts, k3s, checksums, signature) and `supportx-install`
   (verify / init / up / upgrade / check / backup-secrets / support-bundle); install test with
   egress blocked. **Requires the Nuitka build (WP-013 / ADR-009) before any customer bundle.**
-- **Local AI (REQ-AI-003, WP-037):** the installer switches on the local model for every
-  deployment (`ai.local.enabled=true`; the chart default is off). It ships the pinned weight
-  files in the bundle and fills the model volumes (`<release>-llm-cpu-models`,
+- **Local AI (REQ-AI-003, WP-037; D-139):** the installer **asks** the customer whether to install
+  the local AI model, showing the recommended choice (yes). Only when they choose it does it switch
+  on `ai.local.enabled` (the chart default stays off), and it records the decision. When
+  installed, it ships the pinned weight files in the bundle and fills the model volumes
+  (`<release>-llm-cpu-models`,
   `-llm-embed-models`, and `-llm-gpu-models` with a GPU node) at
   `/models/<revision>/<file>`. Air-gapped installs set `ai.mirror: ""`. The servers check every
   file against the chart's pinned sha256 before they start. The images are
@@ -329,13 +331,13 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 
 Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 1 starts.
 
-### [ ] WP-M1..M7 — Mobile app for technicians, admins and requesters (D-138, D-139, D-065)
+### [ ] WP-M1..M7 — Mobile app for technicians, admins and requesters (D-145, D-146, D-065)
 Plan: docs/architecture/mobile.md. Expo SDK 58 / React Native 0.88.1 / React 19.3 (mobile only),
-local builds only. One role-based app built from the prototype (D-139). One session each.
+local builds only. One role-based app built from the prototype (D-146). One session each.
 - [x] WP-M1 Scaffold (2026-11-04): Expo app in `mobile/`, Expo Router, Metro links to shared
   packages (one React), tokens, labels en/ar/ur + RTL, lint/typecheck/Jest, server-address
   screen, `make check` and a CI job. Ran on an iPhone in Expo Go against the local API.
-- [x] WP-M2 Sign-in (built 2026-11-05; not yet tried on a device): ADR-039. BFF hand-off code
+- [x] WP-M2 Sign-in (built 2026-11-05; not yet tried on a device): ADR-042. BFF hand-off code
   bound to an S256 challenge, `POST /auth/mobile/exchange`, session in `X-SupportX-Session`,
   requesters to portal sessions. App: sign-in, Home by side, Me (organisation switch, language,
   server status, sign-out). A device test needs the development build (Expo Go can't receive
@@ -778,7 +780,229 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
+### [ ] WP-032 — Portal: home, catalog, approvals inbox and preview (lane A, 2026-11-05; 3 sessions; #220)
+- **Plan:** ~/Desktop/wp-032-plan.md (coordinator approved 2026-11-05; 3 sessions). Numbers:
+  0096, 0097, D-143.
+- **Decided (D-143):**
+  - the portal's own settings live in work_items (one row per tenant);
+  - most requested counts the last 90 days;
+  - bulk approve takes at most 20, approve only;
+  - the decided list covers 30 days.
+  - Lane C asked me to build announcement dismissal and follow in their module (reviewed,
+    approved).
+  - Preview as a person (S3) waits for Haider's OK on the conditions the coordinator listed
+    (dedicated permission and MFA, read-only on the server, a banner, a time limit, audited,
+    nothing notified).
+- [x] Session 1 (#220):
+  - The home (REQ-PRT-002): the greeting with the search box, three starting points, a live
+    summary (`GET /portal/summary`: my open requests by status, approvals waiting, open tasks),
+    featured then most requested items (`GET /catalog/items/popular`, through a new
+    request-count port), and the announcements.
+  - One search box (REQ-PRT-003): items, articles, announcements and my requests, each from its
+    own search, in groups. With nothing found, a report with the words as its subject.
+  - Cards say "needs approval" (unless hidden from requesters).
+  - After submitting (REQ-PRT-006): whose approval it waits for, when to expect it (shown due
+    times only), and links.
+- [x] Session 2 (#220, 0096, 0097):
+  - Bulk approve (REQ-PRT-008): ≤ 20, one comment, a confirmation that names each request, each
+    one a decision of its own (audited). There is no bulk reject. The decided list covers 30
+    days, and delegated approvals are marked.
+  - Portal settings (REQ-PRT-031): `work_item_portal_settings` (RLS; search sources and order,
+    profile editing, reminders; audited with old and new values; live). Admin › Portal shows
+    every portal setting in groups, each saved where it lives, with the later ones marked.
+  - Attachments on the catalog item form (REQ-PRT-005).
+  - Announcements (REQ-PRT-009):
+    - dismissed on every device (stored, per person);
+    - follow and unfollow;
+    - followers are told of updates and the end through the one notification engine, with the
+      audience checked at send time.
+  - Not yet (recorded):
+    - the item cards' expected delivery and price wait for item cost and SLA estimates
+      (WP-047);
+    - related articles and the help card on the item page wait for WP-034's portal knowledge
+      (lane C), which also brings the portal's article page (search shows titles until then);
+    - expiry has no event yet, so followers hear of unpublish and archive only (lane C's
+      WP-062b);
+    - the acknowledgement e-mail's "what happens next" text needs lane B's template (REQ-PRT-006
+      AC3);
+    - REQ-PRT-031's preview links come with S3.
+- **Shipping (2026-11-05):** S1-S2 merge through the queue as #220 (stack smoke green, run
+  41944547602; 0096 now follows 0092). The coordinator approved this exception to one PR per
+  WP because S3 is blocked on a decision.
+- [ ] S3 preview as a person (REQ-PRT-032): **open, waiting for Haider's OK** of the conditions.
+  It ships as its own PR once approved; lane B builds the read-only preview session.
+
+### [ ] WP-044a — Problems: record, creation, templates, statuses, assignment (lane A, 2026-11-05; 5 sessions; #211)
+- **Plan:** ~/Desktop/wp-044-plan.md (all of WP-044, 13 sessions; coordinator approved
+  2026-11-04). Numbers: 0076, 0077, 0089 (044a), 0078 (044b), 0079 (044c), ADR-040
+  (investigators widen record access).
+- **Decided (D-140, Haider 2026-11-05):**
+  - Q1: closing offers "Resolve linked incidents", ticked by default, each through its own
+    service;
+  - Q2: one causing problem per incident (built, S3);
+  - Q3: target dates plus a tenant switch for full SLAs;
+  - Q4: review required for major and P1, P2 optional;
+  - Q5: an upgrade prompt in Essentials;
+  - Q6: AI grouping wherever the local model runs, pg_trgm without AI;
+  - Q7: the root cause is for problem roles only (API and search), admins can widen it;
+  - Q8: the React Native app is V1, built by Extravis's mobile team; every 044 feature goes
+    through the public API.
+  - Q3's switch goes in S5; Q4 in 044b S4; Q1 in 044b S5; Q7 in 044b S1 and 044c S2; Q5 and
+    Q6 in 044c S3; Q8 is checked in 044c S3.
+- [x] Session 1 (#211):
+  - Problems as a registered work-item type: PRB counter, `/problems`, licence feature
+    `problem`, custom fields for problems.
+  - The Appendix A life cycle with the actions investigate, confirm_root_cause, await_fix and
+    hold. On hold resumes where it was put on hold (`status_before_pause`, the same way as
+    undo-cancel).
+  - Each type lists only its own life cycle's actions (fixed when an incident listed the
+    problem actions).
+  - `problems.*` moved from identity's reserved list into work_items (lane B agreed; lane B
+    reviews):
+    - technicians: view and create all, and work their groups' problems;
+    - delete stays with the admins.
+  - Migration 0077 maps saved roles: problems.manage(S) becomes create, edit, assign and close
+    (never delete).
+  - Tests: domain (life cycle), DB (API, permissions, RLS, the 0077 migration and a role still
+    editing group problems).
+- [x] Session 2 (#211, migration 0089):
+  - problems have their own priority matrix (the per-type seed copies the incident one);
+  - problem type (reactive / proactive) and root cause category, from admin-editable pick lists
+    seeded for problems (Appendix A);
+  - the outage window (the end not before the start);
+  - target dates on the SLA engine: resolution only, P1 5 to P4 40 business days, no first
+    response; pausing and escalation as for incidents;
+  - problem-only fields refused on other types; field history; labels en/ar/ur.
+- [x] Session 3 (#211, 0089 extended): creating problems.
+  - From an incident: prefilled (subject, description, impact, urgency, site, the same seeded
+    category; reported by the creator) and linked "caused by" on both records with history.
+  - From many incidents: the already-caused ones are listed first and moved only when
+    confirmed; the others are linked by an incidents bulk job (`link_problem`, ≤ 1,000).
+  - An incident has at most one problem (partial unique index); a second gives 409
+    `incident_has_problem` unless moved.
+  - Similar open problems while typing (search port, visible ones only).
+  - Copy with the fields, a title marked with the original's ID, retired values left empty and
+    named, and history naming the original.
+  - Record links show caused_by / causes and the other record's type, checked against that
+    type's own permissions.
+  - Not yet (recorded): copying attachments (REQ-PRB-011 AC3), and the analysis and solution
+    parts of a copy (their fields come in WP-044b); creating from changes, releases, CIs and
+    reviews (REQ-PRB-013) waits for those records.
+- [x] Session 4 (#211, 0089 extended): named life cycles and the major problem template.
+  - A type can seed more than one transition set on its statuses. A template chooses one, and a
+    record keeps the one it was created with (`lifecycle`).
+  - Problems get "guided_analysis" (REQ-PRB-025): gathering facts, why-analysis, cause
+    confirmed, fix planned, fix verified, in review, closed. There is no close before the
+    review.
+  - New tenants get the standard and major problem templates (REQ-PRB-017 AC1).
+  - Not yet (recorded):
+    - the analysis and solution sections, and "cause confirmed needs a root cause", come with
+      the WP-044b S1 fields;
+    - template tasks on entering a status (REQ-PRB-020 AC2), template groups (REQ-PRB-021) and
+      the designer's explanations (REQ-PRB-022) are console work for S5;
+    - copying and editing a life cycle (REQ-PRB-025 AC3) comes with the life cycle designer.
+- [x] Session 5 (#211, 0089 extended; ADR-040):
+  - Investigators (REQ-PRB-029): a follower row with reason `investigator` and access.
+    - They see the problem and add notes, work its tasks, and log their own time (lane B's
+      review: never others' worklogs).
+    - Fields, status, assignment and links stay closed to them.
+    - Named or removed by whoever may edit the problem; anyone may step down.
+    - Audited and in history. The record channel follows the access.
+  - Full SLAs on problems (D-140 Q3): `sla_settings.full_sla`, off by default. While it is off
+    only the target date counts, and response targets are refused on save.
+  - Console screens:
+    - the problems list (live), and creating a problem from an incident or from many (the
+      already-caused ones to move or leave), with similar problems while typing;
+    - the record, with the incidents' status bar, the guided steps, the incidents it causes,
+      investigators and copy;
+    - "Create problem" on incidents.
+  - Lane B's review of 0077: the downgrade refuses rather than lose a grant.
+  - Audit labels for every service_request.* and problem.* action.
+  - Stack smoke dispatched with the new e2e spec (problems.spec.ts).
+  - Not yet (recorded):
+    - an assign dialog and a technician picker on the problem page come with 044c S1's record
+      page (assignment works through the API and the list);
+    - the analysis, tasks, worklogs and conversation tabs come in 044b and 044c;
+    - template groups and designer hints (REQ-PRB-021, -022) go to 044c S1;
+    - creating from many incidents through the incident list's bulk bar goes to 044c S1 (the
+      URL form works now).
+- WP-044a is complete once #211's full-ci is green; it then leaves draft.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+
+### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
+- **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
+  (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
+  Migrations 0073 (schema) and 0074 (per-tenant data step: `enabled` → `status`, existing
+  tenants marked as seeded), so the PR runs full-ci.
+- [x] Session 1 (backend, #200):
+  - Category tree (4 levels, no loops; a disabled category hides its items from requesters;
+    delete only when empty, 409 with counts).
+  - Item life: draft → published → retired → published, with planned `publish_at` /
+    `retire_at` (schedule `service_catalog__lifecycle`, every minute, audited). An incomplete
+    item stays a draft at its publish time. Copy makes a draft; delete is soft and only without
+    requests (409 → retire).
+  - Publishing needs English, a category and a group; missing translations are listed for
+    managers.
+  - D6 question kinds with option words, help text, defaults and audiences (requester,
+    technician, approver; a requester never sees or sets the others), plus a subject template.
+  - D10 "report a problem" entries: a requester incident template, checked through work_items'
+    port.
+  - D12 search on the shared port: names, keywords, summaries and descriptions in en/ar/ur, with
+    Arabic/Urdu normalisation and typo tolerance; p95 ≤ 500 ms for 1,000 items, tested.
+  - D7 tenant setting `hide_default_incident_template`; a GET never writes.
+  - D13 starter catalog (D-138): 6 categories and 14 items in en/ar/ur, seeded as drafts on the
+    new `organization.tenant.provisioned` event, once per tenant. Also: the "choose a group and
+    publish" action, `make catalog-starter TENANT=<slug>`, and the showcase seed publishes them.
+  - The WP-030 API stays compatible (`enabled` kept: true publishes, false retires; no OpenAPI
+    breaks).
+  - Tests: domain 16, API 15 (RLS, tree, life, schedule, audiences, entries, search and its
+    budget, settings, starter, tooling, the outbox event).
+- [x] Session 2 (console admin and portal wiring, #200):
+  - Admin › Service catalog: the category tree (add, nest, move up/down, edit, disable, delete
+    only when empty), the items (search, status filter, order, featured, copy, delete with the
+    "retire instead" answer), the starter banner with "choose a group and publish" (D-138), and
+    the tenant setting "hide the general incident form" (D7).
+  - One item's page with tabs (Details, Form, Approval, SLA and assignment, Fulfilment,
+    Publishing), each saying in one line what it controls.
+    - Editors: questions of all 15 kinds with words per language, help, audiences and keys;
+      the plan; the approval stage. More stages show as Professional / later (D8).
+    - Behaviour: publish, retire, publish again and planned times; missing translations named
+      in words; a save sends only what changed (If-Match, the conflict dialog on 409); a
+      preview as a requester sees it, read-only.
+  - The portal catalog:
+    - browse by category, featured items, search in every language;
+    - an item's page shows its description before the form (the password item's
+      self-service first), then only the requester's questions;
+    - "report a problem" entries open the incident form with their template;
+    - live through `service_catalog.changed`, also in the console (it was not listened to
+      before).
+  - One shared question renderer (`packages/ui/catalog`) for the console raise page, the portal
+    and the preview, and answers shown in words on both request pages (rule d: no codes or
+    IDs). The console raise page lists published service items only.
+  - The service requests list in the UI pass 2 style (QA 2026-11-04 #6): view tiles, labelled
+    pickers, channel icon and status tag, a loading state and a real empty state.
+  - Fix: the portal report form added each file twice.
+  - Tests: console admin 5, portal catalog 3, a D7 DB test; e2e `catalog.spec.ts` ("build,
+    preview, publish, request", live in the portal).
+- **Not done in WP-031 (recorded for WP-047, V1 of service requests):**
+  - The subject template is stored and checked, but a new request doesn't fill its subject from
+    it yet. That needs work_items' create to accept an empty subject for an item that has a
+    template.
+  - Ordering is by keyboard move buttons only (no drag).
+  - Missing translations use en/ar/ur; switch to `organization.offered_languages` (new on main
+    from WP-042).
+  - Person and attachment questions in the portal show a hint for now (no people picker or
+    upload in the portal form yet).
+- **Notes for later:**
+  - Popularity ranking ("most requested") is WP-032.
+  - Drop `catalog_items.enabled` in a contract migration once no client sends it.
+  - Tenant provisioning, when it is built (lane B, identity), emits
+    `organization.tenant.provisioned` once the tenant is ready.
+  - `docs/guides/urdu-review.md` gets lane C's section from #183 (union).
+  - Arabic and Urdu catalog texts wait for native-speaker review.
+
+### [x] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182, merged 2026-11-04)
 - **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
 - **Decided (product owner, 2026-11-04):** D3 in **D-133** (catalog basics in Essentials,
   `service_request`; the advanced catalog in Professional, `catalog`); D7 in **D-132** (e-mail
@@ -887,6 +1111,16 @@ it with no reload (rule c). Not built yet.
   and a `test_conversation_api` case locally (CI and clean worktrees pass). Inject the Settings
   where delivery is decided (the API passes `app.state.settings`, the worker its own); lane B
   takes any change needed in `app/shared/mail`.
+- **Also for that polish PR (from lane A's #197 review, 2026-11-04; lane C left them to lane A):**
+  in `IncidentConversation.tsx` / `PersonalCounters.tsx`:
+  - join event lines with the list formatter or a label, not a Latin "; " (Arabic and Urdu
+    use "؛");
+  - sort timeline rows with `Date.parse`, not `localeCompare`;
+  - note that event lines cover only the history pages loaded so far;
+  - check the counter tiles' hard-coded tints in dark and high contrast (tokens per mode, or
+    one dark view measured).
+  - Also drop the e2e PORTAL_URL host/port workaround in service-requests.spec once #202
+    (portal links on the portal's origin) has landed.
 
 ### [x] WP-028 — Portal: shell, sign-in and requester incidents (lane A, 2026-11-03/04; 2 sessions; #178)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
@@ -919,6 +1153,105 @@ it with no reload (rule c). Not built yet.
   (REQ-INC-147 AC4) to WP-032; knowledge suggestions while typing (REQ-INC-028) to WP-034, the
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
+
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
+
+Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
+with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
+WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
+
+- [x] **S1 — the stage engine and the release record.**
+  - ADR-041, reviewed by lane A for changes' reuse.
+  - Migrations: 0090 (the five stage tables), 0091 (saved `releases.manage` grants), 0092
+    (release details and lists).
+  - Releases live at `/api/v1/releases`, with the rail (`/stages`), listed moves (`/moves`) and
+    the release's own fields (`/details`).
+  - Appendix A seeds.
+  - Labels in en, ar and ur.
+- [x] **S2 — templates, stage rules, type defaults, copy (#219, migration 0093).**
+  - Templates choose the path and carry rules per stage (shown, required, read-only), checked
+    on save.
+  - Standard and emergency templates are seeded.
+  - Read-only per stage is enforced through the API.
+  - A release type can set its default template and risk.
+  - Copy (REQ-REL-009).
+- [x] **S3 — required to leave a stage, stage access (#219, migration 0094).**
+  - Required-to-leave checks run in the engine on every path; a move can carry the values.
+  - Stage access is an AccessRule in identity_access's policy layer (lane B reviews), applied
+    after the scope check. Visibility is never narrowed.
+  - Offered moves show their reasons and missing fields; a refused move returns the full list.
+  - A group change takes effect without signing in again.
+  - Not done: bulk stage moves (REQ-REL-018 AC2) go to WP-058b with the release lists. Record
+    roles in stage access come with S4.
+- [x] **S4 — roles, plan, schedules, outcomes, downtimes (#219, migration 0095; REQ-REL-023..028).**
+  - Roles are held by people or groups, with eligibility through the policy layer; holders
+    are part of the own scope. Lane B reviewed the policy part; lane A checked the tables for
+    changes.
+  - Plan sections have their own If-Match.
+  - The engine stamps actual stage dates; corrections need a reason.
+  - Stage outcomes: a failed outcome needs its issues.
+  - Downtime windows name the affected services and CIs.
+  - Not done:
+    - Notifying a new role holder (REQ-REL-023 AC1) and the "behind schedule" list column
+      (REQ-REL-026 AC3) come with WP-058b's notifications and lists.
+    - Copying downtime from a linked change (REQ-REL-027 AC1) needs changes (058b).
+    - Listing a person's open roles before a permission is removed (REQ-REL-024 AC2) is
+      **lane B's**: identity_access adds `register_duties(lookup)` (as register_owner_access).
+      The role editor's "remove permission" and "remove role from user" previews show the
+      affected users' open duties, labels only. work_items then registers one lookup: open
+      releases where the user holds a role whose eligibility needs that permission. Queued by
+      lane B after WP-049a s1; they send the port signature first.
+    - REQ-REL-029 (environments) is LATER.
+- [x] **S5 — stage approvals, review, sub-releases (#219, migration 0098; REQ-REL-030, -031, -037).**
+  - Approvals at each stage run on the WP-030 engine (lane A reviewed): up to five levels of
+    people, groups and record roles, each decided by any, all or majority (an exact majority
+    split rejects). The final decision sets the outcome through system_stage_move.
+  - Named approvers decide by being named; `releases.approve` (admin roles only) is for
+    approvals one is not named on. A role nobody holds, or a requester under segregation of
+    duties, goes to the approval administrators with the reason shown.
+  - Review sections and the review result.
+  - Sub-releases: one parent, no loops, and no deployment before the sub-releases pass
+    testing.
+  - Not done:
+    - REQ-REL-034 (incident, request and problem links) waits for lane A's cross-type links
+      (#211). REQ-REL-033 (changes) and REQ-REL-035 (CIs and services) go to WP-058b and
+      WP-063.
+    - REQ-REL-032 reminders, backups and clarification, the review-date reminder, and
+      follow-ups as problems or changes go to WP-058b's notifications.
+    - The override of the sub-release check is recorded for WP-058b.
+- [x] **S6 — console screens, e2e and RTL (#219).**
+  - Releases list with the emergency flag, live.
+  - New release from its template.
+  - The record: the rail, moves with their dialog, and tabs for details, roles, plan,
+    schedule, downtime, approvals and sub-releases, live.
+  - Console tests, and an e2e spec with axe in English and Arabic.
+  - Admin guide: docs/guides/releases.md.
+  - Not done:
+    - The release screens join the Visual matrix after #219 merges (they would collide with
+      the matrix selector fix now).
+    - Admin screens for stage access, stage approvals, role definitions and template stage
+      rules come with the admin pass (their APIs are in and tested).
+- **Not done in S1 (recorded for later sessions):**
+  - REQ-REL-003: a type's default template and default risk come with templates in S2.
+  - REQ-REL-005 AC2: the "unique versions per service" tenant setting comes with services in
+    S5 (REQ-REL-035).
+  - REQ-REL-006: custom fields placed per stage come in S2. The `release` entity exists.
+  - No console screens yet (S6). The API is complete and public (mobile-ready, the
+    coordinator's 2026-11-05 note).
+- **Not done in S2:**
+  - REQ-REL-010 (import releases) moves to **WP-062b** (data administration and import, file 11
+    §11; the coordinator's decision, 2026-11-05).
+  - REQ-REL-008: from an incident or problem once lane A's link kinds are on main; from a change
+    in WP-058b.
+  - Required-to-leave-stage is S3. Tasks and checklists per stage are S4.
+
+### Recorded for WP-062b (lane C: announcements and data administration)
+
+- **Announcement expiry for followers:** lane A's #220 (WP-032 D7) notifies followers when an
+  announcement is updated or taken down. A window that simply runs out raises no event, so
+  followers are not told; it needs a timer (Temporal or a sweep) to raise "ended" at
+  `publish_until`.
+- **Release import (REQ-REL-010)**, from WP-058a S2.
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).

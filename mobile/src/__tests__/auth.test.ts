@@ -1,6 +1,6 @@
 import { APP_RETURN, base64Url, loginUrl, readReturn } from '../auth';
 
-describe('mobile sign-in helpers (ADR-039)', () => {
+describe('mobile sign-in helpers (ADR-042)', () => {
   it('writes base64url without padding', () => {
     expect(base64Url('ab+c/d==')).toBe('ab-c_d');
     expect(base64Url('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw+cM=')).toBe(

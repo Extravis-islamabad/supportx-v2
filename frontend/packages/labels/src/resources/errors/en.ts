@@ -63,6 +63,10 @@ export const en = {
   'errors.cannot_deactivate_self': 'You cannot deactivate yourself.',
   'errors.cannot_publish': 'This announcement cannot be published yet.',
   'errors.cannot_stop_own_sign_in': 'You cannot stop your own sign-in.',
+  'errors.catalog_item_in_use':
+    'This item has requests, so it cannot be deleted. Retire it instead.',
+  'errors.catalog_item_incomplete':
+    'The item was not complete at its planned publish time, so it stayed a draft.',
   'errors.catalog_item_not_found': 'This catalog item does not exist or is not open to you.',
   'errors.category_not_found': 'This category does not exist.',
   'errors.certificate_invalid':
@@ -125,6 +129,7 @@ export const en = {
   'errors.domain_wrong_answer':
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
+  'errors.downtime_not_found': 'This downtime window does not exist.',
   'errors.entitlement_required': 'Your plan does not include this feature.',
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
   'errors.entitlements_unavailable':
@@ -143,6 +148,8 @@ export const en = {
   'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
+  'errors.field.before_publish': 'Retiring must come after publishing.',
+  'errors.field.before_start': 'The end cannot be before the start.',
   'errors.field.below_minimum': 'Minimum is {{min}}.',
   'errors.field.brand_image_svg':
     'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
@@ -158,7 +165,10 @@ export const en = {
   'errors.field.cannot_link_itself': 'A record cannot be linked to itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
+  'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
   'errors.field.category_disabled': 'This category is no longer in use.',
+  'errors.field.category_loop':
+    'A category cannot sit inside itself or one of its own subcategories.',
   'errors.field.category_not_found': 'This category does not exist.',
   'errors.field.certificate_key_mismatch': 'The private key does not belong to this certificate.',
   'errors.field.certificate_not_valid_now': 'The certificate has expired or is not valid yet.',
@@ -227,10 +237,14 @@ export const en = {
     'A calendar is only chosen when the source is a fixed calendar.',
   'errors.field.flow_not_available': 'This kind of record has no created-vs-resolved report.',
   'errors.field.flow_without_groupings': 'A created-vs-resolved report has no groupings.',
+  'errors.field.full_sla_off':
+    'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
   'errors.field.group_not_found': 'This group does not exist.',
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
   'errors.field.half_day_single_date': 'A morning or afternoon off is one day only.',
+  'errors.field.hidden_cannot_be_required':
+    'A hidden field cannot be required: nobody could fill it in.',
   'errors.field.hidden_required_needs_default':
     'A hidden required field needs a starting value, or nobody could fill it in.',
   'errors.field.holiday_list_not_found': 'Choose holiday lists from the list.',
@@ -286,14 +300,18 @@ export const en = {
   'errors.field.mfa_mode_invalid': 'Choose off, optional or required.',
   'errors.field.month_out_of_range': 'Choose a month from the list.',
   'errors.field.move_articles_first': 'This topic still holds articles. Choose where they go.',
+  'errors.field.must_be_future': 'Choose a time in the future.',
   'errors.field.my_groups_in_records':
     'A list cannot use "my groups". Use a chart, or choose groups.',
   'errors.field.name_needs_letters': 'Use at least one letter or digit in the name.',
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
+  'errors.field.not_a_field': 'This field does not exist for this type.',
+  'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
+  'errors.field.not_eligible': 'This person or group may not hold this role.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
@@ -326,6 +344,7 @@ export const en = {
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',
+  'errors.field.read_only_in_stage': 'This field cannot be changed in the current stage.',
   'errors.field.reason_required': 'Give a reason.',
   'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
   'errors.field.recipients_required': 'Choose at least one person or group.',
@@ -340,8 +359,10 @@ export const en = {
   'errors.field.requester_only': "Only the requester's confirmation sets this code.",
   'errors.field.required': 'This field is required.',
   'errors.field.required_to_close': 'Needed before closing.',
+  'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
+  'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
@@ -401,8 +422,10 @@ export const en = {
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.too_many_actions': 'A rule can have at most {{max}} actions.',
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
+  'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
   'errors.field.too_many_items': 'There are too many entries.',
+  'errors.field.too_many_keywords': 'Use at most 20 keywords per language.',
   'errors.field.too_many_levels': 'At most {{max}} escalation levels per target.',
   'errors.field.too_many_options': 'A question can have at most 50 choices.',
   'errors.field.too_many_questions': 'A form can have at most 30 questions.',
@@ -425,8 +448,10 @@ export const en = {
   'errors.field.unknown_language': 'Only English, Arabic and Urdu names are supported.',
   'errors.field.unknown_measure': 'This measure is not available for these records.',
   'errors.field.unknown_operator': 'This comparison is not recognised.',
+  'errors.field.unknown_option': "This choice is not one of the question's options.",
   'errors.field.unknown_parameter': 'This list option is not recognised.',
   'errors.field.unknown_permission': 'This permission does not exist.',
+  'errors.field.unknown_placeholder': "Use only the form's question keys, or {person}, in braces.",
   'errors.field.unknown_priority': 'Choose a priority from the list.',
   'errors.field.unknown_question': 'This form has no such question.',
   'errors.field.unknown_recipient':
@@ -434,6 +459,7 @@ export const en = {
   'errors.field.unknown_record_type': 'Choose what the rule applies to.',
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
   'errors.field.unknown_sort_field': 'The list cannot be sorted by this field.',
+  'errors.field.unknown_stage': 'This type has no such stage.',
   'errors.field.unknown_time_zone': 'Choose a time zone from the list.',
   'errors.field.unknown_value': 'This value does not exist (any more).',
   'errors.field.url_not_valid': 'Enter a web address starting with https:// or http://.',
@@ -452,6 +478,7 @@ export const en = {
   'errors.field.wider_than_topic':
     "An article can only narrow its topic's audience, never widen it.",
   'errors.field.window_end_before_start': 'Must be after the start.',
+  'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
@@ -483,6 +510,8 @@ export const en = {
     'Your organisation is not set up for sign-in yet. Ask your administrator.',
   'errors.identity_provider_unavailable':
     'Sign-in is temporarily unavailable. Please try again shortly.',
+  'errors.incident_has_problem':
+    'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
     "The article's images are too large to insert together: at most {{limit_mb}} MB.",
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
@@ -501,6 +530,7 @@ export const en = {
   'errors.invalid_tenant_id': 'The organisation identifier is not valid.',
   'errors.invalid_transition':
     'This is not possible in the current status. Reload to see the latest.',
+  'errors.investigator_not_found': 'This person is not an investigator of this problem.',
   'errors.invitation_already_signed_in':
     'This person has signed in already, so there is nothing to invite them to.',
   'errors.invitation_needs_email': 'Add an email address to this person first.',
@@ -623,6 +653,7 @@ export const en = {
   'errors.pick_list_value_not_found': 'That value no longer exists.',
   'errors.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
+  'errors.plan_section_not_found': 'This plan section does not exist.',
   // WP-008: API conventions (concurrency, idempotency, filters, sorting, paging).
   'errors.precondition_required':
     'This change needs the version you are editing. Reload the item and try again.',
@@ -668,6 +699,9 @@ export const en = {
   'errors.saved_search_not_found': 'This saved search does not exist.',
   'errors.scale_value_not_found': 'That value does not exist.',
   'errors.server_busy': 'The mail server was busy.',
+  'errors.service_category_in_use':
+    'This category still holds items or categories. Move or delete them first.',
+  'errors.service_category_not_found': 'This category does not exist.',
   'errors.service_identity_managed':
     'This is a connector’s own identity. Change it from Admin › Integrations.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
@@ -695,6 +729,12 @@ export const en = {
     'Switch the set-up off before changing how it connects, so nobody is locked out.',
   'errors.sso_switched_off': 'Switch the set-up on, or change it, before testing it.',
   'errors.sso_test_not_found': 'This test has ended. Start a new one.',
+  'errors.stage_move_not_allowed':
+    'This move is not allowed from the current status. Reload to see the latest.',
+  'errors.stage_move_refused':
+    'Something must be done before this move. See the reasons on the record.',
+  'errors.stage_not_found': 'This stage does not exist.',
+  'errors.stage_status_system_only': 'Only an approval decision sets this status.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',
   'errors.storage_quota_exceeded':

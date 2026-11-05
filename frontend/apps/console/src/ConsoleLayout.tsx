@@ -8,6 +8,7 @@ import {
   loginUrl,
   queryKeys,
   readPending,
+  catalogKeys,
   serviceRequestKeys,
   useLogout,
   useSetFormDensity,
@@ -84,6 +85,12 @@ export function ConsoleLayout() {
     if (event.type === 'organization.structure_changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.access.all });
+      return;
+    }
+    // The service catalog changed (WP-030/031: an item, a category, the settings or the starter
+    // catalog): the admin screens, the raise page and the pickers refetch.
+    if (event.type === 'service_catalog.changed') {
+      void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
       return;
     }
     // Rules, routing, auto-assignment or someone's availability changed (WP-029).

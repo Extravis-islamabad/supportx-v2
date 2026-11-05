@@ -12,7 +12,7 @@ import {
   Upload,
 } from 'antd';
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import {
   uploadFile,
@@ -47,8 +47,12 @@ export function ReportPage() {
   const navigate = useNavigate();
   const templates = usePortalTemplates();
   const report = useReportIssue();
-  const [templateId, setTemplateId] = useState<string | undefined>(undefined);
-  const [subject, setSubject] = useState('');
+  // A catalog "report a problem" entry opens this form with its template (WP-031 plan D10).
+  const [params] = useSearchParams();
+  const [templateId, setTemplateId] = useState<string | undefined>(
+    params.get('template') ?? undefined,
+  );
+  const [subject, setSubject] = useState(params.get('subject') ?? ''); // from search (WP-032 D2)
   const [onBehalf, setOnBehalf] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const key = useMemo(() => crypto.randomUUID(), []);

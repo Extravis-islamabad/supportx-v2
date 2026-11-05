@@ -15,11 +15,26 @@ from enum import StrEnum
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
+    GUIDED_PROBLEM_TRANSITIONS,
+    PROBLEM_STATUSES,
+    PROBLEM_TRANSITIONS,
     SERVICE_REQUEST_STATUSES,
     SERVICE_REQUEST_TRANSITIONS,
     StatusDef,
     TransitionDef,
 )
+from app.modules.work_items.domain.releases import (
+    DETAIL_FIELDS,
+    DOWNTIME_KINDS,
+    OUTCOME_STAGES,
+    PLAN_SECTIONS,
+    RELEASE_MODEL,
+    RELEASE_REASONS,
+    RELEASE_ROLES,
+    RELEASE_TYPES,
+    STAGE_APPROVALS,
+)
+from app.modules.work_items.domain.stages import SetBy, StageModel
 from app.shared.labels import strip_isolates
 
 SUBJECT_MAX = 250
@@ -27,6 +42,9 @@ DESCRIPTION_MAX = 100_000  # sanitised HTML, characters
 TAG_MAX = 40
 TAGS_MAX = 20
 _TAG = re.compile(r"^[\w][\w .\-]{0,39}$", re.UNICODE)
+# Every type's own life cycle; a type may seed more, which a template chooses (WP-044a s4).
+STANDARD_LIFECYCLE = "standard"
+GUIDED_ANALYSIS = "guided_analysis"  # problems: the major problem template's (REQ-PRB-025)
 
 
 class WorkItemTypeCode(StrEnum):
@@ -73,6 +91,28 @@ class WorkItemType:
     statuses: Sequence[StatusDef] = DEFAULT_STATUSES
     transitions: Sequence[TransitionDef] = DEFAULT_TRANSITIONS
     fields: frozenset[str] = field(default_factory=frozenset)
+    # More transition sets on the same statuses, by code; the template chooses one.
+    other_lifecycles: Mapping[str, Sequence[TransitionDef]] = field(default_factory=dict)
+
+    @property
+    def lifecycles(self) -> Mapping[str, Sequence[TransitionDef]]:
+        """Every seeded transition set, the standard one first."""
+        return {STANDARD_LIFECYCLE: self.transitions, **self.other_lifecycles}
+
+    # A staged type (ADR-041): its stages, paths and listed status moves. None: no stages, and
+    # status changes run through the named actions of `transitions` (incidents, requests).
+    stages: StageModel | None = None
+    # Pick lists only this type has, seeded per tenant: list code → (value code, colour).
+    own_lists: Mapping[str, tuple[tuple[str, str | None], ...]] = field(default_factory=dict)
+    # Fields only this type has (an extension table): templates may name them in stage rules.
+    own_fields: frozenset[str] = frozenset()
+    # Engine parts a type opts into (WP-058a s4): named roles held per record, rich-text plan
+    # sections, and stages that record an outcome.
+    roles: tuple[str, ...] = ()
+    plan_sections: tuple[str, ...] = ()
+    outcome_stages: frozenset[str] = frozenset()
+    # Seeded stage approvals (stage -> settings; REQ-REL-031), copied per tenant on first use.
+    stage_approvals: Mapping[str, Mapping[str, object]] = field(default_factory=dict)
 
     @property
     def counter_key(self) -> str:
@@ -125,12 +165,63 @@ SERVICE_REQUEST = WorkItemType(
     fields=COMMON_FIELDS,
 )
 
+# WP-044a (REQ-PRB-001..003, -009, -023): its own PRB counter, the Appendix A life cycle and
+# permissions (`problems.*`, moved from identity's reserved list as requests.* was). Licensed
+# with `problem` (Professional). Its own fields (type, root cause category, outage window, the
+# known error ...) come with WP-044a s2 and WP-044b.
+PROBLEM = WorkItemType(
+    code=WorkItemTypeCode.PROBLEM,
+    path="problems",
+    default_prefix="PRB",
+    feature="problem",
+    permission_prefix="problems",
+    statuses=PROBLEM_STATUSES,
+    transitions=PROBLEM_TRANSITIONS,
+    fields=COMMON_FIELDS,
+    other_lifecycles={GUIDED_ANALYSIS: GUIDED_PROBLEM_TRANSITIONS},
+)
+
+
+def staged_statuses(model: StageModel) -> tuple[StatusDef, ...]:
+    """A staged type's statuses as the shared engine sees them (category, colour, system)."""
+    return tuple(
+        StatusDef(s.code, s.category, s.colour, system=s.set_by == SetBy.SYSTEM)
+        for s in model.statuses
+    )
+
+
+# WP-058a (REQ-REL-001..006): releases move through the stages of file 06 Appendix A; no named
+# actions (`transitions` empty), every move is a listed status transition (ADR-041 §4).
+RELEASE = WorkItemType(
+    code=WorkItemTypeCode.RELEASE,
+    path="releases",
+    default_prefix="REL",
+    feature="release",
+    permission_prefix="releases",
+    statuses=staged_statuses(RELEASE_MODEL),
+    transitions=(),
+    fields=COMMON_FIELDS,
+    stages=RELEASE_MODEL,
+    own_fields=frozenset(DETAIL_FIELDS),
+    roles=RELEASE_ROLES,
+    plan_sections=PLAN_SECTIONS,
+    outcome_stages=OUTCOME_STAGES,
+    stage_approvals=STAGE_APPROVALS,
+    own_lists={
+        "release_type": RELEASE_TYPES,
+        "release_reason": tuple((code, None) for code in RELEASE_REASONS),
+        "downtime_kind": tuple((code, None) for code in DOWNTIME_KINDS),
+    },
+)
+
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {
     INCIDENT.code: INCIDENT,
     SERVICE_REQUEST.code: SERVICE_REQUEST,
+    PROBLEM.code: PROBLEM,
+    RELEASE.code: RELEASE,
 }
 # Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
-PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST)
+PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, PROBLEM, RELEASE)
 
 
 # --- value rules shared by every type -------------------------------------------------------------
@@ -215,6 +306,8 @@ FIELD_PROBLEMS = frozenset(
         "group_required",
         "invalid_prefix",
         "due_in_past",  # a due date set by hand (REQ-SLA-028)
+        "before_start",  # WP-044a: a problem's outage ends before it begins
+        "not_a_technician",  # ADR-040: an investigator must work on problems
         "english_label_required",
         "unknown_language",
         "too_deep",
@@ -253,6 +346,15 @@ FIELD_PROBLEMS = frozenset(
         "no_default_allowed",
         # WP-020c-FIX (D-086)
         "requester_always_needed",
+        # WP-058a s2: stage rules on templates (ADR-041, REQ-REL-013)
+        "unknown_stage",
+        "hidden_cannot_be_required",
+        "read_only_in_stage",
+        "not_a_field",
+        "required_to_leave_stage",  # WP-058a s3 (REQ-REL-018)
+        "not_eligible",  # WP-058a s4: a role holder the role does not allow (REQ-REL-024)
+        "role_disabled",
+        "would_loop",  # WP-058a s5: a release made the parent of its own parent (REQ-REL-037)
     }
 )
 

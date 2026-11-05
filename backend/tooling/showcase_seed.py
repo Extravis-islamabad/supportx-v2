@@ -51,7 +51,12 @@ from app.main import create_app
 from app.modules.identity_access.domain.identity import Identity
 from app.modules.identity_access.service.users import provision_user
 from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
+from app.modules.service_catalog.service.starter import seed_empty_catalog
 from tooling.keycloak_theme import admin_token
+
+# Every module's tables on the shared metadata before ensure_tenant seeds the catalog: its items
+# point at work_items' templates (QA 2026-11-05: NoReferencedTableError in a bare process).
+discover_modules()
 
 SLUG = "showcase"
 TENANT_ID = uuid.UUID("01900000-0000-7000-8000-00000005ca5e")
@@ -393,6 +398,10 @@ async def ensure_tenant(migrator_url: str) -> list[str]:
         async with database.tenant_session(TenantContext(TENANT_ID)) as session:
             if await apply_subscription(session, PLAN, only_if_absent=True):
                 made.append("subscription")
+        # The starter catalog (D-138), only into an empty catalog; published in step 4.
+        async with database.tenant_session(TenantContext(TENANT_ID)) as session:
+            if (await seed_empty_catalog(session)).items:
+                made.append("starter_catalog")
     finally:
         await database.dispose()
     return made
@@ -855,6 +864,17 @@ async def act(
 DASHBOARD = "Showcase overview"
 
 
+async def ensure_catalog(api: Api, groups: Mapping[str, str]) -> int:
+    """The starter drafts get the service desk as their group and are published (D-138)."""
+    waiting = await api.call("GET", "/api/v1/catalog/starter")
+    if not waiting["drafts"]:
+        return 0
+    done = await api.call(
+        "POST", "/api/v1/catalog/starter/publish", json={"group_id": groups["Service desk"]}
+    )
+    return int(done["published"])
+
+
 async def ensure_dashboard(api: Api) -> bool:
     """A shared copy of the built-in Service desk dashboard, once."""
     found = await api.call("GET", "/api/v1/dashboards")
@@ -882,6 +902,7 @@ class Report:
     keycloak: list[str] = field(default_factory=list)
     incidents: int = 0
     dashboard: bool = False
+    catalog_published: int = 0
     backdated: int = 0
 
 
@@ -902,6 +923,7 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
             contexts[uid] = TenantContext(TENANT_ID, uid, roles=frozenset(person.roles))
         admin = Api(client, signed_in[ADMIN.email])
         sites, groups = await ensure_units(admin)
+        report.catalog_published = await ensure_catalog(admin, groups)
         people = await ensure_people(admin, sites, groups, signed_in)
         report.incidents = await ensure_incidents(admin, people, groups, signed_in)
         report.dashboard = await ensure_dashboard(admin)

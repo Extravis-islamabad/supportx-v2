@@ -15,7 +15,7 @@ type Problem =
   { kind: 'cancelled' } | { kind: 'unreachable' } | { kind: 'error'; code: string | undefined };
 
 /**
- * Sign-in through the organisation's own sign-in page (ADR-039): the system browser opens, and
+ * Sign-in through the organisation's own sign-in page (ADR-042): the system browser opens, and
  * the app gets its session back through a one-time code. No password is typed into the app.
  */
 export function SignInScreen({

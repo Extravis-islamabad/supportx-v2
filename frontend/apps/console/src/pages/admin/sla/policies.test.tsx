@@ -69,6 +69,7 @@ const SETTINGS_ROW: SlaSettings = {
   warning_percent: 75,
   priority_rule: 'recalculate',
   reopen_rule: 'resume',
+  full_sla: false,
   version: 3,
 };
 const ROUTES = {

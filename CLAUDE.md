@@ -132,7 +132,10 @@ MIT.
 `@fontsource/noto-nastaliq-urdu` (SIL OFL fonts, MIT packaging): bundled, subset woff2, never
 loaded from Google's servers.
 
-**Approved additions (D-138, mobile):** Expo SDK 58 (React Native 0.88.1, local builds only, no
+**Approved additions (D-134):** PostgreSQL's pg_trgm extension (trigram similarity; created by
+migration 0020).
+
+**Approved additions (D-145, mobile):** Expo SDK 58 (React Native 0.88.1, local builds only, no
 EAS cloud or Expo push relay) with React 19.3 in `mobile/` only; `expo-router`, `expo-dev-client`,
 `expo-web-browser`, `expo-linking`, `expo-secure-store`, `expo-localization`, `react-native-mmkv`,
 `@shopify/flash-list`, `react-native-reanimated`, `react-native-gesture-handler`,

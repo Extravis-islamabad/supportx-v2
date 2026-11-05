@@ -194,61 +194,70 @@ export function AnnouncementsPage() {
           data-testid="ann-sort"
         />
       </Flex>
-      <Table<AnnouncementListItem>
-        rowKey="id"
-        data-testid="ann-table"
-        loading={list.isPending && list.fetchStatus === 'fetching'}
-        dataSource={rows}
-        pagination={false}
-        locale={{ emptyText: <EmptyText>{t('announcements.empty')}</EmptyText> }}
-        onRow={(row) =>
-          trash
-            ? { 'data-testid': `ann-row-${row.display_id}` }
-            : {
-                onClick: () => void navigate(`/announcements/${row.id}`),
-                style: { cursor: 'pointer' },
-                'data-testid': `ann-row-${row.display_id}`,
-              }
-        }
-        columns={[
-          { key: 'id', title: t('announcements.col.id'), render: (_, row) => row.display_id },
-          { key: 'title', title: t('announcement.field.title'), render: (_, row) => row.title },
-          {
-            key: 'severity',
-            title: t('announcement.field.severity'),
-            render: (_, row) => <SeverityTag severity={row.severity} />,
-          },
-          {
-            key: 'status',
-            title: t('announcement.field.status'),
-            render: (_, row) => (
-              <Space size={4} wrap>
-                <StatusTag status={row.status} />
-                {row.status === 'published' && <VisibilityTag visibility={row.visibility} />}
-              </Space>
-            ),
-          },
-          {
-            key: 'audience',
-            title: t('announcement.field.audience'),
-            render: (_, row) => t(`announcement_audience.${row.audience}`),
-          },
-          {
-            key: 'updated',
-            title: t('announcements.col.updated'),
-            render: (_, row) => dateFormat.format(new Date(row.updated_at)),
-          },
-          ...(trash
-            ? [
-                {
-                  key: 'restore',
-                  title: '',
-                  render: (_: unknown, row: AnnouncementListItem) => <RestoreButton row={row} />,
-                },
-              ]
-            : []),
-        ]}
-      />
+      {/* On a phone the table is wider than the screen: it scrolls in a region named by the page,
+          so a keyboard can reach and scroll it (axe scrollable-region-focusable, visual QA). */}
+      <div
+        role="region"
+        aria-label={t('announcements.title')}
+        tabIndex={0}
+        style={{ overflowX: 'auto' }}
+      >
+        <Table<AnnouncementListItem>
+          rowKey="id"
+          data-testid="ann-table"
+          loading={list.isPending && list.fetchStatus === 'fetching'}
+          dataSource={rows}
+          pagination={false}
+          locale={{ emptyText: <EmptyText>{t('announcements.empty')}</EmptyText> }}
+          onRow={(row) =>
+            trash
+              ? { 'data-testid': `ann-row-${row.display_id}` }
+              : {
+                  onClick: () => void navigate(`/announcements/${row.id}`),
+                  style: { cursor: 'pointer' },
+                  'data-testid': `ann-row-${row.display_id}`,
+                }
+          }
+          columns={[
+            { key: 'id', title: t('announcements.col.id'), render: (_, row) => row.display_id },
+            { key: 'title', title: t('announcement.field.title'), render: (_, row) => row.title },
+            {
+              key: 'severity',
+              title: t('announcement.field.severity'),
+              render: (_, row) => <SeverityTag severity={row.severity} />,
+            },
+            {
+              key: 'status',
+              title: t('announcement.field.status'),
+              render: (_, row) => (
+                <Space size={4} wrap>
+                  <StatusTag status={row.status} />
+                  {row.status === 'published' && <VisibilityTag visibility={row.visibility} />}
+                </Space>
+              ),
+            },
+            {
+              key: 'audience',
+              title: t('announcement.field.audience'),
+              render: (_, row) => t(`announcement_audience.${row.audience}`),
+            },
+            {
+              key: 'updated',
+              title: t('announcements.col.updated'),
+              render: (_, row) => dateFormat.format(new Date(row.updated_at)),
+            },
+            ...(trash
+              ? [
+                  {
+                    key: 'restore',
+                    title: '',
+                    render: (_: unknown, row: AnnouncementListItem) => <RestoreButton row={row} />,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </div>
       {list.hasNextPage && (
         <Flex justify="center">
           <Button

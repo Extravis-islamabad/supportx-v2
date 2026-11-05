@@ -1,4 +1,4 @@
-"""Mobile sign-in rules (ADR-039): challenge format, verifier check, the app's return address."""
+"""Mobile sign-in rules (ADR-042): challenge format, verifier check, the app's return address."""
 
 import base64
 import hashlib

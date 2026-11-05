@@ -122,7 +122,7 @@ class LoginFailure(Exception):
         self.app = app
         self.problem = problem
         self.origin = origin  # a tenant's own address the login started on (WP-017), if any
-        # A mobile sign-in (ADR-039): the browser goes back to the app with the error code.
+        # A mobile sign-in (ADR-042): the browser goes back to the app with the error code.
         self.mobile_return = mobile_return
 
 
@@ -162,7 +162,7 @@ class LoginResult:
     """A completed login: the new session and where to send the browser.
 
     `mobile`: the browser goes back to the app with a one-time hand-off code instead of a
-    session cookie (ADR-039); the app exchanges the code for the session ID.
+    session cookie (ADR-042); the app exchanges the code for the session ID.
     """
 
     def __init__(
@@ -272,7 +272,7 @@ class AuthService:
         `reauthenticate` (a session of this browser timed out, REQ-SEC-029): Keycloak asks for
         the password again instead of reusing its own, longer session.
 
-        `mobile_challenge` (ADR-039): the mobile app's S256 challenge. The login ends with a
+        `mobile_challenge` (ADR-042): the mobile app's S256 challenge. The login ends with a
         hand-off code for the app instead of a session cookie.
         """
         origin = self.origin(app, address.host) if address is not None else None
@@ -352,7 +352,7 @@ class AuthService:
             # The console's paths mean nothing in the portal: its home, never return_to.
             log.info("login_sent_to_portal", subject=session.subject, tenant_id=session.tenant_id)
             if challenge is not None:
-                # The mobile app serves both (D-139): it signs in again for a portal session.
+                # The mobile app serves both (D-146): it signs in again for a portal session.
                 # Keycloak's own session stands, so there is no second prompt.
                 return PortalInstead(self._login_again("portal", origin, "/", challenge))
             return PortalInstead(self.landing("portal", "/", origin))
@@ -396,7 +396,7 @@ class AuthService:
         return f"{origin or self.origin(app)}/api/v1/auth/login?{urlencode(params)}"
 
     async def exchange_handoff(self, handoff: str, verifier: str) -> tuple[str, Session]:
-        """The session a mobile hand-off code stands for (ADR-039), or 401 `handoff_invalid`.
+        """The session a mobile hand-off code stands for (ADR-042), or 401 `handoff_invalid`.
 
         The code is spent on the first try, right or wrong: a guessed or replayed code never
         gets a second chance. Unknown, expired, used and mismatched codes look the same.
@@ -535,7 +535,7 @@ class AuthService:
     async def session_for(self, request: Request) -> tuple[str, Session] | None:
         """The request's valid session (refreshed if needed), None without a cookie or record.
 
-        The mobile app sends its session ID in a header instead of a cookie (ADR-039); the rest
+        The mobile app sends its session ID in a header instead of a cookie (ADR-042); the rest
         (expiry, CSRF on writes, refresh) is the same.
         """
         session_id = self.presented_session_id(request)

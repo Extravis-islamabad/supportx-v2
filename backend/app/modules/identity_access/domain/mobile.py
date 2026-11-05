@@ -1,4 +1,4 @@
-"""Mobile sign-in rules (ADR-039): pure functions, no I/O.
+"""Mobile sign-in rules (ADR-042): pure functions, no I/O.
 
 The phone runs the same browser sign-in as the web apps. At the end the server hands the app a
 one-time code through the app's redirect address, and the app exchanges it for its session ID.

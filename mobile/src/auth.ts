@@ -3,7 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { api } from '@supportx/api-client';
 
-// The mobile sign-in (ADR-039): the system browser runs the server's usual sign-in and comes
+// The mobile sign-in (ADR-042): the system browser runs the server's usual sign-in and comes
 // back to the app with a one-time code, which is exchanged for the session ID. Keycloak's tokens
 // never reach the phone.
 export const APP_RETURN = 'supportx://auth';

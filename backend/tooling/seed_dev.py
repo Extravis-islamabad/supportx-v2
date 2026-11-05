@@ -22,6 +22,7 @@ from app.core.config import Settings
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from app.modules.licensing import Edition, LimitKey, SubscriptionPlan, apply_subscription
+from app.modules.organization import record_tenant_provisioned
 
 DEMO_TENANT_ID = uuid.UUID("01900000-0000-7000-8000-00000000de30")
 DEMO_TENANT_NAME = "Demo Company"
@@ -82,9 +83,17 @@ async def seed(url: str) -> list[str]:
                 # Through the licensing write path: row + entitlement.changed event together.
                 if await apply_subscription(session, plan, only_if_absent=True):
                     created.append(f"{tenant_id}:subscription")
+                # A tenant made now is ready: modules seed their starting content from the
+                # event (the starter catalog, D-138). Existing tenants are left as they are.
+                if _slug_of(tenant_id) in created:
+                    await record_tenant_provisioned(session)
     finally:
         await database.dispose()
     return created
+
+
+def _slug_of(tenant_id: uuid.UUID) -> str:
+    return next(slug for tid, _name, slug in TENANTS if tid == tenant_id)
 
 
 def main() -> int:  # pragma: no cover - thin CLI over the tested `seed`

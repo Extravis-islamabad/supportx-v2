@@ -83,6 +83,7 @@ import { useTenantChannel } from '@supportx/realtime';
 import { useIncidentFieldName } from './conflict';
 import { REQUESTER_ACTION, useHistoryWords } from './historyWords';
 import { useKnowledgeTools } from './knowledgeSlot';
+import { WritingHelp } from './WritingHelp';
 import { useTypingSignal } from './typing';
 
 type Filter = 'all' | 'messages' | 'notes' | 'system';
@@ -284,8 +285,9 @@ function ComposeButtons({
   return (
     <Space wrap>
       <Tooltip title={why(reply)}>
+        {/* Default, not primary: the record header's Reply is the page's one primary action
+            (the coordinator's visual QA, one primary per screen). */}
         <Dropdown.Button
-          type="primary"
           disabled={disabled || reply?.allowed !== true}
           icon={<DownOutlined />}
           trigger={['click']}
@@ -769,7 +771,19 @@ function Composer({
         )}
         mentions={mentions}
         templates={templates.data}
-        extraTools={knowledgeTools}
+        extraTools={(insert) => (
+          <>
+            {knowledgeTools?.(insert)}
+            {/* Writing help (WP-038): a draft or the text improved, reviewed before use. */}
+            <WritingHelp
+              recordId={item.id}
+              kind={draft.kind}
+              html={body}
+              insert={insert}
+              replace={setBody}
+            />
+          </>
+        )}
         onManageTemplates={
           can('config.service_desk') || can('settings.manage')
             ? () => {

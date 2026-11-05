@@ -7,7 +7,7 @@ import { isLocale, type Locale } from '@supportx/labels';
 
 // Device-local settings (docs/architecture/mobile.md: Zustand holds the server URL, tenant and
 // UI preferences), kept in SecureStore (Keychain / Keystore). The session ID is the one secret:
-// it lives here and in the API client's memory only, never in logs or other storage (ADR-039).
+// it lives here and in the API client's memory only, never in logs or other storage (ADR-042).
 const SERVER_KEY = 'supportx.server';
 const LOCALE_KEY = 'supportx.locale';
 const SESSION_KEY = 'supportx.session';

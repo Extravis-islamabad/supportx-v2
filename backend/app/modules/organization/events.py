@@ -92,6 +92,21 @@ class DomainChanged(DomainEvent):
     change: Literal["added", "verified", "failed", "certificate", "removed"]
 
 
+class TenantProvisioned(DomainEvent):
+    """A tenant is ready for use (WP-031, D-138): modules seed their starting content from it.
+
+    Only the tenant's ID. Whatever creates tenants (tooling today; tenant provisioning later,
+    once its identity side is ready) emits it once; consumers stay idempotent per tenant, so a
+    retried provisioning never seeds twice.
+    """
+
+    event_type: ClassVar[str] = "organization.tenant.provisioned"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "tenant"
+
+    tenant_id: uuid.UUID
+
+
 class TenantSettingsChanged(DomainEvent):
     """The tenant's instance settings changed (WP-042): defaults and languages refetch."""
 
@@ -104,6 +119,7 @@ class TenantSettingsChanged(DomainEvent):
 
 
 EVENTS: tuple[type[DomainEvent], ...] = (
+    TenantProvisioned,
     SiteChanged,
     SupportGroupChanged,
     DepartmentChanged,

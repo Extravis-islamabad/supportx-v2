@@ -1,6 +1,6 @@
 # Mobile app — implementation plan
 
-Status: **approved** (D-138, 2026-11-03; SDK 58 instead of 57 by the product owner on 2026-11-04): dependencies, React 19.3 for mobile only, the sign-in hand-off design, and a 12 h session (same as web). **WP-M1 (scaffold) done 2026-11-04; WP-M2 (sign-in) built 2026-11-05**; WP-M3 is next. Screens follow the prototype (D-139).
+Status: **approved** (D-145, 2026-11-03; SDK 58 instead of 57 by the product owner on 2026-11-04): dependencies, React 19.3 for mobile only, the sign-in hand-off design, and a 12 h session (same as web). **WP-M1 (scaffold) done 2026-11-04; WP-M2 (sign-in) built 2026-11-05**; WP-M3 is next. Screens follow the prototype (D-146).
 Scope: the technician and admin app (architecture.md §9.1, D-004, D-065), used to see, create and move tickets.
 
 ## Context
@@ -43,14 +43,14 @@ The stack must work with the backend **as it is today** (user requirement). A ba
 | Tests | `jest-expo` + `@testing-library/react-native`; Maestro for e2e | Vitest has no proper RN support. |
 | Lint / format | ESLint flat config + `@supportx/eslint-plugin` (no-raw-enum), Prettier (repo config) | |
 
-## Sign-in (built in WP-M2, ADR-039)
+## Sign-in (built in WP-M2, ADR-042)
 Keep the BFF model: Keycloak tokens never reach the device, and the phone holds only the opaque session ID.
 1. The app makes a random verifier and opens the system browser at `/api/v1/auth/login?app=console&mobile_challenge=<S256 of the verifier>`. The BFF runs the existing PKCE flow with the existing Keycloak clients; no new client.
-2. The callback sets no cookie. It redirects to `supportx://auth?handoff=<one-time code>` (60 s, single use, stored encrypted in Valkey), or to `?auth_error=<code>` on failure. A requester-only person is first sent on to the portal client with the same challenge, so they get a portal session (D-129, D-139).
+2. The callback sets no cookie. It redirects to `supportx://auth?handoff=<one-time code>` (60 s, single use, stored encrypted in Valkey), or to `?auth_error=<code>` on failure. A requester-only person is first sent on to the portal client with the same challenge, so they get a portal session (D-129, D-146).
 3. The app calls `POST /api/v1/auth/mobile/exchange {handoff, verifier}` and gets the session ID, which it keeps in SecureStore. A wrong verifier spends the code.
 4. Every request sends `X-SupportX-Session: <id>` and, on writes, `X-CSRF-Token` from `/auth/me`. A tenant switch returns the new ID in the same header. Expiry, refresh, logout and the realtime tokens are unchanged. A 401 makes the app forget the session.
 
-Mobile sessions keep the web lifetime: 12 h absolute (D-138).
+Mobile sessions keep the web lifetime: 12 h absolute (D-145).
 
 **Testing on a device in local dev:** Keycloak (`localhost:28080`) and the callback origin (`localhost:5173`, the console dev server, which forwards `/api` and the realtime `/connection` to the backend) must be reachable from the phone as `localhost`. On Android (emulator or USB), run `adb reverse` for ports 5173, 28080 and 8000, and use **`http://localhost:5173`** as the server address, so that live updates work too. Port 5173 must belong to SupportX's console dev server: the dev realm accepts only that callback. iOS needs a dev host the phone can reach, or a Mac with the simulator. Expo Go cannot finish a sign-in, because the `supportx://` return needs the app's own build. Step by step: `mobile/README.md`.
 
@@ -73,8 +73,8 @@ Mobile sessions keep the web lifetime: 12 h absolute (D-138).
    - A "server address + about" screen calling `GET /api/v1/system/...` health.
    - `make check` wiring, README and PROGRESS.md.
    - No backend change.
-2. **WP-M2 Mobile sign-in (built 2026-11-05):** ADR-039, BFF hand-off and exchange with tests, the app's sign-in, Home by side, Me (organisation switch, language, server status, sign-out).
-   The screens below follow the prototype (D-139), one role-based app:
+2. **WP-M2 Mobile sign-in (built 2026-11-05):** ADR-042, BFF hand-off and exchange with tests, the app's sign-in, Home by side, Me (organisation switch, language, server status, sign-out).
+   The screens below follow the prototype (D-146), one role-based app:
 3. **WP-M3 Technician: see the work.**
    - Home: KPIs (my open, overdue, due today, unassigned in my group), the MonetX alert card, and "needs your attention".
    - Queue with the Mine, My group, Unassigned and Overdue filters, an SLA chip on every row.
@@ -94,7 +94,7 @@ Mobile sessions keep the web lifetime: 12 h absolute (D-138).
 6. **WP-M6 Push:** device registration API, the notifications channel adapter, deep links into the right record.
 7. **WP-M7 Release:** signing, CI Android build (and iOS on macOS), Maestro e2e for en and ar.
 
-## Approvals (granted 2026-11-03, D-138)
+## Approvals (granted 2026-11-03, D-145)
 - **New dependencies:** expo + expo-router + expo-dev-client, expo-web-browser, expo-linking, expo-secure-store, expo-localization, react-native-mmkv, @shopify/flash-list, reanimated and gesture-handler, react-native-render-html, @expo/vector-icons, jest-expo, @testing-library/react-native, Maestro. Later: expo-notifications, expo-camera.
 - **React 19.3 on mobile** (SDK 58) while web stays on 18.3.1.
 - **Mobile auth design** (hand-off above) approved; the formal ADR is written in WP-M2.

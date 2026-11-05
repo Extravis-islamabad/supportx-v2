@@ -5,7 +5,7 @@ Payloads carry IDs, status codes and changed field *names* only, never titles or
 """
 
 import uuid
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from app.shared.events import DomainEvent
 
@@ -78,6 +78,21 @@ class AnnouncementSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class AnnouncementPersonalChanged(DomainEvent):
+    """A person dismissed a banner, or started or stopped following (WP-032 D7).
+
+    Published on that person's own channel only, so their other devices follow (IDs only).
+    """
+
+    event_type: ClassVar[str] = "announcements.personal.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "announcement"
+
+    announcement_id: uuid.UUID
+    user_id: uuid.UUID
+    change: Literal["dismissed", "followed", "unfollowed"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     AnnouncementCreated,
     AnnouncementUpdated,
@@ -85,4 +100,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AnnouncementDeleted,
     AnnouncementRestored,
     AnnouncementSettingsChanged,
+    AnnouncementPersonalChanged,
 )

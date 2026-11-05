@@ -230,7 +230,7 @@ async def login(
     `returnTo` must be a same-origin relative path; anything else lands on `/`. On a tenant's
     own address (subdomain or verified custom domain) the sign-in is for that tenant (WP-017).
 
-    `mobile_challenge` (ADR-039): the mobile app's S256 challenge (base64url SHA-256 of a
+    `mobile_challenge` (ADR-042): the mobile app's S256 challenge (base64url SHA-256 of a
     random verifier the app keeps). The sign-in then ends in the app with a one-time code.
     """
     if mobile_challenge is not None and not valid_challenge(mobile_challenge):
@@ -301,7 +301,7 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     await _audit_session(request, result.session, "session.signed_in")
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
-    if not result.mobile:  # the app gets a hand-off code in the address instead (ADR-039)
+    if not result.mobile:  # the app gets a hand-off code in the address instead (ADR-042)
         set_session_cookie(response, auth.settings, result.session_id)
     return response
 
@@ -327,7 +327,7 @@ EXCHANGES_PER_NETWORK = (30, timedelta(minutes=1))
 @entitlement_exempt
 @public_route
 async def mobile_exchange(body: MobileExchangeIn, request: Request, auth: Auth) -> MobileSessionOut:
-    """The mobile app's last sign-in step (ADR-039): code and verifier in, session ID out.
+    """The mobile app's last sign-in step (ADR-042): code and verifier in, session ID out.
 
     The code is spent on the first try. A wrong, used or expired code, or a verifier that does
     not match the challenge the app started with, is 401 `handoff_invalid`. No cookie is set:
@@ -622,7 +622,7 @@ async def switch_tenant(
     new_id, switched = await auth.switch_tenant(session_id, session, body.tenant_id)
     await _audit_session(request, switched, "session.tenant_switched")
     if request.cookies.get(auth.cookie_name) is None and request.headers.get(SESSION_HEADER):
-        # The mobile app (ADR-039): the new ID in the header only. A cookie would be kept by
+        # The mobile app (ADR-042): the new ID in the header only. A cookie would be kept by
         # the phone's HTTP stack and quietly win over the header the app sends.
         response.headers[SESSION_HEADER] = new_id
     else:

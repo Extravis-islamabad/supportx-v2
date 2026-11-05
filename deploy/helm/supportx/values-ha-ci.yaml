@@ -10,6 +10,10 @@ keycloak:
     requests: {cpu: 100m, memory: 512Mi}
 postgresql:
   cnpg:
+    # Backups on (WP-014b): the restore drill (deploy/k3d/restore-drill.sh) restores them into a
+    # new cluster. The in-cluster SeaweedFS is the target here, fine for CI only.
+    backup:
+      enabled: true
     resources:
       requests: {cpu: 50m, memory: 256Mi}
     parameters:

@@ -1,6 +1,14 @@
-import { PlusOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  InboxOutlined,
+  PlusOutlined,
+  UserAddOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Select, Space, Table } from 'antd';
+import { Button, Empty, Flex, Form, Select, Skeleton, Table, theme } from 'antd';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -13,22 +21,129 @@ import {
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import {
+  ChannelIcon,
   PageHeader,
+  ToneTag,
   reportError,
   useAccess,
   useAppearance,
   useDateTime,
   useLabel,
+  type Tone,
 } from '@supportx/ui';
 
 import { itemName } from './items';
 
 const APPROVAL: ApprovalStatus[] = ['pending', 'approved', 'rejected', 'withdrawn', 'not_needed'];
+// The views shown as tiles (UI pass 2, QA 2026-11-04 #6): the work a desk acts on first. Every
+// other built-in view stays in the "View" picker.
+type TileTone = 'error' | 'warning' | 'info' | 'success' | 'purple';
+const TILES: { view: string; icon: ReactNode; tone: TileTone }[] = [
+  { view: 'my_open', icon: <InboxOutlined />, tone: 'info' },
+  { view: 'pending_approval', icon: <ClockCircleOutlined />, tone: 'warning' },
+  { view: 'awaiting_fulfilment', icon: <CheckCircleOutlined />, tone: 'success' },
+  { view: 'unassigned_in_my_groups', icon: <UserAddOutlined />, tone: 'purple' },
+  { view: 'overdue', icon: <WarningOutlined />, tone: 'error' },
+];
+const STATUS_TONES: Record<string, Tone> = {
+  open: 'info',
+  waiting: 'warning',
+  resolved: 'success',
+  closed: 'default',
+  canceled: 'default',
+};
+
+/** The view counts as tiles: the number large, the view's name below; pressing one filters. */
+function ViewTiles({ active, onPick }: { active?: string; onPick: (view?: string) => void }) {
+  const t = useLabel();
+  const { token } = theme.useToken();
+  const views = useServiceRequestViews();
+  const counts = new Map((views.data ?? []).map((v) => [v.view, v]));
+  const shown = TILES.filter((tile) => counts.has(tile.view));
+  if (views.isLoading) return <Skeleton.Input active block style={{ height: 64 }} />;
+  if (shown.length === 0) return null;
+  // Theme tokens, so each mode (light, dark, high contrast) picks a readable pair.
+  const tint: Record<TileTone, { bg: string; fg: string }> = {
+    error: { bg: token.colorErrorBg, fg: token.colorErrorText },
+    warning: { bg: token.colorWarningBg, fg: token.colorWarningText },
+    info: { bg: token.colorInfoBg, fg: token.colorInfoText },
+    success: { bg: token.colorSuccessBg, fg: token.colorSuccessText },
+    purple: { bg: token.purple1, fg: token.purple7 },
+  };
+  return (
+    <div
+      role="group"
+      aria-label={t('requests.views_title')}
+      data-testid="sr-tiles"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+        gap: 12,
+      }}
+    >
+      {shown.map((tile) => {
+        const found = counts.get(tile.view);
+        const on = active === tile.view;
+        return (
+          <button
+            key={tile.view}
+            type="button"
+            aria-pressed={on}
+            onClick={() => {
+              onPick(on ? undefined : tile.view);
+            }}
+            data-testid={`sr-tile-${tile.view}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '12px 14px',
+              textAlign: 'start',
+              font: 'inherit',
+              color: token.colorText,
+              cursor: 'pointer',
+              background: on ? token.colorPrimaryBg : token.colorBgContainer,
+              border: `1px solid ${on ? token.colorPrimary : token.colorBorderSecondary}`,
+              borderRadius: token.borderRadius,
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 36,
+                height: 36,
+                flexShrink: 0,
+                borderRadius: 8,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: tint[tile.tone].bg,
+                color: tint[tile.tone].fg,
+                fontSize: 18,
+              }}
+            >
+              {tile.icon}
+            </span>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+              <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1 }}>
+                {found === undefined ? '' : `${String(found.count)}${found.capped ? '+' : ''}`}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: token.colorTextSecondary }}>
+                {t(`work_item_view.${tile.view}`)}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
- * Service requests (WP-030, REQ-SR-009): the list with the item and the approval status, a filter
- * by approval status, the built-in views with counts, live through the list channel. The full record page arrives with the
- * approval engine; a row opens the request's summary.
+ * Service requests (WP-030, REQ-SR-009; UI pass 2 style from WP-031): the view counts as tiles,
+ * a labelled view picker and approval filter, the list with the channel, item, status and
+ * approval, live through the list channel. While it loads it shows a loading state, never the
+ * empty one; an empty view says so and offers to raise a request.
  */
 export function RequestsPage() {
   const t = useLabel();
@@ -47,12 +162,14 @@ export function RequestsPage() {
     void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });
   });
   if (list.error) reportError(list.error);
+  const rows = list.data?.items ?? [];
+  const create = can('requests.create');
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+    <Flex vertical gap={16} style={{ width: '100%' }}>
       <PageHeader
         title={t('nav.requests')}
         extra={
-          can('requests.create') && (
+          create && (
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -64,49 +181,80 @@ export function RequestsPage() {
           )
         }
       />
-      <Space wrap>
-        <Select
-          allowClear
-          value={view}
-          onChange={(value: string | undefined) => {
-            setView(value);
-          }}
-          placeholder={t('requests.view_filter')}
-          aria-label={t('requests.view_filter')}
-          style={{ minWidth: 260 }}
-          options={(views.data ?? []).map((v) => ({
-            value: v.view,
-            label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
-          }))}
-          data-testid="sr-view-filter"
-        />
-        <Select
-          allowClear
-          value={approval}
-          onChange={(value: ApprovalStatus | undefined) => {
-            setApproval(value);
-          }}
-          placeholder={t('requests.approval_filter')}
-          aria-label={t('requests.approval_filter')}
-          style={{ minWidth: 220 }}
-          options={APPROVAL.map((code) => ({ value: code, label: t(`approval_status.${code}`) }))}
-          data-testid="sr-approval-filter"
-        />
-      </Space>
+      <ViewTiles active={view} onPick={setView} />
+      <Form layout="inline" component="div" style={{ rowGap: 8 }}>
+        <Form.Item label={t('requests.view_filter')} htmlFor="sr-view-filter">
+          <Select
+            id="sr-view-filter"
+            allowClear
+            value={view}
+            onChange={(value: string | undefined) => {
+              setView(value);
+            }}
+            placeholder={t('requests.any_view')}
+            style={{ minWidth: 260 }}
+            options={(views.data ?? []).map((v) => ({
+              value: v.view,
+              label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+            }))}
+            data-testid="sr-view-filter"
+          />
+        </Form.Item>
+        <Form.Item label={t('requests.approval_filter')} htmlFor="sr-approval-filter">
+          <Select
+            id="sr-approval-filter"
+            allowClear
+            value={approval}
+            onChange={(value: ApprovalStatus | undefined) => {
+              setApproval(value);
+            }}
+            placeholder={t('requests.any_approval')}
+            style={{ minWidth: 220 }}
+            options={APPROVAL.map((code) => ({ value: code, label: t(`approval_status.${code}`) }))}
+            data-testid="sr-approval-filter"
+          />
+        </Form.Item>
+      </Form>
       <Table
         rowKey="id"
         loading={list.isLoading}
-        dataSource={list.data?.items ?? []}
+        dataSource={rows}
         pagination={false}
         data-testid="sr-list"
+        locale={{
+          // An empty state only once the answer is in (QA 2026-11-04 #5 on incidents, same here).
+          emptyText: list.isLoading ? (
+            <span />
+          ) : (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={t(
+                view === undefined && approval === undefined
+                  ? 'requests.empty'
+                  : 'requests.empty_view',
+              )}
+              data-testid="sr-empty"
+            >
+              {create && (
+                <Button type="primary" onClick={() => void navigate('/requests/new')}>
+                  {t('requests.new')}
+                </Button>
+              )}
+            </Empty>
+          ),
+        }}
         columns={[
           {
             key: 'id',
             title: t('incidents.col.id'),
+            width: 150,
             render: (_, row) => (
-              <Link to={`/requests/${row.id}`} data-testid={`sr-row-${row.display_id}`}>
-                <span dir="ltr">{row.display_id}</span>
-              </Link>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <ChannelIcon channel={row.channel} />
+                <Link to={`/requests/${row.id}`} data-testid={`sr-row-${row.display_id}`}>
+                  <strong dir="ltr">{row.display_id}</strong>
+                </Link>
+              </span>
             ),
           },
           { key: 'subject', title: t('incidents.col.subject'), dataIndex: 'subject' },
@@ -118,13 +266,19 @@ export function RequestsPage() {
           {
             key: 'status',
             title: t('incidents.col.status'),
-            render: (_, row) => t(`work_item_status.${row.status}`),
+            render: (_, row) => (
+              <ToneTag tone={STATUS_TONES[row.status_category] ?? 'default'}>
+                {t(`work_item_status.${row.status}`)}
+              </ToneTag>
+            ),
           },
           {
             key: 'approval',
             title: t('requests.approval'),
             render: (_, row) =>
-              row.approval_status == null ? '' : t(`approval_status.${row.approval_status}`),
+              row.approval_status == null || row.approval_status === 'not_needed'
+                ? ''
+                : t(`approval_status.${row.approval_status}`),
           },
           {
             key: 'updated',
@@ -133,6 +287,6 @@ export function RequestsPage() {
           },
         ]}
       />
-    </Space>
+    </Flex>
   );
 }

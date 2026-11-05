@@ -1,4 +1,4 @@
-"""Mobile sign-in over HTTP (ADR-039): the browser login ends in the app with a one-time code.
+"""Mobile sign-in over HTTP (ADR-042): the browser login ends in the app with a one-time code.
 
 The same fake identity provider and real PostgreSQL as test_auth_bff.py. The app never holds a
 cookie: it exchanges the code (with the verifier of the challenge it started with) for its
@@ -114,7 +114,7 @@ async def test_failures_go_back_to_the_app_with_a_label_code(bff: Bff) -> None:
 
 
 async def test_a_requester_gets_a_portal_session_in_the_same_app(bff: Bff) -> None:
-    """D-139: one app for both. A requester never gets a console session (D-129)."""
+    """D-146: one app for both. A requester never gets a console session (D-129)."""
     requester = bff.user("a", email="mobile-requester@demo.test", roles=("requester",))
     verifier = new_verifier()
     answer = await mobile_login(bff, requester, verifier)

@@ -162,6 +162,28 @@ CI runs the HA cluster with egress on (`values-ha-ci.yaml`), and `make cluster-h
 that the namespace answers and the outside doesn't. chart-lint checks that the chart refuses to
 render without the control plane's addresses, and that no egress rule opens `0.0.0.0/0`.
 
+## Backups
+
+`postgresql.cnpg.backup.enabled` turns on CloudNativePG's Barman Cloud plugin (a cluster
+prerequisite, installed like the operator: `deploy/k3d/prereqs.sh` with `BACKUP_PLUGIN=1` shows
+how). **On HA installs, run the plugin with two copies on different nodes too, like the
+operator:** the operator won't reconcile a cluster, failover included, while its plugin is
+unreachable. The database's WAL is archived continuously and a base backup is taken daily, so it can be
+restored to any moment within `retentionPolicy` (30 days by default).
+
+**Production: back up to storage outside the cluster.** By default the backups go to this
+release's own SeaweedFS, which is fine for dev and CI but shares the database's failure domain:
+losing the cluster or its disks loses the backups too, and the chart warns about it. For
+production set `destinationPath`, `endpointURL` and `credentialsSecret` (keys `ACCESS_KEY_ID`,
+`ACCESS_SECRET_KEY`) to a bucket elsewhere, with credentials of its own, so the application's
+keys can't touch the backups.
+
+**Encrypted at rest.** The target encrypts (S3 server-side): set `encryption` to `AES256` or
+`aws:kms`, or use a bucket whose policy encrypts every object. Barman Cloud has no client-side
+encryption; the offsite copy of the object storage (rclone, WP-014b) adds it with its own key.
+
+The restore runbook, and the CI drill that runs it, come with WP-014b session 2.
+
 ## Observability
 
 Every SupportX pod serves Prometheus metrics on 9464 (`http_server_*` for the API; outbox age,

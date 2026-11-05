@@ -169,6 +169,13 @@ ACTIONS: dict[str, Action] = _actions(
     # the service catalog (WP-030)
     ("catalog.item_changed", AuditCategory.CONFIGURATION, "service_catalog"),
     ("catalog.category_changed", AuditCategory.CONFIGURATION, "service_catalog"),
+    # catalog administration (WP-031)
+    ("catalog.item_deleted", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.item_scheduled", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.category_deleted", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.settings_changed", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.starter_seeded", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.starter_published", AuditCategory.CONFIGURATION, "service_catalog"),
     ("identity.password_policy_reapplied", AuditCategory.SECURITY, "identity_access"),
     ("identity.mfa_policy_changed", AuditCategory.SECURITY, "identity_access"),
     ("user.mfa_reset", AuditCategory.SECURITY, "identity_access"),
@@ -227,6 +234,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.due_date_changed", AuditCategory.RECORDS, "work_items"),
     # service requests (WP-030): the same actions, by the type's own code
     ("service_request.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("portal.settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-032 D8
     ("service_request.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.template_created", AuditCategory.CONFIGURATION, "work_items"),
@@ -245,6 +253,40 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("service_request.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("service_request.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    # problems (WP-044a): the same actions, by the type's own code
+    ("problem.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.category_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.deleted", AuditCategory.RECORDS, "work_items"),
+    ("problem.restored", AuditCategory.RECORDS, "work_items"),
+    ("problem.bulk_started", AuditCategory.RECORDS, "work_items"),
+    ("problem.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
+    ("problem.closed_record_edited", AuditCategory.RECORDS, "work_items"),
+    ("problem.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    # ADR-040: an investigator reaches a problem outside their own scope.
+    ("problem.investigator_added", AuditCategory.RECORDS, "work_items"),
+    ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
+    # releases (WP-058a): the same actions, by the type's own code
+    ("release.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.category_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.deleted", AuditCategory.RECORDS, "work_items"),
+    ("release.restored", AuditCategory.RECORDS, "work_items"),
+    ("release.bulk_started", AuditCategory.RECORDS, "work_items"),
+    ("release.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
+    ("release.closed_record_edited", AuditCategory.RECORDS, "work_items"),
+    ("release.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    ("release.approval_decided", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),
@@ -283,6 +325,8 @@ ACTIONS: dict[str, Action] = _actions(
     # D-131: every deletion of AI conversation text is audited (retention purge, erasure)
     ("ai.calls_purged", AuditCategory.DATA, "ai"),
     ("ai.calls_erased", AuditCategory.DATA, "ai"),
+    ("ai.summaries_erased", AuditCategory.DATA, "ai"),
+    ("ai.embeddings_purged", AuditCategory.DATA, "ai"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category

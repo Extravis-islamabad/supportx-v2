@@ -14,6 +14,7 @@ record's approval status, history and events are written in the same transaction
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,7 +38,7 @@ from app.modules.work_items.domain.types import (
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
-from app.modules.work_items.service import fulfilment
+from app.modules.work_items.service import fulfilment, stage_approvals
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE, APPROVE_ANY
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
@@ -74,6 +75,13 @@ def _staff(subject: Subject, wtype: WorkItemType) -> bool:
 def _may_decide(subject: Subject, wtype: WorkItemType, row: WorkItemApproval) -> bool:
     if row.state != rules.ApprovalState.PENDING:
         return False
+    if row.record_stage is not None:
+        # A staged record's approval (WP-058a s5; the coordinator's and lane B's rule): the person
+        # named on it decides it by being named, with no extra permission. The type's approve
+        # permission, or approve_any, is for deciding an approval one is not named on.
+        if row.approver_id == subject.user_id:
+            return True
+        return subject.holds(APPROVE_ANY) or subject.holds(wtype.permission(APPROVE))
     if row.approver_id is None:
         return subject.holds(APPROVE_ANY)
     return row.approver_id == subject.user_id and subject.holds(wtype.permission(APPROVE))
@@ -169,6 +177,30 @@ async def mine(
     return [p for p in found if _may_decide(subject, wtype, p.approval)]
 
 
+DECIDED_DAYS = 30  # the portal inbox lists what you decided this long ago (WP-032 D6)
+
+
+async def decided_by_me(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType
+) -> list[PendingApproval]:
+    """The approvals the subject decided in the last 30 days, newest first (REQ-PRT-008)."""
+    since = datetime.now(UTC) - timedelta(days=DECIDED_DAYS)
+    rows = await session.execute(
+        select(WorkItemApproval, WorkItem)
+        .join(WorkItem, WorkItem.id == WorkItemApproval.work_item_id)
+        .where(
+            WorkItemApproval.decided_by == subject.user_id,
+            WorkItemApproval.decided_at >= since,
+            WorkItemApproval.deleted_at.is_(None),
+            WorkItem.type == wtype.code,
+            WorkItem.deleted_at.is_(None),
+        )
+        .order_by(WorkItemApproval.decided_at.desc(), WorkItemApproval.id)
+        .limit(200)
+    )
+    return [PendingApproval(a, r) for a, r in rows.all()]
+
+
 async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -226,6 +258,9 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     await session.flush()
     await approval_event(session, record, row, "decided")
     await action_links.revoke_for(session, LINK_OBJECT, row.id)  # decided another way
+    if row.record_stage is not None:  # a staged record: the level's rule decides (WP-058a s5)
+        await stage_approvals.after_decision(session, wtype, record, row, source=source)
+        return _shown(subject, wtype, record, row)
     await _close_others(
         session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
     )
@@ -347,6 +382,7 @@ __all__ = [
     "ApprovalView",
     "PendingApproval",
     "decide",
+    "decided_by_me",
     "inactive_approvers_schedule",
     "issue_links",
     "list_for_record",

@@ -1,7 +1,7 @@
 # mobile
 
 The SupportX app for technicians and admins on iOS and Android (architecture.md §9.1, D-004,
-D-065, D-138). It is built with Expo SDK 58 (React Native 0.88.1, React 19.3) and shares the API
+D-065, D-145). It is built with Expo SDK 58 (React Native 0.88.1, React 19.3) and shares the API
 client, labels and design tokens with `frontend/`. Builds are local only, with no EAS Build, EAS
 Update or Expo push relay, so on-prem and air-gapped installs work the same way as SaaS.
 
@@ -9,14 +9,14 @@ Plan (stack, sign-in design, work packages, approvals): `docs/architecture/mobil
 
 ## Status
 
-The prototype's screens are built (D-139): one app, by role.
+The prototype's screens are built (D-146): one app, by role.
 
 - **Technicians** see Home (KPIs, a MonetX alert card, needs attention), the Queue (Mine, My
   group, Unassigned, Overdue), the incident screen (Take, Start work, Resolve; public reply vs
   private note), Approvals, Alerts and Me (Available / Away).
 - **Requesters** see Home (announcements, report, request), Report a problem (with knowledge
   suggestions), the Catalog, and My requests (timeline, fixed / still broken).
-- **Both:** sign-in through the organisation's sign-in page (ADR-039), live updates, and English,
+- **Both:** sign-in through the organisation's sign-in page (ADR-042), live updates, and English,
   Arabic and Urdu with right to left.
 
 Still to come: photo attachments, the full knowledge article page, push (WP-M6), offline

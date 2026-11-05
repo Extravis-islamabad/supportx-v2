@@ -7,7 +7,7 @@ import { label } from '@supportx/labels';
 
 import { describeError } from './errors/describe';
 import { visibleNav, type NavItem } from './shell/nav';
-import { FONT_FACES } from './fonts/fonts';
+import { clampLineHeight, fontFaces } from './fonts/fonts';
 import { buildTheme, darken, DEFAULT_BRANDING, lighten } from './theme';
 
 const t = (key: string, params?: Record<string, unknown>) => label(key, 'en', params as never);
@@ -171,12 +171,31 @@ describe('C2: fonts per language', () => {
   });
 
   it('D-137: the fonts are bundled woff2 files, never from the internet', () => {
-    expect(FONT_FACES).not.toMatch(/https?:\/\//);
-    expect(FONT_FACES).not.toMatch(/googleapis|gstatic/);
-    expect(FONT_FACES).toMatch(/font-display:swap/);
-    expect(FONT_FACES).not.toMatch(/format\('woff'\)/); // woff2 only
+    const all = fontFaces('nastaliq');
+    expect(all).not.toMatch(/https?:\/\//);
+    expect(all).not.toMatch(/googleapis|gstatic/);
+    expect(all).toMatch(/font-display:swap/);
+    expect(all).not.toMatch(/format\('woff'\)/); // woff2 only
     for (const family of ['Inter', 'Noto Sans Arabic', 'Noto Nastaliq Urdu']) {
-      expect(FONT_FACES).toContain(`font-family:'${family}'`);
+      expect(all).toContain(`font-family:'${family}'`);
     }
+    for (const weight of [400, 500, 600, 700]) {
+      expect(all).toContain(
+        `font-family:'Noto Sans Arabic';font-style:normal;font-weight:${String(weight)}`,
+      );
+    }
+  });
+
+  it('D-137: Nastaliq is declared only for people who chose it (nobody else downloads it)', () => {
+    expect(fontFaces('naskh')).not.toContain('Noto Nastaliq Urdu');
+    expect(fontFaces('nastaliq')).toContain('Noto Nastaliq Urdu');
+  });
+
+  it('QA 2026-11-04: clamped Arabic-script text gets room for the dots below its letters', () => {
+    expect(clampLineHeight('Mail is down', 1.3, 'naskh')).toBe(1.3);
+    expect(clampLineHeight('الشبكة بطيئة في مكتب دبي', 1.3, 'naskh')).toBe(1.7);
+    expect(clampLineHeight('نیٹ ورک سست ہے', 1.3, 'nastaliq')).toBe(1.9);
+    expect(clampLineHeight('VPN in دبي', 1.3, 'naskh')).toBe(1.7); // mixed text: the taller one
+    expect(clampLineHeight('دبي', 2, 'naskh')).toBe(2); // never lower than asked
   });
 });

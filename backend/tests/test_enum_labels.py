@@ -19,6 +19,11 @@ from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "AiSettingsOut.summary_sources[]": "ai_summary_source",
+    "DuplicateOut.reasons[]": "duplicate_reason",
+    "DuplicatesOut.method": "duplicate_method",
+    "WritingIn.kind": "ai_writing_kind",
+    "WritingIn.mode": "ai_writing_mode",
     # AI gateway (WP-037)
     "AiArea": "ai_area",
     "OutcomeIn.outcome": "ai_outcome",
@@ -62,6 +67,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "TaskPriority": "task_priority",
     "WorklogType": "worklog_type",
     "LinkKind": "link_kind",
+    "PortalSettingsOut.search_sources[]": "portal.search.group",
+    "WorkItemTypeCode": "work_item_type",
     "WorkItemLinkOut.relation": "link_relation",
     "WorkItemTaskMoveIn.direction": "task_move_direction",
     # Incident lists and bulk jobs (WP-020d)
@@ -199,6 +206,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "Urgency": "urgency",
     "WorkItemAction": "work_item_action",
     "PickList": "pick_list",
+    # The stage engine and releases (WP-058a)
+    "RailState": "rail_state",
+    "ReleaseRisk": "release_risk",
+    "StageOutcome": "stage_outcome",
+    "DowntimePhase": "downtime_phase",
+    "LevelRule": "approval_rule",
     "TemplateField": "work_item.field",
     "DeliveryReason": "delivery_reason",
     "DeliveryState": "delivery_state",
@@ -237,6 +250,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "DecisionChannel": "approval_channel",
     "RouteReason": "approval_route_reason",
     "ApproverKind": "catalog_approver_kind",
+    # catalog administration (WP-031)
+    "ItemKind": "catalog_item_kind",
+    "ItemStatus": "catalog_item_status",
+    "QuestionAudience": "catalog_question_audience",
     "ItemAudience": "catalog_item_audience",
     "QuestionKind": "catalog_question_kind",
     "IndexFailure": "custom_field_index_error",

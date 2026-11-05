@@ -33,7 +33,10 @@ const TECHNICIAN: Grant[] = [
   ['requests.assign', 'all'],
   ['requests.close', 'all'],
   ['problems.view', 'all'],
-  ['problems.manage', 'group'],
+  ['problems.create', 'all'],
+  ['problems.edit', 'group'],
+  ['problems.assign', 'group'],
+  ['problems.close', 'group'],
   ['changes.view', 'all'],
   ['changes.create', 'all'],
   ['releases.view', 'all'],
@@ -65,6 +68,7 @@ const TECHNICIAN: Grant[] = [
   ['incidents.cancel', 'group'],
 ];
 const ADMIN_EXTRA: Grant[] = [
+  ['catalog_items.manage', 'all'], // WP-031: the catalog's administration
   ['knowledge.view', 'all'],
   ['knowledge.edit_any', 'all'],
   ['knowledge.delete', 'all'],
@@ -89,7 +93,10 @@ const ADMIN_EXTRA: Grant[] = [
   ['changes.approve', 'all'],
   ['releases.manage', 'all'],
   ['cmdb.manage', 'all'],
-  ['problems.manage', 'all'],
+  ['problems.edit', 'all'],
+  ['problems.assign', 'all'],
+  ['problems.close', 'all'],
+  ['problems.delete', 'all'],
   ['incidents.view', 'all'],
   ['incidents.edit', 'all'],
   ['incidents.assign', 'all'],
@@ -464,6 +471,8 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     priority_source: 'default',
     level: null,
     template_id: STANDARD_TEMPLATE_ID,
+    lifecycle: 'standard',
+    status_before_pause: null,
     status: 'new',
     status_category: 'open',
     status_reason_code: null,
@@ -698,6 +707,7 @@ export function fakeIncidentTemplate(overrides: Partial<IncidentTemplate> = {}):
     ),
     custom_fields: {},
     defaults: {},
+    lifecycle: 'standard',
     version: 1,
     ...overrides,
   };

@@ -280,6 +280,7 @@ export const ur: LabelResource = {
   'nav.admin_api_keys': 'API کلیدیں',
   'nav.admin_automation': 'آٹومیشن',
   'nav.admin_branding': 'برانڈنگ',
+  'nav.admin_catalog': 'سروس کیٹلاگ',
   'nav.admin_files': 'فائلیں',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'واقعات',
@@ -291,6 +292,7 @@ export const ur: LabelResource = {
   'nav.admin_mail': 'میل',
   'nav.admin_notifications': 'اطلاعات',
   'nav.admin_organization': 'ادارہ',
+  'nav.admin_portal': 'پورٹل',
   'nav.admin_requests': 'سروس درخواستیں',
   'nav.admin_roles': 'کردار',
   'nav.admin_security': 'سائن اِن اور سیکیورٹی',
@@ -594,6 +596,9 @@ export const ur: LabelResource = {
   'setup.page.automation.keywords': 'آٹومیشن، اصول، ٹرگرز، ورک فلو، خودکار تفویض، کارروائیاں',
   'setup.page.branding.description': 'لوگو، رنگ اور پورٹل کی شکل۔',
   'setup.page.branding.keywords': 'برانڈنگ، لوگو، رنگ، تھیم، پورٹل، شکل',
+  'setup.page.catalog.description':
+    'وہ کیٹیگریز اور آئٹمز جو لوگ مانگتے ہیں: ان کے فارم، منظوری، گروپ، ایس ایل اے اور تکمیل کے کام، ہر زبان میں۔',
+  'setup.page.catalog.keywords': 'کیٹلاگ، آئٹمز، فارم، سروس درخواستیں',
   'setup.page.files.description': 'اپ لوڈ کی حدیں، اجازت یافتہ فائل اقسام اور میلویئر اسکیننگ۔',
   'setup.page.files.keywords': 'فائلیں، منسلکات، اپ لوڈ، سائز، اسٹوریج، میلویئر، وائرس، اسکیننگ',
   'setup.page.incidents.description': 'واقعات کے لیول، زمرے، سانچے، بندش کوڈ اور وجوہات۔',
@@ -615,6 +620,10 @@ export const ur: LabelResource = {
   'setup.page.notifications.keywords': 'اطلاعات، الرٹس، پیغامات، سانچے، ای میل سانچے، وصول کنندگان',
   'setup.page.organization.description': 'سائٹس، شعبے اور سپورٹ گروپ، اور ان میں کون ہے۔',
   'setup.page.organization.keywords': 'سائٹس، شعبے، گروپ، ٹیمیں، مقامات، دفاتر، ارکان',
+  'setup.page.portal.description':
+    'سیلف سروس پورٹل درخواست گزاروں کے لیے جو کچھ کرتا ہے، ایک صفحے پر۔',
+  'setup.page.portal.keywords':
+    'پورٹل، سیلف سروس، تلاش، تلاش کے ذرائع، واقعہ فارم چھپائیں، وقت، ترسیل کی تاریخ، کی طرف سے، منظوریاں، سائن اِن، پروفائل، یاد دہانیاں، لاگت، مہمان، خود رجسٹریشن',
   'setup.page.requests.description':
     'سروس کی درخواستیں: درخواست گزار کس کی طرف سے انہیں درج کر سکتے ہیں، اور درخواستوں کے منظر۔',
   'setup.page.requests.keywords': 'سروس درخواستیں، کیٹلاگ، کی طرف سے، درج کریں، درخواستیں، منظر',

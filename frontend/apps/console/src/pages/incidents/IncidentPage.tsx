@@ -63,6 +63,7 @@ import {
   useDateTime,
   useFormProblem,
   useLabel,
+  useAccess,
   useLicence,
   usePageCrumbs,
   WriteButton,
@@ -81,6 +82,7 @@ import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { KnowledgeCard } from '../knowledge/KnowledgeCard';
+import { SummaryCard } from './SummaryCard';
 import { KnowledgePicker } from '../knowledge/KnowledgePicker';
 import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
 import { IncidentSla } from './IncidentSla';
@@ -207,6 +209,11 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       );
       return;
     }
+    // The summary was made, or a newer entry made it stale (WP-038): refetch it only.
+    if (event.type === 'ai.summary_changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.ai.summary('incident', item.id) });
+      return;
+    }
     void queryClient.invalidateQueries({
       queryKey: [...queryKeys.incidents.all, 'history', item.id],
     });
@@ -279,6 +286,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const reasonText = useActionReason();
   const status = useStatusActions(item, catalogue.data);
   const take = useTakeAction(item, op('take'));
+  const { has } = useLicence();
+  const { can } = useAccess();
   const groupName =
     item.group_id === null ? '' : (groups.data?.find((g) => g.id === item.group_id)?.name ?? '');
 
@@ -346,6 +355,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     ),
     take.action,
     ...status.actions,
+    // WP-044a (REQ-PRB-011): a problem prefilled from this incident and linked "caused by".
+    has('problem') && can('problems.create')
+      ? {
+          key: 'create_problem',
+          label: t('problems.create_from_incident'),
+          allowed: true,
+          testId: 'inc-op-create-problem',
+          onClick: () => void navigate(`/problems/new?incident=${item.id}`),
+        }
+      : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
       ? {
           key: 'delete',
@@ -473,6 +492,14 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           <PropertiesPanel
             testId="inc-panel"
             sections={[
+              // The conversation summary first, where a technician picking it up looks
+              // (WP-038, REQ-INC-137); only while the feature is on.
+              {
+                key: 'summary',
+                title: t('ai.summary.title'),
+                bare: true, // its own card, with Refresh
+                children: <SummaryCard recordId={item.id} />,
+              },
               {
                 key: 'properties',
                 title: t('incidents.properties'),

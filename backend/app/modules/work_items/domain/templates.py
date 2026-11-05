@@ -39,11 +39,41 @@ class PickList(StrEnum):
     REASSIGN = ReasonList.REASSIGN.value
     LEVEL = "level"
     CLOSURE_CODE = "closure_code"
+    # problems (WP-044a, REQ-PRB-005): their type and root cause category, seeded for problems
+    PROBLEM_TYPE = "problem_type"
+    ROOT_CAUSE = "root_cause"
+    # Releases (WP-058a; REQ-REL-003, -005): their own lists, never shared with changes.
+    RELEASE_TYPE = "release_type"
+    RELEASE_REASON = "release_reason"
+    DOWNTIME_KIND = "downtime_kind"  # WP-058a s4 (REQ-REL-027)
+
+
+# The settings a list's values may carry (0093, `work_item_reasons.attributes`).
+LIST_ATTRIBUTES: Mapping[PickList, frozenset[str]] = {
+    # REQ-REL-003: a release type may set the default template and a default risk.
+    PickList.RELEASE_TYPE: frozenset({"default_template_id", "default_risk"}),
+}
 
 
 REASON_LISTS = frozenset(PickList(r.value) for r in ReasonList)
 
 # Appendix A has no levels or closure codes; these defaults are D-083 (WP-020c plan).
+# Problems only (Appendix A of 04-problems.md): seeded for the problem type, admin-editable.
+PROBLEM_LIST_VALUES: Mapping[PickList, tuple[str, ...]] = {
+    PickList.PROBLEM_TYPE: ("reactive", "proactive"),
+    PickList.ROOT_CAUSE: (
+        "software_defect",
+        "configuration_error",
+        "hardware_failure",
+        "capacity_or_performance",
+        "third_party",
+        "process_or_procedure",
+        "human_error",
+        "security",
+        "unknown",
+    ),
+}
+
 DEFAULT_LIST_VALUES: Mapping[PickList, tuple[str, ...]] = {
     PickList.LEVEL: ("tier_1", "tier_2", "tier_3", "tier_4"),
     # "confirmed_by_requester": set when the requester confirms or the record auto-closes, so
