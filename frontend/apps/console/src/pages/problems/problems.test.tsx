@@ -291,6 +291,66 @@ describe('console: problems', () => {
     });
   });
 
+  it('known error: the marker, one action that flips in place, and removing asks a reason', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const marked = {
+      ...record,
+      known_error_at: '2026-11-04T09:00:00Z',
+      known_error_retired_at: null,
+      operations: [
+        ...record.operations,
+        { action: 'mark_known_error', allowed: true, reason: null, reason_mode: 'none' as const },
+      ],
+    };
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}`]: { body: marked },
+      [`POST /api/v1/problems/${PRB_ID}/known-error/remove`]: {
+        body: { ...marked, known_error_at: null, version: 2 },
+      },
+    });
+    render(<App />);
+    expect(await screen.findByTestId('prb-known-error')).toBeDefined();
+    // Past the bar's three buttons, it waits in the menu, in the same place either way.
+    fireEvent.click(await screen.findByTestId('prb-actions-more'));
+    fireEvent.click(await screen.findByText('Remove known error'));
+    const ok = await screen.findByTestId('prb-known-error-ok');
+    expect(ok.hasAttribute('disabled')).toBe(true); // a reason first
+    fireEvent.change(screen.getByTestId('prb-known-error-text'), {
+      target: { value: 'Not reproducible' },
+    });
+    fireEvent.click(ok);
+    await waitFor(() => {
+      const call = fake.calls.find((c) => c.path.endsWith('/known-error/remove'));
+      expect(call?.body).toEqual({ reason: 'Not reproducible' });
+    });
+  });
+
+  it('the known error database lists what matches, retired ones marked', async () => {
+    window.history.pushState({}, '', '/problems/known-errors');
+    api({
+      'GET /api/v1/problems/known-errors': {
+        body: [
+          {
+            id: PRB_ID,
+            display_id: 'PRB-7',
+            subject: 'Mail relay drops messages',
+            status: 'resolved',
+            symptoms: '<p>Error 4.4.2</p>',
+            workaround: '<p>Restart the relay.</p>',
+            known_error_at: '2026-11-01T08:00:00Z',
+            retired_at: '2026-11-03T08:00:00Z',
+            incidents: 4,
+          },
+        ],
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('known-error-PRB-7');
+    expect(row.textContent).toContain('Mail relay drops messages');
+    expect(screen.getByText('Error 4.4.2')).toBeDefined();
+    expect(screen.getByText('Retired known error')).toBeDefined();
+  });
+
   it('evidence: the caused incidents in report order, and what is not there yet', async () => {
     window.history.pushState({}, '', `/problems/${PRB_ID}`);
     api({

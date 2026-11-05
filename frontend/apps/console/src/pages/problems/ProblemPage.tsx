@@ -36,7 +36,9 @@ import { useStatusActions } from '../incidents/StatusActions';
 import { PriorityTag, StatusTag } from '../incidents/tags';
 import { useDebounced } from '../../useDebounced';
 import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
+import { KnownErrorTag } from './KnownErrors';
 import { CausedIncidents, MergeDialog, MergedBanner, RelatedProblems } from './ProblemLinks';
+import { useKnownErrorAction } from './useKnownErrorAction';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
 const GUIDED = [
@@ -193,6 +195,7 @@ function ProblemView({
   const copy = useCopyProblem();
   const canEdit = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const me = useSession().data?.user.id ?? '';
+  const knownError = useKnownErrorAction(item);
   const [merging, setMerging] = useState(false);
   const mergeAction: RecordAction = {
     key: 'merge',
@@ -234,6 +237,7 @@ function ProblemView({
               <>
                 <StatusTag status={item.status} catalogue={catalogue.data} />
                 <PriorityTag priority={item.priority} source={item.priority_source} />
+                <KnownErrorTag item={item} />
               </>
             }
             meta={[
@@ -248,7 +252,7 @@ function ProblemView({
         }
         actions={
           <ActionBar
-            actions={[...status.actions, copyAction, mergeAction]}
+            actions={[...status.actions, knownError.action, copyAction, mergeAction]}
             max={3}
             testId="prb-actions"
           />
@@ -335,6 +339,7 @@ function ProblemView({
         </Flex>
       </RecordPage>
       {status.dialogs}
+      {knownError.dialog}
       <MergeDialog
         item={item}
         open={merging}

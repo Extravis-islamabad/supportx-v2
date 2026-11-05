@@ -44,6 +44,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'known-errors',
+            lazy: async () => ({
+              Component: (await import('./pages/problems/KnownErrors')).KnownErrorsPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({
               Component: (await import('./pages/problems/ProblemPage')).ProblemPage,

@@ -42,7 +42,7 @@ import {
 import { personName } from '../incidents/labels';
 import { PriorityTag } from '../incidents/tags';
 
-type AnalysisName = 'root_cause' | 'symptoms';
+type AnalysisName = 'root_cause' | 'symptoms' | 'workaround';
 
 /**
  * One analysis field (REQ-PRB-030): read, or edited in place with its own save, so each change
@@ -271,7 +271,7 @@ function ImpactFigures({ id }: { id: string }) {
   );
 }
 
-/** The analysis tab: impact figures, then root cause and symptoms (WP-044b D8). */
+/** The analysis tab: impact figures, root cause, symptoms and the workaround (WP-044b D8, D10). */
 export function ProblemAnalysis({
   item,
   reload,
@@ -279,12 +279,15 @@ export function ProblemAnalysis({
   item: Problem;
   reload: () => Promise<unknown>;
 }) {
-  const canEdit = item.operations.find((o) => o.action === 'edit_analysis')?.allowed === true;
+  const may = (op: string) => item.operations.find((o) => o.action === op)?.allowed === true;
+  const canEdit = may('edit_analysis');
   return (
     <Flex vertical gap={16} data-testid="prb-analysis">
       <ImpactFigures id={item.id} />
       <AnalysisField item={item} name="root_cause" canEdit={canEdit} reload={reload} />
       <AnalysisField item={item} name="symptoms" canEdit={canEdit} reload={reload} />
+      {/* The solution (REQ-PRB-034): its own right; incident technicians see it (D-140 Q7). */}
+      <AnalysisField item={item} name="workaround" canEdit={may('edit_solution')} reload={reload} />
     </Flex>
   );
 }

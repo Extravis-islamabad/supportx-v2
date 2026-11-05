@@ -405,3 +405,70 @@ export function useMergeProblem(id: string) {
     },
   });
 }
+
+export type KnownError = components['schemas']['KnownErrorOut'];
+
+export const knownErrorKeys = {
+  all: ['problems', 'known-errors'] as const,
+  search: (q: string, retired: boolean) => ['problems', 'known-errors', q, retired] as const,
+  suggestions: (incidentId: string) => ['problems', 'known-errors', 'for', incidentId] as const,
+};
+
+/** The known error database you may see (REQ-PRB-037), searched in symptoms and workaround. */
+export function useKnownErrors(q: string, includeRetired: boolean) {
+  return useQuery({
+    queryKey: knownErrorKeys.search(q, includeRetired),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/known-errors', {
+          params: { query: { q, include_retired: includeRetired } },
+        }),
+      ),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Open known errors matching an incident's words (REQ-PRB-038). */
+export function useKnownErrorSuggestions(incidentId: string, enabled = true) {
+  return useQuery({
+    queryKey: knownErrorKeys.suggestions(incidentId),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/known-errors/suggestions', {
+          params: { query: { incident_id: incidentId } },
+        }),
+      ),
+    enabled: enabled && incidentId !== '',
+  });
+}
+
+/** Mark it a known error (with a comment) or remove the flag (with a reason); If-Match. */
+export function useKnownErrorFlag(id: string) {
+  const saved = useSavedProblem();
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (
+      change:
+        | { mark: true; comment: string; version: number }
+        | { remove: true; reason: string; version: number },
+    ) =>
+      'mark' in change
+        ? call(
+            api.POST('/api/v1/problems/{record_id}/known-error', {
+              params: { path: { record_id: id }, header: ifMatch(change.version) },
+              body: { comment: change.comment.trim() === '' ? null : change.comment.trim() },
+            }),
+          )
+        : call(
+            api.POST('/api/v1/problems/{record_id}/known-error/remove', {
+              params: { path: { record_id: id }, header: ifMatch(change.version) },
+              body: { reason: change.reason.trim() },
+            }),
+          ),
+    onSuccess: (record) => {
+      saved(record);
+      void queryClient.invalidateQueries({ queryKey: knownErrorKeys.all });
+    },
+  });
+}
