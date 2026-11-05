@@ -1135,6 +1135,7 @@ export const ar: LabelResource = {
   'releases.roles.nobody': 'لا أحد بعد',
   'releases.schedule.actual': 'الفعلي',
   'releases.schedule.outcome': 'النتيجة',
+  'releases.schedule.outcome_of': 'نتيجة {{stage}}',
   'releases.schedule.planned': 'المخطط',
   'releases.starts_in': 'يبدأ الإصدار الجديد في مرحلة {{stage}}.',
   'releases.sub.hidden': 'إصدار فرعي لا يمكنك رؤيته',

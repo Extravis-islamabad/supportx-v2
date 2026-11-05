@@ -3983,6 +3983,47 @@
             "enum": [
               "task",
               "worklog",
+              "link"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChanged",
+        "type": "object"
+      },
+      "2": {
+        "description": "As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.\n\nWP-058a s4. New allowed values retype `part`, so a new schema version\n(docs/architecture/events.md \"Versioning\"); v1 stays registered, and tasks, worklogs and\nlinks still publish it.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
               "link",
               "plan_section",
               "stage_schedule",
@@ -4008,7 +4049,7 @@
           "part_id",
           "change"
         ],
-        "title": "WorkItemPartChanged",
+        "title": "WorkItemPartChangedV2",
         "type": "object"
       }
     },

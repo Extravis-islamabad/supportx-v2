@@ -56,6 +56,7 @@ function PersonField({
   const candidates = useRoleCandidates(role, search, open);
   return (
     <Select
+      id={testId}
       showSearch
       allowClear
       filterOption={false}
@@ -95,6 +96,7 @@ function MoveField({
   if (custom !== undefined) {
     return (
       <CustomFieldControl
+        id={testId}
         field={custom}
         value={value}
         onChange={onChange}
@@ -105,7 +107,7 @@ function MoveField({
   }
   const text = typeof value === 'string' ? value : null;
   if (isDate(field)) {
-    return <DateTimeField value={text} onChange={onChange} testId={testId} />;
+    return <DateTimeField id={testId} value={text} onChange={onChange} testId={testId} />;
   }
   const role = PEOPLE[field];
   if (role !== undefined) {
@@ -123,6 +125,7 @@ function MoveField({
           }));
     return (
       <Select
+        id={testId}
         aria-label={label}
         value={text ?? undefined}
         onChange={(v: string) => {
@@ -138,6 +141,7 @@ function MoveField({
   }
   return (
     <Input
+      id={testId}
       value={text ?? ''}
       count={lengthLimit(field === 'build_ref' ? 200 : 60)}
       onChange={(e) => {
@@ -229,6 +233,7 @@ export function MoveDialog({
           <Form.Item
             key={m.field}
             label={fieldLabel(m.field)}
+            htmlFor={`move-field-${m.field}`}
             help={t(`errors.field.${m.code}`)}
             required
           >
@@ -244,8 +249,9 @@ export function MoveDialog({
           </Form.Item>
         ))}
         {closing && (
-          <Form.Item label={t('work_item.field.closure_code')} required>
+          <Form.Item label={t('work_item.field.closure_code')} required htmlFor="move-closure-code">
             <Select
+              id="move-closure-code"
               value={closureCode}
               onChange={setClosureCode}
               data-testid="move-closure-code"
@@ -259,8 +265,9 @@ export function MoveDialog({
           </Form.Item>
         )}
         {move.reason_mode !== 'none' && (
-          <Form.Item label={t('releases.move.reason')} required={needsReason}>
+          <Form.Item label={t('releases.move.reason')} required={needsReason} htmlFor="move-reason">
             <Input.TextArea
+              id="move-reason"
               rows={3}
               count={lengthLimit(500)}
               value={reason}

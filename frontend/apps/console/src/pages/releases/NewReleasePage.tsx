@@ -63,8 +63,9 @@ export function NewReleasePage() {
         testId="new-release-header"
       />
       <Form layout="vertical" data-testid="release-form">
-        <Form.Item label={t('releases.template')} required>
+        <Form.Item label={t('releases.template')} required htmlFor="release-template">
           <Select
+            id="release-template"
             value={chosen?.id}
             onChange={setTemplateId}
             loading={templates.isPending}
@@ -77,8 +78,9 @@ export function NewReleasePage() {
             {t('releases.path_of_template', { path: t(`stage_path.${chosen.stage_path}`) })}
           </Typography.Paragraph>
         )}
-        <Form.Item label={t('work_item.field.subject')} required>
+        <Form.Item label={t('work_item.field.subject')} required htmlFor="release-subject">
           <Input
+            id="release-subject"
             value={subject}
             count={lengthLimit(250)}
             onChange={(e) => {
@@ -87,7 +89,7 @@ export function NewReleasePage() {
             data-testid="release-subject"
           />
         </Form.Item>
-        <Form.Item label={t('work_item.field.requester_id')}>
+        <Form.Item label={t('work_item.field.requester_id')} htmlFor="release-requester">
           <UserPicker
             id="release-requester"
             value={requester ?? me}

@@ -34,7 +34,13 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
+from migrations.helpers import (
+    enable_actor_audit,
+    enable_tenant_rls,
+    grant_app,
+    grant_report,
+    revoke_report,
+)
 
 revision: str = "0095"
 down_revision: str | None = "0094"
@@ -291,6 +297,9 @@ def upgrade() -> None:
     _role_tables()
     _plan_and_schedule_tables()
     _downtime_table()
+    # Holders are part of the own scope (ResourceType.owner_extra), which reports apply too: the
+    # reporting role reads them, as 0027 grants the other tables a scope check reads.
+    grant_report("work_item_role_holders")
     now = _codes_now(LIST_CHECK)
     _recheck([*now, *(c for c in ADDED_LISTS if c not in now)])
 
@@ -298,6 +307,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Drop them again (stops while downtime kinds exist)."""
     _recheck([c for c in _codes_now(LIST_CHECK) if c not in ADDED_LISTS])
+    revoke_report("work_item_role_holders")
     for table in (
         "work_item_downtimes",
         "work_item_stage_schedules",

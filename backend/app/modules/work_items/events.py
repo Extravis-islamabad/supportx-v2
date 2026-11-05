@@ -282,7 +282,24 @@ class WorkItemPartChanged(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item"
 
     work_item_id: uuid.UUID
-    # WP-058a s4 adds a staged record's plan sections, stage schedules and downtimes.
+    part: Literal["task", "worklog", "link"]
+    part_id: uuid.UUID
+    change: Literal["added", "changed", "removed"]
+
+
+class WorkItemPartChangedV2(DomainEvent):
+    """As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.
+
+    WP-058a s4. New allowed values retype `part`, so a new schema version
+    (docs/architecture/events.md "Versioning"); v1 stays registered, and tasks, worklogs and
+    links still publish it.
+    """
+
+    event_type: ClassVar[str] = "work_items.part.changed"
+    schema_version: ClassVar[int] = 2
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
     part: Literal["task", "worklog", "link", "plan_section", "stage_schedule", "downtime"]
     part_id: uuid.UUID
     change: Literal["added", "changed", "removed"]
@@ -331,5 +348,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemListSettingsChanged,
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,
+    WorkItemPartChangedV2,
     WorkItemApprovalChanged,
 )

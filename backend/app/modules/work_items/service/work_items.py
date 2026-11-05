@@ -117,7 +117,7 @@ from app.modules.work_items.events import (
     WorkItemAssigned,
     WorkItemCreated,
     WorkItemDeleted,
-    WorkItemPartChanged,
+    WorkItemPartChangedV2,
     WorkItemRestored,
     WorkItemRolesChanged,
     WorkItemStageChanged,
@@ -3286,7 +3286,7 @@ async def _part_event(
 ) -> None:
     await record_event(
         session,
-        WorkItemPartChanged(
+        WorkItemPartChangedV2(
             work_item_id=record.id,
             part=part,  # type: ignore[arg-type]  # one of the part literals, checked by pydantic
             part_id=part_id,

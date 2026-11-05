@@ -1043,6 +1043,7 @@ export const ur: LabelResource = {
   'releases.roles.nobody': 'ابھی کوئی نہیں',
   'releases.schedule.actual': 'اصل',
   'releases.schedule.outcome': 'نتیجہ',
+  'releases.schedule.outcome_of': '{{stage}} کا نتیجہ',
   'releases.schedule.planned': 'منصوبہ بند',
   'releases.starts_in': 'نئی ریلیز {{stage}} سے شروع ہوتی ہے۔',
   'releases.sub.hidden': 'ایک ذیلی ریلیز جو آپ نہیں دیکھ سکتے',

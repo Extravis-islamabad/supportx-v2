@@ -10,7 +10,9 @@ Real PostgreSQL with RLS and the real policy layer:
 - the engine stamps actual stage dates and corrections need a reason;
 - a failed outcome needs its issues;
 - downtimes keep their own versions;
-- the five new tables are isolated per tenant.
+- the five new tables are isolated per tenant;
+- reports run with releases and their holders present: the reporting role reads the holders the
+  own scope needs (0095).
 """
 
 import json
@@ -27,6 +29,7 @@ from tests.db.test_incidents_api import CONSOLE, Org, World, role, world
 from tests.db.test_release_guards_api import release_workers, set_access
 from tests.db.test_release_templates_api import field_codes
 from tests.db.test_releases_api import REL, a_release, move, moved
+from tests.db.test_reports_api import ran
 
 __all__ = ["world"]  # the fixture, re-used
 
@@ -151,6 +154,24 @@ async def test_a_holder_reaches_the_record_through_the_own_scope(world: World) -
     assert seen.status_code == 200, seen.text
     listed = await world.call("GET", f"{REL}?limit=50", a, a.requester2)
     assert item["id"] in {r["id"] for r in listed.json()["items"]}  # the list agrees
+
+
+async def test_reports_run_with_release_holders_for_every_scope(world: World) -> None:
+    """The own scope reads role holders (owner_extra), and so do reports: no 500 for anyone."""
+    a = world.a
+    await world.create(a, a.admin)  # one incident
+    item = await a_release(world, a)
+    held = await put_role(world, a, item, "uat_owner", users=[a.tech_b])
+    assert held.status_code == 200, held.text
+    own = await role(
+        world, a, "Own work and reports", [("incidents.view", "own"), ("reports.view", "all")]
+    )
+    assigned = await world.call("PUT", f"/users/{a.tech_b}/roles/{own}", a, a.admin)
+    assert assigned.status_code == 204, assigned.text
+    assert (await ran(world, a, a.admin))["totals"] == [1]  # releases never count as incidents
+    mine = await ran(world, a, a.tech_b)  # the own scope, with a held release in the tenant
+    listed = await world.call("GET", "/incidents?limit=100", a, a.tech_b)
+    assert mine["totals"] == [len(listed.json()["items"])]  # the report and the list agree
 
 
 async def test_a_group_holds_a_role_of_several_and_its_members_reach_the_record(

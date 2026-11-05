@@ -98,8 +98,13 @@ export function DetailsPart({ id }: { id: string }) {
   return (
     <Form layout="vertical" data-testid="release-details" style={{ maxWidth: 720 }}>
       <Flex gap={16} wrap>
-        <Form.Item label={t('work_item.field.release_type')} style={{ minWidth: 220 }}>
+        <Form.Item
+          label={t('work_item.field.release_type')}
+          style={{ minWidth: 220 }}
+          htmlFor="release-type"
+        >
           <Select
+            id="release-type"
             allowClear
             value={value('release_type')}
             onChange={(v: string | undefined) => {
@@ -112,8 +117,13 @@ export function DetailsPart({ id }: { id: string }) {
             }))}
           />
         </Form.Item>
-        <Form.Item label={t('work_item.field.risk')} style={{ minWidth: 180 }}>
+        <Form.Item
+          label={t('work_item.field.risk')}
+          style={{ minWidth: 180 }}
+          htmlFor="release-risk"
+        >
           <Select
+            id="release-risk"
             allowClear
             value={value('risk')}
             onChange={(v: string | undefined) => {
@@ -125,8 +135,9 @@ export function DetailsPart({ id }: { id: string }) {
         </Form.Item>
       </Flex>
       {riskChanged && (
-        <Form.Item label={t('releases.risk_reason')} required>
+        <Form.Item label={t('releases.risk_reason')} required htmlFor="release-risk-reason">
           <Input
+            id="release-risk-reason"
             value={riskReason}
             onChange={(e) => {
               setRiskReason(e.target.value);
@@ -136,8 +147,9 @@ export function DetailsPart({ id }: { id: string }) {
         </Form.Item>
       )}
       <Flex gap={16} wrap>
-        <Form.Item label={t('work_item.field.release_version')}>
+        <Form.Item label={t('work_item.field.release_version')} htmlFor="release-version">
           <Input
+            id="release-version"
             value={value('release_version') ?? ''}
             count={lengthLimit(60)}
             onChange={(e) => {
@@ -146,8 +158,9 @@ export function DetailsPart({ id }: { id: string }) {
             data-testid="release-version"
           />
         </Form.Item>
-        <Form.Item label={t('work_item.field.build_ref')}>
+        <Form.Item label={t('work_item.field.build_ref')} htmlFor="release-build">
           <Input
+            id="release-build"
             value={value('build_ref') ?? ''}
             count={lengthLimit(200)}
             onChange={(e) => {
@@ -156,8 +169,13 @@ export function DetailsPart({ id }: { id: string }) {
             data-testid="release-build"
           />
         </Form.Item>
-        <Form.Item label={t('work_item.field.release_reason')} style={{ minWidth: 220 }}>
+        <Form.Item
+          label={t('work_item.field.release_reason')}
+          style={{ minWidth: 220 }}
+          htmlFor="release-reason"
+        >
           <Select
+            id="release-reason"
             allowClear
             value={value('release_reason')}
             onChange={(v: string | undefined) => {
@@ -173,8 +191,9 @@ export function DetailsPart({ id }: { id: string }) {
       </Flex>
       <Flex gap={16} wrap>
         {(['scheduled_start', 'scheduled_end'] as const).map((k) => (
-          <Form.Item key={k} label={t(`work_item.field.${k}`)}>
+          <Form.Item key={k} label={t(`work_item.field.${k}`)} htmlFor={`release-${k}`}>
             <DateTimeField
+              id={`release-${k}`}
               value={value(k)}
               onChange={(v) => {
                 set(k, v);
@@ -213,11 +232,13 @@ export function DetailsPart({ id }: { id: string }) {
 function RolePicker({
   id,
   role,
+  label,
   version,
   current,
 }: {
   id: string;
   role: string;
+  label: string;
   version: number;
   current: string | undefined;
 }) {
@@ -234,6 +255,7 @@ function RolePicker({
         allowClear
         filterOption={false}
         style={{ minWidth: 260 }}
+        aria-label={label}
         value={current}
         placeholder={t('releases.roles.nobody')}
         onOpenChange={setOpen}
@@ -280,7 +302,13 @@ export function RolesPart({ id }: { id: string }) {
             }
           />
           {r.single ? (
-            <RolePicker id={id} role={r.code} version={view.version} current={r.user_ids[0]} />
+            <RolePicker
+              id={id}
+              role={r.code}
+              label={labelled(r.labels, locale, () => t(`work_item_role.${r.code}`))}
+              version={view.version}
+              current={r.user_ids[0]}
+            />
           ) : (
             <Typography.Text>
               {r.user_ids.length > 0
@@ -409,6 +437,7 @@ function OutcomeSelect({ id, row }: { id: string; row: StageSchedule }) {
       <Select
         allowClear
         style={{ minWidth: 200 }}
+        aria-label={t('releases.schedule.outcome_of', { stage: stageName(t, row.stage) })}
         value={row.outcome}
         data-testid={`outcome-${row.stage}`}
         options={codes.map((c) => ({ value: c, label: t(`stage_outcome.${c}`) }))}
@@ -547,8 +576,13 @@ export function DowntimePart({ id }: { id: string }) {
       />
       <Form layout="vertical">
         <Flex gap={16} wrap align="end">
-          <Form.Item label={t('releases.downtime.kind')} style={{ minWidth: 200 }}>
+          <Form.Item
+            label={t('releases.downtime.kind')}
+            style={{ minWidth: 200 }}
+            htmlFor="downtime-kind"
+          >
             <Select
+              id="downtime-kind"
               allowClear
               value={kind}
               onChange={setKind}
@@ -559,11 +593,21 @@ export function DowntimePart({ id }: { id: string }) {
               }))}
             />
           </Form.Item>
-          <Form.Item label={t('releases.downtime.starts')} required>
-            <DateTimeField value={startsAt} onChange={setStartsAt} testId="downtime-starts" />
+          <Form.Item label={t('releases.downtime.starts')} required htmlFor="downtime-starts">
+            <DateTimeField
+              id="downtime-starts"
+              value={startsAt}
+              onChange={setStartsAt}
+              testId="downtime-starts"
+            />
           </Form.Item>
-          <Form.Item label={t('releases.downtime.ends')} required>
-            <DateTimeField value={endsAt} onChange={setEndsAt} testId="downtime-ends" />
+          <Form.Item label={t('releases.downtime.ends')} required htmlFor="downtime-ends">
+            <DateTimeField
+              id="downtime-ends"
+              value={endsAt}
+              onChange={setEndsAt}
+              testId="downtime-ends"
+            />
           </Form.Item>
           <Form.Item>
             <WriteButton
