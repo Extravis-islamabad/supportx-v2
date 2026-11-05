@@ -1,0 +1,438 @@
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { api, call } from './client';
+import { useSingleFlight } from './incidents';
+import type { components } from './schema';
+
+// Releases (WP-058a): a staged work item type (ADR-041). The record moves by listed status
+// transitions shown on its stage rail; its own fields, roles, plan, schedule, downtimes,
+// approvals and sub-releases each have their own resource and, where they can be edited at once
+// by different people, their own version for If-Match.
+export type Release = components['schemas']['WorkItemOut'];
+export type ReleaseInput = components['schemas']['WorkItemIn'];
+export type ReleaseListItem = components['schemas']['WorkItemListItem'];
+export type StagePanel = components['schemas']['StagePanelOut'];
+export type StageMove = components['schemas']['StageMoveOut'];
+export type StageMoveInput = components['schemas']['StageMoveIn'];
+export type RailStage = components['schemas']['RailStageOut'];
+export type ReleaseDetails = components['schemas']['ReleaseDetailsOut'];
+export type ReleaseDetailsInput = components['schemas']['ReleaseDetailsIn'];
+export type RolesView = components['schemas']['RolesOut'];
+export type RoleHolding = components['schemas']['RoleHoldingOut'];
+export type PlanSection = components['schemas']['PlanSectionOut'];
+export type StageSchedule = components['schemas']['StageScheduleOut'];
+export type StageScheduleInput = components['schemas']['StageScheduleIn'];
+export type Downtime = components['schemas']['DowntimeOut'];
+export type DowntimeInput = components['schemas']['DowntimeIn'];
+export type SubRelease = components['schemas']['SubReleaseOut'];
+export type ReleaseTemplate = components['schemas']['TemplateOut'];
+export type ReleaseApproval = components['schemas']['ApprovalOut'];
+export type PersonOption = components['schemas']['PersonOptionOut'];
+
+const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
+
+export const releaseKeys = {
+  all: ['releases'] as const,
+  list: (query: ReleasesQuery) => ['releases', 'list', query] as const,
+  detail: (id: string) => ['releases', 'detail', id] as const,
+  // Under the detail key: one invalidation of the record refreshes every part of it.
+  part: (id: string, part: string) => ['releases', 'detail', id, part] as const,
+  settings: ['releases', 'settings'] as const,
+  templates: ['releases', 'templates'] as const,
+  candidates: (role: string, search: string) => ['releases', 'candidates', role, search] as const,
+};
+
+export interface ReleasesQuery {
+  view?: string;
+  cursor?: string;
+}
+
+export function useReleases(query: ReleasesQuery) {
+  return useQuery({
+    queryKey: releaseKeys.list(query),
+    queryFn: () => call(api.GET('/api/v1/releases', { params: { query } })),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useRelease(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.detail(id),
+    queryFn: () =>
+      call(api.GET('/api/v1/releases/{record_id}', { params: { path: { record_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+/** The type's configuration: statuses, the release type and reason lists (own_lists). */
+export function useReleaseSettings() {
+  return useQuery({
+    queryKey: releaseKeys.settings,
+    queryFn: () => call(api.GET('/api/v1/releases/settings')),
+    staleTime: 60_000,
+  });
+}
+
+export function useReleaseTemplates() {
+  return useQuery({
+    queryKey: releaseKeys.templates,
+    queryFn: () => call(api.GET('/api/v1/releases/templates')),
+    staleTime: 60_000,
+  });
+}
+
+/** Create a release. One Idempotency-Key per form, so a retry never makes two (REQ-REL-007). */
+export function useCreateRelease() {
+  const queryClient = useQueryClient();
+  const once = useSingleFlight(({ body, key }: { body: ReleaseInput; key: string }) =>
+    call(api.POST('/api/v1/releases', { params: { header: { 'Idempotency-Key': key } }, body })),
+  );
+  return useMutation({
+    mutationFn: once,
+    onSuccess: (made) => {
+      queryClient.setQueryData(releaseKeys.detail(made.id), made);
+      void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
+    },
+  });
+}
+
+/** The rail and the moves offered from the current status (ADR-041 §7). */
+export function useStagePanel(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'stages'),
+    queryFn: () =>
+      call(api.GET('/api/v1/releases/{record_id}/stages', { params: { path: { record_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+function useRefreshRecord() {
+  const queryClient = useQueryClient();
+  return (id: string) => {
+    void queryClient.invalidateQueries({ queryKey: releaseKeys.detail(id) });
+    void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
+  };
+}
+
+/** A listed move, with If-Match on the record and the values the move asks for. */
+export function useMoveRelease() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({ id, version, body }: { id: string; version: number; body: StageMoveInput }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/moves', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}
+
+export function useReleaseDetails(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'details'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/details', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+export function useUpdateReleaseDetails() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({
+      id,
+      version,
+      body,
+    }: {
+      id: string;
+      version: number;
+      body: ReleaseDetailsInput;
+    }) =>
+      call(
+        api.PATCH('/api/v1/releases/{record_id}/details', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}
+
+export function useReleaseRoles(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'roles'),
+    queryFn: () =>
+      call(api.GET('/api/v1/releases/{record_id}/roles', { params: { path: { record_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+export function useSetReleaseRole() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({
+      id,
+      role,
+      version,
+      userIds,
+      groupIds = [],
+    }: {
+      id: string;
+      role: string;
+      version: number;
+      userIds: string[];
+      groupIds?: string[];
+    }) =>
+      call(
+        api.PUT('/api/v1/releases/{record_id}/roles/{role}', {
+          params: { path: { record_id: id, role }, header: ifMatch(version) },
+          body: { user_ids: userIds, group_ids: groupIds },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}
+
+/** Only people the role allows (REQ-REL-024): the picker never offers anyone else. */
+export function useRoleCandidates(role: string, search: string, enabled: boolean) {
+  return useQuery({
+    queryKey: releaseKeys.candidates(role, search),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/roles/{role}/candidates', {
+          params: { path: { role }, query: { search: search === '' ? undefined : search } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+export function usePlanSections(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'plan'),
+    queryFn: () =>
+      call(api.GET('/api/v1/releases/{record_id}/plan', { params: { path: { record_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+/** One section, with that section's own If-Match (0: not written yet; REQ-REL-025). */
+export function useWritePlanSection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      section,
+      version,
+      content,
+    }: {
+      id: string;
+      section: string;
+      version: number;
+      content: string | null;
+    }) =>
+      call(
+        api.PUT('/api/v1/releases/{record_id}/plan/{section}', {
+          params: { path: { record_id: id, section }, header: ifMatch(version) },
+          body: { content },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'plan') });
+    },
+  });
+}
+
+export function useStageSchedules(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'schedule'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/schedule', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+export function useUpdateStageSchedule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      stage,
+      version,
+      body,
+    }: {
+      id: string;
+      stage: string;
+      version: number;
+      body: StageScheduleInput;
+    }) =>
+      call(
+        api.PATCH('/api/v1/releases/{record_id}/schedule/{stage}', {
+          params: { path: { record_id: id, stage }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'schedule') });
+    },
+  });
+}
+
+export function useDowntimes(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'downtimes'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/downtimes', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Add a window (one Idempotency-Key per form) or change one (its own If-Match). */
+export function useSaveDowntime() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      downtimeId,
+      version,
+      key,
+      body,
+    }: {
+      id: string;
+      downtimeId?: string;
+      version?: number;
+      key?: string;
+      body: DowntimeInput;
+    }) =>
+      downtimeId === undefined
+        ? call(
+            api.POST('/api/v1/releases/{record_id}/downtimes', {
+              params: { path: { record_id: id }, header: { 'Idempotency-Key': key ?? '' } },
+              body,
+            }),
+          )
+        : call(
+            api.PATCH('/api/v1/releases/{record_id}/downtimes/{downtime_id}', {
+              params: {
+                path: { record_id: id, downtime_id: downtimeId },
+                header: ifMatch(version ?? 0),
+              },
+              body,
+            }),
+          ),
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'downtimes') });
+    },
+  });
+}
+
+export function useRemoveDowntime() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      downtimeId,
+      version,
+    }: {
+      id: string;
+      downtimeId: string;
+      version: number;
+    }) => {
+      await call(
+        api.DELETE('/api/v1/releases/{record_id}/downtimes/{downtime_id}', {
+          params: { path: { record_id: id, downtime_id: downtimeId }, header: ifMatch(version) },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'downtimes') });
+    },
+  });
+}
+
+export function useReleaseApprovals(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'approvals'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/approvals', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Approve or reject with If-Match on the approval's version (REQ-REL-031). */
+export function useDecideReleaseApproval() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({
+      id,
+      approvalId,
+      version,
+      decision,
+      comment,
+    }: {
+      id: string;
+      approvalId: string;
+      version: number;
+      decision: 'approve' | 'reject';
+      comment?: string;
+    }) =>
+      call(
+        api.POST('/api/v1/releases/{record_id}/approvals/{approval_id}/decision', {
+          params: {
+            path: { record_id: id, approval_id: approvalId },
+            header: ifMatch(version),
+          },
+          body: { decision, comment: comment ?? null, private: false },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      refresh(id);
+    },
+  });
+}
+
+export function useSubReleases(id: string) {
+  return useQuery({
+    queryKey: releaseKeys.part(id, 'sub-releases'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/releases/{record_id}/sub-releases', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+export function useSetParentRelease() {
+  const refresh = useRefreshRecord();
+  return useMutation({
+    mutationFn: ({ id, parentId }: { id: string; parentId: string | null }) =>
+      call(
+        api.PUT('/api/v1/releases/{record_id}/parent', {
+          params: { path: { record_id: id } },
+          body: { parent_id: parentId },
+        }),
+      ),
+    onSettled: (_data, _error, { id, parentId }) => {
+      refresh(id);
+      if (parentId !== null) refresh(parentId);
+    },
+  });
+}
