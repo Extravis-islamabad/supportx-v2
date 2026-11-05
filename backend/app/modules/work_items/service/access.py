@@ -295,6 +295,9 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
 # unless an admin widens it. Enforced in the API, history and search, not only the screen.
 EDIT_ANALYSIS = "edit_analysis"
 VIEW_ROOT_CAUSE = "view_root_cause"
+# WP-044b s3 (REQ-PRB-034, -036): the solution (workaround) and the known error flag.
+EDIT_SOLUTION = "edit_solution"
+MARK_KNOWN_ERROR = "mark_known_error"
 PROBLEM_SPECS: tuple[PermissionSpec, ...] = tuple(
     PermissionSpec(
         f"problems.{action}",
@@ -302,7 +305,7 @@ PROBLEM_SPECS: tuple[PermissionSpec, ...] = tuple(
         ALL_SCOPES,
         defaults=(("technician", "group"), *_role_defaults(action)),
     )
-    for action in (EDIT_ANALYSIS, VIEW_ROOT_CAUSE)
+    for action in (EDIT_ANALYSIS, VIEW_ROOT_CAUSE, EDIT_SOLUTION, MARK_KNOWN_ERROR)
 )
 
 

@@ -470,9 +470,14 @@ export const en = {
   'permission.problems.edit_due_dates': 'Set problem target dates by hand',
   'permission.problems.edit_due_dates.description':
     "Change a problem's target date instead of its policy.",
+  'permission.problems.edit_solution': 'Edit problem solutions',
+  'permission.problems.edit_solution.description': 'Change the workaround of problems.',
   'permission.problems.manage_followers': 'Manage followers of problems',
   'permission.problems.manage_followers.description':
     'Add and remove the people who follow a problem.',
+  'permission.problems.mark_known_error': 'Mark known errors',
+  'permission.problems.mark_known_error.description':
+    'Mark problems as known errors, or remove the flag.',
   'permission.problems.reopen': 'Reopen problems',
   'permission.problems.reopen.description':
     'Take a resolved or closed problem back into investigation.',

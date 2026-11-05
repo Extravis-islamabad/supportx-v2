@@ -295,6 +295,7 @@ FIELD_PROBLEMS = frozenset(
         "already_linked",
         "cannot_link_itself",
         "cannot_merge_itself",
+        "required_for_known_error",
         "record_not_found",
         # WP-020b: conversation, followers, reply templates
         "not_allowed_for_notes",

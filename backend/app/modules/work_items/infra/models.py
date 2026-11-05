@@ -441,6 +441,11 @@ class WorkItem(TenantEntity):
             " OR outage_ended_at >= outage_started_at",
             name="outage_order",
         ),
+        CheckConstraint(
+            "known_error_retired_at IS NULL OR "
+            "(known_error_at IS NOT NULL AND known_error_retired_at >= known_error_at)",
+            name="known_error_retired_after",
+        ),
         CheckConstraint(_codes("status_category", StatusCategory), name="status_category_code"),
         CheckConstraint("impact IS NULL OR " + _codes("impact", Impact), name="impact_code"),
         CheckConstraint("urgency IS NULL OR " + _codes("urgency", Urgency), name="urgency_code"),
@@ -641,6 +646,11 @@ class WorkItem(TenantEntity):
     # only to holders of problems.view_root_cause (D-140 Q7) and never indexed for search.
     root_cause: Mapped[str | None] = mapped_column(Text)
     symptoms: Mapped[str | None] = mapped_column(Text)
+    # Known errors (WP-044b s3, REQ-PRB-034..042): the workaround incident technicians see,
+    # when it was marked a known error, and when that was retired by a permanent fix.
+    workaround: Mapped[str | None] = mapped_column(Text)
+    known_error_at: Mapped[datetime | None]
+    known_error_retired_at: Mapped[datetime | None]
     template_id: Mapped[uuid.UUID | None]
     # Service requests (WP-030): the catalog item, the form's answers (Any: JSON values), and
     # the approval status; NULL / empty on incidents.

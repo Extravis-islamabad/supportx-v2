@@ -15,6 +15,10 @@
     GET  /problems/{id}/evidence                 the caused incidents' timeline you see (044b)
     POST /problems/{id}/merge                    merge into another problem (If-Match; 044b)
     POST /problems/{id}/undo-merge               put a merged problem back (If-Match; 044b)
+    GET  /problems/known-errors?q=               the known error database you see (044b)
+    GET  /problems/known-errors/suggestions?incident_id=  known errors like an incident (044b)
+    POST /problems/{id}/known-error              mark it a known error (If-Match; 044b)
+    POST /problems/{id}/known-error/remove       remove the flag, with a reason (If-Match; 044b)
 
 Many incidents go to "this problem instead" through the incidents' own bulk job
 (`POST /incidents/bulk`, action `link_problem`), the same path as from the create form.
@@ -27,6 +31,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
@@ -39,7 +44,7 @@ from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.lists import MAX_BULK
 from app.modules.work_items.domain.types import PROBLEM, WorkItemType
 from app.modules.work_items.service import bulk as bulk_service
-from app.modules.work_items.service import problem_impact, problem_merge
+from app.modules.work_items.service import known_errors, problem_impact, problem_merge
 from app.modules.work_items.service import problems as service
 from app.modules.work_items.service import work_items as items
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -332,6 +337,134 @@ def add_problem_routes(
     _add_analysis_routes(router, wtype)
     _add_merge_routes(router, wtype)
     _add_unlink_route(router, wtype)
+    _add_known_error_routes(router, wtype, record_out)
+
+
+class KnownErrorOut(BaseModel):
+    """One known error (REQ-PRB-037): never its root cause (D-140 Q7)."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    status: str
+    symptoms: str | None
+    workaround: str | None
+    known_error_at: datetime
+    retired_at: datetime | None = Field(description="Set when a permanent fix retired it.")
+    incidents: int = Field(description="Incidents it causes (live links).")
+
+
+def _known(entry: known_errors.KnownError) -> KnownErrorOut:
+    r = entry.record
+    assert r.known_error_at is not None  # noqa: S101 - the query keeps flagged ones only
+    return KnownErrorOut(
+        id=r.id,
+        display_id=r.display_id,
+        subject=r.subject,
+        status=r.status,
+        symptoms=r.symptoms,
+        workaround=r.workaround,
+        known_error_at=r.known_error_at,
+        retired_at=r.known_error_retired_at,
+        incidents=entry.incidents,
+    )
+
+
+class KnownErrorMarkIn(BaseModel):
+    """Why it is a known error (optional)."""
+
+    comment: str | None = Field(default=None, max_length=1000)
+
+
+class KnownErrorRemoveIn(BaseModel):
+    """Why the flag goes (required)."""
+
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+def _add_known_error_routes(
+    router: APIRouter, wtype: WorkItemType, record_out: type[BaseModel]
+) -> None:
+    """The known error flag, its database and suggestions (WP-044b s3)."""
+    View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
+    Mark = Annotated[Subject, Depends(require_permission(wtype.permission("mark_known_error")))]  # noqa: N806 - type alias
+
+    @router.get("/known-errors", summary="The known error database")
+    async def database(
+        session: TenantSession,
+        subject: View,
+        *,
+        q: Annotated[str, Query(max_length=500)] = "",
+        include_retired: Annotated[bool, Query()] = True,
+    ) -> list[KnownErrorOut]:
+        """Known errors you may see, searched in subject, symptoms and workaround."""
+        found = await known_errors.database(
+            session, subject, search=q, include_retired=include_retired
+        )
+        return [_known(e) for e in found]
+
+    @router.get("/known-errors/suggestions", summary="Known errors like an incident")
+    async def suggestions(
+        incident_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> list[KnownErrorOut]:
+        """Open known errors matching the incident's words (an incident you may see)."""
+        return [_known(e) for e in await known_errors.suggestions(session, subject, incident_id)]
+
+    async def answer(
+        session: AsyncSession, subject: Subject, record_id: uuid.UUID, response: Response
+    ) -> BaseModel:
+        view = await items.get(session, subject, PROBLEM, record_id)
+        set_etag(response, view.record.version)
+        out: BaseModel = record_out.of(view)  # type: ignore[attr-defined]  # WorkItemOut.of
+        return out
+
+    @router.post(
+        "/{record_id}/known-error", summary="Mark as a known error", response_model=record_out
+    )
+    async def mark(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        body: KnownErrorMarkIn,
+        version: ExpectedVersion,
+        session: TenantSession,
+        subject: Mark,
+        request: Request,
+        response: Response,
+    ) -> BaseModel:
+        """Needs a workaround or a root cause written first; If-Match."""
+        await known_errors.mark(
+            session,
+            subject,
+            record_id,
+            expected_version=version,
+            comment=body.comment,
+            source=source_of(request),
+        )
+        return await answer(session, subject, record_id, response)
+
+    @router.post(
+        "/{record_id}/known-error/remove",
+        summary="Remove the known error flag",
+        response_model=record_out,
+    )
+    async def unmark(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        body: KnownErrorRemoveIn,
+        version: ExpectedVersion,
+        session: TenantSession,
+        subject: Mark,
+        request: Request,
+        response: Response,
+    ) -> BaseModel:
+        """With a reason, kept in history; If-Match."""
+        await known_errors.unmark(
+            session,
+            subject,
+            record_id,
+            expected_version=version,
+            reason=body.reason,
+            source=source_of(request),
+        )
+        return await answer(session, subject, record_id, response)
 
 
 def _add_unlink_route(router: APIRouter, wtype: WorkItemType) -> None:

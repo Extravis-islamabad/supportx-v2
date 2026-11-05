@@ -461,11 +461,12 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             elif record.technician_id is not None:
                 refused = ASSIGNED_TO_OTHER
         operations.append(ActionState(op, allowed=refused is None, reason=refused))
-    if wtype.code is WorkItemTypeCode.PROBLEM:  # the analysis section's own right (WP-044b)
-        refused = await reason("edit_analysis")
-        if refused is None and final:
-            refused = RECORD_CLOSED
-        operations.append(ActionState("edit_analysis", allowed=refused is None, reason=refused))
+    if wtype.code is WorkItemTypeCode.PROBLEM:  # the analysis and solution rights (WP-044b)
+        for op in ("edit_analysis", "edit_solution", "mark_known_error"):
+            refused = await reason(op)
+            if refused is None and final:
+                refused = RECORD_CLOSED
+            operations.append(ActionState(op, allowed=refused is None, reason=refused))
     hidden = await hidden_fields(session, subject, wtype, record.id)
     analysis = (
         await _analysis_changes(session, record.id, hidden)
@@ -1192,9 +1193,18 @@ PROBLEM_FIELDS = ("problem_type", "root_cause_category", "outage_started_at", "o
 # The analysis (WP-044b, REQ-PRB-030): changing it needs problems.edit_analysis; the root cause
 # is read only with problems.view_root_cause (D-140 Q7).
 # A list, not a pair: the field-problem scanner reads two-string tuples as (field, code).
-ANALYSIS_FIELDS = ["root_cause", "symptoms"]
+# The workaround (s3, REQ-PRB-034) is the solution: its own right, and seen by everyone who
+# sees the problem (D-140 Q7), so it is never hidden.
+ANALYSIS_FIELDS = ["root_cause", "symptoms", "workaround"]
 HIDDEN_WITHOUT = {"root_cause": "view_root_cause"}
+EDITED_WITH = {"workaround": "edit_solution"}  # otherwise edit_analysis
 _PROBLEM_LISTS = {"problem_type": PickList.PROBLEM_TYPE, "root_cause_category": PickList.ROOT_CAUSE}
+
+
+def _analysis_rights(names: Sequence[str]) -> set[str]:
+    """The rights changing these fields needs: its edit right, and reading it when hidden."""
+    rights = {EDITED_WITH.get(n, "edit_analysis") for n in names}
+    return rights | {HIDDEN_WITHOUT[n] for n in names if n in HIDDEN_WITHOUT}
 
 
 async def _may_change_analysis(
@@ -1208,7 +1218,7 @@ async def _may_change_analysis(
     changing = [n for n in names if wtype.code is WorkItemTypeCode.PROBLEM]
     if not changing:
         return
-    actions = {"edit_analysis", *(HIDDEN_WITHOUT[n] for n in changing if n in HIDDEN_WITHOUT)}
+    actions = _analysis_rights(changing)
     for action in sorted(actions):
         if not await _may(session, subject, wtype, action, record.id):
             raise PermissionDenied(
@@ -1221,7 +1231,7 @@ def _may_give_analysis(subject: Subject, wtype: WorkItemType, cleaned: dict[str,
     given = [n for n in ANALYSIS_FIELDS if cleaned.get(n) is not None]
     if not given or wtype.code is not WorkItemTypeCode.PROBLEM:
         return
-    actions = {"edit_analysis", *(HIDDEN_WITHOUT[n] for n in given if n in HIDDEN_WITHOUT)}
+    actions = _analysis_rights(given)
     for action in sorted(actions):
         if not subject.holds(wtype.permission(action)):
             raise PermissionDenied(
@@ -2970,6 +2980,50 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         extra=[Change("requester_action", None, requester_action(rule, action))]
         if by_requester
         else (),
+    )
+    return updated
+
+
+async def set_fields(  # noqa: PLR0913 - the record, its version, the change and its reason
+    session: AsyncSession,
+    record: WorkItem,
+    columns: Mapping[str, Any],
+    *,
+    expected_version: int,
+    source: Source,
+    reason: str | None = None,
+) -> WorkItem:
+    """Columns a service sets after its own checks (a known error marked; WP-044b).
+
+    If-Match, field history with the reason, and the usual update event.
+    """
+    audience_before = _audience(record)
+    before = {name: getattr(record, name) for name in columns}
+    updated = await _update(session, record, expected_version, columns)
+    changes = [Change(n, _json(before[n]), _json(v)) for n, v in columns.items() if before[n] != v]
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=changes,
+        source=source,
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(columns),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
     )
     return updated
 

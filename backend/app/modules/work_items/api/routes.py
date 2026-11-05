@@ -150,6 +150,11 @@ class WorkItemIn(BaseModel):
         max_length=DESCRIPTION_MAX * 2,
         description="Problems: the symptoms, rich text (needs problems.edit_analysis).",
     )
+    workaround: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the workaround, rich text (needs problems.edit_solution).",
+    )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )
@@ -216,6 +221,11 @@ class WorkItemPatch(BaseModel):
         default=None,
         max_length=DESCRIPTION_MAX * 2,
         description="Problems: the symptoms, rich text (needs problems.edit_analysis).",
+    )
+    workaround: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the workaround, rich text (needs problems.edit_solution).",
     )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key (null clears one); others kept."
@@ -532,6 +542,13 @@ class WorkItemOut(BaseModel):
         default=False, description="Problems: you may not read the root cause."
     )
     symptoms: str | None = None
+    workaround: str | None = None
+    known_error_at: datetime | None = Field(
+        default=None, description="Problems: when it was marked a known error."
+    )
+    known_error_retired_at: datetime | None = Field(
+        default=None, description="Problems: when the known error was retired (a permanent fix)."
+    )
     analysis_changes: list[AnalysisChangeOut] = Field(
         default_factory=list,
         description="Problems: who last changed each analysis field you may read, and when.",
@@ -671,6 +688,9 @@ _RECORD_FIELDS = (
     "outage_started_at",
     "outage_ended_at",
     "symptoms",
+    "workaround",
+    "known_error_at",
+    "known_error_retired_at",
     "template_id",
     "lifecycle",
     "status_before_pause",

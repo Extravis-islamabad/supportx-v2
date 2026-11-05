@@ -18,7 +18,7 @@ Two ports for other modules:
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import update
@@ -160,7 +160,21 @@ async def before_move(
         return step
     _check_rules(cat, record, action, given, step, custom_keys=await _custom_keys(session, record))
     await _check_open_work(session, cat, record, given, step)
+    if action == RESOLVE and _live_known_error(record):
+        # Resolving a known error is its permanent fix: it retires, in the same save and history
+        # entry (REQ-PRB-042 AC1).
+        now = datetime.now(UTC)
+        step.changes["known_error_retired_at"] = now
+        step.history.append(Change("known_error_retired_at", None, now.isoformat()))
     return step
+
+
+def _live_known_error(record: WorkItem) -> bool:
+    return (
+        record.type == WorkItemTypeCode.PROBLEM
+        and record.known_error_at is not None
+        and record.known_error_retired_at is None
+    )
 
 
 def _check_rules(  # noqa: PLR0913 - the move and its context, explicit

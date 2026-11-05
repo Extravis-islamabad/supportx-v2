@@ -470,9 +470,14 @@ export const ur: LabelResource = {
   'permission.problems.edit_analysis.description': 'مسائل کی بنیادی وجہ اور علامات تبدیل کریں۔',
   'permission.problems.edit_due_dates': 'مسائل کی ہدف تاریخ ہاتھ سے مقرر کریں',
   'permission.problems.edit_due_dates.description': 'مسئلے کی ہدف تاریخ پالیسی کے بجائے خود بدلیں۔',
+  'permission.problems.edit_solution': 'مسئلے کے حل تبدیل کریں',
+  'permission.problems.edit_solution.description': 'مسائل کا عارضی حل تبدیل کریں۔',
   'permission.problems.manage_followers': 'مسائل کے فالوورز کا انتظام',
   'permission.problems.manage_followers.description':
     'مسئلے کو فالو کرنے والے لوگ شامل کریں اور ہٹائیں۔',
+  'permission.problems.mark_known_error': 'معلوم خرابیاں نشان زد کریں',
+  'permission.problems.mark_known_error.description':
+    'مسائل کو معلوم خرابی کے طور پر نشان زد کریں، یا نشان ہٹائیں۔',
   'permission.problems.reopen': 'مسائل دوبارہ کھولیں',
   'permission.problems.reopen.description': 'حل شدہ یا بند مسئلہ دوبارہ تحقیق میں لائیں۔',
   'permission.problems.reply': 'مسائل پر عوامی نوٹس شامل کریں',

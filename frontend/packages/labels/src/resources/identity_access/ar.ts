@@ -459,8 +459,13 @@ export const ar: LabelResource = {
   'permission.problems.edit_due_dates': 'تعيين المواعيد المستهدفة للمشكلات يدويًا',
   'permission.problems.edit_due_dates.description':
     'تغيير الموعد المستهدف للمشكلة بدلًا من سياستها.',
+  'permission.problems.edit_solution': 'تعديل حلول المشكلات',
+  'permission.problems.edit_solution.description': 'تغيير الحل المؤقت للمشكلات.',
   'permission.problems.manage_followers': 'إدارة متابعي المشكلات',
   'permission.problems.manage_followers.description': 'إضافة وإزالة من يتابعون مشكلة.',
+  'permission.problems.mark_known_error': 'تحديد الأخطاء المعروفة',
+  'permission.problems.mark_known_error.description':
+    'تحديد المشكلات كأخطاء معروفة، أو إزالة العلامة.',
   'permission.problems.reopen': 'إعادة فتح المشكلات',
   'permission.problems.reopen.description': 'إعادة مشكلة محلولة أو مغلقة إلى التحقيق.',
   'permission.problems.reply': 'إضافة ملاحظات عامة على المشكلات',
