@@ -39,4 +39,23 @@ class ProductChanged(DomainEvent):
     changed_fields: list[str]
 
 
-EVENTS: tuple[type[DomainEvent], ...] = (CatalogueChanged, ProductChanged)
+AssetAction = Literal["created", "updated", "deleted", "restored"]
+
+
+class AssetChanged(DomainEvent):
+    """An asset was added, changed, moved to the trash or restored (REQ-AST-007).
+
+    `site_id` is the asset's site after the change, so live lists at that site hear of it.
+    """
+
+    event_type: ClassVar[str] = "assets.asset.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset"
+
+    asset_id: uuid.UUID
+    action: AssetAction
+    changed_fields: list[str]
+    site_id: uuid.UUID | None = None
+
+
+EVENTS: tuple[type[DomainEvent], ...] = (CatalogueChanged, ProductChanged, AssetChanged)

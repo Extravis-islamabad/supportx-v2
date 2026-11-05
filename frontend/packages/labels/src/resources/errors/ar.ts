@@ -37,6 +37,9 @@ export const ar: LabelResource = {
   'errors.asset_life_cycle_not_found': 'دورة الحياة هذه غير موجودة.',
   'errors.asset_life_cycle_protected':
     'لا يمكن حذف دورة الحياة الافتراضية. اجعل دورة أخرى افتراضية أولًا.',
+  'errors.asset_limit_reached':
+    'جميع خانات أصول تقنية المعلومات في خطة مؤسستك مستخدمة. تخلّص من أصل أو اطلب من المسؤول إضافة المزيد.',
+  'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
   'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
   'errors.asset_product_type_has_children':
     'توجد أنواع منتجات أخرى تحت هذا النوع ({{used}}). انقلها أو احذفها أولًا.',
@@ -143,23 +146,27 @@ export const ar: LabelResource = {
   'errors.field.api_key_owner_not_service': 'مفاتيح الآخرين لا تكون إلا لهوية خدمة.',
   'errors.field.api_key_scope_unknown': 'اختر نطاقًا واحدًا على الأقل من النطاقات المعروضة.',
   'errors.field.asset_api_name_taken': 'نوع منتج آخر يستخدم اسم الواجهة هذا.',
+  'errors.field.asset_identifier_invalid': 'استخدم الحروف والأرقام و- . / : # فقط، دون مسافات.',
   'errors.field.asset_life_cycle_code_taken': 'دورة حياة أخرى تستخدم هذا الرمز.',
   'errors.field.asset_life_cycle_default_needed':
     'يجب وجود دورة حياة افتراضية. اجعل دورة أخرى افتراضية بدلًا من ذلك.',
   'errors.field.asset_life_cycle_not_found': 'اختر دورة حياة من القائمة.',
   'errors.field.asset_move_duplicate':
     'هذا الانتقال موجود في القائمة بالفعل، أو يؤدي إلى الحالة نفسها.',
+  'errors.field.asset_product_not_found': 'لم يعد هذا المنتج موجودًا.',
   'errors.field.asset_product_type_cycle':
     'لا يمكن وضع نوع منتج تحت نفسه أو تحت أحد أنواعه الفرعية.',
   'errors.field.asset_product_type_inherited': 'تأتي هذه القيمة من النوع الأصل. غيّرها هناك.',
   'errors.field.asset_product_type_not_found': 'اختر نوع منتج من القائمة.',
   'errors.field.asset_product_type_too_deep': 'يمكن أن تصل الشجرة إلى {{max}} مستويات كحد أقصى.',
+  'errors.field.asset_serial_number_taken': 'الأصل {{asset}} يحمل هذا الرقم التسلسلي بالفعل.',
   'errors.field.asset_state_code_taken': 'حالة أخرى تستخدم هذا الرمز.',
   'errors.field.asset_state_default_needed':
     'تحتاج كل فئة إلى حالة افتراضية. اجعل حالة أخرى افتراضية بدلًا من ذلك.',
   'errors.field.asset_state_not_found': 'اختر الحالات من القائمة.',
   'errors.field.asset_state_system': 'تعتمد الإعارة والتخلص على هذه الحالة، لذا تبقى فئتها كما هي.',
   'errors.field.asset_tag_pattern_invalid': 'استخدم العدّاد {n} مرة واحدة مع نص حوله، مثل AST-{n}.',
+  'errors.field.asset_tag_taken': 'الأصل {{asset}} يحمل هذا الوسم بالفعل.',
   'errors.field.auto_close_needs_notifications':
     'يحتاج الإغلاق التلقائي إلى إشعارات مقدّمي الطلبات: لا توجد بعد قناة تُبلغ مقدّمي الطلبات بالحل.',
   'errors.field.before_publish': 'يجب أن يأتي الإيقاف بعد النشر.',

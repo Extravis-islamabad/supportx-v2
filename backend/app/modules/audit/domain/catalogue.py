@@ -302,6 +302,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("knowledge.type_changed", AuditCategory.CONFIGURATION, "knowledge"),
     # assets (WP-049a s1): the catalogue and the asset settings
     ("asset.settings_changed", AuditCategory.CONFIGURATION, "assets"),
+    # Assets (WP-049a s2, REQ-AST-001 AC: privileged record actions).
+    ("asset.created", AuditCategory.RECORDS, "assets"),
+    ("asset.updated", AuditCategory.RECORDS, "assets"),
+    ("asset.deleted", AuditCategory.RECORDS, "assets"),
+    ("asset.restored", AuditCategory.RECORDS, "assets"),
     # Vendors (REQ-PUR-001, WP-049a s2).
     ("vendor.created", AuditCategory.CONFIGURATION, "procurement"),
     ("vendor.updated", AuditCategory.CONFIGURATION, "procurement"),

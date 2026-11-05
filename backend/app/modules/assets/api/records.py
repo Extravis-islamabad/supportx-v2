@@ -1,0 +1,395 @@
+"""The asset record over HTTP, /api/v1/assets (WP-049a session 2). No business logic.
+
+Registered after the catalogue routes (assets/api/routes.py), so `/assets/states` and friends
+match first and `/assets/{asset_id}` only takes an ID. Reading needs `assets.view`, writing
+`assets.manage`, each within its scope. Writes use If-Match; creates take an Idempotency-Key.
+"""
+
+import uuid
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.authorization import require_permission
+from app.core.database import TenantSession
+from app.core.errors import ProblemDetail
+from app.modules import metadata
+from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
+from app.modules.assets.infra.models import Asset
+from app.modules.assets.service import assets as service
+from app.modules.assets.service.catalogue import TEXT_MAX
+from app.modules.audit import audited
+from app.modules.identity_access import Subject, user_names
+from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.filters import FilterField
+from app.shared.api.idempotency import Created, Idempotency
+from app.shared.api.listing import ListQuery, Page, list_query, paginate
+from app.shared.api.ratelimit import rate_limit
+from app.shared.history import history_page, source_of
+from app.shared.search import ENGINE, SearchDocument
+
+router = APIRouter(
+    prefix="/assets",
+    tags=["assets"],
+    dependencies=[Depends(rate_limit("assets"))],
+    responses={
+        401: {"model": ProblemDetail, "description": "Not signed in."},
+        403: {"model": ProblemDetail, "description": "Missing permission, feature or slot."},
+    },
+)
+WRITE: dict[int | str, dict[str, object]] = {
+    404: {"model": ProblemDetail, "description": "asset_not_found"},
+    409: {"model": ProblemDetail, "description": "version_conflict"},
+}
+
+View = Annotated[Subject, Depends(require_permission(service.VIEW))]
+Manage = Annotated[Subject, Depends(require_permission(service.MANAGE))]
+
+
+async def _custom_filters(session: AsyncSession) -> dict[str, FilterField]:
+    return await metadata.filter_fields(session, service.ENTITY, "assets")
+
+
+AssetsQuery = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            service.ASSET_FIELDS, extra_parameters=frozenset({"search"}), fields_for=_custom_filters
+        )
+    ),
+]
+_COLUMNS = Asset.__table__.c
+TEXT = SearchDocument(vector=_COLUMNS.search_vector, short_text=_COLUMNS.search_text)
+
+
+class AssetOut(BaseModel):
+    """An asset (REQ-AST-007)."""
+
+    id: uuid.UUID
+    name: str
+    product_id: uuid.UUID
+    product_type_id: uuid.UUID
+    state_id: uuid.UUID
+    tag: str | None
+    serial_number: str | None
+    discovered_serial: str | None = Field(description="Set by discovery; read-only here.")
+    barcode: str | None
+    vendor_id: uuid.UUID | None
+    site_id: uuid.UUID | None
+    location: str | None
+    purchase_order_id: uuid.UUID | None
+    purchase_price: Decimal | None
+    purchase_tax: Decimal | None
+    purchase_total: Decimal | None = Field(description="Price plus tax (D-141), worked out.")
+    currency: str | None
+    acquired_on: date | None
+    warranty_expires_on: date | None
+    expires_on: date | None
+    description: str | None
+    custom: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+    version: int
+
+    @classmethod
+    def of(cls, row: Asset) -> "AssetOut":
+        """From the row."""
+        return cls(
+            id=row.id,
+            name=row.name,
+            product_id=row.product_id,
+            product_type_id=row.product_type_id,
+            state_id=row.state_id,
+            tag=row.tag,
+            serial_number=row.serial_number,
+            discovered_serial=row.discovered_serial,
+            barcode=row.barcode,
+            vendor_id=row.vendor_id,
+            site_id=row.site_id,
+            location=row.location,
+            purchase_order_id=row.purchase_order_id,
+            purchase_price=row.purchase_price,
+            purchase_tax=row.purchase_tax,
+            purchase_total=service.purchase_total(row),
+            currency=row.currency,
+            acquired_on=row.acquired_on,
+            warranty_expires_on=row.warranty_expires_on,
+            expires_on=row.expires_on,
+            description=row.description,
+            custom=dict(row.custom),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            version=row.version,
+        )
+
+
+class AssetIn(BaseModel):
+    """A new asset: name and product; the tag comes from the pattern unless typed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=NAME_MAX)
+    product_id: uuid.UUID
+    tag: str | None = Field(default=None, max_length=IDENTIFIER_MAX)
+    serial_number: str | None = Field(default=None, max_length=IDENTIFIER_MAX)
+    barcode: str | None = Field(default=None, max_length=IDENTIFIER_MAX)
+    vendor_id: uuid.UUID | None = None
+    site_id: uuid.UUID | None = None
+    location: str | None = Field(default=None, max_length=LOCATION_MAX)
+    purchase_order_id: uuid.UUID | None = None
+    purchase_price: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    purchase_tax: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    acquired_on: date | None = None
+    warranty_expires_on: date | None = None
+    expires_on: date | None = None
+    description: str | None = Field(default=None, max_length=TEXT_MAX)
+    custom: dict[str, Any] | None = Field(default=None, description="Custom field values by key.")
+
+
+class AssetPatch(BaseModel):
+    """Asset fields to change (only those sent; null clears an optional one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=NAME_MAX)
+    product_id: uuid.UUID | None = None
+    tag: str | None = Field(default=None, max_length=IDENTIFIER_MAX)
+    serial_number: str | None = Field(default=None, max_length=IDENTIFIER_MAX)
+    barcode: str | None = Field(default=None, max_length=IDENTIFIER_MAX)
+    vendor_id: uuid.UUID | None = None
+    site_id: uuid.UUID | None = None
+    location: str | None = Field(default=None, max_length=LOCATION_MAX)
+    purchase_order_id: uuid.UUID | None = None
+    purchase_price: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    purchase_tax: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    acquired_on: date | None = None
+    warranty_expires_on: date | None = None
+    expires_on: date | None = None
+    description: str | None = Field(default=None, max_length=TEXT_MAX)
+    custom: dict[str, Any] | None = Field(
+        default=None, description="Custom values to change by key; null clears one."
+    )
+
+
+class AssetChangeOut(BaseModel):
+    """One field's old and new value in an asset's history."""
+
+    field: str
+    old: Any = None
+    new: Any = None
+
+
+class AssetHistoryEntryOut(BaseModel):
+    """One save of an asset: who, when, how, what changed."""
+
+    version: int
+    kind: str
+    actor_id: str | None
+    actor_name: str | None
+    source: str
+    reason: str | None
+    occurred_at: datetime
+    changes: list[AssetChangeOut]
+
+
+class AssetHistoryOut(BaseModel):
+    """A page of an asset's history, newest first."""
+
+    items: list[AssetHistoryEntryOut]
+    next_cursor: str | None
+
+
+Search = Annotated[
+    str | None,
+    Query(max_length=200, description="Words or an identifier: name, tag, serials, barcode."),
+]
+
+
+async def _page(
+    session: AsyncSession, query: ListQuery, subject: Subject, search: str | None, *, trash: bool
+) -> Page[AssetOut]:
+    statement = service.staff_rows(subject, trash=trash)
+    search = (search or "").strip()
+    if search:
+        words = await ENGINE.match(session, TEXT, search)
+        if words is None:
+            return Page[AssetOut](items=[], next_cursor=None, has_more=False, estimated_total=0)
+        statement = statement.where(words.predicate)
+    page = await paginate(session, statement, query)
+    return Page[AssetOut](
+        items=[AssetOut.of(row) for row in page.rows],
+        next_cursor=page.next_cursor,
+        has_more=page.has_more,
+        estimated_total=page.estimated_total,
+    )
+
+
+@router.get("", summary="Assets")
+async def list_assets(
+    session: TenantSession, query: AssetsQuery, subject: View, search: Search = None
+) -> Page[AssetOut]:
+    """The assets you may see: filtered, searched and paged.
+
+    Filters: the DSL, `custom.<key>` included. `search`: name, tag, serials, barcode and custom
+    text. Newest change first unless sorted.
+    """
+    return await _page(session, query, subject, search, trash=False)
+
+
+@router.get("/trash", summary="Assets in the trash")
+async def list_trash(
+    session: TenantSession, query: AssetsQuery, subject: Manage, search: Search = None
+) -> Page[AssetOut]:
+    """The trashed assets you may restore."""
+    return await _page(session, query, subject, search, trash=True)
+
+
+@router.post(
+    "",
+    summary="Add an asset",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssetOut,
+    dependencies=[audited("asset.created", object_type="asset")],
+)
+async def create_asset(
+    body: AssetIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """A new asset in the default in-stock state. Send an Idempotency-Key.
+
+    An IT asset needs a free slot of the plan's asset limit (403 asset_limit_reached).
+    """
+
+    async def run() -> Created:
+        row = await service.create_asset(
+            session, subject, body.model_dump(exclude_none=True), source=source_of(request)
+        )
+        return Created(body=AssetOut.of(row), headers={"ETag": f'"{row.version}"'})
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+@router.get(
+    "/{asset_id}",
+    summary="Get an asset",
+    responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
+)
+async def get_asset(
+    asset_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+) -> AssetOut:
+    """One asset you may see."""
+    row = await service.get_asset(session, subject, asset_id)
+    set_etag(response, row.version)
+    return AssetOut.of(row)
+
+
+_REQUIRED = {"name", "product_id", "tag"}
+
+
+@router.patch(
+    "/{asset_id}",
+    summary="Change an asset",
+    responses=WRITE,
+    dependencies=[audited("asset.updated", object_type="asset", object_param="asset_id")],
+)
+async def patch_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    body: AssetPatch,
+    session: TenantSession,
+    subject: Manage,
+    version: ExpectedVersion,
+    response: Response,
+    request: Request,
+) -> AssetOut:
+    """Change the fields sent (If-Match). The state moves through the life cycle, not here."""
+    sent = body.model_dump(include=body.model_fields_set)
+    values = {k: v for k, v in sent.items() if v is not None or k not in _REQUIRED}
+    row = await service.update_asset(
+        session, subject, asset_id, values, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, row.version)
+    return AssetOut.of(row)
+
+
+@router.delete(
+    "/{asset_id}",
+    summary="Move an asset to the trash",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=WRITE,
+    dependencies=[audited("asset.deleted", object_type="asset", object_param="asset_id")],
+)
+async def delete_asset(
+    asset_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    version: ExpectedVersion,
+    request: Request,
+) -> None:
+    """To the trash (If-Match): it frees its slot; its tag and serial stay taken."""
+    await service.delete_asset(
+        session, subject, asset_id, expected_version=version, source=source_of(request)
+    )
+
+
+@router.post(
+    "/{asset_id}/restore",
+    summary="Restore an asset from the trash",
+    responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
+    dependencies=[audited("asset.restored", object_type="asset", object_param="asset_id")],
+)
+async def restore_asset(
+    asset_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    request: Request,
+    response: Response,
+) -> AssetOut:
+    """Back from the trash; an IT asset needs a free slot again."""
+    row = await service.restore_asset(session, subject, asset_id, source=source_of(request))
+    set_etag(response, row.version)
+    return AssetOut.of(row)
+
+
+@router.get(
+    "/{asset_id}/history",
+    summary="An asset's history",
+    responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
+)
+async def asset_history(
+    asset_id: uuid.UUID,
+    session: TenantSession,
+    subject: View,
+    cursor: Annotated[int | None, Query(ge=1, description="next_cursor of the last page")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> AssetHistoryOut:
+    """Every save, newest first, with who, when, how (UI, API, rule ...) and what changed."""
+    await service.get_asset(session, subject, asset_id)
+    entries, next_version = await history_page(
+        session, service.RECORD_TYPE, asset_id, before_version=cursor, limit=limit
+    )
+    names = await user_names(session, [e.actor_id for e in entries if e.actor_id])
+    return AssetHistoryOut(
+        items=[
+            AssetHistoryEntryOut(
+                version=e.version,
+                kind=e.kind,
+                actor_id=e.actor_id,
+                actor_name=names.get(e.actor_id) if e.actor_id else None,
+                source=e.source,
+                reason=e.reason,
+                occurred_at=e.occurred_at,
+                changes=[AssetChangeOut(field=c.field, old=c.old, new=c.new) for c in e.changes],
+            )
+            for e in entries
+        ],
+        next_cursor=None if next_version is None else str(next_version),
+    )

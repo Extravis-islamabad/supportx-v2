@@ -5,12 +5,14 @@ service can read and write them; the checks are repeated only where the service 
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    Computed,
+    Date,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -22,8 +24,8 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
 from app.shared.db.models import Base, TenantEntity, TenantKeyed, utc_now
 
@@ -222,3 +224,93 @@ class AssetSettings(TenantKeyed, Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column()
     updated_by: Mapped[uuid.UUID | None] = mapped_column()
     version: Mapped[int] = mapped_column(default=1, server_default="1")
+
+
+# Search (WP-027 engine): the name and every identifier, so a serial, tag or barcode finds it.
+_IDENTIFIERS = (
+    "coalesce(tag, '') || ' ' || coalesce(serial_number, '') || ' '"
+    " || coalesce(discovered_serial, '') || ' ' || coalesce(barcode, '')"
+)
+# The parser reads "AST-12" as "ast" and the number "-12": identifiers and custom text go in
+# again with their separators as spaces, so "12" and "AST-12" both find it.
+_SPLIT = "'[-./:#_]+'"
+ASSET_SEARCH_VECTOR = (
+    f"sx_search_vector(name || ' ' || {_IDENTIFIERS} || ' '"
+    f" || regexp_replace({_IDENTIFIERS}, {_SPLIT}, ' ', 'g'),"
+    " coalesce(description, '') || ' ' || coalesce(custom_text, '') || ' '"
+    f" || regexp_replace(coalesce(custom_text, ''), {_SPLIT}, ' ', 'g'))"
+)
+ASSET_SEARCH_TEXT = f"sx_search_normalize(name || ' ' || {_IDENTIFIERS})"
+
+
+class Asset(TenantEntity):
+    """One asset (WP-049a s2; REQ-AST-007): what the tenant holds, of one product.
+
+    The product's type is kept on the asset too (it decides the fields and whether the asset
+    counts toward the plan's limit, D-141), and moves with a product change. Vendor, site and
+    purchase order belong to other modules: plain IDs, checked through their interfaces.
+    """
+
+    __tablename__ = "assets"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_assets_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "product_id"],
+            ["asset_products.tenant_id", "asset_products.id"],
+            name="fk_assets_product",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "product_type_id"],
+            ["asset_product_types.tenant_id", "asset_product_types.id"],
+            name="fk_assets_product_type",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "state_id"],
+            ["asset_states.tenant_id", "asset_states.id"],
+            name="fk_assets_state",
+        ),
+        # Unique per tenant when filled, ignoring case, trash included: a restored asset never
+        # collides, and a deleted asset's tag is never reused (REQ-AST-007, 008).
+        Index("uq_assets_tag", "tenant_id", text("lower(tag)"), unique=True),
+        Index("uq_assets_serial", "tenant_id", text("lower(serial_number)"), unique=True),
+        Index("ix_assets_updated", "tenant_id", "updated_at", "id"),
+        Index("ix_assets_type", "tenant_id", "product_type_id"),
+        Index("ix_assets_state", "tenant_id", "state_id"),
+        Index("ix_assets_vendor", "tenant_id", "vendor_id"),
+        Index("ix_assets_site", "tenant_id", "site_id"),
+        Index("ix_assets_search_vector", "search_vector", postgresql_using="gin"),
+        Index(
+            "ix_assets_search_text",
+            "search_text",
+            postgresql_using="gin",
+            postgresql_ops={"search_text": "gin_trgm_ops"},
+        ),
+        Index("ix_assets_custom", "custom", postgresql_using="gin"),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    product_id: Mapped[uuid.UUID] = mapped_column()
+    product_type_id: Mapped[uuid.UUID] = mapped_column()
+    state_id: Mapped[uuid.UUID] = mapped_column()
+    tag: Mapped[str | None] = mapped_column(String(120))
+    serial_number: Mapped[str | None] = mapped_column(String(120))
+    discovered_serial: Mapped[str | None] = mapped_column(String(120))  # set by discovery only
+    barcode: Mapped[str | None] = mapped_column(String(120))
+    vendor_id: Mapped[uuid.UUID | None] = mapped_column()
+    site_id: Mapped[uuid.UUID | None] = mapped_column()
+    location: Mapped[str | None] = mapped_column(String(200))
+    purchase_order_id: Mapped[uuid.UUID | None] = mapped_column()  # WP-054
+    # D-141: price and tax apart; the total is worked out. Currency of both.
+    purchase_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    purchase_tax: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    currency: Mapped[str | None] = mapped_column(String(3))
+    acquired_on: Mapped[date | None] = mapped_column(Date)
+    warranty_expires_on: Mapped[date | None] = mapped_column(Date)
+    expires_on: Mapped[date | None] = mapped_column(Date)
+    description: Mapped[str | None] = mapped_column(Text)
+    custom: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    custom_text: Mapped[str | None] = mapped_column(Text)  # custom values as words, for search
+    search_vector: Unmapped[Any] = unmapped_column(
+        TSVECTOR, Computed(ASSET_SEARCH_VECTOR, persisted=True)
+    )
+    search_text: Unmapped[str] = unmapped_column(Text, Computed(ASSET_SEARCH_TEXT, persisted=True))

@@ -40,6 +40,9 @@ export const ur: LabelResource = {
   'errors.asset_life_cycle_not_found': 'یہ لائف سائیکل موجود نہیں۔',
   'errors.asset_life_cycle_protected':
     'طے شدہ لائف سائیکل حذف نہیں ہو سکتا۔ پہلے کسی اور کو طے شدہ بنائیں۔',
+  'errors.asset_limit_reached':
+    'آپ کی تنظیم کے پلان میں آئی ٹی اثاثوں کی تمام جگہیں استعمال میں ہیں۔ کوئی اثاثہ تلف کریں یا اپنے منتظم سے مزید شامل کرنے کو کہیں۔',
+  'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
   'errors.asset_product_type_has_children':
     'اس کے نیچے دوسری پروڈکٹ اقسام ہیں ({{used}})۔ پہلے انہیں منتقل یا حذف کریں۔',
@@ -161,16 +164,20 @@ export const ur: LabelResource = {
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
   'errors.field.asset_api_name_taken': 'پروڈکٹ کی کوئی اور قسم یہ API نام رکھتی ہے۔',
+  'errors.field.asset_identifier_invalid':
+    'صرف حروف، ہندسے اور - . / : # استعمال کریں، خالی جگہ کے بغیر۔',
   'errors.field.asset_life_cycle_code_taken': 'کوئی اور لائف سائیکل یہ کوڈ رکھتا ہے۔',
   'errors.field.asset_life_cycle_default_needed':
     'ایک طے شدہ لائف سائیکل لازمی ہے۔ اس کے بجائے کسی اور کو طے شدہ بنائیں۔',
   'errors.field.asset_life_cycle_not_found': 'فہرست سے لائف سائیکل منتخب کریں۔',
   'errors.field.asset_move_duplicate': 'یہ منتقلی پہلے سے فہرست میں ہے، یا اسی حالت میں جاتی ہے۔',
+  'errors.field.asset_product_not_found': 'یہ پروڈکٹ اب موجود نہیں۔',
   'errors.field.asset_product_type_cycle':
     'پروڈکٹ کی قسم خود اپنے یا اپنی ذیلی قسم کے نیچے نہیں آ سکتی۔',
   'errors.field.asset_product_type_inherited': 'یہ والدین قسم سے آتا ہے۔ اسے وہاں تبدیل کریں۔',
   'errors.field.asset_product_type_not_found': 'فہرست سے پروڈکٹ کی قسم منتخب کریں۔',
   'errors.field.asset_product_type_too_deep': 'درخت زیادہ سے زیادہ {{max}} درجے گہرا ہو سکتا ہے۔',
+  'errors.field.asset_serial_number_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ سیریل نمبر ہے۔',
   'errors.field.asset_state_code_taken': 'کوئی اور حالت یہ کوڈ رکھتی ہے۔',
   'errors.field.asset_state_default_needed':
     'ہر کیٹیگری کو ایک طے شدہ حالت چاہیے۔ اس کے بجائے کسی اور حالت کو طے شدہ بنائیں۔',
@@ -179,6 +186,7 @@ export const ur: LabelResource = {
     'ادھار اور تلفی اس حالت پر انحصار کرتے ہیں، اس لیے اس کی کیٹیگری برقرار رہتی ہے۔',
   'errors.field.asset_tag_pattern_invalid':
     'کاؤنٹر {n} ایک بار، اس کے ساتھ کچھ متن کے ساتھ استعمال کریں، مثلاً AST-{n}۔',
+  'errors.field.asset_tag_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ ٹیگ ہے۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',

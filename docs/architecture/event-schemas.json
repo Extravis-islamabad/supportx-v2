@@ -744,6 +744,55 @@
         "type": "object"
       }
     },
+    "assets.asset.changed": {
+      "1": {
+        "description": "An asset was added, changed, moved to the trash or restored (REQ-AST-007).\n\n`site_id` is the asset's site after the change, so live lists at that site hear of it.",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted",
+              "restored"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Site Id"
+          }
+        },
+        "required": [
+          "asset_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "AssetChanged",
+        "type": "object"
+      }
+    },
     "assets.catalogue.changed": {
       "1": {
         "description": "A product type, state, life cycle or the asset settings changed (admin set-up).",

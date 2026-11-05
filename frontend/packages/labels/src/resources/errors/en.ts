@@ -38,6 +38,9 @@ export const en = {
   'errors.asset_life_cycle_not_found': 'This life cycle does not exist.',
   'errors.asset_life_cycle_protected':
     "The default life cycle can't be deleted. Make another one the default first.",
+  'errors.asset_limit_reached':
+    "Every IT asset slot in your organisation's plan is in use. Dispose of an asset or ask your administrator to add more.",
+  'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
   'errors.asset_product_not_found': 'This product does not exist.',
   'errors.asset_product_type_has_children':
     'Other product types sit under this one ({{used}}). Move or delete them first.',
@@ -161,17 +164,21 @@ export const en = {
     'Keys for someone else can only belong to a service identity.',
   'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
   'errors.field.asset_api_name_taken': 'Another product type has this API name.',
+  'errors.field.asset_identifier_invalid':
+    'Use letters, digits and - . / : # only, without spaces.',
   'errors.field.asset_life_cycle_code_taken': 'Another life cycle has this code.',
   'errors.field.asset_life_cycle_default_needed':
     'There must be a default life cycle. Make another one the default instead.',
   'errors.field.asset_life_cycle_not_found': 'Choose a life cycle from the list.',
   'errors.field.asset_move_duplicate':
     'This move is already in the list, or goes to the same state.',
+  'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':
     "A product type can't sit under itself or one of its own types.",
   'errors.field.asset_product_type_inherited': 'This comes from the parent type. Change it there.',
   'errors.field.asset_product_type_not_found': 'Choose a product type from the list.',
   'errors.field.asset_product_type_too_deep': 'The tree can be at most {{max}} levels deep.',
+  'errors.field.asset_serial_number_taken': 'Asset {{asset}} already has this serial number.',
   'errors.field.asset_state_code_taken': 'Another state has this code.',
   'errors.field.asset_state_default_needed':
     'Each category needs a default state. Make another state the default instead.',
@@ -180,6 +187,7 @@ export const en = {
     'Loans and disposal rely on this state, so its category stays.',
   'errors.field.asset_tag_pattern_invalid':
     'Use the counter {n} once, with some text around it, e.g. AST-{n}.',
+  'errors.field.asset_tag_taken': 'Asset {{asset}} already has this tag.',
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
   'errors.field.before_publish': 'Retiring must come after publishing.',
