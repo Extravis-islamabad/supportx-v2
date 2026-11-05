@@ -1,4 +1,4 @@
-# 2026-11-05: WP-044b session 1, problem analysis, evidence and impact (lane A)
+### 2026-11-05 — WP-044b session 1: problem analysis, evidence and impact (lane A)
 
 **Scope:** D8 of ~/Desktop/wp-044-plan.md (REQ-PRB-030, -032, -033; D-140 Q7). Draft #222,
 branched from #211's head; main is merged in once #211 lands.
