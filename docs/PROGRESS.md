@@ -985,7 +985,7 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-4 of 6 built 2026-11-05; #214 merged, #219)
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-5 of 6 built 2026-11-05; #214 merged, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
 with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
@@ -1033,7 +1033,23 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
       releases where the user holds a role whose eligibility needs that permission. Queued by
       lane B after WP-049a s1; they send the port signature first.
     - REQ-REL-029 (environments) is LATER.
-- [ ] S5 — approvals per stage through the system entry point, associations (REQ-REL-030..037).
+- [x] **S5 — stage approvals, review, sub-releases (#219, migration 0098; REQ-REL-030, -031, -037).**
+  - Approvals at each stage run on the WP-030 engine (lane A reviewed): up to five levels of
+    people, groups and record roles, each decided by any, all or majority (an exact majority
+    split rejects). The final decision sets the outcome through system_stage_move.
+  - Named approvers decide by being named; `releases.approve` (admin roles only) is for
+    approvals one is not named on. A role nobody holds, or a requester under segregation of
+    duties, goes to the approval administrators with the reason shown.
+  - Review sections and the review result.
+  - Sub-releases: one parent, no loops, and no deployment before the sub-releases pass
+    testing.
+  - Not done:
+    - REQ-REL-034 (incident, request and problem links) waits for lane A's cross-type links
+      (#211). REQ-REL-033 (changes) and REQ-REL-035 (CIs and services) go to WP-058b and
+      WP-063.
+    - REQ-REL-032 reminders, backups and clarification, the review-date reminder, and
+      follow-ups as problems or changes go to WP-058b's notifications.
+    - The override of the sub-release check is recorded for WP-058b.
 - [ ] S6 — the console screens (rail, moves dialog, details), e2e and RTL; without workflows.
 - **Not done in S1 (recorded for later sessions):**
   - REQ-REL-003: a type's default template and default risk come with templates in S2.
