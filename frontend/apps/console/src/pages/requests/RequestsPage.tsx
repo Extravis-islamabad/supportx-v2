@@ -236,9 +236,8 @@ export function RequestsPage() {
               data-testid="sr-empty"
             >
               {create && (
-                <Button type="primary" onClick={() => void navigate('/requests/new')}>
-                  {t('requests.new')}
-                </Button>
+                // The header's New request is the screen's one primary button.
+                <Button onClick={() => void navigate('/requests/new')}>{t('requests.new')}</Button>
               )}
             </Empty>
           ),
