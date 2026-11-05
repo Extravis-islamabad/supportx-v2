@@ -698,6 +698,8 @@ class LinkView:
     display_id: str | None
     subject_text: str | None
     other_type: WorkItemTypeCode | None = None
+    # The other record is a live (not retired) known error: incidents show the marker (044b).
+    other_known_error: bool = False
 
 
 async def links(
@@ -733,6 +735,9 @@ async def links(
                 shown.display_id if shown is not None else None,
                 shown.subject if shown is not None else None,
                 other_type.code if visible and other_type is not None else None,
+                shown is not None
+                and shown.known_error_at is not None
+                and shown.known_error_retired_at is None,
             )
         )
     return found

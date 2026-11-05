@@ -187,6 +187,9 @@ class WorkItemLinkOut(BaseModel):
     )
     other_display_id: str | None
     other_subject: str | None
+    other_known_error: bool = Field(
+        default=False, description="The other record is a known error (problems, WP-044b)."
+    )
     comment: str | None
     version: int
     created_at: datetime
@@ -450,6 +453,7 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
                 other_id=v.other_id if v.visible else None,
                 other_display_id=v.display_id,
                 other_subject=v.subject_text,
+                other_known_error=v.other_known_error,
                 other_type=v.other_type,
                 comment=v.link.comment,
                 version=v.link.version,

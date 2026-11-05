@@ -125,6 +125,14 @@ async def test_database_search_retire_on_resolve_and_suggestions(world: World) -
     )
     assert [s["display_id"] for s in suggested.json()] == [record["display_id"]]
     assert suggested.json()[0]["workaround"] == "<p>Restart the relay service.</p>"
+    linked = await world.call(
+        "POST", f"{PRB}/{record['id']}/incidents", a, a.admin, json={"incident_id": incident["id"]}
+    )
+    assert linked.json() == {"linked": True}, linked.text
+    links = (await world.call("GET", f"/incidents/{incident['id']}/links", a, a.admin)).json()
+    assert [(link["relation"], link["other_known_error"]) for link in links] == [
+        ("caused_by", True)
+    ]  # REQ-PRB-036 AC3: the incident shows the marker
 
     # Resolving it retires it; it stays in the database, marked, and leaves the suggestions.
     record = await fresh(world, a, a.tech_a, record)
