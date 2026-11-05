@@ -30,9 +30,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.identity_access import authorize_stored
 from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import DEFAULT_STATUSES, StatusCategory
+from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.portal import portal_changes
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemTask
+from app.modules.work_items.infra.models import (
+    WorkItem,
+    WorkItemFollower,
+    WorkItemLink,
+    WorkItemRoleHolder,
+    WorkItemTask,
+)
 from app.modules.work_items.service.access import RESOURCE
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
@@ -196,7 +203,24 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     if before.get("unassigned") and before.get("site_id"):
         unassigned.add(uuid.UUID(str(before["site_id"])))
     owners |= await _followers_with_access(session, record_id)
+    # Role holders (WP-058a s4): "my releases" lists hear about their records, in person or
+    # through a group; a role change also reaches those who held it before (lane B's review).
+    held_users, held_groups = await _role_holders(session, record_id)
+    owners |= held_users | {
+        u
+        for key in ("users_before", "users_after")
+        for u in map(_uuid, payload.get(key) or [])
+        if u
+    }
+    groups |= held_groups | {
+        g
+        for key in ("groups_before", "groups_after")
+        for g in map(_uuid, payload.get(key) or [])
+        if g
+    }
     fields = tuple(payload.get("changed_fields", ()))
+    if "role" in payload:
+        fields = ("roles",)
     if "to_status" in payload:
         fields = ("status",)
     elif "technician_id" in payload and "changed_fields" not in payload:
@@ -212,8 +236,30 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     portal = _portal(envelope, row, fields)
     if (envelope.correlation_id or "").startswith(BULK_PREFIX):  # the batch refreshes lists
         return RealtimeEffects(publications=[own, *portal])
+    # A sub-release moved: its parent's screens refresh too (REQ-REL-037 AC3).
+    parent = await session.scalar(
+        select(WorkItemLink.target_id).where(
+            WorkItemLink.source_id == record_id,
+            WorkItemLink.kind == LinkKind.SUB_RELEASE_OF,
+            WorkItemLink.deleted_at.is_(None),
+        )
+    )
+    upward = (
+        [
+            Publication(
+                record(tenant, RECORD_KIND, parent),
+                PART_CHANGED,
+                ids=(str(record_id),),
+                fields=("sub_releases",),
+                actor_id=_actor(envelope),
+            )
+        ]
+        if parent is not None
+        else []
+    )
     publications = [
         own,
+        *upward,
         *portal,
         *live.publications(
             tenant,
@@ -227,6 +273,19 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
         ),
     ]
     return RealtimeEffects(publications=publications)
+
+
+async def _role_holders(
+    session: AsyncSession, record_id: uuid.UUID
+) -> tuple[set[uuid.UUID], set[uuid.UUID]]:
+    rows = (
+        await session.execute(
+            select(WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id).where(
+                WorkItemRoleHolder.work_item_id == record_id
+            )
+        )
+    ).all()
+    return {r.user_id for r in rows if r.user_id}, {r.group_id for r in rows if r.group_id}
 
 
 async def _followers_with_access(session: AsyncSession, record_id: uuid.UUID) -> set[uuid.UUID]:
@@ -486,6 +545,7 @@ ROUTES = [
             "work_items.work_item.created",
             "work_items.work_item.updated",
             "work_items.work_item.status_changed",
+            "work_items.work_item.roles_changed",
             "work_items.work_item.assigned",
             "work_items.work_item.deleted",
             "work_items.work_item.restored",

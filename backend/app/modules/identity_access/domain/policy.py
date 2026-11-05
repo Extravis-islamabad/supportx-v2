@@ -48,6 +48,37 @@ class Decision:
 
 
 ALLOW = Decision(allowed=True, reason="allowed")
+STAGE_ACCESS = "stage_access"
+
+
+@dataclass(frozen=True)
+class AccessRule:
+    """An extra rule a record's state puts on a permission (stage access, ADR-041, REQ-REL-019).
+
+    Allowed if the subject is in one of the groups, holds one of the permissions, or is one of
+    the people (record-role holders, resolved by the owning module). All three empty means no
+    restriction: a rule can narrow who may act, never deny everyone. It narrows an allowed
+    decision only, after the scope check, and never visibility (`scope_filter` ignores it).
+    """
+
+    group_ids: frozenset[uuid.UUID] = frozenset()
+    permissions: frozenset[str] = frozenset()
+    user_ids: frozenset[uuid.UUID] = frozenset()
+
+    def empty(self) -> bool:
+        """No restriction."""
+        return not (self.group_ids or self.permissions or self.user_ids)
+
+
+def meets(subject: "Subject", rule: AccessRule | None) -> Decision:
+    """Whether the subject satisfies an access rule (None or empty: always)."""
+    if rule is None or rule.empty():
+        return ALLOW
+    if subject.group_ids & rule.group_ids or subject.user_id in rule.user_ids:
+        return ALLOW
+    if any(subject.holds(p) for p in rule.permissions):
+        return ALLOW
+    return Decision(allowed=False, reason=STAGE_ACCESS)
 
 
 @dataclass(frozen=True)

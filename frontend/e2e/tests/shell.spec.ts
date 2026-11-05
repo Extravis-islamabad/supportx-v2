@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { SEEDED } from '../stack';
 import { expectAccessible, goToSection, navItems, settledBox, signIn, signInAs } from './helpers';
 
-const SECTIONS = ['Problems', 'Changes', 'Releases', 'Assets', 'CMDB'];
+const SECTIONS = ['Problems', 'Changes', 'Assets', 'CMDB'];
 
 test('navigation: every section opens a translated coming-soon page; palette and 404 work', async ({
   page,
@@ -19,6 +19,11 @@ test('navigation: every section opens a translated coming-soon page; palette and
   // Service requests is a real page (WP-030), not a coming-soon one.
   await goToSection(page, 'Service requests');
   await expect(page.getByRole('heading', { name: 'Service requests', level: 1 })).toBeVisible();
+  await expect(page.getByText(/being built/)).toHaveCount(0);
+
+  // Releases is a real page (WP-058a), not a coming-soon one.
+  await goToSection(page, 'Releases');
+  await expect(page.getByRole('heading', { name: 'Releases', level: 1 })).toBeVisible();
   await expect(page.getByText(/being built/)).toHaveCount(0);
 
   // Reports is a real page (WP-035), not a coming-soon one.

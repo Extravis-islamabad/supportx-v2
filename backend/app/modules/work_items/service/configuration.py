@@ -13,7 +13,7 @@ reload live). The routes add the audit entry (WP-018).
 
 import re
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,6 +21,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound
+from app.modules.identity_access import active_user_ids
+from app.modules.organization import existing_unit_ids
+from app.modules.work_items.domain import approvals as approval_rules
 from app.modules.work_items.domain.classification import (
     Impact,
     MatrixError,
@@ -35,8 +38,10 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.releases import ReleaseRisk
 from app.modules.work_items.domain.templates import (
     ACTION_REASON_LIST,
+    LIST_ATTRIBUTES,
     LIST_VALUES_MAX,
     REASON_LISTS,
     PickList,
@@ -49,8 +54,11 @@ from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import (
     WorkItemPriorityCell,
     WorkItemReason,
+    WorkItemRoleDef,
     WorkItemScaleValue,
+    WorkItemStage,
     WorkItemStatus,
+    WorkItemTemplate,
     WorkItemTransition,
     WorkItemTypeSettings,
 )
@@ -408,6 +416,47 @@ async def add_list_value(  # noqa: PLR0913 - the value and its context, explicit
     return cat, code
 
 
+async def _attributes(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    pick_list: PickList,
+    raw: Any,  # noqa: ANN401 - JSON
+) -> dict[str, Any] | None:
+    """A value's own settings, checked: only the list's keys, each with a valid value."""
+    if not raw:
+        return None
+    allowed = LIST_ATTRIBUTES.get(pick_list, frozenset())
+    if not isinstance(raw, Mapping) or set(raw) - allowed:
+        raise invalid(field="attributes", field_code="not_allowed")
+    cleaned: dict[str, Any] = {}
+    template_id = raw.get("default_template_id")
+    if template_id is not None:
+        found = await session.scalar(
+            select(WorkItemTemplate.id).where(
+                WorkItemTemplate.type == wtype.code,
+                WorkItemTemplate.id == _uuid_or_none(template_id),
+                WorkItemTemplate.deleted_at.is_(None),
+                WorkItemTemplate.disabled_at.is_(None),
+            )
+        )
+        if found is None:
+            raise invalid(field="attributes.default_template_id", field_code="template_not_found")
+        cleaned["default_template_id"] = str(found)
+    risk = raw.get("default_risk")
+    if risk is not None:
+        if risk not in {r.value for r in ReleaseRisk}:
+            raise invalid(field="attributes.default_risk", field_code="invalid_choice")
+        cleaned["default_risk"] = risk
+    return cleaned or None
+
+
+def _uuid_or_none(value: Any) -> uuid.UUID | None:  # noqa: ANN401 - a JSON value
+    try:
+        return uuid.UUID(str(value))
+    except ValueError:
+        return None
+
+
 async def update_list_value(  # noqa: PLR0913, C901 - the change and its context, explicit
     session: AsyncSession,
     wtype: WorkItemType,
@@ -438,6 +487,8 @@ async def update_list_value(  # noqa: PLR0913, C901 - the change and its context
         changes["labels"] = labels_of(values["labels"], allow_none=not is_admin_code(code))
     if "colour" in values:
         changes["colour"] = _colour(values["colour"])
+    if "attributes" in values:
+        changes["attributes"] = await _attributes(session, wtype, pick_list, values["attributes"])
     if "disabled" in values:
         disabled = bool(values["disabled"])
         if disabled and code == OTHER_REASON and pick_list in _REASON_PICK_LISTS:
@@ -562,6 +613,336 @@ async def change_next_number(  # noqa: PLR0913 - the change and its context, exp
         expected_version=expected_version,
         changes=[Change("next_number", current.last_number + 1, next_number)],
         changed_fields=["numbering"],
+        source=source,
+        user_id=user_id,
+    )
+
+
+# --- stage access (WP-058a s3; REQ-REL-019; ADR-041) ---------------------------------------------
+
+ACCESS_KINDS = frozenset({"edit", "move_out"})
+ACCESS_KEYS = frozenset({"group_ids", "permissions", "roles"})
+
+
+async def _clean_access(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    raw: Any,  # noqa: ANN401 - JSON
+    known_permission: Callable[[str], bool],
+) -> dict[str, Any] | None:
+    """A stage's access, checked so a typo can never lock a stage (lane B's review)."""
+    if not raw:
+        return None
+    if not isinstance(raw, Mapping) or set(raw) - ACCESS_KINDS:
+        raise invalid(field="access", field_code="not_allowed")
+    known_roles = set(
+        await session.scalars(
+            select(WorkItemRoleDef.code).where(WorkItemRoleDef.type == wtype.code)
+        )
+    )
+    cleaned: dict[str, Any] = {}
+    for kind, rule in raw.items():
+        checked = await _clean_access_rule(
+            session, f"access.{kind}", rule, known_permission, known_roles
+        )
+        if checked:
+            cleaned[kind] = checked
+    return cleaned or None
+
+
+async def _clean_access_rule(
+    session: AsyncSession,
+    where: str,
+    rule: Any,  # noqa: ANN401 - JSON
+    known_permission: Callable[[str], bool],
+    known_roles: set[str],
+) -> dict[str, Any] | None:
+    """One kind's groups, permissions and roles, each checked; None when it names nothing."""
+    if not rule:
+        return None
+    if not isinstance(rule, Mapping) or set(rule) - ACCESS_KEYS:
+        raise invalid(field=where, field_code="not_allowed")
+    groups = [_uuid_or_none(g) for g in rule.get("group_ids") or ()]
+    if None in groups:
+        raise invalid(field=f"{where}.group_ids", field_code="invalid_value")
+    wanted = [g for g in groups if g is not None]
+    if set(wanted) - await existing_unit_ids(session, "group", wanted):
+        raise invalid(field=f"{where}.group_ids", field_code="group_not_found")
+    permissions = [str(p) for p in rule.get("permissions") or ()]
+    if any(not known_permission(p) for p in permissions):
+        raise invalid(field=f"{where}.permissions", field_code="invalid_choice")
+    roles = [str(r) for r in rule.get("roles") or ()]
+    if set(roles) - known_roles:
+        raise invalid(field=f"{where}.roles", field_code="invalid_choice")
+    if not (wanted or permissions or roles):
+        return None
+    return {
+        "group_ids": sorted(str(g) for g in set(wanted)),
+        "permissions": sorted(set(permissions)),
+        "roles": sorted(set(roles)),
+    }
+
+
+async def update_stage_access(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    stage: str,
+    *,
+    expected_version: int,
+    access: Any,  # noqa: ANN401 - JSON
+    known_permission: Callable[[str], bool],
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> Catalogue:
+    """Who may edit a stage and move a record out of it; empty: anyone who may edit it."""
+    if wtype.stages is None:
+        raise NotFound(code="stage_not_found")
+    current = await config.load(session, wtype)
+    await _check_version(session, wtype, current, expected_version)
+    row = await session.scalar(
+        select(WorkItemStage).where(WorkItemStage.type == wtype.code, WorkItemStage.code == stage)
+    )
+    if row is None:
+        raise NotFound(code="stage_not_found")
+    cleaned = await _clean_access(session, wtype, access, known_permission)
+    if cleaned == row.access:
+        return current
+    before = row.access
+    await session.execute(
+        update(WorkItemStage)
+        .where(WorkItemStage.type == wtype.code, WorkItemStage.code == stage)
+        .values(access=cleaned)
+    )
+    return await _bump(
+        session,
+        wtype,
+        current=current,
+        expected_version=expected_version,
+        changes=[Change(f"stages.{stage}.access", before, cleaned)],
+        changed_fields=[f"stages.{stage}"],
+        source=source,
+        user_id=user_id,
+    )
+
+
+async def stage_rows(session: AsyncSession, wtype: WorkItemType) -> list[WorkItemStage]:
+    """A staged type's stages in order (seeding first)."""
+    await config.ensure_seeded(session, wtype)
+    return list(
+        await session.scalars(
+            select(WorkItemStage)
+            .where(WorkItemStage.type == wtype.code)
+            .order_by(WorkItemStage.sort_order)
+        )
+    )
+
+
+# --- role definitions (WP-058a s4; REQ-REL-023, -024; REQ-CHG-035) -------------------------------
+
+ELIGIBILITY_KEYS = frozenset({"permissions", "group_ids", "user_ids"})
+
+
+async def role_def_rows(session: AsyncSession, wtype: WorkItemType) -> list[WorkItemRoleDef]:
+    """A type's role definitions in order (seeding first)."""
+    await config.ensure_seeded(session, wtype)
+    return list(
+        await session.scalars(
+            select(WorkItemRoleDef)
+            .where(WorkItemRoleDef.type == wtype.code)
+            .order_by(WorkItemRoleDef.sort_order, WorkItemRoleDef.code)
+        )
+    )
+
+
+async def _clean_eligibility(
+    session: AsyncSession,
+    raw: Any,  # noqa: ANN401 - JSON
+    known_permission: Callable[[str], bool],
+) -> dict[str, Any] | None:
+    """Who may hold a role, checked: known permissions, live groups, active people."""
+    if not raw:
+        return None
+    if not isinstance(raw, Mapping) or set(raw) - ELIGIBILITY_KEYS:
+        raise invalid(field="eligibility", field_code="not_allowed")
+    permissions = sorted({str(p) for p in raw.get("permissions") or ()})
+    if any(not known_permission(p) for p in permissions):
+        raise invalid(field="eligibility.permissions", field_code="invalid_choice")
+    groups = [_uuid_or_none(g) for g in raw.get("group_ids") or ()]
+    people = [_uuid_or_none(u) for u in raw.get("user_ids") or ()]
+    if None in groups or None in people:
+        raise invalid(field="eligibility", field_code="invalid_value")
+    wanted_groups = [g for g in groups if g is not None]
+    if set(wanted_groups) - await existing_unit_ids(session, "group", wanted_groups):
+        raise invalid(field="eligibility.group_ids", field_code="group_not_found")
+    wanted_people = [u for u in people if u is not None]
+    if set(wanted_people) - await active_user_ids(session, wanted_people):
+        raise invalid(field="eligibility.user_ids", field_code="user_not_found")
+    cleaned = {
+        "permissions": permissions,
+        "group_ids": sorted(str(g) for g in set(wanted_groups)),
+        "user_ids": sorted(str(u) for u in set(wanted_people)),
+    }
+    return cleaned if any(cleaned.values()) else None
+
+
+async def add_role_def(  # noqa: PLR0913 - the role and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    *,
+    expected_version: int,
+    values: Mapping[str, Any],
+    known_permission: Callable[[str], bool],
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> tuple[Catalogue, str]:
+    """An admin's own role (REQ-CHG-035): named, optionally for several holders."""
+    if not wtype.roles:
+        raise NotFound(code="role_not_found")
+    current = await config.load(session, wtype)
+    await _check_version(session, wtype, current, expected_version)
+    labels = labels_of(values.get("labels"), allow_none=False)
+    existing = await role_def_rows(session, wtype)
+    english = (labels or {}).get("en", "").casefold()
+    if any((d.labels or {}).get("en", "").casefold() == english for d in existing):
+        raise invalid(field="labels", field_code="duplicate_name")
+    code = new_value_code()
+    session.add(
+        WorkItemRoleDef(
+            tenant_id=config.tenant_of(session),
+            type=wtype.code,
+            code=code,
+            sort_order=len(existing),
+            labels=labels,
+            description=labels_of(values.get("description"), allow_none=True),
+            single=bool(values.get("single", True)),
+            eligibility=await _clean_eligibility(
+                session, values.get("eligibility"), known_permission
+            ),
+            system=False,
+        )
+    )
+    await session.flush()
+    cat = await _bump(
+        session,
+        wtype,
+        current=current,
+        expected_version=expected_version,
+        changes=[Change(f"roles.{code}", None, labels)],
+        changed_fields=["roles"],
+        source=source,
+        user_id=user_id,
+    )
+    return cat, code
+
+
+async def update_role_def(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    code: str,
+    *,
+    expected_version: int,
+    values: Mapping[str, Any],
+    known_permission: Callable[[str], bool],
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> Catalogue:
+    """Rename, describe, set who may hold it, retire or bring back; never deleted."""
+    current = await config.load(session, wtype)
+    await _check_version(session, wtype, current, expected_version)
+    row = await session.get(WorkItemRoleDef, (config.tenant_of(session), wtype.code, code))
+    if row is None:
+        raise NotFound(code="role_not_found")
+    changes: dict[str, Any] = {}
+    if "labels" in values:
+        changes["labels"] = labels_of(values["labels"], allow_none=row.system)
+    if "description" in values:
+        changes["description"] = labels_of(values["description"], allow_none=True)
+    if "eligibility" in values:
+        changes["eligibility"] = await _clean_eligibility(
+            session, values["eligibility"], known_permission
+        )
+    if "disabled" in values:
+        changes["disabled_at"] = (
+            (row.disabled_at or datetime.now(UTC)) if values["disabled"] else None
+        )
+    before = {k: getattr(row, k) for k in changes}
+    changes = {k: v for k, v in changes.items() if before[k] != v}
+    if not changes:
+        return current
+    for name, value in changes.items():
+        setattr(row, name, value)
+    await session.flush()
+    return await _bump(
+        session,
+        wtype,
+        current=current,
+        expected_version=expected_version,
+        changes=[
+            Change(
+                f"roles.{code}.{'disabled' if k == 'disabled_at' else k}",
+                before[k] is not None if k == "disabled_at" else before[k],
+                v is not None if k == "disabled_at" else v,
+            )
+            for k, v in changes.items()
+        ],
+        changed_fields=["roles"],
+        source=source,
+        user_id=user_id,
+    )
+
+
+async def update_stage_approvals(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    stage: str,
+    *,
+    expected_version: int,
+    approvals: Any,  # noqa: ANN401 - JSON
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> Catalogue:
+    """A stage's approvals (REQ-REL-031), checked so a stage never waits on nobody; None: none."""
+    if wtype.stages is None:
+        raise NotFound(code="stage_not_found")
+    current = await config.load(session, wtype)
+    await _check_version(session, wtype, current, expected_version)
+    row = await session.get(WorkItemStage, (config.tenant_of(session), wtype.code, stage))
+    if row is None:
+        raise NotFound(code="stage_not_found")
+    statuses = {
+        s.code: s.set_by == "system"
+        for s in await session.scalars(
+            select(WorkItemStatus).where(
+                WorkItemStatus.type == wtype.code, WorkItemStatus.stage == stage
+            )
+        )
+    }
+    settings, problems = approval_rules.parse_stage_approvals(
+        approvals, stage_statuses=statuses, roles=wtype.roles
+    )
+    if problems:
+        field, code = problems[0]
+        raise invalid(field=field, field_code=code)
+    if settings is not None:
+        people = [u for level in settings.levels for u in level.user_ids]
+        if set(people) - await active_user_ids(session, people):
+            raise invalid(field="approvals.levels", field_code="user_not_found")
+        groups = [g for level in settings.levels for g in level.group_ids]
+        if set(groups) - await existing_unit_ids(session, "group", groups):
+            raise invalid(field="approvals.levels", field_code="group_not_found")
+    cleaned = approval_rules.stage_approvals_to_json(settings) if settings else None
+    if cleaned == row.approvals:
+        return current
+    before = row.approvals
+    row.approvals = cleaned
+    await session.flush()
+    return await _bump(
+        session,
+        wtype,
+        current=current,
+        expected_version=expected_version,
+        changes=[Change(f"stages.{stage}.approvals", before, cleaned)],
+        changed_fields=[f"stages.{stage}"],
         source=source,
         user_id=user_id,
     )

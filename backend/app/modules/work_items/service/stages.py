@@ -7,6 +7,7 @@ owning type's guard. The record write itself (columns, history, events) stays in
 `service.work_items`, beside every other status change.
 """
 
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -15,6 +16,7 @@ from typing import Any, Protocol
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.identity_access import AccessRule
 from app.modules.work_items.domain.lifecycle import ReasonList, ReasonMode, StatusCategory
 from app.modules.work_items.domain.stages import (
     FIRST_LIFECYCLE,
@@ -28,16 +30,20 @@ from app.modules.work_items.domain.stages import (
     StageModel,
     StatusTransitionDef,
     rail,
+    read_only_in,
 )
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemPathStage,
+    WorkItemRoleHolder,
     WorkItemStage,
     WorkItemStageEntry,
     WorkItemStagePath,
+    WorkItemStageSchedule,
     WorkItemStatus,
     WorkItemStatusTransition,
+    WorkItemTemplate,
 )
 from app.modules.work_items.service import catalogue
 from app.shared.ids import new_id
@@ -65,6 +71,9 @@ class StageGuard(Protocol):
         ...
 
 
+# A guard may also define `async on_moved(session, record, move)`, called after every move of
+# the record in the same transaction (releases open a stage's approvals from it). Optional, so a
+# guard written against the protocol above keeps working.
 _GUARDS: dict[str, StageGuard] = {}
 
 
@@ -163,6 +172,88 @@ def _version_in(column: Any, version: int) -> Any:  # noqa: ANN401 - SQL express
     return column.is_(None) | (column == version)
 
 
+async def enabled_paths(session: AsyncSession, wtype: WorkItemType) -> set[str]:
+    """The paths a new record or a template may be put on (disabled ones are kept for old ones)."""
+    await catalogue.ensure_seeded(session, wtype)
+    return set(
+        await session.scalars(
+            select(WorkItemStagePath.code).where(
+                WorkItemStagePath.type == wtype.code, WorkItemStagePath.disabled_at.is_(None)
+            )
+        )
+    )
+
+
+EDIT, MOVE_OUT = "edit", "move_out"  # the two kinds of stage access (REQ-REL-019)
+# A rule that names only groups or people could leave a record in a stage nobody may move: those
+# who configure the service desk always pass (lane B's review; ADR-041 §8).
+ALWAYS_ADMITTED = frozenset({"config.service_desk", "settings.manage"})
+
+
+async def access_rule(
+    session: AsyncSession, record: WorkItem, kind: str, stage: str | None = None
+) -> AccessRule | None:
+    """The stage's access rule of `kind` for the record (None: no stage or no rule).
+
+    Named roles resolve to the record's current holders, people and groups (REQ-REL-019).
+    """
+    code = stage or record.stage
+    if code is None:
+        return None
+    row = await session.get(WorkItemStage, (catalogue.tenant_of(session), record.type, code))
+    rule = ((row.access if row is not None else None) or {}).get(kind) or {}
+    roles = [str(r) for r in rule.get("roles") or ()]
+    role_users, role_groups = await _role_holders(session, record, roles)
+    named = AccessRule(
+        group_ids=frozenset(uuid.UUID(str(g)) for g in rule.get("group_ids") or ()) | role_groups,
+        permissions=frozenset(str(p) for p in rule.get("permissions") or ()),
+        user_ids=role_users,
+    )
+    if named.empty() and not roles:  # a cleared rule ({"group_ids": []}) restricts nobody
+        return None
+    # A rule naming only roles nobody holds yet still admits the configurers (never stranded).
+    return AccessRule(
+        group_ids=named.group_ids,
+        permissions=named.permissions | ALWAYS_ADMITTED,
+        user_ids=named.user_ids,
+    )
+
+
+async def _role_holders(
+    session: AsyncSession, record: WorkItem, roles: Sequence[str]
+) -> tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]:
+    """The people and groups holding any of `roles` on the record now."""
+    if not roles:
+        return frozenset(), frozenset()
+    rows = (
+        await session.execute(
+            select(WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id).where(
+                WorkItemRoleHolder.work_item_id == record.id, WorkItemRoleHolder.role.in_(roles)
+            )
+        )
+    ).all()
+    return (
+        frozenset(r.user_id for r in rows if r.user_id),
+        frozenset(r.group_id for r in rows if r.group_id),
+    )
+
+
+async def template_rules(session: AsyncSession, record: WorkItem) -> Mapping[str, Any] | None:
+    """The stage rules of the record's template (None when it has none)."""
+    if record.template_id is None:
+        return None
+    template = await session.get(WorkItemTemplate, record.template_id)
+    return template.stage_rules if template is not None else None
+
+
+async def read_only_fields(session: AsyncSession, record: WorkItem) -> frozenset[str]:
+    """Fields the record's template makes read-only in its current stage (REQ-REL-013 AC1)."""
+    if record.stage is None or record.template_id is None:
+        return frozenset()
+    template = await session.get(WorkItemTemplate, record.template_id)
+    return read_only_in(template.stage_rules if template else None, record.stage)
+
+
 def first_columns(model: StageModel, path: str) -> dict[str, Any]:
     """Where a new record of a staged type starts: the path's first stage and its first status."""
     first = model.path(path).stages[0]
@@ -180,6 +271,7 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
     stages: Sequence[str],
     *,
     now: datetime,
+    left: str | None = None,
     reason_code: str | None = None,
     reason_text: str | None = None,
 ) -> list[WorkItemStageEntry]:
@@ -190,6 +282,7 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
     """
     if not stages:
         return []
+    await _stamp_actual(session, record, stages, left=left, now=now)
     await session.execute(
         update(WorkItemStageEntry)
         .where(WorkItemStageEntry.work_item_id == record.id, WorkItemStageEntry.left_at.is_(None))
@@ -216,6 +309,52 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
         for entry in entries:
             await guard.on_entered(session, record, entry)
     return entries
+
+
+async def _stamp_actual(
+    session: AsyncSession,
+    record: WorkItem,
+    stages: Sequence[str],
+    *,
+    left: str | None,
+    now: datetime,
+) -> None:
+    """The engine's actual dates (REQ-REL-026 AC1).
+
+    The stage left ends; each stage entered starts (its first start kept on going back); each
+    stage passed through on an automatic advance ends at once.
+    """
+    tenant = catalogue.tenant_of(session)
+    if left is not None:
+        await _upsert_schedule(session, tenant, record.id, left, actual_end=now)
+    for index, stage in enumerate(stages):
+        passed = index < len(stages) - 1
+        await _upsert_schedule(
+            session, tenant, record.id, stage, actual_start=now, actual_end=now if passed else None
+        )
+
+
+async def _upsert_schedule(  # noqa: PLR0913 - the row's key and the dates, explicit
+    session: AsyncSession,
+    tenant: uuid.UUID,
+    record_id: uuid.UUID,
+    stage: str,
+    *,
+    actual_start: datetime | None = None,
+    actual_end: datetime | None = None,
+) -> None:
+    row = await session.get(WorkItemStageSchedule, (tenant, record_id, stage))
+    if row is None:
+        row = WorkItemStageSchedule(tenant_id=tenant, work_item_id=record_id, stage=stage)
+        session.add(row)
+    if actual_start is not None and row.actual_start is None:
+        row.actual_start = actual_start
+    if actual_start is not None:
+        row.actual_end = None  # entered again (going back): open until it is left
+    if actual_end is not None:
+        row.actual_end = actual_end
+    row.version = (row.version or 0) + 1
+    await session.flush()
 
 
 async def start(session: AsyncSession, record: WorkItem, *, now: datetime) -> None:
