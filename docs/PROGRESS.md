@@ -761,6 +761,58 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
+### [ ] WP-032 — Portal: home, catalog, approvals inbox and preview (lane A, 2026-11-05; 3 sessions; #220)
+- **Plan:** ~/Desktop/wp-032-plan.md (coordinator approved 2026-11-05; 3 sessions). Numbers:
+  0096, 0097, D-143.
+- **Decided (D-143):**
+  - the portal's own settings live in work_items (one row per tenant);
+  - most requested counts the last 90 days;
+  - bulk approve takes at most 20, approve only;
+  - the decided list covers 30 days.
+  - Lane C asked me to build announcement dismissal and follow in their module (reviewed,
+    approved).
+  - Preview as a person (S3) waits for Haider's OK on the conditions the coordinator listed
+    (dedicated permission and MFA, read-only on the server, a banner, a time limit, audited,
+    nothing notified).
+- [x] Session 1 (#220):
+  - The home (REQ-PRT-002): the greeting with the search box, three starting points, a live
+    summary (`GET /portal/summary`: my open requests by status, approvals waiting, open tasks),
+    featured then most requested items (`GET /catalog/items/popular`, through a new
+    request-count port), and the announcements.
+  - One search box (REQ-PRT-003): items, articles, announcements and my requests, each from its
+    own search, in groups. With nothing found, a report with the words as its subject.
+  - Cards say "needs approval" (unless hidden from requesters).
+  - After submitting (REQ-PRT-006): whose approval it waits for, when to expect it (shown due
+    times only), and links.
+- [x] Session 2 (#220, 0096, 0097):
+  - Bulk approve (REQ-PRT-008): ≤ 20, one comment, a confirmation that names each request, each
+    one a decision of its own (audited). There is no bulk reject. The decided list covers 30
+    days, and delegated approvals are marked.
+  - Portal settings (REQ-PRT-031): `work_item_portal_settings` (RLS; search sources and order,
+    profile editing, reminders; audited with old and new values; live). Admin › Portal shows
+    every portal setting in groups, each saved where it lives, with the later ones marked.
+  - Attachments on the catalog item form (REQ-PRT-005).
+  - Announcements (REQ-PRT-009):
+    - dismissed on every device (stored, per person);
+    - follow and unfollow;
+    - followers are told of updates and the end through the one notification engine, with the
+      audience checked at send time.
+  - Not yet (recorded):
+    - the item cards' expected delivery and price wait for item cost and SLA estimates
+      (WP-047);
+    - related articles and the help card on the item page wait for WP-034's portal knowledge
+      (lane C), which also brings the portal's article page (search shows titles until then);
+    - expiry has no event yet, so followers hear of unpublish and archive only (lane C's
+      WP-062b);
+    - the acknowledgement e-mail's "what happens next" text needs lane B's template (REQ-PRT-006
+      AC3);
+    - REQ-PRT-031's preview links come with S3.
+- **Shipping (2026-11-05):** S1-S2 merge through the queue as #220 (stack smoke green, run
+  41944547602; 0096 now follows 0092). The coordinator approved this exception to one PR per
+  WP because S3 is blocked on a decision.
+- [ ] S3 preview as a person (REQ-PRT-032): **open, waiting for Haider's OK** of the conditions.
+  It ships as its own PR once approved; lane B builds the read-only preview session.
+
 ### [ ] WP-044a — Problems: record, creation, templates, statuses, assignment (lane A, 2026-11-05; 5 sessions; #211)
 - **Plan:** ~/Desktop/wp-044-plan.md (all of WP-044, 13 sessions; coordinator approved
   2026-11-04). Numbers: 0076, 0077, 0089 (044a), 0078 (044b), 0079 (044c), ADR-040
@@ -1201,7 +1253,7 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; session 1 of 6 built 2026-11-05, #214)
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
 with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
@@ -1215,12 +1267,69 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     the release's own fields (`/details`).
   - Appendix A seeds.
   - Labels in en, ar and ur.
-- [ ] S2 — templates per release type, the create form and stage sections (REQ-REL-007..013).
-- [ ] S3 — guards: required fields per stage, stage access by role (REQ-REL-018, -019), guard
-  reasons on offered moves and the full refusal list (lane A's review, ADR-041 §8).
-- [ ] S4 — roles, planning and deployment, planned and actual dates per stage (REQ-REL-023..028).
-- [ ] S5 — approvals per stage through the system entry point, associations (REQ-REL-030..037).
-- [ ] S6 — the console screens (rail, moves dialog, details), e2e and RTL; without workflows.
+- [x] **S2 — templates, stage rules, type defaults, copy (#219, migration 0093).**
+  - Templates choose the path and carry rules per stage (shown, required, read-only), checked
+    on save.
+  - Standard and emergency templates are seeded.
+  - Read-only per stage is enforced through the API.
+  - A release type can set its default template and risk.
+  - Copy (REQ-REL-009).
+- [x] **S3 — required to leave a stage, stage access (#219, migration 0094).**
+  - Required-to-leave checks run in the engine on every path; a move can carry the values.
+  - Stage access is an AccessRule in identity_access's policy layer (lane B reviews), applied
+    after the scope check. Visibility is never narrowed.
+  - Offered moves show their reasons and missing fields; a refused move returns the full list.
+  - A group change takes effect without signing in again.
+  - Not done: bulk stage moves (REQ-REL-018 AC2) go to WP-058b with the release lists. Record
+    roles in stage access come with S4.
+- [x] **S4 — roles, plan, schedules, outcomes, downtimes (#219, migration 0095; REQ-REL-023..028).**
+  - Roles are held by people or groups, with eligibility through the policy layer; holders
+    are part of the own scope. Lane B reviewed the policy part; lane A checked the tables for
+    changes.
+  - Plan sections have their own If-Match.
+  - The engine stamps actual stage dates; corrections need a reason.
+  - Stage outcomes: a failed outcome needs its issues.
+  - Downtime windows name the affected services and CIs.
+  - Not done:
+    - Notifying a new role holder (REQ-REL-023 AC1) and the "behind schedule" list column
+      (REQ-REL-026 AC3) come with WP-058b's notifications and lists.
+    - Copying downtime from a linked change (REQ-REL-027 AC1) needs changes (058b).
+    - Listing a person's open roles before a permission is removed (REQ-REL-024 AC2) is
+      **lane B's**: identity_access adds `register_duties(lookup)` (as register_owner_access).
+      The role editor's "remove permission" and "remove role from user" previews show the
+      affected users' open duties, labels only. work_items then registers one lookup: open
+      releases where the user holds a role whose eligibility needs that permission. Queued by
+      lane B after WP-049a s1; they send the port signature first.
+    - REQ-REL-029 (environments) is LATER.
+- [x] **S5 — stage approvals, review, sub-releases (#219, migration 0098; REQ-REL-030, -031, -037).**
+  - Approvals at each stage run on the WP-030 engine (lane A reviewed): up to five levels of
+    people, groups and record roles, each decided by any, all or majority (an exact majority
+    split rejects). The final decision sets the outcome through system_stage_move.
+  - Named approvers decide by being named; `releases.approve` (admin roles only) is for
+    approvals one is not named on. A role nobody holds, or a requester under segregation of
+    duties, goes to the approval administrators with the reason shown.
+  - Review sections and the review result.
+  - Sub-releases: one parent, no loops, and no deployment before the sub-releases pass
+    testing.
+  - Not done:
+    - REQ-REL-034 (incident, request and problem links) waits for lane A's cross-type links
+      (#211). REQ-REL-033 (changes) and REQ-REL-035 (CIs and services) go to WP-058b and
+      WP-063.
+    - REQ-REL-032 reminders, backups and clarification, the review-date reminder, and
+      follow-ups as problems or changes go to WP-058b's notifications.
+    - The override of the sub-release check is recorded for WP-058b.
+- [x] **S6 — console screens, e2e and RTL (#219).**
+  - Releases list with the emergency flag, live.
+  - New release from its template.
+  - The record: the rail, moves with their dialog, and tabs for details, roles, plan,
+    schedule, downtime, approvals and sub-releases, live.
+  - Console tests, and an e2e spec with axe in English and Arabic.
+  - Admin guide: docs/guides/releases.md.
+  - Not done:
+    - The release screens join the Visual matrix after #219 merges (they would collide with
+      the matrix selector fix now).
+    - Admin screens for stage access, stage approvals, role definitions and template stage
+      rules come with the admin pass (their APIs are in and tested).
 - **Not done in S1 (recorded for later sessions):**
   - REQ-REL-003: a type's default template and default risk come with templates in S2.
   - REQ-REL-005 AC2: the "unique versions per service" tenant setting comes with services in
@@ -1228,6 +1337,20 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   - REQ-REL-006: custom fields placed per stage come in S2. The `release` entity exists.
   - No console screens yet (S6). The API is complete and public (mobile-ready, the
     coordinator's 2026-11-05 note).
+- **Not done in S2:**
+  - REQ-REL-010 (import releases) moves to **WP-062b** (data administration and import, file 11
+    §11; the coordinator's decision, 2026-11-05).
+  - REQ-REL-008: from an incident or problem once lane A's link kinds are on main; from a change
+    in WP-058b.
+  - Required-to-leave-stage is S3. Tasks and checklists per stage are S4.
+
+### Recorded for WP-062b (lane C: announcements and data administration)
+
+- **Announcement expiry for followers:** lane A's #220 (WP-032 D7) notifies followers when an
+  announcement is updated or taken down. A window that simply runs out raises no event, so
+  followers are not told; it needs a timer (Temporal or a sweep) to raise "ended" at
+  `publish_until`.
+- **Release import (REQ-REL-010)**, from WP-058a S2.
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).

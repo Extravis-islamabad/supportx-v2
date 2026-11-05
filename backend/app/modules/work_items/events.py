@@ -84,6 +84,23 @@ class WorkItemStageChanged(_WorkItemEvent):
     automatic: bool = False
 
 
+class WorkItemRolesChanged(_WorkItemEvent):
+    """Who holds a named role on the record changed (WP-058a s4; REQ-REL-023).
+
+    The holders before and after, as IDs, so the lists of both the old and the new holders
+    refresh (lane B's review).
+    """
+
+    event_type: ClassVar[str] = "work_items.work_item.roles_changed"
+    schema_version: ClassVar[int] = 1
+
+    role: str
+    users_before: list[uuid.UUID]
+    users_after: list[uuid.UUID]
+    groups_before: list[uuid.UUID]
+    groups_after: list[uuid.UUID]
+
+
 class WorkItemAssigned(_WorkItemEvent):
     """The group or technician changed (assign, reassign, take, unassign)."""
 
@@ -117,6 +134,16 @@ class WorkItemSettingsChanged(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item_settings"
 
     type: str
+    changed_fields: list[str]
+
+
+class WorkItemPortalSettingsChanged(DomainEvent):
+    """The tenant's portal settings changed (WP-032 D8): open portals reload them live."""
+
+    event_type: ClassVar[str] = "work_items.portal_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_portal_settings"
+
     changed_fields: list[str]
 
 
@@ -260,6 +287,24 @@ class WorkItemPartChanged(DomainEvent):
     change: Literal["added", "changed", "removed"]
 
 
+class WorkItemPartChangedV2(DomainEvent):
+    """As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.
+
+    WP-058a s4. New allowed values retype `part`, so a new schema version
+    (docs/architecture/events.md "Versioning"); v1 stays registered, and tasks, worklogs and
+    links still publish it.
+    """
+
+    event_type: ClassVar[str] = "work_items.part.changed"
+    schema_version: ClassVar[int] = 2
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    part: Literal["task", "worklog", "link", "plan_section", "stage_schedule", "downtime"]
+    part_id: uuid.UUID
+    change: Literal["added", "changed", "removed"]
+
+
 ApprovalChange = Literal["opened", "decided", "closed"]
 
 
@@ -287,10 +332,12 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemUpdated,
     WorkItemStatusChanged,
     WorkItemStageChanged,
+    WorkItemRolesChanged,
     WorkItemAssigned,
     WorkItemDeleted,
     WorkItemRestored,
     WorkItemSettingsChanged,
+    WorkItemPortalSettingsChanged,
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,
@@ -301,5 +348,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemListSettingsChanged,
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,
+    WorkItemPartChangedV2,
     WorkItemApprovalChanged,
 )

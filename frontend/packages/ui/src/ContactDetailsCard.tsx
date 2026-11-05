@@ -106,7 +106,6 @@ function ContactDetails({ user: data }: { user: UserDetail }) {
             />
           </Form.Item>
           <Button
-            type="primary"
             size="large"
             htmlType="submit"
             disabled={!changed}

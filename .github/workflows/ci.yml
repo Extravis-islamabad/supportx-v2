@@ -164,37 +164,87 @@ jobs:
     # containers. Sentinel promotes a replica when the master stops, data survives, and the old
     # master rejoins as a replica (no split brain). The test runs its own containers.
     name: valkey failover
-    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
-    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
+    # Not a required check. Runs nightly, manually, and on a PR that touches deployment or
+    # Valkey (the changes step below decides; other PRs finish at once), never in the merge
+    # queue. Not tied to the full-ci label (coordinator, 2026-11-05): a migration PR needs the
+    # core profile and e2e, not the HA cluster.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Changes (only deployment and Valkey changes need this job)
+        id: changes
+        uses: ./.github/actions/changes
+        with:
+          needs: '^(deploy/|Makefile$|\.github/workflows/(ci|cluster)\.yml$|\.github/actions/|backend/app/core/valkey\.py$|backend/tests/ha/)'
+          skipped: "skipped: no deployment or Valkey change"
       - uses: ./.github/actions/setup-backend
+        if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: ./.github/actions/generated
+        if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        if: ${{ steps.changes.outputs.run == 'true' }}
         with:
           version: v4.3.1
       - name: Chart dependencies (the test renders the chart's own scripts)
+        if: ${{ steps.changes.outputs.run == 'true' }}
         run: make chart-deps
       - name: Valkey and Sentinel fail over
+        if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
         env:
           SUPPORTX_HA_TESTS: "1"
         run: uv run pytest tests/ha --no-cov -p no:cacheprovider -v
 
-  backend-tests:
-    name: backend tests ${{ matrix.shard }}/4
+  shard-weights:
+    # The newest nightly's file timings (its `backend-shard-weights` artifact), resolved once per
+    # run so all shards balance on the same numbers and split the files the same way. The
+    # weights refresh every night without a commit; when none can be fetched the shards fall
+    # back to backend/tests/shard_weights.json. Never fails: a missing artifact only means the
+    # committed weights are used.
+    name: shard weights
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 5
+    permissions:
+      actions: read # list the nightly runs and download their artifact
+    steps:
+      - name: The newest nightly's shard weights
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p weights
+          run=$(gh run list --repo "$REPO" --workflow ci.yml --event schedule --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty' || true)
+          if [ -n "$run" ] && gh run download "$run" --repo "$REPO" -n backend-shard-weights -D weights; then
+            if jq -e 'type == "object" and length > 0' weights/shard_weights.json > /dev/null; then
+              echo "Shard weights from nightly run $run ($(jq length weights/shard_weights.json) files)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          rm -rf weights
+          echo "No nightly shard weights: the shards use backend/tests/shard_weights.json" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: shard-weights
+          path: weights/shard_weights.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+  backend-tests:
+    name: backend tests ${{ matrix.shard }}/6
+    needs: [shard-weights]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20 # the backstop; the aim is 12 minutes or less per shard
     strategy:
       fail-fast: false # every shard reports its failures in one run
       matrix:
-        # Four since 2026-11-04: with three, every shard ran 15-20+ min of the 20 min limit.
-        shard: [1, 2, 3, 4] # keep in step with SUPPORTX_TEST_SHARD below
+        # Six since 2026-11-05 (coordinator): with four, shards ran 17-20 min of the 20 min
+        # limit as the suite grew (WP-044, 049, 058); four since 2026-11-04, three before.
+        shard: [1, 2, 3, 4, 5, 6] # keep in step with SUPPORTX_TEST_SHARD below
     # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
     # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
     # NATS JetStream is started as a step below (service containers cannot pass `-js`).
@@ -234,7 +284,7 @@ jobs:
           --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
           --health-retries 20
     env:
-      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/4
+      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/6
       SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
       SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
       SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
@@ -297,10 +347,19 @@ jobs:
         with:
           path: ${{ runner.temp }}/temporal-test-server
           key: temporal-test-server-${{ runner.os }}-${{ steps.temporal.outputs.version }}
+      - name: The run's shard weights (the newest nightly's; none means the committed ones)
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: shard-weights
+          path: ${{ runner.temp }}/shard-weights
       - name: Test this shard (4 workers; coverage combined and checked by the backend job)
         if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
         env:
+          # tooling/pytest_shards.py falls back to tests/shard_weights.json when this is missing.
+          SUPPORTX_TEST_WEIGHTS: ${{ runner.temp }}/shard-weights/shard_weights.json
           SUPPORTX_PERF_REPORT: ${{ runner.temp }}/event-perf.json
           # Each file's seconds, to refresh tests/shard_weights.json from CI (tooling/pytest_shards.py).
           SUPPORTX_TEST_TIMINGS: ${{ runner.temp }}/timings.json

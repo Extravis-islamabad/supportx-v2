@@ -499,6 +499,9 @@ export const ur: LabelResource = {
   'permission.profile.edit.description': 'اپنا جوابی دستخط اور ٹائم زون تبدیل کریں۔',
   'permission.releases.add_note': 'ریلیزز پر نجی نوٹس شامل کریں',
   'permission.releases.add_note.description': 'ریلیزز پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.releases.approve': 'ریلیزز کی منظوری دیں',
+  'permission.releases.approve.description':
+    'ریلیز کے ان مراحل کی منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
   'permission.releases.assign': 'ریلیزز تفویض کریں',
   'permission.releases.assign.description': 'ریلیزز لوگوں اور گروپوں کو تفویض کریں۔',
   'permission.releases.assign_outside_group': 'گروپ سے باہر ریلیزز تفویض کریں',

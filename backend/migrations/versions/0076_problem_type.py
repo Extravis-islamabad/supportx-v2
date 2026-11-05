@@ -12,7 +12,7 @@ list and drops the column; it refuses while a tenant's life cycle still uses the
 (the check would fail), which keeps data intact.
 
 Revision ID: 0076
-Revises: 0092
+Revises: 0098
 Created: 2026-11-05
 """
 
@@ -23,7 +23,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0076"
-down_revision: str | None = "0092"
+down_revision: str | None = "0098"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

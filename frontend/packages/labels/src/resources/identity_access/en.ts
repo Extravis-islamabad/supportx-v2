@@ -500,6 +500,9 @@ export const en = {
   'permission.profile.edit.description': 'Change your own reply signature and time zone.',
   'permission.releases.add_note': 'Add private notes on releases',
   'permission.releases.add_note.description': 'Write staff-only notes on releases.',
+  'permission.releases.approve': 'Approve releases',
+  'permission.releases.approve.description':
+    'Decide the release stage approvals you are named for.',
   'permission.releases.assign': 'Assign releases',
   'permission.releases.assign.description': 'Assign releases to people and groups.',
   'permission.releases.assign_outside_group': 'Assign releases outside the group',

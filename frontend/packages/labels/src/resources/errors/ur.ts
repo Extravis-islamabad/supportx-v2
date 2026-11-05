@@ -132,6 +132,7 @@ export const ur: LabelResource = {
   'errors.domain_wrong_answer':
     'ڈومین ابھی اس SupportX کی طرف اشارہ نہیں کرتا: اس کا DNS ریکارڈ دیکھیں۔',
   'errors.domains_not_configured': 'اس انسٹالیشن پر کسٹم ڈومین ترتیب نہیں دیے گئے۔',
+  'errors.downtime_not_found': 'یہ بندش کا وقفہ موجود نہیں۔',
   'errors.entitlement_required': 'آپ کے پلان میں یہ خصوصیت شامل نہیں۔',
   'errors.entitlement_required.detail': '{{feature}} آپ کے ادارے کے پلان کا حصہ نہیں۔',
   'errors.entitlements_unavailable':
@@ -253,6 +254,8 @@ export const ur: LabelResource = {
   'errors.field.group_not_yours': 'آپ اس گروپ کے رکن نہیں۔',
   'errors.field.group_required': 'چنیں کہ آپ کا کون سا گروپ اسے لے گا۔',
   'errors.field.half_day_single_date': 'صبح یا دوپہر کی چھٹی صرف ایک دن کی ہوتی ہے۔',
+  'errors.field.hidden_cannot_be_required':
+    'چھپی ہوئی فیلڈ لازمی نہیں ہو سکتی: اسے کوئی بھر نہیں سکے گا۔',
   'errors.field.hidden_required_needs_default':
     'چھپے لازمی فیلڈ کو ابتدائی قدر درکار ہے، ورنہ کوئی اسے بھر نہیں سکے گا۔',
   'errors.field.holiday_list_not_found': 'فہرست سے تعطیلات کی فہرستیں منتخب کریں۔',
@@ -315,10 +318,12 @@ export const ur: LabelResource = {
   'errors.field.name_required': 'نام درج کریں۔',
   'errors.field.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
+  'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_a_technician':
     'صرف وہی ٹیکنیشن جو مسائل پر کام کرتا ہے کسی مسئلے کی تفتیش کر سکتا ہے۔',
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
   'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
+  'errors.field.not_eligible': 'یہ شخص یا گروپ یہ کردار نہیں رکھ سکتا۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
   'errors.field.note_too_long': 'نوٹ زیادہ سے زیادہ {{max}} حروف کا ہو سکتا ہے۔',
@@ -353,6 +358,7 @@ export const ur: LabelResource = {
   'errors.field.range_end_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
   'errors.field.read_category_unknown': 'اس قسم کی پڑھائی لاگ نہیں کی جا سکتی۔',
   'errors.field.read_only': 'یہ فیلڈ یہاں تبدیل نہیں ہو سکتی۔',
+  'errors.field.read_only_in_stage': 'موجودہ مرحلے میں یہ فیلڈ بدلی نہیں جا سکتی۔',
   'errors.field.reason_required': 'وجہ بتائیں۔',
   'errors.field.recipient_shape': 'اس وصول کنندہ کے لیے شخص یا گروپ منتخب کریں۔',
   'errors.field.recipients_required': 'کم از کم ایک شخص یا گروپ منتخب کریں۔',
@@ -370,8 +376,10 @@ export const ur: LabelResource = {
     'معلوم خرابی نشان زد کرنے سے پہلے عارضی حل یا بنیادی وجہ لکھیں۔',
   'errors.field.required_to_close': 'بند کرنے سے پہلے درکار ہے۔',
   'errors.field.required_to_confirm_cause': 'تصدیق سے پہلے بنیادی وجہ لکھیں۔',
+  'errors.field.required_to_leave_stage': 'اس مرحلے سے نکلنے سے پہلے یہ بھریں۔',
   'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
   'errors.field.review_date_past': 'آج یا بعد کی تاریخ منتخب کریں۔',
+  'errors.field.role_disabled': 'یہ کردار ختم کیا جا چکا ہے: کسی نئے کو نہیں دیا جا سکتا۔',
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
@@ -470,6 +478,7 @@ export const ur: LabelResource = {
   'errors.field.unknown_record_type': 'منتخب کریں کہ قاعدہ کس پر لاگو ہو۔',
   'errors.field.unknown_reference': 'یہاں بتایا گیا کوئی شخص یا گروپ اب موجود نہیں۔',
   'errors.field.unknown_sort_field': 'فہرست کو اس فیلڈ کے لحاظ سے ترتیب نہیں دیا جا سکتا۔',
+  'errors.field.unknown_stage': 'اس قسم میں ایسا کوئی مرحلہ نہیں۔',
   'errors.field.unknown_time_zone': 'فہرست سے ٹائم زون منتخب کریں۔',
   'errors.field.unknown_value': 'یہ قدر موجود نہیں (اب نہیں رہی)۔',
   'errors.field.url_not_valid': 'https:// یا http:// سے شروع ہونے والا ویب پتہ درج کریں۔',
@@ -488,6 +497,7 @@ export const ur: LabelResource = {
   'errors.field.whole_number_required': 'مکمل عدد درج کریں۔',
   'errors.field.wider_than_topic': 'مضمون اپنے موضوع کے سامعین کو صرف محدود کر سکتا ہے، وسیع نہیں۔',
   'errors.field.window_end_before_start': 'شروع کے بعد ہونا چاہیے۔',
+  'errors.field.would_loop': 'کوئی ریلیز خود اپنا حصہ نہیں بن سکتی، براہ راست یا دوسروں کے ذریعے۔',
   'errors.file_link_expired': 'لنک کی میعاد ختم ہو گئی۔ فائل دوبارہ کھولیں۔',
   'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
@@ -663,6 +673,7 @@ export const ur: LabelResource = {
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
   'errors.plain_connection_refused':
     'بغیر انکرپشن کا کنکشن مسترد کیا جاتا ہے جب تک آپ اس کی اجازت نہ دیں۔',
+  'errors.plan_section_not_found': 'منصوبے کا یہ حصہ موجود نہیں۔',
   'errors.precondition_required':
     'اس تبدیلی کے لیے وہ ورژن درکار ہے جس میں آپ ترمیم کر رہے ہیں۔ آئٹم دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.private_key_unreadable':
@@ -741,6 +752,7 @@ export const ur: LabelResource = {
   'errors.stage_move_not_allowed':
     'موجودہ حیثیت سے یہ منتقلی ممکن نہیں۔ تازہ ترین دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.stage_move_refused': 'اس منتقلی سے پہلے کچھ کام باقی ہے۔ ریکارڈ پر وجوہات دیکھیں۔',
+  'errors.stage_not_found': 'یہ مرحلہ موجود نہیں۔',
   'errors.stage_status_system_only': 'یہ حیثیت صرف منظوری کے فیصلے سے لگتی ہے۔',
   'errors.status_not_found': 'یہ حالت اب موجود نہیں۔',
   'errors.storage_not_configured': 'اس تنصیب کے لیے فائل اسٹوریج ترتیب نہیں دی گئی۔',

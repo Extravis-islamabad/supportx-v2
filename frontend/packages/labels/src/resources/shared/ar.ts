@@ -181,6 +181,7 @@ export const ar: LabelResource = {
   'nav.admin_mail': 'البريد',
   'nav.admin_notifications': 'الإشعارات',
   'nav.admin_organization': 'المؤسسة',
+  'nav.admin_portal': 'البوابة',
   'nav.admin_requests': 'طلبات الخدمة',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'الأدوار',
@@ -504,6 +505,10 @@ export const ar: LabelResource = {
   'setup.page.notifications.keywords': 'إشعارات، تنبيهات، رسائل، قوالب، قوالب البريد، المستلمون',
   'setup.page.organization.description': 'المواقع والأقسام ومجموعات الدعم ومن ينتمي إليها.',
   'setup.page.organization.keywords': 'مواقع، أقسام، مجموعات، فرق، أماكن، مكاتب، أعضاء',
+  'setup.page.portal.description':
+    'كل ما تفعله بوابة الخدمة الذاتية لمقدمي الطلبات، في صفحة واحدة.',
+  'setup.page.portal.keywords':
+    'البوابة، الخدمة الذاتية، البحث، مصادر البحث، إخفاء نموذج الحوادث، الموعد، تاريخ التسليم، نيابة عن، الموافقات، تسجيل الدخول، تعديل الملف، التذكيرات، التكلفة، الضيوف، التسجيل الذاتي',
   'setup.page.requests.description':
     'طلبات الخدمة: نيابة عمن يمكن لمقدمي الطلبات تقديمها، وطرق عرض الطلبات.',
   'setup.page.requests.keywords': 'طلبات الخدمة، الكتالوج، نيابة عن، تقديم، طلبات، طرق العرض',

@@ -237,3 +237,87 @@ export function useAnswerRequest(id: string) {
     },
   });
 }
+
+/** The portal home's counts (WP-032 D1): refetch on the person's channels to keep it live. */
+export function usePortalSummary(enabled = true) {
+  return useQuery({
+    queryKey: [...portalKeys.all, 'summary'],
+    queryFn: () => call(api.GET('/api/v1/portal/summary')),
+    enabled,
+  });
+}
+
+/** The most requested items the person may see, last 90 days (REQ-CAT-027). */
+export function usePopularCatalogItems(enabled = true) {
+  return useQuery({
+    queryKey: ['catalog', 'items', 'popular'],
+    queryFn: () =>
+      call(api.GET('/api/v1/catalog/items/popular', { params: { query: { limit: 6 } } })),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/** Published articles the person may read that match the words (portal search, WP-032 D2). */
+export function usePortalArticleSearch(q: string, language: string) {
+  const text = q.trim();
+  return useQuery({
+    queryKey: ['portal', 'search', 'articles', text, language],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/knowledge/articles', {
+          params: {
+            query: {
+              view: 'published',
+              q: text,
+              limit: 10,
+              language: language === 'ar' ? 'ar' : 'en', // knowledge has en and ar versions,
+            },
+          },
+        }),
+      ),
+    enabled: text !== '',
+    meta: { silent: true },
+  });
+}
+
+export type PortalSettings = components['schemas']['PortalSettingsOut'];
+export type PortalSearchSource = PortalSettings['search_sources'][number];
+export const portalSettingsKey = ['portal', 'settings'] as const;
+
+/** The portal's own settings (D-143): search order and switches; live on the tenant channel. */
+export function usePortalSettings(enabled = true) {
+  return useQuery({
+    queryKey: portalSettingsKey,
+    queryFn: () => call(api.GET('/api/v1/portal/settings')),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/** Change them with If-Match on the version shown; the answer replaces the cache at once. */
+export function usePortalSettingsChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      body,
+      version,
+    }: {
+      body: components['schemas']['PortalSettingsPatch'];
+      version: number;
+    }) =>
+      call(
+        api.PATCH('/api/v1/portal/settings', {
+          params: { header: { 'If-Match': `"${String(version)}"` } },
+          body,
+        }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(portalSettingsKey, saved);
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: portalSettingsKey });
+    },
+  });
+}

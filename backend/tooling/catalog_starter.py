@@ -15,8 +15,14 @@ import asyncpg
 
 from app.core.config import Settings
 from app.core.database import Database, create_engine
+from app.core.modules import discover_modules
 from app.core.tenancy import TenantContext
 from app.modules.service_catalog.service.starter import Seeded, seed_empty_catalog
+
+# Every module's tables on the shared metadata before the first insert: a catalog item's
+# template is a work_items table, and a bare process has not imported that module (QA
+# 2026-11-05: NoReferencedTableError). The API and the workers do this at start.
+discover_modules()
 
 
 async def seed(url: str, slug: str) -> Seeded | None:

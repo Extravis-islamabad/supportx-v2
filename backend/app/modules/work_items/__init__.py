@@ -27,6 +27,7 @@ from app.modules.ai import (
     unregister_record_access,
 )
 from app.modules.identity_access import SERVICE_DESK_MANAGER
+from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
 from app.modules.work_items.api.routes import build_router
@@ -41,6 +42,7 @@ from app.modules.work_items.service import (
     parts,
     portal,
     record_facts,
+    release_duties,
     report_names,
     request_notifications,
     resolution,
@@ -61,6 +63,7 @@ from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.sla import register_sla
+from app.modules.work_items.service.stage_approvals import register as register_stage_approvals
 from app.modules.work_items.service.usage import register_record_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 from app.shared.schedules import ScheduleSpec
@@ -106,6 +109,9 @@ register_record_usage()
 _register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()
+register_stage_approvals(tuple(TYPES.values()))  # WP-058a s5: releases' stage approval guard
+# Release roles as open duties in the role editor's preview (REQ-REL-024 AC2, lane B's #223).
+release_duties.register()
 register_sla()
 # At import, not only at app startup: the consumers worker imports modules without running
 # their startup hooks, and report exports run there (lane C, WP-035 session 3).
@@ -129,11 +135,13 @@ module = ModuleSpec(
         *(build_router(wtype) for wtype in TYPES.values()),
         portal_router,
         portal_request_router,  # WP-030 D9
+        portal_home_router,  # WP-032 D1
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
         INCIDENT.feature,
         SERVICE_REQUEST.feature,
+        INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
     ],
     events=EVENTS,
     permissions=(

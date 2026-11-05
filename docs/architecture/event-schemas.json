@@ -725,6 +725,39 @@
         "type": "object"
       }
     },
+    "announcements.personal.changed": {
+      "1": {
+        "description": "A person dismissed a banner, or started or stopped following (WP-032 D7).\n\nPublished on that person's own channel only, so their other devices follow (IDs only).",
+        "properties": {
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "dismissed",
+              "followed",
+              "unfollowed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_id",
+          "user_id",
+          "change"
+        ],
+        "title": "AnnouncementPersonalChanged",
+        "type": "object"
+      }
+    },
     "announcements.settings.changed": {
       "1": {
         "description": "The module's tenant settings changed (e.g. the four-eyes rule).",
@@ -3974,6 +4007,69 @@
         ],
         "title": "WorkItemPartChanged",
         "type": "object"
+      },
+      "2": {
+        "description": "As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.\n\nWP-058a s4. New allowed values retype `part`, so a new schema version\n(docs/architecture/events.md \"Versioning\"); v1 stays registered, and tasks, worklogs and\nlinks still publish it.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
+              "link",
+              "plan_section",
+              "stage_schedule",
+              "downtime"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChangedV2",
+        "type": "object"
+      }
+    },
+    "work_items.portal_settings.changed": {
+      "1": {
+        "description": "The tenant's portal settings changed (WP-032 D8): open portals reload them live.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "WorkItemPortalSettingsChanged",
+        "type": "object"
       }
     },
     "work_items.reply_templates.changed": {
@@ -4296,6 +4392,84 @@
           "status_category"
         ],
         "title": "WorkItemRestored",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.roles_changed": {
+      "1": {
+        "description": "Who holds a named role on the record changed (WP-058a s4; REQ-REL-023).\n\nThe holders before and after, as IDs, so the lists of both the old and the new holders\nrefresh (lane B's review).",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "groups_after": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Groups After",
+            "type": "array"
+          },
+          "groups_before": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Groups Before",
+            "type": "array"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "users_after": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Users After",
+            "type": "array"
+          },
+          "users_before": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Users Before",
+            "type": "array"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "role",
+          "users_before",
+          "users_after",
+          "groups_before",
+          "groups_after"
+        ],
+        "title": "WorkItemRolesChanged",
         "type": "object"
       }
     },

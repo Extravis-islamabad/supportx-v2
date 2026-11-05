@@ -23,7 +23,17 @@ from app.modules.work_items.domain.lifecycle import (
     StatusDef,
     TransitionDef,
 )
-from app.modules.work_items.domain.releases import RELEASE_MODEL, RELEASE_REASONS, RELEASE_TYPES
+from app.modules.work_items.domain.releases import (
+    DETAIL_FIELDS,
+    DOWNTIME_KINDS,
+    OUTCOME_STAGES,
+    PLAN_SECTIONS,
+    RELEASE_MODEL,
+    RELEASE_REASONS,
+    RELEASE_ROLES,
+    RELEASE_TYPES,
+    STAGE_APPROVALS,
+)
 from app.modules.work_items.domain.stages import SetBy, StageModel
 from app.shared.labels import strip_isolates
 
@@ -94,6 +104,15 @@ class WorkItemType:
     stages: StageModel | None = None
     # Pick lists only this type has, seeded per tenant: list code → (value code, colour).
     own_lists: Mapping[str, tuple[tuple[str, str | None], ...]] = field(default_factory=dict)
+    # Fields only this type has (an extension table): templates may name them in stage rules.
+    own_fields: frozenset[str] = frozenset()
+    # Engine parts a type opts into (WP-058a s4): named roles held per record, rich-text plan
+    # sections, and stages that record an outcome.
+    roles: tuple[str, ...] = ()
+    plan_sections: tuple[str, ...] = ()
+    outcome_stages: frozenset[str] = frozenset()
+    # Seeded stage approvals (stage -> settings; REQ-REL-031), copied per tenant on first use.
+    stage_approvals: Mapping[str, Mapping[str, object]] = field(default_factory=dict)
 
     @property
     def counter_key(self) -> str:
@@ -183,9 +202,15 @@ RELEASE = WorkItemType(
     transitions=(),
     fields=COMMON_FIELDS,
     stages=RELEASE_MODEL,
+    own_fields=frozenset(DETAIL_FIELDS),
+    roles=RELEASE_ROLES,
+    plan_sections=PLAN_SECTIONS,
+    outcome_stages=OUTCOME_STAGES,
+    stage_approvals=STAGE_APPROVALS,
     own_lists={
         "release_type": RELEASE_TYPES,
         "release_reason": tuple((code, None) for code in RELEASE_REASONS),
+        "downtime_kind": tuple((code, None) for code in DOWNTIME_KINDS),
     },
 )
 
@@ -325,6 +350,15 @@ FIELD_PROBLEMS = frozenset(
         "no_default_allowed",
         # WP-020c-FIX (D-086)
         "requester_always_needed",
+        # WP-058a s2: stage rules on templates (ADR-041, REQ-REL-013)
+        "unknown_stage",
+        "hidden_cannot_be_required",
+        "read_only_in_stage",
+        "not_a_field",
+        "required_to_leave_stage",  # WP-058a s3 (REQ-REL-018)
+        "not_eligible",  # WP-058a s4: a role holder the role does not allow (REQ-REL-024)
+        "role_disabled",
+        "would_loop",  # WP-058a s5: a release made the parent of its own parent (REQ-REL-037)
     }
 )
 
