@@ -1049,6 +1049,14 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     in WP-058b.
   - Required-to-leave-stage is S3. Tasks and checklists per stage are S4.
 
+### Recorded for WP-062b (lane C: announcements and data administration)
+
+- **Announcement expiry for followers:** lane A's #220 (WP-032 D7) notifies followers when an
+  announcement is updated or taken down. A window that simply runs out raises no event, so
+  followers are not told; it needs a timer (Temporal or a sweep) to raise "ended" at
+  `publish_until`.
+- **Release import (REQ-REL-010)**, from WP-058a S2.
+
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
 - [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
