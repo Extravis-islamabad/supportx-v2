@@ -39,17 +39,18 @@ UNWEIGHTED_WARN_SHARE = 0.10
 
 
 def _weights() -> dict[str, float]:
-    """The file seconds to balance on: the nightly's when CI hands them over, else the file's.
+    """The file seconds to balance on: the committed ones, overlaid with the nightly's.
 
     `SUPPORTX_TEST_WEIGHTS` names a JSON file of file seconds. CI resolves the latest nightly's
-    `backend-shard-weights` once per run and gives every shard the same file, so the weights
-    refresh themselves every night and all shards still compute the same split.
+    `backend-shard-weights` once per run and gives every shard the same file, so all shards
+    compute the same split. Its numbers are the freshest for the files it ran; the committed
+    tests/shard_weights.json still covers files added since that nightly (2026-11-05: a nightly
+    a day old missed 45 files, and the shards ran 8 to 14.5 minutes).
     """
+    found: dict[str, float] = json.loads(WEIGHTS.read_text()) if WEIGHTS.is_file() else {}
     given = os.environ.get("SUPPORTX_TEST_WEIGHTS", "").strip()
-    path = Path(given) if given else WEIGHTS
-    if not path.is_file():
-        path = WEIGHTS
-    found: dict[str, float] = json.loads(path.read_text()) if path.is_file() else {}
+    if given and Path(given).is_file():
+        found |= json.loads(Path(given).read_text())
     return found
 
 
