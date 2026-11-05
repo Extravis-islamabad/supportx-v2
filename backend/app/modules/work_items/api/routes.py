@@ -139,6 +139,17 @@ class WorkItemIn(BaseModel):
     outage_ended_at: datetime | None = Field(
         default=None, description="Problems: when it ended (not before it began)."
     )
+    root_cause: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the root cause, rich text (needs problems.edit_analysis and "
+        "problems.view_root_cause).",
+    )
+    symptoms: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the symptoms, rich text (needs problems.edit_analysis).",
+    )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )
@@ -194,6 +205,17 @@ class WorkItemPatch(BaseModel):
     )
     outage_ended_at: datetime | None = Field(
         default=None, description="Problems: when it ended (not before it began)."
+    )
+    root_cause: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the root cause, rich text (needs problems.edit_analysis and "
+        "problems.view_root_cause).",
+    )
+    symptoms: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the symptoms, rich text (needs problems.edit_analysis).",
     )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key (null clears one); others kept."
@@ -495,6 +517,13 @@ class WorkItemOut(BaseModel):
     root_cause_category: str | None = None
     outage_started_at: datetime | None = None
     outage_ended_at: datetime | None = None
+    root_cause: str | None = Field(
+        default=None, description="Problems: null when root_cause_hidden (D-140 Q7)."
+    )
+    root_cause_hidden: bool = Field(
+        default=False, description="Problems: you may not read the root cause."
+    )
+    symptoms: str | None = None
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
     lifecycle: str = Field(
         default=STANDARD_LIFECYCLE,
@@ -560,7 +589,8 @@ class WorkItemOut(BaseModel):
         description="Status actions, always in the same order."
     )
     operations: list[WorkItemActionStateOut] = Field(
-        description="edit, assign, take, change_priority, delete: whether you may, and why not."
+        description="edit, assign, take, change_priority, delete (problems: edit_analysis): "
+        "whether you may, and why not."
     )
     history_count: int
     people: dict[str, PersonOut] = Field(description="The people on the record, by user ID.")
@@ -579,6 +609,8 @@ class WorkItemOut(BaseModel):
         r = view.record
         return cls(
             **{name: getattr(r, name) for name in _RECORD_FIELDS},
+            root_cause=None if "root_cause" in view.hidden else r.root_cause,
+            root_cause_hidden="root_cause" in view.hidden,
             actions=[_state(a) for a in view.actions],
             operations=[_state(a) for a in view.operations],
             history_count=view.history_count,
@@ -618,6 +650,7 @@ _RECORD_FIELDS = (
     "root_cause_category",
     "outage_started_at",
     "outage_ended_at",
+    "symptoms",
     "template_id",
     "lifecycle",
     "status_before_pause",

@@ -19,7 +19,7 @@ status moves (REQ-INC-050); priority comes from the matrix unless set by hand wi
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol
 
@@ -262,6 +262,8 @@ class WorkItemView:
     conversation: list[ActionState] = field(default_factory=list)
     following: bool = False
     conversation_count: int = 0
+    # Fields this subject may not read (problems: the root cause without view_root_cause).
+    hidden: frozenset[str] = frozenset()
 
 
 def _now() -> datetime:
@@ -455,6 +457,11 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             elif record.technician_id is not None:
                 refused = ASSIGNED_TO_OTHER
         operations.append(ActionState(op, allowed=refused is None, reason=refused))
+    if wtype.code is WorkItemTypeCode.PROBLEM:  # the analysis section's own right (WP-044b)
+        refused = await reason("edit_analysis")
+        if refused is None and final:
+            refused = RECORD_CLOSED
+        operations.append(ActionState("edit_analysis", allowed=refused is None, reason=refused))
     people = [
         str(u)
         for u in (
@@ -487,6 +494,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation=conversation,
         following=await followers.current(session, record.id, subject.user_id) is not None,
         conversation_count=int(entries or 0),
+        hidden=await hidden_fields(session, subject, wtype, record.id),
     )
 
 
@@ -922,6 +930,11 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     entries, cursor = await history_entries(
         session, RECORD_TYPE, record_id, before=before, limit=limit, actors=actors
     )
+    hidden = await hidden_fields(session, subject, wtype, record_id)
+    if hidden:  # the root cause stays out of the history too (D-140 Q7)
+        entries = [
+            replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+        ]
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
         value
@@ -1071,6 +1084,13 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
             if len(html) > DESCRIPTION_MAX:
                 problems.append(("description", "value_too_long"))
             cleaned["description"] = None if is_blank(html) else html
+    for name in ANALYSIS_FIELDS:  # problems' analysis (WP-044b): rich text like the description
+        if name in values:
+            raw = values[name]
+            html = "" if raw is None or is_blank(str(raw)) else sanitize_html(str(raw))
+            if len(html) > DESCRIPTION_MAX:
+                problems.append((name, "value_too_long"))
+            cleaned[name] = None if is_blank(html) else html
     if creating and values.get("requester_id") is None:
         problems.append(("requester_id", "required"))
     for name in ("requester_id", "on_behalf_of_id", "site_id", "department_id", "category_id"):
@@ -1157,7 +1177,56 @@ def _json(value: Any) -> Any:  # noqa: ANN401 - field values of several types
 
 # A problem's own fields (WP-044a s2, REQ-PRB-005, -006): codes from its pick lists, the outage.
 PROBLEM_FIELDS = ("problem_type", "root_cause_category", "outage_started_at", "outage_ended_at")
+# The analysis (WP-044b, REQ-PRB-030): changing it needs problems.edit_analysis; the root cause
+# is read only with problems.view_root_cause (D-140 Q7).
+ANALYSIS_FIELDS = ("root_cause", "symptoms")
+HIDDEN_WITHOUT = {"root_cause": "view_root_cause"}
 _PROBLEM_LISTS = {"problem_type": PickList.PROBLEM_TYPE, "root_cause_category": PickList.ROOT_CAUSE}
+
+
+async def _may_change_analysis(
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record: WorkItem,
+    names: Sequence[str],
+) -> None:
+    """Changing the analysis needs edit_analysis; the root cause also needs to be readable."""
+    changing = [n for n in names if wtype.code is WorkItemTypeCode.PROBLEM]
+    if not changing:
+        return
+    actions = {"edit_analysis", *(HIDDEN_WITHOUT[n] for n in changing if n in HIDDEN_WITHOUT)}
+    for action in sorted(actions):
+        if not await _may(session, subject, wtype, action, record.id):
+            raise PermissionDenied(
+                params={"permission": wtype.permission(action), "reason": NO_PERMISSION}
+            )
+
+
+def _may_give_analysis(subject: Subject, wtype: WorkItemType, cleaned: dict[str, Any]) -> None:
+    """On the create form (REQ-PRB-018 AC1): the same rights as changing it later."""
+    given = [n for n in ANALYSIS_FIELDS if cleaned.get(n) is not None]
+    if not given or wtype.code is not WorkItemTypeCode.PROBLEM:
+        return
+    actions = {"edit_analysis", *(HIDDEN_WITHOUT[n] for n in given if n in HIDDEN_WITHOUT)}
+    for action in sorted(actions):
+        if not subject.holds(wtype.permission(action)):
+            raise PermissionDenied(
+                params={"permission": wtype.permission(action), "reason": NO_PERMISSION}
+            )
+
+
+async def hidden_fields(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> frozenset[str]:
+    """Fields of the record the subject may not read (the root cause, D-140 Q7)."""
+    if wtype.code is not WorkItemTypeCode.PROBLEM:
+        return frozenset()
+    hidden: set[str] = set()
+    for name, action in HIDDEN_WITHOUT.items():
+        if not await _may(session, subject, wtype, action, record_id):
+            hidden.add(name)
+    return frozenset(hidden)
 
 
 def _check_problem_fields(
@@ -1171,7 +1240,7 @@ def _check_problem_fields(
     Only on problems; codes offered (a record's retired one may stay); the outage ends at or after
     it begins.
     """
-    given = [name for name in PROBLEM_FIELDS if name in cleaned]
+    given = [name for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS) if name in cleaned]
     if wtype.code is not WorkItemTypeCode.PROBLEM:
         return [(name, "not_allowed") for name in given if cleaned[name] is not None]
     found: list[tuple[str, str]] = []
@@ -1206,6 +1275,7 @@ PROBLEM_FIELDS_SNAPSHOT = (
     "root_cause_category",
     "outage_started_at",
     "outage_ended_at",
+    *ANALYSIS_FIELDS,
 )
 SNAPSHOT_FIELDS = (
     "subject",
@@ -1896,6 +1966,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     problems += _check_problem_fields(wtype, cat, cleaned, None)
     if problems:
         raise await _value_errors(session, wtype, problems)
+    _may_give_analysis(subject, wtype, cleaned)
     problems += await _check_people(session, cleaned)
     await _on_behalf_problems(session, subject, wtype, cat, cleaned)
     problems += await _check_units(
@@ -1979,7 +2050,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         priority=priority,
         priority_source=priority_source,
         level=cleaned.get("level"),
-        **{name: cleaned.get(name) for name in PROBLEM_FIELDS},
+        **{name: cleaned.get(name) for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS)},
         template_id=template.id,
         # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025).
         lifecycle=template.lifecycle
@@ -2110,6 +2181,9 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         )
     if "channel" in cleaned and record.channel not in {Channel.PHONE, Channel.WALK_UP}:
         problems.append(("channel", "channel_reserved"))
+    await _may_change_analysis(
+        session, subject, wtype, record, [n for n in ANALYSIS_FIELDS if n in cleaned]
+    )
     if problems:
         raise _errors(problems)
     problems += await _check_people(session, cleaned)

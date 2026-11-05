@@ -272,17 +272,38 @@ def _type_defaults(
 def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     """The permission catalogue entries of one type."""
     is_sr = wtype.code is WorkItemTypeCode.SERVICE_REQUEST
-    return tuple(
-        PermissionSpec(
-            wtype.permission(action),
-            wtype.feature,
-            # requests.assign keeps the scopes it always had (never "own": lane B, #182)
-            NOT_OWN if is_sr and action == "assign" else scopes,
-            # The type's own system-role defaults; the WP-042 built-in roles still get theirs.
-            defaults=(*_type_defaults(wtype, action, defaults), *_role_defaults(action)),
+    return (
+        tuple(
+            PermissionSpec(
+                wtype.permission(action),
+                wtype.feature,
+                # requests.assign keeps the scopes it always had (never "own": lane B, #182)
+                NOT_OWN if is_sr and action == "assign" else scopes,
+                # The type's own system-role defaults; the WP-042 built-in roles still get theirs.
+                defaults=(*_type_defaults(wtype, action, defaults), *_role_defaults(action)),
+            )
+            for action, scopes, defaults in _ACTIONS
         )
-        for action, scopes, defaults in _ACTIONS
-    ) + (APPROVE_SPECS if is_sr else ())
+        + (APPROVE_SPECS if is_sr else ())
+        + (PROBLEM_SPECS if wtype.code is WorkItemTypeCode.PROBLEM else ())
+    )
+
+
+# Problems only (WP-044b, REQ-PRB-070, D-140 Q7): changing the analysis, and seeing the root
+# cause, which may describe a security weakness. Technicians hold both for their groups'
+# problems (they work them); everyone else who sees a problem reads it without its root cause
+# unless an admin widens it. Enforced in the API, history and search, not only the screen.
+EDIT_ANALYSIS = "edit_analysis"
+VIEW_ROOT_CAUSE = "view_root_cause"
+PROBLEM_SPECS: tuple[PermissionSpec, ...] = tuple(
+    PermissionSpec(
+        f"problems.{action}",
+        "problem",
+        ALL_SCOPES,
+        defaults=(("technician", "group"), *_role_defaults(action)),
+    )
+    for action in (EDIT_ANALYSIS, VIEW_ROOT_CAUSE)
+)
 
 
 # The approval engine (WP-030 s2, REQ-SR-063): anyone holding the type's approve permission may

@@ -637,6 +637,10 @@ class WorkItem(TenantEntity):
     root_cause_category: Mapped[str | None] = mapped_column(String(40))
     outage_started_at: Mapped[datetime | None]
     outage_ended_at: Mapped[datetime | None]
+    # Problems' analysis (WP-044b, REQ-PRB-030): sanitised rich text. The root cause is shown
+    # only to holders of problems.view_root_cause (D-140 Q7) and never indexed for search.
+    root_cause: Mapped[str | None] = mapped_column(Text)
+    symptoms: Mapped[str | None] = mapped_column(Text)
     template_id: Mapped[uuid.UUID | None]
     # Service requests (WP-030): the catalog item, the form's answers (Any: JSON values), and
     # the approval status; NULL / empty on incidents.
