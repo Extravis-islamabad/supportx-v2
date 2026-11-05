@@ -1008,6 +1008,10 @@ class SlaSettingsOut(BaseModel):
     warning_percent: int = Field(description="Warn when this share of the target has gone.")
     priority_rule: PriorityRule
     reopen_rule: ReopenRule
+    full_sla: bool = Field(
+        default=False,
+        description="Problems: response targets and the full SLA apply too (D-140 Q3).",
+    )
     version: int
 
 
@@ -1019,6 +1023,7 @@ class SlaSettingsPatch(BaseModel):
     warning_percent: int | None = Field(default=None, ge=1, le=99)
     priority_rule: PriorityRule | None = None
     reopen_rule: ReopenRule | None = None
+    full_sla: bool | None = None
 
 
 def _policy_values(body: BaseModel) -> dict[str, Any]:
@@ -1038,6 +1043,7 @@ def _settings_out(row: SlaSettings) -> SlaSettingsOut:
         warning_percent=row.warning_percent,
         priority_rule=PriorityRule(row.priority_rule),
         reopen_rule=ReopenRule(row.reopen_rule),
+        full_sla=row.full_sla,
         version=row.version,
     )
 

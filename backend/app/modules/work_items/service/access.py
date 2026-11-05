@@ -256,11 +256,38 @@ def _role_defaults(action: str) -> tuple[tuple[str, Scope], ...]:
 IDENTITY_GRANTED = frozenset({"view", "create", "edit", "assign", "close"})
 
 
+# Problems (WP-044a, agreed with lane B): what identity's reserved `problems.view` (all) and
+# `problems.manage` (group) gave technicians, in the engine's actions: they see every problem,
+# create them, and work their groups' problems. Never delete (admins), never due dates by hand.
+_PROBLEM_TECH: dict[str, tuple[tuple[str, Scope], ...]] = {
+    "view": (("technician", "all"),),
+    "create": (("technician", "all"),),
+    "assign_outside_group": (),
+    "delete": (),
+    "edit_due_dates": (),
+}
+_PROBLEM_GROUP: tuple[tuple[str, Scope], ...] = (("technician", "group"),)
+
+
+def _type_defaults(
+    wtype: WorkItemType, action: str, defaults: tuple[tuple[str, Scope], ...]
+) -> tuple[tuple[str, Scope], ...]:
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
+        # Service requests keep identity's system-role grants for these keys (WP-030, nothing
+        # widened for technicians or requesters).
+        return () if action in IDENTITY_GRANTED else defaults
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        return _PROBLEM_TECH.get(action, _PROBLEM_GROUP)
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        # Releases (WP-058a): technicians keep only identity's releases.view grant; the type
+        # adds no technician defaults, so nothing is widened (lane B review).
+        return ()
+    return defaults
+
+
 def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     """The permission catalogue entries of one type."""
     is_sr = wtype.code is WorkItemTypeCode.SERVICE_REQUEST
-    # Releases (WP-058a): technicians keep only identity's releases.view grant; the type adds no
-    # technician defaults, so nothing is widened (lane B review). Admin roles get theirs.
     is_release = wtype.code is WorkItemTypeCode.RELEASE
     return (
         tuple(
@@ -269,12 +296,10 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
                 wtype.feature,
                 # requests.assign keeps the scopes it always had (never "own": lane B, #182)
                 NOT_OWN if is_sr and action == "assign" else scopes,
-                # Service requests keep identity's system-role grants for these keys (WP-030,
-                # nothing widened); the WP-042 built-in roles still get theirs.
-                defaults=(
-                    *(() if is_release or (is_sr and action in IDENTITY_GRANTED) else defaults),
-                    *_role_defaults(action),
-                ),
+                # The type's own system-role defaults (service requests keep identity's grants,
+                # problems their technician grants, releases none); the WP-042 built-in roles
+                # still get theirs.
+                defaults=(*_type_defaults(wtype, action, defaults), *_role_defaults(action)),
             )
             for action, scopes, defaults in _ACTIONS
         )

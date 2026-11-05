@@ -63,6 +63,7 @@ import {
   useDateTime,
   useFormProblem,
   useLabel,
+  useAccess,
   useLicence,
   usePageCrumbs,
   WriteButton,
@@ -285,6 +286,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const reasonText = useActionReason();
   const status = useStatusActions(item, catalogue.data);
   const take = useTakeAction(item, op('take'));
+  const { has } = useLicence();
+  const { can } = useAccess();
   const groupName =
     item.group_id === null ? '' : (groups.data?.find((g) => g.id === item.group_id)?.name ?? '');
 
@@ -352,6 +355,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     ),
     take.action,
     ...status.actions,
+    // WP-044a (REQ-PRB-011): a problem prefilled from this incident and linked "caused by".
+    has('problem') && can('problems.create')
+      ? {
+          key: 'create_problem',
+          label: t('problems.create_from_incident'),
+          allowed: true,
+          testId: 'inc-op-create-problem',
+          onClick: () => void navigate(`/problems/new?incident=${item.id}`),
+        }
+      : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
       ? {
           key: 'delete',

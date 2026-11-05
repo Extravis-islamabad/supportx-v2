@@ -131,6 +131,7 @@ export const ar: LabelResource = {
   'errors.field.auto_close_needs_notifications':
     'يحتاج الإغلاق التلقائي إلى إشعارات مقدّمي الطلبات: لا توجد بعد قناة تُبلغ مقدّمي الطلبات بالحل.',
   'errors.field.before_publish': 'يجب أن يأتي الإيقاف بعد النشر.',
+  'errors.field.before_start': 'لا يمكن أن تسبق النهاية البداية.',
   'errors.field.below_minimum': 'الحد الأدنى هو {{min}}.',
   'errors.field.brand_image_svg':
     'صور SVG غير مقبولة لأنها قد تحتوي على نصوص برمجية. استخدم ملف PNG أو JPEG أو WebP أو ICO.',
@@ -213,6 +214,8 @@ export const ar: LabelResource = {
   'errors.field.fixed_calendar_unused': 'لا يُختار تقويم إلا عندما يكون المصدر تقويمًا ثابتًا.',
   'errors.field.flow_not_available': 'لا يتوفر لهذا النوع من السجلات تقرير المسجلة مقابل المحلولة.',
   'errors.field.flow_without_groupings': 'تقرير المسجلة مقابل المحلولة بلا تجميع.',
+  'errors.field.full_sla_off':
+    'للمشكلات تواريخ مستهدفة فقط. فعّل اتفاقيات مستوى الخدمة الكاملة للمشكلات لإضافة أهداف الاستجابة.',
   'errors.field.group_not_found': 'هذه المجموعة غير موجودة.',
   'errors.field.group_not_yours': 'لست عضوًا في هذه المجموعة.',
   'errors.field.group_required': 'اختر أي من مجموعاتك سيتولاه.',
@@ -282,6 +285,7 @@ export const ar: LabelResource = {
   'errors.field.name_taken': 'هذا الاسم مستخدم بالفعل.',
   'errors.field.no_default_allowed': 'لا يمكن أن يكون لهذا الحقل قيمة أولية.',
   'errors.field.not_a_field': 'هذا الحقل غير موجود لهذا النوع.',
+  'errors.field.not_a_technician': 'لا يحقق في مشكلة إلا فني يعمل على المشكلات.',
   'errors.field.not_allowed': 'هذا غير مسموح مع القيم الأخرى.',
   'errors.field.not_allowed_for_notes': 'الملاحظات ليس لها مستلمون.',
   'errors.field.not_eligible': 'لا يمكن لهذا الشخص أو هذه المجموعة شغل هذا الدور.',
@@ -469,6 +473,7 @@ export const ar: LabelResource = {
     'تعذّر الوصول إلى خدمة تسجيل الدخول الآن. حاول مجددًا بعد قليل.',
   'errors.identity_organization_missing': 'مؤسستك غير مهيأة لتسجيل الدخول بعد. اسأل المسؤول.',
   'errors.identity_provider_unavailable': 'تسجيل الدخول غير متاح مؤقتًا. يرجى المحاولة بعد قليل.',
+  'errors.incident_has_problem': 'هذه الحادثة مرتبطة بالفعل بـ {{display_id}}. انقلها للتأكيد.',
   'errors.insert_too_large': 'صور المقالة أكبر من أن تُدرج معًا: {{limit_mb}} ميغابايت على الأكثر.',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
@@ -482,6 +487,7 @@ export const ar: LabelResource = {
   'errors.invalid_sort': 'لا يمكن ترتيب القائمة بهذه الطريقة.',
   'errors.invalid_tenant_id': 'معرّف المؤسسة غير صالح.',
   'errors.invalid_transition': 'هذا غير ممكن في الحالة الحالية. أعد التحميل لرؤية أحدث نسخة.',
+  'errors.investigator_not_found': 'هذا الشخص ليس محققًا في هذه المشكلة.',
   'errors.invitation_already_signed_in': 'سجّل هذا الشخص الدخول بالفعل، فلا داعي لدعوته.',
   'errors.invitation_needs_email': 'أضف عنوان بريد إلكتروني لهذا الشخص أولًا.',
   'errors.invitation_not_found': 'لم يُعثر على هذه الدعوة.',

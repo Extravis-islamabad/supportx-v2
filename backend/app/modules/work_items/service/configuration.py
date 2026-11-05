@@ -49,7 +49,7 @@ from app.modules.work_items.domain.templates import (
     new_value_code,
     order_problems,
 )
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import (
     WorkItemPriorityCell,
@@ -205,13 +205,14 @@ async def update_transition(  # noqa: PLR0913 - the change and its context, expl
     reason_mode: str,
     source: Source,
     user_id: uuid.UUID | None,
+    lifecycle: str = STANDARD_LIFECYCLE,
 ) -> Catalogue:
-    """Turn a transition's reason prompt off, optional or required."""
+    """Turn a transition's reason prompt off, optional or required (of one transition set)."""
     current = await config.load(session, wtype)
     await _check_version(session, wtype, current, expected_version)
     if action not in set(WorkItemAction) or WorkItemAction(action) in SYSTEM_ACTIONS:
         raise NotFound(code="transition_not_found")
-    found = current.lifecycle.transitions.get((from_status, WorkItemAction(action)))
+    found = current.lifecycle_of(lifecycle).transitions.get((from_status, WorkItemAction(action)))
     if found is None:
         raise NotFound(code="transition_not_found")
     if reason_mode not in set(ReasonMode):
@@ -234,6 +235,7 @@ async def update_transition(  # noqa: PLR0913 - the change and its context, expl
         update(WorkItemTransition)
         .where(
             WorkItemTransition.type == wtype.code,
+            WorkItemTransition.lifecycle == lifecycle,
             WorkItemTransition.from_status == from_status,
             WorkItemTransition.action == action,
         )
@@ -244,7 +246,15 @@ async def update_transition(  # noqa: PLR0913 - the change and its context, expl
         wtype,
         current=current,
         expected_version=expected_version,
-        changes=[Change(f"transition.{from_status}.{action}.reason_mode", found.reason_mode, mode)],
+        changes=[
+            Change(
+                f"transition.{from_status}.{action}.reason_mode"
+                if lifecycle == STANDARD_LIFECYCLE
+                else f"transition.{lifecycle}.{from_status}.{action}.reason_mode",
+                found.reason_mode,
+                mode,
+            )
+        ],
         changed_fields=["transitions"],
         source=source,
         user_id=user_id,

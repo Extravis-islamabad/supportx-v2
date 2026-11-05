@@ -1,0 +1,190 @@
+"""A problem's own fields (WP-044a s2; REQ-PRB-005, -006).
+
+- work_items.problem_type and root_cause_category: codes from the tenant's pick lists of the
+  same names (seeded for problems: Appendix A), checked by the service like `level`.
+- work_items.outage_started_at / outage_ended_at: the outage window; the end, when given, is
+  not before the start.
+- work_item_reasons may hold the two new lists.
+- work_item_links may be `caused_by` (an incident caused by a problem, at most one per incident:
+  a partial unique index); bulk jobs may `link_problem` (REQ-PRB-011, -012).
+- Named transition sets (s4, REQ-PRB-025): work_item_transitions.lifecycle joins the key
+  (existing rows: "standard"); work_items.lifecycle (from the template at creation, default
+  "standard") and work_item_templates.lifecycle (NULL: standard); the guided actions
+  `analyse` and `start_review`.
+- Investigators (s5, ADR-040): a follower row may have the reason `investigator`.
+- sla_settings.full_sla (s5, D-140 Q3): full SLAs on problems, off by default.
+
+Expand only. Every code check is widened from its live definition and narrowed by removing only
+this migration's codes, so other lanes' codes survive either merge order (lane C's 0092 does the
+same). The downgrade removes the columns and the two lists' values (per tenant: the
+table forces RLS, see 0023).
+
+Revision ID: 0089
+Revises: 0077
+Created: 2026-11-05
+"""
+
+import re
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+from alembic import op
+
+revision: str = "0089"
+down_revision: str | None = "0077"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+PROBLEM_LISTS = ("problem_type", "root_cause")
+LIST_CHECK = "ck_work_item_reasons_list_code"
+LINK_CHECK = "ck_work_item_links_kind_code"
+BULK_CHECK = "ck_work_item_bulk_jobs_action_code"
+ONE_CAUSE = "uq_wil_tenant_one_cause"
+TRANSITIONS = "work_item_transitions"
+TRANSITIONS_PK = "pk_work_item_transitions"
+LIFECYCLE_CHECK = "ck_work_item_transitions_lifecycle_format"
+ACTION_CHECK = "ck_work_item_transitions_action_code"
+FOLLOW_CHECK = "ck_work_item_followers_reason_code"
+GUIDED_ACTIONS = ("analyse", "start_review")
+_DROP_OTHER_LIFECYCLES = """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        DELETE FROM work_item_transitions WHERE lifecycle <> 'standard';
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+"""
+OUTAGE_CHECK = "ck_work_items_outage_order"
+
+_DROP_LISTS = """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        DELETE FROM work_item_reasons WHERE list IN ('problem_type', 'root_cause');
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+"""
+
+
+def _in(column: str, codes: Sequence[str]) -> str:
+    return f"{column} IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
+
+
+def _codes_now(name: str) -> list[str]:
+    """The codes a `col IN (...)` check allows now, in their order (lane C's 0092 pattern)."""
+    definition = op.get_bind().scalar(
+        sa.text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :n"),
+        {"n": name},
+    )
+    return re.findall(r"'([a-z_]+)'::", str(definition))
+
+
+def _widen(table: str, column: str, name: str, codes: Sequence[str]) -> None:
+    """Add only these codes to the live check: other lanes' codes stay, in either order."""
+    now = _codes_now(name)
+    op.drop_constraint(op.f(name), table, type_="check")
+    op.create_check_constraint(
+        op.f(name), table, _in(column, [*now, *(c for c in codes if c not in now)])
+    )
+
+
+def _narrow(table: str, column: str, name: str, codes: Sequence[str]) -> None:
+    """Remove only these codes from the live check."""
+    now = _codes_now(name)
+    op.drop_constraint(op.f(name), table, type_="check")
+    op.create_check_constraint(op.f(name), table, _in(column, [c for c in now if c not in codes]))
+
+
+def upgrade() -> None:
+    """The columns, their check and the wider list check."""
+    op.add_column("work_items", sa.Column("problem_type", sa.String(length=40), nullable=True))
+    op.add_column(
+        "work_items", sa.Column("root_cause_category", sa.String(length=40), nullable=True)
+    )
+    op.add_column(
+        "work_items", sa.Column("outage_started_at", sa.DateTime(timezone=True), nullable=True)
+    )
+    op.add_column(
+        "work_items", sa.Column("outage_ended_at", sa.DateTime(timezone=True), nullable=True)
+    )
+    op.create_check_constraint(
+        op.f(OUTAGE_CHECK),
+        "work_items",
+        "outage_ended_at IS NULL OR outage_started_at IS NULL"
+        " OR outage_ended_at >= outage_started_at",
+    )
+    _widen("work_item_reasons", "list", LIST_CHECK, PROBLEM_LISTS)
+    _widen("work_item_links", "kind", LINK_CHECK, ("caused_by",))
+    op.create_index(
+        ONE_CAUSE,
+        "work_item_links",
+        ["tenant_id", "source_id"],
+        unique=True,
+        postgresql_where=sa.text("kind = 'caused_by' AND deleted_at IS NULL"),
+    )
+    _widen("work_item_bulk_jobs", "action", BULK_CHECK, ("link_problem",))
+    _lifecycles_up()
+
+
+def _lifecycles_up() -> None:
+    """Named transition sets: the key, the record's and the template's choice, two actions."""
+    op.add_column(
+        TRANSITIONS,
+        sa.Column("lifecycle", sa.String(length=40), server_default="standard", nullable=False),
+    )
+    op.create_check_constraint(
+        op.f(LIFECYCLE_CHECK), TRANSITIONS, "lifecycle ~ '^[a-z][a-z0-9_]{1,39}$'"
+    )
+    op.drop_constraint(op.f(TRANSITIONS_PK), TRANSITIONS, type_="primary")
+    op.create_primary_key(
+        op.f(TRANSITIONS_PK),
+        TRANSITIONS,
+        ["tenant_id", "type", "lifecycle", "from_status", "action"],
+    )
+    _widen(TRANSITIONS, "action", ACTION_CHECK, GUIDED_ACTIONS)
+    op.add_column(
+        "work_items",
+        sa.Column("lifecycle", sa.String(length=40), server_default="standard", nullable=False),
+    )
+    op.add_column("work_item_templates", sa.Column("lifecycle", sa.String(length=40)))
+    _widen("work_item_followers", "reason", FOLLOW_CHECK, ("investigator",))
+    op.add_column(
+        "sla_settings",
+        sa.Column("full_sla", sa.Boolean(), server_default="false", nullable=False),
+    )
+
+
+def _lifecycles_down() -> None:
+    """Only the standard sets stay (the others are seed data the upgrade's code re-seeds)."""
+    op.drop_column("sla_settings", "full_sla")
+    _narrow("work_item_followers", "reason", FOLLOW_CHECK, ("investigator",))
+    op.drop_column("work_item_templates", "lifecycle")
+    op.drop_column("work_items", "lifecycle")
+    op.execute(_DROP_OTHER_LIFECYCLES)
+    _narrow(TRANSITIONS, "action", ACTION_CHECK, GUIDED_ACTIONS)
+    op.drop_constraint(op.f(TRANSITIONS_PK), TRANSITIONS, type_="primary")
+    op.create_primary_key(
+        op.f(TRANSITIONS_PK), TRANSITIONS, ["tenant_id", "type", "from_status", "action"]
+    )
+    op.drop_constraint(op.f(LIFECYCLE_CHECK), TRANSITIONS, type_="check")
+    op.drop_column(TRANSITIONS, "lifecycle")
+
+
+def downgrade() -> None:
+    """Back to the lists and columns before problems' fields (a downgrade refuses while a
+    caused_by link or a link_problem job exists: the checks would fail, keeping data intact)."""
+    _lifecycles_down()
+    _narrow("work_item_bulk_jobs", "action", BULK_CHECK, ("link_problem",))
+    op.drop_index(ONE_CAUSE, table_name="work_item_links")
+    _narrow("work_item_links", "kind", LINK_CHECK, ("caused_by",))
+    op.execute(_DROP_LISTS)
+    _narrow("work_item_reasons", "list", LIST_CHECK, PROBLEM_LISTS)
+    op.drop_constraint(op.f(OUTAGE_CHECK), "work_items", type_="check")
+    for column in ("outage_ended_at", "outage_started_at", "root_cause_category", "problem_type"):
+        op.drop_column("work_items", column)

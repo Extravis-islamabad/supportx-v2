@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 import { SEEDED } from '../stack';
 import { expectAccessible, goToSection, navItems, settledBox, signIn, signInAs } from './helpers';
 
-const SECTIONS = ['Problems', 'Changes', 'Assets', 'CMDB'];
+// Problems (WP-044a) and releases (WP-058a) have their screens; the rest are still coming.
+const SECTIONS = ['Changes', 'Assets', 'CMDB'];
 
 test('navigation: every section opens a translated coming-soon page; palette and 404 work', async ({
   page,
@@ -87,8 +88,8 @@ test('RTL: the Arabic user gets Arabic labels right-to-left', async ({ page }) =
 test('accessibility: main screens have no serious or critical axe violations', async ({ page }) => {
   await signInAs(page, 'admin');
   await expectAccessible(page, 'home');
-  await page.goto('/problems');
-  await expect(page.getByRole('heading', { name: 'Problems' })).toBeVisible();
+  await page.goto('/changes');
+  await expect(page.getByRole('heading', { name: 'Changes' })).toBeVisible();
   await expectAccessible(page, 'coming soon');
   await page.goto('/admin/users');
   await expect(page.getByTestId('users-table').getByText('E2E Scroll 00')).toBeVisible();

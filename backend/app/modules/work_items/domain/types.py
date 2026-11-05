@@ -15,6 +15,9 @@ from enum import StrEnum
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
+    GUIDED_PROBLEM_TRANSITIONS,
+    PROBLEM_STATUSES,
+    PROBLEM_TRANSITIONS,
     SERVICE_REQUEST_STATUSES,
     SERVICE_REQUEST_TRANSITIONS,
     StatusDef,
@@ -39,6 +42,9 @@ DESCRIPTION_MAX = 100_000  # sanitised HTML, characters
 TAG_MAX = 40
 TAGS_MAX = 20
 _TAG = re.compile(r"^[\w][\w .\-]{0,39}$", re.UNICODE)
+# Every type's own life cycle; a type may seed more, which a template chooses (WP-044a s4).
+STANDARD_LIFECYCLE = "standard"
+GUIDED_ANALYSIS = "guided_analysis"  # problems: the major problem template's (REQ-PRB-025)
 
 
 class WorkItemTypeCode(StrEnum):
@@ -85,6 +91,14 @@ class WorkItemType:
     statuses: Sequence[StatusDef] = DEFAULT_STATUSES
     transitions: Sequence[TransitionDef] = DEFAULT_TRANSITIONS
     fields: frozenset[str] = field(default_factory=frozenset)
+    # More transition sets on the same statuses, by code; the template chooses one.
+    other_lifecycles: Mapping[str, Sequence[TransitionDef]] = field(default_factory=dict)
+
+    @property
+    def lifecycles(self) -> Mapping[str, Sequence[TransitionDef]]:
+        """Every seeded transition set, the standard one first."""
+        return {STANDARD_LIFECYCLE: self.transitions, **self.other_lifecycles}
+
     # A staged type (ADR-041): its stages, paths and listed status moves. None: no stages, and
     # status changes run through the named actions of `transitions` (incidents, requests).
     stages: StageModel | None = None
@@ -151,6 +165,22 @@ SERVICE_REQUEST = WorkItemType(
     fields=COMMON_FIELDS,
 )
 
+# WP-044a (REQ-PRB-001..003, -009, -023): its own PRB counter, the Appendix A life cycle and
+# permissions (`problems.*`, moved from identity's reserved list as requests.* was). Licensed
+# with `problem` (Professional). Its own fields (type, root cause category, outage window, the
+# known error ...) come with WP-044a s2 and WP-044b.
+PROBLEM = WorkItemType(
+    code=WorkItemTypeCode.PROBLEM,
+    path="problems",
+    default_prefix="PRB",
+    feature="problem",
+    permission_prefix="problems",
+    statuses=PROBLEM_STATUSES,
+    transitions=PROBLEM_TRANSITIONS,
+    fields=COMMON_FIELDS,
+    other_lifecycles={GUIDED_ANALYSIS: GUIDED_PROBLEM_TRANSITIONS},
+)
+
 
 def staged_statuses(model: StageModel) -> tuple[StatusDef, ...]:
     """A staged type's statuses as the shared engine sees them (category, colour, system)."""
@@ -187,10 +217,11 @@ RELEASE = WorkItemType(
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {
     INCIDENT.code: INCIDENT,
     SERVICE_REQUEST.code: SERVICE_REQUEST,
+    PROBLEM.code: PROBLEM,
     RELEASE.code: RELEASE,
 }
 # Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
-PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, RELEASE)
+PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, PROBLEM, RELEASE)
 
 
 # --- value rules shared by every type -------------------------------------------------------------
@@ -275,6 +306,8 @@ FIELD_PROBLEMS = frozenset(
         "group_required",
         "invalid_prefix",
         "due_in_past",  # a due date set by hand (REQ-SLA-028)
+        "before_start",  # WP-044a: a problem's outage ends before it begins
+        "not_a_technician",  # ADR-040: an investigator must work on problems
         "english_label_required",
         "unknown_language",
         "too_deep",

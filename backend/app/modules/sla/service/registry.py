@@ -89,6 +89,13 @@ class SlaRecordType:
     # WP-030 s2 (REQ-SR-006): the policy the record itself names (a catalog item's), which wins
     # over condition matching while it exists and is enabled; None: conditions decide.
     preferred_policy: Callable[[Mapping[str, Any]], uuid.UUID | None] | None = None
+    # WP-044a (REQ-PRB-008): the type's own fallback targets as (priority, kind, amount, unit,
+    # source) codes; None: the incident defaults. Problems have only a resolution target (the
+    # target date) in business days, and no first response.
+    default_targets: tuple[tuple[str, str, int, str, str], ...] | None = None
+    # D-140 Q3: only the resolution target (the target date) counts unless the tenant's
+    # `full_sla` setting for the type is on; response targets are refused on save while off.
+    target_dates_only: bool = False
 
 
 _TYPES: dict[str, SlaRecordType] = {}

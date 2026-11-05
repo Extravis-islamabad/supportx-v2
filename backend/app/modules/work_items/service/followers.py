@@ -42,6 +42,12 @@ async def current(
     return found
 
 
+async def is_investigator(session: AsyncSession, record_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Whether the person is an investigator of the record (ADR-040)."""
+    row = await current(session, record_id, user_id)
+    return row is not None and row.grants_access and row.reason == FollowReason.INVESTIGATOR.value
+
+
 async def of_record(session: AsyncSession, record_id: uuid.UUID) -> list[WorkItemFollower]:
     """Everyone following a record, oldest first."""
     rows = await session.scalars(

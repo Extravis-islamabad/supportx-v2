@@ -35,7 +35,7 @@ from app.modules.work_items.domain.templates import (
     is_custom,
     rules_from_json,
 )
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType
 from app.modules.work_items.infra.models import WorkItemTemplate
 from app.modules.work_items.service import configuration
 from app.modules.work_items.service import templates as template_service
@@ -297,6 +297,10 @@ class TemplateOut(BaseModel):
         description="Custom field rules by key (WP-026); sent as `fields['custom.<key>']`."
     )
     defaults: dict[str, Any] = Field(description="Starting values by field.")
+    lifecycle: str = Field(
+        default=STANDARD_LIFECYCLE,
+        description="The transition set new records from it follow (WP-044a; REQ-PRB-025).",
+    )
     stage_path: str | None = Field(default=None, description="Staged types: the path it sets.")
     stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
         default=None, description="Staged types: rules per stage (only what differs)."
@@ -328,6 +332,7 @@ class TemplateOut(BaseModel):
                 if is_custom(name)
             },
             defaults=dict(row.defaults),
+            lifecycle=row.lifecycle or STANDARD_LIFECYCLE,
             stage_path=row.stage_path,
             stage_rules=row.stage_rules,
             version=row.version,
@@ -345,6 +350,9 @@ class TemplateIn(BaseModel):
     for_requesters: bool = False
     fields: dict[str, FieldRuleIO] | None = None
     defaults: dict[str, Any] | None = None
+    lifecycle: str | None = Field(
+        default=None, max_length=40, description="One of the type's transition sets."
+    )
     stage_path: str | None = Field(
         default=None, max_length=40, description="Staged types: the path its records take."
     )
@@ -368,6 +376,9 @@ class TemplatePatch(BaseModel):
     defaults: dict[str, Any] | None = Field(default=None, description="Replaces all of them.")
     is_default: bool | None = None
     disabled: bool | None = None
+    lifecycle: str | None = Field(
+        default=None, max_length=40, description="For new records; running ones keep theirs."
+    )
     stage_path: str | None = Field(
         default=None, max_length=40, description="Staged types: the path its records take."
     )

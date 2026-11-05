@@ -68,6 +68,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "WorklogType": "worklog_type",
     "LinkKind": "link_kind",
     "PortalSettingsOut.search_sources[]": "portal.search.group",
+    "WorkItemTypeCode": "work_item_type",
     "WorkItemLinkOut.relation": "link_relation",
     "WorkItemTaskMoveIn.direction": "task_move_direction",
     # Incident lists and bulk jobs (WP-020d)

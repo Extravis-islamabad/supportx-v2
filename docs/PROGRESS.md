@@ -813,6 +813,104 @@ it with no reload (rule c). Not built yet.
 - [ ] S3 preview as a person (REQ-PRT-032): **open, waiting for Haider's OK** of the conditions.
   It ships as its own PR once approved; lane B builds the read-only preview session.
 
+### [ ] WP-044a — Problems: record, creation, templates, statuses, assignment (lane A, 2026-11-05; 5 sessions; #211)
+- **Plan:** ~/Desktop/wp-044-plan.md (all of WP-044, 13 sessions; coordinator approved
+  2026-11-04). Numbers: 0076, 0077, 0089 (044a), 0078 (044b), 0079 (044c), ADR-040
+  (investigators widen record access).
+- **Decided (D-140, Haider 2026-11-05):**
+  - Q1: closing offers "Resolve linked incidents", ticked by default, each through its own
+    service;
+  - Q2: one causing problem per incident (built, S3);
+  - Q3: target dates plus a tenant switch for full SLAs;
+  - Q4: review required for major and P1, P2 optional;
+  - Q5: an upgrade prompt in Essentials;
+  - Q6: AI grouping wherever the local model runs, pg_trgm without AI;
+  - Q7: the root cause is for problem roles only (API and search), admins can widen it;
+  - Q8: the React Native app is V1, built by Extravis's mobile team; every 044 feature goes
+    through the public API.
+  - Q3's switch goes in S5; Q4 in 044b S4; Q1 in 044b S5; Q7 in 044b S1 and 044c S2; Q5 and
+    Q6 in 044c S3; Q8 is checked in 044c S3.
+- [x] Session 1 (#211):
+  - Problems as a registered work-item type: PRB counter, `/problems`, licence feature
+    `problem`, custom fields for problems.
+  - The Appendix A life cycle with the actions investigate, confirm_root_cause, await_fix and
+    hold. On hold resumes where it was put on hold (`status_before_pause`, the same way as
+    undo-cancel).
+  - Each type lists only its own life cycle's actions (fixed when an incident listed the
+    problem actions).
+  - `problems.*` moved from identity's reserved list into work_items (lane B agreed; lane B
+    reviews):
+    - technicians: view and create all, and work their groups' problems;
+    - delete stays with the admins.
+  - Migration 0077 maps saved roles: problems.manage(S) becomes create, edit, assign and close
+    (never delete).
+  - Tests: domain (life cycle), DB (API, permissions, RLS, the 0077 migration and a role still
+    editing group problems).
+- [x] Session 2 (#211, migration 0089):
+  - problems have their own priority matrix (the per-type seed copies the incident one);
+  - problem type (reactive / proactive) and root cause category, from admin-editable pick lists
+    seeded for problems (Appendix A);
+  - the outage window (the end not before the start);
+  - target dates on the SLA engine: resolution only, P1 5 to P4 40 business days, no first
+    response; pausing and escalation as for incidents;
+  - problem-only fields refused on other types; field history; labels en/ar/ur.
+- [x] Session 3 (#211, 0089 extended): creating problems.
+  - From an incident: prefilled (subject, description, impact, urgency, site, the same seeded
+    category; reported by the creator) and linked "caused by" on both records with history.
+  - From many incidents: the already-caused ones are listed first and moved only when
+    confirmed; the others are linked by an incidents bulk job (`link_problem`, ≤ 1,000).
+  - An incident has at most one problem (partial unique index); a second gives 409
+    `incident_has_problem` unless moved.
+  - Similar open problems while typing (search port, visible ones only).
+  - Copy with the fields, a title marked with the original's ID, retired values left empty and
+    named, and history naming the original.
+  - Record links show caused_by / causes and the other record's type, checked against that
+    type's own permissions.
+  - Not yet (recorded): copying attachments (REQ-PRB-011 AC3), and the analysis and solution
+    parts of a copy (their fields come in WP-044b); creating from changes, releases, CIs and
+    reviews (REQ-PRB-013) waits for those records.
+- [x] Session 4 (#211, 0089 extended): named life cycles and the major problem template.
+  - A type can seed more than one transition set on its statuses. A template chooses one, and a
+    record keeps the one it was created with (`lifecycle`).
+  - Problems get "guided_analysis" (REQ-PRB-025): gathering facts, why-analysis, cause
+    confirmed, fix planned, fix verified, in review, closed. There is no close before the
+    review.
+  - New tenants get the standard and major problem templates (REQ-PRB-017 AC1).
+  - Not yet (recorded):
+    - the analysis and solution sections, and "cause confirmed needs a root cause", come with
+      the WP-044b S1 fields;
+    - template tasks on entering a status (REQ-PRB-020 AC2), template groups (REQ-PRB-021) and
+      the designer's explanations (REQ-PRB-022) are console work for S5;
+    - copying and editing a life cycle (REQ-PRB-025 AC3) comes with the life cycle designer.
+- [x] Session 5 (#211, 0089 extended; ADR-040):
+  - Investigators (REQ-PRB-029): a follower row with reason `investigator` and access.
+    - They see the problem and add notes, work its tasks, and log their own time (lane B's
+      review: never others' worklogs).
+    - Fields, status, assignment and links stay closed to them.
+    - Named or removed by whoever may edit the problem; anyone may step down.
+    - Audited and in history. The record channel follows the access.
+  - Full SLAs on problems (D-140 Q3): `sla_settings.full_sla`, off by default. While it is off
+    only the target date counts, and response targets are refused on save.
+  - Console screens:
+    - the problems list (live), and creating a problem from an incident or from many (the
+      already-caused ones to move or leave), with similar problems while typing;
+    - the record, with the incidents' status bar, the guided steps, the incidents it causes,
+      investigators and copy;
+    - "Create problem" on incidents.
+  - Lane B's review of 0077: the downgrade refuses rather than lose a grant.
+  - Audit labels for every service_request.* and problem.* action.
+  - Stack smoke dispatched with the new e2e spec (problems.spec.ts).
+  - Not yet (recorded):
+    - an assign dialog and a technician picker on the problem page come with 044c S1's record
+      page (assignment works through the API and the list);
+    - the analysis, tasks, worklogs and conversation tabs come in 044b and 044c;
+    - template groups and designer hints (REQ-PRB-021, -022) go to 044c S1;
+    - creating from many incidents through the incident list's bulk bar goes to 044c S1 (the
+      URL form works now).
+- WP-044a is complete once #211's full-ci is green; it then leaves draft.
+
+### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
   (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
