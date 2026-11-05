@@ -6,10 +6,11 @@ holding one of its permissions, the people it names, or the members of the group
 (REQ-REL-024 AC1); no rule at all means whoever may see releases. A person holding a role on an
 open release has a duty there that a role change could strand.
 
-A duty is reported only when the person would lose every permission the role accepts, and the
-role does not also accept them by name or through a group: a person who keeps another accepted
-permission, or is named, still qualifies. Which permissions each person really loses is
-identity_access's answer; it drops any duty whose permission the person keeps.
+A role is at risk when the change removes any permission it accepts (lane B's review of #235).
+Its holder is still eligible, and not reported, when the role names them, accepts one of their
+groups, or they hold another accepted permission the change leaves. The duty carries a
+permission the person loses, so identity_access (which drops any duty whose permission the
+person keeps) leaves it in.
 
 Built-in roles name their duty `release_role.<code>` (labelled per role); a role an admin added
 reports `release_role`, so the screen never shows a tenant's own code (rule d).
@@ -21,12 +22,13 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity_access import OpenDuty, register_duties
+from app.modules.identity_access import OpenDuty, Subject, register_duties, subject_for
 from app.modules.organization import memberships
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES
 from app.modules.work_items.domain.releases import RELEASE_ROLES
 from app.modules.work_items.domain.types import RELEASE
 from app.modules.work_items.infra.models import WorkItem, WorkItemRoleDef, WorkItemRoleHolder
+from app.modules.work_items.service import catalogue as config
 
 _BUILT_IN = frozenset(RELEASE_ROLES)
 
@@ -51,6 +53,32 @@ def _still_eligible(
     return str(user) in named or bool(eligible_groups & {str(g) for g in groups})
 
 
+class _Eligibility:
+    """Whether a holder still qualifies for a role after the change, people compiled once."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+        self._tenant = config.tenant_of(session)
+        self._subjects: dict[uuid.UUID, Subject] = {}
+        self._groups: dict[uuid.UUID, frozenset[uuid.UUID]] = {}
+
+    async def still(
+        self, definition: WorkItemRoleDef, user_id: uuid.UUID, kept: frozenset[str]
+    ) -> bool:
+        """By another accepted permission the change leaves, by name, or through a group."""
+        if kept:
+            if user_id not in self._subjects:
+                self._subjects[user_id] = await subject_for(self._session, self._tenant, user_id)
+            if any(self._subjects[user_id].holds(p) for p in kept):
+                return True
+        if not _accepts(definition)[1]:
+            return False
+        if user_id not in self._groups:
+            found = await memberships(self._session, user_id)
+            self._groups[user_id] = frozenset(found.group_ids)
+        return _still_eligible(definition, user_id, self._groups[user_id])
+
+
 class ReleaseRoleDuties:
     """Asked about any permission: which one a role needs is tenant data (role eligibility)."""
 
@@ -73,11 +101,11 @@ class ReleaseRoleDuties:
                 select(WorkItemRoleDef).where(WorkItemRoleDef.type == RELEASE.code)
             )
         }
-        # Roles the change could strand: every permission they accept is among those asked.
+        # Roles the change could strand: it removes at least one permission they accept.
         at_risk = {
             code: accepted
             for code, d in definitions.items()
-            if (accepted := _accepts(d)[0]) and accepted <= permissions
+            if (accepted := _accepts(d)[0]) & permissions
         }
         if not at_risk:
             return []
@@ -99,21 +127,17 @@ class ReleaseRoleDuties:
             )
             .order_by(WorkItem.display_number, WorkItemRoleHolder.role)
         )
-        groups: dict[uuid.UUID, frozenset[uuid.UUID]] = {}
+        eligible = _Eligibility(session)
         found: list[OpenDuty] = []
         for user_id, role, record_id, display_id in rows:
             if user_id is None:  # a group holds it; its members are not stranded by one role
                 continue
-            definition = definitions[role]
-            if _accepts(definition)[1]:
-                if user_id not in groups:
-                    groups[user_id] = frozenset((await memberships(session, user_id)).group_ids)
-                if _still_eligible(definition, user_id, groups[user_id]):
-                    continue
+            if await eligible.still(definitions[role], user_id, at_risk[role] - permissions):
+                continue
             found.append(
                 OpenDuty(
                     user_id=user_id,
-                    permission=min(at_risk[role]),
+                    permission=min(at_risk[role] & permissions),  # one they lose
                     record_type=RELEASE.code,
                     record_id=record_id,
                     display_id=display_id,

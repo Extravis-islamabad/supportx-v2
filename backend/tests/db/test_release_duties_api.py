@@ -3,8 +3,9 @@
 Real PostgreSQL with RLS, the real policy layer and lane B's preview endpoint:
 - removing the permission a release role requires lists the holder's open release, with the
   role as the duty;
-- a person the role also accepts by name is not stranded;
-- closed releases and roles the change cannot strand are not listed.
+- a role accepting A or B: a holder of only A who loses A is listed; one who also holds B is
+  not (lane B's review);
+- a person the role also accepts by name is not stranded.
 """
 
 import uuid
@@ -74,15 +75,39 @@ async def test_a_person_the_role_names_is_not_stranded(world: World) -> None:
     assert await _preview(world, a, keeper) == []  # still eligible by name
 
 
-async def test_a_role_the_change_cannot_strand_is_not_listed(world: World) -> None:
+OTHER = "releases.edit"  # the role's second accepted permission
+
+
+async def test_a_holder_of_only_the_lost_one_of_two_accepted_permissions_is_listed(
+    world: World,
+) -> None:
     a = world.a
-    # The role accepts two permissions; removing one of them leaves the other.
     ruled = await patch_role_def(
-        world, a, "release_manager", eligibility={"permissions": [NEEDED, "releases.edit"]}
+        world, a, "release_manager", eligibility={"permissions": [NEEDED, OTHER]}
     )
     assert ruled.status_code == 200, ruled.text
-    keeper = await _keeper(world, a)
+    keeper = await _keeper(world, a)  # gives NEEDED, never OTHER
     item = await a_release(world, a)
     held = await put_role(world, a, item, "release_manager", users=[a.requester2])
     assert held.status_code == 200, held.text
-    assert await _preview(world, a, keeper) == []
+    affected = await _preview(world, a, keeper)
+    assert [p["user_id"] for p in affected] == [str(a.requester2)]
+    assert [d["display_id"] for d in affected[0]["duties"]] == [item["display_id"]]
+
+
+async def test_a_holder_who_keeps_the_other_accepted_permission_is_not_listed(
+    world: World,
+) -> None:
+    a = world.a
+    ruled = await patch_role_def(
+        world, a, "release_manager", eligibility={"permissions": [NEEDED, OTHER]}
+    )
+    assert ruled.status_code == 200, ruled.text
+    keeper = await _keeper(world, a)
+    editor = await role(world, a, "Release editors", [(OTHER, "all")])
+    given = await world.call("PUT", f"/users/{a.requester2}/roles/{editor}", a, a.admin)
+    assert given.status_code == 204, given.text
+    item = await a_release(world, a)
+    held = await put_role(world, a, item, "release_manager", users=[a.requester2])
+    assert held.status_code == 200, held.text
+    assert await _preview(world, a, keeper) == []  # still eligible through OTHER
