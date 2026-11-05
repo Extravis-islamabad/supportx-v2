@@ -11,13 +11,16 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -34,6 +37,20 @@ class AssetLifeCycle(TenantEntity):
     __tablename__ = "asset_life_cycles"
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_asset_life_cycles_tenant_id_id"),
+        Index(
+            "uq_asset_life_cycles_code",
+            "tenant_id",
+            "code",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        # At most one default life cycle per tenant.
+        Index(
+            "uq_asset_life_cycles_default",
+            "tenant_id",
+            unique=True,
+            postgresql_where=text("is_default AND deleted_at IS NULL"),
+        ),
     )
 
     code: Mapped[str] = mapped_column(String(40))  # stable; names are display text only
@@ -45,7 +62,24 @@ class AssetState(TenantEntity):
     """A state an asset can be in, with its category (REQ-AST-012)."""
 
     __tablename__ = "asset_states"
-    __table_args__ = (UniqueConstraint("tenant_id", "id", name="uq_asset_states_tenant_id_id"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_states_tenant_id_id"),
+        Index(
+            "uq_asset_states_code",
+            "tenant_id",
+            "code",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        # One default state per category (the automatic moves go there).
+        Index(
+            "uq_asset_states_category_default",
+            "tenant_id",
+            "category",
+            unique=True,
+            postgresql_where=text("is_default_for_category AND deleted_at IS NULL"),
+        ),
+    )
 
     code: Mapped[str] = mapped_column(String(40))
     names: Mapped[Names] = mapped_column(JSONB)
@@ -77,9 +111,19 @@ class AssetLifeCycleTransition(Base):
             ["asset_states.tenant_id", "asset_states.id"],
             name="fk_asset_life_cycle_transitions_to_state",
         ),
+        UniqueConstraint("tenant_id", "id", name="uq_asset_life_cycle_transitions_tenant_id_id"),
+        UniqueConstraint(
+            "tenant_id",
+            "life_cycle_id",
+            "from_state_id",
+            "to_state_id",
+            name="uq_asset_life_cycle_transitions_move",
+        ),
     )
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="RESTRICT"), sort_order=-90
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     life_cycle_id: Mapped[uuid.UUID] = mapped_column()
     from_state_id: Mapped[uuid.UUID] = mapped_column()
@@ -97,6 +141,14 @@ class AssetProductType(TenantEntity):
     __tablename__ = "asset_product_types"
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_asset_product_types_tenant_id_id"),
+        Index(
+            "uq_asset_product_types_api_name",
+            "tenant_id",
+            "api_name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_asset_product_types_parent", "tenant_id", "parent_id"),
         ForeignKeyConstraint(
             ["tenant_id", "parent_id"],
             ["asset_product_types.tenant_id", "asset_product_types.id"],
@@ -128,6 +180,8 @@ class AssetProduct(TenantEntity):
     __tablename__ = "asset_products"
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_asset_products_tenant_id_id"),
+        Index("ix_asset_products_type", "tenant_id", "product_type_id"),
+        Index("ix_asset_products_name", "tenant_id", "name", "id"),
         ForeignKeyConstraint(
             ["tenant_id", "product_type_id"],
             ["asset_product_types.tenant_id", "asset_product_types.id"],

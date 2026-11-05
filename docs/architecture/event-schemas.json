@@ -2813,6 +2813,23 @@
         "type": "object"
       }
     },
+    "organization.tenant.provisioned": {
+      "1": {
+        "description": "A tenant is ready for use (WP-031, D-138): modules seed their starting content from it.\n\nOnly the tenant's ID. Whatever creates tenants (tooling today; tenant provisioning later,\nonce its identity side is ready) emits it once; consumers stay idempotent per tenant, so a\nretried provisioning never seeds twice.",
+        "properties": {
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id"
+        ],
+        "title": "TenantProvisioned",
+        "type": "object"
+      }
+    },
     "organization.tenant_settings.changed": {
       "1": {
         "description": "The tenant's instance settings changed (WP-042): defaults and languages refetch.",
@@ -2884,6 +2901,46 @@
           "changed_fields"
         ],
         "title": "CatalogItemChanged",
+        "type": "object"
+      }
+    },
+    "service_catalog.settings.changed": {
+      "1": {
+        "description": "The tenant's catalog settings changed (WP-031).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "CatalogSettingsChanged",
+        "type": "object"
+      }
+    },
+    "service_catalog.starter.seeded": {
+      "1": {
+        "description": "The starter catalog was added to the tenant (D-138): counts only.",
+        "properties": {
+          "categories": {
+            "title": "Categories",
+            "type": "integer"
+          },
+          "items": {
+            "title": "Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "categories",
+          "items"
+        ],
+        "title": "StarterCatalogSeeded",
         "type": "object"
       }
     },
@@ -4333,6 +4390,77 @@
           "status_category"
         ],
         "title": "WorkItemRestored",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.stage_changed": {
+      "1": {
+        "description": "A staged record entered another stage (ADR-041 §6), with the status move that did it.\n\n`stages_entered` lists every stage entered in order (an automatic advance from a completing\nstatus can pass through more than one); `entry_id` is the entry of the stage it is in now.",
+        "properties": {
+          "automatic": {
+            "default": false,
+            "title": "Automatic",
+            "type": "boolean"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "from_stage": {
+            "title": "From Stage",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "stages_entered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stages Entered",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "to_stage": {
+            "title": "To Stage",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "from_stage",
+          "to_stage",
+          "stages_entered",
+          "entry_id",
+          "path"
+        ],
+        "title": "WorkItemStageChanged",
         "type": "object"
       }
     },

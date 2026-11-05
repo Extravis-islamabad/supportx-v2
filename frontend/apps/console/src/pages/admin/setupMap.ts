@@ -63,6 +63,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'config.service_desk',
     also: 'settings.manage',
   },
+  // WP-031: what people can request (catalog_items.manage; admins hold every permission).
+  {
+    key: 'catalog',
+    group: 'service_desk',
+    labelKey: 'nav.admin_catalog',
+    permission: 'catalog_items.manage',
+  },
   // Knowledge settings or its article types (D-120): either permission opens the page.
   {
     key: 'knowledge',

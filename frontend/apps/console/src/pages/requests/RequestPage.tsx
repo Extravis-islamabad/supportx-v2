@@ -18,16 +18,12 @@ import {
   useAppearance,
   useDateTime,
   useLabel,
+  useAnswerWords,
 } from '@supportx/ui';
 
 import { ApprovalsPanel, WithdrawButton } from './Approvals';
 import { RequestTasks } from './RequestTasks';
 import { itemName } from './items';
-
-function answerText(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  return typeof value === 'string' ? value : JSON.stringify(value);
-}
 
 /**
  * One service request's summary (WP-030 s1): the item and its answers (REQ-SR-003 AC1), status,
@@ -36,6 +32,7 @@ function answerText(value: unknown): string {
  */
 export function RequestPage() {
   const t = useLabel();
+  const answerWords = useAnswerWords();
   const { id = '' } = useParams();
   const { locale } = useAppearance();
   const { format } = useDateTime();
@@ -122,7 +119,7 @@ export function RequestPage() {
       >
         {questions.map((q) => (
           <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
-            {answerText(r.answers?.[q.key])}
+            {answerWords(q, r.answers?.[q.key])}
           </Descriptions.Item>
         ))}
       </Descriptions>

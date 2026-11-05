@@ -169,6 +169,13 @@ ACTIONS: dict[str, Action] = _actions(
     # the service catalog (WP-030)
     ("catalog.item_changed", AuditCategory.CONFIGURATION, "service_catalog"),
     ("catalog.category_changed", AuditCategory.CONFIGURATION, "service_catalog"),
+    # catalog administration (WP-031)
+    ("catalog.item_deleted", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.item_scheduled", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.category_deleted", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.settings_changed", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.starter_seeded", AuditCategory.CONFIGURATION, "service_catalog"),
+    ("catalog.starter_published", AuditCategory.CONFIGURATION, "service_catalog"),
     ("identity.password_policy_reapplied", AuditCategory.SECURITY, "identity_access"),
     ("identity.mfa_policy_changed", AuditCategory.SECURITY, "identity_access"),
     ("user.mfa_reset", AuditCategory.SECURITY, "identity_access"),
@@ -245,6 +252,21 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("service_request.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("service_request.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    # releases (WP-058a): the same actions, by the type's own code
+    ("release.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.category_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("release.deleted", AuditCategory.RECORDS, "work_items"),
+    ("release.restored", AuditCategory.RECORDS, "work_items"),
+    ("release.bulk_started", AuditCategory.RECORDS, "work_items"),
+    ("release.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
+    ("release.closed_record_edited", AuditCategory.RECORDS, "work_items"),
+    ("release.due_date_changed", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),

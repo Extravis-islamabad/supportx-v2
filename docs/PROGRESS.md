@@ -278,9 +278,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   images; offline bundle (images, charts, k3s, checksums, signature) and `supportx-install`
   (verify / init / up / upgrade / check / backup-secrets / support-bundle); install test with
   egress blocked. **Requires the Nuitka build (WP-013 / ADR-009) before any customer bundle.**
-- **Local AI (REQ-AI-003, WP-037):** the installer switches on the local model for every
-  deployment (`ai.local.enabled=true`; the chart default is off). It ships the pinned weight
-  files in the bundle and fills the model volumes (`<release>-llm-cpu-models`,
+- **Local AI (REQ-AI-003, WP-037; D-139):** the installer **asks** the customer whether to install
+  the local AI model, showing the recommended choice (yes). Only when they choose it does it switch
+  on `ai.local.enabled` (the chart default stays off), and it records the decision. When
+  installed, it ships the pinned weight files in the bundle and fills the model volumes
+  (`<release>-llm-cpu-models`,
   `-llm-embed-models`, and `-llm-gpu-models` with a GPU node) at
   `/models/<revision>/<file>`. Air-gapped installs set `ai.mirror: ""`. The servers check every
   file against the chart's pinned sha256 before they start. The images are
@@ -759,7 +761,79 @@ resolution changes the requester may see; never private notes, internal fields o
 Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
 it with no reload (rule c). Not built yet.
 
-### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
+- **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
+  (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).
+  Migrations 0073 (schema) and 0074 (per-tenant data step: `enabled` → `status`, existing
+  tenants marked as seeded), so the PR runs full-ci.
+- [x] Session 1 (backend, #200):
+  - Category tree (4 levels, no loops; a disabled category hides its items from requesters;
+    delete only when empty, 409 with counts).
+  - Item life: draft → published → retired → published, with planned `publish_at` /
+    `retire_at` (schedule `service_catalog__lifecycle`, every minute, audited). An incomplete
+    item stays a draft at its publish time. Copy makes a draft; delete is soft and only without
+    requests (409 → retire).
+  - Publishing needs English, a category and a group; missing translations are listed for
+    managers.
+  - D6 question kinds with option words, help text, defaults and audiences (requester,
+    technician, approver; a requester never sees or sets the others), plus a subject template.
+  - D10 "report a problem" entries: a requester incident template, checked through work_items'
+    port.
+  - D12 search on the shared port: names, keywords, summaries and descriptions in en/ar/ur, with
+    Arabic/Urdu normalisation and typo tolerance; p95 ≤ 500 ms for 1,000 items, tested.
+  - D7 tenant setting `hide_default_incident_template`; a GET never writes.
+  - D13 starter catalog (D-138): 6 categories and 14 items in en/ar/ur, seeded as drafts on the
+    new `organization.tenant.provisioned` event, once per tenant. Also: the "choose a group and
+    publish" action, `make catalog-starter TENANT=<slug>`, and the showcase seed publishes them.
+  - The WP-030 API stays compatible (`enabled` kept: true publishes, false retires; no OpenAPI
+    breaks).
+  - Tests: domain 16, API 15 (RLS, tree, life, schedule, audiences, entries, search and its
+    budget, settings, starter, tooling, the outbox event).
+- [x] Session 2 (console admin and portal wiring, #200):
+  - Admin › Service catalog: the category tree (add, nest, move up/down, edit, disable, delete
+    only when empty), the items (search, status filter, order, featured, copy, delete with the
+    "retire instead" answer), the starter banner with "choose a group and publish" (D-138), and
+    the tenant setting "hide the general incident form" (D7).
+  - One item's page with tabs (Details, Form, Approval, SLA and assignment, Fulfilment,
+    Publishing), each saying in one line what it controls.
+    - Editors: questions of all 15 kinds with words per language, help, audiences and keys;
+      the plan; the approval stage. More stages show as Professional / later (D8).
+    - Behaviour: publish, retire, publish again and planned times; missing translations named
+      in words; a save sends only what changed (If-Match, the conflict dialog on 409); a
+      preview as a requester sees it, read-only.
+  - The portal catalog:
+    - browse by category, featured items, search in every language;
+    - an item's page shows its description before the form (the password item's
+      self-service first), then only the requester's questions;
+    - "report a problem" entries open the incident form with their template;
+    - live through `service_catalog.changed`, also in the console (it was not listened to
+      before).
+  - One shared question renderer (`packages/ui/catalog`) for the console raise page, the portal
+    and the preview, and answers shown in words on both request pages (rule d: no codes or
+    IDs). The console raise page lists published service items only.
+  - The service requests list in the UI pass 2 style (QA 2026-11-04 #6): view tiles, labelled
+    pickers, channel icon and status tag, a loading state and a real empty state.
+  - Fix: the portal report form added each file twice.
+  - Tests: console admin 5, portal catalog 3, a D7 DB test; e2e `catalog.spec.ts` ("build,
+    preview, publish, request", live in the portal).
+- **Not done in WP-031 (recorded for WP-047, V1 of service requests):**
+  - The subject template is stored and checked, but a new request doesn't fill its subject from
+    it yet. That needs work_items' create to accept an empty subject for an item that has a
+    template.
+  - Ordering is by keyboard move buttons only (no drag).
+  - Missing translations use en/ar/ur; switch to `organization.offered_languages` (new on main
+    from WP-042).
+  - Person and attachment questions in the portal show a hint for now (no people picker or
+    upload in the portal form yet).
+- **Notes for later:**
+  - Popularity ranking ("most requested") is WP-032.
+  - Drop `catalog_items.enabled` in a contract migration once no client sends it.
+  - Tenant provisioning, when it is built (lane B, identity), emits
+    `organization.tenant.provisioned` once the tenant is ready.
+  - `docs/guides/urdu-review.md` gets lane C's section from #183 (union).
+  - Arabic and Urdu catalog texts wait for native-speaker review.
+
+### [x] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182, merged 2026-11-04)
 - **Plan:** ~/Desktop/wp-030-plan.md (coordinator approved D1, D2, D4/D5, D6, D8, D9).
 - **Decided (product owner, 2026-11-04):** D3 in **D-133** (catalog basics in Essentials,
   `service_request`; the advanced catalog in Professional, `catalog`); D7 in **D-132** (e-mail
@@ -868,6 +942,16 @@ it with no reload (rule c). Not built yet.
   and a `test_conversation_api` case locally (CI and clean worktrees pass). Inject the Settings
   where delivery is decided (the API passes `app.state.settings`, the worker its own); lane B
   takes any change needed in `app/shared/mail`.
+- **Also for that polish PR (from lane A's #197 review, 2026-11-04; lane C left them to lane A):**
+  in `IncidentConversation.tsx` / `PersonalCounters.tsx`:
+  - join event lines with the list formatter or a label, not a Latin "; " (Arabic and Urdu
+    use "؛");
+  - sort timeline rows with `Date.parse`, not `localeCompare`;
+  - note that event lines cover only the history pages loaded so far;
+  - check the counter tiles' hard-coded tints in dark and high contrast (tokens per mode, or
+    one dark view measured).
+  - Also drop the e2e PORTAL_URL host/port workaround in service-requests.spec once #202
+    (portal links on the portal's origin) has landed.
 
 ### [x] WP-028 — Portal: shell, sign-in and requester incidents (lane A, 2026-11-03/04; 2 sessions; #178)
 - **Plan:** ~/Desktop/wp-028-plan.md. Coordinator approved D1, D3-D5, D8-D10 (2026-11-03).
@@ -927,7 +1011,36 @@ it with no reload (rule c). Not built yet.
 - [ ] Session 3: life cycle in use (reasons, retire and dispose, bulk, copy, trash).
 - [ ] Session 4: ownership, acknowledgement, components, groups, relationships.
 - [ ] Session 5: loans, warranty, notifications, e2e.
-- **Later in lane B:** the REL-024 AC2 duty-preview hook (`register_duties`), after session 1.
+- **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
+  preview UI follows lane C's release lookup.
+
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; session 1 of 6 built 2026-11-05, #214)
+
+Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
+with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
+WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
+
+- [x] **S1 — the stage engine and the release record.**
+  - ADR-041, reviewed by lane A for changes' reuse.
+  - Migrations: 0090 (the five stage tables), 0091 (saved `releases.manage` grants), 0092
+    (release details and lists).
+  - Releases live at `/api/v1/releases`, with the rail (`/stages`), listed moves (`/moves`) and
+    the release's own fields (`/details`).
+  - Appendix A seeds.
+  - Labels in en, ar and ur.
+- [ ] S2 — templates per release type, the create form and stage sections (REQ-REL-007..013).
+- [ ] S3 — guards: required fields per stage, stage access by role (REQ-REL-018, -019), guard
+  reasons on offered moves and the full refusal list (lane A's review, ADR-041 §8).
+- [ ] S4 — roles, planning and deployment, planned and actual dates per stage (REQ-REL-023..028).
+- [ ] S5 — approvals per stage through the system entry point, associations (REQ-REL-030..037).
+- [ ] S6 — the console screens (rail, moves dialog, details), e2e and RTL; without workflows.
+- **Not done in S1 (recorded for later sessions):**
+  - REQ-REL-003: a type's default template and default risk come with templates in S2.
+  - REQ-REL-005 AC2: the "unique versions per service" tenant setting comes with services in
+    S5 (REQ-REL-035).
+  - REQ-REL-006: custom fields placed per stage come in S2. The `release` entity exists.
+  - No console screens yet (S6). The API is complete and public (mobile-ready, the
+    coordinator's 2026-11-05 note).
 
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).

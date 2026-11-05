@@ -1,8 +1,16 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Flex, Layout, Menu, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { clearAllKeptDrafts } from '@supportx/forms';
-import { useLogout, useSession, useSetUiLocale, type Feature } from '@supportx/api-client';
+import {
+  catalogKeys,
+  useLogout,
+  useSession,
+  useSetUiLocale,
+  type Feature,
+} from '@supportx/api-client';
+import { useTenantChannel } from '@supportx/realtime';
 import type { LabelKey } from '@supportx/labels';
 import {
   AnnouncementBanners,
@@ -47,6 +55,14 @@ export function PortalLayout() {
   const logout = useLogout();
   const licence = useLicence();
   const setUiLocale = useSetUiLocale(session?.user.id ?? '');
+  // The catalog changed (WP-031: an item published or retired, a category, the settings): the
+  // catalog pages refetch what the requester may see, live (§8).
+  const queryClient = useQueryClient();
+  useTenantChannel((event) => {
+    if (event.type === 'service_catalog.changed') {
+      void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
+    }
+  });
   if (session === undefined || session === null) return null;
   return (
     <Layout style={{ minHeight: '100vh' }}>

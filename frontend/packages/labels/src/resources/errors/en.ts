@@ -78,6 +78,10 @@ export const en = {
   'errors.cannot_deactivate_self': 'You cannot deactivate yourself.',
   'errors.cannot_publish': 'This announcement cannot be published yet.',
   'errors.cannot_stop_own_sign_in': 'You cannot stop your own sign-in.',
+  'errors.catalog_item_in_use':
+    'This item has requests, so it cannot be deleted. Retire it instead.',
+  'errors.catalog_item_incomplete':
+    'The item was not complete at its planned publish time, so it stayed a draft.',
   'errors.catalog_item_not_found': 'This catalog item does not exist or is not open to you.',
   'errors.category_not_found': 'This category does not exist.',
   'errors.certificate_invalid':
@@ -178,6 +182,7 @@ export const en = {
     'Use the counter {n} once, with some text around it, e.g. AST-{n}.',
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
+  'errors.field.before_publish': 'Retiring must come after publishing.',
   'errors.field.below_minimum': 'Minimum is {{min}}.',
   'errors.field.brand_image_svg':
     'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
@@ -193,7 +198,10 @@ export const en = {
   'errors.field.cannot_link_itself': 'A record cannot be linked to itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
+  'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
   'errors.field.category_disabled': 'This category is no longer in use.',
+  'errors.field.category_loop':
+    'A category cannot sit inside itself or one of its own subcategories.',
   'errors.field.category_not_found': 'This category does not exist.',
   'errors.field.certificate_key_mismatch': 'The private key does not belong to this certificate.',
   'errors.field.certificate_not_valid_now': 'The certificate has expired or is not valid yet.',
@@ -321,6 +329,7 @@ export const en = {
   'errors.field.mfa_mode_invalid': 'Choose off, optional or required.',
   'errors.field.month_out_of_range': 'Choose a month from the list.',
   'errors.field.move_articles_first': 'This topic still holds articles. Choose where they go.',
+  'errors.field.must_be_future': 'Choose a time in the future.',
   'errors.field.my_groups_in_records':
     'A list cannot use "my groups". Use a chart, or choose groups.',
   'errors.field.name_needs_letters': 'Use at least one letter or digit in the name.',
@@ -436,9 +445,11 @@ export const en = {
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.too_many_actions': 'A rule can have at most {{max}} actions.',
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
+  'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
   'errors.field.too_many_items': 'There are too many entries.',
+  'errors.field.too_many_keywords': 'Use at most 20 keywords per language.',
   'errors.field.too_many_levels': 'At most {{max}} escalation levels per target.',
   'errors.field.too_many_options': 'A question can have at most 50 choices.',
   'errors.field.too_many_questions': 'A form can have at most 30 questions.',
@@ -461,8 +472,10 @@ export const en = {
   'errors.field.unknown_language': 'Only English, Arabic and Urdu names are supported.',
   'errors.field.unknown_measure': 'This measure is not available for these records.',
   'errors.field.unknown_operator': 'This comparison is not recognised.',
+  'errors.field.unknown_option': "This choice is not one of the question's options.",
   'errors.field.unknown_parameter': 'This list option is not recognised.',
   'errors.field.unknown_permission': 'This permission does not exist.',
+  'errors.field.unknown_placeholder': "Use only the form's question keys, or {person}, in braces.",
   'errors.field.unknown_priority': 'Choose a priority from the list.',
   'errors.field.unknown_question': 'This form has no such question.',
   'errors.field.unknown_recipient':
@@ -701,6 +714,9 @@ export const en = {
   'errors.saved_search_not_found': 'This saved search does not exist.',
   'errors.scale_value_not_found': 'That value does not exist.',
   'errors.server_busy': 'The mail server was busy.',
+  'errors.service_category_in_use':
+    'This category still holds items or categories. Move or delete them first.',
+  'errors.service_category_not_found': 'This category does not exist.',
   'errors.service_identity_managed':
     'This is a connector’s own identity. Change it from Admin › Integrations.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
@@ -728,6 +744,11 @@ export const en = {
     'Switch the set-up off before changing how it connects, so nobody is locked out.',
   'errors.sso_switched_off': 'Switch the set-up on, or change it, before testing it.',
   'errors.sso_test_not_found': 'This test has ended. Start a new one.',
+  'errors.stage_move_not_allowed':
+    'This move is not allowed from the current status. Reload to see the latest.',
+  'errors.stage_move_refused':
+    'Something must be done before this move. See the reasons on the record.',
+  'errors.stage_status_system_only': 'Only an approval decision sets this status.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',
   'errors.storage_quota_exceeded':

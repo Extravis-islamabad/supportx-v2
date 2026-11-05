@@ -226,7 +226,8 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         keycloak.roles[imported] = set()
 
         first = asyncio.run(_run(database, keycloak))
-        assert first.tenant == ["tenant", "subscription"]
+        assert first.tenant == ["tenant", "subscription", "starter_catalog"]
+        assert first.catalog_published == 14  # the starter catalog (D-138), with its group
         assert first.incidents == len(seed.STATES) == 60
         assert first.dashboard
         assert first.backdated == 60  # spread over the past 30 days (choice (b))
@@ -250,12 +251,13 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         }
 
         second = asyncio.run(_run(database, keycloak))
-        assert (second.tenant, second.keycloak, second.incidents, second.dashboard) == (
-            [],
-            [],
-            0,
-            False,
-        )
+        assert (
+            second.tenant,
+            second.keycloak,
+            second.incidents,
+            second.dashboard,
+            second.catalog_published,
+        ) == ([], [], 0, False, 0)
         assert second.backdated == 0  # idempotent: the targets are fixed
         assert asyncio.run(_audit_chain(database.app_url)) == "passed"
         # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
