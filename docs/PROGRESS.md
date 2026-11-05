@@ -897,12 +897,26 @@ it with no reload (rule c). Not built yet.
   - Not yet (recorded):
     - `fixed_by` (to changes) and `released_in` (to releases) stay hidden until those types
       register (WP-045, lane C's releases);
-    - an announcement from a problem waits for lane C's announcements to accept a source record
-      (asked, rule 8).
+    - an announcement from a problem waits for lane C's WP-062b: `POST /announcements` takes
+      `source: {type, id}`, and the console prefills the title (agreed, rule 8).
   - **Gap on record (D-140 Applied):** the generic link delete could remove an incident's cause
     with problem edit alone (since WP-044a). The fix (409 `link_has_own_route`) ships as its own
     small PR from main after #211 lands; it is not held for this WP.
-- [ ] S3 known errors. [ ] S4 tasks, approvals, messages, review.
+- [ ] S3 known errors (in progress; extends unmerged 0078):
+  - backend done:
+    - the workaround, with `problems.edit_solution`;
+    - mark and remove, with `problems.mark_known_error`: a workaround or root cause must be
+      written first, and removing needs a reason;
+    - resolving retires it;
+    - `GET /problems/known-errors` searches subject, symptoms and workaround, never the root
+      cause;
+    - suggestions from an incident's words;
+    - 0078's downgrade refuses while any tenant has data.
+  - to do:
+    - console: the solution section, the known error marker and action, the database page,
+      suggestions on the incident page;
+    - publishing to knowledge and the portal (WP-034, lane C's knowledge);
+    - accept without a fix (REQ-PRB-050). [ ] S4 tasks, approvals, messages, review.
   [ ] S5 closure and follow-up, e2e.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
