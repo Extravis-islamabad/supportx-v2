@@ -71,7 +71,13 @@ class ApprovalOut(BaseModel):
     """One approver's entry (REQ-SR-024): who, the decision, when, where and the comment."""
 
     id: uuid.UUID
-    stage: int
+    stage: int = Field(description="The level (from 1).")
+    record_stage: str | None = Field(
+        default=None, description="Staged records: the stage it belongs to (WP-058a)."
+    )
+    rule: rules.LevelRule | None = Field(
+        default=None, description="Staged records: how the level is decided."
+    )
     approver_id: uuid.UUID | None = Field(
         description="None: the tenant's approval administrators hold it (REQ-SR-023)."
     )
@@ -98,6 +104,8 @@ class ApprovalOut(BaseModel):
         return cls(
             id=row.id,
             stage=row.stage,
+            record_stage=row.record_stage,
+            rule=rules.LevelRule(row.rule) if row.rule else None,
             approver_id=row.approver_id,
             origin=rules.ApproverOrigin(row.origin),
             route_reason=rules.RouteReason(row.route_reason) if row.route_reason else None,
@@ -158,8 +166,11 @@ class DecisionIn(BaseModel):
     private: bool = Field(default=False, description="Hidden from the requester (REQ-SR-028 AC3).")
 
 
-def add_approval_routes(router: APIRouter, wtype: WorkItemType) -> None:
-    """The approval routes of `wtype` on its router (before the `/{record_id}` routes)."""
+def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: bool = True) -> None:
+    """The approval routes of `wtype` on its router (before the `/{record_id}` routes).
+
+    `withdraw`: the requester's withdrawal (service requests; releases have none).
+    """
     SignedIn = Annotated[Subject, Depends(require_signed_in())]  # noqa: N806 - type alias
     audit = wtype.code.value
 
@@ -302,25 +313,34 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType) -> None:
         set_etag(response, view.row.version)
         return ApprovalOut.of(view)
 
-    @router.post(
-        "/{record_id}/withdraw",
-        summary="Withdraw a request awaiting approval",
-        dependencies=[audited(f"{audit}.withdrawn", object_type=audit, object_param="record_id")],
-    )
-    async def withdraw(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
-        record_id: uuid.UUID,
-        version: ExpectedVersion,
-        session: TenantSession,
-        subject: SignedIn,
-        request: Request,
-        response: Response,
-    ) -> dict[Literal["id", "status", "version"], str | int]:
-        """The requester (or the person it is for) withdraws it; pending approvals close."""
-        record = await service.withdraw(
-            session, subject, wtype, record_id, expected_version=version, source=source_of(request)
+    if withdraw:
+
+        @router.post(
+            "/{record_id}/withdraw",
+            summary="Withdraw a request awaiting approval",
+            dependencies=[
+                audited(f"{audit}.withdrawn", object_type=audit, object_param="record_id")
+            ],
         )
-        set_etag(response, record.version)
-        return {"id": str(record.id), "status": record.status, "version": record.version}
+        async def withdraw_request(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: SignedIn,
+            request: Request,
+            response: Response,
+        ) -> dict[Literal["id", "status", "version"], str | int]:
+            """The requester (or the person it is for) withdraws it; pending approvals close."""
+            record = await service.withdraw(
+                session,
+                subject,
+                wtype,
+                record_id,
+                expected_version=version,
+                source=source_of(request),
+            )
+            set_etag(response, record.version)
+            return {"id": str(record.id), "status": record.status, "version": record.version}
 
 
 __all__ = ["add_approval_routes"]

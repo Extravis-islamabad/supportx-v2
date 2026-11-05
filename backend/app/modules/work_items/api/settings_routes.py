@@ -21,7 +21,8 @@ from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import AuditNote, audited
-from app.modules.identity_access import Subject
+from app.modules.identity_access import PolicyService, Subject, get_policy
+from app.modules.work_items.domain.approvals import LevelRule
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.lifecycle import ReasonMode, WorkItemAction
 from app.modules.work_items.domain.templates import (
@@ -110,6 +111,126 @@ class ListValuePatch(BaseModel):
     labels: dict[str, str] | None = None
     colour: str | None = Field(default=None, max_length=7)
     disabled: bool | None = None
+    attributes: dict[str, Any] | None = Field(
+        default=None,
+        description="The value's own settings, replacing all of them (release types:"
+        " default_template_id, default_risk).",
+    )
+
+
+class StageAccessRuleIO(BaseModel):
+    """Who may: any of these groups, permissions or role holders (all empty: anyone)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    permissions: list[str] = Field(default_factory=list, max_length=50)
+    roles: list[str] = Field(
+        default_factory=list, max_length=20, description="Role codes: their holders on the record."
+    )
+
+
+class StageAccessIn(BaseModel):
+    """A stage's access (REQ-REL-019): who may edit it, and who may move a record out of it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    edit: StageAccessRuleIO | None = None
+    move_out: StageAccessRuleIO | None = None
+
+
+class StageApproverIO(BaseModel):
+    """One approver of a level: a person, a group (each member) or a record role (its holders)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: uuid.UUID | None = None
+    group_id: uuid.UUID | None = None
+    role: str | None = Field(default=None, max_length=40)
+
+
+class ApprovalLevelIO(BaseModel):
+    """One level: its approvers and how they decide it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule: LevelRule = LevelRule.ANY
+    approvers: list[StageApproverIO] = Field(max_length=50)
+
+
+class StageApprovalsIO(BaseModel):
+    """A stage's approvals (REQ-REL-031): the status that raises them and the outcomes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    raised_by: str = Field(max_length=40)
+    approved: str = Field(max_length=40)
+    rejected: str = Field(max_length=40)
+    self_approval: bool = Field(
+        default=False, description="False: the requester may not approve (segregation)."
+    )
+    levels: list[ApprovalLevelIO] = Field(min_length=1, max_length=5)
+
+
+class StageApprovalsIn(BaseModel):
+    """Set the stage's approvals, or clear them (null)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    approvals: StageApprovalsIO | None
+
+
+class StageSettingsOut(BaseModel):
+    """One stage of a staged type, with its access and approvals."""
+
+    code: str
+    sort_order: int
+    access: StageAccessIn | None
+    approvals: StageApprovalsIO | None = None
+
+
+class EligibilityIO(BaseModel):
+    """Who may hold a role: any of these permissions, groups or people (all empty: anyone)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    permissions: list[str] = Field(default_factory=list, max_length=20)
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    user_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
+
+
+class RoleDefOut(BaseModel):
+    """One named role of the type (REQ-REL-023, -024)."""
+
+    code: str
+    labels: dict[str, str] | None = Field(description="Null: labelled by the UI from the code.")
+    description: dict[str, str] | None
+    single: bool
+    eligibility: EligibilityIO | None
+    system: bool
+    disabled: bool
+
+
+class RoleDefIn(BaseModel):
+    """An admin's own role."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    labels: dict[str, str]
+    description: dict[str, str] | None = None
+    single: bool = True
+    eligibility: EligibilityIO | None = None
+
+
+class RoleDefPatch(BaseModel):
+    """What to change (only what is sent)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    labels: dict[str, str] | None = None
+    description: dict[str, str] | None = None
+    eligibility: EligibilityIO | None = None
+    disabled: bool | None = None
 
 
 class ListOrderIn(BaseModel):
@@ -149,6 +270,16 @@ class FieldRuleIO(BaseModel):
         )
 
 
+class StageFieldRuleIO(BaseModel):
+    """One field's rule in one stage (unset flags keep their defaults)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    shown: bool = True
+    required: bool = False
+    read_only: bool = False
+
+
 class TemplateOut(BaseModel):
     """A template as admins and the create form see it."""
 
@@ -166,6 +297,10 @@ class TemplateOut(BaseModel):
         description="Custom field rules by key (WP-026); sent as `fields['custom.<key>']`."
     )
     defaults: dict[str, Any] = Field(description="Starting values by field.")
+    stage_path: str | None = Field(default=None, description="Staged types: the path it sets.")
+    stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
+        default=None, description="Staged types: rules per stage (only what differs)."
+    )
     version: int
 
     @classmethod
@@ -193,6 +328,8 @@ class TemplateOut(BaseModel):
                 if is_custom(name)
             },
             defaults=dict(row.defaults),
+            stage_path=row.stage_path,
+            stage_rules=row.stage_rules,
             version=row.version,
         )
 
@@ -208,6 +345,14 @@ class TemplateIn(BaseModel):
     for_requesters: bool = False
     fields: dict[str, FieldRuleIO] | None = None
     defaults: dict[str, Any] | None = None
+    stage_path: str | None = Field(
+        default=None, max_length=40, description="Staged types: the path its records take."
+    )
+    stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
+        default=None,
+        description="Staged types, per stage and field (standard, the type's own, custom.<key>):"
+        " shown, required to leave the stage, read-only while in it. Replaces all of them.",
+    )
 
 
 class TemplatePatch(BaseModel):
@@ -223,6 +368,14 @@ class TemplatePatch(BaseModel):
     defaults: dict[str, Any] | None = Field(default=None, description="Replaces all of them.")
     is_default: bool | None = None
     disabled: bool | None = None
+    stage_path: str | None = Field(
+        default=None, max_length=40, description="Staged types: the path its records take."
+    )
+    stage_rules: dict[str, dict[str, StageFieldRuleIO]] | None = Field(
+        default=None,
+        description="Staged types, per stage and field (standard, the type's own, custom.<key>):"
+        " shown, required to leave the stage, read-only while in it. Replaces all of them.",
+    )
 
 
 class TemplateCopyIn(BaseModel):
@@ -351,6 +504,180 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             user_id=subject.user_id,
         )
         return await done(session, cat, response)
+
+    if wtype.roles:  # REQ-REL-023, -024: the type's named roles
+
+        def known(policy: PolicyService) -> Any:  # noqa: ANN401 - a key check
+            return lambda key: policy.catalogue.get(key) is not None
+
+        @router.get("/settings/roles", summary="Roles and who may hold them")
+        async def get_role_defs(session: TenantSession, subject: Admin) -> list[RoleDefOut]:
+            """Every role in order, retired ones included (marked)."""
+            del subject
+            return [
+                RoleDefOut(
+                    code=r.code,
+                    labels=r.labels,
+                    description=r.description,
+                    single=r.single,
+                    eligibility=EligibilityIO.model_validate(r.eligibility)
+                    if r.eligibility
+                    else None,
+                    system=r.system,
+                    disabled=r.disabled_at is not None,
+                )
+                for r in await configuration.role_def_rows(session, wtype)
+            ]
+
+        @router.post(
+            "/settings/roles",
+            summary="Add a role",
+            status_code=status.HTTP_201_CREATED,
+            responses=CONFLICT,
+            response_model=response_model,
+        )
+        async def add_role_def(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            body: RoleDefIn,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Settings,
+            policy: Annotated[PolicyService, Depends(get_policy)],
+        ) -> Any:  # noqa: ANN401 - the catalogue model
+            """A role of the admin's own: named, for one holder or several (REQ-CHG-035)."""
+            cat, code = await configuration.add_role_def(
+                session,
+                wtype,
+                expected_version=version,
+                values=body.model_dump(mode="json", exclude_none=True),
+                known_permission=known(policy),
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            note.details = {"role": code, "change": "added"}
+            response.headers["Location"] = f"{request.url.path}/{code}"
+            return await done(session, cat, response)
+
+        @router.patch(
+            "/settings/roles/{code}",
+            summary="Change a role",
+            responses=CONFLICT,
+            response_model=response_model,
+        )
+        async def patch_role_def(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            code: str,
+            body: RoleDefPatch,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Settings,
+            policy: Annotated[PolicyService, Depends(get_policy)],
+        ) -> Any:  # noqa: ANN401 - the catalogue model
+            """Rename, describe, set who may hold it, retire or bring it back (never deleted)."""
+            note.details = {"role": code, "changed_fields": sorted(body.model_fields_set)}
+            cat = await configuration.update_role_def(
+                session,
+                wtype,
+                code,
+                expected_version=version,
+                values=body.model_dump(mode="json", include=body.model_fields_set),
+                known_permission=known(policy),
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            return await done(session, cat, response)
+
+    if wtype.stages is not None:  # ADR-041: a staged type's stages and their access
+
+        @router.get("/settings/stages", summary="Stages and who may work in them")
+        async def get_stages(session: TenantSession, subject: Admin) -> list[StageSettingsOut]:
+            """Every stage of the type in order, with its edit and move-out access."""
+            del subject
+            rows = await configuration.stage_rows(session, wtype)
+            return [
+                StageSettingsOut(
+                    code=r.code,
+                    sort_order=r.sort_order,
+                    access=StageAccessIn.model_validate(r.access) if r.access else None,
+                    approvals=StageApprovalsIO.model_validate(r.approvals) if r.approvals else None,
+                )
+                for r in rows
+            ]
+
+        @router.put(
+            "/settings/stages/{stage}/access",
+            summary="Set who may edit a stage and move a record out of it",
+            responses=CONFLICT,
+            response_model=response_model,
+        )
+        async def put_stage_access(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            stage: str,
+            body: StageAccessIn,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Settings,
+            policy: Annotated[PolicyService, Depends(get_policy)],
+        ) -> Any:  # noqa: ANN401 - the catalogue model
+            """Groups and permissions are checked, so a typo never locks a stage.
+
+            Empty: anyone who may edit the record.
+            """
+            note.details = {"changed_fields": [f"stages.{stage}"]}
+            cat = await configuration.update_stage_access(
+                session,
+                wtype,
+                stage,
+                expected_version=version,
+                access=body.model_dump(mode="json", exclude_none=True),
+                known_permission=lambda key: policy.catalogue.get(key) is not None,
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            return await done(session, cat, response)
+
+    if wtype.stages is not None:
+
+        @router.put(
+            "/settings/stages/{stage}/approvals",
+            summary="Set a stage's approvals",
+            responses=CONFLICT,
+            response_model=response_model,
+        )
+        async def put_stage_approvals(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            stage: str,
+            body: StageApprovalsIn,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Settings,
+        ) -> Any:  # noqa: ANN401 - the catalogue model
+            """Statuses, roles, people and groups are checked; null clears the approvals."""
+            note.details = {"changed_fields": [f"stages.{stage}.approvals"]}
+            raw = body.approvals.model_dump(mode="json") if body.approvals else None
+            if raw is not None:  # one key per approver, as stored
+                for level in raw["levels"]:
+                    level["approvers"] = [
+                        {k: v for k, v in a.items() if v is not None} for a in level["approvers"]
+                    ]
+            cat = await configuration.update_stage_approvals(
+                session,
+                wtype,
+                stage,
+                expected_version=version,
+                approvals=raw,
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            return await done(session, cat, response)
 
     @router.put(
         "/settings/matrix",

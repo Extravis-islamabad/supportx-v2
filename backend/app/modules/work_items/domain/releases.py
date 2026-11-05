@@ -56,6 +56,8 @@ RELEASE_TYPES: tuple[tuple[str, str], ...] = (
     ("maintenance", "#389E0D"),
 )
 RELEASE_REASONS = ("new_features", "fixes", "security", "compliance")
+# Downtime kinds (REQ-REL-027), a pick list of the type's own.
+DOWNTIME_KINDS = ("full_outage", "partial_outage", "maintenance_window")
 
 _BLUE, _AMBER, _GREEN, _RED, _GREY = "#1677FF", "#D48806", "#389E0D", "#CF1322", "#595959"
 
@@ -113,9 +115,10 @@ def _t(
     *,
     reason: bool = False,
     permission: str | None = None,
+    path: str | None = None,
 ) -> StatusTransitionDef:
     return StatusTransitionDef(
-        source, target, REQUIRED if reason else ReasonMode.NONE, permission=permission
+        source, target, REQUIRED if reason else ReasonMode.NONE, permission=permission, path=path
     )
 
 
@@ -140,7 +143,9 @@ _MOVES = (
     _t("deployment_in_progress", "deployment_failed", reason=True),
     _t("deployment_failed", "deployment_rolled_back", reason=True),
     _t("deployment_rolled_back", "build_in_progress"),
-    _t("deployment_rolled_back", "closure_closed"),
+    # REQ-REL-012 AC2: an emergency release always gets its review, so only the default path may
+    # close straight after a rollback.
+    _t("deployment_rolled_back", "closure_closed", path=DEFAULT_PATH),
     _t("training_in_progress", "training_completed"),
     _t("review_in_progress", "review_completed"),
     # Reopen a closed release into review: its own permission and a reason.
@@ -183,6 +188,8 @@ DETAIL_FIELDS = (
     "release_manager_id",
     "release_engineer_id",
 )
+# Dates are never copied (REQ-REL-009).
+DATE_FIELDS = ("scheduled_start", "scheduled_end", "actual_start", "actual_end")
 VERSION_MAX = 60
 BUILD_REF_MAX = 200
 # Searchable and shown in lists (REQ-REL-005 AC1): kept on the record's search text.
@@ -215,3 +222,94 @@ def search_terms(details: Mapping[str, Any]) -> str:
     """
     values = [str(details[n]) for n in SEARCHED_FIELDS if details.get(n)]
     return " ".join(part for v in values for part in (v, re.sub(r"[\W_]+", " ", v).strip()))
+
+
+# --- roles, plan sections, stage outcomes (WP-058a s4; REQ-REL-023..028) -------------------------
+
+# Appendix A's release roles, each held by one person (REQ-REL-023); seeded per tenant, editable.
+RELEASE_ROLES = (
+    "requester",
+    "release_manager",
+    "release_engineer",
+    "development_lead",
+    "qa_lead",
+    "uat_owner",
+    "reviewer",
+)
+# Appendix A's stage approvals (REQ-REL-031): the plan by the release manager, acceptance by the
+# acceptance (UAT) owner, one level each; admins add levels, people, groups and roles.
+STAGE_APPROVALS: Mapping[str, Mapping[str, Any]] = {
+    "planning": {
+        "raised_by": "planning_waiting_approval",
+        "approved": "planning_plan_approved",
+        "rejected": "planning_plan_rejected",
+        "levels": [{"rule": "any", "approvers": [{"role": "release_manager"}]}],
+    },
+    "acceptance_testing": {
+        "raised_by": "acceptance_in_progress",
+        "approved": "acceptance_accepted",
+        "rejected": "acceptance_rejected",
+        "levels": [{"rule": "any", "approvers": [{"role": "uat_owner"}]}],
+    },
+}
+# The planning stage's rich-text sections (REQ-REL-025), each with its own version and history.
+PLAN_SECTIONS = (
+    "impact",
+    "rollout",
+    "backout",
+    # The post-release review (REQ-REL-030): findings, and what went well and what did not.
+    "review_findings",
+    "review_went_well",
+    "review_went_badly",
+)
+# Stages that record an outcome, notes, issues and evidence (REQ-REL-028).
+OUTCOME_STAGES = frozenset(
+    {"build", "testing", "acceptance_testing", "deployment", "training", "review"}
+)
+
+
+class DowntimePhase(StrEnum):
+    """Whether a downtime window is planned or happened (REQ-REL-027)."""
+
+    PLANNED = "planned"
+    ACTUAL = "actual"
+
+
+class StageOutcome(StrEnum):
+    """How a stage went (REQ-REL-028)."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    PARTLY_DONE = "partly_done"
+    # The review stage's overall result (REQ-REL-030): successful, with issues, or failed.
+    SUCCESSFUL = "successful"
+    SUCCESSFUL_WITH_ISSUES = "successful_with_issues"
+
+
+REVIEW_OUTCOMES = frozenset(
+    {StageOutcome.SUCCESSFUL, StageOutcome.SUCCESSFUL_WITH_ISSUES, StageOutcome.FAILED}
+)
+WORK_OUTCOMES = frozenset({StageOutcome.PASSED, StageOutcome.FAILED, StageOutcome.PARTLY_DONE})
+
+
+def outcomes_for(stage: str) -> frozenset[str]:
+    """The outcome codes a stage takes: the review its result, the others how the work went."""
+    return frozenset(o.value for o in (REVIEW_OUTCOMES if stage == "review" else WORK_OUTCOMES))
+
+
+def outcome_problems(stage: str, merged: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """(field, code) pairs of a stage's outcome after an edit (values merged)."""
+    problems: list[tuple[str, str]] = []
+    outcome = merged.get("outcome")
+    if outcome is not None and stage not in OUTCOME_STAGES:
+        problems.append(("outcome", "not_allowed"))
+    elif outcome is not None and outcome not in outcomes_for(stage):
+        problems.append(("outcome", "invalid_choice"))
+    # REQ-REL-028 AC1: a failed outcome says what went wrong.
+    if outcome == StageOutcome.FAILED and not (merged.get("issues") or "").strip():
+        problems.append(("issues", "required"))
+    for start, end in (("scheduled_start", "scheduled_end"), ("actual_start", "actual_end")):
+        began, ended = merged.get(start), merged.get(end)
+        if began is not None and ended is not None and ended < began:
+            problems.append((end, "end_before_start"))
+    return problems
