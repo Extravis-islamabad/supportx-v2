@@ -1,7 +1,7 @@
 """BFF endpoints under /api/v1/auth (D-009). Tokens never leave the server."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 from urllib.parse import urlencode, urlsplit
 
@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.authorization import Scope, public_route
 from app.core.entitlements import entitlement_exempt
-from app.core.errors import ServiceUnavailable, Unauthenticated
+from app.core.errors import BadRequest, RateLimited, ServiceUnavailable, Unauthenticated
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
@@ -28,6 +28,11 @@ from app.modules.identity_access.domain.identity import (
     UrduScript,
     UserType,
     WeekStart,
+)
+from app.modules.identity_access.domain.mobile import (
+    SESSION_HEADER,
+    app_return,
+    valid_challenge,
 )
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
@@ -218,17 +223,29 @@ async def login(
     auth: Auth,
     app: Annotated[Literal["console", "portal"], Query()] = "console",
     return_to: Annotated[str | None, Query(alias="returnTo", max_length=2048)] = None,
+    mobile_challenge: Annotated[str | None, Query(max_length=43)] = None,
 ) -> RedirectResponse:
     """Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).
 
     `returnTo` must be a same-origin relative path; anything else lands on `/`. On a tenant's
     own address (subdomain or verified custom domain) the sign-in is for that tenant (WP-017).
+
+    `mobile_challenge` (ADR-042): the mobile app's S256 challenge (base64url SHA-256 of a
+    random verifier the app keeps). The sign-in then ends in the app with a one-time code.
     """
+    if mobile_challenge is not None and not valid_challenge(mobile_challenge):
+        raise BadRequest(code="invalid_mobile_challenge")
     # This browser still holds a session cookie whose session is gone (timed out or ended):
     # Keycloak's own session must not sign it back in without the password (REQ-SEC-029).
     previous = request.cookies.get(auth.cookie_name)
     timed_out = previous is not None and await auth.store.get_session(previous) is None
-    url = await auth.start_login(app, return_to, await _address(request), reauthenticate=timed_out)
+    url = await auth.start_login(
+        app,
+        return_to,
+        await _address(request),
+        reauthenticate=timed_out,
+        mobile_challenge=mobile_challenge,
+    )
     return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
 
 
@@ -264,6 +281,9 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
             action_status=kc_action_status,
         )
     except LoginFailure as failure:
+        if failure.mobile_return is not None:  # back to the app, which shows the label
+            target = app_return(failure.mobile_return, auth_error=failure.problem.instance_code)
+            return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
         if "text/html" not in request.headers.get("accept", ""):
             raise failure.problem from failure
         query = urlencode({"auth_error": failure.problem.instance_code})
@@ -281,8 +301,44 @@ async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     await _audit_session(request, result.session, "session.signed_in")
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
-    set_session_cookie(response, auth.settings, result.session_id)
+    if not result.mobile:  # the app gets a hand-off code in the address instead (ADR-042)
+        set_session_cookie(response, auth.settings, result.session_id)
     return response
+
+
+class MobileExchangeIn(BaseModel):
+    """The one-time code the sign-in handed to the app, and the verifier of its challenge."""
+
+    handoff: str = Field(min_length=1, max_length=128)
+    verifier: str = Field(min_length=43, max_length=128)
+
+
+class MobileSessionOut(BaseModel):
+    """The mobile app's session: its ID goes in the `X-SupportX-Session` header of every call."""
+
+    session_id: str
+
+
+# A hand-off code has 256 bits and works once: the cap only keeps noise down.
+EXCHANGES_PER_NETWORK = (30, timedelta(minutes=1))
+
+
+@router.post("/mobile/exchange", summary="Exchange a mobile sign-in code for its session")
+@entitlement_exempt
+@public_route
+async def mobile_exchange(body: MobileExchangeIn, request: Request, auth: Auth) -> MobileSessionOut:
+    """The mobile app's last sign-in step (ADR-042): code and verifier in, session ID out.
+
+    The code is spent on the first try. A wrong, used or expired code, or a verifier that does
+    not match the challenge the app started with, is 401 `handoff_invalid`. No cookie is set:
+    the app keeps the ID in the phone's secure storage and sends it in a header.
+    """
+    network = request.client.host if request.client else "unknown"
+    limit, window = EXCHANGES_PER_NETWORK
+    if await auth.store.hit("handoff-network", network, window) > limit:
+        raise RateLimited
+    session_id, _session = await auth.exchange_handoff(body.handoff, body.verifier)
+    return MobileSessionOut(session_id=session_id)
 
 
 class PasswordResetIn(BaseModel):
@@ -565,6 +621,11 @@ async def switch_tenant(
     session_id, session = found
     new_id, switched = await auth.switch_tenant(session_id, session, body.tenant_id)
     await _audit_session(request, switched, "session.tenant_switched")
-    set_session_cookie(response, auth.settings, new_id)
+    if request.cookies.get(auth.cookie_name) is None and request.headers.get(SESSION_HEADER):
+        # The mobile app (ADR-042): the new ID in the header only. A cookie would be kept by
+        # the phone's HTTP stack and quietly win over the header the app sends.
+        response.headers[SESSION_HEADER] = new_id
+    else:
+        set_session_cookie(response, auth.settings, new_id)
     await _end_realtime(request, session)  # the old tenant's connection
     return await _describe(request, switched)

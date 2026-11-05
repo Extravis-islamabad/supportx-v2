@@ -135,6 +135,13 @@ loaded from Google's servers.
 **Approved additions (D-134):** PostgreSQL's pg_trgm extension (trigram similarity; created by
 migration 0020).
 
+**Approved additions (D-145, mobile):** Expo SDK 58 (React Native 0.88.1, local builds only, no
+EAS cloud or Expo push relay) with React 19.3 in `mobile/` only; `expo-router`, `expo-dev-client`,
+`expo-web-browser`, `expo-linking`, `expo-secure-store`, `expo-localization`, `react-native-mmkv`,
+`@shopify/flash-list`, `react-native-reanimated`, `react-native-gesture-handler`,
+`react-native-render-html`, `@expo/vector-icons`, `jest-expo`, `@testing-library/react-native`,
+Maestro; later `expo-notifications`, `expo-camera`. Plan: `docs/architecture/mobile.md`.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

@@ -1,6 +1,17 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { api, call, currentConnectivity, onConnectivity, setCsrfToken } from './client';
+import {
+  api,
+  call,
+  currentApiOrigin,
+  currentConnectivity,
+  onConnectivity,
+  setApiOrigin,
+  onSessionId,
+  setClientApp,
+  setCsrfToken,
+  setSessionId,
+} from './client';
 import { ApiError } from './errors';
 import { fakeApi, fakeUser, problem } from './testing';
 
@@ -131,5 +142,82 @@ describe('client conventions', () => {
     const error = (await call(api.GET('/api/v1/health')).catch((e: unknown) => e)) as ApiError;
     expect([error.kind, error.code, error.isOutage]).toEqual(['server', 'internal_error', true]);
     await call(api.GET('/api/v1/health')).catch(() => undefined);
+  });
+
+  it('calls the server set at run time (mobile) and says which app calls', async () => {
+    const fake = fakeApi({ 'GET /api/v1/health': { body: { status: 'ok', version: '1' } } });
+    restore = fake.restore;
+    setApiOrigin('https://support.example.test/');
+    setClientApp('mobile');
+    try {
+      expect(currentApiOrigin()).toBe('https://support.example.test');
+      await call(api.GET('/api/v1/health'));
+      expect(fake.calls[0]?.url.origin).toBe('https://support.example.test');
+      expect(fake.calls[0]?.headers.get('X-SupportX-Client')).toBe('mobile');
+    } finally {
+      setApiOrigin(null);
+      setClientApp(null);
+    }
+    expect(currentApiOrigin()).toBeNull();
+    await call(api.GET('/api/v1/health'));
+    expect(fake.calls[1]?.url.origin).toBe(window.location.origin);
+  });
+
+  it('accepts responses that are not the global Response (Expo native fetch)', async () => {
+    // expo/fetch's FetchResponse implements Response without extending it.
+    const original = globalThis.fetch;
+    globalThis.fetch = () => {
+      const real = new Response(JSON.stringify({ status: 'ok', version: '7' }), {
+        headers: { 'Content-Type': 'application/json', ETag: '"1"' },
+      });
+      const lookalike = {
+        ok: real.ok,
+        status: real.status,
+        headers: real.headers,
+        json: () => real.json(),
+        text: () => real.text(),
+        clone: () => lookalike,
+      };
+      return Promise.resolve(lookalike as unknown as Response);
+    };
+    try {
+      await expect(call(api.GET('/api/v1/health'))).resolves.toEqual({
+        status: 'ok',
+        version: '7',
+      });
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('sends the mobile session ID and keeps the new one a tenant switch hands out', async () => {
+    const fake = fakeApi({
+      'GET /api/v1/health': { body: { status: 'ok', version: '1' } },
+      'POST /api/v1/auth/switch-tenant': {
+        body: {},
+        headers: { 'X-SupportX-Session': 'session-2' },
+      },
+    });
+    restore = fake.restore;
+    const seen: (string | null)[] = [];
+    const stop = onSessionId((id) => seen.push(id));
+    setSessionId('session-1');
+    try {
+      await call(api.GET('/api/v1/health'));
+      expect(fake.calls[0]?.headers.get('X-SupportX-Session')).toBe('session-1');
+      await call(
+        api.POST('/api/v1/auth/switch-tenant', {
+          body: { tenant_id: '01900000-0000-7000-8000-000000000001' },
+        }),
+      );
+      expect(seen).toEqual(['session-2']);
+      await call(api.GET('/api/v1/health'));
+      expect(fake.calls[2]?.headers.get('X-SupportX-Session')).toBe('session-2');
+    } finally {
+      stop();
+      setSessionId(null);
+    }
+    await call(api.GET('/api/v1/health'));
+    expect(fake.calls[3]?.headers.has('X-SupportX-Session')).toBe(false);
   });
 });

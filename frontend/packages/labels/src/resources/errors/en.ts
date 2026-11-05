@@ -494,6 +494,7 @@ export const en = {
   'errors.files_not_configured': 'Files cannot be stored: file encryption keys are not configured.',
   'errors.follower_not_found': 'This person is not following it.',
   'errors.group_not_found': 'The support group was not found.',
+  'errors.handoff_invalid': 'This sign-in has expired or was already used. Please sign in again.',
   'errors.holiday_list_not_found': 'This holiday list does not exist or was deleted.',
   'errors.holiday_not_found': 'This holiday does not exist or was deleted.',
   'errors.ical_too_large': 'The file is larger than 1 MB.',
@@ -521,6 +522,8 @@ export const en = {
   'errors.invalid_filter': 'The filter could not be applied. Check the highlighted condition.',
   'errors.invalid_idempotency_key': 'The request identifier is not valid.',
   'errors.invalid_login_state': 'This sign-in link has expired. Please start again.',
+  'errors.invalid_mobile_challenge':
+    'The app could not start signing in. Please update the app and try again.',
   'errors.invalid_page_size': 'Too many rows were requested for one page.',
   'errors.invalid_report': 'This report cannot run as it is. Check the highlighted parts.',
   'errors.invalid_sort': 'The list cannot be sorted this way.',

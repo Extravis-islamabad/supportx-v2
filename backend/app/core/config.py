@@ -156,6 +156,9 @@ class Settings(BaseSettings):
     # the UI's own base path.
     console_url: str = "http://localhost:5173"
     portal_url: str = "http://localhost:5174"
+    # The mobile app's sign-in return address (ADR-042): the browser is sent here with a one-time
+    # hand-off code instead of a cookie. Fixed per installation, never taken from a request.
+    mobile_redirect_uri: str = "supportx://auth"
     # Tenant addresses (WP-017): each tenant is also reached on `<slug>.<tenant_base_domain>`
     # (e.g. acme.support.example.com). None = no subdomains (on-prem single installation domain);
     # verified custom domains still resolve. The address only pre-selects where to sign in.
