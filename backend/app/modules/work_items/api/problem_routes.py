@@ -20,6 +20,8 @@
     POST /problems/{id}/known-error              mark it a known error (If-Match; 044b)
     POST /problems/{id}/known-error/remove       remove the flag, with a reason (If-Match; 044b)
     POST /problems/{id}/approvals                ask named people to approve (If-Match; 044b)
+    GET  /problems/{id}/message-recipients?set=  followers, incident technicians or requesters
+    POST /problems/{id}/messages/incident-requesters  a reply on each linked incident (044b)
 
 Many incidents go to "this problem instead" through the incidents' own bulk job
 (`POST /incidents/bulk`, action `link_problem`), the same path as from the create form.
@@ -51,6 +53,7 @@ from app.modules.work_items.service import (
     problem_approvals,
     problem_impact,
     problem_merge,
+    problem_messages,
 )
 from app.modules.work_items.service import problems as service
 from app.modules.work_items.service import work_items as items
@@ -346,6 +349,71 @@ def add_problem_routes(
     _add_unlink_route(router, wtype)
     _add_known_error_routes(router, wtype, record_out)
     _add_approval_request_route(router, wtype, record_out)
+    _add_message_routes(router, wtype)
+
+
+class RecipientOut(BaseModel):
+    """One person of a recipient set."""
+
+    user_id: uuid.UUID
+    name: str
+    email: str
+
+
+class RequesterMessageIn(BaseModel):
+    """The message for every affected requester (rich text, sanitised)."""
+
+    body: str = Field(min_length=1, max_length=20000)
+
+
+class RequesterMessageOut(BaseModel):
+    """Where it went, and how many linked incidents were left out."""
+
+    sent_to: list[str] = Field(description="Display ids of the incidents it was sent on.")
+    skipped: int = Field(description="Linked incidents you may not reply on.")
+
+
+def _add_message_routes(router: APIRouter, wtype: WorkItemType) -> None:
+    """Messages from a problem (WP-044b s4, REQ-PRB-052)."""
+    View = Annotated[Subject, Depends(require_permission(wtype.permission("view")))]  # noqa: N806 - type alias
+    Edit = Annotated[Subject, Depends(require_permission(wtype.permission("edit")))]  # noqa: N806 - type alias
+    Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
+
+    @router.get("/{record_id}/message-recipients", summary="People a message may go to")
+    async def message_recipients(
+        record_id: uuid.UUID,
+        session: TenantSession,
+        subject: View,
+        set: problem_messages.RecipientSet,  # noqa: A002 - the API's query name
+    ) -> list[RecipientOut]:
+        """The set's people with an address (only from incidents you may see), by name."""
+        found = await problem_messages.recipients(session, subject, record_id, set)
+        return [RecipientOut(user_id=r.user_id, name=r.name, email=r.email) for r in found]
+
+    @router.post(
+        "/{record_id}/messages/incident-requesters",
+        summary="Message the requesters of the linked incidents",
+    )
+    async def message_requesters(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        body: RequesterMessageIn,
+        session: TenantSession,
+        subject: Edit,
+        request: Request,
+        policy: Policy,
+    ) -> RequesterMessageOut:
+        """A public reply on each linked incident you may reply on, named in its history."""
+        sent = await problem_messages.to_incident_requesters(
+            session,
+            subject,
+            record_id,
+            body=body.body,
+            source=source_of(request),
+            policy=policy,
+        )
+        return RequesterMessageOut(
+            sent_to=[i.display_id for i in sent.incidents], skipped=len(sent.skipped)
+        )
 
 
 class ApprovalRequestIn(BaseModel):

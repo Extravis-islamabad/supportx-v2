@@ -321,3 +321,47 @@ async def test_problem_approvals_decide_and_accept_a_known_error_without_a_fix(
         - datetime.fromisoformat(after["accepted_at"])
     ).days
     assert days == 90
+
+
+async def test_messages_go_to_sets_and_to_each_linked_incident(world: World) -> None:
+    """REQ-PRB-052: recipients by set, and requesters reached through their incidents."""
+    a = world.a
+    prb = (await new_problem(world, a, a.tech_a, group_id=str(a.ga))).json()
+    one = await world.create(
+        a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a), requester_id=str(a.requester)
+    )
+    two = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    for incident in (one, two):
+        linked = await world.call(
+            "POST", f"{PRB}/{prb['id']}/incidents", a, a.admin, json={"incident_id": incident["id"]}
+        )
+        assert linked.json() == {"linked": True}, linked.text
+
+    async def people(which: str) -> set[str]:
+        got = await world.call(
+            "GET", f"{PRB}/{prb['id']}/message-recipients?set={which}", a, a.tech_a
+        )
+        assert got.status_code == 200, got.text
+        return {r["user_id"] for r in got.json()}
+
+    assert await people("incident_requesters") == {str(a.requester), str(a.requester2)}
+    assert await people("incident_technicians") == {str(a.tech_a)}
+
+    sent = await world.call(
+        "POST",
+        f"{PRB}/{prb['id']}/messages/incident-requesters",
+        a,
+        a.tech_a,
+        json={"body": "<p>We found the cause; a fix is on its way.</p>"},
+        headers=CONSOLE,
+    )
+    assert sent.status_code == 200, sent.text
+    assert sorted(sent.json()["sent_to"]) == sorted([one["display_id"], two["display_id"]])
+    for incident in (one, two):
+        timeline = await world.call("GET", f"/incidents/{incident['id']}/conversation", a, a.tech_a)
+        assert timeline.status_code == 200, timeline.text
+        bodies = [e["body"] for e in timeline.json()["items"]]
+        assert any("a fix is on its way" in b for b in bodies)
+    history = await world.call("GET", f"{PRB}/{prb['id']}/history", a, a.tech_a)
+    fields = {c["field"] for e in history.json()["items"] for c in e["changes"]}
+    assert "requester_message" in fields
