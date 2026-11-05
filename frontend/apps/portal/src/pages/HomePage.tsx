@@ -1,6 +1,12 @@
-import { AppstoreOutlined, BulbOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import {
+  AppstoreOutlined,
+  BellFilled,
+  BellOutlined,
+  BulbOutlined,
+  ExclamationCircleOutlined,
+} from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Card, Flex, Input, Statistic, Typography } from 'antd';
+import { Alert, Button, Card, Flex, Input, Statistic, Typography } from 'antd';
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -8,6 +14,7 @@ import {
   portalKeys,
   useCatalogItemList,
   usePopularCatalogItems,
+  useFollowAnnouncement,
   usePortalSummary,
   useSession,
 } from '@supportx/api-client';
@@ -147,6 +154,7 @@ export function HomePage() {
     void queryClient.invalidateQueries({ queryKey: [...portalKeys.all, 'summary'] });
   });
   const feed = useLiveAnnouncementFeed(licence.has('incident'));
+  const follow = useFollowAnnouncement();
   const items = feed.data?.items ?? [];
   const format = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
@@ -254,13 +262,27 @@ export function HomePage() {
                     <Typography.Paragraph style={{ whiteSpace: 'pre-line', marginBottom: 4 }}>
                       {item.body}
                     </Typography.Paragraph>
-                    {item.published_at !== null && (
-                      <Typography.Text type="secondary">
-                        {t('announcements.published_on', {
-                          time: format.format(new Date(item.published_at)),
-                        })}
-                      </Typography.Text>
-                    )}
+                    <Flex gap={12} align="center" wrap>
+                      {item.published_at !== null && (
+                        <Typography.Text type="secondary">
+                          {t('announcements.published_on', {
+                            time: format.format(new Date(item.published_at)),
+                          })}
+                        </Typography.Text>
+                      )}
+                      {/* Follow: hear when it is updated or ends (WP-032 D7, REQ-PRT-009 AC3). */}
+                      <Button
+                        size="small"
+                        aria-pressed={item.following}
+                        icon={item.following ? <BellFilled /> : <BellOutlined />}
+                        onClick={() => {
+                          follow.mutate({ id: item.id, on: !item.following });
+                        }}
+                        data-testid={`portal-announcement-follow-${item.id}`}
+                      >
+                        {t(item.following ? 'announcements.following' : 'announcements.follow')}
+                      </Button>
+                    </Flex>
                   </>
                 }
               />

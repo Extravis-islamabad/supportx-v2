@@ -427,6 +427,7 @@ export const ar: LabelResource = {
   'event_type.announcements.announcement.restored': 'استُعيد إعلان',
   'event_type.announcements.announcement.status_changed': 'تغيّرت حالة إعلان',
   'event_type.announcements.announcement.updated': 'عُدّل إعلان',
+  'event_type.announcements.personal.changed': 'إعلان مُخفى أو مُتابَع',
   'event_type.announcements.settings.changed': 'تغيّرت إعدادات الإعلانات',
   'event_type.audit.alert.raised': 'صدر تنبيه تدقيق',
   'event_type.audit.archive.restore_requested': 'طُلبت استعادة أرشيف التدقيق',

@@ -51,6 +51,8 @@ export const ur: LabelResource = {
   'announcements.done.reopen': 'مسودے کے طور پر دوبارہ کھول دیا گیا۔',
   'announcements.done.unpublish': 'اشاعت واپس لے لی گئی: یہ دوبارہ مسودہ ہے۔',
   'announcements.empty': 'کوئی مماثل اعلان نہیں۔',
+  'announcements.follow': 'فالو کریں',
+  'announcements.following': 'فالو کر رہے ہیں',
   'announcements.four_eyes': 'کسی دوسرے شخص کو شائع کرنا ہوگا',
   'announcements.four_eyes_help': 'اعلان کا مصنف یا مالک اسے شائع نہیں کر سکتا۔',
   'announcements.from': '{{time}} سے دکھایا جائے گا',

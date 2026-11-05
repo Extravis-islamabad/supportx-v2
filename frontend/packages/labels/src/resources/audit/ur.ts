@@ -424,6 +424,7 @@ export const ur: LabelResource = {
   'event_type.announcements.announcement.restored': 'اعلان بحال کیا گیا',
   'event_type.announcements.announcement.status_changed': 'اعلان کی حیثیت بدلی گئی',
   'event_type.announcements.announcement.updated': 'اعلان میں ترمیم کی گئی',
+  'event_type.announcements.personal.changed': 'اعلان چھپایا یا فالو کیا گیا',
   'event_type.announcements.settings.changed': 'اعلانات کی ترتیبات بدلی گئیں',
   'event_type.audit.alert.raised': 'آڈٹ انتباہ جاری ہوا',
   'event_type.audit.archive.restore_requested': 'آڈٹ آرکائیو کی بحالی کی درخواست کی گئی',

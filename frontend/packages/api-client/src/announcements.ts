@@ -135,6 +135,62 @@ export function useAnnouncementFeed(enabled = true) {
   });
 }
 
+type Feed = components['schemas']['FeedOut'];
+
+/** Set the person's own state on one feed item at once (the server follows, WP-032 D7). */
+function useFeedPatch() {
+  const queryClient = useQueryClient();
+  return (id: string, change: Partial<Pick<AnnouncementPublic, 'dismissed' | 'following'>>) => {
+    queryClient.setQueryData<Feed>(queryKeys.announcements.feed, (feed) =>
+      feed === undefined
+        ? feed
+        : { ...feed, items: feed.items.map((i) => (i.id === id ? { ...i, ...change } : i)) },
+    );
+  };
+}
+
+/** Dismiss a banner for this person on every device (REQ-PRT-009 AC2). */
+export function useDismissAnnouncement() {
+  const patch = useFeedPatch();
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (id: string) =>
+      call(
+        api.PUT('/api/v1/announcements/{announcement_id}/dismissal', {
+          params: { path: { announcement_id: id } },
+        }),
+      ),
+    onMutate: (id) => {
+      patch(id, { dismissed: true });
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.feed });
+    },
+  });
+}
+
+/** Follow an announcement, or stop (REQ-PRT-009 AC3): its updates and its end are notified. */
+export function useFollowAnnouncement() {
+  const patch = useFeedPatch();
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, on }: { id: string; on: boolean }) => {
+      const params = { path: { announcement_id: id } };
+      return on
+        ? call(api.PUT('/api/v1/announcements/{announcement_id}/follow', { params }))
+        : call(api.DELETE('/api/v1/announcements/{announcement_id}/follow', { params }));
+    },
+    onMutate: ({ id, on }) => {
+      patch(id, { following: on });
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.feed });
+    },
+  });
+}
+
 export function useAnnouncementSettings(enabled = true) {
   return useQuery({
     queryKey: queryKeys.announcements.settings,

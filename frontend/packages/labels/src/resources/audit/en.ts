@@ -427,6 +427,7 @@ export const en = {
   'event_type.announcements.announcement.restored': 'Announcement restored',
   'event_type.announcements.announcement.status_changed': 'Announcement status changed',
   'event_type.announcements.announcement.updated': 'Announcement edited',
+  'event_type.announcements.personal.changed': 'Announcement dismissed or followed',
   'event_type.announcements.settings.changed': 'Announcement settings changed',
   'event_type.audit.alert.raised': 'Audit alert raised',
   'event_type.audit.archive.restore_requested': 'Audit archive restore requested',

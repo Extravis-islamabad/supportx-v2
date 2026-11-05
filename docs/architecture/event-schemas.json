@@ -725,6 +725,34 @@
         "type": "object"
       }
     },
+    "announcements.personal.changed": {
+      "1": {
+        "description": "A person dismissed a banner, or started or stopped following (WP-032 D7).\n\nPublished on that person's own channel only, so their other devices follow (IDs only).",
+        "properties": {
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_id",
+          "user_id",
+          "change"
+        ],
+        "title": "AnnouncementPersonalChanged",
+        "type": "object"
+      }
+    },
     "announcements.settings.changed": {
       "1": {
         "description": "The module's tenant settings changed (e.g. the four-eyes rule).",

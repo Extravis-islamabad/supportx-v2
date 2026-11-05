@@ -5,6 +5,8 @@ export {
   useAnnouncement,
   useAnnouncementAction,
   useAnnouncementFeed,
+  useDismissAnnouncement,
+  useFollowAnnouncement,
   useAnnouncementHistory,
   useAnnouncementOwnerCandidates,
   useAnnouncements,
