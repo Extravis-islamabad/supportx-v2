@@ -886,7 +886,16 @@ it with no reload (rule c). Not built yet.
       wait for WP-045, lane C's releases and lane B's CMDB;
     - cost waits for worklog costs (D-047);
     - copying the analysis with a problem (REQ-PRB-015) comes with S3's known errors.
-- [ ] S2 links and merge. [ ] S3 known errors. [ ] S4 tasks, approvals, messages, review.
+- [ ] S2 links and merge (in progress, 0104):
+  - done:
+    - merge with undo;
+    - unlinking incidents, one at a time or in bulk;
+    - the `merged_into` / `merged_from` relations;
+  - to do: related problems and the console screens.
+  - **Gap on record (D-140 Applied):** the generic link delete could remove an incident's cause
+    with problem edit alone (since WP-044a). The fix (409 `link_has_own_route`) ships as its own
+    small PR from main after #211 lands; it is not held for this WP.
+- [ ] S3 known errors. [ ] S4 tasks, approvals, messages, review.
   [ ] S5 closure and follow-up, e2e.
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
