@@ -580,6 +580,7 @@ export const ar: LabelResource = {
   'event_type.work_items.work_item.created': 'تم إنشاء السجل',
   'event_type.work_items.work_item.deleted': 'نُقل السجل إلى سلة المحذوفات',
   'event_type.work_items.work_item.restored': 'تمت استعادة السجل',
+  'event_type.work_items.work_item.roles_changed': 'تغيّر شاغلو أدوار السجل',
   'event_type.work_items.work_item.stage_changed': 'انتقل السجل إلى مرحلة أخرى',
   'event_type.work_items.work_item.status_changed': 'تغيرت حالة السجل',
   'event_type.work_items.work_item.updated': 'تم تعديل السجل',

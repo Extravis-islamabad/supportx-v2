@@ -41,5 +41,6 @@
   "tests/ai-incidents.spec.ts": 60,
   "tests/arabic-fonts.spec.ts": 30,
   "tests/visual-matrix.spec.ts": 1,
-  "tests/users.spec.ts": 10
+  "tests/users.spec.ts": 10,
+  "tests/releases.spec.ts": 45
 }

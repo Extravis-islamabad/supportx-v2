@@ -53,6 +53,10 @@ class LinkKind(StrEnum):
     RELATED = "related"  # symmetrical
     FOLLOWS = "follows"  # source follows target (a reply after the reopen window)
     CAUSED_BY = "caused_by"  # source (an incident) is caused by target (a problem), WP-044a
+    # WP-058a s5 (REQ-REL-034, -037): source -> a release, and a release -> its parent.
+    CAUSED_BY_RELEASE = "caused_by_release"  # an incident, request or problem the release caused
+    STARTED_RELEASE = "started_release"  # a record that started the release
+    SUB_RELEASE_OF = "sub_release_of"  # a sub-release of a parent release
 
 
 class WorklogProblem(StrEnum):

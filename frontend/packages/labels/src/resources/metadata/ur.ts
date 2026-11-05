@@ -111,6 +111,7 @@ export const ur: LabelResource = {
   'list.separator': '، ',
   'pick_list.cancel': 'منسوخی کی وجوہات',
   'pick_list.closure_code': 'بندش کے کوڈ',
+  'pick_list.downtime_kind': 'بندش کی اقسام',
   'pick_list.level': 'سطحیں',
   'pick_list.pause': 'درخواست گزار کا انتظار',
   'pick_list.problem_type': 'مسائل کی اقسام',

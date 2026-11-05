@@ -45,7 +45,7 @@ from app.modules.work_items.domain.lifecycle import (
     TransitionDef,
     WorkItemAction,
 )
-from app.modules.work_items.domain.stages import FIRST_LIFECYCLE, StageModel
+from app.modules.work_items.domain.stages import DEFAULT_PATH, FIRST_LIFECYCLE, StageModel
 from app.modules.work_items.domain.templates import (
     CONFIRMED_BY_REQUESTER,
     DEFAULT_LIST_VALUES,
@@ -66,6 +66,7 @@ from app.modules.work_items.infra.models import (
     WorkItemPathStage,
     WorkItemPriorityCell,
     WorkItemReason,
+    WorkItemRoleDef,
     WorkItemScaleValue,
     WorkItemStage,
     WorkItemStagePath,
@@ -133,6 +134,7 @@ class ReasonInfo:
     sort_order: int = 0
     colour: str | None = None
     disabled: bool = False
+    attributes: Mapping[str, Any] | None = None  # LIST_ATTRIBUTES (0093)
 
 
 @dataclass(frozen=True)
@@ -219,7 +221,14 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
         session.add_all(
             [
                 WorkItemStage(
-                    tenant_id=tenant, type=wtype.code, code=st.code, sort_order=i, system=True
+                    tenant_id=tenant,
+                    type=wtype.code,
+                    code=st.code,
+                    sort_order=i,
+                    system=True,
+                    approvals=dict(wtype.stage_approvals[st.code])
+                    if st.code in wtype.stage_approvals
+                    else None,
                 )
                 for i, st in enumerate(staged.stages)
             ]
@@ -244,6 +253,13 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     await session.flush()
     if staged is not None:
         await _seed_stage_moves(session, wtype.code, staged, tenant)
+        await _seed_path_templates(session, wtype.code, staged, tenant)
+    session.add_all(
+        [
+            WorkItemRoleDef(tenant_id=tenant, type=wtype.code, code=code, sort_order=i, system=True)
+            for i, code in enumerate(wtype.roles)
+        ]
+    )
     session.add_all(
         [
             WorkItemReason(
@@ -380,6 +396,39 @@ async def _seed_stage_moves(
                 required_fields=list(t.required_fields) or None,
             )
             for t in staged.transitions
+        ]
+    )
+    await session.flush()
+
+
+async def _seed_path_templates(
+    session: AsyncSession, type_code: str, staged: StageModel, tenant: uuid.UUID
+) -> None:
+    """One template per path (REQ-REL-011).
+
+    The standard one follows the default path; each other path gets a template of its own name
+    (releases: emergency, Appendix A).
+    """
+    await session.execute(
+        update(WorkItemTemplate)
+        .where(WorkItemTemplate.type == type_code, WorkItemTemplate.code == STANDARD_TEMPLATE)
+        .values(stage_path=DEFAULT_PATH)
+    )
+    desk = await default_desk_id(session)
+    session.add_all(
+        [
+            WorkItemTemplate(
+                tenant_id=tenant,
+                type=type_code,
+                code=p.code,
+                is_default=False,
+                desk_id=desk,
+                field_rules=rules_to_json(default_rules()),
+                defaults={},
+                stage_path=p.code,
+            )
+            for p in staged.paths
+            if p.code != DEFAULT_PATH
         ]
     )
     await session.flush()
@@ -548,7 +597,15 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         matrix={(c.impact, c.urgency): c.priority for c in cells},
         scales=[ScaleValue(v.scale, v.code, v.rank, v.colour, v.labels) for v in scales],
         reasons=[
-            ReasonInfo(r.list, r.code, r.labels, r.sort_order, r.colour, r.disabled_at is not None)
+            ReasonInfo(
+                r.list,
+                r.code,
+                r.labels,
+                r.sort_order,
+                r.colour,
+                r.disabled_at is not None,
+                r.attributes,
+            )
             for r in reasons
         ],
         closure=ClosureSettings(

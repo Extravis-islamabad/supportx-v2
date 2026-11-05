@@ -578,6 +578,7 @@ export const ur: LabelResource = {
   'event_type.work_items.work_item.created': 'ریکارڈ بنایا گیا',
   'event_type.work_items.work_item.deleted': 'ریکارڈ ردی کی ٹوکری میں گیا',
   'event_type.work_items.work_item.restored': 'ریکارڈ بحال ہوا',
+  'event_type.work_items.work_item.roles_changed': 'ریکارڈ کے کردار رکھنے والے بدلے',
   'event_type.work_items.work_item.stage_changed': 'ریکارڈ دوسرے مرحلے میں گیا',
   'event_type.work_items.work_item.status_changed': 'ریکارڈ کی حیثیت بدلی',
   'event_type.work_items.work_item.updated': 'ریکارڈ میں ترمیم ہوئی',

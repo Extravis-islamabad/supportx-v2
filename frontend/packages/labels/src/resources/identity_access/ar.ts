@@ -473,6 +473,8 @@ export const ar: LabelResource = {
   'permission.profile.edit.description': 'تغيير توقيع الردود والمنطقة الزمنية الخاصة بك.',
   'permission.releases.add_note': 'إضافة ملاحظات خاصة على الإصدارات',
   'permission.releases.add_note.description': 'كتابة ملاحظات للموظفين فقط على الإصدارات.',
+  'permission.releases.approve': 'الموافقة على الإصدارات',
+  'permission.releases.approve.description': 'البت في موافقات مراحل الإصدار المسمّى لها.',
   'permission.releases.assign': 'إسناد الإصدارات',
   'permission.releases.assign.description': 'إسناد الإصدارات إلى الأشخاص والمجموعات.',
   'permission.releases.assign_outside_group': 'إسناد الإصدارات خارج المجموعة',

@@ -27,6 +27,31 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
       {
+        // WP-058a s6: releases on the stage engine (ADR-041).
+        path: 'releases',
+        handle: { section: 'releases' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleasesPage')).ReleasesPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/NewReleasePage')).NewReleasePage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleasePage')).ReleasePage,
+            }),
+          },
+        ],
+      },
+      {
         // WP-044a s5: problems (the list, creating one, the record).
         path: 'problems',
         handle: { section: 'problems' },
