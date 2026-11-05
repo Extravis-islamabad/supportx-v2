@@ -204,6 +204,7 @@ export const ar: LabelResource = {
   'nav.main': 'التنقل الرئيسي',
   'nav.more': 'المزيد',
   'nav.my_requests': 'طلباتي',
+  'nav.open_menu': 'افتح القائمة',
   'nav.problems': 'المشكلات',
   'nav.profile': 'ملفي الشخصي',
   'nav.releases': 'الإصدارات',

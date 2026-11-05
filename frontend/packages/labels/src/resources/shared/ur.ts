@@ -192,6 +192,7 @@ export const ur: LabelResource = {
   'nav.main': 'مرکزی نیویگیشن',
   'nav.more': 'مزید',
   'nav.my_requests': 'میری درخواستیں',
+  'nav.open_menu': 'مینو کھولیں',
   'nav.problems': 'مسائل',
   'nav.profile': 'میری پروفائل',
   'nav.releases': 'ریلیزز',

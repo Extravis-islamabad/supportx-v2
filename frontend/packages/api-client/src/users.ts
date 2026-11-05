@@ -1,6 +1,13 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 
 import { api, call, rememberEtag } from './client';
+import { ApiError } from './errors';
 import { clearPending, setPending, settlePendingAfterError } from './pendingPreferences';
 import { queryKeys } from './keys';
 import type { components } from './schema';
@@ -121,6 +128,59 @@ export function useUpdateUser(id: string) {
   });
 }
 
+type UserPatch = components['schemas']['UserPreferencesPatch'];
+
+// One person's preference saves, one after another (QA 2026-11-05 V3). Each save reads the
+// record's version and sends If-Match; two at once (the start-up resends, or a quick language and
+// layout change) read the same version and the second got a 409, shown as "someone else saved
+// this". A save sends only its own field, so after a 409 it is safe to read the version again and
+// send the same field once more. Other fields anyone else changed are kept; the same field
+// changed meanwhile (on another device) is replaced by this save, which is fine for one's own
+// preference. Only version_conflict is retried, and only here: never on shared records.
+const queues = new Map<string, Promise<unknown>>();
+const RETRIES = 2;
+
+export function saveOwnPreference(
+  queryClient: QueryClient,
+  userId: string,
+  body: UserPatch,
+): Promise<UserDetail> {
+  const send = async (): Promise<UserDetail> => {
+    for (let attempt = 0; ; attempt += 1) {
+      const latest = await queryClient.query({
+        queryKey: queryKeys.users.detail(userId),
+        queryFn: () =>
+          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
+        staleTime: 0,
+      });
+      try {
+        return await call(
+          api.PATCH('/api/v1/users/{user_id}', {
+            params: {
+              path: { user_id: userId },
+              header: { 'If-Match': `"${String(latest.version)}"` },
+            },
+            body,
+          }),
+        );
+      } catch (error) {
+        if (
+          !(error instanceof ApiError && error.code === 'version_conflict') ||
+          attempt >= RETRIES
+        ) {
+          throw error;
+        }
+      }
+    }
+  };
+  const next = (queues.get(userId) ?? Promise.resolve()).then(send, send);
+  queues.set(
+    userId,
+    next.catch(() => undefined),
+  );
+  return next;
+}
+
 /**
  * Change the signed-in user's navigation layout (WP-011). Stored server-side, so it follows the
  * user to other devices (their sessions refresh live). Applied at once (optimistic); reads the
@@ -130,21 +190,7 @@ export function useSetNavLayout(userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (layout: NavLayout) => {
-      const latest = await queryClient.query({
-        queryKey: queryKeys.users.detail(userId),
-        queryFn: () =>
-          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
-        staleTime: 0,
-      });
-      return call(
-        api.PATCH('/api/v1/users/{user_id}', {
-          params: {
-            path: { user_id: userId },
-            header: { 'If-Match': `"${String(latest.version)}"` },
-          },
-          body: { nav_layout: layout },
-        }),
-      );
+      return saveOwnPreference(queryClient, userId, { nav_layout: layout });
     },
     onMutate: (layout) => {
       setPending(userId, 'nav_layout', layout);
@@ -173,21 +219,7 @@ export function useSetFormDensity(userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (density: FormDensity) => {
-      const latest = await queryClient.query({
-        queryKey: queryKeys.users.detail(userId),
-        queryFn: () =>
-          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
-        staleTime: 0,
-      });
-      return call(
-        api.PATCH('/api/v1/users/{user_id}', {
-          params: {
-            path: { user_id: userId },
-            header: { 'If-Match': `"${String(latest.version)}"` },
-          },
-          body: { form_density: density },
-        }),
-      );
+      return saveOwnPreference(queryClient, userId, { form_density: density });
     },
     onMutate: (density) => {
       setPending(userId, 'form_density', density);
@@ -216,21 +248,7 @@ export function useSetUiLocale(userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (locale: 'en' | 'ar' | 'ur' | null) => {
-      const latest = await queryClient.query({
-        queryKey: queryKeys.users.detail(userId),
-        queryFn: () =>
-          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
-        staleTime: 0,
-      });
-      return call(
-        api.PATCH('/api/v1/users/{user_id}', {
-          params: {
-            path: { user_id: userId },
-            header: { 'If-Match': `"${String(latest.version)}"` },
-          },
-          body: { ui_locale: locale },
-        }),
-      );
+      return saveOwnPreference(queryClient, userId, { ui_locale: locale });
     },
     onMutate: (locale) => {
       setPending(userId, 'ui_locale', locale);
@@ -262,21 +280,7 @@ export function useSetPreference(userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ field, value }: PersonalPreferenceChange) => {
-      const latest = await queryClient.query({
-        queryKey: queryKeys.users.detail(userId),
-        queryFn: () =>
-          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
-        staleTime: 0,
-      });
-      return call(
-        api.PATCH('/api/v1/users/{user_id}', {
-          params: {
-            path: { user_id: userId },
-            header: { 'If-Match': `"${String(latest.version)}"` },
-          },
-          body: { [field]: value },
-        }),
-      );
+      return saveOwnPreference(queryClient, userId, { [field]: value });
     },
     onMutate: ({ field, value }) => {
       setPending(userId, field, value);
