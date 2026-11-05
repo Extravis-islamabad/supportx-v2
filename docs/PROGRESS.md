@@ -985,7 +985,7 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-5 of 6 built 2026-11-05; #214 merged, #219)
+### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
 with the coordinator: S1-S5, then S6 without workflows, then WP-048b (workflow designer), then
@@ -1050,7 +1050,18 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
     - REQ-REL-032 reminders, backups and clarification, the review-date reminder, and
       follow-ups as problems or changes go to WP-058b's notifications.
     - The override of the sub-release check is recorded for WP-058b.
-- [ ] S6 — the console screens (rail, moves dialog, details), e2e and RTL; without workflows.
+- [x] **S6 — console screens, e2e and RTL (#219).**
+  - Releases list with the emergency flag, live.
+  - New release from its template.
+  - The record: the rail, moves with their dialog, and tabs for details, roles, plan,
+    schedule, downtime, approvals and sub-releases, live.
+  - Console tests, and an e2e spec with axe in English and Arabic.
+  - Admin guide: docs/guides/releases.md.
+  - Not done:
+    - The release screens join the Visual matrix after #219 merges (they would collide with
+      the matrix selector fix now).
+    - Admin screens for stage access, stage approvals, role definitions and template stage
+      rules come with the admin pass (their APIs are in and tested).
 - **Not done in S1 (recorded for later sessions):**
   - REQ-REL-003: a type's default template and default risk come with templates in S2.
   - REQ-REL-005 AC2: the "unique versions per service" tenant setting comes with services in
