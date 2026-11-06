@@ -1,11 +1,11 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Flex, Space, Table } from 'antd';
+import { Button, Flex, Space, Table } from 'antd';
 import { Link, useNavigate } from 'react-router';
 
 import { problemKeys, useProblemCatalogue, useProblems } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
-import { PageHeader, reportError, useAccess, useDateTime, useLabel } from '@supportx/ui';
+import { EmptyText, PageHeader, reportError, useAccess, useDateTime, useLabel } from '@supportx/ui';
 
 import { PriorityTag, StatusTag } from '../incidents/tags';
 
@@ -60,11 +60,10 @@ export function ProblemsPage() {
           emptyText: list.isLoading ? (
             <span />
           ) : (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={t('problems.empty')}
-              data-testid="prb-empty"
-            />
+            // The same plain empty text as incidents and releases (QA6-PRB-04).
+            <span data-testid="prb-empty">
+              <EmptyText>{t('problems.empty')}</EmptyText>
+            </span>
           ),
         }}
         columns={[
