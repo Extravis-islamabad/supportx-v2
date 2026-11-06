@@ -972,6 +972,54 @@
         "type": "object"
       }
     },
+    "assets.loan.changed": {
+      "1": {
+        "description": "A loan was made, partly returned, closed, or came due or overdue (REQ-AST-030, 031, 059).",
+        "properties": {
+          "borrower_id": {
+            "format": "uuid",
+            "title": "Borrower Id",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "created",
+              "returned",
+              "closed",
+              "due",
+              "overdue"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "loan_id": {
+            "format": "uuid",
+            "title": "Loan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loan_id",
+          "borrower_id",
+          "created_by",
+          "change"
+        ],
+        "title": "AssetLoanChanged",
+        "type": "object"
+      }
+    },
     "assets.product.changed": {
       "1": {
         "description": "A product was created, changed or moved to the trash (REQ-AST-005).",
@@ -1010,6 +1058,23 @@
           "changed_fields"
         ],
         "title": "ProductChanged",
+        "type": "object"
+      }
+    },
+    "assets.warranty.ending": {
+      "1": {
+        "description": "An asset's warranty ends within the tenant's notice days (REQ-AST-059 AC2), once per date.",
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "title": "WarrantyEnding",
         "type": "object"
       }
     },

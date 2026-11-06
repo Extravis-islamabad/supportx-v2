@@ -61,10 +61,17 @@ export const ur: LabelResource = {
     'آپ کی تنظیم کے پلان میں آئی ٹی اثاثوں کی تمام جگہیں استعمال میں ہیں۔ کوئی اثاثہ تلف کریں یا اپنے منتظم سے مزید شامل کرنے کو کہیں۔',
   'errors.asset_link_exists': 'یہ دونوں اثاثے پہلے ہی اس طرح جڑے ہوئے ہیں۔',
   'errors.asset_link_not_found': 'یہ ربط اب موجود نہیں۔',
+  'errors.asset_loan_not_found': 'یہ ادھار بند ہو چکا ہے یا اب موجود نہیں۔',
   'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
+  'errors.asset_no_default_state':
+    'اثاثے کو منتقل کرنے کے لیے کوئی طے شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_no_disposed_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی تلف شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.asset_not_loanable':
+    '{{asset}} ادھار نہیں دیا جا سکتا: یہ ادھار کے قابل نہیں یا اسٹاک میں نہیں۔',
+  'errors.asset_not_on_this_loan': 'یہ اثاثہ اس ادھار میں نہیں۔',
+  'errors.asset_on_loan': '{{asset}} پہلے ہی ادھار پر ہے۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
   'errors.asset_product_type_has_children':
     'اس کے نیچے دوسری پروڈکٹ اقسام ہیں ({{used}})۔ پہلے انہیں منتقل یا حذف کریں۔',
@@ -264,6 +271,7 @@ export const ur: LabelResource = {
     'کسی کردار کا ہوم صرف بلٹ اِن یا شیئر شدہ ڈیش بورڈ ہو سکتا ہے۔',
   'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
   'errors.field.date_in_future': 'آج یا اس سے پہلے کی تاریخ چنیں۔',
+  'errors.field.date_in_past': 'ابھی کے بعد کا وقت چنیں۔',
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',

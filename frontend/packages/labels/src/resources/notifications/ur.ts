@@ -44,6 +44,9 @@ export const ur: LabelResource = {
   'notification_event.announcement.updated': 'آپ کا فالو کردہ اعلان اپ ڈیٹ ہوا',
   'notification_event.asset.ack_disputed': 'اثاثے کے حامل نے اعتراض کیا',
   'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
+  'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
+  'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
+  'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
@@ -89,15 +92,18 @@ export const ur: LabelResource = {
   'notification_reason.no_address': 'غیر فعال، یا ای میل پتہ نہیں',
   'notification_reason.preference': 'ان کی ترجیحات میں بند ہے',
   'notification_recipient.approvers': 'منظور کنندگان',
+  'notification_recipient.asset_managers': 'اثاثوں کے منتظمین',
   'notification_recipient.assigned_by': 'جس نے یہ دیا',
   'notification_recipient.assignee': 'تفویض شدہ تکنیکی ماہر',
   'notification_recipient.author': 'مصنف',
+  'notification_recipient.borrower': 'ادھار لینے والا',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
   'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
   'notification_recipient.group_head': 'گروپ لیڈ اور شعبے کا سربراہ',
   'notification_recipient.holder': 'جس کے پاس یہ ہے',
+  'notification_recipient.loan_creator': 'جس نے ادھار دیا',
   'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
   'notification_recipient.mentioned': 'جن کا ذکر ہوا',
   'notification_recipient.new_follower': 'نیا فالوور',
@@ -144,6 +150,20 @@ export const ur: LabelResource = {
     'براہ کرم تصدیق کریں {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.ack_requested.subject':
     'براہ کرم {{ record.display_id }} {{ record.title }} کی تصدیق کریں',
+  'notification_template.asset.loan_due.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} کو ادھار دیے گئے اثاثے کل واپس کرنے ہیں۔',
+  'notification_template.asset.loan_due.in_app': '{{ holder.name }} کا ادھار کل واپس کرنا ہے',
+  'notification_template.asset.loan_due.subject': 'ادھار اثاثے کل واپس کرنے ہیں',
+  'notification_template.asset.loan_overdue.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} کو ادھار دیے گئے اثاثوں کی واپسی کا وقت گزر گیا اور وہ ابھی واپس نہیں آئے۔',
+  'notification_template.asset.loan_overdue.in_app': '{{ holder.name }} کے ادھار کی مدت گزر گئی',
+  'notification_template.asset.loan_overdue.subject': 'ادھار اثاثوں کی مدت گزر گئی',
+  'notification_template.asset.warranty_expiring.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی وارنٹی {{ warranty.ends_on }} کو ختم ہو رہی ہے۔',
+  'notification_template.asset.warranty_expiring.in_app':
+    '{{ record.display_id }} کی وارنٹی {{ warranty.ends_on }} کو ختم',
+  'notification_template.asset.warranty_expiring.subject':
+    'وارنٹی ختم ہو رہی ہے: {{ record.display_id }} {{ record.title }}',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':
@@ -334,6 +354,7 @@ export const ur: LabelResource = {
   'notification_variable.record.title': 'ریکارڈ › موضوع',
   'notification_variable.requester.name': 'درخواست گزار › نام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
+  'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',
   'notifications.banner.no_mail_one':
     '{{count}} ای میل انتظار میں ہے کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میل بھیج دی جائے گی۔',
   'notifications.banner.no_mail_other':

@@ -218,6 +218,8 @@ class AssetSettings(TenantKeyed, Base):
     site_follows_owner: Mapped[bool] = mapped_column(Boolean, server_default="false")
     portal_own_assets_only: Mapped[bool] = mapped_column(Boolean, server_default="true")
     email_include_assets: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Days before a warranty ends that its managers hear of it (0114; Appendix A: 30).
+    warranty_notice_days: Mapped[int] = mapped_column(Integer, server_default="30")
     scan_retention_months: Mapped[int] = mapped_column(Integer, server_default="6")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
@@ -315,6 +317,8 @@ class Asset(TenantEntity):
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column()
     department_id: Mapped[uuid.UUID | None] = mapped_column()
     parent_asset_id: Mapped[uuid.UUID | None] = mapped_column()
+    loanable: Mapped[bool] = mapped_column(Boolean, server_default="false")  # 0114
+    warranty_noticed_on: Mapped[date | None] = mapped_column(Date)  # the date last noticed
     location: Mapped[str | None] = mapped_column(String(200))
     purchase_order_id: Mapped[uuid.UUID | None] = mapped_column()  # WP-054
     # D-141: price and tax apart; the total is worked out. Currency of both.
@@ -503,3 +507,67 @@ class AssetGroupMember(TenantKeyed, Base):
     asset_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     created_by: Mapped[uuid.UUID | None]
+
+
+class AssetLoan(TenantEntity):
+    """A loan of one or more assets to a person (migration 0114; REQ-AST-030)."""
+
+    __tablename__ = "asset_loans"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_loans_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "borrower_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_asset_loans_borrower",
+        ),
+        Index(
+            "ix_asset_loans_open_due",
+            "tenant_id",
+            "due_at",
+            postgresql_where=text("closed_at IS NULL AND deleted_at IS NULL"),
+        ),
+        Index("ix_asset_loans_borrower", "tenant_id", "borrower_id"),
+    )
+
+    borrower_id: Mapped[uuid.UUID]
+    starts_at: Mapped[datetime]
+    due_at: Mapped[datetime]
+    closed_at: Mapped[datetime | None]
+    comment: Mapped[str | None] = mapped_column(Text)
+    due_noticed_at: Mapped[datetime | None]
+    overdue_noticed_at: Mapped[datetime | None]
+
+
+class AssetLoanItem(TenantEntity):
+    """One asset of a loan, and how it came back (migration 0114; REQ-AST-031).
+
+    At most one unreturned item per asset: the database refuses a second open loan.
+    """
+
+    __tablename__ = "asset_loan_items"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "loan_id"],
+            ["asset_loans.tenant_id", "asset_loans.id"],
+            name="fk_asset_loan_items_loan",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_loan_items_asset",
+        ),
+        Index(
+            "uq_asset_loan_items_out",
+            "tenant_id",
+            "asset_id",
+            unique=True,
+            postgresql_where=text("returned_at IS NULL AND deleted_at IS NULL"),
+        ),
+        Index("ix_asset_loan_items_loan", "tenant_id", "loan_id"),
+    )
+
+    loan_id: Mapped[uuid.UUID]
+    asset_id: Mapped[uuid.UUID]
+    returned_at: Mapped[datetime | None]
+    outcome: Mapped[str | None] = mapped_column(String(20))
+    return_comment: Mapped[str | None] = mapped_column(Text)

@@ -28,11 +28,13 @@ from app.modules.assets.service.assets import (
 from app.modules.assets.service.catalogue import CONFIGURE, MANAGE, REINSTATE, VIEW
 from app.modules.assets.service.disposals import register_disposal_guard, unregister_disposal_guard
 from app.modules.assets.service.file_access import FILE_ACCESS
+from app.modules.assets.service.loans import loan_sweep, on_loan_guard
 from app.modules.assets.service.ownership import OWNER_SITE_CHANGED
 from app.modules.assets.service.realtime import CHANNELS, ROUTES
 from app.modules.assets.service.refs import AssetRef, asset_refs, assets_of, can_see
 from app.modules.procurement import register_vendor_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
+from app.shared.schedules import ScheduleSpec
 
 FEATURE = "assets"
 _NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
@@ -77,6 +79,8 @@ module = ModuleSpec(
     usage_counters={"assets": count_managed_assets},
     # A person's site changed: assets that follow their owner move too (REQ-AST-018 AC2).
     consumers=[OWNER_SITE_CHANGED],
+    # Loan due and overdue, and warranty notices (REQ-AST-059), claimed once per tenant.
+    schedules=[ScheduleSpec("assets__notices", 60, loan_sweep)],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
 )
@@ -84,6 +88,8 @@ module = ModuleSpec(
 # Disposal certificates (REQ-AST-017): at import, for the workers too; startup registers again
 # after a shutdown (tests start and stop the app), as knowledge does.
 register_owner_access(FILE_ACCESS)
+# An asset on loan is not disposed of (REQ-AST-017 AC1).
+register_disposal_guard(on_loan_guard)
 # Acknowledgements notify through the engine (REQ-AST-023): at import, for the workers too.
 notifications.register()
 

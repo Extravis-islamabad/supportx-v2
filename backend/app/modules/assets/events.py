@@ -96,6 +96,32 @@ class AssetGroupChanged(DomainEvent):
     change: Literal["created", "updated", "deleted", "members"]
 
 
+LoanChange = Literal["created", "returned", "closed", "due", "overdue"]
+
+
+class AssetLoanChanged(DomainEvent):
+    """A loan was made, partly returned, closed, or came due or overdue (REQ-AST-030, 031, 059)."""
+
+    event_type: ClassVar[str] = "assets.loan.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_loan"
+
+    loan_id: uuid.UUID
+    borrower_id: uuid.UUID
+    created_by: uuid.UUID | None
+    change: LoanChange
+
+
+class WarrantyEnding(DomainEvent):
+    """An asset's warranty ends within the tenant's notice days (REQ-AST-059 AC2), once per date."""
+
+    event_type: ClassVar[str] = "assets.warranty.ending"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset"
+
+    asset_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     CatalogueChanged,
     ProductChanged,
@@ -103,4 +129,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AssetHolderChanged,
     AcknowledgementChanged,
     AssetGroupChanged,
+    AssetLoanChanged,
+    WarrantyEnding,
 )

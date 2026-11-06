@@ -34,6 +34,11 @@ export const ur: LabelResource = {
   'asset_link_kind_in.connected_to': 'اس سے جڑا ہوا',
   'asset_link_kind_in.depends_on': 'جسے اس کی ضرورت ہے',
   'asset_link_kind_in.runs_on': 'چلاتا ہے',
+  'asset_loan_status.closed': 'بند',
+  'asset_loan_status.open': 'کھلا',
+  'asset_loan_status.overdue': 'مدت گزر گئی',
+  'asset_return_outcome.in_repair': 'مرمت کے لیے',
+  'asset_return_outcome.in_stock': 'اسٹاک میں واپس',
   'asset_state_category.disposed': 'تلف شدہ',
   'asset_state_category.in_repair': 'مرمت میں',
   'asset_state_category.in_stock': 'اسٹاک میں',
@@ -132,6 +137,8 @@ export const ur: LabelResource = {
   'assets.admin.types_help':
     'اعلیٰ سطح کی قسم طے کرتی ہے کہ اس کے اثاثے آئی ٹی ہیں یا نہیں، اور وہ اثاثے، پرزے یا قابلِ صرف ہیں؛ نیچے کی اقسام دونوں وراثت میں لیتی ہیں۔',
   'assets.admin.useful_life': 'کارآمد عمر (سال)',
+  'assets.admin.warranty_notice_days':
+    'وارنٹی ختم ہونے سے اتنے دن پہلے اثاثوں کے منتظمین کو بتائیں',
   'assets.admin.yes': 'ہاں',
   'assets.age.days_one': '1 دن',
   'assets.age.days_other': '{{count}} دن',

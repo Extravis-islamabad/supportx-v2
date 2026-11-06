@@ -42,6 +42,9 @@ export const en = {
   'notification_event.announcement.updated': 'An announcement you follow was updated',
   'notification_event.asset.ack_disputed': 'Asset disputed by its holder',
   'notification_event.asset.ack_requested': 'Asset given to you: please acknowledge',
+  'notification_event.asset.loan_due': 'Loan due tomorrow',
+  'notification_event.asset.loan_overdue': 'Loan overdue',
+  'notification_event.asset.warranty_expiring': 'Warranty ending soon',
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
@@ -86,15 +89,18 @@ export const en = {
   'notification_reason.no_address': 'Inactive, or no e-mail address',
   'notification_reason.preference': 'Switched off in their preferences',
   'notification_recipient.approvers': 'Approvers',
+  'notification_recipient.asset_managers': 'Asset managers',
   'notification_recipient.assigned_by': 'The person who gave it',
   'notification_recipient.assignee': 'Assigned technician',
   'notification_recipient.author': 'Author',
+  'notification_recipient.borrower': 'The borrower',
   'notification_recipient.connector_admins': 'People who set up this connector',
   'notification_recipient.escalation_recipients': "The escalation level's recipients",
   'notification_recipient.followers': 'Followers',
   'notification_recipient.group': 'Group members',
   'notification_recipient.group_head': 'Group lead and department head',
   'notification_recipient.holder': 'The person who holds it',
+  'notification_recipient.loan_creator': 'The person who made the loan',
   'notification_recipient.mail_admins': 'People who manage mailboxes',
   'notification_recipient.mentioned': 'People mentioned',
   'notification_recipient.new_follower': 'The new follower',
@@ -141,6 +147,20 @@ export const en = {
     'Please acknowledge {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.ack_requested.subject':
     'Please acknowledge {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.loan_due.body':
+    'Hello {{ recipient.name }},\n\nThe assets loaned to {{ holder.name }} are due back tomorrow.',
+  'notification_template.asset.loan_due.in_app': 'Loan to {{ holder.name }} is due tomorrow',
+  'notification_template.asset.loan_due.subject': 'Loaned assets are due back tomorrow',
+  'notification_template.asset.loan_overdue.body':
+    'Hello {{ recipient.name }},\n\nThe assets loaned to {{ holder.name }} were due back and are not yet returned.',
+  'notification_template.asset.loan_overdue.in_app': 'Loan to {{ holder.name }} is overdue',
+  'notification_template.asset.loan_overdue.subject': 'Loaned assets are overdue',
+  'notification_template.asset.warranty_expiring.body':
+    'Hello {{ recipient.name }},\n\nThe warranty of {{ record.display_id }} "{{ record.title }}" ends on {{ warranty.ends_on }}.',
+  'notification_template.asset.warranty_expiring.in_app':
+    'Warranty of {{ record.display_id }} ends on {{ warranty.ends_on }}',
+  'notification_template.asset.warranty_expiring.subject':
+    'Warranty ending: {{ record.display_id }} {{ record.title }}',
   'notification_template.connector.failing.body':
     'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
   'notification_template.connector.failing.in_app':
@@ -330,6 +350,7 @@ export const en = {
   'notification_variable.record.title': 'Record › Subject',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.sla.target': 'SLA › Target',
+  'notification_variable.warranty.ends_on': 'Warranty › Ends on',
   'notifications.banner.no_mail_one':
     '{{count}} e-mail waits because outgoing mail is not set up. In-app notifications still go out; the e-mail is sent once mail works.',
   'notifications.banner.no_mail_other':

@@ -57,10 +57,16 @@ export const ar: LabelResource = {
     'جميع خانات أصول تقنية المعلومات في خطة مؤسستك مستخدمة. تخلّص من أصل أو اطلب من المسؤول إضافة المزيد.',
   'errors.asset_link_exists': 'هذان الأصلان مرتبطان بهذه الطريقة بالفعل.',
   'errors.asset_link_not_found': 'هذا الرابط لم يعد موجودًا.',
+  'errors.asset_loan_not_found': 'هذه الإعارة مغلقة أو لم تعد موجودة.',
   'errors.asset_move_not_allowed': 'لا يمكن نقل هذا الأصل إلى تلك الحالة من حالته الحالية.',
+  'errors.asset_no_default_state':
+    'لا توجد حالة افتراضية لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
   'errors.asset_no_disposed_state':
     'لا توجد حالة تخلّص لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
+  'errors.asset_not_loanable': 'لا يمكن إعارة {{asset}}: ليس قابلًا للإعارة أو ليس في المخزون.',
+  'errors.asset_not_on_this_loan': 'هذا الأصل ليس ضمن هذه الإعارة.',
+  'errors.asset_on_loan': '{{asset}} معار بالفعل.',
   'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
   'errors.asset_product_type_has_children':
     'توجد أنواع منتجات أخرى تحت هذا النوع ({{used}}). انقلها أو احذفها أولًا.',
@@ -237,6 +243,7 @@ export const ar: LabelResource = {
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
   'errors.field.date_format_unknown': 'اختر تنسيق تاريخ من القائمة.',
   'errors.field.date_in_future': 'اختر تاريخ اليوم أو تاريخًا سابقًا.',
+  'errors.field.date_in_past': 'اختر وقتًا بعد الآن.',
   'errors.field.default_cannot_be_disabled':
     'لا يمكن إيقاف القالب الافتراضي. عيّن قالبًا آخر كافتراضي أولًا.',
   'errors.field.default_cannot_be_inactive': 'لا يمكن جعل الافتراضي غير نشط.',

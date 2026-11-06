@@ -60,10 +60,16 @@ export const en = {
     "Every IT asset slot in your organisation's plan is in use. Dispose of an asset or ask your administrator to add more.",
   'errors.asset_link_exists': 'These two assets are already linked that way.',
   'errors.asset_link_not_found': 'That link no longer exists.',
+  'errors.asset_loan_not_found': 'That loan is closed or no longer exists.',
   'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
+  'errors.asset_no_default_state':
+    'There is no default state to move the asset to. Ask an admin to check the asset states.',
   'errors.asset_no_disposed_state':
     'There is no disposed state to move the asset to. Ask an admin to check the asset states.',
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
+  'errors.asset_not_loanable': "{{asset}} can't be loaned: it isn't loanable, or isn't in stock.",
+  'errors.asset_not_on_this_loan': "That asset isn't out on this loan.",
+  'errors.asset_on_loan': '{{asset}} is already out on a loan.',
   'errors.asset_product_not_found': 'This product does not exist.',
   'errors.asset_product_type_has_children':
     'Other product types sit under this one ({{used}}). Move or delete them first.',
@@ -262,6 +268,7 @@ export const en = {
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
   'errors.field.date_format_unknown': 'Choose a date format from the list.',
   'errors.field.date_in_future': 'Choose today or an earlier date.',
+  'errors.field.date_in_past': 'Choose a time later than now.',
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',

@@ -9,17 +9,18 @@
 """
 
 import uuid
+from collections.abc import Mapping
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound, PermissionDenied
-from app.modules.assets.events import AcknowledgementChanged
-from app.modules.assets.infra.models import Asset, AssetAcknowledgement
-from app.modules.assets.service.assets import RECORD_TYPE, _visible
+from app.modules.assets.events import AcknowledgementChanged, AssetLoanChanged, WarrantyEnding
+from app.modules.assets.infra.models import Asset, AssetAcknowledgement, AssetLoan
+from app.modules.assets.service.assets import MANAGE, RECORD_TYPE, VIEW, _visible
 from app.modules.assets.service.realtime import RECORD_KIND
-from app.modules.identity_access import subject_for, user_names
+from app.modules.identity_access import subject_for, user_names, worker_policy
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
     EventDefault,
@@ -33,6 +34,24 @@ from app.shared.notifications.ports import (
 )
 
 EVENTS: tuple[NotificationEvent, ...] = (
+    # Appendix A: loan due (1 day before) and overdue (once) to the borrower and its creator.
+    NotificationEvent(
+        "asset.loan_due",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("borrower", "loan_creator")),
+    ),
+    NotificationEvent(
+        "asset.loan_overdue",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("borrower", "loan_creator")),
+    ),
+    # Appendix A: a warranty ending within 30 days, to the asset managers.
+    NotificationEvent(
+        "asset.warranty_expiring",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("asset_managers",)),
+        public=False,
+    ),
     NotificationEvent(
         "asset.ack_requested",
         NotificationCategory.ASSIGNMENT,
@@ -48,8 +67,10 @@ EVENTS: tuple[NotificationEvent, ...] = (
         ),
     ),
 )
-RECIPIENT_KINDS = ("holder", "assigned_by")
+RECIPIENT_KINDS = ("holder", "assigned_by", "borrower", "loan_creator", "asset_managers")
+MANAGERS_LIMIT = 500
 VARIABLES = (
+    Variable("warranty.ends_on", "notification_variable.warranty.ends_on"),
     Variable("record.display_id", "notification_variable.record.display_id"),
     Variable("record.title", "notification_variable.record.title"),
     Variable("record.link", "notification_variable.record.link"),
@@ -67,10 +88,21 @@ class AssetNotifications:
     recipient_kinds = RECIPIENT_KINDS
     variables = VARIABLES
     conditions: tuple[str, ...] = ()
-    event_types = (AcknowledgementChanged.event_type,)
+    event_types = (
+        AcknowledgementChanged.event_type,
+        AssetLoanChanged.event_type,
+        WarrantyEnding.event_type,
+    )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
         """Asked for: the holder hears of it; disputed: the person who gave it."""
+        if envelope.event_type == WarrantyEnding.event_type:
+            return ("asset.warranty_expiring",)
+        if envelope.event_type == AssetLoanChanged.event_type:
+            change = envelope.payload.get("change")
+            return {"due": ("asset.loan_due",), "overdue": ("asset.loan_overdue",)}.get(
+                str(change), ()
+            )
         status = envelope.payload.get("status")
         if status == "pending":
             return ("asset.ack_requested",)
@@ -81,8 +113,12 @@ class AssetNotifications:
     async def context(
         self, session: AsyncSession, event_code: str, envelope: EventEnvelope
     ) -> RecordContext | None:
-        """The asset and its acknowledgement as they are now."""
+        """The asset (and its acknowledgement), or the loan, as it is now."""
         payload = envelope.payload
+        if envelope.event_type == AssetLoanChanged.event_type:
+            return await self._loan_context(session, event_code, payload)
+        if envelope.event_type == WarrantyEnding.event_type:
+            return await self._warranty_context(session, event_code, payload)
         ack = await session.get(AssetAcknowledgement, uuid.UUID(str(payload["acknowledgement_id"])))
         asset = await session.scalar(
             select(Asset).where(
@@ -117,12 +153,75 @@ class AssetNotifications:
             public_link="/my-assets",
         )
 
+    async def _loan_context(
+        self, session: AsyncSession, event_code: str, payload: Mapping[str, object]
+    ) -> RecordContext | None:
+        loan = await session.get(AssetLoan, uuid.UUID(str(payload["loan_id"])))
+        if loan is None or loan.closed_at is not None:
+            return None  # returned meanwhile: nothing to tell
+        names = await user_names(session, [str(loan.borrower_id)])
+        shown: dict[str, VariableValue] = {
+            "record.display_id": names.get(str(loan.borrower_id)),
+            "record.title": None,
+            "record.link": "/assets/loans",
+            "holder.name": names.get(str(loan.borrower_id)),
+        }
+        return RecordContext(
+            record_id=loan.id,
+            display_id=names.get(str(loan.borrower_id)) or "",
+            link="/assets/loans",
+            variables=shown,
+            public_variables={**shown, "record.link": "/my-assets"},
+            relatives={
+                "borrower": frozenset({loan.borrower_id}),
+                "loan_creator": frozenset({loan.created_by} if loan.created_by else ()),
+            },
+            conditions={},
+            urgent=event_code == "asset.loan_overdue",
+            event_code=event_code,
+            public_link="/my-assets",
+        )
+
+    async def _warranty_context(
+        self, session: AsyncSession, event_code: str, payload: Mapping[str, object]
+    ) -> RecordContext | None:
+        asset = await session.scalar(
+            select(Asset).where(
+                Asset.id == uuid.UUID(str(payload["asset_id"])), Asset.deleted_at.is_(None)
+            )
+        )
+        if asset is None:
+            return None
+        tenant = session.info[SESSION_TENANT_KEY].tenant_id
+        managers = await worker_policy().holders(session, tenant, MANAGE, limit=MANAGERS_LIMIT)
+        shown: dict[str, VariableValue] = {
+            "record.display_id": asset.tag or asset.name,
+            "record.title": asset.name,
+            "record.link": f"/assets/{asset.id}",
+            "warranty.ends_on": str(asset.warranty_expires_on),
+        }
+        return RecordContext(
+            record_id=asset.id,
+            display_id=asset.tag or asset.name,
+            link=f"/assets/{asset.id}",
+            variables=shown,
+            public_variables={},
+            relatives={"asset_managers": frozenset(user_id for user_id, _ in managers)},
+            conditions={},
+            event_code=event_code,
+        )
+
     async def access(
         self, session: AsyncSession, user_id: uuid.UUID, record_id: uuid.UUID
     ) -> RecordAccess:
         """FULL for staff who may see the asset; PUBLIC for the person who holds it."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
         subject = await subject_for(session, tenant, user_id)
+        loan = await session.get(AssetLoan, record_id)
+        if loan is not None:  # a loan: staff see it in full, the borrower their own side
+            if subject.holds(VIEW):
+                return RecordAccess.FULL
+            return RecordAccess.PUBLIC if loan.borrower_id == user_id else RecordAccess.NONE
         try:
             await _visible(session, subject, record_id)
         except (NotFound, PermissionDenied):

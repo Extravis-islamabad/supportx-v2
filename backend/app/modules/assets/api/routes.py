@@ -23,15 +23,17 @@ from app.modules.assets.domain.catalogue import (
     AssetTypeCategory,
     AssetTypeKind,
 )
+from app.modules.assets.domain.loans import loan_status
 from app.modules.assets.infra.models import (
     AssetAcknowledgement,
     AssetLifeCycleTransition,
+    AssetLoan,
     AssetProduct,
     AssetProductType,
     AssetSettings,
     AssetState,
 )
-from app.modules.assets.service import acknowledgements, groups, ownership, refs
+from app.modules.assets.service import acknowledgements, groups, loans, ownership, refs
 from app.modules.assets.service import catalogue as service
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
@@ -39,6 +41,7 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query, paginate
 from app.shared.api.ratelimit import rate_limit
+from app.shared.clock import system_clock
 from app.shared.history import source_of
 
 Responses = dict[int | str, dict[str, object]]
@@ -78,6 +81,9 @@ class AssetSettingsOut(BaseModel):
     site_follows_owner: bool
     portal_own_assets_only: bool
     email_include_assets: bool
+    warranty_notice_days: int = Field(
+        description="Days before a warranty ends that managers hear of it."
+    )
     scan_retention_months: int
     version: int
 
@@ -92,6 +98,7 @@ class AssetSettingsOut(BaseModel):
             site_follows_owner=row.site_follows_owner,
             portal_own_assets_only=row.portal_own_assets_only,
             email_include_assets=row.email_include_assets,
+            warranty_notice_days=row.warranty_notice_days,
             scan_retention_months=row.scan_retention_months,
             version=row.version,
         )
@@ -109,6 +116,7 @@ class AssetSettingsIn(BaseModel):
     site_follows_owner: bool | None = None
     portal_own_assets_only: bool | None = None
     email_include_assets: bool | None = None
+    warranty_notice_days: int | None = Field(default=None, ge=1, le=365)
     scan_retention_months: int | None = Field(default=None, ge=1, le=60)
 
 
@@ -1125,3 +1133,132 @@ async def asset_picker(
         PickedAssetOut(id=r.id, tag=r.tag, name=r.name or "", state_id=r.state_id, mine=r.mine)
         for r in found
     ]
+
+
+# --- loans (REQ-AST-029, 030, 031) -------------------------------------------------------------
+
+
+class LoanableIn(BaseModel):
+    """Mark the selected assets loanable or not (up to 50)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+    loanable: bool
+
+
+class LoanIn(BaseModel):
+    """Loan loanable, in-stock assets to a person until a date."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    borrower_id: uuid.UUID
+    asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+    due_at: datetime
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class LoanReturnIn(BaseModel):
+    """Some or all of a loan's assets come back: to stock, or to repair with what is wrong."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
+    outcome: Literal["in_stock", "in_repair"] = "in_stock"
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class LoanOut(BaseModel):
+    """A loan: who, until when, its status (overdue computed now) and what is still out."""
+
+    id: uuid.UUID
+    borrower_id: uuid.UUID
+    starts_at: datetime
+    due_at: datetime
+    closed_at: datetime | None
+    comment: str | None
+    status: Literal["open", "overdue", "closed"]
+    outstanding: list[uuid.UUID]
+    version: int
+
+
+async def _loan_out(session: TenantSession, row: AssetLoan) -> LoanOut:
+    out = await loans.outstanding_assets(session, row.id)
+    status = loan_status(due_at=row.due_at, outstanding=len(out), now=system_clock.now())
+    return LoanOut(
+        id=row.id,
+        borrower_id=row.borrower_id,
+        starts_at=row.starts_at,
+        due_at=row.due_at,
+        closed_at=row.closed_at,
+        comment=row.comment,
+        status=cast("Literal['open', 'overdue', 'closed']", status),  # loan_status's three
+        outstanding=out,
+        version=row.version,
+    )
+
+
+@router.post(
+    "/loanable",
+    summary="Mark assets loanable or not",
+    dependencies=[audited("asset.loanable_set", object_type="asset")],
+)
+async def set_loanable(
+    body: LoanableIn, session: TenantSession, subject: AssetsManage, request: Request
+) -> dict[str, int]:
+    """With history on each; `changed`: how many changed."""
+    changed = await loans.set_loanable(
+        session, subject, body.asset_ids, loanable=body.loanable, source=source_of(request)
+    )
+    return {"changed": changed}
+
+
+@router.get("/loans", summary="Open loans, overdue first")
+async def list_loans(session: TenantSession, subject: AssetsView) -> list[LoanOut]:
+    """Every open loan of the organisation, those past due first."""
+    return [await _loan_out(session, r) for r in await loans.open_loans(session, subject)]
+
+
+@router.post(
+    "/loans",
+    summary="Loan assets to a person",
+    status_code=status.HTTP_201_CREATED,
+    response_model=LoanOut,
+    responses={409: {"model": ProblemDetail, "description": "asset_not_loanable, asset_on_loan"}},
+    dependencies=[audited("asset_loan.created", object_type="asset_loan")],
+)
+async def create_loan(
+    body: LoanIn,
+    session: TenantSession,
+    subject: AssetsManage,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """Idempotency-Key. Each asset moves to in use and is given to the borrower."""
+
+    async def run() -> Created:
+        row = await loans.create_loan(
+            session, subject, borrower_id=body.borrower_id, asset_ids=body.asset_ids,
+            due_at=body.due_at, comment=body.comment, source=source_of(request),
+        )  # fmt: skip
+        return Created(body=await _loan_out(session, row))
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+@router.post(
+    "/loans/{loan_id}/returns",
+    summary="Return some or all of a loan's assets",
+    responses={404: {"model": ProblemDetail, "description": "asset_loan_not_found"}},
+    dependencies=[audited("asset_loan.returned", object_type="asset_loan", object_param="loan_id")],
+)
+async def return_loan_items(
+    loan_id: uuid.UUID, body: LoanReturnIn, session: TenantSession, subject: AssetsManage,
+    request: Request,
+) -> LoanOut:  # fmt: skip
+    """The last return closes the loan; to repair needs a comment."""
+    row = await loans.return_items(
+        session, subject, loan_id, body.asset_ids, outcome=body.outcome, comment=body.comment,
+        source=source_of(request),
+    )  # fmt: skip
+    return await _loan_out(session, row)
