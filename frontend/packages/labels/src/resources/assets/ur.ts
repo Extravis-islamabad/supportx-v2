@@ -176,6 +176,7 @@ export const ur: LabelResource = {
   'assets.record.inactive': 'غیر فعال',
   'assets.record.location': 'مقام',
   'assets.record.name': 'نام',
+  'assets.record.no_products': 'کوئی پروڈکٹ نہیں ملی',
   'assets.record.no_vendors': 'ابھی کوئی وینڈر نہیں',
   'assets.record.none': 'یہاں ابھی کوئی اثاثہ نہیں',
   'assets.record.other_field': 'کوئی اور فیلڈ',

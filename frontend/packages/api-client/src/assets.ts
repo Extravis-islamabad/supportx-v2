@@ -40,6 +40,28 @@ export type AssetDepreciationMethod = S['AssetDepreciationMethod'];
 /** The products list: one product type's products (or all), newest change first. */
 export interface AssetProductsQuery {
   productTypeId?: string;
+  /** Part of a name, manufacturer or part number (the searching product picker). */
+  search?: string;
+}
+
+/** The shared filter DSL (§6.5) for a products query: one type, and/or a text search. */
+function productsFilter(query: AssetProductsQuery): string | undefined {
+  const parts: object[] = [];
+  if (query.productTypeId !== undefined) {
+    parts.push({ field: 'product_type_id', op: 'eq', value: query.productTypeId });
+  }
+  const text = query.search?.trim() ?? '';
+  if (text !== '') {
+    parts.push({
+      or: ['name', 'manufacturer', 'part_number'].map((field) => ({
+        field,
+        op: 'contains',
+        value: text,
+      })),
+    });
+  }
+  if (parts.length === 0) return undefined;
+  return JSON.stringify(parts.length === 1 ? parts[0] : { and: parts });
 }
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
@@ -85,15 +107,8 @@ export function useAssetProducts(query: AssetProductsQuery, enabled = true) {
         api.GET('/api/v1/assets/products', {
           params: {
             query: {
-              filter:
-                query.productTypeId === undefined
-                  ? undefined
-                  : JSON.stringify({
-                      field: 'product_type_id',
-                      op: 'eq',
-                      value: query.productTypeId,
-                    }),
-              sort: '-updated_at',
+              filter: productsFilter(query),
+              sort: query.search === undefined ? '-updated_at' : 'name',
               limit: 50,
               cursor: pageParam ?? undefined,
               include_total: pageParam === null,
@@ -104,6 +119,21 @@ export function useAssetProducts(query: AssetProductsQuery, enabled = true) {
     initialPageParam: null as string | null,
     getNextPageParam: (page) => (page.has_more ? page.next_cursor : null),
     enabled,
+  });
+}
+
+/** One product (the picker's current choice when it is not on the loaded page). */
+export function useAssetProduct(id: string | undefined) {
+  return useQuery({
+    queryKey: [...queryKeys.assets.all, 'product', id ?? ''],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/products/{product_id}', {
+          params: { path: { product_id: id ?? '' } },
+        }),
+      ),
+    enabled: id !== undefined && id !== '',
+    retry: false,
   });
 }
 

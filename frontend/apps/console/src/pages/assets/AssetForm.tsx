@@ -1,10 +1,16 @@
 import { DatePicker, Flex, Form, Input, InputNumber, Select, TreeSelect } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
-import { useAssetProducts, useAssetProductTypes, useVendors } from '@supportx/api-client';
+import {
+  useAssetProduct,
+  useAssetProducts,
+  useAssetProductTypes,
+  useVendors,
+} from '@supportx/api-client';
 import { lengthLimit, useAppearance, useLabel } from '@supportx/ui';
 
+import { useDebounced } from '../../useDebounced';
 import { nameOf } from '../admin/assets/shared';
 import { typeTree, type TypeNode } from '../admin/assets/tree';
 import type { AssetDraft } from './draft';
@@ -26,13 +32,23 @@ export function AssetFields({
   const t = useLabel();
   const { locale } = useAppearance();
   const types = useAssetProductTypes();
-  const products = useAssetProducts({});
+  // Searching picker: the server finds products by name, manufacturer or part number, a page
+  // at a time (scrolling loads more); the current one is fetched on its own if not loaded.
+  const [productSearch, setProductSearch] = useState('');
+  const searched = useDebounced(productSearch, 250);
+  const products = useAssetProducts({ search: searched === '' ? undefined : searched });
+  const current = useAssetProduct(draft.product_id === '' ? undefined : draft.product_id);
   const vendors = useVendors(false);
   const productChoices = useMemo(() => {
     const rows = products.data?.pages.flatMap((p) => p.items) ?? [];
     const walk = (nodes: TypeNode[]): object[] =>
       nodes.flatMap((node) => {
-        const own = rows
+        const own = [
+          ...rows,
+          ...(current.data !== undefined && !rows.some((p) => p.id === current.data.id)
+            ? [current.data]
+            : []),
+        ]
           .filter((p) => p.product_type_id === node.id)
           .map((p) => ({ value: p.id, title: p.name }));
         const below = walk(node.children ?? []);
@@ -47,7 +63,7 @@ export function AssetFields({
         ];
       });
     return walk(typeTree(types.data ?? []));
-  }, [products.data, types.data, locale]);
+  }, [products.data, current.data, types.data, locale]);
   const vendorChoices = (vendors.data?.pages.flatMap((p) => p.items) ?? [])
     .filter((v) => v.is_active || v.id === draft.vendor_id)
     .map((v) => ({ value: v.id, label: v.name }));
@@ -118,8 +134,18 @@ export function AssetFields({
           id="asset-product"
           aria-label={t('assets.record.product')}
           showSearch
-          treeNodeFilterProp="title"
+          searchValue={productSearch}
+          onSearch={setProductSearch}
+          filterTreeNode={false}
           treeDefaultExpandAll
+          loading={products.isFetching}
+          notFoundContent={t('assets.record.no_products')}
+          onPopupScroll={(event) => {
+            const box = event.currentTarget;
+            if (box.scrollTop + box.clientHeight >= box.scrollHeight - 24 && products.hasNextPage) {
+              void products.fetchNextPage();
+            }
+          }}
           value={draft.product_id === '' ? undefined : draft.product_id}
           treeData={productChoices}
           onChange={(id: string) => {

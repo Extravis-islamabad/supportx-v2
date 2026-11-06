@@ -153,6 +153,34 @@ describe('console: assets', () => {
     expect(await screen.findByTestId('asset-tabs')).toBeTruthy();
   });
 
+  it('the product picker searches the server by name, manufacturer or part number', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi({
+      'GET /api/v1/assets/products': {
+        body: page([{ id: asset.product_id, product_type_id: type.id, name: 'XPS 13' }]),
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-add'));
+    const picker = await screen.findByRole('combobox', { name: 'Product' });
+    fireEvent.mouseDown(picker);
+    fireEvent.change(picker, { target: { value: 'xps' } });
+    await waitFor(() => {
+      const searched = fake
+        .find('GET', '/api/v1/assets/products')
+        .map((c) => c.url.searchParams.get('filter'))
+        .filter((f): f is string => f !== null);
+      expect(searched.map((f) => JSON.parse(f) as unknown)).toContainEqual({
+        or: ['name', 'manufacturer', 'part_number'].map((field) => ({
+          field,
+          op: 'contains',
+          value: 'xps',
+        })),
+      });
+    });
+  });
+
   it('shows one asset with price, tax and total, and saves an edit with If-Match', async () => {
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({

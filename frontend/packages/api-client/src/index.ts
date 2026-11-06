@@ -919,6 +919,7 @@ export {
   type AssetDisposalInput,
   useAssetActions,
   useAssetDisposal,
+  useAssetProduct,
   useAssetMoves,
   type AssetProduct,
   type AssetProductInput,

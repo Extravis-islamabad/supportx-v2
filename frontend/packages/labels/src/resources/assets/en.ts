@@ -173,6 +173,7 @@ export const en = {
   'assets.record.inactive': 'Inactive',
   'assets.record.location': 'Location',
   'assets.record.name': 'Name',
+  'assets.record.no_products': 'No product found',
   'assets.record.no_vendors': 'No vendors yet',
   'assets.record.none': 'No assets here yet',
   'assets.record.other_field': 'Another field',

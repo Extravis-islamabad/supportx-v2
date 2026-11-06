@@ -190,6 +190,7 @@ export const ar: LabelResource = {
   'assets.record.inactive': 'غير نشط',
   'assets.record.location': 'الموقع التفصيلي',
   'assets.record.name': 'الاسم',
+  'assets.record.no_products': 'لم يُعثر على منتج',
   'assets.record.no_vendors': 'لا يوجد موردون بعد',
   'assets.record.none': 'لا توجد أصول هنا بعد',
   'assets.record.other_field': 'حقل آخر',
