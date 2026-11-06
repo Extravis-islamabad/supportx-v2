@@ -158,6 +158,24 @@ describe('Admin › Roles', () => {
     expect(screen.queryByTestId('save-role')).toBeNull();
   });
 
+  it('PEO-06: a built-in role opens on what it grants, scopes as text, with a search', async () => {
+    adminRoutes();
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('role-row-technician'));
+    // Granted only by default: requests.view is held, users.view is not, so it is hidden.
+    const held = await screen.findByTestId('scope-requests.view');
+    expect(held.tagName).not.toBe('INPUT');
+    expect(held.textContent).toBe('All records');
+    expect(screen.queryByTestId('scope-users.view')).toBeNull();
+    fireEvent.click(screen.getByTestId('role-granted-only'));
+    expect(await screen.findByTestId('scope-users.view')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('role-permission-search'), {
+      target: { value: 'zzz-nothing' },
+    });
+    expect(await screen.findByText('No permission matches')).toBeTruthy();
+    expect(screen.getByTestId('copy-role').textContent).toBe('Duplicate as a custom role');
+  });
+
   it('REQ-ADM-017: a built-in role is copied into a new custom role with the same grants', async () => {
     const fake = adminRoutes({
       routes: {

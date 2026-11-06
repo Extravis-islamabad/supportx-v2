@@ -12,6 +12,7 @@ import {
   Select,
   Space,
   Spin,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -158,6 +159,21 @@ function RoleForm({
   const stale = initial !== null && initial.version !== base;
   const readOnly = role?.is_system === true || !can('roles.manage');
   const modules = useMemo(() => groupByModule(catalogue), [catalogue]);
+  const [permissionSearch, setPermissionSearch] = useState('');
+  const [grantedOnly, setGrantedOnly] = useState(readOnly);
+  const [openModules, setOpenModules] = useState<string[]>(() => modules.map(([m]) => m));
+  const permissionQuery = permissionSearch.trim().toLocaleLowerCase();
+  const shownModules = modules
+    .map(([module, permissions]): [string, PermissionInfo[]] => [
+      module,
+      permissions.filter((permission) => {
+        if (grantedOnly && matrix[permission.key] === undefined) return false;
+        if (permissionQuery === '') return true;
+        const text = `${t(`permission.${permission.key}`)} ${t(`permission.${permission.key}.description`)}`;
+        return text.toLocaleLowerCase().includes(permissionQuery);
+      }),
+    ])
+    .filter(([, permissions]) => permissions.length > 0);
 
   const save = (version = base) => {
     const permissions = Object.values(matrix).filter((g): g is RoleGrant => g !== undefined);
@@ -197,6 +213,18 @@ function RoleForm({
           data-testid="role-stale"
         />
       )}
+      {role !== null && onCopy !== undefined && can('roles.manage') && (
+        <Flex justify="end">
+          <WriteButton
+            data-testid="copy-role"
+            onClick={() => {
+              onCopy(role);
+            }}
+          >
+            {t('roles.duplicate')}
+          </WriteButton>
+        </Flex>
+      )}
       {role?.is_system !== true && (
         <Form layout="vertical">
           <Form.Item
@@ -233,9 +261,42 @@ function RoleForm({
         </Form>
       )}
       <Typography.Title level={4}>{t('roles.permissions')}</Typography.Title>
+      {/* Find a right fast; a built-in role opens on what it grants (QA6S-PEO-06). */}
+      <Flex gap={12} wrap align="center">
+        <Input.Search
+          allowClear
+          aria-label={t('roles.search')}
+          placeholder={t('roles.search')}
+          value={permissionSearch}
+          onChange={(event) => {
+            setPermissionSearch(event.target.value);
+          }}
+          style={{ maxWidth: 320 }}
+          data-testid="role-permission-search"
+        />
+        <Flex gap={8} align="center">
+          <Switch
+            checked={grantedOnly}
+            onChange={setGrantedOnly}
+            aria-labelledby="role-granted-only"
+            data-testid="role-granted-only"
+          />
+          <Typography.Text id="role-granted-only">{t('roles.granted_only')}</Typography.Text>
+        </Flex>
+      </Flex>
+      {shownModules.length === 0 && (
+        <Typography.Text type="secondary">{t('roles.no_permission_found')}</Typography.Text>
+      )}
       <Collapse
-        defaultActiveKey={modules.map(([module]) => module)}
-        items={modules.map(([module, permissions]) => ({
+        // While searching or filtering, every module with a match is open; otherwise the
+        // person's own open and closed modules (all open at first).
+        activeKey={
+          permissionQuery === '' && !grantedOnly ? openModules : shownModules.map(([m]) => m)
+        }
+        onChange={(keys) => {
+          if (permissionQuery === '' && !grantedOnly) setOpenModules(([] as string[]).concat(keys));
+        }}
+        items={shownModules.map(([module, permissions]) => ({
           key: module,
           label: t(`permission_module.${module}`),
           children: (
@@ -258,18 +319,6 @@ function RoleForm({
         />
       )}
       <FormProblem problem={problem} />
-      {role !== null && onCopy !== undefined && can('roles.manage') && (
-        <Flex justify="start">
-          <WriteButton
-            data-testid="copy-role"
-            onClick={() => {
-              onCopy(role);
-            }}
-          >
-            {t('roles.copy')}
-          </WriteButton>
-        </Flex>
-      )}
       {!readOnly && (
         // Delete on the start side, apart from Save (QA6S-PEO-08); Save is never disabled
         // without a reason: an empty name shows its error and takes the focus (PEO-07).
@@ -454,13 +503,24 @@ function PermissionRows({
           width: 200,
           render: (_, permission) => {
             const grant = matrix[permission.key];
+            // Read-only: the scope as text, not a disabled control (grey on grey, PEO-06).
+            if (readOnly) {
+              return (
+                <Typography.Text
+                  type={grant === undefined ? 'secondary' : undefined}
+                  data-testid={`scope-${permission.key}`}
+                >
+                  {t(grant === undefined ? 'scope.none' : `scope.${grant.scope}`)}
+                </Typography.Text>
+              );
+            }
             return (
               <Select<string>
                 aria-label={t('roles.scope_of', { permission: t(`permission.${permission.key}`) })}
                 data-testid={`scope-${permission.key}`}
                 style={{ width: '100%' }}
                 value={grant?.scope ?? NONE}
-                disabled={readOnly || !permission.entitled}
+                disabled={!permission.entitled}
                 options={[
                   { value: NONE, label: t('scope.none') },
                   ...permission.scopes.map((scope) => ({
