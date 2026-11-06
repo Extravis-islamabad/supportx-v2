@@ -3,7 +3,7 @@ import { Alert, App, Button, Flex, Segmented, Select, Space, Table } from 'antd'
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { stripIsolates, useListFormat } from '@supportx/labels';
+import { useListFormat } from '@supportx/labels';
 
 import {
   allOf,
@@ -76,6 +76,7 @@ import { SearchChips } from './list/SearchChips';
 import { TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
+import { searchOf } from './searchOf';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
@@ -94,19 +95,6 @@ const SETTINGS_CHANGED = 'work_items.list_settings_changed';
 // someone else, a direct report gained or lost, a group joined or left. Someone who sees every
 // incident follows only the shared list channel, which never hears about these.
 const MY_COUNTS_CHANGED = new Set([LISTS_CHANGED, 'users.reports_changed', 'access.changed']);
-const ID_PATTERN = /^([A-Za-z]{2,6}-)?\d{1,18}$/;
-
-/** Subject words, or a display ID ("INC-12", "12"), in one search box. */
-function searchOf(typed: string): FilterExpression | undefined {
-  // A pasted ID or subject may carry directional marks from a screen (isolation rule).
-  const text = stripIsolates(typed).trim();
-  if (text === '') return undefined;
-  const subject: FilterExpression = { field: 'subject', op: 'contains', value: text };
-  if (!ID_PATTERN.test(text)) return subject;
-  const number = Number(text.replace(/^[A-Za-z]+-/, ''));
-  return { or: [subject, { field: 'display_number', op: 'eq', value: number }] };
-}
-
 /**
  * Incidents (REQ-INC-104 to 110, 119, 120): built-in and saved views with live counts, chosen
  * columns per view, a time range, search with chips, a page size, sorting across pages, selection

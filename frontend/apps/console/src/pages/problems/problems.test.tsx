@@ -73,6 +73,13 @@ function api(routes: Record<string, unknown> = {}) {
         body: { items: [record], next_cursor: null, has_more: false, people: {} },
       },
       'GET /api/v1/problems/settings': { body: fakeIncidentCatalogue() },
+      'GET /api/v1/problems/views': {
+        body: [
+          { view: 'all_open', count: 1, capped: false },
+          { view: 'known_errors', count: 0, capped: false },
+          { view: 'accepted_due_review', count: 0, capped: false },
+        ],
+      },
       'GET /api/v1/problems/templates': { body: [template] },
       'GET /api/v1/problems/similar': { body: [] },
       [`GET /api/v1/problems/${PRB_ID}`]: { body: record },
@@ -91,6 +98,43 @@ function api(routes: Record<string, unknown> = {}) {
 }
 
 describe('console: problems', () => {
+  it('WP-044c S1: the views with their counts, and a search for words or a PRB number', async () => {
+    window.history.pushState({}, '', '/problems');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('prb-row-PRB-7');
+    const selector = screen.getByTestId('prb-view').querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    fireEvent.click(await screen.findByText('Known errors (0)'));
+    await waitFor(() => {
+      expect(
+        fake
+          .find('GET', '/api/v1/problems')
+          .some((c) => c.url.searchParams.get('view') === 'known_errors'),
+      ).toBe(true);
+    });
+    fireEvent.change(screen.getByTestId('prb-search'), { target: { value: 'PRB-7' } });
+    await waitFor(() => {
+      const sent = fake
+        .find('GET', '/api/v1/problems')
+        .map((c) => c.url.searchParams.get('filter'))
+        .filter((f): f is string => f !== null);
+      expect(sent.some((f) => f.includes('"display_number"') && f.includes('7'))).toBe(true);
+    });
+  });
+
+  it('WP-044c S1: the ID and subject stay in view and a long subject ends in an ellipsis', async () => {
+    window.history.pushState({}, '', '/problems');
+    api();
+    render(<App />);
+    const row = (await screen.findByTestId('prb-row-PRB-7')).closest('tr') as HTMLElement;
+    const cells = row.querySelectorAll('td');
+    expect(cells[0]?.className).toContain('ant-table-cell-fix-left');
+    expect(cells[1]?.className).toContain('ant-table-cell-fix-left');
+    expect(cells[1]?.className).toContain('ant-table-cell-ellipsis');
+  });
+
   it('lists problems with a way to create one', async () => {
     window.history.pushState({}, '', '/problems');
     api();

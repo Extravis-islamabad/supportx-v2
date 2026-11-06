@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, call } from './client';
 import { ApiError } from './errors';
 import { useSingleFlight, type ActionRun } from './incidents';
+import type { FilterExpression } from './users';
 import type { components } from './schema';
 
 // Problems (WP-044a): a work item of its own type on the same engine. This file covers what the
@@ -22,11 +23,15 @@ export type ProblemEvidence = components['schemas']['ProblemEvidenceOut'];
 export interface ProblemsQuery {
   view?: string;
   cursor?: string;
+  /** The shared filter DSL (search words, a display ID). */
+  filter?: FilterExpression;
+  sort?: string;
 }
 
 export const problemKeys = {
   all: ['problems'] as const,
   list: (query: ProblemsQuery) => ['problems', 'list', query] as const,
+  views: ['problems', 'views'] as const,
   detail: (id: string) => ['problems', 'detail', id] as const,
   links: (id: string) => ['problems', 'detail', id, 'links'] as const,
   investigators: (id: string) => ['problems', 'detail', id, 'investigators'] as const,
@@ -43,8 +48,30 @@ const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 export function useProblems(query: ProblemsQuery) {
   return useQuery({
     queryKey: problemKeys.list(query),
-    queryFn: () => call(api.GET('/api/v1/problems', { params: { query } })),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems', {
+          params: {
+            query: {
+              view: query.view,
+              cursor: query.cursor,
+              sort: query.sort,
+              filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
+            },
+          },
+        }),
+      ),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** The built-in problem views in their fixed order, each with how many you see (WP-044c). */
+export function useProblemViews() {
+  return useQuery({
+    queryKey: problemKeys.views,
+    queryFn: () => call(api.GET('/api/v1/problems/views')),
+    // "Accepted, due for review" changes with the clock, not only with events.
+    refetchInterval: 60_000,
   });
 }
 
