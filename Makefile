@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 .PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -96,6 +96,9 @@ db-guard: ## Check every table's tenant isolation (RLS) in the dev database
 
 dev-subscription: ## Show or change a dev tenant's plan: TENANT=demo|other|<uuid> ARGS="--technicians 1"
 	$(BACKEND) uv run python -m tooling.dev_subscription --tenant $(or $(TENANT),demo) $(ARGS)
+
+mail-inbound-test: ## Feed one e-mail into a dev tenant's inbound pipeline (QA6-NTF-01): TENANT=demo ARGS="--create"
+	$(BACKEND) uv run python -m tooling.mail_inbound --tenant $(or $(TENANT),demo) $(ARGS)
 
 # --- Event bus (WP-007, docs/architecture/events.md). Workers read backend/.env (make backend-env).
 
