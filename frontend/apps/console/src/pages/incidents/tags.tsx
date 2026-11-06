@@ -98,17 +98,20 @@ function span(t: Translate, ms: number): string {
  * The resolution SLA at a glance: time left or overdue, ticking on the client from the due time
  * (WP-025 session 4), with the due moment on hover. The dot follows the target's state (warning
  * past its point, error once overdue). For screen readers it is a timer that is not announced
- * every minute; only a change of state is said, politely (wp-025-plan.md §3.7).
+ * every minute; only a change of state is said, politely (wp-025-plan.md §3.7). Once
+ * resolved there is nothing left to count: it says whether it was resolved on time (QA6-INC-03).
  */
 export function SlaTag({
   policyId,
   dueAt,
   state,
+  resolvedAt = null,
   format,
 }: {
   policyId: string | null;
   dueAt: string | null;
   state?: string | null;
+  resolvedAt?: string | null;
   format: (iso: string | null) => string;
 }) {
   const t = useLabel();
@@ -121,6 +124,18 @@ export function SlaTag({
     );
   }
   const stateText = state ? t(`sla_target_state.${state}`) : '';
+  if (resolvedAt !== null && state !== 'stopped') {
+    const late =
+      state === 'breached' || (dueAt !== null && Date.parse(resolvedAt) > Date.parse(dueAt));
+    return (
+      <Tooltip title={dueAt === null ? undefined : format(dueAt)}>
+        <Tag data-testid="inc-due" data-state={late ? 'resolved_late' : 'resolved_on_time'}>
+          <Badge status={late ? 'error' : 'success'} />
+          {t(late ? 'incidents.sla.resolved_late' : 'incidents.sla.resolved_on_time')}
+        </Tag>
+      </Tooltip>
+    );
+  }
   if (dueAt === null) {
     // Paused or done: no moment to count to.
     return <Tag data-testid="inc-due">{stateText || format(null)}</Tag>;

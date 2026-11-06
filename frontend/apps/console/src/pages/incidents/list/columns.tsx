@@ -125,6 +125,7 @@ const OWN: ColumnSpec[] = [
         policyId={row.sla_policy_id}
         dueAt={row.resolution_due_at}
         state={row.resolution_sla_state}
+        resolvedAt={row.resolved_at}
         format={c.dates.format}
       />
     ),
