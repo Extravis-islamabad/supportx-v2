@@ -1253,6 +1253,45 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
+### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 in progress, #233)
+
+Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
+Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
+
+- [~] **S1 — the runtime core (#233).**
+  - ADR-043, reviewed by lanes A (§6 work_items touch points, §7 the shared action library)
+    and B (§8 the guarded HTTP client, the run-as identity).
+  - Definitions and validation (`domain/workflows.py`): the node registry, problems named by node
+    or link, the Appendix A limits.
+  - The interpreter (`domain/interpreter.py`): a pure step function with tokens, joins, waits
+    (overtaken and timeout outputs), timers, commands whose results choose the output, and the
+    loop and step limits. 49 automation domain tests.
+  - Migration 0105: workflows (with start templates), versions, instances, steps, all with RLS.
+  - The runtime (`service/workflow_runtime.py`): start and run, with commands through the
+    record type's `run_command` port. work_items implements it through its public services, as
+    the workflow's run-as identity; history names the workflow through `history.automated`.
+  - The run-as identity: a service identity per workflow, with source "workflow"
+    (UserCreatedV4). Roles come only through the guarded path, and a never-list (tenant_admin;
+    identity, role, user, preview and API-key management) holds on every path. Lane B approved.
+  - Wakers: the `automation__workflow_events` consumer (record changes, template starts) and the
+    `automation__workflow_wake` minute sweep; Temporal's `WorkflowInstanceWaker` with
+    `workers/workflow_timers`, signalled by `automation__workflow_scheduler`.
+  - Admin service and API `/automation/workflows`: create, draft with problems, publish, enable,
+    start templates, start on a record, instances and their log; `workflows.manage` and
+    `workflows.run` behind the `workflows` licence feature.
+  - Waiting on lane A: the trigger action "start a workflow" (REQ-WF-010 AC2), either on #233 or
+    with WP-048a's action library.
+  - Lane B's chart: a `workflowTimers` Deployment beside slaTimers when Temporal joins the chart.
+- [ ] **S2** — the approval node (with D-146's chair), task and checklist nodes, notification,
+  webhook (the shared guarded HTTP client) and function (runner port) nodes, variables, retries
+  and error outputs, sub-flows.
+- [ ] **S3** — versions and migrating instances, stop and restart, the overview, copy, export and
+  import, and the test mode.
+- [ ] **S4** — the React Flow designer.
+- [ ] **S5** — e2e, guides, and the visual matrix.
+- **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
+  `users.preview` test once that permission lands (lane B).
+
 ### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
