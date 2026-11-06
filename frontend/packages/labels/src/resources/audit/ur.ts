@@ -10,6 +10,7 @@ export const ur: LabelResource = {
   'audit.action.api_key.refused': 'API کلید رد کی گئی',
   'audit.action.api_key.revoked': 'API کلید منسوخ کی',
   'audit.action.api_key.settings_changed': 'API کلید کے قواعد بدلے',
+  'audit.action.asset.copied': 'اثاثے کی نقل بنائی',
   'audit.action.asset.created': 'اثاثہ شامل کیا',
   'audit.action.asset.deleted': 'اثاثہ کوڑے دان میں ڈالا',
   'audit.action.asset.life_cycle_deleted': 'اثاثے کا لائف سائیکل حذف کیا',

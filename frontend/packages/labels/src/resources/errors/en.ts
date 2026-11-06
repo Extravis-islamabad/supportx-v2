@@ -35,6 +35,9 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.asset_bulk_empty': 'Choose at least one asset.',
+  'errors.asset_bulk_too_many': 'Choose at most {{max}} assets at once.',
+  'errors.asset_copy_limit': 'Make between 1 and {{max}} copies at once.',
   'errors.asset_life_cycle_in_use':
     'Product types still use this life cycle ({{used}}). Move them to another one first.',
   'errors.asset_life_cycle_not_found': 'This life cycle does not exist.',

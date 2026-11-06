@@ -8,6 +8,7 @@ export const en = {
   'audit.action.api_key.refused': 'API key refused',
   'audit.action.api_key.revoked': 'Revoked an API key',
   'audit.action.api_key.settings_changed': 'Changed the API key rules',
+  'audit.action.asset.copied': 'Copied an asset',
   'audit.action.asset.created': 'Added an asset',
   'audit.action.asset.deleted': 'Moved an asset to the trash',
   'audit.action.asset.life_cycle_deleted': 'Deleted an asset life cycle',

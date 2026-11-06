@@ -21,9 +21,10 @@ from app.modules import metadata
 from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
 from app.modules.assets.infra.models import Asset
 from app.modules.assets.service import assets as service
-from app.modules.assets.service import moves
+from app.modules.assets.service import bulk, moves
 from app.modules.assets.service.catalogue import TEXT_MAX
-from app.modules.audit import audited
+from app.modules.audit import RequestFacts, audited
+from app.modules.audit import record as record_audit
 from app.modules.identity_access import Subject, user_names
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.filters import FilterField
@@ -465,3 +466,105 @@ async def move_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     )
     set_etag(response, row.version)
     return AssetOut.of(row)
+
+
+class AssetCopyIn(BaseModel):
+    """How many copies (up to the tenant's copy limit, Appendix A: 50)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int = Field(ge=1, le=500)
+
+
+class AssetCopiesOut(BaseModel):
+    """The new assets, in the order made."""
+
+    items: list[AssetOut]
+
+
+@router.post(
+    "/{asset_id}/copy",
+    summary="Copy an asset",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssetCopiesOut,
+    responses={
+        404: {"model": ProblemDetail, "description": "asset_not_found"},
+        409: {"model": ProblemDetail, "description": "asset_copy_limit (params: max)"},
+    },
+    dependencies=[audited("asset.copied", object_type="asset", object_param="asset_id")],
+)
+async def copy_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    body: AssetCopyIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """New assets like this one: new tags, no serial or barcode, in stock. Idempotency-Key."""
+
+    async def run() -> Created:
+        made = await bulk.copy_asset(
+            session, subject, asset_id, count=body.count, source=source_of(request)
+        )
+        return Created(body=AssetCopiesOut(items=[AssetOut.of(row) for row in made]))
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+class AssetBulkMoveItem(BaseModel):
+    """One asset, at the version you saw."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    asset_id: uuid.UUID
+    version: int
+
+
+class AssetBulkMoveIn(BaseModel):
+    """Move these assets to one state, with one reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[AssetBulkMoveItem] = Field(min_length=1, max_length=bulk.BULK_MAX)
+    to_state_id: uuid.UUID
+    reason: str | None = Field(default=None, max_length=moves.REASON_MAX)
+
+
+class AssetBulkMoveResult(BaseModel):
+    """One asset's outcome: moved (with its new version), or why not."""
+
+    asset_id: uuid.UUID
+    moved: bool
+    code: str | None = None
+    version: int | None = None
+
+
+@router.post("/bulk-moves", summary="Move several assets to one state")
+async def bulk_move(
+    body: AssetBulkMoveIn, session: TenantSession, subject: Manage, request: Request
+) -> list[AssetBulkMoveResult]:
+    """Each one as a single move (life cycle, reason, permission, If-Match); per-asset results."""
+    outcomes = await bulk.bulk_move(
+        session,
+        subject,
+        [(i.asset_id, i.version) for i in body.items],
+        to_state_id=body.to_state_id,
+        reason=body.reason,
+        source=source_of(request),
+    )
+    facts = RequestFacts.of(request)
+    for outcome in outcomes:
+        if outcome.moved:  # one audit entry per moved asset, as for a single move
+            await record_audit(
+                session,
+                action_code="asset.moved",
+                facts=facts,
+                object_type="asset",
+                object_id=outcome.asset_id,
+                details={"bulk": True},
+            )
+    return [
+        AssetBulkMoveResult(asset_id=o.asset_id, moved=o.moved, code=o.code, version=o.version)
+        for o in outcomes
+    ]

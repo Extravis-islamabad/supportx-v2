@@ -12,7 +12,7 @@ import pytest
 from tests.db import test_incidents_api
 from tests.db.test_assets_api import _add, _product
 from tests.db.test_incidents_api import Org, World, field_codes, problem
-from tests.db.test_knowledge_api import _match
+from tests.db.test_knowledge_api import _match, _new
 
 pytestmark = pytest.mark.db
 world = test_incidents_api.world  # the incident world fixture, reused
@@ -110,3 +110,79 @@ async def test_disposing_frees_the_slot_of_an_it_asset(world: World) -> None:
     asset = (await _move(world, a, asset, states["disposed"], "Recycled")).json()
     assert asset["state_id"] == states["disposed"]
     assert (await _add(world, a, {"name": "Second", "product_id": laptop})).status_code == 201
+
+
+async def test_copies_get_new_tags_no_serials_and_start_in_stock(world: World) -> None:
+    a = world.a
+    states = await _states(world, a)
+    laptop = await _product(world, a, "laptop", "Copied")
+    original = (
+        await _add(
+            world,
+            a,
+            {
+                "name": "Golden image",
+                "product_id": laptop,
+                "serial_number": "SN-COPY",
+                "barcode": "B1",
+            },
+        )
+    ).json()
+    original = (await _move(world, a, original, states["in_use"])).json()
+    made = await world.call(
+        "POST", f"{BASE}/{original['id']}/copy", a, a.admin, json={"count": 5}, headers=_new()
+    )
+    assert made.status_code == 201, made.text
+    copies = made.json()["items"]
+    assert len(copies) == 5
+    assert len({c["tag"] for c in copies} | {original["tag"]}) == 6
+    for copy in copies:
+        assert copy["name"] == "Golden image"
+        assert copy["serial_number"] is None
+        assert copy["barcode"] is None
+        assert copy["state_id"] == states["in_stock"]
+    history = await world.call("GET", f"{BASE}/{copies[0]['id']}/history", a, a.admin)
+    fields = {c["field"]: c["new"] for c in history.json()["items"][-1]["changes"]}
+    assert fields["copied_from"] == original["id"]
+    too_many = await world.call(
+        "POST", f"{BASE}/{original['id']}/copy", a, a.admin, json={"count": 51}, headers=_new()
+    )
+    assert problem(too_many) == (409, "asset_copy_limit")
+    assert too_many.json()["params"] == {"max": 50}
+
+
+async def test_a_bulk_move_reports_each_asset(world: World) -> None:
+    a = world.a
+    states = await _states(world, a)
+    laptop = await _product(world, a, "laptop", "Bulk")
+    one = (await _add(world, a, {"name": "One", "product_id": laptop})).json()
+    two = (await _add(world, a, {"name": "Two", "product_id": laptop})).json()
+    stale = (await _add(world, a, {"name": "Stale", "product_id": laptop})).json()
+    await _move(world, a, stale, states["in_use"])  # its version moved on
+    moved = await world.call(
+        "POST",
+        f"{BASE}/bulk-moves",
+        a,
+        a.admin,
+        json={
+            "items": [
+                {"asset_id": one["id"], "version": one["version"]},
+                {"asset_id": two["id"], "version": two["version"]},
+                {"asset_id": stale["id"], "version": stale["version"]},
+            ],
+            "to_state_id": states["in_repair"],
+            "reason": "Batch fault",
+        },
+    )
+    assert moved.status_code == 200, moved.text
+    results = {r["asset_id"]: r for r in moved.json()}
+    assert results[one["id"]]["moved"] is True
+    assert results[two["id"]]["moved"] is True
+    assert results[stale["id"]] == {
+        "asset_id": stale["id"], "moved": False, "code": "version_conflict", "version": None
+    }  # fmt: skip
+    audit = await world.sql(
+        "SELECT count(*) AS n FROM audit_entries WHERE tenant_id = $1 AND action = 'asset.moved'",
+        a.tenant,
+    )
+    assert audit[0]["n"] >= 3  # the earlier single move, plus one per moved asset
