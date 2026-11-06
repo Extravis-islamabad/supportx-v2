@@ -485,6 +485,8 @@ export const ar: LabelResource = {
   'event_type.automation.availability.changed': 'تغيّرت الإتاحة',
   'event_type.automation.definition.changed': 'تغيّرت الأتمتة',
   'event_type.automation.loop.stopped': 'توقفت الأتمتة (حماية من التكرار)',
+  'event_type.automation.workflow.changed': 'تغيّر سير العمل',
+  'event_type.automation.workflow_instance.changed': 'تقدّم سير العمل',
   'event_type.identity_access.access_settings.changed': 'تغيّر نطاق رؤية الفنيين',
   'event_type.identity_access.api_key.changed': 'تغيّر مفتاح واجهة برمجة',
   'event_type.identity_access.group_role.changed': 'تغيّرت أدوار المجموعة',

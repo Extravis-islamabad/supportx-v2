@@ -334,6 +334,55 @@ async def _custom_role(session: AsyncSession, role_id: uuid.UUID) -> Role:
     return role
 
 
+# --- service identities (WP-048b; lane B's conditions) -------------------------------------------
+
+# Roles a service identity (a connector's, a workflow's run-as) may never hold, by any path:
+# tenant administration (it would count as "another admin", so a person could remove the last
+# real one) and these rights, which change who may do what.
+SERVICE_NEVER = frozenset(
+    {"identity.manage", "roles.manage", "users.manage", "users.preview", "api_keys.manage"}
+)
+
+
+def _forbidden_for_service(role: Role, permissions: set[str]) -> bool:
+    return role.key == TENANT_ADMIN or bool(permissions & SERVICE_NEVER)
+
+
+async def _service_members(session: AsyncSession, user_ids: Sequence[uuid.UUID]) -> bool:
+    if not user_ids:
+        return False
+    found = await session.scalar(
+        select(User.id).where(User.id.in_(user_ids), User.user_type == "service").limit(1)
+    )
+    return found is not None
+
+
+async def _service_holds(session: AsyncSession, role_id: uuid.UUID) -> bool:
+    """A service identity holds the role, directly or through a group that carries it."""
+    direct = list(
+        await session.scalars(select(UserRole.user_id).where(UserRole.role_id == role_id))
+    )
+    groups = frozenset(
+        await session.scalars(select(GroupRole.group_id).where(GroupRole.role_id == role_id))
+    )
+    members = list(await session.scalars(users_in_groups(groups))) if groups else []
+    return await _service_members(session, [*direct, *members])
+
+
+def _refuse_for_service() -> PermissionDenied:
+    return PermissionDenied(code="service_identity_role_not_allowed")
+
+
+async def role_allowed_for_service(
+    session: AsyncSession, catalogue: Catalogue, role_id: uuid.UUID
+) -> None:
+    """Refuse a role a service identity may never hold."""
+    role = await RoleRepository(session).get(role_id)
+    detail = await _detail(session, catalogue, role)
+    if _forbidden_for_service(role, {g.permission for g in detail.grants}):
+        raise _refuse_for_service()
+
+
 async def update_role(  # noqa: PLR0913 - keyword-only role fields
     session: AsyncSession,
     policy: PolicyService,
@@ -360,6 +409,11 @@ async def update_role(  # noqa: PLR0913 - keyword-only role fields
     if grants is not None:
         clean = _validate_grants(grants, subject=subject, policy=policy, resources=resources)
         changed.append("permissions")
+        # A role a service identity holds never gains a right it may not have (lane B, 048b).
+        if _forbidden_for_service(role, {g.permission for g in clean}) and await _service_holds(
+            session, role_id
+        ):
+            raise _refuse_for_service()
     role = await RoleRepository(session).update(
         role_id, expected_version=expected_version, changes=changes
     )
@@ -566,6 +620,15 @@ async def add_group_role(
 ) -> bool:
     """A support group carries the role: its members hold it (idempotent; no escalation)."""
     await _assignable(session, policy, subject, role_id)
+    # Its service identity members would hold it too (lane B, WP-048b).
+    role = await RoleRepository(session).get(role_id)
+    detail = await _detail(session, policy.catalogue, role)
+    if _forbidden_for_service(
+        role, {g.permission for g in detail.grants}
+    ) and await _service_members(
+        session, list(await session.scalars(users_in_groups(frozenset({group_id}))))
+    ):
+        raise _refuse_for_service()
     if group_id not in await active_groups(session, frozenset({group_id})):
         raise NotFound(code="group_not_found")
     context = session.info[SESSION_TENANT_KEY]
@@ -650,21 +713,26 @@ async def check_group_grantable(
 
 def member_guard(
     policy: PolicyService,
-) -> Callable[[AsyncSession, object, uuid.UUID], Awaitable[None]]:
+) -> Callable[[AsyncSession, object, uuid.UUID, uuid.UUID], Awaitable[None]]:
     """The check organization runs before a person adds a member to a group (WP-042, lane B).
 
     A group that carries roles hands them out with each new member, so the person adding needs
     every one of them as if assigning it directly (`_assignable`); else 403 privilege_escalation.
     """
 
-    async def guard(session: AsyncSession, by: object, group_id: uuid.UUID) -> None:
+    async def guard(
+        session: AsyncSession, by: object, group_id: uuid.UUID, user_id: uuid.UUID
+    ) -> None:
         if not isinstance(by, Subject):
             raise TypeError(by)
-        carried = await session.scalars(
-            select(GroupRole.role_id).where(GroupRole.group_id == group_id)
+        carried = list(
+            await session.scalars(select(GroupRole.role_id).where(GroupRole.group_id == group_id))
         )
-        for role_id in list(carried):
+        service = await _service_members(session, [user_id])
+        for role_id in carried:
             await _assignable(session, policy, by, role_id)
+            if service:  # a service identity never gets a forbidden role through a group
+                await role_allowed_for_service(session, policy.catalogue, role_id)
 
     return guard
 

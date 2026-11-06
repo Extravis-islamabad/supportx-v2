@@ -70,7 +70,43 @@ class AutomationStopped(DomainEvent):
     automation_ids: list[uuid.UUID]
 
 
+class WorkflowInstanceChanged(DomainEvent):
+    """A workflow instance moved on, waited, failed or ended (WP-048b, REQ-WF-023, -025).
+
+    The record's execution view and the overview refresh; IDs and codes only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow_instance.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_instance"
+
+    instance_id: uuid.UUID
+    workflow_id: uuid.UUID
+    record_type: str
+    record_id: uuid.UUID
+    status: Literal["running", "waiting", "failed", "finished", "cancelled"]
+    version: int
+
+
+class WorkflowChanged(DomainEvent):
+    """A workflow was made, its draft saved, published, enabled or disabled (WP-048b).
+
+    The workflows list and an open designer refresh; IDs and codes only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow"
+
+    workflow_id: uuid.UUID
+    record_type: str
+    change: Literal["created", "draft_saved", "published", "enabled", "disabled"]
+    version: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
+    WorkflowChanged,
+    WorkflowInstanceChanged,
     AutomationChanged,
     AvailabilityChanged,
     AssignmentWaiting,

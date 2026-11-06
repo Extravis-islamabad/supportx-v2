@@ -625,6 +625,12 @@ export const ur: LabelResource = {
   'permission.work_items.view_reports': 'براہِ راست ماتحتوں کی درخواستیں دیکھیں',
   'permission.work_items.view_reports.description':
     'پورٹل میں اپنے براہِ راست ماتحتوں کے واقعات اور درخواستیں ایک الگ فلٹر میں دیکھیں۔',
+  'permission.workflows.manage': 'ورک فلو کا انتظام',
+  'permission.workflows.manage.description':
+    'بصری ورک فلو ڈیزائن، شائع اور آن یا آف کریں، اور وہ کردار چنیں جن سے یہ چلتے ہیں۔',
+  'permission.workflows.run': 'ورک فلو چلائیں',
+  'permission.workflows.run.description':
+    'کسی ریکارڈ پر ورک فلو شروع کریں اور دیکھیں کہ اس کے رن کیسے رہے۔',
   'permission_module.announcements': 'اعلانات',
   'permission_module.api_keys': 'API کلیدیں',
   'permission_module.assets': 'اثاثے',
@@ -657,6 +663,7 @@ export const ur: LabelResource = {
   'permission_module.sla': 'ایس ایل اے',
   'permission_module.users': 'صارفین',
   'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
+  'permission_module.workflows': 'ورک فلو',
   'preferences.date_format': 'تاریخ کا فارمیٹ',
   'preferences.default': 'طے شدہ',
   'preferences.default_value': 'طے شدہ ({{value}})',
