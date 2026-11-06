@@ -298,4 +298,17 @@ describe('portal: the expected resolution time', () => {
     render(<App />);
     expect((await screen.findByTestId('portal-due')).textContent).toMatch(/^Expected by /);
   });
+
+  it('QA6-PRT-02: the report form sits on a card in a centred column', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const fake = fakeApi({ ...BASE, 'GET /api/v1/portal/incidents/templates': { body: [] } });
+    restore = fake.restore;
+    render(<App />);
+    const card = await screen.findByTestId('portal-report-form');
+    expect(card.className).toContain('ant-card');
+    expect(card.querySelector('[data-testid="portal-report-subject"]')).not.toBeNull();
+    const column = card.parentElement;
+    expect(column?.style.marginInline).toBe('auto');
+    expect(column?.style.maxWidth).toBe('800px');
+  });
 });
