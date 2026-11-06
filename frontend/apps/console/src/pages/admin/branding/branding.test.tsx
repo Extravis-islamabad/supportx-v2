@@ -142,6 +142,24 @@ describe('branding screen', () => {
     expect(body.portal_name).toEqual({ en: 'Acme Help', ar: 'مساعدة أكمي' });
   });
 
+  it('QA6S-ORG-01: a logo tile that cannot be used yet says why', async () => {
+    api({
+      me: ADMIN,
+      routes: {
+        'GET /api/v1/organization/branding/settings': { body: settings() },
+        'POST /api/v1/organization/branding/check': { body: PASSING },
+        'PUT /api/v1/organization/branding/settings': { body: settings({ version: 1 }) },
+      },
+    });
+    render(<App />);
+    const why = await screen.findByTestId('branding-logo_dark_file_id-why');
+    expect(why.textContent).toContain('Upload a logo first');
+    expect(
+      screen.getByTestId<HTMLButtonElement>('branding-logo_dark_file_id-choose').disabled,
+    ).toBe(true);
+    expect(screen.queryByTestId('branding-logo_file_id-why')).toBeNull(); // the main logo is free
+  });
+
   it('the tab is offered only to people who may manage branding', async () => {
     api({ me: fakeSession({ roles: ['technician'] }) });
     window.history.pushState({}, '', '/admin');
