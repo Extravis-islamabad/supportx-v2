@@ -12,6 +12,7 @@ export const ar: LabelResource = {
   'actions.close': 'إغلاق',
   'actions.delete': 'حذف',
   'actions.edit': 'تعديل',
+  'actions.more': 'المزيد',
   'actions.reset': 'إعادة تعيين',
   'actions.retry': 'حاول مرة أخرى',
   'actions.save': 'حفظ',
