@@ -16,6 +16,7 @@ import { EmptyText, PageHeader, reportError, useAccess, useDateTime, useLabel } 
 import { searchOf } from '../incidents/searchOf';
 import { PriorityTag, StatusTag } from '../incidents/tags';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
+import { RepeatedIncidents } from './RepeatedIncidents';
 
 /**
  * Problems (WP-044a s5, WP-044c S1): the list, live on the problems list channel (§8), with
@@ -66,6 +67,7 @@ export function ProblemsPage() {
           </Space>
         }
       />
+      <RepeatedIncidents enabled={create} />
       <Flex gap={8} wrap>
         <Select
           style={{ minWidth: 260 }}

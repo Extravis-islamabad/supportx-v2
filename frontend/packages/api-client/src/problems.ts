@@ -32,6 +32,8 @@ export const problemKeys = {
   all: ['problems'] as const,
   list: (query: ProblemsQuery) => ['problems', 'list', query] as const,
   views: ['problems', 'views'] as const,
+  repeats: ['problems', 'repeats'] as const,
+  repeatIncidents: (hitId: string) => ['problems', 'repeats', hitId, 'incidents'] as const,
   detail: (id: string) => ['problems', 'detail', id] as const,
   links: (id: string) => ['problems', 'detail', id, 'links'] as const,
   investigators: (id: string) => ['problems', 'detail', id, 'investigators'] as const,
@@ -678,5 +680,57 @@ export function useProblemCategories(enabled = true) {
     queryKey: [...problemKeys.all, 'categories'] as const,
     queryFn: () => call(api.GET('/api/v1/problems/categories')),
     enabled,
+  });
+}
+
+// --- repeated incidents (WP-044c D16, REQ-PRB-068) ---------------------------------------------
+
+export type RepeatHit = components['schemas']['RepeatHitOut'];
+export type RepeatHitIncident = components['schemas']['RepeatHitIncidentOut'];
+
+/** The open sets of repeated incidents (for who may create problems; empty otherwise). */
+export function useRepeatHits(enabled = true) {
+  return useQuery({
+    queryKey: problemKeys.repeats,
+    queryFn: () => call(api.GET('/api/v1/problem-repeats/hits')),
+    enabled,
+  });
+}
+
+/** A set's incidents you may see (the newest 100). */
+export function useRepeatHitIncidents(hitId: string | null) {
+  return useQuery({
+    queryKey: problemKeys.repeatIncidents(hitId ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problem-repeats/hits/{hit_id}/incidents', {
+          params: { path: { hit_id: hitId ?? '' } },
+        }),
+      ),
+    enabled: hitId !== null,
+  });
+}
+
+export interface RepeatHandle {
+  hitId: string;
+  version: number;
+  outcome: 'problem_created' | 'dismissed';
+  problemId?: string;
+}
+
+/** A problem was made from the set, or it is dismissed: it leaves the list. */
+export function useHandleRepeatHit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ hitId, version, outcome, problemId }: RepeatHandle) =>
+      call(
+        api.POST('/api/v1/problem-repeats/hits/{hit_id}/handle', {
+          params: { path: { hit_id: hitId }, header: ifMatch(version) },
+          body: { outcome, problem_id: problemId ?? null },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.repeats });
+    },
   });
 }

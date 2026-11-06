@@ -74,6 +74,7 @@ function api(routes: Record<string, unknown> = {}) {
         body: { items: [record], next_cursor: null, has_more: false, people: {} },
       },
       'GET /api/v1/problems/settings': { body: fakeIncidentCatalogue() },
+      'GET /api/v1/problem-repeats/hits': { body: [] },
       'GET /api/v1/problems/views': {
         body: [
           { view: 'all_open', count: 1, capped: false },
@@ -134,6 +135,40 @@ describe('console: problems', () => {
     expect(cells[0]?.className).toContain('ant-table-cell-fix-left');
     expect(cells[1]?.className).toContain('ant-table-cell-fix-left');
     expect(cells[1]?.className).toContain('ant-table-cell-ellipsis');
+  });
+
+  it('WP-044c D16: a set of repeated incidents, dismissed or turned into a problem', async () => {
+    const HIT = {
+      id: '01a1a2b3-0000-7000-8000-0000000aa001',
+      rule_id: '01a1a2b3-0000-7000-8000-0000000aa002',
+      category_id: null,
+      site_id: null,
+      group_id: null,
+      incident_count: 12,
+      first_at: '2026-11-06T08:00:00Z',
+      last_at: '2026-11-06T10:00:00Z',
+      version: 1,
+    };
+    window.history.pushState({}, '', '/problems');
+    const fake = api({
+      'GET /api/v1/problem-repeats/hits': { body: [HIT] },
+      [`POST /api/v1/problem-repeats/hits/${HIT.id}/handle`]: { body: { ...HIT, version: 2 } },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('prb-repeats');
+    expect(card.textContent).toContain('12 similar incidents');
+    fireEvent.click(within(card).getByTestId(`prb-repeat-dismiss-${HIT.id}`));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/problem-repeats/hits/${HIT.id}/handle`)).toHaveLength(1);
+    });
+    expect(fake.find('POST', `/api/v1/problem-repeats/hits/${HIT.id}/handle`)[0]?.body).toEqual({
+      outcome: 'dismissed',
+      problem_id: null,
+    });
+    fireEvent.click(within(card).getByTestId(`prb-repeat-create-${HIT.id}`));
+    await waitFor(() => {
+      expect(window.location.search).toBe(`?repeat=${HIT.id}`);
+    });
   });
 
   it('lists problems with a way to create one', async () => {
