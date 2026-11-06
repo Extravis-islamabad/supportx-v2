@@ -49,6 +49,7 @@ export const ur: LabelResource = {
   'ai_settings.master_help':
     'بند: کسی کے لیے کوئی AI خصوصیت نہیں چلتی اور کوئی ماڈل نہیں بلایا جاتا۔',
   'ai_settings.model': 'ماڈل',
+  'ai_settings.model_none': 'اس سرور سے کوئی اے آئی ماڈل منسلک نہیں۔',
   'ai_settings.model_value': '{{model}} ({{where}})',
   'ai_settings.no_training':
     'آپ کی AI گفتگو کبھی کسی ماڈل کی تربیت کے لیے استعمال نہیں ہوتی۔ اس کا متن صرف نیچے دی گئی مدت تک رکھا جاتا ہے، پھر حذف ہو جاتا ہے؛ ہر حذف آڈٹ میں درج ہوتا ہے۔',

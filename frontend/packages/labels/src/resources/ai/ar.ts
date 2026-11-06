@@ -48,6 +48,7 @@ export const ar: LabelResource = {
   'ai_settings.master': 'استخدام الذكاء الاصطناعي',
   'ai_settings.master_help': 'إيقاف: لا تعمل أي ميزة ذكاء اصطناعي لأي شخص ولا يُستدعى أي نموذج.',
   'ai_settings.model': 'النموذج',
+  'ai_settings.model_none': 'لا يوجد نموذج ذكاء اصطناعي متصل بهذا الخادم.',
   'ai_settings.model_value': '{{model}} ({{where}})',
   'ai_settings.no_training':
     'لا تُستخدم محادثاتك مع الذكاء الاصطناعي أبدًا لتدريب أي نموذج. يُحتفظ بنصها للمدة أدناه فقط ثم يُحذف، وكل حذف مسجّل في سجل التدقيق.',

@@ -47,6 +47,7 @@ export const en = {
   'ai_settings.master': 'Use AI',
   'ai_settings.master_help': 'Off: no AI feature runs for anyone and no model is called.',
   'ai_settings.model': 'Model',
+  'ai_settings.model_none': 'No AI model is connected to this server.',
   'ai_settings.model_value': '{{model}} ({{where}})',
   'ai_settings.no_training':
     'Your AI conversations are never used to train any model. Their text is kept only for the period below, then deleted; every deletion is audited.',

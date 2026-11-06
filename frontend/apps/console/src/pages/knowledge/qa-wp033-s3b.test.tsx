@@ -357,6 +357,10 @@ describe('Admin › Knowledge (D-120)', () => {
     expect(changed?.headers.get('If-Match')).toBe('"1"');
 
     fireEvent.click(within(card).getByTestId('kb-admin-type-retire-custom_ab12'));
+    // QA6S-SVC-18: retiring asks first, naming the type; nothing is sent before the answer.
+    const confirm = await screen.findByRole('dialog', { name: /^Retire / });
+    expect(fake.find('PATCH', '/api/v1/knowledge/types/custom_ab12')).toHaveLength(0);
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Retire' }));
     await waitFor(() => {
       const [retired] = fake.find('PATCH', '/api/v1/knowledge/types/custom_ab12');
       expect(retired?.body).toEqual({ retired: true });

@@ -278,7 +278,7 @@ function TypesCard() {
   const t = useLabel();
   const { locale } = useAppearance();
   const language = articleLanguage(locale);
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const types = useKbTypes();
   const update = useUpdateKbType();
   const conflict = useConflictRetry();
@@ -365,7 +365,26 @@ function TypesCard() {
                 <WriteButton
                   size="small"
                   onClick={() => {
-                    retire(kind, !kind.retired, kind.version);
+                    if (kind.retired) {
+                      retire(kind, false, kind.version); // restoring loses nothing
+                      return;
+                    }
+                    // Retiring changes what authors may pick: it asks first, naming the type and
+                    // what happens (QA6S-SVC-18: it applied at once).
+                    const name = typeName(kind, kind.code, language, t);
+                    modal.confirm({
+                      title: t('knowledge.types.retire_confirm', { name }),
+                      content: t('knowledge.types.retire_explain'),
+                      okText: t('knowledge.types.retire'),
+                      okButtonProps: {
+                        danger: true,
+                        'data-testid': 'kb-admin-type-retire-ok',
+                      },
+                      cancelText: t('actions.cancel'),
+                      onOk: () => {
+                        retire(kind, true, kind.version);
+                      },
+                    });
                   }}
                   data-testid={`kb-admin-type-retire-${kind.code}`}
                 >

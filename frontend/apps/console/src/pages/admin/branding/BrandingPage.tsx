@@ -386,8 +386,19 @@ export function BrandingPage() {
               )}
             </Typography.Text>
           )}
+          {disabled && (
+            // Never an unexplained disabled button (QA6S-ORG-01): the dark logo and the icon
+            // follow the main logo.
+            <Typography.Text type="secondary" data-testid={`branding-${field}-why`}>
+              {t('branding.image.logo_first')}
+            </Typography.Text>
+          )}
           <Space wrap>
-            <Button disabled={disabled} data-testid={`branding-${field}-choose`}>
+            <Button
+              disabled={disabled}
+              title={disabled ? t('branding.image.logo_first') : undefined}
+              data-testid={`branding-${field}-choose`}
+            >
               <label style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}>
                 {t('branding.image.choose')}
                 <input
@@ -602,13 +613,13 @@ export function BrandingPage() {
               </Flex>
             </Card>
             <Card title={t('branding.images')}>
-              <Row gutter={[12, 12]}>
+              {/* One tile per line: room for each title and its buttons (QA6S-ORG-01: three in
+                  half the width truncated titles and overflowed buttons). */}
+              <Flex vertical gap={12}>
                 {IMAGE_FIELDS.map((field) => (
-                  <Col key={field} xs={24} md={8}>
-                    {imageCard(field)}
-                  </Col>
+                  <div key={field}>{imageCard(field)}</div>
                 ))}
-              </Row>
+              </Flex>
             </Card>
             <Card title={t('branding.texts')}>
               <Tabs
@@ -729,7 +740,10 @@ export function BrandingPage() {
           </Flex>
         </Col>
         <Col xs={24} xl={12}>
-          <BrandPreview branding={candidate} />
+          {/* The preview follows the form as it scrolls, no empty column beside it. */}
+          <div style={{ position: 'sticky', top: 72 }}>
+            <BrandPreview branding={candidate} />
+          </div>
         </Col>
       </Row>
       <DomainsCard />
