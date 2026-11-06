@@ -914,8 +914,13 @@ it with no reload (rule c). Not built yet.
   docs/lanes/A.md.
 - [ ] S1 (in progress):
   - done: the views "known errors" and "accepted, due for review"; Tasks, Worklogs and History
-    tabs on the problem page (the parts and history hooks take the type's prefix);
-  - next: list widths (ellipsis, sticky), search across problems and known errors, print.
+    tabs on the problem page (the parts and history hooks take the type's prefix); the list's
+    views with counts, one search for words or a PRB number, ellipsis and sticky ID/subject;
+    print a problem; assign its group and owner (the incident's dialog with the problems'
+    rules and assignees); "Create problem" from the chosen incidents in the bulk bar;
+  - next: REQ-PRB-021 templates limited to groups (one migration, number asked); REQ-PRB-022
+    the problem admin area and designer hints, on lane C's shared settings layout (#258) once
+    it lands.
 - [ ] S2: D14 permissions and the incident-side read; D15 notifications, reports, counters,
   portal.
 - [ ] S3: D16 repeat rules; D17 API check; en/ar/ur and Arabic e2e.

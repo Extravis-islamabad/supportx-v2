@@ -15,8 +15,8 @@ fix PR per module, tests named after the bug IDs), then the resume point below.
 **Resume point: WP-044c S1 in #240 (draft), branch `feat/wp-044c`.**
 - Done: the problem views (known errors, accepted due for review); Tasks, Worklogs and History
   tabs on the problem page (the parts and history hooks take the type's prefix).
-- Next in S1: the list's ellipsis and sticky columns (lane C's #234 pattern); search across
-  problems and known errors; print; then S2 (D14 permissions and the narrow incident-side
+- Also done in S1: list views, search, widths, print, assign, Create problem from the bulk bar.
+- Next in S1: REQ-PRB-021 (migration number asked) and REQ-PRB-022 (on #258's layout); then S2 (D14 permissions and the narrow incident-side
   read, D15 notifications, report source, counters, portal requester view), S3 (D16 repeat
   rules, D17 API check, Arabic e2e).
 
