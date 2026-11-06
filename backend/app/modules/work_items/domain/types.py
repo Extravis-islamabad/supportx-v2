@@ -345,6 +345,7 @@ FIELD_PROBLEMS = frozenset(
         "template_disabled",
         "default_required",
         "default_cannot_be_disabled",
+        "default_cannot_be_removed",  # WP-044c D16: the default repeat rule
         "disabled_cannot_be_default",
         "unknown_field",
         "field_always_required",

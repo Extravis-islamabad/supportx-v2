@@ -193,6 +193,8 @@ export const en = {
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',
+  'errors.field.default_cannot_be_removed':
+    'The default rule cannot be removed. Switch it off instead.',
   'errors.field.default_language_not_offered':
     'The default language must be one of the languages offered.',
   'errors.field.default_required':
@@ -689,6 +691,8 @@ export const en = {
   'errors.record_closed': 'Closed and canceled records cannot be changed.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
+  'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
+  'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',
   'errors.report_entity_not_found': 'There is nothing of this kind to report on.',
   'errors.report_export_not_found': 'This export does not exist or is not yours.',

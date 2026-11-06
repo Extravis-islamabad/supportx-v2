@@ -198,6 +198,8 @@ export const ur: LabelResource = {
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
+  'errors.field.default_cannot_be_removed':
+    'طے شدہ اصول ہٹایا نہیں جا سکتا۔ اس کے بجائے اسے بند کریں۔',
   'errors.field.default_language_not_offered':
     'پہلے سے طے شدہ زبان دستیاب زبانوں میں سے ہونی چاہیے۔',
   'errors.field.default_required':
@@ -696,6 +698,8 @@ export const ur: LabelResource = {
   'errors.record_closed': 'بند یا منسوخ ریکارڈ تبدیل نہیں ہو سکتے۔',
   'errors.reference_copied': 'حوالہ کاپی ہو گیا',
   'errors.reference_is': 'حوالہ: {{reference}}',
+  'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
+  'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',
   'errors.report_entity_not_found': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
   'errors.report_export_not_found': 'یہ ایکسپورٹ موجود نہیں یا آپ کا نہیں۔',

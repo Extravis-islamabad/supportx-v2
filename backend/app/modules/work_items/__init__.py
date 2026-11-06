@@ -30,9 +30,16 @@ from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
+from app.modules.work_items.api.repeat_routes import router as repeat_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
-from app.modules.work_items.domain.types import INCIDENT, PERMISSION_TYPES, SERVICE_REQUEST, TYPES
+from app.modules.work_items.domain.types import (
+    INCIDENT,
+    PERMISSION_TYPES,
+    PROBLEM,
+    SERVICE_REQUEST,
+    TYPES,
+)
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     ai_sources,
@@ -44,6 +51,7 @@ from app.modules.work_items.service import (
     problem_notifications,
     record_facts,
     release_duties,
+    repeat_rules,
     report_names,
     request_notifications,
     resolution,
@@ -138,12 +146,14 @@ module = ModuleSpec(
         portal_router,
         portal_request_router,  # WP-030 D9
         portal_home_router,  # WP-032 D1
+        repeat_router,  # WP-044c D16: the problem module's
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
         INCIDENT.feature,
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
+        PROBLEM.feature,  # repeat incident rules (D-140 item 5: not in Essentials)
     ],
     events=EVENTS,
     permissions=(
@@ -168,6 +178,8 @@ module = ModuleSpec(
         ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),
         # Bulk jobs (WP-020d): picked up within seconds of being asked for, like people imports.
         ScheduleSpec("work_items__bulk_jobs", 5, bulk.run_bulk_jobs),
+        # WP-044c D16 (REQ-PRB-068): repeat incident rules, every 15 minutes, without AI.
+        ScheduleSpec("work_items__repeat_incidents", 900, repeat_rules.repeat_schedule),
     ],
 )
 

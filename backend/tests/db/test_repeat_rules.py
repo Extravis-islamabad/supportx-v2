@@ -10,11 +10,15 @@ from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from app.modules import licensing
 from app.modules.work_items.service import repeat_rules
-from tests.db.test_incidents_api import BASE, Org, World, world
+from conftest import assign_system_role, create_tenant
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, field_codes, problem, world
+from tests.db.test_users_api import seed_users
 
 pytestmark = pytest.mark.db
 
 __all__ = ["world"]  # the fixture, re-used
+
+API = "/problem-repeats"
 
 
 async def evaluate(world: World, org: Org) -> int:
@@ -111,3 +115,91 @@ async def test_d140_5_essentials_has_no_repeat_alerts(
     monkeypatch.setattr(licensing, "has_feature", no_problems)
     assert await evaluate(world, a) == 0
     assert await hits(world, a) == []
+
+
+async def test_req_prb_068_admins_manage_rules_the_default_is_only_switched_off(
+    world: World,
+) -> None:
+    a = world.a
+    rules = await world.call("GET", f"{API}/rules", a, a.admin)
+    assert rules.status_code == 200, rules.text
+    [default] = [r for r in rules.json() if r["is_default"]]
+    assert (
+        default["match"],
+        default["threshold"],
+        default["window_hours"],
+        default["enabled"],
+    ) == (
+        "category_site",
+        10,
+        24,
+        True,
+    )
+    made = await world.call(
+        "POST",
+        f"{API}/rules",
+        a,
+        a.admin,
+        json={"name": "Printers", "match": "category", "threshold": 5, "window_hours": 168},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert made.status_code == 201, made.text
+    removed = await world.call(
+        "DELETE",
+        f"{API}/rules/{default['id']}",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{default["version"]}"', **CONSOLE},
+    )
+    assert field_codes(removed) == {"id": "default_cannot_be_removed"}
+    off = await world.call(
+        "PATCH",
+        f"{API}/rules/{default['id']}",
+        a,
+        a.admin,
+        json={"enabled": False},
+        headers={"If-Match": f'"{default["version"]}"', **CONSOLE},
+    )
+    assert off.status_code == 200, off.text
+    # Technicians do not manage rules; another tenant never sees these.
+    assert problem(await world.call("GET", f"{API}/rules", a, a.tech_a))[0] == 403
+    other = (await world.call("GET", f"{API}/rules", world.b, world.b.admin)).json()
+    assert made.json()["id"] not in {r["id"] for r in other}
+
+
+async def test_d140_5_the_server_refuses_repeat_rules_without_the_problem_module(
+    world: World,
+) -> None:
+    """Essentials has incidents but no problems: the API says so (the console shows a hint)."""
+    essentials = await create_tenant(world.db.migrator_url, "Essentials", edition="essentials")
+    (admin,) = await seed_users(world.db, essentials, [{"user_type": "technician"}])
+    await assign_system_role(world.db.admin_url, essentials, admin, "tenant_admin")
+    org = Org(essentials, admin, admin, admin, admin, admin, admin, admin)
+    for path in (f"{API}/rules", f"{API}/hits"):
+        assert problem(await world.call("GET", path, org, admin)) == (403, "entitlement_required")
+
+
+async def test_req_prb_068_a_set_is_listed_and_dismissed_by_who_may_create_problems(
+    world: World,
+) -> None:
+    a = world.a
+    category = await a_category(world, a)
+    await incidents(world, a, 10, category_id=category, site_id=str(a.s1))
+    assert await evaluate(world, a) == 1
+    [hit] = (await world.call("GET", f"{API}/hits", a, a.tech_a)).json()
+    assert hit["incident_count"] == 10
+    members = await world.call("GET", f"{API}/hits/{hit['id']}/incidents", a, a.tech_a)
+    assert members.status_code == 200, members.text
+    assert 0 < len(members.json()) <= 10  # only those tech_a may see (their own scope)
+    dismissed = await world.call(
+        "POST",
+        f"{API}/hits/{hit['id']}/handle",
+        a,
+        a.tech_a,
+        json={"outcome": "dismissed"},
+        headers={"If-Match": f'"{hit["version"]}"', **CONSOLE},
+    )
+    assert dismissed.status_code == 200, dismissed.text
+    assert (await world.call("GET", f"{API}/hits", a, a.tech_a)).json() == []
+    # Requesters never reach them.
+    assert problem(await world.call("GET", f"{API}/hits", a, a.requester))[0] == 403

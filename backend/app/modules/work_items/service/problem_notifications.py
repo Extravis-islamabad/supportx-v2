@@ -31,6 +31,7 @@ from app.modules.work_items.domain.lifecycle import WorkItemAction
 from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.types import PROBLEM
 from app.modules.work_items.events import (
+    ProblemRepeatDetected,
     WorkItemAssigned,
     WorkItemConversationAdded,
     WorkItemCreated,
@@ -39,12 +40,15 @@ from app.modules.work_items.events import (
     WorkItemUpdated,
 )
 from app.modules.work_items.infra.models import (
+    ProblemRepeatHit,
+    ProblemRepeatRule,
     WorkItem,
+    WorkItemCategory,
     WorkItemConversation,
     WorkItemFollower,
     WorkItemLink,
 )
-from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import catalogue, repeat_rules
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.realtime import RECORD_KIND
 from app.shared.events import EventEnvelope
@@ -60,6 +64,7 @@ from app.shared.notifications.ports import (
     VariableValue,
     register_record_source,
 )
+from app.shared.reporting.names import names_resolver
 
 EXCERPT = 500
 # The technicians of the incidents this problem causes (D15).
@@ -363,6 +368,114 @@ class ProblemNotifications:
 SOURCE = ProblemNotifications()
 
 
+# --- repeated incidents (WP-044c D16, REQ-PRB-068; the shape agreed with lane B) -------------
+
+REPEAT_EVENTS: tuple[NotificationEvent, ...] = (
+    NotificationEvent(
+        "problem_repeat.detected",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("group",)),
+        variables=(
+            Variable("rule.name", "notification_variable.rule.name"),
+            Variable("incident.count", "notification_variable.incident.count"),
+            Variable("category.name", "notification_variable.category.name"),
+            Variable("site.name", "notification_variable.site.name"),
+        ),
+        public=False,
+    ),
+)
+
+
+class RepeatNotifications:
+    """`RecordSource` for a set of repeated incidents: not a work item, its own record type.
+
+    The group hears of a new set once (the evaluator raises the event only when it opens a
+    set); the problem module gates it here, as `events_for` has no session (lane B).
+    """
+
+    record_type = "problem_repeat"
+    channel_kind = RECORD_KIND
+    events = REPEAT_EVENTS
+    recipient_kinds = ("group",)
+    variables = ()
+    conditions = ()
+    event_types = (ProblemRepeatDetected.event_type,)
+
+    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
+        """The one event, for every new set."""
+        if envelope.event_type != ProblemRepeatDetected.event_type:
+            return ()
+        return ("problem_repeat.detected",)
+
+    async def context(
+        self, session: AsyncSession, event_code: str, envelope: EventEnvelope
+    ) -> RecordContext | None:
+        """The set as it is now; None when handled, gone, or the tenant lacks problems."""
+        if not await repeat_rules.entitled(session):
+            return None  # D-140 item 5: not in Essentials
+        hit = await session.get(ProblemRepeatHit, uuid.UUID(str(envelope.payload["hit_id"])))
+        if hit is None or hit.deleted_at is not None or hit.handled_at is not None:
+            return None
+        rule = await session.get(ProblemRepeatRule, hit.rule_id)
+        if rule is None:
+            return None
+        group = rule.notify_group_id or hit.group_id
+        members = (
+            frozenset(await session.scalars(users_in_groups(frozenset({group}))))
+            if group is not None
+            else frozenset()
+        )
+        category = await session.get(WorkItemCategory, hit.category_id) if hit.category_id else None
+        site = None
+        if hit.site_id is not None and (resolve := names_resolver("site")) is not None:
+            site = (await resolve(session, [str(hit.site_id)], "en", "site_id")).get(
+                str(hit.site_id)
+            )
+        name: VariableValue = (
+            LabelRef("repeat_rule.default")
+            if rule.is_default and rule.name == repeat_rules.DEFAULT_NAME
+            else rule.name
+        )
+        variables: dict[str, VariableValue] = {
+            "rule.name": name,
+            "incident.count": str(hit.incident_count),
+            "category.name": Localised(
+                category.labels or {},
+                fallback=f"work_item_category.{category.code}"
+                if category.code
+                else "reports.unknown_value",
+            )
+            if category is not None
+            else None,
+            "site.name": site,
+        }
+        return RecordContext(
+            record_id=hit.id,
+            display_id=rule.name,
+            link=f"/problems?view=repeated&hit={hit.id}",
+            variables=variables,
+            public_variables={},
+            relatives={"group": members},
+            conditions={},
+            event_code=event_code,
+        )
+
+    async def access(
+        self, session: AsyncSession, user_id: uuid.UUID, record_id: uuid.UUID
+    ) -> RecordAccess:
+        """FULL for who may create problems (they act on the set); NONE otherwise."""
+        del record_id
+        tenant = session.info[SESSION_TENANT_KEY].tenant_id
+        subject = await subject_for(session, tenant, user_id)
+        return (
+            RecordAccess.FULL if subject.holds(PROBLEM.permission("create")) else RecordAccess.NONE
+        )
+
+
+REPEAT_SOURCE = RepeatNotifications()
+
+
 def register() -> None:
-    """Make problems notify (idempotent; called when work_items is imported)."""
+    """Make problems, and their repeat incident sets, notify (idempotent; at import)."""
     register_record_source(SOURCE)
+    register_record_source(REPEAT_SOURCE)

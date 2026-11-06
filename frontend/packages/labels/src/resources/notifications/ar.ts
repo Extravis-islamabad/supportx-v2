@@ -29,6 +29,7 @@ export const ar: LabelResource = {
   'event_delivery_state.stalled': 'متوقف',
   'notification.open_record': 'فتح {{id}}',
   'notification_area.problem': 'المشكلات',
+  'notification_area.problem_repeat': 'المشكلات',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',
@@ -80,6 +81,7 @@ export const ar: LabelResource = {
   'notification_event.problem.resolved': 'حُلّت مشكلة',
   'notification_event.problem.target_breached': 'تجاوزت مشكلة موعدها المستهدف',
   'notification_event.problem.target_warning': 'اقترب الموعد المستهدف لمشكلة',
+  'notification_event.problem_repeat.detected': 'وُجدت حوادث متكررة',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_preferences.col.category': 'النوع',
@@ -352,6 +354,12 @@ export const ar: LabelResource = {
     '{{ record.display_id }}: اقترب الموعد المستهدف',
   'notification_template.problem.target_warning.subject':
     'مستحقة قريبًا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem_repeat.detected.body':
+    'مرحبًا {{ recipient.name }}،\n\n{{ incident.count }} حوادث تطابق «{{ rule.name }}» ({{ category.name }}، {{ site.name }}). راجعها وأنشئ مشكلة إن كان لها سبب واحد.',
+  'notification_template.problem_repeat.detected.in_app':
+    '{{ incident.count }} حوادث متشابهة: {{ rule.name }}',
+  'notification_template.problem_repeat.detected.subject':
+    '{{ incident.count }} حوادث متشابهة: {{ rule.name }}',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -369,11 +377,13 @@ export const ar: LabelResource = {
   'notification_variable.article.reason': 'المقالة › السبب',
   'notification_variable.article.review_on': 'المقالة › تاريخ المراجعة',
   'notification_variable.assignee.name': 'الفني › الاسم',
+  'notification_variable.category.name': 'الفئة',
   'notification_variable.change.from_status': 'التغيير › الحالة السابقة',
   'notification_variable.connector.name': 'الموصل › الاسم',
   'notification_variable.connector.reason': 'الموصل › السبب',
   'notification_variable.conversation.author': 'الرد أو الملاحظة › الكاتب',
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
+  'notification_variable.incident.count': 'عدد الحوادث',
   'notification_variable.mailbox.address': 'صندوق البريد › العنوان',
   'notification_variable.mailbox.expires_at': 'صندوق البريد › تنتهي بيانات الاعتماد',
   'notification_variable.mailbox.reason': 'صندوق البريد › السبب',
@@ -384,6 +394,8 @@ export const ar: LabelResource = {
   'notification_variable.record.status': 'السجل › الحالة',
   'notification_variable.record.title': 'السجل › الموضوع',
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
+  'notification_variable.rule.name': 'القاعدة',
+  'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
   'notifications.banner.no_mail_few':
     'تنتظر {{count}} رسائل لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسائل عند تشغيل البريد.',

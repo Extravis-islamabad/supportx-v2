@@ -3,7 +3,7 @@
 Admins set rules like "10 or more incidents in the same category and site within 24 hours".
 Every 15 minutes, per tenant (app.tenant_id set by the tenant session), the evaluator finds the
 sets that match. A new set opens one hit and tells the group (the outbox event the problem
-notification source turns into "problem.repeat_detected"); a set that keeps growing joins its
+notification source turns into "problem_repeat.detected"); a set that keeps growing joins its
 open hit and tells nobody again (AC2) until someone creates a problem from it or dismisses it.
 No AI anywhere (AC3).
 
@@ -26,8 +26,11 @@ from sqlalchemy import func, literal, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import SESSION_TENANT_KEY
+from app.core.config import Settings
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, NotFound
+from app.core.logging import get_logger
+from app.core.tenancy import TenantContext
 from app.modules import licensing
 from app.modules.identity_access import Subject
 from app.modules.organization import existing_unit_ids
@@ -48,6 +51,7 @@ from app.modules.work_items.service import work_items as items
 from app.shared.events import record_event
 from app.shared.ids import new_id
 
+log = get_logger(__name__)
 FEATURE = PROBLEM.feature
 DEFAULT_NAME = "Same category and site"  # labelled `repeat_rule.default` in the UI
 DEFAULT_RULE: Mapping[str, Any] = {
@@ -143,6 +147,67 @@ async def rule_problems(
         if taken is not None:
             problems.append(("name", "duplicate_name"))
     return problems
+
+
+_EDITABLE = ("name", "match", "threshold", "window_hours", "notify_group_id", "enabled")
+
+
+async def _rule(session: AsyncSession, rule_id: uuid.UUID) -> ProblemRepeatRule:
+    rule = await session.get(ProblemRepeatRule, rule_id)
+    if rule is None or rule.deleted_at is not None:
+        raise NotFound(code="repeat_rule_not_found")
+    return rule
+
+
+async def create_rule(session: AsyncSession, values: Mapping[str, Any]) -> ProblemRepeatRule:
+    """A new rule (on by default)."""
+    if problems := await rule_problems(session, values, current=None):
+        raise items.field_errors(problems)
+    rule = ProblemRepeatRule(
+        id=new_id(),
+        tenant_id=_tenant(session),
+        **{k: values[k] for k in _EDITABLE if k in values},
+    )
+    rule.name = rule.name.strip()
+    session.add(rule)
+    await session.flush()
+    await changed(session, "rule", rule.id, rule.version)
+    return rule
+
+
+async def update_rule(
+    session: AsyncSession,
+    rule_id: uuid.UUID,
+    values: Mapping[str, Any],
+    *,
+    expected_version: int,
+) -> ProblemRepeatRule:
+    """Change what is sent; a stale version is a 409."""
+    rule = await _rule(session, rule_id)
+    if rule.version != expected_version:
+        raise Conflict(code="version_conflict")
+    if problems := await rule_problems(session, values, current=rule):
+        raise items.field_errors(problems)
+    for key in _EDITABLE:
+        if key in values:
+            setattr(rule, key, values[key].strip() if key == "name" else values[key])
+    rule.version += 1
+    await session.flush()
+    await changed(session, "rule", rule.id, rule.version)
+    return rule
+
+
+async def delete_rule(session: AsyncSession, rule_id: uuid.UUID, *, expected_version: int) -> None:
+    """Remove a rule (soft); the default rule is switched off instead, never removed."""
+    rule = await _rule(session, rule_id)
+    if rule.version != expected_version:
+        raise Conflict(code="version_conflict")
+    if rule.is_default:
+        raise items.field_errors([("id", "default_cannot_be_removed")])
+    rule.deleted_at = datetime.now(UTC)
+    rule.version += 1
+    await session.flush()
+    await changed(session, "rule", rule.id, rule.version)
 
 
 async def changed(session: AsyncSession, kind: str, row_id: uuid.UUID, version: int) -> None:
@@ -353,6 +418,24 @@ async def evaluate(session: AsyncSession, now: datetime | None = None) -> int:
             )
             opened += 1
     return opened
+
+
+async def repeat_schedule(database: Database, settings: Settings) -> None:
+    """Every 15 minutes, every tenant: run its repeat incident rules (D16).
+
+    Each tenant in its own session (app.tenant_id set, RLS); one tenant failing never stops
+    the others. A tenant without the problem module is skipped inside `evaluate`.
+    """
+    del settings
+    async with database.platform_session() as platform:
+        tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
+    for tenant in tenants:
+        try:
+            async with database.tenant_session(TenantContext(tenant)) as session:
+                if opened := await evaluate(session):
+                    log.info("repeat_incidents_found", tenant_id=str(tenant), hits=opened)
+        except Exception:
+            log.warning("repeat_incidents_failed", tenant_id=str(tenant), exc_info=True)
 
 
 # --- hits -----------------------------------------------------------------------------------

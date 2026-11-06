@@ -175,6 +175,8 @@ export const ar: LabelResource = {
   'errors.field.default_cannot_be_disabled':
     'لا يمكن إيقاف القالب الافتراضي. عيّن قالبًا آخر كافتراضي أولًا.',
   'errors.field.default_cannot_be_inactive': 'لا يمكن جعل الافتراضي غير نشط.',
+  'errors.field.default_cannot_be_removed':
+    'لا يمكن إزالة القاعدة الافتراضية. أوقفها بدلًا من ذلك.',
   'errors.field.default_language_not_offered': 'يجب أن تكون اللغة الافتراضية إحدى اللغات المتاحة.',
   'errors.field.default_required':
     'يوجد دائمًا قالب افتراضي. عيّن قالبًا آخر كافتراضي بدلًا من ذلك.',
@@ -630,6 +632,8 @@ export const ar: LabelResource = {
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
   'errors.reference_copied': 'تم نسخ المرجع',
   'errors.reference_is': 'المرجع: {{reference}}',
+  'errors.repeat_hit_not_found': 'لم تعد مجموعة الحوادث المتكررة هذه موجودة.',
+  'errors.repeat_rule_not_found': 'لم تعد قاعدة الحوادث المتكررة هذه موجودة.',
   'errors.reply_template_not_found': 'لم يعد قالب الرد هذا موجودًا.',
   'errors.report_entity_not_found': 'لا يوجد شيء من هذا النوع لإعداد تقرير عنه.',
   'errors.report_export_not_found': 'هذا التصدير غير موجود أو ليس لك.',

@@ -29,6 +29,7 @@ export const ur: LabelResource = {
   'event_delivery_state.stalled': 'رکی ہوئی',
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.problem': 'مسائل',
+  'notification_area.problem_repeat': 'مسائل',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
@@ -80,6 +81,7 @@ export const ur: LabelResource = {
   'notification_event.problem.resolved': 'مسئلہ حل ہوا',
   'notification_event.problem.target_breached': 'مسئلے کی ہدف تاریخ گزر گئی',
   'notification_event.problem.target_warning': 'مسئلے کی ہدف تاریخ قریب',
+  'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_preferences.col.category': 'قسم',
@@ -353,6 +355,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }}: ہدف تاریخ قریب ہے',
   'notification_template.problem.target_warning.subject':
     'جلد واجب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem_repeat.detected.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ incident.count }} واقعات "{{ rule.name }}" سے ملتے ہیں ({{ category.name }}، {{ site.name }})۔ انہیں دیکھیں اور اگر ان کی وجہ ایک ہو تو مسئلہ بنائیں۔',
+  'notification_template.problem_repeat.detected.in_app':
+    '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
+  'notification_template.problem_repeat.detected.subject':
+    '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -370,11 +378,13 @@ export const ur: LabelResource = {
   'notification_variable.article.reason': 'مضمون › وجہ',
   'notification_variable.article.review_on': 'مضمون › جائزے کی تاریخ',
   'notification_variable.assignee.name': 'تکنیکی ماہر › نام',
+  'notification_variable.category.name': 'زمرہ',
   'notification_variable.change.from_status': 'تبدیلی › سابقہ حالت',
   'notification_variable.connector.name': 'کنیکٹر › نام',
   'notification_variable.connector.reason': 'کنیکٹر › وجہ',
   'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
+  'notification_variable.incident.count': 'واقعات کی تعداد',
   'notification_variable.mailbox.address': 'میل باکس › پتہ',
   'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
   'notification_variable.mailbox.reason': 'میل باکس › وجہ',
@@ -385,6 +395,8 @@ export const ur: LabelResource = {
   'notification_variable.record.status': 'ریکارڈ › حالت',
   'notification_variable.record.title': 'ریکارڈ › موضوع',
   'notification_variable.requester.name': 'درخواست گزار › نام',
+  'notification_variable.rule.name': 'اصول',
+  'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notifications.banner.no_mail_one':
     '{{count}} ای میل انتظار میں ہے کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میل بھیج دی جائے گی۔',

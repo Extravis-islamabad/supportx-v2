@@ -27,6 +27,7 @@ export const en = {
   'event_delivery_state.stalled': 'Stalled',
   'notification.open_record': 'Open {{id}}',
   'notification_area.problem': 'Problems',
+  'notification_area.problem_repeat': 'Problems',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',
@@ -77,6 +78,7 @@ export const en = {
   'notification_event.problem.resolved': 'Problem solved',
   'notification_event.problem.target_breached': 'Problem target date passed',
   'notification_event.problem.target_warning': 'Problem target date close',
+  'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_preferences.col.category': 'Kind',
@@ -350,6 +352,12 @@ export const en = {
     '{{ record.display_id }}: the target date is close',
   'notification_template.problem.target_warning.subject':
     'Due soon: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem_repeat.detected.body':
+    'Hello {{ recipient.name }},\n\n{{ incident.count }} incidents match "{{ rule.name }}" ({{ category.name }}, {{ site.name }}). Look at them and create a problem if they share a cause.',
+  'notification_template.problem_repeat.detected.in_app':
+    '{{ incident.count }} similar incidents: {{ rule.name }}',
+  'notification_template.problem_repeat.detected.subject':
+    '{{ incident.count }} similar incidents: {{ rule.name }}',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -367,11 +375,13 @@ export const en = {
   'notification_variable.article.reason': 'Article › Reason',
   'notification_variable.article.review_on': 'Article › Review date',
   'notification_variable.assignee.name': 'Technician › Name',
+  'notification_variable.category.name': 'Category',
   'notification_variable.change.from_status': 'Change › Previous status',
   'notification_variable.connector.name': 'Connector › Name',
   'notification_variable.connector.reason': 'Connector › Reason',
   'notification_variable.conversation.author': 'Reply or note › Author',
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
+  'notification_variable.incident.count': 'Number of incidents',
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',
@@ -382,6 +392,8 @@ export const en = {
   'notification_variable.record.status': 'Record › Status',
   'notification_variable.record.title': 'Record › Subject',
   'notification_variable.requester.name': 'Requester › Name',
+  'notification_variable.rule.name': 'Rule',
+  'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
   'notifications.banner.no_mail_one':
     '{{count}} e-mail waits because outgoing mail is not set up. In-app notifications still go out; the e-mail is sent once mail works.',
