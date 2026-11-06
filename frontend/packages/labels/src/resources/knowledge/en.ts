@@ -139,6 +139,7 @@ export const en = {
   'knowledge.field.language': 'Language',
   'knowledge.field.name_ar': 'Name in Arabic',
   'knowledge.field.name_en': 'Name in English',
+  'knowledge.field.name_ur': 'Name in Urdu',
   'knowledge.field.names': 'Name',
   'knowledge.field.own_audience': 'Own audience',
   'knowledge.field.owner_id': 'Owner',
@@ -307,5 +308,7 @@ export const en = {
   'knowledge.why.not_withdrawer':
     'Only the topic owner or someone who may withdraw articles can do this.',
   'knowledge.why.nothing_in_review': 'Nothing in this language is waiting for review.',
+  'knowledge.why.own_version':
+    'You wrote this version, and self-approval is off: another approver publishes it.',
   'knowledge.withdrawn_notice': 'This article is withdrawn. Readers no longer see it.',
 } as const;
