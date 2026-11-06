@@ -253,4 +253,14 @@ export const ur: LabelResource = {
   'assets.record.vendors': 'وینڈرز',
   'assets.record.warranty_expires_on': 'وارنٹی ختم ہونے کی تاریخ',
   'assets.record.website': 'ویب سائٹ',
+  'my_assets.accept': 'قبول کریں',
+  'my_assets.accepted': 'قبول کر لیا',
+  'my_assets.department': 'آپ کے شعبے کا',
+  'my_assets.dispute': 'کچھ غلط ہے',
+  'my_assets.dispute_comment': 'کیا غلط ہے',
+  'my_assets.dispute_help':
+    'بتائیں کیا غلط ہے۔ جس نے یہ آپ کو دیا اسے بتایا جائے گا؛ تب تک یہ آپ کے پاس رہے گا۔',
+  'my_assets.dispute_title': '{{name}} میں کیا غلط ہے؟',
+  'my_assets.none': 'آپ کے پاس کوئی اثاثہ نہیں',
+  'my_assets.title': 'میرے اثاثے',
 };

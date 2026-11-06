@@ -279,4 +279,13 @@ export const ar: LabelResource = {
   'assets.record.vendors': 'الموردون',
   'assets.record.warranty_expires_on': 'تاريخ انتهاء الضمان',
   'assets.record.website': 'الموقع الإلكتروني',
+  'my_assets.accept': 'قبول',
+  'my_assets.accepted': 'تم القبول',
+  'my_assets.department': 'خاص بقسمك',
+  'my_assets.dispute': 'هناك خطأ ما',
+  'my_assets.dispute_comment': 'ما الخطأ',
+  'my_assets.dispute_help': 'اذكر ما الخطأ. سيُبلَّغ من سلّمه إليك، ويبقى لديك في الأثناء.',
+  'my_assets.dispute_title': 'ما الخطأ في {{name}}؟',
+  'my_assets.none': 'لا تحمل أي أصول',
+  'my_assets.title': 'أصولي',
 };

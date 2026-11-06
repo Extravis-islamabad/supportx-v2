@@ -250,4 +250,14 @@ export const en = {
   'assets.record.vendors': 'Vendors',
   'assets.record.warranty_expires_on': 'Warranty ends on',
   'assets.record.website': 'Website',
+  'my_assets.accept': 'Accept',
+  'my_assets.accepted': 'Accepted',
+  'my_assets.department': 'Your department’s',
+  'my_assets.dispute': 'Something is wrong',
+  'my_assets.dispute_comment': 'What is wrong',
+  'my_assets.dispute_help':
+    'Say what is wrong. The person who gave it to you is told; it stays yours meanwhile.',
+  'my_assets.dispute_title': 'What is wrong with {{name}}?',
+  'my_assets.none': 'You hold no assets',
+  'my_assets.title': 'My assets',
 } as const;
