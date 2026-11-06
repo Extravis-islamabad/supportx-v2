@@ -30,7 +30,7 @@ from app.modules.automation.domain.rules import (
 from app.modules.automation.domain.triggers import People, Relative, TriggerEvent
 from app.modules.automation.events import EVENTS
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
-from app.modules.automation.service import workflow_events
+from app.modules.automation.service import workflow_events, workflow_scheduler
 from app.modules.automation.service.assignment import (
     AssignmentResult,
     Member,
@@ -105,6 +105,8 @@ module = ModuleSpec(
             event_types=TRIGGER_EVENT_TYPES,
             handler=on_record_event,
         ),
+        # An instance that moved on wakes its Temporal waker (off without Temporal).
+        workflow_scheduler.SCHEDULER,
         # Waiting workflow instances hear their record's committed changes (ADR-043 §5).
         ConsumerSpec(
             name="automation__workflow_events",
