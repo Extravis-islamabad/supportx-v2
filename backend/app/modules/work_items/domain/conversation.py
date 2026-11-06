@@ -104,6 +104,7 @@ class FollowReason(StrEnum):
     ADDED = "added"  # someone with manage_followers added them
     HANDED_OVER = "handed_over"  # they handed it out of their own reach and kept following
     MENTIONED = "mentioned"  # they were mentioned in a note
+    INVESTIGATOR = "investigator"  # problems (ADR-040): works its tasks and worklogs too
 
 
 def first_response_action(kind: EntryKind, visibility: Visibility) -> FirstResponseAction:

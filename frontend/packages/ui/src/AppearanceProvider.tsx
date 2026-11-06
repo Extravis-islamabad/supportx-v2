@@ -73,6 +73,11 @@ const PAGE_CSS =
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
+  // A table wider than its box shows that it scrolls: a real scrollbar, never an overlay one
+  // that appears only while scrolling (QA 2026-11-05 V1: columns cut off with no cue).
+  '.ant-table-content { scrollbar-width: thin; scrollbar-color: rgba(127, 127, 127, 0.55) transparent; } ' +
+  '.ant-table-content::-webkit-scrollbar { height: 10px; } ' +
+  '.ant-table-content::-webkit-scrollbar-thumb { background: rgba(127, 127, 127, 0.55); border-radius: 5px; } ' +
   // Tabs that do not fit scroll sideways instead of moving into a "more" menu: Ant Design puts
   // that menu's button inside the tab list, which may hold only tabs (axe aria-required-children,
   // the record at 390 px; UI pass 2).
@@ -110,6 +115,8 @@ export function AppearanceProvider({
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [urduScript, setUrduScript] = useState<UrduScript>('naskh');
   const [textScale, setTextScale] = useState(100);
+  // The top bar's height at this text size, plus a gap: where toasts start.
+  const belowHeader = Math.round((56 * textScale) / 100) + 8;
   const [digits, setDigits] = useState<Digits>('western');
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
@@ -179,7 +186,14 @@ export function AppearanceProvider({
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
           {/* Messages start below the header, never over its search field (UI pass 2, agreed
               with lane B); the header grows with the text size. Notifications stay top-right. */}
-          <AntApp message={{ top: Math.round((56 * textScale) / 100) + 8 }}>{children}</AntApp>
+          <AntApp
+            // Toasts open below the top bar, never over the user menu (#204 for messages;
+            // QA6-SH-02 for the error notifications).
+            message={{ top: belowHeader }}
+            notification={{ top: belowHeader }}
+          >
+            {children}
+          </AntApp>
         </ConfigProvider>
       </LabelsProvider>
     </AppearanceContext.Provider>

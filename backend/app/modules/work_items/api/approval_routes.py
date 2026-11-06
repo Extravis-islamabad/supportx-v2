@@ -169,7 +169,7 @@ class DecisionIn(BaseModel):
 def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: bool = True) -> None:
     """The approval routes of `wtype` on its router (before the `/{record_id}` routes).
 
-    `withdraw`: the requester's withdrawal (service requests; releases have none).
+    `withdraw`: the requester's withdrawal (service requests; releases and problems have none).
     """
     SignedIn = Annotated[Subject, Depends(require_signed_in())]  # noqa: N806 - type alias
     audit = wtype.code.value

@@ -23,7 +23,7 @@ from typing import Any, Literal
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound, PermissionDenied
+from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.parts import (
@@ -38,7 +38,7 @@ from app.modules.work_items.domain.parts import (
     moved,
     worklog_times,
 )
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemPartChanged
 from app.modules.work_items.infra.models import (
     WorkItem,
@@ -47,6 +47,7 @@ from app.modules.work_items.infra.models import (
     WorkItemTypeSettings,
     WorkItemWorklog,
 )
+from app.modules.work_items.service import followers
 from app.modules.work_items.service import work_items as items
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -116,6 +117,40 @@ def _text(value: object, field: str, limit: int, problems: list[tuple[str, str]]
     if len(text) > limit:
         problems.append((field, "value_too_long"))
     return text
+
+
+async def _work_access(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> tuple[WorkItem, bool]:
+    """Tasks and worklogs: (record, full). Full with `edit`; else an investigator (ADR-040)."""
+    try:
+        return await items.record_for_action(session, subject, wtype, "edit", record_id), True
+    except PermissionDenied:
+        if subject.holds(wtype.permission("view")) and await followers.is_investigator(
+            session, record_id, subject.user_id
+        ):
+            return await items.visible_record(session, subject, wtype, record_id), False
+        raise
+
+
+async def _for_work(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    """Tasks: `edit`, or an investigator of this record (ADR-040), nothing wider."""
+    record, _full = await _work_access(session, subject, wtype, record_id)
+    return record
+
+
+def _own_time_only(wtype: WorkItemType, subject: Subject, owner_id: uuid.UUID | None) -> None:
+    """An investigator logs, changes and removes only their own time (lane B, ADR-040).
+
+    `owner_id` None is a new worklog without an owner, which then is the subject's own (stored
+    worklogs always have an owner).
+    """
+    if owner_id is not None and owner_id != subject.user_id:
+        raise PermissionDenied(
+            params={"permission": wtype.permission("edit"), "reason": "own_worklogs_only"}
+        )
 
 
 # --- tasks (REQ-INC-072) --------------------------------------------------------------------------
@@ -209,7 +244,7 @@ async def create_task(  # noqa: PLR0913 - the record, the task and the source, e
     source: Source,
 ) -> WorkItemTask:
     """A new task at the end of the record's list."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     existing = await _tasks(session, record_id)
     if len(existing) >= MAX_TASKS:
         raise items.field_errors([("title", "too_many_items")], max=MAX_TASKS)
@@ -263,7 +298,11 @@ async def _task_access(
 
     Anyone else gets 404, as if the record did not exist.
     """
-    if await items.may(session, subject, wtype, "edit", record_id):
+    if await items.may(session, subject, wtype, "edit", record_id) or (
+        # An investigator works the record's tasks in full (ADR-040).
+        subject.holds(wtype.permission("view"))
+        and await followers.is_investigator(session, record_id, subject.user_id)
+    ):
         record = await items.visible_record(session, subject, wtype, record_id)
         return record, await _task(session, record_id, task_id), True
     task: WorkItemTask | None = await session.scalar(
@@ -335,7 +374,7 @@ async def delete_task(  # noqa: PLR0913 - the task, its version and the source, 
     source: Source,
 ) -> None:
     """Remove a task (soft delete)."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     task = await _task(session, record_id, task_id)
     removed = await TaskRepository(session).soft_delete(task.id, expected_version=expected_version)
     await _recorded(
@@ -360,7 +399,7 @@ async def move_task(  # noqa: PLR0913 - the task, the direction and the source, 
     source: Source,
 ) -> list[WorkItemTask]:
     """Move a task one place up (-1) or down (+1); the new order is saved for everyone."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record = await _for_work(session, subject, wtype, record_id)
     current = await _tasks(session, record_id)
     ids = [str(t.id) for t in current]
     if str(task_id) not in ids:
@@ -520,7 +559,10 @@ async def create_worklog(  # noqa: PLR0913 - the record, the worklog and the sou
     source: Source,
 ) -> WorkItemWorklog:
     """Log time on a record; the owner defaults to the subject."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record, full = await _work_access(session, subject, wtype, record_id)
+    if not full:
+        owner = values.get("owner_id")
+        _own_time_only(wtype, subject, uuid.UUID(str(owner)) if owner else None)
     times = _times(values)
     problems: list[tuple[str, str]] = []
     description = _text(values.get("description"), "description", DESCRIPTION_MAX, problems)
@@ -570,8 +612,12 @@ async def update_worklog(  # noqa: PLR0913, PLR0917 - the worklog, its version, 
     source: Source,
 ) -> WorkItemWorklog:
     """Change a worklog (If-Match); the times are checked together again."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record, full = await _work_access(session, subject, wtype, record_id)
     row = await _worklog(session, record_id, worklog_id)
+    if not full:
+        _own_time_only(wtype, subject, row.owner_id)
+        if values.get("owner_id"):
+            _own_time_only(wtype, subject, uuid.UUID(str(values["owner_id"])))
     merged = {
         "started_at": row.started_at,
         "ended_at": row.ended_at,
@@ -618,8 +664,10 @@ async def delete_worklog(  # noqa: PLR0913 - the worklog, its version and the so
     source: Source,
 ) -> None:
     """Remove a worklog (soft delete)."""
-    record = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    record, full = await _work_access(session, subject, wtype, record_id)
     row = await _worklog(session, record_id, worklog_id)
+    if not full:
+        _own_time_only(wtype, subject, row.owner_id)
     removed = await WorklogRepository(session).soft_delete(
         row.id, expected_version=expected_version
     )
@@ -643,11 +691,15 @@ class LinkView:
 
     link: WorkItemLink
     other_id: uuid.UUID
-    # "related"; for follows: "follows" (this record follows the other) or "followed_by".
-    relation: Literal["related", "follows", "followed_by"]
+    # "related"; for follows: "follows" (this record follows the other) or "followed_by";
+    # for caused by: "caused_by" (this incident, by the other) or "causes" (this problem).
+    relation: "Relation"
     visible: bool
     display_id: str | None
     subject_text: str | None
+    other_type: WorkItemTypeCode | None = None
+    # The other record is a live (not retired) known error: incidents show the marker (044b).
+    other_known_error: bool = False
 
 
 async def links(
@@ -659,6 +711,7 @@ async def links(
         select(WorkItemLink)
         .where(
             or_(WorkItemLink.source_id == record_id, WorkItemLink.target_id == record_id),
+            WorkItemLink.kind.in_(_LISTED),
             WorkItemLink.deleted_at.is_(None),
         )
         .order_by(WorkItemLink.created_at, WorkItemLink.id)
@@ -667,24 +720,59 @@ async def links(
     for link in rows:
         mine_is_source = link.source_id == record_id
         other = link.target_id if mine_is_source else link.source_id
-        relation: Literal["related", "follows", "followed_by"] = (
-            "related"
-            if link.kind == LinkKind.RELATED
-            else ("follows" if mine_is_source else "followed_by")
+        row = await session.get(WorkItem, other)
+        # A caused-by link joins two types: the other's own permissions decide (WP-044a).
+        other_type = TYPES.get(WorkItemTypeCode(row.type)) if row is not None else None
+        visible = other_type is not None and await items.may(
+            session, subject, other_type, "view", other
         )
-        visible = await items.may(session, subject, wtype, "view", other)
-        row = await session.get(WorkItem, other) if visible else None
+        shown = row if visible else None
         found.append(
             LinkView(
                 link,
                 other,
-                relation,
-                visible and row is not None,
-                row.display_id if row is not None else None,
-                row.subject if row is not None else None,
+                _relation(LinkKind(link.kind), mine_is_source=mine_is_source),
+                visible and shown is not None,
+                shown.display_id if shown is not None else None,
+                shown.subject if shown is not None else None,
+                other_type.code if visible and other_type is not None else None,
+                shown is not None
+                and shown.known_error_at is not None
+                and shown.known_error_retired_at is None,
             )
         )
     return found
+
+
+# The kinds this listing reads (`_relation`). Release links (WP-058a) are listed by the
+# release's own parts until the cross-type relations of REQ-REL-034 join them here.
+_LISTED = (
+    LinkKind.RELATED.value,
+    LinkKind.FOLLOWS.value,
+    LinkKind.CAUSED_BY.value,
+    LinkKind.MERGED_INTO.value,
+)
+
+
+Relation = Literal[
+    "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
+]
+
+
+def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
+    """How the link reads from this record's side."""
+    match kind:
+        case LinkKind.RELATED:
+            return "related"
+        case LinkKind.FOLLOWS:
+            return "follows" if mine_is_source else "followed_by"
+        case LinkKind.CAUSED_BY:
+            return "caused_by" if mine_is_source else "causes"
+        case LinkKind.MERGED_INTO:
+            return "merged_into" if mine_is_source else "merged_from"
+        case _:  # never listed (_LISTED)
+            msg = f"link kind {kind} is not listed here"
+            raise ValueError(msg)
 
 
 def _pair(record_id: uuid.UUID, other_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID]:
@@ -753,6 +841,9 @@ async def add_link(  # noqa: PLR0913 - both records, the comment and the source,
     return link
 
 
+_OWN_ROUTE = frozenset({LinkKind.CAUSED_BY.value, LinkKind.MERGED_INTO.value})
+
+
 async def remove_link(  # noqa: PLR0913 - the record, the link, its version and the source
     session: AsyncSession,
     subject: Subject,
@@ -774,6 +865,10 @@ async def remove_link(  # noqa: PLR0913 - the record, the link, its version and 
     )
     if link is None:
         raise NotFound(code="work_item_link_not_found")
+    if link.kind in _OWN_ROUTE:
+        # A cause needs the incident's edit right (unlink), a merge its undo (WP-044b): the
+        # generic delete would skip those rules.
+        raise Conflict(code="link_has_own_route", params={"kind": link.kind})
     other_id = link.target_id if link.source_id == record_id else link.source_id
     other = await session.get(WorkItem, other_id)
     removed = await LinkRepository(session).soft_delete(link.id, expected_version=expected_version)
@@ -794,3 +889,4 @@ async def add_follows(
 
 tasks_of = _tasks
 recorded = _recorded
+link_recorded = _link_recorded

@@ -256,11 +256,38 @@ def _role_defaults(action: str) -> tuple[tuple[str, Scope], ...]:
 IDENTITY_GRANTED = frozenset({"view", "create", "edit", "assign", "close"})
 
 
+# Problems (WP-044a, agreed with lane B): what identity's reserved `problems.view` (all) and
+# `problems.manage` (group) gave technicians, in the engine's actions: they see every problem,
+# create them, and work their groups' problems. Never delete (admins), never due dates by hand.
+_PROBLEM_TECH: dict[str, tuple[tuple[str, Scope], ...]] = {
+    "view": (("technician", "all"),),
+    "create": (("technician", "all"),),
+    "assign_outside_group": (),
+    "delete": (),
+    "edit_due_dates": (),
+}
+_PROBLEM_GROUP: tuple[tuple[str, Scope], ...] = (("technician", "group"),)
+
+
+def _type_defaults(
+    wtype: WorkItemType, action: str, defaults: tuple[tuple[str, Scope], ...]
+) -> tuple[tuple[str, Scope], ...]:
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
+        # Service requests keep identity's system-role grants for these keys (WP-030, nothing
+        # widened for technicians or requesters).
+        return () if action in IDENTITY_GRANTED else defaults
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        return _PROBLEM_TECH.get(action, _PROBLEM_GROUP)
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        # Releases (WP-058a): technicians keep only identity's releases.view grant; the type
+        # adds no technician defaults, so nothing is widened (lane B review).
+        return ()
+    return defaults
+
+
 def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     """The permission catalogue entries of one type."""
     is_sr = wtype.code is WorkItemTypeCode.SERVICE_REQUEST
-    # Releases (WP-058a): technicians keep only identity's releases.view grant; the type adds no
-    # technician defaults, so nothing is widened (lane B review). Admin roles get theirs.
     is_release = wtype.code is WorkItemTypeCode.RELEASE
     return (
         tuple(
@@ -269,18 +296,47 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
                 wtype.feature,
                 # requests.assign keeps the scopes it always had (never "own": lane B, #182)
                 NOT_OWN if is_sr and action == "assign" else scopes,
-                # Service requests keep identity's system-role grants for these keys (WP-030,
-                # nothing widened); the WP-042 built-in roles still get theirs.
-                defaults=(
-                    *(() if is_release or (is_sr and action in IDENTITY_GRANTED) else defaults),
-                    *_role_defaults(action),
-                ),
+                # The type's own system-role defaults (service requests keep identity's grants,
+                # problems their technician grants, releases none); the WP-042 built-in roles
+                # still get theirs.
+                defaults=(*_type_defaults(wtype, action, defaults), *_role_defaults(action)),
             )
             for action, scopes, defaults in _ACTIONS
         )
         + (APPROVE_SPECS if is_sr else ())
+        + (PROBLEM_SPECS if wtype.code is WorkItemTypeCode.PROBLEM else ())
         + (RELEASE_APPROVE_SPECS if is_release else ())
     )
+
+
+# Problems only (WP-044b, REQ-PRB-070, D-140 Q7): changing the analysis, and seeing the root
+# cause, which may describe a security weakness. Technicians hold both for their groups'
+# problems (they work them); everyone else who sees a problem reads it without its root cause
+# unless an admin widens it. Enforced in the API, history and search, not only the screen.
+EDIT_ANALYSIS = "edit_analysis"
+VIEW_ROOT_CAUSE = "view_root_cause"
+# WP-044b s3 (REQ-PRB-034, -036): the solution (workaround) and the known error flag.
+EDIT_SOLUTION = "edit_solution"
+MARK_KNOWN_ERROR = "mark_known_error"
+PROBLEM_SPECS: tuple[PermissionSpec, ...] = (
+    *(
+        PermissionSpec(
+            f"problems.{action}",
+            "problem",
+            ALL_SCOPES,
+            defaults=(("technician", "group"), *_role_defaults(action)),
+        )
+        for action in (EDIT_ANALYSIS, VIEW_ROOT_CAUSE, EDIT_SOLUTION, MARK_KNOWN_ERROR)
+    ),
+    # Deciding a problem's approvals when named (s4): technicians and the service desk
+    # managers, as the problem manager role does in Appendix A.
+    PermissionSpec(
+        "problems.approve",
+        "problem",
+        ("all",),
+        defaults=(("technician", "all"), (SERVICE_DESK_MANAGER, "all")),
+    ),
+)
 
 
 # The approval engine (WP-030 s2, REQ-SR-063): anyone holding the type's approve permission may

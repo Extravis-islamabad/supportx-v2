@@ -28,6 +28,7 @@ import type { ThemeMode } from '../theme';
 import { useAppearance, useLabel } from '../appearance';
 import { AppearanceControls } from '../AppearanceControls';
 import { AboutDialog } from './AboutDialog';
+import { headerRole } from './headerRole';
 
 export interface AppHeaderProps {
   /** Labels key of the app's name, e.g. `app.console.name`. */
@@ -44,6 +45,8 @@ export interface AppHeaderProps {
   menuItems?: NonNullable<MenuProps['items']>;
   /** Shown instead of the app name at the start of the row (top-bar navigation). */
   start?: ReactNode;
+  /** Phones: the button that opens the navigation drawer, first in the row. */
+  menu?: ReactNode;
   /**
    * Where the user is, in place of the app's name (the console's breadcrumbs); `narrow` is the
    * phone-width header. Omitted: the app's name (the portal).
@@ -114,6 +117,7 @@ export function AppHeader({
   extra,
   menuItems,
   start,
+  menu,
   context,
   onNavLayoutChange,
   onLocaleChange,
@@ -183,6 +187,7 @@ export function AppHeader({
         lineHeight: 'normal',
       }}
     >
+      {menu}
       {start ?? context?.(narrow) ?? (
         <Typography.Text strong style={{ flex: 1 }}>
           {t(appName)}
@@ -305,8 +310,8 @@ export function AppHeader({
                 <Typography.Text strong data-testid="user-name">
                   {session.user.display_name}
                 </Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {t(`user_type.${session.user.user_type}`)}
+                <Typography.Text type="secondary" style={{ fontSize: 12 }} data-testid="user-role">
+                  {headerRole(t, session.user)}
                 </Typography.Text>
               </Flex>
             )}

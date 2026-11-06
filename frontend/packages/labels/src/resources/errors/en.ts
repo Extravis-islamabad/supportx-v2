@@ -6,6 +6,7 @@ export const en = {
   'errors.action_link_sign_in_required': 'Sign in to approve or reject this request.',
   'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
   'errors.action_link_used': 'This link has already been used.',
+  'errors.already_known_error': '{{display_id}} is already a known error.',
   'errors.already_taken': '{{taken_by}} has just taken this. Reload to see it.',
   'errors.already_yours': 'It is already assigned to you.',
   'errors.announcement_not_found': 'This announcement does not exist or is not available to you.',
@@ -32,6 +33,7 @@ export const en = {
   'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
   'errors.approval_closed': 'This approval is already decided or no longer needed.',
   'errors.approval_not_found': 'This approval was not found.',
+  'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
   'errors.audit_archive_missing': 'The archive file is no longer in storage.',
   'errors.audit_archive_not_found': 'This archive does not exist.',
@@ -146,9 +148,13 @@ export const en = {
   'errors.field.api_key_owner_not_service':
     'Keys for someone else can only belong to a service identity.',
   'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
+  'errors.field.approver_is_requester': 'You cannot approve your own request; name someone else.',
+  'errors.field.approver_not_eligible':
+    'Someone named cannot approve this problem (inactive, or without the right).',
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
   'errors.field.before_publish': 'Retiring must come after publishing.',
+  'errors.field.before_start': 'The end cannot be before the start.',
   'errors.field.below_minimum': 'Minimum is {{min}}.',
   'errors.field.brand_image_svg':
     'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
@@ -162,6 +168,7 @@ export const en = {
   'errors.field.builtin_type_names': 'A built-in type keeps its names.',
   'errors.field.calendar_not_found': 'Choose a calendar from the list.',
   'errors.field.cannot_link_itself': 'A record cannot be linked to itself.',
+  'errors.field.cannot_merge_itself': 'A problem cannot be merged into itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
   'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
@@ -236,6 +243,8 @@ export const en = {
     'A calendar is only chosen when the source is a fixed calendar.',
   'errors.field.flow_not_available': 'This kind of record has no created-vs-resolved report.',
   'errors.field.flow_without_groupings': 'A created-vs-resolved report has no groupings.',
+  'errors.field.full_sla_off':
+    'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
   'errors.field.group_not_found': 'This group does not exist.',
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
@@ -305,6 +314,7 @@ export const en = {
   'errors.field.name_taken': 'Another one already uses this name.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
+  'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
   'errors.field.not_eligible': 'This person or group may not hold this role.',
@@ -354,7 +364,10 @@ export const en = {
     'Choose at least one requester group, site or department.',
   'errors.field.requester_only': "Only the requester's confirmation sets this code.",
   'errors.field.required': 'This field is required.',
+  'errors.field.required_for_known_error':
+    'Write a workaround or a root cause before marking a known error.',
   'errors.field.required_to_close': 'Needed before closing.',
+  'errors.field.required_to_confirm_cause': 'Write the root cause before confirming it.',
   'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
@@ -505,6 +518,8 @@ export const en = {
     'Your organisation is not set up for sign-in yet. Ask your administrator.',
   'errors.identity_provider_unavailable':
     'Sign-in is temporarily unavailable. Please try again shortly.',
+  'errors.incident_has_problem':
+    'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
     "The article's images are too large to insert together: at most {{limit_mb}} MB.",
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
@@ -521,6 +536,7 @@ export const en = {
   'errors.invalid_tenant_id': 'The organisation identifier is not valid.',
   'errors.invalid_transition':
     'This is not possible in the current status. Reload to see the latest.',
+  'errors.investigator_not_found': 'This person is not an investigator of this problem.',
   'errors.invitation_already_signed_in':
     'This person has signed in already, so there is nothing to invite them to.',
   'errors.invitation_needs_email': 'Add an email address to this person first.',
@@ -578,6 +594,8 @@ export const en = {
     'AD/LDAP directories can only be connected on an installation that serves one organisation.',
   'errors.limit_reached':
     'Your plan’s limit for this has been reached. Ask your administrator to extend the plan.',
+  'errors.link_has_own_route':
+    'This link is removed in its own place: unlink the incident, or undo the merge.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
@@ -618,6 +636,8 @@ export const en = {
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
   'errors.not_found': 'The item was not found.',
+  'errors.not_known_error': '{{display_id}} is not a known error.',
+  'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
@@ -650,6 +670,7 @@ export const en = {
   'errors.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.privilege_escalation': 'You cannot give access you do not have yourself.',
+  'errors.problem_closed': '{{display_id}} is closed, so it cannot be merged.',
   'errors.range_not_satisfiable': 'That part of the file does not exist.',
   'errors.rate_limited': 'Too many requests. Please wait a moment and try again.',
   // Entitlements (WP-009)

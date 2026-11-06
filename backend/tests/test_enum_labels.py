@@ -26,6 +26,11 @@ ENUM_PREFIXES: dict[str, str] = {
     "WritingIn.mode": "ai_writing_mode",
     # AI gateway (WP-037)
     "AiArea": "ai_area",
+    # Problems' evidence panel (WP-044b)
+    "EvidenceSource": "problem_evidence_source",
+    "ApprovalPurpose": "approval_purpose",
+    "RecipientSet": "problem_recipient_set",
+    "CopyPart": "problem_follow_up_copy",
     "OutcomeIn.outcome": "ai_outcome",
     # SLA set-up (WP-025)
     "ActionKind": "sla_action_kind",
@@ -68,6 +73,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "WorklogType": "worklog_type",
     "LinkKind": "link_kind",
     "PortalSettingsOut.search_sources[]": "portal.search.group",
+    "WorkItemTypeCode": "work_item_type",
     "WorkItemLinkOut.relation": "link_relation",
     "WorkItemTaskMoveIn.direction": "task_move_direction",
     # Incident lists and bulk jobs (WP-020d)

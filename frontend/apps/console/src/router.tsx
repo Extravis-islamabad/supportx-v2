@@ -52,6 +52,37 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        // WP-044a s5: problems (the list, creating one, the record).
+        path: 'problems',
+        handle: { section: 'problems' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/problems/ProblemsPage')).ProblemsPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/problems/NewProblemPage')).NewProblemPage,
+            }),
+          },
+          {
+            path: 'known-errors',
+            lazy: async () => ({
+              Component: (await import('./pages/problems/KnownErrors')).KnownErrorsPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/problems/ProblemPage')).ProblemPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'requests',
         handle: { section: 'requests' },
         children: [

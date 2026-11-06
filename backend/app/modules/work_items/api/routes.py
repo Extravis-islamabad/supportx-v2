@@ -28,6 +28,7 @@ from app.modules.work_items.api.conversation_routes import (
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
+from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
@@ -60,6 +61,7 @@ from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_L
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     INCIDENT,
+    STANDARD_LIFECYCLE,
     SUBJECT_MAX,
     TAGS_MAX,
     Channel,
@@ -126,6 +128,46 @@ class WorkItemIn(BaseModel):
     )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
+    # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
+    problem_type: str | None = Field(
+        default=None, max_length=40, description="Problems: a `problem_type` list code."
+    )
+    root_cause_category: str | None = Field(
+        default=None, max_length=40, description="Problems: a `root_cause` list code."
+    )
+    outage_started_at: datetime | None = Field(
+        default=None, description="Problems: when the outage began."
+    )
+    outage_ended_at: datetime | None = Field(
+        default=None, description="Problems: when it ended (not before it began)."
+    )
+    root_cause: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the root cause, rich text (needs problems.edit_analysis and "
+        "problems.view_root_cause).",
+    )
+    symptoms: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the symptoms, rich text (needs problems.edit_analysis).",
+    )
+    workaround: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the workaround, rich text (needs problems.edit_solution).",
+    )
+    review_summary: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the review's summary (needs problems.edit_analysis).",
+    )
+    review_lessons: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: lessons learned."
+    )
+    review_actions: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
+    )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )
@@ -169,6 +211,46 @@ class WorkItemPatch(BaseModel):
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40)
+    # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
+    problem_type: str | None = Field(
+        default=None, max_length=40, description="Problems: a `problem_type` list code."
+    )
+    root_cause_category: str | None = Field(
+        default=None, max_length=40, description="Problems: a `root_cause` list code."
+    )
+    outage_started_at: datetime | None = Field(
+        default=None, description="Problems: when the outage began."
+    )
+    outage_ended_at: datetime | None = Field(
+        default=None, description="Problems: when it ended (not before it began)."
+    )
+    root_cause: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the root cause, rich text (needs problems.edit_analysis and "
+        "problems.view_root_cause).",
+    )
+    symptoms: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the symptoms, rich text (needs problems.edit_analysis).",
+    )
+    workaround: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the workaround, rich text (needs problems.edit_solution).",
+    )
+    review_summary: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the review's summary (needs problems.edit_analysis).",
+    )
+    review_lessons: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: lessons learned."
+    )
+    review_actions: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
+    )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key (null clears one); others kept."
     )
@@ -441,6 +523,14 @@ class AllowedForOut(BaseModel):
     relatives: list[str]
 
 
+class AnalysisChangeOut(BaseModel):
+    """The last change of one analysis field (REQ-PRB-030)."""
+
+    field: str = Field(description="`root_cause` or `symptoms`.")
+    changed_by: uuid.UUID | None = Field(description="Null when the system changed it.")
+    changed_at: datetime
+
+
 class WorkItemOut(BaseModel):
     """A work item as staff see it."""
 
@@ -464,7 +554,49 @@ class WorkItemOut(BaseModel):
     priority: Priority
     priority_source: PrioritySource
     level: str | None = Field(description="A `level` list code (may be a retired one).")
+    # Problems (WP-044a s2); null on other types.
+    problem_type: str | None = None
+    root_cause_category: str | None = None
+    outage_started_at: datetime | None = None
+    outage_ended_at: datetime | None = None
+    root_cause: str | None = Field(
+        default=None, description="Problems: null when root_cause_hidden (D-140 Q7)."
+    )
+    root_cause_hidden: bool = Field(
+        default=False, description="Problems: you may not read the root cause."
+    )
+    symptoms: str | None = None
+    workaround: str | None = None
+    review_summary: str | None = None
+    review_lessons: str | None = None
+    review_actions: str | None = None
+    review_required: bool = Field(
+        default=False, description="Problems: closing needs the review summary (REQ-PRB-053)."
+    )
+    known_error_at: datetime | None = Field(
+        default=None, description="Problems: when it was marked a known error."
+    )
+    accepted_at: datetime | None = Field(
+        default=None, description="Problems: a known error accepted without a fix (approved)."
+    )
+    accept_review_at: datetime | None = Field(
+        default=None, description="Problems: when the accepted known error is looked at again."
+    )
+    known_error_retired_at: datetime | None = Field(
+        default=None, description="Problems: when the known error was retired (a permanent fix)."
+    )
+    analysis_changes: list[AnalysisChangeOut] = Field(
+        default_factory=list,
+        description="Problems: who last changed each analysis field you may read, and when.",
+    )
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
+    lifecycle: str = Field(
+        default=STANDARD_LIFECYCLE,
+        description="The transition set it follows, from its template (WP-044a; REQ-PRB-025).",
+    )
+    status_before_pause: str | None = Field(
+        default=None, description="On hold: the status it resumes to (problems, Appendix A)."
+    )
     catalog_item_id: uuid.UUID | None = Field(
         default=None, description="Service requests: the item it was raised from."
     )
@@ -522,7 +654,8 @@ class WorkItemOut(BaseModel):
         description="Status actions, always in the same order."
     )
     operations: list[WorkItemActionStateOut] = Field(
-        description="edit, assign, take, change_priority, delete: whether you may, and why not."
+        description="edit, assign, take, change_priority, delete (problems: edit_analysis): "
+        "whether you may, and why not."
     )
     history_count: int
     people: dict[str, PersonOut] = Field(description="The people on the record, by user ID.")
@@ -541,6 +674,17 @@ class WorkItemOut(BaseModel):
         r = view.record
         return cls(
             **{name: getattr(r, name) for name in _RECORD_FIELDS},
+            root_cause=None if "root_cause" in view.hidden else r.root_cause,
+            root_cause_hidden="root_cause" in view.hidden,
+            review_required=view.review_required,
+            analysis_changes=[
+                AnalysisChangeOut(
+                    field=c.field,
+                    changed_by=None if c.actor_id is None else uuid.UUID(c.actor_id),
+                    changed_at=c.at,
+                )
+                for c in view.analysis_changes
+            ],
             actions=[_state(a) for a in view.actions],
             operations=[_state(a) for a in view.operations],
             history_count=view.history_count,
@@ -576,7 +720,22 @@ _RECORD_FIELDS = (
     "priority",
     "priority_source",
     "level",
+    "problem_type",
+    "root_cause_category",
+    "outage_started_at",
+    "outage_ended_at",
+    "symptoms",
+    "workaround",
+    "review_summary",
+    "review_lessons",
+    "review_actions",
+    "known_error_at",
+    "known_error_retired_at",
+    "accepted_at",
+    "accept_review_at",
     "template_id",
+    "lifecycle",
+    "status_before_pause",
     "custom",
     "stage",
     "stage_path",
@@ -799,6 +958,10 @@ class WorkItemTransitionOut(BaseModel):
     to_status: str | None = Field(description="Null: back to the status before canceling.")
     reason_mode: ReasonMode
     reason_list: ReasonList | None
+    lifecycle: str = Field(
+        default=STANDARD_LIFECYCLE,
+        description="The transition set: `standard`, or one a template chooses (WP-044a).",
+    )
 
 
 class WorkItemScaleValueOut(BaseModel):
@@ -888,6 +1051,10 @@ class WorkItemCatalogueOut(BaseModel):
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
+    review_required_priorities: list[Priority] = Field(
+        default_factory=list,
+        description="Problems: priorities that need a review before closing (major ones always).",
+    )
     version: int
     statuses: list[WorkItemStatusOut]
     actions: list[WorkItemAction] = Field(description="User actions in their fixed order.")
@@ -897,6 +1064,12 @@ class WorkItemCatalogueOut(BaseModel):
     reasons: list[WorkItemReasonOut]
     levels: list[WorkItemListValueOut] = Field(description="Support levels (REQ-INC-007).")
     closure_codes: list[WorkItemListValueOut] = Field(description="REQ-INC-093.")
+    problem_types: list[WorkItemListValueOut] = Field(
+        default_factory=list, description="Problems: the problem type list (WP-044a)."
+    )
+    root_causes: list[WorkItemListValueOut] = Field(
+        default_factory=list, description="Problems: the root cause category list (WP-044a)."
+    )
     own_lists: dict[str, list[WorkItemListValueOut]] = Field(
         default_factory=dict,
         description="The type's own pick lists (releases: release_type, release_reason).",
@@ -919,6 +1092,7 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
+            review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -933,7 +1107,8 @@ class WorkItemCatalogueOut(BaseModel):
                 )
                 for s in cat.statuses
             ],
-            actions=list(USER_ACTIONS),
+            # The actions of this type's life cycle (an incident never offers a problem's).
+            actions=cat.used_actions(),
             transitions=[
                 WorkItemTransitionOut(
                     from_status=t.from_status,
@@ -941,10 +1116,13 @@ class WorkItemCatalogueOut(BaseModel):
                     to_status=t.to_status,
                     reason_mode=t.reason_mode,
                     reason_list=t.reason_list,
+                    lifecycle=code,
                 )
-                # Life-cycle order (QA BUG-04): by status, then the fixed action order.
+                # The standard set first; life-cycle order (QA BUG-04): by status, then the
+                # fixed action order.
+                for code, lifecycle in cat.lifecycles.items()
                 for t in sorted(
-                    cat.lifecycle.transitions.values(),
+                    lifecycle.transitions.values(),
                     key=lambda t: (
                         [st.code for st in cat.statuses].index(t.from_status),
                         USER_ACTIONS.index(t.action) if t.action in USER_ACTIONS else 99,
@@ -976,6 +1154,8 @@ class WorkItemCatalogueOut(BaseModel):
             ],
             levels=[_value(v) for v in cat.list_values(PickList.LEVEL)],
             closure_codes=[_value(v) for v in cat.list_values(PickList.CLOSURE_CODE)],
+            problem_types=[_value(v) for v in cat.list_values(PickList.PROBLEM_TYPE)],
+            root_causes=[_value(v) for v in cat.list_values(PickList.ROOT_CAUSE)],
             # The lists only this type has (any list beyond the shared ones it was seeded with).
             own_lists={
                 name: [_value(v) for v in cat.list_values(PickList(name))]
@@ -1036,6 +1216,7 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
+    review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 
@@ -1847,8 +2028,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
-    elif wtype.code is WorkItemTypeCode.RELEASE:  # WP-058a s5: stage approvals, no withdrawal
+    elif wtype.code in {WorkItemTypeCode.RELEASE, WorkItemTypeCode.PROBLEM}:
+        # Release stage approvals (WP-058a s5) and problem approvals asked ad hoc (WP-044b s4):
+        # neither has a requester's withdrawal.
         add_approval_routes(router, wtype, withdraw=False)
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        # WP-044a s3: before the /{record_id} routes
+        add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
     add_parts_collection_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)

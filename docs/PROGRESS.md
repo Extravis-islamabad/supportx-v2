@@ -813,6 +813,222 @@ it with no reload (rule c). Not built yet.
 - [ ] S3 preview as a person (REQ-PRT-032): **open, waiting for Haider's OK** of the conditions.
   It ships as its own PR once approved; lane B builds the read-only preview session.
 
+### [ ] WP-044a — Problems: record, creation, templates, statuses, assignment (lane A, 2026-11-05; 5 sessions; #211)
+- **Plan:** ~/Desktop/wp-044-plan.md (all of WP-044, 13 sessions; coordinator approved
+  2026-11-04). Numbers: 0076, 0077, 0089 (044a), 0078 (044b), 0079 (044c), ADR-040
+  (investigators widen record access).
+- **Decided (D-140, Haider 2026-11-05):**
+  - Q1: closing offers "Resolve linked incidents", ticked by default, each through its own
+    service;
+  - Q2: one causing problem per incident (built, S3);
+  - Q3: target dates plus a tenant switch for full SLAs;
+  - Q4: review required for major and P1, P2 optional;
+  - Q5: an upgrade prompt in Essentials;
+  - Q6: AI grouping wherever the local model runs, pg_trgm without AI;
+  - Q7: the root cause is for problem roles only (API and search), admins can widen it;
+  - Q8: the React Native app is V1, built by Extravis's mobile team; every 044 feature goes
+    through the public API.
+  - Q3's switch goes in S5; Q4 in 044b S4; Q1 in 044b S5; Q7 in 044b S1 and 044c S2; Q5 and
+    Q6 in 044c S3; Q8 is checked in 044c S3.
+- [x] Session 1 (#211):
+  - Problems as a registered work-item type: PRB counter, `/problems`, licence feature
+    `problem`, custom fields for problems.
+  - The Appendix A life cycle with the actions investigate, confirm_root_cause, await_fix and
+    hold. On hold resumes where it was put on hold (`status_before_pause`, the same way as
+    undo-cancel).
+  - Each type lists only its own life cycle's actions (fixed when an incident listed the
+    problem actions).
+  - `problems.*` moved from identity's reserved list into work_items (lane B agreed; lane B
+    reviews):
+    - technicians: view and create all, and work their groups' problems;
+    - delete stays with the admins.
+  - Migration 0077 maps saved roles: problems.manage(S) becomes create, edit, assign and close
+    (never delete).
+  - Tests: domain (life cycle), DB (API, permissions, RLS, the 0077 migration and a role still
+    editing group problems).
+- [x] Session 2 (#211, migration 0089):
+  - problems have their own priority matrix (the per-type seed copies the incident one);
+  - problem type (reactive / proactive) and root cause category, from admin-editable pick lists
+    seeded for problems (Appendix A);
+  - the outage window (the end not before the start);
+  - target dates on the SLA engine: resolution only, P1 5 to P4 40 business days, no first
+    response; pausing and escalation as for incidents;
+  - problem-only fields refused on other types; field history; labels en/ar/ur.
+- [x] Session 3 (#211, 0089 extended): creating problems.
+  - From an incident: prefilled (subject, description, impact, urgency, site, the same seeded
+    category; reported by the creator) and linked "caused by" on both records with history.
+  - From many incidents: the already-caused ones are listed first and moved only when
+    confirmed; the others are linked by an incidents bulk job (`link_problem`, ≤ 1,000).
+  - An incident has at most one problem (partial unique index); a second gives 409
+    `incident_has_problem` unless moved.
+  - Similar open problems while typing (search port, visible ones only).
+  - Copy with the fields, a title marked with the original's ID, retired values left empty and
+    named, and history naming the original.
+  - Record links show caused_by / causes and the other record's type, checked against that
+    type's own permissions.
+  - Not yet (recorded): copying attachments (REQ-PRB-011 AC3), and the analysis and solution
+    parts of a copy (their fields come in WP-044b); creating from changes, releases, CIs and
+    reviews (REQ-PRB-013) waits for those records.
+- [x] Session 4 (#211, 0089 extended): named life cycles and the major problem template.
+  - A type can seed more than one transition set on its statuses. A template chooses one, and a
+    record keeps the one it was created with (`lifecycle`).
+  - Problems get "guided_analysis" (REQ-PRB-025): gathering facts, why-analysis, cause
+    confirmed, fix planned, fix verified, in review, closed. There is no close before the
+    review.
+  - New tenants get the standard and major problem templates (REQ-PRB-017 AC1).
+  - Not yet (recorded):
+    - the analysis and solution sections, and "cause confirmed needs a root cause", come with
+      the WP-044b S1 fields;
+    - template tasks on entering a status (REQ-PRB-020 AC2), template groups (REQ-PRB-021) and
+      the designer's explanations (REQ-PRB-022) are console work for S5;
+    - copying and editing a life cycle (REQ-PRB-025 AC3) comes with the life cycle designer.
+- [x] Session 5 (#211, 0089 extended; ADR-040):
+  - Investigators (REQ-PRB-029): a follower row with reason `investigator` and access.
+    - They see the problem and add notes, work its tasks, and log their own time (lane B's
+      review: never others' worklogs).
+    - Fields, status, assignment and links stay closed to them.
+    - Named or removed by whoever may edit the problem; anyone may step down.
+    - Audited and in history. The record channel follows the access.
+  - Full SLAs on problems (D-140 Q3): `sla_settings.full_sla`, off by default. While it is off
+    only the target date counts, and response targets are refused on save.
+  - Console screens:
+    - the problems list (live), and creating a problem from an incident or from many (the
+      already-caused ones to move or leave), with similar problems while typing;
+    - the record, with the incidents' status bar, the guided steps, the incidents it causes,
+      investigators and copy;
+    - "Create problem" on incidents.
+  - Lane B's review of 0077: the downgrade refuses rather than lose a grant.
+  - Audit labels for every service_request.* and problem.* action.
+  - Stack smoke dispatched with the new e2e spec (problems.spec.ts).
+  - Not yet (recorded):
+    - an assign dialog and a technician picker on the problem page come with 044c S1's record
+      page (assignment works through the API and the list);
+    - the analysis, tasks, worklogs and conversation tabs come in 044b and 044c;
+    - template groups and designer hints (REQ-PRB-021, -022) go to 044c S1;
+    - creating from many incidents through the incident list's bulk bar goes to 044c S1 (the
+      URL form works now).
+- WP-044a is complete once #211's full-ci is green; it then leaves draft.
+
+### [x] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
+- **Plan:** ~/Desktop/wp-044-plan.md (D8..D12). The branch starts from #211's head; main is
+  merged in once #211 lands. Migration 0078 (already allotted in the WP-044 numbers).
+- [x] Session 1 (#222, 0078): analysis, evidence and impact (REQ-PRB-030, -032, -033).
+  - Root cause and symptoms on problems (rich text, sanitised; each save is one history entry).
+    Changing them needs `problems.edit_analysis`.
+  - Reading the root cause needs `problems.view_root_cause` (D-140 Q7). Without it:
+    - the record says `root_cause_hidden`;
+    - the history leaves the change out;
+    - the console shows it locked, never empty.
+
+    Technicians hold both rights for their groups' problems, and admins can widen them. Search
+    and notifications never carried the root cause.
+  - Who last changed each field, and when (from the field history).
+  - Confirming the cause (`confirm_root_cause`, standard and guided) needs a root cause written.
+  - `GET /problems/{id}/impact` counts over the caused incidents the reader may see:
+    - open, by priority and site, people, worklog time;
+    - total time open;
+    - an 8-week trend;
+    - `partial` when some incidents are left out.
+  - `GET /problems/{id}/evidence`: the caused incidents by report time. Changes, releases and
+    other problems on the same items are named as not yet available, never faked.
+  - Console: overview, analysis and evidence tabs, live on the record channel; labels in en, ar
+    and ur.
+  - Not yet (recorded):
+    - impact by service and CI, and the evidence from changes, releases and the same items,
+      wait for WP-045, lane C's releases and lane B's CMDB;
+    - cost waits for worklog costs (D-047);
+    - copying the analysis with a problem (REQ-PRB-015) comes with S3's known errors.
+- [ ] S2 links and merge (in progress, 0104):
+  - done:
+    - merge with undo: `merged` status, incidents move, undo leaves since-moved ones and names
+      them;
+    - unlinking incidents, one at a time or in bulk (`unlink_problem`);
+    - related problems through the generic link;
+    - the `merged_into` / `merged_from` relations;
+    - console: unlink buttons, related problems, a Merge into dialog, a merged banner with undo.
+  - Not yet (recorded):
+    - `fixed_by` (to changes) and `released_in` (to releases) stay hidden until those types
+      register (WP-045, lane C's releases);
+    - an announcement from a problem waits for lane C's WP-062b: `POST /announcements` takes
+      `source: {type, id}`, and the console prefills the title (agreed, rule 8).
+  - **Gap on record (D-140 Applied):** the generic link delete could remove an incident's cause
+    with problem edit alone (since WP-044a). The fix (409 `link_has_own_route`) ships as its own
+    small PR from main after #211 lands; it is not held for this WP.
+- [x] S3 known errors (0078 extended, still unmerged):
+  - The workaround, under `problems.edit_solution`. Incident technicians see it.
+  - The known error flag, under `problems.mark_known_error`:
+    - marking needs a workaround or root cause written (422 names both);
+    - removing needs a reason;
+    - both are in history.
+
+    The menu has one action that flips in place.
+  - Resolving a known error retires it, in the same save and history entry.
+  - Every linked incident shows the marker, live. The incident listens on its problem's
+    channel.
+  - The known error database:
+    - `GET /problems/known-errors` and the console page;
+    - it searches subject, symptoms and workaround, never the root cause;
+    - retired ones are marked, and it updates live.
+  - Suggestions in the incident's editors: "apply the workaround" links the incident to the
+    problem and inserts the workaround at the caret, without sending.
+  - Problems join the record-facts port, so knowledge works for them: article links
+    (REQ-PRB-035) and "save the resolution as knowledge" (REQ-PRB-041).
+  - 0078's downgrade refuses while any tenant has data.
+  - Fixed on the way: incident links to a problem opened `/incidents/<id>` (since WP-044a).
+  - Not yet (recorded):
+    - Publishing the workaround as a technician article that follows the problem (REQ-PRB-039).
+      Lane C agreed the shape: from-record `part: workaround`, a facts-port `workaround_of`,
+      staff-only, and a work_items event for the review task. It lands in their WP-060, or
+      sooner if I send the port change.
+    - Portal known issues (REQ-PRB-040) and withdrawing them on retirement (REQ-PRB-042 AC2,
+      AC3) wait for lane C's WP-034 portal knowledge.
+    - Recording whether a suggestion was used (REQ-PRB-038).
+- [x] S4 work on the problem (0078 extended):
+  - The review (REQ-PRB-053): summary, lessons and actions. Closing needs the summary for major
+    problems and the priorities in `review_required_priorities` (P1 by default, D-140 Q4); the
+    close action lists it as missing.
+  - Approvals on problems through the WP-030 engine:
+    - `POST /problems/{id}/approvals` asks named people (`problems.approve`);
+    - the engine's list, inbox and decision routes serve problems, with no withdrawal;
+    - a decision sets the approval status, never the problem's status;
+    - an approved `accept_without_fix` sets `accepted_at` and a review date 90 days ahead
+      (REQ-PRB-050).
+  - Messages (REQ-PRB-052):
+    - recipients by set (followers, the linked incidents' technicians or requesters, visible
+      incidents only);
+    - one message to the requesters, sent as a reply on each linked incident, with the problem's
+      history naming them.
+  - Console:
+    - the review section;
+    - Ask for approval and the approvals list with decisions;
+    - Message the affected requesters.
+  - Not yet (recorded):
+    - The tasks, worklogs and conversation tabs on the problem page are 044c S1's record page
+      (the engine routes already serve problems).
+    - Stopping worklogs on closed problems (REQ-PRB-051).
+    - The admin control for `review_required_priorities` (API only for now).
+    - A "due for review" view for accepted known errors (044c's views).
+- [x] S5 closure and follow-up:
+  - Pending approvals block closing (409 `approval_pending`, REQ-PRB-054).
+  - Follow-up on linked incidents (REQ-PRB-055, D-140 Q1):
+    - `GET /problems/{id}/follow-up` lists the open linked incidents the technician may see;
+    - `POST` resolves the chosen ones (unticked ones stay) through the incidents' own bulk
+      resolve job, so each one's transition and closure rules apply;
+    - each gets the resolution, the workaround or both, lands in resolved for its requester to
+      confirm, and its history names the problem.
+  - Console: a follow-up dialog, ticked by default, with the bulk drawer showing progress and
+    results live.
+  - e2e (problems.spec.ts):
+    - the analysis tab, written in place and live;
+    - a linked incident moving the impact and evidence;
+    - a known error showing live on its incident and found in the database.
+  - Not yet (recorded):
+    - Close conditions on linked changes and releases (REQ-PRB-054) wait for those types.
+    - Problem-specific closure codes (REQ-PRB-056) use the shared closure code list for now.
+    - The tenant defaults for the follow-up (notify, copy as a note) beyond Q1's resolve.
+
+### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
   (edition split), **D-138** (starter catalog), ADR-039 (catalog search in Postgres).

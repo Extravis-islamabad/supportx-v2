@@ -35,7 +35,9 @@ export const en = {
     'Required for your roles: after your password, you enter a code from an authenticator app.',
   'account.mfa.reminder':
     'Your organisation requires two-step sign-in. Set it up by {{date}}; after that you will be asked to before anything else.',
+  'account.mfa.reminder_short': 'Two-step sign-in due {{date}}',
   'account.mfa.set_up': 'Set up two-step sign-in',
+  'account.mfa.set_up_short': 'Set up',
   'account.mfa.title': 'Two-step sign-in',
   'account.password': 'Password',
   'account.recent': 'Recent sign-ins',
@@ -444,10 +446,58 @@ export const en = {
   'permission.notifications.manage': 'Manage notification rules',
   'permission.notifications.manage.description':
     'Choose which events notify whom, on which channels.',
-  'permission.problems.manage': 'Manage problems',
-  'permission.problems.manage.description': 'Create and work on problem records.',
+  'permission.problems.add_note': 'Add private notes on problems',
+  'permission.problems.add_note.description': 'Write staff-only notes on problems.',
+  'permission.problems.approve': 'Approve problems',
+  'permission.problems.approve.description':
+    'Decide the problem approvals you are named for, such as accepting a known error without a fix.',
+  'permission.problems.assign': 'Assign problems',
+  'permission.problems.assign.description': 'Choose the group and owner of problems.',
+  'permission.problems.assign_outside_group': 'Assign problems outside the group',
+  'permission.problems.assign_outside_group.description':
+    'Give a problem to someone who is not in its group.',
+  'permission.problems.cancel': 'Cancel problems',
+  'permission.problems.cancel.description': 'Cancel problems with a reason, and undo it.',
+  'permission.problems.change_priority': "Change a problem's priority by hand",
+  'permission.problems.change_priority.description': 'Set the priority instead of the matrix.',
+  'permission.problems.close': 'Close problems',
+  'permission.problems.close.description': 'Move problems through their life cycle and close them.',
+  'permission.problems.create': 'Create problems',
+  'permission.problems.create.description': 'Log new problems, also from incidents.',
+  'permission.problems.delete': 'Delete problems',
+  'permission.problems.delete.description': 'Move problems to the trash and restore them.',
+  'permission.problems.edit': 'Work on problems',
+  'permission.problems.edit.description':
+    'Change the details of problems, their analysis and their tasks.',
+  'permission.problems.edit_analysis': 'Edit problem analysis',
+  'permission.problems.edit_analysis.description':
+    'Change the root cause and symptoms of problems.',
+  'permission.problems.edit_due_dates': 'Set problem target dates by hand',
+  'permission.problems.edit_due_dates.description':
+    "Change a problem's target date instead of its policy.",
+  'permission.problems.edit_solution': 'Edit problem solutions',
+  'permission.problems.edit_solution.description': 'Change the workaround of problems.',
+  'permission.problems.manage_followers': 'Manage followers of problems',
+  'permission.problems.manage_followers.description':
+    'Add and remove the people who follow a problem.',
+  'permission.problems.mark_known_error': 'Mark known errors',
+  'permission.problems.mark_known_error.description':
+    'Mark problems as known errors, or remove the flag.',
+  'permission.problems.reopen': 'Reopen problems',
+  'permission.problems.reopen.description':
+    'Take a resolved or closed problem back into investigation.',
+  'permission.problems.reply': 'Add public notes on problems',
+  'permission.problems.reply.description':
+    "Write notes the problem's followers and recipients see.",
+  'permission.problems.resolve': 'Resolve problems',
+  'permission.problems.resolve.description': 'Mark problems as resolved with their resolution.',
+  'permission.problems.take': 'Take problems',
+  'permission.problems.take.description': 'Take a problem nobody owns yet.',
   'permission.problems.view': 'View problems',
   'permission.problems.view.description': 'See problem records.',
+  'permission.problems.view_root_cause': 'See root causes',
+  'permission.problems.view_root_cause.description':
+    'Read the root cause of problems, which may describe a security weakness.',
   'permission.profile.edit': 'Edit own profile',
   'permission.profile.edit.description': 'Change your own reply signature and time zone.',
   'permission.releases.add_note': 'Add private notes on releases',

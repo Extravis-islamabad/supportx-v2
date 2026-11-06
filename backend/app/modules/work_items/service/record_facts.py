@@ -1,4 +1,4 @@
-"""What other modules may ask about incidents (D-121; written by lane C, reviewed by lane A).
+"""What other modules may ask about incidents and problems (D-121; lane C wrote, lane A reviewed).
 
 Every answer uses the read rule of `GET /incidents/{id}`: the subject's view scope
 (`staff_rows`, the same `scope_filter` the list and `_may` apply, requesters included: their own
@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import Subject
-from app.modules.work_items.domain.types import INCIDENT, WorkItemType
+from app.modules.work_items.domain.types import INCIDENT, PROBLEM, WorkItemType
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.work_items import staff_rows
 from app.shared.records.ports import (
@@ -100,3 +100,7 @@ class WorkItemFacts:
 def register() -> None:
     """Called when the module is imported (the consumers worker too)."""
     register_record_facts(WorkItemFacts(INCIDENT))
+    # Problems (WP-044b, REQ-PRB-035, -041): knowledge links and "save the resolution as
+    # knowledge", by problems' own view rule. Only the resolution is offered, never the root
+    # cause (D-140 Q7).
+    register_record_facts(WorkItemFacts(PROBLEM))

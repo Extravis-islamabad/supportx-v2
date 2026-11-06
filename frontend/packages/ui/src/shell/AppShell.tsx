@@ -1,6 +1,6 @@
-import { DownOutlined, LockOutlined } from '@ant-design/icons';
-import { Grid, Layout, Menu, Tooltip, type MenuProps } from 'antd';
-import { useState, type ReactNode } from 'react';
+import { DownOutlined, LockOutlined, MenuOutlined } from '@ant-design/icons';
+import { Button, ConfigProvider, Drawer, Grid, Layout, Menu, Tooltip, type MenuProps } from 'antd';
+import { useContext, useState, type ReactNode } from 'react';
 
 import type { NavLayout } from '@supportx/api-client';
 
@@ -16,9 +16,10 @@ export interface AppShellProps {
   onNavigate: (path: string) => void;
   /**
    * The header. With the top-bar layout the navigation lives inside the header row: the shell
-   * passes it in (`topNav`), and the header places it after the brand.
+   * passes it in (`topNav`), and the header places it after the brand. On phones the shell passes
+   * the menu button that opens the navigation drawer (`menu`), for the start of the row.
    */
-  header: ReactNode | ((topNav: ReactNode) => ReactNode);
+  header: ReactNode | ((topNav: ReactNode, menu?: ReactNode) => ReactNode);
   /** Licence and connectivity banners, above the page. */
   banners?: ReactNode;
   /**
@@ -38,6 +39,9 @@ export interface AppShellProps {
  *   page keeps the full width (tables).
  * Menu items are the same in all three (permission- and licence-driven, see `visibleNav`).
  * All mirror in RTL through Ant Design's direction.
+ *
+ * Below the phone breakpoint (`md`) every layout gives way to a drawer behind a menu button in the
+ * top bar, so the page gets the whole width (QA 2026-11-05 V2: a permanent 64 px rail took 15%).
  */
 export function AppShell({
   nav,
@@ -50,10 +54,15 @@ export function AppShell({
 }: AppShellProps) {
   const t = useLabel();
   const [collapsed, setCollapsed] = useState(false);
+  const [drawer, setDrawer] = useState(false);
   const compact = layout === 'side_compact';
   const screens = Grid.useBreakpoint();
-  // Phones: less padding round the page (QA BUG-07); see AppHeader for the same rule.
-  const pad = screens.md === false && (screens.xs === true || screens.sm === true) ? 12 : 24;
+  const { direction } = useContext(ConfigProvider.ConfigContext);
+  // Phones, as AppHeader decides them: measured below `md` with `xs` or `sm` matched. Before the
+  // first measurement (and where no media queries exist) the desktop layout stays.
+  const phone = screens.md === false && (screens.xs === true || screens.sm === true);
+  // Phones: less padding round the page (QA BUG-07).
+  const pad = phone ? 12 : 24;
 
   const items: MenuProps['items'] = nav.map((item) => {
     const text = t(item.labelKey);
@@ -73,6 +82,7 @@ export function AppShell({
         text
       ),
       onClick: () => {
+        setDrawer(false);
         onNavigate(item.path);
       },
     };
@@ -86,6 +96,53 @@ export function AppShell({
   const brand = (short: boolean) => (
     <BrandLogo variant={short ? 'icon' : 'full'} height={short ? 32 : 28} surface="dark" />
   );
+
+  if (phone) {
+    const menu = (
+      <Button
+        type="text"
+        icon={<MenuOutlined />}
+        aria-label={t('nav.open_menu')}
+        aria-expanded={drawer}
+        aria-controls="nav-drawer"
+        onClick={() => {
+          setDrawer(true);
+        }}
+        data-testid="nav-menu-button"
+      />
+    );
+    return (
+      <Layout style={{ minHeight: '100vh' }} data-layout={layout} data-phone="true">
+        {typeof header === 'function' ? header(null, menu) : header}
+        <Drawer
+          open={drawer}
+          onClose={() => {
+            setDrawer(false);
+          }}
+          // The start side: left, or right when the page reads right to left.
+          placement={direction === 'rtl' ? 'right' : 'left'}
+          width={280}
+          title={brand(false)}
+          closable
+          forceRender // the navigation is in the page even while closed (tests, screen readers)
+          styles={{
+            header: { background: SHELL.navBg, borderBottom: 'none' },
+            body: { padding: 0, background: SHELL.navBg },
+          }}
+          rootClassName="nav-drawer"
+          id="nav-drawer"
+        >
+          <nav aria-label={t('nav.main')} data-testid="nav-drawer" data-items={itemKeys}>
+            <Menu mode="inline" theme="dark" selectedKeys={selectedKeys} items={items} />
+          </nav>
+        </Drawer>
+        {banners}
+        <Layout.Content id="main" style={{ padding: pad, minWidth: 0 }}>
+          {children}
+        </Layout.Content>
+      </Layout>
+    );
+  }
 
   if (layout === 'top') {
     return (

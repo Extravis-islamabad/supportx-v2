@@ -116,15 +116,37 @@ describe('The article page', () => {
     expect(screen.getByTestId('kb-path').textContent).toContain('Network');
   });
 
-  it('keeps buttons the author may not use, saying why', async () => {
+  it('QA6-KB-01: offers only what the person may do, at most 3 beside More, delete inside', async () => {
     api(fakeSession(), page(ARTICLE));
     render(<App />);
-    const approve = await screen.findByTestId('kb-action-approve');
-    expect(approve.hasAttribute('disabled')).toBe(true);
-    expect(
-      screen.getByLabelText(/Approve and publish: Only the topic owner or an approver can decide/),
-    ).toBeDefined();
-    expect(screen.getByTestId('kb-action-still_correct').hasAttribute('disabled')).toBe(false);
+    expect(await screen.findByTestId('kb-action-still_correct')).toBeDefined();
+    // Not an approver: no approve or send back at all, not a disabled wall.
+    expect(screen.queryByTestId('kb-action-approve')).toBeNull();
+    expect(screen.queryByTestId('kb-action-reject')).toBeNull();
+    const actions = screen.getByTestId('kb-action-still_correct').closest('.ant-space');
+    const visible = actions?.querySelectorAll('[data-testid^="kb-action-"]') ?? [];
+    expect(visible.length).toBeLessThanOrEqual(3);
+    expect(screen.queryByTestId('kb-action-delete')).toBeNull(); // in More, not beside the rest
+    fireEvent.click(screen.getByTestId('kb-more'));
+    expect(await screen.findByTestId('kb-action-delete')).toBeDefined();
+  });
+
+  it('QA6-KB-02: the author is not offered approve on their own version', async () => {
+    const mine = {
+      ...ARTICLE,
+      can_approve: true,
+      self_approval_blocked: ['en'],
+      drafts: {
+        en: {
+          ...(ARTICLE.published.en ?? Object.values(ARTICLE.published)[0]),
+          status: 'in_review',
+        },
+      },
+    };
+    api(fakeSession(), page(mine as typeof ARTICLE));
+    render(<App />);
+    expect(await screen.findByTestId('kb-action-reject')).toBeDefined(); // still decidable by them
+    expect(screen.queryByTestId('kb-action-approve')).toBeNull();
   });
 
   it('saves the article settings with If-Match (rule g)', async () => {
@@ -181,6 +203,33 @@ describe('The article page', () => {
       expect(screen.getByTestId('kb-not-available').textContent).toContain(
         'This article is no longer available.',
       );
+    });
+  });
+});
+
+describe('QA6-KB-03: topics are named in Urdu too', () => {
+  it('offers a name in Urdu and sends it with the others', async () => {
+    window.history.pushState({}, '', '/knowledge');
+    const fake = api(ADMIN, {
+      'GET /api/v1/knowledge/articles': { body: [] },
+      'POST /api/v1/knowledge/topics': { status: 201, body: { ...TOPIC, id: 'new-topic' } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('kb-new-topic'));
+    const dialog = await screen.findByTestId('kb-topic-dialog');
+    fireEvent.change(within(dialog).getByTestId('kb-topic-name-en'), {
+      target: { value: 'Printers' },
+    });
+    fireEvent.change(within(dialog).getByTestId('kb-topic-name-ur'), {
+      target: { value: 'پرنٹر' },
+    });
+    const modal = dialog.closest('.ant-modal') ?? dialog;
+    fireEvent.click(within(modal as HTMLElement).getByRole('button', { name: /Save|Create/ }));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/knowledge/topics')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/knowledge/topics')[0]?.body).toMatchObject({
+      names: { en: 'Printers', ur: 'پرنٹر' },
     });
   });
 });

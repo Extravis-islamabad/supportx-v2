@@ -1,5 +1,11 @@
 """The CI shard split (tooling/pytest_shards.py): balanced, complete, the same on every shard."""
 
+import json
+from pathlib import Path
+
+import pytest
+
+from tooling import pytest_shards
 from tooling.pytest_shards import DEFAULT_SECONDS, assign, fallback_seconds, unweighted
 
 WEIGHTS = {"a.py": 200.0, "b.py": 180.0, "c.py": 100.0, "d.py": 90.0, "e.py": 60.0}
@@ -55,3 +61,17 @@ def test_serial_files_are_spread_so_no_shard_waits_on_one_long_chain() -> None:
 def test_without_serial_files_and_one_worker_the_split_is_the_old_one() -> None:
     files = sorted(WEIGHTS)
     assert assign(files, WEIGHTS, 3, serial=frozenset(), workers=1) == assign(files, WEIGHTS, 3)
+
+
+def test_the_nightly_weights_overlay_the_committed_ones(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    committed = tmp_path / "committed.json"
+    committed.write_text(json.dumps({"a.py": 10.0, "new.py": 50.0}))
+    nightly = tmp_path / "nightly.json"
+    nightly.write_text(json.dumps({"a.py": 30.0, "b.py": 20.0}))
+    monkeypatch.setattr(pytest_shards, "WEIGHTS", committed)
+    monkeypatch.setenv("SUPPORTX_TEST_WEIGHTS", str(nightly))
+    assert pytest_shards._weights() == {"a.py": 30.0, "b.py": 20.0, "new.py": 50.0}  # noqa: SLF001
+    monkeypatch.setenv("SUPPORTX_TEST_WEIGHTS", str(tmp_path / "missing.json"))
+    assert pytest_shards._weights() == {"a.py": 10.0, "new.py": 50.0}  # noqa: SLF001

@@ -18,7 +18,7 @@ Two ports for other modules:
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import update
@@ -38,6 +38,7 @@ from app.modules.work_items.domain.closure import (
 )
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.templates import CONFIRMED_BY_REQUESTER, PickList
+from app.modules.work_items.domain.types import GUIDED_ANALYSIS, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.history import Change
@@ -56,6 +57,9 @@ RESOLVE = WorkItemAction.RESOLVE
 CLOSE = WorkItemAction.CLOSE
 DONE_MOVES = frozenset({RESOLVE, CLOSE})
 REOPENING = frozenset({WorkItemAction.REOPEN})
+# A problem's cause is confirmed only with a root cause written (WP-044b, REQ-PRB-025): in the
+# standard and the guided life cycle alike, the move is `confirm_root_cause`.
+CONFIRM_CAUSE = WorkItemAction.CONFIRM_ROOT_CAUSE
 
 
 def register_open_work(
@@ -148,11 +152,51 @@ async def before_move(
         # History keeps the earlier resolution and closure code; the next resolve asks again.
         step.changes.update({RESOLUTION: None, CLOSURE_CODE: None, "resolution_notified_at": None})
         return step
+    if action == CONFIRM_CAUSE:
+        if _no_root_cause(record):
+            raise _refused([("root_cause", "required_to_confirm_cause", {})])
+        return step
     if action not in DONE_MOVES:
         return step
+    if (
+        action == CLOSE
+        and record.type == WorkItemTypeCode.PROBLEM
+        and record.approval_status == "pending"
+    ):
+        # REQ-PRB-054: a problem closes only once its approvals are decided.
+        raise Conflict(code="approval_pending", params={"display_id": record.display_id})
+    if action == CLOSE and _review_missing(cat, record):
+        # REQ-PRB-053 (D-140 Q4): the review is a closure rule for major problems and the
+        # priorities the tenant lists (P1 by default).
+        raise _refused([("review_summary", "required_to_close", {})])
     _check_rules(cat, record, action, given, step, custom_keys=await _custom_keys(session, record))
     await _check_open_work(session, cat, record, given, step)
+    if action == RESOLVE and _live_known_error(record):
+        # Resolving a known error is its permanent fix: it retires, in the same save and history
+        # entry (REQ-PRB-042 AC1).
+        now = datetime.now(UTC)
+        step.changes["known_error_retired_at"] = now
+        step.history.append(Change("known_error_retired_at", None, now.isoformat()))
     return step
+
+
+def review_required(cat: Catalogue, record: WorkItem) -> bool:
+    """A problem that needs its review before closing: major ones, and the listed priorities."""
+    return record.type == WorkItemTypeCode.PROBLEM and (
+        record.lifecycle == GUIDED_ANALYSIS or record.priority in cat.review_required_priorities
+    )
+
+
+def _review_missing(cat: Catalogue, record: WorkItem) -> bool:
+    return review_required(cat, record) and is_blank(record.review_summary or "")
+
+
+def _live_known_error(record: WorkItem) -> bool:
+    return (
+        record.type == WorkItemTypeCode.PROBLEM
+        and record.known_error_at is not None
+        and record.known_error_retired_at is None
+    )
 
 
 def _check_rules(  # noqa: PLR0913 - the move and its context, explicit
@@ -220,6 +264,10 @@ def _listed(items: Sequence[OpenItem]) -> dict[str, str | int]:
     return {"count": len(items), "items": ", ".join(i.title for i in items)}
 
 
+def _no_root_cause(record: WorkItem) -> bool:
+    return record.type == WorkItemTypeCode.PROBLEM and is_blank(record.root_cause or "")
+
+
 def _record_fields() -> tuple[str, ...]:
     return (
         RESOLUTION,
@@ -254,12 +302,15 @@ def _required(cat: Catalogue, action: WorkItemAction, custom_keys: frozenset[str
 async def missing_for(
     session: AsyncSession, cat: Catalogue, record: WorkItem, action: WorkItemAction
 ) -> list[str]:
-    """Fields the record still lacks for a resolve or close (the move asks for its own)."""
+    """Fields the record still lacks for a resolve, a close or confirming a problem's cause."""
+    if action == CONFIRM_CAUSE:
+        return ["root_cause"] if _no_root_cause(record) else []
     if action not in DONE_MOVES:
         return []
     values = {name: getattr(record, name, None) for name in _record_fields()}
     required = _required(cat, action, await _custom_keys(session, record))
-    return missing_fields(required, values, record.custom or {})
+    review = ["review_summary"] if action == CLOSE and _review_missing(cat, record) else []
+    return review + missing_fields(required, values, record.custom or {})
 
 
 async def resolution_notified(

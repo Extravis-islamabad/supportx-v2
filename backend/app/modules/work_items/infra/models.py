@@ -33,6 +33,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
 from app.modules.work_items.domain.approvals import (
+    ApprovalPurpose,
     ApprovalState,
     ApproverOrigin,
     DecisionChannel,
@@ -57,7 +58,7 @@ from app.modules.work_items.domain.lifecycle import (
 from app.modules.work_items.domain.lists import BulkAction, BulkStatus, ViewVisibility
 from app.modules.work_items.domain.parts import LinkKind, TaskPriority, TaskStatus, WorklogType
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
-from app.modules.work_items.domain.types import Channel, WorkItemTypeCode
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, Channel, WorkItemTypeCode
 from app.shared.db.models import (
     Actors,
     Base,
@@ -109,6 +110,12 @@ class WorkItemTypeSettings(TenantKeyed, Base):
             name="auto_close_days_range",
         ),
         CheckConstraint("reopen_window_days BETWEEN 1 AND 30", name="reopen_window_days_range"),
+        CheckConstraint(
+            "review_required_priorities <@ ARRAY["
+            + ", ".join(f"'{v}'" for v in Priority)
+            + "]::varchar[]",
+            name="review_required_priorities_codes",
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -150,6 +157,11 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     reopen_window_days: Mapped[int] = mapped_column(Integer, server_default="7")
     # REQ-INC-072 AC3 (D-112): a task's owner may work on it without access to the record.
     task_owner_access: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Problems (WP-044b s4, D-140 Q4): priorities whose problems need a review before closing;
+    # the major problem template's always do. P1 by default, P2 at the admin's choice.
+    review_required_priorities: Mapped[list[str]] = mapped_column(
+        ARRAY(String(10)), server_default="{p1}"
+    )
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
@@ -207,6 +219,7 @@ class WorkItemTransition(TenantKeyed, Base):
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint(_codes("action", WorkItemAction), name="action_code"),
+        CheckConstraint("lifecycle ~ '^[a-z][a-z0-9_]{1,39}$'", name="lifecycle_format"),
         CheckConstraint(_codes("reason_mode", ReasonMode), name="reason_mode_code"),
         CheckConstraint(
             "reason_list IS NULL OR " + _codes("reason_list", ReasonList), name="reason_list_code"
@@ -232,6 +245,10 @@ class WorkItemTransition(TenantKeyed, Base):
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
+    # Which of the type's transition sets (WP-044a s4): "standard", or one a template chooses.
+    lifecycle: Mapped[str] = mapped_column(
+        String(40), primary_key=True, server_default=STANDARD_LIFECYCLE
+    )
     from_status: Mapped[str] = mapped_column(String(40), primary_key=True)
     action: Mapped[str] = mapped_column(String(30), primary_key=True)
     to_status: Mapped[str | None] = mapped_column(String(40))
@@ -414,6 +431,8 @@ class WorkItemTemplate(TenantEntity):
     disabled_at: Mapped[datetime | None]
     # The desk the template belongs to (REQ-ESM-002, D-061).
     desk_id: Mapped[uuid.UUID]
+    # The transition set records from this template follow; NULL: the type's standard one.
+    lifecycle: Mapped[str | None] = mapped_column(String(40))
     # Staged types (ADR-041; 0093): the path its records take, and per stage, per field, whether
     # it is shown, required to leave the stage, or read-only while in it (REQ-REL-011, -013).
     stage_path: Mapped[str | None] = mapped_column(String(40))
@@ -453,6 +472,16 @@ class WorkItem(TenantEntity):
         ),
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint(_codes("channel", Channel), name="channel_code"),
+        CheckConstraint(
+            "outage_ended_at IS NULL OR outage_started_at IS NULL"
+            " OR outage_ended_at >= outage_started_at",
+            name="outage_order",
+        ),
+        CheckConstraint(
+            "known_error_retired_at IS NULL OR "
+            "(known_error_at IS NOT NULL AND known_error_retired_at >= known_error_at)",
+            name="known_error_retired_after",
+        ),
         CheckConstraint(_codes("status_category", StatusCategory), name="status_category_code"),
         CheckConstraint("impact IS NULL OR " + _codes("impact", Impact), name="impact_code"),
         CheckConstraint("urgency IS NULL OR " + _codes("urgency", Urgency), name="urgency_code"),
@@ -644,6 +673,27 @@ class WorkItem(TenantEntity):
     priority: Mapped[str] = mapped_column(String(10))
     # Support level, a code of the `level` pick list (REQ-INC-007); retired codes stay readable.
     level: Mapped[str | None] = mapped_column(String(40))
+    # Problems (WP-044a s2, REQ-PRB-005, -006): codes from the type's pick lists, the outage.
+    problem_type: Mapped[str | None] = mapped_column(String(40))
+    root_cause_category: Mapped[str | None] = mapped_column(String(40))
+    outage_started_at: Mapped[datetime | None]
+    outage_ended_at: Mapped[datetime | None]
+    # Problems' analysis (WP-044b, REQ-PRB-030): sanitised rich text. The root cause is shown
+    # only to holders of problems.view_root_cause (D-140 Q7) and never indexed for search.
+    root_cause: Mapped[str | None] = mapped_column(Text)
+    symptoms: Mapped[str | None] = mapped_column(Text)
+    # Known errors (WP-044b s3, REQ-PRB-034..042): the workaround incident technicians see,
+    # when it was marked a known error, and when that was retired by a permanent fix.
+    workaround: Mapped[str | None] = mapped_column(Text)
+    # The problem review (WP-044b s4, REQ-PRB-053): what happened, lessons, follow-up actions.
+    review_summary: Mapped[str | None] = mapped_column(Text)
+    review_lessons: Mapped[str | None] = mapped_column(Text)
+    review_actions: Mapped[str | None] = mapped_column(Text)
+    # A known error accepted without a fix (s4, REQ-PRB-050): when, and when to look again.
+    accepted_at: Mapped[datetime | None]
+    accept_review_at: Mapped[datetime | None]
+    known_error_at: Mapped[datetime | None]
+    known_error_retired_at: Mapped[datetime | None]
     template_id: Mapped[uuid.UUID | None]
     # Service requests (WP-030): the catalog item, the form's answers (Any: JSON values), and
     # the approval status; NULL / empty on incidents.
@@ -666,6 +716,10 @@ class WorkItem(TenantEntity):
     status_reason_code: Mapped[str | None] = mapped_column(String(40))
     status_reason_text: Mapped[str | None] = mapped_column(Text)
     status_before_cancel: Mapped[str | None] = mapped_column(String(40))
+    # WP-044a: where a record put on hold resumes (Appendix A, problems).
+    status_before_pause: Mapped[str | None] = mapped_column(String(40))
+    # The transition set it follows, from its template at creation (WP-044a s4, REQ-PRB-025).
+    lifecycle: Mapped[str] = mapped_column(String(40), server_default=STANDARD_LIFECYCLE)
     # The fix (REQ-INC-090), sanitised rich text; cleared on reopen (history keeps it).
     resolution: Mapped[str | None] = mapped_column(Text)
     # A code of the closure_code pick list (REQ-INC-093); cleared on reopen (history keeps it).
@@ -1063,6 +1117,14 @@ class WorkItemLink(TenantEntity):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        # WP-044a: an incident is caused by at most one problem (Q2).
+        Index(
+            "uq_wil_tenant_one_cause",
+            "tenant_id",
+            "source_id",
+            unique=True,
+            postgresql_where=text("kind = 'caused_by' AND deleted_at IS NULL"),
+        ),
         Index(
             "ix_wil_tenant_target",
             "tenant_id",
@@ -1116,6 +1178,7 @@ class WorkItemApproval(TenantEntity):
         ),
         CheckConstraint("comment IS NULL OR char_length(comment) <= 4000", name="comment_length"),
         CheckConstraint("stage >= 1", name="stage_positive"),
+        CheckConstraint(_codes("purpose", ApprovalPurpose), name="purpose_code"),
         Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
         Index(
             "ix_wia_tenant_approver_pending",
@@ -1143,6 +1206,8 @@ class WorkItemApproval(TenantEntity):
     self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # The stage's switches, kept from the item at submission (an item edit never moves them).
     comments_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # What it decides (WP-044b s4): the record's approval, or accepting a known error unfixed.
+    purpose: Mapped[str] = mapped_column(String(30), server_default="record")
 
 
 # The portal's own search sources, in their default order (WP-032 D2, D-143).

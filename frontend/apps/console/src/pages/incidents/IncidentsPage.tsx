@@ -83,6 +83,11 @@ const DEFAULT_VIEW = 'open';
 const PAGE_SIZES = [25, 50, 100] as const;
 const CUSTOM = 'custom:';
 const LISTS_CHANGED = 'work_items.lists_changed';
+// Columns whose text may be cut with an ellipsis, and those that stay put when the table scrolls
+// sideways (QA 2026-11-05 V1). Tags (status, priority, due) never shrink below their width.
+const ELLIPSIS = new Set(['subject', 'requester_id', 'technician_id', 'group_id']);
+const STICKY = new Set(['display_id', 'subject']);
+const SELECT_WIDTH = 48;
 const VIEWS_CHANGED = 'work_items.views_changed';
 const SETTINGS_CHANGED = 'work_items.list_settings_changed';
 // On my own channel, what changes only my counts (WP-020d QA BUG-01): a follow or a reply by
@@ -194,6 +199,9 @@ export function IncidentsPage() {
     stored?.version != null ? stored.columns : (saved?.columns ?? []),
     columnSpecs,
   );
+  const tableWidth =
+    SELECT_WIDTH +
+    columns.reduce((sum, c) => sum + (c.width ?? columnSpecs.get(c.key)?.width ?? 0), 0);
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
   const pageSize = stored?.page_size ?? 50;
   const saveSettings = (change: { columns?: ListColumn[]; sort?: string; page_size?: number }) => {
@@ -625,12 +633,15 @@ export function IncidentsPage() {
         loading={list.isPending && list.fetchStatus === 'fetching'}
         dataSource={rows}
         pagination={false}
-        scroll={{ x: 'max-content' }}
+        // At least the columns' own widths: wider boxes give the room to the subject, narrower
+        // ones scroll with a visible scrollbar while the ID and subject stay put (QA 2026-11-05 V1).
+        scroll={{ x: tableWidth }}
         components={{ header: { cell: ResizableHeader } }}
         rowSelection={
           trash
             ? undefined
             : {
+                fixed: true, // stays with the ID and subject when the table scrolls sideways
                 selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
                 columnTitle: (
                   <SelectPageBox
@@ -691,8 +702,11 @@ export function IncidentsPage() {
               {
                 key: spec.key,
                 title: spec.title(context),
-                width,
-                ellipsis: spec.key === 'subject',
+                // The subject takes what is left over; the others keep their width.
+                width: spec.key === 'subject' ? undefined : width,
+                // Text that does not fit ends in an ellipsis; the cell's own tooltip holds it all.
+                ellipsis: ELLIPSIS.has(spec.key) ? { showTitle: spec.key !== 'subject' } : false,
+                fixed: STICKY.has(spec.key) ? ('left' as const) : undefined,
                 // Server-side sort, across every page (REQ-INC-104 AC2).
                 sorter: spec.sortField !== undefined,
                 sortOrder:

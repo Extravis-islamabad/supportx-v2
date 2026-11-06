@@ -214,6 +214,10 @@ export function BulkDialog({
           ...(closureCode === null ? {} : { closure_code: closureCode }),
           confirm_open_work: openWork,
         };
+      case 'link_problem':
+      case 'unlink_problem':
+        // Started from the problem screens (WP-044a/b), never offered in this menu (BULK_ACTIONS).
+        return {};
     }
   };
   const missing =

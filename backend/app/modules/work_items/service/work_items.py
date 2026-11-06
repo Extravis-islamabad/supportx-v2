@@ -19,11 +19,12 @@ status moves (REQ-INC-050); priority comes from the matrix unless set by hand wi
 
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol
 
 from sqlalchemy import ColumnElement, Select, and_, delete, exists, func, or_, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
@@ -79,7 +80,6 @@ from app.modules.work_items.domain.closure import MOVE_FIELDS, missing_fields, w
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     FINAL_CATEGORIES,
-    USER_ACTIONS,
     PauseClock,
     ReasonList,
     ReasonMode,
@@ -104,6 +104,7 @@ from app.modules.work_items.domain.stages import (
 from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
+    STANDARD_LIFECYCLE,
     Channel,
     WorkItemType,
     WorkItemTypeCode,
@@ -151,6 +152,7 @@ from app.shared.events import record_event
 from app.shared.history import (
     Actors,
     Change,
+    FieldChange,
     HistoryCursor,
     HistoryEntry,
     Source,
@@ -181,6 +183,13 @@ CANNOT_TAKE = "cannot_take"
 # Which permission runs which status action.
 ACTION_PERMISSION: Mapping[WorkItemAction, str] = {
     WorkItemAction.START_WORK: "edit",
+    # problems (WP-044a): working the problem through its analysis
+    WorkItemAction.INVESTIGATE: "edit",
+    WorkItemAction.CONFIRM_ROOT_CAUSE: "edit",
+    WorkItemAction.AWAIT_FIX: "edit",
+    WorkItemAction.ANALYSE: "edit",
+    WorkItemAction.START_REVIEW: "edit",
+    WorkItemAction.HOLD: "edit",
     WorkItemAction.WAIT_REQUESTER: "edit",
     WorkItemAction.WAIT_THIRD_PARTY: "edit",
     WorkItemAction.RESUME: "edit",
@@ -270,6 +279,12 @@ class WorkItemView:
     conversation: list[ActionState] = field(default_factory=list)
     following: bool = False
     conversation_count: int = 0
+    # Fields this subject may not read (problems: the root cause without view_root_cause).
+    hidden: frozenset[str] = frozenset()
+    # Problems: who last changed each analysis field, and when (REQ-PRB-030).
+    analysis_changes: tuple["AnalysisChange", ...] = ()
+    # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
+    review_required: bool = False
 
 
 def _now() -> datetime:
@@ -407,7 +422,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
-    lifecycle = cat.lifecycle
+    lifecycle = cat.lifecycle_of(record.lifecycle)
     final = StatusCategory(record.status_category) in FINAL_CATEGORIES
     allowed_now = set(lifecycle.actions_from(record.status))
     reasons: dict[str, str | None] = {}
@@ -429,7 +444,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
 
     transitions = _Transitions(session, subject, record)
     actions: list[ActionState] = []
-    for action in USER_ACTIONS:
+    for action in lifecycle.used_actions():
         transition = lifecycle.transitions.get((record.status, action))
         mode = transition.reason_mode if transition else ReasonMode.NONE
         reason_list = transition.reason_list if transition else None
@@ -476,6 +491,18 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             elif record.technician_id is not None:
                 refused = ASSIGNED_TO_OTHER
         operations.append(ActionState(op, allowed=refused is None, reason=refused))
+    if wtype.code is WorkItemTypeCode.PROBLEM:  # the analysis and solution rights (WP-044b)
+        for op in ("edit_analysis", "edit_solution", "mark_known_error"):
+            refused = await reason(op)
+            if refused is None and final:
+                refused = RECORD_CLOSED
+            operations.append(ActionState(op, allowed=refused is None, reason=refused))
+    hidden = await hidden_fields(session, subject, wtype, record.id)
+    analysis = (
+        await _analysis_changes(session, record.id, hidden)
+        if wtype.code is WorkItemTypeCode.PROBLEM
+        else ()
+    )
     people = [
         str(u)
         for u in (
@@ -487,6 +514,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         )
         if u is not None
     ] + [v for v in (record.custom or {}).values() if _is_uuid(v)]  # custom person fields
+    people += [c.actor_id for c in analysis if c.actor_id is not None]
     conversation = [
         ActionState(name, allowed=(refused := await reason(name)) is None, reason=refused)
         for name in CONVERSATION_ACTIONS
@@ -508,6 +536,9 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation=conversation,
         following=await followers.current(session, record.id, subject.user_id) is not None,
         conversation_count=int(entries or 0),
+        hidden=hidden,
+        analysis_changes=analysis,
+        review_required=closing.review_required(cat, record),
     )
 
 
@@ -953,6 +984,11 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     entries, cursor = await history_entries(
         session, RECORD_TYPE, record_id, before=before, limit=limit, actors=actors
     )
+    hidden = await hidden_fields(session, subject, wtype, record_id)
+    if hidden:  # the root cause stays out of the history too (D-140 Q7)
+        entries = [
+            replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+        ]
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
         value
@@ -1102,6 +1138,13 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
             if len(html) > DESCRIPTION_MAX:
                 problems.append(("description", "value_too_long"))
             cleaned["description"] = None if is_blank(html) else html
+    for name in ANALYSIS_FIELDS:  # problems' analysis (WP-044b): rich text like the description
+        if name in values:
+            raw = values[name]
+            html = "" if raw is None or is_blank(str(raw)) else sanitize_html(str(raw))
+            if len(html) > DESCRIPTION_MAX:
+                problems.append((name, "value_too_long"))
+            cleaned[name] = None if is_blank(html) else html
     if creating and values.get("requester_id") is None:
         problems.append(("requester_id", "required"))
     for name in ("requester_id", "on_behalf_of_id", "site_id", "department_id", "category_id"):
@@ -1121,6 +1164,9 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
         cleaned["impact_details"] = details
     if "level" in values:
         cleaned["level"] = values["level"] or None
+    for name in PROBLEM_FIELDS:
+        if name in values:
+            cleaned[name] = values[name] or None
     if "tags" in values:
         tags, codes = clean_tags(list(values["tags"] or []))
         problems += [("tags", c) for c in codes]
@@ -1183,6 +1229,148 @@ def _json(value: Any) -> Any:  # noqa: ANN401 - field values of several types
     return value
 
 
+# A problem's own fields (WP-044a s2, REQ-PRB-005, -006): codes from its pick lists, the outage.
+PROBLEM_FIELDS = ("problem_type", "root_cause_category", "outage_started_at", "outage_ended_at")
+# The analysis (WP-044b, REQ-PRB-030): changing it needs problems.edit_analysis; the root cause
+# is read only with problems.view_root_cause (D-140 Q7).
+# A list, not a pair: the field-problem scanner reads two-string tuples as (field, code).
+# The workaround (s3, REQ-PRB-034) is the solution: its own right, and seen by everyone who
+# sees the problem (D-140 Q7), so it is never hidden.
+# The review (s4, REQ-PRB-053) is edited with the analysis right.
+ANALYSIS_FIELDS = [
+    "root_cause",
+    "symptoms",
+    "workaround",
+    "review_summary",
+    "review_lessons",
+    "review_actions",
+]
+HIDDEN_WITHOUT = {"root_cause": "view_root_cause"}
+EDITED_WITH = {"workaround": "edit_solution"}  # otherwise edit_analysis
+_PROBLEM_LISTS = {"problem_type": PickList.PROBLEM_TYPE, "root_cause_category": PickList.ROOT_CAUSE}
+
+
+def _analysis_rights(names: Sequence[str]) -> set[str]:
+    """The rights changing these fields needs: its edit right, and reading it when hidden."""
+    rights = {EDITED_WITH.get(n, "edit_analysis") for n in names}
+    return rights | {HIDDEN_WITHOUT[n] for n in names if n in HIDDEN_WITHOUT}
+
+
+async def _may_change_analysis(
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record: WorkItem,
+    names: Sequence[str],
+) -> None:
+    """Changing the analysis needs edit_analysis; the root cause also needs to be readable."""
+    changing = [n for n in names if wtype.code is WorkItemTypeCode.PROBLEM]
+    if not changing:
+        return
+    actions = _analysis_rights(changing)
+    for action in sorted(actions):
+        if not await _may(session, subject, wtype, action, record.id):
+            raise PermissionDenied(
+                params={"permission": wtype.permission(action), "reason": NO_PERMISSION}
+            )
+
+
+def _may_give_analysis(subject: Subject, wtype: WorkItemType, cleaned: dict[str, Any]) -> None:
+    """On the create form (REQ-PRB-018 AC1): the same rights as changing it later."""
+    given = [n for n in ANALYSIS_FIELDS if cleaned.get(n) is not None]
+    if not given or wtype.code is not WorkItemTypeCode.PROBLEM:
+        return
+    actions = _analysis_rights(given)
+    for action in sorted(actions):
+        if not subject.holds(wtype.permission(action)):
+            raise PermissionDenied(
+                params={"permission": wtype.permission(action), "reason": NO_PERMISSION}
+            )
+
+
+@dataclass(frozen=True)
+class AnalysisChange:
+    """The last change of one analysis field."""
+
+    field: str
+    actor_id: str | None  # a user ID, or None for the system
+    at: datetime
+
+
+async def _analysis_changes(
+    session: AsyncSession, record_id: uuid.UUID, hidden: frozenset[str]
+) -> tuple[AnalysisChange, ...]:
+    """The latest change per analysis field the subject may read (one query, DISTINCT ON)."""
+    shown = [n for n in ANALYSIS_FIELDS if n not in hidden]
+    if not shown:
+        return ()
+    rows = await session.execute(
+        select(
+            FieldChange.field, FieldChange.actor_type, FieldChange.actor_id, FieldChange.occurred_at
+        )
+        .where(
+            FieldChange.record_type == RECORD_TYPE,
+            FieldChange.record_id == record_id,
+            FieldChange.field.in_(shown),
+        )
+        .order_by(FieldChange.field, FieldChange.occurred_at.desc())
+        .ext(distinct_on(FieldChange.field))
+    )
+    return tuple(
+        AnalysisChange(
+            field=name,
+            actor_id=actor if actor_type == "user" and actor and _is_uuid(actor) else None,
+            at=at,
+        )
+        for name, actor_type, actor, at in rows
+    )
+
+
+async def hidden_fields(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> frozenset[str]:
+    """Fields of the record the subject may not read (the root cause, D-140 Q7)."""
+    if wtype.code is not WorkItemTypeCode.PROBLEM:
+        return frozenset()
+    hidden: set[str] = set()
+    for name, action in HIDDEN_WITHOUT.items():
+        if not await _may(session, subject, wtype, action, record_id):
+            hidden.add(name)
+    return frozenset(hidden)
+
+
+def _check_problem_fields(
+    wtype: WorkItemType,
+    cat: Catalogue,
+    cleaned: Mapping[str, Any],
+    record: WorkItem | None,
+) -> list[tuple[str, str]]:
+    """The problem fields' problems, by field.
+
+    Only on problems; codes offered (a record's retired one may stay); the outage ends at or after
+    it begins.
+    """
+    given = [name for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS) if name in cleaned]
+    if wtype.code is not WorkItemTypeCode.PROBLEM:
+        return [(name, "not_allowed") for name in given if cleaned[name] is not None]
+    found: list[tuple[str, str]] = []
+    for name, pick in _PROBLEM_LISTS.items():
+        value = cleaned.get(name)
+        current = getattr(record, name) if record is not None else None
+        if (
+            name in cleaned
+            and value is not None
+            and value != current
+            and value not in cat.reason_codes(pick)
+        ):
+            found.append((name, "invalid_choice"))
+    start = cleaned.get("outage_started_at", record.outage_started_at if record else None)
+    end = cleaned.get("outage_ended_at", record.outage_ended_at if record else None)
+    if start is not None and end is not None and end < start:
+        found.append(("outage_ended_at", "before_start"))
+    return found
+
+
 def _check_level(
     cat: Catalogue, level: str | None, *, current: str | None
 ) -> list[tuple[str, str]]:
@@ -1192,6 +1380,13 @@ def _check_level(
     return [("level", "invalid_choice")]
 
 
+PROBLEM_FIELDS_SNAPSHOT = (
+    "problem_type",
+    "root_cause_category",
+    "outage_started_at",
+    "outage_ended_at",
+    *ANALYSIS_FIELDS,
+)
 SNAPSHOT_FIELDS = (
     "subject",
     "description",
@@ -1209,6 +1404,7 @@ SNAPSHOT_FIELDS = (
     "priority",
     "priority_source",
     "level",
+    *PROBLEM_FIELDS_SNAPSHOT,
     "tags",
     "status",
     "template_id",
@@ -1330,6 +1526,11 @@ async def _update(
     return updated
 
 
+async def stale_record(session: AsyncSession, record: WorkItem, expected_version: int) -> Conflict:
+    """The 409 for a save at an old version, saying who changed what since (§5g)."""
+    return await _conflict(session, _stale(record, expected_version), record.id)
+
+
 def _stale(record: WorkItem, expected_version: int) -> Conflict:
     return Conflict(
         code="version_conflict",
@@ -1419,6 +1620,11 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
         changes["status_before_cancel"] = record.status
     if action == WorkItemAction.UNDO_CANCEL:
         changes["status_before_cancel"] = None
+    # Appendix A (problems): on hold returns to where it was put on hold (WP-044a).
+    if action == WorkItemAction.HOLD:
+        changes["status_before_pause"] = record.status
+    if action == WorkItemAction.RESUME:
+        changes["status_before_pause"] = None
     if new == StatusCategory.RESOLVED:
         changes["resolved_at"] = now
     if new == StatusCategory.CLOSED:
@@ -1887,8 +2093,10 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
     )
     problems += _check_level(cat, cleaned.get("level"), current=None)
+    problems += _check_problem_fields(wtype, cat, cleaned, None)
     if problems:
         raise await _value_errors(session, wtype, problems)
+    _may_give_analysis(subject, wtype, cleaned)
     problems += await _check_people(session, cleaned)
     await _on_behalf_problems(session, subject, wtype, cat, cleaned)
     problems += await _check_units(
@@ -1972,7 +2180,12 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         priority=priority,
         priority_source=priority_source,
         level=cleaned.get("level"),
+        **{name: cleaned.get(name) for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS)},
         template_id=template.id,
+        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025).
+        lifecycle=template.lifecycle
+        if template.lifecycle in cat.lifecycles
+        else STANDARD_LIFECYCLE,
         **_item_columns(item, values),
         custom=custom or {},
         custom_text=await _custom_text(session, wtype, custom or {}),
@@ -2043,11 +2256,16 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     await approval_stage.after_submission(session, record, item, source=source)  # REQ-SR-021
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle, record.status, had_technician=False, has_technician=True
+            cat.lifecycle_of(record.lifecycle),
+            record.status,
+            had_technician=False,
+            has_technician=True,
         )
         if move is not None:
             before = _snapshot(record, STAMP_FIELDS)
-            target = cat.lifecycle.target(record.status, move, before_cancel=None)
+            target = cat.lifecycle_of(record.lifecycle).target(
+                record.status, move, before_cancel=None
+            )
             changes = await _status_change(
                 session, wtype, record, move, target=target, reason_code=None, reason_text=None
             )
@@ -2095,6 +2313,9 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         )
     if "channel" in cleaned and record.channel not in {Channel.PHONE, Channel.WALK_UP}:
         problems.append(("channel", "channel_reserved"))
+    await _may_change_analysis(
+        session, subject, wtype, record, [n for n in ANALYSIS_FIELDS if n in cleaned]
+    )
     # Only a changed value counts: a form may send back a read-only field unchanged.
     custom_now = record.custom or {}
     sent = [
@@ -2116,6 +2337,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         )
     if "level" in cleaned:
         problems += _check_level(cat, cleaned["level"], current=record.level)
+    problems += _check_problem_fields(wtype, cat, cleaned, record)
     custom, custom_problems = await _custom_in(
         session, wtype, values, current=record.custom or {}, creating=False
     )
@@ -2269,7 +2491,7 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         raise PermissionDenied(code="transition_not_allowed", params={"reason": refused})
     cat = await config.load(session, wtype)
     try:
-        step = cat.lifecycle.transition(record.status, action)
+        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
     except InvalidTransition as error:
         raise Conflict(
             code="invalid_transition", params={"from": record.status, "action": action}
@@ -2304,9 +2526,12 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         record = taken.record
         expected_version = record.version
     try:
-        step = cat.lifecycle.transition(record.status, action)
-        target = cat.lifecycle.target(
-            record.status, action, before_cancel=record.status_before_cancel
+        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
+        target = cat.lifecycle_of(record.lifecycle).target(
+            record.status,
+            action,
+            before_cancel=record.status_before_cancel,
+            before_pause=record.status_before_pause,
         )
     except InvalidTransition as error:  # pragma: no cover - start work is allowed from assigned
         raise Conflict(
@@ -3656,7 +3881,12 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     BUG-03): history keeps them as the person, from their channel, with `requester_action`
     saying what they did. Only the system's own moves (auto-close) are automatic.
     """
-    target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
+    target = cat.lifecycle_of(record.lifecycle).target(
+        record.status,
+        action,
+        before_cancel=record.status_before_cancel,
+        before_pause=record.status_before_pause,
+    )
     step = await closing.before_move(session, cat, record, action, given or closing.MoveInput())
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
@@ -3680,6 +3910,77 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     return updated
 
 
+async def set_fields(  # noqa: PLR0913 - the record, its version, the change and its reason
+    session: AsyncSession,
+    record: WorkItem,
+    columns: Mapping[str, Any],
+    *,
+    expected_version: int,
+    source: Source,
+    reason: str | None = None,
+) -> WorkItem:
+    """Columns a service sets after its own checks (a known error marked; WP-044b).
+
+    If-Match, field history with the reason, and the usual update event.
+    """
+    audience_before = _audience(record)
+    before = {name: getattr(record, name) for name in columns}
+    updated = await _update(session, record, expected_version, columns)
+    changes = [Change(n, _json(before[n]), _json(v)) for n, v in columns.items() if before[n] != v]
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=changes,
+        source=source,
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(columns),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
+async def set_status(  # noqa: PLR0913 - the move, its version and its record, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    action: WorkItemAction,
+    *,
+    target: str,
+    expected_version: int,
+    source: Source,
+    extra: Sequence[Change] = (),
+) -> WorkItem:
+    """A system status a person's act sets (a problem merged, or its undo; WP-044b).
+
+    Not a transition: the caller checked who may do it. History keeps it as the person, with
+    `extra` saying what else happened; the usual status event follows.
+    """
+    before = _snapshot(record, STAMP_FIELDS)
+    changes = await _status_change(
+        session, wtype, record, action, target=target, reason_code=None, reason_text=None
+    )
+    updated = await _update(session, record, expected_version, changes)
+    await _record_status(
+        session, before, updated, action, source=source, reason=None, automatic=False, extra=extra
+    )
+    return updated
+
+
 async def decided_move(  # noqa: PLR0913 - the move and what the approval decided, explicit
     session: AsyncSession,
     wtype: WorkItemType,
@@ -3698,7 +3999,12 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     channel, with the record's new approval status. On approval the item's technician (after
     approval, REQ-SR-008 AC2) is set in the same save, then the usual move to "assigned".
     """
-    target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
+    target = cat.lifecycle_of(record.lifecycle).target(
+        record.status,
+        action,
+        before_cancel=record.status_before_cancel,
+        before_pause=record.status_before_pause,
+    )
     old_approval, old_technician = record.approval_status, record.technician_id
     audience = _audience(record)
     assigning = technician_id != old_technician
@@ -3740,7 +4046,12 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
         aggregate_version=updated.version,
     )
     move = (
-        after_assignment(cat.lifecycle, updated.status, had_technician=False, has_technician=True)
+        after_assignment(
+            cat.lifecycle_of(updated.lifecycle),
+            updated.status,
+            had_technician=False,
+            has_technician=True,
+        )
         if cat.auto_status_on_assign
         else None
     )
@@ -3752,7 +4063,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
         wtype,
         updated,
         move,
-        target=cat.lifecycle.target(updated.status, move, before_cancel=None),
+        target=cat.lifecycle_of(updated.lifecycle).target(updated.status, move, before_cancel=None),
         reason_code=None,
         reason_text=None,
     )
@@ -3786,7 +4097,7 @@ async def on_requester_reply(  # noqa: PLR0913 - the reply and its context, expl
     """
     cat = await config.load(session, wtype)
     category = StatusCategory(record.status_category)
-    allowed = set(cat.lifecycle.actions_from(record.status))
+    allowed = set(cat.lifecycle_of(record.lifecycle).actions_from(record.status))
     if category == StatusCategory.PAUSED:
         status = next((s for s in cat.statuses if s.code == record.status), None)
         resumes = status is not None and status.resume_on_requester_reply
@@ -3983,14 +4294,16 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     )
     if cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle,
+            cat.lifecycle_of(updated.lifecycle),
             updated.status,
             had_technician=had_technician,
             has_technician=technician_id is not None,
         )
         if move is not None:
             stamps = _snapshot(updated, STAMP_FIELDS)
-            target = cat.lifecycle.target(updated.status, move, before_cancel=None)
+            target = cat.lifecycle_of(updated.lifecycle).target(
+                updated.status, move, before_cancel=None
+            )
             status_columns = await _status_change(
                 session, wtype, updated, move, target=target, reason_code=None, reason_text=None
             )

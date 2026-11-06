@@ -146,6 +146,9 @@ class ArticleView:
     review_due: bool
     can_approve: bool = False
     can_withdraw: bool = False
+    # Languages whose version in review is this person's own while self-approval is off: the
+    # approve step is not offered there (QA6-KB-02: the refusal came only after the click).
+    self_approval_blocked: frozenset[str] = frozenset()
 
 
 def _today() -> date:
@@ -224,6 +227,14 @@ async def get_article(
     if not published and not drafts:
         raise NotFound(code="kb_article_not_found")  # nothing this reader may see yet
     today = _today()
+    can_approve = staff and may_approve(subject, article, topic)
+    blocked: frozenset[str] = frozenset()
+    if can_approve and drafts and not (await settings_row(session)).self_approval:
+        blocked = frozenset(
+            language
+            for language, draft in drafts.items()
+            if (draft.submitted_by or draft.created_by) == subject.user_id
+        )
     return ArticleView(
         article=article,
         topic=topic,
@@ -232,8 +243,9 @@ async def get_article(
         can_edit=staff and staff_may_edit(subject, article, topic),
         expired=article.expires_on is not None and article.expires_on <= today,
         review_due=article.review_on is not None and article.review_on <= today,
-        can_approve=staff and may_approve(subject, article, topic),
+        can_approve=can_approve,
         can_withdraw=can_withdraw,
+        self_approval_blocked=blocked,
     )
 
 

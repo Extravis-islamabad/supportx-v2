@@ -182,24 +182,35 @@ async def ensure_defaults(session: AsyncSession, code: str) -> None:
     )
     if inserted.scalar() is None:  # a parallel first request made it
         return
-    for priority, response, resolution, source in DEFAULT_TARGETS:
+    for priority, kind, amount, unit, source in _defaults_of(code):
+        session.add(
+            SlaPolicyTarget(
+                id=new_id(),
+                tenant_id=context.tenant_id,
+                policy_id=policy_id,
+                kind=kind,
+                priority=priority,
+                amount=amount,
+                unit=unit,
+                source=source,
+            )
+        )
+    await session.flush()
+
+
+def _defaults_of(code: str) -> tuple[tuple[str, str, int, str, str], ...]:
+    """The fallback policy's targets of a record type: its own, or the incident defaults."""
+    found = record_type(code)
+    if found is not None and found.default_targets is not None:
+        return found.default_targets
+    return tuple(
+        (priority, kind.value, amount, unit.value, source.value)
+        for priority, response, resolution, source in DEFAULT_TARGETS
         for kind, (amount, unit) in (
             (TargetKind.FIRST_RESPONSE, response),
             (TargetKind.RESOLUTION, resolution),
-        ):
-            session.add(
-                SlaPolicyTarget(
-                    id=new_id(),
-                    tenant_id=context.tenant_id,
-                    policy_id=policy_id,
-                    kind=kind.value,
-                    priority=priority,
-                    amount=amount,
-                    unit=unit.value,
-                    source=source.value,
-                )
-            )
-    await session.flush()
+        )
+    )
 
 
 # --- reading ------------------------------------------------------------------------------------
@@ -382,6 +393,12 @@ async def _targets(
         )
     for index, code in target_problems(rows):
         errors.append(_field(f"targets.{index}", code))
+    if rtype.target_dates_only and not (await settings_of(session, rtype.code)).full_sla:
+        errors.extend(  # D-140 Q3: response targets need full SLAs switched on
+            _field(f"targets.{index}.kind", "full_sla_off")
+            for index, row in enumerate(rows)
+            if row.kind != TargetKind.RESOLUTION
+        )
     for index, row in enumerate(rows):
         if row.fixed_calendar_id is not None and not await calendar_exists(
             session, row.fixed_calendar_id
@@ -803,7 +820,7 @@ async def get_settings(session: AsyncSession, subject: Subject, code: str) -> Sl
     return await settings_of(session, code)
 
 
-async def update_settings(  # noqa: PLR0913 - the change, explicit
+async def update_settings(  # noqa: PLR0913, C901 - the change, one rule per setting, flat
     session: AsyncSession,
     subject: Subject,
     code: str,
@@ -829,6 +846,10 @@ async def update_settings(  # noqa: PLR0913 - the change, explicit
                 _field("warning_percent", "out_of_range", min=WARNING_MIN, max=WARNING_MAX)
             )
         columns["warning_percent"] = percent
+    if "full_sla" in values:
+        if not _type(code).target_dates_only:
+            errors.append(_field("full_sla", "not_allowed"))  # every other type has full SLAs
+        columns["full_sla"] = bool(values["full_sla"])
     for name, choices in (("priority_rule", PriorityRule), ("reopen_rule", ReopenRule)):
         if name in values:
             if values[name] not in {c.value for c in choices}:
