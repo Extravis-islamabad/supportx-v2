@@ -10,7 +10,8 @@ on:
   # Its first step decides whether the stack is needed (docs-only changes are not).
   # labeled: adding the full-ci label runs the heavy jobs on this PR (speed mode, D-122).
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    # ready_for_review: a draft runs only the fast set (below); marking it ready runs everything.
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
   schedule:
     - cron: "41 2 * * *" # nightly 02:41 UTC: catches upstream image or registry breakage
   workflow_dispatch:
