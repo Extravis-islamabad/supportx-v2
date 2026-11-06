@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeSession } from '@supportx/api-client/testing';
@@ -50,20 +50,35 @@ describe('WP-036 QA: the header at 390 px', () => {
     ).toBeDefined();
   });
 
-  it('BUG-06: the top menu keeps its overflow inside its own box, never under the next button', () => {
-    render(
-      <AppearanceProvider>
-        <AppShell
-          nav={[{ key: 'home', path: '/', labelKey: 'nav.home', locked: false }]}
-          activeKey="home"
-          layout="top"
-          onNavigate={() => undefined}
-          header={(start) => start}
-        >
-          <span />
-        </AppShell>
-      </AppearanceProvider>,
-    );
-    expect(screen.getByTestId('nav-top').style.overflow).toBe('hidden');
-  });
+  // BUG-06's band (overflow inside its own box) is for wider screens now: below the phone
+  // breakpoint every layout gives way to a drawer behind a menu button (QA 2026-11-05 V2).
+  it.each(['side', 'side_compact', 'top'] as const)(
+    'V2: at 390 px the %s layout leaves no rail or band, only a menu button and a drawer',
+    async (layout) => {
+      render(
+        <AppearanceProvider>
+          <AppShell
+            nav={[{ key: 'home', path: '/', labelKey: 'nav.home', locked: false }]}
+            activeKey="home"
+            layout={layout}
+            onNavigate={() => undefined}
+            header={(_top, menu) => <header>{menu}</header>}
+          >
+            <span />
+          </AppShell>
+        </AppearanceProvider>,
+      );
+      expect(screen.queryByTestId('nav-side')).toBeNull();
+      expect(screen.queryByTestId('nav-compact')).toBeNull();
+      expect(screen.queryByTestId('nav-top')).toBeNull();
+      const button = screen.getByRole('button', { name: 'Open the menu' });
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      // The navigation is in the page while closed (forceRender), with every section's key.
+      expect(document.querySelector('nav[data-items]')?.getAttribute('data-items')).toBe('home');
+      fireEvent.click(button);
+      await waitFor(() => {
+        expect(button.getAttribute('aria-expanded')).toBe('true');
+      });
+    },
+  );
 });

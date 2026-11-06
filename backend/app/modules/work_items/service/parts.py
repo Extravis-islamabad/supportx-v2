@@ -711,6 +711,7 @@ async def links(
         select(WorkItemLink)
         .where(
             or_(WorkItemLink.source_id == record_id, WorkItemLink.target_id == record_id),
+            WorkItemLink.kind.in_(_LISTED),
             WorkItemLink.deleted_at.is_(None),
         )
         .order_by(WorkItemLink.created_at, WorkItemLink.id)
@@ -743,6 +744,16 @@ async def links(
     return found
 
 
+# The kinds this listing reads (`_relation`). Release links (WP-058a) are listed by the
+# release's own parts until the cross-type relations of REQ-REL-034 join them here.
+_LISTED = (
+    LinkKind.RELATED.value,
+    LinkKind.FOLLOWS.value,
+    LinkKind.CAUSED_BY.value,
+    LinkKind.MERGED_INTO.value,
+)
+
+
 Relation = Literal[
     "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
 ]
@@ -759,6 +770,9 @@ def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
             return "caused_by" if mine_is_source else "causes"
         case LinkKind.MERGED_INTO:
             return "merged_into" if mine_is_source else "merged_from"
+        case _:  # never listed (_LISTED)
+            msg = f"link kind {kind} is not listed here"
+            raise ValueError(msg)
 
 
 def _pair(record_id: uuid.UUID, other_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID]:

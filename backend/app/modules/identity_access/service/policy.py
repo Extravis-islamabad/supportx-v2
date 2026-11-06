@@ -42,12 +42,14 @@ from app.modules.identity_access.domain.permissions import (
     Catalogue,
 )
 from app.modules.identity_access.domain.policy import (
+    AccessRule,
     Decision,
     Grant,
     RecordFacts,
     Subject,
     compile_subject,
     decide,
+    meets,
 )
 from app.modules.identity_access.infra.models import (
     GroupRole,
@@ -123,6 +125,9 @@ class ResourceType:
     site_scope: ScopePredicate | None = None
     group_scope: ScopePredicate | None = None
     group_scope_extra: Callable[[Subject], ColumnElement[bool] | None] | None = None
+    # More records that are the subject's own (WP-058a: records where they hold a named role,
+    # in person or through a group). OR'ed into the `own` scope only; None: no extra records.
+    owner_extra: Callable[[Subject], ColumnElement[bool] | None] | None = None
     shared_scope: Callable[[Subject], ColumnElement[bool]] | None = None
     shared_actions: frozenset[str] = frozenset()
     field_rules: Mapping[str, FieldRule] = field(default_factory=lambda: MappingProxyType({}))
@@ -142,21 +147,24 @@ def authorize(
     permission: str,
     resource_type: ResourceType | None = None,
     record: RecordFacts | None = None,
+    *,
+    rule: AccessRule | None = None,
 ) -> Decision:
     """One decision, allow or deny, with a machine reason.
 
-    Reasons: not_entitled, no_permission, out_of_scope, condition_not_met, or the code of a
-    segregation-of-duties rule.
+    Reasons: not_entitled, no_permission, out_of_scope, condition_not_met, the code of a
+    segregation-of-duties rule, or stage_access (`rule`, applied after everything else).
     """
     if record is None:
-        return subject.check(permission)
+        decision = subject.check(permission)
+        return meets(subject, rule) if decision else decision
     decision = decide(subject, permission, record)
     if not decision or resource_type is None:
-        return decision
-    for rule in resource_type.sod_rules.get(permission, ()):
-        if rule.violated(subject, record):
-            return Decision(allowed=False, reason=rule.code)
-    return decision
+        return meets(subject, rule) if decision else decision
+    for sod in resource_type.sod_rules.get(permission, ()):
+        if sod.violated(subject, record):
+            return Decision(allowed=False, reason=sod.code)
+    return meets(subject, rule)
 
 
 def require(decision: Decision, permission: str) -> None:
@@ -206,9 +214,11 @@ def _scope_predicate(
     if grant.scope == "all":
         return true()
     if grant.scope == "own":
-        if not resource_type.owner_columns:
-            return None
-        return or_(*(column == subject.user_id for column in resource_type.owner_columns))
+        owned = [column == subject.user_id for column in resource_type.owner_columns]
+        extra = resource_type.owner_extra(subject) if resource_type.owner_extra else None
+        if extra is not None:
+            owned.append(extra)
+        return or_(*owned) if owned else None
     builder = resource_type.site_scope if grant.scope == "site" else resource_type.group_scope
     ids = subject.site_ids if grant.scope == "site" else subject.group_ids
     parts = [builder(ids)] if builder is not None and ids else []
@@ -228,11 +238,13 @@ async def authorize_stored(  # noqa: PLR0913, PLR0917 - the record is identified
     resource_type: ResourceType,
     id_column: Any,  # noqa: ANN401 - SQLAlchemy column attribute
     record_id: uuid.UUID,
+    *,
+    rule: AccessRule | None = None,
 ) -> Decision:
     """Decision for a stored record, evaluated by the database.
 
     Uses the same scope filter as lists, so a record is visible on its own exactly when it would
-    appear in a list.
+    appear in a list. `rule` (stage access) narrows an allowed decision only, after the scope.
     """
     first = subject.check(permission)
     if not first:
@@ -242,7 +254,9 @@ async def authorize_stored(  # noqa: PLR0913, PLR0917 - the record is identified
             id_column == record_id, scope_filter(subject, permission, resource_type)
         )
     )
-    return first if found is not None else Decision(allowed=False, reason="out_of_scope")
+    if found is None:
+        return Decision(allowed=False, reason="out_of_scope")
+    return meets(subject, rule)
 
 
 MASK = "••••"

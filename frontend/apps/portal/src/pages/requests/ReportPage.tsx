@@ -52,7 +52,7 @@ export function ReportPage() {
   const [templateId, setTemplateId] = useState<string | undefined>(
     params.get('template') ?? undefined,
   );
-  const [subject, setSubject] = useState('');
+  const [subject, setSubject] = useState(params.get('subject') ?? ''); // from search (WP-032 D2)
   const [onBehalf, setOnBehalf] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const key = useMemo(() => crypto.randomUUID(), []);

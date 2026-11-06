@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Select, distinct, func, select
+from sqlalchemy import Select, distinct, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import Subject
@@ -92,19 +92,11 @@ async def impact(session: AsyncSession, subject: Subject, problem_id: uuid.UUID)
             WorkItemWorklog.deleted_at.is_(None),
         )
     )
-    open_seconds = await session.scalar(
-        select(
-            func.coalesce(
-                func.sum(
-                    func.extract(
-                        "epoch",
-                        func.coalesce(visible.c.resolved_at, func.now()) - visible.c.created_at,
-                    )
-                ),
-                0,
-            )
-        )
-    )
+    # "Until now" uses the app's clock, which stamps created_at and resolved_at, never the
+    # database's (they can drift apart); a span is never negative.
+    until = func.coalesce(visible.c.resolved_at, literal(datetime.now(UTC)))
+    span = func.extract("epoch", until - visible.c.created_at)
+    open_seconds = await session.scalar(select(func.coalesce(func.sum(func.greatest(span, 0)), 0)))
     week = func.date_trunc("week", func.timezone("UTC", visible.c.created_at))
     counted = {
         start.replace(tzinfo=UTC): int(count)

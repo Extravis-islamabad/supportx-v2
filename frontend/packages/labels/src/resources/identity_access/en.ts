@@ -35,7 +35,9 @@ export const en = {
     'Required for your roles: after your password, you enter a code from an authenticator app.',
   'account.mfa.reminder':
     'Your organisation requires two-step sign-in. Set it up by {{date}}; after that you will be asked to before anything else.',
+  'account.mfa.reminder_short': 'Two-step sign-in due {{date}}',
   'account.mfa.set_up': 'Set up two-step sign-in',
+  'account.mfa.set_up_short': 'Set up',
   'account.mfa.title': 'Two-step sign-in',
   'account.password': 'Password',
   'account.recent': 'Recent sign-ins',
@@ -500,6 +502,9 @@ export const en = {
   'permission.profile.edit.description': 'Change your own reply signature and time zone.',
   'permission.releases.add_note': 'Add private notes on releases',
   'permission.releases.add_note.description': 'Write staff-only notes on releases.',
+  'permission.releases.approve': 'Approve releases',
+  'permission.releases.approve.description':
+    'Decide the release stage approvals you are named for.',
   'permission.releases.assign': 'Assign releases',
   'permission.releases.assign.description': 'Assign releases to people and groups.',
   'permission.releases.assign_outside_group': 'Assign releases outside the group',

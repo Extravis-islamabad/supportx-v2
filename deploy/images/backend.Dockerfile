@@ -13,7 +13,9 @@
 #
 # INTERNAL / DEV BUILD (D-038, decision D8): plain CPython, source included. It must never be
 # given to a customer; customer bundles require the Nuitka-compiled build (ADR-009, WP-013).
-ARG PYTHON_IMAGE=python:3.12.15-slim-trixie
+# Pinned by digest (the tag moves when Docker Hub rebuilds the slim image). Refresh it when the
+# slim image is rebuilt: `docker buildx imagetools inspect python:3.12.15-slim-trixie`.
+ARG PYTHON_IMAGE=python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.12.19
 
 FROM ${UV_IMAGE} AS uv
@@ -47,7 +49,10 @@ ENV PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     SUPPORTX_DISTRIBUTION=internal-dev-only
+# Debian security fixes published after the base image (e.g. apt CVE-2026-109518), as the web
+# image does with apk: the image gate fails on fixable HIGH/CRITICAL findings.
 RUN apt-get update \
+ && apt-get -y upgrade --no-install-recommends \
  && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 10001 supportx \
@@ -90,7 +95,12 @@ ENV PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     SUPPORTX_DISTRIBUTION=internal-dev-only
-RUN groupadd --system --gid 10001 supportx \
+# Debian security fixes published after the base image (e.g. apt CVE-2026-109518), as the web
+# image does with apk: the image gate fails on fixable HIGH/CRITICAL findings.
+RUN apt-get update \
+ && apt-get -y upgrade --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10001 supportx \
  && useradd --system --uid 10001 --gid supportx --home-dir /app --shell /usr/sbin/nologin supportx
 WORKDIR /app
 COPY --from=build /opt/venv /opt/venv

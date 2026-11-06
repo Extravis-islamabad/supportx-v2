@@ -1,37 +1,11 @@
 import { Alert, Button, Flex, Typography } from 'antd';
-import { useState } from 'react';
-
-import type { AnnouncementPublic } from '@supportx/api-client';
+import { useDismissAnnouncement } from '@supportx/api-client';
 
 import { useAppearance, useLabel } from '../appearance';
 import { clampLineHeight } from '../fonts/fonts';
 import { useLiveAnnouncementFeed } from './useLiveAnnouncementFeed';
 
 const ALERT_TYPE = { info: 'info', warning: 'warning', critical: 'error' } as const;
-const DISMISSED_KEY = 'supportx.announcements.dismissed';
-
-/** Dismissed banners, per browser (a convenience: the announcement is still in the list). */
-function readDismissed(): Set<string> {
-  try {
-    const raw = window.localStorage.getItem(DISMISSED_KEY);
-    return new Set(raw === null ? [] : (JSON.parse(raw) as string[]));
-  } catch {
-    return new Set();
-  }
-}
-
-function writeDismissed(keys: Set<string>): void {
-  try {
-    // Keep the newest 100 only: old announcements end anyway.
-    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...keys].slice(-100)));
-  } catch {
-    // Private mode or storage blocked: dismissing just lasts until the page reloads.
-  }
-}
-
-/** A republished announcement shows again, so the key includes when it was published. */
-const dismissKey = (item: AnnouncementPublic) => `${item.id}@${item.published_at ?? ''}`;
-
 export interface AnnouncementBannersProps {
   /** Whether this tenant's plan includes announcements (no calls otherwise). */
   enabled?: boolean;
@@ -44,10 +18,9 @@ export function AnnouncementBanners({ enabled = true, onOpen }: AnnouncementBann
   const t = useLabel();
   const { urduScript } = useAppearance();
   const feed = useLiveAnnouncementFeed(enabled);
-  const [dismissed, setDismissed] = useState(readDismissed);
-  const banners = (feed.data?.items ?? []).filter(
-    (item) => item.show_as_banner && !dismissed.has(dismissKey(item)),
-  );
+  const dismiss = useDismissAnnouncement();
+  // Dismissed on every device (WP-032 D7, REQ-PRT-009 AC2): the person's own state, stored.
+  const banners = (feed.data?.items ?? []).filter((item) => item.show_as_banner && !item.dismissed);
   if (banners.length === 0) return null;
   return (
     <Flex
@@ -68,9 +41,7 @@ export function AnnouncementBanners({ enabled = true, onOpen }: AnnouncementBann
           // A critical notice comes first in the shell's notice stack (D-124).
           data-notice-critical={item.severity === 'critical' ? 'true' : undefined}
           onClose={() => {
-            const next = new Set(dismissed).add(dismissKey(item));
-            writeDismissed(next);
-            setDismissed(next);
+            dismiss.mutate(item.id);
           }}
           message={
             <Typography.Text strong>

@@ -248,6 +248,7 @@ test('a known error shows live on its incident and is found in the database', as
 
   // The incident is open in the admin's browser; the technician marks the problem.
   await admin.page.goto(`/incidents/${incident.id}`);
+  await admin.page.getByRole('tab', { name: 'Links' }).click();
   await expect(admin.page.getByTestId(`inc-link-${problem.display_id}`)).toBeVisible(LIVE);
   await expect(admin.page.getByTestId('inc-known-error')).toHaveCount(0);
   await tech.page.goto(`/problems/${problem.id}`);

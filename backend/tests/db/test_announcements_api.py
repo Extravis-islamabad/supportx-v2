@@ -651,6 +651,8 @@ async def test_requesters_see_only_what_is_live_for_them(world: World) -> None:
         "publish_until",
         "visibility",
         "next_change_in_seconds",
+        "dismissed",  # WP-032 D7: the person's own state, nothing about others
+        "following",
     }
     # The scheduled one is for everyone: its start is when the requester's feed changes next.
     assert 3500 < feed["next_change_in_seconds"] <= 3600

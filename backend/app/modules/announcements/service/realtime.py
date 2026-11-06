@@ -40,6 +40,7 @@ from app.shared.realtime import (
     RealtimeEffects,
     RealtimeRoute,
     broadcast,
+    personal,
     record,
 )
 
@@ -136,6 +137,24 @@ async def _settings_changed(envelope: EventEnvelope, session: AsyncSession) -> R
     )
 
 
+PERSONAL_CHANGED = "announcements.personal_changed"
+
+
+async def _personal_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """Dismissed or (un)followed: the person's other devices hide the banner or update (AC2)."""
+    del session
+    user = uuid.UUID(str(envelope.payload["user_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, user),
+                PERSONAL_CHANGED,
+                ids=(str(envelope.payload["announcement_id"]),),
+            )
+        ]
+    )
+
+
 ROUTES = [
     RealtimeRoute(
         (
@@ -148,4 +167,5 @@ ROUTES = [
         _announcement_changed,
     ),
     RealtimeRoute(("announcements.settings.changed",), _settings_changed),
+    RealtimeRoute(("announcements.personal.changed",), _personal_changed),
 ]

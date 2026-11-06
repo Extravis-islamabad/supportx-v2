@@ -54,6 +54,10 @@ from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
 from tooling.keycloak_theme import admin_token
 
+# Every module's tables on the shared metadata before ensure_tenant seeds the catalog: its items
+# point at work_items' templates (QA 2026-11-05: NoReferencedTableError in a bare process).
+discover_modules()
+
 SLUG = "showcase"
 TENANT_ID = uuid.UUID("01900000-0000-7000-8000-00000005ca5e")
 TENANT_NAME = "Showcase Company"

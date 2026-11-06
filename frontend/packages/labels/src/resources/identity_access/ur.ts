@@ -37,7 +37,9 @@ export const ur: LabelResource = {
     'آپ کے رولز کے لیے لازمی: پاس ورڈ کے بعد آپ تصدیقی ایپ کا کوڈ درج کرتے ہیں۔',
   'account.mfa.reminder':
     'آپ کی تنظیم دو مرحلہ سائن اِن لازمی کرتی ہے۔ اسے {{date}} تک سیٹ اپ کریں؛ اس کے بعد کچھ اور کرنے سے پہلے آپ سے کہا جائے گا۔',
+  'account.mfa.reminder_short': 'دو مرحلہ سائن اِن {{date}} تک درکار',
   'account.mfa.set_up': 'دو مرحلہ سائن اِن سیٹ اپ کریں',
+  'account.mfa.set_up_short': 'سیٹ اپ کریں',
   'account.mfa.title': 'دو مرحلہ سائن اِن',
   'account.password': 'پاس ورڈ',
   'account.recent': 'حالیہ سائن اِن',
@@ -499,6 +501,9 @@ export const ur: LabelResource = {
   'permission.profile.edit.description': 'اپنا جوابی دستخط اور ٹائم زون تبدیل کریں۔',
   'permission.releases.add_note': 'ریلیزز پر نجی نوٹس شامل کریں',
   'permission.releases.add_note.description': 'ریلیزز پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.releases.approve': 'ریلیزز کی منظوری دیں',
+  'permission.releases.approve.description':
+    'ریلیز کے ان مراحل کی منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
   'permission.releases.assign': 'ریلیزز تفویض کریں',
   'permission.releases.assign.description': 'ریلیزز لوگوں اور گروپوں کو تفویض کریں۔',
   'permission.releases.assign_outside_group': 'گروپ سے باہر ریلیزز تفویض کریں',
