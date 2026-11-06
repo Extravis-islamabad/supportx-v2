@@ -1613,3 +1613,113 @@ class WorkItemDowntime(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
     )
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     deleted_at: Mapped[datetime | None]
+
+
+# --- Repeat incident rules (WP-044c D16, REQ-PRB-068; migration 0110) -------------------------
+
+REPEAT_MATCHES = ("category", "category_site")
+REPEAT_OUTCOMES = ("problem_created", "dismissed")
+# Members kept per hit (the coordinator's cap): the count keeps growing, the list stops here.
+REPEAT_MEMBERS_MAX = 100
+
+
+class ProblemRepeatRule(TenantEntity):
+    """An admin's rule: N or more incidents matching the same key within H hours (no AI)."""
+
+    __tablename__ = "problem_repeat_rules"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_problem_repeat_rules_tenant_id_id"),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 200", name="name_length"),
+        CheckConstraint(
+            "match IN (" + ", ".join(f"'{m}'" for m in REPEAT_MATCHES) + ")", name="match_code"
+        ),
+        CheckConstraint("threshold BETWEEN 2 AND 1000", name="threshold_range"),
+        CheckConstraint("window_hours BETWEEN 1 AND 2160", name="window_range"),
+        Index(
+            "uq_problem_repeat_rules_tenant_name",
+            "tenant_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "uq_problem_repeat_rules_tenant_default",
+            "tenant_id",
+            unique=True,
+            postgresql_where=text("is_default AND deleted_at IS NULL"),
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    match: Mapped[str] = mapped_column(String(20))
+    threshold: Mapped[int] = mapped_column(Integer)
+    window_hours: Mapped[int] = mapped_column(Integer)
+    # Who hears of a match; None: the group the matching incidents are in.
+    notify_group_id: Mapped[uuid.UUID | None]
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    is_default: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class ProblemRepeatHit(TenantEntity):
+    """One set of matching incidents a rule found; open until a problem is made or it is dismissed.
+
+    At most one open hit per rule and key (a unique partial index): overlapping evaluations
+    never open two, and a growing set joins the open one (AC2: fires once per set).
+    """
+
+    __tablename__ = "problem_repeat_hits"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_problem_repeat_hits_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "rule_id"],
+            ["problem_repeat_rules.tenant_id", "problem_repeat_rules.id"],
+            name="fk_problem_repeat_hits_rule",
+        ),
+        CheckConstraint(
+            "outcome IS NULL OR outcome IN (" + ", ".join(f"'{o}'" for o in REPEAT_OUTCOMES) + ")",
+            name="outcome_code",
+        ),
+        CheckConstraint("(handled_at IS NULL) = (outcome IS NULL)", name="handled_with_outcome"),
+        CheckConstraint("incident_count >= 1", name="incident_count_positive"),
+        Index(
+            "uq_problem_repeat_hits_open",
+            "tenant_id",
+            "rule_id",
+            "match_key",
+            unique=True,
+            postgresql_where=text("handled_at IS NULL AND deleted_at IS NULL"),
+        ),
+        Index("ix_problem_repeat_hits_tenant_handled", "tenant_id", "handled_at"),
+    )
+
+    rule_id: Mapped[uuid.UUID]
+    match_key: Mapped[str] = mapped_column(String(200))
+    category_id: Mapped[uuid.UUID | None]
+    site_id: Mapped[uuid.UUID | None]
+    group_id: Mapped[uuid.UUID | None]
+    incident_count: Mapped[int] = mapped_column(Integer)
+    first_at: Mapped[datetime]
+    last_at: Mapped[datetime]
+    handled_at: Mapped[datetime | None]
+    handled_by: Mapped[uuid.UUID | None]
+    outcome: Mapped[str | None] = mapped_column(String(20))
+    problem_id: Mapped[uuid.UUID | None]
+
+
+class ProblemRepeatHitIncident(TenantKeyed, Base):
+    """An incident in a hit's set (at most REPEAT_MEMBERS_MAX per hit)."""
+
+    __tablename__ = "problem_repeat_hit_incidents"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "hit_id"],
+            ["problem_repeat_hits.tenant_id", "problem_repeat_hits.id"],
+            name="fk_prhi_hit",
+            ondelete="CASCADE",
+        ),
+        _work_item_fk("fk_prhi_incident"),
+    )
+
+    hit_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    work_item_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    added_at: Mapped[datetime] = mapped_column(server_default=func.now())
