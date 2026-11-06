@@ -45,7 +45,7 @@ import {
 
 import { ConditionBuilder } from './fields';
 import { fromTree, toTree, type Conditions } from './rules';
-import { conditionAt, useEditorProblems, whereOf } from './problems';
+import { conditionAt, missingProblems, useEditorProblems, whereOf } from './problems';
 import { ProblemList } from './ProblemList';
 
 const RECORD_TYPE = 'incident';
@@ -401,6 +401,7 @@ function RoutingEditor({
       void message.success(t('common.saved'));
       onClose();
     };
+    if (issues.check(missingProblems(t, { name: draft.name, group_id: draft.group_id }))) return;
     const body = {
       name: draft.name,
       conditions: toTree(draft.conditions),
