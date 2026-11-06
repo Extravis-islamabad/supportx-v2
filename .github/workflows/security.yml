@@ -105,6 +105,9 @@ jobs:
       - name: Frontend (pnpm audit)
         if: ${{ !cancelled() }}
         run: make audit-frontend
+      - name: Licences (frontend, mobile when present; CLAUDE.md §3, ADR-012)
+        if: ${{ !cancelled() }}
+        run: make licence-check
 
   trivy:
     name: filesystem scan (Trivy)

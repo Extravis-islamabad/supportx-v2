@@ -241,6 +241,25 @@ describe('portal: approvals', () => {
     });
   });
 
+  it('deployed under /portal/ too: the page loads with no session (D-132, Cluster nightly)', async () => {
+    window.history.pushState({}, '', `/portal/approve#${TOKEN}`);
+    const fake = fakeApi({
+      'POST /api/v1/public/action-links/peek': {
+        body: {
+          action: 'service_request.approval',
+          object_type: 'work_item_approval',
+          object_id: APPROVAL,
+          expires_at: '2026-11-07T08:00:00Z',
+          summary: { display_id: 'SR-9', subject: 'Desk for Omar', comments_required: false },
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('public-approval-summary')).textContent).toContain('SR-9');
+    expect(fake.find('GET', '/api/v1/auth/me')).toHaveLength(0); // never the session gate
+  });
+
   it('sends the person to sign in when the tenant requires it', async () => {
     window.history.pushState({}, '', `/approve#${TOKEN}`);
     const assign = vi.fn();

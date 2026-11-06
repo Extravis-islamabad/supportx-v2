@@ -12,6 +12,7 @@ export const ur: LabelResource = {
   'actions.close': 'بند کریں',
   'actions.delete': 'حذف کریں',
   'actions.edit': 'ترمیم کریں',
+  'actions.more': 'مزید',
   'actions.reset': 'دوبارہ ترتیب دیں',
   'actions.retry': 'دوبارہ کوشش کریں',
   'actions.save': 'محفوظ کریں',

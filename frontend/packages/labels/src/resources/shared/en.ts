@@ -10,6 +10,7 @@ export const en = {
   'actions.close': 'Close',
   'actions.delete': 'Delete',
   'actions.edit': 'Edit',
+  'actions.more': 'More',
   'actions.reset': 'Reset',
   'actions.retry': 'Try again',
   'actions.save': 'Save',
