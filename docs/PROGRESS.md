@@ -1284,6 +1284,9 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     `app/shared/events.caused_by` (a workflow command's events name the instance as their cause).
   - Lane B's chart (#268, after #233): a `workflowTimers` Deployment beside slaTimers with
     Temporal.
+- **Two PRs (coordinator, 2026-11-06):** S1 lands alone on #233, so lane B's chart (#268) can
+  follow; S2-S5 go on a new PR from main after #233 merges. Within S2, the guarded HTTP client is
+  its own commit for lane B's review; the function node is the runner port only (§6.7).
 - [ ] **S2** — the approval node (with D-146's chair), task and checklist nodes, notification,
   webhook (the shared guarded HTTP client) and function (runner port) nodes, variables, retries
   and error outputs, sub-flows.
