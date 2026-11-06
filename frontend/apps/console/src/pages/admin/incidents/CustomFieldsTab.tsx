@@ -652,12 +652,12 @@ function CustomFieldEditor({
             set({ labels });
           }}
           testId="cf-label"
+          error={
+            at('labels', 'key') === undefined ? undefined : (
+              <span data-testid="cf-error-labels">{at('labels', 'key')}</span>
+            )
+          }
         />
-        {at('labels', 'key') !== undefined && (
-          <Typography.Paragraph type="danger" role="alert" data-testid="cf-error-labels">
-            {at('labels', 'key')}
-          </Typography.Paragraph>
-        )}
         {LANGUAGES.map((language) => (
           <Form.Item
             key={language}

@@ -1,5 +1,5 @@
 import { Alert, Checkbox, ColorPicker, Flex, Form, Input, Modal, Typography } from 'antd';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { Labels } from '@supportx/api-client';
 import { useLabelsIn } from '@supportx/labels';
@@ -29,11 +29,14 @@ export function LabelsFields({
   onChange,
   testId,
   autoFocus = true,
+  error,
 }: {
   value: Labels;
   onChange: (next: Labels) => void;
   testId: string;
   autoFocus?: boolean;
+  /** A problem with the names: shown on the English name, the one that is required (QA6S-SVC-02). */
+  error?: ReactNode;
 }) {
   const t = useLabel();
   const first = useRef<HTMLInputElement | null>(null);
@@ -56,6 +59,8 @@ export function LabelsFields({
           label={t(`settings.name_in.${language}`)}
           required={language === 'en'}
           htmlFor={`${testId}-${language}`}
+          validateStatus={language === 'en' && error !== undefined ? 'error' : undefined}
+          help={language === 'en' ? error : undefined}
         >
           <Input
             ref={(element) => {
