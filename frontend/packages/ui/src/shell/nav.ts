@@ -19,11 +19,6 @@ export interface VisibleNavItem extends NavItem {
   locked: boolean;
 }
 
-/**
- * Which sections a user sees (WP-016): those whose permission they hold. A section outside the
- * tenant's plan is shown locked, with an upgrade hint, to users who manage the licence: they can
- * act on it, while for everyone else a menu of things they cannot open is only noise.
- */
 /** How a feature outside or inside the plan shows: on, locked with the upgrade hint, or hidden. */
 export type FeatureState = 'on' | 'locked' | 'hidden';
 
@@ -40,6 +35,11 @@ export function featureState(
   return managesLicence ? 'locked' : 'hidden';
 }
 
+/**
+ * Which sections a user sees (WP-016): those whose permission they hold. A section outside the
+ * tenant's plan is shown locked, with an upgrade hint, to users who manage the licence: they can
+ * act on it, while for everyone else a menu of things they cannot open is only noise.
+ */
 export function visibleNav(
   items: readonly NavItem[],
   {
