@@ -21,7 +21,7 @@ from app.modules import metadata
 from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
 from app.modules.assets.infra.models import Asset, AssetAssignment, AssetDisposal
 from app.modules.assets.service import assets as service
-from app.modules.assets.service import bulk, disposals, moves, ownership
+from app.modules.assets.service import bulk, disposals, moves, ownership, relationships
 from app.modules.assets.service.catalogue import TEXT_MAX
 from app.modules.audit import RequestFacts, audited
 from app.modules.audit import record as record_audit
@@ -783,3 +783,92 @@ async def asset_holdings(
 ) -> list[AssetHoldingOut]:
     """Newest first; the open one is the current holder (REQ-AST-019 AC1)."""
     return [AssetHoldingOut.of(r) for r in await ownership.holdings(session, subject, asset_id)]
+
+
+# --- relationships (REQ-AST-027) -----------------------------------------------------------------
+
+
+class AssetLinkIn(BaseModel):
+    """Link this asset to another (stored once, shown from both ends)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to_asset_id: uuid.UUID
+    kind: Literal["connected_to", "depends_on", "runs_on", "backs_up"]
+
+
+class AssetLinkOut(BaseModel):
+    """A link as this asset sees it: `outgoing` false means the other asset points here."""
+
+    id: uuid.UUID
+    kind: str
+    outgoing: bool
+    other: AssetOut
+
+
+@router.post(
+    "/{asset_id}/links",
+    summary="Link an asset to another",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssetLinkOut,
+    responses={
+        **WRITE,
+        409: {"model": ProblemDetail, "description": "asset_link_exists"},
+    },
+    dependencies=[audited("asset.linked", object_type="asset", object_param="asset_id")],
+)
+async def add_link(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    body: AssetLinkIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """History on both assets (AC1). Idempotency-Key."""
+
+    async def run() -> Created:
+        link = await relationships.add_link(
+            session, subject, asset_id, body.to_asset_id, body.kind, source=source_of(request)
+        )
+        other = await service.get_asset(session, subject, body.to_asset_id)
+        return Created(
+            body=AssetLinkOut(id=link.id, kind=link.kind, outgoing=True, other=AssetOut.of(other))
+        )
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+@router.get("/{asset_id}/links", summary="An asset's links, from both ends")
+async def asset_links(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> list[AssetLinkOut]:
+    """Only links to assets you may see."""
+    return [
+        AssetLinkOut(
+            id=link.relationship.id,
+            kind=link.relationship.kind,
+            outgoing=link.outgoing,
+            other=AssetOut.of(link.other),
+        )
+        for link in await relationships.links_of(session, subject, asset_id)
+    ]
+
+
+@router.delete(
+    "/{asset_id}/links/{link_id}",
+    summary="Remove a link between two assets",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"model": ProblemDetail, "description": "asset_link_not_found"}},
+    dependencies=[audited("asset.unlinked", object_type="asset", object_param="asset_id")],
+)
+async def remove_link(
+    asset_id: uuid.UUID,
+    link_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    request: Request,
+) -> Response:
+    """Kept, marked removed; history on both assets. 404 unless the link is this asset's."""
+    await relationships.remove_link(session, subject, asset_id, link_id, source=source_of(request))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

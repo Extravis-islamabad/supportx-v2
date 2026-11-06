@@ -49,6 +49,8 @@ export const en = {
     "The default life cycle can't be deleted. Make another one the default first.",
   'errors.asset_limit_reached':
     "Every IT asset slot in your organisation's plan is in use. Dispose of an asset or ask your administrator to add more.",
+  'errors.asset_link_exists': 'These two assets are already linked that way.',
+  'errors.asset_link_not_found': 'That link no longer exists.',
   'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
   'errors.asset_no_disposed_state':
     'There is no disposed state to move the asset to. Ask an admin to check the asset states.',
@@ -189,6 +191,7 @@ export const en = {
   'errors.field.asset_life_cycle_default_needed':
     'There must be a default life cycle. Make another one the default instead.',
   'errors.field.asset_life_cycle_not_found': 'Choose a life cycle from the list.',
+  'errors.field.asset_link_to_itself': "An asset can't be linked to itself.",
   'errors.field.asset_move_duplicate':
     'This move is already in the list, or goes to the same state.',
   'errors.field.asset_nested_in_itself':

@@ -166,3 +166,44 @@ async def test_holdings_and_relationships_are_isolated_by_rls(world: World) -> N
         404,
         "asset_not_found",
     )
+
+
+async def test_a_link_shows_from_both_ends_and_in_both_histories(world: World) -> None:
+    """027 AC1: a workstation "connected to" a switch, on both pages and in both histories."""
+    a = world.a
+    workstation = await _asset(world, "Desk PC")
+    switch = await _asset(world, "Floor switch")
+    made = await world.call(
+        "POST", f"{BASE}/{workstation['id']}/links", a, a.admin,
+        json={"to_asset_id": switch["id"], "kind": "connected_to"},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )  # fmt: skip
+    assert made.status_code == 201, made.text
+    link = made.json()
+    assert (link["outgoing"], link["other"]["id"]) == (True, switch["id"])
+    seen = (await world.call("GET", f"{BASE}/{switch['id']}/links", a, a.tech_a)).json()
+    assert [(x["kind"], x["outgoing"], x["other"]["id"]) for x in seen] == [
+        ("connected_to", False, workstation["id"])
+    ]
+    for asset, far in ((workstation, switch), (switch, workstation)):
+        history = (await world.call("GET", f"{BASE}/{asset['id']}/history", a, a.admin)).json()
+        assert history["items"][0]["changes"][0]["new"] == f"connected_to:{far['id']}"
+    again = await world.call(
+        "POST", f"{BASE}/{workstation['id']}/links", a, a.admin,
+        json={"to_asset_id": switch["id"], "kind": "connected_to"},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )  # fmt: skip
+    assert problem(again) == (409, "asset_link_exists")
+    itself = await world.call(
+        "POST", f"{BASE}/{switch['id']}/links", a, a.admin,
+        json={"to_asset_id": switch["id"], "kind": "depends_on"},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )  # fmt: skip
+    assert field_codes(itself) == {"to_asset_id": "asset_link_to_itself"}
+    # Only under one of its own assets.
+    stranger = await _asset(world, "Unrelated")
+    wrong = await world.call("DELETE", f"{BASE}/{stranger['id']}/links/{link['id']}", a, a.admin)
+    assert problem(wrong) == (404, "asset_link_not_found")
+    gone = await world.call("DELETE", f"{BASE}/{switch['id']}/links/{link['id']}", a, a.admin)
+    assert gone.status_code == 204
+    assert (await world.call("GET", f"{BASE}/{workstation['id']}/links", a, a.admin)).json() == []

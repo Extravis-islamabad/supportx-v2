@@ -37,6 +37,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "AssetDepreciationMethod": "asset_depreciation",
     "AssetStateCategory": "asset_state_category",
     "AssetDisposalIn.method": "asset_disposal_method",
+    "AssetHolderIn.kind": "asset_holder_kind",
+    "AssetLinkIn.kind": "asset_link_kind",
     "AssetTypeCategory": "asset_type_category",
     "AssetTypeKind": "asset_type_kind",
     # SLA set-up (WP-025)
