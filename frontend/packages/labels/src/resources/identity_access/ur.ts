@@ -796,6 +796,20 @@ export const ur: LabelResource = {
   'security.invitations.status': 'حالت',
   'security.invitations.title': 'دعوت نامے',
   'security.invitations.valid_days': 'دعوت کے لنک کام کرتے ہیں',
+  'security.mfa.confirm_off_one':
+    'یہ کردار 1 فرد کے پاس ہے۔ سائن اِن دوسرا مرحلہ نہیں مانگے گا، چاہے اس نے سیٹ کیا ہو۔',
+  'security.mfa.confirm_off_other':
+    'یہ کردار {{count}} افراد کے پاس ہے۔ سائن اِن دوسرا مرحلہ نہیں مانگے گا، چاہے انہوں نے سیٹ کیا ہو۔',
+  'security.mfa.confirm_ok': 'بدلیں',
+  'security.mfa.confirm_optional_one':
+    'یہ کردار 1 فرد کے پاس ہے۔ وہ اسے سیٹ کر سکتا ہے، مگر سائن اِن اب اس کا تقاضا نہیں کرے گا۔',
+  'security.mfa.confirm_optional_other':
+    'یہ کردار {{count}} افراد کے پاس ہے۔ وہ اسے سیٹ کر سکتے ہیں، مگر سائن اِن اب اس کا تقاضا نہیں کرے گا۔',
+  'security.mfa.confirm_required_one':
+    'یہ کردار 1 فرد کے پاس ہے؛ ان میں سے {{missing}} نے ابھی اسے سیٹ کرنا ہے۔ جن کے پاس نہیں انہیں مہلت ملتی ہے، پھر وہ صرف اسے سیٹ کر سکتے ہیں۔',
+  'security.mfa.confirm_required_other':
+    'یہ کردار {{count}} افراد کے پاس ہے؛ ان میں سے {{missing}} نے ابھی اسے سیٹ کرنا ہے۔ جن کے پاس نہیں انہیں مہلت ملتی ہے، پھر وہ صرف اسے سیٹ کر سکتے ہیں۔',
+  'security.mfa.confirm_title': '{{role}} کے لیے دو مرحلہ سائن اِن {{mode}} کریں؟',
   'security.mfa.count': '{{holders}} میں سے {{enrolled}}',
   'security.mfa.enrolled': 'سیٹ اپ',
   'security.mfa.grace': 'لازمی ہونے کے بعد سیٹ اپ کے دن',

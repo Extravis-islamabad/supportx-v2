@@ -782,6 +782,41 @@ export const ar: LabelResource = {
   'security.invitations.status': 'الحالة',
   'security.invitations.title': 'الدعوات',
   'security.invitations.valid_days': 'تعمل روابط الدعوات لمدة',
+  'security.mfa.confirm_off_few':
+    'يحمل هذا الدور {{count}} أشخاص. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّوها.',
+  'security.mfa.confirm_off_many':
+    'يحمل هذا الدور {{count}} شخصًا. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّوها.',
+  'security.mfa.confirm_off_one':
+    'يحمل هذا الدور شخص واحد. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّها.',
+  'security.mfa.confirm_off_other':
+    'يحمل هذا الدور {{count}} شخص. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّوها.',
+  'security.mfa.confirm_off_two':
+    'يحمل هذا الدور شخصان. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّاها.',
+  'security.mfa.confirm_off_zero': 'لا أحد يحمل هذا الدور.',
+  'security.mfa.confirm_ok': 'تغيير',
+  'security.mfa.confirm_optional_few':
+    'يحمل هذا الدور {{count}} أشخاص. يمكنهم إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_many':
+    'يحمل هذا الدور {{count}} شخصًا. يمكنهم إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_one':
+    'يحمل هذا الدور شخص واحد. يمكنه إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_other':
+    'يحمل هذا الدور {{count}} شخص. يمكنهم إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_two':
+    'يحمل هذا الدور شخصان. يمكنهما إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_zero': 'لا أحد يحمل هذا الدور.',
+  'security.mfa.confirm_required_few':
+    'يحمل هذا الدور {{count}} أشخاص؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_many':
+    'يحمل هذا الدور {{count}} شخصًا؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_one':
+    'يحمل هذا الدور شخص واحد؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_other':
+    'يحمل هذا الدور {{count}} شخص؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_two':
+    'يحمل هذا الدور شخصان؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_zero': 'لا أحد يحمل هذا الدور.',
+  'security.mfa.confirm_title': 'تعيين تسجيل الدخول بخطوتين إلى {{mode}} للدور {{role}}؟',
   'security.mfa.count': '{{enrolled}} من {{holders}}',
   'security.mfa.enrolled': 'مُعدّة لدى',
   'security.mfa.grace': 'أيام الإعداد بعد أن تصبح مطلوبة',

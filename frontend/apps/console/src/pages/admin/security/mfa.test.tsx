@@ -81,6 +81,14 @@ describe('MFA policy (Admin › Sign-in and security)', () => {
     fireEvent.click(
       within(within(card).getByTestId('security-mfa-mode-requester')).getByText('Required'),
     );
+    // Asked first (QA6S-PEO-11): nothing is sent until the change is confirmed.
+    const ask = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>('.ant-modal-confirm');
+      if (found === null) throw new Error('no confirmation');
+      return found;
+    });
+    expect(fake.find('PUT', '/api/v1/identity/mfa/roles/r-req')).toHaveLength(0);
+    fireEvent.click(within(ask).getByRole('button', { name: 'Change it' }));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/identity/mfa/roles/r-req')).toHaveLength(1);
     });

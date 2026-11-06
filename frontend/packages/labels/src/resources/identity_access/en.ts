@@ -797,6 +797,20 @@ export const en = {
   'security.invitations.status': 'Status',
   'security.invitations.title': 'Invitations',
   'security.invitations.valid_days': 'Invitation links work for',
+  'security.mfa.confirm_off_one':
+    '1 person holds this role. Sign-in stops asking for a second step, even if they set one up.',
+  'security.mfa.confirm_off_other':
+    '{{count}} people hold this role. Sign-in stops asking for a second step, even if they set one up.',
+  'security.mfa.confirm_ok': 'Change it',
+  'security.mfa.confirm_optional_one':
+    '1 person holds this role. They may set it up, but sign-in no longer asks for it.',
+  'security.mfa.confirm_optional_other':
+    '{{count}} people hold this role. They may set it up, but sign-in no longer asks for it.',
+  'security.mfa.confirm_required_one':
+    '1 person holds this role; {{missing}} of them still has to set it up. People without it get the grace period, then can only set it up.',
+  'security.mfa.confirm_required_other':
+    '{{count}} people hold this role; {{missing}} of them still have to set it up. People without it get the grace period, then can only set it up.',
+  'security.mfa.confirm_title': 'Set two-step sign-in to {{mode}} for {{role}}?',
   'security.mfa.count': '{{enrolled}} of {{holders}}',
   'security.mfa.enrolled': 'Set up',
   'security.mfa.grace': 'Days to set it up once required',
