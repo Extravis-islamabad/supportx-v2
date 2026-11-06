@@ -12,6 +12,7 @@ import {
   Timeline,
   Typography,
 } from 'antd';
+import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 
@@ -21,6 +22,7 @@ import {
   useAssetProductTypes,
   useAssetRecord,
   useAssetMoves,
+  useAssetSettings,
   useCustomFields,
   useAssetRecordChange,
   useAssetStates,
@@ -45,6 +47,7 @@ import { nameOf } from '../admin/assets/shared';
 import { CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
+import { ageBetween, basisDay } from './age';
 import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
@@ -131,6 +134,23 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const type = types.data?.find((x) => x.id === asset.product_type_id);
   const state = states.data?.find((x) => x.id === asset.state_id);
   const custom = useCustomFields('asset');
+  // Age (REQ-AST-011) from the tenant's basis, recalculated live when an admin changes it.
+  const settings = useAssetSettings();
+  const ageListFormat = useListFormat();
+  const basis = settings.data === undefined ? null : basisDay(settings.data.age_basis, asset);
+  const age = basis === null ? null : ageBetween(basis, dayjs().format('YYYY-MM-DD'));
+  const ageText =
+    age === null
+      ? t('assets.age.unknown')
+      : age.years === 0 && age.months === 0
+        ? t('assets.age.days', { count: age.days })
+        : ageListFormat(
+            [
+              age.years > 0 ? t('assets.age.years', { count: age.years }) : null,
+              age.months > 0 ? t('assets.age.months', { count: age.months }) : null,
+              age.days > 0 ? t('assets.age.days', { count: age.days }) : null,
+            ].filter((part): part is string => part !== null),
+          );
   const customFields = (custom.data ?? [])
     .filter((f) => !f.removed)
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -268,6 +288,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             label: t('assets.record.location'),
             children: <bdi dir="auto">{asset.location ?? '—'}</bdi>,
           },
+          { key: 'age', label: t('assets.age.label'), children: ageText },
           ...customFields
             .filter((field) => asset.custom[field.key] != null)
             .map((field) => ({

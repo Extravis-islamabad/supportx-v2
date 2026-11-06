@@ -227,6 +227,25 @@ describe('console: assets', () => {
     expect(sent?.body).toEqual({ custom: { cost_centre: 'FIN-02' } });
   });
 
+  it('shows the age from the tenant basis, and unknown without a basis date (REQ-AST-011)', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    let basis = 'acquisition_date';
+    const fake = assetsApi({
+      'GET /api/v1/assets/settings': () => ({ body: { age_basis: basis, copy_limit: 50 } }),
+      [`GET /api/v1/assets/${asset.id}`]: {
+        body: { ...asset, acquired_on: null, created_at: new Date().toISOString() },
+        headers: { ETag: '"3"' },
+      },
+    });
+    restore = fake.restore;
+    const view = render(<App />);
+    expect(await screen.findByText('Unknown')).toBeTruthy();
+    basis = 'created_date';
+    view.unmount();
+    render(<App />);
+    expect(await screen.findByText('0 days')).toBeTruthy();
+  });
+
   it('shows one asset with price, tax and total, and saves an edit with If-Match', async () => {
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({
