@@ -51,6 +51,7 @@ export const ar: LabelResource = {
   'approval_origin.named': 'موافق مسمّى',
   'approval_purpose.accept_without_fix': 'القبول دون إصلاح',
   'approval_purpose.record': 'موافقة',
+  'approval_purpose.workflow': 'موافقة سير العمل',
   'approval_route_reason.approver_inactive': 'الموافق لم يعد نشطًا، لذا أُحيلت إلى الموافق البديل.',
   'approval_route_reason.no_holder': 'لا أحد يشغل دور الموافقة بعد',
   'approval_route_reason.no_manager': 'لا يوجد مدير مسجّل، لذا أُحيلت إلى الموافق البديل.',

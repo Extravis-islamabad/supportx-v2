@@ -53,6 +53,7 @@ export const ur: LabelResource = {
   'approval_origin.named': 'نامزد منظوری دہندہ',
   'approval_purpose.accept_without_fix': 'حل کے بغیر قبول',
   'approval_purpose.record': 'منظوری',
+  'approval_purpose.workflow': 'ورک فلو کی منظوری',
   'approval_route_reason.approver_inactive':
     'منظوری دہندہ اب فعال نہیں، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
   'approval_route_reason.no_holder': 'منظوری والا کردار ابھی کسی کے پاس نہیں',

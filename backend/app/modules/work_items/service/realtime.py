@@ -442,6 +442,19 @@ async def _portal_settings_changed(
     )
 
 
+APPROVAL_SETTINGS_CHANGED = "work_items.approval_settings_changed"
+
+
+async def _approval_settings_changed(
+    envelope: EventEnvelope, session: AsyncSession
+) -> RealtimeEffects:
+    """Approval settings changed (the D-146 chair): the open settings page reloads them."""
+    del session
+    return RealtimeEffects(
+        publications=[Publication(broadcast(envelope.tenant_id), APPROVAL_SETTINGS_CHANGED)]
+    )
+
+
 async def _list_settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A user's list settings changed: their other windows reload them."""
     del session
@@ -554,6 +567,7 @@ ROUTES = [
     ),
     RealtimeRoute(("work_items.settings.changed",), _settings_changed),
     RealtimeRoute(("work_items.portal_settings.changed",), _portal_settings_changed),
+    RealtimeRoute(("work_items.approval_settings.changed",), _approval_settings_changed),
     RealtimeRoute(
         (
             "work_items.conversation.added",

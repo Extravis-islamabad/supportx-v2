@@ -46,6 +46,7 @@ class ApprovalPurpose(StrEnum):
 
     RECORD = "record"  # the record's own approval (a request's item, a problem asked ad hoc)
     ACCEPT_WITHOUT_FIX = "accept_without_fix"  # a known error kept without a fix (REQ-PRB-050)
+    WORKFLOW = "workflow"  # a workflow's approval node opened it (WP-048b S2, REQ-WF-014)
 
 
 class RouteReason(StrEnum):

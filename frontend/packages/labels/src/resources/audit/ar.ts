@@ -10,6 +10,7 @@ export const ar: LabelResource = {
   'audit.action.api_key.refused': 'رُفض مفتاح API',
   'audit.action.api_key.revoked': 'أبطل مفتاح API',
   'audit.action.api_key.settings_changed': 'غيّر قواعد مفاتيح API',
+  'audit.action.approvals.settings_changed': 'غيّر إعدادات الموافقات',
   'audit.action.audit.archive_failed': 'تعذرت أرشفة سجل التدقيق',
   'audit.action.audit.archive_restore_requested': 'استعادة أرشيف تدقيق للتحقيق',
   'audit.action.audit.entries_archived': 'أرشفة شهر من سجل التدقيق',

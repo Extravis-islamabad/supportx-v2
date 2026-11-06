@@ -278,6 +278,7 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 FIELD_PROBLEMS = frozenset(
     {
         "required",
+        "chair_inactive",  # D-146: the approval chair must be an active person
         # WP-020f: closure rules and closing settings.
         "required_to_resolve",
         "required_to_close",

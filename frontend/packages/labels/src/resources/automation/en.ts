@@ -237,6 +237,7 @@ export const en = {
   'rule_state.enabled': 'On',
   'trigger_action_kind.note': 'Add a private note',
   'trigger_action_kind.set': 'Set a field',
+  'trigger_action_kind.start_workflow': 'Start a workflow',
   'trigger_event.assigned': 'When assigned',
   'trigger_event.created': 'When created',
   'trigger_event.note_added': 'When a note is added',

@@ -147,6 +147,16 @@ class WorkItemPortalSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class WorkItemApprovalSettingsChanged(DomainEvent):
+    """The tenant's approval settings changed (the D-146 chair): open settings pages reload."""
+
+    event_type: ClassVar[str] = "work_items.approval_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_approval_settings"
+
+    changed_fields: list[str]
+
+
 class _ConversationEvent(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item_conversation"
 
@@ -338,6 +348,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemRestored,
     WorkItemSettingsChanged,
     WorkItemPortalSettingsChanged,
+    WorkItemApprovalSettingsChanged,
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,

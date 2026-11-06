@@ -1179,6 +1179,15 @@ class WorkItemApproval(TenantEntity):
         CheckConstraint("comment IS NULL OR char_length(comment) <= 4000", name="comment_length"),
         CheckConstraint("stage >= 1", name="stage_positive"),
         CheckConstraint(_codes("purpose", ApprovalPurpose), name="purpose_code"),
+        CheckConstraint(
+            "(purpose = 'workflow') = (workflow_instance_id IS NOT NULL)", name="workflow_instance"
+        ),
+        Index(
+            "ix_wia_tenant_workflow_instance",
+            "tenant_id",
+            "workflow_instance_id",
+            postgresql_where=text("workflow_instance_id IS NOT NULL"),
+        ),
         Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
         Index(
             "ix_wia_tenant_approver_pending",
@@ -1208,6 +1217,32 @@ class WorkItemApproval(TenantEntity):
     comments_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # What it decides (WP-044b s4): the record's approval, or accepting a known error unfixed.
     purpose: Mapped[str] = mapped_column(String(30), server_default="record")
+    # The workflow instance whose approval node opened it (0106; purpose "workflow"). By ID only:
+    # automation's table is never a foreign key here (rule e).
+    workflow_instance_id: Mapped[uuid.UUID | None]
+
+
+class WorkItemApprovalSettings(Timestamps, Actors, Versioned, Base):
+    """The tenant's approval settings (0106; one row, RLS): the chair of D-146.
+
+    The chair, when set, breaks an exact majority split in any level that uses the shared level
+    outcome (workflow approvals now; lane A's CAB and problem approvals when they pass it).
+    """
+
+    __tablename__ = "work_item_approval_settings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "chair_user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_work_item_approval_settings_chair",
+            ondelete="RESTRICT",
+        ),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="RESTRICT"), primary_key=True
+    )
+    chair_user_id: Mapped[uuid.UUID | None]
 
 
 # The portal's own search sources, in their default order (WP-032 D2, D-143).

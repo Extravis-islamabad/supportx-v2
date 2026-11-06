@@ -243,6 +243,7 @@ export const ar: LabelResource = {
   'rule_state.enabled': 'مفعّلة',
   'trigger_action_kind.note': 'إضافة ملاحظة خاصة',
   'trigger_action_kind.set': 'ضبط حقل',
+  'trigger_action_kind.start_workflow': 'بدء سير عمل',
   'trigger_event.assigned': 'عند الإسناد',
   'trigger_event.created': 'عند الإنشاء',
   'trigger_event.note_added': 'عند إضافة ملاحظة',

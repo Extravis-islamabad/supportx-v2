@@ -8,6 +8,7 @@ export const en = {
   'audit.action.api_key.refused': 'API key refused',
   'audit.action.api_key.revoked': 'Revoked an API key',
   'audit.action.api_key.settings_changed': 'Changed the API key rules',
+  'audit.action.approvals.settings_changed': 'Changed the approval settings',
   'audit.action.audit.archive_failed': 'Could not archive the audit log',
   'audit.action.audit.archive_restore_requested': 'Restored an audit archive for investigation',
   'audit.action.audit.entries_archived': 'Archived a month of the audit log',
