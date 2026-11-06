@@ -370,6 +370,8 @@ export {
 } from './incidentLists';
 export {
   useIncidentLinks,
+  useCausingProblem,
+  type CausingProblem,
   useIncidentTasks,
   useIncidentWorklogs,
   useLinkChange,

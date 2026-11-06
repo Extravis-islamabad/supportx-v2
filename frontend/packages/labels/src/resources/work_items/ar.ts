@@ -573,6 +573,8 @@ export const ar: LabelResource = {
   'incidents.cancel_confirm': 'إلغاء الحادثة',
   'incidents.cancel_keep': 'الإبقاء على الحادثة',
   'incidents.cancel_title': 'إلغاء هذه الحادثة؟',
+  'incidents.causing_problem.target': 'من المتوقع حلّها بحلول {{date}}',
+  'incidents.causing_problem.title': 'ناتج عن مشكلة',
   'incidents.chips.is': '{{field}} هو {{value}}',
   'incidents.closing.auto_close_on': 'يُغلق تلقائيًا في {{date}} ما لم يرد مقدّم الطلب.',
   'incidents.closing.auto_close_waits': 'لا يُغلق تلقائيًا إلا بعد إبلاغ مقدّم الطلب بالحل.',

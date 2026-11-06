@@ -160,6 +160,29 @@ export function useIncidentLinks(id: string, enabled = true) {
   });
 }
 
+export type CausingProblem = components['schemas']['CausingProblemOut'];
+
+/**
+ * The problem causing an incident, narrowly (WP-044c D14, REQ-PRB-071): what anyone who may see
+ * the incident is told, null when nothing causes it. Under the links key, so a link change
+ * refreshes it too.
+ */
+export function useCausingProblem(id: string, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.incidents.links(id), 'cause'],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/{record_id}/causing-problem', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled,
+    // Who may open the problem follows its channel (the page); who may not cannot subscribe
+    // to it (§8.2), so their card asks again every minute instead.
+    refetchInterval: (query) => (query.state.data && !query.state.data.may_open ? 60_000 : false),
+  });
+}
+
 export type LinkChange =
   | { kind: 'create'; otherId: string; comment: string | null }
   | { kind: 'delete'; linkId: string; version: number };

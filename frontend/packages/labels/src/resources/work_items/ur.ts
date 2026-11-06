@@ -527,6 +527,8 @@ export const ur: LabelResource = {
   'incidents.cancel_confirm': 'واقعہ منسوخ کریں',
   'incidents.cancel_keep': 'واقعہ برقرار رکھیں',
   'incidents.cancel_title': 'یہ واقعہ منسوخ کریں؟',
+  'incidents.causing_problem.target': '{{date}} تک حل ہونا ہے',
+  'incidents.causing_problem.title': 'ایک مسئلے کی وجہ سے',
   'incidents.chips.is': '{{field}}: {{value}}',
   'incidents.closing.auto_close_on':
     'اگر درخواست گزار جواب نہ دے تو {{date}} کو خودکار طور پر بند ہو جائے گا۔',

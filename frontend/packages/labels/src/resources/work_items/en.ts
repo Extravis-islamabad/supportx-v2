@@ -522,6 +522,8 @@ export const en = {
   'incidents.cancel_confirm': 'Cancel incident',
   'incidents.cancel_keep': 'Keep incident',
   'incidents.cancel_title': 'Cancel this incident?',
+  'incidents.causing_problem.target': 'To be solved by {{date}}',
+  'incidents.causing_problem.title': 'Caused by a problem',
   'incidents.chips.is': '{{field}} is {{value}}',
   'incidents.closing.auto_close_on':
     'Closes automatically on {{date}} unless the requester answers.',

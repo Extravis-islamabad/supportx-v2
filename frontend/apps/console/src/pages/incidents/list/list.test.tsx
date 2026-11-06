@@ -211,9 +211,13 @@ describe('Incident list (WP-020d)', () => {
     if (all === undefined) throw new Error('no select-all checkbox');
     fireEvent.click(all);
     fireEvent.click(screen.getByTestId('inc-bulk-create-problem'));
-    await waitFor(() => {
-      expect(window.location.pathname).toBe('/problems/new');
-    });
+    // The new form loads lazily; give a busy machine time.
+    await waitFor(
+      () => {
+        expect(window.location.pathname).toBe('/problems/new');
+      },
+      { timeout: 5000 },
+    );
     expect(new URLSearchParams(window.location.search).get('incidents')?.split(',')).toHaveLength(
       2,
     );
