@@ -1357,6 +1357,12 @@ export const en = {
     'This template hides: {{fields}}. Their starting values, if any, are still saved.',
   'templates.hidden_required_hint':
     'Give these hidden required fields a starting value, or nobody can fill them in: {{fields}}',
+  'templates.limited_groups': 'Offered only to these groups',
+  'templates.limited_groups_everyone': 'Everyone who may create',
+  'templates.limited_groups_help':
+    'Only members of these groups are offered this template when creating. Admins always see every template.',
+  'templates.limited_groups_why_not':
+    'A template for requesters is offered to everyone, so it cannot be limited to groups.',
   'templates.load_failed':
     "Templates couldn't be loaded, so the form can't start. Reload the page to try again.",
   'templates.locked_note':

@@ -1361,6 +1361,12 @@ export const ur: LabelResource = {
     'یہ سانچہ چھپاتا ہے: {{fields}}۔ ان کی ابتدائی قدریں، اگر ہوں، پھر بھی محفوظ ہوتی ہیں۔',
   'templates.hidden_required_hint':
     'ان چھپے لازمی فیلڈز کو ابتدائی قدر دیں، ورنہ کوئی انہیں بھر نہیں سکے گا: {{fields}}',
+  'templates.limited_groups': 'صرف ان گروپوں کے لیے',
+  'templates.limited_groups_everyone': 'ہر وہ شخص جو بنا سکتا ہے',
+  'templates.limited_groups_help':
+    'بناتے وقت یہ سانچہ صرف ان گروپوں کے ارکان کو دکھایا جاتا ہے۔ منتظمین ہمیشہ سب سانچے دیکھتے ہیں۔',
+  'templates.limited_groups_why_not':
+    'درخواست گزاروں کا سانچہ سب کے لیے ہے، اس لیے اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'templates.load_failed':
     'سانچے لوڈ نہیں ہو سکے، اس لیے فارم شروع نہیں ہو سکتا۔ دوبارہ کوشش کے لیے صفحہ ری لوڈ کریں۔',
   'templates.locked_note':

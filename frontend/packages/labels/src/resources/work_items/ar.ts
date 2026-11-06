@@ -1476,6 +1476,12 @@ export const ar: LabelResource = {
   'templates.hidden_fields': 'يخفي هذا القالب: {{fields}}. تُحفظ قيمها الأولية، إن وُجدت.',
   'templates.hidden_required_hint':
     'أعطِ هذه الحقول المطلوبة المخفية قيمة أولية، وإلا فلن يستطيع أحد ملأها: {{fields}}',
+  'templates.limited_groups': 'متاح فقط لهذه المجموعات',
+  'templates.limited_groups_everyone': 'كل من يحق له الإنشاء',
+  'templates.limited_groups_help':
+    'لا يُعرض هذا القالب عند الإنشاء إلا لأعضاء هذه المجموعات. يرى المسؤولون كل القوالب دائمًا.',
+  'templates.limited_groups_why_not':
+    'القالب المخصص لمقدمي الطلبات متاح للجميع، لذا لا يمكن قصره على مجموعات.',
   'templates.load_failed':
     'تعذّر تحميل القوالب، لذا لا يمكن بدء النموذج. أعد تحميل الصفحة للمحاولة مرة أخرى.',
   'templates.locked_note':
