@@ -2,7 +2,15 @@ import { Alert, Flex, Skeleton } from 'antd';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
 import { useIncidentCatalogue, type PickList } from '@supportx/api-client';
-import { NoAccess, PageHeader, SectionNav, useAccess, useLabel, useLicence } from '@supportx/ui';
+import {
+  featureState,
+  NoAccess,
+  PageHeader,
+  SectionNav,
+  useAccess,
+  useLabel,
+  useLicence,
+} from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
 import { ClosingTab } from './ClosingTab';
@@ -41,6 +49,10 @@ export function IncidentSettingsPage() {
   const t = useLabel();
   const { can } = useAccess();
   const licence = useLicence();
+  const repeats = featureState('problem', {
+    has: licence.has,
+    managesLicence: licence.isAdmin,
+  });
   const navigate = useNavigate();
   const { section } = useParams();
   // The service desk's configure right (WP-042), or settings.manage for every area.
@@ -121,7 +133,7 @@ export function IncidentSettingsPage() {
       case 'closing':
         return <ClosingTab catalogue={cat} />;
       case 'repeat-rules':
-        return <RepeatRulesTab entitled={licence.has('problem')} />;
+        return <RepeatRulesTab entitled={repeats === 'on'} />;
       default:
         return null;
     }
@@ -134,14 +146,15 @@ export function IncidentSettingsPage() {
         label={t('settings.incidents_title')}
         active={current}
         onNavigate={(path) => void navigate(path)}
-        // Repeated incidents are the problem module's: shown locked only to licence managers.
-        items={SECTIONS.filter(
-          (key) => key !== 'repeat-rules' || licence.has('problem') || licence.isAdmin,
-        ).map((key) => ({
-          key,
-          label: t(`settings.section.${key}`),
-          path: `/admin/incidents/${key}`,
-        }))}
+        // Repeated incidents are the problem module's: the nav's rule for features outside the
+        // plan (on, locked with the hint, or hidden; D-044's switch reaches it there).
+        items={SECTIONS.filter((key) => key !== 'repeat-rules' || repeats !== 'hidden').map(
+          (key) => ({
+            key,
+            label: t(`settings.section.${key}`),
+            path: `/admin/incidents/${key}`,
+          }),
+        )}
         testId="settings-sections"
       />
       {body}
