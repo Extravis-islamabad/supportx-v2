@@ -138,6 +138,7 @@ export const ur: LabelResource = {
   'assets.age.label': 'عمر',
   'assets.age.months_one': '1 مہینہ',
   'assets.age.months_other': '{{count}} مہینے',
+  'assets.age.today': 'آج',
   'assets.age.unknown': 'نامعلوم',
   'assets.age.years_one': '1 سال',
   'assets.age.years_other': '{{count}} سال',

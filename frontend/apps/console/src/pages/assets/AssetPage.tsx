@@ -143,15 +143,17 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const ageText =
     age === null
       ? t('assets.age.unknown')
-      : age.years === 0 && age.months === 0
-        ? t('assets.age.days', { count: age.days })
-        : ageListFormat(
-            [
-              age.years > 0 ? t('assets.age.years', { count: age.years }) : null,
-              age.months > 0 ? t('assets.age.months', { count: age.months }) : null,
-              age.days > 0 ? t('assets.age.days', { count: age.days }) : null,
-            ].filter((part): part is string => part !== null),
-          );
+      : age.years === 0 && age.months === 0 && age.days === 0
+        ? t('assets.age.today')
+        : age.years === 0 && age.months === 0
+          ? t('assets.age.days', { count: age.days })
+          : ageListFormat(
+              [
+                age.years > 0 ? t('assets.age.years', { count: age.years }) : null,
+                age.months > 0 ? t('assets.age.months', { count: age.months }) : null,
+                age.days > 0 ? t('assets.age.days', { count: age.days }) : null,
+              ].filter((part): part is string => part !== null),
+            );
   const customFields = (custom.data ?? [])
     .filter((f) => !f.removed)
     .sort((a, b) => a.sort_order - b.sort_order);

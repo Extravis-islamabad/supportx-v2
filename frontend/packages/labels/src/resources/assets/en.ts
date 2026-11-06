@@ -135,6 +135,7 @@ export const en = {
   'assets.age.label': 'Age',
   'assets.age.months_one': '1 month',
   'assets.age.months_other': '{{count}} months',
+  'assets.age.today': 'Today',
   'assets.age.unknown': 'Unknown',
   'assets.age.years_one': '1 year',
   'assets.age.years_other': '{{count}} years',

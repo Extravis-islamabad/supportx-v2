@@ -243,7 +243,7 @@ describe('console: assets', () => {
     basis = 'created_date';
     view.unmount();
     render(<App />);
-    expect(await screen.findByText('0 days')).toBeTruthy();
+    expect(await screen.findByText('Today')).toBeTruthy();
   });
 
   it('shows one asset with price, tax and total, and saves an edit with If-Match', async () => {
