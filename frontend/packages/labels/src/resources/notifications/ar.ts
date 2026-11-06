@@ -28,6 +28,7 @@ export const ar: LabelResource = {
   'event_delivery_state.ok': 'يجري التسليم',
   'event_delivery_state.stalled': 'متوقف',
   'notification.open_record': 'فتح {{id}}',
+  'notification_area.problem': 'المشكلات',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',
@@ -69,6 +70,16 @@ export const ar: LabelResource = {
     'سرّ تطبيق صندوق البريد أو شهادته على وشك الانتهاء',
   'notification_event.mailbox.failing': 'توقف صندوق البريد عن العمل',
   'notification_event.mailbox.mail_held': 'مُرسِل يُغرق صندوق بريد بالرسائل',
+  'notification_event.problem.assigned': 'أُسندت مشكلة',
+  'notification_event.problem.closed': 'أُغلقت مشكلة',
+  'notification_event.problem.created_in_group': 'أُنشئت مشكلة في مجموعتك',
+  'notification_event.problem.investigator_added': 'أُضيف محقق',
+  'notification_event.problem.known_error': 'نُشر خطأ معروف',
+  'notification_event.problem.mentioned': 'أُشير إليك في مشكلة',
+  'notification_event.problem.note': 'ملاحظة على مشكلة',
+  'notification_event.problem.resolved': 'حُلّت مشكلة',
+  'notification_event.problem.target_breached': 'تجاوزت مشكلة موعدها المستهدف',
+  'notification_event.problem.target_warning': 'اقترب الموعد المستهدف لمشكلة',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_preferences.col.category': 'النوع',
@@ -92,9 +103,11 @@ export const ar: LabelResource = {
   'notification_recipient.followers': 'المتابعون',
   'notification_recipient.group': 'أعضاء المجموعة',
   'notification_recipient.group_head': 'قائد المجموعة ورئيس القسم',
+  'notification_recipient.linked_incident_technicians': 'فنيو الحوادث المرتبطة',
   'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
   'notification_recipient.mentioned': 'الأشخاص المُشار إليهم',
   'notification_recipient.new_follower': 'المتابع الجديد',
+  'notification_recipient.new_investigator': 'المحقق المضاف',
   'notification_recipient.on_behalf_of': 'الشخص المعني',
   'notification_recipient.owner': 'مالك المقالة',
   'notification_recipient.previous_assignee': 'الفني السابق',
@@ -280,6 +293,65 @@ export const ar: LabelResource = {
     'البريد الوارد إلى {{ record.title }} محتجز للمراجعة: أرسل مُرسِل أكثر من 10 رسائل خلال ساعة',
   'notification_template.mailbox.mail_held.subject':
     'صندوق البريد {{ record.title }}: بريد محتجز للمراجعة',
+  'notification_template.problem.assigned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبحت {{ record.display_id }} "{{ record.title }}" مسندة إلى {{ assignee.name }}.\n\nالأولوية: {{ record.priority }}\nالحالة: {{ record.status }}',
+  'notification_template.problem.assigned.in_app':
+    'أُسندت {{ record.display_id }} إلى {{ assignee.name }}: {{ record.title }}',
+  'notification_template.problem.assigned.subject':
+    'أُسندت إلى {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.closed.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُغلقت {{ record.display_id }} "{{ record.title }}".',
+  'notification_template.problem.closed.in_app': 'أُغلقت {{ record.display_id }}',
+  'notification_template.problem.closed.subject':
+    'أُغلقت: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.created_in_group.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُنشئت {{ record.display_id }} "{{ record.title }}" في مجموعتك.',
+  'notification_template.problem.created_in_group.in_app':
+    'مشكلة جديدة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.created_in_group.subject':
+    'مشكلة جديدة في مجموعتك: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.investigator_added.body':
+    'مرحبًا {{ recipient.name }}،\n\nأضافك {{ actor.name }} محققًا في {{ record.display_id }} "{{ record.title }}". يمكنك العمل على مهامها وسجلات عملها.',
+  'notification_template.problem.investigator_added.in_app':
+    'أنت تحقق في {{ record.display_id }}: {{ record.title }}',
+  'notification_template.problem.investigator_added.subject':
+    'أنت تحقق في {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.known_error.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبحت {{ record.display_id }} "{{ record.title }}" خطأً معروفًا. يمكن تطبيق حلها المؤقت على حوادثك.',
+  'notification_template.problem.known_error.in_app':
+    '{{ record.display_id }} خطأ معروف: طبّق حلها المؤقت',
+  'notification_template.problem.known_error.subject':
+    'خطأ معروف: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.mentioned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأشار إليك {{ conversation.author }} في {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.problem.mentioned.in_app':
+    'أشار إليك {{ conversation.author }} في {{ record.display_id }}',
+  'notification_template.problem.mentioned.subject':
+    'أشار إليك {{ conversation.author }} في {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.note.body':
+    'مرحبًا {{ recipient.name }}،\n\nكتب {{ conversation.author }} على {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.problem.note.in_app':
+    'كتب {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.problem.note.subject':
+    'ملاحظة جديدة على {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.resolved.body':
+    'مرحبًا {{ recipient.name }}،\n\nحُلّت {{ record.display_id }} "{{ record.title }}". راجع الحوادث التي تسببت بها وقم بحلها.',
+  'notification_template.problem.resolved.in_app':
+    'حُلّت {{ record.display_id }}: {{ record.title }}',
+  'notification_template.problem.resolved.subject':
+    'حُلّت: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.target_breached.body':
+    'مرحبًا {{ recipient.name }}،\n\nتجاوزت {{ record.display_id }} "{{ record.title }}" موعدها المستهدف ({{ sla.target }}).',
+  'notification_template.problem.target_breached.in_app':
+    'تجاوزت {{ record.display_id }} موعدها المستهدف',
+  'notification_template.problem.target_breached.subject':
+    'متأخرة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.target_warning.body':
+    'مرحبًا {{ recipient.name }}،\n\nاقتربت {{ record.display_id }} "{{ record.title }}" من موعدها المستهدف ({{ sla.target }}).',
+  'notification_template.problem.target_warning.in_app':
+    '{{ record.display_id }}: اقترب الموعد المستهدف',
+  'notification_template.problem.target_warning.subject':
+    'مستحقة قريبًا: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':

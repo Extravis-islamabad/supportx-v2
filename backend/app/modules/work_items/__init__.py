@@ -41,6 +41,7 @@ from app.modules.work_items.service import (
     notifications,
     parts,
     portal,
+    problem_notifications,
     record_facts,
     release_duties,
     report_names,
@@ -122,6 +123,7 @@ report_names.register()
 # Incident notifications (WP-023, lane B with lane A's review): at import, for the worker too.
 notifications.register()
 request_notifications.register()
+problem_notifications.register()  # WP-044c D15
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
