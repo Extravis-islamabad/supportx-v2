@@ -23,6 +23,8 @@ export type AssetLifeCyclePatch = S['AssetLifeCyclePatch'];
 export type AssetMove = S['AssetMoveIO'];
 export type AssetMoveOption = S['AssetMoveOptionOut'];
 export type AssetBulkMoveResult = S['AssetBulkMoveResult'];
+export type AssetDisposal = S['AssetDisposalOut'];
+export type AssetDisposalInput = S['AssetDisposalIn'];
 export type AssetProductType = S['AssetProductTypeOut'];
 export type AssetProductTypeInput = S['AssetProductTypeIn'];
 export type AssetProductTypePatch = S['AssetProductTypePatch'];
@@ -366,6 +368,20 @@ export function useAssetMoves(id: string | undefined) {
   });
 }
 
+/** An asset's disposal record (REQ-AST-017); a 404 means it has none. */
+export function useAssetDisposal(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.disposal(id ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/{asset_id}/disposal', { params: { path: { asset_id: id ?? '' } } }),
+      ),
+    enabled: enabled && id !== undefined,
+    retry: false,
+    meta: { silent: true },
+  });
+}
+
 /** Move, copy or bulk-move assets (WP-049a s3); every asset query refetches after. */
 export function useAssetActions() {
   const queryClient = useQueryClient();
@@ -410,7 +426,19 @@ export function useAssetActions() {
       ),
     onSettled: refresh,
   });
-  return { move, copy, bulkMove };
+  const dispose = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: { id: string; version: number; body: AssetDisposalInput }) =>
+      call(
+        api.POST('/api/v1/assets/{asset_id}/dispose', {
+          params: { header: ifMatch(input.version), path: { asset_id: input.id } },
+          body: input.body,
+        }),
+      ),
+    onSuccess: refresh,
+    onError,
+  });
+  return { move, copy, bulkMove, dispose };
 }
 
 /** Vendors by name (`activeOnly`: what new records may pick, REQ-PUR-001 AC2). */

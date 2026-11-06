@@ -315,4 +315,124 @@ describe('console: assets', () => {
       reason: null,
     });
   });
+
+  it('disposes of a retired asset with its record, and shows the record after', async () => {
+    const retired: AssetState = {
+      ...state,
+      id: '01900000-0000-7000-8000-00000000a004',
+      code: 'retired',
+      names: { en: 'Retired' },
+      category: 'retired',
+    };
+    const disposed: AssetState = {
+      ...state,
+      id: '01900000-0000-7000-8000-00000000a005',
+      code: 'disposed',
+      names: { en: 'Disposed' },
+      category: 'disposed',
+    };
+    const old = { ...asset, state_id: retired.id };
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      'GET /api/v1/assets/states': { body: [state, retired, disposed] },
+      [`GET /api/v1/assets/${asset.id}`]: { body: old, headers: { ETag: '"3"' } },
+      [`GET /api/v1/assets/${asset.id}/moves`]: {
+        body: [
+          { to_state_id: disposed.id, reason_required: false, required_fields: [], allowed: true },
+        ],
+      },
+      [`POST /api/v1/assets/${asset.id}/dispose`]: {
+        body: {
+          id: 'd-1',
+          asset_id: asset.id,
+          disposed_on: '2026-11-01',
+          method: 'recycling',
+          reason: 'End of life',
+          cost: '12.50',
+          currency: 'PKR',
+          approved_by: null,
+          recorded_by: null,
+          recorded_at: '2026-11-06T09:00:00Z',
+          version: 1,
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-dispose-open'));
+    const dialog = await screen.findByTestId('asset-dispose-dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dispose' }));
+    expect((await within(dialog).findAllByText('This field is required.')).length).toBe(2);
+    expect(fake.find('POST', `/api/v1/assets/${asset.id}/dispose`)).toHaveLength(0);
+    fireEvent.mouseDown(
+      within(within(dialog).getByTestId('asset-dispose-method')).getByRole('combobox'),
+    );
+    fireEvent.click(await screen.findByTitle('Recycled'));
+    fireEvent.change(within(dialog).getByTestId('asset-dispose-reason'), {
+      target: { value: 'End of life' },
+    });
+    fireEvent.change(within(dialog).getByTestId('asset-dispose-cost'), {
+      target: { value: '12.5' },
+    });
+    fireEvent.change(within(dialog).getByTestId('asset-dispose-currency'), {
+      target: { value: 'pkr' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dispose' }));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/assets/${asset.id}/dispose`)).toHaveLength(1);
+    });
+    const [call] = fake.find('POST', `/api/v1/assets/${asset.id}/dispose`);
+    expect(call?.headers.get('If-Match')).toBe('"3"');
+    expect(call?.body).toMatchObject({
+      method: 'recycling',
+      reason: 'End of life',
+      cost: '12.50',
+      currency: 'PKR',
+      approved_by: null,
+    });
+  });
+
+  it('a disposed asset shows its record and certificate, never the raw method code', async () => {
+    const disposed: AssetState = {
+      ...state,
+      id: '01900000-0000-7000-8000-00000000a005',
+      code: 'disposed',
+      names: { en: 'Disposed' },
+      category: 'disposed',
+    };
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      'GET /api/v1/assets/states': { body: [state, disposed] },
+      [`GET /api/v1/assets/${asset.id}`]: {
+        body: { ...asset, state_id: disposed.id },
+        headers: { ETag: '"4"' },
+      },
+      [`GET /api/v1/assets/${asset.id}/moves`]: { body: [] },
+      [`GET /api/v1/assets/${asset.id}/disposal`]: {
+        body: {
+          id: 'd-1',
+          asset_id: asset.id,
+          disposed_on: '2026-11-01',
+          method: 'returned_to_vendor',
+          reason: 'Lease ended',
+          cost: null,
+          currency: null,
+          approved_by: null,
+          recorded_by: null,
+          recorded_at: '2026-11-06T09:00:00Z',
+          version: 1,
+        },
+      },
+      [`GET /api/v1/files/records/asset/${asset.id}`]: {
+        body: [{ id: 'f-1', name: 'wipe-certificate.pdf', owner_type: 'asset_disposal' }],
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const card = await screen.findByTestId('asset-disposal');
+    expect(await within(card).findByText('Returned to the vendor')).toBeTruthy();
+    expect(within(card).queryByText('returned_to_vendor')).toBeNull();
+    expect(await within(card).findByText('wipe-certificate.pdf')).toBeTruthy();
+    expect(screen.queryByTestId('asset-dispose-open')).toBeNull();
+  });
 });

@@ -20,6 +20,7 @@ import {
   useAssetHistory,
   useAssetProductTypes,
   useAssetRecord,
+  useAssetMoves,
   useAssetRecordChange,
   useAssetStates,
   useSession,
@@ -41,6 +42,7 @@ import {
 import { Problems } from '../admin/incidents/shared';
 import { nameOf } from '../admin/assets/shared';
 import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
+import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
@@ -112,7 +114,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const { problems, show, clear } = useAssetSaveProblems();
   const [editing, setEditing] = useState<{ draft: AssetDraft; base: number }>();
   const [changedElsewhere, setChangedElsewhere] = useState(false);
-  const [dialog, setDialog] = useState<'move' | 'copy'>();
+  const [dialog, setDialog] = useState<'move' | 'copy' | 'dispose'>();
   const viewers = useRecordChannel('asset', asset.id, (event) => {
     if (event.version !== undefined && event.version <= asset.version) return; // our own save
     void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
@@ -125,6 +127,13 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const manage = access.can('assets.manage');
   const type = types.data?.find((x) => x.id === asset.product_type_id);
   const state = states.data?.find((x) => x.id === asset.state_id);
+  // Dispose (REQ-AST-017) only where the life cycle has a way into a disposed state from here.
+  const moves = useAssetMoves(manage ? asset.id : undefined);
+  const disposedIds = new Set(
+    (states.data ?? []).filter((x) => x.category === 'disposed').map((x) => x.id),
+  );
+  const canDispose =
+    manage && (moves.data ?? []).some((m) => m.allowed && disposedIds.has(m.to_state_id));
   const money = (amount: string | null | undefined) =>
     amount === null || amount === undefined
       ? '—'
@@ -281,6 +290,17 @@ function AssetView({ asset }: { asset: AssetRecord }) {
                 {t('assets.move.open')}
               </WriteButton>
             )}
+            {canDispose && (
+              <WriteButton
+                danger
+                onClick={() => {
+                  setDialog('dispose');
+                }}
+                data-testid="asset-dispose-open"
+              >
+                {t('assets.dispose.open')}
+              </WriteButton>
+            )}
             {manage && (
               <WriteButton
                 onClick={() => {
@@ -321,6 +341,13 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           setDialog(undefined);
         }}
       />
+      <DisposeAssetDialog
+        asset={asset}
+        open={dialog === 'dispose'}
+        onClose={() => {
+          setDialog(undefined);
+        }}
+      />
       <CopyAssetDialog
         asset={asset}
         open={dialog === 'copy'}
@@ -334,7 +361,18 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           setParams({ tab: key }, { replace: true });
         }}
         items={[
-          { key: 'details', label: t('assets.record.details'), children: details },
+          {
+            key: 'details',
+            label: t('assets.record.details'),
+            children: (
+              <Flex vertical gap={16}>
+                {details}
+                {state?.category === 'disposed' && (
+                  <DisposalCard asset={asset} canManage={manage} />
+                )}
+              </Flex>
+            ),
+          },
           {
             key: 'history',
             label: t('assets.record.history'),
