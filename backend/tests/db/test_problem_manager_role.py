@@ -1,5 +1,9 @@
 """The built-in problem manager role (WP-044c D14, Appendix A)."""
 
+import uuid
+
+import asyncpg
+
 from tests.db.test_incidents_api import CONSOLE, World, problem, world
 from tests.db.test_problems_api import PRB, new_problem
 
@@ -46,3 +50,30 @@ async def test_the_problem_manager_works_every_problem_and_reads_incidents(world
     assert (
         problem(await world.call("GET", f"{PRB}/{record['id']}", world.b, world.b.admin))[0] == 404
     )
+
+
+async def _problem_manager_rows(url: str, tenant: uuid.UUID, *, drop: bool = False) -> int:
+    """The tenant's problem_manager role rows; `drop` first removes them (a tenant from before)."""
+    conn = await asyncpg.connect(url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant))
+            if drop:
+                await conn.execute("DELETE FROM roles WHERE key = 'problem_manager'")
+            found: int = await conn.fetchval(
+                "SELECT count(*) FROM roles WHERE key = 'problem_manager' AND deleted_at IS NULL"
+            )
+    finally:
+        await conn.close()
+    return found
+
+
+async def test_an_existing_tenant_gets_the_role_exactly_once(world: World) -> None:
+    """No data migration: ensure_system_roles adds it on the next listing, once (D14)."""
+    a = world.a
+    assert (await world.call("GET", "/roles", a, a.admin)).status_code == 200
+    # A tenant whose system roles were made before problem_manager existed.
+    assert await _problem_manager_rows(world.db.migrator_url, a.tenant, drop=True) == 0
+    for _ in range(2):
+        assert (await world.call("GET", "/roles", a, a.admin)).status_code == 200
+    assert await _problem_manager_rows(world.db.migrator_url, a.tenant) == 1
