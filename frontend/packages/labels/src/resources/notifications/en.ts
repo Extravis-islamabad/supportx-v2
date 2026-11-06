@@ -26,6 +26,7 @@ export const en = {
   'event_delivery_state.ok': 'Delivering',
   'event_delivery_state.stalled': 'Stalled',
   'notification.open_record': 'Open {{id}}',
+  'notification_area.asset': 'Assets',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',
@@ -39,6 +40,8 @@ export const en = {
   'notification_condition_operator.not_in': 'is not one of',
   'notification_event.announcement.ended': 'An announcement you follow ended',
   'notification_event.announcement.updated': 'An announcement you follow was updated',
+  'notification_event.asset.ack_disputed': 'Asset disputed by its holder',
+  'notification_event.asset.ack_requested': 'Asset given to you: please acknowledge',
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
@@ -83,6 +86,7 @@ export const en = {
   'notification_reason.no_address': 'Inactive, or no e-mail address',
   'notification_reason.preference': 'Switched off in their preferences',
   'notification_recipient.approvers': 'Approvers',
+  'notification_recipient.assigned_by': 'The person who gave it',
   'notification_recipient.assignee': 'Assigned technician',
   'notification_recipient.author': 'Author',
   'notification_recipient.connector_admins': 'People who set up this connector',
@@ -90,6 +94,7 @@ export const en = {
   'notification_recipient.followers': 'Followers',
   'notification_recipient.group': 'Group members',
   'notification_recipient.group_head': 'Group lead and department head',
+  'notification_recipient.holder': 'The person who holds it',
   'notification_recipient.mail_admins': 'People who manage mailboxes',
   'notification_recipient.mentioned': 'People mentioned',
   'notification_recipient.new_follower': 'The new follower',
@@ -124,6 +129,18 @@ export const en = {
     'Hello {{ recipient.name }},\n\nThe announcement "{{ record.title }}" that you follow has been updated.',
   'notification_template.announcement.updated.in_app': 'Updated: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'Updated: {{ record.title }}',
+  'notification_template.asset.ack_disputed.body':
+    'Hello {{ recipient.name }},\n\n{{ holder.name }} disputed {{ record.display_id }} "{{ record.title }}": {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.in_app':
+    '{{ holder.name }} disputed {{ record.display_id }}: {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.subject':
+    'Disputed: {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.ack_requested.body':
+    'Hello {{ recipient.name }},\n\nYou have been given {{ record.display_id }} "{{ record.title }}". Open My assets to accept it, or to say what is wrong.',
+  'notification_template.asset.ack_requested.in_app':
+    'Please acknowledge {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.ack_requested.subject':
+    'Please acknowledge {{ record.display_id }} {{ record.title }}',
   'notification_template.connector.failing.body':
     'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
   'notification_template.connector.failing.in_app':
@@ -290,6 +307,7 @@ export const en = {
     '{{ record.display_id }} waits for your approval: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'Your approval: {{ record.display_id }} {{ record.title }}',
+  'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
   'notification_variable.approval_link': 'Approval › Link',
   'notification_variable.article.reason': 'Article › Reason',
@@ -300,6 +318,7 @@ export const en = {
   'notification_variable.connector.reason': 'Connector › Reason',
   'notification_variable.conversation.author': 'Reply or note › Author',
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
+  'notification_variable.holder.name': 'Holder › Name',
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',

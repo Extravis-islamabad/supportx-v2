@@ -58,4 +58,37 @@ class AssetChanged(DomainEvent):
     site_id: uuid.UUID | None = None
 
 
-EVENTS: tuple[type[DomainEvent], ...] = (CatalogueChanged, ProductChanged, AssetChanged)
+class AssetHolderChanged(DomainEvent):
+    """An asset changed hands (WP-049a s4; REQ-AST-024 AC3): the people before and after.
+
+    IDs only: their "My assets" lists refresh live; staff screens follow `asset.changed`.
+    """
+
+    event_type: ClassVar[str] = "assets.holder.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset"
+
+    asset_id: uuid.UUID
+    people: list[uuid.UUID]
+
+
+class AcknowledgementChanged(DomainEvent):
+    """An acknowledgement was asked for, accepted or disputed (REQ-AST-023)."""
+
+    event_type: ClassVar[str] = "assets.acknowledgement.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_acknowledgement"
+
+    acknowledgement_id: uuid.UUID
+    asset_id: uuid.UUID
+    user_id: uuid.UUID
+    status: Literal["pending", "accepted", "disputed"]
+
+
+EVENTS: tuple[type[DomainEvent], ...] = (
+    CatalogueChanged,
+    ProductChanged,
+    AssetChanged,
+    AssetHolderChanged,
+    AcknowledgementChanged,
+)

@@ -2,6 +2,11 @@ import type { LabelResource } from '../en';
 
 // assets labels (see ../README.md).
 export const ar: LabelResource = {
+  'asset_ack_channel.console': 'وحدة التحكم',
+  'asset_ack_channel.portal': 'البوابة',
+  'asset_ack_status.accepted': 'مقبول',
+  'asset_ack_status.disputed': 'معترض عليه',
+  'asset_ack_status.pending': 'بانتظارك',
   'asset_age_basis.acquisition_date': 'تاريخ الاقتناء',
   'asset_age_basis.created_date': 'تاريخ الإضافة',
   'asset_components_choice.detach': 'فصلها',

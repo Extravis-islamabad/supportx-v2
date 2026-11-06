@@ -28,6 +28,7 @@ export const ur: LabelResource = {
   'event_delivery_state.ok': 'ترسیل جاری',
   'event_delivery_state.stalled': 'رکی ہوئی',
   'notification.open_record': '{{id}} کھولیں',
+  'notification_area.asset': 'اثاثے',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
@@ -41,6 +42,8 @@ export const ur: LabelResource = {
   'notification_condition_operator.not_in': 'ان میں سے کوئی نہیں',
   'notification_event.announcement.ended': 'آپ کا فالو کردہ اعلان ختم ہوا',
   'notification_event.announcement.updated': 'آپ کا فالو کردہ اعلان اپ ڈیٹ ہوا',
+  'notification_event.asset.ack_disputed': 'اثاثے کے حامل نے اعتراض کیا',
+  'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
@@ -86,6 +89,7 @@ export const ur: LabelResource = {
   'notification_reason.no_address': 'غیر فعال، یا ای میل پتہ نہیں',
   'notification_reason.preference': 'ان کی ترجیحات میں بند ہے',
   'notification_recipient.approvers': 'منظور کنندگان',
+  'notification_recipient.assigned_by': 'جس نے یہ دیا',
   'notification_recipient.assignee': 'تفویض شدہ تکنیکی ماہر',
   'notification_recipient.author': 'مصنف',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
@@ -93,6 +97,7 @@ export const ur: LabelResource = {
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
   'notification_recipient.group_head': 'گروپ لیڈ اور شعبے کا سربراہ',
+  'notification_recipient.holder': 'جس کے پاس یہ ہے',
   'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
   'notification_recipient.mentioned': 'جن کا ذکر ہوا',
   'notification_recipient.new_follower': 'نیا فالوور',
@@ -127,6 +132,18 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\nآپ کا فالو کردہ اعلان "{{ record.title }}" اپ ڈیٹ ہو گیا ہے۔',
   'notification_template.announcement.updated.in_app': 'اپ ڈیٹ: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'اپ ڈیٹ: {{ record.title }}',
+  'notification_template.asset.ack_disputed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} نے {{ record.display_id }} "{{ record.title }}" پر اعتراض کیا: {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.in_app':
+    '{{ holder.name }} نے {{ record.display_id }} پر اعتراض کیا: {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.subject':
+    'اعتراض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.ack_requested.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کو {{ record.display_id }} "{{ record.title }}" دیا گیا ہے۔ اسے قبول کرنے یا مسئلہ بتانے کے لیے میرے اثاثے کھولیں۔',
+  'notification_template.asset.ack_requested.in_app':
+    'براہ کرم تصدیق کریں {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.ack_requested.subject':
+    'براہ کرم {{ record.display_id }} {{ record.title }} کی تصدیق کریں',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':
@@ -294,6 +311,7 @@ export const ur: LabelResource = {
     '{{ record.display_id }} آپ کی منظوری کا منتظر ہے: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
+  'notification_variable.acknowledgement.comment': 'تصدیق › تبصرہ',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
   'notification_variable.approval_link': 'منظوری › لنک',
   'notification_variable.article.reason': 'مضمون › وجہ',
@@ -304,6 +322,7 @@ export const ur: LabelResource = {
   'notification_variable.connector.reason': 'کنیکٹر › وجہ',
   'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
+  'notification_variable.holder.name': 'حامل › نام',
   'notification_variable.mailbox.address': 'میل باکس › پتہ',
   'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
   'notification_variable.mailbox.reason': 'میل باکس › وجہ',

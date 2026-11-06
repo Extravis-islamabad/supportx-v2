@@ -22,7 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFound, PermissionDenied
 from app.modules.assets.domain.catalogue import Problem
 from app.modules.assets.domain.ownership import HOLDER_KINDS, would_nest_in_itself
+from app.modules.assets.events import AssetHolderChanged
 from app.modules.assets.infra.models import Asset, AssetAssignment, AssetSettings
+from app.modules.assets.service.acknowledgements import ask_if_needed
 from app.modules.assets.service.assets import (
     MANAGE,
     RECORD_TYPE,
@@ -35,7 +37,7 @@ from app.modules.assets.service.assets import (
 from app.modules.identity_access import Subject, active_user_ids, person_placement
 from app.modules.organization import existing_departments
 from app.shared.clock import system_clock
-from app.shared.events import ConsumerSpec, EventEnvelope
+from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from app.shared.history import Change, Source
 from app.shared.history.conflicts import stale_version
 from app.shared.ids import new_id
@@ -102,6 +104,27 @@ async def _follows_site(session: AsyncSession) -> bool:
     return settings is not None and settings.site_follows_owner
 
 
+async def _apply_holder(session: AsyncSession, row: Asset, holder: Holder | None) -> list[Change]:
+    """Set the holder columns (and the person's site, when assets follow it); the changes."""
+    changes: list[Change] = []
+    for kind, field in _HOLDER_FIELD.items():
+        new = holder.id if holder is not None and holder.kind == kind else None
+        old = getattr(row, field)
+        if old != new:
+            changes.append(
+                Change(field, None if old is None else str(old), None if new is None else str(new))
+            )
+            setattr(row, field, new)
+    if holder is not None and holder.kind == "user" and await _follows_site(session):
+        site = (await person_placement(session, holder.id)).site_id
+        if site is not None and site != row.site_id:
+            changes.append(
+                Change("site_id", None if row.site_id is None else str(row.site_id), str(site))
+            )
+            row.site_id = site
+    return changes
+
+
 async def set_holder(  # noqa: PLR0913 - the asset, the holder, the If-Match and the source
     session: AsyncSession,
     subject: Subject,
@@ -121,39 +144,37 @@ async def set_holder(  # noqa: PLR0913 - the asset, the holder, the If-Match and
         )  # fmt: skip
     if holder is not None:
         _refuse(await _holder_problems(session, subject, row, holder))
-    if holder_of(row) == holder:
+    previous = holder_of(row)
+    if previous == holder:
         return row  # already held so: nothing to record
-    changes: list[Change] = []
-    for kind, field in _HOLDER_FIELD.items():
-        new = holder.id if holder is not None and holder.kind == kind else None
-        old = getattr(row, field)
-        if old != new:
-            changes.append(
-                Change(field, None if old is None else str(old), None if new is None else str(new))
-            )
-            setattr(row, field, new)
-    if holder is not None and holder.kind == "user" and await _follows_site(session):
-        site = (await person_placement(session, holder.id)).site_id
-        if site is not None and site != row.site_id:
-            changes.append(
-                Change("site_id", None if row.site_id is None else str(row.site_id), str(site))
-            )
-            row.site_id = site
+    changes = await _apply_holder(session, row, holder)
     await _end_current(session, row.id)
+    holding: AssetAssignment | None = None
     if holder is not None:
-        session.add(
-            AssetAssignment(
-                id=new_id(),
-                tenant_id=row.tenant_id,
-                created_by=subject.user_id,
-                asset_id=row.id,
-                holder_kind=holder.kind,
-                holder_id=holder.id,
-                started_at=system_clock.now(),
-                source=source,  # where the change came from, as its history says
-            )
+        holding = AssetAssignment(
+            id=new_id(),
+            tenant_id=row.tenant_id,
+            created_by=subject.user_id,
+            asset_id=row.id,
+            holder_kind=holder.kind,
+            holder_id=holder.id,
+            started_at=system_clock.now(),
+            source=source,  # where the change came from, as its history says
         )
+        session.add(holding)
     await _saved(session, subject, row, changes, action="updated", source=source)
+    if holding is not None:
+        await session.flush()
+        await ask_if_needed(session, row, holding, subject.user_id)
+    # "My assets" of the people before and after refresh live (REQ-AST-024 AC3): IDs only.
+    people = sorted({h.id for h in (previous, holder) if h is not None and h.kind == "user"})
+    if people:
+        await record_event(
+            session,
+            AssetHolderChanged(asset_id=row.id, people=people),
+            aggregate_id=row.id,
+            aggregate_version=row.version,
+        )
     return row
 
 

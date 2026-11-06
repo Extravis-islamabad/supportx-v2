@@ -28,6 +28,7 @@ export const ar: LabelResource = {
   'event_delivery_state.ok': 'يجري التسليم',
   'event_delivery_state.stalled': 'متوقف',
   'notification.open_record': 'فتح {{id}}',
+  'notification_area.asset': 'الأصول',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',
@@ -41,6 +42,8 @@ export const ar: LabelResource = {
   'notification_condition_operator.not_in': 'ليس أحد',
   'notification_event.announcement.ended': 'انتهاء إعلان تتابعه',
   'notification_event.announcement.updated': 'تحديث إعلان تتابعه',
+  'notification_event.asset.ack_disputed': 'اعترض حامل الأصل عليه',
+  'notification_event.asset.ack_requested': 'أصل سُلّم إليك: يرجى الإقرار به',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.incident.assigned': 'أُسند حادث',
@@ -85,6 +88,7 @@ export const ar: LabelResource = {
   'notification_reason.no_address': 'غير نشط أو بلا بريد إلكتروني',
   'notification_reason.preference': 'أُوقف في تفضيلاته',
   'notification_recipient.approvers': 'المعتمِدون',
+  'notification_recipient.assigned_by': 'الشخص الذي سلّمه',
   'notification_recipient.assignee': 'الفني المُسند',
   'notification_recipient.author': 'المؤلف',
   'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
@@ -92,6 +96,7 @@ export const ar: LabelResource = {
   'notification_recipient.followers': 'المتابعون',
   'notification_recipient.group': 'أعضاء المجموعة',
   'notification_recipient.group_head': 'قائد المجموعة ورئيس القسم',
+  'notification_recipient.holder': 'الشخص الذي يحمله',
   'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
   'notification_recipient.mentioned': 'الأشخاص المُشار إليهم',
   'notification_recipient.new_follower': 'المتابع الجديد',
@@ -126,6 +131,18 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nتم تحديث الإعلان "{{ record.title }}" الذي تتابعه.',
   'notification_template.announcement.updated.in_app': 'تم التحديث: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'تم التحديث: {{ record.title }}',
+  'notification_template.asset.ack_disputed.body':
+    'مرحبًا {{ recipient.name }}،\n\nاعترض {{ holder.name }} على {{ record.display_id }} "{{ record.title }}": {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.in_app':
+    'اعترض {{ holder.name }} على {{ record.display_id }}: {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.subject':
+    'اعتراض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.ack_requested.body':
+    'مرحبًا {{ recipient.name }}،\n\nسُلّم إليك {{ record.display_id }} "{{ record.title }}". افتح أصولي لقبوله أو لذكر ما فيه من خطأ.',
+  'notification_template.asset.ack_requested.in_app':
+    'يرجى الإقرار بـ {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.ack_requested.subject':
+    'يرجى الإقرار بـ {{ record.display_id }} {{ record.title }}',
   'notification_template.connector.failing.body':
     'مرحبًا {{ recipient.name }}،\n\nتوقف {{ record.title }} عن العمل: {{ connector.reason }}.\n\nستُبلَّغ مرة واحدة لا عند كل محاولة، ومرة أخرى عندما يعود إلى العمل. افتح الإدارة › التكاملات لرؤيته.',
   'notification_template.connector.failing.in_app':
@@ -292,6 +309,7 @@ export const ar: LabelResource = {
     '{{ record.display_id }} بانتظار موافقتك: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'موافقتك: {{ record.display_id }} {{ record.title }}',
+  'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
   'notification_variable.approval_link': 'الموافقة › الرابط',
   'notification_variable.article.reason': 'المقالة › السبب',
@@ -302,6 +320,7 @@ export const ar: LabelResource = {
   'notification_variable.connector.reason': 'الموصل › السبب',
   'notification_variable.conversation.author': 'الرد أو الملاحظة › الكاتب',
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
+  'notification_variable.holder.name': 'الحامل › الاسم',
   'notification_variable.mailbox.address': 'صندوق البريد › العنوان',
   'notification_variable.mailbox.expires_at': 'صندوق البريد › تنتهي بيانات الاعتماد',
   'notification_variable.mailbox.reason': 'صندوق البريد › السبب',

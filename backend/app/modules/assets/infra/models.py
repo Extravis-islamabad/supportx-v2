@@ -424,3 +424,34 @@ class AssetRelationship(TenantEntity):
     from_asset_id: Mapped[uuid.UUID]
     to_asset_id: Mapped[uuid.UUID]
     kind: Mapped[str] = mapped_column(String(30))
+
+
+class AssetAcknowledgement(TenantEntity):
+    """A person acknowledges an asset given to them (migration 0112; REQ-AST-023).
+
+    One per holding. A dispute keeps the holding and its history exactly as they are.
+    """
+
+    __tablename__ = "asset_acknowledgements"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_acknowledgements_asset",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_asset_acknowledgements_user",
+        ),
+        Index("uq_asset_acknowledgements_assignment", "tenant_id", "assignment_id", unique=True),
+        Index("ix_asset_acknowledgements_user", "tenant_id", "user_id", "status"),
+    )
+
+    asset_id: Mapped[uuid.UUID]
+    assignment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("asset_assignments.id"))
+    user_id: Mapped[uuid.UUID]
+    status: Mapped[str] = mapped_column(String(20), server_default="pending")
+    comment: Mapped[str | None] = mapped_column(Text)
+    channel: Mapped[str | None] = mapped_column(String(20))
+    answered_at: Mapped[datetime | None]

@@ -1,5 +1,10 @@
 // assets labels (see ../README.md). English is the reference.
 export const en = {
+  'asset_ack_channel.console': 'Console',
+  'asset_ack_channel.portal': 'Portal',
+  'asset_ack_status.accepted': 'Accepted',
+  'asset_ack_status.disputed': 'Disputed',
+  'asset_ack_status.pending': 'Waiting for you',
   'asset_age_basis.acquisition_date': 'Acquisition date',
   'asset_age_basis.created_date': 'Date added',
   'asset_components_choice.detach': 'Detach them',

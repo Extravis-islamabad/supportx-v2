@@ -35,6 +35,9 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.asset_acknowledgement_answered': 'You have already answered this one.',
+  'errors.asset_acknowledgement_not_found':
+    "That acknowledgement isn't yours, or no longer exists.",
   'errors.asset_already_disposed': 'This asset already has a disposal record.',
   'errors.asset_bulk_empty': 'Choose at least one asset.',
   'errors.asset_bulk_too_many': 'Choose at most {{max}} assets at once.',

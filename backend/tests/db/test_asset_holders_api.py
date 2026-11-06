@@ -207,3 +207,89 @@ async def test_a_link_shows_from_both_ends_and_in_both_histories(world: World) -
     gone = await world.call("DELETE", f"{BASE}/{switch['id']}/links/{link['id']}", a, a.admin)
     assert gone.status_code == 204
     assert (await world.call("GET", f"{BASE}/{workstation['id']}/links", a, a.admin)).json() == []
+
+
+async def test_a_person_acknowledges_an_asset_given_to_them(world: World) -> None:
+    """023 AC1-AC3: pending when given, the person accepts or disputes; a dispute keeps history."""
+    a = world.a
+    laptop = await _asset(world, "Acknowledged laptop")
+    # The catalogue is seeded on first use: the type exists only now.
+    await world.sql(
+        "UPDATE asset_product_types SET ack_required = true WHERE tenant_id = $1"
+        " AND api_name = 'laptop'",
+        a.tenant,
+    )
+    given = await _hold(world, laptop, "user", a.requester)
+    assert given.status_code == 200, given.text
+    mine = await world.call("GET", f"{BASE}/mine", a, a.requester)
+    assert mine.status_code == 200, mine.text
+    row = next(m for m in mine.json() if m["id"] == laptop["id"])
+    ack = row["acknowledgement"]
+    assert ack["status"] == "pending"
+    assert row["through_department"] is False
+    # Only the holder answers, and a dispute says what is wrong.
+    by_other = await world.call(
+        "POST", f"{BASE}/acknowledgements/{ack['id']}/answer", a, a.tech_a, json={"accept": True}
+    )
+    assert problem(by_other) == (404, "asset_acknowledgement_not_found")
+    silent = await world.call(
+        "POST", f"{BASE}/acknowledgements/{ack['id']}/answer", a, a.requester,
+        json={"accept": False},
+    )  # fmt: skip
+    assert field_codes(silent) == {"comment": "required"}
+    disputed = await world.call(
+        "POST", f"{BASE}/acknowledgements/{ack['id']}/answer", a, a.requester,
+        json={"accept": False, "comment": "The screen is cracked"},
+    )  # fmt: skip
+    assert disputed.status_code == 200, disputed.text
+    assert (disputed.json()["status"], disputed.json()["channel"]) == ("disputed", "portal")
+    again = await world.call(
+        "POST", f"{BASE}/acknowledgements/{ack['id']}/answer", a, a.requester,
+        json={"accept": True},
+    )  # fmt: skip
+    assert problem(again) == (409, "asset_acknowledgement_answered")
+    # AC3 / condition 3: the holding and its history stay as they were.
+    held = (await world.call("GET", f"{BASE}/{laptop['id']}/holdings", a, a.admin)).json()
+    assert [(h["holder_id"], h["ended_at"]) for h in held] == [(str(a.requester), None)]
+    events = await world.sql(
+        "SELECT envelope->>'event_type' AS kind, envelope->'payload'->>'status' AS status"
+        " FROM outbox_events WHERE tenant_id = $1 AND envelope->>'event_type' IN"
+        " ('assets.acknowledgement.changed', 'assets.holder.changed') ORDER BY id",
+        a.tenant,
+    )
+    kinds = [(e["kind"], e["status"]) for e in events]
+    assert ("assets.acknowledgement.changed", "pending") in kinds
+    assert ("assets.acknowledgement.changed", "disputed") in kinds
+    assert any(k == "assets.holder.changed" for k, _ in kinds)
+
+
+async def test_my_assets_shows_only_mine_and_needs_no_asset_permission(world: World) -> None:
+    """024 AC1: a requester sees what they hold, nothing else, with no asset permission."""
+    a = world.a
+    theirs = await _asset(world, "Rana's phone")
+    other = await _asset(world, "Someone else's")
+    assert (await _hold(world, theirs, "user", a.requester)).status_code == 200
+    assert (await _hold(world, other, "user", a.tech_a)).status_code == 200
+    mine = (await world.call("GET", f"{BASE}/mine", a, a.requester)).json()
+    ids = {m["id"] for m in mine}
+    assert theirs["id"] in ids
+    assert other["id"] not in ids
+    # Still no way into the staff list.
+    assert problem(await world.call("GET", BASE, a, a.requester))[0] == 403
+
+
+async def test_acknowledgements_are_isolated_by_rls(world: World) -> None:
+    a, b = world.a, world.b
+    laptop = await _asset(world, "RLS laptop")
+    # The catalogue is seeded on first use: the type exists only now.
+    await world.sql(
+        "UPDATE asset_product_types SET ack_required = true WHERE tenant_id = $1"
+        " AND api_name = 'laptop'",
+        a.tenant,
+    )
+    assert (await _hold(world, laptop, "user", a.requester)).status_code == 200
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        assert await session.scalar(text("SELECT count(*) FROM asset_acknowledgements")) == 0
+        assert (
+            await session.execute(text("UPDATE asset_acknowledgements SET comment = 'x'"))
+        ).rowcount == 0

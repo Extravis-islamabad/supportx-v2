@@ -18,6 +18,7 @@ from app.core.modules import ModuleSpec
 from app.modules.assets.api.records import router as records_router
 from app.modules.assets.api.routes import router
 from app.modules.assets.events import EVENTS
+from app.modules.assets.service import notifications
 from app.modules.assets.service.assets import (
     EDIT_DISPOSED,
     assets_naming_vendor,
@@ -81,5 +82,7 @@ module = ModuleSpec(
 # Disposal certificates (REQ-AST-017): at import, for the workers too; startup registers again
 # after a shutdown (tests start and stop the app), as knowledge does.
 register_owner_access(FILE_ACCESS)
+# Acknowledgements notify through the engine (REQ-AST-023): at import, for the workers too.
+notifications.register()
 
 __all__ = ["module", "register_disposal_guard", "unregister_disposal_guard"]

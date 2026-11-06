@@ -7,12 +7,12 @@ Reading the catalogue needs `assets.view` (the asset form uses it); changing it 
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.authorization import require_permission
+from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.assets.api.records import AssetHoldingOut, AssetOut, HeldAssetOut
@@ -24,14 +24,15 @@ from app.modules.assets.domain.catalogue import (
     AssetTypeKind,
 )
 from app.modules.assets.infra.models import (
+    AssetAcknowledgement,
     AssetLifeCycleTransition,
     AssetProduct,
     AssetProductType,
     AssetSettings,
     AssetState,
 )
+from app.modules.assets.service import acknowledgements, ownership
 from app.modules.assets.service import catalogue as service
-from app.modules.assets.service import ownership
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -835,3 +836,97 @@ async def held_by(
         for asset, holding in found
         if not current or holding.ended_at is None
     ]
+
+
+# --- my assets and acknowledgements (REQ-AST-023, 024) ---------------------------------------
+# For whoever is signed in, requesters included: what they hold needs no asset permission.
+
+SignedIn = Annotated[Subject, Depends(require_signed_in())]
+
+
+class AcknowledgementOut(BaseModel):
+    """A person's acknowledgement of an asset given to them."""
+
+    id: uuid.UUID
+    status: Literal["pending", "accepted", "disputed"]
+    comment: str | None
+    channel: str | None
+    answered_at: datetime | None
+    asked_at: datetime
+
+
+class MyAssetOut(BaseModel):
+    """An asset the person holds, or their department does (`through_department`)."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+    product_type_id: uuid.UUID
+    state_id: uuid.UUID
+    through_department: bool
+    acknowledgement: AcknowledgementOut | None
+
+
+class AcknowledgementAnswerIn(BaseModel):
+    """Accept, or dispute with a comment saying what is wrong."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    accept: bool
+    comment: str | None = Field(default=None, max_length=2000)
+    channel: Literal["portal", "console"] = "portal"
+
+
+def _ack_out(row: AssetAcknowledgement) -> AcknowledgementOut:
+    return AcknowledgementOut(
+        id=row.id,
+        # The table's check holds it to these three.
+        status=cast("Literal['pending', 'accepted', 'disputed']", row.status),
+        comment=row.comment,
+        channel=row.channel,
+        answered_at=row.answered_at,
+        asked_at=row.created_at,
+    )
+
+
+@router.get("/mine", summary="The assets I hold")
+async def my_assets(session: TenantSession, subject: SignedIn) -> list[MyAssetOut]:
+    """Mine, and my department's when the organisation shows them; live (REQ-AST-024)."""
+    return [
+        MyAssetOut(
+            id=m.asset.id,
+            tag=m.asset.tag,
+            name=m.asset.name,
+            product_type_id=m.asset.product_type_id,
+            state_id=m.asset.state_id,
+            through_department=m.through_department,
+            acknowledgement=None if m.acknowledgement is None else _ack_out(m.acknowledgement),
+        )
+        for m in await acknowledgements.mine(session, subject)
+    ]
+
+
+@router.post(
+    "/acknowledgements/{acknowledgement_id}/answer",
+    summary="Accept or dispute an asset given to me",
+    responses={
+        404: {"model": ProblemDetail, "description": "asset_acknowledgement_not_found"},
+        409: {"model": ProblemDetail, "description": "asset_acknowledgement_answered"},
+    },
+)
+async def answer_acknowledgement(
+    acknowledgement_id: uuid.UUID,
+    body: AcknowledgementAnswerIn,
+    session: TenantSession,
+    subject: SignedIn,
+) -> AcknowledgementOut:
+    """Only my own, only once. A dispute tells the person who gave it to me (AC3)."""
+    row = await acknowledgements.answer(
+        session,
+        subject,
+        acknowledgement_id,
+        accept=body.accept,
+        comment=body.comment,
+        channel=body.channel,
+    )
+    return _ack_out(row)

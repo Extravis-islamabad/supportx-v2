@@ -777,6 +777,45 @@
         "type": "object"
       }
     },
+    "assets.acknowledgement.changed": {
+      "1": {
+        "description": "An acknowledgement was asked for, accepted or disputed (REQ-AST-023).",
+        "properties": {
+          "acknowledgement_id": {
+            "format": "uuid",
+            "title": "Acknowledgement Id",
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "accepted",
+              "disputed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "acknowledgement_id",
+          "asset_id",
+          "user_id",
+          "status"
+        ],
+        "title": "AcknowledgementChanged",
+        "type": "object"
+      }
+    },
     "assets.asset.changed": {
       "1": {
         "description": "An asset was added, changed, moved to the trash or restored (REQ-AST-007).\n\n`site_id` is the asset's site after the change, so live lists at that site hear of it.",
@@ -876,6 +915,32 @@
           "changed_fields"
         ],
         "title": "CatalogueChanged",
+        "type": "object"
+      }
+    },
+    "assets.holder.changed": {
+      "1": {
+        "description": "An asset changed hands (WP-049a s4; REQ-AST-024 AC3): the people before and after.\n\nIDs only: their \"My assets\" lists refresh live; staff screens follow `asset.changed`.",
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "people": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "People",
+            "type": "array"
+          }
+        },
+        "required": [
+          "asset_id",
+          "people"
+        ],
+        "title": "AssetHolderChanged",
         "type": "object"
       }
     },

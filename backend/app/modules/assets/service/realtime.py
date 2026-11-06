@@ -28,6 +28,7 @@ from app.shared.realtime import (
     RealtimeEffects,
     RealtimeRoute,
     broadcast,
+    personal,
     record,
 )
 
@@ -91,7 +92,51 @@ async def _asset_changed(envelope: EventEnvelope, session: AsyncSession) -> Real
     )
 
 
+# "My assets" (REQ-AST-024 AC3): the people concerned hear of it on their own channel.
+MINE_CHANGED = "assets.mine_changed"
+
+
+async def _holder_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An asset changed hands: the people before and after refresh their own list. IDs only."""
+    del session
+    asset_id = str(envelope.payload["asset_id"])
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, uuid.UUID(str(p))), MINE_CHANGED, ids=(asset_id,)
+            )
+            for p in envelope.payload.get("people", [])
+        ]
+    )
+
+
+async def _acknowledgement_changed(
+    envelope: EventEnvelope, session: AsyncSession
+) -> RealtimeEffects:
+    """Asked, accepted or disputed: the person's list and the asset's page refresh. IDs only."""
+    del session
+    payload = envelope.payload
+    asset_id = uuid.UUID(str(payload["asset_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, uuid.UUID(str(payload["user_id"]))),
+                MINE_CHANGED,
+                ids=(str(asset_id),),
+            ),
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, asset_id),
+                ASSET_CHANGED,
+                ids=(str(asset_id),),
+                fields=("acknowledgement",),
+            ),
+        ]
+    )
+
+
 ROUTES = [
     RealtimeRoute(("assets.catalogue.changed", "assets.product.changed"), _catalogue_changed),
     RealtimeRoute(("assets.asset.changed",), _asset_changed),
+    RealtimeRoute(("assets.holder.changed",), _holder_changed),
+    RealtimeRoute(("assets.acknowledgement.changed",), _acknowledgement_changed),
 ]
