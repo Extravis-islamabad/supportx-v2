@@ -884,6 +884,8 @@ export const en = {
   'portal.report.for_someone_else': 'For someone else',
   'portal.report.for_whom': 'For whom',
   'portal.report.form': 'What is it about',
+  'portal.report.nobody_found':
+    'Nobody you may raise a request for matches. You can choose people your organisation allows, usually in your own department. Ask the service desk if someone is missing.',
   'portal.report.open': 'Report an issue',
   'portal.report.remove_file': 'Remove {{name}}',
   'portal.report.search_person': 'Search by name',
