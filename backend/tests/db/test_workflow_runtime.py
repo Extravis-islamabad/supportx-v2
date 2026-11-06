@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select, text
+from sqlalchemy import select
 
 from app.core.errors import Conflict
 from app.core.tenancy import TenantContext
@@ -176,15 +176,12 @@ async def test_a_start_runs_until_it_waits_logs_its_steps_and_writes_the_outbox(
         "workflow_id": str(flow),
         "instance_id": str(instance_id),
     }
-    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
-        events = await session.execute(
-            text(
-                "SELECT count(*) FROM outbox WHERE event_type = "
-                "'automation.workflow_instance.changed' AND aggregate_id = :i"
-            ),
-            {"i": str(instance_id)},
-        )
-        assert events.scalar_one() == 1
+    events = await world.sql(  # the relay's table: read as the superuser (the app may only add)
+        "SELECT count(*) AS n FROM outbox_events WHERE event_type = "
+        "'automation.workflow_instance.changed' AND aggregate_id = $1",
+        str(instance_id),
+    )
+    assert events[0]["n"] == 1
 
 
 async def test_req_wf_010_a_second_start_is_refused_and_a_disabled_workflow_starts_nothing(
@@ -196,11 +193,11 @@ async def test_req_wf_010_a_second_start_is_refused_and_a_disabled_workflow_star
     await _start(world, flow, record)
     with pytest.raises(Conflict) as again:
         await _start(world, flow, record)
-    assert again.value.code == "workflow_already_running"
+    assert again.value.instance_code == "workflow_already_running"
     off = await _workflow(world, MOVE_THEN_WAIT, enabled=False)
     with pytest.raises(Conflict) as disabled:
         await _start(world, off, record)
-    assert disabled.value.code == "workflow_disabled"
+    assert disabled.value.instance_code == "workflow_disabled"
 
 
 async def test_req_wf_012_ac1_a_waiting_instance_moves_on_when_its_record_changes(
