@@ -2,7 +2,7 @@ import { Alert, Flex, Skeleton } from 'antd';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
 import { useIncidentCatalogue, type PickList } from '@supportx/api-client';
-import { NoAccess, PageHeader, SectionNav, useAccess, useLabel } from '@supportx/ui';
+import { NoAccess, PageHeader, SectionNav, useAccess, useLabel, useLicence } from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
 import { ClosingTab } from './ClosingTab';
@@ -13,6 +13,7 @@ import { PriorityTab } from './PriorityTab';
 import { ReplyTemplatesTab } from './ReplyTemplatesTab';
 import { StatusesTab } from './StatusesTab';
 import { TemplatesTab } from './TemplatesTab';
+import { RepeatRulesTab } from './RepeatRulesTab';
 
 const SECTIONS = [
   'general',
@@ -26,6 +27,7 @@ const SECTIONS = [
   'closure-codes',
   'closing',
   'reply-templates',
+  'repeat-rules',
 ] as const;
 type Section = (typeof SECTIONS)[number];
 const REASON_LISTS: PickList[] = ['pause', 'third_party', 'cancel', 'reopen', 'reassign'];
@@ -38,6 +40,7 @@ const REASON_LISTS: PickList[] = ['pause', 'third_party', 'cancel', 'reopen', 'r
 export function IncidentSettingsPage() {
   const t = useLabel();
   const { can } = useAccess();
+  const licence = useLicence();
   const navigate = useNavigate();
   const { section } = useParams();
   // The service desk's configure right (WP-042), or settings.manage for every area.
@@ -117,6 +120,8 @@ export function IncidentSettingsPage() {
         );
       case 'closing':
         return <ClosingTab catalogue={cat} />;
+      case 'repeat-rules':
+        return <RepeatRulesTab entitled={licence.has('problem')} />;
       default:
         return null;
     }
@@ -129,7 +134,10 @@ export function IncidentSettingsPage() {
         label={t('settings.incidents_title')}
         active={current}
         onNavigate={(path) => void navigate(path)}
-        items={SECTIONS.map((key) => ({
+        // Repeated incidents are the problem module's: shown locked only to licence managers.
+        items={SECTIONS.filter(
+          (key) => key !== 'repeat-rules' || licence.has('problem') || licence.isAdmin,
+        ).map((key) => ({
           key,
           label: t(`settings.section.${key}`),
           path: `/admin/incidents/${key}`,

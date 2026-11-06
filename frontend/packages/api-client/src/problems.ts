@@ -33,6 +33,7 @@ export const problemKeys = {
   list: (query: ProblemsQuery) => ['problems', 'list', query] as const,
   views: ['problems', 'views'] as const,
   repeats: ['problems', 'repeats'] as const,
+  repeatRules: ['problems', 'repeat-rules'] as const,
   repeatIncidents: (hitId: string) => ['problems', 'repeats', hitId, 'incidents'] as const,
   detail: (id: string) => ['problems', 'detail', id] as const,
   links: (id: string) => ['problems', 'detail', id, 'links'] as const,
@@ -731,6 +732,58 @@ export function useHandleRepeatHit() {
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: problemKeys.repeats });
+    },
+  });
+}
+
+export type RepeatRule = components['schemas']['RepeatRuleOut'];
+export type RepeatRuleInput = components['schemas']['RepeatRuleIn'];
+export type RepeatRulePatch = components['schemas']['RepeatRulePatch'];
+
+/** The repeat incident rules (admins), the default first. */
+export function useRepeatRules(enabled = true) {
+  return useQuery({
+    queryKey: problemKeys.repeatRules,
+    queryFn: () => call(api.GET('/api/v1/problem-repeats/rules')),
+    enabled,
+  });
+}
+
+export type RepeatRuleChange =
+  | { kind: 'create'; body: RepeatRuleInput; key: string }
+  | { kind: 'update'; id: string; version: number; body: RepeatRulePatch }
+  | { kind: 'delete'; id: string; version: number };
+
+/** Add, change or remove a repeat rule; the list refetches. */
+export function useRepeatRuleChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true }, // the editor shows field problems in place
+    mutationFn: async (change: RepeatRuleChange): Promise<void> => {
+      if (change.kind === 'create') {
+        await call(
+          api.POST('/api/v1/problem-repeats/rules', {
+            params: { header: { 'Idempotency-Key': change.key } },
+            body: change.body,
+          }),
+        );
+      } else if (change.kind === 'update') {
+        await call(
+          api.PATCH('/api/v1/problem-repeats/rules/{rule_id}', {
+            params: { path: { rule_id: change.id }, header: ifMatch(change.version) },
+            body: change.body,
+          }),
+        );
+      } else {
+        await call(
+          api.DELETE('/api/v1/problem-repeats/rules/{rule_id}', {
+            params: { path: { rule_id: change.id }, header: ifMatch(change.version) },
+          }),
+        );
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.repeatRules });
     },
   });
 }
