@@ -112,6 +112,25 @@ describe('Admin › Audit log', () => {
     });
   });
 
+  it('QA6-ADM-01: the less used filters sit behind "More filters", and open when one is set', async () => {
+    auditRoutes();
+    render(<App />);
+    await screen.findByTestId('audit-table');
+    expect(screen.getByTestId('audit-filter-outcome')).toBeTruthy();
+    expect(screen.queryByTestId('audit-filter-category')).toBeNull();
+    fireEvent.click(screen.getByTestId('audit-more-filters'));
+    expect(await screen.findByTestId('audit-filter-category')).toBeTruthy();
+    expect(screen.getByTestId('audit-filter-client')).toBeTruthy();
+  });
+
+  it('QA6-ADM-01: a hidden filter that is set stays visible and is counted', async () => {
+    window.history.pushState({}, '', '/admin/audit?client=api');
+    auditRoutes();
+    render(<App />);
+    expect(await screen.findByTestId('audit-filter-client')).toBeTruthy();
+    expect(screen.getByTestId('audit-more-filters').textContent).toBe('More filters (1 set)');
+  });
+
   it('opens an entry: grants added and removed, the IP address and the support reference', async () => {
     auditRoutes();
     render(<App />);

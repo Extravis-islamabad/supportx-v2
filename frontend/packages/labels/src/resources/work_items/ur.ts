@@ -332,8 +332,6 @@ export const ur: LabelResource = {
   'closure_code.workaround': 'متبادل حل دیا گیا',
   'conversation.add_note': 'نوٹ شامل کریں',
   'conversation.cc': 'کاپی',
-  'conversation.email_not_configured_hint':
-    'ابھی کوئی ای میل چینل ترتیب نہیں دیا گیا: جواب یہاں محفوظ ہوگا اور "نہیں بھیجا گیا" کے طور پر نشان زد ہوگا۔',
   'conversation.empty.messages': 'ابھی کوئی جواب نہیں۔',
   'conversation.empty.notes': 'ابھی کوئی نوٹ نہیں۔',
   'conversation.field.body': 'متن',
@@ -374,6 +372,9 @@ export const ur: LabelResource = {
   'conversation.not_sent_detail':
     'جواب یہاں محفوظ ہے، لیکن کسی تک نہیں پہنچا۔ ای میل چینل ترتیب دینے کے بعد اسے بھیجا جا سکتا ہے۔',
   'conversation.note_placeholder': 'نوٹ لکھیں۔ کسی کا ذکر کرنے کے لیے @ لکھیں۔',
+  'conversation.outgoing_mail_not_set_up':
+    'باہر جانے والی ای میل ابھی ترتیب نہیں دی گئی: یہ جواب یہاں محفوظ ہوگا اور اس وقت تک «نہیں بھیجا گیا» دکھائے گا۔',
+  'conversation.outgoing_mail_who_can_fix': '{{names}} اسے ترتیب دے سکتے ہیں۔',
   'conversation.private_hint': 'صرف عملہ',
   'conversation.public_hint': 'درخواست دہندہ اسے دیکھ سکتا ہے',
   'conversation.reply_placeholder': 'اپنا جواب لکھیں۔',

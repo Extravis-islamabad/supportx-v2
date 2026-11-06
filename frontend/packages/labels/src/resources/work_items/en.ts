@@ -329,8 +329,6 @@ export const en = {
   'closure_code.workaround': 'Workaround given',
   'conversation.add_note': 'Add note',
   'conversation.cc': 'Cc',
-  'conversation.email_not_configured_hint':
-    'No email channel is set up yet: the reply will be saved here and marked "not sent".',
   'conversation.empty.messages': 'No replies yet.',
   'conversation.empty.notes': 'No notes yet.',
   'conversation.field.body': 'Text',
@@ -370,6 +368,9 @@ export const en = {
   'conversation.not_sent_detail':
     'The reply is saved here, but it has not reached anyone. It can be sent once an email channel is set up.',
   'conversation.note_placeholder': 'Write a note. Type @ to mention someone.',
+  'conversation.outgoing_mail_not_set_up':
+    'Outgoing e-mail isn\'t set up yet: this reply is saved here and marked "not sent" until it is.',
+  'conversation.outgoing_mail_who_can_fix': '{{names}} can set it up.',
   'conversation.private_hint': 'Staff only',
   'conversation.public_hint': 'The requester can see this',
   'conversation.reply_placeholder': 'Write your reply.',

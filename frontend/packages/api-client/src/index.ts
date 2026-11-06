@@ -609,6 +609,7 @@ export {
   useNotificationRules,
   useNotifications,
   useNotificationStatus,
+  useMailStatus,
   useRecordDeliveries,
   useResetNotificationRule,
   useSaveNotificationPreferences,
