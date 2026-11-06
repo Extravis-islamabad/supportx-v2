@@ -16,7 +16,7 @@ fix PR per module, tests named after the bug IDs), then the resume point below.
 - Done: the problem views (known errors, accepted due for review); Tasks, Worklogs and History
   tabs on the problem page (the parts and history hooks take the type's prefix).
 - Also done in S1: list views, search, widths, print, assign, Create problem from the bulk bar.
-- Next in S1: REQ-PRB-021 (migration number asked) and REQ-PRB-022 (on #258's layout); then S2 (D14 permissions and the narrow incident-side
+- S1 done but REQ-PRB-022's admin area (on #258's layout); S2 done (D14, D15); next S3 (D14 permissions and the narrow incident-side
   read, D15 notifications, report source, counters, portal requester view), S3 (D16 repeat
   rules, D17 API check, Arabic e2e).
 
