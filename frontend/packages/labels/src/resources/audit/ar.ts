@@ -14,6 +14,7 @@ export const ar: LabelResource = {
   'audit.action.asset.deleted': 'نقل أصلًا إلى المهملات',
   'audit.action.asset.life_cycle_deleted': 'حذف دورة حياة أصل',
   'audit.action.asset.life_cycle_saved': 'حفظ دورة حياة أصل',
+  'audit.action.asset.moved': 'نقل أصلًا إلى حالة أخرى',
   'audit.action.asset.product_deleted': 'حذف منتجًا',
   'audit.action.asset.product_saved': 'حفظ منتجًا',
   'audit.action.asset.product_type_deleted': 'حذف نوع منتج',

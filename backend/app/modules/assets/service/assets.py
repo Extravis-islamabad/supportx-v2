@@ -322,6 +322,7 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
     *,
     action: AssetAction,
     source: Source,
+    reason: str | None = None,
 ) -> None:
     if action != "created":
         row.version += 1
@@ -338,6 +339,7 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
         else ("deleted" if action == "deleted" else "updated"),
         changes=changes,
         source=source,
+        reason=reason,
     )
     await record_event(
         session,

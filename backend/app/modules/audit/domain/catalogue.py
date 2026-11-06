@@ -329,6 +329,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset.updated", AuditCategory.RECORDS, "assets"),
     ("asset.deleted", AuditCategory.RECORDS, "assets"),
     ("asset.restored", AuditCategory.RECORDS, "assets"),
+    ("asset.moved", AuditCategory.RECORDS, "assets"),
     # Vendors (REQ-PUR-001, WP-049a s2).
     ("vendor.created", AuditCategory.CONFIGURATION, "procurement"),
     ("vendor.updated", AuditCategory.CONFIGURATION, "procurement"),

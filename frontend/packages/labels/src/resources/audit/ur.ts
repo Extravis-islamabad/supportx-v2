@@ -14,6 +14,7 @@ export const ur: LabelResource = {
   'audit.action.asset.deleted': 'اثاثہ کوڑے دان میں ڈالا',
   'audit.action.asset.life_cycle_deleted': 'اثاثے کا لائف سائیکل حذف کیا',
   'audit.action.asset.life_cycle_saved': 'اثاثے کا لائف سائیکل محفوظ کیا',
+  'audit.action.asset.moved': 'اثاثے کی حالت بدلی',
   'audit.action.asset.product_deleted': 'پروڈکٹ حذف کی',
   'audit.action.asset.product_saved': 'پروڈکٹ محفوظ کی',
   'audit.action.asset.product_type_deleted': 'پروڈکٹ کی قسم حذف کی',

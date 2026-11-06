@@ -44,6 +44,7 @@ export const ur: LabelResource = {
     'طے شدہ لائف سائیکل حذف نہیں ہو سکتا۔ پہلے کسی اور کو طے شدہ بنائیں۔',
   'errors.asset_limit_reached':
     'آپ کی تنظیم کے پلان میں آئی ٹی اثاثوں کی تمام جگہیں استعمال میں ہیں۔ کوئی اثاثہ تلف کریں یا اپنے منتظم سے مزید شامل کرنے کو کہیں۔',
+  'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
   'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
   'errors.asset_product_type_has_children':
@@ -418,6 +419,7 @@ export const ur: LabelResource = {
   'errors.field.required': 'یہ خانہ ضروری ہے۔',
   'errors.field.required_for_known_error':
     'معلوم خرابی نشان زد کرنے سے پہلے عارضی حل یا بنیادی وجہ لکھیں۔',
+  'errors.field.required_for_move': 'منتقلی سے پہلے یہ بھریں۔',
   'errors.field.required_to_close': 'بند کرنے سے پہلے درکار ہے۔',
   'errors.field.required_to_confirm_cause': 'تصدیق سے پہلے بنیادی وجہ لکھیں۔',
   'errors.field.required_to_leave_stage': 'اس مرحلے سے نکلنے سے پہلے یہ بھریں۔',

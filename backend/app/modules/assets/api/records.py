@@ -21,6 +21,7 @@ from app.modules import metadata
 from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
 from app.modules.assets.infra.models import Asset
 from app.modules.assets.service import assets as service
+from app.modules.assets.service import moves
 from app.modules.assets.service.catalogue import TEXT_MAX
 from app.modules.audit import audited
 from app.modules.identity_access import Subject, user_names
@@ -393,3 +394,74 @@ async def asset_history(
         ],
         next_cursor=None if next_version is None else str(next_version),
     )
+
+
+class AssetMoveOptionOut(BaseModel):
+    """A move the asset's life cycle lists from its state now."""
+
+    to_state_id: uuid.UUID
+    reason_required: bool
+    required_fields: list[str] = Field(description="Asset fields (or custom.<key>) to fill first.")
+    allowed: bool = Field(description="False: you lack the move's permission (show it disabled).")
+
+
+class AssetMoveIn(BaseModel):
+    """Move the asset to another state (REQ-AST-012)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to_state_id: uuid.UUID
+    reason: str | None = Field(default=None, max_length=moves.REASON_MAX)
+
+
+@router.get(
+    "/{asset_id}/moves",
+    summary="The moves an asset may make",
+    responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
+)
+async def asset_moves(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> list[AssetMoveOptionOut]:
+    """From its state now, along its type's life cycle, in the states' order."""
+    options = await moves.move_options(session, subject, asset_id)
+    return [
+        AssetMoveOptionOut(
+            to_state_id=o.to_state.id,
+            reason_required=o.reason_required,
+            required_fields=list(o.required_fields),
+            allowed=o.allowed,
+        )
+        for o in options
+    ]
+
+
+@router.post(
+    "/{asset_id}/move",
+    summary="Move an asset to another state",
+    responses={
+        **WRITE,
+        409: {"model": ProblemDetail, "description": "version_conflict, asset_move_not_allowed"},
+    },
+    dependencies=[audited("asset.moved", object_type="asset", object_param="asset_id")],
+)
+async def move_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    body: AssetMoveIn,
+    session: TenantSession,
+    subject: Manage,
+    version: ExpectedVersion,
+    response: Response,
+    request: Request,
+) -> AssetOut:
+    """Along the life cycle (If-Match), with a reason where the move or state asks for one."""
+    row = await moves.move_asset(
+        session,
+        subject,
+        asset_id,
+        to_state_id=body.to_state_id,
+        reason=body.reason,
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return AssetOut.of(row)

@@ -41,6 +41,7 @@ export const ar: LabelResource = {
     'لا يمكن حذف دورة الحياة الافتراضية. اجعل دورة أخرى افتراضية أولًا.',
   'errors.asset_limit_reached':
     'جميع خانات أصول تقنية المعلومات في خطة مؤسستك مستخدمة. تخلّص من أصل أو اطلب من المسؤول إضافة المزيد.',
+  'errors.asset_move_not_allowed': 'لا يمكن نقل هذا الأصل إلى تلك الحالة من حالته الحالية.',
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
   'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
   'errors.asset_product_type_has_children':
@@ -381,6 +382,7 @@ export const ar: LabelResource = {
   'errors.field.requester_only': 'لا يعيّن هذا الرمز إلا تأكيد مقدم الطلب.',
   'errors.field.required': 'هذا الحقل مطلوب.',
   'errors.field.required_for_known_error': 'اكتب حلًا مؤقتًا أو سببًا جذريًا قبل تحديد خطأ معروف.',
+  'errors.field.required_for_move': 'املأ هذا الحقل قبل النقل.',
   'errors.field.required_to_close': 'مطلوب قبل الإغلاق.',
   'errors.field.required_to_confirm_cause': 'اكتب السبب الجذري قبل تأكيده.',
   'errors.field.required_to_leave_stage': 'املأ هذا الحقل قبل مغادرة هذه المرحلة.',

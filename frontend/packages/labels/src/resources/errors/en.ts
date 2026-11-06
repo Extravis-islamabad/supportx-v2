@@ -42,6 +42,7 @@ export const en = {
     "The default life cycle can't be deleted. Make another one the default first.",
   'errors.asset_limit_reached':
     "Every IT asset slot in your organisation's plan is in use. Dispose of an asset or ask your administrator to add more.",
+  'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
   'errors.asset_product_not_found': 'This product does not exist.',
   'errors.asset_product_type_has_children':
@@ -411,6 +412,7 @@ export const en = {
   'errors.field.required': 'This field is required.',
   'errors.field.required_for_known_error':
     'Write a workaround or a root cause before marking a known error.',
+  'errors.field.required_for_move': 'Fill this in before the move.',
   'errors.field.required_to_close': 'Needed before closing.',
   'errors.field.required_to_confirm_cause': 'Write the root cause before confirming it.',
   'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',

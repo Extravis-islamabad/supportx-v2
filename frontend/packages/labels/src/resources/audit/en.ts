@@ -12,6 +12,7 @@ export const en = {
   'audit.action.asset.deleted': 'Moved an asset to the trash',
   'audit.action.asset.life_cycle_deleted': 'Deleted an asset life cycle',
   'audit.action.asset.life_cycle_saved': 'Saved an asset life cycle',
+  'audit.action.asset.moved': 'Moved an asset to another state',
   'audit.action.asset.product_deleted': 'Deleted a product',
   'audit.action.asset.product_saved': 'Saved a product',
   'audit.action.asset.product_type_deleted': 'Deleted a product type',
