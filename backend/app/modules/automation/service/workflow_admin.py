@@ -25,9 +25,11 @@ from app.core.errors import Conflict, NotFound, ValidationFailed
 from app.modules.automation.domain.rules import FieldKind
 from app.modules.automation.domain.workflows import (
     FORMAT,
+    Definition,
     Problem,
     TypeFacts,
     parse,
+    sub_flows,
     validate,
 )
 from app.modules.automation.events import WorkflowChanged
@@ -66,13 +68,74 @@ async def type_facts(session: AsyncSession, record_type: str) -> TypeFacts:
 
 
 async def problems_of(
-    session: AsyncSession, record_type: str, definition: Mapping[str, Any]
+    session: AsyncSession,
+    record_type: str,
+    definition: Mapping[str, Any],
+    workflow_id: uuid.UUID | None = None,
 ) -> list[Problem]:
     """Every problem of a definition: unreadable shapes, then validation (REQ-WF-019)."""
     parsed = parse(definition)
     if parsed.definition is None:
         return parsed.problems
-    return parsed.problems + validate(parsed.definition, await type_facts(session, record_type))
+    found = parsed.problems + validate(parsed.definition, await type_facts(session, record_type))
+    return found + await _sub_flow_problems(session, record_type, parsed.definition, workflow_id)
+
+
+MAX_SUB_FLOW_DEPTH = 10  # sub-flows of sub-flows, at most this deep
+
+
+async def _sub_flow_problems(
+    session: AsyncSession,
+    record_type: str,
+    definition: Definition,
+    workflow_id: uuid.UUID | None,
+) -> list[Problem]:
+    """A sub-flow runs a workflow of the same record type that never leads back here (WF-017).
+
+    The other workflows are followed through their published versions, which are what runs.
+    """
+    problems: list[Problem] = []
+    for node_id, child_id in sub_flows(definition).items():
+        where = f"node:{node_id}"
+        child = await session.get(Workflow, child_id)
+        if child is None or child.deleted_at is not None:
+            problems.append((where, "workflow_not_found", {}))
+        elif child.record_type != record_type:
+            problems.append((where, "workflow_wrong_record_type", {"type": child.record_type}))
+        elif await _leads_to(session, child, workflow_id):
+            problems.append((where, "sub_flow_recursion", {"workflow": child.name}))
+    return problems
+
+
+async def _leads_to(session: AsyncSession, start: Workflow, target: uuid.UUID | None) -> bool:
+    """Whether `start`, through published sub-flows, reaches `target` (or itself, or too deep)."""
+    seen: set[uuid.UUID] = set()
+    frontier, depth = [start], 0
+    while frontier:
+        depth += 1
+        if depth > MAX_SUB_FLOW_DEPTH:
+            return True  # deeper than allowed: refused as if it looped
+        following: list[Workflow] = []
+        for flow in frontier:
+            if flow.id == target or flow.id in seen:
+                return True
+            seen.add(flow.id)
+            for child_id in await _published_sub_flows(session, flow):
+                child = await session.get(Workflow, child_id)
+                if child is not None and child.deleted_at is None:
+                    following.append(child)
+        frontier = following
+    return False
+
+
+async def _published_sub_flows(session: AsyncSession, flow: Workflow) -> list[uuid.UUID]:
+    if flow.published_version is None:
+        return []
+    version = await session.get(WorkflowVersion, (flow.tenant_id, flow.id, flow.published_version))
+    parsed = parse(version.definition) if version is not None else None
+    if parsed is None or parsed.definition is None:
+        return []
+    return list(sub_flows(parsed.definition).values())
 
 
 async def _get(session: AsyncSession, workflow_id: uuid.UUID) -> Workflow:
@@ -141,7 +204,7 @@ async def save_draft(
     """The draft saves whatever its problems; they come back to be shown on the canvas."""
     workflow = await _get(session, workflow_id)
     _stale(workflow, expected_version)
-    problems = await problems_of(session, workflow.record_type, definition)
+    problems = await problems_of(session, workflow.record_type, definition, workflow.id)
     workflow.draft = dict(definition)
     workflow.draft_problems = len(problems)
     workflow.version += 1
@@ -156,7 +219,7 @@ async def publish(
     """A clean draft becomes the next version; running instances keep theirs (REQ-WF-021)."""
     workflow = await _get(session, workflow_id)
     _stale(workflow, expected_version)
-    problems = await problems_of(session, workflow.record_type, workflow.draft)
+    problems = await problems_of(session, workflow.record_type, workflow.draft, workflow.id)
     if problems:
         raise ValidationFailed(code="workflow_has_problems", params={"count": len(problems)})
     if workflow.service_identity_id is None:
