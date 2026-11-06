@@ -15,7 +15,14 @@ import pytest
 import structlog
 from structlog.testing import capture_logs
 
-from app.shared.egress import Allowance, EgressError, OutboundRequest, allowed, send
+from app.shared.egress import (
+    Allowance,
+    AllowanceError,
+    EgressError,
+    OutboundRequest,
+    allowed,
+    send,
+)
 from app.shared.egress.addresses import IPAddress
 from app.shared.egress.client import PinnedBackend
 
@@ -153,6 +160,10 @@ async def test_a_response_over_the_cap_is_refused() -> None:
         ("http://h.example/x", {"Host": "other.example"}, "invalid"),
         ("http://h.example/x", {"Transfer-Encoding": "chunked"}, "invalid"),
         ("http://h.example/x", {"X-Bad": "a\r\nInjected: 1"}, "invalid"),
+        ("http://h.example/x", {"X-Bad": "a\x00b"}, "invalid"),  # NUL in a value
+        ("http://h.example/x", {"Bad Name": "v"}, "invalid"),  # not an RFC 9110 token
+        ("http://h.example/x", {"X-Ü": "v"}, "invalid"),
+        ("http://:secret@h.example/x", {}, "invalid"),  # a password alone
     ],
 )
 async def test_refused_before_any_lookup(url: str, headers: dict[str, str], code: str) -> None:
@@ -175,7 +186,7 @@ async def test_the_egress_record_never_holds_secrets_bodies_or_queries() -> None
     backend = httpcore.AsyncMockBackend(_http(200, b"reply-body"))
     request = OutboundRequest(
         "POST",
-        "http://hooks.example.com/x?token=query-secret",
+        "https://hooks.example.com/x?token=query-secret",
         secret_headers={"Authorization": "Bearer header-secret"},
         body=b"body-secret",
     )
@@ -190,7 +201,7 @@ async def test_the_egress_record_never_holds_secrets_bodies_or_queries() -> None
             backend=backend,
         )
     [entry] = [e for e in logs if e["event"] == "egress_call"]
-    assert (entry["host"], entry["port"], entry["status"]) == ("hooks.example.com", 80, 200)
+    assert (entry["host"], entry["port"], entry["status"]) == ("hooks.example.com", 443, 200)
     text = repr(logs)
     for secret in ("query-secret", "header-secret", "body-secret", "reply-body"):
         assert secret not in text
@@ -230,7 +241,7 @@ async def test_a_real_call_to_a_receiver_the_installation_opened(
     with pytest.raises(EgressError) as raised:
         await send(closed, allowance=Allowance(ports=frozenset({port})), module="t", tenant_id=None)
     assert raised.value.code == "blocked"  # loopback stays closed until configured
-    opened = Allowance.from_config(["127.0.0.1/32"], [port])
+    opened = Allowance.from_config(["127.0.0.1/32"], [port], allow_loopback=True)
     response = await send(closed, allowance=opened, module="t", tenant_id=None)
     assert response.status == 204
     assert seen[0].endswith(b"\r\n\r\nexact bytes")  # the body byte for byte
@@ -290,7 +301,7 @@ async def test_tls_verifies_the_host_name_while_the_connection_is_pinned(tmp_pat
 
     server = await asyncio.start_server(handle, "127.0.0.1", 0, ssl=server_tls)
     port = server.sockets[0].getsockname()[1]
-    opened = Allowance.from_config(["127.0.0.1/32"], [port])
+    opened = Allowance.from_config(["127.0.0.1/32"], [port], allow_loopback=True)
     async with server:
         trusted = Destination(ca_pem=cert)
         good = OutboundRequest("GET", f"https://hooks.test:{port}/")
@@ -319,3 +330,67 @@ async def test_tls_verifies_the_host_name_while_the_connection_is_pinned(tmp_pat
                 resolver=Resolver("127.0.0.1"),
             )
         assert wrong_name.value.code == "tls"
+
+
+@pytest.mark.parametrize("method", ["CONNECT", "TRACE", "get", "PROPFIND"])
+async def test_only_the_usual_methods_are_sent(method: str) -> None:
+    resolver = Resolver("93.184.216.34")
+    with pytest.raises(EgressError) as raised:
+        await send(
+            OutboundRequest(method, "https://h.example/x"),
+            allowance=NOBODY,
+            module="t",
+            tenant_id=None,
+            resolver=resolver,
+            backend=httpcore.AsyncMockBackend(_http(200)),
+        )
+    assert raised.value.code == "invalid"
+    assert resolver.calls == 0
+
+
+async def test_secret_headers_never_travel_over_plain_http_unless_the_host_is_listed() -> None:
+    secret = {"Authorization": "Bearer k"}
+    with pytest.raises(EgressError) as raised:
+        await send(
+            OutboundRequest("POST", "http://h.example/x", secret_headers=secret),
+            allowance=NOBODY,
+            module="t",
+            tenant_id=None,
+            resolver=Resolver("93.184.216.34"),
+            backend=httpcore.AsyncMockBackend(_http(200)),
+        )
+    assert raised.value.code == "insecure"
+    listed = Allowance.from_config(["h.example"])
+    done = await send(
+        OutboundRequest("POST", "http://h.example/x", secret_headers=secret),
+        allowance=listed,
+        module="t",
+        tenant_id=None,
+        resolver=Resolver("93.184.216.34"),
+        backend=httpcore.AsyncMockBackend(_http(200)),
+    )
+    assert done.status == 200
+
+
+@pytest.mark.parametrize("entry", ["0.0.0.0/0", "10.0.0.0/7", "::/0", "fc00::/8"])
+def test_an_allow_list_entry_that_opens_too_much_is_refused(entry: str) -> None:
+    with pytest.raises(AllowanceError):
+        Allowance.from_config([entry])
+
+
+def test_loopback_is_listed_only_in_dev_and_test() -> None:
+    with pytest.raises(AllowanceError):
+        Allowance.from_config(["127.0.0.1/32"])
+    assert Allowance.from_config(["127.0.0.1/32"], allow_loopback=True).networks
+
+
+def test_the_settings_refuse_a_wide_entry_and_production_loopback_at_load() -> None:
+    from pydantic import ValidationError  # noqa: PLC0415 - this test only
+
+    from conftest import make_settings  # noqa: PLC0415
+
+    with pytest.raises(ValidationError, match="wider than"):
+        make_settings(egress_allow=["0.0.0.0/0"])
+    with pytest.raises(ValidationError, match="opens loopback"):
+        make_settings(profile="production", egress_allow=["127.0.0.0/8"])
+    assert make_settings(egress_allow=["10.20.0.0/16", "erp.internal"]).egress_allow

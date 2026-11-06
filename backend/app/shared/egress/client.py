@@ -17,12 +17,14 @@ Every call a tenant can aim (a workflow's webhook node, outbound webhooks) goes 
 - **The egress record:** one structured log line per call with tenant, module, host, port, the
   status or error code, the duration and the bytes; never a body, query string or header.
 
-Stable error codes: blocked, unreachable, timeout, too_large, tls, redirect, http_status, invalid.
+Stable error codes: blocked, unreachable, timeout, too_large, tls, redirect, http_status, invalid,
+insecure (secret headers over plain HTTP to a host the installation has not listed).
 Not yet: an installation-level HTTPS proxy (`trust_env` stays off meanwhile); see PROGRESS.
 """
 
 import asyncio
 import os
+import re
 import socket
 import ssl
 import tempfile
@@ -63,6 +65,9 @@ _HOP_BY_HOP = frozenset(
     }
 )
 BLOCKED, UNREACHABLE, TIMEOUT, TOO_LARGE = "blocked", "unreachable", "timeout", "too_large"
+INSECURE = "insecure"
+METHODS = frozenset({"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"})  # never CONNECT or TRACE
+_TOKEN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")  # an RFC 9110 field name
 TLS, REDIRECT, HTTP_STATUS, INVALID = "tls", "redirect", "http_status", "invalid"
 
 Resolver = Callable[[str, int], Awaitable[list[IPAddress]]]
@@ -193,7 +198,8 @@ def _headers(request: OutboundRequest) -> list[tuple[bytes, bytes]]:
     out: list[tuple[bytes, bytes]] = []
     size = 0
     for name, value in merged.items():
-        if name.lower() in _HOP_BY_HOP or not name.isascii() or "\n" in value or "\r" in value:
+        bad_value = any(c in value for c in "\r\n\x00")
+        if name.lower() in _HOP_BY_HOP or not _TOKEN.fullmatch(name) or bad_value:
             raise EgressError(INVALID)
         size += len(name) + len(value)
         out.append((name.encode("ascii"), value.encode("utf-8")))
@@ -202,10 +208,17 @@ def _headers(request: OutboundRequest) -> list[tuple[bytes, bytes]]:
     return out
 
 
-def _target(url: str, allowance: Allowance) -> tuple[str, int]:
-    parts = urlsplit(url)
-    if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username:
+def _target(request: OutboundRequest, allowance: Allowance) -> tuple[str, int]:
+    """The host and port, or why the call is refused before any lookup (lane B's review)."""
+    if request.method not in METHODS:
         raise EgressError(INVALID)
+    parts = urlsplit(request.url)
+    credentials = parts.username is not None or parts.password is not None
+    if parts.scheme not in {"http", "https"} or not parts.hostname or credentials:
+        raise EgressError(INVALID)
+    host = parts.hostname.lower().rstrip(".")
+    if request.secret_headers and parts.scheme == "http" and host not in allowance.hosts:
+        raise EgressError(INSECURE)  # an API key never travels in clear (dev receivers: listed)
     try:
         port = parts.port or (443 if parts.scheme == "https" else 80)
     except ValueError:
@@ -263,7 +276,7 @@ class _Call:
     port: int = 0
 
     async def run(self, resolver: Resolver) -> OutboundResponse:
-        host, self.port = _target(self.request.url, self.allowance)
+        host, self.port = _target(self.request, self.allowance)
         if len(self.request.body) > MAX_BODY_BYTES:
             raise EgressError(TOO_LARGE)
         headers = _headers(self.request)
@@ -316,7 +329,7 @@ async def _call(call: _Call, ip: IPAddress, headers: list[tuple[bytes, bytes]]) 
         async with (
             pool,
             pool.stream(
-                request.method.upper(),
+                request.method,
                 request.url,
                 headers=headers,
                 content=request.body,

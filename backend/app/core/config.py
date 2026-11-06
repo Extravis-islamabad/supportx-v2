@@ -12,6 +12,7 @@ how the process runs, never about SaaS vs on-prem: that difference goes through 
 interface only (CLAUDE.md rule f).
 """
 
+import ipaddress
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Self
@@ -353,6 +354,29 @@ class Settings(BaseSettings):
     metrics_exporter: MetricsExporter = "none"
     metrics_host: str = "127.0.0.1"
     metrics_port: int = Field(default=9464, ge=1, le=65535)
+
+    @model_validator(mode="after")
+    def _egress_allow_is_narrow(self) -> Self:
+        """No allow-list entry wider than /8 or /16, nor loopback outside dev and test (ADR-043 §8).
+
+        Refused when the settings load, so a misconfigured installation never starts with every
+        private range open (lane B's review).
+        """
+        loopback = (ipaddress.ip_network("127.0.0.0/8"), ipaddress.ip_network("::1/128"))
+        for entry in self.egress_allow:
+            try:
+                network = ipaddress.ip_network(entry.strip(), strict=False)
+            except ValueError:
+                continue  # a host name
+            widest = 8 if network.version == 4 else 16  # noqa: PLR2004 - the rule's prefixes
+            if network.prefixlen < widest:
+                msg = f"SUPPORTX_EGRESS_ALLOW: {entry} is wider than /{widest}"
+                raise ValueError(msg)
+            on_loopback = any(network.overlaps(n) for n in loopback if n.version == network.version)
+            if on_loopback and self.profile == "production":
+                msg = f"SUPPORTX_EGRESS_ALLOW: {entry} opens loopback (dev and test only)"
+                raise ValueError(msg)
+        return self
 
     @model_validator(mode="after")
     def _production_requires_backing_services(self) -> Self:

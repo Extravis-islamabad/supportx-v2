@@ -16,6 +16,18 @@ IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 
 DEFAULT_PORTS = frozenset({80, 443})
+MIN_PREFIX_V4 = 8  # no allow-list entry wider than this: it would open every private range
+MIN_PREFIX_V6 = 16
+_LOOPBACK: dict[int, IPNetwork] = {
+    4: ipaddress.ip_network("127.0.0.0/8"),
+    6: ipaddress.ip_network("::1/128"),
+}
+
+
+class AllowanceError(ValueError):
+    """An installation allow-list entry that is refused (too wide, or loopback outside dev)."""
+
+
 _CGNAT = ipaddress.ip_network("100.64.0.0/10")
 _THIS_NETWORK = ipaddress.ip_network("0.0.0.0/8")
 _NAT64 = ipaddress.ip_network("64:ff9b::/96")
@@ -31,8 +43,19 @@ class Allowance:
     ports: frozenset[int] = field(default=DEFAULT_PORTS)
 
     @classmethod
-    def from_config(cls, entries: Iterable[str], extra_ports: Iterable[int] = ()) -> "Allowance":
-        """CIDRs and host names from the installation's settings; anything else is refused."""
+    def from_config(
+        cls,
+        entries: Iterable[str],
+        extra_ports: Iterable[int] = (),
+        *,
+        allow_loopback: bool = False,
+    ) -> "Allowance":
+        """CIDRs and host names from the installation's settings (lane B's hygiene rules).
+
+        Raises AllowanceError for a range wider than /8 (IPv4) or /16 (IPv6), which would open
+        every private range, and for one holding loopback unless `allow_loopback` (dev and test
+        profiles only). Host names are taken as given.
+        """
         networks: list[IPNetwork] = []
         hosts: set[str] = set()
         for raw in entries:
@@ -40,9 +63,16 @@ class Allowance:
             if not entry:
                 continue
             try:
-                networks.append(ipaddress.ip_network(entry, strict=False))
+                network = ipaddress.ip_network(entry, strict=False)
             except ValueError:
                 hosts.add(entry.lower().rstrip("."))
+                continue
+            widest = MIN_PREFIX_V4 if network.version == 4 else MIN_PREFIX_V6  # noqa: PLR2004
+            if network.prefixlen < widest:
+                raise AllowanceError(entry)
+            if network.overlaps(_LOOPBACK[network.version]) and not allow_loopback:
+                raise AllowanceError(entry)
+            networks.append(network)
         return cls(tuple(networks), frozenset(hosts), DEFAULT_PORTS | frozenset(extra_ports))
 
 
