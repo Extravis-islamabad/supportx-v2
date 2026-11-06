@@ -135,6 +135,7 @@ function RoleForm({
   const { message } = App.useApp();
   const { can } = useAccess();
   const { create, update, remove } = useRoleMutations();
+  const [nameMissing, setNameMissing] = useState(false);
   const [name, setName] = useState(
     initial?.name ?? (seed === undefined ? '' : t('roles.copy_name', { name: roleName(seed, t) })),
   );
@@ -198,7 +199,13 @@ function RoleForm({
       )}
       {role?.is_system !== true && (
         <Form layout="vertical">
-          <Form.Item label={t('roles.name')} htmlFor="role-name" required>
+          <Form.Item
+            label={t('roles.name')}
+            htmlFor="role-name"
+            required
+            validateStatus={nameMissing ? 'error' : undefined}
+            help={nameMissing ? t('errors.field.required') : undefined}
+          >
             <Input
               id="role-name"
               data-testid="role-name"
@@ -207,6 +214,7 @@ function RoleForm({
               disabled={readOnly}
               onChange={(event) => {
                 setName(event.target.value);
+                setNameMissing(false);
               }}
             />
           </Form.Item>
@@ -263,8 +271,12 @@ function RoleForm({
         </Flex>
       )}
       {!readOnly && (
-        <Flex justify="end" gap={8}>
-          {role !== null && (
+        // Delete on the start side, apart from Save (QA6S-PEO-08); Save is never disabled
+        // without a reason: an empty name shows its error and takes the focus (PEO-07).
+        <Flex justify="space-between" gap={8}>
+          {role === null ? (
+            <span />
+          ) : (
             <Button
               danger
               data-testid="delete-role"
@@ -279,8 +291,12 @@ function RoleForm({
             type="primary"
             data-testid="save-role"
             loading={create.isPending || update.isPending}
-            disabled={name.trim() === ''}
             onClick={() => {
+              if (role?.is_system !== true && name.trim() === '') {
+                setNameMissing(true);
+                document.getElementById('role-name')?.focus();
+                return;
+              }
               save();
             }}
           >

@@ -138,6 +138,18 @@ describe('Admin › Roles', () => {
     expect(fake.find('POST', '/api/v1/roles')[0]?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
+  it('PEO-07: Save is never disabled without a reason; an empty name says so and sends nothing', async () => {
+    const fake = adminRoutes({ routes: {} });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('new-role'));
+    const save = await screen.findByTestId('save-role');
+    expect(save.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(save);
+    expect(await screen.findByText('This field is required.')).toBeDefined();
+    expect(document.activeElement?.id).toBe('role-name');
+    expect(fake.find('POST', '/api/v1/roles')).toHaveLength(0);
+  });
+
   it('opens built-in roles read-only', async () => {
     adminRoutes();
     render(<App />);
