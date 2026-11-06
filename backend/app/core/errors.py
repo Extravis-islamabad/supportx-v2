@@ -6,6 +6,7 @@ Clients never see exception names, internal messages or stack traces: unexpected
 a generic `internal_error` and the details go to the server log only.
 """
 
+import typing
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, ClassVar
@@ -14,6 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from pydantic_core.core_schema import ErrorType
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.logging import get_logger
@@ -213,33 +215,104 @@ def internal_error_response(path: str | None) -> JSONResponse:
     )
 
 
-# Request-validation codes from Pydantic, in the app's own words (QA WP-021 BUG-01, BUG-02): a
-# missing or null value where one is needed is "required"; a too long or too short text names its
-# limit. Every other code passes through (each has an `errors.field.<code>` label).
+# Request-validation codes from Pydantic, in the app's own words (QA WP-021 BUG-01, BUG-02;
+# QA6 AUT-01, AUT-02): Pydantic's own codes ("uuid_parsing", "date_from_datetime_parsing" ...)
+# never reach a person. A missing or empty value where one is needed is "required"; a wrong date,
+# number or choice says so plainly; a limit names itself; anything else is "invalid_value".
 _REQUIRED_TYPES = frozenset(
     {"missing", "string_type", "int_type", "float_type", "bool_type", "uuid_type", "dict_type"}
 )
+_PREFIX_CODES: tuple[tuple[str, str], ...] = (
+    ("date", "invalid_date"),
+    ("datetime", "invalid_date"),
+    ("time", "invalid_date"),
+    ("timezone", "invalid_date"),
+    ("int", "invalid_number"),
+    ("float", "invalid_number"),
+    ("decimal", "invalid_number"),
+    ("complex", "invalid_number"),
+    ("finite_number", "invalid_number"),
+    ("multiple_of", "invalid_number"),
+    ("literal_error", "invalid_choice"),
+    ("enum", "invalid_choice"),
+    ("string", "invalid_text"),
+)
+# The codes a request-validation error may carry, each with an `errors.field.<code>` label (a
+# test checks every Pydantic error type lands on one of them).
+VALIDATION_CODES = frozenset(
+    {
+        "required",
+        "value_too_long",
+        "value_too_short",
+        "too_many_values",
+        "below_minimum",
+        "above_maximum",
+        *(code for _, code in _PREFIX_CODES),
+        "invalid_value",
+    }
+)
+_MESSAGE_KEYS = {"value_too_long": "errors.field.value_too_long_max"}
+
+
+def _limit_code(kind: str, context: Mapping[str, Any]) -> tuple[str, dict[str, ParamValue]] | None:
+    """A broken length or range limit, named with its limit (None: not a limit error)."""
+    found: tuple[str, dict[str, ParamValue]] | None = None
+    if kind == "string_too_long":
+        found = "value_too_long", {"max_length": context.get("max_length", 0)}
+    elif kind in {"string_too_short", "too_short"}:
+        least = context.get("min_length", 1)
+        if least == 1:
+            found = "required", {}
+        elif kind == "string_too_short":
+            found = "value_too_short", {"min": least}
+        else:
+            found = "invalid_value", {}
+    elif kind == "too_long":
+        found = "too_many_values", {"max": context.get("max_length", 0)}
+    elif kind in {"greater_than", "greater_than_equal"}:
+        found = "below_minimum", {"min": str(context.get("gt", context.get("ge", "")))}
+    elif kind in {"less_than", "less_than_equal"}:
+        found = "above_maximum", {"max": str(context.get("lt", context.get("le", "")))}
+    return found
+
+
+# Pydantic's own error types; any other code was raised by the app itself and has its label.
+# `invalid_key` is also the app's code for a question key (catalog), so it passes through.
+_PYDANTIC_TYPES = frozenset(typing.get_args(ErrorType)) - {"invalid_key"}
+
+_EMPTY_MEANS_REQUIRED = ("uuid", "date", "datetime", "time", "int", "float", "decimal")
+
+
+def _validation_code(error: Mapping[str, Any]) -> tuple[str, dict[str, ParamValue]]:
+    """The app's code for one Pydantic error and the params its message uses."""
+    kind = str(error.get("type", "invalid"))
+    given = error.get("input", "")
+    if kind not in _PYDANTIC_TYPES:
+        context: Mapping[str, Any] = error.get("ctx") or {}
+        return kind, {
+            key: value
+            for key, value in context.items()
+            if isinstance(value, str | int | float | bool) and key != "error"
+        }
+    if kind == "missing" or (kind in _REQUIRED_TYPES and given is None):
+        return "required", {}
+    limit = _limit_code(kind, error.get("ctx") or {})
+    if limit is not None:
+        return limit
+    if given in (None, "") and kind.startswith(_EMPTY_MEANS_REQUIRED):
+        return "required", {}
+    return next(
+        (code for prefix, code in _PREFIX_CODES if kind == prefix or kind.startswith(f"{prefix}_")),
+        ("invalid_value"),
+    ), {}
 
 
 def _field_error(error: Mapping[str, Any]) -> FieldError:
-    code = str(error.get("type", "invalid"))
-    context: Mapping[str, Any] = error.get("ctx") or {}
-    params: dict[str, ParamValue] = {
-        key: value
-        for key, value in context.items()
-        if isinstance(value, str | int | float | bool) and key != "error"
-    }
-    message_key = f"errors.field.{code}"
-    if code == "missing" or (code in _REQUIRED_TYPES and error.get("input", "") is None):
-        code, message_key, params = "required", "errors.field.required", {}
-    elif code == "string_too_long":
-        code, message_key = "value_too_long", "errors.field.value_too_long_max"
-    elif code == "string_too_short" and params.get("min_length") == 1:
-        code, message_key, params = "required", "errors.field.required", {}
+    code, params = _validation_code(error)
     return FieldError(
         field=".".join(str(part) for part in error.get("loc", ())),
         code=code,
-        message_key=message_key,
+        message_key=_MESSAGE_KEYS.get(code, f"errors.field.{code}"),
         params=params,
     )
 
