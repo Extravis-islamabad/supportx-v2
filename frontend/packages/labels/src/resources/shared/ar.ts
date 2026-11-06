@@ -168,6 +168,7 @@ export const ar: LabelResource = {
   'module.incident_management': 'إدارة الحوادث',
   'nav.admin': 'الإدارة',
   'nav.admin_api_keys': 'مفاتيح API',
+  'nav.admin_assets': 'الأصول',
   'nav.admin_automation': 'الأتمتة',
   'nav.admin_branding': 'العلامة التجارية',
   'nav.admin_catalog': 'كتالوج الخدمات',
@@ -460,6 +461,7 @@ export const ar: LabelResource = {
   'settings.to_status': 'إلى',
   'settings.use_shipped_name': 'استخدام الاسم المدمج (مترجم لكل لغة)',
   'settings.yes': 'نعم',
+  'setup.group.assets': 'الأصول',
   'setup.group.audit': 'التدقيق',
   'setup.group.automation_sla': 'الأتمتة واتفاقيات مستوى الخدمة',
   'setup.group.channels': 'القنوات والتكاملات',
@@ -477,6 +479,10 @@ export const ar: LabelResource = {
   'setup.page.api-keys.description':
     'مفاتيح تتيح لأنظمة أخرى استخدام واجهة API: من أنشأها ونطاقاتها وانتهاؤها واستخدامها.',
   'setup.page.api-keys.keywords': 'مفاتيح API، رموز، تكاملات، نطاقات، أتمتة، نصوص برمجية، إلغاء',
+  'setup.page.assets.description':
+    'أنواع المنتجات والمنتجات وحالات الأصول ودورات الحياة ووسوم الأصول.',
+  'setup.page.assets.keywords':
+    'أصول، منتجات، أنواع المنتجات، أجهزة، مخزون، حالات، دورة الحياة، وسوم، إهلاك',
   'setup.page.audit.description': 'كل تغيير وتسجيل دخول، مع سلسلته التي تكشف العبث.',
   'setup.page.audit.keywords': 'تدقيق، سجل، تاريخ، تغييرات، تسجيلات الدخول، امتثال',
   'setup.page.automation.description': 'قواعد العمل والمشغلات وحماية التكرار.',

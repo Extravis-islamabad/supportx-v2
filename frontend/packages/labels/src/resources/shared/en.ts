@@ -157,6 +157,7 @@ export const en = {
   'module.incident_management': 'Incident Management',
   'nav.admin': 'Admin',
   'nav.admin_api_keys': 'API keys',
+  'nav.admin_assets': 'Assets',
   'nav.admin_automation': 'Automation',
   'nav.admin_branding': 'Branding',
   'nav.admin_catalog': 'Service catalog',
@@ -450,6 +451,7 @@ export const en = {
   'settings.to_status': 'To',
   'settings.use_shipped_name': 'Use the built-in name (translated for every language)',
   'settings.yes': 'Yes',
+  'setup.group.assets': 'Assets',
   'setup.group.audit': 'Audit',
   'setup.group.automation_sla': 'Automation and SLA',
   'setup.group.channels': 'Channels and integrations',
@@ -470,6 +472,10 @@ export const en = {
     'Keys that let other systems use the API: who made them, their scopes, expiry and use.',
   'setup.page.api-keys.keywords':
     'api keys, tokens, integrations, scopes, automation, scripts, revoke',
+  'setup.page.assets.description':
+    'Product types, products, asset states, life cycles and asset tags.',
+  'setup.page.assets.keywords':
+    'assets, products, product types, hardware, inventory, states, life cycle, tags, depreciation',
   'setup.page.audit.description': 'Every change and sign-in, with its tamper-evident chain.',
   'setup.page.audit.keywords': 'audit, log, history, changes, sign-ins, compliance, trail',
   'setup.page.automation.description': 'Business rules, triggers and the loop guard.',

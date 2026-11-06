@@ -292,8 +292,12 @@ export const ur: LabelResource = {
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',
+  'permission.assets.edit_disposed': 'تلف شدہ اثاثے بدلیں',
+  'permission.assets.edit_disposed.description': 'تلف ہونے کے بعد اثاثہ بدلیں، ہر بار وجہ بتا کر۔',
   'permission.assets.manage': 'اثاثوں کا انتظام کریں',
   'permission.assets.manage.description': 'اثاثے شامل اور تبدیل کریں۔',
+  'permission.assets.reinstate': 'ریٹائرڈ اثاثے واپس لائیں',
+  'permission.assets.reinstate.description': 'ریٹائرڈ اثاثہ واپس اسٹاک میں لائیں۔',
   'permission.assets.view': 'اثاثے دیکھیں',
   'permission.assets.view.description': 'ہارڈ ویئر اور سافٹ ویئر اثاثے دیکھیں۔',
   'permission.audit.export': 'آڈٹ لاگ برآمد کریں',
@@ -332,6 +336,9 @@ export const ur: LabelResource = {
   'permission.config.announcements': 'اعلانات ترتیب دیں',
   'permission.config.announcements.description':
     'کون شائع کر سکتا ہے، اور کیا دوسرے شخص کی منظوری ضروری ہے۔',
+  'permission.config.assets': 'اثاثوں کی ترتیب',
+  'permission.config.assets.description':
+    'پروڈکٹ کی اقسام، پروڈکٹس، اثاثوں کی حالتیں، لائف سائیکل اور اثاثوں کی ترتیبات تبدیل کریں۔',
   'permission.config.organisation': 'ادارہ ترتیب دیں',
   'permission.config.organisation.description': 'ڈیسک اور ادارے کے ڈھانچے کی ترتیبات۔',
   'permission.config.reports': 'رپورٹس ترتیب دیں',
@@ -616,6 +623,13 @@ export const ur: LabelResource = {
   'permission.users.manage.description': 'صارفین کو کردار، سائٹس اور گروپس تفویض کریں۔',
   'permission.users.view': 'صارفین دیکھیں',
   'permission.users.view.description': 'ادارے کے لوگ اور ان کی تفصیلات دیکھیں۔',
+  'permission.vendors.create': 'وینڈرز شامل کریں',
+  'permission.vendors.create.description': 'وینڈر شامل کریں، کسی دوسرے فارم سے بھی۔',
+  'permission.vendors.manage': 'وینڈرز کا انتظام کریں',
+  'permission.vendors.manage.description': 'وینڈرز میں تبدیلی، غیر فعال اور حذف کریں۔',
+  'permission.vendors.view': 'وینڈرز دیکھیں',
+  'permission.vendors.view.description':
+    'وینڈرز اور ان کی تفصیلات دیکھیں، اور ریکارڈز پر انہیں منتخب کریں۔',
   'permission.work_items.approve_any': 'متبادل منظوریوں کا فیصلہ کریں',
   'permission.work_items.approve_any.description':
     'ان منظوریوں کا فیصلہ کریں جن کا کوئی فعال منظوری دہندہ نہیں (منظوری کے منتظمین)۔',
@@ -656,6 +670,7 @@ export const ur: LabelResource = {
   'permission_module.sites': 'سائٹس',
   'permission_module.sla': 'ایس ایل اے',
   'permission_module.users': 'صارفین',
+  'permission_module.vendors': 'وینڈرز',
   'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'preferences.date_format': 'تاریخ کا فارمیٹ',
   'preferences.default': 'طے شدہ',

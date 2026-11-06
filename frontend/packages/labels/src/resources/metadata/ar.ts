@@ -4,6 +4,7 @@ import type { LabelResource } from '../en';
 export const ar: LabelResource = {
   'custom_field_display.list': 'قائمة منسدلة',
   'custom_field_display.radio': 'أزرار',
+  'custom_field_entity.asset': 'الأصول',
   'custom_field_entity.incident': 'الحوادث',
   'custom_field_entity.problem': 'المشكلات',
   'custom_field_entity.release': 'الإصدارات',

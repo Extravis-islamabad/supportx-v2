@@ -777,6 +777,149 @@
         "type": "object"
       }
     },
+    "assets.asset.changed": {
+      "1": {
+        "description": "An asset was added, changed, moved to the trash or restored (REQ-AST-007).\n\n`site_id` is the asset's site after the change, so live lists at that site hear of it.",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted",
+              "restored"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Site Id"
+          }
+        },
+        "required": [
+          "asset_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "AssetChanged",
+        "type": "object"
+      }
+    },
+    "assets.catalogue.changed": {
+      "1": {
+        "description": "A product type, state, life cycle or the asset settings changed (admin set-up).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Item Id"
+          },
+          "kind": {
+            "enum": [
+              "product_type",
+              "state",
+              "life_cycle",
+              "settings"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "action",
+          "changed_fields"
+        ],
+        "title": "CatalogueChanged",
+        "type": "object"
+      }
+    },
+    "assets.product.changed": {
+      "1": {
+        "description": "A product was created, changed or moved to the trash (REQ-AST-005).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "product_type_id": {
+            "format": "uuid",
+            "title": "Product Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "product_type_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "ProductChanged",
+        "type": "object"
+      }
+    },
     "audit.alert.raised": {
       "1": {
         "description": "Something security admins must see: a broken chain, overdue sealing, probing.\n\nREQ-AUD-005, REQ-AUD-010. The notification engine (WP-023) will deliver it; until then the\nconsole shows a banner and operations get a metric alert (D-076).",
@@ -2790,6 +2933,41 @@
           "changed_fields"
         ],
         "title": "TenantSettingsChanged",
+        "type": "object"
+      }
+    },
+    "procurement.vendor.changed": {
+      "1": {
+        "description": "A vendor was added, changed or moved to the trash (REQ-PUR-001).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "vendor_id": {
+            "format": "uuid",
+            "title": "Vendor Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "VendorChanged",
         "type": "object"
       }
     },
