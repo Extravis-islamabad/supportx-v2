@@ -6,6 +6,7 @@ const HEADER_ROLES = [
   'service_desk_manager',
   'site_admin',
   'knowledge_manager',
+  'problem_manager',
   'auditor',
   'report_viewer',
   'technician',
