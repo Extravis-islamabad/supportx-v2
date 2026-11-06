@@ -178,6 +178,23 @@ async def publish(
     return version
 
 
+async def set_start_templates(
+    session: AsyncSession,
+    workflow_id: uuid.UUID,
+    *,
+    expected_version: int,
+    template_ids: list[uuid.UUID],
+) -> Workflow:
+    """The templates whose new records start this workflow (REQ-WF-010 AC1)."""
+    workflow = await _get(session, workflow_id)
+    _stale(workflow, expected_version)
+    workflow.start_templates = sorted(set(template_ids))
+    workflow.version += 1
+    await session.flush()
+    await _changed(session, workflow, "draft_saved")
+    return workflow
+
+
 async def set_enabled(
     session: AsyncSession, workflow_id: uuid.UUID, *, expected_version: int, enabled: bool
 ) -> Workflow:

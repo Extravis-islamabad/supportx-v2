@@ -93,6 +93,14 @@ def _workflows() -> None:
         sa.Column("owner_id", sa.Uuid(), nullable=True),
         sa.Column("service_identity_id", sa.Uuid(), nullable=True),
         sa.Column("published_version", sa.Integer(), nullable=True),
+        # Templates whose new records start this workflow (REQ-WF-010 AC1); kept here, so the
+        # owning module's templates need no field of automation's (rule e).
+        sa.Column(
+            "start_templates",
+            postgresql.ARRAY(sa.Uuid()),
+            server_default=sa.text("'{}'::uuid[]"),
+            nullable=False,
+        ),
         sa.Column("version", sa.BigInteger(), server_default="1", nullable=False),
         *_stamps(),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),

@@ -17,13 +17,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
+from app.core.errors import Conflict
 from app.core.tenancy import TenantContext
 from app.modules.automation.domain.interpreter import InstanceStatus, RecordChanged, TimerFired
 from app.modules.automation.domain.triggers import TriggerEvent
 from app.modules.automation.domain.workflows import WaitEvent
-from app.modules.automation.infra.models import WorkflowInstance
+from app.modules.automation.infra.models import Workflow, WorkflowInstance
 from app.modules.automation.service import workflow_runtime
 from app.modules.automation.service.registry import event_reader
+from app.modules.automation.service.registry import record_type as registered
 from app.shared.clock import system_clock
 from app.shared.events import EventEnvelope
 
@@ -50,6 +52,8 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
     happened = await reader(session, envelope) if reader is not None else None
     if happened is None or happened.event is None:
         return
+    if happened.event == TriggerEvent.CREATED:
+        await _start_from_template(session, happened.record_type, happened.record_id)
     kind = _WAITS.get(happened.event)
     if kind is None:
         return
@@ -64,6 +68,37 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
     )
     for instance_id in waiting:
         await workflow_runtime.run(session, instance_id, RecordChanged(kind))
+
+
+async def _start_from_template(
+    session: AsyncSession, record_type: str, record_id: uuid.UUID
+) -> None:
+    """A record made from a template starts the enabled workflows set on it (REQ-WF-010 AC1)."""
+    kind = registered(record_type)
+    facts = await kind.facts(session, record_id) if kind and kind.facts else None
+    template = (facts or {}).get("template_id")
+    if template is None:
+        return
+    starting = await session.scalars(
+        select(Workflow.id).where(
+            Workflow.record_type == record_type,
+            Workflow.enabled.is_(True),
+            Workflow.deleted_at.is_(None),
+            Workflow.start_templates.contains([uuid.UUID(str(template))]),
+        )
+    )
+    for workflow_id in list(starting):
+        try:
+            async with session.begin_nested():
+                await workflow_runtime.start(
+                    session,
+                    workflow_id=workflow_id,
+                    record_type=record_type,
+                    record_id=record_id,
+                    how="template",
+                )
+        except Conflict:
+            continue  # already running (a redelivered event): one instance per record
 
 
 async def _due(session: AsyncSession) -> list[uuid.UUID]:

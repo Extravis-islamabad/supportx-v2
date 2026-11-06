@@ -275,6 +275,9 @@ class Workflow(TenantEntity):
     owner_id: Mapped[uuid.UUID | None]
     service_identity_id: Mapped[uuid.UUID | None]
     published_version: Mapped[int | None] = mapped_column(Integer)
+    start_templates: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(Uuid), server_default=text("'{}'::uuid[]")
+    )
 
 
 class WorkflowVersion(TenantKeyed, Base):

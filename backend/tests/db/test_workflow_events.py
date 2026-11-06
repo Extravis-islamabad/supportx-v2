@@ -137,3 +137,30 @@ async def test_req_wf_013_the_sweep_runs_an_instance_whose_timer_is_due(world: W
         found.state = state
     await workflow_events.wake_due(world.app.state.db, make_settings())
     assert await _status(world, instance) == "finished"
+
+
+async def test_req_wf_010_ac1_a_record_made_from_its_template_starts_the_workflow(
+    world: World,
+) -> None:
+    a = world.a
+    flow = await _workflow(world, WAIT_FOR_P1)
+    item = await world.create(a, a.admin)
+    template = uuid.UUID(item["template_id"])
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        found = await session.get(Workflow, flow)
+        assert found is not None
+        found.start_templates = [template]
+    second = await world.create(a, a.admin)  # made after the workflow took the template
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE event_type = 'work_items.work_item.created'"
+        " AND aggregate_id = $1",
+        second["id"],
+    )
+    envelope = EventEnvelope.model_validate(json.loads(rows[0]["envelope"]))
+    for _ in range(2):  # a redelivered event starts nothing more
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            await workflow_events.on_record_event(envelope, session)
+    started = await world.sql(
+        "SELECT started_how FROM workflow_instances WHERE record_id = $1", uuid.UUID(second["id"])
+    )
+    assert [r["started_how"] for r in started] == ["template"]

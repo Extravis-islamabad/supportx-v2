@@ -55,7 +55,16 @@ class WorkflowOut(BaseModel):
     problems: list[ProblemOut] = Field(default_factory=list)
     enabled: bool
     published_version: int | None
+    start_templates: list[uuid.UUID] = Field(
+        default_factory=list, description="Templates whose new records start it (REQ-WF-010)."
+    )
     version: int
+
+
+class StartTemplatesIn(BaseModel):
+    """The templates whose new records start this workflow."""
+
+    template_ids: list[uuid.UUID] = Field(max_length=200)
 
 
 class DraftIn(BaseModel):
@@ -118,6 +127,7 @@ def _out(workflow: Workflow, problems: list[Problem] | None = None) -> WorkflowO
         problems=_problems(problems or []),
         enabled=workflow.enabled,
         published_version=workflow.published_version,
+        start_templates=list(workflow.start_templates or []),
         version=workflow.version,
     )
 
@@ -200,6 +210,24 @@ async def publish(
     found = await session.get(Workflow, workflow_id)
     assert found is not None  # just published  # noqa: S101
     return _out(found)
+
+
+@router.put("/{workflow_id}/start-templates", summary="Templates that start the workflow")
+async def set_start_templates(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    workflow_id: uuid.UUID,
+    body: StartTemplatesIn,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+) -> WorkflowOut:
+    """A record made from one of them starts the workflow, when it is on (REQ-WF-010 AC1)."""
+    del subject
+    changed = await workflow_admin.set_start_templates(
+        session, workflow_id, expected_version=version, template_ids=body.template_ids
+    )
+    set_etag(response, changed.version)
+    return _out(changed)
 
 
 @router.put("/{workflow_id}/enabled", summary="Switch a workflow on or off")
