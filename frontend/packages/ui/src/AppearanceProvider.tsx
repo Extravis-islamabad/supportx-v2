@@ -115,6 +115,8 @@ export function AppearanceProvider({
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [urduScript, setUrduScript] = useState<UrduScript>('naskh');
   const [textScale, setTextScale] = useState(100);
+  // The top bar's height at this text size, plus a gap: where toasts start.
+  const belowHeader = Math.round((56 * textScale) / 100) + 8;
   const [digits, setDigits] = useState<Digits>('western');
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
@@ -184,7 +186,14 @@ export function AppearanceProvider({
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
           {/* Messages start below the header, never over its search field (UI pass 2, agreed
               with lane B); the header grows with the text size. Notifications stay top-right. */}
-          <AntApp message={{ top: Math.round((56 * textScale) / 100) + 8 }}>{children}</AntApp>
+          <AntApp
+            // Toasts open below the top bar, never over the user menu (#204 for messages;
+            // QA6-SH-02 for the error notifications).
+            message={{ top: belowHeader }}
+            notification={{ top: belowHeader }}
+          >
+            {children}
+          </AntApp>
         </ConfigProvider>
       </LabelsProvider>
     </AppearanceContext.Provider>
