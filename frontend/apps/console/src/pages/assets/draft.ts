@@ -15,6 +15,8 @@ export interface AssetDraft {
   acquired_on: string | null;
   warranty_expires_on: string | null;
   description: string;
+  /** Custom values by field key (REQ-AST-007; metadata checks them). */
+  custom: Record<string, unknown>;
 }
 
 export function draftOf(asset: AssetRecord | null): AssetDraft {
@@ -32,6 +34,7 @@ export function draftOf(asset: AssetRecord | null): AssetDraft {
     acquired_on: asset?.acquired_on ?? null,
     warranty_expires_on: asset?.warranty_expires_on ?? null,
     description: asset?.description ?? '',
+    custom: { ...(asset?.custom ?? {}) },
   };
 }
 
@@ -54,8 +57,20 @@ export function bodyOf(draft: AssetDraft, before?: AssetDraft): Record<string, u
     description: blank(draft.description),
   };
   if (before === undefined) {
-    return Object.fromEntries(Object.entries(body).filter(([, v]) => v !== null));
+    const set = Object.fromEntries(Object.entries(draft.custom).filter(([, v]) => v != null));
+    const created = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== null));
+    return Object.keys(set).length === 0 ? created : { ...created, custom: set };
   }
   const old = bodyOf(before);
-  return Object.fromEntries(Object.entries(body).filter(([k, v]) => v !== (old[k] ?? null)));
+  const changed = Object.fromEntries(
+    Object.entries(body).filter(([k, v]) => k !== 'custom' && v !== (old[k] ?? null)),
+  );
+  // Only the custom values that changed; null clears one (the API's PATCH semantics).
+  const keys = new Set([...Object.keys(draft.custom), ...Object.keys(before.custom)]);
+  const custom: Record<string, unknown> = {};
+  for (const key of keys) {
+    const now = draft.custom[key] ?? null;
+    if (JSON.stringify(now) !== JSON.stringify(before.custom[key] ?? null)) custom[key] = now;
+  }
+  return Object.keys(custom).length === 0 ? changed : { ...changed, custom };
 }

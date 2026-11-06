@@ -6,11 +6,14 @@ import {
   useAssetProduct,
   useAssetProducts,
   useAssetProductTypes,
+  useCustomFields,
   useVendors,
 } from '@supportx/api-client';
 import { lengthLimit, useAppearance, useLabel } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
+import { CustomFieldControl } from '../customFields/fields';
+import { fieldName } from '../customFields/values';
 import { nameOf } from '../admin/assets/shared';
 import { typeTree, type TypeNode } from '../admin/assets/tree';
 import type { AssetDraft } from './draft';
@@ -39,6 +42,11 @@ export function AssetFields({
   const products = useAssetProducts({ search: searched === '' ? undefined : searched });
   const current = useAssetProduct(draft.product_id === '' ? undefined : draft.product_id);
   const vendors = useVendors(false);
+  // The tenant's asset custom fields (migration 0083): every active one, in its order.
+  const custom = useCustomFields('asset');
+  const customFields = (custom.data ?? [])
+    .filter((f) => !f.retired && !f.removed)
+    .sort((a, b) => a.sort_order - b.sort_order);
   const productChoices = useMemo(() => {
     const rows = products.data?.pages.flatMap((p) => p.items) ?? [];
     const walk = (nodes: TypeNode[]): object[] =>
@@ -207,6 +215,28 @@ export function AssetFields({
           }}
         />
       </Form.Item>
+      {customFields.map((field) => {
+        const id = `asset-custom-${field.key}`;
+        return (
+          <Form.Item
+            key={field.key}
+            label={fieldName(field, locale)}
+            htmlFor={id}
+            required={field.validation.required}
+          >
+            <CustomFieldControl
+              id={id}
+              field={field}
+              value={draft.custom[field.key] ?? null}
+              onChange={(next) => {
+                set({ custom: { ...draft.custom, [field.key]: next } });
+              }}
+              testId={id}
+              ariaLabel={fieldName(field, locale)}
+            />
+          </Form.Item>
+        );
+      })}
     </Form>
   );
 }

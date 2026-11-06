@@ -181,6 +181,52 @@ describe('console: assets', () => {
     });
   });
 
+  it('asset custom fields: set when adding, shown on the record, only changes sent on edit', async () => {
+    const field = {
+      id: 'cf-1',
+      key: 'cost_centre',
+      entity: 'asset',
+      field_type: 'text',
+      labels: { en: 'Cost centre' },
+      help: {},
+      choices: [],
+      display: 'dropdown',
+      validation: { required: false },
+      currency: null,
+      default: null,
+      in_use: false,
+      index_state: 'ready',
+      index_error: null,
+      removed: false,
+      retired: false,
+      sort_order: 1,
+      version: 1,
+    };
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      'GET /api/v1/custom-fields': { body: [field] },
+      [`GET /api/v1/assets/${asset.id}`]: {
+        body: { ...asset, custom: { cost_centre: 'FIN-01' } },
+        headers: { ETag: '"3"' },
+      },
+      [`PATCH /api/v1/assets/${asset.id}`]: { body: { ...asset, version: 4 } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByText('Cost centre')).toBeTruthy();
+    expect(screen.getByText('FIN-01')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('asset-edit'));
+    fireEvent.change(await screen.findByTestId('asset-custom-cost_centre'), {
+      target: { value: 'FIN-02' },
+    });
+    fireEvent.click(screen.getByTestId('asset-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/assets/${asset.id}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/assets/${asset.id}`);
+    expect(sent?.body).toEqual({ custom: { cost_centre: 'FIN-02' } });
+  });
+
   it('shows one asset with price, tax and total, and saves an edit with If-Match', async () => {
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({

@@ -21,6 +21,7 @@ import {
   useAssetProductTypes,
   useAssetRecord,
   useAssetMoves,
+  useCustomFields,
   useAssetRecordChange,
   useAssetStates,
   useSession,
@@ -41,6 +42,8 @@ import {
 
 import { Problems } from '../admin/incidents/shared';
 import { nameOf } from '../admin/assets/shared';
+import { CustomFieldValue } from '../customFields/fields';
+import { fieldName } from '../customFields/values';
 import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
 import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
@@ -127,6 +130,10 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const manage = access.can('assets.manage');
   const type = types.data?.find((x) => x.id === asset.product_type_id);
   const state = states.data?.find((x) => x.id === asset.state_id);
+  const custom = useCustomFields('asset');
+  const customFields = (custom.data ?? [])
+    .filter((f) => !f.removed)
+    .sort((a, b) => a.sort_order - b.sort_order);
   // Dispose (REQ-AST-017) only where the life cycle has a way into a disposed state from here.
   const moves = useAssetMoves(manage ? asset.id : undefined);
   const disposedIds = new Set(
@@ -261,6 +268,13 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             label: t('assets.record.location'),
             children: <bdi dir="auto">{asset.location ?? '—'}</bdi>,
           },
+          ...customFields
+            .filter((field) => asset.custom[field.key] != null)
+            .map((field) => ({
+              key: `custom-${field.key}`,
+              label: fieldName(field, locale),
+              children: <CustomFieldValue field={field} value={asset.custom[field.key]} />,
+            })),
         ]}
       />
       {asset.description !== null && (
