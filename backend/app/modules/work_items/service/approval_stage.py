@@ -92,8 +92,11 @@ async def open_stage(
     opened = []
     for assignment in assignments:
         reason = assignment.reason.value if assignment.reason else None
-        if assignment.origin is rules.ApproverOrigin.ADMINISTRATORS and await _nobody_can_decide(
-            session, record, holders, self_approval=item.self_approval
+        if (
+            assignment.origin is rules.ApproverOrigin.ADMINISTRATORS
+            # "The approver is the requester" already says why it waits (REQ-SR-027).
+            and assignment.reason is not rules.RouteReason.SELF_APPROVAL_BLOCKED
+            and await _nobody_can_decide(session, record, holders, self_approval=item.self_approval)
         ):
             # QA6-SR-01: say so on the record instead of waiting silently for ever; an admin
             # names an approver or gives someone else the right (the daily check reroutes).
