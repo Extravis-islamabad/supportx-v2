@@ -194,6 +194,8 @@ export const ar: LabelResource = {
   'automation_outcome.own_change': 'لم يُشغّل على تغييره الذاتي',
   'automation_outcome.partial': 'تم جزئيًا',
   'automation_outcome.per_minute': 'أُوقف: تغييرات كثيرة جدًا في الدقيقة',
+  'errors.workflow_move_without_action':
+    'خطوة سير العمل هذه تنقل السجل دون تحديد انتقال حالة. اختر واحدًا في سير العمل.',
   'loop_stop.depth': 'سلسلة طويلة جدًا',
   'loop_stop.own_change': 'تغييره الذاتي',
   'loop_stop.rate': 'تغييرات كثيرة جدًا في الدقيقة',

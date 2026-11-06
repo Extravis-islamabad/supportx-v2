@@ -190,6 +190,8 @@ export const ur: LabelResource = {
   'automation_outcome.own_change': 'اپنی تبدیلی پر نہیں چلا',
   'automation_outcome.partial': 'جزوی طور پر ہوا',
   'automation_outcome.per_minute': 'روکا گیا: فی منٹ بہت زیادہ تبدیلیاں',
+  'errors.workflow_move_without_action':
+    'یہ ورک فلو قدم ریکارڈ منتقل کرتا ہے مگر کوئی حالت کی منتقلی نہیں بتاتا۔ ورک فلو میں ایک منتخب کریں۔',
   'loop_stop.depth': 'سلسلہ بہت لمبا',
   'loop_stop.own_change': 'اپنی تبدیلی',
   'loop_stop.rate': 'فی منٹ بہت زیادہ تبدیلیاں',

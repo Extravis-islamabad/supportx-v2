@@ -187,6 +187,8 @@ export const en = {
   'automation_outcome.own_change': 'Not run on its own change',
   'automation_outcome.partial': 'Partly done',
   'automation_outcome.per_minute': 'Stopped: too many changes a minute',
+  'errors.workflow_move_without_action':
+    'This workflow step moves the record but names no status move. Choose one in the workflow.',
   'loop_stop.depth': 'Chain too long',
   'loop_stop.own_change': 'Its own change',
   'loop_stop.rate': 'Too many changes a minute',

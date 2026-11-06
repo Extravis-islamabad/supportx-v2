@@ -26,7 +26,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import AppError
+from app.core.errors import AppError, BadRequest
 from app.modules import automation
 from app.modules.identity_access import Subject, worker_policy
 from app.modules.work_items.domain.conversation import EntryKind, Visibility
@@ -103,7 +103,12 @@ async def _carry_out(  # noqa: PLR0913 - the command and its context, explicit
 ) -> bool:
     """Carry out one command; False: not a command this module knows."""
     if kind == MOVE:
-        action = str(payload.get("action"))
+        raw = payload.get("action")
+        if not isinstance(raw, str) or raw == "":
+            # A move with no action is the definition's fault: a clear refusal, never "None"
+            # sent on as a target (lane A's review).
+            raise BadRequest(code="workflow_move_without_action")
+        action = raw
         if action in {a.value for a in WorkItemAction}:
             await items.transition(
                 session,
