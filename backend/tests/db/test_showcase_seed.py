@@ -109,7 +109,9 @@ async def _states(url: str) -> Counter[str]:
     try:
         async with conn.transaction():
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
-            rows = await conn.fetch("SELECT status, technician_id FROM work_items")
+            rows = await conn.fetch(
+                "SELECT status, technician_id FROM work_items WHERE type = 'incident'"
+            )
     finally:
         await conn.close()
     return Counter(f"{r['status']}{'' if r['technician_id'] else ' unassigned'}" for r in rows)
@@ -186,12 +188,13 @@ async def _backdating_is_consistent(url: str) -> list[str]:
         rows = await conn.fetch(
             "SELECT w.display_id, w.created_at, w.first_responded_at, w.resolved_at,"
             " w.closed_at, t.created_at AS tenant_created"
-            " FROM work_items w JOIN tenants t ON t.id = w.tenant_id WHERE w.tenant_id = $1",
+            " FROM work_items w JOIN tenants t ON t.id = w.tenant_id"
+            " WHERE w.tenant_id = $1 AND w.type = 'incident'",  # what step 5 spreads
             seed.TENANT_ID,
         )
         history_ahead = await conn.fetchval(
             "SELECT count(*) FROM field_changes f JOIN work_items w ON w.id = f.record_id"
-            " WHERE f.record_type = 'work_item' AND w.tenant_id = $1"
+            " WHERE f.record_type = 'work_item' AND w.tenant_id = $1 AND w.type = 'incident'"
             " AND f.occurred_at < w.created_at - interval '1 second'",
             seed.TENANT_ID,
         )
@@ -230,6 +233,9 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         assert first.catalog_published == 14  # the starter catalog (D-138), with its group
         assert first.incidents == len(seed.STATES) == 60
         assert first.dashboard
+        # QA6-DATA-01: knowledge and releases to show, not empty modules.
+        assert first.articles == len(seed.KB_ARTICLES) == 5
+        assert first.releases == len(seed.RELEASES) == 2
         assert first.backdated == 60  # spread over the past 30 days (choice (b))
         assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
         assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
@@ -240,7 +246,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         assert {u["email"] for u in keycloak.users.values()} == {s.email for s in seed.SIGN_INS}
         counts = asyncio.run(_counts(database.migrator_url, seed.TENANT_ID))
         assert counts["users"] == len(seed.PEOPLE) + len(seed.SIGN_INS)
-        assert counts["work_items"] == 60
+        assert counts["work_items"] == 60 + len(seed.RELEASES)
         assert asyncio.run(_states(database.migrator_url)) == {
             "new unassigned": 10,
             "assigned": 14,
@@ -257,7 +263,9 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
             second.incidents,
             second.dashboard,
             second.catalog_published,
-        ) == ([], [], 0, False, 0)
+            second.articles,
+            second.releases,
+        ) == ([], [], 0, False, 0, 0, 0)
         assert second.backdated == 0  # idempotent: the targets are fixed
         assert asyncio.run(_audit_chain(database.app_url)) == "passed"
         # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
