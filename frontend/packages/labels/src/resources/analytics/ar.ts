@@ -198,6 +198,7 @@ export const ar: LabelResource = {
   'dashboards.widget_title': 'العنوان',
   'dashboards.widget_unavailable': 'التقرير الذي يعتمد عليه هذا العنصر غير متاح لك.',
   'dashboards.your_home': 'صفحتك الرئيسية',
+  'errors.pdf_not_available': 'تصدير PDF غير متاح على هذا الخادم.',
   'measure.incident.average_reassignments': 'متوسط مرات إعادة الإسناد',
   'measure.incident.average_reassignments.help':
     'متوسط عدد مرات نقل الحادثة إلى مجموعة أو فني آخر.',

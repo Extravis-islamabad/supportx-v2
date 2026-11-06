@@ -112,6 +112,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ResultOrder": "report_order",
     "ReportExportIn.content": "report_export_content",
     "ReportExportIn.format": "report_export_format",
+    "ExportFormatsOut.formats[]": "report_export_format",
     "ReportExportIn.language": "locale",
     "ReportExportOut.status": "report_export_status",
     "ReportSettingsOut.week_start": "report_week_start",

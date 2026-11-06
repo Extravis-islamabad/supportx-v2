@@ -201,6 +201,7 @@ export const en = {
   'dashboards.widget_title': 'Title',
   'dashboards.widget_unavailable': 'The report behind this widget is not available to you.',
   'dashboards.your_home': 'Your home',
+  'errors.pdf_not_available': 'PDF export is not available on this server.',
   'measure.incident.average_reassignments': 'Average reassignments',
   'measure.incident.average_reassignments.help':
     'Average number of times an incident moved to another group or technician.',

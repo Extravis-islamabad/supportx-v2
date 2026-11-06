@@ -201,6 +201,7 @@ export const ur: LabelResource = {
   'dashboards.widget_title': 'عنوان',
   'dashboards.widget_unavailable': 'اس وجیٹ کے پیچھے کی رپورٹ آپ کے لیے دستیاب نہیں۔',
   'dashboards.your_home': 'آپ کا ہوم',
+  'errors.pdf_not_available': 'اس سرور پر PDF ایکسپورٹ دستیاب نہیں۔',
   'measure.incident.average_reassignments': 'دوبارہ تفویض کی اوسط تعداد',
   'measure.incident.average_reassignments.help':
     'کسی واقعے کے دوسرے گروپ یا ٹیکنیشن کو منتقل ہونے کی اوسط تعداد۔',
