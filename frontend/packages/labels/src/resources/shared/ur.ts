@@ -141,6 +141,7 @@ export const ur: LabelResource = {
   'layout.filters': 'فلٹرز',
   'layout.hide': 'چھپائیں',
   'layout.more_actions': 'مزید اقدامات',
+  'layout.not_available_now': 'ابھی دستیاب نہیں',
   'layout.notices_count_one': '{{count}} اطلاع',
   'layout.notices_count_other': '{{count}} اطلاعات',
   'layout.notices_more_one': '{{count}} مزید اطلاع',

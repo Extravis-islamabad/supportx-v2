@@ -144,6 +144,7 @@ export const ar: LabelResource = {
   'layout.filters': 'عوامل التصفية',
   'layout.hide': 'إخفاء',
   'layout.more_actions': 'إجراءات أخرى',
+  'layout.not_available_now': 'غير متاح الآن',
   'layout.notices_count_few': '{{count}} إشعارات',
   'layout.notices_count_many': '{{count}} إشعارًا',
   'layout.notices_count_one': 'إشعار واحد',

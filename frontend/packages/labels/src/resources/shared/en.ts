@@ -140,6 +140,7 @@ export const en = {
   'layout.filters': 'Filters',
   'layout.hide': 'Hide',
   'layout.more_actions': 'More actions',
+  'layout.not_available_now': 'Not available now',
   'layout.notices_count_one': '{{count}} notice',
   'layout.notices_count_other': '{{count}} notices',
   'layout.notices_more_one': '{{count}} more notice',
