@@ -143,6 +143,7 @@ export const ar: LabelResource = {
   'knowledge.field.language': 'اللغة',
   'knowledge.field.name_ar': 'الاسم بالعربية',
   'knowledge.field.name_en': 'الاسم بالإنجليزية',
+  'knowledge.field.name_ur': 'الاسم بالأردية',
   'knowledge.field.names': 'الاسم',
   'knowledge.field.own_audience': 'جمهور خاص',
   'knowledge.field.owner_id': 'المالك',
@@ -319,5 +320,6 @@ export const ar: LabelResource = {
   'knowledge.why.not_published': 'ليست منشورة بهذه اللغة.',
   'knowledge.why.not_withdrawer': 'لا يمكن ذلك إلا لمالك الموضوع أو لمن يمكنه سحب المقالات.',
   'knowledge.why.nothing_in_review': 'لا شيء بهذه اللغة ينتظر المراجعة.',
+  'knowledge.why.own_version': 'أنت كتبت هذا الإصدار، والموافقة الذاتية متوقفة: يعتمده موافق آخر.',
   'knowledge.withdrawn_notice': 'هذه المقالة مسحوبة. لم يعد القرّاء يرونها.',
 };
