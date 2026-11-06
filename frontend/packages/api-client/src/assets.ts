@@ -31,6 +31,7 @@ export type AssetLinkKind = S['AssetLinkIn']['kind'];
 export type AssetGroup = S['AssetGroupOut'];
 export type AssetGroupInput = S['AssetGroupIn'];
 export type MyAsset = S['MyAssetOut'];
+export type AssetLoan = S['LoanOut'];
 export type AssetProductType = S['AssetProductTypeOut'];
 export type AssetProductTypeInput = S['AssetProductTypeIn'];
 export type AssetProductTypePatch = S['AssetProductTypePatch'];
@@ -516,6 +517,74 @@ export function useAssetGroupAssets(id: string | undefined) {
       ),
     enabled: id !== undefined,
   });
+}
+
+/** Open loans, the earliest due first (REQ-AST-030). */
+export function useAssetLoans(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.loans,
+    queryFn: () => call(api.GET('/api/v1/assets/loans')),
+    enabled,
+  });
+}
+
+/** Make loans, take assets back, mark assets loanable; every asset query refetches after. */
+export function useLoanActions() {
+  const queryClient = useQueryClient();
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+  const createLoan = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: {
+      borrowerId: string;
+      assetIds: string[];
+      dueAt: string;
+      comment?: string;
+      key: string;
+    }) =>
+      call(
+        api.POST('/api/v1/assets/loans', {
+          params: { header: { 'Idempotency-Key': input.key } },
+          body: {
+            borrower_id: input.borrowerId,
+            asset_ids: input.assetIds,
+            due_at: input.dueAt,
+            comment: input.comment ?? null,
+          },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  const returnItems = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: {
+      loanId: string;
+      assetIds: string[];
+      outcome: 'in_stock' | 'in_repair';
+      comment?: string;
+    }) =>
+      call(
+        api.POST('/api/v1/assets/loans/{loan_id}/returns', {
+          params: { path: { loan_id: input.loanId } },
+          body: {
+            asset_ids: input.assetIds,
+            outcome: input.outcome,
+            comment: input.comment ?? null,
+          },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  const setLoanable = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: { assetIds: string[]; loanable: boolean }) =>
+      call(
+        api.POST('/api/v1/assets/loanable', {
+          body: { asset_ids: input.assetIds, loanable: input.loanable },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  return { createLoan, returnItems, setLoanable };
 }
 
 /** Holders, links and groups: every asset query refetches after. */
