@@ -890,6 +890,8 @@ export const ur: LabelResource = {
   'portal.report.for_someone_else': 'کسی اور کے لیے',
   'portal.report.for_whom': 'کس کے لیے',
   'portal.report.form': 'یہ کس بارے میں ہے',
+  'portal.report.nobody_found':
+    'کوئی ایسا شخص نہیں ملا جس کی طرف سے آپ درخواست دے سکیں۔ آپ وہی لوگ چن سکتے ہیں جن کی آپ کی تنظیم اجازت دیتی ہے، عموماً آپ کے اپنے شعبے کے۔ اگر کوئی رہ گیا ہو تو سروس ڈیسک سے پوچھیں۔',
   'portal.report.open': 'مسئلہ بتائیں',
   'portal.report.remove_file': '{{name}} ہٹائیں',
   'portal.report.search_person': 'نام سے تلاش کریں',

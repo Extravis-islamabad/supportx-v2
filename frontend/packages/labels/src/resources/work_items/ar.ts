@@ -974,6 +974,8 @@ export const ar: LabelResource = {
   'portal.report.for_someone_else': 'لشخص آخر',
   'portal.report.for_whom': 'لمن',
   'portal.report.form': 'بخصوص ماذا',
+  'portal.report.nobody_found':
+    'لا يطابق أحد ممن يمكنك تقديم طلب نيابةً عنهم. يمكنك اختيار من تسمح به مؤسستك، وغالبًا من قسمك. اسأل مكتب الخدمة إن كان أحدهم غير موجود.',
   'portal.report.open': 'الإبلاغ عن مشكلة',
   'portal.report.remove_file': 'إزالة {{name}}',
   'portal.report.search_person': 'ابحث بالاسم',

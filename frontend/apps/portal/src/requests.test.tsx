@@ -216,6 +216,36 @@ describe('portal: report an issue', () => {
       on_behalf_of_id: COLLEAGUE,
     });
   });
+
+  it('QA6-SR-02: when nobody in scope matches, it says who can be chosen, never "No data"', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const fake = fakeApi({
+      ...BASE,
+      'GET /api/v1/portal/incidents/templates': {
+        body: [
+          {
+            id: 't1',
+            code: 'standard',
+            labels: null,
+            description: null,
+            is_default: true,
+            fields: [{ name: 'subject', required: true }],
+          },
+        ],
+      },
+      'GET /api/v1/portal/incidents/on-behalf-people': { body: [] },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText('For someone else'));
+    const picker = await screen.findByRole('combobox', { name: 'Search by name' });
+    fireEvent.change(picker, { target: { value: 'Hira' } });
+    const none = await screen.findByTestId('portal-on-behalf-none');
+    await waitFor(() => {
+      expect(none.textContent).toContain('Ask the service desk');
+    });
+    expect(screen.queryByText('No data')).toBeNull();
+  });
 });
 
 describe('portal: my requests, long lists', () => {
