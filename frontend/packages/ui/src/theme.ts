@@ -154,6 +154,9 @@ function themeFor(
 /** The dark navigation's tokens, in every mode (Ant Design's `dark` Sider and Menu). */
 function withShell(config: ThemeConfig): ThemeConfig {
   const components = { ...config.components };
+  // Checkboxes stay square (radius 4); only radios are round (QA6S-SHELL-09: the theme's radius of
+  // 8 drew them as circles, like radios).
+  components.Checkbox = { ...components.Checkbox, borderRadiusSM: 4 };
   components.Layout = {
     ...components.Layout,
     siderBg: SHELL.navBg,
