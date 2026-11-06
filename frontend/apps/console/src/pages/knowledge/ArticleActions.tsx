@@ -200,6 +200,8 @@ export function ArticleActions({
             setText(event.target.value);
           }}
           data-testid="kb-step-text"
+          // Room for its counter above the dialog's buttons (QA6-KB-06).
+          style={{ marginBottom: 20 }}
         />
       </Modal>
       {article.withdrawn && only === undefined && (

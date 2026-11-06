@@ -19,6 +19,7 @@ import {
   WriteButton,
   reportError,
   useLabel,
+  usePageCrumbs,
 } from '@supportx/ui';
 
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
@@ -49,6 +50,11 @@ export function ReleasePage() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const record = useRelease(id);
+  // The path in the top bar and the tab's title: Releases › REL-12 (QA6-REL-04).
+  usePageCrumbs([
+    { label: t('nav.releases'), path: '/releases' },
+    ...(record.data ? [{ label: record.data.display_id }] : []),
+  ]);
   const panel = useStagePanel(id);
   const approvals = useReleaseApprovals(id);
   const pendingApprovals = (approvals.data?.items ?? []).filter(

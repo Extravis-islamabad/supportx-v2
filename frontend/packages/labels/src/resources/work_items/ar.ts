@@ -1307,6 +1307,7 @@ export const ar: LabelResource = {
   'releases.move.to': 'الانتقال إلى: {{status}}',
   'releases.move.unavailable': 'غير ممكن الآن',
   'releases.new': 'إصدار جديد',
+  'releases.new_help': 'اختر قالبًا وعنوانًا؛ تُملأ التواريخ والأدوار والخطط في الإصدار نفسه.',
   'releases.not_found': 'هذا الإصدار غير موجود أو لا يحق لك رؤيته.',
   'releases.not_set': 'غير محدد',
   'releases.path': 'المسار',
