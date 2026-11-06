@@ -197,7 +197,13 @@ describe('console: releases', () => {
     render(<App />);
     expect(await screen.findByTestId('release-rail')).toBeTruthy();
     expect(screen.getByTestId('rail-build').textContent).toContain('Build');
-    expect(screen.getByTestId<HTMLButtonElement>('move-closure_canceled').disabled).toBe(true);
+    // QA6-REL-01: a move not possible now is in More, out of the way, saying why (REQ-WI-010).
+    expect(screen.queryByTestId('move-closure_canceled')).toBeNull();
+    fireEvent.click(screen.getByTestId('release-more'));
+    const canceled = await screen.findByTestId('move-closure_canceled');
+    expect(canceled.getAttribute('aria-disabled')).toBe('true');
+    // QA6-REL-02: moves read as actions, never as the status they lead to.
+    expect(screen.getByTestId('move-build_backed_out').textContent).toMatch(/^Move to: /);
     fireEvent.click(screen.getByTestId('move-build_backed_out'));
     const ok = await screen.findByTestId<HTMLButtonElement>('move-ok');
     expect(ok.disabled).toBe(true); // the reason is required
@@ -279,5 +285,15 @@ describe('console: releases', () => {
     expect(
       within(screen.getByTestId('move-field-release_manager_id')).getByRole('combobox'),
     ).toBeTruthy();
+  });
+
+  it('QA6-REL-01/02: the pass 2 layout, with a pending approval shown as a status', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    expect(await screen.findByTestId('release-properties')).toBeTruthy(); // the end-side panel
+    expect(await screen.findByTestId('release-awaiting-approval')).toBeTruthy();
+    const visible = screen.getByTestId('release-moves').querySelectorAll('[data-testid^="move-"]');
+    expect(visible.length).toBeLessThanOrEqual(3); // beside More: the 4-action rule
   });
 });
