@@ -528,4 +528,55 @@ describe('console: assets', () => {
     expect(await within(card).findByText('wipe-certificate.pdf')).toBeTruthy();
     expect(screen.queryByTestId('asset-dispose-open')).toBeNull();
   });
+
+  it('Holder and links: the holder by name, who held it, links from both ends, give with If-Match', async () => {
+    const holder = '01900000-0000-7000-8000-0000000000b1';
+    const switchId = '01900000-0000-7000-8000-00000000d009';
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=relations`);
+    const fake = assetsApi({
+      [`GET /api/v1/assets/${asset.id}`]: {
+        body: { ...asset, owner_user_id: holder },
+        headers: { ETag: '"3"' },
+      },
+      [`GET /api/v1/users/${holder}`]: { body: { id: holder, display_name: 'Rana Requester' } },
+      [`GET /api/v1/assets/${asset.id}/holdings`]: {
+        body: [
+          {
+            asset_id: asset.id,
+            holder_kind: 'user',
+            holder_id: holder,
+            started_at: '2026-11-01T09:00:00Z',
+            ended_at: null,
+            source: 'ui',
+            assigned_by: null,
+          },
+        ],
+      },
+      [`GET /api/v1/assets/${asset.id}/links`]: {
+        body: [
+          {
+            id: 'l-1',
+            kind: 'connected_to',
+            outgoing: false,
+            other: { ...asset, id: switchId, name: 'Floor switch', tag: 'AST-9' },
+          },
+        ],
+      },
+      [`PUT /api/v1/assets/${asset.id}/holder`]: { body: { ...asset, version: 4 } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const card = await screen.findByTestId('asset-holder');
+    expect((await within(card).findAllByText('Rana Requester')).length).toBeGreaterThan(0);
+    const links = screen.getByTestId('asset-links');
+    // The other end of a "connected to" link reads "Connected from".
+    expect(await within(links).findByText('Connected from')).toBeTruthy();
+    expect(within(links).getByText('Floor switch')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('asset-holder-open'));
+    const dialog = await screen.findByTestId('asset-holder-dialog');
+    fireEvent.click(within(dialog).getByText('Department'));
+    expect(within(dialog).getByRole('button', { name: 'Give to…' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
 });

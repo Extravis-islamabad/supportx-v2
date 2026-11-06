@@ -47,6 +47,7 @@ import { nameOf } from '../admin/assets/shared';
 import { CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
+import { AssetRelations } from './AssetRelations';
 import { ageBetween, basisDay } from './age';
 import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
@@ -54,7 +55,7 @@ import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
 
 // The record's tabs, always in this order (REQ-AST-001 AC3): later sessions add theirs here.
-const TABS = ['details', 'history'] as const;
+const TABS = ['details', 'relations', 'history'] as const;
 type TabKey = (typeof TABS)[number];
 const HISTORY_FIELDS = new Set([
   'name',
@@ -407,6 +408,11 @@ function AssetView({ asset }: { asset: AssetRecord }) {
                 )}
               </Flex>
             ),
+          },
+          {
+            key: 'relations',
+            label: t('assets.record.relations'),
+            children: <AssetRelations asset={asset} manage={manage} />,
           },
           {
             key: 'history',
