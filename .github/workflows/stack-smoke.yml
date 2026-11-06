@@ -43,6 +43,10 @@ jobs:
     # stuck run still prints diagnostics and uploads its report; the job's 60 min is only the
     # backstop.
     timeout-minutes: 60
+    env:
+      # The e2e journeys check the AI features against the fake's own answers (QA6-AI-01: off by
+      # default, so a real installation without a model never shows them).
+      SUPPORTX_AI_FAKE_ECHO: "true"
     strategy:
       fail-fast: false
       matrix:
