@@ -11,13 +11,18 @@ live incident template marked for requesters.
 
 import uuid
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.organization import register_usage
-from app.modules.service_catalog import register_item_usage, register_template_check
+from app.modules.service_catalog import (
+    register_item_usage,
+    register_request_counts,
+    register_template_check,
+)
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem, WorkItemTemplate
 
@@ -68,6 +73,20 @@ async def _entry_template(
     return dict(row.labels or {}) or {"en": row.code or ""}
 
 
+async def _request_counts(session: AsyncSession, since: datetime) -> dict[uuid.UUID, int]:
+    """Service requests per catalog item since `since` (the portal's "most requested")."""
+    rows = await session.execute(
+        select(WorkItem.catalog_item_id, func.count())
+        .where(
+            WorkItem.catalog_item_id.is_not(None),
+            WorkItem.created_at >= since,
+            WorkItem.deleted_at.is_(None),
+        )
+        .group_by(WorkItem.catalog_item_id)
+    )
+    return {item_id: n for item_id, n in rows.all() if item_id is not None}
+
+
 def register_record_usage() -> None:
     """Called when the module is imported."""
     register_usage("site", "records", _at_site)
@@ -75,3 +94,4 @@ def register_record_usage() -> None:
     register_usage("department", "records", _in_department)
     register_item_usage(_from_item)
     register_template_check(_entry_template)
+    register_request_counts(_request_counts)

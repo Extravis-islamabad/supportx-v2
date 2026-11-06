@@ -37,6 +37,8 @@ export const en = {
   'notification_channel.in_app': 'In the app',
   'notification_condition_operator.in': 'is one of',
   'notification_condition_operator.not_in': 'is not one of',
+  'notification_event.announcement.ended': 'An announcement you follow ended',
+  'notification_event.announcement.updated': 'An announcement you follow was updated',
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
@@ -114,6 +116,14 @@ export const en = {
   'notification_state.sent': 'Sent',
   'notification_state.suppressed': 'Not sent',
   'notification_state.waiting': 'Waiting for mail set-up',
+  'notification_template.announcement.ended.body':
+    'Hello {{ recipient.name }},\n\nThe announcement "{{ record.title }}" that you follow has ended.',
+  'notification_template.announcement.ended.in_app': 'Ended: {{ record.title }}',
+  'notification_template.announcement.ended.subject': 'Ended: {{ record.title }}',
+  'notification_template.announcement.updated.body':
+    'Hello {{ recipient.name }},\n\nThe announcement "{{ record.title }}" that you follow has been updated.',
+  'notification_template.announcement.updated.in_app': 'Updated: {{ record.title }}',
+  'notification_template.announcement.updated.subject': 'Updated: {{ record.title }}',
   'notification_template.connector.failing.body':
     'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
   'notification_template.connector.failing.in_app':

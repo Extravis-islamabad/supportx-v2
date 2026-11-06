@@ -234,6 +234,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.due_date_changed", AuditCategory.RECORDS, "work_items"),
     # service requests (WP-030): the same actions, by the type's own code
     ("service_request.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("portal.settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-032 D8
     ("service_request.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("service_request.template_created", AuditCategory.CONFIGURATION, "work_items"),
@@ -252,6 +253,26 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("service_request.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("service_request.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    # problems (WP-044a): the same actions, by the type's own code
+    ("problem.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.category_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.deleted", AuditCategory.RECORDS, "work_items"),
+    ("problem.restored", AuditCategory.RECORDS, "work_items"),
+    ("problem.bulk_started", AuditCategory.RECORDS, "work_items"),
+    ("problem.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
+    ("problem.closed_record_edited", AuditCategory.RECORDS, "work_items"),
+    ("problem.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    # ADR-040: an investigator reaches a problem outside their own scope.
+    ("problem.investigator_added", AuditCategory.RECORDS, "work_items"),
+    ("problem.approval_requested", AuditCategory.RECORDS, "work_items"),  # WP-044b s4
+    ("problem.approval_decided", AuditCategory.RECORDS, "work_items"),
+    ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
     # releases (WP-058a): the same actions, by the type's own code
     ("release.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("release.category_created", AuditCategory.CONFIGURATION, "work_items"),
@@ -267,6 +288,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("release.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("release.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    ("release.approval_decided", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),

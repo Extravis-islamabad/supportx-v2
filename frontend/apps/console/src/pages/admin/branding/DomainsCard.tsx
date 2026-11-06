@@ -266,7 +266,6 @@ export function DomainsCard() {
               data-testid="domains-host"
             />
             <WriteButton
-              type="primary"
               disabled={host.trim() === '' || typedProblem !== null}
               loading={add.isPending}
               onClick={() => {

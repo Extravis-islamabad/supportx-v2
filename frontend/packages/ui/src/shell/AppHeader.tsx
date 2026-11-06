@@ -44,6 +44,8 @@ export interface AppHeaderProps {
   menuItems?: NonNullable<MenuProps['items']>;
   /** Shown instead of the app name at the start of the row (top-bar navigation). */
   start?: ReactNode;
+  /** Phones: the button that opens the navigation drawer, first in the row. */
+  menu?: ReactNode;
   /**
    * Where the user is, in place of the app's name (the console's breadcrumbs); `narrow` is the
    * phone-width header. Omitted: the app's name (the portal).
@@ -114,6 +116,7 @@ export function AppHeader({
   extra,
   menuItems,
   start,
+  menu,
   context,
   onNavLayoutChange,
   onLocaleChange,
@@ -183,6 +186,7 @@ export function AppHeader({
         lineHeight: 'normal',
       }}
     >
+      {menu}
       {start ?? context?.(narrow) ?? (
         <Typography.Text strong style={{ flex: 1 }}>
           {t(appName)}

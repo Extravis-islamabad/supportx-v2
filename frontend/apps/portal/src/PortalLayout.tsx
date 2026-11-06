@@ -5,6 +5,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { clearAllKeptDrafts } from '@supportx/forms';
 import {
   catalogKeys,
+  portalSettingsKey,
   useLogout,
   useSession,
   useSetUiLocale,
@@ -61,6 +62,10 @@ export function PortalLayout() {
   useTenantChannel((event) => {
     if (event.type === 'service_catalog.changed') {
       void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
+    }
+    // WP-032 D8: a portal setting changed: open portals take it at once (REQ-PRT-031 AC2).
+    if (event.type === 'work_items.portal_settings_changed') {
+      void queryClient.invalidateQueries({ queryKey: portalSettingsKey });
     }
   });
   if (session === undefined || session === null) return null;

@@ -26,6 +26,8 @@ class BulkAction(StrEnum):
     TAKE = "take"
     RESOLVE = "resolve"
     CLOSE = "close"
+    LINK_PROBLEM = "link_problem"  # WP-044a: incidents caused by one problem (REQ-PRB-012)
+    UNLINK_PROBLEM = "unlink_problem"  # WP-044b: incidents no longer caused by their problem
 
 
 class BulkStatus(StrEnum):

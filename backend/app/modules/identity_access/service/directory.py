@@ -534,3 +534,24 @@ async def notifiable_people(
         )
         for row in rows
     }
+
+
+async def active_user_ids(
+    session: AsyncSession, user_ids: Sequence[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """Which of `user_ids` are active people of the session's tenant (no service identities).
+
+    For other modules that name someone to a duty (a release role, REQ-REL-024): a deactivated
+    or removed user, or a connector's identity, is never named.
+    """
+    if not user_ids:
+        return frozenset()
+    rows = await session.scalars(
+        select(User.id).where(
+            User.id.in_(list(user_ids)),
+            User.deleted_at.is_(None),  # a removed user may still say "active" (lane B)
+            User.status == "active",
+            User.user_type != UserType.SERVICE.value,
+        )
+    )
+    return frozenset(rows)

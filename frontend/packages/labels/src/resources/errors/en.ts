@@ -6,6 +6,7 @@ export const en = {
   'errors.action_link_sign_in_required': 'Sign in to approve or reject this request.',
   'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
   'errors.action_link_used': 'This link has already been used.',
+  'errors.already_known_error': '{{display_id}} is already a known error.',
   'errors.already_taken': '{{taken_by}} has just taken this. Reload to see it.',
   'errors.already_yours': 'It is already assigned to you.',
   'errors.announcement_not_found': 'This announcement does not exist or is not available to you.',
@@ -32,6 +33,7 @@ export const en = {
   'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
   'errors.approval_closed': 'This approval is already decided or no longer needed.',
   'errors.approval_not_found': 'This approval was not found.',
+  'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
   'errors.asset_life_cycle_in_use':
     'Product types still use this life cycle ({{used}}). Move them to another one first.',
@@ -147,6 +149,7 @@ export const en = {
   'errors.domain_wrong_answer':
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
+  'errors.downtime_not_found': 'This downtime window does not exist.',
   'errors.entitlement_required': 'Your plan does not include this feature.',
   'errors.entitlement_required.detail': '{{feature}} is not part of your organisation’s plan.',
   'errors.entitlements_unavailable':
@@ -163,6 +166,9 @@ export const en = {
   'errors.field.api_key_owner_not_service':
     'Keys for someone else can only belong to a service identity.',
   'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
+  'errors.field.approver_is_requester': 'You cannot approve your own request; name someone else.',
+  'errors.field.approver_not_eligible':
+    'Someone named cannot approve this problem (inactive, or without the right).',
   'errors.field.asset_api_name_taken': 'Another product type has this API name.',
   'errors.field.asset_identifier_invalid':
     'Use letters, digits and - . / : # only, without spaces.',
@@ -191,6 +197,7 @@ export const en = {
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
   'errors.field.before_publish': 'Retiring must come after publishing.',
+  'errors.field.before_start': 'The end cannot be before the start.',
   'errors.field.below_minimum': 'Minimum is {{min}}.',
   'errors.field.brand_image_svg':
     'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
@@ -204,6 +211,7 @@ export const en = {
   'errors.field.builtin_type_names': 'A built-in type keeps its names.',
   'errors.field.calendar_not_found': 'Choose a calendar from the list.',
   'errors.field.cannot_link_itself': 'A record cannot be linked to itself.',
+  'errors.field.cannot_merge_itself': 'A problem cannot be merged into itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
   'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
@@ -278,10 +286,14 @@ export const en = {
     'A calendar is only chosen when the source is a fixed calendar.',
   'errors.field.flow_not_available': 'This kind of record has no created-vs-resolved report.',
   'errors.field.flow_without_groupings': 'A created-vs-resolved report has no groupings.',
+  'errors.field.full_sla_off':
+    'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
   'errors.field.group_not_found': 'This group does not exist.',
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
   'errors.field.half_day_single_date': 'A morning or afternoon off is one day only.',
+  'errors.field.hidden_cannot_be_required':
+    'A hidden field cannot be required: nobody could fill it in.',
   'errors.field.hidden_required_needs_default':
     'A hidden required field needs a starting value, or nobody could fill it in.',
   'errors.field.holiday_list_not_found': 'Choose holiday lists from the list.',
@@ -346,8 +358,11 @@ export const en = {
   'errors.field.name_required': 'Enter a name.',
   'errors.field.name_taken': 'Another one already uses this name.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
+  'errors.field.not_a_field': 'This field does not exist for this type.',
+  'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
+  'errors.field.not_eligible': 'This person or group may not hold this role.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
@@ -380,6 +395,7 @@ export const en = {
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',
+  'errors.field.read_only_in_stage': 'This field cannot be changed in the current stage.',
   'errors.field.reason_required': 'Give a reason.',
   'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
   'errors.field.recipients_required': 'Choose at least one person or group.',
@@ -393,9 +409,14 @@ export const en = {
     'Choose at least one requester group, site or department.',
   'errors.field.requester_only': "Only the requester's confirmation sets this code.",
   'errors.field.required': 'This field is required.',
+  'errors.field.required_for_known_error':
+    'Write a workaround or a root cause before marking a known error.',
   'errors.field.required_to_close': 'Needed before closing.',
+  'errors.field.required_to_confirm_cause': 'Write the root cause before confirming it.',
+  'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
+  'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
@@ -493,6 +514,7 @@ export const en = {
   'errors.field.unknown_record_type': 'Choose what the rule applies to.',
   'errors.field.unknown_reference': 'A person or group named here no longer exists.',
   'errors.field.unknown_sort_field': 'The list cannot be sorted by this field.',
+  'errors.field.unknown_stage': 'This type has no such stage.',
   'errors.field.unknown_time_zone': 'Choose a time zone from the list.',
   'errors.field.unknown_value': 'This value does not exist (any more).',
   'errors.field.url_not_valid': 'Enter a web address starting with https:// or http://.',
@@ -514,6 +536,7 @@ export const en = {
   'errors.field.wider_than_topic':
     "An article can only narrow its topic's audience, never widen it.",
   'errors.field.window_end_before_start': 'Must be after the start.',
+  'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
@@ -544,6 +567,8 @@ export const en = {
     'Your organisation is not set up for sign-in yet. Ask your administrator.',
   'errors.identity_provider_unavailable':
     'Sign-in is temporarily unavailable. Please try again shortly.',
+  'errors.incident_has_problem':
+    'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
     "The article's images are too large to insert together: at most {{limit_mb}} MB.",
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
@@ -560,6 +585,7 @@ export const en = {
   'errors.invalid_tenant_id': 'The organisation identifier is not valid.',
   'errors.invalid_transition':
     'This is not possible in the current status. Reload to see the latest.',
+  'errors.investigator_not_found': 'This person is not an investigator of this problem.',
   'errors.invitation_already_signed_in':
     'This person has signed in already, so there is nothing to invite them to.',
   'errors.invitation_needs_email': 'Add an email address to this person first.',
@@ -617,6 +643,8 @@ export const en = {
     'AD/LDAP directories can only be connected on an installation that serves one organisation.',
   'errors.limit_reached':
     'Your plan’s limit for this has been reached. Ask your administrator to extend the plan.',
+  'errors.link_has_own_route':
+    'This link is removed in its own place: unlink the incident, or undo the merge.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
@@ -657,6 +685,8 @@ export const en = {
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
   'errors.not_found': 'The item was not found.',
+  'errors.not_known_error': '{{display_id}} is not a known error.',
+  'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
@@ -682,12 +712,14 @@ export const en = {
   'errors.pick_list_value_not_found': 'That value no longer exists.',
   'errors.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
+  'errors.plan_section_not_found': 'This plan section does not exist.',
   // WP-008: API conventions (concurrency, idempotency, filters, sorting, paging).
   'errors.precondition_required':
     'This change needs the version you are editing. Reload the item and try again.',
   'errors.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.privilege_escalation': 'You cannot give access you do not have yourself.',
+  'errors.problem_closed': '{{display_id}} is closed, so it cannot be merged.',
   'errors.range_not_satisfiable': 'That part of the file does not exist.',
   'errors.rate_limited': 'Too many requests. Please wait a moment and try again.',
   // Entitlements (WP-009)
@@ -761,6 +793,7 @@ export const en = {
     'This move is not allowed from the current status. Reload to see the latest.',
   'errors.stage_move_refused':
     'Something must be done before this move. See the reasons on the record.',
+  'errors.stage_not_found': 'This stage does not exist.',
   'errors.stage_status_system_only': 'Only an approval decision sets this status.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',

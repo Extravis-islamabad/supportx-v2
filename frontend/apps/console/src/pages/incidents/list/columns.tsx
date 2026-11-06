@@ -50,8 +50,9 @@ export const DEFAULT_COLUMNS: readonly string[] = [
   'status',
   'priority',
   'resolution_due_at',
-  'created_at',
 ];
+// "Created" left the defaults so they fit 1440 px with the side navigation (QA 2026-11-05 V1);
+// it stays in the column chooser, and saved choices and views keep it.
 
 const field = (name: string) => (c: ColumnContext) => c.words.field(name);
 
@@ -59,7 +60,7 @@ const OWN: ColumnSpec[] = [
   {
     key: 'display_id',
     sortField: 'display_number',
-    width: 140,
+    width: 110,
     title: (c) => c.t('incidents.col.id'),
     // The channel it came from in front of the ID (UI pass 2), named by its label.
     render: (row) => (
@@ -72,7 +73,9 @@ const OWN: ColumnSpec[] = [
   {
     key: 'subject',
     sortField: 'subject',
-    width: 320, // capped, with an ellipsis and the whole subject as the tooltip (D-124)
+    // The least it gets; it takes the room left over, with an ellipsis and the whole subject as
+    // the tooltip (D-124; QA 2026-11-05 V1: the defaults fit 1440 px in the side layout).
+    width: 240,
     title: field('subject'),
     // The whole subject is the tooltip, and it reads in its own direction (QA BUG-12, BUG-16).
     render: (row) => (
@@ -83,39 +86,39 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'requester_id',
-    width: 180,
+    width: 130,
     title: field('requester_id'),
     render: (row, c) => personName(c.people, row.requester_id),
   },
   {
     key: 'status',
-    width: 150,
+    width: 140,
     title: field('status'),
     render: (row, c) => <StatusTag status={row.status} catalogue={c.catalogue} />,
   },
   {
     key: 'priority',
     sortField: 'priority',
-    width: 120,
+    width: 100,
     title: field('priority'),
     render: (row) => <PriorityTag priority={row.priority} source={row.priority_source} />,
   },
   {
     key: 'group_id',
-    width: 170,
+    width: 120,
     title: field('group_id'),
     render: (row, c) => (row.group_id === null ? '' : (c.groupNames.get(row.group_id) ?? '')),
   },
   {
     key: 'technician_id',
-    width: 170,
+    width: 130,
     title: field('technician_id'),
     render: (row, c) => personName(c.people, row.technician_id),
   },
   {
     key: 'resolution_due_at',
     sortField: 'resolution_due_at',
-    width: 170,
+    width: 150,
     title: (c) => c.t('incidents.col.due'),
     render: (row, c) => (
       <SlaTag

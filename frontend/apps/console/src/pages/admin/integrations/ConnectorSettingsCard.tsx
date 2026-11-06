@@ -103,7 +103,6 @@ export function ConnectorSettingsCard() {
         </Flex>
         <Flex>
           <WriteButton
-            type="primary"
             disabled={!changed}
             loading={save.isPending}
             onClick={submit}

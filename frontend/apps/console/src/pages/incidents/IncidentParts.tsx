@@ -1,4 +1,10 @@
-import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined } from '@ant-design/icons';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  BulbOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Button,
@@ -18,6 +24,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import {
+  queryKeys,
   useIncidentLinks,
   useIncidentTasks,
   useIncidentWorklogs,
@@ -36,10 +43,12 @@ import {
   EmptyText,
   lengthLimit,
   reportError,
+  ToneTag,
   useDateTime,
   useLabel,
   WriteButton,
 } from '@supportx/ui';
+import { useRecordChannel } from '@supportx/realtime';
 
 import { IncidentPicker } from './IncidentPicker';
 import { UserPicker } from './pickers';
@@ -489,6 +498,12 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
   const t = useLabel();
   const found = useIncidentLinks(item.id);
   const change = useLinkChange(item.id);
+  // The causing problem's own changes (marked a known error, retired) show here at once.
+  const queryClient = useQueryClient();
+  const cause = (found.data ?? []).find((l) => l.relation === 'caused_by')?.other_id ?? undefined;
+  useRecordChannel('wi', cause, () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
+  });
   const [other, setOther] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const rows = found.data ?? [];
@@ -542,9 +557,17 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
                       {t('incidents.links.hidden')}
                     </Typography.Text>
                   ) : (
-                    <Link to={`/incidents/${link.other_id}`}>
+                    <Link
+                      to={`/${link.other_type === 'problem' ? 'problems' : 'incidents'}/${link.other_id}`}
+                    >
                       {link.other_display_id} · <bdi dir="auto">{link.other_subject}</bdi>
                     </Link>
+                  )}
+                  {link.other_known_error && (
+                    // REQ-PRB-036 AC3: the incident's problem is a known error, shown live.
+                    <ToneTag tone="warning" icon={<BulbOutlined />} testId="inc-known-error">
+                      {t('problems.known_error.tag')}
+                    </ToneTag>
                   )}
                 </Space>
                 {link.comment !== null && (

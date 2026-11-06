@@ -54,12 +54,12 @@ def test_0080_downgrade_drops_empty_tables_and_refuses_when_a_tenant_has_data(
     database = db_testing.create(db_config, migrate_to="0080")
     try:
         assert asyncio.run(_tables(database.admin_url)) == 6
-        db_testing.downgrade(database.migrator_url, "0092")
+        db_testing.downgrade(database.migrator_url, "0104")
         assert asyncio.run(_tables(database.admin_url)) == 0
         db_testing.migrate(database.migrator_url, "0080")
         asyncio.run(_tenant_with_a_state(database.admin_url))
         with pytest.raises(Exception, match="downgrade refused"):
-            db_testing.downgrade(database.migrator_url, "0092")
+            db_testing.downgrade(database.migrator_url, "0104")
         assert asyncio.run(_tables(database.admin_url)) == 6
     finally:
         db_testing.destroy(db_config, database)

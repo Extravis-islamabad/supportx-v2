@@ -286,6 +286,8 @@ async def _choose(run: _Run, code: str) -> tuple[SlaPolicy | None, list[TargetRo
             return None, [], []
         row = next(p for p in policies if p.id == chosen.id)
     rows = target_rows((await targets_of(run.session, [row.id]))[row.id])
+    if run.rtype.target_dates_only and not (await settings_of(run.session, code)).full_sla:
+        rows = [r for r in rows if r.kind == TargetKind.RESOLUTION]  # D-140 Q3: dates only
     return row, rows, (await levels_of(run.session, [row.id]))[row.id]
 
 

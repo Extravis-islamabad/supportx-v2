@@ -76,6 +76,7 @@ async def test_req_sla_001_every_tenant_starts_with_the_default_policy_and_setti
         "warning_percent": 75,
         "priority_rule": "recalculate",
         "reopen_rule": "resume",
+        "full_sla": False,  # D-140 Q3: only problems use it
         "version": 1,
     }
     again = (await world.call("GET", POLICIES, a, a.admin)).json()

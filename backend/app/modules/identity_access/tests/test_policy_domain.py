@@ -17,6 +17,8 @@ from app.modules.identity_access.domain.permissions import (
     covers,
 )
 from app.modules.identity_access.domain.policy import (
+    STAGE_ACCESS,
+    AccessRule,
     Grant,
     RecordFacts,
     Subject,
@@ -24,6 +26,7 @@ from app.modules.identity_access.domain.policy import (
     compile_subject,
     decide,
     matches,
+    meets,
 )
 
 ORG = (
@@ -90,7 +93,7 @@ MATRIX = {
     "requests.create": (True, True, True),
     "requests.assign": (True, True, False),
     "changes.approve": (True, False, False),
-    "problems.manage": (True, True, False),
+    "assets.manage": (True, True, False),  # problems.* moved to work_items (WP-044a)
     # knowledge.* moved to the knowledge module with its own defaults (D-108 (7), WP-033)
 }
 
@@ -106,7 +109,7 @@ def test_system_role_matrix(permission: str) -> None:
 
 def test_scopes_of_system_roles() -> None:
     assert subject_for("tenant_admin").broadest_scope("requests.view") == "all"
-    assert subject_for("technician").broadest_scope("problems.manage") == "group"
+    assert subject_for("technician").broadest_scope("assets.manage") == "group"
     assert subject_for("requester").broadest_scope("requests.view") == "own"
     assert subject_for("requester").broadest_scope("users.view") is None
 
@@ -299,3 +302,33 @@ def test_a_module_can_give_the_knowledge_manager_role_its_grants() -> None:
     assert catalogue.get("knowledge.publish") is not None
     assert KNOWLEDGE_MANAGER in SYSTEM_ROLES
     assert default_mode(KNOWLEDGE_MANAGER) == "required"  # publishes to every requester
+
+
+# --- access rules (stage access, WP-058a s3; ADR-041; REQ-REL-019) -------------------------------
+
+
+def test_an_empty_access_rule_restricts_nobody() -> None:
+    subject = subject_for("technician")
+    assert meets(subject, None)
+    assert meets(subject, AccessRule())  # all three empty: no restriction, never deny-all
+
+
+def test_an_access_rule_allows_by_group_permission_or_person() -> None:
+    subject = subject_for("technician", group_ids=frozenset({GROUP}))
+    assert meets(subject, AccessRule(group_ids=frozenset({GROUP})))
+    assert meets(subject, AccessRule(permissions=frozenset({"users.view"})))
+    assert meets(subject, AccessRule(user_ids=frozenset({ME})))
+    refused = meets(subject, AccessRule(group_ids=frozenset({uuid.uuid4()})))
+    assert (refused.allowed, refused.reason) == (False, STAGE_ACCESS)
+    # A permission the plan does not include is not held, so it never opens a stage.
+    assert not meets(
+        subject_for("technician", features=frozenset()),
+        AccessRule(permissions=frozenset({"requests.view"})),
+    )
+
+
+def test_decide_is_unchanged_by_access_rules() -> None:
+    """The rule narrows in authorize / authorize_stored, after the scope (lane B's review)."""
+    subject = subject_for("technician", group_ids=frozenset({GROUP}))
+    record = RecordFacts(group_id=GROUP)
+    assert decide(subject, "users.view", record)

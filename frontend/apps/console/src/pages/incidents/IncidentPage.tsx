@@ -63,6 +63,7 @@ import {
   useDateTime,
   useFormProblem,
   useLabel,
+  useAccess,
   useLicence,
   usePageCrumbs,
   WriteButton,
@@ -83,6 +84,7 @@ import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { KnowledgeCard } from '../knowledge/KnowledgeCard';
 import { SummaryCard } from './SummaryCard';
 import { KnowledgePicker } from '../knowledge/KnowledgePicker';
+import { KnownErrorTool } from '../problems/KnownErrorTool';
 import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
 import { IncidentSla } from './IncidentSla';
 import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
@@ -285,6 +287,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const reasonText = useActionReason();
   const status = useStatusActions(item, catalogue.data);
   const take = useTakeAction(item, op('take'));
+  const { has } = useLicence();
+  const { can } = useAccess();
   const groupName =
     item.group_id === null ? '' : (groups.data?.find((g) => g.id === item.group_id)?.name ?? '');
 
@@ -352,6 +356,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     ),
     take.action,
     ...status.actions,
+    // WP-044a (REQ-PRB-011): a problem prefilled from this incident and linked "caused by".
+    has('problem') && can('problems.create')
+      ? {
+          key: 'create_problem',
+          label: t('problems.create_from_incident'),
+          allowed: true,
+          testId: 'inc-op-create-problem',
+          onClick: () => void navigate(`/problems/new?incident=${item.id}`),
+        }
+      : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
       ? {
           key: 'delete',
@@ -388,14 +402,20 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     ) : null;
 
   // Knowledge in this record's editors (D-121): the picker, for replies, notes and the resolution.
+  // Known errors join it (WP-044b, REQ-PRB-038) where problems are licensed and seen.
   const knowledgeSlot: KnowledgeSlot = (insert, audience) => (
-    <KnowledgePicker
-      recordType="incident"
-      recordId={item.id}
-      subject={item.subject}
-      audience={audience}
-      insert={insert}
-    />
+    <>
+      <KnowledgePicker
+        recordType="incident"
+        recordId={item.id}
+        subject={item.subject}
+        audience={audience}
+        insert={insert}
+      />
+      {has('problem') && can('problems.view') && (
+        <KnownErrorTool incidentId={item.id} insert={insert} />
+      )}
+    </>
   );
 
   return (

@@ -17,6 +17,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from app.modules.work_items.domain.lifecycle import ReasonList, ReasonMode, StatusCategory
 
@@ -287,3 +288,99 @@ def rail(
             )
         )
     return out
+
+
+# --- rules per stage on a template (REQ-REL-013; ADR-041; 0093) ----------------------------------
+
+RULE_FLAGS = ("shown", "required", "read_only")
+
+
+@dataclass(frozen=True)
+class StageFieldRule:
+    """How a template treats one field while a record is in one stage."""
+
+    shown: bool = True
+    required: bool = False  # required to leave the stage (enforced by the guard, session 3)
+    read_only: bool = False  # cannot be changed while the record is in the stage
+
+
+def parse_stage_rules(
+    raw: object, *, stages: Iterable[str], fields: Iterable[str]
+) -> tuple[dict[str, dict[str, StageFieldRule]], list[tuple[str, str]]]:
+    """Rules from JSON, checked against the type's stages and fields, plus (field, code) problems.
+
+    `fields` are the field names a template may name (standard, the type's own and `custom.*`).
+    """
+    known_stages, known_fields = set(stages), set(fields)
+    rules: dict[str, dict[str, StageFieldRule]] = {}
+    problems: list[tuple[str, str]] = []
+    if not isinstance(raw, Mapping):
+        return rules, [("stage_rules", "invalid_value")]
+    for stage, per_field in raw.items():
+        where = f"stage_rules.{stage}"
+        if stage not in known_stages:
+            problems.append((where, "unknown_stage"))
+            continue
+        if not isinstance(per_field, Mapping):
+            problems.append((where, "invalid_value"))
+            continue
+        for name, flags in per_field.items():
+            rule, codes = _stage_rule(name, flags, known_fields)
+            problems += [(f"{where}.{name}", code) for code in codes]
+            if rule is not None:
+                rules.setdefault(stage, {})[name] = rule
+    return rules, problems
+
+
+def _stage_rule(
+    name: str, flags: object, known_fields: set[str]
+) -> tuple[StageFieldRule | None, list[str]]:
+    if name not in known_fields:
+        return None, ["not_a_field"]
+    if not isinstance(flags, Mapping) or any(
+        k not in RULE_FLAGS or not isinstance(v, bool) for k, v in flags.items()
+    ):
+        return None, ["invalid_value"]
+    rule = StageFieldRule(**{k: bool(v) for k, v in flags.items()})
+    if rule.required and not rule.shown:  # nobody could fill it to leave the stage
+        return None, ["hidden_cannot_be_required"]
+    return rule, []
+
+
+def stage_rules_to_json(rules: Mapping[str, Mapping[str, StageFieldRule]]) -> dict[str, Any]:
+    """Only what differs from the default rule is stored."""
+    default = StageFieldRule()
+    return {
+        stage: {
+            name: {
+                k: getattr(rule, k) for k in RULE_FLAGS if getattr(rule, k) != getattr(default, k)
+            }
+            for name, rule in per_field.items()
+        }
+        for stage, per_field in rules.items()
+    }
+
+
+def required_to_leave(raw: Mapping[str, Any] | None, stages: Iterable[str]) -> list[str]:
+    """Fields a stored rule set requires before a record may leave any of `stages`, in order."""
+    names: list[str] = []
+    for stage in stages:
+        for name, flags in ((raw or {}).get(stage) or {}).items():
+            if (flags or {}).get("required") and name not in names:
+                names.append(name)
+    return names
+
+
+def stages_left(move: "Move", current: str) -> list[str]:
+    """The stages a move leaves: the current one if it enters another, and any passed through."""
+    if not move.entered:
+        return []
+    return [current, *move.entered[:-1]]
+
+
+def read_only_in(raw: Mapping[str, Any] | None, stage: str | None) -> frozenset[str]:
+    """The fields a stored rule set makes read-only in `stage`."""
+    if not raw or stage is None:
+        return frozenset()
+    per_field = raw.get(stage) or {}
+    return frozenset(n for n, flags in per_field.items() if (flags or {}).get("read_only"))

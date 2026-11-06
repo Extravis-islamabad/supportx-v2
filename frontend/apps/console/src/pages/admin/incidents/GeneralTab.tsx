@@ -159,7 +159,8 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
         {Object.keys(byField).length === 0 && <Problems problems={problems} />}
         <Space>
           <WriteButton
-            type="primary"
+            // One primary per screen: only the section with unsaved changes asks to be saved.
+            type={dirty ? 'primary' : 'default'}
             loading={pending}
             disabled={!dirty}
             onClick={submit}
@@ -247,7 +248,8 @@ function DefaultsCard({ catalogue }: { catalogue: IncidentCatalogue }) {
         </Flex>
         <Space>
           <WriteButton
-            type="primary"
+            // One primary per screen: only the section with unsaved changes asks to be saved.
+            type={dirty ? 'primary' : 'default'}
             loading={pending}
             disabled={!dirty}
             onClick={() => {
@@ -364,7 +366,8 @@ function AutomationCard({ catalogue }: { catalogue: IncidentCatalogue }) {
         </fieldset>
         <Space>
           <WriteButton
-            type="primary"
+            // One primary per screen: only the section with unsaved changes asks to be saved.
+            type={dirty ? 'primary' : 'default'}
             loading={pending}
             disabled={!dirty}
             onClick={() => {

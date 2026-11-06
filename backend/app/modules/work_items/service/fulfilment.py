@@ -107,7 +107,7 @@ async def after_task_change(
         return None
     wtype = TYPES[WorkItemTypeCode.SERVICE_REQUEST]
     cat = await config.load(session, wtype)
-    if not cat.lifecycle.allows(record.status, WorkItemAction.RESOLVE):
+    if not cat.lifecycle_of(record.lifecycle).allows(record.status, WorkItemAction.RESOLVE):
         return None
     try:
         # A savepoint: when the closing rules refuse (a required resolution, open work that

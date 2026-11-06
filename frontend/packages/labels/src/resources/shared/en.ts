@@ -171,6 +171,7 @@ export const en = {
   'nav.admin_mail': 'Mail',
   'nav.admin_notifications': 'Notifications',
   'nav.admin_organization': 'Organisation',
+  'nav.admin_portal': 'Portal',
   'nav.admin_requests': 'Service requests',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'Roles',
@@ -193,6 +194,7 @@ export const en = {
   'nav.main': 'Main navigation',
   'nav.more': 'More',
   'nav.my_requests': 'My requests',
+  'nav.open_menu': 'Open the menu',
   'nav.problems': 'Problems',
   'nav.profile': 'My profile',
   'nav.releases': 'Releases',
@@ -513,6 +515,10 @@ export const en = {
     'Sites, departments and support groups, and who belongs to them.',
   'setup.page.organization.keywords':
     'sites, departments, groups, teams, locations, offices, members',
+  'setup.page.portal.description':
+    'Everything the self-service portal does for requesters, on one page.',
+  'setup.page.portal.keywords':
+    'portal, self-service, search, search sources, hide incident form, due time, delivery date, on behalf, approvals, sign in, profile editing, reminders, cost, guest, self-registration',
   'setup.page.requests.description':
     'Service requests: on whose behalf requesters may raise them, and the request views.',
   'setup.page.requests.keywords':

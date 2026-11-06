@@ -79,6 +79,7 @@ class CustomFieldEntity(StrEnum):
 
     INCIDENT = "incident"
     SERVICE_REQUEST = "service_request"  # WP-030
+    PROBLEM = "problem"  # WP-044a
     RELEASE = "release"  # WP-058a
     ASSET = "asset"  # WP-049a s2 (REQ-AST-004)
 
@@ -87,6 +88,7 @@ class CustomFieldEntity(StrEnum):
 VIEW_PERMISSION: Mapping[CustomFieldEntity, str] = {
     CustomFieldEntity.INCIDENT: "incidents.view",
     CustomFieldEntity.SERVICE_REQUEST: "requests.view",
+    CustomFieldEntity.PROBLEM: "problems.view",
     CustomFieldEntity.RELEASE: "releases.view",
     CustomFieldEntity.ASSET: "assets.view",
 }
@@ -94,6 +96,7 @@ VIEW_PERMISSION: Mapping[CustomFieldEntity, str] = {
 ENTITY_TABLE: Mapping[CustomFieldEntity, str] = {
     CustomFieldEntity.INCIDENT: "work_items",
     CustomFieldEntity.SERVICE_REQUEST: "work_items",
+    CustomFieldEntity.PROBLEM: "work_items",
     CustomFieldEntity.RELEASE: "work_items",
     CustomFieldEntity.ASSET: "assets",
 }

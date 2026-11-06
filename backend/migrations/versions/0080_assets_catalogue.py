@@ -15,7 +15,7 @@ only (no DELETE grant) except transitions, which an edit replaces. No data step:
 defaults (Appendix A) are made the first time its catalogue is used (assets.service.defaults).
 
 Revision ID: 0080
-Revises: 0092 (main's head; re-pointed if another migration lands first)
+Revises: 0104 (main's head; re-pointed if another migration lands first)
 Created: 2026-11-05
 """
 
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 revision: str = "0080"
-down_revision: str | None = "0092"
+down_revision: str | None = "0104"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

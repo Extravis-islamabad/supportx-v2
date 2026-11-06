@@ -19,6 +19,8 @@
   "tests/invitations.spec.ts": 23,
   "tests/knowledge.spec.ts": 357,
   "tests/people.spec.ts": 34,
+  "tests/portal-home.spec.ts": 30,
+  "tests/problems.spec.ts": 45,
   "tests/profile.spec.ts": 14,
   "tests/qa-fixes.spec.ts": 159,
   "tests/qa-wp020c.spec.ts": 58,
@@ -39,5 +41,6 @@
   "tests/ai-incidents.spec.ts": 60,
   "tests/arabic-fonts.spec.ts": 30,
   "tests/visual-matrix.spec.ts": 1,
-  "tests/users.spec.ts": 10
+  "tests/users.spec.ts": 10,
+  "tests/releases.spec.ts": 45
 }

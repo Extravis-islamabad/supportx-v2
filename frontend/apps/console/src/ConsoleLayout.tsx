@@ -213,11 +213,12 @@ export function ConsoleLayout() {
       activeKey={activeKey}
       layout={session.user.nav_layout}
       onNavigate={(path) => void navigate(path)}
-      header={(topNav) => (
+      header={(topNav, menu) => (
         <AppHeader
           appName="app.console.name"
           session={session}
           start={topNav ?? undefined}
+          menu={menu}
           context={(narrow) => (
             <HeaderCrumbs
               crumbs={crumbs}
