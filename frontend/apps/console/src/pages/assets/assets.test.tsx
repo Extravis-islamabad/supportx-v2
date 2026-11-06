@@ -579,4 +579,50 @@ describe('console: assets', () => {
       true,
     );
   });
+
+  it('groups: counts shown, a dynamic group by state, the selection added to a static group', async () => {
+    const floor = {
+      id: 'g-1',
+      name: 'Floor 3',
+      description: null,
+      kind: 'static',
+      filter: null,
+      count: 2,
+      version: 1,
+    };
+    window.history.pushState({}, '', '/assets/groups');
+    const fake = assetsApi({
+      'GET /api/v1/assets/groups': { body: [floor] },
+      'POST /api/v1/assets/groups': {
+        status: 201,
+        body: { ...floor, id: 'g-2', name: 'In stock', kind: 'dynamic', count: 1 },
+      },
+      'POST /api/v1/assets/groups/g-1/members': { body: { added: 1 } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const row = await screen.findByTestId('asset-group-g-1');
+    expect(within(row).getByText('2 assets')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('asset-group-new-open'));
+    const dialog = await screen.findByTestId('asset-group-new');
+    fireEvent.change(within(dialog).getByTestId('asset-group-name'), {
+      target: { value: 'In stock' },
+    });
+    fireEvent.click(within(dialog).getByText('Dynamic'));
+    fireEvent.mouseDown(
+      within(within(dialog).getByTestId('asset-group-state')).getByRole('combobox'),
+    );
+    fireEvent.click(await screen.findByTitle('In stock'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add group' }));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/assets/groups')).toHaveLength(1);
+    });
+    const [made] = fake.find('POST', '/api/v1/assets/groups');
+    expect(made?.body).toEqual({
+      name: 'In stock',
+      kind: 'dynamic',
+      filter: { field: 'state_id', op: 'eq', value: state.id },
+    });
+    expect(made?.headers.get('Idempotency-Key')).toBeTruthy();
+  });
 });

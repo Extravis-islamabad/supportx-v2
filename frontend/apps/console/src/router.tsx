@@ -44,6 +44,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-049a s4 (REQ-AST-028): static and dynamic groups.
+            path: 'groups',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/GroupsPage')).GroupsPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({ Component: (await import('./pages/assets/AssetPage')).AssetPage }),
           },
