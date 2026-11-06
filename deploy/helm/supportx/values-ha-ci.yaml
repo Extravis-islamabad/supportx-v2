@@ -32,3 +32,8 @@ networkPolicies:
       # egress on lists its private mirror or forward proxy here instead (clamav.privateMirror).
       clamav:
         - ports: [{protocol: TCP, port: 443}, {protocol: TCP, port: 80}]
+
+# The HA smoke tests Valkey failover; the bundled Temporal is covered by the core cluster smoke.
+temporal:
+  bundled:
+    enabled: false

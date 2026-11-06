@@ -57,3 +57,12 @@ mail:
   smtpPort: 1025
   smtpSecurity: none
   fromAddress: noreply@supportx.localhost
+
+# Temporal on the dev cluster too, smaller.
+temporal:
+  bundled:
+    enabled: true
+    historyShards: 4
+    resources:
+      requests: {cpu: 50m, memory: 192Mi}
+      limits: {cpu: "1", memory: 768Mi}
