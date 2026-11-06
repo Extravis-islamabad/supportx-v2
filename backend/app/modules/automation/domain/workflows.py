@@ -9,15 +9,23 @@ which record types it is offered for. Validation names every problem with the no
 about, so the designer can select it; drafts save with problems, only a clean version publishes.
 
 Conditions (if, switch, wait) are the business rules' grammar (`rules.check_conditions`), so a
-workflow and a rule read a record the same way.
+workflow and a rule read a record the same way. A workflow's own variables are typed (text,
+number, yes/no, date and time) and conditions read them as `var.<name>` (REQ-WF-016, S2).
+
+Command nodes (set status, field update, note, sub-flow) may retry a failed command a few times
+before taking their error output (REQ-WF-024, S2). A sub-flow starts another workflow on the same
+record and waits for it to finish; recursion is refused on save by the service (REQ-WF-017).
 """
 
+import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
 from app.modules.automation.domain.rules import (
+    FieldKind,
     JsonValue,
     RuleField,
     check_conditions,
@@ -36,6 +44,14 @@ MAX_VARIABLES = 50
 MAX_WAIT_SECONDS = 366 * 24 * 3600  # a wait's limit or a timer: at most a year
 ID_MAX = 40
 NOTE_MAX = 5000
+VARIABLE_TEXT_MAX = 1000
+MAX_RETRIES = 5
+RETRY_SECONDS_MIN = 10
+RETRY_SECONDS_MAX = 24 * 3600
+VAR_PREFIX = "var."  # how conditions name a variable: var.<name>
+VARIABLE_KINDS = frozenset(
+    {FieldKind.TEXT, FieldKind.NUMBER, FieldKind.BOOLEAN, FieldKind.DATETIME}
+)
 
 # (where, code, params): `where` is "node:<id>", "link:<index>" or "definition".
 Problem = tuple[str, str, dict[str, JsonValue]]
@@ -52,7 +68,7 @@ class Category(StrEnum):
 
 
 class NodeType(StrEnum):
-    """Node types of this session (S1); people and action nodes join in S2 (ADR-043 §6-7)."""
+    """The node registry's types (ADR-043 §2); people and outside actions join in S2."""
 
     START = "start"
     END = "end"
@@ -65,6 +81,8 @@ class NodeType(StrEnum):
     NOTE = "note"
     SPLIT = "split"
     JOIN = "join"
+    SET_VARIABLE = "set_variable"
+    SUB_FLOW = "sub_flow"
 
 
 class WaitEvent(StrEnum):
@@ -114,12 +132,20 @@ class Link:
 
 
 @dataclass(frozen=True)
+class Variable:
+    """A workflow variable: its name and what it holds."""
+
+    name: str
+    kind: FieldKind = FieldKind.TEXT
+
+
+@dataclass(frozen=True)
 class Definition:
     """A whole workflow as the interpreter and the designer read it."""
 
     nodes: tuple[Node, ...]
     links: tuple[Link, ...]
-    variables: tuple[str, ...] = ()
+    variables: tuple[Variable, ...] = ()
 
     def node(self, node_id: str) -> Node:
         """The node with this ID (validated definitions only)."""
@@ -147,7 +173,7 @@ class Definition:
                 for n in self.nodes
             ],
             "links": [{"from": x.source, "port": x.port, "to": x.target} for x in self.links],
-            "variables": list(self.variables),
+            "variables": [{"name": v.name, "kind": v.kind.value} for v in self.variables],
         }
 
 
@@ -217,7 +243,7 @@ def _check_set_status(
         return [("system_status_not_allowed", {"action": str(action)})]
     if not isinstance(action, str) or action not in facts.actions:
         return [("unknown_action", {"action": str(action)})]
-    return []
+    return _retries(config)
 
 
 def _check_if(
@@ -303,7 +329,27 @@ def _check_timer(
     return []
 
 
+def _retries(config: Mapping[str, Any]) -> list[tuple[str, dict[str, JsonValue]]]:
+    """A command node's retries: none, or up to five, a while apart (REQ-WF-024)."""
+    retries, wait = config.get("retries", 0), config.get("retry_seconds", 60)
+    if not _whole(retries) or not 0 <= retries <= MAX_RETRIES:
+        return [("retries_invalid", {"max": MAX_RETRIES})]
+    if not _whole(wait) or not RETRY_SECONDS_MIN <= wait <= RETRY_SECONDS_MAX:
+        return [("retry_wait_invalid", {"min": RETRY_SECONDS_MIN, "max": RETRY_SECONDS_MAX})]
+    return []
+
+
+def _whole(value: Any) -> bool:  # noqa: ANN401 - untrusted JSON
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def _check_field_update(
+    config: Mapping[str, Any], facts: TypeFacts
+) -> list[tuple[str, dict[str, JsonValue]]]:
+    return _field_values(config, facts) + _retries(config)
+
+
+def _field_values(
     config: Mapping[str, Any], facts: TypeFacts
 ) -> list[tuple[str, dict[str, JsonValue]]]:
     values = config.get("values")
@@ -333,7 +379,60 @@ def _check_note(
         return [("note_text_invalid", {"max": NOTE_MAX})]
     if not isinstance(config.get("private", True), bool):
         return [("invalid_value", {"field": "private"})]
-    return []
+    return _retries(config)
+
+
+def variable_value_problem(kind: FieldKind, value: Any) -> str | None:  # noqa: ANN401 - untrusted JSON
+    """Why `value` cannot be held by a variable of `kind`, or None."""
+    if value is None:
+        return None  # cleared
+    match kind:
+        case FieldKind.NUMBER:
+            ok = isinstance(value, int | float) and not isinstance(value, bool)
+        case FieldKind.BOOLEAN:
+            ok = isinstance(value, bool)
+        case FieldKind.DATETIME:
+            ok = isinstance(value, str) and _iso(value)
+        case _:
+            ok = isinstance(value, str) and len(value) <= VARIABLE_TEXT_MAX
+    return None if ok else "variable_value_invalid"
+
+
+def _iso(value: str) -> bool:
+    try:
+        datetime.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _check_set_variable(
+    config: Mapping[str, Any], facts: TypeFacts
+) -> list[tuple[str, dict[str, JsonValue]]]:
+    """Set a declared variable to a fixed value, or to a field of the record."""
+    name = config.get("variable")
+    spec = facts.fields.get(f"{VAR_PREFIX}{name}") if isinstance(name, str) else None
+    if spec is None:
+        return [("variable_unknown", {"variable": str(name)})]
+    source = config.get("from_field")
+    if source is not None:
+        found = facts.fields.get(str(source)) if not str(source).startswith(VAR_PREFIX) else None
+        if found is None:
+            return [("unknown_field", {"field": str(source)})]
+        return []
+    problem = variable_value_problem(spec.kind, config.get("value"))
+    return [(problem, {"variable": name})] if problem else []
+
+
+def _check_sub_flow(
+    config: Mapping[str, Any], _facts: TypeFacts
+) -> list[tuple[str, dict[str, JsonValue]]]:
+    """Which workflow to run; whether it may (same type, no recursion) is the service's check."""
+    try:
+        uuid.UUID(str(config.get("workflow_id")))
+    except ValueError:
+        return [("sub_flow_workflow_missing", {})]
+    return _retries(config)
 
 
 def _split_ports(config: Mapping[str, Any]) -> tuple[str, ...]:
@@ -398,7 +497,36 @@ REGISTRY: Mapping[NodeType, NodeSpec] = {
     ),
     NodeType.SPLIT: NodeSpec(NodeType.SPLIT, Category.STRUCTURE, _split_ports, _none, _check_split),
     NodeType.JOIN: NodeSpec(NodeType.JOIN, Category.STRUCTURE, _fixed("next"), _none, _check_join),
+    NodeType.SET_VARIABLE: NodeSpec(
+        NodeType.SET_VARIABLE, Category.LOGIC, _fixed("next"), _none, _check_set_variable
+    ),
+    NodeType.SUB_FLOW: NodeSpec(
+        NodeType.SUB_FLOW,
+        Category.STRUCTURE,
+        _fixed("next", "error"),
+        lambda _c: frozenset({"error"}),
+        _check_sub_flow,
+    ),
 }
+
+
+def sub_flows(definition: Definition) -> dict[str, uuid.UUID]:
+    """The workflows a definition's sub-flow nodes start, by node (for the recursion check)."""
+    found: dict[str, uuid.UUID] = {}
+    for node in definition.nodes:
+        if node.type != NodeType.SUB_FLOW:
+            continue
+        try:
+            found[node.id] = uuid.UUID(str(node.config.get("workflow_id")))
+        except ValueError:
+            continue
+    return found
+
+
+def with_variables(facts: TypeFacts, variables: Sequence[Variable]) -> TypeFacts:
+    """The facts conditions and nodes see: the record's fields plus `var.<name>` for each one."""
+    extra = {f"{VAR_PREFIX}{v.name}": RuleField(v.kind) for v in variables}
+    return replace(facts, fields={**facts.fields, **extra})
 
 
 def offered(record_type: str) -> tuple[NodeType, ...]:
@@ -434,11 +562,8 @@ def parse(raw: Any) -> Parsed:  # noqa: ANN401, C901, PLR0912 - untrusted JSON, 
         return Parsed(None, [("definition", "too_many_nodes", {"max": MAX_NODES})])  # REQ-WF-029
     if len(links_raw) > MAX_LINKS:
         return Parsed(None, [("definition", "too_many_links", {"max": MAX_LINKS})])
-    if (
-        not isinstance(variables_raw, list)
-        or len(variables_raw) > MAX_VARIABLES
-        or not all(isinstance(v, str) and _valid_id(v) for v in variables_raw)
-    ):
+    variables = _variables(variables_raw)
+    if variables is None:
         return Parsed(None, [("definition", "variables_invalid", {"max": MAX_VARIABLES})])
     nodes: list[Node] = []
     problems: list[Problem] = []
@@ -476,7 +601,24 @@ def parse(raw: Any) -> Parsed:  # noqa: ANN401, C901, PLR0912 - untrusted JSON, 
             problems.append((f"link:{index}", "link_invalid", {}))
             continue
         links.append(Link(item["from"], item["port"], item["to"]))
-    return Parsed(Definition(tuple(nodes), tuple(links), tuple(variables_raw)), problems)
+    return Parsed(Definition(tuple(nodes), tuple(links), variables), problems)
+
+
+def _variables(raw: Any) -> tuple[Variable, ...] | None:  # noqa: ANN401 - untrusted JSON
+    """Variables as names (format 1 from S1: text) or {name, kind}; None when unreadable."""
+    if not isinstance(raw, list) or len(raw) > MAX_VARIABLES:
+        return None
+    found: list[Variable] = []
+    for item in raw:
+        name, kind = (item, FieldKind.TEXT.value) if isinstance(item, str) else (None, None)
+        if isinstance(item, dict):
+            name, kind = item.get("name"), item.get("kind", FieldKind.TEXT.value)
+        if not isinstance(name, str) or not _valid_id(name) or kind not in VARIABLE_KINDS:
+            return None
+        if any(v.name == name for v in found):
+            return None
+        found.append(Variable(name, FieldKind(kind)))
+    return tuple(found)
 
 
 def validate(definition: Definition, facts: TypeFacts) -> list[Problem]:  # noqa: C901 - one check per rule of REQ-WF-019, flat
@@ -484,6 +626,7 @@ def validate(definition: Definition, facts: TypeFacts) -> list[Problem]:  # noqa
     problems: list[Problem] = []
     ids = {n.id for n in definition.nodes}
     allowed = set(offered(facts.record_type))
+    facts = with_variables(facts, definition.variables)
     starts = [n for n in definition.nodes if n.type == NodeType.START]
     if len(starts) != 1:
         problems.append(("definition", "one_start_needed", {"found": len(starts)}))
