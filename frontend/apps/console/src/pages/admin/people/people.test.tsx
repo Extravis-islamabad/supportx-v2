@@ -236,6 +236,41 @@ describe('Admin › Organisation', () => {
       await screen.findByText('Still in use (people: 3). Make it inactive instead.'),
     ).toBeDefined();
   });
+
+  it('counts a site’s people apart from who has access to it (PEO-01)', async () => {
+    routes({
+      'GET /api/v1/organization/sites': {
+        body: [
+          {
+            id: 's-2',
+            name: 'Islamabad headquarters',
+            description: null,
+            region: null,
+            time_zone: null,
+            default_language: null,
+            address: null,
+            phone: null,
+            email: null,
+            is_default: true,
+            disabled: false,
+            member_ids: ['u-1', 'u-2'],
+            people_count: 7,
+            version: 1,
+          },
+        ],
+      },
+    });
+    render(<App />);
+    const name = await screen.findByText('Islamabad headquarters');
+    const row = name.closest('tr');
+    if (row === null) throw new Error('no row');
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    const cells = within(row)
+      .getAllByRole('cell')
+      .map((c) => c.textContent);
+    expect(cells[headers.indexOf('People')]).toBe('7');
+    expect(cells[headers.indexOf('Site access')]).toBe('2');
+  });
 });
 
 describe('technician visibility (D-073)', () => {

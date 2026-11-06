@@ -95,6 +95,8 @@ export const ar: LabelResource = {
   'organization.col.actions': 'الإجراءات',
   'organization.col.members': 'الأعضاء',
   'organization.col.name': 'الاسم',
+  'organization.col.people': 'الأشخاص',
+  'organization.col.site_access': 'الوصول إلى الموقع',
   'organization.current_person': 'الشخص الحالي',
   'organization.default': 'افتراضي',
   'organization.departments': 'الأقسام',
