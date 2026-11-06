@@ -297,6 +297,8 @@ export const ur: LabelResource = {
   'errors.field.level_too_many_actions': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} کارروائیاں۔',
   'errors.field.level_too_many_recipients': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} وصول کنندگان۔',
   'errors.field.levels_same_moment': 'دو درجے ایک ہی وقت پر چلتے ہیں۔ ہر ایک کو اپنا وقت دیں۔',
+  'errors.field.limited_template_for_requesters':
+    'درخواست گزاروں کا سانچہ سب کے لیے ہے: اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
@@ -432,6 +434,7 @@ export const ur: LabelResource = {
   'errors.field.technician_not_in_group': 'یہ ٹیکنیشن منتخب گروپ کا رکن نہیں۔',
   'errors.field.template_disabled': 'یہ سانچہ بند کر دیا گیا ہے۔ کوئی اور سانچہ منتخب کریں۔',
   'errors.field.template_not_found': 'یہ سانچہ اب موجود نہیں۔ کوئی اور منتخب کریں۔',
+  'errors.field.template_not_offered': 'یہ سانچہ آپ کے لیے دستیاب نہیں۔ کوئی اور سانچہ منتخب کریں۔',
   'errors.field.time_format_unknown': '24 گھنٹے یا 12 گھنٹے کا وقت چنیں۔',
   'errors.field.time_zone_unknown': 'فہرست میں سے ٹائم زون چنیں۔',
   'errors.field.timezone_required': 'ٹائم زون شامل کریں۔',

@@ -2097,7 +2097,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     item = await _request_item(session, subject, wtype, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
-    template = await templates.for_create(session, wtype, values.get("template_id"))
+    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     problems += await templates.required_problems(
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
     )

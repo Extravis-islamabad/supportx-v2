@@ -408,6 +408,7 @@ class WorkItemTemplate(TenantEntity):
             "stage_rules IS NULL OR jsonb_typeof(stage_rules) = 'object'",
             name="stage_rules_object",
         ),
+        CheckConstraint("cardinality(limited_group_ids) <= 50", name="limited_group_ids_count"),
         Index("ix_work_item_templates_tenant_type", "tenant_id", "type", "disabled_at"),
         Index(
             "uq_work_item_templates_tenant_type_default",
@@ -425,6 +426,11 @@ class WorkItemTemplate(TenantEntity):
     group_name: Mapped[str | None] = mapped_column(String(60))
     is_default: Mapped[bool] = mapped_column(Boolean, server_default="false")
     for_requesters: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Offered only to these support groups' members when creating (REQ-PRB-021; 0109); empty:
+    # everyone. What is seen is never narrowed: a record from it stays visible as before (AC2).
+    limited_group_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default=text("'{}'::uuid[]")
+    )
     field_rules: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     defaults: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     copied_from_id: Mapped[uuid.UUID | None]

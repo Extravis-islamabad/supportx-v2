@@ -292,6 +292,8 @@ export const en = {
   'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
   'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
   'errors.field.levels_same_moment': 'Two levels run at the same moment. Give each its own time.',
+  'errors.field.limited_template_for_requesters':
+    'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
@@ -423,6 +425,8 @@ export const en = {
   'errors.field.technician_not_in_group': 'This technician is not a member of the chosen group.',
   'errors.field.template_disabled': 'This template was turned off. Choose another template.',
   'errors.field.template_not_found': 'That template no longer exists. Choose another one.',
+  'errors.field.template_not_offered':
+    'This template is not offered to you. Choose another template.',
   'errors.field.time_format_unknown': 'Choose 24-hour or 12-hour time.',
   'errors.field.time_zone_unknown': 'Choose a time zone from the list.',
   'errors.field.timezone_required': 'Include a time zone.',
