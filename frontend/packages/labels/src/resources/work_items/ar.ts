@@ -338,8 +338,6 @@ export const ar: LabelResource = {
   'closure_code.workaround': 'حل بديل',
   'conversation.add_note': 'إضافة ملاحظة',
   'conversation.cc': 'نسخة إلى',
-  'conversation.email_not_configured_hint':
-    'لم تُعدّ قناة بريد إلكتروني بعد: سيُحفظ الرد هنا ويُعلَّم بأنه "لم يُرسل".',
   'conversation.empty.messages': 'لا توجد ردود بعد.',
   'conversation.empty.notes': 'لا توجد ملاحظات بعد.',
   'conversation.field.body': 'النص',
@@ -378,6 +376,9 @@ export const ar: LabelResource = {
   'conversation.not_sent_detail':
     'الرد محفوظ هنا، لكنه لم يصل إلى أحد. يمكن إرساله بمجرد إعداد قناة بريد إلكتروني.',
   'conversation.note_placeholder': 'اكتب ملاحظة. اكتب @ للإشارة إلى شخص.',
+  'conversation.outgoing_mail_not_set_up':
+    'لم يُعَدّ البريد الصادر بعد: يُحفظ هذا الرد هنا ويُعلَّم «غير مُرسَل» حتى يُعَدّ.',
+  'conversation.outgoing_mail_who_can_fix': 'يمكن لـ {{names}} إعداده.',
   'conversation.private_hint': 'للموظفين فقط',
   'conversation.public_hint': 'يمكن لمقدم الطلب رؤية هذا',
   'conversation.reply_placeholder': 'اكتب ردك.',
