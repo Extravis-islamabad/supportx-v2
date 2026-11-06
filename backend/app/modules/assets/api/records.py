@@ -601,6 +601,11 @@ class AssetDisposalIn(BaseModel):
     cost: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
     approved_by: uuid.UUID | None = Field(default=None, description="Who approved it (a person).")
+    components: Literal["detach", "dispose"] | None = Field(
+        default=None,
+        description="Its fitted components: detach them, or dispose of them with the same record. "
+        "Required when it has any (409 asset_has_components, params: count).",
+    )
 
 
 class AssetDisposalOut(BaseModel):

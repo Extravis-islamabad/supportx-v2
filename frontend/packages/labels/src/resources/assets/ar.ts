@@ -4,6 +4,8 @@ import type { LabelResource } from '../en';
 export const ar: LabelResource = {
   'asset_age_basis.acquisition_date': 'تاريخ الاقتناء',
   'asset_age_basis.created_date': 'تاريخ الإضافة',
+  'asset_components_choice.detach': 'فصلها',
+  'asset_components_choice.dispose': 'التخلّص منها أيضًا',
   'asset_depreciation.declining_balance': 'الرصيد المتناقص',
   'asset_depreciation.double_declining_balance': 'الرصيد المتناقص المضاعف',
   'asset_depreciation.straight_line': 'القسط الثابت',

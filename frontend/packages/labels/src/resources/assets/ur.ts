@@ -4,6 +4,8 @@ import type { LabelResource } from '../en';
 export const ur: LabelResource = {
   'asset_age_basis.acquisition_date': 'حصول کی تاریخ',
   'asset_age_basis.created_date': 'شامل کرنے کی تاریخ',
+  'asset_components_choice.detach': 'انہیں الگ کریں',
+  'asset_components_choice.dispose': 'انہیں بھی تلف کریں',
   'asset_depreciation.declining_balance': 'گھٹتا ہوا بیلنس',
   'asset_depreciation.double_declining_balance': 'دوگنا گھٹتا ہوا بیلنس',
   'asset_depreciation.straight_line': 'سیدھی لکیر',

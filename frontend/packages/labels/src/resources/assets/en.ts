@@ -2,6 +2,8 @@
 export const en = {
   'asset_age_basis.acquisition_date': 'Acquisition date',
   'asset_age_basis.created_date': 'Date added',
+  'asset_components_choice.detach': 'Detach them',
+  'asset_components_choice.dispose': 'Dispose of them too',
   'asset_depreciation.declining_balance': 'Declining balance',
   'asset_depreciation.double_declining_balance': 'Double declining balance',
   'asset_depreciation.straight_line': 'Straight line',

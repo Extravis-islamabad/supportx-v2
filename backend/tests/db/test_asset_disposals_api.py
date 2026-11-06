@@ -165,3 +165,38 @@ async def test_disposal_records_are_isolated_by_rls(world: World) -> None:
         404,
         "asset_not_found",
     )
+
+
+async def test_disposing_asks_about_fitted_components_first(world: World) -> None:
+    """026 AC2: a workstation's monitor is detached or disposed of with it, never left hanging."""
+    a = world.a
+    states = await _states(world, a)
+    workstation = await _retired(world, "Old workstation")
+    monitor = await _retired(world, "Its monitor")
+    fitted = await world.call(
+        "PUT", f"{BASE}/{monitor['id']}/holder", a, a.admin,
+        json={"kind": "asset", "id": workstation["id"]}, headers=_match(monitor["version"]),
+    )  # fmt: skip
+    assert fitted.status_code == 200, fitted.text
+    asked = await _dispose(world, workstation, RECORD)
+    assert problem(asked) == (409, "asset_has_components")
+    assert asked.json()["params"] == {"count": 1}
+    detached = await _dispose(world, workstation, {**RECORD, "components": "detach"})
+    assert detached.status_code == 200, detached.text
+    after = (await world.call("GET", f"{BASE}/{monitor['id']}", a, a.admin)).json()
+    assert after["parent_asset_id"] is None
+    assert after["state_id"] == states["retired"]  # only detached, still its own asset
+
+    rack = await _retired(world, "Old rack")
+    shelf = await _retired(world, "Its shelf")
+    put = await world.call(
+        "PUT", f"{BASE}/{shelf['id']}/holder", a, a.admin,
+        json={"kind": "asset", "id": rack["id"]}, headers=_match(shelf["version"]),
+    )  # fmt: skip
+    assert put.status_code == 200
+    both = await _dispose(world, rack, {**RECORD, "components": "dispose"})
+    assert both.status_code == 200, both.text
+    gone = (await world.call("GET", f"{BASE}/{shelf['id']}", a, a.admin)).json()
+    assert gone["state_id"] == states["disposed"]
+    record = await world.call("GET", f"{BASE}/{shelf['id']}/disposal", a, a.admin)
+    assert record.json()["reason"] == RECORD["reason"]

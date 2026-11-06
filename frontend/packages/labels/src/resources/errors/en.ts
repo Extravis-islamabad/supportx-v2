@@ -42,6 +42,8 @@ export const en = {
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
     'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
+  'errors.asset_has_components':
+    'It has fitted components ({{count}}): detach them or dispose of them too.',
   'errors.asset_life_cycle_in_use':
     'Product types still use this life cycle ({{used}}). Move them to another one first.',
   'errors.asset_life_cycle_not_found': 'This life cycle does not exist.',
