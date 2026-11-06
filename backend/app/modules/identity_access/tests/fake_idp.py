@@ -172,6 +172,7 @@ class MemoryKeyValue:
 
     def __init__(self) -> None:
         self.data: dict[str, bytes] = {}
+        self.hashes: dict[str, dict[str, bytes]] = {}
 
     async def get(self, key: str) -> bytes | None:
         return self.data.get(key)
@@ -194,3 +195,13 @@ class MemoryKeyValue:
         value = int(self.data.get(key, b"0")) + 1
         self.data[key] = str(value).encode()
         return value
+
+    async def hset(self, key: str, field: str, value: bytes, *, px: int) -> None:
+        assert px > 0
+        self.hashes.setdefault(key, {})[field] = value
+
+    async def hgetall(self, key: str) -> dict[str, bytes]:
+        return dict(self.hashes.get(key, {}))
+
+    async def hdel(self, key: str, field: str) -> int:
+        return 1 if self.hashes.get(key, {}).pop(field, None) is not None else 0
