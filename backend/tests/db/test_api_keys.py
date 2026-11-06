@@ -301,3 +301,44 @@ async def test_api_keys_are_isolated_by_rls(bff: Bff) -> None:  # noqa: F811
             )
     async with bff.app.state.db.tenant_session(TenantContext(tenant_a)) as session:
         assert await session.scalar(text("SELECT count(*) FROM api_keys")) == 1
+
+
+async def _service_identity(world: Bff, name: str, *, status: str = "active") -> uuid.UUID:
+    conn = await asyncpg.connect(world.db.admin_url)  # users has FORCED RLS
+    try:
+        user_id = uuid.uuid4()
+        await conn.execute(
+            "INSERT INTO users (id, tenant_id, display_name, first_name, user_type, can_sign_in,"
+            " status)"
+            " VALUES ($1, $2, $3, $3, 'service', false, $4)",
+            user_id,
+            world.tenants[0],
+            name,
+            status,
+        )
+        return user_id
+    finally:
+        await conn.close()
+
+
+async def test_peo_14_key_managers_choose_owners_from_the_service_identities(bff: Bff) -> None:  # noqa: F811
+    """The owner picker's own list: active service identities only, never people (WP-040 s2)."""
+    jira = await _service_identity(bff, "Jira connector")
+    await _service_identity(bff, "Removed connector", status="disabled")
+    csrf = await _signed_in(bff)
+    listed = await bff.client.get("/api/v1/api-keys/owners")
+    assert listed.status_code == 200, listed.text
+    assert listed.json() == [{"id": str(jira), "display_name": "Jira connector"}]
+    # The one offered is the one the server accepts.
+    made = await _make(bff, csrf, owner_id=str(jira))
+    assert made.status_code == 201, made.text
+    # The people list still never shows them.
+    people = await bff.client.get("/api/v1/users")
+    assert str(jira) not in {p["id"] for p in people.json()["items"]}
+
+
+async def test_peo_14_only_key_managers_see_the_service_identities(bff: Bff) -> None:  # noqa: F811
+    await _service_identity(bff, "Jira connector")
+    await _signed_in(bff, "technician", email="tech-owners@demo.test")
+    refused = await bff.client.get("/api/v1/api-keys/owners")
+    assert refused.status_code == 403
