@@ -3993,6 +3993,18 @@
             "title": "Part Id",
             "type": "string"
           },
+          "task_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task Status"
+          },
           "work_item_id": {
             "format": "uuid",
             "title": "Work Item Id",

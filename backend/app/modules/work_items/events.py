@@ -285,6 +285,9 @@ class WorkItemPartChanged(DomainEvent):
     part: Literal["task", "worklog", "link"]
     part_id: uuid.UUID
     change: Literal["added", "changed", "removed"]
+    # Tasks only, additive (WP-048b, lane C's task node waits for "done"): the task's status
+    # after the change, a code (open, in_progress, done, ...); None for other parts.
+    task_status: str | None = None
 
 
 class WorkItemPartChangedV2(DomainEvent):
