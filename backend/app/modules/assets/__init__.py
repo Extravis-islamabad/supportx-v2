@@ -8,7 +8,8 @@
   plan's asset limit (D-141).
 - Sessions 3-5 add the life cycle in use, ownership and loans.
 
-Licensed with the `assets` feature. Public interface for other modules: none yet.
+Licensed with the `assets` feature. Public interface for other modules: `can_see`, `asset_refs`
+and `assets_of` (REQ-AST-025, for work items), and the disposal guard port.
 """
 
 from fastapi import FastAPI
@@ -29,6 +30,7 @@ from app.modules.assets.service.disposals import register_disposal_guard, unregi
 from app.modules.assets.service.file_access import FILE_ACCESS
 from app.modules.assets.service.ownership import OWNER_SITE_CHANGED
 from app.modules.assets.service.realtime import CHANNELS, ROUTES
+from app.modules.assets.service.refs import AssetRef, asset_refs, assets_of, can_see
 from app.modules.procurement import register_vendor_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 
@@ -85,4 +87,12 @@ register_owner_access(FILE_ACCESS)
 # Acknowledgements notify through the engine (REQ-AST-023): at import, for the workers too.
 notifications.register()
 
-__all__ = ["module", "register_disposal_guard", "unregister_disposal_guard"]
+__all__ = [
+    "AssetRef",
+    "asset_refs",
+    "assets_of",
+    "can_see",
+    "module",
+    "register_disposal_guard",
+    "unregister_disposal_guard",
+]

@@ -293,3 +293,55 @@ async def test_acknowledgements_are_isolated_by_rls(world: World) -> None:
         assert (
             await session.execute(text("UPDATE asset_acknowledgements SET comment = 'x'"))
         ).rowcount == 0
+
+
+async def test_the_picker_offers_a_persons_own_assets_first(world: World) -> None:
+    """025: a requester sees what they hold; staff may also search; others' are never offered."""
+    a = world.a
+    theirs = await _asset(world, "Picker laptop")
+    await _asset(world, "Picker printer")  # nobody's
+    assert (await _hold(world, theirs, "user", a.requester)).status_code == 200
+    own = (await world.call("GET", f"{BASE}/picker", a, a.requester)).json()
+    assert [(r["id"], r["mine"]) for r in own] == [(theirs["id"], True)]
+    # A requester may not search the organisation's assets or pick for someone else.
+    searched = (
+        await world.call("GET", f"{BASE}/picker", a, a.requester, params={"q": "printer"})
+    ).json()
+    assert {r["id"] for r in searched} == {theirs["id"]}
+    other = await world.call(
+        "GET", f"{BASE}/picker", a, a.requester, params={"for_user": str(a.tech_a)}
+    )
+    assert other.json() == []
+    by_staff = (
+        await world.call(
+            "GET", f"{BASE}/picker", a, a.admin,
+            params={"for_user": str(a.requester), "q": "printer"},
+        )
+    ).json()  # fmt: skip
+    assert by_staff[0]["id"] == theirs["id"]
+    assert any(r["name"] == "Picker printer" and not r["mine"] for r in by_staff)
+
+
+async def test_refs_mark_gone_and_hidden_assets_never_naming_them(world: World) -> None:
+    from app.modules.assets import asset_refs, assets_of, can_see  # noqa: PLC0415 - the public interface under test
+    from app.modules.identity_access import subject_for  # noqa: PLC0415 - as other modules call it
+
+    a = world.a
+    theirs = await _asset(world, "Ref mine")
+    hidden = await _asset(world, "Ref hidden")
+    trashed = await _asset(world, "Ref trashed")
+    assert (await _hold(world, theirs, "user", a.requester)).status_code == 200
+    gone = await world.call(
+        "DELETE", f"{BASE}/{trashed['id']}", a, a.admin, headers=_match(trashed["version"])
+    )
+    assert gone.status_code == 204, gone.text
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        requester = await subject_for(session, a.tenant, a.requester)
+        ids = [uuid.UUID(theirs["id"]), uuid.UUID(hidden["id"]), uuid.UUID(trashed["id"])]
+        refs = await asset_refs(session, requester, ids)
+        assert refs[ids[0]].name == "Ref mine"
+        assert (refs[ids[1]].hidden, refs[ids[1]].name) == (True, None)
+        assert (refs[ids[2]].gone, refs[ids[2]].name) == (True, None)
+        assert await can_see(session, requester, ids[0])
+        assert not await can_see(session, requester, ids[1])
+        assert [r.id for r in await assets_of(session, a.requester)] == [ids[0]]

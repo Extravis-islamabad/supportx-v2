@@ -31,7 +31,7 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetState,
 )
-from app.modules.assets.service import acknowledgements, groups, ownership
+from app.modules.assets.service import acknowledgements, groups, ownership, refs
 from app.modules.assets.service import catalogue as service
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
@@ -1095,3 +1095,33 @@ async def remove_group_member(
     """The asset itself is untouched."""
     await groups.remove_member(session, subject, group_id, asset_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- the asset picker on records (REQ-AST-025) -----------------------------------------------
+
+
+class PickedAssetOut(BaseModel):
+    """An asset offered by the picker; `mine`: the person's own (listed first)."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+    state_id: uuid.UUID | None
+    mine: bool
+
+
+@router.get("/picker", summary="Assets to attach to a record")
+async def asset_picker(
+    session: TenantSession,
+    subject: SignedIn,
+    for_user: Annotated[
+        uuid.UUID | None, Query(description="Whose assets first (staff only).")
+    ] = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+) -> list[PickedAssetOut]:
+    """The person's own (and their department's, if shown) first; staff may also search."""
+    found = await refs.picker(session, subject, for_user=for_user, text=q)
+    return [
+        PickedAssetOut(id=r.id, tag=r.tag, name=r.name or "", state_id=r.state_id, mine=r.mine)
+        for r in found
+    ]
