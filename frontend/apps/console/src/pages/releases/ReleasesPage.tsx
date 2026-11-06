@@ -9,6 +9,7 @@ import { useListChannel } from '@supportx/realtime';
 import {
   EmptyText,
   PageHeader,
+  usePageCrumbs,
   ToneTag,
   WriteButton,
   reportError,
@@ -31,6 +32,7 @@ export function ReleasesPage() {
   const { can } = useAccess();
   const { format } = useDateTime();
   const list = useReleases({});
+  usePageCrumbs([{ label: t('nav.releases') }]); // the tab's title too (QA6-REL-04)
   useListChannel('releases', () => {
     void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
   });

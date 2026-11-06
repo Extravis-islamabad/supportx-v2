@@ -1185,6 +1185,8 @@ export const en = {
   'releases.move.to': 'Move to: {{status}}',
   'releases.move.unavailable': 'Not possible now',
   'releases.new': 'New release',
+  'releases.new_help':
+    'Choose a template and a title; dates, roles and plans are filled in on the release.',
   'releases.not_found': 'This release does not exist or is not yours to see.',
   'releases.not_set': 'Not set',
   'releases.path': 'Path',

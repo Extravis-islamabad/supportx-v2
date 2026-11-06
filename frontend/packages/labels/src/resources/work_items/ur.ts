@@ -1189,6 +1189,8 @@ export const ur: LabelResource = {
   'releases.move.to': 'منتقل کریں: {{status}}',
   'releases.move.unavailable': 'ابھی ممکن نہیں',
   'releases.new': 'نئی ریلیز',
+  'releases.new_help':
+    'سانچہ اور عنوان منتخب کریں؛ تاریخیں، کردار اور منصوبے ریلیز پر بھرے جاتے ہیں۔',
   'releases.not_found': 'یہ ریلیز موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'releases.not_set': 'مقرر نہیں',
   'releases.path': 'راستہ',
