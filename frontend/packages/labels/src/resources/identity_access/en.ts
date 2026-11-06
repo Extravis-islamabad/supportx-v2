@@ -287,6 +287,9 @@ export const en = {
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',
+  'permission.assets.edit_disposed': 'Change disposed assets',
+  'permission.assets.edit_disposed.description':
+    'Change an asset after it is disposed of, giving a reason each time.',
   'permission.assets.manage': 'Manage assets',
   'permission.assets.manage.description': 'Add and change assets.',
   'permission.assets.reinstate': 'Bring retired assets back',

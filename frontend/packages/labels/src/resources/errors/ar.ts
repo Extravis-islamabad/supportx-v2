@@ -34,9 +34,13 @@ export const ar: LabelResource = {
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
   'errors.approval_pending': '{{display_id}} ينتظر موافقة بالفعل.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
+  'errors.asset_already_disposed': 'لهذا الأصل سجل تخلّص بالفعل.',
   'errors.asset_bulk_empty': 'اختر أصلًا واحدًا على الأقل.',
   'errors.asset_bulk_too_many': 'اختر {{max}} أصلًا على الأكثر في المرة الواحدة.',
   'errors.asset_copy_limit': 'أنشئ ما بين 1 و{{max}} نسخة في المرة الواحدة.',
+  'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
+  'errors.asset_disposed_read_only':
+    'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
   'errors.asset_life_cycle_in_use':
     'لا تزال أنواع منتجات تستخدم دورة الحياة هذه ({{used}}). انقلها إلى دورة أخرى أولًا.',
   'errors.asset_life_cycle_not_found': 'دورة الحياة هذه غير موجودة.',
@@ -45,6 +49,8 @@ export const ar: LabelResource = {
   'errors.asset_limit_reached':
     'جميع خانات أصول تقنية المعلومات في خطة مؤسستك مستخدمة. تخلّص من أصل أو اطلب من المسؤول إضافة المزيد.',
   'errors.asset_move_not_allowed': 'لا يمكن نقل هذا الأصل إلى تلك الحالة من حالته الحالية.',
+  'errors.asset_no_disposed_state':
+    'لا توجد حالة تخلّص لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
   'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
   'errors.asset_product_type_has_children':
@@ -153,6 +159,7 @@ export const ar: LabelResource = {
   'errors.field.api_key_owner_not_service': 'مفاتيح الآخرين لا تكون إلا لهوية خدمة.',
   'errors.field.api_key_scope_unknown': 'اختر نطاقًا واحدًا على الأقل من النطاقات المعروضة.',
   'errors.field.approver_is_requester': 'لا يمكنك الموافقة على طلبك؛ سمِّ شخصًا آخر.',
+  'errors.field.approver_not_active': 'اختر شخصًا نشطًا.',
   'errors.field.approver_not_eligible':
     'أحد المسمَّين لا يمكنه الموافقة على هذه المشكلة (غير نشط، أو بلا صلاحية).',
   'errors.field.asset_api_name_taken': 'نوع منتج آخر يستخدم اسم الواجهة هذا.',
@@ -216,6 +223,7 @@ export const ar: LabelResource = {
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
   'errors.field.date_format_unknown': 'اختر تنسيق تاريخ من القائمة.',
+  'errors.field.date_in_future': 'اختر تاريخ اليوم أو تاريخًا سابقًا.',
   'errors.field.default_cannot_be_disabled':
     'لا يمكن إيقاف القالب الافتراضي. عيّن قالبًا آخر كافتراضي أولًا.',
   'errors.field.default_cannot_be_inactive': 'لا يمكن جعل الافتراضي غير نشط.',

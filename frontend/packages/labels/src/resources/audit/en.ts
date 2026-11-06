@@ -11,6 +11,7 @@ export const en = {
   'audit.action.asset.copied': 'Copied an asset',
   'audit.action.asset.created': 'Added an asset',
   'audit.action.asset.deleted': 'Moved an asset to the trash',
+  'audit.action.asset.disposed': 'Disposed of an asset',
   'audit.action.asset.life_cycle_deleted': 'Deleted an asset life cycle',
   'audit.action.asset.life_cycle_saved': 'Saved an asset life cycle',
   'audit.action.asset.moved': 'Moved an asset to another state',

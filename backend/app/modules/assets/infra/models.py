@@ -314,3 +314,31 @@ class Asset(TenantEntity):
         TSVECTOR, Computed(ASSET_SEARCH_VECTOR, persisted=True)
     )
     search_text: Unmapped[str] = unmapped_column(Text, Computed(ASSET_SEARCH_TEXT, persisted=True))
+
+
+class AssetDisposal(TenantEntity):
+    """How an asset was disposed of (migration 0108; REQ-AST-017): one record per asset.
+
+    The approver is a person of the tenant (a same-tenant foreign key to users, as for the
+    asset's own references); the certificate is a file linked to this record.
+    """
+
+    __tablename__ = "asset_disposals"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_disposals_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_disposals_asset",
+        ),
+        Index("uq_asset_disposals_asset", "tenant_id", "asset_id", unique=True),
+        Index("ix_asset_disposals_on", "tenant_id", "disposed_on", "id"),
+    )
+
+    asset_id: Mapped[uuid.UUID]
+    disposed_on: Mapped[date] = mapped_column(Date)
+    method: Mapped[str] = mapped_column(String(40))
+    reason: Mapped[str] = mapped_column(Text)
+    cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    currency: Mapped[str | None] = mapped_column(String(3))
+    approved_by: Mapped[uuid.UUID | None]

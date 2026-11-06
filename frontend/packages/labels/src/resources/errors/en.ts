@@ -35,9 +35,13 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.asset_already_disposed': 'This asset already has a disposal record.',
   'errors.asset_bulk_empty': 'Choose at least one asset.',
   'errors.asset_bulk_too_many': 'Choose at most {{max}} assets at once.',
   'errors.asset_copy_limit': 'Make between 1 and {{max}} copies at once.',
+  'errors.asset_disposal_not_found': 'This asset has no disposal record.',
+  'errors.asset_disposed_read_only':
+    'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
   'errors.asset_life_cycle_in_use':
     'Product types still use this life cycle ({{used}}). Move them to another one first.',
   'errors.asset_life_cycle_not_found': 'This life cycle does not exist.',
@@ -46,6 +50,8 @@ export const en = {
   'errors.asset_limit_reached':
     "Every IT asset slot in your organisation's plan is in use. Dispose of an asset or ask your administrator to add more.",
   'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
+  'errors.asset_no_disposed_state':
+    'There is no disposed state to move the asset to. Ask an admin to check the asset states.',
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
   'errors.asset_product_not_found': 'This product does not exist.',
   'errors.asset_product_type_has_children':
@@ -171,6 +177,7 @@ export const en = {
     'Keys for someone else can only belong to a service identity.',
   'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
   'errors.field.approver_is_requester': 'You cannot approve your own request; name someone else.',
+  'errors.field.approver_not_active': 'Choose an active person.',
   'errors.field.approver_not_eligible':
     'Someone named cannot approve this problem (inactive, or without the right).',
   'errors.field.asset_api_name_taken': 'Another product type has this API name.',
@@ -237,6 +244,7 @@ export const en = {
   'errors.field.currency_unknown': 'Choose a currency from the list.',
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
   'errors.field.date_format_unknown': 'Choose a date format from the list.',
+  'errors.field.date_in_future': 'Choose today or an earlier date.',
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',

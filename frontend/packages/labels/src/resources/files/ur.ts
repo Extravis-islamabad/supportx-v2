@@ -7,6 +7,7 @@ export const ur: LabelResource = {
   'file_kind.image': 'تصویر',
   'file_kind.other': 'فائل',
   'file_kind.pdf': 'PDF',
+  'file_owner_type.asset_disposal': 'تلفی کا سرٹیفکیٹ',
   'file_owner_type.branding': 'برانڈنگ',
   'file_owner_type.conversation_entry': 'جواب یا نوٹ',
   'file_owner_type.draft': 'مسودہ',

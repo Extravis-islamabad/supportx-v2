@@ -37,9 +37,13 @@ export const ur: LabelResource = {
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
+  'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
   'errors.asset_bulk_empty': 'کم از کم ایک اثاثہ منتخب کریں۔',
   'errors.asset_bulk_too_many': 'ایک بار میں زیادہ سے زیادہ {{max}} اثاثے منتخب کریں۔',
   'errors.asset_copy_limit': 'ایک بار میں 1 سے {{max}} تک نقول بنائیں۔',
+  'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
+  'errors.asset_disposed_read_only':
+    'یہ اثاثہ تلف ہو چکا ہے، اس لیے صرف پڑھا جا سکتا ہے۔ اسے بدلنے کے لیے تلف شدہ اثاثے بدلنے کی اجازت درکار ہے۔',
   'errors.asset_life_cycle_in_use':
     'پروڈکٹ اقسام ابھی یہ لائف سائیکل استعمال کرتی ہیں ({{used}})۔ پہلے انہیں کسی اور پر منتقل کریں۔',
   'errors.asset_life_cycle_not_found': 'یہ لائف سائیکل موجود نہیں۔',
@@ -48,6 +52,8 @@ export const ur: LabelResource = {
   'errors.asset_limit_reached':
     'آپ کی تنظیم کے پلان میں آئی ٹی اثاثوں کی تمام جگہیں استعمال میں ہیں۔ کوئی اثاثہ تلف کریں یا اپنے منتظم سے مزید شامل کرنے کو کہیں۔',
   'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
+  'errors.asset_no_disposed_state':
+    'اثاثے کو منتقل کرنے کے لیے کوئی تلف شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
   'errors.asset_product_type_has_children':
@@ -171,6 +177,7 @@ export const ur: LabelResource = {
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
   'errors.field.approver_is_requester': 'آپ اپنی درخواست منظور نہیں کر سکتے؛ کسی اور کا نام دیں۔',
+  'errors.field.approver_not_active': 'کوئی فعال فرد چنیں۔',
   'errors.field.approver_not_eligible':
     'نامزد افراد میں سے کوئی یہ مسئلہ منظور نہیں کر سکتا (غیر فعال، یا اختیار کے بغیر)۔',
   'errors.field.asset_api_name_taken': 'پروڈکٹ کی کوئی اور قسم یہ API نام رکھتی ہے۔',
@@ -241,6 +248,7 @@ export const ur: LabelResource = {
   'errors.field.dashboard_not_shared':
     'کسی کردار کا ہوم صرف بلٹ اِن یا شیئر شدہ ڈیش بورڈ ہو سکتا ہے۔',
   'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
+  'errors.field.date_in_future': 'آج یا اس سے پہلے کی تاریخ چنیں۔',
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',

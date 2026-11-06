@@ -8,7 +8,7 @@ match first and `/assets/{asset_id}` only takes an ID. Reading needs `assets.vie
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,9 +19,9 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules import metadata
 from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
-from app.modules.assets.infra.models import Asset
+from app.modules.assets.infra.models import Asset, AssetDisposal
 from app.modules.assets.service import assets as service
-from app.modules.assets.service import bulk, moves
+from app.modules.assets.service import bulk, disposals, moves
 from app.modules.assets.service.catalogue import TEXT_MAX
 from app.modules.audit import RequestFacts, audited
 from app.modules.audit import record as record_audit
@@ -177,6 +177,11 @@ class AssetPatch(BaseModel):
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key; null clears one."
     )
+    reason: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Why: required to change a disposed asset (assets.edit_disposed).",
+    )
 
 
 class AssetChangeOut(BaseModel):
@@ -313,10 +318,16 @@ async def patch_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     request: Request,
 ) -> AssetOut:
     """Change the fields sent (If-Match). The state moves through the life cycle, not here."""
-    sent = body.model_dump(include=body.model_fields_set)
+    sent = body.model_dump(include=body.model_fields_set - {"reason"})
     values = {k: v for k, v in sent.items() if v is not None or k not in _REQUIRED}
     row = await service.update_asset(
-        session, subject, asset_id, values, expected_version=version, source=source_of(request)
+        session,
+        subject,
+        asset_id,
+        values,
+        expected_version=version,
+        source=source_of(request),
+        reason=body.reason,
     )
     set_etag(response, row.version)
     return AssetOut.of(row)
@@ -568,3 +579,99 @@ async def bulk_move(
         AssetBulkMoveResult(asset_id=o.asset_id, moved=o.moved, code=o.code, version=o.version)
         for o in outcomes
     ]
+
+
+# --- disposal (REQ-AST-017) ------------------------------------------------------------------
+
+
+class AssetDisposalIn(BaseModel):
+    """Dispose of an asset: the record, and the move to the disposed state, in one step."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    disposed_on: date
+    method: Literal["resale", "recycling", "donation", "destruction", "returned_to_vendor", "other"]
+    reason: str = Field(min_length=1, max_length=1000)
+    cost: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
+    approved_by: uuid.UUID | None = Field(default=None, description="Who approved it (a person).")
+
+
+class AssetDisposalOut(BaseModel):
+    """An asset's disposal record. The certificate is a file of owner `asset_disposal`."""
+
+    id: uuid.UUID
+    asset_id: uuid.UUID
+    disposed_on: date
+    method: str
+    reason: str
+    cost: Decimal | None
+    currency: str | None
+    approved_by: uuid.UUID | None
+    recorded_by: uuid.UUID | None
+    recorded_at: datetime
+    version: int
+
+    @classmethod
+    def of(cls, row: AssetDisposal) -> "AssetDisposalOut":
+        """The API shape of a disposal record."""
+        return cls(
+            id=row.id,
+            asset_id=row.asset_id,
+            disposed_on=row.disposed_on,
+            method=row.method,
+            reason=row.reason,
+            cost=row.cost,
+            currency=row.currency,
+            approved_by=row.approved_by,
+            recorded_by=row.created_by,
+            recorded_at=row.created_at,
+            version=row.version,
+        )
+
+
+@router.post(
+    "/{asset_id}/dispose",
+    summary="Dispose of an asset, with its record",
+    responses={
+        **WRITE,
+        409: {
+            "model": ProblemDetail,
+            "description": "version_conflict, asset_move_not_allowed, asset_already_disposed, "
+            "or what still holds the asset (an open loan)",
+        },
+    },
+    dependencies=[audited("asset.disposed", object_type="asset", object_param="asset_id")],
+)
+async def dispose_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    body: AssetDisposalIn,
+    session: TenantSession,
+    subject: Manage,
+    version: ExpectedVersion,
+    response: Response,
+    request: Request,
+) -> AssetDisposalOut:
+    """If-Match on the asset; it moves along its life cycle to the disposed state."""
+    row, record = await disposals.dispose_asset(
+        session,
+        subject,
+        asset_id,
+        body.model_dump(),
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return AssetDisposalOut.of(record)
+
+
+@router.get(
+    "/{asset_id}/disposal",
+    summary="An asset's disposal record",
+    responses={404: {"model": ProblemDetail, "description": "asset_disposal_not_found"}},
+)
+async def get_disposal(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> AssetDisposalOut:
+    """For whoever may see the asset."""
+    return AssetDisposalOut.of(await disposals.get_disposal(session, subject, asset_id))

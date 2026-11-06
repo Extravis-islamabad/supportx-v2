@@ -68,6 +68,7 @@ from app.shared.ids import new_id
 
 VIEW = "assets.view"
 MANAGE = "assets.manage"
+EDIT_DISPOSED = "assets.edit_disposed"  # REQ-AST-017 AC3: changes a disposed asset (with a reason)
 RECORD_TYPE = "asset"
 ENTITY = "asset"  # metadata.CustomFieldEntity.ASSET
 LIMIT_CODE = "asset_limit_reached"
@@ -473,8 +474,13 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     *,
     expected_version: int,
     source: Source,
+    reason: str | None = None,
 ) -> Asset:
-    """Change the fields sent. A product change moves the asset to that product's type."""
+    """Change the fields sent. A product change moves the asset to that product's type.
+
+    A disposed asset is read-only (REQ-AST-017 AC3): only `assets.edit_disposed` changes it,
+    and each such change asks for a reason, kept in its history.
+    """
     _require(subject, MANAGE)
     row = await _visible(session, subject, asset_id, permission=MANAGE)
     if row.version != expected_version:
@@ -482,7 +488,16 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,
             record_id=row.id,
         )  # fmt: skip
+    state = await session.get(AssetState, row.state_id)
+    disposed = state is not None and state.category == AssetStateCategory.DISPOSED
+    if disposed and not subject.holds(EDIT_DISPOSED):
+        raise PermissionDenied(
+            code="asset_disposed_read_only", params={"permission": EDIT_DISPOSED}
+        )
     cleaned, problems = _clean(values)
+    text = (reason or "").strip() or None
+    if disposed and text is None:
+        problems.append(Problem("reason", "required"))
     problems += await _product_change(session, cleaned)
     if "tag" in cleaned and cleaned["tag"] is None:
         problems.append(Problem("tag", "required"))  # a tag, once given, stays (AST-008)
@@ -503,7 +518,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
         return row
     if not counted and await _counts(session, row.product_type_id, row.state_id):
         await _reserve(session)  # e.g. a non-IT asset's product became an IT one
-    await _saved(session, subject, row, changes, action="updated", source=source)
+    await _saved(session, subject, row, changes, action="updated", source=source, reason=text)
     return row
 
 

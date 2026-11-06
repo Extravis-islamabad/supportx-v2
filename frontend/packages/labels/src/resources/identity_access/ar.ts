@@ -286,6 +286,9 @@ export const ar: LabelResource = {
   'permission.api_keys.manage': 'إدارة مفاتيح API',
   'permission.api_keys.manage.description':
     'إنشاء مفاتيح API لهويات الخدمة، ورؤية كل المفاتيح وإبطالها.',
+  'permission.assets.edit_disposed': 'تغيير الأصول المتخلَّص منها',
+  'permission.assets.edit_disposed.description':
+    'تغيير أصل بعد التخلّص منه، مع ذكر السبب في كل مرة.',
   'permission.assets.manage': 'إدارة الأصول',
   'permission.assets.manage.description': 'إضافة الأصول وتغييرها.',
   'permission.assets.reinstate': 'إعادة الأصول المتقاعدة',
