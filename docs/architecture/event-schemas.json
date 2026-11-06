@@ -1676,6 +1676,43 @@
         ],
         "title": "UserCreatedV3",
         "type": "object"
+      },
+      "4": {
+        "description": "As UserCreatedV3, with `workflow` as a source: a workflow's run-as identity (WP-048b).\n\nA new allowed value, so a new schema version; v1 to v3 stay registered.",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
+              "import",
+              "email",
+              "integration",
+              "workflow"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester",
+              "service"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreatedV4",
+        "type": "object"
       }
     },
     "identity_access.user.logged_in": {

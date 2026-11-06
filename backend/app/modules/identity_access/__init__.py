@@ -122,7 +122,9 @@ from app.modules.identity_access.service.roles import (
     use_policy,
 )
 from app.modules.identity_access.service.service_identities import (
+    assign_service_identity_role,
     create_service_identity,
+    remove_service_identity_role,
     set_service_identity_active,
 )
 from app.modules.identity_access.service.users import count_technicians
@@ -392,6 +394,7 @@ __all__ = [
     "TenantSessionEnder",
     "UserType",
     "active_user_ids",
+    "assign_service_identity_role",
     "authorize",
     "authorize_stored",
     "check_group_grantable",
@@ -414,6 +417,7 @@ __all__ = [
     "register_duties",
     "release_from_directory",
     "remove_ldap_federation",
+    "remove_service_identity_role",
     "require",
     "role_names",
     "scope_filter",
