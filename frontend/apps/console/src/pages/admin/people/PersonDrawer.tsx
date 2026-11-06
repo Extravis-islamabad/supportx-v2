@@ -50,6 +50,7 @@ import {
   useConflict,
   useFormProblem,
   useLabel,
+  PersonSessions,
 } from '@supportx/ui';
 
 import { MemberAvailability } from '../../../MemberAvailability';
@@ -133,6 +134,7 @@ export interface PersonDrawerProps {
  */
 export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) {
   const t = useLabel();
+  const { can } = useAccess();
   const creating = userId === 'new';
   const record = useUser(userId === undefined || creating ? undefined : userId);
   const user = creating ? undefined : record.data;
@@ -186,6 +188,16 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
               label: t('people.tab.access'),
               children: <UserAccessPanel user={user} />,
             },
+            // A lost phone (ADR-044 item 5): people admins see and end the person's sessions.
+            ...(can('users.manage') && user.user_type !== 'service'
+              ? [
+                  {
+                    key: 'sessions',
+                    label: t('people.tab.sessions'),
+                    children: <PersonSessions userId={user.id} />,
+                  },
+                ]
+              : []),
           ]}
         />
       )}

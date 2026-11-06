@@ -22,15 +22,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import ProblemDetail
+from app.core.errors import NotFound, ProblemDetail
 from app.modules.audit import AuditNote, audited
+from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
 from app.modules.identity_access.domain import sso as sso_rules
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
 )
-from app.modules.identity_access.infra.models import MAX_IDLE_SECONDS, MIN_IDLE_SECONDS
+from app.modules.identity_access.infra.models import MAX_IDLE_SECONDS, MIN_IDLE_SECONDS, User
 from app.modules.identity_access.service import (
     identity_settings,
     invitations,
@@ -39,6 +40,7 @@ from app.modules.identity_access.service import (
     sso,
     sso_test,
 )
+from app.modules.identity_access.service.auth import AuthService
 from app.modules.organization import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -707,6 +709,49 @@ async def require_new_password(
     auth = getattr(request.app.state, "auth", None)
     if auth is not None:
         await auth.end_sessions(subject.tenant_id, user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- a person's signed-in sessions (ADR-044 item 5) --------------------------------------------
+
+
+async def _person_auth(request: Request, session: TenantSession, user_id: uuid.UUID) -> AuthService:
+    """The auth service, after checking the person is in this tenant (404 otherwise)."""
+    person = await session.get(User, user_id)
+    if person is None or person.deleted_at is not None:
+        raise NotFound(code="user_not_found")
+    auth: AuthService | None = getattr(request.app.state, "auth", None)
+    if auth is None:
+        raise IdentityAdminNotConfigured
+    return auth
+
+
+@router.get("/people/{user_id}/sessions", summary="A person's signed-in browsers and devices")
+async def person_sessions(
+    user_id: uuid.UUID, request: Request, session: TenantSession, subject: ManagePeople
+) -> list[ListedSessionOut]:
+    """Every session the person has open in this organisation, most recently used first."""
+    auth = await _person_auth(request, session, user_id)
+    return listed_out(await auth.listed_sessions(subject.tenant_id, user_id))
+
+
+@router.delete(
+    "/people/{user_id}/sessions/{listed_id}",
+    summary="Sign a person out of one browser or device",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[audited("session.ended", object_type="user", object_param="user_id")],
+)
+async def end_person_session(
+    user_id: uuid.UUID,
+    listed_id: str,
+    request: Request,
+    session: TenantSession,
+    subject: ManagePeople,
+) -> Response:
+    """That session ends at once (a lost phone); 404 when it already ended."""
+    auth = await _person_auth(request, session, user_id)
+    if not await auth.end_listed_session(subject.tenant_id, user_id, listed_id):
+        raise NotFound(code="session_not_found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

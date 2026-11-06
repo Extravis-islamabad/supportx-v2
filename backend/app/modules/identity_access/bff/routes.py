@@ -13,10 +13,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.authorization import Scope, public_route
 from app.core.entitlements import entitlement_exempt
-from app.core.errors import ServiceUnavailable, Unauthenticated
+from app.core.errors import NotFound, ServiceUnavailable, Unauthenticated
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
+from app.modules.identity_access.api.sessions import ListedSessionOut, listed_out
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
 from app.modules.identity_access.domain.identity import (
     DEFAULT_TEXT_SCALE,
@@ -535,6 +536,37 @@ async def account_action(
     app: Literal["console", "portal"] = "portal" if session.client == "portal" else "console"
     url = await auth.start_login(app, return_to, address, account_action=action)
     return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/sessions", summary="Your signed-in browsers and devices")
+@entitlement_exempt
+async def my_sessions(found: CurrentSession, auth: Auth) -> list[ListedSessionOut]:
+    """Every session you have open in this organisation, the one you use now marked."""
+    session_id, session = found
+    rows = await auth.listed_sessions(
+        uuid.UUID(session.tenant_id), uuid.UUID(session.user_id), current=session_id
+    )
+    return listed_out(rows)
+
+
+@router.delete(
+    "/sessions/{listed_id}",
+    summary="Sign out one of your browsers or devices",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@entitlement_exempt
+async def end_my_session(
+    listed_id: str, found: CurrentSession, auth: Auth, request: Request
+) -> Response:
+    """That session ends at once: its next request answers 401. 404 if it isn't yours or live."""
+    _session_id, session = found
+    ended = await auth.end_listed_session(
+        uuid.UUID(session.tenant_id), uuid.UUID(session.user_id), listed_id
+    )
+    if not ended:
+        raise NotFound(code="session_not_found")
+    await _audit_session(request, session, "session.ended", reason="by_you")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/logout", summary="Log out", status_code=status.HTTP_204_NO_CONTENT)
