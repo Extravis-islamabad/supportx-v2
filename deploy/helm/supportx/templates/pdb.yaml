@@ -13,8 +13,12 @@ budget: it would block every drain. The fan-out and index workers stay single by
   "centrifugo" .Values.centrifugo.replicas
   "keycloak" .Values.keycloak.replicas
 }}
-{{- if .Values.temporal.address }}
+{{- if include "supportx.temporalAddress" . }}
 {{- $_ := set $copies "sla-timers" .Values.slaTimers.replicas }}
+{{- $_ := set $copies "workflow-timers" .Values.workflowTimers.replicas }}
+{{- end }}
+{{- if .Values.temporal.bundled.enabled }}
+{{- $_ := set $copies "temporal" .Values.temporal.bundled.replicas }}
 {{- end }}
 {{- range $component, $count := $copies }}
 {{- if gt (int $count) 1 }}

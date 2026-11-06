@@ -47,3 +47,9 @@ nats:
     jetstream:
       fileStore:
         pvc: {size: 20Gi}
+
+# Temporal on this cluster (SLA and workflow timers on time, not by the minute sweep). With an
+# external database (postgresql.mode: external), set enabled: false and temporal.address instead.
+temporal:
+  bundled:
+    enabled: true
