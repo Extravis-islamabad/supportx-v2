@@ -66,16 +66,19 @@ async def test_a_workflow_s_update_move_and_note_name_the_workflow_in_history(
 
     rows = await _history(world, item["id"])
     assert _refs(rows, "updated") == {("workflow", "workflow")}
-    assert _refs(rows, "status") == {("workflow", "workflow")}
+    # The move names the workflow; a follow-on automatic move keeps its own ref (explicit wins).
+    assert ("workflow", "workflow") in _refs(rows, "status")
+    assert _refs(rows, "status") <= {("workflow", "workflow"), ("workflow", "auto_move")}
     full = [json.loads(r["automation_ref"]) for r in rows if r["automation_ref"]]
     assert full
-    assert all(ref == REF for ref in full)
+    assert all(ref == REF for ref in full if ref.get("kind") == "workflow")
     events = await world.sql(
         "SELECT envelope->'payload'->>'automatic' AS automatic FROM outbox_events "
         "WHERE event_type = 'work_items.work_item.status_changed' AND aggregate_id = $1",
         item["id"],
     )
-    assert [e["automatic"] for e in events] == ["true"]  # like a rule's move
+    assert events  # the workflow's move, and any automatic move it set off
+    assert {e["automatic"] for e in events} == {"true"}  # like a rule's, never a person's
 
 
 async def test_the_ref_ends_with_the_command(world: World) -> None:

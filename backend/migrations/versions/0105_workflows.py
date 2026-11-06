@@ -18,7 +18,7 @@ forces RLS; every key carries tenant_id first.
 The downgrade drops the four tables.
 
 Revision ID: 0105
-Revises: 0098
+Revises: 0104
 Created: 2026-11-05
 """
 
@@ -32,7 +32,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0105"
-down_revision: str | None = "0098"
+down_revision: str | None = "0104"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
