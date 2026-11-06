@@ -36,3 +36,24 @@ def test_a_level_outcome_under_each_rule(
     rule: LevelRule, states: list[ApprovalState], outcome: LevelOutcome
 ) -> None:
     assert level_outcome(rule, states) is outcome
+
+
+@pytest.mark.parametrize(
+    ("states", "vote", "outcome"),
+    [
+        ([A, A, R, R], None, LevelOutcome.TIED),  # the split waits for the chair
+        ([A, A, R, R], P, LevelOutcome.TIED),
+        ([A, A, R, R], A, LevelOutcome.APPROVED),  # the chair breaks it (D-146)
+        ([A, A, R, R], R, LevelOutcome.REJECTED),
+        ([A, R, R, P], None, LevelOutcome.PENDING),  # a split is still possible
+        ([R, R, R, P], None, LevelOutcome.REJECTED),  # not even a split is possible
+        ([A, A, A, R], None, LevelOutcome.APPROVED),
+        ([A, R, R], None, LevelOutcome.REJECTED),  # odd: no split, the chair has no say
+    ],
+)
+def test_d146_the_chair_breaks_an_exact_split(
+    states: list[ApprovalState], vote: ApprovalState | None, outcome: LevelOutcome
+) -> None:
+    assert level_outcome(LevelRule.MAJORITY, states, chair=True, chair_vote=vote) is outcome
+    if outcome is LevelOutcome.TIED:  # with no chair the same split rejects, as before
+        assert level_outcome(LevelRule.MAJORITY, states) is LevelOutcome.REJECTED
