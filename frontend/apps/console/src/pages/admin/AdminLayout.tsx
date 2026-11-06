@@ -186,7 +186,6 @@ export function AdminLayout() {
             title={t('setup.menu')}
             placement="left"
             width={300}
-            forceRender
           >
             {menu}
           </Drawer>

@@ -70,7 +70,9 @@ describe('Setup home and menu', () => {
     expect(within(home).getByRole('heading', { name: 'People and access' })).toBeDefined();
     expect(within(home).getByTestId('setup-page-users').textContent).toBe('People');
     expect(home.textContent).toContain('Add people, change their type and status');
-    const menu = screen.getByTestId('admin-sections');
+    // The test window is narrow: the sections open in a drawer, mounted only when opened.
+    fireEvent.click(await screen.findByTestId('admin-sections-button'));
+    const menu = await screen.findByTestId('admin-sections');
     expect(within(menu).getByTestId('admin-sections-home').getAttribute('aria-current')).toBe(
       'page',
     );
@@ -81,9 +83,9 @@ describe('Setup home and menu', () => {
     window.history.pushState({}, '', '/admin');
     api({}, fakeSession());
     render(<App />);
-    await waitFor(() => {
-      expect(screen.queryByTestId('admin-sections-licence')).toBeNull();
-    });
+    fireEvent.click(await screen.findByTestId('admin-sections-button'));
+    await screen.findByTestId('admin-sections');
+    expect(screen.queryByTestId('admin-sections-licence')).toBeNull();
     expect(screen.queryByTestId('admin-sections-security')).toBeNull();
   });
 
