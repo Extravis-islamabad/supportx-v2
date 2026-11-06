@@ -26,6 +26,7 @@ from app.modules.assets.service.assets import (
 from app.modules.assets.service.catalogue import CONFIGURE, MANAGE, REINSTATE, VIEW
 from app.modules.assets.service.disposals import register_disposal_guard, unregister_disposal_guard
 from app.modules.assets.service.file_access import FILE_ACCESS
+from app.modules.assets.service.ownership import OWNER_SITE_CHANGED
 from app.modules.assets.service.realtime import CHANNELS, ROUTES
 from app.modules.procurement import register_vendor_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
@@ -71,6 +72,8 @@ module = ModuleSpec(
     realtime=ROUTES,
     # Only IT assets that are not disposed use a slot of the plan's limit (D-141).
     usage_counters={"assets": count_managed_assets},
+    # A person's site changed: assets that follow their owner move too (REQ-AST-018 AC2).
+    consumers=[OWNER_SITE_CHANGED],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
 )

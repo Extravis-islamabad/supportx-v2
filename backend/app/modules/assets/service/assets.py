@@ -317,7 +317,7 @@ async def _custom(
 
 async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, where from
     session: AsyncSession,
-    subject: Subject,
+    subject: Subject | None,
     row: Asset,
     changes: list[Change],
     *,
@@ -325,9 +325,10 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
     source: Source,
     reason: str | None = None,
 ) -> None:
+    """One save: version, history, event. `subject` None: the system (a site that followed)."""
     if action != "created":
         row.version += 1
-    row.updated_by = subject.user_id
+    row.updated_by = None if subject is None else subject.user_id
     await session.flush()
     await session.refresh(row)  # the database's timestamps
     await record_changes(

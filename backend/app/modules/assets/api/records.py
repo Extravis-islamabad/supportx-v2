@@ -19,9 +19,9 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules import metadata
 from app.modules.assets.domain.assets import IDENTIFIER_MAX, LOCATION_MAX, NAME_MAX
-from app.modules.assets.infra.models import Asset, AssetDisposal
+from app.modules.assets.infra.models import Asset, AssetAssignment, AssetDisposal
 from app.modules.assets.service import assets as service
-from app.modules.assets.service import bulk, disposals, moves
+from app.modules.assets.service import bulk, disposals, moves, ownership
 from app.modules.assets.service.catalogue import TEXT_MAX
 from app.modules.audit import RequestFacts, audited
 from app.modules.audit import record as record_audit
@@ -82,6 +82,9 @@ class AssetOut(BaseModel):
     barcode: str | None
     vendor_id: uuid.UUID | None
     site_id: uuid.UUID | None
+    owner_user_id: uuid.UUID | None = Field(default=None, description="Held by this person.")
+    department_id: uuid.UUID | None = Field(default=None, description="Held by a department.")
+    parent_asset_id: uuid.UUID | None = Field(default=None, description="Fitted to this asset.")
     location: str | None
     purchase_order_id: uuid.UUID | None
     purchase_price: Decimal | None
@@ -112,6 +115,9 @@ class AssetOut(BaseModel):
             barcode=row.barcode,
             vendor_id=row.vendor_id,
             site_id=row.site_id,
+            owner_user_id=row.owner_user_id,
+            department_id=row.department_id,
+            parent_asset_id=row.parent_asset_id,
             location=row.location,
             purchase_order_id=row.purchase_order_id,
             purchase_price=row.purchase_price,
@@ -675,3 +681,105 @@ async def get_disposal(
 ) -> AssetDisposalOut:
     """For whoever may see the asset."""
     return AssetDisposalOut.of(await disposals.get_disposal(session, subject, asset_id))
+
+
+# --- holders and holdings (REQ-AST-018, 019, 020) ---------------------------------------------
+
+
+class AssetHolderIn(BaseModel):
+    """Who holds the asset now: a person, a department or the asset it is fitted to."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["user", "department", "asset"]
+    id: uuid.UUID
+
+
+class AssetHoldingOut(BaseModel):
+    """One holding of an asset, from when to when (`ended_at` null: the current one)."""
+
+    asset_id: uuid.UUID
+    holder_kind: str
+    holder_id: uuid.UUID
+    started_at: datetime
+    ended_at: datetime | None
+    source: str
+    assigned_by: uuid.UUID | None
+
+    @classmethod
+    def of(cls, row: AssetAssignment) -> "AssetHoldingOut":
+        """The API shape of a holding."""
+        return cls(
+            asset_id=row.asset_id,
+            holder_kind=row.holder_kind,
+            holder_id=row.holder_id,
+            started_at=row.started_at,
+            ended_at=row.ended_at,
+            source=row.source,
+            assigned_by=row.created_by,
+        )
+
+
+class HeldAssetOut(BaseModel):
+    """An asset a person or department holds or held, with that holding."""
+
+    asset: AssetOut
+    holding: AssetHoldingOut
+
+
+@router.put(
+    "/{asset_id}/holder",
+    summary="Give an asset to a person, a department or another asset",
+    responses=WRITE,
+    dependencies=[audited("asset.assigned", object_type="asset", object_param="asset_id")],
+)
+async def set_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    body: AssetHolderIn,
+    session: TenantSession,
+    subject: Manage,
+    version: ExpectedVersion,
+    response: Response,
+    request: Request,
+) -> AssetOut:
+    """If-Match. Ends the current holding and starts this one; never itself or a child."""
+    row = await ownership.set_holder(
+        session,
+        subject,
+        asset_id,
+        ownership.Holder(body.kind, body.id),
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return AssetOut.of(row)
+
+
+@router.delete(
+    "/{asset_id}/holder",
+    summary="Take an asset back from its holder",
+    responses=WRITE,
+    dependencies=[audited("asset.unassigned", object_type="asset", object_param="asset_id")],
+)
+async def clear_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    asset_id: uuid.UUID,
+    session: TenantSession,
+    subject: Manage,
+    version: ExpectedVersion,
+    response: Response,
+    request: Request,
+) -> AssetOut:
+    """If-Match. The current holding ends; its history stays."""
+    row = await ownership.set_holder(
+        session, subject, asset_id, None, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, row.version)
+    return AssetOut.of(row)
+
+
+@router.get("/{asset_id}/holdings", summary="Who held an asset, and when")
+async def asset_holdings(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> list[AssetHoldingOut]:
+    """Newest first; the open one is the current holder (REQ-AST-019 AC1)."""
+    return [AssetHoldingOut.of(r) for r in await ownership.holdings(session, subject, asset_id)]

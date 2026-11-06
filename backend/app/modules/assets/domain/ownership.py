@@ -7,7 +7,6 @@ from collections.abc import Mapping
 
 HOLDER_KINDS = ("user", "department", "asset")
 RELATIONSHIP_KINDS = ("connected_to", "depends_on", "runs_on", "backs_up")
-ASSIGNMENT_SOURCES = ("person", "rule", "import", "follow_site")
 
 
 def would_nest_in_itself(

@@ -278,6 +278,20 @@ class Asset(TenantEntity):
         Index("ix_assets_state", "tenant_id", "state_id"),
         Index("ix_assets_vendor", "tenant_id", "vendor_id"),
         Index("ix_assets_site", "tenant_id", "site_id"),
+        # Its holder (0111): a person, a department, or the asset it is fitted to.
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_assets_owner_user",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "parent_asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_assets_parent_asset",
+        ),
+        Index("ix_assets_owner_user", "tenant_id", "owner_user_id"),
+        Index("ix_assets_department", "tenant_id", "department_id"),
+        Index("ix_assets_parent", "tenant_id", "parent_asset_id"),
         Index("ix_assets_search_vector", "search_vector", postgresql_using="gin"),
         Index(
             "ix_assets_search_text",
@@ -298,6 +312,9 @@ class Asset(TenantEntity):
     barcode: Mapped[str | None] = mapped_column(String(120))
     vendor_id: Mapped[uuid.UUID | None] = mapped_column()
     site_id: Mapped[uuid.UUID | None] = mapped_column()
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column()
+    department_id: Mapped[uuid.UUID | None] = mapped_column()
+    parent_asset_id: Mapped[uuid.UUID | None] = mapped_column()
     location: Mapped[str | None] = mapped_column(String(200))
     purchase_order_id: Mapped[uuid.UUID | None] = mapped_column()  # WP-054
     # D-141: price and tax apart; the total is worked out. Currency of both.
@@ -342,3 +359,68 @@ class AssetDisposal(TenantEntity):
     cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     currency: Mapped[str | None] = mapped_column(String(3))
     approved_by: Mapped[uuid.UUID | None]
+
+
+class AssetAssignment(TenantEntity):
+    """One holding of an asset (migration 0111; REQ-AST-019): by whom, from when to when.
+
+    Never rewritten: a new holder ends the current row and starts another. At most one current
+    row per asset (a partial unique index). A disputed acknowledgement leaves it as it is.
+    """
+
+    __tablename__ = "asset_assignments"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_assignments_asset",
+        ),
+        Index("ix_asset_assignments_asset", "tenant_id", "asset_id", "started_at"),
+        Index("ix_asset_assignments_holder", "tenant_id", "holder_kind", "holder_id", "started_at"),
+        Index(
+            "uq_asset_assignments_current",
+            "tenant_id",
+            "asset_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL AND deleted_at IS NULL"),
+        ),
+    )
+
+    asset_id: Mapped[uuid.UUID]
+    holder_kind: Mapped[str] = mapped_column(String(20))
+    holder_id: Mapped[uuid.UUID]
+    started_at: Mapped[datetime]
+    ended_at: Mapped[datetime | None]
+    source: Mapped[str] = mapped_column(String(20))
+
+
+class AssetRelationship(TenantEntity):
+    """A typed link between two assets (migration 0111; REQ-AST-027), shown from both ends."""
+
+    __tablename__ = "asset_relationships"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "from_asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_relationships_from",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "to_asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_relationships_to",
+        ),
+        Index(
+            "uq_asset_relationships_link",
+            "tenant_id",
+            "from_asset_id",
+            "to_asset_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_asset_relationships_to", "tenant_id", "to_asset_id"),
+    )
+
+    from_asset_id: Mapped[uuid.UUID]
+    to_asset_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(30))

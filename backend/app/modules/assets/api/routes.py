@@ -7,14 +7,15 @@ Reading the catalogue needs `assets.view` (the asset form uses it); changing it 
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.modules.assets.api.records import AssetHoldingOut, AssetOut, HeldAssetOut
 from app.modules.assets.domain.catalogue import (
     AssetAgeBasis,
     AssetDepreciationMethod,
@@ -30,6 +31,7 @@ from app.modules.assets.infra.models import (
     AssetState,
 )
 from app.modules.assets.service import catalogue as service
+from app.modules.assets.service import ownership
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -812,3 +814,24 @@ async def delete_product(
     await service.delete_product(
         session, subject, product_id, expected_version=version, source=source_of(request)
     )
+
+
+# --- what a person or department holds (REQ-AST-019 AC2, 020) -------------------------------
+# A fixed path, so here: the records router's /assets/{asset_id} would take it otherwise.
+
+
+@router.get("/held-by", summary="The assets a person or department holds, or held")
+async def held_by(
+    session: TenantSession,
+    subject: Annotated[Subject, Depends(require_permission("assets.view"))],
+    kind: Annotated[Literal["user", "department"], Query()],
+    holder_id: Annotated[uuid.UUID, Query(alias="id")],
+    current: Annotated[bool, Query(description="Only what they hold now.")] = False,  # noqa: FBT002 - a query flag (FastAPI)
+) -> list[HeldAssetOut]:
+    """Newest first, within what you may see; `current` keeps only the open holdings."""
+    found = await ownership.held_by(session, subject, ownership.Holder(kind, holder_id))
+    return [
+        HeldAssetOut(asset=AssetOut.of(asset), holding=AssetHoldingOut.of(holding))
+        for asset, holding in found
+        if not current or holding.ended_at is None
+    ]

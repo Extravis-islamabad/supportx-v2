@@ -181,6 +181,8 @@ export const en = {
   'errors.field.approver_not_eligible':
     'Someone named cannot approve this problem (inactive, or without the right).',
   'errors.field.asset_api_name_taken': 'Another product type has this API name.',
+  'errors.field.asset_holder_not_found':
+    'Choose an active person, a department or an asset you can see.',
   'errors.field.asset_identifier_invalid':
     'Use letters, digits and - . / : # only, without spaces.',
   'errors.field.asset_life_cycle_code_taken': 'Another life cycle has this code.',
@@ -189,6 +191,8 @@ export const en = {
   'errors.field.asset_life_cycle_not_found': 'Choose a life cycle from the list.',
   'errors.field.asset_move_duplicate':
     'This move is already in the list, or goes to the same state.',
+  'errors.field.asset_nested_in_itself':
+    "An asset can't be fitted to itself or to one of its own parts.",
   'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':
     "A product type can't sit under itself or one of its own types.",
