@@ -934,7 +934,17 @@ it with no reload (rule c). Not built yet.
   - the problem report source's own fields and names; measures and widgets are lane C's WP-063;
   - not yet: the requester-facing workaround (REQ-PRB-040, waits for lane C's WP-034 portal
     knowledge).
-- [ ] S3: D16 repeat rules; D17 API check; en/ar/ur and Arabic e2e.
+- [x] S3 (D16, D17), on #240:
+  - repeat incident rules without AI (REQ-PRB-068, migration 0110): the 15-minute evaluator
+    (one open set per rule and key, members capped, a handled set returns only for new
+    incidents), the problem module's (not in Essentials), the group told once, the problems
+    list's "Repeated incidents" card, Admin › Incidents › Repeated incidents (locked through
+    the shared featureState for licence managers outside the plan);
+  - D17: every problem operation in the public API (a contract test); the mobile app itself
+    stays a cross-lane question;
+  - en/ar/ur for every new screen; Arabic e2e with axe for the causing problem, the rules and
+    the list at 390 px;
+  - not yet: the rules screen and REQ-PRB-022's admin area on lane C's settings layout (#258).
 
 ### [x] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
 - **Plan:** ~/Desktop/wp-044-plan.md (D8..D12). The branch starts from #211's head; main is
