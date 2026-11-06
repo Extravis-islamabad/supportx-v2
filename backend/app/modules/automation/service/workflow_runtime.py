@@ -52,7 +52,7 @@ from app.modules.automation.service.registry import CommandResult
 from app.modules.automation.service.registry import record_type as registered
 from app.modules.identity_access import Subject, subject_for
 from app.modules.sla import record_calendar
-from app.shared.events import record_event
+from app.shared.events import caused_by, record_event
 
 LIVE = (InstanceStatus.RUNNING.value, InstanceStatus.WAITING.value, InstanceStatus.FAILED.value)
 _ENDED = {InstanceStatus.FINISHED, InstanceStatus.CANCELLED}
@@ -275,9 +275,12 @@ async def _carry_out(  # noqa: PLR0913 - the command and everything it runs with
     if kind is None or kind.run_command is None:
         return CommandResult(ok=False, error="command_not_supported")
     savepoint = await session.begin_nested()
-    result: CommandResult = await kind.run_command(
-        session, subject, record_id, command.kind.value, command.payload, ref
-    )
+    # The record's events name the instance as their cause: a trigger's "start a workflow"
+    # then never restarts the workflow from its own change (lane A's loop guard).
+    with caused_by(session, uuid.UUID(str(ref["instance_id"]))):
+        result: CommandResult = await kind.run_command(
+            session, subject, record_id, command.kind.value, command.payload, ref
+        )
     if result.ok:
         await savepoint.commit()
     else:  # whatever the refused command wrote is undone; the refusal is the result

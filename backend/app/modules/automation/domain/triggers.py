@@ -9,6 +9,7 @@ the chain depth and the triggers in the chain, so a loop stops at a clear limit 
 triggers took part.
 """
 
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -49,6 +50,7 @@ class TriggerActionKind(StrEnum):
 
     SET = "set"
     NOTE = "note"
+    START_WORKFLOW = "start_workflow"  # triggers only, never a move's "after" (WP-048b)
 
 
 class Relative(StrEnum):
@@ -150,12 +152,20 @@ def check_trigger(values: Mapping[str, Any], fields: Mapping[str, RuleField]) ->
             for name in _changed_from_fields(conditions)
             if name not in _CHANGED_FROM_FIELDS
         ]
-    problems += check_after_actions(values.get("actions"), fields)
+    problems += check_after_actions(values.get("actions"), fields, start_workflow=True)
     return problems
 
 
-def check_after_actions(actions: Any, fields: Mapping[str, RuleField]) -> list[Problem]:  # noqa: ANN401 - untrusted JSON
-    """Problems of "set a field" and "add a note" actions (triggers and transition "after")."""
+def check_after_actions(
+    actions: Any,  # noqa: ANN401 - untrusted JSON
+    fields: Mapping[str, RuleField],
+    *,
+    start_workflow: bool = False,
+) -> list[Problem]:
+    """Problems of "set a field" and "add a note" actions (triggers and transition "after").
+
+    A trigger may also start a workflow; whether that workflow can start is the service's check.
+    """
     if not isinstance(actions, list) or not actions:
         return [("actions", "required", {})]
     if len(actions) > MAX_ACTIONS:
@@ -163,8 +173,23 @@ def check_after_actions(actions: Any, fields: Mapping[str, RuleField]) -> list[P
     problems: list[Problem] = []
     seen: set[str] = set()
     for index, action in enumerate(actions):
-        problems += _action_problems(index, action, fields, seen)
+        if start_workflow and _kind_of(action) == TriggerActionKind.START_WORKFLOW.value:
+            problems += _workflow_problems(index, action)
+        else:
+            problems += _action_problems(index, action, fields, seen)
     return problems
+
+
+def _kind_of(action: Any) -> Any:  # noqa: ANN401 - untrusted JSON
+    return action.get("kind") if isinstance(action, Mapping) else None
+
+
+def _workflow_problems(index: int, action: Mapping[str, Any]) -> list[Problem]:
+    try:
+        uuid.UUID(str(action.get("workflow_id")))
+    except ValueError:
+        return [(f"actions.{index}.workflow_id", "required", {})]
+    return []
 
 
 def _action_problems(
