@@ -35,6 +35,7 @@ import { labelled, personName } from '../incidents/labels';
 import { useStatusActions } from '../incidents/StatusActions';
 import { PriorityTag, StatusTag } from '../incidents/tags';
 import { useDebounced } from '../../useDebounced';
+import { IncidentTasks, IncidentWorklogs } from '../incidents/IncidentParts';
 import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
 import { KnownErrorTag } from './KnownErrors';
 import { CausedIncidents, MergeDialog, MergedBanner, RelatedProblems } from './ProblemLinks';
@@ -371,6 +372,16 @@ function ProblemView({
                 key: 'analysis',
                 label: <span data-testid="prb-tab-analysis">{t('problems.tab.analysis')}</span>,
                 children: <ProblemAnalysis item={item} reload={reload} />,
+              },
+              {
+                key: 'tasks',
+                label: <span data-testid="prb-tab-tasks">{t('incidents.tab.tasks')}</span>,
+                children: <IncidentTasks item={item} canEdit={canEdit} base="problems" />,
+              },
+              {
+                key: 'worklogs',
+                label: <span data-testid="prb-tab-worklogs">{t('incidents.tab.worklogs')}</span>,
+                children: <IncidentWorklogs item={item} canEdit={canEdit} base="problems" />,
               },
               {
                 key: 'evidence',

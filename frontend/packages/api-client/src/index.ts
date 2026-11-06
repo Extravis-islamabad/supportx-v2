@@ -386,6 +386,7 @@ export {
   type IncidentWorklogs,
   type LinkChange,
   type MyTask,
+  type PartsBase,
   type TaskChange,
   type TaskPriority,
   type TaskStatus,

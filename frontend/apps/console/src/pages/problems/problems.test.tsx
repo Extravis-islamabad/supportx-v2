@@ -395,6 +395,28 @@ describe('console: problems', () => {
     });
   });
 
+  it('tasks and worklogs use the parts routes of the problem (WP-044c)', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}/tasks`]: { body: { items: [], done: 0, total: 0 } },
+      [`GET /api/v1/problems/${PRB_ID}/worklogs`]: {
+        body: { items: [], total_minutes: 0, people: {} },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('prb-tab-tasks'));
+    await waitFor(() => {
+      expect(fake.calls.some((c) => c.path === `/api/v1/problems/${PRB_ID}/tasks`)).toBe(true);
+    });
+    fireEvent.click(screen.getByTestId('prb-tab-worklogs'));
+    await waitFor(() => {
+      expect(fake.calls.some((c) => c.path === `/api/v1/problems/${PRB_ID}/worklogs`)).toBe(true);
+    });
+    const incidentParts = (c: { path: string }) =>
+      /^\/api\/v1\/incidents\/[^/]+\/(tasks|worklogs)/.test(c.path);
+    expect(fake.calls.some(incidentParts)).toBe(false);
+  });
+
   it('evidence: the caused incidents in report order, and what is not there yet', async () => {
     window.history.pushState({}, '', `/problems/${PRB_ID}`);
     api({
