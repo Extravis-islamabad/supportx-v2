@@ -35,6 +35,7 @@ import { labelled, personName } from '../incidents/labels';
 import { useStatusActions } from '../incidents/StatusActions';
 import { PriorityTag, StatusTag } from '../incidents/tags';
 import { useDebounced } from '../../useDebounced';
+import { IncidentHistory } from '../incidents/IncidentHistory';
 import { IncidentTasks, IncidentWorklogs } from '../incidents/IncidentParts';
 import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
 import { KnownErrorTag } from './KnownErrors';
@@ -382,6 +383,15 @@ function ProblemView({
                 key: 'worklogs',
                 label: <span data-testid="prb-tab-worklogs">{t('incidents.tab.worklogs')}</span>,
                 children: <IncidentWorklogs item={item} canEdit={canEdit} base="problems" />,
+              },
+              {
+                key: 'history',
+                label: (
+                  <span data-testid="prb-tab-history">
+                    {t('incidents.tab.history', { count: item.history_count })}
+                  </span>
+                ),
+                children: <IncidentHistory id={item.id} base="problems" />,
               },
               {
                 key: 'evidence',

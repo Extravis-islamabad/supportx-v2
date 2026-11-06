@@ -117,12 +117,14 @@ export function useIncidentHistory(
   id: string,
   actors: 'all' | 'people' | 'automation',
   enabled = true,
+  base: 'incidents' | 'problems' = 'incidents',
 ) {
   return useInfiniteQuery({
     queryKey: queryKeys.incidents.history(id, actors),
     queryFn: ({ pageParam }) =>
       call(
-        api.GET('/api/v1/incidents/{record_id}/history', {
+        // The same engine route under each type's prefix (WP-044c: a problem's history).
+        api.GET(`/api/v1/${base}/{record_id}/history` as '/api/v1/incidents/{record_id}/history', {
           params: { path: { record_id: id }, query: { cursor: pageParam ?? undefined, actors } },
         }),
       ),

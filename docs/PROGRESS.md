@@ -909,6 +909,17 @@ it with no reload (rule c). Not built yet.
       URL form works now).
 - WP-044a is complete once #211's full-ci is green; it then leaves draft.
 
+### [ ] WP-044c — Problems: lists, views, permissions, notifications, detection (lane A, 2026-11-06; 3 sessions; #240)
+- **Paused** for the product owner's full QA stop (2026-11-06). The resume point is in
+  docs/lanes/A.md.
+- [ ] S1 (in progress):
+  - done: the views "known errors" and "accepted, due for review"; Tasks, Worklogs and History
+    tabs on the problem page (the parts and history hooks take the type's prefix);
+  - next: list widths (ellipsis, sticky), search across problems and known errors, print.
+- [ ] S2: D14 permissions and the incident-side read; D15 notifications, reports, counters,
+  portal.
+- [ ] S3: D16 repeat rules; D17 API check; en/ar/ur and Arabic e2e.
+
 ### [x] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
 - **Plan:** ~/Desktop/wp-044-plan.md (D8..D12). The branch starts from #211's head; main is
   merged in once #211 lands. Migration 0078 (already allotted in the WP-044 numbers).

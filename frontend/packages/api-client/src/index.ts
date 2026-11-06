@@ -782,6 +782,7 @@ export {
   useProblem,
   useProblemAction,
   useProblemCatalogue,
+  useProblemCategories,
   useProblemEvidence,
   useProblemImpact,
   knownErrorKeys,

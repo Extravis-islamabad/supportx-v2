@@ -67,8 +67,9 @@ export function useProblemCatalogue(enabled = true) {
   });
 }
 
-export function useProblemTemplates() {
+export function useProblemTemplates(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: problemKeys.templates,
     queryFn: () => call(api.GET('/api/v1/problems/templates')),
     staleTime: 60_000,
@@ -610,5 +611,14 @@ export function useStartFollowUp(id: string) {
           body: { incident_ids: incidentIds, copy_text: copy },
         }),
       ),
+  });
+}
+
+/** The problem category tree (the engine's categories route for problems). */
+export function useProblemCategories(enabled = true) {
+  return useQuery({
+    queryKey: [...problemKeys.all, 'categories'] as const,
+    queryFn: () => call(api.GET('/api/v1/problems/categories')),
+    enabled,
   });
 }
