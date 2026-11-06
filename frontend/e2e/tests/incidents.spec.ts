@@ -139,7 +139,7 @@ test('a new incident with rich text appears live for the technician; edits reach
   const subject = `E2E Printer ${stamp()}`;
   try {
     // The technician's list is open before the incident exists.
-    await (await openSelect(tech.page, 'inc-view')).getByText(/^My open/).click();
+    await (await openSelect(tech.page, 'inc-view')).getByText(/^Assigned to me, open/).click();
 
     // Logged through the form: requester, group, technician (with email as the second line),
     // impact and urgency with the priority shown live, a description in rich text.
