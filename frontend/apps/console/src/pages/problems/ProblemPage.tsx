@@ -44,6 +44,8 @@ import { useKnownErrorAction } from './useKnownErrorAction';
 import { FollowUpDialog } from './FollowUp';
 import { MessageRequestersDialog } from './MessageRequesters';
 import { ProblemApprovals, RequestApprovalDialog } from './ProblemApprovals';
+import { useActionReason } from '../incidents/actionReason';
+import { AssignDialog } from '../incidents/assign';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
 const GUIDED = [
@@ -201,6 +203,26 @@ function ProblemView({
   const canEdit = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const me = useSession().data?.user.id ?? '';
   const knownError = useKnownErrorAction(item);
+  const reasonText = useActionReason();
+  // The group and owner, the incident's dialog with the problems' rules (WP-044c S1).
+  const [assigning, setAssigning] = useState(false);
+  const assignState = item.operations.find((o) => o.action === 'assign');
+  const assignAction: RecordAction | null =
+    assignState === undefined
+      ? null
+      : {
+          key: 'assign',
+          label: t('work_item_operation.assign'),
+          allowed: assignState.allowed,
+          whyNot:
+            !assignState.allowed && assignState.reason != null
+              ? reasonText(assignState)
+              : undefined,
+          testId: 'prb-op-assign',
+          onClick: () => {
+            setAssigning(true);
+          },
+        };
   const [asking, setAsking] = useState(false);
   const askAction: RecordAction = {
     key: 'ask_approval',
@@ -296,6 +318,7 @@ function ProblemView({
         actions={
           <ActionBar
             actions={[
+              ...(assignAction === null ? [] : [assignAction]),
               ...status.actions,
               knownError.action,
               askAction,
@@ -443,6 +466,15 @@ function ProblemView({
         onClose={() => {
           setMerging(false);
         }}
+      />
+      <AssignDialog
+        item={item}
+        open={assigning}
+        base="problems"
+        onClose={() => {
+          setAssigning(false);
+        }}
+        refresh={reload}
       />
     </>
   );

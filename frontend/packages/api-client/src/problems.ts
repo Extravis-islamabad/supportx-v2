@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { api, call } from './client';
 import { ApiError } from './errors';
-import { useSingleFlight, type ActionRun } from './incidents';
+import { useSingleFlight, type ActionRun, type AssignChange } from './incidents';
 import type { FilterExpression } from './users';
 import type { components } from './schema';
 
@@ -149,6 +149,37 @@ function useSavedProblem() {
     queryClient.setQueryData(problemKeys.detail(saved.id), saved);
     void queryClient.invalidateQueries({ queryKey: [...problemKeys.all, 'list'] });
   };
+}
+
+/** Give a problem to a group and an owner (WP-044c S1); the same rules as an incident's. */
+export function useAssignProblem(id: string) {
+  const saved = useSavedProblem();
+  const queryClient = useQueryClient();
+  const once = useSingleFlight((change: AssignChange) =>
+    call(
+      api.POST('/api/v1/problems/{record_id}/assign', {
+        params: { path: { record_id: id }, header: ifMatch(change.version) },
+        body: {
+          group_id: change.groupId,
+          technician_id: change.technicianId,
+          reason_code: change.reasonCode ?? null,
+          reason_text: change.reasonText?.trim() === '' ? null : (change.reasonText ?? null),
+          confirm_lose_access: change.confirmLoseAccess ?? false,
+          keep_following: change.keepFollowing ?? null,
+        },
+      }),
+    ),
+  );
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: (error) => {
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+      }
+    },
+  });
 }
 
 export function useCreateProblem() {

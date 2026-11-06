@@ -196,6 +196,27 @@ describe('console: problems', () => {
     await screen.findByTestId('prb-record');
   });
 
+  it("WP-044c S1: a problem gets its group and owner in the incident's assign dialog", async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const fake = api({
+      'GET /api/v1/problems/assignees': {
+        body: [
+          { id: TECH, display_name: 'Nadia Network', email: 'nadia@example.com', open_count: 0 },
+        ],
+      },
+      'GET /api/v1/organization/groups': { body: [] },
+    });
+    render(<App />);
+    await screen.findByTestId('prb-record');
+    await clickAction('prb-op-assign', 'prb-actions');
+    expect(await screen.findByTestId('inc-assign-technician')).toBeDefined();
+    // The owners offered are those who may work problems, not incidents.
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/problems/assignees').length).toBeGreaterThan(0);
+    });
+    expect(fake.find('GET', '/api/v1/incidents/assignees')).toHaveLength(0);
+  });
+
   it('WP-044c S1: a problem prints as a document', async () => {
     window.history.pushState({}, '', `/problems/${PRB_ID}`);
     api();

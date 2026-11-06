@@ -802,6 +802,7 @@ export {
   useProblemPrefill,
   useProblems,
   useProblemViews,
+  useAssignProblem,
   useProblemTemplates,
   useRelatedProblem,
   useSimilarProblems,

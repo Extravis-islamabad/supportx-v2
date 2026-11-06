@@ -194,12 +194,22 @@ export function useIncidentSearch(query: IncidentSearchQuery, enabled = true) {
 }
 
 /** Technicians of a group (or everyone who can work on incidents), with their open load. */
-export function useIncidentAssignees(groupId: string | null, search: string, enabled = true) {
+/**
+ * People who may be given a record of the type at `base` (WP-044c: problems' owners hold the
+ * problems' edit right, not the incidents'). The route is generated once per type with the same
+ * shape, so the incident path's types describe them all.
+ */
+export function useIncidentAssignees(
+  groupId: string | null,
+  search: string,
+  enabled = true,
+  base: 'incidents' | 'problems' = 'incidents',
+) {
   return useQuery({
-    queryKey: queryKeys.incidents.assignees(groupId, search),
+    queryKey: [...queryKeys.incidents.assignees(groupId, search), base],
     queryFn: () =>
       call(
-        api.GET('/api/v1/incidents/assignees', {
+        api.GET(`/api/v1/${base}/assignees` as '/api/v1/incidents/assignees', {
           params: {
             query: {
               group_id: groupId ?? undefined,
