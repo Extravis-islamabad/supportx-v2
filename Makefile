@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -197,6 +197,10 @@ audit-backend:
 	uv run python -m tooling.vuln_gate $$tmp/pip-audit.json
 
 # First run lists every advisory; the second fails only on high/critical.
+licence-check: ## The shipped JS dependencies' licences against the allow-list (frontend, and mobile when present)
+	@if [ -f mobile/package.json ]; then (cd mobile && pnpm install --frozen-lockfile --prefer-offline >/dev/null); fi
+	$(BACKEND) uv run python -m tooling.licence_check ../frontend ../mobile
+
 audit-frontend:
 	$(FRONTEND) pnpm audit || true
 	$(FRONTEND) pnpm audit --audit-level high

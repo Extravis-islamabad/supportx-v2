@@ -194,6 +194,7 @@ test('write, approve live from the inbox, send back, withdraw; an outsider never
     await author.page.goto(`/knowledge/articles/${first}`);
     await expect(author.page.getByTestId('kb-heading')).toContainText(`E2E VPN token ${tag}`);
     await admin.page.goto(`/knowledge/articles/${first}`);
+    await admin.page.getByTestId('kb-more').click(); // withdraw is in More (QA6-KB-01)
     await admin.page.getByTestId('kb-action-withdraw').click();
     await admin.page.getByTestId('kb-step-text').fill('Replaced by the new portal guide');
     await admin.page.locator('.ant-modal:visible').getByRole('button').last().click();
