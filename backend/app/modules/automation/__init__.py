@@ -46,6 +46,8 @@ from app.modules.automation.service.realtime import ROUTES
 from app.modules.automation.service.registry import (
     Applier,
     AutomatedChange,
+    CommandResult,
+    CommandRunner,
     FactsReader,
     Noter,
     RecordEvent,
@@ -99,6 +101,8 @@ __all__ = [
     "AssignmentChoice",
     "AssignmentResult",
     "AutomatedChange",
+    "CommandResult",
+    "CommandRunner",
     "FactsReader",
     "FieldKind",
     "Member",

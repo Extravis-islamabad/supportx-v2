@@ -155,6 +155,7 @@ from app.shared.history import (
     HistoryEntry,
     Source,
     count_saves,
+    current_automation,
     explain_conflict,
     history_entries,
     record_changes,
@@ -1482,7 +1483,9 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
             action=action,
             from_status=str(before["status"]),
             to_status=record.status,
-            automatic=automatic,
+            # A workflow's move counts as automatic too (lane A's review of WP-048b): notifications
+            # and requester rules treat it like a rule's, never like a person's.
+            automatic=automatic or current_automation(session) is not None,
         ),
         aggregate_id=record.id,
         aggregate_version=record.version,
