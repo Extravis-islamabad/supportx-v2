@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Segmented, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Flex, Segmented, Select, Space, Table, Tooltip } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -41,6 +41,7 @@ import {
   NoAccess,
   reportError,
   useAccess,
+  useLicence,
   useAppearance,
   useDateTime,
   useLabel,
@@ -89,6 +90,8 @@ const LISTS_CHANGED = 'work_items.lists_changed';
 const ELLIPSIS = new Set(['subject', 'requester_id', 'technician_id', 'group_id']);
 const STICKY = new Set(['display_id', 'subject']);
 const SELECT_WIDTH = 48;
+// A problem from at most this many chosen incidents (their IDs go in the new form's address).
+const PROBLEM_FROM_MAX = 100;
 const VIEWS_CHANGED = 'work_items.views_changed';
 const SETTINGS_CHANGED = 'work_items.list_settings_changed';
 // On my own channel, what changes only my counts (WP-020d QA BUG-01): a follow or a reply by
@@ -106,6 +109,7 @@ export function IncidentsPage() {
   const navigate = useNavigate();
   const dates = useDateTime();
   const { can } = useAccess();
+  const { has } = useLicence();
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
   // A built-in view code, or `custom:<saved view id>`.
@@ -613,6 +617,37 @@ export function IncidentsPage() {
           capped={total !== null && total >= 1000 && list.hasNextPage}
           onAction={setBulkAction}
           canEdit={bulkAllowed}
+          extra={
+            // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
+            // form starts from them. Chosen rows only, as their IDs travel in the address.
+            has('problem') && can('problems.create') ? (
+              <Tooltip
+                title={
+                  selection.all || selection.ids.length === 0
+                    ? t('incidents.bulk.select_first')
+                    : selection.ids.length > PROBLEM_FROM_MAX
+                      ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
+                      : undefined
+                }
+              >
+                <span>
+                  <Button
+                    disabled={
+                      selection.all ||
+                      selection.ids.length === 0 ||
+                      selection.ids.length > PROBLEM_FROM_MAX
+                    }
+                    onClick={() =>
+                      void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)
+                    }
+                    data-testid="inc-bulk-create-problem"
+                  >
+                    {t('problems.create_from_incident')}
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : undefined
+          }
         />
       )}
       <Table<IncidentListItem>

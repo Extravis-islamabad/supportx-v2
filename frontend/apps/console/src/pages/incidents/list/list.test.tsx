@@ -200,6 +200,25 @@ describe('Incident list (WP-020d)', () => {
     restore();
   });
 
+  it('WP-044c S1: a problem from the chosen incidents, from the bulk bar', async () => {
+    api({ routes: routes() });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    const create = screen.getByTestId('inc-bulk-create-problem');
+    expect((create as HTMLButtonElement).disabled).toBe(true); // nothing chosen yet
+    const table = screen.getByTestId('inc-table');
+    const all = within(table).getAllByRole('checkbox')[0];
+    if (all === undefined) throw new Error('no select-all checkbox');
+    fireEvent.click(all);
+    fireEvent.click(screen.getByTestId('inc-bulk-create-problem'));
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/problems/new');
+    });
+    expect(new URLSearchParams(window.location.search).get('incidents')?.split(',')).toHaveLength(
+      2,
+    );
+  });
+
   it('REQ-INC-119 AC2: bulk actions are disabled until something is selected, then "all N"', async () => {
     const fake = api({
       routes: routes({
