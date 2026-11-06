@@ -1,4 +1,4 @@
-import { Form, Input, Tabs } from 'antd';
+import { Badge, Form, Input, Tabs } from 'antd';
 import { useState } from 'react';
 
 import { useLabel } from '../appearance';
@@ -27,18 +27,26 @@ export function TranslatedField({
   onChange: (next: TranslatedValue) => void;
   required?: readonly ('en' | 'ar' | 'ur')[];
   max?: number;
-  /** The field's error, already translated; shown under the field (QA6S-SHELL-07). */
-  error?: string;
+  /** The field's error, already translated: one for the field, or one per language (the server
+   * may refuse the Arabic alone); shown under the field, and the language's tab is marked. */
+  error?: string | TranslatedValue;
   testId?: string;
 }) {
   const t = useLabel();
   const [tab, setTab] = useState<(typeof LANGUAGES)[number]>('en');
+  const perLanguage = typeof error === 'object' ? error : {};
+  const message =
+    typeof error === 'string'
+      ? error
+      : LANGUAGES.filter((lang) => perLanguage[lang] !== undefined)
+          .map((lang) => `${t(`locale.${lang}`)}: ${perLanguage[lang] ?? ''}`)
+          .join(' ') || undefined;
   return (
     <Form.Item
       label={label}
       required={required.length > 0}
-      validateStatus={error === undefined ? undefined : 'error'}
-      help={error}
+      validateStatus={message === undefined ? undefined : 'error'}
+      help={message}
       data-testid={testId}
     >
       <Tabs
@@ -49,7 +57,14 @@ export function TranslatedField({
         }}
         items={LANGUAGES.map((lang) => ({
           key: lang,
-          label: `${t(`locale.${lang}`)}${required.includes(lang) ? ' *' : ''}`,
+          label: (
+            <span>
+              {`${t(`locale.${lang}`)}${required.includes(lang) ? ' *' : ''}`}
+              {perLanguage[lang] !== undefined && (
+                <Badge status="error" style={{ marginInlineStart: 4 }} aria-hidden />
+              )}
+            </span>
+          ),
           children: (
             <Input
               aria-label={`${label} (${t(`locale.${lang}`)})`}

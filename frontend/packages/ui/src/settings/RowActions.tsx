@@ -1,5 +1,5 @@
 import { MoreOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Flex, type MenuProps } from 'antd';
+import { Button, Dropdown, Flex, Typography, type MenuProps } from 'antd';
 
 import { useLabel } from '../appearance';
 import { SPACE } from '../density';
@@ -11,6 +11,8 @@ export interface RowAction {
   /** Destructive: last in the menu, red. The caller confirms. */
   danger?: boolean;
   disabled?: boolean;
+  /** Why it is disabled, already translated: shown with it (no unexplained disabled). */
+  whyNot?: string;
   testId?: string;
 }
 
@@ -35,7 +37,16 @@ export function RowActions({
   ];
   const items: MenuProps['items'] = ordered.map((a) => ({
     key: a.key,
-    label: <span data-testid={a.testId}>{a.label}</span>,
+    label: (
+      <span data-testid={a.testId}>
+        {a.label}
+        {a.disabled === true && a.whyNot !== undefined && (
+          <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            {a.whyNot}
+          </Typography.Text>
+        )}
+      </span>
+    ),
     danger: a.danger,
     disabled: a.disabled,
     onClick: a.onClick,
@@ -48,6 +59,7 @@ export function RowActions({
           size="small"
           onClick={primary.onClick}
           disabled={primary.disabled}
+          title={primary.disabled === true ? primary.whyNot : undefined}
           data-testid={primary.testId}
         >
           {primary.label}

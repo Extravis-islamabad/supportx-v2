@@ -347,6 +347,8 @@ export const ur: LabelResource = {
   'settings.default_urgency': 'ڈیفالٹ فوریت',
   'settings.defaults': 'نئے واقعے کے فارم پر ڈیفالٹ',
   'settings.discard': 'رد کریں',
+  'settings.discard_body': 'یہاں درج کیا گیا محفوظ نہیں ہوا۔',
+  'settings.discard_title': 'اپنی تبدیلیاں رد کریں؟',
   'settings.first_response_help': 'ان میں سے پہلا واقعے کو جواب شدہ نشان زد کرتا ہے۔',
   'settings.first_response_on': 'پہلا جواب کسے شمار کیا جائے',
   'settings.fix_fields_one': 'محفوظ کرنے سے پہلے {{count}} خانہ درست کریں',
@@ -354,6 +356,7 @@ export const ur: LabelResource = {
   'settings.from_status': 'سے',
   'settings.impact_by_urgency': 'اثر \\ فوریت',
   'settings.incidents_title': 'واقعات کی ترتیبات',
+  'settings.keep_editing': 'ترمیم جاری رکھیں',
   'settings.keep_following': 'واقعہ حوالے کرنے کے بعد بھی اسے فالو کرتے رہیں',
   'settings.keep_following_help':
     'حوالگی کے ڈائیلاگ میں پہلے سے منتخب؛ حوالے کرنے والا اسے غیر منتخب کر سکتا ہے۔',

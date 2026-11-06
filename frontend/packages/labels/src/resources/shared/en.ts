@@ -350,6 +350,8 @@ export const en = {
   'settings.default_urgency': 'Default urgency',
   'settings.defaults': 'Defaults on the new incident form',
   'settings.discard': 'Discard',
+  'settings.discard_body': 'What you entered here is not saved.',
+  'settings.discard_title': 'Discard your changes?',
   'settings.first_response_help': 'The first of these marks the incident as responded to.',
   'settings.first_response_on': 'What counts as the first response',
   'settings.fix_fields_one': 'Fix {{count}} field before saving',
@@ -357,6 +359,7 @@ export const en = {
   'settings.from_status': 'From',
   'settings.impact_by_urgency': 'Impact \\ Urgency',
   'settings.incidents_title': 'Incident settings',
+  'settings.keep_editing': 'Keep editing',
   'settings.keep_following': 'Keep following an incident after handing it over',
   'settings.keep_following_help':
     'Ticked by default in the hand-over dialog; whoever hands over can untick it.',

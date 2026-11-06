@@ -127,3 +127,90 @@ describe('TranslatedField', () => {
     expect(screen.getByTestId('name-ur').getAttribute('dir')).toBe('rtl');
   });
 });
+
+describe('lanes A and B asks on #258', () => {
+  it('a drawer takes header actions, a wide width, and says why its primary is disabled', async () => {
+    ui(
+      <EditDrawer
+        open
+        wide
+        title="Edit Amal"
+        extra={<button type="button">Account actions</button>}
+        okDisabled
+        okWhyNot="Choose a role first."
+        onCancel={vi.fn()}
+        onOk={vi.fn()}
+      >
+        <span>fields</span>
+      </EditDrawer>,
+    );
+    expect(await screen.findByRole('button', { name: 'Account actions' })).toBeTruthy();
+    expect(screen.getByLabelText('Save: Choose a role first.')).toBeTruthy();
+  });
+
+  it('asks before discarding unsaved input on Cancel', async () => {
+    const cancel = vi.fn();
+    ui(
+      <EditDialog open dirty title="Add value" onCancel={cancel} onOk={vi.fn()}>
+        <span>fields</span>
+      </EditDialog>,
+    );
+    fireEvent.click(await screen.findByTestId('edit-cancel'));
+    expect(cancel).not.toHaveBeenCalled();
+    const titles = await screen.findAllByText('Discard your changes?');
+    // One question, however its title is also announced.
+    expect(document.querySelectorAll('.ant-modal-confirm')).toHaveLength(1);
+    const ask = titles[0]?.closest<HTMLElement>('.ant-modal');
+    if (!ask) throw new Error('no discard dialog');
+    fireEvent.click(within(ask).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => {
+      expect(cancel).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('the error summary names the section and lets the caller show its tab first', async () => {
+    const select = vi.fn();
+    ui(
+      <>
+        <input id="group" aria-label="Group" />
+        <FormErrorSummary
+          problems={[
+            { fieldId: 'group', label: 'Group', message: 'Required.', section: 'Fulfilment' },
+          ]}
+          onSelect={select}
+        />
+      </>,
+    );
+    expect(screen.getByTestId('form-error-summary').textContent).toContain(
+      'Fulfilment › Group: Required.',
+    );
+    await waitFor(() => {
+      expect(select).toHaveBeenCalledWith('group');
+    });
+  });
+
+  it('a disabled row action says why, and a language error marks its tab', async () => {
+    ui(
+      <>
+        <RowActions
+          rowName="Laptop"
+          more={[
+            {
+              key: 'delete',
+              label: 'Delete',
+              onClick: vi.fn(),
+              danger: true,
+              disabled: true,
+              whyNot: 'In use: retire it instead.',
+            },
+          ]}
+        />
+        <TranslatedField label="Name" onChange={vi.fn()} error={{ ar: 'Too long.' }} testId="tn" />
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Laptop' }));
+    expect(await screen.findByText('In use: retire it instead.')).toBeTruthy();
+    expect(screen.getByTestId('tn').textContent).toMatch(/Too long\./);
+    expect(screen.getByTestId('tn').querySelector('.ant-badge-status-error')).not.toBeNull();
+  });
+});
