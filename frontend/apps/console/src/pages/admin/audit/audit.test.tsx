@@ -125,6 +125,35 @@ describe('Admin › Audit log', () => {
     expect(within(drawer).queryByText('users.view:all')).toBeNull();
   });
 
+  it('a refused entry reads in words: the object, why, and the device, never codes (AUD-01)', async () => {
+    const mac =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+      'Chrome/155.0.0.0 Safari/537.36';
+    auditRoutes([entry({ object_type: 'sla_holiday_list', outcome: 'refused' })], {
+      'GET /api/v1/audit/entries/e-1': {
+        body: {
+          ...DETAIL,
+          object_type: 'sla_holiday_list',
+          outcome: 'refused',
+          reason_code: 'validation_failed',
+          details: { status: 422 },
+          personal: [{ subject_id: 'u-admin', ip: '10.1.2.3', user_agent: mac, reason: null }],
+        },
+      },
+    });
+    render(<App />);
+    const table = await screen.findByTestId('audit-table');
+    expect(await within(table).findByText(/Holiday list/)).toBeDefined();
+    expect(within(table).queryByText(/Sla Holiday List/)).toBeNull();
+    fireEvent.click(await screen.findByTestId('audit-row-e-1'));
+    const drawer = await screen.findByTestId('audit-entry-drawer');
+    await within(drawer).findByText('Chrome 155 on macOS');
+    expect(within(drawer).queryByText(/422|Response status/)).toBeNull();
+    expect(within(drawer).queryByText(mac)).toBeNull(); // only under "Technical details"
+    fireEvent.click(within(drawer).getByText('Technical details'));
+    expect(await within(drawer).findByText(mac)).toBeDefined();
+  });
+
   it('shows the banner while the chain has an unresolved problem', async () => {
     auditRoutes([entry()], {
       'GET /api/v1/audit/status': { body: fakeAuditStatus({ alert: 'entry_changed' }) },

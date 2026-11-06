@@ -54,3 +54,40 @@ export function grantLabel(t: T, code: string): string {
     scope: t(`scope.${scope}`),
   });
 }
+
+// Browser and system names are product names, the same in every language; only the sentence
+// around them is a label. Order matters: Edge and Opera also say "Chrome", Chrome says "Safari".
+const BROWSERS: [RegExp, string][] = [
+  [/SupportX\/(\d+)/, 'SupportX app'],
+  [/Edg(?:e|A|iOS)?\/(\d+)/, 'Edge'],
+  [/OPR\/(\d+)/, 'Opera'],
+  [/(?:Firefox|FxiOS)\/(\d+)/, 'Firefox'],
+  [/(?:Chrome|CriOS)\/(\d+)/, 'Chrome'],
+  [/Version\/(\d+)[^ ]* (?:Mobile\/\S+ )?Safari\//, 'Safari'],
+];
+const SYSTEMS: [RegExp, string][] = [
+  [/iPhone|iPad|iPod/, 'iOS'],
+  [/Android/, 'Android'],
+  [/Windows/, 'Windows'],
+  [/Mac OS X|Macintosh/, 'macOS'],
+  [/CrOS/, 'ChromeOS'],
+  [/Linux/, 'Linux'],
+];
+
+/** A browser's own string as "Chrome 155 on macOS" (AUD-01); unknown parts said so in words. */
+export function deviceLabel(t: T, userAgent: string): string {
+  let browser: string | undefined;
+  for (const [pattern, name] of BROWSERS) {
+    const found = pattern.exec(userAgent);
+    if (found !== null) {
+      browser = `${name} ${found[1] ?? ''}`.trim();
+      break;
+    }
+  }
+  const system = SYSTEMS.find(([pattern]) => pattern.test(userAgent))?.[1];
+  if (browser === undefined && system === undefined) return t('audit.ui.device_unknown');
+  return t('audit.ui.device', {
+    browser: browser ?? t('audit.ui.device_unknown_browser'),
+    system: system ?? t('audit.ui.device_unknown_system'),
+  });
+}
