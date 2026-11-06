@@ -190,4 +190,129 @@ describe('console: assets', () => {
     const [sent] = fake.find('POST', '/api/v1/procurement/vendors');
     expect(sent?.body).toEqual({ name: 'Globex' });
   });
+
+  it('changes the state along the life cycle: disabled moves say why, a reason when asked', async () => {
+    const repair: AssetState = {
+      ...state,
+      id: '01900000-0000-7000-8000-00000000a002',
+      code: 'in_repair',
+      names: { en: 'In repair' },
+      category: 'in_repair',
+      reason_required: true,
+    };
+    const retired: AssetState = {
+      ...state,
+      id: '01900000-0000-7000-8000-00000000a003',
+      code: 'retired',
+      names: { en: 'Retired' },
+      category: 'retired',
+    };
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      'GET /api/v1/assets/states': { body: [state, repair, retired] },
+      [`GET /api/v1/assets/${asset.id}/moves`]: {
+        body: [
+          { to_state_id: repair.id, reason_required: true, required_fields: [], allowed: true },
+          { to_state_id: retired.id, reason_required: false, required_fields: [], allowed: false },
+        ],
+      },
+      [`POST /api/v1/assets/${asset.id}/move`]: {
+        body: { ...asset, state_id: repair.id, version: 4 },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-move-open'));
+    const dialog = await screen.findByTestId('asset-move-dialog');
+    fireEvent.mouseDown(within(dialog).getByRole('combobox'));
+    const blocked = await screen.findByText('Retired (needs a permission you don’t have)');
+    expect(blocked.closest('.ant-select-item')?.className).toContain('disabled');
+    fireEvent.click(screen.getByText('In repair'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Change state' }));
+    expect(await within(dialog).findByText('This move asks for a reason')).toBeTruthy();
+    expect(fake.find('POST', `/api/v1/assets/${asset.id}/move`)).toHaveLength(0);
+    fireEvent.change(within(dialog).getByTestId('asset-move-reason'), {
+      target: { value: 'Screen cracked' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Change state' }));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/assets/${asset.id}/move`)).toHaveLength(1);
+    });
+    const [call] = fake.find('POST', `/api/v1/assets/${asset.id}/move`);
+    expect(call?.body).toEqual({ to_state_id: repair.id, reason: 'Screen cracked' });
+    expect(call?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('copies an asset with an Idempotency-Key, up to the copy limit', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      'GET /api/v1/assets/settings': { body: { copy_limit: 5 } },
+      [`POST /api/v1/assets/${asset.id}/copy`]: {
+        status: 201,
+        body: {
+          items: [
+            { ...asset, id: 'c-1' },
+            { ...asset, id: 'c-2' },
+            { ...asset, id: 'c-3' },
+          ],
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-copy-open'));
+    const dialog = await screen.findByTestId('asset-copy-dialog');
+    expect(await within(dialog).findByText('Up to 5 at once')).toBeTruthy();
+    fireEvent.change(within(dialog).getByTestId('asset-copy-count'), { target: { value: '3' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Make 3 copies' }));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/assets/${asset.id}/copy`)).toHaveLength(1);
+    });
+    const [call] = fake.find('POST', `/api/v1/assets/${asset.id}/copy`);
+    expect(call?.body).toEqual({ count: 3 });
+    expect(call?.headers.get('Idempotency-Key')).toBeTruthy();
+  });
+
+  it('moves selected assets at once and lists the ones that could not move', async () => {
+    const other: AssetRecord = {
+      ...asset,
+      id: '01900000-0000-7000-8000-00000000d002',
+      name: 'Old desktop',
+      tag: 'AST-8',
+      version: 1,
+    };
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi({
+      'GET /api/v1/assets': { body: page([asset, other]) },
+      'POST /api/v1/assets/bulk-moves': {
+        body: [
+          { asset_id: asset.id, moved: true, code: null, version: 4 },
+          { asset_id: other.id, moved: false, code: 'version_conflict', version: null },
+        ],
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    await screen.findByTestId(`asset-row-${asset.id}`);
+    for (const box of screen.getAllByRole('checkbox').slice(1)) fireEvent.click(box);
+    expect((await screen.findByTestId('assets-selection')).textContent).toContain('2 selected');
+    fireEvent.click(screen.getByTestId('assets-bulk-move-open'));
+    const dialog = await screen.findByTestId('asset-bulk-move-dialog');
+    fireEvent.mouseDown(within(dialog).getByRole('combobox'));
+    fireEvent.click(await screen.findByTitle('In stock'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Change state' }));
+    expect((await within(dialog).findByTestId('asset-bulk-move-partial')).textContent).toContain(
+      '1 moved; 1 could not move',
+    );
+    expect(within(dialog).getByText('Old desktop')).toBeTruthy();
+    const [call] = fake.find('POST', '/api/v1/assets/bulk-moves');
+    expect(call?.body).toEqual({
+      items: [
+        { asset_id: asset.id, version: 3 },
+        { asset_id: other.id, version: 1 },
+      ],
+      to_state_id: state.id,
+      reason: null,
+    });
+  });
 });

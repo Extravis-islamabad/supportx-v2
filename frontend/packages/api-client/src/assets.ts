@@ -21,6 +21,8 @@ export type AssetLifeCycle = S['AssetLifeCycleOut'];
 export type AssetLifeCycleInput = S['AssetLifeCycleIn'];
 export type AssetLifeCyclePatch = S['AssetLifeCyclePatch'];
 export type AssetMove = S['AssetMoveIO'];
+export type AssetMoveOption = S['AssetMoveOptionOut'];
+export type AssetBulkMoveResult = S['AssetBulkMoveResult'];
 export type AssetProductType = S['AssetProductTypeOut'];
 export type AssetProductTypeInput = S['AssetProductTypeIn'];
 export type AssetProductTypePatch = S['AssetProductTypePatch'];
@@ -350,6 +352,65 @@ export function useAssetRecordChange() {
       if (error instanceof ApiError && error.isConflict) refresh();
     },
   });
+}
+
+/** Where an asset may move from its state now; moves you may not make come `allowed: false`. */
+export function useAssetMoves(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.assets.moves(id ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/{asset_id}/moves', { params: { path: { asset_id: id ?? '' } } }),
+      ),
+    enabled: id !== undefined,
+  });
+}
+
+/** Move, copy or bulk-move assets (WP-049a s3); every asset query refetches after. */
+export function useAssetActions() {
+  const queryClient = useQueryClient();
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+  const onError = (error: unknown) => {
+    if (error instanceof ApiError && error.isConflict) refresh();
+  };
+  const move = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: { id: string; version: number; toStateId: string; reason?: string }) =>
+      call(
+        api.POST('/api/v1/assets/{asset_id}/move', {
+          params: { header: ifMatch(input.version), path: { asset_id: input.id } },
+          body: { to_state_id: input.toStateId, reason: input.reason ?? null },
+        }),
+      ),
+    onSuccess: refresh,
+    onError,
+  });
+  const copy = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: { id: string; count: number; key: string }) =>
+      call(
+        api.POST('/api/v1/assets/{asset_id}/copy', {
+          params: { header: { 'Idempotency-Key': input.key }, path: { asset_id: input.id } },
+          body: { count: input.count },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  const bulkMove = useMutation({
+    meta: { silent: true },
+    mutationFn: (input: {
+      items: { asset_id: string; version: number }[];
+      toStateId: string;
+      reason?: string;
+    }) =>
+      call(
+        api.POST('/api/v1/assets/bulk-moves', {
+          body: { items: input.items, to_state_id: input.toStateId, reason: input.reason ?? null },
+        }),
+      ),
+    onSettled: refresh,
+  });
+  return { move, copy, bulkMove };
 }
 
 /** Vendors by name (`activeOnly`: what new records may pick, REQ-PUR-001 AC2). */

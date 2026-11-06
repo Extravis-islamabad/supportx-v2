@@ -40,6 +40,7 @@ import {
 
 import { Problems } from '../admin/incidents/shared';
 import { nameOf } from '../admin/assets/shared';
+import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
@@ -111,6 +112,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const { problems, show, clear } = useAssetSaveProblems();
   const [editing, setEditing] = useState<{ draft: AssetDraft; base: number }>();
   const [changedElsewhere, setChangedElsewhere] = useState(false);
+  const [dialog, setDialog] = useState<'move' | 'copy'>();
   const viewers = useRecordChannel('asset', asset.id, (event) => {
     if (event.version !== undefined && event.version <= asset.version) return; // our own save
     void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
@@ -270,6 +272,26 @@ function AssetView({ asset }: { asset: AssetRecord }) {
               <Tag data-testid="asset-state">{nameOf(state.names, locale)}</Tag>
             )}
             {manage && (
+              <WriteButton
+                onClick={() => {
+                  setDialog('move');
+                }}
+                data-testid="asset-move-open"
+              >
+                {t('assets.move.open')}
+              </WriteButton>
+            )}
+            {manage && (
+              <WriteButton
+                onClick={() => {
+                  setDialog('copy');
+                }}
+                data-testid="asset-copy-open"
+              >
+                {t('assets.copy.open')}
+              </WriteButton>
+            )}
+            {manage && (
               <Popconfirm
                 title={t('assets.record.trash_confirm')}
                 okText={t('actions.delete')}
@@ -291,6 +313,20 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             )}
           </Flex>
         }
+      />
+      <MoveAssetDialog
+        asset={asset}
+        open={dialog === 'move'}
+        onClose={() => {
+          setDialog(undefined);
+        }}
+      />
+      <CopyAssetDialog
+        asset={asset}
+        open={dialog === 'copy'}
+        onClose={() => {
+          setDialog(undefined);
+        }}
       />
       <Tabs
         activeKey={tab}

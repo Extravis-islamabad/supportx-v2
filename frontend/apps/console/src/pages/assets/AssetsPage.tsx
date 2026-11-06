@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Drawer, Flex, Input, Segmented, Table, Tag, TreeSelect } from 'antd';
+import { Button, Drawer, Flex, Input, Segmented, Table, Tag, TreeSelect, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -27,6 +27,7 @@ import { useDebounced } from '../../useDebounced';
 import { Problems } from '../admin/incidents/shared';
 import { nameOf } from '../admin/assets/shared';
 import { typeTree, type TypeNode } from '../admin/assets/tree';
+import { BulkMoveDialog } from './AssetActions';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
@@ -36,6 +37,8 @@ import { useAssetSaveProblems } from './problems';
  * It follows the asset list channel live (and the catalogue broadcast for names), so another
  * person's change shows without a refresh.
  */
+const BULK_MAX = 100; // the API takes up to 100 assets per bulk move
+
 export function AssetsPage() {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -65,6 +68,14 @@ export function AssetsPage() {
     }
   });
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
+  // Bulk moves (WP-049a s3): pick rows, move them to one state; the server checks each one.
+  const bulkAllowed = view === 'live' && access.can('assets.manage');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const selectedRows = useMemo(
+    () => rows.filter((row) => selected.includes(row.id)),
+    [rows, selected],
+  );
   const tree = useMemo(() => typeTree(types.data ?? []), [types.data]);
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
   const typeName = (id: string) => {
@@ -156,10 +167,43 @@ export function AssetsPage() {
             data-testid="assets-view"
           />
         )}
+        {bulkAllowed && selected.length > 0 && (
+          <Flex gap={8} align="center" data-testid="assets-selection">
+            <Typography.Text>
+              {t('assets.bulk_move.selected', { count: selected.length })}
+            </Typography.Text>
+            <WriteButton
+              onClick={() => {
+                setBulkOpen(true);
+              }}
+              data-testid="assets-bulk-move-open"
+            >
+              {t('assets.bulk_move.open')}
+            </WriteButton>
+          </Flex>
+        )}
       </Flex>
+      <BulkMoveDialog
+        assets={selectedRows}
+        open={bulkOpen}
+        onClose={() => {
+          setBulkOpen(false);
+          setSelected([]);
+        }}
+      />
       <Table<AssetRecord>
         size="small"
         rowKey="id"
+        rowSelection={
+          bulkAllowed
+            ? {
+                selectedRowKeys: selected,
+                onChange: (keys) => {
+                  setSelected(keys.map(String).slice(0, BULK_MAX));
+                },
+              }
+            : undefined
+        }
         pagination={false}
         loading={list.isLoading}
         dataSource={rows}
