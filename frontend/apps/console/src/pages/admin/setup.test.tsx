@@ -167,3 +167,14 @@ describe('Setup in the command palette (REQ-ADM-107)', () => {
     });
   });
 });
+
+describe('QA6S-SHELL-02: no "Setup" heading above a settings page', () => {
+  it('keeps "Setup" as the hidden level 1, the page names itself', async () => {
+    window.history.pushState({}, '', '/admin/api-keys');
+    api();
+    render(<App />);
+    const top = await screen.findByTestId('admin-header');
+    expect(top.tagName).toBe('H1');
+    expect(top.className).toContain('sx-visually-hidden');
+  });
+});

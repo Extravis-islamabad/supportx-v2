@@ -40,8 +40,9 @@ test('setup home, search, menu and licence page: labelled and accessible', async
   await expect(page.getByTestId('setup-home')).toBeVisible();
   await expectAccessible(page, 'setup home (Arabic, dark)');
 
-  // A phone width: the menu sits above the page.
+  // A phone width: the sections open from a button, in a drawer (QA6S-SHELL-04).
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId('admin-sections-button').click();
   await expect(page.getByTestId('admin-sections')).toBeVisible();
   await expectAccessible(page, 'setup home (390 px)');
 });
