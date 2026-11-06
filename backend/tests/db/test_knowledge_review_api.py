@@ -201,6 +201,10 @@ async def test_req_kb_028_self_approval_follows_the_setting(world: World) -> Non
     topic = await _topic(world, a)
     own = await _article(world, a, a.admin, topic)
     await _submit(world, a, a.admin, own)
+    # QA6-KB-02: the article says so before the click, so the screen offers no approve.
+    seen = await world.call("GET", f"/knowledge/articles/{own['id']}", a, a.admin)
+    assert seen.status_code == 200, seen.text
+    assert seen.json()["self_approval_blocked"] == ["en"]
     assert problem(await _approve(world, a, a.admin, own)) == (403, "kb_self_approval_off")
 
     # REQ-KB-090: If-Match, and only settings managers.
