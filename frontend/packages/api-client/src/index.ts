@@ -437,6 +437,7 @@ export {
   useReportSchedules,
   useReportSettings,
   useScheduleChange,
+  useExportFormats,
   useRequestExport,
   useUpdateReportSettings,
   useReportEntity,

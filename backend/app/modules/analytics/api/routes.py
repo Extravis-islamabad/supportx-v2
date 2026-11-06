@@ -32,7 +32,7 @@ from app.modules.analytics.domain.builtin import BUILTIN_REPORTS
 from app.modules.analytics.domain.definition import ReportDefinition
 from app.modules.analytics.domain.schedule import Frequency
 from app.modules.analytics.infra.models import ReportExport, ReportSchedule, ReportSettings
-from app.modules.analytics.service import exports, library, schedules
+from app.modules.analytics.service import capabilities, exports, library, schedules
 from app.modules.analytics.service.compiler import available_measures, compile_report
 from app.modules.analytics.service.dashboards import for_viewer
 from app.modules.analytics.service.jobs import storage_or_none
@@ -501,6 +501,20 @@ def _storage(request: Request) -> ObjectStorage | None:
     return injected or storage_or_none(request.app.state.settings)
 
 
+class ExportFormatsOut(BaseModel):
+    """The formats an export can be made in on this installation now."""
+
+    formats: list[Literal["csv", "xlsx", "pdf"]]
+
+
+@router.get("/export-formats", summary="Export formats this installation can make now")
+async def export_formats(request: Request, subject: View) -> ExportFormatsOut:
+    """PDF only while a worker that renders it is running (QA6-RPT-01)."""
+    del subject  # signed-in staff only
+    found = await capabilities.export_formats(request.app.state.settings)
+    return ExportFormatsOut(formats=found)  # type: ignore[arg-type]  # the literal's values
+
+
 @router.post(
     "/exports",
     summary="Export a report to a file",
@@ -533,6 +547,7 @@ async def request_export(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             ),
             validate=_validator(request, session, context, subject),
             storage_ready=_storage(request) is not None,
+            formats=await capabilities.export_formats(request.app.state.settings),
         )
         return Created(body=ReportExportOut.of(row))
 
