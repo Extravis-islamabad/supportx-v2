@@ -282,6 +282,9 @@ export const en = {
   'knowledge.types.restore': 'Restore',
   'knowledge.types.restored_done': 'Type restored.',
   'knowledge.types.retire': 'Retire',
+  'knowledge.types.retire_confirm': 'Retire {{name}}?',
+  'knowledge.types.retire_explain':
+    'It is no longer offered for new articles. Articles that have it keep it, and you can restore it.',
   'knowledge.types.retired': 'Retired',
   'knowledge.types.retired_done': 'Type retired.',
   'knowledge.types.saved': 'Type saved.',

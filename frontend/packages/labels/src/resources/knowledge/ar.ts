@@ -293,6 +293,9 @@ export const ar: LabelResource = {
   'knowledge.types.restore': 'استعادة',
   'knowledge.types.restored_done': 'استُعيد النوع.',
   'knowledge.types.retire': 'إيقاف',
+  'knowledge.types.retire_confirm': 'إيقاف {{name}}؟',
+  'knowledge.types.retire_explain':
+    'لن يُعرض بعد الآن للمقالات الجديدة. تحتفظ به المقالات التي لديها، ويمكنك استعادته.',
   'knowledge.types.retired': 'متقاعد',
   'knowledge.types.retired_done': 'أُوقف النوع.',
   'knowledge.types.saved': 'حُفظ النوع.',
