@@ -7,7 +7,7 @@ Reading the catalogue needs `assets.view` (the asset form uses it); changing it 
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,7 +31,7 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetState,
 )
-from app.modules.assets.service import acknowledgements, ownership
+from app.modules.assets.service import acknowledgements, groups, ownership
 from app.modules.assets.service import catalogue as service
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
@@ -930,3 +930,168 @@ async def answer_acknowledgement(
         channel=body.channel,
     )
     return _ack_out(row)
+
+
+# --- groups (REQ-AST-028) --------------------------------------------------------------------
+
+AssetsView = Annotated[Subject, Depends(require_permission("assets.view"))]
+AssetsManage = Annotated[Subject, Depends(require_permission("assets.manage"))]
+
+
+class AssetGroupIn(BaseModel):
+    """A static group, or a dynamic one with its filter (the asset list's filter DSL)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    kind: Literal["static", "dynamic"]
+    # Any: a filter DSL tree, compiled (and refused with its path) when saved.
+    filter: Any | None = None
+
+
+class AssetGroupPatch(BaseModel):
+    """Rename, describe, or change a dynamic group's filter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    filter: Any | None = None  # Any: as above
+
+
+class AssetGroupOut(BaseModel):
+    """A group with how many of its assets you may see (matches its list, AC3)."""
+
+    id: uuid.UUID
+    name: str
+    description: str | None
+    kind: Literal["static", "dynamic"]
+    filter: Any | None  # Any: as above
+    count: int
+    version: int
+
+
+class AssetGroupMembersIn(BaseModel):
+    """Assets to add to a static group in one step (the list's selection)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+
+
+def _group_out(view: groups.GroupView) -> AssetGroupOut:
+    row = view.row
+    return AssetGroupOut(
+        id=row.id,
+        name=row.name,
+        description=row.description,
+        kind=cast("Literal['static', 'dynamic']", row.kind),  # the table's check holds it
+        filter=row.filter,
+        count=view.count,
+        version=row.version,
+    )
+
+
+@router.get("/groups", summary="Asset groups")
+async def list_groups(session: TenantSession, subject: AssetsView) -> list[AssetGroupOut]:
+    """By name, each with its count."""
+    return [_group_out(v) for v in await groups.list_groups(session, subject)]
+
+
+@router.post(
+    "/groups",
+    summary="Add an asset group",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssetGroupOut,
+    dependencies=[audited("asset_group.created", object_type="asset_group")],
+)
+async def create_group(
+    body: AssetGroupIn, session: TenantSession, subject: AssetsManage, idempotency: Idempotency
+) -> Response:
+    """Idempotency-Key. A dynamic group's filter is checked now (422 invalid_filter)."""
+
+    async def run() -> Created:
+        row = await groups.create_group(session, subject, body.model_dump())
+        view = groups.GroupView(row, await groups.count_members(session, subject, row))
+        return Created(body=_group_out(view), headers={"ETag": f'"{row.version}"'})
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+@router.patch(
+    "/groups/{group_id}",
+    summary="Change an asset group",
+    dependencies=[
+        audited("asset_group.updated", object_type="asset_group", object_param="group_id")
+    ],
+)
+async def update_group(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    group_id: uuid.UUID,
+    body: AssetGroupPatch,
+    session: TenantSession,
+    subject: AssetsManage,
+    version: ExpectedVersion,
+    response: Response,
+) -> AssetGroupOut:
+    """If-Match. The kind never changes."""
+    row = await groups.update_group(
+        session, subject, group_id, body.model_dump(exclude_unset=True), expected_version=version
+    )
+    set_etag(response, row.version)
+    return _group_out(groups.GroupView(row, await groups.count_members(session, subject, row)))
+
+
+@router.delete(
+    "/groups/{group_id}",
+    summary="Remove an asset group",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited("asset_group.deleted", object_type="asset_group", object_param="group_id")
+    ],
+)
+async def delete_group(
+    group_id: uuid.UUID, session: TenantSession, subject: AssetsManage, version: ExpectedVersion
+) -> Response:
+    """If-Match. Its assets are untouched."""
+    await groups.delete_group(session, subject, group_id, expected_version=version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/groups/{group_id}/assets", summary="An asset group's assets")
+async def group_assets(
+    group_id: uuid.UUID, session: TenantSession, subject: AssetsView
+) -> list[AssetOut]:
+    """The ones you may see, by name (the count above counts the same)."""
+    _, rows = await groups.group_assets(session, subject, group_id)
+    return [AssetOut.of(r) for r in rows]
+
+
+@router.post(
+    "/groups/{group_id}/members",
+    summary="Add assets to a static group",
+    dependencies=[
+        audited("asset_group.members_added", object_type="asset_group", object_param="group_id")
+    ],
+)
+async def add_group_members(
+    group_id: uuid.UUID, body: AssetGroupMembersIn, session: TenantSession, subject: AssetsManage
+) -> dict[str, int]:
+    """In one step; assets already in it are left as they are. `added`: how many were new."""
+    return {"added": await groups.add_members(session, subject, group_id, body.asset_ids)}
+
+
+@router.delete(
+    "/groups/{group_id}/members/{asset_id}",
+    summary="Take an asset out of a static group",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited("asset_group.member_removed", object_type="asset_group", object_param="group_id")
+    ],
+)
+async def remove_group_member(
+    group_id: uuid.UUID, asset_id: uuid.UUID, session: TenantSession, subject: AssetsManage
+) -> Response:
+    """The asset itself is untouched."""
+    await groups.remove_member(session, subject, group_id, asset_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

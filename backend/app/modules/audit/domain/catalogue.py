@@ -335,6 +335,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset.unassigned", AuditCategory.RECORDS, "assets"),
     ("asset.linked", AuditCategory.RECORDS, "assets"),
     ("asset.unlinked", AuditCategory.RECORDS, "assets"),
+    ("asset_group.created", AuditCategory.RECORDS, "assets"),
+    ("asset_group.updated", AuditCategory.RECORDS, "assets"),
+    ("asset_group.deleted", AuditCategory.RECORDS, "assets"),
+    ("asset_group.members_added", AuditCategory.RECORDS, "assets"),
+    ("asset_group.member_removed", AuditCategory.RECORDS, "assets"),
     ("asset.copied", AuditCategory.RECORDS, "assets"),
     # Vendors (REQ-PUR-001, WP-049a s2).
     ("vendor.created", AuditCategory.CONFIGURATION, "procurement"),

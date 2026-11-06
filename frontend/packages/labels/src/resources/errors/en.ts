@@ -45,6 +45,10 @@ export const en = {
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
     'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
+  'errors.asset_group_dynamic':
+    "A dynamic group's members come from its filter; change the filter instead.",
+  'errors.asset_group_name_taken': 'Another group already has this name.',
+  'errors.asset_group_not_found': 'That group no longer exists.',
   'errors.asset_has_components':
     'It has fitted components ({{count}}): detach them or dispose of them too.',
   'errors.asset_life_cycle_in_use':
@@ -188,6 +192,7 @@ export const en = {
   'errors.field.approver_not_eligible':
     'Someone named cannot approve this problem (inactive, or without the right).',
   'errors.field.asset_api_name_taken': 'Another product type has this API name.',
+  'errors.field.asset_group_static': 'Only a dynamic group has a filter.',
   'errors.field.asset_holder_not_found':
     'Choose an active person, a department or an asset you can see.',
   'errors.field.asset_identifier_invalid':

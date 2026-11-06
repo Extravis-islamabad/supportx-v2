@@ -21,6 +21,8 @@ export const ar: LabelResource = {
   'asset_disposal_method.recycling': 'إعادة تدوير',
   'asset_disposal_method.resale': 'بيع',
   'asset_disposal_method.returned_to_vendor': 'إعادة إلى المورّد',
+  'asset_group_kind.dynamic': 'ديناميكية',
+  'asset_group_kind.static': 'ثابتة',
   'asset_holder_kind.asset': 'مركّب على أصل',
   'asset_holder_kind.department': 'قسم',
   'asset_holder_kind.user': 'شخص',

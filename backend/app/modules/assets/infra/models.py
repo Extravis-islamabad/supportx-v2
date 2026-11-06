@@ -455,3 +455,51 @@ class AssetAcknowledgement(TenantEntity):
     comment: Mapped[str | None] = mapped_column(Text)
     channel: Mapped[str | None] = mapped_column(String(20))
     answered_at: Mapped[datetime | None]
+
+
+class AssetGroup(TenantEntity):
+    """A named group of assets (migration 0113; REQ-AST-028): static, or a saved filter."""
+
+    __tablename__ = "asset_groups"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_groups_tenant_id_id"),
+        Index(
+            "uq_asset_groups_name",
+            "tenant_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(20))
+    # Any: a shared filter DSL tree (app/shared/api/filters.py), checked when saved.
+    filter: Mapped[Any | None] = mapped_column(
+        JSONB(none_as_null=True)
+    )  # None is SQL NULL (the kind check)
+
+
+class AssetGroupMember(TenantKeyed, Base):
+    """A static group's member (migration 0113)."""
+
+    __tablename__ = "asset_group_members"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "group_id"],
+            ["asset_groups.tenant_id", "asset_groups.id"],
+            name="fk_asset_group_members_group",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_group_members_asset",
+        ),
+        Index("ix_asset_group_members_asset", "tenant_id", "asset_id"),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    asset_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_by: Mapped[uuid.UUID | None]

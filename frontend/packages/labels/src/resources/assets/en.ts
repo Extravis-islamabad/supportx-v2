@@ -19,6 +19,8 @@ export const en = {
   'asset_disposal_method.recycling': 'Recycled',
   'asset_disposal_method.resale': 'Sold',
   'asset_disposal_method.returned_to_vendor': 'Returned to the vendor',
+  'asset_group_kind.dynamic': 'Dynamic',
+  'asset_group_kind.static': 'Static',
   'asset_holder_kind.asset': 'Fitted to an asset',
   'asset_holder_kind.department': 'Department',
   'asset_holder_kind.user': 'Person',

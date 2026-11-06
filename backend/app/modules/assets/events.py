@@ -85,10 +85,22 @@ class AcknowledgementChanged(DomainEvent):
     status: Literal["pending", "accepted", "disputed"]
 
 
+class AssetGroupChanged(DomainEvent):
+    """A group was added, changed, removed, or gained or lost members (REQ-AST-028)."""
+
+    event_type: ClassVar[str] = "assets.group.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_group"
+
+    group_id: uuid.UUID
+    change: Literal["created", "updated", "deleted", "members"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     CatalogueChanged,
     ProductChanged,
     AssetChanged,
     AssetHolderChanged,
     AcknowledgementChanged,
+    AssetGroupChanged,
 )

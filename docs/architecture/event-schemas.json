@@ -918,6 +918,34 @@
         "type": "object"
       }
     },
+    "assets.group.changed": {
+      "1": {
+        "description": "A group was added, changed, removed, or gained or lost members (REQ-AST-028).",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted",
+              "members"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "change"
+        ],
+        "title": "AssetGroupChanged",
+        "type": "object"
+      }
+    },
     "assets.holder.changed": {
       "1": {
         "description": "An asset changed hands (WP-049a s4; REQ-AST-024 AC3): the people before and after.\n\nIDs only: their \"My assets\" lists refresh live; staff screens follow `asset.changed`.",

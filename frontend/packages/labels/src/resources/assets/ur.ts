@@ -21,6 +21,8 @@ export const ur: LabelResource = {
   'asset_disposal_method.recycling': 'ری سائیکل',
   'asset_disposal_method.resale': 'فروخت',
   'asset_disposal_method.returned_to_vendor': 'فروشندہ کو واپس',
+  'asset_group_kind.dynamic': 'متحرک',
+  'asset_group_kind.static': 'ثابت',
   'asset_holder_kind.asset': 'کسی اثاثے پر نصب',
   'asset_holder_kind.department': 'شعبہ',
   'asset_holder_kind.user': 'فرد',

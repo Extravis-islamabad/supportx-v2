@@ -41,6 +41,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "AssetLinkIn.kind": "asset_link_kind",
     "AssetDisposalIn.components": "asset_components_choice",
     "AcknowledgementOut.status": "asset_ack_status",
+    "AssetGroupIn.kind": "asset_group_kind",
+    "AssetGroupOut.kind": "asset_group_kind",
     "AcknowledgementAnswerIn.channel": "asset_ack_channel",
     "AssetTypeCategory": "asset_type_category",
     "AssetTypeKind": "asset_type_kind",

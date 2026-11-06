@@ -134,7 +134,25 @@ async def _acknowledgement_changed(
     )
 
 
+GROUPS_CHANGED = "assets.groups_changed"
+
+
+async def _group_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """Groups and their counts refresh on every staff screen of the tenant. IDs only."""
+    del session
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                broadcast(envelope.tenant_id),
+                GROUPS_CHANGED,
+                ids=(str(envelope.payload["group_id"]),),
+            )
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(("assets.group.changed",), _group_changed),
     RealtimeRoute(("assets.catalogue.changed", "assets.product.changed"), _catalogue_changed),
     RealtimeRoute(("assets.asset.changed",), _asset_changed),
     RealtimeRoute(("assets.holder.changed",), _holder_changed),
