@@ -12,7 +12,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   schedule:
-    - cron: "41 2 * * *" # nightly 02:41 UTC: catches upstream image or registry breakage
+    - cron: '41 2 * * *' # nightly 02:41 UTC: catches upstream image or registry breakage
   workflow_dispatch:
 
 permissions:
@@ -42,6 +42,10 @@ jobs:
     # stuck run still prints diagnostics and uploads its report; the job's 60 min is only the
     # backstop.
     timeout-minutes: 60
+    env:
+      # The e2e journeys check the AI features against the fake's own answers (QA6-AI-01: off by
+      # default, so a real installation without a model never shows them).
+      SUPPORTX_AI_FAKE_ECHO: 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +104,7 @@ jobs:
       - uses: ./.github/actions/generated
         if: ${{ steps.changes.outputs.run == 'true' }}
         with:
-          frontend: "true"
+          frontend: 'true'
       - name: Configure, migrate and seed the dev database; RLS guard
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make backend-env db-migrate db-seed db-guard
@@ -138,7 +142,7 @@ jobs:
         timeout-minutes: 40
         env:
           SHARD: ${{ matrix.shard }}
-          E2E_GLOBAL_TIMEOUT_MINUTES: "35" # Playwright stops itself first, printing every failure
+          E2E_GLOBAL_TIMEOUT_MINUTES: '35' # Playwright stops itself first, printing every failure
         run: |
           pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
           # This shard's spec files, the same split in every shard (shard-weights.json).
