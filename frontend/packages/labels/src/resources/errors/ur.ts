@@ -9,6 +9,7 @@ export const ur: LabelResource = {
   'errors.action_link_sign_in_required': 'اس درخواست کو منظور یا مسترد کرنے کے لیے سائن ان کریں۔',
   'errors.action_link_stale': 'یہ لنک بھیجے جانے کے بعد درخواست بدل گئی۔ اسے ایپ میں کھولیں۔',
   'errors.action_link_used': 'یہ لنک پہلے ہی استعمال ہو چکا ہے۔',
+  'errors.already_known_error': '{{display_id}} پہلے ہی معلوم خرابی ہے۔',
   'errors.already_taken': '{{taken_by}} نے ابھی اسے لے لیا ہے۔ دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.already_yours': 'یہ پہلے ہی آپ کو تفویض ہے۔',
   'errors.announcement_not_found': 'یہ اعلان موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
@@ -34,6 +35,7 @@ export const ur: LabelResource = {
   'errors.approval_changed': 'یہ منظوری اس دوران بدل گئی۔ اسے دوبارہ کھولیں۔',
   'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
+  'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
   'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
   'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
@@ -146,6 +148,9 @@ export const ur: LabelResource = {
   'errors.field.api_key_name_invalid': 'زیادہ سے زیادہ 100 حروف کا نام درج کریں۔',
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
+  'errors.field.approver_is_requester': 'آپ اپنی درخواست منظور نہیں کر سکتے؛ کسی اور کا نام دیں۔',
+  'errors.field.approver_not_eligible':
+    'نامزد افراد میں سے کوئی یہ مسئلہ منظور نہیں کر سکتا (غیر فعال، یا اختیار کے بغیر)۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
@@ -164,6 +169,7 @@ export const ur: LabelResource = {
   'errors.field.builtin_type_names': 'پہلے سے موجود قسم کے نام نہیں بدلتے۔',
   'errors.field.calendar_not_found': 'فہرست سے کیلنڈر منتخب کریں۔',
   'errors.field.cannot_link_itself': 'ریکارڈ کو خود سے منسلک نہیں کیا جا سکتا۔',
+  'errors.field.cannot_merge_itself': 'کسی مسئلے کو خود میں ضم نہیں کیا جا سکتا۔',
   'errors.field.cannot_see_record':
     'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
   'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
@@ -366,7 +372,10 @@ export const ur: LabelResource = {
     'درخواست دہندگان کا کم از کم ایک گروپ، سائٹ یا شعبہ منتخب کریں۔',
   'errors.field.requester_only': 'یہ کوڈ صرف درخواست گزار کی تصدیق سے لگتا ہے۔',
   'errors.field.required': 'یہ خانہ ضروری ہے۔',
+  'errors.field.required_for_known_error':
+    'معلوم خرابی نشان زد کرنے سے پہلے عارضی حل یا بنیادی وجہ لکھیں۔',
   'errors.field.required_to_close': 'بند کرنے سے پہلے درکار ہے۔',
+  'errors.field.required_to_confirm_cause': 'تصدیق سے پہلے بنیادی وجہ لکھیں۔',
   'errors.field.required_to_leave_stage': 'اس مرحلے سے نکلنے سے پہلے یہ بھریں۔',
   'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
   'errors.field.review_date_past': 'آج یا بعد کی تاریخ منتخب کریں۔',
@@ -594,6 +603,8 @@ export const ur: LabelResource = {
     'AD/LDAP ڈائریکٹریز صرف اس تنصیب پر جوڑی جا سکتی ہیں جو ایک ادارے کے لیے ہو۔',
   'errors.limit_reached':
     'آپ کے پلان کی اس کے لیے حد پوری ہو چکی ہے۔ پلان بڑھانے کے لیے اپنے منتظم سے کہیں۔',
+  'errors.link_has_own_route':
+    'یہ لنک اپنی جگہ سے ہٹایا جاتا ہے: واقعے کو الگ کریں، یا ضم کرنا واپس لیں۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
@@ -635,6 +646,8 @@ export const ur: LabelResource = {
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
   'errors.not_found': 'آئٹم نہیں ملا۔',
+  'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
+  'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
   'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
   'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
@@ -666,6 +679,7 @@ export const ur: LabelResource = {
   'errors.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
   'errors.privilege_escalation': 'آپ وہ رسائی نہیں دے سکتے جو خود آپ کے پاس نہیں۔',
+  'errors.problem_closed': '{{display_id}} بند ہے، اس لیے ضم نہیں ہو سکتا۔',
   'errors.range_not_satisfiable': 'فائل کا یہ حصہ موجود نہیں۔',
   'errors.rate_limited': 'بہت زیادہ درخواستیں۔ براہِ کرم ذرا انتظار کر کے دوبارہ کوشش کریں۔',
   'errors.read_only_mode':

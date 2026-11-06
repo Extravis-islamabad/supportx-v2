@@ -215,7 +215,8 @@ export function BulkDialog({
           confirm_open_work: openWork,
         };
       case 'link_problem':
-        // Started from the problem screens (WP-044a), never offered in this menu (BULK_ACTIONS).
+      case 'unlink_problem':
+        // Started from the problem screens (WP-044a/b), never offered in this menu (BULK_ACTIONS).
         return {};
     }
   };

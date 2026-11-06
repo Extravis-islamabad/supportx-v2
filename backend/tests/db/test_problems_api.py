@@ -22,6 +22,20 @@ async def new_problem(world: World, org: Org, user: uuid.UUID, **values: Any) ->
     return await world.call("POST", PRB, org, user, json=body, headers=CONSOLE)
 
 
+async def write_root_cause(world: World, org: Org, user: uuid.UUID, record: dict[str, Any]) -> None:
+    """Fill the root cause (needed before the cause is confirmed, WP-044b)."""
+    current = (await world.call("GET", f"{PRB}/{record['id']}", org, user)).json()
+    done = await world.call(
+        "PATCH",
+        f"{PRB}/{record['id']}",
+        org,
+        user,
+        json={"root_cause": "<p>The relay certificate expired.</p>"},
+        headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+    )
+    assert done.status_code == 200, done.text
+
+
 async def act(
     world: World,
     org: Org,
@@ -76,6 +90,16 @@ async def test_the_life_cycle_and_on_hold_resuming_where_it_was(world: World) ->
     assert (await move("hold", reason_code="more_information"))["status"] == "on_hold"
     assert record["status_category"] == "paused"
     assert (await move("resume"))["status"] == "investigating"
+    # The cause is confirmed only with a root cause written (WP-044b).
+    unwritten = await act(world, a, a.tech_a, record, "confirm_root_cause")
+    assert problem(unwritten)[0] == 422
+    assert {e["field"]: e["code"] for e in unwritten.json()["errors"]} == {
+        "body.root_cause": "required_to_confirm_cause"
+    }
+    confirm = {o["action"]: o for o in record["actions"]}["confirm_root_cause"]
+    assert confirm["missing"] == ["root_cause"]
+    await write_root_cause(world, a, a.tech_a, record)
+    record = (await world.call("GET", f"{PRB}/{record['id']}", a, a.tech_a)).json()
     assert (await move("confirm_root_cause"))["status"] == "root_cause_found"
     assert (await move("await_fix"))["status"] == "awaiting_fix"
     assert (await move("hold", reason_code="more_information"))["status"] == "on_hold"
@@ -447,6 +471,8 @@ async def test_the_major_problem_template_runs_the_guided_life_cycle(world: Worl
 
     assert (await move("investigate"))["status"] == "gathering_facts"
     assert (await move("analyse"))["status"] == "why_analysis"
+    await write_root_cause(world, a, a.admin, record)
+    record = (await world.call("GET", f"{PRB}/{record['id']}", a, a.admin)).json()
     assert (await move("confirm_root_cause"))["status"] == "cause_confirmed"
     assert (await move("await_fix"))["status"] == "fix_planned"
     verified = await move("resolve", resolution="<p>Patched the mail relay.</p>")
@@ -454,6 +480,19 @@ async def test_the_major_problem_template_runs_the_guided_life_cycle(world: Worl
     early = await act(world, a, a.admin, record, "close", closure_code="fixed")
     assert problem(early) == (409, "invalid_transition")  # the review comes first
     assert (await move("start_review"))["status"] == "in_review"
+    # A major problem closes only with its review written (WP-044b s4, REQ-PRB-053).
+    unreviewed = await act(world, a, a.admin, record, "close", closure_code="fixed")
+    assert problem(unreviewed)[0] == 422
+    reviewed = await world.call(
+        "PATCH",
+        f"{PRB}/{record['id']}",
+        a,
+        a.admin,
+        json={"review_summary": "<p>Monitoring added.</p>"},
+        headers={"If-Match": f'"{record["version"]}"', **CONSOLE},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    record = dict(reviewed.json())
     assert (await move("close", closure_code="fixed"))["status"] == "closed"
     # The catalogue lists both transition sets.
     catalogue = (await world.call("GET", f"{PRB}/settings", a, a.admin)).json()

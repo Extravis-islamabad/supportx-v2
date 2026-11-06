@@ -1,6 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Flex, Table } from 'antd';
+import { Button, Empty, Flex, Space, Table } from 'antd';
 import { Link, useNavigate } from 'react-router';
 
 import { problemKeys, useProblemCatalogue, useProblems } from '@supportx/api-client';
@@ -33,16 +33,21 @@ export function ProblemsPage() {
       <PageHeader
         title={t('nav.problems')}
         extra={
-          create && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => void navigate('/problems/new')}
-              data-testid="prb-new"
-            >
-              {t('problems.new')}
+          <Space wrap>
+            <Button onClick={() => void navigate('/problems/known-errors')} data-testid="prb-kedb">
+              {t('problems.known_error.database')}
             </Button>
-          )
+            {create && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => void navigate('/problems/new')}
+                data-testid="prb-new"
+              >
+                {t('problems.new')}
+              </Button>
+            )}
+          </Space>
         }
       />
       <Table

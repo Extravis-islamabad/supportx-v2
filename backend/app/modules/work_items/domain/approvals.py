@@ -41,6 +41,13 @@ class ApproverOrigin(StrEnum):
     ADMINISTRATORS = "administrators"  # anyone with work_items.approve_any (REQ-SR-023)
 
 
+class ApprovalPurpose(StrEnum):
+    """What an approval decides (WP-044b s4)."""
+
+    RECORD = "record"  # the record's own approval (a request's item, a problem asked ad hoc)
+    ACCEPT_WITHOUT_FIX = "accept_without_fix"  # a known error kept without a fix (REQ-PRB-050)
+
+
 class RouteReason(StrEnum):
     """Why an approval went to the backup or the administrators (shown on the record)."""
 

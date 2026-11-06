@@ -440,6 +440,9 @@ export const ar: LabelResource = {
     'اختيار الأحداث التي تُرسل إشعارات ولمن وعبر أي قنوات.',
   'permission.problems.add_note': 'إضافة ملاحظات خاصة على المشكلات',
   'permission.problems.add_note.description': 'كتابة ملاحظات للموظفين فقط على المشكلات.',
+  'permission.problems.approve': 'الموافقة على المشكلات',
+  'permission.problems.approve.description':
+    'البت في موافقات المشكلات المسمّى لها، مثل قبول خطأ معروف دون إصلاح.',
   'permission.problems.assign': 'إسناد المشكلات',
   'permission.problems.assign.description': 'اختيار مجموعة المشكلات ومالكها.',
   'permission.problems.assign_outside_group': 'إسناد المشكلات خارج المجموعة',
@@ -456,11 +459,18 @@ export const ar: LabelResource = {
   'permission.problems.delete.description': 'نقل المشكلات إلى سلة المحذوفات واستعادتها.',
   'permission.problems.edit': 'العمل على المشكلات',
   'permission.problems.edit.description': 'تغيير تفاصيل المشكلات وتحليلها ومهامها.',
+  'permission.problems.edit_analysis': 'تعديل تحليل المشكلة',
+  'permission.problems.edit_analysis.description': 'تغيير السبب الجذري والأعراض في المشكلات.',
   'permission.problems.edit_due_dates': 'تعيين المواعيد المستهدفة للمشكلات يدويًا',
   'permission.problems.edit_due_dates.description':
     'تغيير الموعد المستهدف للمشكلة بدلًا من سياستها.',
+  'permission.problems.edit_solution': 'تعديل حلول المشكلات',
+  'permission.problems.edit_solution.description': 'تغيير الحل المؤقت للمشكلات.',
   'permission.problems.manage_followers': 'إدارة متابعي المشكلات',
   'permission.problems.manage_followers.description': 'إضافة وإزالة من يتابعون مشكلة.',
+  'permission.problems.mark_known_error': 'تحديد الأخطاء المعروفة',
+  'permission.problems.mark_known_error.description':
+    'تحديد المشكلات كأخطاء معروفة، أو إزالة العلامة.',
   'permission.problems.reopen': 'إعادة فتح المشكلات',
   'permission.problems.reopen.description': 'إعادة مشكلة محلولة أو مغلقة إلى التحقيق.',
   'permission.problems.reply': 'إضافة ملاحظات عامة على المشكلات',
@@ -471,6 +481,9 @@ export const ar: LabelResource = {
   'permission.problems.take.description': 'تولي مشكلة ليس لها مالك بعد.',
   'permission.problems.view': 'عرض المشكلات',
   'permission.problems.view.description': 'رؤية سجلات المشكلات.',
+  'permission.problems.view_root_cause': 'رؤية الأسباب الجذرية',
+  'permission.problems.view_root_cause.description':
+    'قراءة السبب الجذري للمشكلات، وقد يصف ثغرة أمنية.',
   'permission.profile.edit': 'تعديل الملف الشخصي',
   'permission.profile.edit.description': 'تغيير توقيع الردود والمنطقة الزمنية الخاصة بك.',
   'permission.releases.add_note': 'إضافة ملاحظات خاصة على الإصدارات',

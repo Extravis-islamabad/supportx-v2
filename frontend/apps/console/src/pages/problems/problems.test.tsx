@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
@@ -7,7 +7,19 @@ import { App } from '../../App';
 import { consoleApi } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
-// similar problems), and the record with the guided steps and investigators.
+// similar problems), and the record with the guided steps and investigators. WP-044b s1: the
+// analysis and evidence tabs.
+
+// jsdom has no canvas: the impact trend gets a stand-in chart (its options are tested in charts).
+vi.mock('../../../../../packages/charts/node_modules/echarts/core', async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  init: () => ({
+    on: () => undefined,
+    setOption: () => undefined,
+    resize: () => undefined,
+    dispose: () => undefined,
+  }),
+}));
 
 const PRB_ID = '01a1a2b3-0000-7000-8000-00000000e001';
 const INC_ID = '01a1a2b3-0000-7000-8000-00000000c101';
@@ -148,5 +160,270 @@ describe('console: problems', () => {
     expect(within(steps).getByText('In review')).toBeDefined();
     expect(await screen.findByRole('button', { name: 'Start the why-analysis' })).toBeDefined();
     expect(await screen.findByText('Nadia Network')).toBeDefined();
+  });
+
+  it('analysis: impact figures, a locked root cause, and symptoms edited in place', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const hidden = {
+      ...record,
+      root_cause: null,
+      root_cause_hidden: true,
+      review_required: true,
+      symptoms: '<p>Mail stalls at 9.</p>',
+      analysis_changes: [
+        { field: 'symptoms', changed_by: TECH, changed_at: '2026-11-04T09:00:00Z' },
+      ],
+      people: {
+        ...record.people,
+        [TECH]: { display_name: 'Nadia Network', email: 'nadia@example.com' },
+      },
+      operations: [
+        ...record.operations,
+        { action: 'edit_analysis', allowed: true, reason: null, reason_mode: 'none' as const },
+      ],
+    };
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}`]: { body: hidden },
+      [`GET /api/v1/problems/${PRB_ID}/impact`]: {
+        body: {
+          incidents: 4,
+          open_incidents: 3,
+          by_priority: [{ priority: 'p2', count: 4 }],
+          by_site: [{ site_id: null, count: 4 }],
+          people: 2,
+          minutes: 90,
+          open_seconds: 7200,
+          weekly: [
+            { week_start: '2026-10-26T00:00:00Z', count: 1 },
+            { week_start: '2026-11-02T00:00:00Z', count: 3 },
+          ],
+          partial: true,
+        },
+      },
+      [`PATCH /api/v1/problems/${PRB_ID}`]: {
+        body: { ...hidden, symptoms: '<p>Mail stalls at 9 and 2.</p>', version: 2 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('prb-tab-analysis'));
+    const impact = await screen.findByTestId('prb-impact');
+    expect(
+      within(impact).getByText('4', { selector: '.ant-statistic-content-value-int' }),
+    ).toBeDefined();
+    expect(within(impact).getByTestId('prb-impact-partial')).toBeDefined();
+    expect(within(impact).getByTestId('prb-impact-open-hours').textContent).toContain('2');
+    expect(within(impact).getByTestId('prb-impact-trend')).toBeDefined();
+    expect(within(impact).getByTestId('prb-impact-hours').textContent).toContain('1.5'); // 90 min
+    // The root cause is locked, never shown as empty, and offers no edit.
+    const cause = screen.getByTestId('prb-root-cause');
+    expect(within(cause).getByTestId('prb-root-cause-hidden')).toBeDefined();
+    expect(within(cause).queryByRole('button', { name: /Edit/ })).toBeNull();
+    expect(within(screen.getByTestId('prb-symptoms')).getByText('Mail stalls at 9.')).toBeDefined();
+    expect(screen.getByTestId('prb-review-required')).toBeDefined(); // no summary yet
+    expect(screen.getByTestId('prb-symptoms-changed').textContent).toContain('Nadia Network');
+    fireEvent.click(screen.getByTestId('prb-symptoms-edit'));
+    expect(await screen.findByTestId('prb-symptoms-editor')).toBeDefined();
+    fireEvent.click(screen.getByTestId('prb-symptoms-save'));
+    await waitFor(() => {
+      const patch = fake.calls.find((c) => c.method === 'PATCH');
+      expect(patch?.headers.get('If-Match')).toBe('"1"');
+      expect(Object.keys(patch?.body as object)).toContain('symptoms');
+      expect(Object.keys(patch?.body as object)).not.toContain('root_cause');
+    });
+  });
+
+  it('links: unlink a caused incident; a merged problem says where it went, with undo', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const SURVIVOR = '01a1a2b3-0000-7000-8000-00000000e002';
+    const merged = {
+      ...record,
+      status: 'merged',
+      status_category: 'closed' as const,
+      operations: [{ action: 'edit', allowed: true, reason: null, reason_mode: 'none' as const }],
+    };
+    const link = (over: Record<string, unknown>) => ({
+      id: crypto.randomUUID(),
+      kind: 'caused_by',
+      other_type: 'incident',
+      comment: null,
+      version: 1,
+      created_at: '2026-11-04T09:00:00Z',
+      ...over,
+    });
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}`]: { body: merged },
+      [`GET /api/v1/problems/${PRB_ID}/links`]: {
+        body: [
+          link({
+            relation: 'causes',
+            other_id: INC_ID,
+            other_display_id: 'INC-41',
+            other_subject: 'Mail slow',
+          }),
+          link({
+            kind: 'merged_into',
+            relation: 'merged_into',
+            other_type: 'problem',
+            other_id: SURVIVOR,
+            other_display_id: 'PRB-9',
+            other_subject: 'Mail relay drops messages',
+          }),
+        ],
+      },
+      [`DELETE /api/v1/problems/${PRB_ID}/incidents/${INC_ID}`]: { body: { unlinked: true } },
+      [`POST /api/v1/problems/${PRB_ID}/undo-merge`]: {
+        body: {
+          id: PRB_ID,
+          status: 'gathering_facts',
+          version: 2,
+          moved_incident_ids: [],
+          stayed_incident_ids: [],
+        },
+      },
+    });
+    render(<App />);
+    const banner = await screen.findByTestId('prb-merged');
+    expect(await within(banner).findByText('PRB-9')).toBeDefined();
+    fireEvent.click(within(banner).getByTestId('prb-undo-merge'));
+    fireEvent.click(await screen.findByTestId('prb-unlink-INC-41'));
+    await waitFor(() => {
+      const undo = fake.calls.find((c) => c.path.endsWith('/undo-merge'));
+      expect(undo?.headers.get('If-Match')).toBe('"1"');
+      expect(fake.calls.some((c) => c.method === 'DELETE' && c.path.endsWith(INC_ID))).toBe(true);
+    });
+  });
+
+  it('known error: the marker, one action that flips in place, and removing asks a reason', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const marked = {
+      ...record,
+      known_error_at: '2026-11-04T09:00:00Z',
+      known_error_retired_at: null,
+      operations: [
+        ...record.operations,
+        { action: 'mark_known_error', allowed: true, reason: null, reason_mode: 'none' as const },
+      ],
+    };
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}`]: { body: marked },
+      [`POST /api/v1/problems/${PRB_ID}/known-error/remove`]: {
+        body: { ...marked, known_error_at: null, version: 2 },
+      },
+    });
+    render(<App />);
+    expect(await screen.findByTestId('prb-known-error')).toBeDefined();
+    // Past the bar's three buttons, it waits in the menu, in the same place either way.
+    fireEvent.click(await screen.findByTestId('prb-actions-more'));
+    fireEvent.click(await screen.findByText('Remove known error'));
+    const ok = await screen.findByTestId('prb-known-error-ok');
+    expect(ok.hasAttribute('disabled')).toBe(true); // a reason first
+    fireEvent.change(screen.getByTestId('prb-known-error-text'), {
+      target: { value: 'Not reproducible' },
+    });
+    fireEvent.click(ok);
+    await waitFor(() => {
+      const call = fake.calls.find((c) => c.path.endsWith('/known-error/remove'));
+      expect(call?.body).toEqual({ reason: 'Not reproducible' });
+    });
+  });
+
+  it('the known error database lists what matches, retired ones marked', async () => {
+    window.history.pushState({}, '', '/problems/known-errors');
+    api({
+      'GET /api/v1/problems/known-errors': {
+        body: [
+          {
+            id: PRB_ID,
+            display_id: 'PRB-7',
+            subject: 'Mail relay drops messages',
+            status: 'resolved',
+            symptoms: '<p>Error 4.4.2</p>',
+            workaround: '<p>Restart the relay.</p>',
+            known_error_at: '2026-11-01T08:00:00Z',
+            retired_at: '2026-11-03T08:00:00Z',
+            incidents: 4,
+          },
+        ],
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('known-error-PRB-7');
+    expect(row.textContent).toContain('Mail relay drops messages');
+    expect(screen.getByText('Error 4.4.2')).toBeDefined();
+    expect(screen.getByText('Retired known error')).toBeDefined();
+  });
+
+  it('approvals: the named approver approves through the decision dialog', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const APPROVAL = '01a1a2b3-0000-7000-8000-00000000a001';
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              id: APPROVAL,
+              stage: 1,
+              approver_id: TECH,
+              origin: 'named',
+              route_reason: null,
+              state: 'pending',
+              decided_at: null,
+              decided_by: null,
+              channel: null,
+              comment: null,
+              comment_private: false,
+              comments_required: false,
+              self_approved: false,
+              can_decide: true,
+              created_at: '2026-11-05T08:00:00Z',
+              version: 1,
+            },
+          ],
+          people: { [TECH]: { display_name: 'Nadia Network', email: 'nadia@example.com' } },
+        },
+      },
+      [`POST /api/v1/problems/${PRB_ID}/approvals/${APPROVAL}/decision`]: { body: {} },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId(`prb-approval-${APPROVAL}-approve`));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => {
+      const sent = fake.calls.find((c) => c.path.endsWith('/decision'));
+      expect(sent?.headers.get('If-Match')).toBe('"1"');
+      expect((sent?.body as { decision: string }).decision).toBe('approve');
+    });
+  });
+
+  it('evidence: the caused incidents in report order, and what is not there yet', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api({
+      [`GET /api/v1/problems/${PRB_ID}/evidence`]: {
+        body: {
+          incidents: [
+            {
+              id: INC_ID,
+              display_id: 'INC-41',
+              subject: 'Mail slow',
+              priority: 'p3',
+              status: 'resolved',
+              status_category: 'resolved',
+              site_id: null,
+              reported_at: '2026-11-01T08:00:00Z',
+              resolved_at: '2026-11-01T10:00:00Z',
+            },
+          ],
+          left_out: true,
+          pending_sources: ['changes', 'releases', 'same_items'],
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('prb-tab-evidence'));
+    expect(await screen.findByTestId('prb-evidence-INC-41')).toBeDefined();
+    expect(screen.getByTestId('prb-evidence-pending').textContent).toContain(
+      'Changes, Releases, and Other problems on the same items',
+    );
+    expect(screen.getByTestId('prb-evidence-left-out')).toBeDefined();
   });
 });

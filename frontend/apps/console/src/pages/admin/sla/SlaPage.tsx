@@ -548,7 +548,9 @@ function SpecialHoursSection({ calendar }: { calendar: SlaCalendar }) {
         size="small"
         bordered
         dataSource={calendar.special_hours}
-        locale={{ emptyText: t('sla.special.empty') }}
+        locale={{
+          emptyText: <Typography.Text type="secondary">{t('sla.special.empty')}</Typography.Text>,
+        }}
         data-testid="sla-special-hours"
         renderItem={(item) => (
           <List.Item
@@ -878,7 +880,11 @@ function HolidaysTab({ editable }: { editable: boolean }) {
             bordered
             loading={lists.isPending}
             dataSource={rows}
-            locale={{ emptyText: t('sla.holiday_lists.empty') }}
+            locale={{
+              emptyText: (
+                <Typography.Text type="secondary">{t('sla.holiday_lists.empty')}</Typography.Text>
+              ),
+            }}
             data-testid="sla-holiday-lists"
             renderItem={(item) => (
               <List.Item
@@ -1093,7 +1099,9 @@ function HolidayListPanel({
         dataSource={holidays.data ?? []}
         pagination={false}
         scroll={{ x: 'max-content' }}
-        locale={{ emptyText: t('sla.holidays.empty') }}
+        locale={{
+          emptyText: <Typography.Text type="secondary">{t('sla.holidays.empty')}</Typography.Text>,
+        }}
         data-testid="sla-holiday-table"
         onRow={(row) => ({
           onClick: () => {

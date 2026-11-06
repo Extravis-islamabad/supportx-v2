@@ -15,6 +15,9 @@ export type ProblemTemplate = components['schemas']['TemplateOut'];
 export type ProblemPrefill = components['schemas']['ProblemPrefillOut'];
 export type SimilarProblem = components['schemas']['SimilarProblemOut'];
 export type ProblemLink = components['schemas']['WorkItemLinkOut'];
+export type ProblemPatch = Partial<components['schemas']['WorkItemPatch']>;
+export type ProblemImpact = components['schemas']['ProblemImpactOut'];
+export type ProblemEvidence = components['schemas']['ProblemEvidenceOut'];
 
 export interface ProblemsQuery {
   view?: string;
@@ -27,6 +30,8 @@ export const problemKeys = {
   detail: (id: string) => ['problems', 'detail', id] as const,
   links: (id: string) => ['problems', 'detail', id, 'links'] as const,
   investigators: (id: string) => ['problems', 'detail', id, 'investigators'] as const,
+  impact: (id: string) => ['problems', 'detail', id, 'impact'] as const,
+  evidence: (id: string) => ['problems', 'detail', id, 'evidence'] as const,
   settings: ['problems', 'settings'] as const,
   templates: ['problems', 'templates'] as const,
   similar: (q: string) => ['problems', 'similar', q] as const,
@@ -287,5 +292,323 @@ export function useProblemPeople(id: string, search: string) {
       ),
     enabled: id !== '',
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Change a problem's fields with If-Match (409 `version_conflict` names what changed). */
+export function useUpdateProblem(id: string) {
+  const saved = useSavedProblem();
+  const once = useSingleFlight(({ changes, version }: { changes: ProblemPatch; version: number }) =>
+    call(
+      api.PATCH('/api/v1/problems/{record_id}', {
+        params: { path: { record_id: id }, header: ifMatch(version) },
+        body: { confirm_lose_access: false, ...changes },
+      }),
+    ),
+  );
+  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
+}
+
+/** Figures from the caused incidents you may see (REQ-PRB-033); `partial` when some are not. */
+export function useProblemImpact(id: string) {
+  return useQuery({
+    queryKey: problemKeys.impact(id),
+    queryFn: () =>
+      call(api.GET('/api/v1/problems/{record_id}/impact', { params: { path: { record_id: id } } })),
+    enabled: id !== '',
+  });
+}
+
+/** The evidence timeline (REQ-PRB-032) and the sources not there yet. */
+export function useProblemEvidence(id: string) {
+  return useQuery({
+    queryKey: problemKeys.evidence(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/{record_id}/evidence', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Unlink one incident (needs that incident's edit right; 404 when you cannot see it). */
+export function useUnlinkIncident(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (incidentId: string) =>
+      call(
+        api.DELETE('/api/v1/problems/{record_id}/incidents/{incident_id}', {
+          params: { path: { record_id: id, incident_id: incidentId } },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+    },
+  });
+}
+
+/** Link another problem as related (both sides show it), or remove such a link. */
+export function useRelatedProblem(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: async (
+      change: { add: string } | { remove: string; version: number },
+    ): Promise<unknown> => {
+      if ('add' in change) {
+        return call(
+          api.POST('/api/v1/problems/{record_id}/links', {
+            params: {
+              path: { record_id: id },
+              header: { 'Idempotency-Key': crypto.randomUUID() },
+            },
+            body: { other_id: change.add },
+          }),
+        );
+      }
+      return call(
+        api.DELETE('/api/v1/problems/{record_id}/links/{link_id}', {
+          params: {
+            path: { record_id: id, link_id: change.remove },
+            header: ifMatch(change.version),
+          },
+        }),
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.links(id) });
+    },
+  });
+}
+
+/** Merge this problem into another (REQ-PRB-046), or undo the merge; both need If-Match. */
+export function useMergeProblem(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (change: { into: string; version: number } | { undo: true; version: number }) =>
+      'into' in change
+        ? call(
+            api.POST('/api/v1/problems/{record_id}/merge', {
+              params: { path: { record_id: id }, header: ifMatch(change.version) },
+              body: { into_id: change.into },
+            }),
+          )
+        : call(
+            api.POST('/api/v1/problems/{record_id}/undo-merge', {
+              params: { path: { record_id: id }, header: ifMatch(change.version) },
+            }),
+          ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.all });
+    },
+  });
+}
+
+export type KnownError = components['schemas']['KnownErrorOut'];
+
+export const knownErrorKeys = {
+  all: ['problems', 'known-errors'] as const,
+  search: (q: string, retired: boolean) => ['problems', 'known-errors', q, retired] as const,
+  suggestions: (incidentId: string) => ['problems', 'known-errors', 'for', incidentId] as const,
+};
+
+/** The known error database you may see (REQ-PRB-037), searched in symptoms and workaround. */
+export function useKnownErrors(q: string, includeRetired: boolean) {
+  return useQuery({
+    queryKey: knownErrorKeys.search(q, includeRetired),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/known-errors', {
+          params: { query: { q, include_retired: includeRetired } },
+        }),
+      ),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Open known errors matching an incident's words (REQ-PRB-038). */
+export function useKnownErrorSuggestions(incidentId: string, enabled = true) {
+  return useQuery({
+    queryKey: knownErrorKeys.suggestions(incidentId),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/known-errors/suggestions', {
+          params: { query: { incident_id: incidentId } },
+        }),
+      ),
+    enabled: enabled && incidentId !== '',
+  });
+}
+
+/** Mark it a known error (with a comment) or remove the flag (with a reason); If-Match. */
+export function useKnownErrorFlag(id: string) {
+  const saved = useSavedProblem();
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (
+      change:
+        | { mark: true; comment: string; version: number }
+        | { remove: true; reason: string; version: number },
+    ) =>
+      'mark' in change
+        ? call(
+            api.POST('/api/v1/problems/{record_id}/known-error', {
+              params: { path: { record_id: id }, header: ifMatch(change.version) },
+              body: { comment: change.comment.trim() === '' ? null : change.comment.trim() },
+            }),
+          )
+        : call(
+            api.POST('/api/v1/problems/{record_id}/known-error/remove', {
+              params: { path: { record_id: id }, header: ifMatch(change.version) },
+              body: { reason: change.reason.trim() },
+            }),
+          ),
+    onSuccess: (record) => {
+      saved(record);
+      void queryClient.invalidateQueries({ queryKey: knownErrorKeys.all });
+    },
+  });
+}
+
+/** Apply a known error to an incident: caused by that problem (REQ-PRB-038 AC2). */
+export function useApplyKnownError(incidentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (problemId: string) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/incidents', {
+          params: { path: { record_id: problemId } },
+          body: { incident_id: incidentId, move: false },
+        }),
+      ),
+    onSuccess: (_, problemId) => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.links(problemId) });
+      void queryClient.invalidateQueries({ queryKey: knownErrorKeys.all });
+    },
+  });
+}
+
+export type ProblemApprovalPurpose = components['schemas']['ApprovalPurpose'];
+
+/** A problem's approvals (WP-044b s4): its approvers decide; the first decision decides. */
+export function useProblemApprovals(id: string) {
+  return useQuery({
+    queryKey: [...problemKeys.detail(id), 'approvals'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/{record_id}/approvals', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Ask named people to approve (If-Match on the problem's version). */
+export function useRequestProblemApproval(id: string) {
+  const saved = useSavedProblem();
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      approverIds,
+      purpose,
+      version,
+    }: {
+      approverIds: string[];
+      purpose: ProblemApprovalPurpose;
+      version: number;
+    }) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/approvals', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { approver_ids: approverIds, purpose },
+        }),
+      ),
+    onSuccess: (record) => {
+      saved(record);
+      void queryClient.invalidateQueries({ queryKey: [...problemKeys.detail(id), 'approvals'] });
+    },
+  });
+}
+
+/** Approve or reject one of the problem's approvals (If-Match on the approval's version). */
+export function useDecideProblemApproval(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      approvalId,
+      version,
+      decision,
+      comment,
+      isPrivate,
+    }: {
+      approvalId: string;
+      version: number;
+      decision: 'approve' | 'reject';
+      comment: string;
+      isPrivate: boolean;
+    }) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/approvals/{approval_id}/decision', {
+          params: {
+            path: { record_id: id, approval_id: approvalId },
+            header: ifMatch(version),
+          },
+          body: { decision, comment: comment.trim() === '' ? null : comment, private: isPrivate },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+    },
+  });
+}
+
+/** One message to every requester of the linked incidents, through each incident (REQ-PRB-052). */
+export function useMessageIncidentRequesters(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (body: string) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/messages/incident-requesters', {
+          params: { path: { record_id: id } },
+          body: { body },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+    },
+  });
+}
+
+export type ProblemFollowUpCopy = components['schemas']['CopyPart'];
+
+/** The open linked incidents a follow-up can resolve, and the texts the problem has. */
+export function useProblemFollowUp(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...problemKeys.detail(id), 'follow-up'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems/{record_id}/follow-up', { params: { path: { record_id: id } } }),
+      ),
+    enabled: enabled && id !== '',
+  });
+}
+
+/** Resolve the chosen linked incidents through their own bulk job (REQ-PRB-055). */
+export function useStartFollowUp(id: string) {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ incidentIds, copy }: { incidentIds: string[]; copy: ProblemFollowUpCopy }) =>
+      call(
+        api.POST('/api/v1/problems/{record_id}/follow-up', {
+          params: { path: { record_id: id } },
+          body: { incident_ids: incidentIds, copy_text: copy },
+        }),
+      ),
   });
 }

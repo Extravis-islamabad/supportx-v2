@@ -19,11 +19,12 @@ status moves (REQ-INC-050); priority comes from the matrix unless set by hand wi
 
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol
 
 from sqlalchemy import ColumnElement, Select, and_, delete, exists, func, or_, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
@@ -151,6 +152,7 @@ from app.shared.events import record_event
 from app.shared.history import (
     Actors,
     Change,
+    FieldChange,
     HistoryCursor,
     HistoryEntry,
     Source,
@@ -276,6 +278,12 @@ class WorkItemView:
     conversation: list[ActionState] = field(default_factory=list)
     following: bool = False
     conversation_count: int = 0
+    # Fields this subject may not read (problems: the root cause without view_root_cause).
+    hidden: frozenset[str] = frozenset()
+    # Problems: who last changed each analysis field, and when (REQ-PRB-030).
+    analysis_changes: tuple["AnalysisChange", ...] = ()
+    # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
+    review_required: bool = False
 
 
 def _now() -> datetime:
@@ -482,6 +490,18 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             elif record.technician_id is not None:
                 refused = ASSIGNED_TO_OTHER
         operations.append(ActionState(op, allowed=refused is None, reason=refused))
+    if wtype.code is WorkItemTypeCode.PROBLEM:  # the analysis and solution rights (WP-044b)
+        for op in ("edit_analysis", "edit_solution", "mark_known_error"):
+            refused = await reason(op)
+            if refused is None and final:
+                refused = RECORD_CLOSED
+            operations.append(ActionState(op, allowed=refused is None, reason=refused))
+    hidden = await hidden_fields(session, subject, wtype, record.id)
+    analysis = (
+        await _analysis_changes(session, record.id, hidden)
+        if wtype.code is WorkItemTypeCode.PROBLEM
+        else ()
+    )
     people = [
         str(u)
         for u in (
@@ -493,6 +513,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         )
         if u is not None
     ] + [v for v in (record.custom or {}).values() if _is_uuid(v)]  # custom person fields
+    people += [c.actor_id for c in analysis if c.actor_id is not None]
     conversation = [
         ActionState(name, allowed=(refused := await reason(name)) is None, reason=refused)
         for name in CONVERSATION_ACTIONS
@@ -514,6 +535,9 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation=conversation,
         following=await followers.current(session, record.id, subject.user_id) is not None,
         conversation_count=int(entries or 0),
+        hidden=hidden,
+        analysis_changes=analysis,
+        review_required=closing.review_required(cat, record),
     )
 
 
@@ -959,6 +983,11 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     entries, cursor = await history_entries(
         session, RECORD_TYPE, record_id, before=before, limit=limit, actors=actors
     )
+    hidden = await hidden_fields(session, subject, wtype, record_id)
+    if hidden:  # the root cause stays out of the history too (D-140 Q7)
+        entries = [
+            replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+        ]
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
         value
@@ -1108,6 +1137,13 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
             if len(html) > DESCRIPTION_MAX:
                 problems.append(("description", "value_too_long"))
             cleaned["description"] = None if is_blank(html) else html
+    for name in ANALYSIS_FIELDS:  # problems' analysis (WP-044b): rich text like the description
+        if name in values:
+            raw = values[name]
+            html = "" if raw is None or is_blank(str(raw)) else sanitize_html(str(raw))
+            if len(html) > DESCRIPTION_MAX:
+                problems.append((name, "value_too_long"))
+            cleaned[name] = None if is_blank(html) else html
     if creating and values.get("requester_id") is None:
         problems.append(("requester_id", "required"))
     for name in ("requester_id", "on_behalf_of_id", "site_id", "department_id", "category_id"):
@@ -1194,7 +1230,112 @@ def _json(value: Any) -> Any:  # noqa: ANN401 - field values of several types
 
 # A problem's own fields (WP-044a s2, REQ-PRB-005, -006): codes from its pick lists, the outage.
 PROBLEM_FIELDS = ("problem_type", "root_cause_category", "outage_started_at", "outage_ended_at")
+# The analysis (WP-044b, REQ-PRB-030): changing it needs problems.edit_analysis; the root cause
+# is read only with problems.view_root_cause (D-140 Q7).
+# A list, not a pair: the field-problem scanner reads two-string tuples as (field, code).
+# The workaround (s3, REQ-PRB-034) is the solution: its own right, and seen by everyone who
+# sees the problem (D-140 Q7), so it is never hidden.
+# The review (s4, REQ-PRB-053) is edited with the analysis right.
+ANALYSIS_FIELDS = [
+    "root_cause",
+    "symptoms",
+    "workaround",
+    "review_summary",
+    "review_lessons",
+    "review_actions",
+]
+HIDDEN_WITHOUT = {"root_cause": "view_root_cause"}
+EDITED_WITH = {"workaround": "edit_solution"}  # otherwise edit_analysis
 _PROBLEM_LISTS = {"problem_type": PickList.PROBLEM_TYPE, "root_cause_category": PickList.ROOT_CAUSE}
+
+
+def _analysis_rights(names: Sequence[str]) -> set[str]:
+    """The rights changing these fields needs: its edit right, and reading it when hidden."""
+    rights = {EDITED_WITH.get(n, "edit_analysis") for n in names}
+    return rights | {HIDDEN_WITHOUT[n] for n in names if n in HIDDEN_WITHOUT}
+
+
+async def _may_change_analysis(
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record: WorkItem,
+    names: Sequence[str],
+) -> None:
+    """Changing the analysis needs edit_analysis; the root cause also needs to be readable."""
+    changing = [n for n in names if wtype.code is WorkItemTypeCode.PROBLEM]
+    if not changing:
+        return
+    actions = _analysis_rights(changing)
+    for action in sorted(actions):
+        if not await _may(session, subject, wtype, action, record.id):
+            raise PermissionDenied(
+                params={"permission": wtype.permission(action), "reason": NO_PERMISSION}
+            )
+
+
+def _may_give_analysis(subject: Subject, wtype: WorkItemType, cleaned: dict[str, Any]) -> None:
+    """On the create form (REQ-PRB-018 AC1): the same rights as changing it later."""
+    given = [n for n in ANALYSIS_FIELDS if cleaned.get(n) is not None]
+    if not given or wtype.code is not WorkItemTypeCode.PROBLEM:
+        return
+    actions = _analysis_rights(given)
+    for action in sorted(actions):
+        if not subject.holds(wtype.permission(action)):
+            raise PermissionDenied(
+                params={"permission": wtype.permission(action), "reason": NO_PERMISSION}
+            )
+
+
+@dataclass(frozen=True)
+class AnalysisChange:
+    """The last change of one analysis field."""
+
+    field: str
+    actor_id: str | None  # a user ID, or None for the system
+    at: datetime
+
+
+async def _analysis_changes(
+    session: AsyncSession, record_id: uuid.UUID, hidden: frozenset[str]
+) -> tuple[AnalysisChange, ...]:
+    """The latest change per analysis field the subject may read (one query, DISTINCT ON)."""
+    shown = [n for n in ANALYSIS_FIELDS if n not in hidden]
+    if not shown:
+        return ()
+    rows = await session.execute(
+        select(
+            FieldChange.field, FieldChange.actor_type, FieldChange.actor_id, FieldChange.occurred_at
+        )
+        .where(
+            FieldChange.record_type == RECORD_TYPE,
+            FieldChange.record_id == record_id,
+            FieldChange.field.in_(shown),
+        )
+        .order_by(FieldChange.field, FieldChange.occurred_at.desc())
+        .ext(distinct_on(FieldChange.field))
+    )
+    return tuple(
+        AnalysisChange(
+            field=name,
+            actor_id=actor if actor_type == "user" and actor and _is_uuid(actor) else None,
+            at=at,
+        )
+        for name, actor_type, actor, at in rows
+    )
+
+
+async def hidden_fields(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> frozenset[str]:
+    """Fields of the record the subject may not read (the root cause, D-140 Q7)."""
+    if wtype.code is not WorkItemTypeCode.PROBLEM:
+        return frozenset()
+    hidden: set[str] = set()
+    for name, action in HIDDEN_WITHOUT.items():
+        if not await _may(session, subject, wtype, action, record_id):
+            hidden.add(name)
+    return frozenset(hidden)
 
 
 def _check_problem_fields(
@@ -1208,7 +1349,7 @@ def _check_problem_fields(
     Only on problems; codes offered (a record's retired one may stay); the outage ends at or after
     it begins.
     """
-    given = [name for name in PROBLEM_FIELDS if name in cleaned]
+    given = [name for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS) if name in cleaned]
     if wtype.code is not WorkItemTypeCode.PROBLEM:
         return [(name, "not_allowed") for name in given if cleaned[name] is not None]
     found: list[tuple[str, str]] = []
@@ -1243,6 +1384,7 @@ PROBLEM_FIELDS_SNAPSHOT = (
     "root_cause_category",
     "outage_started_at",
     "outage_ended_at",
+    *ANALYSIS_FIELDS,
 )
 SNAPSHOT_FIELDS = (
     "subject",
@@ -1381,6 +1523,11 @@ async def _update(
         raise await _conflict(session, error, record.id) from error
     await sla_glue.record_sla_history(session, updated, before, stamped)
     return updated
+
+
+async def stale_record(session: AsyncSession, record: WorkItem, expected_version: int) -> Conflict:
+    """The 409 for a save at an old version, saying who changed what since (§5g)."""
+    return await _conflict(session, _stale(record, expected_version), record.id)
 
 
 def _stale(record: WorkItem, expected_version: int) -> Conflict:
@@ -1946,6 +2093,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     problems += _check_problem_fields(wtype, cat, cleaned, None)
     if problems:
         raise await _value_errors(session, wtype, problems)
+    _may_give_analysis(subject, wtype, cleaned)
     problems += await _check_people(session, cleaned)
     await _on_behalf_problems(session, subject, wtype, cat, cleaned)
     problems += await _check_units(
@@ -2029,7 +2177,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         priority=priority,
         priority_source=priority_source,
         level=cleaned.get("level"),
-        **{name: cleaned.get(name) for name in PROBLEM_FIELDS},
+        **{name: cleaned.get(name) for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS)},
         template_id=template.id,
         # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025).
         lifecycle=template.lifecycle
@@ -2162,6 +2310,9 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         )
     if "channel" in cleaned and record.channel not in {Channel.PHONE, Channel.WALK_UP}:
         problems.append(("channel", "channel_reserved"))
+    await _may_change_analysis(
+        session, subject, wtype, record, [n for n in ANALYSIS_FIELDS if n in cleaned]
+    )
     # Only a changed value counts: a form may send back a read-only field unchanged.
     custom_now = record.custom or {}
     sent = [
@@ -3752,6 +3903,77 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         extra=[Change("requester_action", None, requester_action(rule, action))]
         if by_requester
         else (),
+    )
+    return updated
+
+
+async def set_fields(  # noqa: PLR0913 - the record, its version, the change and its reason
+    session: AsyncSession,
+    record: WorkItem,
+    columns: Mapping[str, Any],
+    *,
+    expected_version: int,
+    source: Source,
+    reason: str | None = None,
+) -> WorkItem:
+    """Columns a service sets after its own checks (a known error marked; WP-044b).
+
+    If-Match, field history with the reason, and the usual update event.
+    """
+    audience_before = _audience(record)
+    before = {name: getattr(record, name) for name in columns}
+    updated = await _update(session, record, expected_version, columns)
+    changes = [Change(n, _json(before[n]), _json(v)) for n, v in columns.items() if before[n] != v]
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=changes,
+        source=source,
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(columns),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
+async def set_status(  # noqa: PLR0913 - the move, its version and its record, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    action: WorkItemAction,
+    *,
+    target: str,
+    expected_version: int,
+    source: Source,
+    extra: Sequence[Change] = (),
+) -> WorkItem:
+    """A system status a person's act sets (a problem merged, or its undo; WP-044b).
+
+    Not a transition: the caller checked who may do it. History keeps it as the person, with
+    `extra` saying what else happened; the usual status event follows.
+    """
+    before = _snapshot(record, STAMP_FIELDS)
+    changes = await _status_change(
+        session, wtype, record, action, target=target, reason_code=None, reason_text=None
+    )
+    updated = await _update(session, record, expected_version, changes)
+    await _record_status(
+        session, before, updated, action, source=source, reason=None, automatic=False, extra=extra
     )
     return updated
 

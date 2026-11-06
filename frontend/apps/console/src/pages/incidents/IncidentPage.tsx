@@ -84,6 +84,7 @@ import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { KnowledgeCard } from '../knowledge/KnowledgeCard';
 import { SummaryCard } from './SummaryCard';
 import { KnowledgePicker } from '../knowledge/KnowledgePicker';
+import { KnownErrorTool } from '../problems/KnownErrorTool';
 import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
 import { IncidentSla } from './IncidentSla';
 import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
@@ -401,14 +402,20 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     ) : null;
 
   // Knowledge in this record's editors (D-121): the picker, for replies, notes and the resolution.
+  // Known errors join it (WP-044b, REQ-PRB-038) where problems are licensed and seen.
   const knowledgeSlot: KnowledgeSlot = (insert, audience) => (
-    <KnowledgePicker
-      recordType="incident"
-      recordId={item.id}
-      subject={item.subject}
-      audience={audience}
-      insert={insert}
-    />
+    <>
+      <KnowledgePicker
+        recordType="incident"
+        recordId={item.id}
+        subject={item.subject}
+        audience={audience}
+        insert={insert}
+      />
+      {has('problem') && can('problems.view') && (
+        <KnownErrorTool incidentId={item.id} insert={insert} />
+      )}
+    </>
   );
 
   return (

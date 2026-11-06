@@ -26,6 +26,11 @@ ENUM_PREFIXES: dict[str, str] = {
     "WritingIn.mode": "ai_writing_mode",
     # AI gateway (WP-037)
     "AiArea": "ai_area",
+    # Problems' evidence panel (WP-044b)
+    "EvidenceSource": "problem_evidence_source",
+    "ApprovalPurpose": "approval_purpose",
+    "RecipientSet": "problem_recipient_set",
+    "CopyPart": "problem_follow_up_copy",
     "OutcomeIn.outcome": "ai_outcome",
     # SLA set-up (WP-025)
     "ActionKind": "sla_action_kind",

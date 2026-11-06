@@ -141,6 +141,33 @@ class WorkItemIn(BaseModel):
     outage_ended_at: datetime | None = Field(
         default=None, description="Problems: when it ended (not before it began)."
     )
+    root_cause: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the root cause, rich text (needs problems.edit_analysis and "
+        "problems.view_root_cause).",
+    )
+    symptoms: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the symptoms, rich text (needs problems.edit_analysis).",
+    )
+    workaround: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the workaround, rich text (needs problems.edit_solution).",
+    )
+    review_summary: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the review's summary (needs problems.edit_analysis).",
+    )
+    review_lessons: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: lessons learned."
+    )
+    review_actions: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
+    )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )
@@ -196,6 +223,33 @@ class WorkItemPatch(BaseModel):
     )
     outage_ended_at: datetime | None = Field(
         default=None, description="Problems: when it ended (not before it began)."
+    )
+    root_cause: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the root cause, rich text (needs problems.edit_analysis and "
+        "problems.view_root_cause).",
+    )
+    symptoms: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the symptoms, rich text (needs problems.edit_analysis).",
+    )
+    workaround: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the workaround, rich text (needs problems.edit_solution).",
+    )
+    review_summary: str | None = Field(
+        default=None,
+        max_length=DESCRIPTION_MAX * 2,
+        description="Problems: the review's summary (needs problems.edit_analysis).",
+    )
+    review_lessons: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: lessons learned."
+    )
+    review_actions: str | None = Field(
+        default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
     )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom values to change by key (null clears one); others kept."
@@ -469,6 +523,14 @@ class AllowedForOut(BaseModel):
     relatives: list[str]
 
 
+class AnalysisChangeOut(BaseModel):
+    """The last change of one analysis field (REQ-PRB-030)."""
+
+    field: str = Field(description="`root_cause` or `symptoms`.")
+    changed_by: uuid.UUID | None = Field(description="Null when the system changed it.")
+    changed_at: datetime
+
+
 class WorkItemOut(BaseModel):
     """A work item as staff see it."""
 
@@ -497,6 +559,36 @@ class WorkItemOut(BaseModel):
     root_cause_category: str | None = None
     outage_started_at: datetime | None = None
     outage_ended_at: datetime | None = None
+    root_cause: str | None = Field(
+        default=None, description="Problems: null when root_cause_hidden (D-140 Q7)."
+    )
+    root_cause_hidden: bool = Field(
+        default=False, description="Problems: you may not read the root cause."
+    )
+    symptoms: str | None = None
+    workaround: str | None = None
+    review_summary: str | None = None
+    review_lessons: str | None = None
+    review_actions: str | None = None
+    review_required: bool = Field(
+        default=False, description="Problems: closing needs the review summary (REQ-PRB-053)."
+    )
+    known_error_at: datetime | None = Field(
+        default=None, description="Problems: when it was marked a known error."
+    )
+    accepted_at: datetime | None = Field(
+        default=None, description="Problems: a known error accepted without a fix (approved)."
+    )
+    accept_review_at: datetime | None = Field(
+        default=None, description="Problems: when the accepted known error is looked at again."
+    )
+    known_error_retired_at: datetime | None = Field(
+        default=None, description="Problems: when the known error was retired (a permanent fix)."
+    )
+    analysis_changes: list[AnalysisChangeOut] = Field(
+        default_factory=list,
+        description="Problems: who last changed each analysis field you may read, and when.",
+    )
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
     lifecycle: str = Field(
         default=STANDARD_LIFECYCLE,
@@ -562,7 +654,8 @@ class WorkItemOut(BaseModel):
         description="Status actions, always in the same order."
     )
     operations: list[WorkItemActionStateOut] = Field(
-        description="edit, assign, take, change_priority, delete: whether you may, and why not."
+        description="edit, assign, take, change_priority, delete (problems: edit_analysis): "
+        "whether you may, and why not."
     )
     history_count: int
     people: dict[str, PersonOut] = Field(description="The people on the record, by user ID.")
@@ -581,6 +674,17 @@ class WorkItemOut(BaseModel):
         r = view.record
         return cls(
             **{name: getattr(r, name) for name in _RECORD_FIELDS},
+            root_cause=None if "root_cause" in view.hidden else r.root_cause,
+            root_cause_hidden="root_cause" in view.hidden,
+            review_required=view.review_required,
+            analysis_changes=[
+                AnalysisChangeOut(
+                    field=c.field,
+                    changed_by=None if c.actor_id is None else uuid.UUID(c.actor_id),
+                    changed_at=c.at,
+                )
+                for c in view.analysis_changes
+            ],
             actions=[_state(a) for a in view.actions],
             operations=[_state(a) for a in view.operations],
             history_count=view.history_count,
@@ -620,6 +724,15 @@ _RECORD_FIELDS = (
     "root_cause_category",
     "outage_started_at",
     "outage_ended_at",
+    "symptoms",
+    "workaround",
+    "review_summary",
+    "review_lessons",
+    "review_actions",
+    "known_error_at",
+    "known_error_retired_at",
+    "accepted_at",
+    "accept_review_at",
     "template_id",
     "lifecycle",
     "status_before_pause",
@@ -938,6 +1051,10 @@ class WorkItemCatalogueOut(BaseModel):
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
+    review_required_priorities: list[Priority] = Field(
+        default_factory=list,
+        description="Problems: priorities that need a review before closing (major ones always).",
+    )
     version: int
     statuses: list[WorkItemStatusOut]
     actions: list[WorkItemAction] = Field(description="User actions in their fixed order.")
@@ -975,6 +1092,7 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
+            review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -1098,6 +1216,7 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
+    review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 
@@ -1909,7 +2028,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
-    elif wtype.code is WorkItemTypeCode.RELEASE:  # WP-058a s5: stage approvals, no withdrawal
+    elif wtype.code in {WorkItemTypeCode.RELEASE, WorkItemTypeCode.PROBLEM}:
+        # Release stage approvals (WP-058a s5) and problem approvals asked ad hoc (WP-044b s4):
+        # neither has a requester's withdrawal.
         add_approval_routes(router, wtype, withdraw=False)
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes

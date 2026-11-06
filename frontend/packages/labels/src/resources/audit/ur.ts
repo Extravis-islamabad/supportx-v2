@@ -114,6 +114,8 @@ export const ur: LabelResource = {
   'audit.action.notification.rule_reset': 'اطلاع کا قاعدہ پہلے سے طے شدہ پر واپس کیا',
   'audit.action.organization.settings_changed': 'تنصیب کی ترتیبات بدلیں',
   'audit.action.portal.settings_changed': 'پورٹل کی ترتیبات تبدیل کیں',
+  'audit.action.problem.approval_decided': 'مسئلہ منظور یا مسترد کیا',
+  'audit.action.problem.approval_requested': 'مسئلے پر منظوری مانگی',
   'audit.action.problem.bulk_started': 'مسائل کی اجتماعی تبدیلی شروع کی',
   'audit.action.problem.category_changed': 'مسئلے کا زمرہ تبدیل کیا',
   'audit.action.problem.category_created': 'مسئلے کا زمرہ شامل کیا',

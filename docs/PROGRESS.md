@@ -909,6 +909,124 @@ it with no reload (rule c). Not built yet.
       URL form works now).
 - WP-044a is complete once #211's full-ci is green; it then leaves draft.
 
+### [x] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
+- **Plan:** ~/Desktop/wp-044-plan.md (D8..D12). The branch starts from #211's head; main is
+  merged in once #211 lands. Migration 0078 (already allotted in the WP-044 numbers).
+- [x] Session 1 (#222, 0078): analysis, evidence and impact (REQ-PRB-030, -032, -033).
+  - Root cause and symptoms on problems (rich text, sanitised; each save is one history entry).
+    Changing them needs `problems.edit_analysis`.
+  - Reading the root cause needs `problems.view_root_cause` (D-140 Q7). Without it:
+    - the record says `root_cause_hidden`;
+    - the history leaves the change out;
+    - the console shows it locked, never empty.
+
+    Technicians hold both rights for their groups' problems, and admins can widen them. Search
+    and notifications never carried the root cause.
+  - Who last changed each field, and when (from the field history).
+  - Confirming the cause (`confirm_root_cause`, standard and guided) needs a root cause written.
+  - `GET /problems/{id}/impact` counts over the caused incidents the reader may see:
+    - open, by priority and site, people, worklog time;
+    - total time open;
+    - an 8-week trend;
+    - `partial` when some incidents are left out.
+  - `GET /problems/{id}/evidence`: the caused incidents by report time. Changes, releases and
+    other problems on the same items are named as not yet available, never faked.
+  - Console: overview, analysis and evidence tabs, live on the record channel; labels in en, ar
+    and ur.
+  - Not yet (recorded):
+    - impact by service and CI, and the evidence from changes, releases and the same items,
+      wait for WP-045, lane C's releases and lane B's CMDB;
+    - cost waits for worklog costs (D-047);
+    - copying the analysis with a problem (REQ-PRB-015) comes with S3's known errors.
+- [ ] S2 links and merge (in progress, 0104):
+  - done:
+    - merge with undo: `merged` status, incidents move, undo leaves since-moved ones and names
+      them;
+    - unlinking incidents, one at a time or in bulk (`unlink_problem`);
+    - related problems through the generic link;
+    - the `merged_into` / `merged_from` relations;
+    - console: unlink buttons, related problems, a Merge into dialog, a merged banner with undo.
+  - Not yet (recorded):
+    - `fixed_by` (to changes) and `released_in` (to releases) stay hidden until those types
+      register (WP-045, lane C's releases);
+    - an announcement from a problem waits for lane C's WP-062b: `POST /announcements` takes
+      `source: {type, id}`, and the console prefills the title (agreed, rule 8).
+  - **Gap on record (D-140 Applied):** the generic link delete could remove an incident's cause
+    with problem edit alone (since WP-044a). The fix (409 `link_has_own_route`) ships as its own
+    small PR from main after #211 lands; it is not held for this WP.
+- [x] S3 known errors (0078 extended, still unmerged):
+  - The workaround, under `problems.edit_solution`. Incident technicians see it.
+  - The known error flag, under `problems.mark_known_error`:
+    - marking needs a workaround or root cause written (422 names both);
+    - removing needs a reason;
+    - both are in history.
+
+    The menu has one action that flips in place.
+  - Resolving a known error retires it, in the same save and history entry.
+  - Every linked incident shows the marker, live. The incident listens on its problem's
+    channel.
+  - The known error database:
+    - `GET /problems/known-errors` and the console page;
+    - it searches subject, symptoms and workaround, never the root cause;
+    - retired ones are marked, and it updates live.
+  - Suggestions in the incident's editors: "apply the workaround" links the incident to the
+    problem and inserts the workaround at the caret, without sending.
+  - Problems join the record-facts port, so knowledge works for them: article links
+    (REQ-PRB-035) and "save the resolution as knowledge" (REQ-PRB-041).
+  - 0078's downgrade refuses while any tenant has data.
+  - Fixed on the way: incident links to a problem opened `/incidents/<id>` (since WP-044a).
+  - Not yet (recorded):
+    - Publishing the workaround as a technician article that follows the problem (REQ-PRB-039).
+      Lane C agreed the shape: from-record `part: workaround`, a facts-port `workaround_of`,
+      staff-only, and a work_items event for the review task. It lands in their WP-060, or
+      sooner if I send the port change.
+    - Portal known issues (REQ-PRB-040) and withdrawing them on retirement (REQ-PRB-042 AC2,
+      AC3) wait for lane C's WP-034 portal knowledge.
+    - Recording whether a suggestion was used (REQ-PRB-038).
+- [x] S4 work on the problem (0078 extended):
+  - The review (REQ-PRB-053): summary, lessons and actions. Closing needs the summary for major
+    problems and the priorities in `review_required_priorities` (P1 by default, D-140 Q4); the
+    close action lists it as missing.
+  - Approvals on problems through the WP-030 engine:
+    - `POST /problems/{id}/approvals` asks named people (`problems.approve`);
+    - the engine's list, inbox and decision routes serve problems, with no withdrawal;
+    - a decision sets the approval status, never the problem's status;
+    - an approved `accept_without_fix` sets `accepted_at` and a review date 90 days ahead
+      (REQ-PRB-050).
+  - Messages (REQ-PRB-052):
+    - recipients by set (followers, the linked incidents' technicians or requesters, visible
+      incidents only);
+    - one message to the requesters, sent as a reply on each linked incident, with the problem's
+      history naming them.
+  - Console:
+    - the review section;
+    - Ask for approval and the approvals list with decisions;
+    - Message the affected requesters.
+  - Not yet (recorded):
+    - The tasks, worklogs and conversation tabs on the problem page are 044c S1's record page
+      (the engine routes already serve problems).
+    - Stopping worklogs on closed problems (REQ-PRB-051).
+    - The admin control for `review_required_priorities` (API only for now).
+    - A "due for review" view for accepted known errors (044c's views).
+- [x] S5 closure and follow-up:
+  - Pending approvals block closing (409 `approval_pending`, REQ-PRB-054).
+  - Follow-up on linked incidents (REQ-PRB-055, D-140 Q1):
+    - `GET /problems/{id}/follow-up` lists the open linked incidents the technician may see;
+    - `POST` resolves the chosen ones (unticked ones stay) through the incidents' own bulk
+      resolve job, so each one's transition and closure rules apply;
+    - each gets the resolution, the workaround or both, lands in resolved for its requester to
+      confirm, and its history names the problem.
+  - Console: a follow-up dialog, ticked by default, with the bulk drawer showing progress and
+    results live.
+  - e2e (problems.spec.ts):
+    - the analysis tab, written in place and live;
+    - a linked incident moving the impact and evidence;
+    - a known error showing live on its incident and found in the database.
+  - Not yet (recorded):
+    - Close conditions on linked changes and releases (REQ-PRB-054) wait for those types.
+    - Problem-specific closure codes (REQ-PRB-056) use the shared closure code list for now.
+    - The tenant defaults for the follow-up (notify, copy as a note) beyond Q1's resolve.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)

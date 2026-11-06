@@ -23,7 +23,7 @@ from typing import Any, Literal
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound, PermissionDenied
+from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.parts import (
@@ -698,6 +698,8 @@ class LinkView:
     display_id: str | None
     subject_text: str | None
     other_type: WorkItemTypeCode | None = None
+    # The other record is a live (not retired) known error: incidents show the marker (044b).
+    other_known_error: bool = False
 
 
 async def links(
@@ -734,6 +736,9 @@ async def links(
                 shown.display_id if shown is not None else None,
                 shown.subject if shown is not None else None,
                 other_type.code if visible and other_type is not None else None,
+                shown is not None
+                and shown.known_error_at is not None
+                and shown.known_error_retired_at is None,
             )
         )
     return found
@@ -741,10 +746,17 @@ async def links(
 
 # The kinds this listing reads (`_relation`). Release links (WP-058a) are listed by the
 # release's own parts until the cross-type relations of REQ-REL-034 join them here.
-_LISTED = (LinkKind.RELATED.value, LinkKind.FOLLOWS.value, LinkKind.CAUSED_BY.value)
+_LISTED = (
+    LinkKind.RELATED.value,
+    LinkKind.FOLLOWS.value,
+    LinkKind.CAUSED_BY.value,
+    LinkKind.MERGED_INTO.value,
+)
 
 
-Relation = Literal["related", "follows", "followed_by", "caused_by", "causes"]
+Relation = Literal[
+    "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
+]
 
 
 def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
@@ -756,6 +768,8 @@ def _relation(kind: LinkKind, *, mine_is_source: bool) -> Relation:
             return "follows" if mine_is_source else "followed_by"
         case LinkKind.CAUSED_BY:
             return "caused_by" if mine_is_source else "causes"
+        case LinkKind.MERGED_INTO:
+            return "merged_into" if mine_is_source else "merged_from"
         case _:  # never listed (_LISTED)
             msg = f"link kind {kind} is not listed here"
             raise ValueError(msg)
@@ -827,6 +841,9 @@ async def add_link(  # noqa: PLR0913 - both records, the comment and the source,
     return link
 
 
+_OWN_ROUTE = frozenset({LinkKind.CAUSED_BY.value, LinkKind.MERGED_INTO.value})
+
+
 async def remove_link(  # noqa: PLR0913 - the record, the link, its version and the source
     session: AsyncSession,
     subject: Subject,
@@ -848,6 +865,10 @@ async def remove_link(  # noqa: PLR0913 - the record, the link, its version and 
     )
     if link is None:
         raise NotFound(code="work_item_link_not_found")
+    if link.kind in _OWN_ROUTE:
+        # A cause needs the incident's edit right (unlink), a merge its undo (WP-044b): the
+        # generic delete would skip those rules.
+        raise Conflict(code="link_has_own_route", params={"kind": link.kind})
     other_id = link.target_id if link.source_id == record_id else link.source_id
     other = await session.get(WorkItem, other_id)
     removed = await LinkRepository(session).soft_delete(link.id, expected_version=expected_version)

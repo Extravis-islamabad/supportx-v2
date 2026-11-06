@@ -451,6 +451,9 @@ export const ur: LabelResource = {
     'منتخب کریں کہ کون سے واقعات کسے اور کن ذرائع سے اطلاع دیں۔',
   'permission.problems.add_note': 'مسائل پر نجی نوٹس شامل کریں',
   'permission.problems.add_note.description': 'مسائل پر صرف عملے کے لیے نوٹس لکھیں۔',
+  'permission.problems.approve': 'مسائل منظور کریں',
+  'permission.problems.approve.description':
+    'ان مسئلہ منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں، جیسے معلوم خرابی کو حل کے بغیر قبول کرنا۔',
   'permission.problems.assign': 'مسائل تفویض کریں',
   'permission.problems.assign.description': 'مسائل کا گروپ اور مالک منتخب کریں۔',
   'permission.problems.assign_outside_group': 'مسائل گروپ سے باہر تفویض کریں',
@@ -468,11 +471,18 @@ export const ur: LabelResource = {
   'permission.problems.delete.description': 'مسائل کوڑے دان میں ڈالیں اور واپس لائیں۔',
   'permission.problems.edit': 'مسائل پر کام کریں',
   'permission.problems.edit.description': 'مسائل کی تفصیلات، ان کا تجزیہ اور ان کے کام بدلیں۔',
+  'permission.problems.edit_analysis': 'مسئلے کا تجزیہ تبدیل کریں',
+  'permission.problems.edit_analysis.description': 'مسائل کی بنیادی وجہ اور علامات تبدیل کریں۔',
   'permission.problems.edit_due_dates': 'مسائل کی ہدف تاریخ ہاتھ سے مقرر کریں',
   'permission.problems.edit_due_dates.description': 'مسئلے کی ہدف تاریخ پالیسی کے بجائے خود بدلیں۔',
+  'permission.problems.edit_solution': 'مسئلے کے حل تبدیل کریں',
+  'permission.problems.edit_solution.description': 'مسائل کا عارضی حل تبدیل کریں۔',
   'permission.problems.manage_followers': 'مسائل کے فالوورز کا انتظام',
   'permission.problems.manage_followers.description':
     'مسئلے کو فالو کرنے والے لوگ شامل کریں اور ہٹائیں۔',
+  'permission.problems.mark_known_error': 'معلوم خرابیاں نشان زد کریں',
+  'permission.problems.mark_known_error.description':
+    'مسائل کو معلوم خرابی کے طور پر نشان زد کریں، یا نشان ہٹائیں۔',
   'permission.problems.reopen': 'مسائل دوبارہ کھولیں',
   'permission.problems.reopen.description': 'حل شدہ یا بند مسئلہ دوبارہ تحقیق میں لائیں۔',
   'permission.problems.reply': 'مسائل پر عوامی نوٹس شامل کریں',
@@ -484,6 +494,9 @@ export const ur: LabelResource = {
   'permission.problems.take.description': 'ایسا مسئلہ خود لیں جس کا ابھی کوئی مالک نہیں۔',
   'permission.problems.view': 'مسائل دیکھیں',
   'permission.problems.view.description': 'مسئلے کے ریکارڈ دیکھیں۔',
+  'permission.problems.view_root_cause': 'بنیادی وجوہات دیکھیں',
+  'permission.problems.view_root_cause.description':
+    'مسائل کی بنیادی وجہ پڑھیں، جو کسی حفاظتی کمزوری کو بیان کر سکتی ہے۔',
   'permission.profile.edit': 'اپنی پروفائل میں ترمیم کریں',
   'permission.profile.edit.description': 'اپنا جوابی دستخط اور ٹائم زون تبدیل کریں۔',
   'permission.releases.add_note': 'ریلیزز پر نجی نوٹس شامل کریں',

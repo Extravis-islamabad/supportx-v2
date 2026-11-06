@@ -178,13 +178,18 @@ class WorkItemLinkOut(BaseModel):
 
     id: uuid.UUID
     kind: LinkKind
-    relation: Literal["related", "follows", "followed_by", "caused_by", "causes"]
+    relation: Literal[
+        "related", "follows", "followed_by", "caused_by", "causes", "merged_into", "merged_from"
+    ]
     other_id: uuid.UUID | None = Field(description="Only when you may see the other record.")
     other_type: WorkItemTypeCode | None = Field(
         default=None, description="The other record's type, when you may see it (WP-044a)."
     )
     other_display_id: str | None
     other_subject: str | None
+    other_known_error: bool = Field(
+        default=False, description="The other record is a known error (problems, WP-044b)."
+    )
     comment: str | None
     version: int
     created_at: datetime
@@ -448,6 +453,7 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
                 other_id=v.other_id if v.visible else None,
                 other_display_id=v.display_id,
                 other_subject=v.subject_text,
+                other_known_error=v.other_known_error,
                 other_type=v.other_type,
                 comment=v.link.comment,
                 version=v.link.version,
