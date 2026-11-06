@@ -97,6 +97,22 @@ describe('Admin › People', () => {
     });
   });
 
+  it('PEO-03: instant account actions come after the form, Deactivate last, apart', async () => {
+    routes();
+    render(<App />);
+    fireEvent.click(await screen.findByText('Bilal Saleh'));
+    const form = await screen.findByTestId('person-form');
+    const account = screen.getByTestId('person-status');
+    const deactivate = screen.getByTestId('person-deactivate');
+    // The form first, then the Account section (which says it applies at once), then Deactivate.
+    expect(form.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(account).getByText('These apply at once, without Save.')).toBeTruthy();
+    const type = within(account).getByTestId('person-type');
+    expect(
+      type.compareDocumentPosition(deactivate) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('WP-040: a person the directory keeps shows it, with its fields read-only', async () => {
     routes({
       'GET /api/v1/users/u-9': {
@@ -235,6 +251,41 @@ describe('Admin › Organisation', () => {
     expect(
       await screen.findByText('Still in use (people: 3). Make it inactive instead.'),
     ).toBeDefined();
+  });
+
+  it('counts a site’s people apart from who has access to it (PEO-01)', async () => {
+    routes({
+      'GET /api/v1/organization/sites': {
+        body: [
+          {
+            id: 's-2',
+            name: 'Islamabad headquarters',
+            description: null,
+            region: null,
+            time_zone: null,
+            default_language: null,
+            address: null,
+            phone: null,
+            email: null,
+            is_default: true,
+            disabled: false,
+            member_ids: ['u-1', 'u-2'],
+            people_count: 7,
+            version: 1,
+          },
+        ],
+      },
+    });
+    render(<App />);
+    const name = await screen.findByText('Islamabad headquarters');
+    const row = name.closest('tr');
+    if (row === null) throw new Error('no row');
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    const cells = within(row)
+      .getAllByRole('cell')
+      .map((c) => c.textContent);
+    expect(cells[headers.indexOf('People')]).toBe('7');
+    expect(cells[headers.indexOf('Site access')]).toBe('2');
   });
 });
 
