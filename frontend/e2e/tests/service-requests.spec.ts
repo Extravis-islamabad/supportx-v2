@@ -219,10 +219,13 @@ test('an approver approves from the e-mailed link without signing in (D-132)', a
     // link points; the dev stack serves the portal on a port of its own (lane B fixes
     // email_branding there). Keep the link's host, which names the tenant (the page has no
     // session to say which), and use the portal's port.
+    // Keep the portal's path too: on k3d the portal is under /portal/ on the console's origin,
+    // and the origin alone opens the console, which asks for sign-in (Cluster nightly).
     const portal = new URL(PORTAL_URL);
     const target = new URL(link?.[1] ?? PORTAL_URL);
     target.port = portal.port;
-    const url = `${target.origin}/${link?.[2] ?? ''}`;
+    const base = portal.pathname.replace(/\/$/, '');
+    const url = `${target.origin}${base}/${link?.[2] ?? ''}`;
 
     // D-132: no sign-in needed: a window with nobody signed in shows a confirmation page.
     const outside = await privateWindow(browser);
