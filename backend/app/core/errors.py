@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, ClassVar
 
+import valkey.exceptions
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -383,6 +384,28 @@ async def _app_error_handler(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+# Valkey still unreachable after the client's own bounded retry (app/core/valkey.py), e.g. in the
+# seconds of a Sentinel failover: the client may try again, so 503 with Retry-After, not a bare 500
+# (k3d HA smoke, 2026-11-06: a sign-in right after the failover answered 500).
+VALKEY_DOWN = (valkey.exceptions.ConnectionError, valkey.exceptions.TimeoutError)
+VALKEY_RETRY_AFTER = "2"
+
+
+async def _valkey_down_handler(request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, VALKEY_DOWN)  # noqa: S101 - registered for these types only
+    log.warning("valkey_unavailable", error=type(exc).__name__, path=request.url.path)
+    await notify_error(request, HTTPStatus.SERVICE_UNAVAILABLE.value, ServiceUnavailable.code)
+    return problem_response(
+        problem(
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            ServiceUnavailable.code,
+            instance=request.url.path,
+            request_id=current_request_id(),
+        ),
+        headers={"Retry-After": VALKEY_RETRY_AFTER},
+    )
+
+
 async def _validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)  # noqa: S101 - registered for this type only
     await notify_error(request, HTTPStatus.UNPROCESSABLE_ENTITY.value, "validation_failed")
@@ -416,3 +439,5 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, _app_error_handler)
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, _http_error_handler)
+    for kind in VALKEY_DOWN:
+        app.add_exception_handler(kind, _valkey_down_handler)
