@@ -193,7 +193,12 @@ export function stepBlocked(
     case 'approve':
     case 'reject':
       if (!article.can_approve) return 'knowledge.why.not_approver';
-      return draft?.status === 'in_review' ? null : 'knowledge.why.nothing_in_review';
+      if (draft?.status !== 'in_review') return 'knowledge.why.nothing_in_review';
+      // Your own version while self-approval is off (QA6-KB-02): someone else approves it.
+      if (step === 'approve' && (article.self_approval_blocked ?? []).includes(language)) {
+        return 'knowledge.why.own_version';
+      }
+      return null;
     case 'withdraw':
       if (!article.can_withdraw) return 'knowledge.why.not_withdrawer';
       if (article.withdrawn) return 'knowledge.why.already_withdrawn';

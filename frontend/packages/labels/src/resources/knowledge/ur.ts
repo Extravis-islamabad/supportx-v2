@@ -141,6 +141,7 @@ export const ur: LabelResource = {
   'knowledge.field.language': 'زبان',
   'knowledge.field.name_ar': 'عربی میں نام',
   'knowledge.field.name_en': 'انگریزی میں نام',
+  'knowledge.field.name_ur': 'اردو میں نام',
   'knowledge.field.names': 'نام',
   'knowledge.field.own_audience': 'اپنے قارئین',
   'knowledge.field.owner_id': 'مالک',
@@ -307,5 +308,7 @@ export const ur: LabelResource = {
   'knowledge.why.not_withdrawer':
     'یہ صرف موضوع کا مالک یا مضامین واپس لینے کا اختیار رکھنے والا کر سکتا ہے۔',
   'knowledge.why.nothing_in_review': 'اس زبان میں کچھ بھی جائزے کا منتظر نہیں۔',
+  'knowledge.why.own_version':
+    'یہ ورژن آپ نے لکھا ہے اور خود منظوری بند ہے: کوئی دوسرا منظور کنندہ اسے شائع کرے گا۔',
   'knowledge.withdrawn_notice': 'یہ مضمون واپس لے لیا گیا ہے۔ قارئین اب اسے نہیں دیکھتے۔',
 };
