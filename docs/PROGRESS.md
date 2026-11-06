@@ -1302,10 +1302,21 @@ it with no reload (rule c). Not built yet.
 - **Two PRs (coordinator, 2026-11-06):** #216 holds sessions 1-3 (it passed 14k lines); sessions
   4-5 go on a new PR from main after #216 merges. Session 4 has migrations 0111 (ownership,
   assignments, relationships), 0112 (acknowledgements) and 0113 (asset groups).
-- [ ] Session 4: ownership, acknowledgement, components, groups, relationships (REQ-AST-018,
-  019, 020 for assets, 023, 024, 026, 027, 028). Deferred: 021/022 with discovery (WP-050),
-  020's consumables and licences with WP-052; 025 is lane A's forms on the assets picker API
-  (`GET /assets/picker`, `can_see`, `asset_refs`, `assets_of`, agreed 2026-11-06).
+- [x] Session 4: ownership, acknowledgement, components, groups, relationships (migrations
+  0111-0113; REQ-AST-018, 019, 020 for assets, 023, 024, 025's interfaces, 026, 027, 028).
+  - Holders (a person, a department or a parent asset) with the holding history; never fitted
+    inside itself; assets follow their owner's site (a consumer of identity's user.updated,
+    idempotent); held-by lookups within scope.
+  - Acknowledgements (pending, accepted, disputed with a comment; a dispute never touches the
+    holding) with an `asset` notification source; My assets in the portal, live.
+  - Components (fitted assets; disposing asks to detach or dispose them) and typed links shown
+    from both ends with history on both.
+  - Static and dynamic groups (the shared filter DSL), counts matching their lists, live.
+  - The picker and `can_see` / `asset_refs` / `assets_of` for lane A's work-item forms.
+  - Console: "Holder and links" tab, groups page, add-to-group from the list's selection.
+  - **Deferred:** 021/022 (auto-assign, workstation mapping) with discovery (WP-050); 020's
+    consumables and licences with WP-052; 024 AC2 "report a problem" and 025's forms are lane
+    A's, on the picker.
 - [ ] Session 5: loans, warranty, notifications, e2e.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
