@@ -88,7 +88,24 @@ class WorkflowInstanceChanged(DomainEvent):
     version: int
 
 
+class WorkflowChanged(DomainEvent):
+    """A workflow was made, its draft saved, published, enabled or disabled (WP-048b).
+
+    The workflows list and an open designer refresh; IDs and codes only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow"
+
+    workflow_id: uuid.UUID
+    record_type: str
+    change: Literal["created", "draft_saved", "published", "enabled", "disabled"]
+    version: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
+    WorkflowChanged,
     WorkflowInstanceChanged,
     AutomationChanged,
     AvailabilityChanged,

@@ -483,6 +483,7 @@ export const ur: LabelResource = {
   'event_type.automation.availability.changed': 'دستیابی بدلی',
   'event_type.automation.definition.changed': 'آٹومیشن بدلی',
   'event_type.automation.loop.stopped': 'آٹومیشن رک گئی (لوپ سے حفاظت)',
+  'event_type.automation.workflow.changed': 'ورک فلو بدلا',
   'event_type.automation.workflow_instance.changed': 'ورک فلو آگے بڑھا',
   'event_type.identity_access.access_settings.changed': 'ٹیکنیشن کی رسائی کا دائرہ بدلا',
   'event_type.identity_access.api_key.changed': 'API کلید بدلی',

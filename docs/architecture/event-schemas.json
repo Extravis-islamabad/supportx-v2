@@ -1205,6 +1205,45 @@
         "type": "object"
       }
     },
+    "automation.workflow.changed": {
+      "1": {
+        "description": "A workflow was made, its draft saved, published, enabled or disabled (WP-048b).\n\nThe workflows list and an open designer refresh; IDs and codes only.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "draft_saved",
+              "published",
+              "enabled",
+              "disabled"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "record_type",
+          "change",
+          "version"
+        ],
+        "title": "WorkflowChanged",
+        "type": "object"
+      }
+    },
     "automation.workflow_instance.changed": {
       "1": {
         "description": "A workflow instance moved on, waited, failed or ended (WP-048b, REQ-WF-023, -025).\n\nThe record's execution view and the overview refresh; IDs and codes only.",
