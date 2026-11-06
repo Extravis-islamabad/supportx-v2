@@ -1286,12 +1286,19 @@ it with no reload (rule c). Not built yet.
     create, restore, product change).
   - Console: /assets list, /assets/:id (Details, History) and /assets/vendors.
   - Downgrades of 0080-0083 refuse while tenants have data (rule 5h).
-  - **Still open, for session 3:**
-    - the product picker loads the first 50 products (needs a searching picker);
-    - the asset form doesn't show custom fields yet (the API takes them);
-    - asset age is computed in the domain but not shown;
-    - region and the hardware tab come with discovery (WP-050).
-- [ ] Session 3: life cycle in use (reasons, retire and dispose, bulk, copy, trash).
+  - Region and the hardware tab come with discovery (WP-050).
+- [x] Session 3: life cycle in use (#216; migration 0108; REQ-AST-010, 011, 012, 013, 017).
+  - Moves along the type's life cycle with reasons, required fields and move permissions
+    (assets.reinstate); copy up to the tenant's limit; bulk moves with per-asset results.
+  - Dispose with a record (date, method, reason, cost, approver) and a certificate file (owner
+    type asset_disposal); a disposed asset is read-only without assets.edit_disposed (admins
+    only by default), and every change to it asks for a reason.
+  - A guard port for what still holds an asset: loans (session 5) and licence allocations
+    (WP-052) register theirs.
+  - Console: change state, copy, bulk moves, dispose, the disposal record; a searching product
+    picker; custom fields in the form and on the record; the asset's age.
+  - **Open:** AC4 of REQ-AST-017 (the disposal cost in the cost table and TCO) comes with the
+    cost table (session 4/5).
 - [ ] Session 4: ownership, acknowledgement, components, groups, relationships.
 - [ ] Session 5: loans, warranty, notifications, e2e.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
