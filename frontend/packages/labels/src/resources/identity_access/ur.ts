@@ -157,6 +157,8 @@ export const ur: LabelResource = {
   'password_policy_state.applying': 'لاگو ہو رہی ہے',
   'password_policy_state.default': 'انسٹالیشن کا ڈیفالٹ',
   'password_policy_state.failed': 'لاگو نہیں ہوئی',
+  'people.account.help': 'یہ محفوظ کیے بغیر فوراً لاگو ہوتے ہیں۔',
+  'people.account.title': 'اکاؤنٹ',
   'people.add': 'فرد شامل کریں',
   'people.added': '{{name}} شامل کر دیا گیا',
   'people.changed_elsewhere':

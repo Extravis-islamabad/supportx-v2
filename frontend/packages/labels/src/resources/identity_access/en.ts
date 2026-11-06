@@ -154,6 +154,8 @@ export const en = {
   'password_policy_state.applying': 'Being applied',
   'password_policy_state.default': 'Installation default',
   'password_policy_state.failed': 'Not applied',
+  'people.account.help': 'These apply at once, without Save.',
+  'people.account.title': 'Account',
   'people.add': 'Add person',
   'people.added': '{{name}} added',
   'people.changed_elsewhere':

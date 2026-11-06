@@ -97,6 +97,22 @@ describe('Admin › People', () => {
     });
   });
 
+  it('PEO-03: instant account actions come after the form, Deactivate last, apart', async () => {
+    routes();
+    render(<App />);
+    fireEvent.click(await screen.findByText('Bilal Saleh'));
+    const form = await screen.findByTestId('person-form');
+    const account = screen.getByTestId('person-status');
+    const deactivate = screen.getByTestId('person-deactivate');
+    // The form first, then the Account section (which says it applies at once), then Deactivate.
+    expect(form.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(account).getByText('These apply at once, without Save.')).toBeTruthy();
+    const type = within(account).getByTestId('person-type');
+    expect(
+      type.compareDocumentPosition(deactivate) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('WP-040: a person the directory keeps shows it, with its fields read-only', async () => {
     routes({
       'GET /api/v1/users/u-9': {

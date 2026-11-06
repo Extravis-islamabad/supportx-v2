@@ -153,6 +153,8 @@ export const ar: LabelResource = {
   'password_policy_state.applying': 'قيد التطبيق',
   'password_policy_state.default': 'الإعداد الافتراضي للتثبيت',
   'password_policy_state.failed': 'غير مطبّقة',
+  'people.account.help': 'تُطبَّق هذه فورًا، دون حفظ.',
+  'people.account.title': 'الحساب',
   'people.add': 'إضافة شخص',
   'people.added': 'أُضيف {{name}}',
   'people.changed_elsewhere':
