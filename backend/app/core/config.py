@@ -121,6 +121,12 @@ class Settings(BaseSettings):
     # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
     # the test identity provider runs on the same machine.
     sso_fetch_allow_loopback: bool = False
+    # Guarded outbound calls (workflow webhooks, outbound webhooks; ADR-043 §8): what the
+    # installation opens beyond the public internet, as CIDRs or host names (an on-prem ERP on a
+    # private network), and ports beyond 80 and 443. Never a tenant setting. Link-local
+    # (cloud metadata), multicast and unspecified addresses stay closed whatever is listed.
+    egress_allow: list[str] = Field(default_factory=list)
+    egress_extra_ports: list[int] = Field(default_factory=list)
     # Several tenants share this installation's realm (the SaaS cell, WP-014d). A security guard,
     # not a feature switch (D-098): single sign-on may then route only email domains whose
     # ownership the tenant proved. Off for single-tenant installations (on-prem, D-070).
