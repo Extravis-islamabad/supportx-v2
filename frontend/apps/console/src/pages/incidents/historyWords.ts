@@ -6,6 +6,9 @@ import {
   useIncidentCategories,
   useIncidentHistory,
   useIncidentTemplates,
+  useProblemCatalogue,
+  useProblemCategories,
+  useProblemTemplates,
   useUnits,
   type IncidentHistoryEntry,
 } from '@supportx/api-client';
@@ -76,18 +79,30 @@ const FLAGS = new Set(['handed_over_out_of_reach']);
 export type HistoryActors = 'all' | 'people' | 'automation';
 
 /** The history of incident `id` and how to say each change. */
-export function useHistoryWords(id: string, actors: HistoryActors = 'all') {
+export function useHistoryWords(
+  id: string,
+  actors: HistoryActors = 'all',
+  base: 'incidents' | 'problems' = 'incidents',
+) {
   const t = useLabel();
   const listFormat = useListFormat();
   const { locale } = useAppearance();
   const dates = useDateTime();
   const { can } = useAccess();
-  const history = useIncidentHistory(id, actors);
-  const catalogue = useIncidentCatalogue();
-  const categories = useIncidentCategories();
-  const templates = useIncidentTemplates();
+  // A problem's history reads its own type's lists (WP-044c); both hooks run, one enabled.
+  const isProblem = base === 'problems';
+  const history = useIncidentHistory(id, actors, true, base);
+  const incidentCatalogue = useIncidentCatalogue(!isProblem);
+  const problemCatalogue = useProblemCatalogue(isProblem);
+  const catalogue = isProblem ? problemCatalogue : incidentCatalogue;
+  const incidentCategories = useIncidentCategories(!isProblem);
+  const problemCategories = useProblemCategories(isProblem);
+  const categories = isProblem ? problemCategories : incidentCategories;
+  const incidentTemplates = useIncidentTemplates(!isProblem);
+  const problemTemplates = useProblemTemplates(isProblem);
+  const templates = isProblem ? problemTemplates : incidentTemplates;
   // Removed fields too: their old values stay in the history (REQ-INC-014 AC4).
-  const customFields = useCustomFields('incident', true);
+  const customFields = useCustomFields(isProblem ? 'problem' : 'incident', true);
   const customText = useCustomValueText();
   const customField = (name: string) =>
     name.startsWith('custom.')

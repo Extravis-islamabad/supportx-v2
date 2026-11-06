@@ -20,6 +20,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import {
   ApiError,
   queryKeys,
+  useCausingProblem,
   useDeleteIncident,
   useIncident,
   useIncidentTasks,
@@ -108,6 +109,7 @@ import { IMPACT_DETAILS_MAX, SUBJECT_MAX } from './form';
 import { useStatusActions } from './StatusActions';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
 import { TagsInput } from './TagsInput';
+import { CausingProblemCard } from './CausingProblemCard';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -168,6 +170,13 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
+  // The causing problem, narrowly (WP-044c D14); live on its channel for who may open it.
+  const cause = useCausingProblem(item.id);
+  useRecordChannel('wi', cause.data?.may_open ? cause.data.id : undefined, () => {
+    void queryClient.invalidateQueries({
+      queryKey: [...queryKeys.incidents.links(item.id), 'cause'],
+    });
+  });
   const [tab, setTab] = useState<string>(() => lastTab(me));
   const [replyRequest, setReplyRequest] = useState(0);
   // Tasks, worklogs and links follow the record's edit permission (WP-020e).
@@ -525,6 +534,17 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   </div>
                 ),
               },
+              // The causing problem, narrowly, for every technician (WP-044c D14).
+              ...(cause.data
+                ? [
+                    {
+                      key: 'cause',
+                      title: t('incidents.causing_problem.title'),
+                      testId: 'inc-panel-cause',
+                      children: <CausingProblemCard cause={cause.data} />,
+                    },
+                  ]
+                : []),
               {
                 key: 'assignment',
                 title: t('incidents.panel.assignment'),

@@ -34,6 +34,7 @@ import {
   useUsers,
   useWorklogChange,
   type Incident,
+  type PartsBase,
   type IncidentTask,
   type TaskStatus,
   type WorklogType,
@@ -96,11 +97,20 @@ function useDuration() {
 
 // --- tasks ----------------------------------------------------------------------------------------
 
-export function IncidentTasks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
+export function IncidentTasks({
+  item,
+  canEdit,
+  base = 'incidents',
+}: {
+  item: Incident;
+  canEdit: boolean;
+  /** The record's type prefix: problems use the same parts (WP-044c). */
+  base?: PartsBase;
+}) {
   const t = useLabel();
   const dates = useDateTime();
-  const found = useIncidentTasks(item.id);
-  const change = useTaskChange(item.id);
+  const found = useIncidentTasks(item.id, true, base);
+  const change = useTaskChange(item.id, base);
   const [title, setTitle] = useState('');
   const [owner, setOwner] = useState<string | null>(null);
   const [due, setDue] = useState<string | null>(null);
@@ -280,13 +290,21 @@ export function IncidentTasks({ item, canEdit }: { item: Incident; canEdit: bool
 
 // --- worklogs -------------------------------------------------------------------------------------
 
-export function IncidentWorklogs({ item, canEdit }: { item: Incident; canEdit: boolean }) {
+export function IncidentWorklogs({
+  item,
+  canEdit,
+  base = 'incidents',
+}: {
+  item: Incident;
+  canEdit: boolean;
+  base?: PartsBase;
+}) {
   const t = useLabel();
   const dates = useDateTime();
   const duration = useDuration();
   const me = useSession().data?.user.id ?? null;
-  const found = useIncidentWorklogs(item.id);
-  const change = useWorklogChange(item.id);
+  const found = useIncidentWorklogs(item.id, true, base);
+  const change = useWorklogChange(item.id, base);
   const [type, setType] = useState<WorklogType>('fix');
   const [owner, setOwner] = useState<string | null>(null);
   const [start, setStart] = useState<string | null>(null);

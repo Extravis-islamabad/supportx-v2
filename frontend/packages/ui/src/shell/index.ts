@@ -9,7 +9,13 @@ export {
   type PaletteRecords,
 } from './CommandPalette';
 export { useCommandPaletteShortcut } from './useCommandPaletteShortcut';
-export { visibleNav, type NavItem, type VisibleNavItem } from './nav';
+export {
+  featureState,
+  visibleNav,
+  type FeatureState,
+  type NavItem,
+  type VisibleNavItem,
+} from './nav';
 export { CrumbProvider, HeaderCrumbs } from './Crumbs';
 export {
   documentTitle,

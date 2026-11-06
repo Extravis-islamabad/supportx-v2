@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
+import { clickAction } from '../../test/actions';
 import { consoleApi } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
@@ -73,6 +74,14 @@ function api(routes: Record<string, unknown> = {}) {
         body: { items: [record], next_cursor: null, has_more: false, people: {} },
       },
       'GET /api/v1/problems/settings': { body: fakeIncidentCatalogue() },
+      'GET /api/v1/problem-repeats/hits': { body: [] },
+      'GET /api/v1/problems/views': {
+        body: [
+          { view: 'all_open', count: 1, capped: false },
+          { view: 'known_errors', count: 0, capped: false },
+          { view: 'accepted_due_review', count: 0, capped: false },
+        ],
+      },
       'GET /api/v1/problems/templates': { body: [template] },
       'GET /api/v1/problems/similar': { body: [] },
       [`GET /api/v1/problems/${PRB_ID}`]: { body: record },
@@ -91,6 +100,77 @@ function api(routes: Record<string, unknown> = {}) {
 }
 
 describe('console: problems', () => {
+  it('WP-044c S1: the views with their counts, and a search for words or a PRB number', async () => {
+    window.history.pushState({}, '', '/problems');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('prb-row-PRB-7');
+    const selector = screen.getByTestId('prb-view').querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    fireEvent.click(await screen.findByText('Known errors (0)'));
+    await waitFor(() => {
+      expect(
+        fake
+          .find('GET', '/api/v1/problems')
+          .some((c) => c.url.searchParams.get('view') === 'known_errors'),
+      ).toBe(true);
+    });
+    fireEvent.change(screen.getByTestId('prb-search'), { target: { value: 'PRB-7' } });
+    await waitFor(() => {
+      const sent = fake
+        .find('GET', '/api/v1/problems')
+        .map((c) => c.url.searchParams.get('filter'))
+        .filter((f): f is string => f !== null);
+      expect(sent.some((f) => f.includes('"display_number"') && f.includes('7'))).toBe(true);
+    });
+  });
+
+  it('WP-044c S1: the ID and subject stay in view and a long subject ends in an ellipsis', async () => {
+    window.history.pushState({}, '', '/problems');
+    api();
+    render(<App />);
+    const row = (await screen.findByTestId('prb-row-PRB-7')).closest('tr') as HTMLElement;
+    const cells = row.querySelectorAll('td');
+    expect(cells[0]?.className).toContain('ant-table-cell-fix-left');
+    expect(cells[1]?.className).toContain('ant-table-cell-fix-left');
+    expect(cells[1]?.className).toContain('ant-table-cell-ellipsis');
+  });
+
+  it('WP-044c D16: a set of repeated incidents, dismissed or turned into a problem', async () => {
+    const HIT = {
+      id: '01a1a2b3-0000-7000-8000-0000000aa001',
+      rule_id: '01a1a2b3-0000-7000-8000-0000000aa002',
+      category_id: null,
+      site_id: null,
+      group_id: null,
+      incident_count: 12,
+      first_at: '2026-11-06T08:00:00Z',
+      last_at: '2026-11-06T10:00:00Z',
+      version: 1,
+    };
+    window.history.pushState({}, '', '/problems');
+    const fake = api({
+      'GET /api/v1/problem-repeats/hits': { body: [HIT] },
+      [`POST /api/v1/problem-repeats/hits/${HIT.id}/handle`]: { body: { ...HIT, version: 2 } },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('prb-repeats');
+    expect(card.textContent).toContain('12 similar incidents');
+    fireEvent.click(within(card).getByTestId(`prb-repeat-dismiss-${HIT.id}`));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/problem-repeats/hits/${HIT.id}/handle`)).toHaveLength(1);
+    });
+    expect(fake.find('POST', `/api/v1/problem-repeats/hits/${HIT.id}/handle`)[0]?.body).toEqual({
+      outcome: 'dismissed',
+      problem_id: null,
+    });
+    fireEvent.click(within(card).getByTestId(`prb-repeat-create-${HIT.id}`));
+    await waitFor(() => {
+      expect(window.location.search).toBe(`?repeat=${HIT.id}`);
+    });
+  });
+
   it('lists problems with a way to create one', async () => {
     window.history.pushState({}, '', '/problems');
     api();
@@ -149,6 +229,37 @@ describe('console: problems', () => {
     expect(sent.problem.requester_id).toBe(TECH); // reported by: the creator
     expect(sent.problem.template_id).toBe(TEMPLATE_ID); // the default template first
     await screen.findByTestId('prb-record');
+  });
+
+  it("WP-044c S1: a problem gets its group and owner in the incident's assign dialog", async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const fake = api({
+      'GET /api/v1/problems/assignees': {
+        body: [
+          { id: TECH, display_name: 'Nadia Network', email: 'nadia@example.com', open_count: 0 },
+        ],
+      },
+      'GET /api/v1/organization/groups': { body: [] },
+    });
+    render(<App />);
+    await screen.findByTestId('prb-record');
+    await clickAction('prb-op-assign', 'prb-actions');
+    expect(await screen.findByTestId('inc-assign-technician')).toBeDefined();
+    // The owners offered are those who may work problems, not incidents.
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/problems/assignees').length).toBeGreaterThan(0);
+    });
+    expect(fake.find('GET', '/api/v1/incidents/assignees')).toHaveLength(0);
+  });
+
+  it('WP-044c S1: a problem prints as a document', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api();
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    render(<App />);
+    await screen.findByTestId('prb-record');
+    await clickAction('prb-print', 'prb-actions');
+    expect(print).toHaveBeenCalledTimes(1);
   });
 
   it('shows the guided steps, the next move and the investigators', async () => {
@@ -393,6 +504,28 @@ describe('console: problems', () => {
       expect(sent?.headers.get('If-Match')).toBe('"1"');
       expect((sent?.body as { decision: string }).decision).toBe('approve');
     });
+  });
+
+  it('tasks and worklogs use the parts routes of the problem (WP-044c)', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}/tasks`]: { body: { items: [], done: 0, total: 0 } },
+      [`GET /api/v1/problems/${PRB_ID}/worklogs`]: {
+        body: { items: [], total_minutes: 0, people: {} },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('prb-tab-tasks'));
+    await waitFor(() => {
+      expect(fake.calls.some((c) => c.path === `/api/v1/problems/${PRB_ID}/tasks`)).toBe(true);
+    });
+    fireEvent.click(screen.getByTestId('prb-tab-worklogs'));
+    await waitFor(() => {
+      expect(fake.calls.some((c) => c.path === `/api/v1/problems/${PRB_ID}/worklogs`)).toBe(true);
+    });
+    const incidentParts = (c: { path: string }) =>
+      /^\/api\/v1\/incidents\/[^/]+\/(tasks|worklogs)/.test(c.path);
+    expect(fake.calls.some(incidentParts)).toBe(false);
   });
 
   it('evidence: the caused incidents in report order, and what is not there yet', async () => {

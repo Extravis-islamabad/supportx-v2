@@ -46,6 +46,7 @@ from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     IDENTITY_PERMISSIONS,
     KNOWLEDGE_MANAGER,
+    PROBLEM_MANAGER,
     REPORT_VIEWER,
     RESERVED_PERMISSIONS,
     SERVICE_DESK_MANAGER,
@@ -369,6 +370,7 @@ register_people_usage()
 
 __all__ = [
     "KNOWLEDGE_MANAGER",
+    "PROBLEM_MANAGER",
     "REPORT_VIEWER",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",

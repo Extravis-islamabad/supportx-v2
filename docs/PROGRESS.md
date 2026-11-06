@@ -909,6 +909,43 @@ it with no reload (rule c). Not built yet.
       URL form works now).
 - WP-044a is complete once #211's full-ci is green; it then leaves draft.
 
+### [ ] WP-044c — Problems: lists, views, permissions, notifications, detection (lane A, 2026-11-06; 3 sessions; #240)
+- **Paused** for the product owner's full QA stop (2026-11-06). The resume point is in
+  docs/lanes/A.md.
+- [ ] S1 (in progress):
+  - done: the views "known errors" and "accepted, due for review"; Tasks, Worklogs and History
+    tabs on the problem page (the parts and history hooks take the type's prefix); the list's
+    views with counts, one search for words or a PRB number, ellipsis and sticky ID/subject;
+    print a problem; assign its group and owner (the incident's dialog with the problems'
+    rules and assignees); "Create problem" from the chosen incidents in the bulk bar;
+  - next: REQ-PRB-021 templates limited to groups (one migration, number asked); REQ-PRB-022
+    the problem admin area and designer hints, on lane C's shared settings layout (#258) once
+    it lands.
+- [x] S2 (D14, D15), on #240:
+  - the causing problem on an incident, narrowly, for every technician (REQ-PRB-071):
+    `GET /incidents/{id}/causing-problem` and the "Caused by a problem" card, never the root cause;
+  - the built-in `problem_manager` role (Appendix A; lane C's review), made per tenant on demand
+    (no data migration);
+  - problem notifications on the engine (lane B's review): assigned, investigator added, known
+    error and solved (to the linked incidents' technicians), target date, mentions; no event is
+    public;
+  - requesters told "known and being worked on" or "fixed" on their portal incident
+    (REQ-PRB-075), never the problem;
+  - the problem report source's own fields and names; measures and widgets are lane C's WP-063;
+  - not yet: the requester-facing workaround (REQ-PRB-040, waits for lane C's WP-034 portal
+    knowledge).
+- [x] S3 (D16, D17), on #240:
+  - repeat incident rules without AI (REQ-PRB-068, migration 0110): the 15-minute evaluator
+    (one open set per rule and key, members capped, a handled set returns only for new
+    incidents), the problem module's (not in Essentials), the group told once, the problems
+    list's "Repeated incidents" card, Admin › Incidents › Repeated incidents (locked through
+    the shared featureState for licence managers outside the plan);
+  - D17: every problem operation in the public API (a contract test); the mobile app itself
+    stays a cross-lane question;
+  - en/ar/ur for every new screen; Arabic e2e with axe for the causing problem, the rules and
+    the list at 390 px;
+  - not yet: the rules screen and REQ-PRB-022's admin area on lane C's settings layout (#258).
+
 ### [x] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
 - **Plan:** ~/Desktop/wp-044-plan.md (D8..D12). The branch starts from #211's head; main is
   merged in once #211 lands. Migration 0078 (already allotted in the WP-044 numbers).
