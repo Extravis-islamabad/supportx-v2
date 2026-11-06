@@ -18,3 +18,16 @@
   #251, #254, #255, #258, #263, #265, #266), then this resumed at the recorded point.
 - **Open:** the trigger action "start a workflow" waits on lane A's choice; the chart's
   workflowTimers Deployment is lane B's.
+
+## Addendum: the trigger action (same day)
+
+- `start_workflow` trigger action, on lane A's four conditions: a save-time check at
+  `actions.N.workflow_id` (`workflow_not_found` and `workflow_wrong_record_type` always;
+  `workflow_not_published` and `workflow_disabled` for an enabled trigger), its own savepoint
+  with the refusal logged by `instance_code`, and a loop guard.
+- The loop guard needed a cause: the event's actor in a consumer is the system actor, so the
+  runtime wraps each command in the new `app/shared/events.caused_by(instance)`, and the trigger
+  skips with `kept/own_change` when the cause is an instance of the same workflow.
+- Tests: `tests/db/test_workflow_trigger_action.py` (3), plus all 13 existing trigger API tests.
+  Lane A reviewed and approved it on #233. Lane A will fix the automated note's `automatic`
+  flag in WP-048a.

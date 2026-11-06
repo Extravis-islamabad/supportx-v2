@@ -1253,12 +1253,12 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 in progress, #233)
+### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 done, #233)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
 Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
 
-- [~] **S1 — the runtime core (#233).**
+- [x] **S1 — the runtime core (#233).**
   - ADR-043, reviewed by lanes A (§6 work_items touch points, §7 the shared action library)
     and B (§8 the guarded HTTP client, the run-as identity).
   - Definitions and validation (`domain/workflows.py`): the node registry, problems named by node
@@ -1279,9 +1279,11 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
   - Admin service and API `/automation/workflows`: create, draft with problems, publish, enable,
     start templates, start on a record, instances and their log; `workflows.manage` and
     `workflows.run` behind the `workflows` licence feature.
-  - Waiting on lane A: the trigger action "start a workflow" (REQ-WF-010 AC2), either on #233 or
-    with WP-048a's action library.
-  - Lane B's chart: a `workflowTimers` Deployment beside slaTimers when Temporal joins the chart.
+  - The trigger action "start a workflow" (REQ-WF-010 AC2; lane A reviewed): checked on save,
+    its own savepoint, refusals logged by code; a loop guard through the shared
+    `app/shared/events.caused_by` (a workflow command's events name the instance as their cause).
+  - Lane B's chart (#268, after #233): a `workflowTimers` Deployment beside slaTimers with
+    Temporal.
 - [ ] **S2** — the approval node (with D-146's chair), task and checklist nodes, notification,
   webhook (the shared guarded HTTP client) and function (runner port) nodes, variables, retries
   and error outputs, sub-flows.
