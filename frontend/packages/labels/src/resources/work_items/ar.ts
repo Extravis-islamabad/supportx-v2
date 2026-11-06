@@ -1216,6 +1216,7 @@ export const ar: LabelResource = {
   'problems.no_match': 'لا توجد مشكلة مطابقة. جرّب كلمات أخرى.',
   'problems.not_found': 'لم يُعثر على هذه المشكلة، أو لا يمكنك رؤيتها.',
   'problems.owner': 'المسؤول',
+  'problems.print': 'طباعة',
   'problems.properties': 'الخصائص',
   'problems.record_type': 'مشكلة',
   'problems.related.add': 'ربط مشكلة ذات صلة',

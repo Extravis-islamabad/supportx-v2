@@ -251,6 +251,17 @@ function ProblemView({
       );
     },
   };
+  // The record as a document (WP-044c S1): the browser's print, with the navigation, the
+  // actions and the editors left out by the page's print rules (AppearanceProvider).
+  const printAction: RecordAction = {
+    key: 'print',
+    label: t('problems.print'),
+    allowed: true,
+    testId: 'prb-print',
+    onClick: () => {
+      window.print();
+    },
+  };
   const problemType = (catalogue.data?.problem_types ?? []).find(
     (v) => v.code === item.problem_type,
   );
@@ -291,6 +302,7 @@ function ProblemView({
               messageAction,
               followUpAction,
               copyAction,
+              printAction,
               mergeAction,
             ]}
             max={3}

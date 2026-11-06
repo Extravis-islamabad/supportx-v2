@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
+import { clickAction } from '../../test/actions';
 import { consoleApi } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
@@ -193,6 +194,16 @@ describe('console: problems', () => {
     expect(sent.problem.requester_id).toBe(TECH); // reported by: the creator
     expect(sent.problem.template_id).toBe(TEMPLATE_ID); // the default template first
     await screen.findByTestId('prb-record');
+  });
+
+  it('WP-044c S1: a problem prints as a document', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api();
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    render(<App />);
+    await screen.findByTestId('prb-record');
+    await clickAction('prb-print', 'prb-actions');
+    expect(print).toHaveBeenCalledTimes(1);
   });
 
   it('shows the guided steps, the next move and the investigators', async () => {

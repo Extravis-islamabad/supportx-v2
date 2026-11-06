@@ -1108,6 +1108,7 @@ export const ur: LabelResource = {
   'problems.no_match': 'کوئی مسئلہ نہیں ملا۔ دوسرے الفاظ آزمائیں۔',
   'problems.not_found': 'یہ مسئلہ نہیں ملا، یا آپ اسے نہیں دیکھ سکتے۔',
   'problems.owner': 'ذمہ دار',
+  'problems.print': 'پرنٹ کریں',
   'problems.properties': 'خصوصیات',
   'problems.record_type': 'مسئلہ',
   'problems.related.add': 'متعلقہ مسئلہ جوڑیں',

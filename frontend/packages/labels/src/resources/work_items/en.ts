@@ -1104,6 +1104,7 @@ export const en = {
   'problems.no_match': 'No problem matches. Try other words.',
   'problems.not_found': 'This problem was not found, or you cannot see it.',
   'problems.owner': 'Owner',
+  'problems.print': 'Print',
   'problems.properties': 'Properties',
   'problems.record_type': 'Problem',
   'problems.related.add': 'Link a related problem',
