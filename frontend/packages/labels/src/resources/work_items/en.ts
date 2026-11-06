@@ -690,6 +690,8 @@ export const en = {
   'incidents.sla.paused_since': 'Paused since',
   'incidents.sla.policy': 'Policy',
   'incidents.sla.reason': 'Reason',
+  'incidents.sla.resolved_late': 'Resolved late',
+  'incidents.sla.resolved_on_time': 'Resolved on time',
   'incidents.sla.set_by_hand': 'Set by hand by {{name}}: {{reason}}',
   'incidents.sla.span_days': '{{days}} d {{hours}} h',
   'incidents.sla.span_hours': '{{hours}} h {{minutes}} min',

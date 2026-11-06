@@ -698,6 +698,8 @@ export const ur: LabelResource = {
   'incidents.sla.paused_since': 'رکا ہوا، از',
   'incidents.sla.policy': 'پالیسی',
   'incidents.sla.reason': 'وجہ',
+  'incidents.sla.resolved_late': 'دیر سے حل ہوا',
+  'incidents.sla.resolved_on_time': 'وقت پر حل ہوا',
   'incidents.sla.set_by_hand': '{{name}} نے ہاتھ سے طے کی: {{reason}}',
   'incidents.sla.span_days': '{{days}} دن {{hours}} گھنٹے',
   'incidents.sla.span_hours': '{{hours}} گھنٹے {{minutes}} منٹ',

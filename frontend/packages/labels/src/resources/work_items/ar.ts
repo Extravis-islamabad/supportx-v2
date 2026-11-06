@@ -765,6 +765,8 @@ export const ar: LabelResource = {
   'incidents.sla.paused_since': 'متوقف مؤقتًا منذ',
   'incidents.sla.policy': 'السياسة',
   'incidents.sla.reason': 'السبب',
+  'incidents.sla.resolved_late': 'حُلّت متأخرة',
+  'incidents.sla.resolved_on_time': 'حُلّت في الوقت المحدد',
   'incidents.sla.set_by_hand': 'عيّنه يدويًا {{name}}: {{reason}}',
   'incidents.sla.span_days': '{{days}} ي {{hours}} س',
   'incidents.sla.span_hours': '{{hours}} س {{minutes}} د',
