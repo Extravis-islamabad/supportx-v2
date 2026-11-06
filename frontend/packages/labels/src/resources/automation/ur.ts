@@ -239,6 +239,7 @@ export const ur: LabelResource = {
   'rule_state.enabled': 'فعال',
   'trigger_action_kind.note': 'نجی نوٹ شامل کریں',
   'trigger_action_kind.set': 'فیلڈ سیٹ کریں',
+  'trigger_action_kind.start_workflow': 'ورک فلو شروع کریں',
   'trigger_event.assigned': 'تفویض ہونے پر',
   'trigger_event.created': 'بننے پر',
   'trigger_event.note_added': 'نوٹ شامل ہونے پر',
