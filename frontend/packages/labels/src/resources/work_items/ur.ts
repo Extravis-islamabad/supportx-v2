@@ -795,6 +795,9 @@ export const ur: LabelResource = {
   'incidents.worklogs.total': 'کل وقت',
   'incidents.worklogs.type': 'ورک لاگ کی قسم',
   'incidents.worklogs.when': '{{from}} سے {{to}} تک',
+  'known_problem.being_worked_on':
+    'ہمیں اس مسئلے کا علم ہے اور ہم اسے ٹھیک کرنے پر کام کر رہے ہیں۔',
+  'known_problem.fixed': 'اس کی وجہ بننے والا مسئلہ ٹھیک کر دیا گیا۔',
   'level.tier_1': 'درجہ 1',
   'level.tier_2': 'درجہ 2',
   'level.tier_3': 'درجہ 3',

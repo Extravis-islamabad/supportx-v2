@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import NotFound
+from app.core.errors import NotFound, PermissionDenied
 from app.modules import sla
 from app.modules.identity_access import subject_for, user_names
 from app.modules.organization import unit_heads, users_in_groups
@@ -355,7 +355,7 @@ class ProblemNotifications:
         subject = await subject_for(session, tenant, user_id)
         try:
             await items.visible_record(session, subject, PROBLEM, record_id)
-        except NotFound:
+        except (NotFound, PermissionDenied):  # lane B's review: either means not theirs
             return RecordAccess.NONE
         return RecordAccess.FULL
 

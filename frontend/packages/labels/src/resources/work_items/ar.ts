@@ -866,6 +866,8 @@ export const ar: LabelResource = {
   'incidents.worklogs.total': 'إجمالي الوقت',
   'incidents.worklogs.type': 'نوع سجل العمل',
   'incidents.worklogs.when': 'من {{from}} إلى {{to}}',
+  'known_problem.being_worked_on': 'نحن على علم بهذه المشكلة ونعمل على إصلاحها.',
+  'known_problem.fixed': 'تم إصلاح المشكلة التي تسببت في ذلك.',
   'level.tier_1': 'المستوى 1',
   'level.tier_2': 'المستوى 2',
   'level.tier_3': 'المستوى 3',

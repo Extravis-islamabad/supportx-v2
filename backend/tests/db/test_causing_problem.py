@@ -62,3 +62,33 @@ async def test_req_prb_071_no_cause_reads_as_null(world: World) -> None:
     found = await world.call("GET", f"/incidents/{incident['id']}/causing-problem", a, a.tech_a)
     assert found.status_code == 200, found.text
     assert found.json() is None
+
+
+async def test_req_prb_075_the_requester_is_told_it_is_known_never_the_problem(
+    world: World,
+) -> None:
+    a = world.a
+    incident = await world.create(a, a.admin)  # the requester's own (world.create's default)
+    made = await new_problem(world, a, a.admin, group_id=str(a.ga), root_cause=ROOT_CAUSE)
+    cause = made.json()
+    portal = f"/portal/incidents/{incident['id']}"
+    before = (await world.call("GET", portal, a, a.requester)).json()
+    assert "known_problem" not in before or before["known_problem"] is None
+    linked = await world.call(
+        "POST",
+        f"{PRB}/{cause['id']}/incidents",
+        a,
+        a.admin,
+        json={"incident_id": incident["id"], "move": False},
+        headers=CONSOLE,
+    )
+    assert linked.status_code in {200, 201}, linked.text
+    seen = await world.call("GET", portal, a, a.requester)
+    assert seen.status_code == 200, seen.text
+    assert seen.json()["known_problem"] == "being_worked_on"
+    # Never the problem itself: its ID, title or root cause.
+    for leak in (cause["id"], cause["display_id"], cause["subject"], "queue fills"):
+        assert leak.lower() not in seen.text.lower()
+    listed = await world.call("GET", "/portal/incidents", a, a.requester)
+    row = next(r for r in listed.json()["items"] if r["id"] == incident["id"])
+    assert row["known_problem"] == "being_worked_on"

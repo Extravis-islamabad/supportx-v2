@@ -264,6 +264,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "IndexFailure": "custom_field_index_error",
     # The portal (WP-028)
     "PortalStatus": "portal_status",
+    "KnownProblem": "known_problem",  # WP-044c D15 (REQ-PRB-075)
     "PortalReach": "portal_reach",
     "PortalState": "portal_state",
 }
