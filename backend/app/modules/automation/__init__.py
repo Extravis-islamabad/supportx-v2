@@ -18,6 +18,7 @@ Public interface: `register_record_type(RecordType(...))`; inside a save
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.automation.api.routes import router
+from app.modules.automation.api.workflows import router as workflows_router
 from app.modules.automation.domain.assignment import AssignmentChoice, RoutingChoice
 from app.modules.automation.domain.rules import (
     FieldKind,
@@ -70,10 +71,21 @@ from app.shared.schedules import ScheduleSpec
 
 FEATURE = "incident"  # rules work on incidents first; other types join with their modules
 
+WORKFLOWS = "workflows"  # the licence feature visual workflows sit behind (Professional)
+
 PERMISSIONS = (
     PermissionSpec("automation.view", feature=FEATURE, defaults=(("service_desk_manager", "all"),)),
     PermissionSpec(
         "automation.manage", feature=FEATURE, defaults=(("service_desk_manager", "all"),)
+    ),
+    # WP-048b: designing and publishing workflows; starting one on a record and reading its runs.
+    PermissionSpec(
+        "workflows.manage", feature=WORKFLOWS, defaults=(("service_desk_manager", "all"),)
+    ),
+    PermissionSpec(
+        "workflows.run",
+        feature=WORKFLOWS,
+        defaults=(("service_desk_manager", "all"), ("technician", "all")),
     ),
 )
 
@@ -81,7 +93,8 @@ register_usage_checks()
 
 module = ModuleSpec(
     name="automation",
-    routers=[router],
+    routers=[router, workflows_router],
+    router_features=[None, WORKFLOWS],
     events=EVENTS,
     permissions=PERMISSIONS,
     realtime=ROUTES,

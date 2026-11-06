@@ -187,8 +187,20 @@ export const en = {
   'automation_outcome.own_change': 'Not run on its own change',
   'automation_outcome.partial': 'Partly done',
   'automation_outcome.per_minute': 'Stopped: too many changes a minute',
+  'errors.name_invalid': 'Give it a name of up to 200 characters.',
+  'errors.not_a_service_identity':
+    'Only a workflow’s or connector’s own identity can be changed here.',
+  'errors.service_identity_role_not_allowed':
+    'A workflow or connector cannot hold this role: it would let it change who may do what.',
+  'errors.workflow_already_running': 'This workflow is already running on this record.',
+  'errors.workflow_disabled': 'This workflow is switched off, so it cannot start.',
+  'errors.workflow_has_problems': 'Fix the workflow’s problems before publishing it.',
   'errors.workflow_move_without_action':
     'This workflow step moves the record but names no status move. Choose one in the workflow.',
+  'errors.workflow_name_taken': 'A workflow with this name already exists for this record type.',
+  'errors.workflow_not_found': 'The workflow was not found.',
+  'errors.workflow_not_published': 'Publish the workflow first.',
+  'errors.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'loop_stop.depth': 'Chain too long',
   'loop_stop.own_change': 'Its own change',
   'loop_stop.rate': 'Too many changes a minute',
@@ -231,4 +243,9 @@ export const en = {
   'trigger_event.requester_replied': 'When the requester replies',
   'trigger_event.status_changed': 'When the status changes',
   'trigger_event.updated': 'When fields change',
+  'workflow_instance_status.cancelled': 'Cancelled',
+  'workflow_instance_status.failed': 'Failed',
+  'workflow_instance_status.finished': 'Finished',
+  'workflow_instance_status.running': 'Running',
+  'workflow_instance_status.waiting': 'Waiting',
 } as const;

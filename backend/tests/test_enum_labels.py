@@ -19,6 +19,7 @@ from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "InstanceOut.status": "workflow_instance_status",  # WP-048b
     "AiSettingsOut.summary_sources[]": "ai_summary_source",
     "DuplicateOut.reasons[]": "duplicate_reason",
     "DuplicatesOut.method": "duplicate_method",
