@@ -21,14 +21,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.authorization import access_changed
 from app.core.errors import PermissionDenied
 from app.modules.identity_access.domain.identity import UserType
-from app.modules.identity_access.domain.permissions import TENANT_ADMIN
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import UserCreatedV3, UserCreatedV4, UserStatusChanged
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service.directory import USER_RECORD_TYPE, UserRepository
 from app.modules.identity_access.service.policy import PolicyService
-from app.modules.identity_access.service.roles import RoleRepository, assign_role, remove_role
-from app.modules.identity_access.service.roles import _detail as role_detail
+from app.modules.identity_access.service.roles import (
+    assign_role,
+    remove_role,
+    role_allowed_for_service,
+)
 from app.shared.events import record_event
 from app.shared.history import Change, record_changes
 
@@ -115,24 +117,10 @@ async def set_service_identity_active(
     access_changed(session)
 
 
-# Roles a service identity may never hold (lane B, WP-048b): tenant administration would count it
-# as "another admin" (so a person could remove the last real one), and these rights would let a
-# misconfigured workflow change who may do what.
-_NEVER = frozenset({"identity.manage", "roles.manage", "users.preview"})
-
-
 async def _service_only(session: AsyncSession, identity_id: uuid.UUID) -> None:
     identity = await UserRepository(session).get(identity_id)
     if identity.user_type != UserType.SERVICE.value:
         raise PermissionDenied(code="not_a_service_identity")
-
-
-async def _role_allowed(session: AsyncSession, policy: PolicyService, role_id: uuid.UUID) -> None:
-    role = await RoleRepository(session).get(role_id)
-    detail = await role_detail(session, policy.catalogue, role)
-    held = {grant.permission for grant in detail.grants}
-    if role.key == TENANT_ADMIN or held & _NEVER:
-        raise PermissionDenied(code="service_identity_role_not_allowed")
 
 
 async def assign_service_identity_role(
@@ -148,7 +136,7 @@ async def assign_service_identity_role(
     tenant administration or a role that manages identities, roles or previews people.
     """
     await _service_only(session, identity_id)
-    await _role_allowed(session, policy, role_id)
+    await role_allowed_for_service(session, policy.catalogue, role_id)
     return await assign_role(session, policy, subject, identity_id, role_id)
 
 

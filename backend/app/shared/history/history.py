@@ -1,5 +1,6 @@
 """Field history implementation (see the package docstring)."""
 
+import copy
 import uuid
 from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -185,7 +186,7 @@ def automated(session: AsyncSession, ref: Mapping[str, JsonValue]) -> Iterator[N
     The previous value comes back when the block ends, so nothing outside it inherits the ref.
     """
     previous = session.info.get(AUTOMATION_KEY)
-    session.info[AUTOMATION_KEY] = dict(ref)
+    session.info[AUTOMATION_KEY] = copy.deepcopy(dict(ref))  # never the caller's live object
     try:
         yield
     finally:
