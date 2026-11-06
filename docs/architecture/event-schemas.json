@@ -1205,6 +1205,57 @@
         "type": "object"
       }
     },
+    "automation.workflow_instance.changed": {
+      "1": {
+        "description": "A workflow instance moved on, waited, failed or ended (WP-048b, REQ-WF-023, -025).\n\nThe record's execution view and the overview refresh; IDs and codes only.",
+        "properties": {
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "waiting",
+              "failed",
+              "finished",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "workflow_id",
+          "record_type",
+          "record_id",
+          "status",
+          "version"
+        ],
+        "title": "WorkflowInstanceChanged",
+        "type": "object"
+      }
+    },
     "identity_access.access_settings.changed": {
       "1": {
         "description": "The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh.",

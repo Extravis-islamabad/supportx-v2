@@ -445,6 +445,7 @@ export const en = {
   'event_type.automation.availability.changed': 'Availability changed',
   'event_type.automation.definition.changed': 'Automation changed',
   'event_type.automation.loop.stopped': 'Automation stopped (loop protection)',
+  'event_type.automation.workflow_instance.changed': 'Workflow moved on',
   'event_type.identity_access.access_settings.changed': 'Technician visibility changed',
   'event_type.identity_access.api_key.changed': 'API key changed',
   'event_type.identity_access.group_role.changed': 'Group roles changed',
