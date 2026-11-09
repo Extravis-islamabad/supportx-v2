@@ -170,6 +170,7 @@ _RELEASE_FIELDS: Mapping[str, str | tuple[str, ...]] = {
     **_STAGED_FIELDS,
     "release_manager_id": ("assigned", _ACCESS),
     "release_engineer_id": ("assigned", _ACCESS),
+    "risk": "risk_changed",  # a release's own risk (REQ-REL-004 AC3); risk_chosen is change-only
 }
 _WORK_VALUES: tuple[ValueRule, ...] = (
     ValueRule("status_category", "resolved", new_in=frozenset({"resolved"})),

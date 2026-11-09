@@ -265,6 +265,7 @@ export const ar: LabelResource = {
   'audit.action.release.rescheduled': 'أعاد جدولة مرحلة في إصدار',
   'audit.action.release.resolved': 'أكمل إصدارًا',
   'audit.action.release.restored': 'استعاد إصدارًا من سلة المحذوفات',
+  'audit.action.release.risk_changed': 'غيّر مستوى خطورة إصدار',
   'audit.action.release.sent_back_for_approval': 'أعاد إصدارًا للموافقة',
   'audit.action.release.settings_changed': 'غيّر إعدادات الإصدارات',
   'audit.action.release.stage_changed': 'نقل إصدارًا إلى مرحلة أخرى',

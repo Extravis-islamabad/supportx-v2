@@ -266,6 +266,7 @@ export const en = {
   'audit.action.release.rescheduled': 'Rescheduled a stage of a release',
   'audit.action.release.resolved': 'Completed a release',
   'audit.action.release.restored': 'Restored a release from the trash',
+  'audit.action.release.risk_changed': 'Changed the risk of a release',
   'audit.action.release.sent_back_for_approval': 'Sent a release back for approval',
   'audit.action.release.settings_changed': 'Changed release settings',
   'audit.action.release.stage_changed': 'Moved a release to another stage',

@@ -144,6 +144,7 @@ def test_release_stages_plans_and_people_name_their_events() -> None:
         FieldDiff("schedule.deploy.outcome", None, "successful"),
         FieldDiff("plan.backout", "x", "y"),
         FieldDiff("release_engineer_id", None, "u1"),
+        FieldDiff("risk", "low", "high"),
     ]
     assert set(events_of(release, "updated", changes)) == {
         "release.assigned",
@@ -151,6 +152,7 @@ def test_release_stages_plans_and_people_name_their_events() -> None:
         "release.rescheduled",
         "release.stage_outcome_recorded",
         "release.plan_changed",
+        "release.risk_changed",
     }
     assert "release.sla_paused" not in release.events()
     assert "release.emergency_override" not in release.events()

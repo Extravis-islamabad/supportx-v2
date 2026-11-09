@@ -265,6 +265,7 @@ export const ur: LabelResource = {
   'audit.action.release.rescheduled': 'ریلیز کے ایک مرحلے کا وقت بدلا',
   'audit.action.release.resolved': 'ریلیز کو مکمل کیا',
   'audit.action.release.restored': 'ریلیز ردی کی ٹوکری سے بحال کی',
+  'audit.action.release.risk_changed': 'ریلیز کا خطرہ بدلا',
   'audit.action.release.sent_back_for_approval': 'ریلیز کو دوبارہ منظوری کے لیے بھیجا',
   'audit.action.release.settings_changed': 'ریلیز کی ترتیبات تبدیل کیں',
   'audit.action.release.stage_changed': 'ریلیز کو دوسرے مرحلے میں منتقل کیا',
