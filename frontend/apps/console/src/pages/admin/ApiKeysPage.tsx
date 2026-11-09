@@ -1,7 +1,7 @@
 import { App, Card, Flex, Space, Switch, Typography } from 'antd';
 
 import { useIdentitySettings, useSaveIdentitySettings } from '@supportx/api-client';
-import { NoAccess, reportError, useAccess, useLabel } from '@supportx/ui';
+import { NoAccess, reportError, useAccess, useLabel, useLicence } from '@supportx/ui';
 
 import { ApiKeysPanel } from '../apiKeys/ApiKeysPanel';
 
@@ -13,6 +13,8 @@ function KeyRulesCard() {
   const { message } = App.useApp();
   const settings = useIdentitySettings();
   const save = useSaveIdentitySettings();
+  // A read-only licence: the rules are shown, not changeable (the server refuses with 403).
+  const { writable } = useLicence();
   if (settings.data === undefined) return null;
   const saved = settings.data;
   const change = (field: 'people_may_create_keys' | 'allow_non_expiring_keys', value: boolean) => {
@@ -39,6 +41,7 @@ function KeyRulesCard() {
       <Switch
         checked={saved[field]}
         loading={save.isPending}
+        disabled={!writable}
         aria-labelledby={`api-key-rule-${field}`}
         data-testid={`api-key-rule-${field}`}
         onChange={(value) => {

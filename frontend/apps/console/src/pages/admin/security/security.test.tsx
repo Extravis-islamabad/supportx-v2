@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IdentitySettings, Invitation, SsoProvider } from '@supportx/api-client';
-import { fakeSession, problem } from '@supportx/api-client/testing';
+import { fakeEntitlements, fakeSession, problem } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
 import { consoleApi } from '../../../test/api';
@@ -339,6 +339,30 @@ describe('invitations (WP-039 session 2, REQ-SEC-018..020)', () => {
     await waitFor(() => {
       expect(fake.find('POST', '/api/v1/identity/invitations/i1/revoke')).toHaveLength(1);
     });
+  });
+
+  it('with a read-only licence, sending again and withdrawing are disabled (§17 item 3)', async () => {
+    api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/invitations': { body: { items: [invitation()] } },
+          'GET /api/v1/entitlements': {
+            body: fakeEntitlements({
+              state: 'read_only',
+              state_reason: 'expired',
+              writable: false,
+            }),
+          },
+        },
+      }),
+    );
+    render(<App />);
+    const list = await screen.findByTestId('security-invitations-list');
+    await within(list).findByText('ina@acme.test');
+    await waitFor(() => {
+      expect(within(list).getByTestId('invitation-resend').hasAttribute('disabled')).toBe(true);
+    });
+    expect(within(list).getByTestId('invitation-revoke').hasAttribute('disabled')).toBe(true);
   });
 
   it('says when links sent earlier still work after sending again', async () => {
