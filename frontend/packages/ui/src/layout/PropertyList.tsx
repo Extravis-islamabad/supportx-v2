@@ -1,6 +1,6 @@
-import { PlusOutlined, UpOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined, UpOutlined } from '@ant-design/icons';
 import { Button, Typography, theme } from 'antd';
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useState, type MouseEvent, type ReactNode } from 'react';
 
 import { useLabel } from '../appearance';
 import { SPACE, TYPE } from '../density';
@@ -64,8 +64,11 @@ export function PropertyList({ items, testId }: { items: PropertyItem[]; testId?
 }
 
 /**
- * A value that edits on a click (template A): the whole value is the control, with a hover
- * background instead of a pencil. Keyboard: Enter or Space. Empty values read "Add".
+ * A value that edits on a click (template A): no pencil on every row, a hover background
+ * instead. The value stays plain content, read as itself, with its links reachable (never inside
+ * a role=button: lane A's #293 review, axe nested-interactive). Keyboard and screen-reader users
+ * get a real "Edit <field>" button right after it, shown when it has focus. Empty values read
+ * "Add".
  */
 export function EditableValue({
   label,
@@ -74,7 +77,7 @@ export function EditableValue({
   children,
   testId,
 }: {
-  /** The field's name, for the accessible name ("Edit Urgency"). */
+  /** The field's name, for the edit button's name ("Edit Urgency"). */
   label: string;
   onEdit: () => void;
   empty?: boolean;
@@ -84,32 +87,21 @@ export function EditableValue({
   const t = useLabel();
   const { token } = theme.useToken();
   const [hover, setHover] = useState(false);
-  const key = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onEdit();
-    }
+  const click = (event: MouseEvent<HTMLDivElement>) => {
+    // A link or control inside the value does its own thing (a person, a linked record).
+    const target = event.target as Element;
+    if (target.closest('a, button, input, [role="button"]') !== null) return;
+    onEdit();
   };
   return (
     <div
-      role="button"
-      tabIndex={0}
-      aria-label={t('layout.edit_field', { field: label })}
-      onClick={onEdit}
-      onKeyDown={key}
+      onClick={click}
       onMouseEnter={() => {
         setHover(true);
       }}
       onMouseLeave={() => {
         setHover(false);
       }}
-      onFocus={() => {
-        setHover(true);
-      }}
-      onBlur={() => {
-        setHover(false);
-      }}
-      data-testid={testId}
       style={{
         cursor: 'pointer',
         borderRadius: token.borderRadiusSM,
@@ -117,7 +109,6 @@ export function EditableValue({
         paddingInline: SPACE.xxs,
         minHeight: 22,
         background: hover ? token.colorFillTertiary : undefined,
-        outline: 'none',
         boxShadow: hover ? `0 0 0 1px ${token.colorBorder}` : undefined,
       }}
     >
@@ -128,6 +119,18 @@ export function EditableValue({
       ) : (
         children
       )}
+      <button
+        type="button"
+        className="sx-edit-trigger"
+        aria-label={t('layout.edit_field', { field: label })}
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit();
+        }}
+        data-testid={testId}
+      >
+        <EditOutlined aria-hidden />
+      </button>
     </div>
   );
 }

@@ -34,21 +34,23 @@ describe('template A (record page)', () => {
     expect(screen.queryByTestId('props-add')).toBeNull();
   });
 
-  it('edits a value on a click or the keyboard, with no pencil', () => {
+  it('edits a value on a click, or with its own Edit button, never inside a role=button', () => {
     const onEdit = vi.fn();
     renderUi(
-      <EditableValue label="Urgency" onEdit={onEdit} testId="edit-urgency">
-        High
+      <EditableValue label="Requester" onEdit={onEdit} testId="edit-requester">
+        <span>Saad</span> <a href="/people/1">profile</a>
       </EditableValue>,
     );
-    const value = screen.getByTestId('edit-urgency');
-    expect(value.getAttribute('role')).toBe('button');
-    expect(value.getAttribute('aria-label')).toBe('Edit Urgency');
-    expect(value.querySelector('.anticon-edit')).toBeNull();
+    const button = screen.getByTestId('edit-requester');
+    expect(button.tagName).toBe('BUTTON');
+    expect(button.getAttribute('aria-label')).toBe('Edit Requester');
+    const value = screen.getByText('Saad');
+    expect(value.closest('[role="button"]')).toBeNull(); // the value reads as itself
     fireEvent.click(value);
-    fireEvent.keyDown(value, { key: 'Enter' });
-    fireEvent.keyDown(value, { key: ' ' });
-    expect(onEdit).toHaveBeenCalledTimes(3);
+    fireEvent.click(button);
+    expect(onEdit).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByText('profile')); // the link inside does its own thing
+    expect(onEdit).toHaveBeenCalledTimes(2);
   });
 
   it('reads "Add" for an empty value', () => {
@@ -57,7 +59,7 @@ describe('template A (record page)', () => {
         {null}
       </EditableValue>,
     );
-    expect(screen.getByTestId('edit-impact').textContent).toBe('Add');
+    expect(screen.getByText('Add')).toBeTruthy();
   });
 
   it('lets a screen wrap the title (to edit it in place)', () => {
