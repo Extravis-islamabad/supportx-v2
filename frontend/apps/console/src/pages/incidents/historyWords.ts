@@ -6,6 +6,9 @@ import {
   useIncidentCategories,
   useIncidentHistory,
   useIncidentTemplates,
+  useProblemCatalogue,
+  useProblemCategories,
+  useProblemTemplates,
   useUnits,
   type IncidentHistoryEntry,
 } from '@supportx/api-client';
@@ -23,6 +26,7 @@ import {
   statusLabel,
   templateLabel,
 } from './labels';
+import { plainText } from './writingText';
 
 // The words of an incident's history (REQ-WI-003/004), shared by the History tab and the
 // conversation timeline's quiet event lines (UI pass 2): field names, values as labels, names
@@ -55,9 +59,15 @@ const TIMES = new Set([
   'resolution_due_at',
 ]);
 // Rich text and references with no words of their own: "changed", never the HTML or an ID.
+// How much of a resolution's text history shows.
+const RESOLUTION_WORDS = 200;
+
+function clip(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+}
+
 const CHANGED_ONLY = new Set([
   'description',
-  'resolution',
   'follows_id',
   'task.position',
   'sla_policy_id', // WP-025: the panel names the policy
@@ -76,18 +86,31 @@ const FLAGS = new Set(['handed_over_out_of_reach']);
 export type HistoryActors = 'all' | 'people' | 'automation';
 
 /** The history of incident `id` and how to say each change. */
-export function useHistoryWords(id: string, actors: HistoryActors = 'all') {
+export function useHistoryWords(
+  id: string,
+  actors: HistoryActors = 'all',
+  base: 'incidents' | 'problems' = 'incidents',
+  enabled = true,
+) {
   const t = useLabel();
   const listFormat = useListFormat();
   const { locale } = useAppearance();
   const dates = useDateTime();
   const { can } = useAccess();
-  const history = useIncidentHistory(id, actors);
-  const catalogue = useIncidentCatalogue();
-  const categories = useIncidentCategories();
-  const templates = useIncidentTemplates();
+  // A problem's history reads its own type's lists (WP-044c); both hooks run, one enabled.
+  const isProblem = base === 'problems';
+  const history = useIncidentHistory(id, actors, enabled, base);
+  const incidentCatalogue = useIncidentCatalogue(!isProblem);
+  const problemCatalogue = useProblemCatalogue(isProblem);
+  const catalogue = isProblem ? problemCatalogue : incidentCatalogue;
+  const incidentCategories = useIncidentCategories(!isProblem);
+  const problemCategories = useProblemCategories(isProblem);
+  const categories = isProblem ? problemCategories : incidentCategories;
+  const incidentTemplates = useIncidentTemplates(!isProblem);
+  const problemTemplates = useProblemTemplates(isProblem);
+  const templates = isProblem ? problemTemplates : incidentTemplates;
   // Removed fields too: their old values stay in the history (REQ-INC-014 AC4).
-  const customFields = useCustomFields('incident', true);
+  const customFields = useCustomFields(isProblem ? 'problem' : 'incident', true);
   const customText = useCustomValueText();
   const customField = (name: string) =>
     name.startsWith('custom.')
@@ -204,6 +227,11 @@ export function useHistoryWords(id: string, actors: HistoryActors = 'all') {
       return people[value]?.display_name ?? t('history.changed');
     }
     if (CHANGED_ONLY.has(change.field)) return t('history.changed');
+    // The fix in words (QA9-F-05): its text, never the HTML, kept short.
+    if (change.field === 'resolution' && typeof value === 'string') {
+      const words = plainText(value);
+      return words === '' ? t('history.empty') : clip(words, RESOLUTION_WORDS);
+    }
     if (typeof value === 'boolean') return t(value ? 'history.yes' : 'history.no');
     if (Array.isArray(value))
       return value.length === 0 ? t('history.empty') : listFormat(value.map(String));

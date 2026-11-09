@@ -73,6 +73,8 @@ LISTS_CHANGED = "work_items.lists_changed"
 # Correlation ID of a bulk job's events (service/bulk.py): lists refresh once per batch instead.
 BULK_PREFIX = "bulk:"
 PART_CHANGED = "work_items.part_changed"
+# Repeat incident rules and sets (WP-044c D16): screens refetch through the API (no data here).
+REPEATS_CHANGED = "work_items.problem_repeats_changed"
 # WP-030 s2: a record's approvals (its screens refetch), and an approver's own inbox count.
 APPROVALS_CHANGED = "work_items.approvals_changed"
 MY_APPROVALS_CHANGED = "work_items.my_approvals_changed"
@@ -399,6 +401,14 @@ async def _templates_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     )
 
 
+async def _repeats_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A repeat rule or set changed: the problems list and the rules screen refetch (no data)."""
+    del session
+    return RealtimeEffects(
+        publications=[Publication(broadcast(envelope.tenant_id), REPEATS_CHANGED)]
+    )
+
+
 async def _settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """Configuration changed: open forms reload their pick lists (no record data)."""
     del session
@@ -586,4 +596,8 @@ ROUTES = [
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
     RealtimeRoute(("work_items.part.changed",), _part_changed),
     RealtimeRoute(("work_items.approval.changed",), _approval_changed),
+    RealtimeRoute(
+        ("work_items.problem_repeat.detected", "work_items.problem_repeat.changed"),
+        _repeats_changed,
+    ),
 ]

@@ -29,6 +29,7 @@ from app.modules.work_items.domain.templates import (
     CUSTOM_PREFIX,
     TEMPLATE_DESCRIPTION_MAX,
     TEMPLATE_GROUP_MAX,
+    TEMPLATE_GROUPS_MAX,
     FieldRule,
     PickList,
     TemplateField,
@@ -295,6 +296,11 @@ class TemplateOut(BaseModel):
     group_name: str | None
     is_default: bool
     for_requesters: bool
+    limited_group_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="Offered only to members of these groups when creating (REQ-PRB-021); empty:"
+        " everyone. Admins see every template.",
+    )
     disabled: bool
     copied_from_id: uuid.UUID | None = Field(description="Set on copies (REQ-INC-035 AC3).")
     fields: dict[TemplateField, FieldRuleIO]
@@ -324,6 +330,7 @@ class TemplateOut(BaseModel):
             group_name=row.group_name,
             is_default=row.is_default,
             for_requesters=row.for_requesters,
+            limited_group_ids=list(row.limited_group_ids or []),
             disabled=row.disabled_at is not None,
             copied_from_id=row.copied_from_id,
             fields={
@@ -353,6 +360,9 @@ class TemplateIn(BaseModel):
     description: str | None = Field(default=None, max_length=TEMPLATE_DESCRIPTION_MAX * 2)
     group_name: str | None = Field(default=None, max_length=TEMPLATE_GROUP_MAX * 2)
     for_requesters: bool = False
+    limited_group_ids: list[uuid.UUID] = Field(
+        default_factory=list, max_length=TEMPLATE_GROUPS_MAX, description="REQ-PRB-021."
+    )
     fields: dict[str, FieldRuleIO] | None = None
     defaults: dict[str, Any] | None = None
     lifecycle: str | None = Field(
@@ -377,6 +387,9 @@ class TemplatePatch(BaseModel):
     description: str | None = Field(default=None, max_length=TEMPLATE_DESCRIPTION_MAX * 2)
     group_name: str | None = Field(default=None, max_length=TEMPLATE_GROUP_MAX * 2)
     for_requesters: bool | None = None
+    limited_group_ids: list[uuid.UUID] | None = Field(
+        default=None, max_length=TEMPLATE_GROUPS_MAX, description="Replaces them; [] for everyone."
+    )
     fields: dict[str, FieldRuleIO] | None = None
     defaults: dict[str, Any] | None = Field(default=None, description="Replaces all of them.")
     is_default: bool | None = None
@@ -844,9 +857,15 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
 
     @router.get("/templates", summary="Templates")
     async def list_templates(session: TenantSession, subject: View) -> list[TemplateOut]:
-        """Every template, the default first; disabled ones are marked, not hidden."""
-        del subject
-        return [TemplateOut.of(t) for t in await template_service.list_templates(session, wtype)]
+        """Every template you are offered, the default first; disabled ones are marked.
+
+        A template limited to groups is listed only for their members and for admins
+        (REQ-PRB-021 AC1).
+        """
+        rows = await template_service.list_templates(session, wtype)
+        return [
+            TemplateOut.of(t) for t in await template_service.offered_to(session, subject, rows)
+        ]
 
     @router.post("/templates", summary="Add a template", status_code=status.HTTP_201_CREATED)
     async def create_template(

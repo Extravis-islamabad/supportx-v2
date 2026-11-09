@@ -80,6 +80,8 @@ test('every sign-in setting is set in SupportX screens (REQ-SEC-017)', async ({ 
     // Two-step sign-in: required for requesters, a 3-day grace period.
     const mfa = page.getByTestId('security-mfa');
     await mfa.getByTestId('security-mfa-mode-requester').getByText('Required').click();
+    // A mode change asks first (settings QA PEO-11, #260): confirm it.
+    await page.getByRole('dialog').getByRole('button', { name: 'Change it' }).click();
     await expect(
       mfa.getByTestId('security-mfa-mode-requester').locator('.ant-segmented-item-selected'),
     ).toHaveText('Required');

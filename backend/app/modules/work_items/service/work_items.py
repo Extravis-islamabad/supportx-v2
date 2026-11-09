@@ -696,6 +696,13 @@ def view_predicates(
                 [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value]
             ),
         ),
+        # Problems (WP-044c, Appendix A): live known errors, and accepted ones due for review.
+        "known_errors": and_(
+            WorkItem.known_error_at.is_not(None), WorkItem.known_error_retired_at.is_(None)
+        ),
+        "accepted_due_review": and_(
+            WorkItem.accepted_at.is_not(None), WorkItem.accept_review_at <= now
+        ),
         "all": WorkItem.id.is_not(None),
         **_personal(subject, now=now, today_end=tomorrow),
     }
@@ -801,6 +808,8 @@ async def view_filters(
                 "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
             },
         ),
+        "known_errors": NOT_EXPRESSIBLE,  # the known error fields are not in the DSL yet
+        "accepted_due_review": NOT_EXPRESSIBLE,
         "all": None,
         "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
@@ -888,6 +897,7 @@ VIEW_CODES = (
 )
 # Service requests add their approval views (WP-030, REQ-SR-009); incidents never show them.
 SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
+PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 COUNT_CAP = 1000
 
 
@@ -895,6 +905,8 @@ def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
     """The built-in views of one type, in the menu's order."""
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         return (*VIEW_CODES[:-1], *SR_VIEW_CODES, VIEW_CODES[-1])
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        return (*VIEW_CODES[:-1], *PROBLEM_VIEW_CODES, VIEW_CODES[-1])
     return VIEW_CODES
 
 
@@ -2126,7 +2138,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     item = await _request_item(session, subject, wtype, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
-    template = await templates.for_create(session, wtype, values.get("template_id"))
+    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     problems += await templates.required_problems(
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
     )
@@ -5174,3 +5186,67 @@ async def automation_log(
     """What automation did on a record (triggers' outcomes, loop stops), for whoever may see it."""
     await _visible(session, subject, wtype, record_id)
     return list(await record_runs(session, record_id))
+
+
+async def apply_sla_from_creation(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    *,
+    now: datetime,
+    created_by: uuid.UUID | None = None,
+) -> bool:
+    """Give a record that never had an SLA its SLA from its creation; False when it had one.
+
+    Idempotent: a record with any SLA (applied, even a policy with no target for it) is left
+    as it is, so the same SLA is never applied twice. The record's columns change through the
+    repository with field history (source `api`), the change event and an audit entry, like
+    every save; nothing else of the record changes. The caller audits it, as routes do
+    (`<type>.sla_applied_from_creation`). See `sla_glue.replay_from_creation`.
+    """
+    record = await session.scalar(
+        select(WorkItem)
+        .where(WorkItem.id == record_id, WorkItem.deleted_at.is_(None))
+        .with_for_update()
+    )
+    if record is None or not sla_glue.has_sla(record):
+        return False
+    if created_by is not None and record.created_by != created_by:
+        return False  # only the caller's own records (the seed's, never a person's)
+    shown = await sla_glue.record_view(session, record)
+    if shown.policy_id is not None or shown.applied_at is not None or shown.targets:
+        return False
+    columns = await sla_glue.replay_from_creation(session, record, now=now)
+    changed = {k: v for k, v in columns.items() if getattr(record, k) != v}
+    if not changed:
+        return False
+    audience_before = _audience(record)
+    lines = [
+        Change(k, sla_glue.plain(getattr(record, k)), sla_glue.plain(v)) for k, v in changed.items()
+    ]
+    updated = await WorkItemRepository(session).update(
+        record.id, expected_version=record.version, changes=changed
+    )
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=lines,
+        source="api",
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(changed),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return True

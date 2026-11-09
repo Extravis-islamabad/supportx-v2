@@ -22,6 +22,11 @@ export const TYPE = {
 /** Table row height in the console (the cell padding below gives it with 13 px data text). */
 export const ROW_HEIGHT = 40;
 export const CONTROL_HEIGHT = 28;
+/**
+ * Field widths that match their content (D-147 template B): a code or a number is short, a name
+ * or a picker medium, free text the full width of its section.
+ */
+export const FIELD_WIDTH = { short: 200, medium: 360, full: '100%' } as const;
 /** The record page's permanent properties panel. */
 export const PANEL_WIDTH = 320;
 

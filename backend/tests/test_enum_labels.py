@@ -33,6 +33,13 @@ ENUM_PREFIXES: dict[str, str] = {
     "RecipientSet": "problem_recipient_set",
     "CopyPart": "problem_follow_up_copy",
     "OutcomeIn.outcome": "ai_outcome",
+    # Asset catalogue (WP-049a)
+    "AssetAgeBasis": "asset_age_basis",
+    "AssetDepreciationMethod": "asset_depreciation",
+    "AssetStateCategory": "asset_state_category",
+    "AssetDisposalIn.method": "asset_disposal_method",
+    "AssetTypeCategory": "asset_type_category",
+    "AssetTypeKind": "asset_type_kind",
     # SLA set-up (WP-025)
     "ActionKind": "sla_action_kind",
     "Anchor": "sla_level_anchor",
@@ -272,6 +279,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "IndexFailure": "custom_field_index_error",
     # The portal (WP-028)
     "PortalStatus": "portal_status",
+    "KnownProblem": "known_problem",  # WP-044c D15 (REQ-PRB-075)
+    # WP-044c D16 (REQ-PRB-068): repeat incident rules
+    "RepeatRuleOut.match": "repeat_match",
+    "RepeatRuleIn.match": "repeat_match",
+    "RepeatRulePatch.match": "repeat_match",
+    "RepeatHandleIn.outcome": "repeat_outcome",
     "PortalReach": "portal_reach",
     "PortalState": "portal_state",
 }

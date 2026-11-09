@@ -2,6 +2,7 @@ import { ur as shared } from './shared/ur.ts';
 import { ur as ai } from './ai/ur.ts';
 import { ur as analytics } from './analytics/ur.ts';
 import { ur as announcements } from './announcements/ur.ts';
+import { ur as assets } from './assets/ur.ts';
 import { ur as audit } from './audit/ur.ts';
 import { ur as automation } from './automation/ur.ts';
 import { ur as errors } from './errors/ur.ts';
@@ -24,6 +25,7 @@ export const ur: LabelResource = {
   ...ai,
   ...analytics,
   ...announcements,
+  ...assets,
   ...audit,
   ...automation,
   ...errors,
@@ -44,6 +46,7 @@ export const urByModule = {
   ai,
   analytics,
   announcements,
+  assets,
   audit,
   automation,
   errors,

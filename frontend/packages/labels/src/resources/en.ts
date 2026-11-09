@@ -2,6 +2,7 @@ import { en as shared } from './shared/en.ts';
 import { en as ai } from './ai/en.ts';
 import { en as analytics } from './analytics/en.ts';
 import { en as announcements } from './announcements/en.ts';
+import { en as assets } from './assets/en.ts';
 import { en as audit } from './audit/en.ts';
 import { en as automation } from './automation/en.ts';
 import { en as errors } from './errors/en.ts';
@@ -23,6 +24,7 @@ export const en = {
   ...ai,
   ...analytics,
   ...announcements,
+  ...assets,
   ...audit,
   ...automation,
   ...errors,
@@ -44,6 +46,7 @@ export const enByModule = {
   ai,
   analytics,
   announcements,
+  assets,
   audit,
   automation,
   errors,

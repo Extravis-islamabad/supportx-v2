@@ -18,6 +18,8 @@
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -91,6 +93,52 @@ async def causing_problem(session: AsyncSession, incident_id: uuid.UUID) -> Work
         )
     )
     return found
+
+
+@dataclass(frozen=True)
+class CausingView:
+    """The narrow read of an incident's causing problem (WP-044c D14; REQ-PRB-071, Q7).
+
+    What anyone who may see the incident is told, whether or not they may see problems: what it
+    is, where it stands, whether it is a known error, its workaround and its target date. Never
+    the root cause, the analysis or the people. `may_open`: they may open the problem itself.
+    """
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    status: str
+    known_error: bool
+    workaround: str | None
+    target_at: datetime | None
+    may_open: bool
+
+
+async def causing_view(
+    session: AsyncSession, subject: Subject, incident_id: uuid.UUID
+) -> CausingView | None:
+    """The incident's causing problem, narrowly; None when nothing causes it.
+
+    The incident's own view right decides (404 otherwise, as for the incident): a technician
+    without problem access learns that the problem exists and what to do meanwhile.
+    """
+    await items.visible_record(session, subject, INCIDENT, incident_id)
+    link = await causing_problem(session, incident_id)
+    if link is None:
+        return None
+    row = await session.get(WorkItem, link.target_id)
+    if row is None or row.deleted_at is not None or row.type != PROBLEM.code:
+        return None
+    return CausingView(
+        id=row.id,
+        display_id=row.display_id,
+        subject=row.subject,
+        status=row.status,
+        known_error=row.known_error_at is not None and row.known_error_retired_at is None,
+        workaround=row.workaround,
+        target_at=row.resolution_due_at,
+        may_open=await items.may(session, subject, PROBLEM, "view", row.id),
+    )
 
 
 async def link_cause(  # noqa: PLR0913 - both records, the move and the source, explicit
@@ -347,9 +395,11 @@ async def _investigator_history(
 
 __all__ = [
     "COPY_FIELDS",
+    "CausingView",
     "add_investigator",
     "already_caused",
     "causing_problem",
+    "causing_view",
     "copied_from",
     "copy_values",
     "investigators",

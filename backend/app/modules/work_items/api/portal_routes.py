@@ -26,7 +26,12 @@ from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.api.routes import RESOLUTION_MAX, RESPONSES
 from app.modules.work_items.domain.classification import Impact, Urgency
 from app.modules.work_items.domain.conversation import EntryKind
-from app.modules.work_items.domain.portal import PortalReach, PortalStatus, requester_fillable
+from app.modules.work_items.domain.portal import (
+    KnownProblem,
+    PortalReach,
+    PortalStatus,
+    requester_fillable,
+)
 from app.modules.work_items.domain.templates import (
     IMPACT_DETAILS_MAX,
     TemplateField,
@@ -55,6 +60,11 @@ class PortalIncidentOut(BaseModel):
     subject: str
     portal_status: PortalStatus
     reach: PortalReach = Field(description="Why you see it: own, or a wider reach you hold.")
+    known_problem: KnownProblem | None = Field(
+        default=None,
+        description="The issue is known and being worked on, or was fixed (REQ-PRB-075); never"
+        " the problem itself.",
+    )
     requester_id: uuid.UUID
     on_behalf_of_id: uuid.UUID | None = None
     created_at: datetime

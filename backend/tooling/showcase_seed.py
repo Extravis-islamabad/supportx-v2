@@ -32,9 +32,21 @@ added, nothing is ever updated or deleted (CLAUDE.md rule 5h).
    Append-only and signed tables are never touched: the audit log (its entries, queue and hash
    chain still verify; a test proves it), the outbox and the event log. So an incident may now
    predate its own audit entries, which is acceptable for demo data.
+
+6. SLAs from creation (Haider, 2026-11-09): a seed incident made before any SLA applied (the
+   shared stack's older showcase data) gets its SLA as if it had applied from its creation, on
+   its own (backdated) times: due from `created_at` on the business calendars, met or breached
+   by its real first response and resolution. Only the incidents the seed describes, by its
+   stable key (`is_seed_incident`) and made by its admin, never one a person made; only those
+   with no SLA at all; only in this tenant (a guard refuses any other). Through the work items
+   service (`on_change` per step), so field history (source `api`), the change event and a new
+   audit entry are written as for any save; never SQL on business rows, and history is never
+   re-dated. A re-run changes nothing.
 """
 
 import asyncio
+import hashlib
+import json
 import os
 import sys
 import uuid
@@ -53,10 +65,16 @@ from app.core.database import Database, create_engine
 from app.core.modules import ModuleRegistry, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
+from app.modules import sla
+from app.modules.audit import RequestFacts
+from app.modules.audit import record as record_audit
+from app.modules.audit.domain.catalogue import AuditClient
+from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import Identity
 from app.modules.identity_access.service.users import provision_user
 from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
+from app.modules.work_items.service.work_items import apply_sla_from_creation
 from app.shared.api.idempotency import REPLAYED_HEADER
 from tooling import showcase_lane_a as lane_a
 from tooling.keycloak_theme import admin_token
@@ -88,7 +106,17 @@ class SignIn:
 
 ADMIN = SignIn("admin@showcase.test", "Sana", "Malik", ("tenant_admin", "technician"))
 TECHNICIAN = SignIn("tech@showcase.test", "Omar", "Farooq", ("technician",))
-SIGN_INS = (ADMIN, TECHNICIAN)
+# The dev quick sign-in's personas (D-151; app/modules/identity_access/domain/quick_sign_in.py).
+LEAD = SignIn("lead@showcase.test", "Nadia", "Iqbal", ("technician",))
+APPROVER = SignIn("approver@showcase.test", "Tariq", "Mehmood", ("requester",))
+REQUESTER = SignIn("requester@showcase.test", "Rabia", "Aslam", ("requester",))
+NEW_STARTER = SignIn("newstarter@showcase.test", "Ali", "Raza", ("requester",))
+SIGN_INS = (ADMIN, TECHNICIAN, LEAD, APPROVER, REQUESTER, NEW_STARTER)
+TOTP_KEY_ENV = "SUPPORTX_SHOWCASE_TOTP_KEY"
+# The authenticator's label carries which key it came from (a fingerprint, never the key), so a
+# changed key in the dev .env re-enrols on the next run. A label, as Keycloak's user profile
+# keeps no attribute it does not define.
+TOTP_LABEL = "Dev quick sign-in"
 
 SITES = (
     ("Islamabad headquarters", "Asia/Karachi"),
@@ -204,10 +232,38 @@ PEOPLE = (
         job_title="Procurement officer",
     ),
 )
-# Who sits in which group besides the people above: the two sign-ins.
+# Who sits in which group besides the people above: the sign-ins. The technician is in two of
+# the three, so a search of Business applications finds nothing for them (D-151).
 SIGN_IN_GROUPS = {
     ADMIN.email: ("Service desk",),
     TECHNICIAN.email: ("Service desk", "Network and access"),
+    LEAD.email: ("Service desk", "Business applications"),
+}
+# Departments and their heads; each sign-in's site, department and manager (D-151). A manager of
+# None leaves theirs as it is: lane A's approvers give the admin the technician as manager
+# (showcase_lane_a.ensure_managers), and the managers here must never close a loop with it.
+DEPARTMENTS = (
+    ("Information technology", "Islamabad headquarters", LEAD.email),
+    ("Finance", "Islamabad headquarters", APPROVER.email),
+)
+SIGN_IN_PLACES: dict[str, tuple[str, str, str | None]] = {
+    ADMIN.email: ("Islamabad headquarters", "Information technology", None),
+    TECHNICIAN.email: ("Islamabad headquarters", "Information technology", LEAD.email),
+    LEAD.email: ("Islamabad headquarters", "Information technology", None),
+    APPROVER.email: ("Islamabad headquarters", "Finance", ADMIN.email),
+    REQUESTER.email: ("Islamabad headquarters", "Finance", APPROVER.email),
+    NEW_STARTER.email: ("Dubai office", "Finance", APPROVER.email),
+}
+GROUP_LEADS = {"Service desk": LEAD.email}
+# SupportX roles (not Keycloak realm roles), given in SupportX.
+SIGN_IN_ROLES = {LEAD.email: ("service_desk_manager",)}
+# The showcase tenant's own session limits (D-151): the longest the caps allow (a day idle, a
+# week in all); the dev realm keeps Keycloak's own session for a week.
+SESSION_LIMITS = {
+    "console_idle_seconds": 86400,
+    "console_absolute_seconds": 7 * 86400,
+    "portal_idle_seconds": 86400,
+    "portal_absolute_seconds": 7 * 86400,
 }
 
 # (subject, group, urgency, impact). Each is logged twice, for two requesters, so lists look
@@ -431,6 +487,8 @@ class KeycloakTarget:
     password: str = field(repr=False)
     sign_in_password: str = field(repr=False)
     realm: str = "supportx"
+    # The dev quick sign-in's key (D-151): None, and no persona gets an authenticator.
+    totp_key: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)
@@ -571,8 +629,66 @@ async def ensure_keycloak(client: httpx.AsyncClient, target: KeycloakTarget) -> 
             client, realm, headers, org_id, person, target.sign_in_password
         )
         made += done
+        if target.totp_key and await _ensure_totp(
+            client, realm, headers, user_id, person, target.totp_key
+        ):
+            # Keycloak's partial import replaced the user (same ID) without its password, roles
+            # and membership: put them back the same way as above.
+            _, done = await _ensure_user(
+                client, realm, headers, org_id, person, target.sign_in_password
+            )
+            made += [f"authenticator {person.email}"]
         subjects[person.email] = user_id
     return KeycloakResult(subjects, made)
+
+
+async def _ensure_totp(  # noqa: PLR0913, PLR0917 - the realm call context and the person, explicit
+    client: httpx.AsyncClient,
+    realm: str,
+    headers: dict[str, str],
+    user_id: str,
+    person: SignIn,
+    key: str,
+) -> bool:
+    """A dev-only TOTP authenticator for a pre-enrolled persona (D-151); True if made now.
+
+    Keycloak has no admin call that adds an OTP credential, so the user is re-imported (partial
+    import, OVERWRITE: the same ID) with it. The secret is derived from the dev .env's key and is
+    never printed or logged; the credential's label keeps only a fingerprint of the key.
+    """
+    who = quick.persona_by_email(person.email)
+    if who is None or not who.enrolled:
+        return False
+    value = quick.totp_value(key.encode(), person.email)
+    fingerprint = hashlib.sha256(f"{key}:{person.email.lower()}".encode()).hexdigest()[:16]
+    label = f"{TOTP_LABEL} {fingerprint}"
+    credentials = await client.get(f"{realm}/users/{user_id}/credentials", headers=headers)
+    credentials.raise_for_status()
+    if any(c.get("type") == "otp" and c.get("userLabel") == label for c in credentials.json()):
+        return False
+    found = await client.get(f"{realm}/users/{user_id}", headers=headers)
+    found.raise_for_status()
+    user = found.json()
+    user["credentials"] = [
+        {
+            "type": "otp",
+            "userLabel": label,
+            "secretData": json.dumps({"value": value}),
+            "credentialData": json.dumps(
+                {"subType": "totp", "digits": quick.TOTP_DIGITS, "counter": 0,
+                 "period": quick.TOTP_PERIOD, "algorithm": "HmacSHA1"}
+            ),
+        }
+    ]  # fmt: skip
+    imported = await client.post(
+        f"{realm}/partialImport",
+        headers=headers,
+        json={"ifResourceExists": "OVERWRITE", "users": [user]},
+    )
+    if imported.status_code >= 400:  # noqa: PLR2004 - HTTP error range
+        msg = f"Keycloak refused the authenticator for {person.email}: {imported.status_code}"
+        raise SeedError(msg)  # never the body: it could echo the secret
+    return True
 
 
 # --- 3. First sign-in ------------------------------------------------------------------------
@@ -751,6 +867,78 @@ async def ensure_people(
     for email in SIGN_IN_GROUPS:
         known.setdefault(email, str(signed_in[email]))
     return known
+
+
+async def _place_people(
+    api: Api,
+    sites: Mapping[str, str],
+    departments: Mapping[str, str],
+    signed_in: Mapping[str, uuid.UUID],
+) -> list[str]:
+    """Each sign-in's site, department and manager, changed only where they differ."""
+    done: list[str] = []
+    for email, (site, department, manager) in SIGN_IN_PLACES.items():
+        user = str(signed_in[email])
+        person = await api.call("GET", f"/api/v1/users/{user}")
+        wanted = {"site_id": sites[site], "department_id": departments[department]}
+        if manager is not None:
+            wanted["manager_id"] = str(signed_in[manager])
+        changes = {k: v for k, v in wanted.items() if person.get(k) != v}
+        if changes:
+            await api.call(
+                "PATCH", f"/api/v1/users/{user}/person", json=changes, version=person["version"]
+            )
+            done.append(f"place {email}")
+    return done
+
+
+async def ensure_placements(
+    api: Api,
+    sites: Mapping[str, str],
+    groups: Mapping[str, str],
+    signed_in: Mapping[str, uuid.UUID],
+) -> list[str]:
+    """The sign-ins as real people of the organisation (D-151), each only where missing.
+
+    Departments with their heads; each sign-in's site, department and manager; the Service desk
+    lead; the SupportX roles; the tenant's own session limits. Through the public API.
+    """
+    done: list[str] = []
+    departments = {
+        d["name"]: d["id"] for d in await api.call("GET", "/api/v1/organization/departments")
+    }
+    for name, site, head in DEPARTMENTS:
+        if name not in departments:
+            made = await api.call(
+                "POST",
+                "/api/v1/organization/departments",
+                json={"name": name, "site_id": sites[site], "head_id": str(signed_in[head])},
+                idempotency=key("department", name),
+            )
+            departments[name] = made["id"]
+            done.append(f"department {name}")
+    done += await _place_people(api, sites, departments, signed_in)
+    for group in await api.call("GET", "/api/v1/organization/groups"):
+        lead = GROUP_LEADS.get(group["name"])
+        if lead is not None and group.get("lead_id") != str(signed_in[lead]):
+            await api.call(
+                "PATCH",
+                f"/api/v1/organization/groups/{groups[group['name']]}",
+                json={"lead_id": str(signed_in[lead])},
+                version=group["version"],
+            )
+            done.append(f"lead {group['name']}")
+    roles = {r["key"]: r["id"] for r in await api.call("GET", "/api/v1/roles")}
+    for email, keys in SIGN_IN_ROLES.items():
+        for role in keys:  # PUT is idempotent: a role already held stays
+            await api.call("PUT", f"/api/v1/users/{signed_in[email]}/roles/{roles[role]}")
+    current = await api.call("GET", "/api/v1/identity/settings")
+    if any(current.get(k) != v for k, v in SESSION_LIMITS.items()):
+        await api.call(
+            "PUT", "/api/v1/identity/settings", json=SESSION_LIMITS, version=current["version"]
+        )
+        done.append("session limits")
+    return done
 
 
 @dataclass(frozen=True)
@@ -1102,17 +1290,22 @@ class Report:
 
     tenant: list[str] = field(default_factory=list)
     keycloak: list[str] = field(default_factory=list)
+    placed: list[str] = field(default_factory=list)  # D-151: departments, places, lead, roles
     incidents: int = 0
     managers: int = 0
     service_requests: int = 0
     problems: int = 0
     rules: int = 0
     sla_policies: int = 0
+    sla_from_creation: int = 0
     dashboard: bool = False
     catalog_published: int = 0
     articles: int = 0
     releases: int = 0
     backdated: int = 0
+    # Between the steps only: step 6's candidates and who acts.
+    without_sla: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
+    admin_id: uuid.UUID | None = field(default=None, repr=False, compare=False)
     # Between the steps only: the records step 4 made now, which step 5 may move.
     made: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
 
@@ -1136,6 +1329,7 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
         sites, groups = await ensure_units(admin)
         report.catalog_published = await ensure_catalog(admin, groups)
         people = await ensure_people(admin, sites, groups, signed_in)
+        report.placed = await ensure_placements(admin, sites, groups, signed_in)
         # Before the incidents, which take their SLA when they are created (QA9, Haider).
         report.sla_policies = await lane_a.ensure_sla_policies(admin, groups)
         report.incidents = await ensure_incidents(admin, people, groups, signed_in)
@@ -1144,6 +1338,14 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
         author = admin.as_user(signed_in[TECHNICIAN.email])
         report.articles = await ensure_knowledge(admin, author)
         report.releases = await ensure_releases(admin, str(signed_in[ADMIN.email]))
+        report.admin_id = signed_in[ADMIN.email]
+        # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
+        # checks each was made by the seed's admin.
+        report.without_sla = [
+            uuid.UUID(i["id"])
+            for i in await admin.all_pages("/api/v1/incidents")
+            if i["sla_policy_id"] is None and is_seed_incident(i, people)
+        ]
 
 
 def password_problem(password: str) -> str | None:
@@ -1182,7 +1384,60 @@ async def run(settings: Settings, keycloak: KeycloakTarget) -> Report:
     report.keycloak = found.made
     await fill(settings, found.subjects, report)
     report.backdated = await backdate(migrator.get_secret_value(), report.made)
+    report.sla_from_creation = await sla_from_creation(
+        settings, TENANT_ID, report.admin_id, report.without_sla
+    )
     return report
+
+
+# Who and where for step 6's audit entries: the seed through the service, not a browser.
+SEED_FACTS = RequestFacts(
+    client=AuditClient.API, request_id=None, ip=None, user_agent="supportx-showcase-seed"
+)
+
+
+async def sla_from_creation(
+    settings: Settings,
+    tenant_id: uuid.UUID,
+    admin_id: uuid.UUID | None,
+    candidates: Sequence[uuid.UUID],
+) -> int:
+    """Step 6: each incident without an SLA gets its SLA from creation; how many changed.
+
+    Each in its own transaction with `app.tenant_id` set (RLS applies), with its audit entry.
+    """
+    if tenant_id != TENANT_ID:  # the showcase tenant only, whatever a caller passes
+        msg = f"SLAs from creation are only for the showcase tenant, not {tenant_id}"
+        raise SeedError(msg)
+    if admin_id is None or not candidates:
+        return 0
+    database = Database.from_settings(settings)
+    if database is None:
+        msg = "SUPPORTX_DATABASE_URL is not set"
+        raise SeedError(msg)
+    roles = frozenset(ADMIN.roles)
+    now = datetime.now(UTC)
+    changed = 0
+    try:
+        for record_id in candidates:
+            async with database.tenant_session(
+                TenantContext(TENANT_ID, admin_id, roles=roles)
+            ) as session:
+                if await apply_sla_from_creation(session, record_id, now=now, created_by=admin_id):
+                    # What fell due on the way (breaches, warnings) fires now, as the SLA
+                    # waker would within its minute: the record shows its true state at once.
+                    await sla.fire(session, record_id, now=now)
+                    await record_audit(
+                        session,
+                        action_code="incident.sla_applied_from_creation",
+                        facts=SEED_FACTS,
+                        object_type="incident",
+                        object_id=record_id,
+                    )
+                    changed += 1
+    finally:
+        await database.dispose()
+    return changed
 
 
 def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the tested steps
@@ -1205,6 +1460,7 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         password=env["SUPPORTX_KEYCLOAK_ADMIN_PASSWORD"],
         sign_in_password=password,
         realm=env.get("SUPPORTX_KEYCLOAK_REALM", "supportx"),
+        totp_key=env.get(TOTP_KEY_ENV) or None,
     )
     try:
         report = asyncio.run(run(settings, target))

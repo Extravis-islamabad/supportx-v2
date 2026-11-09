@@ -80,6 +80,7 @@ from app.modules.work_items.service import change_boards as board_service
 from app.modules.work_items.service import change_links, release_links, resolution, stage_approvals
 from app.modules.work_items.service import change_risk as risk_service
 from app.modules.work_items.service import duplicates as duplicates_service
+from app.modules.work_items.service import problems as problem_service
 from app.modules.work_items.service import reapproval as reapproval_service
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
@@ -883,6 +884,33 @@ class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
     people: dict[str, PersonOut] = Field(default_factory=dict)
+
+
+class CausingProblemOut(BaseModel):
+    """An incident's causing problem, narrowly (WP-044c D14; REQ-PRB-071, Q7)."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    status: str = Field(description="The problem's status code (labelled by the UI).")
+    known_error: bool
+    workaround: str | None = Field(description="Rich text (sanitised), what to do meanwhile.")
+    target_at: datetime | None = Field(description="When the problem should be solved by.")
+    may_open: bool = Field(description="Whether you may open the problem itself.")
+
+    @classmethod
+    def of(cls, view: "problem_service.CausingView") -> "CausingProblemOut":
+        """From the service's view."""
+        return cls(
+            id=view.id,
+            display_id=view.display_id,
+            subject=view.subject,
+            status=view.status,
+            known_error=view.known_error,
+            workaround=view.workaround,
+            target_at=view.target_at,
+            may_open=view.may_open,
+        )
 
 
 class WorkItemSearchOut(BaseModel):
@@ -2128,6 +2156,21 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
 
     if wtype is INCIDENT:
+
+        @router.get(
+            "/{record_id}/causing-problem",
+            summary="The problem causing this incident, as incident technicians see it",
+        )
+        async def causing_problem(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> CausingProblemOut | None:
+            """What anyone who may see the incident is told (WP-044c D14, REQ-PRB-071).
+
+            The problem's title, status, known error marker, workaround and target date, never
+            its root cause. Null when no problem causes it.
+            """
+            found = await problem_service.causing_view(session, subject, record_id)
+            return None if found is None else CausingProblemOut.of(found)
 
         @router.post("/possible-duplicates", summary="Possible duplicates of a new incident")
         async def possible_duplicates(

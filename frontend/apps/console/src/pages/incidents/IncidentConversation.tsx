@@ -32,16 +32,26 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { cloneElement, isValidElement, type ReactNode, useMemo, useState } from 'react';
+import {
+  cloneElement,
+  createContext,
+  isValidElement,
+  type ReactNode,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
   ApiError,
   attachDrafts,
+  type ConversationBase,
   type ConversationEntry,
   type EntryKind,
   fetchMentionable,
+  sendTyping,
   type Incident,
   type IncidentHistoryEntry,
   queryKeys,
@@ -112,16 +122,44 @@ function initials(name: string): string {
  * lock, a tinted background and says "staff only"; a public one a globe and "requester can see".
  * Replies made before the email channel exists say plainly they were not sent (WP-024).
  */
+// The record type whose conversation this is (UI pass 3: service requests use it too).
+const BaseContext = createContext<ConversationBase>('incidents');
+// Each base's record type, as the files API names it.
+const RECORD_TYPE: Record<ConversationBase, string> = {
+  incidents: 'incident',
+  'service-requests': 'service_request',
+};
+
 export function IncidentConversation({
   item,
   typing,
   replyRequest = 0,
+  base = 'incidents',
 }: {
   item: Incident;
   typing: Typing;
   /** Bumped by the header's Reply action (UI pass 2): opens the reply composer here. */
   replyRequest?: number;
+  /** Whose conversation routes: incidents (the default) or service requests. */
+  base?: ConversationBase;
 }) {
+  return (
+    <BaseContext.Provider value={base}>
+      <ConversationBody item={item} typing={typing} replyRequest={replyRequest} />
+    </BaseContext.Provider>
+  );
+}
+
+function ConversationBody({
+  item,
+  typing,
+  replyRequest,
+}: {
+  item: Incident;
+  typing: Typing;
+  replyRequest: number;
+}) {
+  const base = useContext(BaseContext);
   const t = useLabel();
   const listFormat = useListFormat();
   const [filter, setFilter] = useState<Filter>('all');
@@ -133,8 +171,9 @@ export function IncidentConversation({
     setSeenRequest(replyRequest);
     if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: 'reply' });
   }
-  const conversation = useIncidentConversation(item.id);
-  const recordFiles = useRecordFiles('incident', item.id).data ?? [];
+  const conversation = useIncidentConversation(item.id, true, base);
+  // The record type's own files and history: never an incident path for another type (a 404).
+  const recordFiles = useRecordFiles(RECORD_TYPE[base], item.id).data ?? [];
   const entries = conversation.data?.items ?? [];
   const people = conversation.data?.people ?? {};
   const shown = entries.filter(
@@ -148,7 +187,9 @@ export function IncidentConversation({
   // time order with the messages; the conversation's own saves are the cards themselves. Only
   // the history pages loaded so far (the first page, newest first): older events stay in the
   // History tab, which pages through all of them.
-  const words = useHistoryWords(item.id);
+  // A request's own history joins with the type-aware history hooks (#240); until then its
+  // conversation shows the entries only, never an incident path (a 404 toast).
+  const words = useHistoryWords(item.id, 'all', 'incidents', base === 'incidents');
   const events = words.entries
     .filter((e) => e.kind !== 'created')
     .map((e) => ({
@@ -391,7 +432,7 @@ function EntryCard({
   const { token } = theme.useToken();
   const { mode } = useAppearance();
   const { message } = App.useApp();
-  const change = useChangeNoteVisibility(item.id);
+  const change = useChangeNoteVisibility(item.id, useContext(BaseContext));
   // Changed by someone after it was shown (409): the shared dialog (QA WP-029 BUG-05).
   const conflict = useConflictRetry();
   const fieldName = useIncidentFieldName();
@@ -591,7 +632,8 @@ function Composer({
   const listFormat = useListFormat();
   const { message } = App.useApp();
   const { can } = useAccess();
-  const add = useAddConversationEntry(item.id);
+  const base = useContext(BaseContext);
+  const add = useAddConversationEntry(item.id, base);
   const templates = useReplyTemplates();
   const me = useSession().data?.user.id;
   // Files for this entry wait as the author's drafts until it is saved (WP-022).
@@ -621,7 +663,9 @@ function Composer({
   const [cc, setCc] = useState<string[]>(initial.cc);
   const kind: EntryKind = draft.kind;
   // Typing signal: start, repeated while typing goes on, stop after a pause (QA BUG-04).
-  const { typed, stop: stopTyping } = useTypingSignal(item.id, kind);
+  const { typed, stop: stopTyping } = useTypingSignal(item.id, kind, (id, state, what) => {
+    sendTyping(id, state, what, base);
+  });
   // Templates changed by an admin elsewhere: reload the list while this composer is open (BUG-07).
   const queryClient = useQueryClient();
   useTenantChannel((message) => {
@@ -632,7 +676,7 @@ function Composer({
   // D-081: warn before sending a mention of someone who cannot see the incident.
   const [unseen, setUnseen] = useState<string[] | null>(null);
   const mentions: MentionSearch = (query) =>
-    fetchMentionable(item.id, query).then((found) =>
+    fetchMentionable(item.id, query, base).then((found) =>
       found.map((p) => ({ id: p.id, label: p.display_name, email: p.email, canSee: p.can_see })),
     );
   const error = add.error instanceof ApiError ? add.error : null;

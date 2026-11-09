@@ -297,6 +297,8 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
     found -= {"stage_rules"}  # a template's stage settings, ("stage_path", "stage_rules")
     # S4: date pairs and a role event's holder lists, ("starts_at", "ends_at") and the like.
     found -= {"ends_at", "users_after", "groups_after"}
+    # WP-044c: a repeat rule's match and outcome codes, and a notification's condition fields.
+    found -= {"category_site", "dismissed", "status_category"}
     assert found <= FIELD_PROBLEMS, sorted(found - FIELD_PROBLEMS)
 
 

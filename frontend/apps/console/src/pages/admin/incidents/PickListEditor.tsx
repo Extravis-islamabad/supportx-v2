@@ -1,16 +1,5 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-import {
-  Badge,
-  Button,
-  Card,
-  Flex,
-  Popconfirm,
-  Space,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
+import { Badge, Card, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
 
 import { useIncidentCatalogue, type Labels, type PickList } from '@supportx/api-client';
@@ -97,7 +86,7 @@ export function PickListEditor({
             width: 96,
             render: (_: unknown, value: PickValue, index: number) => (
               <Space size={2}>
-                <Button
+                <WriteButton
                   size="small"
                   type="text"
                   icon={<ArrowUpOutlined />}
@@ -108,7 +97,7 @@ export function PickListEditor({
                   }}
                   data-testid={`list-${list}-up-${value.code}`}
                 />
-                <Button
+                <WriteButton
                   size="small"
                   type="text"
                   icon={<ArrowDownOutlined />}
@@ -145,7 +134,7 @@ export function PickListEditor({
             width: 220,
             render: (_: unknown, value: PickValue) => (
               <Space>
-                <Button
+                <WriteButton
                   type="link"
                   size="small"
                   onClick={() => {
@@ -155,9 +144,9 @@ export function PickListEditor({
                   data-testid={`list-${list}-edit-${value.code}`}
                 >
                   {t('settings.rename')}
-                </Button>
+                </WriteButton>
                 {value.disabled ? (
-                  <Button
+                  <WriteButton
                     type="link"
                     size="small"
                     disabled={pending}
@@ -167,11 +156,11 @@ export function PickListEditor({
                     data-testid={`list-${list}-restore-${value.code}`}
                   >
                     {t('settings.bring_back')}
-                  </Button>
+                  </WriteButton>
                 ) : list !== 'level' && list !== 'closure_code' && value.code === 'other' ? (
                   // "Other" is the way out when no reason fits (QA C5): never offered to retire.
                   <Tooltip title={t('settings.other_stays')}>
-                    <Button
+                    <WriteButton
                       type="link"
                       size="small"
                       disabled
@@ -179,7 +168,7 @@ export function PickListEditor({
                       data-testid={`list-${list}-retire-${value.code}`}
                     >
                       {t('settings.retire')}
-                    </Button>
+                    </WriteButton>
                   </Tooltip>
                 ) : (
                   <Popconfirm
@@ -191,13 +180,13 @@ export function PickListEditor({
                       save({ kind: 'value', list, code: value.code, body: { disabled: true } });
                     }}
                   >
-                    <Button
+                    <WriteButton
                       type="link"
                       size="small"
                       data-testid={`list-${list}-retire-${value.code}`}
                     >
                       {t('settings.retire')}
-                    </Button>
+                    </WriteButton>
                   </Popconfirm>
                 )}
               </Space>

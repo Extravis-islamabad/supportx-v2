@@ -321,6 +321,10 @@ FIELD_PROBLEMS = frozenset(
     {
         "required",
         "not_in_past",  # WP-045a: a retrospective change's actual times (REQ-CHG-004)
+        # WP-044c S1 (REQ-PRB-021): a template for requesters is for everyone.
+        "limited_template_for_requesters",
+        "template_not_offered",
+        "too_many_values",  # more than 50 groups (the shared errors.field label)
         # WP-020f: closure rules and closing settings.
         "required_to_resolve",
         "required_to_close",
@@ -385,6 +389,7 @@ FIELD_PROBLEMS = frozenset(
         "template_disabled",
         "default_required",
         "default_cannot_be_disabled",
+        "default_cannot_be_removed",  # WP-044c D16: the default repeat rule
         "disabled_cannot_be_default",
         "unknown_field",
         "field_always_required",
