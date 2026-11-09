@@ -292,6 +292,24 @@ describe('D-147 template C: header actions', () => {
     fireEvent.click(await screen.findByTestId('b'));
     expect(opened).toEqual(['b']);
   });
+
+  it('never drops a button that has no menu form', () => {
+    renderUi(
+      <HeaderActions
+        testId="head2"
+        primary={<button type="button">New</button>}
+        buttons={[
+          { key: 'a', node: <button type="button">Export</button> },
+          { key: 'b', node: <button type="button">Switch</button> },
+        ]}
+        more={[{ key: 'c', label: 'Recent jobs', onClick: () => undefined }]}
+      />,
+    );
+    const shown = within(screen.getByTestId('head2'))
+      .getAllByRole('button')
+      .map((b) => b.textContent.trim());
+    expect(shown).toEqual(['Export', 'Switch', 'More', 'New']);
+  });
 });
 
 describe('D-147: page widths', () => {

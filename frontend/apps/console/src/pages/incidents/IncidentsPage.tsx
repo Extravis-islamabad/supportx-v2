@@ -210,7 +210,11 @@ export function IncidentsPage() {
     SELECT_WIDTH +
     columns.reduce(
       (sum, c) =>
-        sum + (c.key === 'subject' ? SUBJECT_MIN : (c.width ?? columnSpecs.get(c.key)?.width ?? 0)),
+        sum +
+        (c.key === 'subject'
+          ? // A subject someone widened keeps its width; otherwise only its minimum counts.
+            Math.max(SUBJECT_MIN, c.width ?? 0)
+          : (c.width ?? columnSpecs.get(c.key)?.width ?? 0)),
       0,
     );
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
@@ -708,6 +712,7 @@ export function IncidentsPage() {
             ? undefined
             : {
                 fixed: true, // stays with the ID and subject when the table scrolls sideways
+                columnWidth: SELECT_WIDTH, // the width the table's least width counts
                 selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
                 columnTitle: (
                   <SelectPageBox

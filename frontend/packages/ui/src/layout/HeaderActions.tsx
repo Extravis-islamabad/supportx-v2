@@ -31,15 +31,30 @@ export function HeaderActions({
   testId,
 }: {
   primary?: ReactNode;
-  /** Everyday buttons, most used first: those past the limit become menu entries (`overflow`). */
+  /**
+   * Everyday buttons, most used first. Past the limit, those with an `overflow` entry move into
+   * "More"; one without it always shows.
+   */
   buttons?: { key: string; node: ReactNode; overflow?: MoreAction }[];
   more?: MoreAction[];
   testId?: string;
 }) {
   const t = useLabel();
   const room = MAX_HEADER_BUTTONS - (primary === undefined ? 0 : 1) - 1; // one place for "More"
-  const shown = buttons.length + more.length > room + 1 ? buttons.slice(0, room) : buttons;
-  const moved = buttons.slice(shown.length).flatMap((b) => (b.overflow ? [b.overflow] : []));
+  // A button with no menu form always shows (dropping it would lose an action); only those with
+  // an `overflow` entry move into "More", from the end, until the header fits.
+  const crowded = buttons.length + more.length > room + 1;
+  const fixed = buttons.filter((b) => b.overflow === undefined).length;
+  let movable = crowded ? Math.max(0, room - fixed) : buttons.length;
+  const shown: typeof buttons = [];
+  const moved: MoreAction[] = [];
+  for (const b of buttons) {
+    if (b.overflow === undefined) shown.push(b);
+    else if (movable > 0) {
+      shown.push(b);
+      movable -= 1;
+    } else moved.push(b.overflow);
+  }
   const menu = [...moved, ...more];
   const items: MenuProps['items'] = menu.map((a) => ({
     key: a.key,
