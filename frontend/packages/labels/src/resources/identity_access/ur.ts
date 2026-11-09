@@ -683,6 +683,7 @@ export const ur: LabelResource = {
   'presence.you_elsewhere': 'آپ (دوسری ونڈو میں)',
   'profile.form_density_help': 'مختصر ترتیب میں دو کالم اور ایک طرف لیبل ہوتے ہیں۔',
   'profile.identity': 'نام، ای میل اور زبان آپ کے سائن اِن اکاؤنٹ سے آتے ہیں۔',
+  'profile.replies_card': 'جوابات اور ٹائم زون',
   'profile.saved': 'آپ کی ترجیحات محفوظ ہو گئیں۔',
   'profile.signature': 'جوابی دستخط',
   'profile.signature_help': 'آپ کے بھیجے گئے جوابات میں شامل کیا جاتا ہے۔',

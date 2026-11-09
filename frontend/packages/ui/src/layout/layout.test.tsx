@@ -6,6 +6,7 @@ import { ActionBar, type RecordAction } from './ActionBar';
 import { AlertStrip } from './AlertStrip';
 import { HeaderActions } from './HeaderActions';
 import { NoticeStack } from './NoticeStack';
+import { FORM_MAX_WIDTH, PageColumn } from './PageColumn';
 import { SectionNav } from './SectionNav';
 
 // D-124: buttons for the available everyday actions (at most four, the most useful ones),
@@ -182,8 +183,32 @@ describe('NoticeStack', () => {
     const hidden = screen.getByText('Choose visibility').closest('[data-notices-collapsed]');
     expect(hidden?.getAttribute('data-notices-collapsed')).toBe('true');
     fireEvent.click(screen.getByTestId('notices-toggle'));
-    expect(screen.getByTestId('notices').textContent).toContain('3 notices');
+    expect(screen.getByTestId('notices-toggle').getAttribute('aria-expanded')).toBe('true');
     expect(hidden?.getAttribute('data-notices-collapsed')).toBe('false');
+  });
+
+  it('D-147: one strip, "N more" on its line, dismissed until a notice is added', () => {
+    const { rerender } = renderUi(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+      </NoticeStack>,
+    );
+    const strip = screen.getByTestId('notices');
+    // The toggle sits in the same row as the notice, not on a line of its own.
+    expect(screen.getByTestId('notices-toggle').parentElement).toBe(
+      screen.getByText('Scanner down').closest('[data-notices-collapsed]')?.parentElement,
+    );
+    fireEvent.click(screen.getByTestId('notices-dismiss'));
+    expect(strip.hidden).toBe(true);
+    rerender(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+        <Notice text="Licence expires" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').hidden).toBe(false); // a new notice brings it back
   });
 
   it('an empty box never takes the visible place; a critical notice does (announcements.spec)', () => {
@@ -266,5 +291,44 @@ describe('D-147 template C: header actions', () => {
     fireEvent.click(screen.getByTestId('head-more'));
     fireEvent.click(await screen.findByTestId('b'));
     expect(opened).toEqual(['b']);
+  });
+});
+
+describe('D-147: page widths', () => {
+  it('a form runs at most 960 px, with its help column beside it; a list takes the width', () => {
+    renderUi(
+      <>
+        <PageColumn kind="form" testId="form" aside={<p>Help</p>}>
+          <p>Fields</p>
+        </PageColumn>
+        <PageColumn kind="list" testId="list">
+          <p>Rows</p>
+        </PageColumn>
+      </>,
+    );
+    // The test window is narrow: the help column goes below the form, which keeps its cap.
+    expect(screen.getByTestId('form').style.maxWidth).toBe(`${String(FORM_MAX_WIDTH)}px`);
+    expect(screen.getByTestId('form').querySelector('aside')?.textContent).toBe('Help');
+    expect(screen.getByTestId('list').style.width).toBe('100%');
+  });
+});
+
+describe('D-147: one close button per line', () => {
+  it('a notice with its own close keeps it, and the strip shows no second one', () => {
+    renderUi(
+      <NoticeStack testId="notices">
+        <div>
+          <div className="ant-alert">
+            Announcement
+            <button type="button" className="ant-alert-close-icon">
+              x
+            </button>
+          </div>
+        </div>
+        <div>MFA due</div>
+      </NoticeStack>,
+    );
+    expect(screen.queryByTestId('notices-dismiss')).toBeNull();
+    expect(screen.getByTestId('notices-toggle')).toBeDefined();
   });
 });

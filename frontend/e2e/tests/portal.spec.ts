@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 import { PORTAL_URL } from '../stack';
-import { expectAccessible, resetLanguage, signInAs } from './helpers';
+import { expectAccessible, openAppearance, resetLanguage, signInAs } from './helpers';
 
 /**
  * WP-028: the requester's portal on a phone (REQ-PRT-021, REQ-PRT-022): report an issue, find it
@@ -128,7 +128,7 @@ test('the portal in Arabic is right to left and accessible on a phone', async ({
   const page = requester.page;
   try {
     // On a phone the language sits in the appearance menu (the header's compact form).
-    await page.getByTestId('appearance-menu').click();
+    await openAppearance(page);
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();
     await page.keyboard.press('Escape');

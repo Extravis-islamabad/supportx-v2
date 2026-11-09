@@ -45,7 +45,7 @@ export const en = {
   'branding.preview.sign_in': 'Sign in',
   'branding.preview.title': 'Preview',
   'branding.primary': 'Primary colour',
-  'branding.ratio': '{{ratio}}:1, needs {{required}}:1',
+  'branding.ratio': '{{ratio}}, needs {{required}}',
   'branding.reset': 'Back to the SupportX default',
   'branding.reset_body':
     "Your logo, colours and texts are removed and every screen shows SupportX's brand again.",

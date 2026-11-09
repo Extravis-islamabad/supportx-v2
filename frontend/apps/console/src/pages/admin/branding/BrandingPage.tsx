@@ -160,6 +160,15 @@ function ScanWatcher({
  * preview shows the console, portal and sign-in page in light, dark and high contrast before
  * saving. Saved changes reach every open screen without a reload; saving is audited.
  */
+/**
+ * "5.93:1" kept left to right inside any sentence: in Arabic and Urdu the bidi algorithm would
+ * otherwise show it as "1:5.93" (QA9-V-10). An isolate (LRI ... PDI), not a mark, so the
+ * sentence around it keeps its own direction.
+ */
+function ratioText(value: number, digits: number): string {
+  return `\u2066${value.toFixed(digits)}:1\u2069`;
+}
+
 export function BrandingPage() {
   const t = useLabel();
   const { message } = App.useApp();
@@ -557,16 +566,18 @@ export function BrandingPage() {
                   >
                     {report.checks.map((item) => (
                       <li key={item.code} style={{ marginBlock: 4 }}>
-                        <ToneTag tone={item.passed ? 'success' : 'error'}>
-                          {t(item.passed ? 'branding.check_passed' : 'branding.check_failed')}
-                        </ToneTag>
-                        {t(`branding.check.${item.code}`)}{' '}
-                        <Typography.Text type="secondary">
-                          {t('branding.ratio', {
-                            ratio: item.ratio.toFixed(2),
-                            required: item.required.toFixed(1),
-                          })}
-                        </Typography.Text>
+                        <Flex gap={8} wrap align="center">
+                          <ToneTag tone={item.passed ? 'success' : 'error'}>
+                            {t(item.passed ? 'branding.check_passed' : 'branding.check_failed')}
+                          </ToneTag>
+                          <span>{t(`branding.check.${item.code}`)}</span>
+                          <Typography.Text type="secondary">
+                            {t('branding.ratio', {
+                              ratio: ratioText(item.ratio, 2),
+                              required: ratioText(item.required, 1),
+                            })}
+                          </Typography.Text>
+                        </Flex>
                       </li>
                     ))}
                   </ul>

@@ -1,7 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { CONSOLE_URL, PORTAL_URL } from '../stack';
-import { deleteE2eRoles, expectAccessible, mainNav, navItems, signInAs } from './helpers';
+import {
+  deleteE2eRoles,
+  expectAccessible,
+  mainNav,
+  navItems,
+  openAppearance,
+  signInAs,
+} from './helpers';
 
 /** The sections the user's navigation offers, read live (no reload: WP-011 pushes changes). */
 async function menu(page: Page): Promise<string[]> {
@@ -109,7 +116,7 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
 test('roles page in Arabic and dark mode is accessible', async ({ page }) => {
   await signInAs(page, 'admin', '/admin/roles');
   await expect(page.getByTestId('roles-table')).toBeVisible();
-  await page.getByTestId('appearance-menu').click();
+  await openAppearance(page);
   await page.getByText('Dark', { exact: true }).click();
   await page.getByTestId('language-select').click();
   await page.locator('.ant-select-item-option[title="العربية"]').click();

@@ -3,7 +3,14 @@ import { Button, Drawer, Grid, Typography, theme } from 'antd';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
-import { NoAccess, PageHeader, useAccess, useLabel, usePageCrumbs } from '@supportx/ui';
+import {
+  NoAccess,
+  PageHeader,
+  SettingsPageHeader,
+  useAccess,
+  useLabel,
+  usePageCrumbs,
+} from '@supportx/ui';
 
 import { pagesFor, SETUP_GROUPS, type SetupPage } from './setupMap';
 
@@ -119,6 +126,27 @@ function SetupMenu({
   );
 }
 
+/**
+ * Setup pages that have no header of their own: the shell gives them the one settings header
+ * (title and description from the setup menu), so every setup page starts the same way
+ * (QA9-V-16, SHELL-01). The others (people, roles, incidents, automation, instance, mail,
+ * requests, portal, catalog) show their own, with their actions in it.
+ */
+const SHELL_HEADED = new Set([
+  'ai',
+  'api-keys',
+  'audit',
+  'branding',
+  'files',
+  'integrations',
+  'knowledge',
+  'licence',
+  'notifications',
+  'organization',
+  'security',
+  'sla',
+]);
+
 export function AdminLayout() {
   const t = useLabel();
   const { can } = useAccess();
@@ -217,6 +245,13 @@ export function AdminLayout() {
           </div>
         )}
         <div style={{ minWidth: 0 }}>
+          {page !== undefined && SHELL_HEADED.has(page.key) && (
+            <SettingsPageHeader
+              title={t(page.labelKey)}
+              description={t(`setup.page.${page.key}.description`)}
+              testId="admin-page-header"
+            />
+          )}
           <Outlet />
         </div>
       </div>

@@ -1,7 +1,15 @@
 import { expect, test } from '@playwright/test';
 
 import { SEEDED } from '../stack';
-import { expectAccessible, goToSection, navItems, settledBox, signIn, signInAs } from './helpers';
+import {
+  expectAccessible,
+  goToSection,
+  navItems,
+  openAppearance,
+  settledBox,
+  signIn,
+  signInAs,
+} from './helpers';
 
 // Problems (WP-044a) and releases (WP-058a) have their screens; the rest are still coming.
 const SECTIONS = ['Changes', 'Assets', 'CMDB'];
@@ -52,7 +60,7 @@ test('theme: light, dark and high contrast apply to the whole page', async ({ pa
       () =>
         getComputedStyle(document.querySelector('.ant-layout') ?? document.body).backgroundColor,
     );
-  await page.getByTestId('appearance-menu').click();
+  await openAppearance(page);
   await page.getByText('Light', { exact: true }).click();
   const light = await background();
   await page.getByText('Dark', { exact: true }).click();
@@ -97,7 +105,7 @@ test('accessibility: main screens have no serious or critical axe violations', a
   await page.goto('/profile');
   await expect(page.getByTestId('profile-signature')).toBeVisible();
   await expectAccessible(page, 'my profile');
-  await page.getByTestId('appearance-menu').click();
+  await openAppearance(page);
   // The header's control: My profile has a theme choice of its own (WP-042).
   await page.getByTestId('appearance-controls').getByText('Dark', { exact: true }).click();
   await page.keyboard.press('Escape');
