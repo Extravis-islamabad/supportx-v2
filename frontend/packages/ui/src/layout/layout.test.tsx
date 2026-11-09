@@ -5,6 +5,7 @@ import { renderUi } from '../test/render';
 import { ActionBar, type RecordAction } from './ActionBar';
 import { AlertStrip } from './AlertStrip';
 import { NoticeStack } from './NoticeStack';
+import { FORM_MAX_WIDTH, PageColumn } from './PageColumn';
 import { SectionNav } from './SectionNav';
 
 // D-124: buttons for the available everyday actions (at most four, the most useful ones),
@@ -260,5 +261,24 @@ describe('AlertStrip', () => {
     expect(screen.queryByText('Second')).toBeNull();
     fireEvent.click(screen.getByTestId('strip-toggle'));
     expect(screen.getByText('Second')).toBeDefined();
+  });
+});
+
+describe('D-147: page widths', () => {
+  it('a form runs at most 960 px, with its help column beside it; a list takes the width', () => {
+    renderUi(
+      <>
+        <PageColumn kind="form" testId="form" aside={<p>Help</p>}>
+          <p>Fields</p>
+        </PageColumn>
+        <PageColumn kind="list" testId="list">
+          <p>Rows</p>
+        </PageColumn>
+      </>,
+    );
+    // The test window is narrow: the help column goes below the form, which keeps its cap.
+    expect(screen.getByTestId('form').style.maxWidth).toBe(`${String(FORM_MAX_WIDTH)}px`);
+    expect(screen.getByTestId('form').querySelector('aside')?.textContent).toBe('Help');
+    expect(screen.getByTestId('list').style.width).toBe('100%');
   });
 });
