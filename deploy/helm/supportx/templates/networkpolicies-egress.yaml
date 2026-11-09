@@ -67,7 +67,7 @@ spec:
   (dict "name" "poolername" "match" (list (dict "key" "cnpg.io/poolerName" "operator" "Exists")))
   (dict "name" "backend" "match" (list
     (dict "key" "app.kubernetes.io/instance" "operator" "In" "values" (list $rel))
-    (dict "key" "app.kubernetes.io/component" "operator" "In" "values" (list "api" "relay" "consumers" "fanout" "indexes" "sla-timers"))))
+    (dict "key" "app.kubernetes.io/component" "operator" "In" "values" (list "api" "relay" "consumers" "fanout" "indexes" "sla-timers" "workflow-timers" "temporal"))))
 }}
 {{- /*
 The control plane's addresses as pods reach it (NetworkPolicies see the address after the
