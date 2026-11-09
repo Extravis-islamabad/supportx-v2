@@ -101,11 +101,15 @@ async def _candidates(
     return list(dict.fromkeys(people)), unheld
 
 
-async def segregated(session: AsyncSession, record: WorkItem) -> set[uuid.UUID]:
+async def segregated(
+    session: AsyncSession, record: WorkItem, *, strict: bool = False
+) -> set[uuid.UUID]:
     """People who may not approve this record: holders of its type's segregated roles.
 
-    The requester is kept out by the self-approval rule; these are the others (a change's
-    implementer, REQ-CHG-039), as people or through a group.
+    The requester is kept out by the self-approval rule; these are the others (REQ-CHG-039,
+    Haider's decision): by default the people assigned (a change's implementer) and the record's
+    owner (its technician). `strict` bars every member of an implementing group as well; the
+    per-tenant setting for it comes with WP-045b.
     """
     wtype = TYPES.get(WorkItemTypeCode(record.type))
     if wtype is None or not wtype.segregated_roles:
@@ -119,8 +123,10 @@ async def segregated(session: AsyncSession, record: WorkItem) -> set[uuid.UUID]:
         )
     ).all()
     people = {r.user_id for r in held if r.user_id}
+    if record.technician_id is not None:
+        people.add(record.technician_id)  # the change owner
     groups = frozenset(r.group_id for r in held if r.group_id)
-    if groups:
+    if strict and groups:
         people |= set(await session.scalars(users_in_groups(groups)))
     return people
 

@@ -506,11 +506,13 @@ async def test_req_chg_039_the_implementer_never_approves(world: World) -> None:
     assert (entry["approver_id"], entry["route_reason"]) == (None, "segregation_of_duties")
 
 
-async def test_req_chg_039_an_implementing_group_bars_every_member(world: World) -> None:
-    """Stated in the PR for Haider: a group as implementer bars all its members from approving.
+async def test_req_chg_039_default_an_implementing_group_does_not_bar_its_members(
+    world: World,
+) -> None:
+    """Haider's default: only the assigned implementer and the owner may not approve.
 
-    tech_a is the line manager and a member of GA, which implements: the acceptance level then
-    goes to the approval administrators with segregation_of_duties, never to tech_a.
+    tech_a is the line manager and a member of GA, which implements as a group: tech_a still
+    approves. Barring every member is the tenant's strict option (WP-045b).
     """
     from tests.db.test_approvals_api import manager_of  # noqa: PLC0415 - shared helper
 
@@ -530,19 +532,32 @@ async def test_req_chg_039_an_implementing_group_bars_every_member(world: World)
     fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
     assert (await move(world, a, fresh, "submission_awaiting_acceptance")).status_code == 200
     rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    assert [(r["approver_id"], r["route_reason"]) for r in rows] == [(str(a.tech_a), None)]
+
+
+async def test_req_chg_039_the_change_owner_never_approves(world: World) -> None:
+    from tests.db.test_approvals_api import manager_of  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    item = await a_change(world, a)
+    fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    owned = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/assign",
+        a,
+        a.admin,
+        json={"technician_id": str(a.tech_a)},
+        headers={"If-Match": f'"{fresh["version"]}"', **CONSOLE},
+    )
+    assert owned.status_code == 200, owned.text
+    fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert (await move(world, a, fresh, "submission_awaiting_acceptance")).status_code == 200
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    # The owner is also the line manager: skipped, the administrators decide, saying why.
     assert [(r["approver_id"], r["route_reason"]) for r in rows] == [
         (None, "segregation_of_duties")
     ]
-    # And tech_a cannot decide it either.
-    refused = await world.call(
-        "POST",
-        f"{CHG}/{item['id']}/approvals/{rows[0]['id']}/decision",
-        a,
-        a.tech_a,
-        json={"decision": "approve"},
-        headers={"If-Match": f'"{rows[0]["version"]}"', **CONSOLE},
-    )
-    assert refused.status_code == 403
 
 
 async def test_req_chg_002_a_change_made_from_a_problem_is_prefilled_and_linked(
