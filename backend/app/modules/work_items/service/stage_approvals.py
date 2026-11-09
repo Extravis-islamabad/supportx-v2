@@ -356,6 +356,10 @@ async def after_decision(
         await open_level(session, record, settings, stage=stage, index=decided.stage)
         return
     target = settings.approved if outcome is rules.LevelOutcome.APPROVED else settings.rejected
+    if outcome is rules.LevelOutcome.APPROVED:  # WP-045b S4: keep what was approved
+        from app.modules.work_items.service import reapproval  # noqa: PLC0415 - as above
+
+        await reapproval.take(session, record, stage)
     await items.system_stage_move(session, wtype, record, target=target, source=source)
 
 

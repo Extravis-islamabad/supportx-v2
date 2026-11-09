@@ -1,0 +1,107 @@
+"""Re-approval of an approved change over HTTP and under RLS (WP-045b S4; REQ-CHG-053).
+
+Approving a stage keeps the watched values; an edit afterwards is listed field by field with
+what it does (AC3); a raised risk restarts, a lowered one notifies (AC2); the tenant's policy is
+a change setting; tenant B never sees tenant A's snapshots (rule 5a).
+"""
+
+import uuid
+from typing import Any
+
+import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
+
+from app.core.tenancy import TenantContext
+from tests.db.test_changes_api import CHG, a_change, details, move
+from tests.db.test_incidents_api import CONSOLE, Org, World, world
+
+__all__ = ["world"]  # the fixture, re-used
+
+
+async def accepted(world: World, org: Org) -> dict[str, Any]:
+    """A change whose submission stage was approved (by the administrators: no line manager)."""
+    item = await a_change(world, org)
+    assert (await move(world, org, item, "submission_awaiting_acceptance")).status_code == 200
+    [entry] = (await world.call("GET", f"{CHG}/{item['id']}/approvals", org, org.admin)).json()[
+        "items"
+    ]
+    decided = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/approvals/{entry['id']}/decision",
+        org,
+        org.admin,
+        json={"decision": "approve"},
+        headers={"If-Match": f'"{entry["version"]}"', **CONSOLE},
+    )
+    assert decided.status_code == 200, decided.text
+    return dict((await world.call("GET", f"{CHG}/{item['id']}", org, org.admin)).json())
+
+
+async def since(world: World, org: Org, item: dict[str, Any]) -> list[dict[str, Any]]:
+    shown = await world.call("GET", f"{CHG}/{item['id']}/approvals/changes-since", org, org.admin)
+    assert shown.status_code == 200, shown.text
+    return list(shown.json())
+
+
+async def test_req_chg_053_ac3_changes_since_approval_field_by_field(world: World) -> None:
+    a = world.a
+    item = await accepted(world, a)
+    assert await since(world, a, item) == []  # nothing changed yet
+    raised = await details(
+        world, a, item, item["version"], risk_chosen="high", risk_reason="Core switch"
+    )
+    assert raised.status_code == 200, raised.text
+    assert await since(world, a, item) == [
+        {
+            "stage": "submission",
+            "changes": [{"field": "risk", "before": None, "after": "high", "effect": "restart"}],
+        }
+    ]
+
+
+async def test_req_chg_053_the_policy_is_a_change_setting(world: World) -> None:
+    a = world.a
+    current = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()
+    assert current["reapproval"] is None  # the shipped policy
+    changed = await world.call(
+        "PATCH",
+        f"{CHG}/settings",
+        a,
+        a.admin,
+        json={"reapproval": {"on_change": {"risk": "notify"}, "tolerance_minutes": 120}},
+        headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+    )
+    assert changed.status_code == 200, changed.text
+    policy = changed.json()["reapproval"]
+    assert policy["on_change"] == {"window": "restart", "risk": "notify", "plans": "notify"}
+    assert policy["tolerance_minutes"] == 120
+    item = await accepted(world, a)
+    await details(world, a, item, item["version"], risk_chosen="high", risk_reason="Core switch")
+    [stage] = await since(world, a, item)
+    assert stage["changes"][0]["effect"] == "notify"
+
+
+async def test_snapshots_are_isolated_by_rls(world: World) -> None:
+    a, b = world.a, world.b
+    await accepted(world, a)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        mine = await session.scalar(text("SELECT count(*) FROM change_approval_snapshots"))
+    assert mine == 1
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        seen = await session.scalar(
+            text("SELECT count(*) FROM change_approval_snapshots WHERE tenant_id = :a"),
+            {"a": a.tenant},
+        )
+        assert seen == 0
+    item_id = (await world.call("GET", CHG, a, a.admin)).json()["items"][0]["id"]
+    with pytest.raises(DBAPIError):
+        async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+            await session.execute(
+                text(
+                    "INSERT INTO change_approval_snapshots "
+                    "(id, tenant_id, work_item_id, record_stage, snapshot) "
+                    "VALUES (:i, :t, :w, 'submission', '{}')"
+                ),
+                {"i": uuid.uuid4(), "t": a.tenant, "w": item_id},
+            )

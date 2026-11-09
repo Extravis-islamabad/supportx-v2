@@ -32,6 +32,7 @@ from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import reapproval as reapproval_rules
 from app.modules.work_items.domain.approvals import RouteReason
 from app.modules.work_items.domain.change_risk import RiskLevel
 from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
@@ -52,6 +53,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.reapproval import OnChange, Watched
 from app.modules.work_items.domain.releases import (
     BUILD_REF_MAX,
     DETAIL_FIELDS,
@@ -78,6 +80,7 @@ from app.modules.work_items.service import change_boards as board_service
 from app.modules.work_items.service import change_links, release_links, resolution, stage_approvals
 from app.modules.work_items.service import change_risk as risk_service
 from app.modules.work_items.service import duplicates as duplicates_service
+from app.modules.work_items.service import reapproval as reapproval_service
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
@@ -1051,6 +1054,19 @@ def _value(v: ReasonInfo) -> WorkItemListValueOut:
     )
 
 
+class ReapprovalPolicyIO(BaseModel):
+    """What an edit to an approved change does, per watched value (REQ-CHG-053)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    on_change: dict[Watched, OnChange] = Field(
+        default_factory=dict, description="window, risk, plans: restart, notify or ignore."
+    )
+    tolerance_minutes: int = Field(
+        default=60, ge=0, le=10_080, description="A window moved by more than this restarts."
+    )
+
+
 class WorkItemCatalogueOut(BaseModel):
     """The tenant's configuration of this type (for forms, filters and labels)."""
 
@@ -1092,6 +1108,10 @@ class WorkItemCatalogueOut(BaseModel):
         default=False,
         description="Changes: every board the mapping matches reviews, not only the first.",
     )
+    reapproval: ReapprovalPolicyIO | None = Field(
+        default=None,
+        description="Changes: edits to an approved change (REQ-CHG-053); null: shipped.",
+    )
     version: int
     statuses: list[WorkItemStatusOut]
     actions: list[WorkItemAction] = Field(description="User actions in their fixed order.")
@@ -1132,6 +1152,11 @@ class WorkItemCatalogueOut(BaseModel):
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
             cab_every_match=cat.cab_every_match,
+            reapproval=ReapprovalPolicyIO.model_validate(
+                reapproval_rules.policy_json(reapproval_rules.policy_from(cat.reapproval))
+            )
+            if cat.reapproval is not None
+            else None,
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -1258,6 +1283,9 @@ class WorkItemSettingsPatch(BaseModel):
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
     cab_every_match: bool | None = Field(default=None, description="Changes only.")
+    reapproval: ReapprovalPolicyIO | None = Field(
+        default=None, description="Changes only. Null: the shipped policy."
+    )
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 
@@ -1545,6 +1573,44 @@ class ChangeRiskQuestionnaireOut(BaseModel):
     version: int
     questions: list[ChangeRiskQuestionOut]
     bands: list[ChangeRiskBandOut]
+
+
+def _plain(value: object) -> str | int | None:
+    """A watched value as JSON: times as ISO text, levels by their code, versions as numbers."""
+    if value is None or isinstance(value, int):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+class FieldChangeOut(BaseModel):
+    """One watched value that changed since approval."""
+
+    field: str = Field(description="window_start, window_end, risk or plans.<section>.")
+    before: str | int | None
+    after: str | int | None
+    effect: OnChange
+
+
+class StageChangesOut(BaseModel):
+    """What changed since one stage of the change was approved (REQ-CHG-053 AC3)."""
+
+    stage: str
+    changes: list[FieldChangeOut]
+
+    @classmethod
+    def of(cls, found: "reapproval_service.StageChanges") -> "StageChangesOut":
+        """From the service's comparison."""
+        return cls(
+            stage=found.stage,
+            changes=[
+                FieldChangeOut(
+                    field=c.field, before=_plain(c.before), after=_plain(c.after), effect=c.effect
+                )
+                for c in found.changes
+            ],
+        )
 
 
 class ChangeApprovalBarredOut(BaseModel):
@@ -2807,6 +2873,17 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             found = await service.details(session, subject, wtype, record_id)
             set_etag(response, found.record.version)
             return ChangeDetailsOut.of(found)
+
+        @router.get(
+            "/{record_id}/approvals/changes-since",
+            summary="What changed since the change's stages were approved",
+        )
+        async def approval_changes_since(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[StageChangesOut]:
+            """Per approved stage, field by field, with what each change does (REQ-CHG-053)."""
+            found = await reapproval_service.changes_since(session, subject, record_id)
+            return [StageChangesOut.of(s) for s in found]
 
         @router.get(
             "/{record_id}/approvals/preview", summary="Who would approve the change's stage"

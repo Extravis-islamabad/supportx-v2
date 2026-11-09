@@ -220,6 +220,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "RiskLevel": "risk_level",  # WP-045b (REQ-CHG-056)
     "BoardRule": "change_board_rule",  # WP-045b S2 (REQ-CHG-042)
     "BoardChoice": "change_board_choice",  # WP-045b S3 (REQ-CHG-041)
+    "Watched": "reapproval_field",  # WP-045b S4 (REQ-CHG-053)
+    "OnChange": "reapproval_effect",
     "StageOutcome": "stage_outcome",
     "DowntimePhase": "downtime_phase",
     "LevelRule": "approval_rule",
