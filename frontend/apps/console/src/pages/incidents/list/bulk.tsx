@@ -504,21 +504,39 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
 }
 
 /** Your recent bulk changes, so a result is findable after leaving the page (AC3). */
-export function BulkJobsButton({ onOpen }: { onOpen: (id: string) => void }) {
+/** The recent bulk changes: a button and its drawer, or the drawer alone opened from "More". */
+export function BulkJobsButton({
+  onOpen,
+  open: controlled,
+  onOpenChange,
+  button = true,
+}: {
+  onOpen: (id: string) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  button?: boolean;
+}) {
   const t = useLabel();
   const dates = useDateTime();
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = controlled ?? own;
+  const setOpen = (next: boolean) => {
+    setOwn(next);
+    onOpenChange?.(next);
+  };
   const jobs = useBulkJobs(open);
   return (
     <>
-      <Button
-        onClick={() => {
-          setOpen(true);
-        }}
-        data-testid="inc-bulk-jobs"
-      >
-        {t('incidents.bulk.recent')}
-      </Button>
+      {button && (
+        <Button
+          onClick={() => {
+            setOpen(true);
+          }}
+          data-testid="inc-bulk-jobs"
+        >
+          {t('incidents.bulk.recent')}
+        </Button>
+      )}
       <Drawer
         open={open}
         onClose={() => {

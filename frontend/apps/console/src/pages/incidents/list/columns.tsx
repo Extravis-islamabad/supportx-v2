@@ -46,11 +46,14 @@ export const DEFAULT_COLUMNS: readonly string[] = [
   'subject',
   'requester_id',
   'technician_id',
-  'group_id',
   'status',
   'priority',
   'resolution_due_at',
 ];
+// The default widths fit their content (D-147 template C): IDs and tags never wrap or cut, the
+// people columns may cut before the subject does, and the subject takes the remaining width. At
+// 1280 px with the side navigation that leaves no room for Group as well, so it left the defaults
+// (QA9-V-01, the coordinator's P2 review); it stays in the column chooser, and saved views keep it.
 // "Created" left the defaults so they fit 1440 px with the side navigation (QA 2026-11-05 V1);
 // it stays in the column chooser, and saved choices and views keep it.
 
@@ -64,7 +67,7 @@ const OWN: ColumnSpec[] = [
     title: (c) => c.t('incidents.col.id'),
     // The channel it came from in front of the ID (UI pass 2), named by its label.
     render: (row) => (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
         <ChannelIcon channel={row.channel} />
         <strong>{row.display_id}</strong>
       </span>
@@ -86,20 +89,20 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'requester_id',
-    width: 130,
+    width: 100,
     title: field('requester_id'),
     render: (row, c) => personName(c.people, row.requester_id),
   },
   {
     key: 'status',
-    width: 140,
+    width: 130,
     title: field('status'),
     render: (row, c) => <StatusTag status={row.status} catalogue={c.catalogue} />,
   },
   {
     key: 'priority',
     sortField: 'priority',
-    width: 100,
+    width: 120,
     title: field('priority'),
     render: (row) => <PriorityTag priority={row.priority} source={row.priority_source} />,
   },
@@ -111,7 +114,7 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'technician_id',
-    width: 130,
+    width: 100,
     title: field('technician_id'),
     render: (row, c) => personName(c.people, row.technician_id),
   },
@@ -218,14 +221,28 @@ export function columnCatalogue(fields: IncidentListField[]): Map<string, Column
 }
 
 /** The chosen columns that still exist (a removed custom field drops out), else the defaults. */
+/**
+ * Group joins the defaults where it fits beside a usable subject: windows of at least this width
+ * (1440 px and up with the side navigation; the coordinator's P2 review). Below, it waits in the
+ * column chooser.
+ */
+export const GROUP_DEFAULT_MIN_WIDTH = 1400;
+
 export function chosenColumns(
   saved: readonly ListColumn[],
   catalogue: Map<string, ColumnSpec>,
+  wide = false,
 ): ListColumn[] {
   const kept = saved.filter((c) => catalogue.has(c.key));
-  return kept.length > 0
-    ? kept
-    : DEFAULT_COLUMNS.filter((key) => catalogue.has(key)).map((key) => ({ key, width: null }));
+  if (kept.length > 0) return kept; // the person's own choice is never changed by the width
+  const keys = wide ? withGroup(DEFAULT_COLUMNS) : DEFAULT_COLUMNS;
+  return keys.filter((key) => catalogue.has(key)).map((key) => ({ key, width: null }));
+}
+
+/** The defaults with Group before Status, where it sat before. */
+function withGroup(keys: readonly string[]): string[] {
+  const at = keys.indexOf('status');
+  return [...keys.slice(0, at), 'group_id', ...keys.slice(at)];
 }
 
 /** `-field` or `field` → the column it sorts and its order (null: not a column's sort). */

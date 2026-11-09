@@ -20,13 +20,18 @@ added, nothing is ever updated or deleted (CLAUDE.md rule 5h).
    outside the API, in this tenant only (`app.tenant_id` set, RLS applies), then spreads the
    incidents over the 30 days before the tenant was created. Each incident moves by one delta,
    applied to every timestamp of the incident and of its rows (conversation, tasks, worklogs,
-   followers, SLA applications, targets, pauses and escalation runs, field history). The order
-   of its times (created <= first response <= resolved) and its SLA clocks stay as they were.
-   The target time is fixed (the tenant's creation minus a per-incident offset), so a re-run
-   computes a delta of zero: idempotent. This step is dev tooling; no API or product code path
-   ever backdates. Append-only and signed tables are never touched: the audit log (its entries,
-   queue and hash chain still verify; a test proves it), the outbox and the event log. So an
-   incident may now predate its own audit entries, which is acceptable for demo data.
+   followers, SLA applications, targets, pauses and escalation runs, field history). Only the
+   records this run made itself move (QA 2026-11-09: a record made by hand, INC-62, was moved
+   and its history re-dated): the API helper notes each record it creates (a 201, not an
+   idempotent replay) and the step moves those ids, never "every record in the tenant". A
+   record is moved once, in the run that makes it, with the history that run wrote for it; a
+   record someone else made, or edited, is never selected, and a re-run makes nothing, so
+   moves nothing. The order of its times (created <= first response <= resolved) and its SLA
+   clocks stay as they were. The target time is fixed (the tenant's creation minus a
+   per-incident offset). This step is dev tooling; no API or product code path ever backdates.
+   Append-only and signed tables are never touched: the audit log (its entries, queue and hash
+   chain still verify; a test proves it), the outbox and the event log. So an incident may now
+   predate its own audit entries, which is acceptable for demo data.
 """
 
 import asyncio
@@ -55,6 +60,7 @@ from app.modules.identity_access.domain.identity import Identity
 from app.modules.identity_access.service.users import provision_user
 from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
+from app.shared.api.idempotency import REPLAYED_HEADER
 from tooling import showcase_lane_a as lane_a
 from tooling.keycloak_theme import admin_token
 
@@ -365,19 +371,22 @@ SELECT w.id,
        - w.created_at AS delta
   FROM work_items w JOIN tenants t ON t.id = w.tenant_id
  WHERE w.tenant_id = $1 AND w.type <> 'release'  -- a release's stage history keeps its dates
+   AND w.id = ANY($3::uuid[])  -- only what this run made: never anyone else's record
 """
 
 
-async def backdate(migrator_url: str) -> int:
-    """Step 5: spread the incidents over the past 30 days (see the module docstring).
+async def backdate(migrator_url: str, made: Sequence[uuid.UUID]) -> int:
+    """Step 5: spread the records this run made over the past 30 days (module docstring).
 
-    Returns how many incidents moved (0 on a re-run).
+    `made` is the API helper's list; returns how many records moved (0 on a re-run).
     """
+    if not made:
+        return 0
     conn = await asyncpg.connect(migrator_url)
     try:
         async with conn.transaction():
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
-            await conn.execute(_BACKDATE_DELTAS, TENANT_ID, BACKDATE_DAYS)
+            await conn.execute(_BACKDATE_DELTAS, TENANT_ID, BACKDATE_DAYS, list(made))
             await conn.execute("DELETE FROM showcase_shift WHERE delta = interval '0'")
             moved: int = await conn.fetchval("SELECT count(*) FROM showcase_shift")
             if moved == 0:
@@ -712,16 +721,27 @@ async def console_api(
             yield client
 
 
-class Api:
-    """Calls as one person; a refusal stops the seed with what was refused."""
+# The creates whose records step 5 may move (releases never: their stage history keeps its dates).
+BACKDATED_CREATES = frozenset({"/api/v1/incidents", lane_a.SR, "/api/v1/problems"})
 
-    def __init__(self, client: httpx.AsyncClient, user: uuid.UUID) -> None:
+
+class Api:
+    """Calls as one person; a refusal stops the seed with what was refused.
+
+    `made` collects the id of every record this run created through BACKDATED_CREATES (shared
+    by `as_user`): step 5 moves those and nothing else.
+    """
+
+    def __init__(
+        self, client: httpx.AsyncClient, user: uuid.UUID, made: list[uuid.UUID] | None = None
+    ) -> None:
         self.client = client
         self.headers = {SEED_HEADER: str(user)}
+        self.made: list[uuid.UUID] = [] if made is None else made
 
     def as_user(self, user: uuid.UUID) -> "Api":
         """The same API, acting as someone else."""
-        return Api(self.client, user)
+        return Api(self.client, user, self.made)
 
     async def call(  # noqa: PLR0913 - one request helper for every endpoint
         self,
@@ -745,7 +765,16 @@ class Api:
         if response.status_code >= 400:  # noqa: PLR2004 - HTTP error range
             msg = f"{method} {path} was refused: {response.status_code} {response.text[:300]}"
             raise SeedError(msg)
-        return response.json() if response.content else None
+        body: Any = response.json() if response.content else None
+        if (
+            isinstance(body, dict)
+            and method == "POST"
+            and path in BACKDATED_CREATES
+            and response.status_code == 201  # noqa: PLR2004 - Created
+            and response.headers.get(REPLAYED_HEADER) != "true"  # made now, not an earlier run
+        ):
+            self.made.append(uuid.UUID(body["id"]))
+        return body
 
     async def all_pages(self, path: str, params: Mapping[str, Any] | None = None) -> list[Any]:
         """Every row of a cursor-paged list."""
@@ -929,6 +958,25 @@ async def catalogue(api: Api, base: str = "/api/v1/incidents") -> Catalogue:
     found = await api.call("GET", f"{base}/settings")
     codes = [c["code"] for c in found["closure_codes"] if not c.get("disabled")]
     return Catalogue(found["transitions"], found["reasons"], codes)
+
+
+def defined_incidents(people: Mapping[str, str]) -> frozenset[tuple[str, str]]:
+    """The (subject, requester id) of every incident this seed defines (ensure_incidents' key).
+
+    The one definition of "the seed's own incidents" (QA 2026-11-09): ensure_incidents makes
+    them and any later step that changes old showcase incidents must pick only these (with
+    is_seed_incident), never every incident in the tenant.
+    """
+    requesters = [people[p.email] for p in PEOPLE if p.user_type == "requester"]
+    return frozenset(
+        (SUBJECTS[n % len(SUBJECTS)][0], requesters[(n * 7) % len(requesters)])
+        for n in range(len(STATES))
+    )
+
+
+def is_seed_incident(record: Mapping[str, Any], people: Mapping[str, str]) -> bool:
+    """Is this incident (an API row) one the seed defines? See defined_incidents."""
+    return (record["subject"], record["requester_id"]) in defined_incidents(people)
 
 
 async def ensure_incidents(  # noqa: C901 - one branch per state, flat
@@ -1239,6 +1287,8 @@ class Report:
     articles: int = 0
     releases: int = 0
     backdated: int = 0
+    # Between the steps only: the records step 4 made now, which step 5 may move.
+    made: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
 
 
 async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) -> None:
@@ -1256,7 +1306,7 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
         for person in SIGN_INS:
             uid = signed_in[person.email]
             contexts[uid] = TenantContext(TENANT_ID, uid, roles=frozenset(person.roles))
-        admin = Api(client, signed_in[ADMIN.email])
+        admin = Api(client, signed_in[ADMIN.email], report.made)
         sites, groups = await ensure_units(admin)
         report.catalog_published = await ensure_catalog(admin, groups)
         people = await ensure_people(admin, sites, groups, signed_in)
@@ -1306,7 +1356,7 @@ async def run(settings: Settings, keycloak: KeycloakTarget) -> Report:
         found = await ensure_keycloak(client, keycloak)
     report.keycloak = found.made
     await fill(settings, found.subjects, report)
-    report.backdated = await backdate(migrator.get_secret_value())
+    report.backdated = await backdate(migrator.get_secret_value(), report.made)
     return report
 
 
