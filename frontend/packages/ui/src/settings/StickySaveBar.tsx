@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 
 import { useLabel } from '../appearance';
 import { SPACE } from '../density';
+import { WriteButton } from '../licence/WriteButton';
 
 export interface StickySaveBarProps {
   /** How many fields differ from what is saved; the bar shows only while there are some. */
@@ -63,9 +64,10 @@ export function StickySaveBar({
           <Button onClick={onDiscard} disabled={saving} data-testid="settings-discard">
             {t('settings.discard')}
           </Button>
-          <Button type="primary" onClick={onSave} loading={saving} data-testid="settings-save">
+          {/* A read-only licence disables Save with its reason (coverage 2026-11-09 §17). */}
+          <WriteButton type="primary" onClick={onSave} loading={saving} data-testid="settings-save">
             {t('actions.save')}
-          </Button>
+          </WriteButton>
         </Flex>
       </Flex>
     </div>
