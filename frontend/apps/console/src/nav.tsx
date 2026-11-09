@@ -14,7 +14,9 @@ import {
   SwapOutlined,
 } from '@ant-design/icons';
 
-import { ADMIN_PERMISSIONS, type NavItem } from '@supportx/ui';
+import { type NavItem } from '@supportx/ui';
+
+import { SETUP_PERMISSIONS } from './pages/admin/setupMap';
 
 /**
  * Console sections. `permissions` decide who sees a section (WP-016); `feature` ties it to the
@@ -113,7 +115,8 @@ export const NAV: readonly NavItem[] = [
     path: '/admin',
     labelKey: 'nav.admin',
     icon: <SettingOutlined />,
-    permissions: ADMIN_PERMISSIONS,
+    // The setup menu decides: Admin shows when any setup page would (one source).
+    permissions: SETUP_PERMISSIONS,
   },
 ];
 

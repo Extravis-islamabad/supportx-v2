@@ -12,7 +12,7 @@ import {
   usePageCrumbs,
 } from '@supportx/ui';
 
-import { pagesFor, SETUP_GROUPS, type SetupPage } from './setupMap';
+import { pagesFor, SETUP_GROUPS, SETUP_PAGES, type SetupPage } from './setupMap';
 
 type Token = ReturnType<typeof theme.useToken>['token'];
 
@@ -165,7 +165,11 @@ export function AdminLayout() {
   );
 
   if (pages.length === 0) return <NoAccess titleKey="nav.admin" />;
-  // Each page checks its own access and says so (NoAccess); the menu only hides what is not yours.
+  // A setup page this person may not open says so here, by the same rule as the menu, instead
+  // of rendering and failing on the server's 403 (coverage 2026-11-09 §17 item 2). Pages may
+  // still check finer rights of their own.
+  const known = SETUP_PAGES.find((candidate) => candidate.key === active);
+  const refused = known !== undefined && page === undefined;
 
   const menu = (
     <SetupMenu
@@ -252,7 +256,7 @@ export function AdminLayout() {
               testId="admin-page-header"
             />
           )}
-          <Outlet />
+          {refused ? <NoAccess titleKey={known.labelKey} /> : <Outlet />}
         </div>
       </div>
     </>

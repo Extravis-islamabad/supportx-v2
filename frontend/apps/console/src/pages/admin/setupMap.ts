@@ -4,6 +4,8 @@
 // `setup.page.<key>.description` and `setup.page.<key>.keywords` (comma-separated words and
 // synonyms, in each language).
 
+import type { LabelKey } from '@supportx/labels';
+
 export const SETUP_GROUPS = [
   'people_access',
   'service_desk',
@@ -20,7 +22,7 @@ export interface SetupPage {
   key: string;
   group: SetupGroup;
   /** `nav.admin_<labelKey>`: the page name. */
-  labelKey: string;
+  labelKey: LabelKey;
   permission: string;
   /** A second permission that also opens the page. */
   also?: string;
@@ -127,6 +129,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
   { key: 'files', group: 'organisation', labelKey: 'nav.admin_files', permission: 'files.manage' },
   { key: 'licence', group: 'licence', labelKey: 'nav.admin_licence', permission: 'licence.manage' },
   { key: 'audit', group: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },
+];
+
+/**
+ * Every permission that opens a setup page: the sidebar shows Admin to anyone holding one of
+ * them, so the Admin link and the setup menu always agree (coverage 2026-11-09 §17 item 1).
+ */
+export const SETUP_PERMISSIONS: readonly string[] = [
+  ...new Set(SETUP_PAGES.flatMap((page) => [page.permission, ...(page.also ? [page.also] : [])])),
 ];
 
 /** Pages this person may open, in map order. */
