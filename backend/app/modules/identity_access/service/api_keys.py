@@ -48,6 +48,7 @@ from app.shared.ids import new_id
 
 MANAGE = "api_keys.manage"
 SERVICE = "service"
+OWNERS_MAX = 500  # one per connector instance: far more than any tenant runs
 
 
 def server_key(settings: Settings) -> bytes | None:
@@ -84,6 +85,23 @@ class MadeKey:
 
     row: ApiKey
     text: str
+
+
+async def service_owners(session: AsyncSession, subject: Subject) -> list[User]:
+    """The active service identities a key manager may make keys for (PEO-14).
+
+    Their own list, because service identities are never in the people list, search or
+    pickers (WP-040 s2); only `api_keys.manage` sees them here.
+    """
+    if not subject.holds(MANAGE):
+        raise PermissionDenied(params={"permission": MANAGE, "reason": "no_permission"})
+    rows = await session.scalars(
+        select(User)
+        .where(User.deleted_at.is_(None), User.user_type == SERVICE, User.status == "active")
+        .order_by(User.display_name, User.id)
+        .limit(OWNERS_MAX)
+    )
+    return list(rows)
 
 
 async def create_key(  # noqa: PLR0913 - the key's parts, explicit

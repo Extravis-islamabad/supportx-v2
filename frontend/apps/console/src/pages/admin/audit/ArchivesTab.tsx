@@ -14,7 +14,7 @@ import { refreshList, useListChannel } from '@supportx/realtime';
 import { useAccess, useDateTime, useLabel } from '@supportx/ui';
 
 import { ProblemAlert } from './ProblemAlert';
-import { actorLabel, OUTCOME_COLOURS } from './present';
+import { actionLabel, actorLabel, OUTCOME_COLOURS } from './present';
 import { StateTag } from './StateTag';
 
 const RESTORE_COLOURS: Record<string, string> = {
@@ -195,7 +195,7 @@ function RestoredDrawer({
             {
               key: 'action',
               title: t('audit.ui.col.action'),
-              render: (_, entry) => t(`audit.action.${entry.action}`),
+              render: (_, entry) => actionLabel(t, entry),
             },
             {
               key: 'outcome',

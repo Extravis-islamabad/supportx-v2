@@ -31,15 +31,16 @@ describe('QA findings in the shared UI', () => {
         <AppHeader appName="app.console.name" session={fakeSession()} onLogout={() => undefined} />
       </AppearanceProvider>,
     );
-    const trigger = screen.getByTestId('appearance-menu');
+    const trigger = screen.getByTestId('user-menu');
     fireEvent.click(trigger);
+    fireEvent.click(await screen.findByTestId('appearance-menu'));
     await waitFor(() => {
-      expect(trigger.getAttribute('aria-expanded')).toBe('true');
+      expect(trigger.getAttribute('data-appearance-open')).toBe('true');
     });
     const select = await screen.findByTestId('language-select');
     fireEvent.keyDown(select, { key: 'Escape' });
     await waitFor(() => {
-      expect(trigger.getAttribute('aria-expanded')).toBe('false');
+      expect(trigger.getAttribute('data-appearance-open')).toBe('false');
     });
   });
 
@@ -55,7 +56,8 @@ describe('QA findings in the shared UI', () => {
         />
       </AppearanceProvider>,
     );
-    fireEvent.click(screen.getByTestId('appearance-menu'));
+    fireEvent.click(screen.getByTestId('user-menu'));
+    fireEvent.click(await screen.findByTestId('appearance-menu'));
     const select = await screen.findByTestId('language-select');
     const selector = select.querySelector('.ant-select-selector');
     if (selector === null) throw new Error('no selector');

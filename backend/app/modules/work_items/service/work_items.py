@@ -1225,6 +1225,29 @@ async def _check_assignment(  # noqa: PLR0913 - the assignment and who makes it,
     return []
 
 
+async def _default_owner(  # noqa: PLR0913 - the assignment check's inputs, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    holders: PermissionHolders,
+    *,
+    values: Mapping[str, Any],
+    group_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """The technician a new record starts with: the one given, else none.
+
+    QA6-PRB-03: whoever opens a problem owns it until someone else takes it, when they could be
+    given it (they may edit problems, and are in its group or may work outside it).
+    """
+    given: uuid.UUID | None = values.get("technician_id")
+    if "technician_id" in values or wtype.code is not WorkItemTypeCode.PROBLEM:
+        return given
+    refused = await _check_assignment(
+        session, subject, wtype, holders, group_id=group_id, technician_id=subject.user_id
+    )
+    return None if refused else subject.user_id
+
+
 # --- writing helpers ------------------------------------------------------------------------------
 
 
@@ -2125,6 +2148,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     )
     if problems:
         raise await _value_errors(session, wtype, problems)
+    technician_id = await _default_owner(
+        session, subject, wtype, holders, values=values, group_id=group_id
+    )
     await _place(session, cleaned)
     # A staged type starts in its path's first stage and that stage's first status (ADR-041).
     stage_columns = await _first_stage(

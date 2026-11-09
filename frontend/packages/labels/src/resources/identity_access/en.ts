@@ -155,6 +155,8 @@ export const en = {
   'password_policy_state.applying': 'Being applied',
   'password_policy_state.default': 'Installation default',
   'password_policy_state.failed': 'Not applied',
+  'people.account.help': 'These apply at once, without Save.',
+  'people.account.title': 'Account',
   'people.add': 'Add person',
   'people.added': '{{name}} added',
   'people.changed_elsewhere':
@@ -781,9 +783,11 @@ export const en = {
   'roles.delete_title': 'Delete {{name}}?',
   'roles.deleted': 'The role was deleted.',
   'roles.description': 'Description',
+  'roles.duplicate': 'Duplicate as a custom role',
   'roles.editor.copy': 'New role from “{{name}}”',
   'roles.editor.edit': 'Role: {{name}}',
   'roles.editor.new': 'New role',
+  'roles.granted_only': 'Granted only',
   'roles.groups': 'Support groups',
   'roles.groups_add': 'Add a group',
   'roles.groups_help':
@@ -792,10 +796,12 @@ export const en = {
   'roles.has_rule': 'Limited by a rule',
   'roles.name': 'Name',
   'roles.new': 'New role',
+  'roles.no_permission_found': 'No permission matches',
   'roles.permissions': 'Permissions',
   'roles.reassign_to': 'Move users to',
   'roles.saved': 'The role was saved.',
   'roles.scope_of': 'Scope for {{permission}}',
+  'roles.search': 'Find a permission',
   'roles.system_read_only':
     'Built-in roles cannot be changed. Create a custom role to grant a different set of permissions.',
   'roles.title': 'Roles',
@@ -839,6 +845,20 @@ export const en = {
   'security.invitations.status': 'Status',
   'security.invitations.title': 'Invitations',
   'security.invitations.valid_days': 'Invitation links work for',
+  'security.mfa.confirm_off_one':
+    '1 person holds this role. Sign-in stops asking for a second step, even if they set one up.',
+  'security.mfa.confirm_off_other':
+    '{{count}} people hold this role. Sign-in stops asking for a second step, even if they set one up.',
+  'security.mfa.confirm_ok': 'Change it',
+  'security.mfa.confirm_optional_one':
+    '1 person holds this role. They may set it up, but sign-in no longer asks for it.',
+  'security.mfa.confirm_optional_other':
+    '{{count}} people hold this role. They may set it up, but sign-in no longer asks for it.',
+  'security.mfa.confirm_required_one':
+    '1 person holds this role; {{missing}} of them still has to set it up. People without it get the grace period, then can only set it up.',
+  'security.mfa.confirm_required_other':
+    '{{count}} people hold this role; {{missing}} of them still have to set it up. People without it get the grace period, then can only set it up.',
+  'security.mfa.confirm_title': 'Set two-step sign-in to {{mode}} for {{role}}?',
   'security.mfa.count': '{{enrolled}} of {{holders}}',
   'security.mfa.enrolled': 'Set up',
   'security.mfa.grace': 'Days to set it up once required',

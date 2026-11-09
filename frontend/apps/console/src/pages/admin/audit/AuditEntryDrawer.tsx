@@ -5,7 +5,14 @@ import { useAuditEntry, useRoles, type AuditEntryDetail } from '@supportx/api-cl
 import { useListFormat } from '@supportx/labels';
 import { useDateTime, useLabel } from '@supportx/ui';
 
-import { actorLabel, deviceLabel, grantLabel, objectLabel, OUTCOME_COLOURS } from './present';
+import {
+  actionLabel,
+  actorLabel,
+  deviceLabel,
+  grantLabel,
+  objectLabel,
+  OUTCOME_COLOURS,
+} from './present';
 import { StateTag } from './StateTag';
 
 // Settings that audit entries describe by name (old → new values are numbers or lists).
@@ -33,9 +40,7 @@ export function AuditEntryDrawer({ id, onClose }: { id: string | undefined; onCl
       open={id !== undefined}
       onClose={onClose}
       width={560}
-      title={
-        entry.data === undefined ? t('audit.ui.entry') : t(`audit.action.${entry.data.action}`)
-      }
+      title={entry.data === undefined ? t('audit.ui.entry') : actionLabel(t, entry.data)}
       destroyOnHidden
       data-testid="audit-entry-drawer"
     >
@@ -76,7 +81,7 @@ function Details({ e }: { e: AuditEntryDetail }) {
           </Descriptions.Item>
         )}
         <Descriptions.Item label={t('audit.ui.col.action')}>
-          {t(`audit.action.${e.action}`)} · {t(`audit_category.${e.category}`)}
+          {actionLabel(t, e)} · {t(`audit_category.${e.category}`)}
         </Descriptions.Item>
         {e.object_type !== null && (
           <Descriptions.Item label={t('audit.ui.col.object')}>

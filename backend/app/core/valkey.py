@@ -10,12 +10,28 @@ Every client retries a command that lost its connection a few times with a short
 a second in all). In a failover the pooled connections still point at the old master: the first
 command on each fails once (valkey-py's Sentinel connection turns the demoted master's READONLY
 into a ConnectionError and drops the socket), and the retry reconnects to the master the sentinels
-name now. A command can run twice when only its reply was lost. That is harmless for every
-caller: SETs with expiry and deletes repeat as no-ops, an extra cache-generation INCR only drops
-a cache, an extra rate-limit count errs strict, and a repeated GETDEL of a pending sign-in finds
-it gone, so that sign-in ends as "expired, start again" (a labelled outcome). Past the retry, the
-API answers 503 with Retry-After (app/core/errors.py), never a bare 500. A caller may pass its own
-`retry`; the readiness probe passes none, as it must report what it sees at once.
+name now. Past the retry, the API answers 503 with Retry-After (app/core/errors.py), never a
+bare 500. A caller may pass its own `retry`; the readiness probe passes none, as it must report
+what it sees at once.
+
+A retried command can run twice when only its reply was lost. Every command the app sends that
+is not naturally idempotent (audit 2026-11-09; workers/ use NATS KV, not Valkey), and why a
+second run is safe:
+- GET, MGET: reads.
+- SET with PX (sessions, pending logins, SSO tests, ended-at marks, policy and licence caches)
+  and DEL: the same value again, or nothing left to delete.
+- INCR of a cache generation (identity_access policy, licensing cache): one extra bump only
+  makes the next read miss the cache once and reload it.
+- INCR + PEXPIRE NX in MULTI (`SessionStore.hit`, password-reset limits) and the rate limiter's
+  Lua INCRs (app/shared/api/ratelimit.py): one extra count, so a limit errs strict by one
+  request in that window; no limit is ever loosened.
+- GETDEL of a pending sign-in (`take_login`): the second run finds it gone, so that sign-in
+  ends as "expired, start again". It can never be used twice (fails safe, never open).
+- The token-refresh lock (`SessionStore.lock`): SET NX with a per-attempt token; a retry that
+  finds the key holding its own token knows the first try won. Release is a compare-and-delete
+  script, so it never frees another holder's lock and a second run does nothing.
+No LPUSH/RPUSH/XADD/SADD and no PUBLISH go to Valkey (realtime publishes go to Centrifugo).
+A new non-idempotent command needs its line here, or a token as the lock has.
 """
 
 from typing import Any

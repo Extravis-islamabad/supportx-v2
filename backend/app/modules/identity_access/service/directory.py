@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 from zoneinfo import available_timezones
 
-from sqlalchemy import false, select
+from sqlalchemy import false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
@@ -534,6 +534,24 @@ async def notifiable_people(
         )
         for row in rows
     }
+
+
+async def people_by_site(session: AsyncSession) -> dict[uuid.UUID, int]:
+    """How many people have each site as their own (organization's Sites list, PEO-01).
+
+    Deactivated people count too: they still name the site, which matters before removing it.
+    Removed users and service identities never count.
+    """
+    rows = await session.execute(
+        select(User.site_id, func.count())
+        .where(
+            User.deleted_at.is_(None),
+            User.user_type != UserType.SERVICE.value,
+            User.site_id.is_not(None),
+        )
+        .group_by(User.site_id)
+    )
+    return {site_id: int(count) for site_id, count in rows.all() if site_id is not None}
 
 
 async def active_user_ids(

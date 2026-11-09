@@ -39,6 +39,7 @@ export const queryKeys = {
     list: ['api-keys', 'list'] as const,
     rules: ['api-keys', 'rules'] as const,
     scopes: ['api-keys', 'scopes'] as const,
+    owners: ['api-keys', 'owners'] as const,
   },
   identity: {
     all: ['identity'] as const,

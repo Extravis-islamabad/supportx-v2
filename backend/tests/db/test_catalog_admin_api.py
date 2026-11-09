@@ -13,23 +13,28 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import asyncpg
+import pytest
 from sqlalchemy import func, select
 
 from app.core.tenancy import TenantContext
 from app.modules.service_catalog.domain.starter import CATEGORIES, ITEMS
 from app.modules.service_catalog.infra.models import CatalogItem, ServiceCategory
 from app.modules.service_catalog.service.schedule import apply_due
+from app.modules.service_catalog.service.search import TEXT
 from app.modules.service_catalog.service.starter import (
     on_tenant_provisioned,
     seed_empty_catalog,
     seed_new_tenant,
 )
 from app.shared.clock import FrozenClock
+from app.shared.search import ENGINE
 from tests.db.test_catalog_api import CATEGORIES as CATEGORIES_PATH
 from tests.db.test_catalog_api import ITEMS as ITEMS_PATH
 from tests.db.test_catalog_api import add, category
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
 from tests.db.test_service_requests_api import raise_request
+from tooling import timing
 
 __all__ = ["world"]  # the fixture, re-used
 
@@ -384,8 +389,7 @@ async def test_search_finds_words_keywords_typos_and_arabic_and_urdu_spellings(
     assert printer["id"] not in await found("printer", org=b)
 
 
-async def test_search_answers_within_500_ms_for_1000_items(world: World) -> None:
-    """REQ-CAT-028 AC: p95 ≤ 500 ms over 1,000 published items (through the API)."""
+async def _thousand_items(world: World) -> None:
     a = world.a
     holder = uuid.UUID(await category(world, a))
     await world.sql(
@@ -402,6 +406,54 @@ async def test_search_answers_within_500_ms_for_1000_items(world: World) -> None
         a.ga,
     )
     await world.sql("ANALYZE catalog_items")
+
+
+async def test_req_cat_028_search_uses_its_indexes_for_1000_items(world: World) -> None:
+    """REQ-CAT-028, the timing-free half: at 1,000 items the search predicate is answered from
+    the search indexes (GIN on the vector, trigram on the name), never by reading every row.
+
+    Sequential scans are switched off in this transaction only: on a table this small the planner
+    may still prefer one, so this asks whether the indexes *can* answer the search. A predicate
+    no index can serve would still show a sequential scan. The speed itself is the nightly
+    timing test below (perf.yml).
+    """
+    await _thousand_items(world)
+    statements: list[str] = []
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        for q in ["laptop", "lapotp", "kw77", "عنصر"]:  # words, a typo, a keyword, Arabic
+            words = await ENGINE.match(session, TEXT, q)
+            assert words is not None
+            compiled = (
+                select(CatalogItem.id)
+                .where(words.predicate)
+                .compile(dialect=session.get_bind().dialect, compile_kwargs={"literal_binds": True})
+            )
+            # Literal compilation doubles "%" (the trigram operator <%): undo it for EXPLAIN.
+            statements.append(str(compiled).replace("%%", "%"))
+    # The bare predicate, as the database admin (no row-level filter, whose tenant index would
+    # otherwise answer first): with sequential scans off, only the search indexes can serve it.
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SET LOCAL enable_seqscan = off")
+            for sql in statements:
+                plan = "\n".join(r[0] for r in await conn.fetch(f"EXPLAIN {sql}"))
+                assert "Seq Scan" not in plan, plan
+                assert "ix_catalog_items_search" in plan, plan
+    finally:
+        await conn.close()
+
+
+@pytest.mark.timing
+async def test_search_answers_within_500_ms_for_1000_items(world: World) -> None:
+    """REQ-CAT-028 AC: p95 ≤ 500 ms over 1,000 published items (through the API).
+
+    A wall-clock budget: the real 500 ms in the nightly performance run on a quiet runner
+    (perf.yml), ten times it in pull requests (tooling/timing.py), so shared-runner load never
+    fails a PR. The PR guarantee is the index test above.
+    """
+    a = world.a
+    await _thousand_items(world)
     timings: list[float] = []
     for q in ["laptop", "dock 42", "kw77", "summary", "lapotp", "عنصر", "item 9"] * 3:
         started = time.perf_counter()
@@ -409,7 +461,8 @@ async def test_search_answers_within_500_ms_for_1000_items(world: World) -> None
         timings.append(time.perf_counter() - started)
         assert response.status_code == 200, response.text
     p95 = statistics.quantiles(timings, n=20)[18]
-    assert p95 <= 0.5, f"p95 {p95:.3f}s"
+    timing.record("catalog_search_1000_items", {"p95_ms": round(p95 * 1000, 1)})
+    assert p95 <= timing.limit(0.5), f"p95 {p95:.3f}s"
 
 
 # --- settings -------------------------------------------------------------------------------------
