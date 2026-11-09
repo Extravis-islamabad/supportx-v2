@@ -497,6 +497,9 @@ class KeycloakResult:
 
     subjects: dict[str, str]
     made: list[str]
+    # One line per persona about its authenticator (D-151): "enrolled", "already enrolled",
+    # "sets it up in QA" or why none was made. Never the secret.
+    enrolment: list[str] = field(default_factory=list)
 
 
 async def _ensure_user(  # noqa: PLR0913, PLR0917 - the realm call context and the person, explicit
@@ -624,22 +627,31 @@ async def ensure_keycloak(client: httpx.AsyncClient, target: KeycloakTarget) -> 
         made.append("organization")
 
     subjects: dict[str, str] = {}
+    enrolment: list[str] = []
     for person in SIGN_INS:
         user_id, done = await _ensure_user(
             client, realm, headers, org_id, person, target.sign_in_password
         )
         made += done
-        if target.totp_key and await _ensure_totp(
-            client, realm, headers, user_id, person, target.totp_key
-        ):
+        persona = quick.persona_by_email(person.email)
+        if persona is None:
+            pass  # not a quick sign-in persona: no line
+        elif not persona.enrolled:
+            enrolment.append(f"{person.email}: not enrolled (sets it up the normal way)")
+        elif not target.totp_key:
+            enrolment.append(f"{person.email}: NOT enrolled, no {TOTP_KEY_ENV}")
+        elif await _ensure_totp(client, realm, headers, user_id, person, target.totp_key):
             # Keycloak's partial import replaced the user (same ID) without its password, roles
             # and membership: put them back the same way as above.
             _, done = await _ensure_user(
                 client, realm, headers, org_id, person, target.sign_in_password
             )
             made += [f"authenticator {person.email}"]
+            enrolment.append(f"{person.email}: enrolled")
+        else:
+            enrolment.append(f"{person.email}: already enrolled")
         subjects[person.email] = user_id
-    return KeycloakResult(subjects, made)
+    return KeycloakResult(subjects, made, enrolment)
 
 
 async def _ensure_totp(  # noqa: PLR0913, PLR0917 - the realm call context and the person, explicit
@@ -1290,6 +1302,7 @@ class Report:
 
     tenant: list[str] = field(default_factory=list)
     keycloak: list[str] = field(default_factory=list)
+    enrolment: list[str] = field(default_factory=list)  # D-151: one line per persona
     placed: list[str] = field(default_factory=list)  # D-151: departments, places, lead, roles
     incidents: int = 0
     managers: int = 0
@@ -1382,6 +1395,7 @@ async def run(settings: Settings, keycloak: KeycloakTarget) -> Report:
     async with httpx.AsyncClient(base_url=keycloak.base_url, timeout=20) as client:
         found = await ensure_keycloak(client, keycloak)
     report.keycloak = found.made
+    report.enrolment = found.enrolment
     await fill(settings, found.subjects, report)
     report.backdated = await backdate(migrator.get_secret_value(), report.made)
     report.sla_from_creation = await sla_from_creation(
@@ -1460,7 +1474,10 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         password=env["SUPPORTX_KEYCLOAK_ADMIN_PASSWORD"],
         sign_in_password=password,
         realm=env.get("SUPPORTX_KEYCLOAK_REALM", "supportx"),
-        totp_key=env.get(TOTP_KEY_ENV) or None,
+        # The make target passes deploy/compose/.env's key; the API's own setting (backend/.env)
+        # is the same key, so either one enrols (they must match, or sign-in codes are refused).
+        totp_key=env.get(TOTP_KEY_ENV)
+        or (settings.showcase_totp_key.get_secret_value() if settings.showcase_totp_key else None),
     )
     try:
         report = asyncio.run(run(settings, target))
@@ -1478,6 +1495,8 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  incidents moved into the past 30 days now: {report.backdated}\n"
         f"  sign in as {ADMIN.email} or {TECHNICIAN.email} with ${PASSWORD_ENV}\n"
     )
+    for line in report.enrolment:
+        sys.stdout.write(f"  quick sign-in authenticator: {line}\n")
     return 0
 
 

@@ -84,6 +84,10 @@ def test_personas_are_pre_enrolled_and_the_password_grant_takes_their_code(
     enrolled = [p for p in quick.PERSONAS if p.enrolled]
     assert {f"authenticator {p.email}" for p in enrolled} <= set(first.made)
     assert "authenticator newstarter@showcase.test" not in first.made
+    # One line per persona, never the secret.
+    assert {f"{p.email}: enrolled" for p in enrolled} <= set(first.enrolment)
+    assert "newstarter@showcase.test: not enrolled (sets it up the normal way)" in first.enrolment
+    assert not [line for line in first.enrolment if KEY in line]
     # The right code first: a wrong one counts toward the realm's brute-force lock.
     granted = _grant(private_keycloak, "admin@showcase.test", _code(KEY, "admin@showcase.test"))
     assert granted.status_code == 200, granted.text
@@ -95,9 +99,24 @@ def test_personas_are_pre_enrolled_and_the_password_grant_takes_their_code(
     # A second run changes nothing; the new starter has no authenticator (sets one up in QA).
     again = asyncio.run(_ensure(private_keycloak, KEY))
     assert not [m for m in again.made if m.startswith("authenticator")]
+    assert {f"{p.email}: already enrolled" for p in enrolled} <= set(again.enrolment)
     assert again.subjects == first.subjects  # same Keycloak users: SupportX links hold
     new_starter = _grant(private_keycloak, "newstarter@showcase.test", None)
     assert new_starter.status_code == 200, new_starter.text
+
+
+def test_a_user_made_before_the_key_is_enrolled_once_the_key_is_set(
+    private_keycloak: PrivateKeycloak,
+) -> None:
+    """Existing personas (made before D-151, no key then) get their authenticator later."""
+    before = asyncio.run(_ensure(private_keycloak, ""))
+    assert all("NOT enrolled" in line or "not enrolled" in line for line in before.enrolment)
+    after = asyncio.run(_ensure(private_keycloak, KEY + "-late"))
+    assert "admin@showcase.test: enrolled" in after.enrolment
+    granted = _grant(
+        private_keycloak, "admin@showcase.test", _code(KEY + "-late", "admin@showcase.test")
+    )
+    assert granted.status_code == 200, granted.text
 
 
 def test_a_new_key_in_the_env_re_enrols(private_keycloak: PrivateKeycloak) -> None:
