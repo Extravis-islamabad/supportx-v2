@@ -155,6 +155,29 @@ describe('MFA reminder', () => {
   });
 });
 
+describe('QA6-SH-03: the two-step reminder can be closed once read', () => {
+  afterEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it('closes for the rest of the session, and stays closed', async () => {
+    window.history.pushState({}, '', '/');
+    api({}, { ...ADMIN, mfa_due_at: '2026-11-10T00:07:00Z' });
+    const { unmount } = render(<App />);
+    const reminder = await screen.findByTestId('mfa-reminder');
+    fireEvent.click(
+      within(reminder).getByRole('button', { name: 'Hide this reminder until you next sign in' }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByTestId('mfa-reminder')).toBeNull();
+    });
+    unmount();
+    render(<App />); // another page view in the same session
+    await screen.findByTestId('user-name');
+    expect(screen.queryByTestId('mfa-reminder')).toBeNull();
+  });
+});
+
 describe('MFA reset on a person (REQ-SEC-025)', () => {
   const PERSON: UserDetail = fakeUser({
     id: 'u-9',

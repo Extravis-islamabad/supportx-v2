@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import Any
 
 import pytest
+import valkey.exceptions
 from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel, Field
 
@@ -52,6 +53,13 @@ async def raise_app_error(name: str) -> None:
 async def crash() -> None:
     msg = "database password is hunter2"
     raise RuntimeError(msg)
+
+
+@router.get("/valkey/{kind}")
+async def valkey_down(kind: str) -> None:
+    if kind == "timeout":
+        raise valkey.exceptions.TimeoutError
+    raise valkey.exceptions.ConnectionError("The previous master is now a slave")  # noqa: EM101, TRY003 - valkey-py's own message
 
 
 class Payload(BaseModel):
@@ -154,6 +162,26 @@ async def test_unhandled_exception_returns_generic_500_without_internals(
     text = response.text
     for leak in ("RuntimeError", "hunter2", "Traceback", "crash"):
         assert leak not in text.replace("/boom/crash", "")
+
+
+@pytest.mark.parametrize("kind", ["connection", "timeout"])
+async def test_valkey_unreachable_is_a_503_to_retry_not_a_500(
+    app: FastAPI, run_app: Callable[[FastAPI], Any], kind: str
+) -> None:
+    """A failover outlasting the client's retry (k3d HA smoke, 2026-11-06): 503 + Retry-After."""
+    async with run_app(app) as client:
+        response = await client.get(f"/api/v1/boom/valkey/{kind}")
+
+    assert response.status_code == 503
+    assert response.headers["content-type"] == PROBLEM_MEDIA_TYPE
+    assert response.headers["retry-after"] == "2"
+    body = response.json()
+    assert (body["code"], body["message_key"]) == (
+        "service_unavailable",
+        "errors.service_unavailable",
+    )
+    assert "slave" not in response.text
+    assert "ConnectionError" not in response.text
 
 
 async def test_framework_errors_use_problem_details(

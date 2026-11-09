@@ -27,6 +27,7 @@ export const en = {
   'branding.image.logo_file_id': 'Logo',
   'branding.image.logo_file_id_hint':
     'Shown in the header, on the sign-in page and in emails. A PNG with a transparent background works best; dark and high-contrast versions are made from it.',
+  'branding.image.logo_first': 'Upload a logo first: the dark-mode logo and the icon go with it.',
   'branding.image.ready': 'Ready: save to use it everywhere.',
   'branding.image.remove': 'Remove',
   'branding.image.scanning': 'Checking the file for malware…',
@@ -44,7 +45,7 @@ export const en = {
   'branding.preview.sign_in': 'Sign in',
   'branding.preview.title': 'Preview',
   'branding.primary': 'Primary colour',
-  'branding.ratio': '{{ratio}}:1, needs {{required}}:1',
+  'branding.ratio': '{{ratio}}, needs {{required}}',
   'branding.reset': 'Back to the SupportX default',
   'branding.reset_body':
     "Your logo, colours and texts are removed and every screen shows SupportX's brand again.",

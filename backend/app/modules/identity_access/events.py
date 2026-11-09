@@ -161,6 +161,21 @@ class UserCreatedV3(DomainEvent):
     source: Literal["admin", "import", "email", "integration"]
 
 
+class UserCreatedV4(DomainEvent):
+    """As UserCreatedV3, with `workflow` as a source: a workflow's run-as identity (WP-048b).
+
+    A new allowed value, so a new schema version; v1 to v3 stay registered.
+    """
+
+    event_type: ClassVar[str] = "identity_access.user.created"
+    schema_version: ClassVar[int] = 4
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    user_type: Literal["technician", "requester", "service"]
+    source: Literal["admin", "import", "email", "integration", "workflow"]
+
+
 class UserStatusChanged(DomainEvent):
     """A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in.
 
@@ -286,6 +301,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     UserCreated,
     UserCreatedV2,
     UserCreatedV3,
+    UserCreatedV4,
     UserStatusChanged,
     PeopleImportProgressed,
     AccessSettingsChanged,

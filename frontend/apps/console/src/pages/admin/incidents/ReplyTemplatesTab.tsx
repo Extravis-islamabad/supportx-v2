@@ -1,4 +1,4 @@
-import { Alert, App, Button, Card, Flex, Input, List, Popconfirm, Space, Typography } from 'antd';
+import { App, Button, Card, Flex, Form, Input, List, Popconfirm, Space } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -9,7 +9,6 @@ import {
 } from '@supportx/api-client';
 import {
   ConflictDialog,
-  describeError,
   EmptyText,
   FormProblem,
   markHandled,
@@ -45,11 +44,26 @@ export function ReplyTemplatesTab() {
   const start = (next: Editing) => {
     change.reset();
     problem.clear();
+    setChecked(false);
     setEditing(next);
     setName(next?.kind === 'update' ? next.template.name : '');
     setBody(next?.kind === 'update' ? next.template.body : '');
   };
   const error = change.error instanceof ApiError ? change.error : null;
+  // Each problem at its own field (QA6S-SVC-03): a missing one is caught before sending, the
+  // server's at the field it names; only what fits no field goes to the form's banner.
+  const [checked, setChecked] = useState(false);
+  const serverAt = (field: 'name' | 'body') =>
+    error?.status === 422
+      ? error.fieldErrors
+          .filter((f) => f.field === `body.${field}`)
+          .map((f) => t(f.message_key, f.params ?? {}))
+          .join(' ') || undefined
+      : undefined;
+  const isEmpty = (field: 'name' | 'body') =>
+    field === 'name' ? name.trim() === '' : body.replace(/<[^>]*>/g, '').trim() === '';
+  const problemAt = (field: 'name' | 'body') =>
+    checked && isEmpty(field) ? t('errors.field.required') : serverAt(field);
   // A template someone changed first (409): the shared dialog (QA WP-029 BUG-05).
   const conflict = useConflict();
   const [tried, setTried] = useState<{ template: ReplyTemplate; remove: boolean }>();
@@ -73,6 +87,8 @@ export function ReplyTemplatesTab() {
   const save = (version?: number) => {
     if (editing === null) return;
     problem.clear();
+    setChecked(true);
+    if (isEmpty('name') || isEmpty('body')) return;
     change.mutate(
       editing.kind === 'create'
         ? { kind: 'create', name, body }
@@ -90,7 +106,12 @@ export function ReplyTemplatesTab() {
         },
         onError: (failure) => {
           if (editing.kind === 'update' && stale(editing.template, false)(failure)) return;
-          if (failure instanceof ApiError && failure.status === 422) markHandled(failure);
+          const placed =
+            failure instanceof ApiError &&
+            failure.status === 422 &&
+            failure.fieldErrors.length > 0 &&
+            failure.fieldErrors.every((f) => f.field === 'body.name' || f.field === 'body.body');
+          if (placed) markHandled(failure);
           else problem.show(failure);
         },
       },
@@ -160,32 +181,37 @@ export function ReplyTemplatesTab() {
           />
         </Space>
       ) : (
-        <Space direction="vertical" style={{ width: '100%' }} data-testid="tpl-form">
-          <label htmlFor="tpl-name">{t('reply_templates.name')}</label>
-          <Input
-            id="tpl-name"
-            value={name}
-            count={lengthLimit(120)}
-            onChange={(event) => {
-              setName(event.target.value);
-            }}
-            data-testid="tpl-name"
-          />
-          <Typography.Text>{t('reply_templates.body')}</Typography.Text>
-          <RichTextField
-            label={t('reply_templates.body')}
-            value={body}
-            onChange={setBody}
-            testId="tpl-body"
-          />
-          {error?.status === 422 && (
-            <Alert
-              type="error"
-              showIcon
-              message={describeError(error, t).title}
-              description={error.fieldErrors.map((f) => t(f.message_key, f.params ?? {})).join(' ')}
+        <Form layout="vertical" component="div" data-testid="tpl-form">
+          <Form.Item
+            label={t('reply_templates.name')}
+            htmlFor="tpl-name"
+            required
+            validateStatus={problemAt('name') === undefined ? undefined : 'error'}
+            help={problemAt('name')}
+          >
+            <Input
+              id="tpl-name"
+              value={name}
+              count={lengthLimit(120)}
+              onChange={(event) => {
+                setName(event.target.value);
+              }}
+              data-testid="tpl-name"
             />
-          )}
+          </Form.Item>
+          <Form.Item
+            label={t('reply_templates.body')}
+            required
+            validateStatus={problemAt('body') === undefined ? undefined : 'error'}
+            help={problemAt('body')}
+          >
+            <RichTextField
+              label={t('reply_templates.body')}
+              value={body}
+              onChange={setBody}
+              testId="tpl-body"
+            />
+          </Form.Item>
           <FormProblem problem={problem} />
           <Flex justify="end" gap={8}>
             <Button
@@ -206,7 +232,7 @@ export function ReplyTemplatesTab() {
               {t('actions.save')}
             </WriteButton>
           </Flex>
-        </Space>
+        </Form>
       )}
       <ConflictDialog
         open={conflict.open}

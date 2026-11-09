@@ -5,7 +5,8 @@ name: CI
 on:
   # labeled: adding the full-ci label runs the heavy jobs on this PR (speed mode, D-122).
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    # ready_for_review: a draft runs only the fast set (below); marking it ready runs everything.
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
   # The merge queue: each queued group is tested on top of main before it merges.
   merge_group:
   # No run on push to main (D-122): the merge queue tested that exact merge commit.
@@ -63,6 +64,9 @@ jobs:
       - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
+        with:
+          # The mobile app has its own job (`mobile`): a mobile-only PR skips this one.
+          light: '^(docs/|mobile/|.*\.(md|mdx)$)'
       - uses: ./.github/actions/setup-backend
         if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: ./.github/actions/generated
@@ -168,7 +172,7 @@ jobs:
     # Valkey (the changes step below decides; other PRs finish at once), never in the merge
     # queue. Not tied to the full-ci label (coordinator, 2026-11-05): a migration PR needs the
     # core profile and e2e, not the HA cluster.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -206,6 +210,10 @@ jobs:
     # back to backend/tests/shard_weights.json. Never fails: a missing artifact only means the
     # committed weights are used.
     name: shard weights
+    # Drafts run the fast set only (coordinator, 2026-11-06: runners were starved by every draft
+    # and queue entry fanning out ~15 jobs): lint, type checks, migrations, Vitest, build, secret
+    # scan. The DB shards wait for ready_for_review, and the queue always runs them.
+    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -237,6 +245,7 @@ jobs:
   backend-tests:
     name: backend tests ${{ matrix.shard }}/6
     needs: [shard-weights]
+    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) }} # drafts: the fast set only (see shard-weights)
     runs-on: ubuntu-24.04
     timeout-minutes: 20 # the backstop; the aim is 12 minutes or less per shard
     strategy:
@@ -308,6 +317,9 @@ jobs:
       - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
+        with:
+          # The mobile app has its own job (`mobile`): a mobile-only PR skips this one.
+          light: '^(docs/|mobile/|.*\.(md|mdx)$)'
       - name: Start NATS JetStream (same image as the dev stack)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
@@ -408,10 +420,13 @@ jobs:
           CHECKS: ${{ needs.backend-checks.result }}
           TESTS: ${{ needs.backend-tests.result }}
           PDF: ${{ needs.pdf.result }}
+          DRAFT: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft) }}
         run: |
-          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF"
+          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF, draft: $DRAFT"
           # pdf is skipped outside nightly, manual and full-ci runs (speed mode, D-122).
-          [ "$CHECKS" = "success" ] && [ "$TESTS" = "success" ] &&
+          # The shards are skipped only on a draft; anywhere else a skipped shard fails here.
+          [ "$CHECKS" = "success" ] &&
+            { [ "$TESTS" = "success" ] || { [ "$DRAFT" = "true" ] && [ "$TESTS" = "skipped" ]; }; } &&
             { [ "$PDF" = "success" ] || [ "$PDF" = "skipped" ]; }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -419,6 +434,9 @@ jobs:
       - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
+        with:
+          # The mobile app has its own job (`mobile`): a mobile-only PR skips this one.
+          light: '^(docs/|mobile/|.*\.(md|mdx)$)'
       - uses: ./.github/actions/setup-backend
         if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -451,17 +469,68 @@ jobs:
           path: shard_weights.json
           retention-days: 14
 
-  frontend:
-    name: frontend
+  mobile:
+    # The Extravis mobile app (React Native, `mobile/`, #236; ADR-044). It runs only for the app
+    # and the shared packages it links (`frontend/packages/`); backend and frontend changes never
+    # run it. Not a required check itself: the required `frontend` check fails when this job
+    # fails and passes when it is skipped, so no ruleset change is needed.
+    name: mobile
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Changes (only the app and the packages it links)
+        id: changes
+        uses: ./.github/actions/changes
+        with:
+          needs: '^(mobile/|frontend/packages/|frontend/pnpm-lock\.yaml$|\.github/workflows/ci\.yml$|\.github/actions/)'
+          skipped: "skipped: no mobile change"
+      - name: The app is here (it lands with #236)
+        id: app
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        run: |
+          if [ -f mobile/package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else
+            echo "present=false" >> "$GITHUB_OUTPUT"; echo "::notice title=mobile::no mobile/ yet"; fi
+      - uses: ./.github/actions/setup-frontend
+        if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
+      - name: Install mobile dependencies (lockfile only)
+        if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
+        run: make mobile-install-check
+      - name: Lint (ESLint, Prettier check)
+        if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
+        run: make mobile-lint
+      - name: Type-check (tsc strict)
+        if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
+        run: make mobile-typecheck
+      - name: Test (Jest, jest-expo)
+        if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
+        run: make mobile-test
+
+  frontend:
+    name: frontend
+    # Waits for `mobile` and carries its result: the one required check for both (see mobile).
+    needs: [mobile]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The mobile job passed or was skipped
+        env:
+          MOBILE: ${{ needs.mobile.result }}
+        run: |
+          echo "mobile: $MOBILE"
+          case "$MOBILE" in success|skipped) ;; *) echo "::error title=mobile::the mobile job $MOBILE"; exit 1 ;; esac
       - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
+        with:
+          # The mobile app has its own job (`mobile`): a mobile-only PR skips this one.
+          light: '^(docs/|mobile/|.*\.(md|mdx)$)'
       - uses: ./.github/actions/setup-backend
         if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: ./.github/actions/setup-frontend
@@ -512,6 +581,9 @@ jobs:
       - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
+        with:
+          # The mobile app has its own job (`mobile`): a mobile-only PR skips this one.
+          light: '^(docs/|mobile/|.*\.(md|mdx)$)'
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         if: ${{ steps.changes.outputs.run == 'true' }}
         with:

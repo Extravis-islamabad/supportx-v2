@@ -47,6 +47,7 @@ export const en = {
   'ai_settings.master': 'Use AI',
   'ai_settings.master_help': 'Off: no AI feature runs for anyone and no model is called.',
   'ai_settings.model': 'Model',
+  'ai_settings.model_none': 'No AI model is connected to this server.',
   'ai_settings.model_value': '{{model}} ({{where}})',
   'ai_settings.no_training':
     'Your AI conversations are never used to train any model. Their text is kept only for the period below, then deleted; every deletion is audited.',
@@ -84,6 +85,8 @@ export const en = {
     'Deleted the conversation summaries that could name an erased person',
   'errors.ai_call_not_found': 'This AI answer does not exist or is not yours.',
   'errors.ai_feature_off': 'This AI feature is switched off for your organisation.',
+  'errors.ai_not_configured':
+    "AI isn't set up on this server. Ask your administrator to connect a model.",
   'errors.ai_record_not_visible': 'You cannot see this record, so AI cannot work on it.',
   'errors.ai_summary_nothing':
     'There is nothing to summarise yet: no description, replies or notes.',

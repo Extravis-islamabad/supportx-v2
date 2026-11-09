@@ -1,3 +1,4 @@
+export { CatalogIcon } from './CatalogIcon';
 export { QuestionField, type QuestionFieldProps } from './QuestionField';
 export {
   LONG_TEXT_MAX,

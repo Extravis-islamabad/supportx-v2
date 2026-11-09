@@ -222,3 +222,62 @@ def test_no_workflow_runs_again_on_push_to_main() -> None:
     for workflow in NIGHTLY_ONLY:  # no required check there: the queue need not wait for it
         triggers = _triggers((WORKFLOWS / workflow).read_text(encoding="utf-8").splitlines())
         assert "merge_group" not in triggers, workflow
+
+
+def test_the_mobile_job_is_gated_through_the_required_frontend_check() -> None:
+    """#236: mobile/** runs only the mobile job; the required `frontend` check carries it."""
+    jobs = _all_jobs()
+    mobile = "\n".join(jobs["mobile"])
+    assert "mobile" not in REQUIRED  # no ruleset change (a GitHub setting, Haider's)
+    assert "uses: ./.github/actions/changes" in mobile
+    assert "needs: '^(mobile/|frontend/packages/" in mobile
+    frontend = "\n".join(jobs["frontend"])
+    assert "needs: [mobile]" in frontend
+    assert "always()" in _job_if(jobs["frontend"])
+    assert "success|skipped" in frontend  # anything else fails the required check
+
+
+def test_a_mobile_only_change_skips_the_backend_and_frontend_jobs() -> None:
+    jobs = _all_jobs()
+    for name in ("backend checks", "backend tests ${{ matrix.shard }}/6", "backend", "frontend"):
+        text = "\n".join(jobs[name])
+        assert "light: '^(docs/|mobile/|" in text, name
+
+
+# Drafts run the fast set only (coordinator, 2026-11-06: runners were starved). These skip on a
+# draft and run again at ready_for_review; the queue always runs them.
+DRAFT = "github.event.pull_request.draft"
+SKIPPED_ON_DRAFTS = {
+    "shard weights",
+    "backend tests ${{ matrix.shard }}/6",
+    "valkey failover",
+    "k3d HA smoke (Valkey failover)",
+}
+# Required checks report on drafts (never skipped as a whole) but skip every step.
+STEPS_SKIPPED_ON_DRAFTS = {"dependency audit (pip-audit, pnpm audit)", "filesystem scan (Trivy)"}
+
+
+def test_drafts_skip_the_heavy_jobs() -> None:
+    jobs = _all_jobs()
+    for name in SKIPPED_ON_DRAFTS:
+        assert DRAFT in _job_if(jobs[name]), name
+    for name in STEPS_SKIPPED_ON_DRAFTS:
+        job = jobs[name]
+        assert any(DRAFT in line for line in job), name
+        steps = [line for line in job if re.match(r"^      - (uses|name): ", line)]
+        guarded = [line for line in job if "env.DRAFT != 'true'" in line]
+        assert len(guarded) == len(steps), f"{name}: every step skips on a draft"
+
+
+def test_the_backend_check_allows_skipped_shards_on_drafts_only() -> None:
+    backend = "\n".join(_all_jobs()["backend"])
+    assert f"DRAFT: ${{{{ (github.event_name == 'pull_request' && {DRAFT}) }}}}" in backend
+    assert '[ "$DRAFT" = "true" ] && [ "$TESTS" = "skipped" ]' in backend
+
+
+def test_marking_a_draft_ready_runs_every_pr_workflow_again() -> None:
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        triggers = _triggers(path.read_text(encoding="utf-8").splitlines())
+        if "pull_request" in triggers:
+            types = " ".join(triggers["pull_request"])
+            assert "ready_for_review" in types, f"{path.name}: {types}"

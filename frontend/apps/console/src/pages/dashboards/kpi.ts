@@ -93,4 +93,16 @@ export function trend(
   return { delta, good: better === 'up' ? delta > 0 : delta < 0 };
 }
 
+/**
+ * A change too small to show (it formats like zero, "0 min") is no change: never "worse" in red
+ * (QA6-DSH-01).
+ */
+export function visibleTrend(
+  moved: { delta: number; good: boolean | null } | null,
+  shown: (value: number) => string,
+): { delta: number; good: boolean | null } | null {
+  if (moved === null) return null;
+  return shown(Math.abs(moved.delta)) === shown(0) ? { delta: 0, good: null } : moved;
+}
+
 export const KPI_SPARK_PERIODS = SPARK_PERIODS;

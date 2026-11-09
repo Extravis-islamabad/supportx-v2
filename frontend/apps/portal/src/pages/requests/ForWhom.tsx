@@ -46,7 +46,14 @@ export function ForWhom({
           onChange={(person: string | undefined) => {
             onChange(person ?? null);
           }}
-          notFoundContent={search.trim().length < 2 ? t('portal.report.type_two') : undefined}
+          // QA6-SR-02: never Ant's bare "No data"; say who can be chosen and what to do.
+          notFoundContent={
+            <span data-testid="portal-on-behalf-none">
+              {search.trim().length < 2
+                ? t('portal.report.type_two')
+                : t('portal.report.nobody_found')}
+            </span>
+          }
           loading={found.isFetching}
           options={(found.data ?? []).map((p) => ({ value: p.id, label: p.display_name }))}
           data-testid="portal-on-behalf"

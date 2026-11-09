@@ -28,6 +28,7 @@ import type { ThemeMode } from '../theme';
 import { useAppearance, useLabel } from '../appearance';
 import { AppearanceControls } from '../AppearanceControls';
 import { AboutDialog } from './AboutDialog';
+import { headerRole } from './headerRole';
 
 export interface AppHeaderProps {
   /** Labels key of the app's name, e.g. `app.console.name`. */
@@ -309,8 +310,8 @@ export function AppHeader({
                 <Typography.Text strong data-testid="user-name">
                   {session.user.display_name}
                 </Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {t(`user_type.${session.user.user_type}`)}
+                <Typography.Text type="secondary" style={{ fontSize: 12 }} data-testid="user-role">
+                  {headerRole(t, session.user)}
                 </Typography.Text>
               </Flex>
             )}
