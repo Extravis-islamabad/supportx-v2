@@ -22,13 +22,36 @@ export type ReplyTemplate = components['schemas']['ReplyTemplateOut'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
+/** The work-item types whose conversation these hooks serve (UI pass 3: the SR record). */
+export type ConversationBase = 'incidents' | 'service-requests';
+
+/**
+ * The same engine route under another type's prefix. The conversation routes are generated
+ * once per type with identical shapes, so the incident path's types describe them all; only the
+ * prefix changes at run time (as the parts hooks do, WP-044c).
+ */
+function at<P extends string>(base: ConversationBase, path: P): P {
+  return path.replace('/api/v1/incidents/', `/api/v1/${base}/`) as P;
+}
+
+/** The record's own query (its counts and first response change with the conversation). */
+function detailKey(base: ConversationBase, id: string): readonly unknown[] {
+  return base === 'service-requests'
+    ? ['service-requests', 'detail', id]
+    : queryKeys.incidents.detail(id);
+}
+
 /** Replies and notes of one incident, oldest first (staff see private notes, marked). */
-export function useIncidentConversation(id: string, enabled = true) {
+export function useIncidentConversation(
+  id: string,
+  enabled = true,
+  base: ConversationBase = 'incidents',
+) {
   return useQuery({
     queryKey: queryKeys.incidents.conversation(id),
     queryFn: () =>
       call(
-        api.GET('/api/v1/incidents/{record_id}/conversation', {
+        api.GET(at(base, '/api/v1/incidents/{record_id}/conversation'), {
           params: { path: { record_id: id } },
         }),
       ),
@@ -37,11 +60,11 @@ export function useIncidentConversation(id: string, enabled = true) {
 }
 
 /** After a conversation write: the timeline and the record (counts, first response) refetched. */
-function useConversationSaved(id: string) {
+function useConversationSaved(id: string, base: ConversationBase) {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.conversation(id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.detail(id) });
+    void queryClient.invalidateQueries({ queryKey: detailKey(base, id) });
     void queryClient.invalidateQueries({
       queryKey: [...queryKeys.incidents.all, 'history', id],
     });
@@ -50,11 +73,11 @@ function useConversationSaved(id: string) {
 }
 
 /** Reply or add a note. One Idempotency-Key per composer, so a retry never posts twice. */
-export function useAddConversationEntry(id: string) {
-  const saved = useConversationSaved(id);
+export function useAddConversationEntry(id: string, base: ConversationBase = 'incidents') {
+  const saved = useConversationSaved(id, base);
   const once = useSingleFlight(({ body, key }: { body: ConversationEntryInput; key: string }) =>
     call(
-      api.POST('/api/v1/incidents/{record_id}/conversation', {
+      api.POST(at(base, '/api/v1/incidents/{record_id}/conversation'), {
         params: { path: { record_id: id }, header: { 'Idempotency-Key': key } },
         body,
       }),
@@ -64,8 +87,8 @@ export function useAddConversationEntry(id: string) {
 }
 
 /** Make a note public or private (the screen asks first, REQ-INC-061 AC3). */
-export function useChangeNoteVisibility(id: string) {
-  const saved = useConversationSaved(id);
+export function useChangeNoteVisibility(id: string, base: ConversationBase = 'incidents') {
+  const saved = useConversationSaved(id, base);
   return useMutation({
     mutationFn: ({
       entryId,
@@ -77,7 +100,7 @@ export function useChangeNoteVisibility(id: string) {
       version: number;
     }) =>
       call(
-        api.PATCH('/api/v1/incidents/{record_id}/conversation/{entry_id}', {
+        api.PATCH(at(base, '/api/v1/incidents/{record_id}/conversation/{entry_id}'), {
           params: { path: { record_id: id, entry_id: entryId }, header: ifMatch(version) },
           body: { visibility },
         }),
@@ -86,12 +109,16 @@ export function useChangeNoteVisibility(id: string) {
   });
 }
 
-export function useIncidentFollowers(id: string, enabled = true) {
+export function useIncidentFollowers(
+  id: string,
+  enabled = true,
+  base: ConversationBase = 'incidents',
+) {
   return useQuery({
     queryKey: queryKeys.incidents.followers(id),
     queryFn: () =>
       call(
-        api.GET('/api/v1/incidents/{record_id}/followers', {
+        api.GET(at(base, '/api/v1/incidents/{record_id}/followers'), {
           params: { path: { record_id: id } },
         }),
       ),
@@ -100,22 +127,22 @@ export function useIncidentFollowers(id: string, enabled = true) {
 }
 
 /** Follow (your own ID) or add someone; unfollow or remove someone. */
-export function useFollowerChange(id: string) {
+export function useFollowerChange(id: string, base: ConversationBase = 'incidents') {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, follow }: { userId: string; follow: boolean }) =>
       call(
         follow
-          ? api.PUT('/api/v1/incidents/{record_id}/followers/{user_id}', {
+          ? api.PUT(at(base, '/api/v1/incidents/{record_id}/followers/{user_id}'), {
               params: { path: { record_id: id, user_id: userId } },
             })
-          : api.DELETE('/api/v1/incidents/{record_id}/followers/{user_id}', {
+          : api.DELETE(at(base, '/api/v1/incidents/{record_id}/followers/{user_id}'), {
               params: { path: { record_id: id, user_id: userId } },
             }),
       ),
     onSuccess: (found) => {
       queryClient.setQueryData(queryKeys.incidents.followers(id), found);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: detailKey(base, id) });
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.incidents.all, 'history', id],
       });
@@ -124,18 +151,27 @@ export function useFollowerChange(id: string) {
 }
 
 /** Staff to mention or add as followers, saying whether each may see this incident. */
-export function fetchMentionable(id: string, search: string): Promise<Mentionable[]> {
+export function fetchMentionable(
+  id: string,
+  search: string,
+  base: ConversationBase = 'incidents',
+): Promise<Mentionable[]> {
   return call(
-    api.GET('/api/v1/incidents/{record_id}/mentionable', {
+    api.GET(at(base, '/api/v1/incidents/{record_id}/mentionable'), {
       params: { path: { record_id: id }, query: { search: search || undefined, limit: 8 } },
     }),
   );
 }
 
 /** "Someone is writing" on the record channel; failures are ignored (a nicety). */
-export function sendTyping(id: string, state: 'start' | 'stop', kind: EntryKind): void {
+export function sendTyping(
+  id: string,
+  state: 'start' | 'stop',
+  kind: EntryKind,
+  base: ConversationBase = 'incidents',
+): void {
   void api
-    .POST('/api/v1/incidents/{record_id}/typing', {
+    .POST(at(base, '/api/v1/incidents/{record_id}/typing'), {
       params: { path: { record_id: id } },
       body: { state, kind },
     })
