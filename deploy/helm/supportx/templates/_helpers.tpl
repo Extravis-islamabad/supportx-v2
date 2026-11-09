@@ -249,3 +249,17 @@ topologySpreadConstraints:
         {{- include "supportx.selector" . | nindent 8 }}
 {{- end }}
 {{- end -}}
+
+{{/* Temporal's frontend: the configured address, else this release's bundled one, else empty. */}}
+{{- define "supportx.temporalAddress" -}}
+{{- if .Values.temporal.address -}}
+{{- .Values.temporal.address -}}
+{{- else if .Values.temporal.bundled.enabled -}}
+{{- printf "%s-temporal-frontend:7233" .Release.Name -}}
+{{- end -}}
+{{- end -}}
+
+{{/* The bundled Temporal's schema Job of this revision (the server waits for it). */}}
+{{- define "supportx.temporalSchemaJob" -}}
+{{- printf "%s-temporal-schema-%d" .Release.Name (int .Release.Revision) -}}
+{{- end -}}

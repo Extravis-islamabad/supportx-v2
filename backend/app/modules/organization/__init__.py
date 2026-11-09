@@ -45,7 +45,7 @@ from app.modules.organization.service.email_branding import (
     header_html,
 )
 from app.modules.organization.service.file_access import FILE_ACCESS
-from app.modules.organization.service.hosts import HostTenant, tenant_for_host
+from app.modules.organization.service.hosts import HostTenant, tenant_for_host, tenant_for_slug
 from app.modules.organization.service.instance import (
     RegionalDefaults,
     offered_languages,
@@ -181,6 +181,7 @@ __all__ = [
     "remove_member",
     "site_defaults",
     "tenant_for_host",
+    "tenant_for_slug",
     "unit_calendars",
     "unit_heads",
     "unregister_group_disable_guard",

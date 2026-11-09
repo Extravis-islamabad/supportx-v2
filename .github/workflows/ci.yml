@@ -193,6 +193,12 @@ jobs:
         if: ${{ steps.changes.outputs.run == 'true' }}
         with:
           version: v4.3.1
+      - name: Helm chart dependencies (cached by Chart.lock)
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deploy/helm/supportx/charts/*.tgz
+          key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
       - name: Chart dependencies (the test renders the chart's own scripts)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make chart-deps
@@ -588,6 +594,12 @@ jobs:
         if: ${{ steps.changes.outputs.run == 'true' }}
         with:
           version: v4.3.1
+      - name: Helm chart dependencies (cached by Chart.lock)
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deploy/helm/supportx/charts/*.tgz
+          key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
       - name: Install kubeconform (pinned, checksum-verified)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
