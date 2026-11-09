@@ -141,7 +141,7 @@ export const ur: LabelResource = {
   'dev_sign_in.reason.account_locked':
     'ناکام کوششوں کے بعد Keycloak نے یہ اکاؤنٹ چند منٹ کے لیے مقفل کر دیا ہے۔',
   'dev_sign_in.reason.credentials_refused':
-    'ڈیولپمنٹ ‎.env‎ میں پاس ورڈ یا تصدیقی کلید سیڈ سے میل نہیں کھاتی: make showcase-seed چلائیں۔',
+    'ڈیولپمنٹ .env میں پاس ورڈ یا تصدیقی کلید سیڈ سے میل نہیں کھاتی: make showcase-seed چلائیں۔',
   'dev_sign_in.reason.grant_not_allowed':
     'Keycloak یہاں یہ سائن اِن نہیں ہونے دیتا: یہ ڈیولپمنٹ ریلم نہیں۔',
   'dev_sign_in.reason.keycloak_refused': 'Keycloak نے کسی اور وجہ سے انکار کیا: اس کا لاگ دیکھیں۔',
@@ -150,6 +150,8 @@ export const ur: LabelResource = {
   'dev_sign_in.reason.not_showcase': 'یہ کردار Showcase Company کا رکن نہیں۔',
   'dev_sign_in.sets_up_mfa': 'دو مرحلہ سائن اِن سیٹ اپ کرتا ہے',
   'dev_sign_in.title': 'فوری سائن اِن (صرف ڈیولپمنٹ)',
+  'dev_sign_in.unavailable':
+    'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
   'dev_sign_in.warning':
     'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
   'form_density.comfortable': 'آرام دہ',

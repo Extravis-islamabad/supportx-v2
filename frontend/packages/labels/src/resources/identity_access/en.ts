@@ -147,6 +147,8 @@ export const en = {
   'dev_sign_in.reason.not_showcase': 'This persona isn’t a member of Showcase Company.',
   'dev_sign_in.sets_up_mfa': 'sets up two-step sign-in',
   'dev_sign_in.title': 'Quick sign-in (dev only)',
+  'dev_sign_in.unavailable':
+    'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
   'form_density.comfortable': 'Comfortable',

@@ -136,7 +136,7 @@ export const ar: LabelResource = {
   'dev_sign_in.as': 'تسجيل الدخول باسم {{persona}}',
   'dev_sign_in.reason.account_locked': 'أقفل Keycloak هذا الحساب لبضع دقائق بعد محاولات فاشلة.',
   'dev_sign_in.reason.credentials_refused':
-    'كلمة المرور أو مفتاح المصادقة في ملف ‎.env‎ للتطوير لا يطابق البيانات المزروعة: شغّل make showcase-seed.',
+    'كلمة المرور أو مفتاح المصادقة في ملف .env للتطوير لا يطابق البيانات المزروعة: شغّل make showcase-seed.',
   'dev_sign_in.reason.grant_not_allowed':
     'لا يسمح Keycloak بهذا النوع من تسجيل الدخول هنا: النطاق ليس نطاق التطوير.',
   'dev_sign_in.reason.keycloak_refused': 'رفض Keycloak لسبب آخر: راجع سجله.',
@@ -145,6 +145,8 @@ export const ar: LabelResource = {
   'dev_sign_in.reason.not_showcase': 'هذه الشخصية ليست عضوًا في Showcase Company.',
   'dev_sign_in.sets_up_mfa': 'يُعدّ تسجيل الدخول بخطوتين',
   'dev_sign_in.title': 'تسجيل الدخول السريع (للتطوير فقط)',
+  'dev_sign_in.unavailable':
+    'تسجيل الدخول السريع هذا غير متاح هنا. يعمل فقط على بيئة التطوير المحلية مع make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'لبيئة التطوير المحلية فقط، بشخصية من Showcase Company. لا يُستخدم أبدًا على تثبيت حقيقي.',
   'form_density.comfortable': 'مريح',
