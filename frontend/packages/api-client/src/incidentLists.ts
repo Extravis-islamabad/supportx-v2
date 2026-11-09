@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
 import { ApiError } from './errors';
@@ -102,8 +102,9 @@ interface SaveChain {
   running: Promise<unknown>;
   latest: number;
 }
-// One chain per view key, shared by every caller in the page (QA10-P1-10).
-const chains = new Map<string, SaveChain>();
+// One chain per signed-in session (its query client) and view key, shared by every caller in
+// the page (QA10-P1-10); another view's saves run on their own chain.
+const chains = new WeakMap<QueryClient, Map<string, SaveChain>>();
 
 /**
  * Save your settings for one view; the first save has no version.
@@ -140,13 +141,19 @@ export function useSaveListSetting() {
       return await put(viewKey, version, setting);
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 409) throw error;
-      // Another tab of yours saved first: take its version and save yours (latest wins).
+      // Another tab of yours saved first: take its version and save what you see now, your
+      // latest action (lane A's review), so the other tab's change loses only to a newer one.
       const fresh = await call(
         api.GET('/api/v1/incidents/list-settings/{view_key}', {
           params: { path: { view_key: viewKey } },
         }),
       );
-      return put(viewKey, fresh.version, setting);
+      const shown = queryClient.getQueryData<ListSetting>(keyOf(viewKey));
+      const latest: ListSettingInput =
+        shown === undefined
+          ? setting
+          : { columns: shown.columns, sort: shown.sort, page_size: shown.page_size };
+      return put(viewKey, fresh.version, latest);
     }
   };
   return useMutation({
@@ -156,8 +163,10 @@ export function useSaveListSetting() {
         queryClient.setQueryData<ListSetting>(keyOf(viewKey), { ...before, ...setting });
     },
     mutationFn: ({ viewKey, setting }: SaveListSettingArgs): Promise<ListSetting | null> => {
-      const chain = chains.get(viewKey) ?? { running: Promise.resolve(), latest: 0 };
-      chains.set(viewKey, chain);
+      const mine = chains.get(queryClient) ?? new Map<string, SaveChain>();
+      chains.set(queryClient, mine);
+      const chain = mine.get(viewKey) ?? { running: Promise.resolve(), latest: 0 };
+      mine.set(viewKey, chain);
       const ticket = ++chain.latest;
       const run = chain.running
         .catch(() => undefined)

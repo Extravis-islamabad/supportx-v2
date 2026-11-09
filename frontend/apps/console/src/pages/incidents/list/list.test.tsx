@@ -354,6 +354,48 @@ describe('Incident list (WP-020d)', () => {
     expect(fake.find('PUT', '/api/v1/incidents/list-settings/open').length).toBeLessThanOrEqual(3);
   });
 
+  it('QA10-P1-10: a save beaten by another tab of yours is redone on its version, with yours', async () => {
+    let refused = false;
+    let otherTabSaved = false;
+    const fake = api({
+      routes: routes({
+        'GET /api/v1/incidents/list-settings/open': () => ({
+          body: otherTabSaved
+            ? { view_key: 'open', columns: [], sort: null, page_size: 25, version: 7 }
+            : { view_key: 'open', columns: [], sort: null, page_size: 50, version: null },
+        }),
+        // Another tab saved version 7 meanwhile: this tab's first save (no version) is refused.
+        'PUT /api/v1/incidents/list-settings/open': (call: { body: unknown; headers: Headers }) => {
+          if (call.headers.get('If-Match') !== '"7"') {
+            refused = true;
+            return { status: 409, body: { code: 'version_conflict', status: 409 } };
+          }
+          return {
+            body: { view_key: 'open', version: 8, ...(call.body as object) },
+            headers: { ETag: '"8"' },
+          };
+        },
+      }),
+    });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    // From now on the server answers the other tab's version.
+    otherTabSaved = true;
+    fireEvent.click(screen.getByTestId('inc-columns'));
+    fireEvent.click(await screen.findByTestId('inc-column-remove-priority'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/incidents/list-settings/open')).toHaveLength(2);
+    });
+    expect(refused).toBe(true);
+    const retry = fake.find('PUT', '/api/v1/incidents/list-settings/open')[1];
+    expect(retry?.headers.get('If-Match')).toBe('"7"');
+    // What this person sees now (priority removed), not the other tab's or an old payload.
+    const keys = (retry?.body as { columns: { key: string }[] }).columns.map((c) => c.key);
+    expect(keys).not.toContain('priority');
+    expect(keys.length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toMatch(/Someone else saved/);
+  });
+
   it("export: the file gets the view as a filter, the list's columns and its sort", async () => {
     const fake = api({
       routes: routes({
