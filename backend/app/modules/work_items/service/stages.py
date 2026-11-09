@@ -329,7 +329,9 @@ async def restart(  # noqa: PLR0913 - the record, its new path and why, explicit
     first stage of `path` entered, its entry carrying `reason_code`; the stage left ends in the
     schedule, and the guard supersedes the earlier approvals as on going back. Earlier rounds
     stay entries of their stages (the rail shows those on the new path). Returns the columns
-    the caller saves with the record (same lifecycle version), in its transaction.
+    the caller saves with the record (same lifecycle version), in its transaction. The guard's
+    on_entered sees the record before those columns are saved (its old stage and stage_path):
+    a guard that reads them must not take them for the new ones (lane C's review).
     """
     if path not in await enabled_paths(session, wtype):
         raise Conflict(code="stage_path_disabled", params={"path": path})
