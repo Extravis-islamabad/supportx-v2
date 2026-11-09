@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import Conflict, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain import reapproval as rules
 from app.modules.work_items.domain.change_risk import RiskLevel
@@ -174,8 +175,89 @@ async def after_save(session: AsyncSession, record: WorkItem, *, source: Source)
         ],
         source=source,
     )
+    details = await _details(session, record.id)
+    if details is not None and order.index(first.stage) < _place(order, from_stage):
+        # Where it was, for the emergency override to return it there (Haider, D-144).
+        details.resume_stage, details.resume_status = from_stage, str(before["status"])
+        await session.flush()
     await stage_approvals.open_if_raised(session, CHANGE, updated)
     return updated
+
+
+def _place(order: list[str], stage: str) -> int:
+    return order.index(stage) if stage in order else -1
+
+
+async def _details(session: AsyncSession, record_id: uuid.UUID) -> WorkItemChangeDetails | None:
+    return await session.scalar(
+        select(WorkItemChangeDetails).where(WorkItemChangeDetails.work_item_id == record_id)
+    )
+
+
+OVERRIDE = "emergency_override"  # the stage entry's reason code (D-144)
+
+
+async def emergency_override(  # noqa: PLR0913 - the change, its version and why, explicit
+    session: AsyncSession,
+    subject: Subject,
+    record_id: uuid.UUID,
+    *,
+    reason: str,
+    expected_version: int,
+    source: Source,
+) -> WorkItem:
+    """Keep a change going that was sent back for approval mid-way (D-144, Haider 2026-11-10).
+
+    Needs `changes.emergency_override` and a reason. The pending re-approval is withdrawn, the
+    change returns to the stage and status it was sent back from, and its review becomes
+    mandatory before closing (the guard). The route audits it with the reason.
+    """
+    record = await items.visible_record(session, subject, CHANGE, record_id)
+    if not subject.holds(OVERRIDE_PERMISSION):
+        raise PermissionDenied(
+            params={"permission": OVERRIDE_PERMISSION, "reason": "no_permission"}
+        )
+    if record.version != expected_version:
+        raise Conflict(code="version_conflict", params={"current_version": record.version})
+    text = " ".join((reason or "").split())
+    if not text:
+        raise items.field_errors([("reason", "reason_required")])
+    details = await _details(session, record.id)
+    if details is None or details.resume_stage is None or details.resume_status is None:
+        raise Conflict(code="nothing_to_override", params={"id": str(record.id)})
+    await stage_approvals.withdraw_pending(session, record, str(record.stage))
+    now = datetime.now(UTC)
+    before = items.snapshot_of(record, (*items.STAMP_FIELDS, "stage", "stage_path"))
+    from_stage = str(record.stage)
+    columns = await stage_service.send_back(
+        session,
+        CHANGE,
+        record,
+        stage=details.resume_stage,
+        status=details.resume_status,
+        now=now,
+        reason_code=OVERRIDE,
+    )
+    updated = await items.save_system_entry(
+        session,
+        record,
+        columns,
+        now=now,
+        before=before,
+        from_stage=from_stage,
+        extra=[
+            Change("emergency_override", None, text),
+            Change("pir_required", old=False, new=True),
+        ],
+        source=source,
+    )
+    details.resume_stage = details.resume_status = None
+    details.pir_required = True
+    await session.flush()
+    return updated
+
+
+OVERRIDE_PERMISSION = "changes.emergency_override"
 
 
 async def sent_back_in_this_save(

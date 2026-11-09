@@ -294,6 +294,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("change.board_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-045b S2
     ("change.approval_rerouted", AuditCategory.RECORDS, "work_items"),  # WP-045b S3
     ("change.sent_back_for_approval", AuditCategory.RECORDS, "work_items"),  # WP-045b S4
+    ("change.emergency_override", AuditCategory.SECURITY, "work_items"),  # D-144
     ("change.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.template_created", AuditCategory.CONFIGURATION, "work_items"),

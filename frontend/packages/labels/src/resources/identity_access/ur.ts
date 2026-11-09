@@ -345,6 +345,9 @@ export const ur: LabelResource = {
   'permission.changes.edit.description': 'تبدیلیاں کی تفصیلات، ان کا تجزیہ اور ان کے کام بدلیں۔',
   'permission.changes.edit_due_dates': 'تبدیلیاں کی ہدف تاریخ ہاتھ سے مقرر کریں',
   'permission.changes.edit_due_dates.description': 'تبدیلی کی ہدف تاریخ پالیسی کے بجائے خود بدلیں۔',
+  'permission.changes.emergency_override': 'ہنگامی حالت میں تبدیلی کی منظوری کو نظر انداز کریں',
+  'permission.changes.emergency_override.description':
+    'منظوری کے لیے واپس بھیجی گئی تبدیلی کو وجہ بتا کر جاری رکھیں۔ یہ آڈٹ ہوتا ہے، اور پھر بند کرنے سے پہلے تبدیلی کا جائزہ ضروری ہے۔',
   'permission.changes.manage_followers': 'تبدیلیاں کے فالوورز کا انتظام',
   'permission.changes.manage_followers.description':
     'تبدیلی کو فالو کرنے والے لوگ شامل کریں اور ہٹائیں۔',

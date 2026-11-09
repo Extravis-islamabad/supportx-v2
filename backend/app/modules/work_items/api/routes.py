@@ -1613,6 +1613,14 @@ class StageChangesOut(BaseModel):
         )
 
 
+class EmergencyOverrideIn(BaseModel):
+    """Why the change must go on without its approval (D-144)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=2000)
+
+
 class ReapprovalPreviewIn(BaseModel):
     """What a person is about to save; leave out what stays."""
 
@@ -2913,6 +2921,46 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             """Per approved stage, field by field, with what each change does (REQ-CHG-053)."""
             found = await reapproval_service.changes_since(session, subject, record_id)
             return [StageChangesOut.of(s) for s in found]
+
+        @router.post(
+            "/{record_id}/emergency-override",
+            summary="Keep a change going that was sent back for approval",
+            responses=CONFLICT,
+        )
+        async def emergency_override(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: EmergencyOverrideIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: View,
+            response: Response,
+            request: Request,
+        ) -> WorkItemOut:
+            """Needs changes.emergency_override, a reason and If-Match (D-144).
+
+            The re-approval is withdrawn, the change returns where it was, and its review
+            becomes mandatory. Audited with the reason.
+            """
+            updated = await reapproval_service.emergency_override(
+                session,
+                subject,
+                record_id,
+                reason=body.reason,
+                expected_version=version,
+                source=source_of(request),
+            )
+            await record_audit(
+                session,
+                action_code="change.emergency_override",
+                facts=RequestFacts.of(request),
+                object_type="change",
+                object_id=record_id,
+                reason=body.reason,
+                details={"stage": updated.stage, "status": updated.status},
+            )
+            view = await service.get(session, subject, wtype, record_id)
+            set_etag(response, view.record.version)
+            return WorkItemOut.of(view)
 
         @router.post(
             "/{record_id}/approvals/reapproval-preview",

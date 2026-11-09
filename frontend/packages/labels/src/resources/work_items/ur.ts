@@ -33,6 +33,7 @@ export const ur: LabelResource = {
   'action_reason.own_request_approval': 'آپ اپنی درخواست کردہ ریکارڈ کی منظوری نہیں دے سکتے۔',
   'action_reason.own_worklogs_only':
     'آپ صرف وہی وقت تبدیل یا حذف کر سکتے ہیں جو آپ نے خود درج کیا ہے۔',
+  'action_reason.pir_required': 'بند کرنے سے پہلے عمل درآمد کے بعد کا جائزہ ضروری ہے۔',
   'action_reason.record_closed': 'بند یا منسوخ ریکارڈ تبدیل نہیں ہو سکتے۔',
   'action_reason.relative.assignee': 'تفویض شدہ ٹیکنیشن',
   'action_reason.relative.department_head': 'شعبے کا سربراہ',
@@ -1462,6 +1463,7 @@ export const ur: LabelResource = {
   'work_item.field.copied_from': 'سے نقل کیا گیا',
   'work_item.field.department_id': 'شعبہ',
   'work_item.field.description': 'تفصیل',
+  'work_item.field.emergency_override': 'ہنگامی استثنا',
   'work_item.field.first_responded_at': 'پہلا جواب',
   'work_item.field.first_response_breached': 'جواب میں تاخیر',
   'work_item.field.first_response_due_at': 'جواب کی آخری حد',
@@ -1491,6 +1493,7 @@ export const ur: LabelResource = {
   'work_item.field.open_work_confirmed': 'کھلے کام کی تصدیق',
   'work_item.field.outage_ended_at': 'تعطل کا اختتام',
   'work_item.field.outage_started_at': 'تعطل کا آغاز',
+  'work_item.field.pir_required': 'جائزہ ضروری',
   'work_item.field.pre_approved': 'معیاری تبدیلی کے طور پر پیشگی منظور شدہ',
   'work_item.field.priority': 'ترجیح',
   'work_item.field.priority_reason': 'ترجیح ہاتھ سے مقرر کرنے کی وجہ',

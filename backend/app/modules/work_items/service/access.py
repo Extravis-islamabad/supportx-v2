@@ -365,6 +365,10 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
         "changes.approve", "change", ("all", "site", "group"), defaults=_role_defaults("approve")
     ),
+    # D-144: keep a change going without its approval, with a reason, audited, and a mandatory
+    # review. Nobody holds it by default but administrators; the change manager role (D-153)
+    # gets it when lane B's role model lands.
+    PermissionSpec("changes.emergency_override", "change", ("all", "site", "group")),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

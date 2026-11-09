@@ -9,6 +9,9 @@ Expand only, no data step:
   restart, notify or ignore, and the window's tolerance in minutes.
 - `work_item_approvals.advisory` (false): an optional board member's approval, recorded and shown
   but never counted under any rule (Haider, 2026-11-10).
+- `work_item_change_details`: `resume_stage` and `resume_status`, where a change sent back for
+  approval was (the emergency override returns it there), and `pir_required`, set by that
+  override: the change closes only through its review (D-144).
 
 The downgrade drops both while no snapshot exists and no tenant set a policy; otherwise it stops
 and keeps the data (rule 5h).
@@ -31,7 +34,7 @@ down_revision: str | None = "0117"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-TABLE = "change_approval_snapshots"
+TABLE, DETAILS = "change_approval_snapshots", "work_item_change_details"
 GUARD = f"""
 DO $$
 DECLARE t uuid;
@@ -42,6 +45,9 @@ BEGIN
             SELECT 1 FROM work_item_type_settings WHERE reapproval IS NOT NULL
         ) OR EXISTS (
             SELECT 1 FROM work_item_approvals WHERE advisory
+        ) OR EXISTS (
+            SELECT 1 FROM work_item_change_details
+            WHERE pir_required OR resume_stage IS NOT NULL
         ) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has re-approval data (rule 5h)', t;
         END IF;
@@ -97,11 +103,18 @@ def upgrade() -> None:
         "work_item_approvals",
         sa.Column("advisory", sa.Boolean(), server_default="false", nullable=False),
     )
+    op.add_column(DETAILS, sa.Column("resume_stage", sa.String(40), nullable=True))
+    op.add_column(DETAILS, sa.Column("resume_status", sa.String(40), nullable=True))
+    op.add_column(
+        DETAILS, sa.Column("pir_required", sa.Boolean(), server_default="false", nullable=False)
+    )
 
 
 def downgrade() -> None:
     """Back to before re-approval (stops while there are snapshots or a policy)."""
     op.execute(GUARD)
+    for column in ("pir_required", "resume_status", "resume_stage"):
+        op.drop_column(DETAILS, column)
     op.drop_column("work_item_approvals", "advisory")
     op.drop_column("work_item_type_settings", "reapproval")
     op.drop_index(f"ix_{TABLE}_tenant_item_stage", table_name=TABLE)

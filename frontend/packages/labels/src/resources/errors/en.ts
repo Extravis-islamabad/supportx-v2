@@ -649,6 +649,8 @@ export const en = {
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
+  'errors.nothing_to_override':
+    'This change is not waiting for approval again, so there is nothing to override.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',

@@ -659,6 +659,8 @@ export const ur: LabelResource = {
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
+  'errors.nothing_to_override':
+    'یہ تبدیلی دوبارہ منظوری کی منتظر نہیں، اس لیے نظر انداز کرنے کو کچھ نہیں۔',
   'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
   'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
   'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',

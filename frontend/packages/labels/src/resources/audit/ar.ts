@@ -56,6 +56,7 @@ export const ar: LabelResource = {
   'audit.action.change.closed_record_edited': 'عدّل تغيير مغلقة',
   'audit.action.change.deleted': 'نقل تغيير إلى سلة المحذوفات',
   'audit.action.change.due_date_changed': 'غيّر موعد استحقاق تغيير',
+  'audit.action.change.emergency_override': 'تجاوز موافقة تغيير في حالة طارئة',
   'audit.action.change.note_visibility_changed': 'جعل ملاحظة تغيير عامة أو خاصة',
   'audit.action.change.reply_template_changed': 'غيّر قالب رد',
   'audit.action.change.reply_template_created': 'أضاف قالب رد',

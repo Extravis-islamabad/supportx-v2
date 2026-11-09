@@ -159,3 +159,49 @@ async def test_the_save_warns_before_sending_the_change_back(world: World) -> No
     assert quiet.json() == []
     after = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
     assert after["stage"] == "planning"  # nothing moved
+
+
+async def test_d144_the_emergency_override_keeps_the_change_going_and_needs_a_review(
+    world: World,
+) -> None:
+    """Haider: the only way on after a send-back; a reason, audited, and the review required."""
+    a = world.a
+    item = await accepted(world, a)
+    await details(world, a, item, item["version"], risk_chosen="high", risk_reason="Core switch")
+    sent = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert sent["status"] == "submission_awaiting_acceptance"
+    url = f"{CHG}/{item['id']}/emergency-override"
+    headers = {"If-Match": f'"{sent["version"]}"', **CONSOLE}
+    # A technician without the permission is refused.
+    refused = await world.call("POST", url, a, a.tech_a, json={"reason": "Outage"}, headers=headers)
+    assert refused.status_code in {403, 404}, refused.text
+    done = await world.call(
+        "POST", url, a, a.admin, json={"reason": "Half the switches are done"}, headers=headers
+    )
+    assert done.status_code == 200, done.text
+    assert (done.json()["stage"], done.json()["status"]) == ("planning", "planning_planning")
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    assert "pending" not in {r["state"] for r in rows}  # the re-approval was withdrawn
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        logged = await session.scalar(
+            text(
+                "SELECT details->>'stage' FROM audit_entries "
+                "WHERE action = 'change.emergency_override' AND object_id = :r"
+            ),
+            {"r": item["id"]},
+        )
+        pir = await session.scalar(
+            text("SELECT pir_required FROM work_item_change_details WHERE work_item_id = :r"),
+            {"r": item["id"]},
+        )
+    assert (logged, pir) == ("planning", True)  # the reason is kept as personal data
+    # Nothing left to override.
+    again = await world.call(
+        "POST",
+        url,
+        a,
+        a.admin,
+        json={"reason": "Again"},
+        headers={"If-Match": f'"{done.json()["version"]}"', **CONSOLE},
+    )
+    assert again.status_code == 409, again.text

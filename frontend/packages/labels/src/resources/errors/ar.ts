@@ -595,6 +595,7 @@ export const ar: LabelResource = {
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
   'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
+  'errors.nothing_to_override': 'هذا التغيير لا ينتظر الموافقة مجددًا، فلا يوجد ما يُتجاوز.',
   'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
   'errors.notification_not_found': 'هذا الإشعار غير موجود أو ليس لك.',
   'errors.notification_record_not_found': 'هذا السجل غير موجود أو غير متاح لك.',

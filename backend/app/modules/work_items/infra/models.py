@@ -1496,6 +1496,11 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     risk_answers: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     risk_version: Mapped[int | None]
     risk_chosen: Mapped[str | None] = mapped_column(String(20))
+    # WP-045b S4 (0118): where a change sent back for approval was, for the emergency
+    # override to return it there, and the review that override makes mandatory (D-144).
+    resume_stage: Mapped[str | None] = mapped_column(String(40))
+    resume_status: Mapped[str | None] = mapped_column(String(40))
+    pir_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
     risk_reason: Mapped[str | None] = mapped_column(String(500))
 
 

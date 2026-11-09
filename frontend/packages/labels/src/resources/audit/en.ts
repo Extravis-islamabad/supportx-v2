@@ -54,6 +54,7 @@ export const en = {
   'audit.action.change.closed_record_edited': 'Edited a closed change',
   'audit.action.change.deleted': 'Moved a change to the trash',
   'audit.action.change.due_date_changed': 'Changed the due date of a change',
+  'audit.action.change.emergency_override': 'Overrode the approval of a change in an emergency',
   'audit.action.change.note_visibility_changed': 'Made a change note public or private',
   'audit.action.change.reply_template_changed': 'Changed a reply template',
   'audit.action.change.reply_template_created': 'Added a reply template',

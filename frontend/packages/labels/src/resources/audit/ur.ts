@@ -56,6 +56,7 @@ export const ur: LabelResource = {
   'audit.action.change.closed_record_edited': 'بند تبدیلی میں ترمیم کی',
   'audit.action.change.deleted': 'تبدیلی ردی کی ٹوکری میں ڈالا',
   'audit.action.change.due_date_changed': 'تبدیلی کی مقررہ تاریخ تبدیل کی',
+  'audit.action.change.emergency_override': 'ہنگامی حالت میں تبدیلی کی منظوری کو نظر انداز کیا',
   'audit.action.change.note_visibility_changed': 'تبدیلی کے نوٹ کو عوامی یا نجی بنایا',
   'audit.action.change.reply_template_changed': 'جواب کا سانچہ تبدیل کیا',
   'audit.action.change.reply_template_created': 'جواب کا سانچہ شامل کیا',

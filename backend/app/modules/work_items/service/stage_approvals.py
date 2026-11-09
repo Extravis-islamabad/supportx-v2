@@ -341,6 +341,11 @@ def _row(  # noqa: PLR0913 - one approval row, explicit
     )
 
 
+async def withdraw_pending(session: AsyncSession, record: WorkItem, stage: str) -> None:
+    """The stage's open approvals are not needed any more (an emergency override, D-144)."""
+    await _close(session, record, await _rows(session, record, stage))
+
+
 async def _close(session: AsyncSession, record: WorkItem, rows: Sequence[WorkItemApproval]) -> None:
     """Pending rows no longer needed (the level was decided, or the record went back)."""
     pending = [r for r in rows if r.state == rules.ApprovalState.PENDING]
