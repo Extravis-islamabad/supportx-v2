@@ -18,6 +18,7 @@ from app.core.modules import ModuleSpec
 from app.modules.assets.api.records import router as records_router
 from app.modules.assets.api.routes import router
 from app.modules.assets.events import EVENTS
+from app.modules.assets.service import reporting
 from app.modules.assets.service.assets import (
     EDIT_DISPOSED,
     assets_naming_vendor,
@@ -48,6 +49,9 @@ PERMISSIONS = (
 
 # Assets name vendors: a vendor they still name cannot be deleted (procurement asks).
 register_vendor_usage(assets_naming_vendor)
+# Assets in the reports library, with their states, product types and products named (lane C's
+# P6 review): at import, so the consumers worker that runs report exports has them too.
+reporting.register()
 
 
 async def _startup(app: FastAPI) -> None:
