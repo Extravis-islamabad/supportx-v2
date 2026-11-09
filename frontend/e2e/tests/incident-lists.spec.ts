@@ -153,6 +153,7 @@ test('REQ-INC-120 AC1: a bulk close closes what it may and lists the rest with t
   await expect(skipped.getByText('Closure code: This field is required.')).toHaveCount(2);
   // AC3: the result is findable after leaving the page.
   await page.goto('/incidents');
+  await page.getByTestId('inc-header-actions-more').click(); // in "More" since D-147 template C
   await page.getByTestId('inc-bulk-jobs').click();
   await expect(page.getByText('Close 3 incidents').first()).toBeVisible();
 });

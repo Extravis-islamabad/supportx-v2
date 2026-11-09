@@ -116,6 +116,15 @@ class Valkeys:
             "sh", "-c", "sh /scripts/valkey.sh & sleep 2; sh /scripts/sentinel.sh",
         )  # fmt: skip
 
+    def start_plain(self, index: int) -> None:
+        """A bare server as pod `index` (no sentinel, never replicated): keys at offset 0."""
+        _run(
+            "docker", "run", "-d", "--name", self.name(index),
+            "--hostname", f"supportx-valkey-{index}", "--network", self.network,
+            "--network-alias", f"supportx-valkey-{index}.{HEADLESS}", self.image,
+            "valkey-server", "--requirepass", self.password, "--appendonly", "no",
+        )  # fmt: skip
+
     def stop(self, index: int) -> None:
         _run("docker", "rm", "-f", self.name(index), check=False)
 
@@ -170,6 +179,13 @@ def _until(check: object, seconds: float) -> None:
     pytest.fail(f"not reached within {seconds} s")
 
 
+def replicated(valkeys: Valkeys) -> None:
+    """Both replicas really hold the key. WAIT is not proof: in Valkey's dual-channel sync it can
+    count a replica still loading (link down, offset 0; seen 2026-11-09)."""
+    for index in (1, 2):
+        _until(lambda i=index: valkeys.cli(i, "get", "session:probe") == "kept", 60)
+
+
 @pytest.fixture
 def valkeys(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Valkeys]:
     tmp_path.chmod(0o755)  # the containers' own user reads the scripts
@@ -218,6 +234,7 @@ def test_a_failover_keeps_the_data_and_the_old_master_rejoins_as_a_replica(
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     # Both replicas have it before the master is lost (WAIT: replicas that acknowledged).
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
+    replicated(valkeys)
 
     valkeys.stop(0)
     _until(
@@ -249,6 +266,7 @@ def test_a_master_back_before_the_sentinels_notice_never_starts_empty(valkeys: V
     _until(lambda: valkeys.master(1).startswith("supportx-valkey-0."), START_SECONDS)
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
+    replicated(valkeys)
 
     valkeys.stop(0)
     valkeys.start(0)  # at once: well inside down-after-milliseconds
@@ -292,6 +310,7 @@ def test_a_master_back_while_its_peers_are_unreachable_waits_and_keeps_the_data(
     _until(lambda: valkeys.master(1).startswith("supportx-valkey-0."), START_SECONDS)
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
+    replicated(valkeys)
 
     valkeys.cut(1)
     valkeys.cut(2)
@@ -328,3 +347,25 @@ def test_a_fresh_install_waits_for_its_peers_then_starts(valkeys: Valkeys) -> No
     )
     assert valkeys.waiting(0) == ""
     assert valkeys.cli(0, "set", "first", "ok") == "OK"
+
+
+def test_a_peer_holding_keys_at_offset_0_is_never_read_as_empty(valkeys: Valkeys) -> None:
+    """#284's own CI (2026-11-09): in Valkey's dual-channel sync a replica holds the data while
+    it still reports offset 0, its link down. Pod 0 read that as a fresh set and the replicas
+    loaded 0 keys. The same signal here: peers with keys and offset 0, and no sentinel."""
+    for index in range(3):
+        valkeys.stop(index)
+    for index in (1, 2):
+        valkeys.start_plain(index)
+        _until(
+            lambda i=index: valkeys.cli(i, "set", "session:probe", "kept") == "OK", START_SECONDS
+        )
+        info = valkeys.cli(index, "info", "replication")
+        assert "master_repl_offset:0" in info  # the misleading offset, as in the CI run
+    valkeys.start(0)
+    _until(lambda: "holds data" in valkeys.waiting(0), START_SECONDS)
+    time.sleep(6)  # several more tries: still waiting, never an empty master
+    assert not valkeys.serving(0)
+    assert "holds data" in valkeys.waiting(0)
+    for index in (1, 2):  # nobody's keys were touched
+        assert valkeys.cli(index, "get", "session:probe") == "kept"

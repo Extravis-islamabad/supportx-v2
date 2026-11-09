@@ -183,7 +183,9 @@ test('BUG-16: long subjects are cut and Restore stays in view in the trash', asy
   const removed = await call(page, 'DELETE', `/incidents/${item.id}`, { version: item.version });
   expect(removed.status()).toBe(204);
   await page.goto('/incidents');
-  await page.getByTestId('inc-mode').getByText('Trash', { exact: true }).click();
+  // Current or trash is a "More" entry since D-147 template C (one toolbar row).
+  await page.getByTestId('inc-header-actions-more').click();
+  await page.getByTestId('inc-mode').click();
   const restore = page.getByTestId(`inc-restore-${item.display_id}`);
   await expect(restore).toBeVisible();
   await expect(restore).toBeInViewport({ ratio: 1 });
