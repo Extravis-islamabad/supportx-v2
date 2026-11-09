@@ -17,6 +17,7 @@
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal, cast
 
@@ -374,3 +375,51 @@ async def open_loans(
         .limit(limit)
     )
     return list(rows)
+
+
+@dataclass(frozen=True, slots=True)
+class LoanAsset:
+    """An asset of a loan as the loan register shows it: what, and how it came back."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+    returned_at: datetime | None
+    outcome: str | None
+
+
+async def loan_assets(
+    session: AsyncSession, loan_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[LoanAsset]]:
+    """Each loan's assets in one query, by tag (the register's rows)."""
+    found: dict[uuid.UUID, list[LoanAsset]] = {loan_id: [] for loan_id in loan_ids}
+    if not loan_ids:
+        return found
+    rows = await session.execute(
+        select(AssetLoanItem.loan_id, Asset.id, Asset.tag, Asset.name, AssetLoanItem.returned_at,
+               AssetLoanItem.outcome)
+        .join(Asset, Asset.id == AssetLoanItem.asset_id)
+        .where(AssetLoanItem.loan_id.in_(loan_ids), AssetLoanItem.deleted_at.is_(None))
+        .order_by(AssetLoanItem.loan_id, Asset.tag, Asset.id)
+    )  # fmt: skip
+    for loan_id, asset_id, tag, name, returned_at, outcome in rows:
+        found[loan_id].append(LoanAsset(asset_id, tag, name, returned_at, outcome))
+    return found
+
+
+async def due_dates(
+    session: AsyncSession, asset_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, datetime]:
+    """When each asset still out on a loan is due back (the borrower's own list)."""
+    if not asset_ids:
+        return {}
+    rows = await session.execute(
+        select(AssetLoanItem.asset_id, AssetLoan.due_at)
+        .join(AssetLoan, AssetLoan.id == AssetLoanItem.loan_id)
+        .where(
+            AssetLoanItem.asset_id.in_(asset_ids),
+            AssetLoanItem.returned_at.is_(None),
+            AssetLoanItem.deleted_at.is_(None),
+        )
+    )
+    return dict(rows.tuples().all())

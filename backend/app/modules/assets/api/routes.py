@@ -873,6 +873,7 @@ class MyAssetOut(BaseModel):
     state_id: uuid.UUID
     through_department: bool
     acknowledgement: AcknowledgementOut | None
+    loan_due_at: datetime | None = Field(description="When it is due back, while out on a loan.")
 
 
 class AcknowledgementAnswerIn(BaseModel):
@@ -900,6 +901,8 @@ def _ack_out(row: AssetAcknowledgement) -> AcknowledgementOut:
 @router.get("/mine", summary="The assets I hold")
 async def my_assets(session: TenantSession, subject: SignedIn) -> list[MyAssetOut]:
     """Mine, and my department's when the organisation shows them; live (REQ-AST-024)."""
+    held = await acknowledgements.mine(session, subject)
+    due = await loans.due_dates(session, [m.asset.id for m in held])
     return [
         MyAssetOut(
             id=m.asset.id,
@@ -909,8 +912,9 @@ async def my_assets(session: TenantSession, subject: SignedIn) -> list[MyAssetOu
             state_id=m.asset.state_id,
             through_department=m.through_department,
             acknowledgement=None if m.acknowledgement is None else _ack_out(m.acknowledgement),
+            loan_due_at=due.get(m.asset.id),
         )
-        for m in await acknowledgements.mine(session, subject)
+        for m in held
     ]
 
 
@@ -1168,6 +1172,16 @@ class LoanReturnIn(BaseModel):
     comment: str | None = Field(default=None, max_length=2000)
 
 
+class LoanAssetOut(BaseModel):
+    """An asset of a loan: what it is, and when and how it came back (None while out)."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+    returned_at: datetime | None
+    outcome: Literal["in_stock", "in_repair"] | None
+
+
 class LoanOut(BaseModel):
     """A loan: who, until when, its status (overdue computed now) and what is still out."""
 
@@ -1179,11 +1193,16 @@ class LoanOut(BaseModel):
     comment: str | None
     status: Literal["open", "overdue", "closed"]
     outstanding: list[uuid.UUID]
+    assets: list[LoanAssetOut] = Field(description="Every asset of the loan, by tag.")
     version: int
 
 
-async def _loan_out(session: TenantSession, row: AssetLoan) -> LoanOut:
-    out = await loans.outstanding_assets(session, row.id)
+async def _loan_out(
+    session: TenantSession, row: AssetLoan, items: list[loans.LoanAsset] | None = None
+) -> LoanOut:
+    if items is None:
+        items = (await loans.loan_assets(session, [row.id]))[row.id]
+    out = [a.id for a in items if a.returned_at is None]
     status = loan_status(due_at=row.due_at, outstanding=len(out), now=system_clock.now())
     return LoanOut(
         id=row.id,
@@ -1194,6 +1213,16 @@ async def _loan_out(session: TenantSession, row: AssetLoan) -> LoanOut:
         comment=row.comment,
         status=cast("Literal['open', 'overdue', 'closed']", status),  # loan_status's three
         outstanding=out,
+        assets=[
+            LoanAssetOut(
+                id=a.id,
+                tag=a.tag,
+                name=a.name,
+                returned_at=a.returned_at,
+                outcome=cast("Literal['in_stock', 'in_repair'] | None", a.outcome),  # 0114's check
+            )
+            for a in items
+        ],
         version=row.version,
     )
 
@@ -1216,7 +1245,9 @@ async def set_loanable(
 @router.get("/loans", summary="Open loans, overdue first")
 async def list_loans(session: TenantSession, subject: AssetsView) -> list[LoanOut]:
     """Every open loan of the organisation, those past due first."""
-    return [await _loan_out(session, r) for r in await loans.open_loans(session, subject)]
+    rows = await loans.open_loans(session, subject)
+    items = await loans.loan_assets(session, [r.id for r in rows])
+    return [await _loan_out(session, r, items[r.id]) for r in rows]
 
 
 @router.post(

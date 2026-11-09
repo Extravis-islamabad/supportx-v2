@@ -70,6 +70,10 @@ async def test_a_loan_moves_assets_in_use_and_returns_bring_them_back(world: Wor
     assert made.status_code == 201, made.text
     loan = made.json()
     assert (loan["status"], len(loan["outstanding"])) == ("open", 2)
+    assert sorted(a["name"] for a in loan["assets"]) == ["Loan one", "Loan two"]  # the register
+    mine = (await world.call("GET", f"{BASE}/mine", a, a.requester)).json()
+    due = {m["id"]: m["loan_due_at"] for m in mine}
+    assert due[one["id"]] == loan["due_at"]  # the borrower sees when it is due back
     for asset in (one, two):
         now = (await world.call("GET", f"{BASE}/{asset['id']}", a, a.admin)).json()
         assert (now["state_id"], now["owner_user_id"]) == (states["in_use"], str(a.requester))
@@ -90,6 +94,10 @@ async def test_a_loan_moves_assets_in_use_and_returns_bring_them_back(world: Wor
         json={"asset_ids": [two["id"]], "outcome": "in_repair", "comment": "Hinge broken"},
     )  # fmt: skip
     assert last.json()["status"] == "closed"
+    came_back = {x["id"]: x["outcome"] for x in last.json()["assets"]}
+    assert came_back == {one["id"]: "in_stock", two["id"]: "in_repair"}
+    mine = (await world.call("GET", f"{BASE}/mine", a, a.requester)).json()
+    assert all(m["loan_due_at"] is None for m in mine)
     assert (await world.call("GET", f"{BASE}/{one['id']}", a, a.admin)).json()["state_id"] == (
         states["in_stock"]
     )
