@@ -99,6 +99,8 @@ export const ur: LabelResource = {
   'organization.col.actions': 'کارروائیاں',
   'organization.col.members': 'اراکین',
   'organization.col.name': 'نام',
+  'organization.col.people': 'افراد',
+  'organization.col.site_access': 'سائٹ تک رسائی',
   'organization.current_person': 'موجودہ فرد',
   'organization.default': 'ڈیفالٹ',
   'organization.departments': 'شعبے',

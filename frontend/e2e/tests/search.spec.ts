@@ -1,6 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { expectAccessible, resetLanguage, signInAs } from './helpers';
+import {
+  closeAppearance,
+  expectAccessible,
+  openAppearance,
+  resetLanguage,
+  signInAs,
+} from './helpers';
 
 /**
  * WP-027 search (REQ-INC-085, ADR-029) end to end, on the real database:
@@ -22,7 +28,7 @@ async function call(page: Page, method: string, path: string, body?: unknown) {
 
 async function palette(page: Page, typed: string) {
   // The shortcut is registered by the header: pressing it before the shell is up does nothing.
-  await expect(page.getByTestId('appearance-menu')).toBeVisible();
+  await expect(page.getByTestId('user-menu')).toBeVisible();
   await page.keyboard.press('Control+k');
   // By role, not name: the label is translated in the Arabic part of the test.
   const input = page.getByRole('dialog').getByRole('combobox');
@@ -78,10 +84,10 @@ test('search: Arabic word forms, typos and recent incidents in Ctrl+K, accessibl
       window.localStorage.setItem('supportx.theme_mode', 'light');
     });
     await page.goto('/');
-    await page.getByTestId('appearance-menu').click();
+    await openAppearance(page);
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();
-    await page.getByTestId('appearance-menu').click();
+    await closeAppearance(page);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await palette(page, `${tag} الطابعة`);
     await expect(page.getByTestId(`palette-incident-${arabic.display_id}`)).toBeVisible();

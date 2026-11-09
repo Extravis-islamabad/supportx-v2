@@ -62,7 +62,7 @@ async def test_a_problem_has_its_own_ids_and_stays_in_its_tenant(world: World) -
     made = first.json()
     assert (made["display_id"], second.json()["display_id"]) == ("PRB-1", "PRB-2")
     assert made["type"] == "problem"
-    assert made["status"] == "new"
+    assert made["status"] == "assigned"  # its creator owns it (QA6-PRB-03)
     incident = await world.create(a, a.admin)
     assert incident["display_id"].startswith("INC-")  # its own counter
     other = await world.call("GET", f"{PRB}/{made['id']}", b, b.admin)

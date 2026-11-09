@@ -1,6 +1,17 @@
 import { BellOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { App as AntApp, Badge, Button, Drawer, Empty, List, Space, Switch, Typography } from 'antd';
+import {
+  App as AntApp,
+  Badge,
+  Button,
+  Drawer,
+  Empty,
+  List,
+  Space,
+  Switch,
+  Tooltip,
+  Typography,
+} from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -82,17 +93,20 @@ export function NotificationBell() {
 
   return (
     <>
-      <Badge count={unread} size="small" overflowCount={99}>
-        <Button
-          type="text"
-          icon={<BellOutlined />}
-          aria-label={t('notifications.open', { count: unread })}
-          onClick={() => {
-            setOpen(true);
-          }}
-          data-testid="notifications-bell"
-        />
-      </Badge>
+      {/* Every icon button says what it does on hover (D-147 global fix 2). */}
+      <Tooltip title={t('notifications.open', { count: unread })}>
+        <Badge count={unread} size="small" overflowCount={99}>
+          <Button
+            type="text"
+            icon={<BellOutlined />}
+            aria-label={t('notifications.open', { count: unread })}
+            onClick={() => {
+              setOpen(true);
+            }}
+            data-testid="notifications-bell"
+          />
+        </Badge>
+      </Tooltip>
       <Drawer
         open={open}
         onClose={() => {

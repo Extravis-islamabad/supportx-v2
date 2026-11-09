@@ -15,7 +15,7 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 
 import {
   ApiError,
@@ -78,7 +78,7 @@ import { useIncidentFieldName } from './conflict';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
 import { rememberIncident } from './recent';
-import { lastTab, rememberTab } from './tabs';
+import { DEFAULT_TAB, lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { KnowledgeCard } from '../knowledge/KnowledgeCard';
@@ -168,7 +168,9 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
-  const [tab, setTab] = useState<string>(() => lastTab(me));
+  // A record just made opens on Conversation, whatever tab was used last (QA6-INC-04).
+  const justMade = (useLocation().state as { justMade?: boolean } | null)?.justMade === true;
+  const [tab, setTab] = useState<string>(() => (justMade ? DEFAULT_TAB : lastTab(me)));
   const [replyRequest, setReplyRequest] = useState(0);
   // Tasks, worklogs and links follow the record's edit permission (WP-020e).
   const canEditParts = item.operations.find((o) => o.action === 'edit')?.allowed === true;

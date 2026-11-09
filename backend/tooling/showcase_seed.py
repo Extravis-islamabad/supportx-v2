@@ -1043,7 +1043,7 @@ async def fill_lane_a(
         worker=(groups["Service desk"], omar),
         admin_id=sana,
     )
-    incidents = [i["id"] for i in await admin.all_pages("/api/v1/incidents")]
+    incidents = await admin.all_pages("/api/v1/incidents")
     report.problems = await lane_a.ensure_problems(admin, sana, incidents)
     report.rules = await lane_a.ensure_rules(admin, groups)
 
@@ -1059,6 +1059,7 @@ class Report:
     service_requests: int = 0
     problems: int = 0
     rules: int = 0
+    sla_policies: int = 0
     dashboard: bool = False
     catalog_published: int = 0
     articles: int = 0
@@ -1085,6 +1086,8 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
         sites, groups = await ensure_units(admin)
         report.catalog_published = await ensure_catalog(admin, groups)
         people = await ensure_people(admin, sites, groups, signed_in)
+        # Before the incidents, which take their SLA when they are created (QA9, Haider).
+        report.sla_policies = await lane_a.ensure_sla_policies(admin, groups)
         report.incidents = await ensure_incidents(admin, people, groups, signed_in)
         await fill_lane_a(admin, people, groups, signed_in, report)
         report.dashboard = await ensure_dashboard(admin)
