@@ -178,6 +178,9 @@ CHANGE_ROLES = (
     "implementer",
     "reviewer",
 )
+# A change's roles are held by people or groups, several at once (REQ-CHG-034); the requester
+# and the owner stay one person (the record's own requester and technician).
+SINGLE_ROLES = frozenset({"requester", "change_owner"})
 # By default the requester and the implementer may not approve a change (REQ-CHG-039); the
 # requester through the approvals' self-approval rule, the implementer's holders here.
 SEGREGATED_ROLES = ("implementer",)

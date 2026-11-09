@@ -504,3 +504,42 @@ async def test_req_chg_039_the_implementer_never_approves(world: World) -> None:
     [entry] = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
     # Skipped when named: the administrators decide, and the record says why (AC1).
     assert (entry["approver_id"], entry["route_reason"]) == (None, "segregation_of_duties")
+
+
+async def test_req_chg_039_an_implementing_group_bars_every_member(world: World) -> None:
+    """Stated in the PR for Haider: a group as implementer bars all its members from approving.
+
+    tech_a is the line manager and a member of GA, which implements: the acceptance level then
+    goes to the approval administrators with segregation_of_duties, never to tech_a.
+    """
+    from tests.db.test_approvals_api import manager_of  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    item = await a_change(world, a)
+    fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    set_ = await world.call(
+        "PUT",
+        f"{CHG}/{item['id']}/roles/implementer",
+        a,
+        a.admin,
+        json={"group_ids": [str(a.ga)]},
+        headers={"If-Match": f'"{fresh["version"]}"', **CONSOLE},
+    )
+    assert set_.status_code == 200, set_.text
+    fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert (await move(world, a, fresh, "submission_awaiting_acceptance")).status_code == 200
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    assert [(r["approver_id"], r["route_reason"]) for r in rows] == [
+        (None, "segregation_of_duties")
+    ]
+    # And tech_a cannot decide it either.
+    refused = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/approvals/{rows[0]['id']}/decision",
+        a,
+        a.tech_a,
+        json={"decision": "approve"},
+        headers={"If-Match": f'"{rows[0]["version"]}"', **CONSOLE},
+    )
+    assert refused.status_code == 403

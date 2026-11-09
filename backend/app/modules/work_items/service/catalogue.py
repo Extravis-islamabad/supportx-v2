@@ -258,7 +258,16 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
         await _seed_path_templates(session, wtype.code, staged, tenant)
     session.add_all(
         [
-            WorkItemRoleDef(tenant_id=tenant, type=wtype.code, code=code, sort_order=i, system=True)
+            WorkItemRoleDef(
+                tenant_id=tenant,
+                type=wtype.code,
+                code=code,
+                sort_order=i,
+                system=True,
+                # Releases: one person per role (REQ-REL-023); changes: people or groups.
+                single=wtype.code is not WorkItemTypeCode.CHANGE
+                or code in change_rules.SINGLE_ROLES,
+            )
             for i, code in enumerate(wtype.roles)
         ]
     )
