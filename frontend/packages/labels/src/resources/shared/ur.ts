@@ -144,6 +144,7 @@ export const ur: LabelResource = {
   'layout.not_available_now': 'ابھی دستیاب نہیں',
   'layout.notices_count_one': '{{count}} اطلاع',
   'layout.notices_count_other': '{{count}} اطلاعات',
+  'layout.notices_dismiss': 'یہ اطلاعات چھپائیں',
   'layout.notices_more_one': '{{count}} مزید اطلاع',
   'layout.notices_more_other': '{{count}} مزید اطلاعات',
   'layout.properties': 'خصوصیات',

@@ -181,8 +181,32 @@ describe('NoticeStack', () => {
     const hidden = screen.getByText('Choose visibility').closest('[data-notices-collapsed]');
     expect(hidden?.getAttribute('data-notices-collapsed')).toBe('true');
     fireEvent.click(screen.getByTestId('notices-toggle'));
-    expect(screen.getByTestId('notices').textContent).toContain('3 notices');
+    expect(screen.getByTestId('notices-toggle').getAttribute('aria-expanded')).toBe('true');
     expect(hidden?.getAttribute('data-notices-collapsed')).toBe('false');
+  });
+
+  it('D-147: one strip, "N more" on its line, dismissed until a notice is added', () => {
+    const { rerender } = renderUi(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+      </NoticeStack>,
+    );
+    const strip = screen.getByTestId('notices');
+    // The toggle sits in the same row as the notice, not on a line of its own.
+    expect(screen.getByTestId('notices-toggle').parentElement).toBe(
+      screen.getByText('Scanner down').closest('[data-notices-collapsed]')?.parentElement,
+    );
+    fireEvent.click(screen.getByTestId('notices-dismiss'));
+    expect(strip.hidden).toBe(true);
+    rerender(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+        <Notice text="Licence expires" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').hidden).toBe(false); // a new notice brings it back
   });
 
   it('an empty box never takes the visible place; a critical notice does (announcements.spec)', () => {

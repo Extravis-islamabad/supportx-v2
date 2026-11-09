@@ -151,6 +151,7 @@ export const ar: LabelResource = {
   'layout.notices_count_other': '{{count}} إشعار',
   'layout.notices_count_two': 'إشعاران',
   'layout.notices_count_zero': 'لا توجد إشعارات',
+  'layout.notices_dismiss': 'إخفاء هذه الإشعارات',
   'layout.notices_more_few': '{{count}} إشعارات أخرى',
   'layout.notices_more_many': '{{count}} إشعارًا آخر',
   'layout.notices_more_one': 'إشعار آخر',
