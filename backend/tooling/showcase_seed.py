@@ -313,7 +313,8 @@ _BACKDATE_TARGETS = (
     ),
     ("field_changes", "t.record_type = 'work_item' AND t.record_id = s.id"),
 )
-# Each incident's fixed target: 1 to 30 days and 0 to 8 hours before the tenant was created.
+# Each record's fixed target (incidents, requests, problems; never releases): 1 to 30 days and
+# 0 to 8 hours before the tenant was created.
 _BACKDATE_DELTAS = """
 CREATE TEMP TABLE showcase_shift ON COMMIT DROP AS
 SELECT w.id,
@@ -322,7 +323,7 @@ SELECT w.id,
                         hours => ((w.display_number * 5) % 9)::int))
        - w.created_at AS delta
   FROM work_items w JOIN tenants t ON t.id = w.tenant_id
- WHERE w.tenant_id = $1
+ WHERE w.tenant_id = $1 AND w.type <> 'release'  -- a release's stage history keeps its dates
 """
 
 
@@ -896,6 +897,130 @@ async def ensure_dashboard(api: Api) -> bool:
     return True
 
 
+# Knowledge for the showcase (QA6-DATA-01): topics with articles, published and in review, in
+# English, Arabic and Urdu names. The technician writes them; the admin approves (self-approval is
+# off by default, so the author never approves their own).
+KB_TOPICS: tuple[Mapping[str, str], ...] = (
+    {"en": "Accounts and access", "ar": "الحسابات والوصول", "ur": "اکاؤنٹس اور رسائی"},
+    {"en": "Network and VPN", "ar": "الشبكة والشبكة الخاصة", "ur": "نیٹ ورک اور وی پی این"},
+    {"en": "Printers", "ar": "الطابعات", "ur": "پرنٹر"},
+)
+# (topic, title, body, published?)
+KB_ARTICLES: tuple[tuple[str, str, str, bool], ...] = (
+    (
+        "Accounts and access",
+        "Reset your password",
+        "<p>Open the portal, choose <strong>Forgot password</strong> and follow the e-mail.</p>",
+        True,
+    ),
+    (
+        "Accounts and access",
+        "Set up two-step sign-in",
+        "<p>Install an authenticator app, then scan the code under <em>Profile</em>.</p>",
+        True,
+    ),
+    (
+        "Network and VPN",
+        "Connect to the VPN from home",
+        (
+            "<p>Start the VPN client, sign in with your work account and choose "
+            "<em>Head office</em>.</p>"
+        ),
+        True,
+    ),
+    (
+        "Network and VPN",
+        "Wi-Fi drops in meeting rooms",
+        "<p>Forget the network, then join <em>Office-Secure</em> again with your work account.</p>",
+        False,
+    ),
+    (
+        "Printers",
+        "Clear a paper jam on floor 3",
+        "<p>Open tray 2, remove the sheet slowly and close the front cover.</p>",
+        True,
+    ),
+)
+
+
+async def ensure_knowledge(admin: Api, author: Api) -> int:
+    """Topics and articles once: most published, one waiting in review. Returns articles made."""
+    topics = {
+        t["names"]["en"]: t["id"] for t in await admin.call("GET", "/api/v1/knowledge/topics")
+    }
+    for names in KB_TOPICS:
+        if names["en"] not in topics:
+            made = await admin.call(
+                "POST",
+                "/api/v1/knowledge/topics",
+                json={"names": dict(names)},
+                idempotency=key("kb-topic", names["en"]),
+            )
+            topics[names["en"]] = made["id"]
+    have = {a["title"] for a in await admin.call("GET", "/api/v1/knowledge/articles")}
+    made_now = 0
+    for topic, title, body, published in KB_ARTICLES:
+        if title in have:
+            continue
+        article = await author.call(
+            "POST",
+            "/api/v1/knowledge/articles",
+            json={
+                "topic_id": topics[topic],
+                "type_code": "how_to",
+                "title": title,
+                "body_html": body,
+            },
+            idempotency=key("kb-article", title),
+        )
+        url = f"/api/v1/knowledge/articles/{article['id']}"
+        found = await author.call("GET", url)
+        draft = found["drafts"].get("en")
+        if draft is None:  # already published on an earlier run (the list keeps titles once)
+            continue
+        made_now += 1 if draft["status"] == "draft" else 0
+        # Each step only from the state before it: a re-run picks up where the last one stopped
+        # (the version in review is not in the article list, so its title is not "had").
+        if draft["status"] == "draft":
+            draft = await author.call(
+                "POST", f"{url}/drafts/en/submit", json={"note": "Ready"}, version=draft["version"]
+            )
+        if published and draft["status"] == "in_review":
+            await admin.call("POST", f"{url}/drafts/en/approve", version=draft["version"])
+    return made_now
+
+
+# Two releases in different stages (QA6-DATA-01): one just submitted, one in planning.
+RELEASES: tuple[tuple[str, str | None], ...] = (
+    ("Payroll system 4.2 upgrade", "submission_accepted"),
+    ("VPN client 5.3 rollout", None),
+)
+
+
+async def ensure_releases(admin: Api, requester: str) -> int:
+    """The releases once, the first moved on to planning. Returns releases made."""
+    have = {r["subject"] for r in await admin.all_pages("/api/v1/releases")}
+    made_now = 0
+    for subject, move in RELEASES:
+        if subject in have:
+            continue
+        release = await admin.call(
+            "POST",
+            "/api/v1/releases",
+            json={"subject": subject, "requester_id": requester},
+            idempotency=key("release", subject),
+        )
+        made_now += 1
+        if move is not None:
+            await admin.call(
+                "POST",
+                f"/api/v1/releases/{release['id']}/moves",
+                json={"to_status": move},
+                version=release["version"],
+            )
+    return made_now
+
+
 async def fill_lane_a(
     admin: Api,
     people: Mapping[str, str],
@@ -936,6 +1061,8 @@ class Report:
     rules: int = 0
     dashboard: bool = False
     catalog_published: int = 0
+    articles: int = 0
+    releases: int = 0
     backdated: int = 0
 
 
@@ -961,6 +1088,9 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
         report.incidents = await ensure_incidents(admin, people, groups, signed_in)
         await fill_lane_a(admin, people, groups, signed_in, report)
         report.dashboard = await ensure_dashboard(admin)
+        author = admin.as_user(signed_in[TECHNICIAN.email])
+        report.articles = await ensure_knowledge(admin, author)
+        report.releases = await ensure_releases(admin, str(signed_in[ADMIN.email]))
 
 
 def password_problem(password: str) -> str | None:
@@ -1032,6 +1162,7 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"showcase seed: tenant {SLUG} ({TENANT_ID})\n"
         f"  made now: {', '.join(report.tenant + report.keycloak) or 'nothing (all present)'}\n"
         f"  incidents made now: {report.incidents}; dashboard made now: {report.dashboard}\n"
+        f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
         f"  service requests made now: {report.service_requests}; problems made now:"
         f" {report.problems}; rules made now: {report.rules}; managers set now:"
         f" {report.managers}\n"
