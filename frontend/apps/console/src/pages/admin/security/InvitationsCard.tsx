@@ -1,4 +1,4 @@
-import { App, Button, Card, Flex, InputNumber, Popconfirm, Space, Table, Typography } from 'antd';
+import { App, Card, Flex, InputNumber, Popconfirm, Space, Table, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -235,7 +235,7 @@ export function InvitationsCard() {
               render: (_, row) =>
                 waiting(row) && (
                   <Space>
-                    <Button
+                    <WriteButton
                       size="small"
                       disabled={act.isPending}
                       onClick={() => {
@@ -244,7 +244,7 @@ export function InvitationsCard() {
                       data-testid="invitation-resend"
                     >
                       {t('security.invitations.resend')}
-                    </Button>
+                    </WriteButton>
                     <Popconfirm
                       title={t('security.invitations.revoke_confirm', { email: row.email })}
                       okText={t('security.invitations.revoke')}
@@ -253,9 +253,9 @@ export function InvitationsCard() {
                         run(row, 'revoke');
                       }}
                     >
-                      <Button size="small" danger data-testid="invitation-revoke">
+                      <WriteButton size="small" danger data-testid="invitation-revoke">
                         {t('security.invitations.revoke')}
-                      </Button>
+                      </WriteButton>
                     </Popconfirm>
                   </Space>
                 ),

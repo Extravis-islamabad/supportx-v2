@@ -36,7 +36,15 @@ export {
 export { lengthLimit } from './lengthLimit';
 export * from './layout';
 export * from './settings';
-export { CONTROL_HEIGHT, PANEL_WIDTH, ROW_HEIGHT, SPACE, TYPE, type Density } from './density';
+export {
+  CONTROL_HEIGHT,
+  FIELD_WIDTH,
+  PANEL_WIDTH,
+  ROW_HEIGHT,
+  SPACE,
+  TYPE,
+  type Density,
+} from './density';
 export { ChannelIcon, type ChannelIconProps } from './workItems/ChannelIcon';
 export { CHANNEL_LOOKS } from './workItems/channelLooks';
 export * from './catalog';
