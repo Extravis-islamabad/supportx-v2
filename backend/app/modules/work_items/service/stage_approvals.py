@@ -20,7 +20,7 @@ and refuses a person's move to a completing status while that stage still needs 
 
 import uuid
 from collections.abc import Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -139,15 +139,26 @@ async def segregated(
     return people
 
 
-async def open_level(
-    session: AsyncSession,
-    record: WorkItem,
-    settings: rules.StageApprovals,
-    *,
-    stage: str,
-    index: int,
-) -> list[WorkItemApproval]:
-    """Level `index` (0-based) of the stage: one row per approver, never none."""
+@dataclass(frozen=True)
+class PlannedLevel:
+    """Who a level names now, and why the administrators decide too (if they do).
+
+    `barred` are the people left out, each with their reason, so a submit can warn before the
+    approval opens (REQ-CHG-039: the fallback approver is named, never a silent skip).
+    """
+
+    level: rules.LevelApprovers
+    named: tuple[uuid.UUID, ...]
+    reason: rules.RouteReason | None
+    barred: tuple[tuple[uuid.UUID, rules.RouteReason], ...]
+    board_of: dict[uuid.UUID, change_boards.Reviewing]
+    empty_board: change_boards.Reviewing | None
+
+
+async def plan_level(
+    session: AsyncSession, record: WorkItem, settings: rules.StageApprovals, *, index: int
+) -> PlannedLevel:
+    """Level `index` (0-based) as it would open now; changes nothing."""
     level = settings.levels[index]
     people, unheld = await _candidates(session, record, level)
     boards = await _boards(session, record, level)
@@ -157,47 +168,63 @@ async def open_level(
     active = await active_user_ids(session, people)
     barred = await segregated(session, record)
     named: list[uuid.UUID] = []
+    left_out: list[tuple[uuid.UUID, rules.RouteReason]] = []
     reason: rules.RouteReason | None = rules.RouteReason.NO_HOLDER if unheld else None
     empty = next((b for b in boards if not b.people), None)
     if empty is not None:  # REQ-CHG-040: a board with no members yet
         reason = rules.RouteReason.BOARD_HAS_NO_MEMBERS
     for person in people:
+        why: rules.RouteReason | None = None
         if person not in active:
-            reason = reason or rules.RouteReason.APPROVER_INACTIVE
+            why = rules.RouteReason.APPROVER_INACTIVE
+        elif not settings.self_approval and person == record.requester_id:
+            why = rules.RouteReason.SELF_APPROVAL_BLOCKED
+        elif person in barred:
+            why = rules.RouteReason.SEGREGATION_OF_DUTIES
+        if why is None:
+            named.append(person)  # named: decides by being named, no extra permission needed
             continue
-        if not settings.self_approval and person == record.requester_id:
-            reason = reason or rules.RouteReason.SELF_APPROVAL_BLOCKED
-            continue
-        if person in barred:
-            reason = reason or rules.RouteReason.SEGREGATION_OF_DUTIES
-            continue
-        named.append(person)  # named: decides by being named, no extra permission needed
+        left_out.append((person, why))
+        reason = reason or why
     if not people and reason is None:
         reason = rules.RouteReason.NO_HOLDER
+    return PlannedLevel(level, tuple(named), reason, tuple(left_out), board_of, empty)
+
+
+async def open_level(
+    session: AsyncSession,
+    record: WorkItem,
+    settings: rules.StageApprovals,
+    *,
+    stage: str,
+    index: int,
+) -> list[WorkItemApproval]:
+    """Level `index` (0-based) of the stage: one row per approver, never none."""
+    plan = await plan_level(session, record, settings, index=index)
     rows = [
         _row(
             record,
             stage=stage,
             index=index,
-            level=level,
+            level=plan.level,
             approver=p,
             origin=rules.ApproverOrigin.NAMED,
             reason=None,
-            board=board_of.get(p),
+            board=plan.board_of.get(p),
         )
-        for p in named
+        for p in plan.named
     ]
-    if reason is not None:  # someone could not be named: the administrators decide for them
+    if plan.reason is not None:  # someone could not be named: the administrators decide too
         rows.append(
             _row(
                 record,
                 stage=stage,
                 index=index,
-                level=level,
+                level=plan.level,
                 approver=None,
                 origin=rules.ApproverOrigin.ADMINISTRATORS,
-                reason=reason,
-                board=empty,
+                reason=plan.reason,
+                board=plan.empty_board,
             )
         )
     for row in rows:

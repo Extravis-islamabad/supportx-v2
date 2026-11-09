@@ -31,6 +31,7 @@ from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain.approvals import RouteReason
 from app.modules.work_items.domain.change_risk import RiskLevel
 from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
 from app.modules.work_items.domain.classification import (
@@ -72,6 +73,7 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
+from app.modules.work_items.service import change_boards as board_service
 from app.modules.work_items.service import change_links, release_links, resolution
 from app.modules.work_items.service import change_risk as risk_service
 from app.modules.work_items.service import duplicates as duplicates_service
@@ -1544,6 +1546,36 @@ class ChangeRiskQuestionnaireOut(BaseModel):
     bands: list[ChangeRiskBandOut]
 
 
+class ChangeApprovalBarredOut(BaseModel):
+    """Someone the level would name who may not approve, and why."""
+
+    user_id: uuid.UUID
+    reason: RouteReason
+
+
+class ChangeApprovalPreviewOut(BaseModel):
+    """The stage's first level as it would open now (REQ-CHG-039: never a silent skip)."""
+
+    stage: str
+    approver_ids: list[uuid.UUID]
+    barred: list[ChangeApprovalBarredOut]
+    fallback_reason: RouteReason | None = Field(
+        description="Set: the approval administrators decide as well, for this reason."
+    )
+
+    @classmethod
+    def of(cls, found: "board_service.Preview") -> "ChangeApprovalPreviewOut":
+        """From the service's preview."""
+        return cls(
+            stage=found.stage,
+            approver_ids=list(found.named),
+            barred=[
+                ChangeApprovalBarredOut(user_id=u, reason=RouteReason(r)) for u, r in found.barred
+            ],
+            fallback_reason=RouteReason(found.fallback_reason) if found.fallback_reason else None,
+        )
+
+
 class ChangeDetailsOut(BaseModel):
     """A change's own fields (REQ-CHG-005, -011), with the change's version for If-Match."""
 
@@ -2756,6 +2788,23 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             found = await service.details(session, subject, wtype, record_id)
             set_etag(response, found.record.version)
             return ChangeDetailsOut.of(found)
+
+        @router.get(
+            "/{record_id}/approvals/preview", summary="Who would approve the change's stage"
+        )
+        async def approvals_preview(
+            record_id: uuid.UUID,
+            session: TenantSession,
+            subject: View,
+            stage: Annotated[str | None, Query(max_length=40)] = None,
+        ) -> ChangeApprovalPreviewOut | None:
+            """Before a submit: who would approve, who is left out and why (REQ-CHG-039).
+
+            Also whether the approval administrators decide too. Null: the stage needs no
+            approval. Changes nothing.
+            """
+            found = await board_service.preview(session, subject, record_id, stage)
+            return ChangeApprovalPreviewOut.of(found) if found else None
 
         @router.get("/{record_id}/risk/questionnaire", summary="The change's risk questionnaire")
         async def risk_questionnaire(

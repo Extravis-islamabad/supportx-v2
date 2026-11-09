@@ -83,3 +83,42 @@ async def test_change_settings_are_refused_for_other_types(world: World) -> None
         "segregation_strict": "not_allowed",
         "cab_every_match": "not_allowed",
     }
+
+
+async def test_req_chg_039_the_submit_warning_names_who_is_left_out(world: World) -> None:
+    """Before acceptance opens: the implementer is left out and the administrators decide."""
+    from tests.db.test_approvals_api import manager_of  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)  # tech_a: the line manager
+    item = await a_change(world, a)
+    shown = await world.call(
+        "GET", f"{CHG}/{item['id']}/approvals/preview", a, a.admin, params={"stage": "submission"}
+    )
+    assert shown.status_code == 200, shown.text
+    assert shown.json() == {
+        "stage": "submission",
+        "approver_ids": [str(a.tech_a)],
+        "barred": [],
+        "fallback_reason": None,
+    }
+    fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    set_ = await world.call(
+        "PUT",
+        f"{CHG}/{item['id']}/roles/implementer",
+        a,
+        a.admin,
+        json={"user_ids": [str(a.tech_a)]},
+        headers={"If-Match": f'"{fresh["version"]}"', **CONSOLE},
+    )
+    assert set_.status_code == 200, set_.text
+    warned = await world.call(
+        "GET", f"{CHG}/{item['id']}/approvals/preview", a, a.admin, params={"stage": "submission"}
+    )
+    assert warned.json()["barred"] == [
+        {"user_id": str(a.tech_a), "reason": "segregation_of_duties"}
+    ]
+    assert warned.json()["fallback_reason"] == "segregation_of_duties"
+    # Nothing was opened by looking.
+    listed = await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)
+    assert listed.json()["items"] == []

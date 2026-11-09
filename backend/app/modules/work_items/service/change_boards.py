@@ -513,3 +513,38 @@ async def reviewing(
             )
         )
     return found
+
+
+# --- who would approve: the warning before a submit (REQ-CHG-039) ------------------------------
+
+
+@dataclass(frozen=True)
+class Preview:
+    """The stage's first level as it would open now (None: the stage needs no approval)."""
+
+    stage: str
+    named: tuple[uuid.UUID, ...]
+    barred: tuple[tuple[uuid.UUID, str], ...]
+    fallback_reason: str | None  # set: the approval administrators decide as well
+
+
+async def preview(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID, stage: str | None
+) -> Preview | None:
+    """Who approves the stage (the record's own by default) and who is left out, and why."""
+    # Imported here: stage approvals import this module for the boards.
+    from app.modules.work_items.service import stage_approvals  # noqa: PLC0415 - see above
+
+    wtype = TYPES[WorkItemTypeCode.CHANGE]
+    record = await items.visible_record(session, subject, wtype, record_id)
+    code = stage or record.stage
+    settings = await stage_approvals.settings_of(session, wtype, record, code)
+    if settings is None or code is None:
+        return None
+    plan = await stage_approvals.plan_level(session, record, settings, index=0)
+    return Preview(
+        code,
+        plan.named,
+        tuple((person, why.value) for person, why in plan.barred),
+        plan.reason.value if plan.reason else None,
+    )
