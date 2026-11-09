@@ -84,6 +84,8 @@ export const ar: LabelResource = {
   'notification_reason.no_access': 'لم يعد بإمكانه رؤية السجل',
   'notification_reason.no_address': 'غير نشط أو بلا بريد إلكتروني',
   'notification_reason.preference': 'أُوقف في تفضيلاته',
+  'notification_recipient.approval_administrators': 'مسؤولو الموافقات',
+  'notification_recipient.approver': 'المعتمِد',
   'notification_recipient.approvers': 'المعتمِدون',
   'notification_recipient.assignee': 'الفني المُسند',
   'notification_recipient.author': 'المؤلف',

@@ -85,6 +85,8 @@ export const ur: LabelResource = {
   'notification_reason.no_access': 'وہ اب ریکارڈ نہیں دیکھ سکتے',
   'notification_reason.no_address': 'غیر فعال، یا ای میل پتہ نہیں',
   'notification_reason.preference': 'ان کی ترجیحات میں بند ہے',
+  'notification_recipient.approval_administrators': 'منظوری کے منتظمین',
+  'notification_recipient.approver': 'منظوری دینے والا',
   'notification_recipient.approvers': 'منظور کنندگان',
   'notification_recipient.assignee': 'تفویض شدہ تکنیکی ماہر',
   'notification_recipient.author': 'مصنف',
