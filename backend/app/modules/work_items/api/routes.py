@@ -2072,9 +2072,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
-    elif wtype.code in {WorkItemTypeCode.RELEASE, WorkItemTypeCode.PROBLEM}:
-        # Release stage approvals (WP-058a s5) and problem approvals asked ad hoc (WP-044b s4):
-        # neither has a requester's withdrawal.
+    elif wtype.code in {
+        WorkItemTypeCode.RELEASE,
+        WorkItemTypeCode.PROBLEM,
+        WorkItemTypeCode.CHANGE,
+    }:
+        # Release and change stage approvals (WP-058a s5, WP-045a) and problem approvals asked
+        # ad hoc (WP-044b s4): none has a requester's withdrawal (a change is canceled instead).
         add_approval_routes(router, wtype, withdraw=False)
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes

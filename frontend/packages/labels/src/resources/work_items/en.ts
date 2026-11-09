@@ -25,6 +25,9 @@ export const en = {
   'action_reason.not_from_status': 'Not possible in the current status.',
   'action_reason.not_offered': 'Not offered for this record: its conditions do not hold.',
   'action_reason.out_of_scope': 'This record is outside the records you can work on.',
+  'action_reason.outcome_mismatch':
+    'The implementation outcome says otherwise; change the outcome first.',
+  'action_reason.outcome_required': 'Record the implementation outcome first.',
   'action_reason.own_request_approval': 'You cannot approve a record you requested yourself.',
   'action_reason.own_worklogs_only': 'You can change and remove only the time you logged yourself.',
   'action_reason.record_closed': 'Closed and canceled records cannot be changed.',
@@ -1321,7 +1324,6 @@ export const en = {
   'scale.priority': 'Priority',
   'scale.urgency': 'Urgency',
   'stage_outcome.backed_out': 'Backed out',
-  'stage_outcome.completed': 'Completed',
   'stage_outcome.failed': 'Failed',
   'stage_outcome.partly_done': 'Partly done',
   'stage_outcome.passed': 'Passed',

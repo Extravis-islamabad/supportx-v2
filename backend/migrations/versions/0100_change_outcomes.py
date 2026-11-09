@@ -1,9 +1,10 @@
-"""A change's implementation outcomes (WP-045a S1; REQ-CHG-031), number from the coordinator.
+"""A change's implementation outcomes (WP-045a S1; REQ-CHG-032), number from the coordinator.
 
-Expand only, no data step: `work_item_stage_schedules.outcome` also accepts `completed` and
-`backed_out` (a change's implementation: completed, backed out or failed). The check is widened
-from its live definition, only these codes are added and only they are removed on the way down
-(as 0092 and 0099 do), so lanes adding other codes in either order keep each other's.
+Expand only, no data step: `work_item_stage_schedules.outcome` also accepts `backed_out` (a
+change's implementation: successful, successful with issues, backed out or failed; the other
+three exist for releases). The check is widened from its live definition, only this code is
+added and only it is removed on the way down (as 0092 and 0099 do), so lanes adding other
+codes in either order keep each other's.
 
 The downgrade narrows the check back; while a stage still records one of these outcomes the
 narrowed check fails and the downgrade stops, keeping the data (rule 5h).
@@ -25,7 +26,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 TABLE, CHECK = "work_item_stage_schedules", "ck_work_item_stage_schedules_outcome_code"
-ADDED = ("completed", "backed_out")
+ADDED = ("backed_out",)
 
 
 def _codes_now() -> list[str]:
@@ -43,7 +44,7 @@ def _recheck(codes: Sequence[str]) -> None:
 
 
 def upgrade() -> None:
-    """The implementation's two outcomes join the check."""
+    """The implementation's backed-out outcome joins the check."""
     now = _codes_now()
     _recheck([*now, *(c for c in ADDED if c not in now)])
 

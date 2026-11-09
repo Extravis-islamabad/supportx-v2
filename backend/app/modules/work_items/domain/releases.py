@@ -284,8 +284,7 @@ class StageOutcome(StrEnum):
     # The review stage's overall result (REQ-REL-030): successful, with issues, or failed.
     SUCCESSFUL = "successful"
     SUCCESSFUL_WITH_ISSUES = "successful_with_issues"
-    # A change's implementation (REQ-CHG-031): done as planned, backed out, or failed.
-    COMPLETED = "completed"
+    # A change's implementation may also be backed out (REQ-CHG-032).
     BACKED_OUT = "backed_out"
 
 

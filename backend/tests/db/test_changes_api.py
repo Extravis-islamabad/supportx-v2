@@ -135,7 +135,7 @@ async def test_req_chg_031_the_implementation_records_completed_backed_out_or_fa
         f"{CHG}/{item['id']}/schedule/submission",
         a,
         a.admin,
-        json={"outcome": "completed"},
+        json={"outcome": "successful"},
         headers={"If-Match": f'"{submission["version"]}"', **CONSOLE},
     )
     assert ("outcome", "not_allowed") in field_codes(refused)
@@ -372,3 +372,71 @@ async def test_req_chg_006_ac2_editing_the_plan_warns_then_makes_the_change_norm
         headers={"If-Match": f'"{converted.json()["version"]}"', **CONSOLE},
     )
     assert again.status_code == 200, again.text
+
+
+async def test_req_chg_032_implementation_completes_only_with_its_outcome(world: World) -> None:
+    a = world.a
+    item = (await new_change(world, a, a.admin, change_type="standard")).json()
+    started = await move(world, a, item, "implementation_in_progress")
+    assert started.status_code == 200, started.text
+    item = started.json()
+
+    async def outcome(code: str) -> dict[str, Any]:
+        shown = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
+        row = next(s for s in shown if s["stage"] == "implementation")
+        set_ = await world.call(
+            "PATCH",
+            f"{CHG}/{item['id']}/schedule/implementation",
+            a,
+            a.admin,
+            json={"outcome": code, **({"issues": "Login breaks"} if code == "failed" else {})},
+            headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+        )
+        assert set_.status_code == 200, set_.text
+        return dict((await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json())
+
+    refused = await move(world, a, item, "implementation_implemented")
+    assert problem(refused) == (409, "stage_move_refused")
+    assert refused.json()["params"]["reason"] == "outcome_required"
+    item = await outcome("failed")
+    mismatch = await move(world, a, item, "implementation_implemented")
+    assert mismatch.json()["params"]["reason"] == "outcome_mismatch"
+    item = await outcome("successful_with_issues")
+    done = await move(world, a, item, "implementation_implemented")
+    assert done.status_code == 200, done.text
+    assert done.json()["stage"] == "review"  # implemented completes implementation
+
+
+async def test_raising_acceptance_opens_the_stage_approval(world: World) -> None:
+    """Appendix A's acceptance approval opens on reaching its raising status (the guard)."""
+    a = world.a
+    item = await a_change(world, a)
+    raised = await move(world, a, item, "submission_awaiting_acceptance")
+    assert raised.status_code == 200, raised.text
+    shown = await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)
+    assert shown.status_code == 200, shown.text
+    [entry] = shown.json()["items"]
+    # Nobody holds the line manager role yet (D5 fills it from the requester): it goes to the
+    # approval administrators, and says why.
+    assert (entry["record_stage"], entry["state"], entry["route_reason"]) == (
+        "submission",
+        "pending",
+        "no_holder",
+    )
+    decided = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/approvals/{entry['id']}/decision",
+        a,
+        a.admin,
+        json={"decision": "approve"},
+        headers={"If-Match": f'"{entry["version"]}"', **CONSOLE},
+    )
+    assert decided.status_code == 200, decided.text
+    after = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert (after["stage"], after["status"]) == ("planning", "planning_planning")
+    audit = await world.sql(
+        "SELECT details->>'outcome' AS outcome FROM audit_entries"
+        " WHERE tenant_id = $1 AND action = 'change.approval_decided'",
+        a.tenant,
+    )
+    assert len(audit) == 1  # its outcome ("approved") comes with #283 (QA9-F-03)

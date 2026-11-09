@@ -180,11 +180,12 @@ CHANGE_ROLES = (
 )
 # The plan sections (REQ-CHG-013, -016, -017) on #219's plan sections, each with its history.
 PLAN_SECTIONS = ("impact", "rollout", "backout", "test")
-# Stages that record an outcome (REQ-CHG-031), and the outcomes each takes: the implementation
-# completed, backed out or failed; tests passed or failed; a deployment as a release's; the
-# review's overall result.
+# Stages that record an outcome (REQ-CHG-031, -032), and the outcomes each takes: the
+# implementation successful, successful with issues, backed out or failed; tests passed or
+# failed; a deployment as a release's; the review's overall result.
+IMPLEMENTATION = "implementation"
 STAGE_OUTCOMES: Mapping[str, frozenset[str]] = {
-    "implementation": frozenset({"completed", "backed_out", "failed"}),
+    IMPLEMENTATION: frozenset({"successful", "successful_with_issues", "backed_out", "failed"}),
     "acceptance_testing": frozenset({"passed", "failed"}),
     "deployment": frozenset({"passed", "failed", "partly_done"}),
     "review": frozenset({"successful", "successful_with_issues", "failed"}),
@@ -280,3 +281,23 @@ def path_of(change_type: str, model: ChangeModel) -> str:
 
 # A standard change's status on creation (REQ-CHG-006 AC1): accepted, which completes submission.
 PRE_APPROVED = "submission_accepted"
+
+
+# Completing implementation needs its outcome, and the status says the same (REQ-CHG-032 AC1).
+OUTCOME_OF_STATUS: Mapping[str, frozenset[str]] = {
+    "implementation_implemented": frozenset({"successful", "successful_with_issues"}),
+    "implementation_backed_out": frozenset({"backed_out"}),
+    "implementation_failed": frozenset({"failed"}),
+}
+
+
+def outcome_refusal(target: str, outcome: str | None) -> tuple[str, dict[str, str]] | None:
+    """Why a move to `target` is refused for the implementation's outcome, or None."""
+    allowed = OUTCOME_OF_STATUS.get(target)
+    if allowed is None:
+        return None
+    if outcome is None:
+        return "outcome_required", {"stage": IMPLEMENTATION}
+    if outcome not in allowed:
+        return "outcome_mismatch", {"stage": IMPLEMENTATION, "outcome": outcome}
+    return None

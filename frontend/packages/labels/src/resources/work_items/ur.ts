@@ -28,6 +28,8 @@ export const ur: LabelResource = {
   'action_reason.not_from_status': 'موجودہ حیثیت میں ممکن نہیں۔',
   'action_reason.not_offered': 'اس ریکارڈ کے لیے دستیاب نہیں: اس کی شرائط پوری نہیں ہوتیں۔',
   'action_reason.out_of_scope': 'یہ آپ کے مقامات یا سپورٹ گروپس سے باہر ہے۔',
+  'action_reason.outcome_mismatch': 'نفاذ کا نتیجہ کچھ اور بتاتا ہے؛ پہلے نتیجہ بدلیں۔',
+  'action_reason.outcome_required': 'پہلے نفاذ کا نتیجہ درج کریں۔',
   'action_reason.own_request_approval': 'آپ اپنی درخواست کردہ ریکارڈ کی منظوری نہیں دے سکتے۔',
   'action_reason.own_worklogs_only':
     'آپ صرف وہی وقت تبدیل یا حذف کر سکتے ہیں جو آپ نے خود درج کیا ہے۔',
@@ -1325,7 +1327,6 @@ export const ur: LabelResource = {
   'scale.priority': 'ترجیح',
   'scale.urgency': 'فوریت',
   'stage_outcome.backed_out': 'واپس لیا گیا',
-  'stage_outcome.completed': 'مکمل ہوا',
   'stage_outcome.failed': 'ناکام',
   'stage_outcome.partly_done': 'جزوی طور پر مکمل',
   'stage_outcome.passed': 'کامیاب',
