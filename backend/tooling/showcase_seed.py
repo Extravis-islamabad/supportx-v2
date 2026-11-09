@@ -32,6 +32,16 @@ added, nothing is ever updated or deleted (CLAUDE.md rule 5h).
    Append-only and signed tables are never touched: the audit log (its entries, queue and hash
    chain still verify; a test proves it), the outbox and the event log. So an incident may now
    predate its own audit entries, which is acceptable for demo data.
+
+6. SLAs from creation (Haider, 2026-11-09): a seed incident made before any SLA applied (the
+   shared stack's older showcase data) gets its SLA as if it had applied from its creation, on
+   its own (backdated) times: due from `created_at` on the business calendars, met or breached
+   by its real first response and resolution. Only the incidents the seed describes, by its
+   stable key (`is_seed_incident`) and made by its admin, never one a person made; only those
+   with no SLA at all; only in this tenant (a guard refuses any other). Through the work items
+   service (`on_change` per step), so field history (source `api`), the change event and a new
+   audit entry are written as for any save; never SQL on business rows, and history is never
+   re-dated. A re-run changes nothing.
 """
 
 import asyncio
@@ -55,11 +65,16 @@ from app.core.database import Database, create_engine
 from app.core.modules import ModuleRegistry, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
+from app.modules import sla
+from app.modules.audit import RequestFacts
+from app.modules.audit import record as record_audit
+from app.modules.audit.domain.catalogue import AuditClient
 from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import Identity
 from app.modules.identity_access.service.users import provision_user
 from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
+from app.modules.work_items.service.work_items import apply_sla_from_creation
 from app.shared.api.idempotency import REPLAYED_HEADER
 from tooling import showcase_lane_a as lane_a
 from tooling.keycloak_theme import admin_token
@@ -1282,11 +1297,15 @@ class Report:
     problems: int = 0
     rules: int = 0
     sla_policies: int = 0
+    sla_from_creation: int = 0
     dashboard: bool = False
     catalog_published: int = 0
     articles: int = 0
     releases: int = 0
     backdated: int = 0
+    # Between the steps only: step 6's candidates and who acts.
+    without_sla: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
+    admin_id: uuid.UUID | None = field(default=None, repr=False, compare=False)
     # Between the steps only: the records step 4 made now, which step 5 may move.
     made: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
 
@@ -1319,6 +1338,14 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
         author = admin.as_user(signed_in[TECHNICIAN.email])
         report.articles = await ensure_knowledge(admin, author)
         report.releases = await ensure_releases(admin, str(signed_in[ADMIN.email]))
+        report.admin_id = signed_in[ADMIN.email]
+        # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
+        # checks each was made by the seed's admin.
+        report.without_sla = [
+            uuid.UUID(i["id"])
+            for i in await admin.all_pages("/api/v1/incidents")
+            if i["sla_policy_id"] is None and is_seed_incident(i, people)
+        ]
 
 
 def password_problem(password: str) -> str | None:
@@ -1357,7 +1384,60 @@ async def run(settings: Settings, keycloak: KeycloakTarget) -> Report:
     report.keycloak = found.made
     await fill(settings, found.subjects, report)
     report.backdated = await backdate(migrator.get_secret_value(), report.made)
+    report.sla_from_creation = await sla_from_creation(
+        settings, TENANT_ID, report.admin_id, report.without_sla
+    )
     return report
+
+
+# Who and where for step 6's audit entries: the seed through the service, not a browser.
+SEED_FACTS = RequestFacts(
+    client=AuditClient.API, request_id=None, ip=None, user_agent="supportx-showcase-seed"
+)
+
+
+async def sla_from_creation(
+    settings: Settings,
+    tenant_id: uuid.UUID,
+    admin_id: uuid.UUID | None,
+    candidates: Sequence[uuid.UUID],
+) -> int:
+    """Step 6: each incident without an SLA gets its SLA from creation; how many changed.
+
+    Each in its own transaction with `app.tenant_id` set (RLS applies), with its audit entry.
+    """
+    if tenant_id != TENANT_ID:  # the showcase tenant only, whatever a caller passes
+        msg = f"SLAs from creation are only for the showcase tenant, not {tenant_id}"
+        raise SeedError(msg)
+    if admin_id is None or not candidates:
+        return 0
+    database = Database.from_settings(settings)
+    if database is None:
+        msg = "SUPPORTX_DATABASE_URL is not set"
+        raise SeedError(msg)
+    roles = frozenset(ADMIN.roles)
+    now = datetime.now(UTC)
+    changed = 0
+    try:
+        for record_id in candidates:
+            async with database.tenant_session(
+                TenantContext(TENANT_ID, admin_id, roles=roles)
+            ) as session:
+                if await apply_sla_from_creation(session, record_id, now=now, created_by=admin_id):
+                    # What fell due on the way (breaches, warnings) fires now, as the SLA
+                    # waker would within its minute: the record shows its true state at once.
+                    await sla.fire(session, record_id, now=now)
+                    await record_audit(
+                        session,
+                        action_code="incident.sla_applied_from_creation",
+                        facts=SEED_FACTS,
+                        object_type="incident",
+                        object_id=record_id,
+                    )
+                    changed += 1
+    finally:
+        await database.dispose()
+    return changed
 
 
 def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the tested steps

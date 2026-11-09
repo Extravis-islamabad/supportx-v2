@@ -8,9 +8,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Button,
+  Card,
   Descriptions,
   Empty,
   Flex,
+  Form,
   Input,
   InputNumber,
   List,
@@ -43,6 +45,8 @@ import {
   EmptyText,
   lengthLimit,
   reportError,
+  SPACE,
+  TimeZoneNote,
   ToneTag,
   useDateTime,
   useLabel,
@@ -306,6 +310,13 @@ export function IncidentWorklogs({ item, canEdit }: { item: Incident; canEdit: b
       : null;
   const endBeforeStart = start !== null && end !== null && Date.parse(end) < Date.parse(start);
   const ready = start !== null && (end !== null || minutes !== null) && !endBeforeStart;
+  // Why "Log time" is off, said next to it (D-147); an end before the start has its own alert.
+  const why =
+    start === null
+      ? t('incidents.worklogs.why_start')
+      : end === null && minutes === null
+        ? t('incidents.worklogs.why_end')
+        : null;
   const add = () => {
     change.mutate(
       {
@@ -408,89 +419,142 @@ export function IncidentWorklogs({ item, canEdit }: { item: Incident; canEdit: b
         )}
       />
       {canEdit && (
-        <Space direction="vertical" style={{ width: '100%' }} data-testid="inc-worklog-form">
-          <Flex gap={8} wrap>
-            <Select<WorklogType>
-              aria-label={t('incidents.worklogs.type')}
-              value={type}
-              onChange={setType}
-              options={WORKLOG_TYPES.map((w) => ({ value: w, label: t(`worklog_type.${w}`) }))}
-              style={{ minWidth: 180 }}
-              data-testid="inc-worklog-type"
-            />
-            <div style={{ minWidth: 220 }}>
-              <UserPicker
-                value={owner ?? me}
-                onChange={setOwner}
-                testId="inc-worklog-owner"
-                ariaLabel={t('incidents.worklogs.owner')}
-              />
+        // Template B's form in a card (D-147): labels above the fields, the three time fields in
+        // one row with one time-zone note, and the reason "Log time" is off said beside it.
+        <Card size="small" data-testid="inc-worklog-form">
+          <Form layout="vertical" component="div" requiredMark={false}>
+            <div style={WORKLOG_GRID}>
+              <Form.Item label={t('incidents.worklogs.type')} htmlFor="inc-worklog-type-field">
+                <Select<WorklogType>
+                  id="inc-worklog-type-field"
+                  value={type}
+                  onChange={setType}
+                  options={WORKLOG_TYPES.map((w) => ({ value: w, label: t(`worklog_type.${w}`) }))}
+                  style={{ width: '100%' }}
+                  data-testid="inc-worklog-type"
+                />
+              </Form.Item>
+              <Form.Item label={t('incidents.worklogs.owner')}>
+                <UserPicker
+                  value={owner ?? me}
+                  onChange={setOwner}
+                  testId="inc-worklog-owner"
+                  ariaLabel={t('incidents.worklogs.owner')}
+                />
+              </Form.Item>
             </div>
-          </Flex>
-          <Flex gap={8} wrap align="start">
-            <label>
-              <Typography.Text>{t('incidents.worklogs.start')}</Typography.Text>
-              <DateTimeField value={start} onChange={setStart} testId="inc-worklog-start" />
-            </label>
-            <label>
-              <Typography.Text>{t('incidents.worklogs.end')}</Typography.Text>
-              <DateTimeField
-                value={end ?? filledEnd}
-                onChange={(value) => {
-                  setEnd(value);
-                  if (value !== null) setMinutes(null);
-                }}
-                testId="inc-worklog-end"
+            <div style={WORKLOG_GRID}>
+              <Form.Item
+                label={t('incidents.worklogs.start')}
+                htmlFor="inc-worklog-start-field"
+                style={{ marginBottom: SPACE.xxs }}
+              >
+                <DateTimeField
+                  id="inc-worklog-start-field"
+                  hideZone
+                  value={start}
+                  onChange={setStart}
+                  testId="inc-worklog-start"
+                />
+              </Form.Item>
+              <Form.Item
+                label={t('incidents.worklogs.end')}
+                htmlFor="inc-worklog-end-field"
+                style={{ marginBottom: SPACE.xxs }}
+              >
+                <DateTimeField
+                  id="inc-worklog-end-field"
+                  hideZone
+                  value={end ?? filledEnd}
+                  onChange={(value) => {
+                    setEnd(value);
+                    if (value !== null) setMinutes(null);
+                  }}
+                  testId="inc-worklog-end"
+                />
+              </Form.Item>
+              <Form.Item
+                label={t('incidents.worklogs.duration')}
+                htmlFor="inc-worklog-minutes-field"
+                style={{ marginBottom: SPACE.xxs }}
+              >
+                <InputNumber
+                  id="inc-worklog-minutes-field"
+                  min={1}
+                  max={10080}
+                  value={minutes ?? filledMinutes}
+                  onChange={(value) => {
+                    setMinutes(value);
+                    if (value !== null) setEnd(null);
+                  }}
+                  suffix={t('incidents.worklogs.minutes_unit')}
+                  style={{ width: '100%' }}
+                  data-testid="inc-worklog-minutes"
+                />
+              </Form.Item>
+            </div>
+            <div style={{ marginBottom: SPACE.sm }}>
+              <TimeZoneNote />
+            </div>
+            {endBeforeStart && (
+              <Alert
+                type="error"
+                showIcon
+                role="alert"
+                message={t('errors.field.end_before_start')}
+                data-testid="inc-worklog-end-error"
+                style={{ marginBottom: SPACE.sm }}
               />
-            </label>
-            <label>
-              <Typography.Text>{t('incidents.worklogs.duration')}</Typography.Text>
-              <InputNumber
-                min={1}
-                max={10080}
-                value={minutes ?? filledMinutes}
-                onChange={(value) => {
-                  setMinutes(value);
-                  if (value !== null) setEnd(null);
+            )}
+            <Form.Item
+              label={t('incidents.worklogs.description')}
+              htmlFor="inc-worklog-description"
+            >
+              <Input.TextArea
+                id="inc-worklog-description"
+                value={description}
+                count={lengthLimit(4000)}
+                rows={2}
+                onChange={(event) => {
+                  setDescription(event.target.value);
                 }}
-                suffix={t('incidents.worklogs.minutes_unit')}
-                data-testid="inc-worklog-minutes"
               />
-            </label>
-          </Flex>
-          {endBeforeStart && (
-            <Alert
-              type="error"
-              showIcon
-              role="alert"
-              message={t('errors.field.end_before_start')}
-              data-testid="inc-worklog-end-error"
-            />
-          )}
-          <Input.TextArea
-            aria-label={t('incidents.worklogs.description')}
-            placeholder={t('incidents.worklogs.description')}
-            value={description}
-            count={lengthLimit(4000)}
-            rows={2}
-            onChange={(event) => {
-              setDescription(event.target.value);
-            }}
-          />
-          <WriteButton
-            type="primary"
-            disabled={!ready}
-            loading={change.isPending}
-            onClick={add}
-            data-testid="inc-worklog-add"
-          >
-            {t('incidents.worklogs.add')}
-          </WriteButton>
-        </Space>
+            </Form.Item>
+            <Flex justify="flex-end" align="center" gap={SPACE.sm} wrap>
+              {why !== null && (
+                <Typography.Text
+                  type="secondary"
+                  style={{ fontSize: 12 }}
+                  id="inc-worklog-why"
+                  data-testid="inc-worklog-why"
+                >
+                  {why}
+                </Typography.Text>
+              )}
+              <WriteButton
+                type="primary"
+                disabled={!ready}
+                loading={change.isPending}
+                onClick={add}
+                aria-describedby={why === null ? undefined : 'inc-worklog-why'}
+                data-testid="inc-worklog-add"
+              >
+                {t('incidents.worklogs.add')}
+              </WriteButton>
+            </Flex>
+          </Form>
+        </Card>
       )}
     </Space>
   );
 }
+
+/** Fields that share a row, each at least as wide as a date and time field (D-147 template B). */
+const WORKLOG_GRID = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+  columnGap: SPACE.sm,
+} as const;
 
 // --- links ----------------------------------------------------------------------------------------
 

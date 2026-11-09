@@ -1,10 +1,11 @@
-import { App, Button, Card, Space, Typography } from 'antd';
+import { App, Button } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { useCreateAnnouncement, useSession } from '@supportx/api-client';
 import { applyServerErrors, useForm, zodResolver } from '@supportx/forms';
 import {
+  FormPage,
   FormProblem,
   NoAccess,
   useAccess,
@@ -53,32 +54,28 @@ export function NewAnnouncementPage() {
       },
     );
   });
+  // Template B (D-147): sections in cards and one sticky bar, Cancel before Save draft.
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 860 }}>
-      <Typography.Title level={1}>{t('announcements.new')}</Typography.Title>
-      <Card>
-        <AnnouncementFields
-          form={form}
-          footer={
-            <>
-              <FormProblem problem={problem} />
-              <Space>
-                <WriteButton
-                  type="primary"
-                  loading={create.isPending}
-                  onClick={() => void save()}
-                  data-testid="ann-save"
-                >
-                  {t('announcements.save_draft')}
-                </WriteButton>
-                <Button onClick={() => void navigate('/announcements')}>
-                  {t('actions.cancel')}
-                </Button>
-              </Space>
-            </>
-          }
-        />
-      </Card>
-    </Space>
+    <FormPage
+      testId="ann-new"
+      title={t('announcements.new')}
+      back={{ label: t('announcements.back'), onClick: () => void navigate('/announcements') }}
+      notice={<FormProblem problem={problem} />}
+      cancel={
+        <Button onClick={() => void navigate('/announcements')}>{t('actions.cancel')}</Button>
+      }
+      primary={
+        <WriteButton
+          type="primary"
+          loading={create.isPending}
+          onClick={() => void save()}
+          data-testid="ann-save"
+        >
+          {t('announcements.save_draft')}
+        </WriteButton>
+      }
+    >
+      <AnnouncementFields form={form} />
+    </FormPage>
   );
 }

@@ -5,6 +5,7 @@ import type { PermissionInfo, RoleDetail, RoleSummary } from '@supportx/api-clie
 
 import { App } from '../../App';
 import { consoleApi, fakeSession, fakeUser, problem } from '../../test/api';
+import { fakeEntitlements } from '@supportx/api-client/testing';
 
 let restore: () => void = () => undefined;
 function api(...args: Parameters<typeof consoleApi>) {
@@ -148,6 +149,23 @@ describe('Admin › Roles', () => {
     expect(await screen.findByText('This field is required.')).toBeDefined();
     expect(document.activeElement?.id).toBe('role-name');
     expect(fake.find('POST', '/api/v1/roles')).toHaveLength(0);
+  });
+
+  it('with a read-only licence a custom role cannot be deleted (§17 item 3)', async () => {
+    adminRoutes({
+      routes: {
+        'GET /api/v1/roles/r-hr': { body: { ...HR, permissions: [] }, headers: { ETag: '"4"' } },
+        'GET /api/v1/entitlements': {
+          body: fakeEntitlements({ state: 'read_only', state_reason: 'expired', writable: false }),
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('role-row-custom_abc'));
+    const remove = await screen.findByTestId('delete-role');
+    await waitFor(() => {
+      expect(remove.hasAttribute('disabled')).toBe(true);
+    });
   });
 
   it('opens built-in roles read-only', async () => {

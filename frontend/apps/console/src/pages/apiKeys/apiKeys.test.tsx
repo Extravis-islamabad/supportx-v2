@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ApiKey, ApiKeyRules } from '@supportx/api-client';
-import { fakeSession } from '@supportx/api-client/testing';
+import { fakeEntitlements, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -92,6 +92,23 @@ describe('Admin › API keys', () => {
     expect(panel.textContent).not.toMatch(/incidents:|users:|api_key_status/);
     // The rules sit above the list for whoever may change sign-in settings.
     expect(await screen.findByTestId('api-key-rules')).toBeDefined();
+  });
+
+  it('with a read-only licence the rules are shown but not changeable (§17 item 3)', async () => {
+    window.history.pushState({}, '', '/admin/api-keys');
+    api({
+      'GET /api/v1/entitlements': {
+        body: fakeEntitlements({ state: 'read_only', state_reason: 'expired', writable: false }),
+      },
+    });
+    render(<App />);
+    const rules = await screen.findByTestId('api-key-rules');
+    await waitFor(() => {
+      for (const field of ['people_may_create_keys', 'allow_non_expiring_keys']) {
+        const toggle = within(rules).getByTestId(`api-key-rule-${field}`);
+        expect(toggle.hasAttribute('disabled')).toBe(true);
+      }
+    });
   });
 
   it('makes a key with the chosen scopes and shows its text once', async () => {

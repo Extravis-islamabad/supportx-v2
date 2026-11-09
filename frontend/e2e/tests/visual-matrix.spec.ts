@@ -80,6 +80,12 @@ const click = (testId: string) => async (page: Page) => {
   await page.waitForTimeout(400);
 };
 
+// A record tab by its key (Ant Design's node key: the same in every language).
+const tab = (key: string) => async (page: Page) => {
+  await page.locator(`[data-node-key="${key}"]`).first().click({ timeout: STATE_TIMEOUT });
+  await page.waitForTimeout(400);
+};
+
 // A record operation: on the bar when it fits, else in the "more" menu (as helpers' clickAction).
 const operation = (testId: string) => async (page: Page) => {
   const button = page.getByTestId(testId);
@@ -147,6 +153,19 @@ export const SCREENS: Screen[] = [
     path: incident,
     app: 'console',
     state: { name: 'assign', open: operation('inc-op-assign') },
+  },
+  // Template A (D-147): the empty properties behind "Add details", and the Worklogs form.
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: { name: 'properties-all', open: click('inc-properties-add') },
+  },
+  {
+    key: 'incident',
+    path: incident,
+    app: 'console',
+    state: { name: 'worklogs', open: tab('worklogs') },
   },
   {
     key: 'incident',

@@ -796,6 +796,8 @@ export const ur: LabelResource = {
   'incidents.worklogs.total': 'کل وقت',
   'incidents.worklogs.type': 'ورک لاگ کی قسم',
   'incidents.worklogs.when': '{{from}} سے {{to}} تک',
+  'incidents.worklogs.why_end': 'کام ختم ہونے کا وقت یا اس میں لگنے والا وقت درج کریں۔',
+  'incidents.worklogs.why_start': 'کام شروع ہونے کا وقت درج کریں۔',
   'level.tier_1': 'درجہ 1',
   'level.tier_2': 'درجہ 2',
   'level.tier_3': 'درجہ 3',
