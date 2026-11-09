@@ -155,6 +155,43 @@ them. It is idempotent: a second run adds only what is missing and changes nothi
 
 Records carry the date the seed ran: the API never backdates.
 
+### Quick sign-in for QA (DEV ONLY, D-151)
+
+> **Warning: for the local dev stack only.** Never switch this on for a shared, staging or
+> production installation. The API refuses to start with it under any profile but `dev`, and the
+> Helm chart refuses to render it, but those are guards, not reasons to try.
+
+`/dev/sign-in` on the console (<http://localhost:5173/dev/sign-in>) and the portal shows one
+button per Showcase Company persona, so a browser-driving QA run signs in with one click:
+
+| Persona | Signs in as | App |
+|---|---|---|
+| Administrator | admin@showcase.test (tenant admin) | Console |
+| Technician | tech@showcase.test (Service desk, Network and access; not Business applications) | Console |
+| Team lead | lead@showcase.test (service desk manager, lead of Service desk) | Console |
+| Approver | approver@showcase.test (head of Finance) | Portal |
+| Requester | requester@showcase.test (Finance; the approver is their manager) | Portal |
+| New starter | newstarter@showcase.test: **sets up two-step sign-in** the normal way | Portal |
+
+1. Set `SHOWCASE_PASSWORD` in `deploy/compose/.env` (see Showcase Company above).
+2. `make dev-quick-sign-in`. This puts a random `SHOWCASE_TOTP_KEY` in `deploy/compose/.env` (only
+   if it has none; it is never shown), switches the quick sign-in on in `backend/.env`, and runs
+   `make showcase-seed`, which adds the personas and enrols their authenticators.
+3. Restart the API (`make backend-dev`) and open `/dev/sign-in`.
+
+How it works:
+- Each button signs the persona in through Keycloak (the password grant, on in the dev realm
+  only) and then the normal session path, so the session, MFA policy, revocation and logout are
+  the real ones.
+- The second step's code comes from the persona's authenticator secret, derived from
+  `SHOWCASE_TOTP_KEY`.
+- Every quick sign-in is in the audit log ("Signed in with the dev quick sign-in").
+- It works only from `localhost` and only for the showcase tenant.
+
+If a button says the password or key doesn't match, run `make showcase-seed` again; a changed key
+re-enrols the personas. A persona Keycloak locked after failed attempts unlocks after a few
+minutes. To switch it off, set `SUPPORTX_DEV_QUICK_SIGN_IN=false` in `backend/.env`.
+
 ### Plans and licence limits (WP-009)
 
 `make db-seed` also gives each dev tenant a subscription (only if it has none; it never changes an
