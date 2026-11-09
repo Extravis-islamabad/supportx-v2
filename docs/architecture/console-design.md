@@ -95,9 +95,10 @@ header, its settings in grouped cards, and one save bar. How to move a page onto
    is saved, Save sends only the changed fields with If-Match, and nothing in a card is a button.
    Add the page to the visual matrix (`ADMIN_SECTIONS` in `visual-matrix.spec.ts`).
 
-Lane C owns the template and its own pages (knowledge, AI, branding, organisation, files, licence,
-audit); lane A moves incidents, requests, portal, automation and SLA, lane B people, roles,
-security, mail and integrations.
+Lane C owns the template and its own pages (knowledge, AI, branding, instance, files, licence);
+lane A moves incidents, requests, portal, automation and SLA; lane B people, roles, organisation
+(sites, departments, structure), security, mail and integrations, and the audit settings and
+archives inside WP-064 (which reworks that page anyway). The coordinator, 2026-11-09.
 
 ## Actions (`ActionBar`, updates REQ-WI-010)
 
