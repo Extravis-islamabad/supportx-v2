@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
+import { ApiError } from './errors';
 import type { IncidentsQuery } from './incidents';
 import { queryKeys } from './keys';
 import type { components } from './schema';
@@ -97,30 +98,88 @@ export function useListSetting(viewKey: string, enabled = true) {
   });
 }
 
-/** Save your settings for one view; the first save has no version. */
+interface SaveChain {
+  running: Promise<unknown>;
+  latest: number;
+}
+// One chain per view key, shared by every caller in the page (QA10-P1-10).
+const chains = new Map<string, SaveChain>();
+
+/**
+ * Save your settings for one view; the first save has no version.
+ *
+ * Quick changes (three column moves in a row) must not race on If-Match (QA10-P1-10, as #234):
+ * the screen shows each change at once (the cache is updated before the request), the saves run
+ * one after another, a save overtaken by a newer one is skipped, and each sends the version the
+ * previous save returned. These are your own settings, so a 409 from another tab is reconciled
+ * by re-reading the version and saving yours once more (latest wins), never a conflict dialog.
+ */
+export interface SaveListSettingArgs {
+  viewKey: string;
+  /** Kept for callers; the version in the cache (the last save's) is what is sent. */
+  version?: number | null;
+  setting: ListSettingInput;
+}
+
 export function useSaveListSetting() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      viewKey,
-      version,
-      setting,
-    }: {
-      viewKey: string;
-      version: number | null;
-      setting: ListSettingInput;
-    }) =>
-      call(
-        api.PUT('/api/v1/incidents/list-settings/{view_key}', {
-          params: {
-            path: { view_key: viewKey },
-            header: version === null ? {} : ifMatch(version),
-          },
-          body: setting,
+  const keyOf = (viewKey: string) => queryKeys.incidents.listSetting(viewKey);
+  const put = (viewKey: string, version: number | null, setting: ListSettingInput) =>
+    call(
+      api.PUT('/api/v1/incidents/list-settings/{view_key}', {
+        params: {
+          path: { view_key: viewKey },
+          header: version === null ? {} : ifMatch(version),
+        },
+        body: setting,
+      }),
+    );
+  const save = async (viewKey: string, setting: ListSettingInput): Promise<ListSetting> => {
+    const version = queryClient.getQueryData<ListSetting>(keyOf(viewKey))?.version ?? null;
+    try {
+      return await put(viewKey, version, setting);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 409) throw error;
+      // Another tab of yours saved first: take its version and save yours (latest wins).
+      const fresh = await call(
+        api.GET('/api/v1/incidents/list-settings/{view_key}', {
+          params: { path: { view_key: viewKey } },
         }),
-      ),
+      );
+      return put(viewKey, fresh.version, setting);
+    }
+  };
+  return useMutation({
+    onMutate: ({ viewKey, setting }: SaveListSettingArgs) => {
+      const before = queryClient.getQueryData<ListSetting>(keyOf(viewKey));
+      if (before !== undefined)
+        queryClient.setQueryData<ListSetting>(keyOf(viewKey), { ...before, ...setting });
+    },
+    mutationFn: ({ viewKey, setting }: SaveListSettingArgs): Promise<ListSetting | null> => {
+      const chain = chains.get(viewKey) ?? { running: Promise.resolve(), latest: 0 };
+      chains.set(viewKey, chain);
+      const ticket = ++chain.latest;
+      const run = chain.running
+        .catch(() => undefined)
+        .then(async () => {
+          if (ticket !== chain.latest) return null; // a newer change saves the final state
+          const saved = await save(viewKey, setting);
+          if (ticket === chain.latest) return saved;
+          // A newer change is waiting: keep it on screen, carry only the new version forward.
+          const shown = queryClient.getQueryData<ListSetting>(keyOf(viewKey));
+          if (shown !== undefined)
+            queryClient.setQueryData(keyOf(viewKey), { ...shown, version: saved.version });
+          return null;
+        });
+      chain.running = run;
+      return run;
+    },
     onSuccess: (saved) => {
-      queryClient.setQueryData(queryKeys.incidents.listSetting(saved.view_key), saved);
+      // The last change's answer is the truth; an overtaken one already passed its version on.
+      if (saved !== null) queryClient.setQueryData(keyOf(saved.view_key), saved);
+    },
+    onError: (_error, { viewKey }) => {
+      void queryClient.invalidateQueries({ queryKey: keyOf(viewKey) });
     },
   });
 }

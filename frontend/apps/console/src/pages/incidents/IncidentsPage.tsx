@@ -207,8 +207,11 @@ export function IncidentsPage() {
   const fields = useMemo(() => listFields.data ?? [], [listFields.data]);
   const columnSpecs = useMemo(() => columnCatalogue(fields), [fields]);
   const stored = setting.data;
+  // Yours once saved, or once changed here before the first save has answered (QA10-P1-10:
+  // the cache holds your change at once, still without a version).
+  const yours = stored !== undefined && (stored.version != null || stored.columns.length > 0);
   const columns = chosenColumns(
-    stored?.version != null ? stored.columns : (saved?.columns ?? []),
+    yours ? stored.columns : (saved?.columns ?? []),
     columnSpecs,
     wideWindow,
   );
