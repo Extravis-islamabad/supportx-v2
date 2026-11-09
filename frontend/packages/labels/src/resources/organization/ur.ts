@@ -46,7 +46,7 @@ export const ur: LabelResource = {
   'branding.preview.sign_in': 'سائن اِن',
   'branding.preview.title': 'پیش منظر',
   'branding.primary': 'بنیادی رنگ',
-  'branding.ratio': '{{ratio}}:1، درکار {{required}}:1',
+  'branding.ratio': '{{ratio}}، درکار {{required}}',
   'branding.reset': 'SupportX کے طے شدہ پر واپس',
   'branding.reset_body':
     'آپ کا لوگو، رنگ اور متن ہٹا دیے جائیں گے اور ہر اسکرین دوبارہ SupportX کا برانڈ دکھائے گی۔',
