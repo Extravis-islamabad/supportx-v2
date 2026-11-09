@@ -361,7 +361,64 @@ DELETE FROM sla_applications WHERE record_id IN (SELECT id FROM r)
 """
 
 
-async def _as_before_slas(url: str) -> tuple[uuid.UUID, uuid.UUID]:
+async def _hand_made(database: db_testing.ThrowawayDatabase) -> uuid.UUID:
+    """An incident a person makes through the API: the technician, a seed subject and requester."""
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    conn = await asyncpg.connect(database.admin_url)
+    try:
+        tech = await conn.fetchval(
+            "SELECT id FROM users WHERE tenant_id = $1 AND email = $2",
+            seed.TENANT_ID,
+            seed.TECHNICIAN.email,
+        )
+        requester = await conn.fetchval(
+            "SELECT requester_id FROM work_items WHERE tenant_id = $1 AND type = 'incident'"
+            " AND subject = $2 LIMIT 1",
+            seed.TENANT_ID,
+            seed.SUBJECTS[0][0],
+        )
+    finally:
+        await conn.close()
+    contexts = {tech: TenantContext(seed.TENANT_ID, tech, roles=frozenset(seed.TECHNICIAN.roles))}
+    async with seed.console_api(settings, contexts) as client:
+        made = await seed.Api(client, tech).call(
+            "POST",
+            "/api/v1/incidents",
+            json={
+                "subject": seed.SUBJECTS[0][0],
+                "requester_id": str(requester),
+                "confirm_lose_access": True,  # outside their group: they keep following
+                "keep_following": True,
+            },
+            idempotency=str(uuid.uuid4()),
+        )
+    return uuid.UUID(made["id"])
+
+
+async def _row_and_history(url: str, record_id: uuid.UUID) -> tuple[Any, ...]:
+    """A record's times, SLA columns and history, to prove nothing about it changed."""
+    conn = await asyncpg.connect(url)
+    try:
+        row = await conn.fetchrow(
+            "SELECT version, created_at, updated_at, sla_policy_id, resolution_due_at"
+            " FROM work_items WHERE id = $1",
+            record_id,
+        )
+        history = await conn.fetch(
+            "SELECT id, occurred_at FROM field_changes WHERE record_id = $1 ORDER BY id", record_id
+        )
+        slas = await conn.fetchval(
+            "SELECT count(*) FROM sla_targets WHERE record_id = $1", record_id
+        )
+    finally:
+        await conn.close()
+    assert row is not None
+    return (tuple(row), [tuple(h) for h in history], slas)
+
+
+async def _as_before_slas(url: str, extra: Sequence[uuid.UUID] = ()) -> tuple[uuid.UUID, uuid.UUID]:
     """Test data only: two seeded incidents as the shared stack's older ones are, with no SLA.
 
     One urgent (4 h to resolve) and open since its backdated creation days ago; one answered in
@@ -380,7 +437,7 @@ async def _as_before_slas(url: str) -> tuple[uuid.UUID, uuid.UUID]:
                 "SELECT id FROM work_items WHERE type = 'incident' AND status = 'resolved'"
                 " ORDER BY display_id LIMIT 1"
             )
-            ids = [open_id, quick_id]
+            ids = [open_id, quick_id, *extra]
             assert None not in ids, ids
             await conn.execute(_SLA_ROWS, ids)
             await conn.execute(
@@ -442,12 +499,17 @@ def test_older_incidents_get_their_sla_from_creation_once(
         keycloak.users["imported-tech"] = {"id": "imported-tech", "email": seed.TECHNICIAN.email}
         keycloak.roles["imported-tech"] = set()
         asyncio.run(_run(database, keycloak))
-        open_id, quick_id = asyncio.run(_as_before_slas(database.admin_url))
+        # A person's own incident, the worst case: a seed subject and requester, made by the
+        # technician (not the seed's admin), and with no SLA either. Step 6 never touches it.
+        hand_made = asyncio.run(_hand_made(database))
+        open_id, quick_id = asyncio.run(_as_before_slas(database.admin_url, extra=[hand_made]))
+        hand_before = asyncio.run(_row_and_history(database.admin_url, hand_made))
         audit_before = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
         bystander_before = asyncio.run(_counts(database.migrator_url, bystander))
 
         again = asyncio.run(_run(database, keycloak))
-        assert again.sla_from_creation == 2
+        assert again.sla_from_creation == 2  # not the hand-made one
+        assert asyncio.run(_row_and_history(database.admin_url, hand_made)) == hand_before
         clocks = asyncio.run(_clocks(database.migrator_url, [open_id, quick_id]))
         # From creation, never from now: open for days, its 4 hours ran out long ago.
         assert clocks[(open_id, "resolution")] == "breached"

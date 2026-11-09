@@ -28,13 +28,15 @@ added, nothing is ever updated or deleted (CLAUDE.md rule 5h).
    queue and hash chain still verify; a test proves it), the outbox and the event log. So an
    incident may now predate its own audit entries, which is acceptable for demo data.
 
-6. SLAs from creation (Haider, 2026-11-09): an incident made before any SLA applied (the shared
-   stack's older showcase data) gets its SLA as if it had applied from its creation, on its own
-   (backdated) times: due from `created_at` on the business calendars, met or breached by its
-   real first response and resolution. Through the work items service (`on_change` per step),
-   so field history (source `api`), the change event and a new audit entry are written as for
-   any save; never SQL on business rows. Only incidents with no SLA at all, only in this tenant
-   (a guard refuses any other): a re-run changes nothing.
+6. SLAs from creation (Haider, 2026-11-09): a seed incident made before any SLA applied (the
+   shared stack's older showcase data) gets its SLA as if it had applied from its creation, on
+   its own (backdated) times: due from `created_at` on the business calendars, met or breached
+   by its real first response and resolution. Only the incidents the seed describes, by its
+   stable key (`is_seed_incident`) and made by its admin, never one a person made; only those
+   with no SLA at all; only in this tenant (a guard refuses any other). Through the work items
+   service (`on_change` per step), so field history (source `api`), the change event and a new
+   audit entry are written as for any save; never SQL on business rows, and history is never
+   re-dated. A re-run changes nothing.
 """
 
 import asyncio
@@ -771,6 +773,25 @@ async def catalogue(api: Api, base: str = "/api/v1/incidents") -> Catalogue:
     return Catalogue(found["transitions"], found["reasons"], codes)
 
 
+def defined_incidents(people: Mapping[str, str]) -> frozenset[tuple[str, str]]:
+    """The (subject, requester id) of every incident this seed defines (ensure_incidents' key).
+
+    The one definition of "the seed's own incidents" (QA 2026-11-09): ensure_incidents makes
+    them and any later step that changes old showcase incidents must pick only these (with
+    is_seed_incident), never every incident in the tenant.
+    """
+    requesters = [people[p.email] for p in PEOPLE if p.user_type == "requester"]
+    return frozenset(
+        (SUBJECTS[n % len(SUBJECTS)][0], requesters[(n * 7) % len(requesters)])
+        for n in range(len(STATES))
+    )
+
+
+def is_seed_incident(record: Mapping[str, Any], people: Mapping[str, str]) -> bool:
+    """Is this incident (an API row) one the seed defines? See defined_incidents."""
+    return (record["subject"], record["requester_id"]) in defined_incidents(people)
+
+
 async def ensure_incidents(  # noqa: C901 - one branch per state, flat
     api: Api,
     people: Mapping[str, str],
@@ -1111,12 +1132,14 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
         author = admin.as_user(signed_in[TECHNICIAN.email])
         report.articles = await ensure_knowledge(admin, author)
         report.releases = await ensure_releases(admin, str(signed_in[ADMIN.email]))
+        report.admin_id = signed_in[ADMIN.email]
+        # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
+        # checks each was made by the seed's admin.
         report.without_sla = [
             uuid.UUID(i["id"])
             for i in await admin.all_pages("/api/v1/incidents")
-            if i["sla_policy_id"] is None
+            if i["sla_policy_id"] is None and is_seed_incident(i, people)
         ]
-        report.admin_id = signed_in[ADMIN.email]
 
 
 def password_problem(password: str) -> str | None:
@@ -1194,7 +1217,7 @@ async def sla_from_creation(
             async with database.tenant_session(
                 TenantContext(TENANT_ID, admin_id, roles=roles)
             ) as session:
-                if await apply_sla_from_creation(session, record_id, now=now):
+                if await apply_sla_from_creation(session, record_id, now=now, created_by=admin_id):
                     # What fell due on the way (breaches, warnings) fires now, as the SLA
                     # waker would within its minute: the record shows its true state at once.
                     await sla.fire(session, record_id, now=now)

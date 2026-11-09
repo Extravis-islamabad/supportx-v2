@@ -4837,7 +4837,11 @@ async def automation_log(
 
 
 async def apply_sla_from_creation(
-    session: AsyncSession, record_id: uuid.UUID, *, now: datetime
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    *,
+    now: datetime,
+    created_by: uuid.UUID | None = None,
 ) -> bool:
     """Give a record that never had an SLA its SLA from its creation; False when it had one.
 
@@ -4854,6 +4858,8 @@ async def apply_sla_from_creation(
     )
     if record is None or not sla_glue.has_sla(record):
         return False
+    if created_by is not None and record.created_by != created_by:
+        return False  # only the caller's own records (the seed's, never a person's)
     shown = await sla_glue.record_view(session, record)
     if shown.policy_id is not None or shown.applied_at is not None or shown.targets:
         return False
