@@ -229,6 +229,7 @@ export const en = {
   'audit.action.user.role_removed': 'Took a role from a person',
   'audit.action.user.sign_in_changed': 'Allowed or stopped a person’s sign-in',
   'audit.action.user.type_changed': 'Changed a person’s user type',
+  'audit.action.work_item.dates_restored': 'Restored the original dates of a record',
   'audit.alert.probing': 'Repeated refused attempts by one person.',
   'audit.alert.unsealed_overdue': 'Audit entries are not being sealed.',
   'audit.alert.verification_failed': 'The audit log failed verification.',

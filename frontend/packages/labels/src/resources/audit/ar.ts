@@ -227,6 +227,7 @@ export const ar: LabelResource = {
   'audit.action.user.role_removed': 'سحب دورًا من شخص',
   'audit.action.user.sign_in_changed': 'سمح لشخص بتسجيل الدخول أو أوقفه',
   'audit.action.user.type_changed': 'غيّر نوع المستخدم لشخص',
+  'audit.action.work_item.dates_restored': 'استعاد التواريخ الأصلية لسجل',
   'audit.alert.probing': 'محاولات مرفوضة متكررة من شخص واحد.',
   'audit.alert.unsealed_overdue': 'لا يتم ختم إدخالات التدقيق.',
   'audit.alert.verification_failed': 'فشل التحقق من سجل التدقيق.',
