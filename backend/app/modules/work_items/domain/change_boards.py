@@ -31,7 +31,35 @@ class BoardRule(StrEnum):
 
 
 RULES = tuple(rule.value for rule in BoardRule)
+
+
+class BoardChoice(StrEnum):
+    """Why a board reviews a change (REQ-CHG-041 AC1, AC2)."""
+
+    MAPPED = "mapped"  # its mapping matched the change
+    DEFAULT = "default"  # nothing matched: the default board
+
+
 MAPPING_KEYS = ("change_types", "risk_levels", "site_ids", "template_ids")
+# The field codes a board's checks give (labels: errors.field.*).
+FIELD_PROBLEMS = frozenset(
+    {
+        "required",
+        "value_too_long",
+        "duplicate_name",
+        "duplicate_value",
+        "invalid_value",
+        "invalid_choice",
+        "not_a_field",
+        "out_of_range",
+        "too_many_items",
+        "user_not_found",
+        "group_not_found",
+        "site_not_found",
+        "template_not_found",
+        "board_not_found",
+    }
+)
 
 
 @dataclass(frozen=True)

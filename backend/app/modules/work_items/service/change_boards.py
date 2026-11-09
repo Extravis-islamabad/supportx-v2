@@ -11,7 +11,7 @@ so open settings pages refetch (rule 5c).
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,13 +22,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, PermissionDenied
 from app.modules.identity_access import Subject, active_user_ids
-from app.modules.organization import existing_unit_ids
+from app.modules.organization import existing_unit_ids, users_in_groups
 from app.modules.work_items.domain import change_boards as rules
 from app.modules.work_items.domain.change_risk import RiskLevel
 from app.modules.work_items.domain.templates import PickList
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.events import ChangeBoardChanged
-from app.modules.work_items.infra.models import ChangeBoard, ChangeBoardMember, WorkItemTemplate
+from app.modules.work_items.infra.models import (
+    ChangeBoard,
+    ChangeBoardMember,
+    WorkItem,
+    WorkItemChangeDetails,
+    WorkItemTemplate,
+)
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import work_items as items
 from app.shared.db.repository import Repository
@@ -109,6 +115,20 @@ async def ensure_seeded(session: AsyncSession) -> None:
                 index_where=text("code IS NOT NULL AND deleted_at IS NULL"),
             )
         )
+
+
+async def live_board_ids(session: AsyncSession, ids: Iterable[uuid.UUID]) -> set[uuid.UUID]:
+    """Which of these boards exist (not removed) in the session's tenant."""
+    wanted = list(ids)
+    if not wanted:
+        return set()
+    return set(
+        await session.scalars(
+            select(ChangeBoard.id).where(
+                ChangeBoard.id.in_(wanted), ChangeBoard.deleted_at.is_(None)
+            )
+        )
+    )
 
 
 async def _members(
@@ -424,3 +444,72 @@ async def delete_board(
         raise Conflict(code="default_board_kept", params={"id": str(row.id)})
     removed = await BoardRepository(session).soft_delete(row.id, expected_version=expected_version)
     await _changed(session, removed, "deleted", [], source)
+
+
+# --- which boards review a change (REQ-CHG-041) --------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Reviewing:
+    """A board reviewing one approval level: its people now, its rule and why it was chosen."""
+
+    board_id: uuid.UUID
+    rule: rules.BoardRule
+    reason: str | None  # "mapped" or "default" for a mapped board; None for one named outright
+    people: tuple[uuid.UUID, ...]
+
+
+async def _facts(session: AsyncSession, record: WorkItem) -> rules.ChangeFacts:
+    details = await session.scalar(
+        select(WorkItemChangeDetails).where(WorkItemChangeDetails.work_item_id == record.id)
+    )
+    risk = None if details is None else (details.risk_chosen or details.risk)
+    return rules.ChangeFacts(
+        change_type=None if details is None else details.change_type,
+        risk=risk,
+        site_id=str(record.site_id) if record.site_id else None,
+        template_id=str(record.template_id) if record.template_id else None,
+    )
+
+
+async def reviewing(
+    session: AsyncSession, record: WorkItem, refs: Sequence[str], *, every_match: bool
+) -> list[Reviewing]:
+    """The boards a level names, with their members' people now (group members included).
+
+    "mapped" is the change's own choice by the boards' mappings, else the default board (the
+    reason says which); an ID names that board. A removed board reviews nothing.
+    """
+    await ensure_seeded(session)
+    rows = list(await session.scalars(select(ChangeBoard).where(ChangeBoard.deleted_at.is_(None))))
+    members = await _members(session, [r.id for r in rows])
+    by_id = {r.id: r for r in rows}
+    chosen: list[tuple[uuid.UUID, str | None]] = []
+    for ref in refs:
+        if ref == "mapped":
+            facts = [
+                rules.BoardFacts(
+                    str(r.id), r.code, r.position, r.is_default, r.mapping, bool(members[r.id])
+                )
+                for r in rows
+            ]
+            choice = rules.choose(facts, await _facts(session, record), every_match=every_match)
+            chosen += [(uuid.UUID(b), choice.reason) for b in choice.board_ids]
+        elif _uuid_or_none(ref) in by_id:
+            chosen.append((uuid.UUID(ref), None))
+    found: list[Reviewing] = []
+    for board_id, reason in dict.fromkeys(chosen):
+        board_members = [m for m in members[board_id] if not m.optional]
+        people = [m.user_id for m in board_members if m.user_id is not None]
+        groups = frozenset(m.group_id for m in board_members if m.group_id is not None)
+        if groups:
+            people += list(await session.scalars(users_in_groups(groups)))
+        found.append(
+            Reviewing(
+                board_id,
+                rules.BoardRule(by_id[board_id].rule),
+                reason,
+                tuple(dict.fromkeys(people)),
+            )
+        )
+    return found

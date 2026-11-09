@@ -159,6 +159,7 @@ export const en = {
   'errors.field.before_publish': 'Retiring must come after publishing.',
   'errors.field.before_start': 'The end cannot be before the start.',
   'errors.field.below_minimum': 'Minimum is {{min}}.',
+  'errors.field.board_not_found': 'This advisory board does not exist.',
   'errors.field.brand_image_svg':
     'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
   'errors.field.brand_image_too_large': 'This image is too large: at most 5 MB and 25 megapixels.',
@@ -216,6 +217,7 @@ export const en = {
   'errors.field.duplicate_name': 'This name is already used.',
   'errors.field.duplicate_permission': 'This permission is listed twice.',
   'errors.field.duplicate_sort_field': 'Each field can be used only once in the sort.',
+  'errors.field.duplicate_value': 'This is listed more than once.',
   'errors.field.duration_mismatch': 'The duration does not match the start and end times.',
   'errors.field.email_invalid': 'Enter an e-mail address like name@example.com.',
   'errors.field.email_not_valid': 'Enter an email address, such as name@example.com.',

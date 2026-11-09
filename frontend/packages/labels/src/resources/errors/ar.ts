@@ -141,6 +141,7 @@ export const ar: LabelResource = {
   'errors.field.before_publish': 'يجب أن يأتي الإيقاف بعد النشر.',
   'errors.field.before_start': 'لا يمكن أن تسبق النهاية البداية.',
   'errors.field.below_minimum': 'الحد الأدنى هو {{min}}.',
+  'errors.field.board_not_found': 'هذا المجلس الاستشاري غير موجود.',
   'errors.field.brand_image_svg':
     'صور SVG غير مقبولة لأنها قد تحتوي على نصوص برمجية. استخدم ملف PNG أو JPEG أو WebP أو ICO.',
   'errors.field.brand_image_too_large': 'هذه الصورة كبيرة جدًا: 5 ميغابايت و25 ميغابكسل كحد أقصى.',
@@ -195,6 +196,7 @@ export const ar: LabelResource = {
   'errors.field.duplicate_name': 'هذا الاسم مستخدم بالفعل.',
   'errors.field.duplicate_permission': 'هذه الصلاحية مذكورة مرتين.',
   'errors.field.duplicate_sort_field': 'يمكن استخدام كل حقل مرة واحدة فقط في الترتيب.',
+  'errors.field.duplicate_value': 'هذا مدرج أكثر من مرة.',
   'errors.field.duration_mismatch': 'المدة لا تطابق وقتي البدء والانتهاء.',
   'errors.field.email_invalid': 'أدخل عنوان بريد مثل name@example.com.',
   'errors.field.email_not_valid': 'أدخل عنوان بريد إلكتروني، مثل name@example.com.',

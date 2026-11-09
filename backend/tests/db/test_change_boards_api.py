@@ -166,3 +166,91 @@ async def test_tenant_b_cannot_write_a_board_for_tenant_a(world: World) -> None:
                 text("INSERT INTO change_boards (id, tenant_id, name) VALUES (:i, :t, 'Theirs')"),
                 {"i": uuid.uuid4(), "t": world.a.tenant},
             )
+
+
+# --- boards on approval levels (WP-045b S3; REQ-CHG-041, -042) ---------------------------------
+
+
+async def acceptance_by_board(world: World, org: Org, board: str = "mapped") -> None:
+    """The submission stage's one level is a board (the mapped one by default)."""
+    version = (await world.call("GET", "/changes/settings", org, org.admin)).json()["version"]
+    response = await world.call(
+        "PUT",
+        "/changes/settings/stages/submission/approvals",
+        org,
+        org.admin,
+        json={
+            "approvals": {
+                "raised_by": "submission_awaiting_acceptance",
+                "approved": "submission_accepted",
+                "rejected": "submission_rejected",
+                "levels": [{"approvers": [{"board": board}]}],
+            }
+        },
+        headers={"If-Match": f'"{version}"', **CONSOLE},
+    )
+    assert response.status_code == 200, response.text
+
+
+async def raised(world: World, org: Org, **body: Any) -> list[dict[str, Any]]:  # noqa: ANN401 - JSON
+    from tests.db.test_changes_api import move, new_change  # noqa: PLC0415 - shared helpers
+
+    made = await new_change(world, org, org.admin, **body)
+    assert made.status_code == 201, made.text
+    moved = await move(world, org, made.json(), "submission_awaiting_acceptance")
+    assert moved.status_code == 200, moved.text
+    listed = await world.call("GET", f"/changes/{made.json()['id']}/approvals", org, org.admin)
+    return list(listed.json()["items"])
+
+
+async def test_req_chg_041_ac1_the_mapped_board_approves_by_its_rule(world: World) -> None:
+    a = world.a
+    await acceptance_by_board(world, a)
+    board = await add(
+        world,
+        a,
+        a.admin,
+        rule="all",
+        mapping={"change_types": ["normal"]},
+        members=[{"user_id": str(a.lead)}, {"user_id": str(a.tech_b)}],
+    )
+    assert board.status_code == 201, board.text
+    rows = await raised(world, a, change_type="normal")
+    assert {(r["approver_id"], r["rule"], r["board_id"], r["board_reason"]) for r in rows} == {
+        (str(a.lead), "all", board.json()["id"], "mapped"),
+        (str(a.tech_b), "all", board.json()["id"], "mapped"),
+    }
+
+
+async def test_req_chg_041_ac2_the_default_board_without_members_routes_to_admins(
+    world: World,
+) -> None:
+    a = world.a
+    await acceptance_by_board(world, a)
+    [row] = await raised(world, a)
+    assert (row["approver_id"], row["route_reason"], row["board_reason"]) == (
+        None,
+        "board_has_no_members",
+        "default",
+    )
+
+
+async def test_a_level_names_a_board_that_exists(world: World) -> None:
+    a = world.a
+    version = (await world.call("GET", "/changes/settings", a, a.admin)).json()["version"]
+    refused = await world.call(
+        "PUT",
+        "/changes/settings/stages/submission/approvals",
+        a,
+        a.admin,
+        json={
+            "approvals": {
+                "raised_by": "submission_awaiting_acceptance",
+                "approved": "submission_accepted",
+                "rejected": "submission_rejected",
+                "levels": [{"approvers": [{"board": str(uuid.uuid4())}]}],
+            }
+        },
+        headers={"If-Match": f'"{version}"', **CONSOLE},
+    )
+    assert field_codes(refused) == {"approvals.levels": "board_not_found"}

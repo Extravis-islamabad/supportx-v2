@@ -57,6 +57,7 @@ export const ur: LabelResource = {
   'approval_purpose.record': 'منظوری',
   'approval_route_reason.approver_inactive':
     'منظوری دہندہ اب فعال نہیں، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
+  'approval_route_reason.board_has_no_members': 'مشاورتی بورڈ میں ابھی کوئی رکن نہیں',
   'approval_route_reason.no_holder': 'منظوری والا کردار ابھی کسی کے پاس نہیں',
   'approval_route_reason.no_manager': 'کوئی مینیجر درج نہیں، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
   'approval_route_reason.segregation_of_duties':
@@ -328,6 +329,8 @@ export const ur: LabelResource = {
   'categories.none_below': 'منتخب کرنے کو کچھ نہیں',
   'categories.retired_value': '{{name}} (ریٹائرڈ)',
   'categories.search_all': 'تمام سطحوں میں تلاش کریں',
+  'change_board_choice.default': 'طے شدہ بورڈ',
+  'change_board_choice.mapped': 'اس کی میپنگ میل کھا گئی',
   'change_board_rule.all': 'تمام اراکین',
   'change_board_rule.any': 'کوئی بھی رکن',
   'change_board_rule.majority': 'اکثریت',

@@ -159,6 +159,7 @@ export const ur: LabelResource = {
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
   'errors.field.before_start': 'اختتام آغاز سے پہلے نہیں ہو سکتا۔',
   'errors.field.below_minimum': 'کم از کم {{min}} ہے۔',
+  'errors.field.board_not_found': 'یہ مشاورتی بورڈ موجود نہیں۔',
   'errors.field.brand_image_svg':
     'SVG تصاویر قبول نہیں کی جاتیں کیونکہ ان میں اسکرپٹ ہو سکتے ہیں۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
   'errors.field.brand_image_too_large': 'یہ تصویر بہت بڑی ہے: زیادہ سے زیادہ 5 MB اور 25 میگاپکسل۔',
@@ -220,6 +221,7 @@ export const ur: LabelResource = {
   'errors.field.duplicate_name': 'یہ نام پہلے سے استعمال میں ہے۔',
   'errors.field.duplicate_permission': 'یہ اجازت دو بار درج ہے۔',
   'errors.field.duplicate_sort_field': 'ترتیب میں ہر فیلڈ صرف ایک بار استعمال ہو سکتی ہے۔',
+  'errors.field.duplicate_value': 'یہ ایک سے زیادہ بار درج ہے۔',
   'errors.field.duration_mismatch': 'دورانیہ آغاز اور اختتام کے اوقات سے میل نہیں کھاتا۔',
   'errors.field.email_invalid': 'name@example.com جیسا ای میل پتہ درج کریں۔',
   'errors.field.email_not_valid': 'ای میل پتہ درج کریں، جیسے name@example.com۔',

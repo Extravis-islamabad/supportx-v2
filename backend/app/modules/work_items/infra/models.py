@@ -1185,6 +1185,16 @@ class WorkItemApproval(TenantEntity):
         ),
         CheckConstraint("comment IS NULL OR char_length(comment) <= 4000", name="comment_length"),
         CheckConstraint("stage >= 1", name="stage_positive"),
+        CheckConstraint(
+            "board_reason IS NULL OR board_reason IN ('mapped', 'default')",
+            name="board_reason_code",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "board_id"],
+            ["change_boards.tenant_id", "change_boards.id"],
+            name="fk_work_item_approvals_board",
+            ondelete="RESTRICT",
+        ),
         CheckConstraint(_codes("purpose", ApprovalPurpose), name="purpose_code"),
         Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
         Index(
@@ -1204,6 +1214,9 @@ class WorkItemApproval(TenantEntity):
     approver_id: Mapped[uuid.UUID | None]
     origin: Mapped[str] = mapped_column(String(20))
     route_reason: Mapped[str | None] = mapped_column(String(30))
+    # WP-045b S3 (0117): the change advisory board this row came from, and why that board.
+    board_id: Mapped[uuid.UUID | None]
+    board_reason: Mapped[str | None] = mapped_column(String(10))
     state: Mapped[str] = mapped_column(String(20), server_default="pending")
     decided_at: Mapped[datetime | None]
     decided_by: Mapped[uuid.UUID | None]

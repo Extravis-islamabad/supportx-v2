@@ -20,6 +20,7 @@ and refuses a person's move to a completing status while that stage still needs 
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import replace
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.identity_access import active_user_ids
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
+from app.modules.work_items.domain.change_boards import BoardRule
 from app.modules.work_items.domain.stages import Move, SetBy
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import (
@@ -36,7 +38,7 @@ from app.modules.work_items.infra.models import (
     WorkItemStage,
     WorkItemStageEntry,
 )
-from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import catalogue, change_boards
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service.approval_stage import approval_event
 from app.shared.history import Source
@@ -56,7 +58,10 @@ async def settings_of(
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     statuses = {s.code: s.set_by == SetBy.SYSTEM for s in model.statuses_of(stage)}
     settings, _problems = rules.parse_stage_approvals(
-        row.approvals, stage_statuses=statuses, roles=wtype.roles
+        row.approvals,
+        stage_statuses=statuses,
+        roles=wtype.roles,
+        boards=wtype.code is WorkItemTypeCode.CHANGE,
     )
     return settings  # checked on save; a status removed since makes it None (no approvals)
 
@@ -145,10 +150,17 @@ async def open_level(
     """Level `index` (0-based) of the stage: one row per approver, never none."""
     level = settings.levels[index]
     people, unheld = await _candidates(session, record, level)
+    boards = await _boards(session, record, level)
+    board_of = {p: b for b in reversed(boards) for p in b.people}  # a person's first board
+    people = list(dict.fromkeys([*people, *(p for b in boards for p in b.people)]))
+    level = _with_board_rule(level, boards)
     active = await active_user_ids(session, people)
     barred = await segregated(session, record)
     named: list[uuid.UUID] = []
     reason: rules.RouteReason | None = rules.RouteReason.NO_HOLDER if unheld else None
+    empty = next((b for b in boards if not b.people), None)
+    if empty is not None:  # REQ-CHG-040: a board with no members yet
+        reason = rules.RouteReason.BOARD_HAS_NO_MEMBERS
     for person in people:
         if person not in active:
             reason = reason or rules.RouteReason.APPROVER_INACTIVE
@@ -171,6 +183,7 @@ async def open_level(
             approver=p,
             origin=rules.ApproverOrigin.NAMED,
             reason=None,
+            board=board_of.get(p),
         )
         for p in named
     ]
@@ -184,6 +197,7 @@ async def open_level(
                 approver=None,
                 origin=rules.ApproverOrigin.ADMINISTRATORS,
                 reason=reason,
+                board=empty,
             )
         )
     for row in rows:
@@ -195,6 +209,34 @@ async def open_level(
     return rows
 
 
+async def _boards(
+    session: AsyncSession, record: WorkItem, level: rules.LevelApprovers
+) -> list[change_boards.Reviewing]:
+    """The change advisory boards the level names (WP-045b S3), chosen for this record."""
+    if not level.boards:
+        return []
+    wtype = TYPES[WorkItemTypeCode(record.type)]
+    every = (await catalogue.load(session, wtype)).cab_every_match
+    return await change_boards.reviewing(session, record, level.boards, every_match=every)
+
+
+def _with_board_rule(
+    level: rules.LevelApprovers, boards: Sequence[change_boards.Reviewing]
+) -> rules.LevelApprovers:
+    """A level of boards only decides by its (first) board's rule (REQ-CHG-042).
+
+    A level naming people, groups or roles as well keeps its own rule. The chair's tie-break
+    (D-146) comes with lane C's WP-048b S2; until then a chaired board decides by majority.
+    """
+    if not boards or level.user_ids or level.group_ids or level.roles:
+        return level
+    rule = boards[0].rule
+    # Lane C wires the board's chair into level_outcome(chair=, chair_vote=) with WP-048b S2.
+    if rule is BoardRule.MAJORITY_WITH_CHAIR:
+        return replace(level, rule=rules.LevelRule.MAJORITY)
+    return replace(level, rule=rules.LevelRule(rule.value))
+
+
 def _row(  # noqa: PLR0913 - one approval row, explicit
     record: WorkItem,
     *,
@@ -204,8 +246,11 @@ def _row(  # noqa: PLR0913 - one approval row, explicit
     approver: uuid.UUID | None,
     origin: rules.ApproverOrigin,
     reason: rules.RouteReason | None,
+    board: change_boards.Reviewing | None = None,
 ) -> WorkItemApproval:
     return WorkItemApproval(
+        board_id=board.board_id if board else None,
+        board_reason=board.reason if board else None,
         tenant_id=record.tenant_id,
         work_item_id=record.id,
         stage=index + 1,  # the engine's levels count from 1

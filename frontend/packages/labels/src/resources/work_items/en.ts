@@ -54,6 +54,7 @@ export const en = {
   'approval_purpose.record': 'Approval',
   'approval_route_reason.approver_inactive':
     'The approver is no longer active, so it went to the fallback approver.',
+  'approval_route_reason.board_has_no_members': 'The advisory board has no members yet',
   'approval_route_reason.no_holder': 'Nobody holds the approving role yet',
   'approval_route_reason.no_manager': 'No manager on record, so it went to the fallback approver.',
   'approval_route_reason.segregation_of_duties':
@@ -326,6 +327,8 @@ export const en = {
   'categories.none_below': 'None to choose',
   'categories.retired_value': '{{name}} (retired)',
   'categories.search_all': 'Search all levels',
+  'change_board_choice.default': 'Default board',
+  'change_board_choice.mapped': 'Its mapping matched',
   'change_board_rule.all': 'All members',
   'change_board_rule.any': 'Any member',
   'change_board_rule.majority': 'Majority',
