@@ -248,6 +248,7 @@ export const en = {
   'audit.action.vendor.created': 'Added a vendor',
   'audit.action.vendor.deleted': 'Deleted a vendor',
   'audit.action.vendor.updated': 'Changed a vendor',
+  'audit.action.work_item.dates_restored': 'Restored the original dates of a record',
   'audit.alert.probing': 'Repeated refused attempts by one person.',
   'audit.alert.unsealed_overdue': 'Audit entries are not being sealed.',
   'audit.alert.verification_failed': 'The audit log failed verification.',
