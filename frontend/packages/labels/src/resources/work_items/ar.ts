@@ -1359,6 +1359,7 @@ export const ar: LabelResource = {
   'releases.schedule.outcome_of': 'نتيجة {{stage}}',
   'releases.schedule.planned': 'المخطط',
   'releases.search': 'ابحث بالرقم أو العنوان',
+  'releases.section.release': 'الإصدار',
   'releases.starts_in': 'يبدأ الإصدار الجديد في مرحلة {{stage}}.',
   'releases.sub.hidden': 'إصدار فرعي لا يمكنك رؤيته',
   'releases.sub.none': 'لا توجد إصدارات فرعية.',

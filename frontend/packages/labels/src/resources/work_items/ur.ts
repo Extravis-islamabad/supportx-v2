@@ -1237,6 +1237,7 @@ export const ur: LabelResource = {
   'releases.schedule.outcome_of': '{{stage}} کا نتیجہ',
   'releases.schedule.planned': 'منصوبہ بند',
   'releases.search': 'نمبر یا عنوان سے تلاش کریں',
+  'releases.section.release': 'ریلیز',
   'releases.starts_in': 'نئی ریلیز {{stage}} سے شروع ہوتی ہے۔',
   'releases.sub.hidden': 'ایک ذیلی ریلیز جو آپ نہیں دیکھ سکتے',
   'releases.sub.none': 'کوئی ذیلی ریلیز نہیں۔',

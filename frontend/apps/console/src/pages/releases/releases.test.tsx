@@ -216,6 +216,37 @@ describe('console: releases', () => {
     });
   });
 
+  it('template B: a new release is one section card with Cancel before Create in the footer', async () => {
+    window.history.pushState({}, '', '/releases/new');
+    const routed = consoleApi({
+      me: fakeSession(),
+      routes: {
+        'GET /api/v1/releases/templates': {
+          body: [
+            {
+              id: 'tpl-1',
+              code: 'standard',
+              labels: { en: 'Standard release' },
+              is_default: true,
+              disabled: false,
+              stage_path: null,
+            },
+          ],
+        },
+      },
+    });
+    restore = routed.restore;
+    render(<App />);
+    const footer = await screen.findByTestId('new-release-footer');
+    const buttons = [...footer.querySelectorAll('button')].map((b) =>
+      b.getAttribute('data-testid'),
+    );
+    expect(buttons).toEqual(['release-cancel', 'release-save']);
+    expect(
+      screen.getByTestId('release-section').querySelector('button[data-testid="release-save"]'),
+    ).toBeNull();
+  });
+
   it('shows the rail, says why a move is not possible, and asks for the reason a move needs', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();

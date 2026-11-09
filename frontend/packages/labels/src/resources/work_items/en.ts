@@ -1232,6 +1232,7 @@ export const en = {
   'releases.schedule.outcome_of': 'Outcome of {{stage}}',
   'releases.schedule.planned': 'Planned',
   'releases.search': 'Search by number or title',
+  'releases.section.release': 'The release',
   'releases.starts_in': 'A new release starts in {{stage}}.',
   'releases.sub.hidden': 'A sub-release you cannot see',
   'releases.sub.none': 'No sub-releases.',
