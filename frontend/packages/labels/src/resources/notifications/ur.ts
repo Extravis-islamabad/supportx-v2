@@ -33,6 +33,8 @@ export const ur: LabelResource = {
   'notification_area.incident': 'واقعات',
   'notification_area.kb_article': 'علمی ذخیرہ',
   'notification_area.mailbox': 'میل',
+  'notification_area.problem': 'مسائل',
+  'notification_area.problem_repeat': 'مسائل',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
@@ -75,6 +77,17 @@ export const ur: LabelResource = {
     'میل باکس ایپ کا سیکرٹ یا سرٹیفکیٹ ختم ہونے والا ہے',
   'notification_event.mailbox.failing': 'میل باکس نے کام کرنا بند کر دیا',
   'notification_event.mailbox.mail_held': 'ایک بھیجنے والا میل باکس کو پیغامات سے بھر رہا ہے',
+  'notification_event.problem.assigned': 'مسئلہ تفویض ہوا',
+  'notification_event.problem.closed': 'مسئلہ بند ہوا',
+  'notification_event.problem.created_in_group': 'آپ کے گروپ میں مسئلہ بنا',
+  'notification_event.problem.investigator_added': 'تفتیش کار شامل ہوا',
+  'notification_event.problem.known_error': 'معلوم خرابی شائع ہوئی',
+  'notification_event.problem.mentioned': 'مسئلے پر ذکر',
+  'notification_event.problem.note': 'مسئلے پر نوٹ',
+  'notification_event.problem.resolved': 'مسئلہ حل ہوا',
+  'notification_event.problem.target_breached': 'مسئلے کی ہدف تاریخ گزر گئی',
+  'notification_event.problem.target_warning': 'مسئلے کی ہدف تاریخ قریب',
+  'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_preferences.col.category': 'قسم',
@@ -101,9 +114,11 @@ export const ur: LabelResource = {
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
   'notification_recipient.group_head': 'گروپ لیڈ اور شعبے کا سربراہ',
+  'notification_recipient.linked_incident_technicians': 'منسلک واقعات کے تکنیکی ماہرین',
   'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
   'notification_recipient.mentioned': 'جن کا ذکر ہوا',
   'notification_recipient.new_follower': 'نیا فالوور',
+  'notification_recipient.new_investigator': 'شامل کیا گیا تفتیش کار',
   'notification_recipient.on_behalf_of': 'جس کے لیے ہے',
   'notification_recipient.owner': 'مضمون کا مالک',
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
@@ -291,6 +306,70 @@ export const ur: LabelResource = {
     '{{ record.title }} کی میل جائزے کے لیے روکی گئی: ایک بھیجنے والے نے ایک گھنٹے میں 10 سے زیادہ پیغامات بھیجے',
   'notification_template.mailbox.mail_held.subject':
     'میل باکس {{ record.title }}: میل جائزے کے لیے روکی گئی',
+  'notification_template.problem.assigned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب {{ assignee.name }} کو تفویض ہے۔\n\nترجیح: {{ record.priority }}\nحالت: {{ record.status }}',
+  'notification_template.problem.assigned.in_app':
+    '{{ record.display_id }} {{ assignee.name }} کو تفویض: {{ record.title }}',
+  'notification_template.problem.assigned.subject':
+    '{{ assignee.name }} کو تفویض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.closed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" بند کر دیا گیا۔',
+  'notification_template.problem.closed.in_app': '{{ record.display_id }} بند ہو گیا',
+  'notification_template.problem.closed.subject': 'بند: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.created_in_group.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" آپ کے گروپ میں بنایا گیا۔',
+  'notification_template.problem.created_in_group.in_app':
+    'نیا مسئلہ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.created_in_group.subject':
+    'آپ کے گروپ میں نیا مسئلہ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.investigator_added.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ actor.name }} نے آپ کو {{ record.display_id }} "{{ record.title }}" پر تفتیش کار کے طور پر شامل کیا۔ آپ اس کے کام اور ورک لاگ دیکھ سکتے ہیں۔',
+  'notification_template.problem.investigator_added.in_app':
+    'آپ {{ record.display_id }} کی تفتیش کر رہے ہیں: {{ record.title }}',
+  'notification_template.problem.investigator_added.subject':
+    'آپ {{ record.display_id }} {{ record.title }} کی تفتیش کر رہے ہیں',
+  'notification_template.problem.known_error.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب ایک معلوم خرابی ہے۔ اس کا عارضی حل آپ کے واقعات پر لگایا جا سکتا ہے۔',
+  'notification_template.problem.known_error.in_app':
+    '{{ record.display_id }} معلوم خرابی ہے: اس کا عارضی حل لگائیں',
+  'notification_template.problem.known_error.subject':
+    'معلوم خرابی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.mentioned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر آپ کا ذکر کیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.problem.mentioned.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر آپ کا ذکر کیا',
+  'notification_template.problem.mentioned.subject':
+    '{{ conversation.author }} نے {{ record.display_id }} {{ record.title }} پر آپ کا ذکر کیا',
+  'notification_template.problem.note.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر لکھا:\n\n{{ conversation.excerpt }}',
+  'notification_template.problem.note.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر لکھا',
+  'notification_template.problem.note.subject':
+    '{{ record.display_id }} {{ record.title }} پر نیا نوٹ',
+  'notification_template.problem.resolved.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" حل ہو گیا۔ اس سے ہونے والے واقعات دیکھیں اور انہیں حل کریں۔',
+  'notification_template.problem.resolved.in_app':
+    '{{ record.display_id }} حل ہو گیا: {{ record.title }}',
+  'notification_template.problem.resolved.subject':
+    'حل ہوا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.target_breached.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اپنی {{ sla.target }} ہدف تاریخ سے آگے نکل گیا۔',
+  'notification_template.problem.target_breached.in_app':
+    '{{ record.display_id }} ہدف تاریخ سے آگے ہے',
+  'notification_template.problem.target_breached.subject':
+    'تاخیر شدہ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.target_warning.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اپنی {{ sla.target }} ہدف تاریخ کے قریب ہے۔',
+  'notification_template.problem.target_warning.in_app':
+    '{{ record.display_id }}: ہدف تاریخ قریب ہے',
+  'notification_template.problem.target_warning.subject':
+    'جلد واجب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem_repeat.detected.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ incident.count }} واقعات "{{ rule.name }}" سے ملتے ہیں ({{ category.name }}، {{ site.name }})۔ انہیں دیکھیں اور اگر ان کی وجہ ایک ہو تو مسئلہ بنائیں۔',
+  'notification_template.problem_repeat.detected.in_app':
+    '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
+  'notification_template.problem_repeat.detected.subject':
+    '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -308,11 +387,13 @@ export const ur: LabelResource = {
   'notification_variable.article.reason': 'مضمون › وجہ',
   'notification_variable.article.review_on': 'مضمون › جائزے کی تاریخ',
   'notification_variable.assignee.name': 'تکنیکی ماہر › نام',
+  'notification_variable.category.name': 'زمرہ',
   'notification_variable.change.from_status': 'تبدیلی › سابقہ حالت',
   'notification_variable.connector.name': 'کنیکٹر › نام',
   'notification_variable.connector.reason': 'کنیکٹر › وجہ',
   'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
+  'notification_variable.incident.count': 'واقعات کی تعداد',
   'notification_variable.mailbox.address': 'میل باکس › پتہ',
   'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
   'notification_variable.mailbox.reason': 'میل باکس › وجہ',
@@ -323,6 +404,8 @@ export const ur: LabelResource = {
   'notification_variable.record.status': 'ریکارڈ › حالت',
   'notification_variable.record.title': 'ریکارڈ › موضوع',
   'notification_variable.requester.name': 'درخواست گزار › نام',
+  'notification_variable.rule.name': 'اصول',
+  'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notifications.banner.no_mail_one':
     '{{count}} ای میل انتظار میں ہے کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میل بھیج دی جائے گی۔',

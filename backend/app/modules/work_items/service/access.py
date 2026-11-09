@@ -26,6 +26,7 @@ from sqlalchemy import ColumnElement, and_, false, or_, select
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import (
+    PROBLEM_MANAGER,
     REPORT_VIEWER,
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
@@ -277,7 +278,11 @@ def _type_defaults(
         # widened for technicians or requesters).
         return () if action in IDENTITY_GRANTED else defaults
     if wtype.code is WorkItemTypeCode.PROBLEM:
-        return _PROBLEM_TECH.get(action, _PROBLEM_GROUP)
+        # The problem manager (WP-044c D14, Appendix A) holds every problem permission.
+        return (*_PROBLEM_TECH.get(action, _PROBLEM_GROUP), (PROBLEM_MANAGER, "all"))
+    if wtype.code is WorkItemTypeCode.INCIDENT and action == "view":
+        # ... and reads the incidents problems are about (linking, evidence, impact).
+        return (*defaults, (PROBLEM_MANAGER, "all"))
     if wtype.code is WorkItemTypeCode.RELEASE:
         # Releases (WP-058a): technicians keep only identity's releases.view grant; the type
         # adds no technician defaults, so nothing is widened (lane B review).
@@ -324,7 +329,7 @@ PROBLEM_SPECS: tuple[PermissionSpec, ...] = (
             f"problems.{action}",
             "problem",
             ALL_SCOPES,
-            defaults=(("technician", "group"), *_role_defaults(action)),
+            defaults=(("technician", "group"), (PROBLEM_MANAGER, "all"), *_role_defaults(action)),
         )
         for action in (EDIT_ANALYSIS, VIEW_ROOT_CAUSE, EDIT_SOLUTION, MARK_KNOWN_ERROR)
     ),
@@ -334,7 +339,11 @@ PROBLEM_SPECS: tuple[PermissionSpec, ...] = (
         "problems.approve",
         "problem",
         ("all",),
-        defaults=(("technician", "all"), (SERVICE_DESK_MANAGER, "all")),
+        defaults=(
+            ("technician", "all"),
+            (SERVICE_DESK_MANAGER, "all"),
+            (PROBLEM_MANAGER, "all"),
+        ),
     ),
 )
 

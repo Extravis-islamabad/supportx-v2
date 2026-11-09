@@ -227,6 +227,8 @@ export const ar: LabelResource = {
   'errors.field.default_cannot_be_disabled':
     'لا يمكن إيقاف القالب الافتراضي. عيّن قالبًا آخر كافتراضي أولًا.',
   'errors.field.default_cannot_be_inactive': 'لا يمكن جعل الافتراضي غير نشط.',
+  'errors.field.default_cannot_be_removed':
+    'لا يمكن إزالة القاعدة الافتراضية. أوقفها بدلًا من ذلك.',
   'errors.field.default_language_not_offered': 'يجب أن تكون اللغة الافتراضية إحدى اللغات المتاحة.',
   'errors.field.default_required':
     'يوجد دائمًا قالب افتراضي. عيّن قالبًا آخر كافتراضي بدلًا من ذلك.',
@@ -324,6 +326,8 @@ export const ar: LabelResource = {
   'errors.field.level_too_many_recipients': 'يُسمح بـ {{max}} مستلمًا على الأكثر لكل مستوى.',
   'errors.field.levels_same_moment':
     'مستويان يعملان في اللحظة نفسها. حدّد لكل منهما وقتًا خاصًا به.',
+  'errors.field.limited_template_for_requesters':
+    'القالب المخصص لمقدمي الطلبات متاح للجميع: لا يمكن قصره على مجموعات.',
   'errors.field.list_too_long': 'هذه القائمة تحتوي على قيم كثيرة جدًا.',
   'errors.field.logo_required': 'حمّل شعارًا أولًا.',
   'errors.field.mailbox_address_invalid': 'أدخل عنوان البريد الإلكتروني لصندوق البريد.',
@@ -449,6 +453,7 @@ export const ar: LabelResource = {
   'errors.field.technician_not_in_group': 'هذا الفني ليس عضوًا في المجموعة المختارة.',
   'errors.field.template_disabled': 'تم إيقاف هذا القالب. اختر قالبًا آخر.',
   'errors.field.template_not_found': 'هذا القالب لم يعد موجودًا. اختر قالبًا آخر.',
+  'errors.field.template_not_offered': 'هذا القالب غير متاح لك. اختر قالبًا آخر.',
   'errors.field.time_format_unknown': 'اختر نظام 24 ساعة أو 12 ساعة.',
   'errors.field.time_zone_unknown': 'اختر منطقة زمنية من القائمة.',
   'errors.field.timezone_required': 'أضف المنطقة الزمنية.',
@@ -695,6 +700,8 @@ export const ar: LabelResource = {
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
   'errors.reference_copied': 'تم نسخ المرجع',
   'errors.reference_is': 'المرجع: {{reference}}',
+  'errors.repeat_hit_not_found': 'لم تعد مجموعة الحوادث المتكررة هذه موجودة.',
+  'errors.repeat_rule_not_found': 'لم تعد قاعدة الحوادث المتكررة هذه موجودة.',
   'errors.reply_template_not_found': 'لم يعد قالب الرد هذا موجودًا.',
   'errors.report_entity_not_found': 'لا يوجد شيء من هذا النوع لإعداد تقرير عنه.',
   'errors.report_export_not_found': 'هذا التصدير غير موجود أو ليس لك.',

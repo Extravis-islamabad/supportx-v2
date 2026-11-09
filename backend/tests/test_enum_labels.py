@@ -273,6 +273,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "IndexFailure": "custom_field_index_error",
     # The portal (WP-028)
     "PortalStatus": "portal_status",
+    "KnownProblem": "known_problem",  # WP-044c D15 (REQ-PRB-075)
+    # WP-044c D16 (REQ-PRB-068): repeat incident rules
+    "RepeatRuleOut.match": "repeat_match",
+    "RepeatRuleIn.match": "repeat_match",
+    "RepeatRulePatch.match": "repeat_match",
+    "RepeatHandleIn.outcome": "repeat_outcome",
     "PortalReach": "portal_reach",
     "PortalState": "portal_state",
 }
