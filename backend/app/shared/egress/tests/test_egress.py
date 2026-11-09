@@ -387,7 +387,10 @@ def test_loopback_is_listed_only_in_dev_and_test() -> None:
 def test_the_settings_refuse_a_wide_entry_and_production_loopback_at_load() -> None:
     from pydantic import ValidationError  # noqa: PLC0415 - this test only
 
-    from conftest import make_settings  # noqa: PLC0415
+    from app.core.config import Settings  # noqa: PLC0415
+
+    def make_settings(**overrides: object) -> Settings:  # never `from conftest import` (#272)
+        return Settings(_env_file=None, tracing_enabled=False, **{"profile": "test", **overrides})  # type: ignore[call-arg, arg-type]  # pydantic-settings' init keyword, validated values
 
     with pytest.raises(ValidationError, match="wider than"):
         make_settings(egress_allow=["0.0.0.0/0"])
