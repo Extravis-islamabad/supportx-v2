@@ -5,7 +5,14 @@ from datetime import UTC, datetime
 
 from app.modules.audit.domain.catalogue import ACTIONS
 from app.modules.audit.domain.integrity import entry_hash
-from app.modules.audit.domain.lifecycle import ASSET, FieldDiff, events_of, lifecycle_codes
+from app.modules.audit.domain.lifecycle import (
+    ASSET,
+    FieldDiff,
+    RecordAudit,
+    ValueRule,
+    events_of,
+    lifecycle_codes,
+)
 
 
 def test_a_created_record_is_created_only() -> None:
@@ -73,3 +80,43 @@ def test_events_are_hashed_and_older_entries_hash_as_before() -> None:
     listed = entry_hash(_row(["asset.updated"]))
     assert listed != entry_hash(without)
     assert listed != entry_hash(_row(["asset.updated", "asset.moved"]))  # an edit is caught
+
+
+_TICKET = RecordAudit(
+    record_type="ticket",
+    module="test",
+    kinds=frozenset({"created", "deleted", "restored", "status", "child_added", "child_removed"}),
+    fields={"status": "status_changed", "group_id": "assigned"},
+    values=(
+        ValueRule("status", "resolved", new_in=frozenset({"resolved"})),
+        ValueRule(
+            "status",
+            "reopened",
+            old_in=frozenset({"resolved", "closed"}),
+            new_not_in=frozenset({"resolved", "closed"}),
+        ),
+    ),
+    parts={("child_added", "link"): "linked"},
+)
+
+
+def test_value_rules_name_what_a_status_change_was() -> None:
+    resolved = [FieldDiff("status", "open", "resolved"), FieldDiff("group_id", "a", "b")]
+    assert events_of(_TICKET, "status", resolved) == (
+        "ticket.status_changed",
+        "ticket.assigned",
+        "ticket.resolved",
+    )
+    reopened = [FieldDiff("status", "closed", "in_progress")]
+    assert events_of(_TICKET, "status", reopened) == ("ticket.status_changed", "ticket.reopened")
+    moved_on = [FieldDiff("status", "resolved", "closed")]  # closing a resolved one is no reopen
+    assert events_of(_TICKET, "status", moved_on) == ("ticket.status_changed",)
+
+
+def test_a_named_part_replaces_the_generic_part_event() -> None:
+    assert events_of(_TICKET, "child_added", [FieldDiff("link", None, "x")]) == ("ticket.linked",)
+    assert events_of(_TICKET, "child_added", [FieldDiff("task", None, "x")]) == (
+        "ticket.part_added",
+    )
+    assert "ticket.linked" in _TICKET.events()
+    assert "ticket.reopened" in _TICKET.events()

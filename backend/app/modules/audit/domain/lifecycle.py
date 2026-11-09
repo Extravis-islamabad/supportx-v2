@@ -25,6 +25,31 @@ UPDATED = "updated"  # a save that matches no other event
 
 
 @dataclass(frozen=True)
+class ValueRule:
+    """An event a field's change stands for only with certain values (a status going to resolved).
+
+    Each given condition must hold: the new value is in `new_in` (or not in `new_not_in`), the
+    old one in `old_in`. Values are compared as given (codes).
+    """
+
+    field: str
+    event: str
+    new_in: frozenset[object] | None = None
+    new_not_in: frozenset[object] | None = None
+    old_in: frozenset[object] | None = None
+
+    def matches(self, change: "FieldDiff") -> bool:
+        """Whether this change of the field stands for the event."""
+        if change.name != self.field:
+            return False
+        if self.new_in is not None and change.new not in self.new_in:
+            return False
+        if self.new_not_in is not None and change.new in self.new_not_in:
+            return False
+        return self.old_in is None or change.old in self.old_in
+
+
+@dataclass(frozen=True)
 class RecordAudit:
     """One record type's lifecycle events."""
 
@@ -36,10 +61,15 @@ class RecordAudit:
     fields: Mapping[str, str] = field(default_factory=dict)
     # A boolean field whose change is a move to the trash (False -> True) or a restore.
     trash_field: str | None = None
+    # Events that depend on the values (after the field events, in this order).
+    values: tuple[ValueRule, ...] = ()
+    # A part's kind of save and its field -> a named event instead of part_added/... .
+    parts: Mapping[tuple[str, str], str] = field(default_factory=dict)
 
     def events(self) -> frozenset[str]:
         """Every event code this type can produce."""
         names = {_KIND_EVENTS[k] for k in self.kinds} | {UPDATED, *self.fields.values()}
+        names |= {rule.event for rule in self.values} | set(self.parts.values())
         if self.trash_field is not None:
             names |= {"deleted", "restored"}
         return frozenset(f"{self.record_type}.{name}" for name in names)
@@ -83,12 +113,16 @@ def events_of(
     names = {c.name for c in changes}
     trash = next((c for c in changes if c.name == spec.trash_field), None)
     found: list[str] = []
+    part = next((spec.parts[(kind, c.name)] for c in changes if (kind, c.name) in spec.parts), None)
     if trash is not None and bool(trash.new) != bool(trash.old):
         found.append("deleted" if trash.new else "restored")
+    elif part is not None:
+        found.append(part)
     elif kind in spec.kinds:
         found.append(_KIND_EVENTS[kind])
     if kind != "created":  # a new record's first values are not changes of state or place
         found.extend(event for name, event in spec.fields.items() if name in names)
+        found.extend(r.event for r in spec.values if any(r.matches(c) for c in changes))
     if not found:
         found.append(UPDATED)
     codes = [f"{spec.record_type}.{name}" for name in found]
