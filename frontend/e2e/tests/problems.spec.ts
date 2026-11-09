@@ -1,7 +1,13 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 import { USERS } from '../stack';
-import { expectAccessible, resetLanguage, signInAs } from './helpers';
+import {
+  closeAppearance,
+  expectAccessible,
+  openAppearance,
+  resetLanguage,
+  signInAs,
+} from './helpers';
 
 /**
  * WP-044a: problems, end to end.
@@ -275,10 +281,10 @@ test('the problem pages in Arabic are right to left and accessible', async ({ br
     }),
   );
   await tech.page.goto('/problems');
-  await tech.page.getByTestId('appearance-menu').click();
+  await openAppearance(tech.page);
   await tech.page.getByTestId('language-select').click();
   await tech.page.locator('.ant-select-item-option[title="العربية"]').click();
-  await tech.page.getByTestId('appearance-menu').click();
+  await closeAppearance(tech.page);
   await expect(tech.page.locator('html')).toHaveAttribute('dir', 'rtl', LIVE);
   await expect(tech.page.getByTestId(`prb-row-${problem.display_id}`)).toBeVisible(LIVE);
   await expectAccessible(tech.page, 'problems list (ar)');

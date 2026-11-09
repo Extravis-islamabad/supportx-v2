@@ -72,3 +72,10 @@ def test_a_link_acts_once_for_its_recipient_on_the_version_it_was_sent_for() -> 
 def test_a_link_never_lives_longer_than_a_week() -> None:
     assert expiry(NOW) == NOW + timedelta(hours=72)
     assert expiry(NOW, timedelta(days=30)) == NOW + MAX_TTL
+
+
+def test_the_public_page_names_the_tenant_only_when_there_is_a_slug() -> None:
+    from app.shared.action_links.domain import public_page  # noqa: PLC0415 - this test only
+
+    assert public_page("acme") == "approve?t=acme#"
+    assert public_page("") == "approve#"  # never an empty ?t= (lane B)

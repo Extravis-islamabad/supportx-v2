@@ -1685,7 +1685,7 @@ export const en = {
   'work_item_view.known_errors': 'Known errors',
   'work_item_view.my_due_today': 'Due today',
   'work_item_view.my_groups_open': 'My groups, open',
-  'work_item_view.my_open': 'My open',
+  'work_item_view.my_open': 'Assigned to me, open',
   'work_item_view.my_overdue': 'Overdue',
   'work_item_view.open': 'All open',
   'work_item_view.overdue': 'Overdue',

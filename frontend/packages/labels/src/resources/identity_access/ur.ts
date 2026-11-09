@@ -158,6 +158,8 @@ export const ur: LabelResource = {
   'password_policy_state.applying': 'لاگو ہو رہی ہے',
   'password_policy_state.default': 'انسٹالیشن کا ڈیفالٹ',
   'password_policy_state.failed': 'لاگو نہیں ہوئی',
+  'people.account.help': 'یہ محفوظ کیے بغیر فوراً لاگو ہوتے ہیں۔',
+  'people.account.title': 'اکاؤنٹ',
   'people.add': 'فرد شامل کریں',
   'people.added': '{{name}} شامل کر دیا گیا',
   'people.changed_elsewhere':
@@ -749,9 +751,11 @@ export const ur: LabelResource = {
   'roles.delete_title': '{{name}} حذف کریں؟',
   'roles.deleted': 'کردار حذف ہو گیا۔',
   'roles.description': 'تفصیل',
+  'roles.duplicate': 'اپنے کردار کے طور پر نقل بنائیں',
   'roles.editor.copy': '“{{name}}” سے نیا کردار',
   'roles.editor.edit': 'کردار: {{name}}',
   'roles.editor.new': 'نیا کردار',
+  'roles.granted_only': 'صرف دی گئی',
   'roles.groups': 'سپورٹ گروپس',
   'roles.groups_add': 'گروپ شامل کریں',
   'roles.groups_help':
@@ -760,10 +764,12 @@ export const ur: LabelResource = {
   'roles.has_rule': 'ایک قاعدے سے محدود',
   'roles.name': 'نام',
   'roles.new': 'نیا کردار',
+  'roles.no_permission_found': 'کوئی اجازت نہیں ملی',
   'roles.permissions': 'اجازتیں',
   'roles.reassign_to': 'صارفین کو منتقل کریں',
   'roles.saved': 'کردار محفوظ ہو گیا۔',
   'roles.scope_of': '{{permission}} کا دائرہ',
+  'roles.search': 'اجازت تلاش کریں',
   'roles.system_read_only':
     'پہلے سے موجود کردار تبدیل نہیں ہو سکتے۔ مختلف اجازتیں دینے کے لیے حسب ضرورت کردار بنائیں۔',
   'roles.title': 'کردار',
@@ -808,6 +814,20 @@ export const ur: LabelResource = {
   'security.invitations.status': 'حالت',
   'security.invitations.title': 'دعوت نامے',
   'security.invitations.valid_days': 'دعوت کے لنک کام کرتے ہیں',
+  'security.mfa.confirm_off_one':
+    'یہ کردار 1 فرد کے پاس ہے۔ سائن اِن دوسرا مرحلہ نہیں مانگے گا، چاہے اس نے سیٹ کیا ہو۔',
+  'security.mfa.confirm_off_other':
+    'یہ کردار {{count}} افراد کے پاس ہے۔ سائن اِن دوسرا مرحلہ نہیں مانگے گا، چاہے انہوں نے سیٹ کیا ہو۔',
+  'security.mfa.confirm_ok': 'بدلیں',
+  'security.mfa.confirm_optional_one':
+    'یہ کردار 1 فرد کے پاس ہے۔ وہ اسے سیٹ کر سکتا ہے، مگر سائن اِن اب اس کا تقاضا نہیں کرے گا۔',
+  'security.mfa.confirm_optional_other':
+    'یہ کردار {{count}} افراد کے پاس ہے۔ وہ اسے سیٹ کر سکتے ہیں، مگر سائن اِن اب اس کا تقاضا نہیں کرے گا۔',
+  'security.mfa.confirm_required_one':
+    'یہ کردار 1 فرد کے پاس ہے؛ ان میں سے {{missing}} نے ابھی اسے سیٹ کرنا ہے۔ جن کے پاس نہیں انہیں مہلت ملتی ہے، پھر وہ صرف اسے سیٹ کر سکتے ہیں۔',
+  'security.mfa.confirm_required_other':
+    'یہ کردار {{count}} افراد کے پاس ہے؛ ان میں سے {{missing}} نے ابھی اسے سیٹ کرنا ہے۔ جن کے پاس نہیں انہیں مہلت ملتی ہے، پھر وہ صرف اسے سیٹ کر سکتے ہیں۔',
+  'security.mfa.confirm_title': '{{role}} کے لیے دو مرحلہ سائن اِن {{mode}} کریں؟',
   'security.mfa.count': '{{holders}} میں سے {{enrolled}}',
   'security.mfa.enrolled': 'سیٹ اپ',
   'security.mfa.grace': 'لازمی ہونے کے بعد سیٹ اپ کے دن',

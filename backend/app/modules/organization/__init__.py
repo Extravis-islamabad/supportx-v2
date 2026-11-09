@@ -45,7 +45,7 @@ from app.modules.organization.service.email_branding import (
     header_html,
 )
 from app.modules.organization.service.file_access import FILE_ACCESS
-from app.modules.organization.service.hosts import HostTenant, tenant_for_host
+from app.modules.organization.service.hosts import HostTenant, tenant_for_host, tenant_for_slug
 from app.modules.organization.service.instance import (
     RegionalDefaults,
     offered_languages,
@@ -64,9 +64,11 @@ from app.modules.organization.service.structure import (
     find_site,
     leave_groups,
     register_group_disable_guard,
+    register_site_people_counter,
     site_defaults,
     unit_heads,
     unregister_group_disable_guard,
+    unregister_site_people_counter,
 )
 from app.modules.organization.service.tenants import get_current_tenant, record_tenant_provisioned
 from app.modules.organization.service.units import (
@@ -174,14 +176,17 @@ __all__ = [
     "register_calendar_check",
     "register_group_disable_guard",
     "register_member_guard",
+    "register_site_people_counter",
     "register_usage",
     "remove_member",
     "site_defaults",
     "tenant_for_host",
+    "tenant_for_slug",
     "unit_calendars",
     "unit_heads",
     "unregister_group_disable_guard",
     "unregister_member_guard",
+    "unregister_site_people_counter",
     "users_in_groups",
     "users_in_sites",
 ]

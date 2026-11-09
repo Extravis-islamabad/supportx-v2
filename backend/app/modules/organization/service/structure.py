@@ -355,6 +355,33 @@ async def site_members(session: AsyncSession) -> dict[uuid.UUID, list[uuid.UUID]
     return {k: sorted(v) for k, v in members.items()}
 
 
+# How many people have each site as their own (PEO-01). People live in identity_access, which
+# this module never reads, so identity_access registers the counter at start-up.
+SitePeopleCounter = Callable[[AsyncSession], Awaitable[dict[uuid.UUID, int]]]
+_SITE_PEOPLE: list[SitePeopleCounter] = []
+
+
+def register_site_people_counter(counter: SitePeopleCounter) -> None:
+    """At start-up: counts the people whose site is each site."""
+    if counter not in _SITE_PEOPLE:
+        _SITE_PEOPLE.append(counter)
+
+
+def unregister_site_people_counter(counter: SitePeopleCounter) -> None:
+    """At shutdown."""
+    if counter in _SITE_PEOPLE:
+        _SITE_PEOPLE.remove(counter)
+
+
+async def site_people(session: AsyncSession) -> dict[uuid.UUID, int]:
+    """People by their own site (none registered: nobody counted)."""
+    found: dict[uuid.UUID, int] = {}
+    for counter in _SITE_PEOPLE:
+        for site_id, count in (await counter(session)).items():
+            found[site_id] = found.get(site_id, 0) + count
+    return found
+
+
 async def find_site(session: AsyncSession, value: str) -> uuid.UUID | None:
     """An active site by its name, case-insensitive and trimmed (sign-in mapping, WP-039 D6)."""
     name = value.strip().lower()

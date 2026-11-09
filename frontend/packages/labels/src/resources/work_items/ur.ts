@@ -1691,7 +1691,7 @@ export const ur: LabelResource = {
   'work_item_view.known_errors': 'معلوم خرابیاں',
   'work_item_view.my_due_today': 'آج واجب',
   'work_item_view.my_groups_open': 'میرے گروپ، کھلے',
-  'work_item_view.my_open': 'میرے کھلے',
+  'work_item_view.my_open': 'مجھے تفویض، کھلے',
   'work_item_view.my_overdue': 'تاخیر شدہ',
   'work_item_view.open': 'تمام کھلے',
   'work_item_view.overdue': 'تاخیر شدہ',

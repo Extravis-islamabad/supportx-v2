@@ -1,6 +1,14 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { actionEntry, clickAction, expectAccessible, resetLanguage, signInAs } from './helpers';
+import {
+  actionEntry,
+  clickAction,
+  closeAppearance,
+  expectAccessible,
+  openAppearance,
+  resetLanguage,
+  signInAs,
+} from './helpers';
 
 /**
  * WP-020 incidents end to end in real browsers (parity file 01): a new incident with rich text
@@ -139,7 +147,7 @@ test('a new incident with rich text appears live for the technician; edits reach
   const subject = `E2E Printer ${stamp()}`;
   try {
     // The technician's list is open before the incident exists.
-    await (await openSelect(tech.page, 'inc-view')).getByText(/^My open/).click();
+    await (await openSelect(tech.page, 'inc-view')).getByText(/^Assigned to me, open/).click();
 
     // Logged through the form: requester, group, technician (with email as the second line),
     // impact and urgency with the priority shown live, a description in rich text.
@@ -319,10 +327,10 @@ test('incident screens are labelled and accessible in light, dark, high contrast
       window.localStorage.setItem('supportx.theme_mode', 'light');
     });
     await page.goto(`/incidents/${item.id}`);
-    await page.getByTestId('appearance-menu').click();
+    await openAppearance(page);
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();
-    await page.getByTestId('appearance-menu').click();
+    await closeAppearance(page);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByTestId('inc-status')).toHaveText('جديدة');
     await expect(page.getByTestId('inc-priority').first()).toContainText('P1 – حرجة');
