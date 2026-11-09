@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Se
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 
 from fastapi import Request
 from sqlalchemy import BigInteger, CheckConstraint, Index, String, Text, func, select
@@ -202,6 +202,53 @@ def current_automation(session: AsyncSession) -> Mapping[str, JsonValue] | None:
     return found if isinstance(found, Mapping) else None
 
 
+@dataclass(frozen=True)
+class SavedRecord:
+    """One save, as the audit sink sees it (WP-064): what was saved, how, and its change ID."""
+
+    record_type: str
+    subtype: str | None
+    record_id: uuid.UUID
+    version: int
+    kind: ChangeKind
+    changes: tuple[Change, ...]
+    source: Source
+    reason: str | None
+    change_id: uuid.UUID
+    automation_ref: JsonValue | None
+
+
+class AuditSink(Protocol):
+    """Where saves of audited record types go (WP-064, ADR-045): the audit module implements it.
+
+    Called inside the save's transaction, after its history rows, so the audit entry exists
+    exactly when the save commits. The port lives here so the audit module is never imported by
+    the modules whose records it audits (rule e).
+    """
+
+    def handles(self, record_type: str, subtype: str | None) -> bool:
+        """Whether saves of this record type get an audit entry."""
+        ...
+
+    async def saved(self, session: AsyncSession, record: SavedRecord) -> None:
+        """Write the save's one audit entry in `session`'s transaction."""
+        ...
+
+
+_audit_sink: AuditSink | None = None
+
+
+def register_audit_sink(sink: AuditSink | None) -> None:
+    """Set (or with None, clear) the audit sink; the audit module sets it when imported."""
+    global _audit_sink  # noqa: PLW0603 - one registry, set once by the audit module
+    _audit_sink = sink
+
+
+def audit_sink() -> AuditSink | None:
+    """The registered audit sink, if any (tests check the app and workers have one)."""
+    return _audit_sink
+
+
 async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     session: AsyncSession,
     *,
@@ -213,11 +260,15 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     source: Source,
     reason: str | None = None,
     automation_ref: JsonValue | None = None,
+    subtype: str | None = None,
 ) -> uuid.UUID:
     """Write one save's field changes (same transaction as the record). Returns the change ID.
 
-    `automation_ref` names the automation that made the change, if any (ADR-026).
+    `automation_ref` names the automation that made the change, if any (ADR-026). `subtype`
+    tells apart the kinds of a shared record type (a work item's `incident`, `problem` ...) for
+    the audit entry; history rows do not store it.
     """
+    changes = tuple(changes)
     change_id = new_id()
     batch_id = session.info.get(BATCH_KEY)
     if automation_ref is None:
@@ -275,6 +326,23 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     await session.flush()
     # The audit log links its entry for this request to the history it wrote (REQ-AUD-006).
     session.info.setdefault(CHANGE_IDS_KEY, []).append(change_id)
+    sink = _audit_sink
+    if sink is not None and sink.handles(record_type, subtype):
+        await sink.saved(
+            session,
+            SavedRecord(
+                record_type=record_type,
+                subtype=subtype,
+                record_id=record_id,
+                version=version,
+                kind=kind,
+                changes=changes,
+                source=source,
+                reason=reason,
+                change_id=change_id,
+                automation_ref=automation_ref,
+            ),
+        )
     return change_id
 
 
