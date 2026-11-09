@@ -113,9 +113,15 @@ async def picker(
     if placement is not None and placement.department_id is not None:
         holders.append(Asset.department_id == placement.department_id)
     staff = subject.holds(VIEW)
-    theirs = select(Asset).where(Asset.deleted_at.is_(None), or_(*holders))
-    if for_user is not None and for_user != subject.user_id and not staff:
+    for_someone_else = for_user is not None and for_user != subject.user_id
+    if for_someone_else and not staff:
         return []  # only staff pick for someone else
+    # Your own assets are yours to see; someone else's only within your own asset scope, so
+    # naming a person never shows assets outside your sites or groups (lane A's #307 review).
+    base = (
+        staff_rows(subject) if for_someone_else else select(Asset).where(Asset.deleted_at.is_(None))
+    )
+    theirs = base.where(or_(*holders))
     found: list[AssetRef] = [
         _ref(r, mine=True) for r in await session.scalars(theirs.order_by(Asset.name).limit(limit))
     ]

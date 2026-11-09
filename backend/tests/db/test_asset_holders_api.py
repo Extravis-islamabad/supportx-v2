@@ -322,6 +322,41 @@ async def test_the_picker_offers_a_persons_own_assets_first(world: World) -> Non
     assert any(r["name"] == "Picker printer" and not r["mine"] for r in by_staff)
 
 
+async def test_picking_for_someone_stays_within_your_asset_scope(world: World) -> None:
+    """Naming a person never shows assets outside your own scope (lane A's #307 review)."""
+    a = world.a
+    role = await world.call(
+        "POST",
+        "/roles",
+        a,
+        a.admin,
+        json={
+            "name": "Site asset viewer",
+            "permissions": [{"permission": "assets.view", "scope": "site"}],
+        },
+    )
+    assert role.status_code == 201, role.text
+    granted = await world.call("PUT", f"/users/{a.requester}/roles/{role.json()['id']}", a, a.admin)
+    assert granted.status_code in {200, 204}, granted.text
+    product = await _product(world, a, "laptop", "Scoped picker")
+    near = (
+        await _add(world, a, {"name": "Near", "product_id": product, "site_id": str(a.s1)})
+    ).json()
+    far = (
+        await _add(world, a, {"name": "Far", "product_id": product, "site_id": str(a.s2)})
+    ).json()
+    for asset in (near, far):  # both held by a person at the other site
+        assert (await _hold(world, asset, "user", a.requester2)).status_code == 200
+    picked = await world.call(
+        "GET", f"{BASE}/picker", a, a.requester, params={"for_user": str(a.requester2)}
+    )
+    assert picked.status_code == 200, picked.text
+    assert {r["id"] for r in picked.json()} == {near["id"]}  # S1 only: the viewer's site
+    # The holder still sees both of their own.
+    own = (await world.call("GET", f"{BASE}/picker", a, a.requester2)).json()
+    assert {r["id"] for r in own} == {near["id"], far["id"]}
+
+
 async def test_refs_mark_gone_and_hidden_assets_never_naming_them(world: World) -> None:
     from app.modules.assets import asset_refs, assets_of, can_see  # noqa: PLC0415 - the public interface under test
     from app.modules.identity_access import subject_for  # noqa: PLC0415 - as other modules call it
