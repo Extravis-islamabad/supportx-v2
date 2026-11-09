@@ -540,6 +540,7 @@ async def account_action(
 
 @router.get("/sessions", summary="Your signed-in browsers and devices")
 @entitlement_exempt
+@public_route  # like /me: the BFF's own session check (CurrentSession) answers 401 without one
 async def my_sessions(found: CurrentSession, auth: Auth) -> list[ListedSessionOut]:
     """Every session you have open in this organisation, the one you use now marked."""
     session_id, session = found
@@ -555,6 +556,7 @@ async def my_sessions(found: CurrentSession, auth: Auth) -> list[ListedSessionOu
     status_code=status.HTTP_204_NO_CONTENT,
 )
 @entitlement_exempt
+@public_route  # CurrentSession: a valid session (CSRF-checked, a DELETE) or 401
 async def end_my_session(
     listed_id: str, found: CurrentSession, auth: Auth, request: Request
 ) -> Response:
