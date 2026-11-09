@@ -44,6 +44,7 @@ import {
   useRefetchAfter,
   WriteButton,
   lengthLimit,
+  SPACE,
 } from '@supportx/ui';
 
 import { AnnouncementFields } from './AnnouncementForm';
@@ -453,28 +454,29 @@ function EditForm({
     );
   };
   return (
-    <Card>
+    <div>
       <AnnouncementFields
         form={form}
+        // Template B's bar (D-147): the refusal, then Cancel before Save, at the end side.
         footer={
-          <>
-            <FormProblem problem={problem} />
-            <Space>
-              <WriteButton
-                type="primary"
-                loading={update.isPending}
-                data-testid="ann-save"
-                onClick={() =>
-                  void form.handleSubmit((values) => {
-                    save(values, baseVersion, dirty());
-                  })()
-                }
-              >
-                {t('actions.save')}
-              </WriteButton>
-              <Button onClick={onDone}>{t('actions.cancel')}</Button>
-            </Space>
-          </>
+          <Flex align="center" gap={SPACE.sm} wrap>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <FormProblem problem={problem} />
+            </div>
+            <Button onClick={onDone}>{t('actions.cancel')}</Button>
+            <WriteButton
+              type="primary"
+              loading={update.isPending}
+              data-testid="ann-save"
+              onClick={() =>
+                void form.handleSubmit((values) => {
+                  save(values, baseVersion, dirty());
+                })()
+              }
+            >
+              {t('actions.save')}
+            </WriteButton>
+          </Flex>
         }
       />
       <ConflictDialog
@@ -500,6 +502,6 @@ function EditForm({
           });
         }}
       />
-    </Card>
+    </div>
   );
 }
