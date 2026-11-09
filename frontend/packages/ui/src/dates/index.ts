@@ -2,6 +2,7 @@ export {
   DateField,
   DateTimeField,
   DateTimeRangeField,
+  TimeZoneNote,
   type DateFieldProps,
   type DateTimeFieldProps,
   type DateTimeRangeFieldProps,

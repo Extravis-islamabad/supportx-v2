@@ -2,6 +2,7 @@ import { ar as shared } from './shared/ar.ts';
 import { ar as ai } from './ai/ar.ts';
 import { ar as analytics } from './analytics/ar.ts';
 import { ar as announcements } from './announcements/ar.ts';
+import { ar as assets } from './assets/ar.ts';
 import { ar as audit } from './audit/ar.ts';
 import { ar as automation } from './automation/ar.ts';
 import { ar as errors } from './errors/ar.ts';
@@ -24,6 +25,7 @@ export const ar: LabelResource = {
   ...ai,
   ...analytics,
   ...announcements,
+  ...assets,
   ...audit,
   ...automation,
   ...errors,
@@ -44,6 +46,7 @@ export const arByModule = {
   ai,
   analytics,
   announcements,
+  assets,
   audit,
   automation,
   errors,

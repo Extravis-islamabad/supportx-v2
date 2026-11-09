@@ -16,7 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import sla
 from app.modules.work_items.domain.classification import Priority
-from app.modules.work_items.domain.lifecycle import ServiceRequestStatus, StatusCategory
+from app.modules.work_items.domain.lifecycle import (
+    DEFAULT_STATUSES,
+    DONE_CATEGORIES,
+    ServiceRequestStatus,
+    StatusCategory,
+)
 from app.modules.work_items.domain.types import WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.access import FIELDS
@@ -136,7 +141,7 @@ def fired_changes(
     record: WorkItem, changed: Mapping[str, Any], fired: list[sla.Fired]
 ) -> list[Change]:
     """History lines of a firing: the SLA columns that moved, and each level that ran."""
-    lines = [Change(k, _plain(getattr(record, k)), _plain(v)) for k, v in changed.items()]
+    lines = [Change(k, plain(getattr(record, k)), plain(v)) for k, v in changed.items()]
     lines += [
         Change("sla_escalation", None, f"{f.kind}:{f.position}")
         for f in fired
@@ -205,7 +210,7 @@ async def sla_columns(
     return {k: v for k, v in stamp.columns().items() if getattr(record, k) != v}
 
 
-def _plain(value: object) -> object:
+def plain(value: object) -> object:
     """A history value: dates as ISO text, IDs as text."""
     if isinstance(value, datetime):
         return value.isoformat()
@@ -223,7 +228,7 @@ async def record_sla_history(
             record_id=record.id,
             version=record.version,
             kind="updated",
-            changes=[Change(k, _plain(before.get(k)), _plain(v)) for k, v in columns.items()],
+            changes=[Change(k, plain(before.get(k)), plain(v)) for k, v in columns.items()],
             source="sla",
         )
 
@@ -253,7 +258,7 @@ async def set_due(  # noqa: PLR0913 - the change and who makes it, explicit
 def due_change(record: WorkItem, kind: str, columns: Mapping[str, Any]) -> Change:
     """The history line of a due date set or cleared by hand."""
     column = DUE_COLUMNS[kind]
-    return Change(column, _plain(getattr(record, column)), _plain(columns.get(column)))
+    return Change(column, plain(getattr(record, column)), plain(columns.get(column)))
 
 
 SlaRecordView = sla.SlaRecordView
@@ -266,3 +271,34 @@ async def record_view(session: AsyncSession, record: WorkItem) -> sla.SlaRecordV
             policy_id=None, policy_name=None, reason=None, applied_at=None, targets=()
         )
     return await sla.record_sla(session, record.id)
+
+
+async def replay_from_creation(
+    session: AsyncSession, record: WorkItem, *, now: datetime
+) -> dict[str, Any]:
+    """A record's SLA as if it had applied from its creation; the columns to stamp on it.
+
+    For records saved before any SLA applied (the showcase's older incidents, Haider 2026-11-09).
+    The clocks run on the record's own times, through the same `on_change` as every save: start
+    at `created_at`; the first response at `first_responded_at`; the end at `resolved_at` or
+    `closed_at` for a finished record, else `now`, when an open one past its due breaches.
+    Pauses of the past are not known and not replayed: time spent waiting counts as open.
+    The record row is locked by the caller.
+    """
+    final = snapshot(record)
+    start = {**final, "status_category": StatusCategory.OPEN.value, "first_responded_at": None}
+    if final["status_category"] != StatusCategory.OPEN.value:
+        start["status"] = DEFAULT_STATUSES[0].code  # it started new
+    at = record.created_at
+    stamp = await sla.on_change(session, record.type, record.id, None, start, now=at)
+    before = start
+    if record.first_responded_at is not None:
+        responded = {**start, "first_responded_at": record.first_responded_at}
+        at = max(at, record.first_responded_at)
+        stamp = await sla.on_change(session, record.type, record.id, before, responded, now=at)
+        before = responded
+    finished = final["status_category"] in DONE_CATEGORIES
+    end = (record.resolved_at or record.closed_at) if finished else None
+    at = max(at, end or now)
+    stamp = await sla.on_change(session, record.type, record.id, before, final, now=at)
+    return dict(stamp.columns())

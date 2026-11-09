@@ -36,7 +36,8 @@ describe('Admin › Integrations › connector defaults', () => {
     const fake = api({
       me: {
         ...fakeSession({ roles: ['tenant_admin', 'technician'] }),
-        permissions: [...fakePermissions('tenant_admin'), grant('integrations.manage')],
+        // A tenant admin's own grants, no extra: the card follows what the server checks.
+        permissions: fakePermissions('tenant_admin'),
       },
       routes: {
         [`GET ${CATALOGUE}`]: { body: [] },
@@ -64,7 +65,7 @@ describe('Admin › Integrations › connector defaults', () => {
     expect(put?.headers.get('if-match')).toBe('"0"');
   });
 
-  it('is not shown without integrations.manage', async () => {
+  it('is not shown without integrations.manage_email', async () => {
     window.history.pushState({}, '', '/admin/integrations');
     api({
       me: {

@@ -82,6 +82,7 @@ class CustomFieldEntity(StrEnum):
     PROBLEM = "problem"  # WP-044a
     RELEASE = "release"  # WP-058a
     CHANGE = "change"  # WP-045a
+    ASSET = "asset"  # WP-049a s2 (REQ-AST-004)
 
 
 # entity → the permission that lets someone see the entity's fields (forms need them).
@@ -91,6 +92,7 @@ VIEW_PERMISSION: Mapping[CustomFieldEntity, str] = {
     CustomFieldEntity.PROBLEM: "problems.view",
     CustomFieldEntity.RELEASE: "releases.view",
     CustomFieldEntity.CHANGE: "changes.view",
+    CustomFieldEntity.ASSET: "assets.view",
 }
 # Where each entity's records (and their `custom` values) live: for the index worker (D-088).
 ENTITY_TABLE: Mapping[CustomFieldEntity, str] = {
@@ -99,6 +101,7 @@ ENTITY_TABLE: Mapping[CustomFieldEntity, str] = {
     CustomFieldEntity.PROBLEM: "work_items",
     CustomFieldEntity.RELEASE: "work_items",
     CustomFieldEntity.CHANGE: "work_items",
+    CustomFieldEntity.ASSET: "assets",
 }
 
 
