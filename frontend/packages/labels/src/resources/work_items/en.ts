@@ -626,7 +626,7 @@ export const en = {
   'incidents.links.add': 'Link',
   'incidents.links.comment': 'Comment (optional)',
   'incidents.links.delete': 'Remove link',
-  'incidents.links.delete_confirm': 'Remove this link from both incidents?',
+  'incidents.links.delete_confirm': 'Remove this link from both records?',
   'incidents.links.hidden': 'An incident you cannot see',
   'incidents.links.none': 'No linked incidents.',
   'incidents.links.other': 'Incident to link',

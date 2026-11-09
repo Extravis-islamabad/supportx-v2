@@ -693,7 +693,7 @@ export const ar: LabelResource = {
   'incidents.links.add': 'ربط',
   'incidents.links.comment': 'تعليق (اختياري)',
   'incidents.links.delete': 'إزالة الرابط',
-  'incidents.links.delete_confirm': 'إزالة هذا الرابط من الحادثتين؟',
+  'incidents.links.delete_confirm': 'إزالة هذا الرابط من السجلين؟',
   'incidents.links.hidden': 'حادثة لا يمكنك رؤيتها',
   'incidents.links.none': 'لا توجد حوادث مرتبطة.',
   'incidents.links.other': 'الحادثة المراد ربطها',

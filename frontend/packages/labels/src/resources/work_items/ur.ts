@@ -634,7 +634,7 @@ export const ur: LabelResource = {
   'incidents.links.add': 'منسلک کریں',
   'incidents.links.comment': 'تبصرہ (اختیاری)',
   'incidents.links.delete': 'ربط ہٹائیں',
-  'incidents.links.delete_confirm': 'یہ ربط دونوں واقعات سے ہٹائیں؟',
+  'incidents.links.delete_confirm': 'یہ ربط دونوں ریکارڈز سے ہٹائیں؟',
   'incidents.links.hidden': 'ایک واقعہ جو آپ نہیں دیکھ سکتے',
   'incidents.links.none': 'کوئی منسلک واقعہ نہیں۔',
   'incidents.links.other': 'منسلک کرنے کے لیے واقعہ',
