@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
-from app.modules.audit import RequestFacts, audited
+from app.modules.audit import AuditNote, RequestFacts, audited
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import Subject, user_contacts
 from app.modules.work_items.api.people import PersonOut, people_out
@@ -158,6 +158,10 @@ class MyApprovalsOut(BaseModel):
     people: dict[str, PersonOut]
 
 
+# The audit entry's outcome of a decision (QA9-F-03; lane B's audit.decision.* labels).
+OUTCOMES = {rules.Decision.APPROVE: "approved", rules.Decision.REJECT: "rejected"}
+
+
 class DecisionIn(BaseModel):
     """Approve or reject; a rejection needs a reason (REQ-SR-028)."""
 
@@ -251,7 +255,11 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: boo
                     facts=facts,
                     object_type=audit,
                     object_id=outcome.ref.record_id,
-                    details={"approval_id": str(outcome.ref.approval_id), "bulk": True},
+                    details={
+                        "approval_id": str(outcome.ref.approval_id),
+                        "bulk": True,
+                        "outcome": OUTCOMES[rules.Decision.APPROVE],  # bulk only approves
+                    },
                 )
         return BulkApproveOut(
             items=[
@@ -277,13 +285,12 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: boo
             people=people_out(await user_contacts(session, sorted(str(n) for n in names))),
         )
 
-    @router.post(
-        "/{record_id}/approvals/{approval_id}/decision",
-        summary="Approve or reject",
-        dependencies=[
-            audited(f"{audit}.approval_decided", object_type=audit, object_param="record_id")
-        ],
-    )
+    Decided = Annotated[  # noqa: N806 - type alias
+        AuditNote,
+        audited(f"{audit}.approval_decided", object_type=audit, object_param="record_id"),
+    ]
+
+    @router.post("/{record_id}/approvals/{approval_id}/decision", summary="Approve or reject")
     async def decide(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
         approval_id: uuid.UUID,
@@ -293,6 +300,7 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: boo
         subject: SignedIn,
         request: Request,
         response: Response,
+        note: Decided,
     ) -> ApprovalOut:
         """If-Match carries the approval's version; the first decision decides the stage."""
         client = request.headers.get("X-SupportX-Client")
@@ -310,6 +318,8 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: boo
             channel=channel,
             source=source_of(request),
         )
+        # Only once decided, the audit says which (QA9-F-03), labelled by lane B (#281).
+        note.details = {"outcome": OUTCOMES[body.decision]}
         set_etag(response, view.row.version)
         return ApprovalOut.of(view)
 
