@@ -45,6 +45,7 @@ import {
   useAppearance,
   useLabel,
   useLicence,
+  WriteButton,
 } from '@supportx/ui';
 
 import { UserPicker } from '../../incidents/pickers';
@@ -241,7 +242,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
         </Button>
       }
       primary={
-        <Button
+        <WriteButton
           type="primary"
           loading={busy}
           disabled={!dirty}
@@ -251,7 +252,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
           data-testid="cat-save"
         >
           {t('actions.save')}
-        </Button>
+        </WriteButton>
       }
       extra={
         <Space wrap>
