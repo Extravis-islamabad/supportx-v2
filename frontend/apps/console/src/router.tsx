@@ -44,6 +44,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-049a s5 (REQ-AST-030, 031): the loan register.
+            path: 'loans',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/LoansPage')).LoansPage,
+            }),
+          },
+          {
             // WP-049a s4 (REQ-AST-028): static and dynamic groups.
             path: 'groups',
             lazy: async () => ({

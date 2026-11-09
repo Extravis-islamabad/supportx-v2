@@ -79,6 +79,7 @@ export const queryKeys = {
     groupAssets: (id: string) => ['assets', 'groups', id] as const,
     mine: ['assets', 'mine'] as const,
     loans: ['assets', 'loans'] as const,
+    loanable: (q: string) => ['assets', 'loanable', q] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here

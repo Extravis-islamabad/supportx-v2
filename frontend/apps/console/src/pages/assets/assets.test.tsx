@@ -42,6 +42,7 @@ const state: AssetState = {
 const asset: AssetRecord = {
   id: '01900000-0000-7000-8000-00000000d001',
   name: 'Finance laptop',
+  loanable: false,
   product_id: '01900000-0000-7000-8000-00000000e001',
   product_type_id: type.id,
   state_id: state.id,
@@ -624,5 +625,55 @@ describe('console: assets', () => {
       filter: { field: 'state_id', op: 'eq', value: state.id },
     });
     expect(made?.headers.get('Idempotency-Key')).toBeTruthy();
+  });
+
+  it('loans: the register by name and status; a return to repair needs a comment', async () => {
+    const borrower = '01900000-0000-7000-8000-00000000b101';
+    const loan = {
+      id: 'l-1',
+      borrower_id: borrower,
+      starts_at: '2026-11-01T09:00:00Z',
+      due_at: '2026-11-08T17:00:00Z',
+      closed_at: null,
+      comment: null,
+      status: 'overdue',
+      outstanding: [asset.id],
+      assets: [
+        { id: asset.id, tag: 'AST-7', name: 'Finance laptop', returned_at: null, outcome: null },
+      ],
+      version: 1,
+    };
+    window.history.pushState({}, '', '/assets/loans');
+    const fake = assetsApi({
+      'GET /api/v1/assets/loans': { body: [loan] },
+      [`GET /api/v1/users/${borrower}`]: { body: { id: borrower, display_name: 'Sara Field' } },
+      'POST /api/v1/assets/loans/l-1/returns': {
+        body: { ...loan, status: 'closed', outstanding: [] },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const table = await screen.findByTestId('asset-loans');
+    expect(await within(table).findByText('Sara Field')).toBeTruthy();
+    expect(within(table).getByText('AST-7 Finance laptop')).toBeTruthy();
+    expect(screen.getByTestId('asset-loan-status-l-1').textContent).toBe('Overdue');
+    fireEvent.click(screen.getByTestId('asset-loan-return-open-l-1'));
+    const dialog = await screen.findByTestId('asset-loan-return');
+    fireEvent.click(within(dialog).getByText('To repair'));
+    const send = within(dialog).getByRole('button', { name: 'Take back' });
+    expect(send.hasAttribute('disabled')).toBe(true); // to repair says what is wrong
+    fireEvent.change(within(dialog).getByTestId('asset-loan-return-comment'), {
+      target: { value: 'Hinge broken' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Take back' }));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/assets/loans/l-1/returns')).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', '/api/v1/assets/loans/l-1/returns');
+    expect(sent?.body).toEqual({
+      asset_ids: [asset.id],
+      outcome: 'in_repair',
+      comment: 'Hinge broken',
+    });
   });
 });

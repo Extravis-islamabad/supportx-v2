@@ -78,6 +78,7 @@ async def test_a_loan_moves_assets_in_use_and_returns_bring_them_back(world: Wor
     mine = (await world.call("GET", f"{BASE}/mine", a, a.requester)).json()
     due = {m["id"]: m["loan_due_at"] for m in mine}
     assert due[one["id"]] == loan["due_at"]  # the borrower sees when it is due back
+    assert not any(m["loan_overdue"] for m in mine)
     for asset in (one, two):
         now = (await world.call("GET", f"{BASE}/{asset['id']}", a, a.admin)).json()
         assert (now["state_id"], now["owner_user_id"]) == (states["in_use"], str(a.requester))

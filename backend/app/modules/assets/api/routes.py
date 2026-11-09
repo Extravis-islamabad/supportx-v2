@@ -874,6 +874,7 @@ class MyAssetOut(BaseModel):
     through_department: bool
     acknowledgement: AcknowledgementOut | None
     loan_due_at: datetime | None = Field(description="When it is due back, while out on a loan.")
+    loan_overdue: bool = Field(default=False, description="Out on a loan past its due time.")
 
 
 class AcknowledgementAnswerIn(BaseModel):
@@ -903,6 +904,7 @@ async def my_assets(session: TenantSession, subject: SignedIn) -> list[MyAssetOu
     """Mine, and my department's when the organisation shows them; live (REQ-AST-024)."""
     held = await acknowledgements.mine(session, subject)
     due = await loans.due_dates(session, [m.asset.id for m in held])
+    now = system_clock.now()
     return [
         MyAssetOut(
             id=m.asset.id,
@@ -913,6 +915,7 @@ async def my_assets(session: TenantSession, subject: SignedIn) -> list[MyAssetOu
             through_department=m.through_department,
             acknowledgement=None if m.acknowledgement is None else _ack_out(m.acknowledgement),
             loan_due_at=due.get(m.asset.id),
+            loan_overdue=m.asset.id in due and due[m.asset.id] <= now,
         )
         for m in held
     ]

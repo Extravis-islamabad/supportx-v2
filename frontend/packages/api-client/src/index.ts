@@ -929,6 +929,7 @@ export {
   useAssetRelations,
   useAssetLoans,
   useLoanActions,
+  useLoanableAssets,
   type AssetLoan,
   type AssetHolding,
   type AssetLink,

@@ -45,6 +45,24 @@ function portal(routes: Record<string, unknown>) {
 }
 
 describe('portal: my assets', () => {
+  it('a loaned asset says when it is due back, in red once that has passed', async () => {
+    window.history.pushState({}, '', '/my-assets');
+    const later = { ...LAPTOP, acknowledgement: null, loan_due_at: '2999-01-01T09:00:00Z' };
+    const late = {
+      ...later,
+      id: 'late-1',
+      name: 'Projector',
+      loan_due_at: '2020-01-01T09:00:00Z',
+      loan_overdue: true,
+    };
+    portal({ 'GET /api/v1/assets/mine': { body: [later, late] } });
+    render(<App />);
+    const due = await screen.findByTestId(`my-asset-due-${LAPTOP.id}`);
+    expect(due.textContent).toMatch(/^Due back /);
+    expect(due.getAttribute('data-tone')).toBe('warning');
+    expect(screen.getByTestId('my-asset-due-late-1').getAttribute('data-tone')).toBe('error');
+  });
+
   it('lists what I hold; accepting answers once, a dispute needs a comment', async () => {
     window.history.pushState({}, '', '/my-assets');
     const fake = portal({

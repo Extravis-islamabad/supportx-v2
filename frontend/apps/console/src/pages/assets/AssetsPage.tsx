@@ -23,6 +23,7 @@ import {
   useAssetRelations,
   useAssetRecords,
   useAssetStates,
+  useLoanActions,
   type AssetRecord,
 } from '@supportx/api-client';
 import { refreshList, useListChannel, useTenantChannel } from '@supportx/realtime';
@@ -89,6 +90,7 @@ export function AssetsPage() {
   const groups = useAssetGroups(bulkAllowed);
   const staticGroups = groups.data?.filter((g) => g.kind === 'static');
   const { addMembers } = useAssetRelations();
+  const { setLoanable } = useLoanActions();
   const { message } = App.useApp();
   const selectedRows = useMemo(
     () => rows.filter((row) => selected.includes(row.id)),
@@ -135,6 +137,9 @@ export function AssetsPage() {
             </Link>
             <Link to="/assets/groups" data-testid="assets-groups-link">
               {t('assets.groups.title')}
+            </Link>
+            <Link to="/assets/loans" data-testid="assets-loans-link">
+              {t('assets.loans.title')}
             </Link>
             {access.can('assets.manage') && (
               <WriteButton
@@ -222,6 +227,25 @@ export function AssetsPage() {
               }}
               data-testid="assets-add-to-group"
             />
+            {/* REQ-AST-029: the selection goes on loans from now on. */}
+            <WriteButton
+              loading={setLoanable.isPending}
+              onClick={() => {
+                setLoanable.mutate(
+                  { assetIds: selected, loanable: true },
+                  {
+                    onSuccess: () => {
+                      void message.success(t('assets.loanable.done'));
+                      setSelected([]);
+                    },
+                    onError: reportError,
+                  },
+                );
+              }}
+              data-testid="assets-make-loanable"
+            >
+              {t('assets.loanable.make')}
+            </WriteButton>
           </Flex>
         )}
       </Flex>

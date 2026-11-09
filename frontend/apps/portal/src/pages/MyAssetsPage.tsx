@@ -151,6 +151,15 @@ export function MyAssetsPage() {
                       {row.through_department && (
                         <ToneTag tone="default">{t('my_assets.department')}</ToneTag>
                       )}
+                      {/* On a loan: when it is due back; red once past, live from the overdue notice. */}
+                      {row.loan_due_at != null && (
+                        <ToneTag
+                          tone={row.loan_overdue ? 'error' : 'warning'}
+                          testId={`my-asset-due-${row.id}`}
+                        >
+                          {t('my_assets.due', { date: format(row.loan_due_at) })}
+                        </ToneTag>
+                      )}
                     </Space>
                   }
                   description={

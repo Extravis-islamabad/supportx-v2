@@ -528,6 +528,18 @@ export function useAssetLoans(enabled = true) {
   });
 }
 
+/** What can go on a new loan now (loanable, in stock, not out), searched by `q`. */
+export function useLoanableAssets(q: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.assets.loanable(q),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/loanable', { params: { query: { q: q === '' ? undefined : q } } }),
+      ),
+    enabled,
+  });
+}
+
 /** Make loans, take assets back, mark assets loanable; every asset query refetches after. */
 export function useLoanActions() {
   const queryClient = useQueryClient();
