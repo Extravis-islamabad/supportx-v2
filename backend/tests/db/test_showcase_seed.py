@@ -112,7 +112,7 @@ async def _states(url: str) -> Counter[str]:
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
             rows = await conn.fetch(
                 "SELECT type, status, technician_id, known_error_at IS NOT NULL AS known"
-                " FROM work_items"
+                " FROM work_items WHERE type <> 'release'"
             )
     finally:
         await conn.close()
@@ -209,12 +209,13 @@ async def _backdating_is_consistent(url: str) -> list[str]:
         rows = await conn.fetch(
             "SELECT w.display_id, w.created_at, w.first_responded_at, w.resolved_at,"
             " w.closed_at, t.created_at AS tenant_created"
-            " FROM work_items w JOIN tenants t ON t.id = w.tenant_id WHERE w.tenant_id = $1",
+            " FROM work_items w JOIN tenants t ON t.id = w.tenant_id"
+            " WHERE w.tenant_id = $1 AND w.type = 'incident'",  # what step 5 spreads
             seed.TENANT_ID,
         )
         history_ahead = await conn.fetchval(
             "SELECT count(*) FROM field_changes f JOIN work_items w ON w.id = f.record_id"
-            " WHERE f.record_type = 'work_item' AND w.tenant_id = $1"
+            " WHERE f.record_type = 'work_item' AND w.tenant_id = $1 AND w.type = 'incident'"
             " AND f.occurred_at < w.created_at - interval '1 second'",
             seed.TENANT_ID,
         )
@@ -258,7 +259,10 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         assert first.rules == len(lane_a.RULES) == 3
         assert first.managers == sum(p.user_type == "requester" for p in seed.PEOPLE) + 1
         assert first.dashboard
-        assert first.backdated == 70  # spread over the past 30 days (choice (b))
+        # QA6-DATA-01: knowledge and releases to show, not empty modules.
+        assert first.articles == len(seed.KB_ARTICLES) == 5
+        assert first.releases == len(seed.RELEASES) == 2
+        assert first.backdated == 70  # spread over the past 30 days (choice (b)); not releases
         assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
         assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
         # The password is the environment's, set only on the users made here.
@@ -268,7 +272,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         assert {u["email"] for u in keycloak.users.values()} == {s.email for s in seed.SIGN_INS}
         counts = asyncio.run(_counts(database.migrator_url, seed.TENANT_ID))
         assert counts["users"] == len(seed.PEOPLE) + len(seed.SIGN_INS)
-        assert counts["work_items"] == 70
+        assert counts["work_items"] == 70 + len(seed.RELEASES)
         assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
         assert asyncio.run(_states(database.migrator_url)) == {
             "service_request awaiting_approval": 2,
@@ -294,11 +298,13 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
             second.incidents,
             second.dashboard,
             second.catalog_published,
+            second.articles,
+            second.releases,
             second.service_requests,
             second.problems,
             second.managers,
             second.rules,
-        ) == ([], [], 0, False, 0, 0, 0, 0, 0)
+        ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0)
         assert second.backdated == 0  # idempotent: the targets are fixed
         assert asyncio.run(_audit_chain(database.app_url)) == "passed"
         # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the

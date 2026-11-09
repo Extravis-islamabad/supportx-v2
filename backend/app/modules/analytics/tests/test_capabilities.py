@@ -1,11 +1,20 @@
-"""Export formats offered only when they can be made (QA6-RPT-01). No Valkey needed."""
+"""Export formats offered only when they can be made (QA6-RPT-01). No Valkey needed.
+
+These tests also run inside the PDF worker image, which has no backend/conftest.py, so they build
+their settings here (never `from conftest import ...`).
+"""
 
 import pytest
 
+from app.core.config import Settings
 from app.modules.analytics.service import capabilities
-from conftest import make_settings
 
 DOWN = "unreachable"
+
+
+def make_settings(**overrides: object) -> Settings:
+    """Test settings with no Valkey, never read from an environment file."""
+    return Settings(_env_file=None, profile="test", tracing_enabled=False, **overrides)  # type: ignore[call-arg, arg-type]  # pydantic-settings' init keyword, validated values
 
 
 def _renderer() -> object:
