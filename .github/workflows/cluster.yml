@@ -135,6 +135,12 @@ jobs:
         if: ${{ steps.changes.outputs.run != 'false' }}
         with:
           version: v4.3.1
+      - name: Helm chart dependencies (cached by Chart.lock)
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deploy/helm/supportx/charts/*.tgz
+          key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
       # The images, the cluster and the e2e browsers fill the runner's disk: k3s then evicts
       # pods for low ephemeral storage (Valkey, 2026-11-04). Unused toolchains go first.
       - &free-disk
@@ -217,6 +223,12 @@ jobs:
         if: ${{ steps.changes.outputs.run != 'false' }}
         with:
           version: v4.3.1
+      - name: Helm chart dependencies (cached by Chart.lock)
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deploy/helm/supportx/charts/*.tgz
+          key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
       # Four k3d nodes each hold their own copy of the images: the runner's disk ran out
       # (evictions at "low on resource: ephemeral-storage"). Toolchains this job never uses go.
       - *free-disk
@@ -269,6 +281,11 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.3.1
+      - name: Helm chart dependencies (cached by Chart.lock)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deploy/helm/supportx/charts/*.tgz
+          key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
       - *install-k3d
       - uses: ./.github/actions/setup-backend
       - uses: ./.github/actions/setup-frontend
