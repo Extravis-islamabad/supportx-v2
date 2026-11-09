@@ -149,6 +149,8 @@ export const ur: LabelResource = {
     'اس کردار کو پہلے دو مرحلہ سائن اِن سیٹ اپ کرنا ہوگا: پہلے سے اندراج کے لیے make showcase-seed چلائیں۔',
   'dev_sign_in.reason.not_showcase': 'یہ کردار Showcase Company کا رکن نہیں۔',
   'dev_sign_in.sets_up_mfa': 'دو مرحلہ سائن اِن سیٹ اپ کرتا ہے',
+  'dev_sign_in.setup_link_sent':
+    'ہم نے {{email}} کو دو مرحلہ سائن اِن سیٹ اپ کرنے کا لنک ای میل کیا ہے۔ اسے 15 منٹ کے اندر مقامی میل کیچر (Mailpit) میں کھولیں۔',
   'dev_sign_in.title': 'فوری سائن اِن (صرف ڈیولپمنٹ)',
   'dev_sign_in.unavailable':
     'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
