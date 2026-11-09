@@ -63,7 +63,7 @@ const OWN: ColumnSpec[] = [
   {
     key: 'display_id',
     sortField: 'display_number',
-    width: 120,
+    width: 110,
     title: (c) => c.t('incidents.col.id'),
     // The channel it came from in front of the ID (UI pass 2), named by its label.
     render: (row) => (
@@ -95,14 +95,14 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'status',
-    width: 150,
+    width: 130,
     title: field('status'),
     render: (row, c) => <StatusTag status={row.status} catalogue={c.catalogue} />,
   },
   {
     key: 'priority',
     sortField: 'priority',
-    width: 110,
+    width: 120,
     title: field('priority'),
     render: (row) => <PriorityTag priority={row.priority} source={row.priority_source} />,
   },
@@ -121,7 +121,7 @@ const OWN: ColumnSpec[] = [
   {
     key: 'resolution_due_at',
     sortField: 'resolution_due_at',
-    width: 160,
+    width: 150,
     title: (c) => c.t('incidents.col.due'),
     render: (row, c) => (
       <SlaTag
