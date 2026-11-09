@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deviceLabel } from './present';
+import { actionLabel, deviceLabel } from './present';
 
 // AUD-01: the browser's own string, as people say it. The label is the template itself here.
 const t = (key: string, params?: Record<string, unknown>) =>
@@ -33,5 +33,22 @@ describe('deviceLabel', () => {
     ['curl/8.9.1', 'device_unknown'],
   ])('%s', (agent, expected) => {
     expect(deviceLabel(t, agent)).toBe(expected);
+  });
+});
+
+describe('actionLabel', () => {
+  const plain = (key: string) => key;
+  it('names the outcome of an approval decision when the entry records one (QA9-F-03)', () => {
+    const entry = { action: 'service_request.approval_decided', details: { outcome: 'rejected' } };
+    expect(actionLabel(plain, entry)).toBe(
+      'audit.decision.service_request.approval_decided.rejected',
+    );
+  });
+  it('keeps the general label for older entries and unknown outcomes', () => {
+    for (const details of [{}, { outcome: 'maybe' }, { outcome: 3 }]) {
+      expect(actionLabel(plain, { action: 'service_request.approval_decided', details })).toBe(
+        'audit.action.service_request.approval_decided',
+      );
+    }
   });
 });

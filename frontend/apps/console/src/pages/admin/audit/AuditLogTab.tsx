@@ -19,7 +19,7 @@ import { useListChannel } from '@supportx/realtime';
 import { FormProblem, useDateTime, useFormProblem, useLabel, lengthLimit } from '@supportx/ui';
 
 import { AuditEntryDrawer } from './AuditEntryDrawer';
-import { actorLabel, objectLabel, OUTCOME_COLOURS } from './present';
+import { actionLabel, actorLabel, objectLabel, OUTCOME_COLOURS } from './present';
 import { StateTag } from './StateTag';
 
 /** Every action code that has a label (the catalogue lives in the backend; labels mirror it). */
@@ -275,7 +275,7 @@ export function AuditLogTab() {
           {
             key: 'action',
             title: t('audit.ui.col.action'),
-            render: (_, entry) => t(`audit.action.${entry.action}`),
+            render: (_, entry) => actionLabel(t, entry),
           },
           { key: 'object', title: t('audit.ui.col.object'), render: (_, e) => objectLabel(t, e) },
           {
