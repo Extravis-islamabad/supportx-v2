@@ -247,6 +247,17 @@ describe('Admin › SLA › Working calendars', () => {
     expect(screen.queryByTestId('sla-calendar-delete-cal-riyadh')).toBeNull();
   });
 
+  it('coverage §17 (b): a technician has no Admin link, yet opens the SLA calendars read-only by URL', async () => {
+    window.history.pushState({}, '', '/admin/sla/calendars');
+    api({ me: TECH, routes: ROUTES });
+    render(<App />);
+    await screen.findByTestId('sla-calendar-row-cal-riyadh');
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    expect(within(nav).queryByText('Admin')).toBeNull();
+    expect(screen.queryByText(/you do not have permission/i)).toBeNull();
+    expect(screen.queryByTestId('sla-calendar-add')).toBeNull();
+  });
+
   it('counts a night period once, across midnight', () => {
     expect(weekMinutes([{ weekday: 0, start: '22:00', end: '06:00' }])).toBe(8 * 60);
     expect(weekMinutes([{ weekday: 0, start: '16:00', end: '24:00' }])).toBe(8 * 60);

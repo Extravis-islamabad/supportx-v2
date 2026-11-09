@@ -69,6 +69,11 @@ const TECHNICIAN: Grant[] = [
   ['incidents.cancel', 'group'],
 ];
 const ADMIN_EXTRA: Grant[] = [
+  // Setup pages' own rights (the admin role holds every permission on the backend), so the
+  // setup layout's access gate opens them as for a real admin (coverage 2026-11-09 §17).
+  ['branding.manage', 'all'],
+  ['config.service_desk', 'all'],
+  ['config.organisation', 'all'],
   ['config.assets', 'all'], // WP-049a: the asset catalogue
   ['vendors.create', 'all'],
   ['vendors.manage', 'all'],
