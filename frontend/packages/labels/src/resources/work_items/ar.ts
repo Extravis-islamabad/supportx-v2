@@ -1032,6 +1032,7 @@ export const ar: LabelResource = {
   'portal.service_requests.step_done': 'تم',
   'portal.service_requests.title': 'طلبات الخدمة الخاصة بي',
   'portal_reach.all': 'الجميع',
+  'portal_reach.approver': 'أنا الموافِق عليه',
   'portal_reach.department': 'قسمي',
   'portal_reach.own': 'طلباتي',
   'portal_reach.reports': 'مرؤوسيّ المباشرون',

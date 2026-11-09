@@ -26,6 +26,7 @@ from app.modules.identity_access import Subject
 from app.modules.work_items.domain.conversation import EntryKind, Visibility
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemConversation
+from app.modules.work_items.service import approval_stage
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.realtime import RECORD_KIND
 from app.shared.files.ports import Action, Actor, Owner, OwnerType
@@ -100,7 +101,11 @@ class WorkItemFileAccess:
             else:
                 await items.record_for_action(session, subject, wtype, "edit", record_id)
         except AppError:
-            if not _requester_side(subject, record):
+            # An approver reads the request's own files to decide (QA10-P2-06), never more.
+            approver = action == Action.VIEW and await approval_stage.is_named_approver(
+                session, subject.user_id, record_id
+            )
+            if not _requester_side(subject, record) and not approver:
                 raise
             if action == Action.REMOVE:
                 raise _staff_only() from None

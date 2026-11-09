@@ -135,6 +135,8 @@ class ServiceRequestNotifications:
             record_id=record.id,
             display_id=record.display_id,
             link=f"/requests/{record.id}",
+            # An approver without console access opens it in the portal, read-only (QA10-P2-06).
+            public_link=f"/service-requests/{record.id}",
             variables=variables,
             public_variables=variables,
             relatives=relatives,

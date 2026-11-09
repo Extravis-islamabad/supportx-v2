@@ -936,6 +936,7 @@ export const en = {
   'portal.service_requests.step_done': 'Done',
   'portal.service_requests.title': 'My service requests',
   'portal_reach.all': 'Everyone',
+  'portal_reach.approver': 'I approve it',
   'portal_reach.department': 'My department',
   'portal_reach.own': 'Mine',
   'portal_reach.reports': 'My direct reports',

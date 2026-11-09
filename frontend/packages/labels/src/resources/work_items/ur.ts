@@ -945,6 +945,7 @@ export const ur: LabelResource = {
   'portal.service_requests.step_done': 'مکمل',
   'portal.service_requests.title': 'میری سروس درخواستیں',
   'portal_reach.all': 'سب',
+  'portal_reach.approver': 'میں منظوری دینے والا ہوں',
   'portal_reach.department': 'میرا شعبہ',
   'portal_reach.own': 'میری',
   'portal_reach.reports': 'میرے براہِ راست ماتحت',
