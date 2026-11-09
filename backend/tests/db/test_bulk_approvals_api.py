@@ -72,9 +72,9 @@ async def test_not_more_than_twenty_and_nobody_else_s_approvals(world: World) ->
         "POST", f"{SR}/approvals/decisions", a, a.tech_a, json={"items": too_many}
     )
     # The request schema stops a 21st item (lane B's review: the same limit as the service).
-    assert field_codes(refused) == {"items": "too_long"}
+    assert field_codes(refused) == {"items": "too_many_values"}  # QA6-AUT-01: no Pydantic codes
     errors = {e["field"]: e for e in refused.json()["errors"]}
-    assert errors["body.items"]["params"]["max_length"] == 20
+    assert errors["body.items"]["params"]["max"] == 20
     await manager_of(world, a.requester, a.tech_a)
     record = await waiting(world, a)
     [entry] = await approvals(world, a, a.tech_a, record)

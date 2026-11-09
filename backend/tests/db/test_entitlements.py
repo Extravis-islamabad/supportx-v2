@@ -178,7 +178,7 @@ async def test_entitlements_endpoint(client: AsyncClient, migrated_db: Throwaway
     assert "esm" not in body["features"]
     limits = {item["key"]: item for item in body["limits"]}
     assert limits["technicians"] == {"key": "technicians", "limit": 3, "used": 2, "remaining": 1}
-    assert limits["assets"]["used"] is None  # no module counts assets yet
+    assert limits["assets"]["used"] == 0  # the assets module counts them; this tenant has none
     assert body["admin_warning"] is False
     assert body["term"]["grace_days"] == 14
     secrets = {"signature", "customer", "licence_id", "installation_id", "fingerprint"}

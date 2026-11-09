@@ -316,6 +316,24 @@ to `backend/.env` (dev profile only; production always ignores the header). How 
 tables and their data. Backend tests never touch the `supportx` database: they create throwaway
 `supportx_test_*` databases and drop them afterwards.
 
+### Incoming e-mail on dev (QA6-NTF-01)
+
+Mailpit only catches **outgoing** mail, so the dev stack has no mailbox to fetch from. To test
+"an e-mail creates an incident" or "a reply by e-mail lands on its record", feed a message into
+the real inbound pipeline (the same claim, routing, create or reply, and held queue as fetched
+mail):
+
+```sh
+make mail-inbound-test ARGS="--create"            # first time: a dev mailbox, then one mail
+make mail-inbound-test ARGS="--from rana@demo.test --subject 'Printer jam' --body 'It jams.'"
+make mail-inbound-test ARGS="--in-reply-to '<message-id@...>'"   # a reply on its record
+make mail-inbound-test ARGS="--eml ~/Downloads/message.eml"      # a real message as it is
+```
+
+`--create` adds `dev-inbound@<tenant>.test` with an unreachable IMAP host, so its scheduled fetch
+shows that it can't connect: expected. Sending the same `.eml` twice is skipped the second time
+(one Message-ID, once), as for fetched mail.
+
 ## 5. Resetting safely
 
 `make dev-down` never deletes data. To wipe **all** local dev data and start fresh:

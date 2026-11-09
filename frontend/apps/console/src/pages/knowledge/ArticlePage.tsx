@@ -246,9 +246,12 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
               />
             </Card>
           )}
-          <div ref={body} dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
-            <RichTextView html={shown?.body_html ?? null} testId="kb-body" />
-          </div>
+          {/* The article on a white card, not the grey page (QA6-KB-05). */}
+          <Card size="small">
+            <div ref={body} dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
+              <RichTextView html={shown?.body_html ?? null} testId="kb-body" />
+            </div>
+          </Card>
           {shown?.status === 'published' && <HelpfulPrompt article={article} version={shown} />}
           <Tabs
             data-testid="kb-tabs"

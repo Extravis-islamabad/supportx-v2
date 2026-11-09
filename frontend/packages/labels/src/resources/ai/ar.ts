@@ -48,6 +48,7 @@ export const ar: LabelResource = {
   'ai_settings.master': 'استخدام الذكاء الاصطناعي',
   'ai_settings.master_help': 'إيقاف: لا تعمل أي ميزة ذكاء اصطناعي لأي شخص ولا يُستدعى أي نموذج.',
   'ai_settings.model': 'النموذج',
+  'ai_settings.model_none': 'لا يوجد نموذج ذكاء اصطناعي متصل بهذا الخادم.',
   'ai_settings.model_value': '{{model}} ({{where}})',
   'ai_settings.no_training':
     'لا تُستخدم محادثاتك مع الذكاء الاصطناعي أبدًا لتدريب أي نموذج. يُحتفظ بنصها للمدة أدناه فقط ثم يُحذف، وكل حذف مسجّل في سجل التدقيق.',
@@ -85,6 +86,8 @@ export const ar: LabelResource = {
   'audit.action.ai.summaries_erased': 'حُذفت ملخصات المحادثات التي قد تذكر شخصًا مُحيت بياناته',
   'errors.ai_call_not_found': 'إجابة الذكاء الاصطناعي هذه غير موجودة أو ليست لك.',
   'errors.ai_feature_off': 'ميزة الذكاء الاصطناعي هذه متوقفة لمؤسستك.',
+  'errors.ai_not_configured':
+    'الذكاء الاصطناعي غير مُعدّ على هذا الخادم. اطلب من المسؤول ربط نموذج.',
   'errors.ai_record_not_visible':
     'لا يمكنك رؤية هذا السجل، لذا لا يمكن للذكاء الاصطناعي العمل عليه.',
   'errors.ai_summary_nothing': 'لا يوجد ما يُلخَّص بعد: لا وصف ولا ردود ولا ملاحظات.',

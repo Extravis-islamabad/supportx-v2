@@ -22,6 +22,7 @@ import {
   queryKeys,
   useMyExports,
   useReportSettings,
+  useExportFormats,
   useRequestExport,
   useUpdateReportSettings,
   type ReportDefinition,
@@ -71,6 +72,8 @@ export function ExportButton({
   const { locale } = useAppearance();
   const { message } = AntApp.useApp();
   const request = useRequestExport();
+  // Only formats this installation can make now: no PDF without its worker (QA6-RPT-01).
+  const offered = useExportFormats();
   // Refusals (queue full, too many rows) at the dialog; failures as the app's toast (D-105).
   const problem = useFormProblem();
   const [open, setOpen] = useState(false);
@@ -128,7 +131,9 @@ export function ExportButton({
               onChange={(event) => {
                 setFormat(event.target.value as Format);
               }}
-              options={FORMATS.map((f) => ({ value: f, label: t(`report_export_format.${f}`) }))}
+              options={FORMATS.filter((f) => (offered.data ?? ['xlsx', 'csv']).includes(f)).map(
+                (f) => ({ value: f, label: t(`report_export_format.${f}`) }),
+              )}
               data-testid="report-export-format"
             />
           </Form.Item>

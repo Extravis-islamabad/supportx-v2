@@ -283,6 +283,9 @@ export const ur: LabelResource = {
   'knowledge.types.restore': 'بحال کریں',
   'knowledge.types.restored_done': 'قسم بحال ہو گئی۔',
   'knowledge.types.retire': 'ریٹائر کریں',
+  'knowledge.types.retire_confirm': '{{name}} ریٹائر کریں؟',
+  'knowledge.types.retire_explain':
+    'یہ نئے مضامین کے لیے پیش نہیں ہوگا۔ جن مضامین میں یہ ہے وہ اسے رکھیں گے، اور آپ اسے بحال کر سکتے ہیں۔',
   'knowledge.types.retired': 'ریٹائر',
   'knowledge.types.retired_done': 'قسم ریٹائر ہو گئی۔',
   'knowledge.types.saved': 'قسم محفوظ ہو گئی۔',

@@ -19,6 +19,7 @@ from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "InstanceOut.status": "workflow_instance_status",  # WP-048b
     "AiSettingsOut.summary_sources[]": "ai_summary_source",
     "DuplicateOut.reasons[]": "duplicate_reason",
     "DuplicatesOut.method": "duplicate_method",
@@ -119,6 +120,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ResultOrder": "report_order",
     "ReportExportIn.content": "report_export_content",
     "ReportExportIn.format": "report_export_format",
+    "ExportFormatsOut.formats[]": "report_export_format",
     "ReportExportIn.language": "locale",
     "ReportExportOut.status": "report_export_status",
     "ReportSettingsOut.week_start": "report_week_start",

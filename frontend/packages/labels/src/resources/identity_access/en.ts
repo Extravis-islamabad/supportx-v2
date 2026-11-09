@@ -35,6 +35,7 @@ export const en = {
     'Required for your roles: after your password, you enter a code from an authenticator app.',
   'account.mfa.reminder':
     'Your organisation requires two-step sign-in. Set it up by {{date}}; after that you will be asked to before anything else.',
+  'account.mfa.reminder_close': 'Hide this reminder until you next sign in',
   'account.mfa.reminder_short': 'Two-step sign-in due {{date}}',
   'account.mfa.set_up': 'Set up two-step sign-in',
   'account.mfa.set_up_short': 'Set up',
@@ -641,6 +642,11 @@ export const en = {
   'permission.work_items.view_reports': 'View requests of their direct reports',
   'permission.work_items.view_reports.description':
     'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
+  'permission.workflows.manage': 'Manage workflows',
+  'permission.workflows.manage.description':
+    'Design, publish and switch visual workflows, and choose the roles they run with.',
+  'permission.workflows.run': 'Run workflows',
+  'permission.workflows.run.description': 'Start a workflow on a record and see how its runs went.',
   'permission_module.announcements': 'Announcements',
   'permission_module.api_keys': 'API keys',
   'permission_module.assets': 'Assets',
@@ -674,6 +680,7 @@ export const en = {
   'permission_module.users': 'Users',
   'permission_module.vendors': 'Vendors',
   'permission_module.work_items': 'All requests (incidents and service requests)',
+  'permission_module.workflows': 'Workflows',
   'preferences.date_format': 'Date format',
   'preferences.default': 'Default',
   'preferences.default_value': 'Default ({{value}})',
@@ -692,6 +699,7 @@ export const en = {
   'presence.you_elsewhere': 'You (another window)',
   'profile.form_density_help': 'Compact shows two columns with labels on the left.',
   'profile.identity': 'Name, email and language come from your sign-in account.',
+  'profile.replies_card': 'Replies and time zone',
   'profile.saved': 'Your preferences were saved.',
   'profile.signature': 'Reply signature',
   'profile.signature_help': 'Added to the replies you send.',

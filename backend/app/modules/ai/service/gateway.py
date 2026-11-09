@@ -37,7 +37,13 @@ from app.modules.ai.domain.features import feature as feature_spec
 from app.modules.ai.domain.masking import CLOSE, OPEN, mask, restore
 from app.modules.ai.service import calls
 from app.modules.ai.service.embeddings import Embeddings, EmbeddingWidthError, Hit
-from app.modules.ai.service.providers import ChatRequest, Message, Provider, ProviderError
+from app.modules.ai.service.providers import (
+    ChatRequest,
+    Message,
+    Provider,
+    ProviderError,
+    ProviderNotConfigured,
+)
 from app.modules.ai.service.records import may_see
 from app.modules.ai.service.settings import feature_on, settings_row
 from app.modules.identity_access import Subject
@@ -244,7 +250,13 @@ class Gateway:
                 status="failed",
                 error_code="ai_provider_unavailable",
             )
-            raise ServiceUnavailable(code="ai_unavailable") from error
+            # No model on this installation: say so, never a prompt echo (QA6-AI-01).
+            code = (
+                "ai_not_configured"
+                if isinstance(error, ProviderNotConfigured)
+                else "ai_unavailable"
+            )
+            raise ServiceUnavailable(code=code) from error
         call_id = await self._log(
             session,
             subject,
@@ -311,7 +323,13 @@ class Gateway:
                 status="failed",
                 error_code="ai_provider_unavailable",
             )
-            raise ServiceUnavailable(code="ai_unavailable") from error
+            # No model on this installation: say so, never a prompt echo (QA6-AI-01).
+            code = (
+                "ai_not_configured"
+                if isinstance(error, ProviderNotConfigured)
+                else "ai_unavailable"
+            )
+            raise ServiceUnavailable(code=code) from error
         if held:
             yield restore(held, prepared.values)
         await self._log(

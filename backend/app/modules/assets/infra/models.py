@@ -331,6 +331,11 @@ class AssetDisposal(TenantEntity):
             ["assets.tenant_id", "assets.id"],
             name="fk_asset_disposals_asset",
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "approved_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_asset_disposals_approver",
+        ),
         Index("uq_asset_disposals_asset", "tenant_id", "asset_id", unique=True),
         Index("ix_asset_disposals_on", "tenant_id", "disposed_on", "id"),
     )

@@ -1348,6 +1348,96 @@
         "type": "object"
       }
     },
+    "automation.workflow.changed": {
+      "1": {
+        "description": "A workflow was made, its draft saved, published, enabled or disabled (WP-048b).\n\nThe workflows list and an open designer refresh; IDs and codes only.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "draft_saved",
+              "published",
+              "enabled",
+              "disabled"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "record_type",
+          "change",
+          "version"
+        ],
+        "title": "WorkflowChanged",
+        "type": "object"
+      }
+    },
+    "automation.workflow_instance.changed": {
+      "1": {
+        "description": "A workflow instance moved on, waited, failed or ended (WP-048b, REQ-WF-023, -025).\n\nThe record's execution view and the overview refresh; IDs and codes only.",
+        "properties": {
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "waiting",
+              "failed",
+              "finished",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "workflow_id",
+          "record_type",
+          "record_id",
+          "status",
+          "version"
+        ],
+        "title": "WorkflowInstanceChanged",
+        "type": "object"
+      }
+    },
     "identity_access.access_settings.changed": {
       "1": {
         "description": "The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh.",
@@ -1767,6 +1857,43 @@
           "source"
         ],
         "title": "UserCreatedV3",
+        "type": "object"
+      },
+      "4": {
+        "description": "As UserCreatedV3, with `workflow` as a source: a workflow's run-as identity (WP-048b).\n\nA new allowed value, so a new schema version; v1 to v3 stay registered.",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
+              "import",
+              "email",
+              "integration",
+              "workflow"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester",
+              "service"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreatedV4",
         "type": "object"
       }
     },

@@ -29,7 +29,19 @@ const LANGS = ['en', 'ar'] as const;
 const WIDTHS = [1440, 1280, 390] as const;
 
 type Layout = (typeof LAYOUTS)[number];
-type Records = Partial<Record<'incident' | 'request' | 'article' | 'dashboard', string>>;
+type Records = Partial<
+  Record<
+    | 'incident'
+    | 'request'
+    | 'article'
+    | 'dashboard'
+    | 'problem'
+    | 'release'
+    | 'announcement'
+    | 'catalogItem',
+    string
+  >
+>;
 
 interface Screen {
   key: string;
@@ -146,7 +158,8 @@ export const SCREENS: Screen[] = [
     key: 'request',
     path: (r) => (r.request ? `/requests/${r.request}` : undefined),
     app: 'console',
-    state: { name: 'approvals', open: click('approvals-open') },
+    // The header's approvals drawer (the record has no own approvals button; QA9 matrix fix).
+    state: { name: 'approvals', open: click('approvals-drawer-open') },
   },
   { key: 'knowledge', path: '/knowledge', app: 'console' },
   {
@@ -155,6 +168,43 @@ export const SCREENS: Screen[] = [
     app: 'console',
   },
   { key: 'knowledge-approvals', path: '/knowledge/approvals', app: 'console' },
+  // QA9: the routes the 11-09 coverage list found missing.
+  { key: 'article-new', path: '/knowledge/articles/new', app: 'console' },
+  {
+    key: 'article-edit',
+    path: (r) => (r.article ? `/knowledge/articles/${r.article}/edit/en` : undefined),
+    app: 'console',
+  },
+  { key: 'problems', path: '/problems', app: 'console' },
+  { key: 'problem-new', path: '/problems/new', app: 'console' },
+  { key: 'known-errors', path: '/problems/known-errors', app: 'console' },
+  {
+    key: 'problem',
+    path: (r) => (r.problem ? `/problems/${r.problem}` : undefined),
+    app: 'console',
+  },
+  { key: 'releases', path: '/releases', app: 'console' },
+  { key: 'release-new', path: '/releases/new', app: 'console' },
+  {
+    key: 'release',
+    path: (r) => (r.release ? `/releases/${r.release}` : undefined),
+    app: 'console',
+  },
+  { key: 'request-new', path: '/requests/new', app: 'console' },
+  { key: 'announcement-new', path: '/announcements/new', app: 'console' },
+  {
+    key: 'announcement',
+    path: (r) => (r.announcement ? `/announcements/${r.announcement}` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'admin-catalog-item',
+    path: (r) => (r.catalogItem ? `/admin/catalog/items/${r.catalogItem}` : undefined),
+    app: 'console',
+    sideOnly: true,
+  },
+  // A top-layout shot of a setup page (the admin pages are side-only otherwise).
+  { key: 'admin-users-all-layouts', path: '/admin/users', app: 'console' },
   { key: 'announcements', path: '/announcements', app: 'console' },
   { key: 'dashboards', path: '/dashboards', app: 'console' },
   {
@@ -164,7 +214,13 @@ export const SCREENS: Screen[] = [
   },
   { key: 'reports', path: '/reports', app: 'console' },
   { key: 'report', path: '/reports/builtin/incidents_open_by_priority', app: 'console' },
-  { key: 'notifications', path: '/notifications', app: 'console' },
+  // Notifications are a drawer from the header bell, not a route (QA9: /notifications was a 404).
+  {
+    key: 'notifications',
+    path: '/',
+    app: 'console',
+    state: { name: 'drawer', open: click('notifications-bell') },
+  },
   { key: 'profile', path: '/profile', app: 'console' },
   { key: 'not-found', path: '/no/such/page', app: 'console' },
   { key: 'admin', path: '/admin', app: 'console' },
@@ -184,6 +240,9 @@ export const SCREENS: Screen[] = [
     'ai',
     'knowledge',
     'notifications',
+    'requests',
+    'portal',
+    'catalog',
   ].map<Screen>((page) => ({
     key: `admin-${page.replace('/', '-')}`,
     path: `/admin/${page}`,
@@ -210,6 +269,8 @@ export const SCREENS: Screen[] = [
   { key: 'portal-approvals', path: '/approvals', app: 'portal' },
   { key: 'portal-approval-link', path: '/requests/approval-link', app: 'portal' },
   { key: 'portal-account', path: '/account', app: 'portal' },
+  { key: 'portal-search', path: '/search?q=password', app: 'portal' },
+  { key: 'portal-not-found', path: '/no/such/page', app: 'portal' },
 ];
 
 interface Shot {
@@ -247,11 +308,19 @@ function checks(): string[] {
     const r = el.getBoundingClientRect();
     if (r.right > width + 1 || r.left < -1) out.push(`off_screen:${name(el)}`);
   }
+  // A dialog, drawer, menu or popup lies over the page on purpose: only elements of the same
+  // layer can overlap (QA9: the open assign dialog and notifications drawer were findings).
+  const layer = (el: Element) =>
+    el.closest(
+      '.ant-modal-root, .ant-drawer, .ant-dropdown, .ant-popover, .ant-select-dropdown, ' +
+        '.ant-picker-dropdown, .ant-tooltip, .ant-notification, .ant-message',
+    );
   const firstBoxes = boxes.slice(0, 150);
   firstBoxes.forEach((aEl, i) => {
     const a = aEl.getBoundingClientRect();
     for (const bEl of firstBoxes.slice(i + 1)) {
       if (aEl.contains(bEl) || bEl.contains(aEl)) continue;
+      if (layer(aEl) !== layer(bEl)) continue;
       const b = bEl.getBoundingClientRect();
       const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
       const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
@@ -314,13 +383,23 @@ async function findRecords(page: Page): Promise<Records> {
     return response.ok() ? pick(await response.json()) : undefined;
   };
   const firstItem = (body: unknown) => ((body as { items?: { id: string }[] }).items ?? [])[0]?.id;
+  // Some lists are a plain array (knowledge articles, catalog items: QA9 matrix fix).
+  const firstOfList = (body: unknown) =>
+    (Array.isArray(body) ? (body as { id: string }[]) : [])[0]?.id;
   return {
     incident:
       (await first('/api/v1/incidents/lookup/INC-30', (b) => (b as { id?: string }).id)) ??
       (await first('/api/v1/incidents?limit=1', firstItem)),
     request: await first('/api/v1/service-requests?limit=1', firstItem),
-    article: await first('/api/v1/knowledge/articles?limit=1', firstItem),
-    dashboard: await first('/api/v1/analytics/dashboards', firstItem),
+    article: await first('/api/v1/knowledge/articles', firstOfList),
+    dashboard: await first(
+      '/api/v1/dashboards',
+      (b) => ((b as { items?: { ref: string }[] }).items ?? [])[0]?.ref,
+    ),
+    problem: await first('/api/v1/problems?limit=1', firstItem),
+    release: await first('/api/v1/releases?limit=1', firstItem),
+    announcement: await first('/api/v1/announcements?limit=1', firstItem),
+    catalogItem: await first('/api/v1/catalog/items', firstOfList),
   };
 }
 

@@ -207,6 +207,7 @@ export const queryKeys = {
     preferences: ['notifications', 'preferences'] as const,
     rules: ['notifications', 'rules'] as const,
     status: ['notifications', 'status'] as const,
+    mailStatus: ['notifications', 'mail-status'] as const, // the reply composer (REQ-INC-060)
     deliveries: (recordType: string, recordId: string) =>
       ['notifications', 'deliveries', recordType, recordId] as const,
   },
