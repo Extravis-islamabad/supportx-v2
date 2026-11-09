@@ -2,7 +2,6 @@ import { LockOutlined } from '@ant-design/icons';
 import {
   Alert,
   App,
-  Button,
   Collapse,
   Drawer,
   Flex,
@@ -326,7 +325,7 @@ function RoleForm({
           {role === null ? (
             <span />
           ) : (
-            <Button
+            <WriteButton
               danger
               data-testid="delete-role"
               onClick={() => {
@@ -334,7 +333,7 @@ function RoleForm({
               }}
             >
               {t('roles.delete')}
-            </Button>
+            </WriteButton>
           )}
           <WriteButton
             type="primary"

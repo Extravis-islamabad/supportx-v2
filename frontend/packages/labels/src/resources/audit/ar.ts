@@ -123,6 +123,8 @@ export const ar: LabelResource = {
   'audit.action.incident.reply_template_deleted': 'أزال قالب رد',
   'audit.action.incident.restored': 'استعاد حادثة من سلة المحذوفات',
   'audit.action.incident.settings_changed': 'غيّر إعدادات الحوادث',
+  'audit.action.incident.sla_applied_from_creation':
+    'طبّق اتفاقية مستوى الخدمة على حادث منذ إنشائه',
   'audit.action.incident.template_changed': 'غيّر قالب حوادث',
   'audit.action.incident.template_created': 'أضاف قالب حوادث',
   'audit.action.invitation.resent': 'أعاد إرسال دعوة',
