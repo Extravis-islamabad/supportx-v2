@@ -18,7 +18,8 @@ from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
 from app.modules.ai import GATEWAY_STATE, Gateway
-from app.modules.audit import AuditNote, audited, entries_for_changes
+from app.modules.audit import AuditNote, RequestFacts, audited, entries_for_changes
+from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.conversation_routes import (
@@ -74,7 +75,7 @@ from app.modules.work_items.domain.types import (
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
 from app.modules.work_items.service import change_boards as board_service
-from app.modules.work_items.service import change_links, release_links, resolution
+from app.modules.work_items.service import change_links, release_links, resolution, stage_approvals
 from app.modules.work_items.service import change_risk as risk_service
 from app.modules.work_items.service import duplicates as duplicates_service
 from app.modules.work_items.service import search as search_service
@@ -2535,6 +2536,24 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 ),
                 fields=body.fields,
             )
+            if wtype.code is WorkItemTypeCode.CHANGE:  # REQ-CHG-039: a fallback is audited
+                facts = RequestFacts.of(request)
+                for row in await stage_approvals.rerouted_in_this_save(session, record_id):
+                    await record_audit(
+                        session,
+                        action_code="change.approval_rerouted",
+                        facts=facts,
+                        object_type="change",
+                        object_id=record_id,
+                        details={
+                            "approval_id": str(row.id),
+                            "stage": row.record_stage,
+                            "level": row.stage,
+                            "reason": row.route_reason,
+                            "to": "approval_administrators",
+                            "board_id": str(row.board_id) if row.board_id else None,
+                        },
+                    )
             set_etag(response, view.record.version)
             return WorkItemOut.of(view)
 

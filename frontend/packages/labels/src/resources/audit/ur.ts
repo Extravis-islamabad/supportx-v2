@@ -48,6 +48,7 @@ export const ur: LabelResource = {
   'audit.action.catalog.starter_published': 'ابتدائی کیٹلاگ شائع کیا',
   'audit.action.catalog.starter_seeded': 'ابتدائی کیٹلاگ شامل کیا',
   'audit.action.change.approval_decided': 'تبدیلی منظور یا مسترد کیا',
+  'audit.action.change.approval_rerouted': 'منظوری، منظوری کے منتظمین کو بھیجی گئی',
   'audit.action.change.board_changed': 'تبدیلیوں کا مشاورتی بورڈ تبدیل کیا',
   'audit.action.change.bulk_started': 'تبدیلیوں کی اجتماعی تبدیلی شروع کی',
   'audit.action.change.category_changed': 'تبدیلی کا زمرہ تبدیل کیا',

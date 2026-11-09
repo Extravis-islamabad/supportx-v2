@@ -48,6 +48,7 @@ export const ar: LabelResource = {
   'audit.action.catalog.starter_published': 'نشر الكتالوج المبدئي',
   'audit.action.catalog.starter_seeded': 'أضاف الكتالوج المبدئي',
   'audit.action.change.approval_decided': 'وافق على تغيير أو رفضها',
+  'audit.action.change.approval_rerouted': 'أُحيلت الموافقة إلى مسؤولي الموافقات',
   'audit.action.change.board_changed': 'غيّر مجلسًا استشاريًا للتغييرات',
   'audit.action.change.bulk_started': 'بدأ تغييرًا جماعيًا للتغييرات',
   'audit.action.change.category_changed': 'غيّر فئة تغييرات',

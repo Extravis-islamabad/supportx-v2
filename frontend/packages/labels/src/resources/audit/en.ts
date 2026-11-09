@@ -46,6 +46,7 @@ export const en = {
   'audit.action.catalog.starter_published': 'Published the starter catalog',
   'audit.action.catalog.starter_seeded': 'Added the starter catalog',
   'audit.action.change.approval_decided': 'Approved or rejected a change',
+  'audit.action.change.approval_rerouted': 'Approval went to the approval administrators',
   'audit.action.change.board_changed': 'Changed a change advisory board',
   'audit.action.change.bulk_started': 'Started a bulk change of changes',
   'audit.action.change.category_changed': 'Changed a change category',

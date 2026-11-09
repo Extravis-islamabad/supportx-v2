@@ -70,6 +70,22 @@ async def test_req_chg_039_strict_bars_every_member_of_an_implementing_group(
             )
         )
     assert logged == 1
+    # The fallback is audited too, naming the level, the reason and who decides (REQ-CHG-039).
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        rerouted = (
+            await session.execute(
+                text(
+                    "SELECT details FROM audit_entries WHERE action = 'change.approval_rerouted' "
+                    "AND object_id = :r"
+                ),
+                {"r": item["id"]},
+            )
+        ).scalar_one()
+    assert (rerouted["level"], rerouted["reason"], rerouted["to"]) == (
+        1,
+        "segregation_of_duties",
+        "approval_administrators",
+    )
     # Tenant B keeps the default.
     other = (await world.call("GET", f"{CHG}/settings", world.b, world.b.admin)).json()
     assert other["segregation_strict"] is False

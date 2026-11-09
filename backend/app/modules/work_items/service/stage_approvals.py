@@ -22,7 +22,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import active_user_ids
@@ -234,6 +234,25 @@ async def open_level(
     for row in rows:
         await approval_event(session, record, row, "opened")
     return rows
+
+
+async def rerouted_in_this_save(
+    session: AsyncSession, record_id: uuid.UUID
+) -> list[WorkItemApproval]:
+    """The administrators' rows this transaction opened, with why (for the audit, WP-045b S3).
+
+    `created_at` defaults to now(), the transaction's start, so equal means "opened just now".
+    """
+    return list(
+        await session.scalars(
+            select(WorkItemApproval).where(
+                WorkItemApproval.work_item_id == record_id,
+                WorkItemApproval.origin == rules.ApproverOrigin.ADMINISTRATORS.value,
+                WorkItemApproval.route_reason.is_not(None),
+                WorkItemApproval.created_at == func.now(),
+            )
+        )
+    )
 
 
 async def _boards(
