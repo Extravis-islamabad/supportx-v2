@@ -18,7 +18,14 @@ BASE = (
     "--set", "routing.gateway.tlsSecret=t",
 )  # fmt: skip
 
-pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="needs Helm")
+# Rendering needs Helm and the chart's fetched dependencies (`make chart-deps`): the backend
+# shards skip, and the CI chart job runs every tests/test_chart_*.py after `make chart-lint`.
+pytestmark = pytest.mark.skipif(
+    shutil.which("helm") is None
+    or not list((CHART / "charts").glob("nats-*.tgz"))
+    or not list((CHART / "charts").glob("valkey-*.tgz")),
+    reason="needs Helm and the chart's dependencies (make chart-deps); run by the chart job",
+)
 
 
 def _render(*values: str, check: bool = True) -> subprocess.CompletedProcess[str]:
