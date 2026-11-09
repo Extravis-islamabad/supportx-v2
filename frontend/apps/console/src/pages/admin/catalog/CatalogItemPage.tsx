@@ -36,7 +36,7 @@ import {
 import {
   ConflictDialog,
   NoAccess,
-  PageHeader,
+  FormPage,
   RichTextField,
   lengthLimit,
   reportError,
@@ -228,57 +228,67 @@ function ItemEditor({ id }: { id: string | undefined }) {
   if (id !== undefined && loaded.isLoading) return null;
   const busy = create.isPending || update.isPending;
   const missing = item?.missing_translations ?? [];
+  // Template B's frame (D-147): Save in the sticky footer with Cancel before it, never in the
+  // header or the middle of the form; Preview and the item's state stay in the header.
   return (
-    <>
-      <PageHeader
-        title={textIn(draft.names, locale) || t('catalog_admin.new_item')}
-        back={{ label: t('nav.admin_catalog'), onClick: () => void navigate('/admin/catalog') }}
-        extra={
-          <Space wrap>
-            {item !== undefined && <StatusTag item={item} />}
-            {missing.length > 0 && (
-              <Popover
-                content={
-                  <ul style={{ margin: 0, paddingInlineStart: 18 }} data-testid="cat-missing-list">
-                    {missing.map((m) => (
-                      <li key={`${m.field}-${m.language}`}>
-                        {t('catalog_admin.missing_item', {
-                          field: fieldWords(t, m.field),
-                          language: t(`catalog_admin.lang.${m.language}`),
-                        })}
-                      </li>
-                    ))}
-                  </ul>
-                }
-              >
-                <Button size="small" data-testid="cat-missing">
-                  {t('catalog_admin.missing', { count: missing.length })}
-                </Button>
-              </Popover>
-            )}
-            <Button
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setPreview(true);
-              }}
-              data-testid="cat-preview"
+    <FormPage
+      testId="cat-item"
+      width="full"
+      title={textIn(draft.names, locale) || t('catalog_admin.new_item')}
+      back={{ label: t('nav.admin_catalog'), onClick: () => void navigate('/admin/catalog') }}
+      cancel={
+        <Button onClick={() => void navigate('/admin/catalog')} data-testid="cat-cancel">
+          {t('actions.cancel')}
+        </Button>
+      }
+      primary={
+        <WriteButton
+          type="primary"
+          loading={busy}
+          disabled={!dirty}
+          onClick={() => {
+            save();
+          }}
+          data-testid="cat-save"
+        >
+          {t('actions.save')}
+        </WriteButton>
+      }
+      extra={
+        <Space wrap>
+          {item !== undefined && <StatusTag item={item} />}
+          {missing.length > 0 && (
+            <Popover
+              content={
+                <ul style={{ margin: 0, paddingInlineStart: 18 }} data-testid="cat-missing-list">
+                  {missing.map((m) => (
+                    <li key={`${m.field}-${m.language}`}>
+                      {t('catalog_admin.missing_item', {
+                        field: fieldWords(t, m.field),
+                        language: t(`catalog_admin.lang.${m.language}`),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              }
             >
-              {t('catalog_admin.preview')}
-            </Button>
-            <WriteButton
-              type="primary"
-              loading={busy}
-              disabled={!dirty}
-              onClick={() => {
-                save();
-              }}
-              data-testid="cat-save"
-            >
-              {t('actions.save')}
-            </WriteButton>
-          </Space>
-        }
-      />
+              <Button size="small" data-testid="cat-missing">
+                {t('catalog_admin.missing', { count: missing.length })}
+              </Button>
+            </Popover>
+          )}
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setPreview(true);
+            }}
+            data-testid="cat-preview"
+          >
+            {t('catalog_admin.preview')}
+          </Button>
+        </Space>
+      }
+    >
       <Problems problems={problems} testId="cat-item-problems" />
       <Tabs
         activeKey={tab}
@@ -390,7 +400,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
           });
         }}
       />
-    </>
+    </FormPage>
   );
 }
 

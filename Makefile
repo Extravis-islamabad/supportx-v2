@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 .PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -86,7 +86,13 @@ showcase-seed: $(DEV_ENV) ## Fill Showcase Company (slug showcase) for demos; id
 	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
 	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
 	SUPPORTX_SHOWCASE_PASSWORD="$$(env_value SHOWCASE_PASSWORD)" \
+	SUPPORTX_SHOWCASE_TOTP_KEY="$$(env_value SHOWCASE_TOTP_KEY)" \
 	uv run python -m tooling.showcase_seed showcase
+
+dev-quick-sign-in: $(DEV_ENV) ## DEV ONLY: one-click sign-in per showcase persona at /dev/sign-in (D-151; never production)
+	@bash $(DEV_DIR)/scripts/dev-quick-sign-in.sh
+	@$(MAKE) --no-print-directory showcase-seed
+	@echo "Restart the API (make backend-dev), then open http://localhost:5173/dev/sign-in"
 
 custom-field-indexes: ## One index pass now, as the index worker does (CONCURRENTLY; D-088)
 	$(BACKEND) uv run python -m tooling.custom_field_indexes

@@ -84,6 +84,7 @@ def _actions(*items: tuple[str, AuditCategory, str]) -> dict[str, Action]:
 ACTIONS: dict[str, Action] = _actions(
     # sign-in and session (failed sign-ins, MFA and password resets come with WP-039)
     ("session.signed_in", AuditCategory.SESSION, "identity_access"),
+    ("session.quick_sign_in", AuditCategory.SESSION, "identity_access"),  # dev only (D-151)
     ("session.signed_out", AuditCategory.SESSION, "identity_access"),
     ("session.tenant_switched", AuditCategory.SESSION, "identity_access"),
     # roles and access
@@ -228,6 +229,8 @@ ACTIONS: dict[str, Action] = _actions(
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),
+    # The showcase seed's step 6 (Haider, 2026-11-09): an older incident's SLA from creation.
+    ("incident.sla_applied_from_creation", AuditCategory.RECORDS, "work_items"),
     ("incident.bulk_started", AuditCategory.RECORDS, "work_items"),
     ("incident.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("incident.closed_record_edited", AuditCategory.RECORDS, "work_items"),
@@ -303,6 +306,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.verification_failed", AuditCategory.SECURITY, "audit"),
     ("audit.probing_detected", AuditCategory.SECURITY, "audit"),
     ("audit.subject_erased", AuditCategory.DATA, "audit"),
+    # One-off showcase repair (QA 2026-11-09): dates the old seed step moved, put back.
+    ("work_item.dates_restored", AuditCategory.DATA, "work_items"),
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
@@ -322,6 +327,28 @@ ACTIONS: dict[str, Action] = _actions(
     ("knowledge.settings_changed", AuditCategory.CONFIGURATION, "knowledge"),
     ("knowledge.type_created", AuditCategory.CONFIGURATION, "knowledge"),
     ("knowledge.type_changed", AuditCategory.CONFIGURATION, "knowledge"),
+    # assets (WP-049a s1): the catalogue and the asset settings
+    ("asset.settings_changed", AuditCategory.CONFIGURATION, "assets"),
+    # Assets (WP-049a s2, REQ-AST-001 AC: privileged record actions).
+    ("asset.created", AuditCategory.RECORDS, "assets"),
+    ("asset.updated", AuditCategory.RECORDS, "assets"),
+    ("asset.deleted", AuditCategory.RECORDS, "assets"),
+    ("asset.restored", AuditCategory.RECORDS, "assets"),
+    ("asset.moved", AuditCategory.RECORDS, "assets"),
+    ("asset.disposed", AuditCategory.RECORDS, "assets"),
+    ("asset.copied", AuditCategory.RECORDS, "assets"),
+    # Vendors (REQ-PUR-001, WP-049a s2).
+    ("vendor.created", AuditCategory.CONFIGURATION, "procurement"),
+    ("vendor.updated", AuditCategory.CONFIGURATION, "procurement"),
+    ("vendor.deleted", AuditCategory.CONFIGURATION, "procurement"),
+    ("asset.state_saved", AuditCategory.CONFIGURATION, "assets"),
+    ("asset.state_deleted", AuditCategory.CONFIGURATION, "assets"),
+    ("asset.life_cycle_saved", AuditCategory.CONFIGURATION, "assets"),
+    ("asset.life_cycle_deleted", AuditCategory.CONFIGURATION, "assets"),
+    ("asset.product_type_saved", AuditCategory.CONFIGURATION, "assets"),
+    ("asset.product_type_deleted", AuditCategory.CONFIGURATION, "assets"),
+    ("asset.product_saved", AuditCategory.CONFIGURATION, "assets"),
+    ("asset.product_deleted", AuditCategory.CONFIGURATION, "assets"),
     # ai (WP-037)
     ("ai.settings_changed", AuditCategory.CONFIGURATION, "ai"),
     # D-131: every deletion of AI conversation text is audited (retention purge, erasure)

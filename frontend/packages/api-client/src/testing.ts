@@ -42,6 +42,7 @@ const TECHNICIAN: Grant[] = [
   ['releases.view', 'all'],
   ['assets.view', 'all'],
   ['assets.manage', 'group'],
+  ['vendors.view', 'all'], // WP-049a s2: the technician default
   ['cmdb.view', 'all'],
   ['knowledge.view', 'group'],
   ['knowledge.create', 'group'],
@@ -73,6 +74,9 @@ const ADMIN_EXTRA: Grant[] = [
   ['branding.manage', 'all'],
   ['config.service_desk', 'all'],
   ['config.organisation', 'all'],
+  ['config.assets', 'all'], // WP-049a: the asset catalogue
+  ['vendors.create', 'all'],
+  ['vendors.manage', 'all'],
   ['catalog_items.manage', 'all'], // WP-031: the catalog's administration
   ['knowledge.view', 'all'],
   ['knowledge.edit_any', 'all'],

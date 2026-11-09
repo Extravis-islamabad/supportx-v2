@@ -125,6 +125,30 @@ export const ar: LabelResource = {
   'availability.no_members': 'لا يوجد فنيون في هذه المجموعة.',
   'availability.set_available_by': 'عيّنه {{name}} متاحًا في {{time}}',
   'availability.set_away_by': 'عيّنه {{name}} غير متاح في {{time}}',
+  'dev_persona.admin': 'المسؤول',
+  'dev_persona.approver': 'المعتمِد',
+  'dev_persona.lead': 'قائد الفريق',
+  'dev_persona.new_starter': 'موظف جديد',
+  'dev_persona.requester': 'مقدّم الطلب',
+  'dev_persona.technician': 'الفني',
+  'dev_sign_in.app_console': 'وحدة التحكم',
+  'dev_sign_in.app_portal': 'البوابة',
+  'dev_sign_in.as': 'تسجيل الدخول باسم {{persona}}',
+  'dev_sign_in.reason.account_locked': 'أقفل Keycloak هذا الحساب لبضع دقائق بعد محاولات فاشلة.',
+  'dev_sign_in.reason.credentials_refused':
+    'كلمة المرور أو مفتاح المصادقة في ملف .env للتطوير لا يطابق البيانات المزروعة: شغّل make showcase-seed.',
+  'dev_sign_in.reason.grant_not_allowed':
+    'لا يسمح Keycloak بهذا النوع من تسجيل الدخول هنا: النطاق ليس نطاق التطوير.',
+  'dev_sign_in.reason.keycloak_refused': 'رفض Keycloak لسبب آخر: راجع سجله.',
+  'dev_sign_in.reason.mfa_setup_required':
+    'يجب على هذه الشخصية إعداد تسجيل الدخول بخطوتين أولًا: شغّل make showcase-seed لتسجيلها مسبقًا.',
+  'dev_sign_in.reason.not_showcase': 'هذه الشخصية ليست عضوًا في Showcase Company.',
+  'dev_sign_in.sets_up_mfa': 'يُعدّ تسجيل الدخول بخطوتين',
+  'dev_sign_in.title': 'تسجيل الدخول السريع (للتطوير فقط)',
+  'dev_sign_in.unavailable':
+    'تسجيل الدخول السريع هذا غير متاح هنا. يعمل فقط على بيئة التطوير المحلية مع make dev-quick-sign-in.',
+  'dev_sign_in.warning':
+    'لبيئة التطوير المحلية فقط، بشخصية من Showcase Company. لا يُستخدم أبدًا على تثبيت حقيقي.',
   'form_density.comfortable': 'مريح',
   'form_density.compact': 'مضغوط',
   'form_density.title': 'تخطيط النموذج',
@@ -289,8 +313,13 @@ export const ar: LabelResource = {
   'permission.api_keys.manage': 'إدارة مفاتيح API',
   'permission.api_keys.manage.description':
     'إنشاء مفاتيح API لهويات الخدمة، ورؤية كل المفاتيح وإبطالها.',
+  'permission.assets.edit_disposed': 'تغيير الأصول المتخلَّص منها',
+  'permission.assets.edit_disposed.description':
+    'تغيير أصل بعد التخلّص منه، مع ذكر السبب في كل مرة.',
   'permission.assets.manage': 'إدارة الأصول',
   'permission.assets.manage.description': 'إضافة الأصول وتغييرها.',
+  'permission.assets.reinstate': 'إعادة الأصول المتقاعدة',
+  'permission.assets.reinstate.description': 'إعادة أصل متقاعد إلى المخزون.',
   'permission.assets.view': 'عرض الأصول',
   'permission.assets.view.description': 'رؤية أصول الأجهزة والبرمجيات.',
   'permission.audit.export': 'تصدير سجل التدقيق',
@@ -327,6 +356,9 @@ export const ar: LabelResource = {
   'permission.config.announcements': 'إعداد الإعلانات',
   'permission.config.announcements.description':
     'من يمكنه النشر، وما إذا كان يلزم موافقة شخص ثانٍ.',
+  'permission.config.assets': 'تهيئة الأصول',
+  'permission.config.assets.description':
+    'تغيير أنواع المنتجات والمنتجات وحالات الأصول ودورات حياتها وإعدادات الأصول.',
   'permission.config.organisation': 'إعداد المؤسسة',
   'permission.config.organisation.description': 'المكاتب وإعدادات هيكل المؤسسة.',
   'permission.config.reports': 'إعداد التقارير',
@@ -603,6 +635,12 @@ export const ar: LabelResource = {
   // Authorization (WP-016)
   'permission.users.view': 'عرض المستخدمين',
   'permission.users.view.description': 'رؤية الأشخاص في المؤسسة وتفاصيلهم.',
+  'permission.vendors.create': 'إضافة موردين',
+  'permission.vendors.create.description': 'إضافة مورد، حتى من نموذج آخر.',
+  'permission.vendors.manage': 'إدارة الموردين',
+  'permission.vendors.manage.description': 'تعديل الموردين وإيقافهم وحذفهم.',
+  'permission.vendors.view': 'عرض الموردين',
+  'permission.vendors.view.description': 'عرض الموردين وتفاصيلهم واختيارهم في السجلات.',
   'permission.work_items.approve_any': 'البت في الموافقات البديلة',
   'permission.work_items.approve_any.description':
     'البت في الموافقات التي ليس لها موافق نشط (مسؤولو الموافقات).',
@@ -648,6 +686,7 @@ export const ar: LabelResource = {
   'permission_module.sites': 'المواقع',
   'permission_module.sla': 'اتفاقيات مستوى الخدمة',
   'permission_module.users': 'المستخدمون',
+  'permission_module.vendors': 'الموردون',
   'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
   'permission_module.workflows': 'سير العمل',
   'preferences.date_format': 'تنسيق التاريخ',

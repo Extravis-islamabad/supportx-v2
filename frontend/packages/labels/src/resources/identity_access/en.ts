@@ -126,6 +126,31 @@ export const en = {
   'availability.no_members': 'No technicians in this group.',
   'availability.set_available_by': 'Set Available by {{name}} at {{time}}',
   'availability.set_away_by': 'Set Away by {{name}} at {{time}}',
+  'dev_persona.admin': 'Administrator',
+  'dev_persona.approver': 'Approver',
+  'dev_persona.lead': 'Team lead',
+  'dev_persona.new_starter': 'New starter',
+  'dev_persona.requester': 'Requester',
+  'dev_persona.technician': 'Technician',
+  'dev_sign_in.app_console': 'Console',
+  'dev_sign_in.app_portal': 'Portal',
+  'dev_sign_in.as': 'Sign in as {{persona}}',
+  'dev_sign_in.reason.account_locked':
+    'Keycloak has locked this account for a few minutes after failed attempts.',
+  'dev_sign_in.reason.credentials_refused':
+    'The password or authenticator key in the dev .env doesn’t match the seed: run make showcase-seed.',
+  'dev_sign_in.reason.grant_not_allowed':
+    'Keycloak doesn’t allow this sign-in here: the realm isn’t the dev realm.',
+  'dev_sign_in.reason.keycloak_refused': 'Keycloak refused for another reason: see its log.',
+  'dev_sign_in.reason.mfa_setup_required':
+    'This persona must set up two-step sign-in first: run make showcase-seed to pre-enrol it.',
+  'dev_sign_in.reason.not_showcase': 'This persona isn’t a member of Showcase Company.',
+  'dev_sign_in.sets_up_mfa': 'sets up two-step sign-in',
+  'dev_sign_in.title': 'Quick sign-in (dev only)',
+  'dev_sign_in.unavailable':
+    'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
+  'dev_sign_in.warning':
+    'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'form_density.title': 'Form layout',
@@ -290,8 +315,13 @@ export const en = {
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',
+  'permission.assets.edit_disposed': 'Change disposed assets',
+  'permission.assets.edit_disposed.description':
+    'Change an asset after it is disposed of, giving a reason each time.',
   'permission.assets.manage': 'Manage assets',
   'permission.assets.manage.description': 'Add and change assets.',
+  'permission.assets.reinstate': 'Bring retired assets back',
+  'permission.assets.reinstate.description': 'Move a retired asset back into stock.',
   'permission.assets.view': 'View assets',
   'permission.assets.view.description': 'See hardware and software assets.',
   'permission.audit.export': 'Export the audit log',
@@ -330,6 +360,9 @@ export const en = {
   'permission.config.announcements': 'Configure announcements',
   'permission.config.announcements.description':
     'Who may publish, and whether a second person must approve.',
+  'permission.config.assets': 'Configure assets',
+  'permission.config.assets.description':
+    'Change product types, products, asset states, life cycles and asset settings.',
   'permission.config.organisation': 'Configure the organisation',
   'permission.config.organisation.description': 'Desks and the organisation’s structure settings.',
   'permission.config.reports': 'Configure reports',
@@ -621,6 +654,12 @@ export const en = {
   // Authorization (WP-016)
   'permission.users.view': 'View users',
   'permission.users.view.description': 'See the people in the organisation and their details.',
+  'permission.vendors.create': 'Add vendors',
+  'permission.vendors.create.description': 'Add a vendor, also from another form.',
+  'permission.vendors.manage': 'Manage vendors',
+  'permission.vendors.manage.description': 'Change, deactivate and delete vendors.',
+  'permission.vendors.view': 'See vendors',
+  'permission.vendors.view.description': 'See vendors and their details, and pick them on records.',
   'permission.work_items.approve_any': 'Decide fallback approvals',
   'permission.work_items.approve_any.description':
     'Decide approvals that have no active approver (approval administrators).',
@@ -666,6 +705,7 @@ export const en = {
   'permission_module.sites': 'Sites',
   'permission_module.sla': 'SLA',
   'permission_module.users': 'Users',
+  'permission_module.vendors': 'Vendors',
   'permission_module.work_items': 'All requests (incidents and service requests)',
   'permission_module.workflows': 'Workflows',
   'preferences.date_format': 'Date format',

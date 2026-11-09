@@ -121,8 +121,9 @@ export const NAV: readonly NavItem[] = [
 ];
 
 /** Sections that only show "coming soon" until their module exists. */
-// Sections still shown as a placeholder (problems since WP-044a, releases since WP-058a).
-export const SECTION_KEYS = ['changes', 'assets', 'cmdb'] as const;
+// Sections still shown as a placeholder (problems since WP-044a, releases since WP-058a, assets
+// since WP-049a).
+export const SECTION_KEYS = ['changes', 'cmdb'] as const;
 
 export function navItem(key: string): NavItem | undefined {
   return NAV.find((item) => item.key === key);

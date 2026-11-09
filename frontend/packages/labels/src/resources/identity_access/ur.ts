@@ -129,6 +129,31 @@ export const ur: LabelResource = {
   'availability.no_members': 'اس گروپ میں کوئی ٹیکنیشن نہیں۔',
   'availability.set_available_by': '{{name}} نے {{time}} پر دستیاب کیا',
   'availability.set_away_by': '{{name}} نے {{time}} پر غیر حاضر کیا',
+  'dev_persona.admin': 'منتظم',
+  'dev_persona.approver': 'منظوری دینے والا',
+  'dev_persona.lead': 'ٹیم لیڈ',
+  'dev_persona.new_starter': 'نیا ملازم',
+  'dev_persona.requester': 'درخواست گزار',
+  'dev_persona.technician': 'ٹیکنیشن',
+  'dev_sign_in.app_console': 'کنسول',
+  'dev_sign_in.app_portal': 'پورٹل',
+  'dev_sign_in.as': '{{persona}} کے طور پر سائن اِن کریں',
+  'dev_sign_in.reason.account_locked':
+    'ناکام کوششوں کے بعد Keycloak نے یہ اکاؤنٹ چند منٹ کے لیے مقفل کر دیا ہے۔',
+  'dev_sign_in.reason.credentials_refused':
+    'ڈیولپمنٹ .env میں پاس ورڈ یا تصدیقی کلید سیڈ سے میل نہیں کھاتی: make showcase-seed چلائیں۔',
+  'dev_sign_in.reason.grant_not_allowed':
+    'Keycloak یہاں یہ سائن اِن نہیں ہونے دیتا: یہ ڈیولپمنٹ ریلم نہیں۔',
+  'dev_sign_in.reason.keycloak_refused': 'Keycloak نے کسی اور وجہ سے انکار کیا: اس کا لاگ دیکھیں۔',
+  'dev_sign_in.reason.mfa_setup_required':
+    'اس کردار کو پہلے دو مرحلہ سائن اِن سیٹ اپ کرنا ہوگا: پہلے سے اندراج کے لیے make showcase-seed چلائیں۔',
+  'dev_sign_in.reason.not_showcase': 'یہ کردار Showcase Company کا رکن نہیں۔',
+  'dev_sign_in.sets_up_mfa': 'دو مرحلہ سائن اِن سیٹ اپ کرتا ہے',
+  'dev_sign_in.title': 'فوری سائن اِن (صرف ڈیولپمنٹ)',
+  'dev_sign_in.unavailable':
+    'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
+  'dev_sign_in.warning':
+    'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'form_density.title': 'فارم کی ترتیب',
@@ -295,8 +320,12 @@ export const ur: LabelResource = {
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',
+  'permission.assets.edit_disposed': 'تلف شدہ اثاثے بدلیں',
+  'permission.assets.edit_disposed.description': 'تلف ہونے کے بعد اثاثہ بدلیں، ہر بار وجہ بتا کر۔',
   'permission.assets.manage': 'اثاثوں کا انتظام کریں',
   'permission.assets.manage.description': 'اثاثے شامل اور تبدیل کریں۔',
+  'permission.assets.reinstate': 'ریٹائرڈ اثاثے واپس لائیں',
+  'permission.assets.reinstate.description': 'ریٹائرڈ اثاثہ واپس اسٹاک میں لائیں۔',
   'permission.assets.view': 'اثاثے دیکھیں',
   'permission.assets.view.description': 'ہارڈ ویئر اور سافٹ ویئر اثاثے دیکھیں۔',
   'permission.audit.export': 'آڈٹ لاگ برآمد کریں',
@@ -335,6 +364,9 @@ export const ur: LabelResource = {
   'permission.config.announcements': 'اعلانات ترتیب دیں',
   'permission.config.announcements.description':
     'کون شائع کر سکتا ہے، اور کیا دوسرے شخص کی منظوری ضروری ہے۔',
+  'permission.config.assets': 'اثاثوں کی ترتیب',
+  'permission.config.assets.description':
+    'پروڈکٹ کی اقسام، پروڈکٹس، اثاثوں کی حالتیں، لائف سائیکل اور اثاثوں کی ترتیبات تبدیل کریں۔',
   'permission.config.organisation': 'ادارہ ترتیب دیں',
   'permission.config.organisation.description': 'ڈیسک اور ادارے کے ڈھانچے کی ترتیبات۔',
   'permission.config.reports': 'رپورٹس ترتیب دیں',
@@ -619,6 +651,13 @@ export const ur: LabelResource = {
   'permission.users.manage.description': 'صارفین کو کردار، سائٹس اور گروپس تفویض کریں۔',
   'permission.users.view': 'صارفین دیکھیں',
   'permission.users.view.description': 'ادارے کے لوگ اور ان کی تفصیلات دیکھیں۔',
+  'permission.vendors.create': 'وینڈرز شامل کریں',
+  'permission.vendors.create.description': 'وینڈر شامل کریں، کسی دوسرے فارم سے بھی۔',
+  'permission.vendors.manage': 'وینڈرز کا انتظام کریں',
+  'permission.vendors.manage.description': 'وینڈرز میں تبدیلی، غیر فعال اور حذف کریں۔',
+  'permission.vendors.view': 'وینڈرز دیکھیں',
+  'permission.vendors.view.description':
+    'وینڈرز اور ان کی تفصیلات دیکھیں، اور ریکارڈز پر انہیں منتخب کریں۔',
   'permission.work_items.approve_any': 'متبادل منظوریوں کا فیصلہ کریں',
   'permission.work_items.approve_any.description':
     'ان منظوریوں کا فیصلہ کریں جن کا کوئی فعال منظوری دہندہ نہیں (منظوری کے منتظمین)۔',
@@ -665,6 +704,7 @@ export const ur: LabelResource = {
   'permission_module.sites': 'سائٹس',
   'permission_module.sla': 'ایس ایل اے',
   'permission_module.users': 'صارفین',
+  'permission_module.vendors': 'وینڈرز',
   'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'permission_module.workflows': 'ورک فلو',
   'preferences.date_format': 'تاریخ کا فارمیٹ',

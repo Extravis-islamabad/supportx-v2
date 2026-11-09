@@ -76,13 +76,13 @@ const FLAGS = new Set(['handed_over_out_of_reach']);
 export type HistoryActors = 'all' | 'people' | 'automation';
 
 /** The history of incident `id` and how to say each change. */
-export function useHistoryWords(id: string, actors: HistoryActors = 'all') {
+export function useHistoryWords(id: string, actors: HistoryActors = 'all', enabled = true) {
   const t = useLabel();
   const listFormat = useListFormat();
   const { locale } = useAppearance();
   const dates = useDateTime();
   const { can } = useAccess();
-  const history = useIncidentHistory(id, actors);
+  const history = useIncidentHistory(id, actors, enabled);
   const catalogue = useIncidentCatalogue();
   const categories = useIncidentCategories();
   const templates = useIncidentTemplates();

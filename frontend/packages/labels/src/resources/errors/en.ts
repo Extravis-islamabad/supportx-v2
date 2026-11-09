@@ -35,6 +35,34 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.asset_already_disposed': 'This asset already has a disposal record.',
+  'errors.asset_bulk_empty': 'Choose at least one asset.',
+  'errors.asset_bulk_too_many': 'Choose at most {{max}} assets at once.',
+  'errors.asset_copy_limit': 'Make between 1 and {{max}} copies at once.',
+  'errors.asset_disposal_not_found': 'This asset has no disposal record.',
+  'errors.asset_disposed_read_only':
+    'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
+  'errors.asset_life_cycle_in_use':
+    'Product types still use this life cycle ({{used}}). Move them to another one first.',
+  'errors.asset_life_cycle_not_found': 'This life cycle does not exist.',
+  'errors.asset_life_cycle_protected':
+    "The default life cycle can't be deleted. Make another one the default first.",
+  'errors.asset_limit_reached':
+    "Every IT asset slot in your organisation's plan is in use. Dispose of an asset or ask your administrator to add more.",
+  'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
+  'errors.asset_no_disposed_state':
+    'There is no disposed state to move the asset to. Ask an admin to check the asset states.',
+  'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
+  'errors.asset_product_not_found': 'This product does not exist.',
+  'errors.asset_product_type_has_children':
+    'Other product types sit under this one ({{used}}). Move or delete them first.',
+  'errors.asset_product_type_in_use': 'Products still use this product type ({{used}}).',
+  'errors.asset_product_type_not_found': 'This product type does not exist.',
+  'errors.asset_state_in_use':
+    'Moves in life cycles still use this state ({{used}}). Remove them first.',
+  'errors.asset_state_not_found': 'This asset state does not exist.',
+  'errors.asset_state_protected':
+    "This state is used by loans, disposal or as its category's default, so it can't be deleted.",
   'errors.audit_archive_missing': 'The archive file is no longer in storage.',
   'errors.audit_archive_not_found': 'This archive does not exist.',
   'errors.audit_archive_not_ready': 'Only a verified archive can be restored.',
@@ -149,8 +177,34 @@ export const en = {
     'Keys for someone else can only belong to a service identity.',
   'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
   'errors.field.approver_is_requester': 'You cannot approve your own request; name someone else.',
+  'errors.field.approver_not_active': 'Choose an active person.',
   'errors.field.approver_not_eligible':
     'Someone named cannot approve this problem (inactive, or without the right).',
+  'errors.field.asset_api_name_taken': 'Another product type has this API name.',
+  'errors.field.asset_identifier_invalid':
+    'Use letters, digits and - . / : # only, without spaces.',
+  'errors.field.asset_life_cycle_code_taken': 'Another life cycle has this code.',
+  'errors.field.asset_life_cycle_default_needed':
+    'There must be a default life cycle. Make another one the default instead.',
+  'errors.field.asset_life_cycle_not_found': 'Choose a life cycle from the list.',
+  'errors.field.asset_move_duplicate':
+    'This move is already in the list, or goes to the same state.',
+  'errors.field.asset_product_not_found': 'This product no longer exists.',
+  'errors.field.asset_product_type_cycle':
+    "A product type can't sit under itself or one of its own types.",
+  'errors.field.asset_product_type_inherited': 'This comes from the parent type. Change it there.',
+  'errors.field.asset_product_type_not_found': 'Choose a product type from the list.',
+  'errors.field.asset_product_type_too_deep': 'The tree can be at most {{max}} levels deep.',
+  'errors.field.asset_serial_number_taken': 'Asset {{asset}} already has this serial number.',
+  'errors.field.asset_state_code_taken': 'Another state has this code.',
+  'errors.field.asset_state_default_needed':
+    'Each category needs a default state. Make another state the default instead.',
+  'errors.field.asset_state_not_found': 'Choose states from the list.',
+  'errors.field.asset_state_system':
+    'Loans and disposal rely on this state, so its category stays.',
+  'errors.field.asset_tag_pattern_invalid':
+    'Use the counter {n} once, with some text around it, e.g. AST-{n}.',
+  'errors.field.asset_tag_taken': 'Asset {{asset}} already has this tag.',
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
   'errors.field.before_publish': 'Retiring must come after publishing.',
@@ -190,6 +244,7 @@ export const en = {
   'errors.field.currency_unknown': 'Choose a currency from the list.',
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
   'errors.field.date_format_unknown': 'Choose a date format from the list.',
+  'errors.field.date_in_future': 'Choose today or an earlier date.',
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',
@@ -274,12 +329,14 @@ export const en = {
   'errors.field.invalid_node': 'This part of the filter is not a condition or a group.',
   'errors.field.invalid_number': 'Enter a number.',
   'errors.field.invalid_pattern': 'This pattern is not a valid regular expression.',
+  'errors.field.invalid_phone': 'Enter a phone number: digits, spaces, +, - and brackets.',
   'errors.field.invalid_prefix': 'Use 2 to 6 capital letters.',
   'errors.field.invalid_range': 'The start of the range is after its end.',
   'errors.field.invalid_sort': 'Choose between one and three sort fields.',
   'errors.field.invalid_tag': 'Tags may use letters, digits, spaces, dots and dashes (up to 40).',
   'errors.field.invalid_text': 'Enter text.',
   'errors.field.invalid_value': 'This value is not valid for the field.',
+  'errors.field.invalid_website': 'Enter a web address starting with http:// or https://.',
   'errors.field.invitation_days_out_of_range': 'Use between {{min}} and {{max}} days.',
   'errors.field.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.field.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
@@ -366,6 +423,7 @@ export const en = {
   'errors.field.required': 'This field is required.',
   'errors.field.required_for_known_error':
     'Write a workaround or a root cause before marking a known error.',
+  'errors.field.required_for_move': 'Fill this in before the move.',
   'errors.field.required_to_close': 'Needed before closing.',
   'errors.field.required_to_confirm_cause': 'Write the root cause before confirming it.',
   'errors.field.required_to_leave_stage': 'Fill this in before leaving this stage.',
@@ -433,6 +491,7 @@ export const en = {
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
+  'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
   'errors.field.too_many_items': 'There are too many entries.',
   'errors.field.too_many_keywords': 'Use at most 20 keywords per language.',
   'errors.field.too_many_levels': 'At most {{max}} escalation levels per target.',
@@ -480,6 +539,9 @@ export const en = {
   'errors.field.value_too_long': 'This value is too long.',
   'errors.field.value_too_long_max': 'Use at most {{max_length}} characters.',
   'errors.field.value_too_short': 'Use at least {{min}} characters.',
+  'errors.field.vendor_inactive': "This vendor is inactive and can't be picked.",
+  'errors.field.vendor_name_taken': 'Another vendor has this name.',
+  'errors.field.vendor_not_found': 'This vendor no longer exists.',
   'errors.field.week_empty': 'Add at least one working period.',
   'errors.field.week_start_unknown': 'Choose the day the week starts.',
   'errors.field.week_too_many_periods': 'A week can have at most 28 working periods.',
@@ -675,6 +737,11 @@ export const en = {
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.privilege_escalation': 'You cannot give access you do not have yourself.',
   'errors.problem_closed': '{{display_id}} is closed, so it cannot be merged.',
+  'errors.quick_sign_in_not_configured':
+    'Quick sign-in isn’t set up on this stack: run make dev-quick-sign-in.',
+  'errors.quick_sign_in_refused': 'Keycloak refused this quick sign-in.',
+  'errors.quick_sign_in_wait':
+    'This persona signed in twice in the last 30 seconds. Try again in {{seconds}} seconds.',
   'errors.range_not_satisfiable': 'That part of the file does not exist.',
   'errors.rate_limited': 'Too many requests. Please wait a moment and try again.',
   // Entitlements (WP-009)
@@ -782,6 +849,8 @@ export const en = {
     'Another account in your organisation already uses this email address.',
   'errors.user_not_found': 'The user was not found.',
   'errors.validation_failed': 'Some fields need your attention.',
+  'errors.vendor_in_use': 'Records still name this vendor ({{used}}). Make it inactive instead.',
+  'errors.vendor_not_found': 'This vendor no longer exists.',
   'errors.version_conflict':
     'Someone else saved this item after you opened it. Reload to see their changes.',
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
