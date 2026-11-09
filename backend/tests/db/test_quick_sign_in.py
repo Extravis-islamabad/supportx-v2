@@ -227,6 +227,12 @@ async def test_the_new_starter_goes_to_the_real_sign_in(quick: Quick) -> None:
         (LOCAL, {"Origin": LOCAL, "X-Forwarded-For": "203.0.113.9"}),  # forwarded from outside
         (LOCAL, {}),  # no Origin: another site's form could post here
         (LOCAL, {"Origin": "http://evil.example"}),
+        # A tunnel or proxy saying where it really came from (lane C's review).
+        (LOCAL, {"Origin": LOCAL, "X-Real-IP": "203.0.113.9"}),
+        (LOCAL, {"Origin": LOCAL, "CF-Connecting-IP": "203.0.113.9"}),
+        (LOCAL, {"Origin": LOCAL, "True-Client-IP": "203.0.113.9"}),
+        (LOCAL, {"Origin": LOCAL, "X-Original-Forwarded-For": "203.0.113.9"}),
+        (LOCAL, {"Origin": LOCAL, "X-Forwarded-Host": "abc.tunnel.example"}),
     ],
 )
 async def test_anything_not_local_finds_nothing(
@@ -251,3 +257,23 @@ async def test_switched_off_it_does_not_exist(migrated_db: ThrowawayDatabase) ->
         ).status_code == 404
     paths = app.openapi()["paths"]
     assert not [p for p in paths if "/auth/dev" in p]
+
+
+async def test_no_audit_entry_means_no_session(
+    quick: Quick, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every quick sign-in is audited: if the entry can't be written, the session is ended."""
+    from app.modules.identity_access.bff import quick as route  # noqa: PLC0415 - this test only
+
+    async def broken(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        msg = "audit down"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(route, "record_alone", broken)
+    quick.enrol("requester@showcase.test", roles=("requester",))
+    async with quick.client() as client:
+        refused = await _sign_in(quick, client, "requester")
+        assert refused.status_code == 503
+        assert (await client.get("/api/v1/auth/me")).status_code == 401
+    assert quick.idp.ended_sessions  # Keycloak's session too

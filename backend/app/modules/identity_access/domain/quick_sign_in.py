@@ -117,10 +117,32 @@ def _host_name(host: str | None) -> str:
     return host.rsplit(":", 1)[0] if host.count(":") == 1 else host
 
 
-def is_local(client_address: str | None, host: str | None, forwarded: list[str]) -> bool:
+# Headers a proxy or tunnel adds to say where a request really came from, or for which host.
+# Any of them naming something not local means the request is not local (fail closed).
+FORWARDED_ADDRESS_HEADERS = (
+    "x-forwarded-for",
+    "forwarded",
+    "x-real-ip",
+    "cf-connecting-ip",
+    "true-client-ip",
+    "x-original-forwarded-for",
+)
+FORWARDED_HOST_HEADERS = ("x-forwarded-host", "x-original-host")
+
+
+def is_local(
+    client_address: str | None,
+    host: str | None,
+    forwarded: list[str],
+    forwarded_hosts: list[str] | None = None,
+) -> bool:
     """Loopback client AND a localhost Host header, and nothing forwarded from elsewhere."""
     if not _loopback(client_address) or _host_name(host).lower() not in LOCAL_HOSTS:
         return False
+    for value in forwarded_hosts or []:
+        for item in value.split(","):
+            if _host_name(item.strip()).lower() not in LOCAL_HOSTS:
+                return False
     for value in forwarded:  # X-Forwarded-For / Forwarded from a proxy: every hop local
         for part in value.replace(";", ",").split(","):
             item = part.strip()

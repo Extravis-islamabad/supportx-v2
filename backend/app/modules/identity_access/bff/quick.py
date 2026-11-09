@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from app.core.authorization import public_route
 from app.core.entitlements import entitlement_exempt
-from app.core.errors import NotFound
+from app.core.errors import NotFound, ServiceUnavailable
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record_alone
@@ -35,14 +35,16 @@ log = get_logger(__name__)
 async def _showcase(request: Request, auth: Auth) -> uuid.UUID:
     """The showcase tenant, when the dev-only setting is on and the request is local; else 404."""
     settings = auth.settings
-    forwarded = [
-        value
-        for name in ("x-forwarded-for", "forwarded")
-        if (value := request.headers.get(name)) is not None
-    ]
+
+    def present(names: tuple[str, ...]) -> list[str]:
+        return [value for name in names if (value := request.headers.get(name)) is not None]
+
     client = request.client.host if request.client else None
     if not settings.dev_quick_sign_in or not quick.is_local(
-        client, request.headers.get("host"), forwarded
+        client,
+        request.headers.get("host"),
+        present(quick.FORWARDED_ADDRESS_HEADERS),
+        present(quick.FORWARDED_HOST_HEADERS),
     ):
         raise NotFound
     database = getattr(request.app.state, "db", None)
@@ -107,18 +109,24 @@ async def sign_in(
         # The real flow, so QA tests setting up two-step sign-in: Keycloak's own pages.
         url = await auth.start_login(who.app, "/", None)
         return QuickSignInOut(redirect_to=url)
-    result = await auth.quick_sign_in(who, showcase)
     database = getattr(request.app.state, "db", None)
-    if database is not None:
-        context = TenantContext(showcase, uuid.UUID(result.session.user_id))
+    if database is None:  # no audit without a database: never a session either
+        raise ServiceUnavailable(code="database_not_configured")
+    result = await auth.quick_sign_in(who, showcase)
+    try:
         await record_alone(
             database,
-            context,
+            TenantContext(showcase, uuid.UUID(result.session.user_id)),
             action_code="session.quick_sign_in",
             facts=RequestFacts.of(request, client=who.app),
             object_type="user",
             object_id=result.session.user_id,
             details={"persona": who.code},
         )
+    except Exception as exc:
+        # Every quick sign-in is audited (D-151): without its entry, no session (nor Keycloak's).
+        log.exception("quick_sign_in_audit_failed", persona=who.code)
+        await auth.logout(result.session_id, result.session)
+        raise ServiceUnavailable from exc
     set_session_cookie(response, auth.settings, result.session_id)
     return QuickSignInOut(redirect_to=result.redirect_to)

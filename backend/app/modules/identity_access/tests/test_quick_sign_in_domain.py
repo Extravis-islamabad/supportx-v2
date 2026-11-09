@@ -73,3 +73,8 @@ def test_only_loopback_with_a_localhost_host(
     client: str | None, host: str, forwarded: list[str], local: bool
 ) -> None:
     assert is_local(client, host, forwarded) is local
+
+
+def test_a_tunnel_naming_another_host_is_not_local() -> None:
+    assert is_local("127.0.0.1", "localhost:5173", [], ["localhost:5173"]) is True
+    assert is_local("127.0.0.1", "localhost:5173", [], ["abc.ngrok.example"]) is False

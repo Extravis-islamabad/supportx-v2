@@ -56,3 +56,15 @@ def test_no_realm_the_chart_ships_allows_the_password_grant(profile: str) -> Non
         body.append(line[4:])
     realm = json.loads("\n".join(body))
     assert all(c.get("directAccessGrantsEnabled") is not True for c in realm["clients"])
+    # The production session limits, never the Compose stack's week with "remember me".
+    assert (
+        realm["rememberMe"],
+        realm["ssoSessionIdleTimeout"],
+        realm["ssoSessionMaxLifespan"],
+    ) == (
+        False,
+        1800,
+        43200,
+    )
+    assert realm.get("ssoSessionIdleTimeoutRememberMe", 0) == 0
+    assert realm.get("ssoSessionMaxLifespanRememberMe", 0) == 0
