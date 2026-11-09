@@ -106,6 +106,18 @@ async def _seed(url: str) -> dict[str, uuid.UUID]:
                 desk,
                 seen[f"{prefix}-lead"],
             )
+            # A technician who leads a group but never held the manager role.
+            technician = await _role(conn, tenant, "technician")
+            tech_lead = await _user(conn, tenant, f"{prefix}-techlead")
+            await _hold(conn, tenant, tech_lead, technician)
+            seen[f"{prefix}-techlead"] = tech_lead
+            await conn.execute(
+                "INSERT INTO support_groups (id, tenant_id, name, desk_id, lead_id)"
+                " VALUES (gen_random_uuid(), $1, 'Network', $2, $3)",
+                tenant,
+                desk,
+                tech_lead,
+            )
     finally:
         await conn.close()
     return seen
@@ -136,9 +148,35 @@ def test_holders_move_by_their_tenants_scope_and_back(
     # Technicians see everything: only the group's lead moves.
     assert asyncio.run(_keys(url, seen["w-lead"])) == {"team_lead"}
     assert asyncio.run(_keys(url, seen["w-plain"])) == {"service_desk_manager"}
+    # A lead who was a plain technician keeps managing their group: team lead is added.
+    for who in ("g-techlead", "w-techlead"):
+        assert asyncio.run(_keys(url, seen[who])) == {"technician", "team_lead"}, who
     db_testing.downgrade(before.migrator_url, BEFORE)
     for who in ("g-lead", "g-plain", "w-lead", "w-plain"):
         assert asyncio.run(_keys(url, seen[who])) == {"service_desk_manager"}, who
+    for who in ("g-techlead", "w-techlead"):  # added only: back to exactly what they had
+        assert asyncio.run(_keys(url, seen[who])) == {"technician"}, who
+
+
+def test_the_downgrade_refuses_a_team_lead_given_by_hand(
+    before: db_testing.ThrowawayDatabase,
+) -> None:
+    seen = asyncio.run(_seed(before.admin_url))
+    db_testing.migrate(before.migrator_url, "0121")
+
+    async def by_hand() -> None:
+        conn = await asyncpg.connect(before.admin_url)
+        try:
+            role = await conn.fetchval(
+                "SELECT id FROM roles WHERE tenant_id = $1 AND key = 'team_lead'", seen["wide"]
+            )
+            await _hold(conn, seen["wide"], seen["w-plain"], role)  # created_at: now
+        finally:
+            await conn.close()
+
+    asyncio.run(by_hand())
+    with pytest.raises(Exception, match="by hand"):
+        db_testing.downgrade(before.migrator_url, BEFORE)
 
 
 def test_the_downgrade_refuses_while_another_new_role_is_held(

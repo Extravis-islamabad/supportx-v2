@@ -12,15 +12,17 @@ are next listed (`ensure_system_roles`). This migration moves people, per tenant
   every desk record and no settings. Decided by the coordinator under Haider's "map by current
   scope" (D-153): the built-in role only ever held all-records grants, so no per-holder scope was
   stored to read.
+* Every lead of a live group who does not hold team_lead gets it, additively, so no lead loses
+  managing their group under D-152's `groups.manage_own` (coordinator, 2026-11-10).
 * Roles held through a group (`group_roles`) are left as they are: a group's role is an
   admin's choice for all its members.
 * The technician's narrower asset rights (assets linked to their own tickets) are code, with
   no data step; they are announced in the release notes.
 
-Each tenant's counts go to the migration log (RAISE NOTICE).
-
-The downgrade moves team leads back to service_desk_manager. It refuses while anyone holds one
-of the other new roles, which would vanish (rule 5h), and then deletes the new role rows.
+Each tenant's counts go to the migration log (RAISE NOTICE). The rows it makes carry a fixed
+`created_at` (MOVED, ADDED), so the downgrade undoes exactly them: moved managers return to
+service_desk_manager, added leads just lose team_lead. It refuses while anyone holds one of the
+other new roles, or a team lead given by hand, which would vanish (rule 5h).
 
 D-153's standing rule: after the first customer install, any change that reduces existing rights
 needs a release-note announcement and a mapping that removes nothing silently.
@@ -67,6 +69,12 @@ END
 $f$;
 """
 
+# The rows this migration makes are marked by their `created_at` (literal in the SQL below), so the
+# downgrade undoes exactly them: MOVED for a service desk manager moved to team lead, ADDED for a
+# group lead given it.
+MOVED = "2026-11-10 00:01:21+00"
+ADDED = "2026-11-10 00:01:22+00"
+
 UPGRADE = """
 DO $$
 DECLARE
@@ -76,43 +84,58 @@ DECLARE
     scope text;
     moved int;
     kept int;
+    added int;
 BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
+        moved := 0; kept := 0; added := 0;
         SELECT id INTO manager FROM roles
         WHERE tenant_id = t AND key = 'service_desk_manager' AND deleted_at IS NULL;
-        IF manager IS NULL THEN
-            RAISE NOTICE '0121 tenant %: no service desk manager role, nothing to map', t;
-            CONTINUE;
-        END IF;
         SELECT coalesce(
             (SELECT technician_scope FROM access_settings WHERE tenant_id = t), 'group'
         ) INTO scope;
-        CREATE TEMP TABLE sx_0121_moving ON COMMIT DROP AS
-        SELECT ur.user_id FROM user_roles ur
-        WHERE ur.tenant_id = t AND ur.role_id = manager
-          AND (
-              scope = 'group'
-              OR EXISTS (
-                  SELECT 1 FROM support_groups g
-                  WHERE g.tenant_id = t AND g.lead_id = ur.user_id
-                    AND g.deleted_at IS NULL AND g.disabled_at IS NULL
-              )
-          );
-        SELECT count(*) INTO moved FROM sx_0121_moving;
-        IF moved > 0 THEN
-            lead := pg_temp.sx_0121_role(t, 'team_lead');
-            INSERT INTO user_roles (tenant_id, user_id, role_id)
-            SELECT t, user_id, lead FROM sx_0121_moving
-            ON CONFLICT DO NOTHING;
-            DELETE FROM user_roles
-            WHERE tenant_id = t AND role_id = manager
-              AND user_id IN (SELECT user_id FROM sx_0121_moving);
+        IF manager IS NOT NULL THEN
+            CREATE TEMP TABLE sx_0121_moving ON COMMIT DROP AS
+            SELECT ur.user_id FROM user_roles ur
+            WHERE ur.tenant_id = t AND ur.role_id = manager
+              AND (
+                  scope = 'group'
+                  OR EXISTS (
+                      SELECT 1 FROM support_groups g
+                      WHERE g.tenant_id = t AND g.lead_id = ur.user_id
+                        AND g.deleted_at IS NULL AND g.disabled_at IS NULL
+                  )
+              );
+            SELECT count(*) INTO moved FROM sx_0121_moving;
+            IF moved > 0 THEN
+                lead := pg_temp.sx_0121_role(t, 'team_lead');
+                INSERT INTO user_roles (tenant_id, user_id, role_id, created_at)
+                SELECT t, user_id, lead, '2026-11-10 00:01:21+00'::timestamptz FROM sx_0121_moving
+                ON CONFLICT DO NOTHING;
+                DELETE FROM user_roles
+                WHERE tenant_id = t AND role_id = manager
+                  AND user_id IN (SELECT user_id FROM sx_0121_moving);
+            END IF;
+            SELECT count(*) INTO kept FROM user_roles WHERE tenant_id = t AND role_id = manager;
+            DROP TABLE sx_0121_moving;
         END IF;
-        SELECT count(*) INTO kept FROM user_roles WHERE tenant_id = t AND role_id = manager;
-        RAISE NOTICE '0121 tenant %: % moved to team lead, % kept service desk manager',
-            t, moved, kept;
-        DROP TABLE sx_0121_moving;
+        -- Every live group's lead keeps managing their group (D-152 needs groups.manage_own):
+        -- additive, removes nothing (coordinator, 2026-11-10).
+        IF EXISTS (
+            SELECT 1 FROM support_groups
+            WHERE tenant_id = t AND lead_id IS NOT NULL
+              AND deleted_at IS NULL AND disabled_at IS NULL
+        ) THEN
+            lead := pg_temp.sx_0121_role(t, 'team_lead');
+            INSERT INTO user_roles (tenant_id, user_id, role_id, created_at)
+            SELECT DISTINCT t, g.lead_id, lead, '2026-11-10 00:01:22+00'::timestamptz FROM support_groups g
+            WHERE g.tenant_id = t AND g.lead_id IS NOT NULL
+              AND g.deleted_at IS NULL AND g.disabled_at IS NULL
+            ON CONFLICT DO NOTHING;
+            GET DIAGNOSTICS added = ROW_COUNT;
+        END IF;
+        RAISE NOTICE '0121 tenant %: % moved to team lead, % kept manager, % leads added',
+            t, moved, kept, added;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
 END
@@ -144,19 +167,24 @@ BEGIN
         WHERE tenant_id = t AND key = 'team_lead' AND deleted_at IS NULL;
         back := 0;
         IF lead IS NOT NULL THEN
+            -- Team lead given by an admin after the upgrade: there is no old role to return to.
+            IF EXISTS (
+                SELECT 1 FROM user_roles WHERE tenant_id = t AND role_id = lead
+                  AND created_at NOT IN ('2026-11-10 00:01:21+00'::timestamptz, '2026-11-10 00:01:22+00'::timestamptz)
+            ) OR EXISTS (SELECT 1 FROM group_roles WHERE tenant_id = t AND role_id = lead) THEN
+                RAISE EXCEPTION 'downgrade refused: tenant % gave team lead by hand (rule 5h)', t;
+            END IF;
             manager := pg_temp.sx_0121_role(t, 'service_desk_manager');
             INSERT INTO user_roles (tenant_id, user_id, role_id)
-            SELECT t, user_id, manager FROM user_roles WHERE tenant_id = t AND role_id = lead
+            SELECT t, user_id, manager FROM user_roles
+            WHERE tenant_id = t AND role_id = lead AND created_at = '2026-11-10 00:01:21+00'::timestamptz
             ON CONFLICT DO NOTHING;
             GET DIAGNOSTICS back = ROW_COUNT;
-            INSERT INTO group_roles (tenant_id, group_id, role_id)
-            SELECT t, group_id, manager FROM group_roles WHERE tenant_id = t AND role_id = lead
-            ON CONFLICT DO NOTHING;
             DELETE FROM user_roles WHERE tenant_id = t AND role_id = lead;
-            DELETE FROM group_roles WHERE tenant_id = t AND role_id = lead;
         END IF;
-        DELETE FROM roles WHERE tenant_id = t AND key IN ('team_lead', 'asset_manager', 'change_manager',
-            'release_manager', 'purchase_manager', 'department_viewer') AND is_system;
+        DELETE FROM roles WHERE tenant_id = t AND key IN ('team_lead', 'asset_manager',
+            'change_manager', 'release_manager', 'purchase_manager', 'department_viewer')
+          AND is_system;
         RAISE NOTICE '0121 downgrade tenant %: % back to service desk manager', t, back;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
