@@ -343,9 +343,21 @@ async def test_one_client_spending_its_budget_never_blocks_another_tenants_links
     )
 
     async def peek(address: str, tenant: str, link: str) -> int:
+        return int((await peeked(address, tenant, link)).status_code)
+
+    async def peeked(address: str, tenant: str, link: str) -> Any:  # noqa: ANN401 - a response
         transport = world.client._transport  # noqa: SLF001 - the ASGI transport's client address
         monkeypatch.setattr(transport, "client", (address, 1234))
-        return int((await _peek(world, shared, link, tenant)).status_code)
+        return await _peek(world, shared, link, tenant)
+
+    # The headers are the client address's alone: an unknown slug and a real one answer alike,
+    # and a link that works shows the address's own count, never its tenant's.
+    unknown = await peeked("10.0.0.9", "nobody-here", "B" * 43)
+    real = await peeked("10.0.0.8", slug_a, "B" * 43)
+    limit = "RateLimit-Remaining"
+    assert unknown.headers.get(limit) == real.headers.get(limit)
+    await peeked("10.0.0.7", "nobody-here", "B" * 43)  # the same client, an unknown slug first
+    assert (await peeked("10.0.0.7", slug_b, token)).headers[limit] == "1"  # both counted
 
     # One client sweeps tenant A, then unknown slugs, until refused.
     spent = [await peek("10.0.0.1", slug_a, "B" * 43) for _ in range(4)]

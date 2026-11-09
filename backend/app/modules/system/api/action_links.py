@@ -144,7 +144,8 @@ async def _public_tenant(
     # slugs only ever fills NO_TENANT's, which no real link uses. Every request makes both hits.
     await _public_limit(request, response, _address_scope(request))
     tenant_id = await _resolve(request, database, slug)
-    await _public_limit(request, response, tenant_id)
+    # Enforces only: its headers would tell an unknown slug's shared count from a real one's.
+    await _public_limit(request, response, tenant_id, headers=False)
     return tenant_id
 
 
@@ -169,8 +170,13 @@ async def _resolve(request: Request, database: Database, slug: str | None) -> uu
     return by_slug.tenant_id if by_slug is not None else NO_TENANT
 
 
-async def _public_limit(request: Request, response: Response, tenant_id: uuid.UUID) -> None:
-    """Rate limit by client address: there is no person to key on (lane B)."""
+async def _public_limit(
+    request: Request, response: Response, tenant_id: uuid.UUID, *, headers: bool = True
+) -> None:
+    """Rate limit by client address: there is no person to key on (lane B).
+
+    `headers`: whether this hit's RateLimit-* headers go on the response.
+    """
     limiter: RateLimiter | None = getattr(request.app.state, RATE_LIMITER_STATE, None)
     if limiter is None:
         return
@@ -182,7 +188,8 @@ async def _public_limit(request: Request, response: Response, tenant_id: uuid.UU
         raise RateLimited(
             params={"retry_after_seconds": decision.reset_seconds}, headers=decision.headers()
         )
-    response.headers.update(decision.headers())
+    if headers:
+        response.headers.update(decision.headers())
 
 
 async def _recipient(
