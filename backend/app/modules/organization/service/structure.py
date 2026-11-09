@@ -297,7 +297,19 @@ async def default_site(session: AsyncSession) -> Site:
         oldest.is_default = True
         await session.flush()
         return oldest
-    return await SiteRepository(session).add(Site(name=DEFAULT_SITE_NAME, is_default=True))
+    try:
+        async with session.begin_nested():
+            return await SiteRepository(session).add(Site(name=DEFAULT_SITE_NAME, is_default=True))
+    except IntegrityError:
+        # Two first reads at once (e2e, 2026-11-09: a 500 on GET /sites): the other request
+        # created it a moment before; its row is the default site. The savepoint kept this
+        # request's transaction usable.
+        found = await session.scalar(
+            select(Site).where(Site.is_default.is_(True), Site.deleted_at.is_(None))
+        )
+        if found is None:
+            raise
+        return found
 
 
 async def list_sites(session: AsyncSession) -> list[Site]:
