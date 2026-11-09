@@ -798,6 +798,8 @@ export const ur: LabelResource = {
   'incidents.worklogs.total': 'کل وقت',
   'incidents.worklogs.type': 'ورک لاگ کی قسم',
   'incidents.worklogs.when': '{{from}} سے {{to}} تک',
+  'incidents.worklogs.why_end': 'کام ختم ہونے کا وقت یا اس میں لگنے والا وقت درج کریں۔',
+  'incidents.worklogs.why_start': 'کام شروع ہونے کا وقت درج کریں۔',
   'known_problem.being_worked_on':
     'ہمیں اس مسئلے کا علم ہے اور ہم اسے ٹھیک کرنے پر کام کر رہے ہیں۔',
   'known_problem.fixed': 'اس کی وجہ بننے والا مسئلہ ٹھیک کر دیا گیا۔',

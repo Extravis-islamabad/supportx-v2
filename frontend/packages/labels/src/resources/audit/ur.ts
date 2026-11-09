@@ -95,6 +95,8 @@ export const ur: LabelResource = {
   'audit.action.incident.reply_template_deleted': 'جواب کا سانچہ ہٹایا',
   'audit.action.incident.restored': 'واقعہ ردی کی ٹوکری سے بحال کیا',
   'audit.action.incident.settings_changed': 'واقعات کی ترتیبات تبدیل کیں',
+  'audit.action.incident.sla_applied_from_creation':
+    'واقعے پر اس کے بننے کے وقت سے ایس ایل اے لاگو کیا',
   'audit.action.incident.template_changed': 'واقعے کا سانچہ بدلا',
   'audit.action.incident.template_created': 'واقعے کا سانچہ شامل کیا',
   'audit.action.invitation.resent': 'دعوت نامہ دوبارہ بھیجا',
@@ -232,6 +234,7 @@ export const ur: LabelResource = {
   'audit.action.user.role_removed': 'کسی فرد سے کردار واپس لیا',
   'audit.action.user.sign_in_changed': 'کسی فرد کا سائن اِن کھولا یا بند کیا',
   'audit.action.user.type_changed': 'کسی فرد کی صارف کی قسم تبدیل کی',
+  'audit.action.work_item.dates_restored': 'ریکارڈ کی اصل تاریخیں بحال کیں',
   'audit.alert.probing': 'ایک فرد کی بار بار مسترد کوششیں۔',
   'audit.alert.unsealed_overdue': 'آڈٹ اندراجات مہر بند نہیں ہو رہے۔',
   'audit.alert.verification_failed': 'آڈٹ لاگ تصدیق میں ناکام رہا۔',

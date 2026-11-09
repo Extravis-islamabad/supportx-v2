@@ -95,6 +95,8 @@ export const ar: LabelResource = {
   'audit.action.incident.reply_template_deleted': 'أزال قالب رد',
   'audit.action.incident.restored': 'استعاد حادثة من سلة المحذوفات',
   'audit.action.incident.settings_changed': 'غيّر إعدادات الحوادث',
+  'audit.action.incident.sla_applied_from_creation':
+    'طبّق اتفاقية مستوى الخدمة على حادث منذ إنشائه',
   'audit.action.incident.template_changed': 'غيّر قالب حوادث',
   'audit.action.incident.template_created': 'أضاف قالب حوادث',
   'audit.action.invitation.resent': 'أعاد إرسال دعوة',
@@ -231,6 +233,7 @@ export const ar: LabelResource = {
   'audit.action.user.role_removed': 'سحب دورًا من شخص',
   'audit.action.user.sign_in_changed': 'سمح لشخص بتسجيل الدخول أو أوقفه',
   'audit.action.user.type_changed': 'غيّر نوع المستخدم لشخص',
+  'audit.action.work_item.dates_restored': 'استعاد التواريخ الأصلية لسجل',
   'audit.alert.probing': 'محاولات مرفوضة متكررة من شخص واحد.',
   'audit.alert.unsealed_overdue': 'لا يتم ختم إدخالات التدقيق.',
   'audit.alert.verification_failed': 'فشل التحقق من سجل التدقيق.',

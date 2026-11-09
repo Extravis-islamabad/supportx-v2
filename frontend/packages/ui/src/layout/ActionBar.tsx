@@ -39,8 +39,13 @@ export interface ActionBarProps {
   actions: RecordAction[];
   /** At most this many buttons (D-124: 4). */
   max?: number;
-  /** Content on the end side of the bar (presence, follow). */
+  /** Content on the end side of the bar. */
   extra?: ReactNode;
+  /**
+   * Content before the buttons, on the same row and aligned with them (template A: presence and
+   * Follow sit with the actions, D-147).
+   */
+  lead?: ReactNode;
   testId?: string;
 }
 
@@ -51,7 +56,7 @@ export interface ActionBarProps {
  */
 type MenuItem = NonNullable<MenuProps['items']>[number];
 
-export function ActionBar({ actions: given, max = 4, extra, testId }: ActionBarProps) {
+export function ActionBar({ actions: given, max = 4, extra, lead, testId }: ActionBarProps) {
   const t = useLabel();
   const { modal } = App.useApp();
   const { writable } = useLicence();
@@ -147,6 +152,7 @@ export function ActionBar({ actions: given, max = 4, extra, testId }: ActionBarP
 
   return (
     <Flex gap={SPACE.xs} wrap align="center" data-testid={testId} style={{ marginBlock: SPACE.xs }}>
+      {lead}
       {buttons.map((action) => (
         <Button
           key={action.key}

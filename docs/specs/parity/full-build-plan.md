@@ -74,7 +74,7 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 | WP-055 | Integrations and ESM V1: framework, REST API, webhooks, email, chat tools, calendars, DevOps, endpoint, relay, MCP | 12 (not §5) | 37 | 6 |
 | WP-056 | Notifications V1: engine, templates, preferences, digests, quiet hours, delivery | 03 §16-19 | 11 | 2 |
 
-### Lane B (about 47 sessions; WP-055, WP-056 and WP-057 moved out by D-149)
+### Lane B (about 51 sessions; WP-055, WP-056 and WP-057 moved out by D-149; WP-064 added by D-150)
 
 | WP | Title | V1 requirements (file §) | Count | Sessions |
 |---|---|---|---|---|
@@ -85,6 +85,7 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 | WP-052 | Software asset management: catalogue, licences, compliance and metering | 07 §19-21 | 17 | 3 |
 | WP-053 | CMDB: CI types, relationships and map, impact, reconciliation, downtimes, baselines, access; MonetX read-only connector | 07 §22-28, 12 §5 | 36 | 7 |
 | WP-054 | Purchase and contracts | 07 §29-32 | 16 | 3 |
+| WP-064 | Record lifecycle in the tamper-evident audit log: one chained entry per save naming every event in it, a change-set fingerprint over record history, personal data outside the chain (erasure shows "erased on request"), legal hold, verified before/after in the audit viewer, retention per category, sealing to about 2,000/s with a 10M benchmark (D-150) | new (product owner) | — | 4 |
 | (WIP) | WP-014b S2-S3, WP-013, WP-014c | | | 7 |
 
 ### Lane C (about 62 sessions; WP-057 added by D-149)
@@ -113,7 +114,7 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 | V1 requirements mapped | **886** of 886, each exactly once (checked by script; list below) |
 | Extra scope | discovery probe and agent, remote assistance, reports for new modules |
 | Sessions, work in progress | about 12 |
-| Sessions, new work packages | Original split: A about 61, B about 59, C about 58, **about 178**. After D-149: A about 69, B about 47, C about 62 |
+| Sessions, new work packages | Original split: A about 61, B about 59, C about 58, **about 178**. After D-149: A about 69, B about 47, C about 62. After D-150: B about 51 (WP-064) |
 | Pace observed (3 lanes, 24 h) | about 1.5 to 2 sessions per lane per day, plus about 15% for merge choreography, QA fixes and red nightlies |
 | **Calendar, all lanes in parallel** | Original: about 35 to 46 days, feature-complete about 10 to 21 December 2026. **Re-estimate 2026-11-09 (after D-147 and D-149, see below): feature-complete about 8 to 18 December 2026** |
 | Then | WP-043 (the full gate returns) and hardening: about 3 to 5 days, so **the first full release is about 13 to 23 December 2026** (re-estimate 2026-11-09; was 15 to 26 December) |

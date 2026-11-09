@@ -228,6 +228,8 @@ ACTIONS: dict[str, Action] = _actions(
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),
+    # The showcase seed's step 6 (Haider, 2026-11-09): an older incident's SLA from creation.
+    ("incident.sla_applied_from_creation", AuditCategory.RECORDS, "work_items"),
     ("incident.bulk_started", AuditCategory.RECORDS, "work_items"),
     ("incident.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("incident.closed_record_edited", AuditCategory.RECORDS, "work_items"),
@@ -308,6 +310,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.verification_failed", AuditCategory.SECURITY, "audit"),
     ("audit.probing_detected", AuditCategory.SECURITY, "audit"),
     ("audit.subject_erased", AuditCategory.DATA, "audit"),
+    # One-off showcase repair (QA 2026-11-09): dates the old seed step moved, put back.
+    ("work_item.dates_restored", AuditCategory.DATA, "work_items"),
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.entries_archived", AuditCategory.DATA, "audit"),

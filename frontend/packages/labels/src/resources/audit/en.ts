@@ -96,6 +96,8 @@ export const en = {
   'audit.action.incident.reply_template_deleted': 'Removed a reply template',
   'audit.action.incident.restored': 'Restored an incident from the trash',
   'audit.action.incident.settings_changed': 'Changed incident settings',
+  'audit.action.incident.sla_applied_from_creation':
+    'Applied the SLA to an incident from its creation',
   'audit.action.incident.template_changed': 'Changed an incident template',
   'audit.action.incident.template_created': 'Added an incident template',
   'audit.action.invitation.resent': 'Sent an invitation again',
@@ -233,6 +235,7 @@ export const en = {
   'audit.action.user.role_removed': 'Took a role from a person',
   'audit.action.user.sign_in_changed': 'Allowed or stopped a person’s sign-in',
   'audit.action.user.type_changed': 'Changed a person’s user type',
+  'audit.action.work_item.dates_restored': 'Restored the original dates of a record',
   'audit.alert.probing': 'Repeated refused attempts by one person.',
   'audit.alert.unsealed_overdue': 'Audit entries are not being sealed.',
   'audit.alert.verification_failed': 'The audit log failed verification.',
