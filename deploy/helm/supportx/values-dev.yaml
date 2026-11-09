@@ -58,6 +58,10 @@ mail:
   smtpSecurity: none
   fromAddress: noreply@supportx.localhost
 
+# The e2e journeys check the AI features against the fake's answers (QA6-AI-01).
+ai:
+  fakeEcho: true
+
 # Temporal on the dev cluster too, smaller.
 temporal:
   bundled:

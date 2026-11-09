@@ -1,4 +1,10 @@
-import { DownOutlined, LockOutlined, MenuOutlined } from '@ant-design/icons';
+import {
+  DownOutlined,
+  LeftOutlined,
+  LockOutlined,
+  MenuOutlined,
+  RightOutlined,
+} from '@ant-design/icons';
 import { Button, ConfigProvider, Drawer, Grid, Layout, Menu, Tooltip, type MenuProps } from 'antd';
 import { useContext, useState, type ReactNode } from 'react';
 
@@ -99,17 +105,19 @@ export function AppShell({
 
   if (phone) {
     const menu = (
-      <Button
-        type="text"
-        icon={<MenuOutlined />}
-        aria-label={t('nav.open_menu')}
-        aria-expanded={drawer}
-        aria-controls="nav-drawer"
-        onClick={() => {
-          setDrawer(true);
-        }}
-        data-testid="nav-menu-button"
-      />
+      <Tooltip title={t('nav.open_menu')}>
+        <Button
+          type="text"
+          icon={<MenuOutlined />}
+          aria-label={t('nav.open_menu')}
+          aria-expanded={drawer}
+          aria-controls="nav-drawer"
+          onClick={() => {
+            setDrawer(true);
+          }}
+          data-testid="nav-menu-button"
+        />
+      </Tooltip>
     );
     return (
       <Layout style={{ minHeight: '100vh' }} data-layout={layout} data-phone="true">
@@ -201,28 +209,57 @@ export function AppShell({
         theme="dark"
         width={220}
         collapsedWidth={64}
-        trigger={compact ? null : undefined}
-        // The dark navigation runs the full height however long the page (UI pass 2).
-        style={{ position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}
+        // Our own collapse button at the end of the sticky column, not Ant Design's trigger,
+        // which is fixed to the window's bottom and shows mid-page in a full-page shot (D-147).
+        trigger={null}
+        // The dark navigation runs the full height however long the page, also in a full-page
+        // screenshot (D-147 global fix 1): the sider itself stretches with the page, and only
+        // its content sticks to the viewport while the page scrolls.
+        style={{ alignSelf: 'stretch' }}
+        data-testid="shell-sider"
       >
         <div
-          style={{
-            padding: 16,
-            minHeight: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: narrow ? 'center' : 'flex-start',
-          }}
+          style={{ position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto' }}
+          data-testid="shell-sider-content"
         >
-          {brand(narrow)}
+          <div
+            style={{
+              padding: 16,
+              minHeight: 64,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: narrow ? 'center' : 'flex-start',
+            }}
+          >
+            {brand(narrow)}
+          </div>
+          <nav
+            aria-label={t('nav.main')}
+            data-testid={compact ? 'nav-compact' : 'nav-side'}
+            data-items={itemKeys}
+          >
+            <Menu mode="inline" theme="dark" selectedKeys={selectedKeys} items={items} />
+          </nav>
+          {!compact && (
+            <Tooltip title={t(narrow ? 'nav.expand' : 'nav.collapse')} placement="right">
+              <Button
+                type="text"
+                icon={(direction === 'rtl') !== narrow ? <RightOutlined /> : <LeftOutlined />}
+                aria-label={t(narrow ? 'nav.expand' : 'nav.collapse')}
+                aria-expanded={!narrow}
+                onClick={() => {
+                  setCollapsed(!collapsed);
+                }}
+                data-testid="nav-collapse"
+                style={{
+                  color: 'rgba(255, 255, 255, 0.75)',
+                  margin: '8px auto 16px',
+                  display: 'block',
+                }}
+              />
+            </Tooltip>
+          )}
         </div>
-        <nav
-          aria-label={t('nav.main')}
-          data-testid={compact ? 'nav-compact' : 'nav-side'}
-          data-items={itemKeys}
-        >
-          <Menu mode="inline" theme="dark" selectedKeys={selectedKeys} items={items} />
-        </nav>
       </Layout.Sider>
       {/* min-width 0: the page column may shrink below its widest table (which then scrolls
           inside its own box), so the page never scrolls sideways (QA BUG-07). */}

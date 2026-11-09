@@ -1,10 +1,12 @@
 """Field history implementation (see the package docstring)."""
 
+import copy
 import uuid
-from collections.abc import Awaitable, Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastapi import Request
 from sqlalchemy import BigInteger, CheckConstraint, Index, String, Text, func, select
@@ -171,6 +173,35 @@ def in_batch(session: AsyncSession, batch_id: uuid.UUID | None) -> None:
         session.info[BATCH_KEY] = batch_id
 
 
+AUTOMATION_KEY = "supportx.history.automation_ref"
+
+
+@contextmanager
+def automated(session: AsyncSession, ref: Mapping[str, JsonValue]) -> Iterator[None]:
+    """History rows written inside this block name `ref` as the automation that made them.
+
+    For a caller that acts through another module's public services, which take no ref of their
+    own: a workflow node (WP-048b, ADR-043 §6; lane A's review). Only rows whose caller passes no
+    `automation_ref` of its own get it, so an explicit ref (a rule's, the matrix's) still wins.
+    The previous value comes back when the block ends, so nothing outside it inherits the ref.
+    """
+    previous = session.info.get(AUTOMATION_KEY)
+    session.info[AUTOMATION_KEY] = copy.deepcopy(dict(ref))  # never the caller's live object
+    try:
+        yield
+    finally:
+        if previous is None:
+            session.info.pop(AUTOMATION_KEY, None)
+        else:
+            session.info[AUTOMATION_KEY] = previous
+
+
+def current_automation(session: AsyncSession) -> Mapping[str, JsonValue] | None:
+    """The ref of the enclosing `automated` block, or None (a person's own change)."""
+    found = session.info.get(AUTOMATION_KEY)
+    return found if isinstance(found, Mapping) else None
+
+
 async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     session: AsyncSession,
     *,
@@ -189,6 +220,8 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     """
     change_id = new_id()
     batch_id = session.info.get(BATCH_KEY)
+    if automation_ref is None:
+        automation_ref = cast("JsonValue | None", current_automation(session))
     actor_type, actor_id = _actor(session)
     now = system_clock.now()
     request_id = current_request_id()

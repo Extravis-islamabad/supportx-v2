@@ -112,6 +112,25 @@ describe('Admin › Audit log', () => {
     });
   });
 
+  it('QA6-ADM-01: the less used filters sit behind "More filters", and open when one is set', async () => {
+    auditRoutes();
+    render(<App />);
+    await screen.findByTestId('audit-table');
+    expect(screen.getByTestId('audit-filter-outcome')).toBeTruthy();
+    expect(screen.queryByTestId('audit-filter-category')).toBeNull();
+    fireEvent.click(screen.getByTestId('audit-more-filters'));
+    expect(await screen.findByTestId('audit-filter-category')).toBeTruthy();
+    expect(screen.getByTestId('audit-filter-client')).toBeTruthy();
+  });
+
+  it('QA6-ADM-01: a hidden filter that is set stays visible and is counted', async () => {
+    window.history.pushState({}, '', '/admin/audit?client=api');
+    auditRoutes();
+    render(<App />);
+    expect(await screen.findByTestId('audit-filter-client')).toBeTruthy();
+    expect(screen.getByTestId('audit-more-filters').textContent).toBe('More filters (1 set)');
+  });
+
   it('opens an entry: grants added and removed, the IP address and the support reference', async () => {
     auditRoutes();
     render(<App />);
@@ -123,6 +142,35 @@ describe('Admin › Audit log', () => {
     expect(within(drawer).getByText('10.1.2.3')).toBeDefined();
     expect(within(drawer).getByText('req-42')).toBeDefined();
     expect(within(drawer).queryByText('users.view:all')).toBeNull();
+  });
+
+  it('a refused entry reads in words: the object, why, and the device, never codes (AUD-01)', async () => {
+    const mac =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+      'Chrome/155.0.0.0 Safari/537.36';
+    auditRoutes([entry({ object_type: 'sla_holiday_list', outcome: 'refused' })], {
+      'GET /api/v1/audit/entries/e-1': {
+        body: {
+          ...DETAIL,
+          object_type: 'sla_holiday_list',
+          outcome: 'refused',
+          reason_code: 'validation_failed',
+          details: { status: 422 },
+          personal: [{ subject_id: 'u-admin', ip: '10.1.2.3', user_agent: mac, reason: null }],
+        },
+      },
+    });
+    render(<App />);
+    const table = await screen.findByTestId('audit-table');
+    expect(await within(table).findByText(/Holiday list/)).toBeDefined();
+    expect(within(table).queryByText(/Sla Holiday List/)).toBeNull();
+    fireEvent.click(await screen.findByTestId('audit-row-e-1'));
+    const drawer = await screen.findByTestId('audit-entry-drawer');
+    await within(drawer).findByText('Chrome 155 on macOS');
+    expect(within(drawer).queryByText(/422|Response status/)).toBeNull();
+    expect(within(drawer).queryByText(mac)).toBeNull(); // only under "Technical details"
+    fireEvent.click(within(drawer).getByText('Technical details'));
+    expect(await within(drawer).findByText(mac)).toBeDefined();
   });
 
   it('shows the banner while the chain has an unresolved problem', async () => {

@@ -5,7 +5,13 @@ See docs/architecture/events.md for how an event travels and how to add events a
 
 from app.shared.events.consumers import ConsumerSpec, Handler, claim
 from app.shared.events.envelope import Actor, DomainEvent, EventEnvelope
-from app.shared.events.outbox import OUTBOX_CHANNEL, OutboxEvent, ProcessedEvent, record_event
+from app.shared.events.outbox import (
+    OUTBOX_CHANNEL,
+    OutboxEvent,
+    ProcessedEvent,
+    caused_by,
+    record_event,
+)
 from app.shared.events.registry import (
     EventRegistry,
     UnregisteredEventError,
@@ -27,6 +33,7 @@ __all__ = [
     "ProcessedEvent",
     "UnregisteredEventError",
     "active_registry",
+    "caused_by",
     "claim",
     "install_registry",
     "record_event",

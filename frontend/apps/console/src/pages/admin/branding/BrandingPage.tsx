@@ -160,6 +160,15 @@ function ScanWatcher({
  * preview shows the console, portal and sign-in page in light, dark and high contrast before
  * saving. Saved changes reach every open screen without a reload; saving is audited.
  */
+/**
+ * "5.93:1" kept left to right inside any sentence: in Arabic and Urdu the bidi algorithm would
+ * otherwise show it as "1:5.93" (QA9-V-10). An isolate (LRI ... PDI), not a mark, so the
+ * sentence around it keeps its own direction.
+ */
+function ratioText(value: number, digits: number): string {
+  return `\u2066${value.toFixed(digits)}:1\u2069`;
+}
+
 export function BrandingPage() {
   const t = useLabel();
   const { message } = App.useApp();
@@ -386,8 +395,19 @@ export function BrandingPage() {
               )}
             </Typography.Text>
           )}
+          {disabled && (
+            // Never an unexplained disabled button (QA6S-ORG-01): the dark logo and the icon
+            // follow the main logo.
+            <Typography.Text type="secondary" data-testid={`branding-${field}-why`}>
+              {t('branding.image.logo_first')}
+            </Typography.Text>
+          )}
           <Space wrap>
-            <Button disabled={disabled} data-testid={`branding-${field}-choose`}>
+            <Button
+              disabled={disabled}
+              title={disabled ? t('branding.image.logo_first') : undefined}
+              data-testid={`branding-${field}-choose`}
+            >
               <label style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}>
                 {t('branding.image.choose')}
                 <input
@@ -546,16 +566,18 @@ export function BrandingPage() {
                   >
                     {report.checks.map((item) => (
                       <li key={item.code} style={{ marginBlock: 4 }}>
-                        <ToneTag tone={item.passed ? 'success' : 'error'}>
-                          {t(item.passed ? 'branding.check_passed' : 'branding.check_failed')}
-                        </ToneTag>
-                        {t(`branding.check.${item.code}`)}{' '}
-                        <Typography.Text type="secondary">
-                          {t('branding.ratio', {
-                            ratio: item.ratio.toFixed(2),
-                            required: item.required.toFixed(1),
-                          })}
-                        </Typography.Text>
+                        <Flex gap={8} wrap align="center">
+                          <ToneTag tone={item.passed ? 'success' : 'error'}>
+                            {t(item.passed ? 'branding.check_passed' : 'branding.check_failed')}
+                          </ToneTag>
+                          <span>{t(`branding.check.${item.code}`)}</span>
+                          <Typography.Text type="secondary">
+                            {t('branding.ratio', {
+                              ratio: ratioText(item.ratio, 2),
+                              required: ratioText(item.required, 1),
+                            })}
+                          </Typography.Text>
+                        </Flex>
                       </li>
                     ))}
                   </ul>
@@ -602,13 +624,13 @@ export function BrandingPage() {
               </Flex>
             </Card>
             <Card title={t('branding.images')}>
-              <Row gutter={[12, 12]}>
+              {/* One tile per line: room for each title and its buttons (QA6S-ORG-01: three in
+                  half the width truncated titles and overflowed buttons). */}
+              <Flex vertical gap={12}>
                 {IMAGE_FIELDS.map((field) => (
-                  <Col key={field} xs={24} md={8}>
-                    {imageCard(field)}
-                  </Col>
+                  <div key={field}>{imageCard(field)}</div>
                 ))}
-              </Row>
+              </Flex>
             </Card>
             <Card title={t('branding.texts')}>
               <Tabs
@@ -729,7 +751,10 @@ export function BrandingPage() {
           </Flex>
         </Col>
         <Col xs={24} xl={12}>
-          <BrandPreview branding={candidate} />
+          {/* The preview follows the form as it scrolls, no empty column beside it. */}
+          <div style={{ position: 'sticky', top: 72 }}>
+            <BrandPreview branding={candidate} />
+          </div>
         </Col>
       </Row>
       <DomainsCard />

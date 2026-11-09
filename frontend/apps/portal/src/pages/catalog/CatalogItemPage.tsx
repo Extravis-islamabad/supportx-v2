@@ -21,6 +21,8 @@ import {
 import { AttachFiles } from '../requests/attachFiles';
 import { useFilesToAttach } from '../requests/useFilesToAttach';
 import { ForWhom } from '../requests/ForWhom';
+import { FormCard } from '../FormCard';
+import { FORM_COLUMN } from '../formColumn';
 
 const SUBJECT_MAX = 250;
 
@@ -70,7 +72,7 @@ export function CatalogItemPage() {
   const ready = typed.trim() !== '' && missing.length === 0;
 
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 760 }}>
+    <Flex vertical gap={16} style={FORM_COLUMN}>
       <Link to="/catalog">{t('portal.catalog.back')}</Link>
       <Flex vertical gap={4}>
         <Typography.Title level={1} style={{ margin: 0 }}>
@@ -83,107 +85,109 @@ export function CatalogItemPage() {
           <RichTextView html={description} />
         </section>
       )}
-      <Form
-        layout="vertical"
-        requiredMark
-        onFinish={() => {
-          if (!ready) return;
-          setProblems({});
-          raise.mutate(
-            {
-              key,
-              body: {
-                subject: typed.trim(),
-                requester_id: session.user.id,
-                catalog_item_id: item.id,
-                answers: sentAnswers(shown),
-                confirm_lose_access: false,
-                ...(onBehalf !== null ? { on_behalf_of_id: onBehalf } : {}),
+      <FormCard testId="portal-cat-form">
+        <Form
+          layout="vertical"
+          requiredMark
+          onFinish={() => {
+            if (!ready) return;
+            setProblems({});
+            raise.mutate(
+              {
+                key,
+                body: {
+                  subject: typed.trim(),
+                  requester_id: session.user.id,
+                  catalog_item_id: item.id,
+                  answers: sentAnswers(shown),
+                  confirm_lose_access: false,
+                  ...(onBehalf !== null ? { on_behalf_of_id: onBehalf } : {}),
+                },
               },
-            },
-            {
-              onSuccess: (made) => {
-                void message.success(t('portal.catalog.sent', { id: made.display_id }));
-                // The files go to the new request, then what happens next (WP-032 D4, D5).
-                void files
-                  .attach(made.id)
-                  .then(() =>
-                    navigate(`/service-requests/${made.id}?submitted=1`, { replace: true }),
-                  );
+              {
+                onSuccess: (made) => {
+                  void message.success(t('portal.catalog.sent', { id: made.display_id }));
+                  // The files go to the new request, then what happens next (WP-032 D4, D5).
+                  void files
+                    .attach(made.id)
+                    .then(() =>
+                      navigate(`/service-requests/${made.id}?submitted=1`, { replace: true }),
+                    );
+                },
+                onError: (error) => {
+                  if (error instanceof ApiError && error.status === 422) {
+                    markHandled(error);
+                    setProblems(
+                      Object.fromEntries(
+                        error.fieldErrors.map((f) => [
+                          f.field.replace(/^body\.answers\./, ''),
+                          t(f.message_key, f.params ?? {}),
+                        ]),
+                      ),
+                    );
+                    return;
+                  }
+                  reportError(error);
+                },
               },
-              onError: (error) => {
-                if (error instanceof ApiError && error.status === 422) {
-                  markHandled(error);
-                  setProblems(
-                    Object.fromEntries(
-                      error.fieldErrors.map((f) => [
-                        f.field.replace(/^body\.answers\./, ''),
-                        t(f.message_key, f.params ?? {}),
-                      ]),
-                    ),
-                  );
-                  return;
-                }
-                reportError(error);
-              },
-            },
-          );
-        }}
-      >
-        <Form.Item label={t('portal.report.for_whom')}>
-          <ForWhom value={onBehalf} onChange={setOnBehalf} />
-        </Form.Item>
-        <Form.Item label={t('portal.report.subject')} htmlFor="portal-cat-subject" required>
-          <Input
-            id="portal-cat-subject"
-            size="large"
-            value={typed}
-            count={lengthLimit(SUBJECT_MAX)}
-            onChange={(event) => {
-              setSubject(event.target.value);
-            }}
-            data-testid="portal-cat-subject"
-          />
-        </Form.Item>
-        {questions.map((q) => (
-          <Form.Item
-            key={q.key}
-            label={textIn(q.label, locale) || q.key}
-            required={q.required}
-            extra={textIn(q.help, locale) || undefined}
-            htmlFor={`sr-q-${q.key}`}
-            validateStatus={problems[q.key] !== undefined ? 'error' : undefined}
-            help={problems[q.key]}
-          >
-            <QuestionField
-              question={q}
-              value={shown[q.key] ?? null}
-              onChange={(value) => {
-                setAnswers({ ...shown, [q.key]: value });
+            );
+          }}
+        >
+          <Form.Item label={t('portal.report.for_whom')}>
+            <ForWhom value={onBehalf} onChange={setOnBehalf} />
+          </Form.Item>
+          <Form.Item label={t('portal.request.subject')} htmlFor="portal-cat-subject" required>
+            <Input
+              id="portal-cat-subject"
+              size="large"
+              value={typed}
+              count={lengthLimit(SUBJECT_MAX)}
+              onChange={(event) => {
+                setSubject(event.target.value);
               }}
-              locale={locale}
+              data-testid="portal-cat-subject"
             />
           </Form.Item>
-        ))}
-        <Form.Item label={t('portal.report.files')}>
-          <AttachFiles
-            files={files.files}
-            keep={files.keep}
-            remove={files.remove}
-            testId="portal-cat"
-          />
-        </Form.Item>
-        <Button
-          type="primary"
-          size="large"
-          htmlType="submit"
-          disabled={!ready}
-          loading={raise.isPending || files.sending}
-          data-testid="portal-cat-send"
-        >
-          {t('portal.catalog.send')}
-        </Button>
-      </Form>
+          {questions.map((q) => (
+            <Form.Item
+              key={q.key}
+              label={textIn(q.label, locale) || q.key}
+              required={q.required}
+              extra={textIn(q.help, locale) || undefined}
+              htmlFor={`sr-q-${q.key}`}
+              validateStatus={problems[q.key] !== undefined ? 'error' : undefined}
+              help={problems[q.key]}
+            >
+              <QuestionField
+                question={q}
+                value={shown[q.key] ?? null}
+                onChange={(value) => {
+                  setAnswers({ ...shown, [q.key]: value });
+                }}
+                locale={locale}
+              />
+            </Form.Item>
+          ))}
+          <Form.Item label={t('portal.report.files')}>
+            <AttachFiles
+              files={files.files}
+              keep={files.keep}
+              remove={files.remove}
+              testId="portal-cat"
+            />
+          </Form.Item>
+          <Button
+            type="primary"
+            size="large"
+            htmlType="submit"
+            disabled={!ready}
+            loading={raise.isPending || files.sending}
+            data-testid="portal-cat-send"
+          >
+            {t('portal.catalog.send')}
+          </Button>
+        </Form>
+      </FormCard>
     </Flex>
   );
 }

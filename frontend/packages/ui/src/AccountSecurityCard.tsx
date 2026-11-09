@@ -38,9 +38,15 @@ function useActionResult() {
  */
 export function AccountSecurityCard({
   returnTo = window.location.pathname,
+  callToAction = true,
 }: {
   /** Where to come back after the sign-in service's page: this page by default. */
   returnTo?: string;
+  /**
+   * Set up two-step sign-in as the page's primary button (the portal's account page). The
+   * console's profile has its own Save as the one primary, so it passes false (QA9-V-12).
+   */
+  callToAction?: boolean;
 }) {
   const t = useLabel();
   const dates = useDateTime();
@@ -88,7 +94,7 @@ export function AccountSecurityCard({
           <Space wrap>
             {found.mfa_mode !== 'off' || found.mfa_enrolled ? (
               <Button
-                type={found.mfa_enrolled ? 'default' : 'primary'}
+                type={found.mfa_enrolled || !callToAction ? 'default' : 'primary'}
                 href={go('mfa')}
                 data-testid="account-set-up-mfa"
               >

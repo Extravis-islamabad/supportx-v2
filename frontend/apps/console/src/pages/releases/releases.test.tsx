@@ -296,4 +296,15 @@ describe('console: releases', () => {
     const visible = screen.getByTestId('release-moves').querySelectorAll('[data-testid^="move-"]');
     expect(visible.length).toBeLessThanOrEqual(3); // beside More: the 4-action rule
   });
+
+  it('QA6-REL-04: the tab and the top bar say which release this is', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    await screen.findByTestId('release-page');
+    await waitFor(() => {
+      expect(document.title).toContain('REL-1');
+    });
+    expect(document.title).toContain('Releases');
+  });
 });

@@ -55,6 +55,7 @@ import {
   useReplyTemplates,
   useSession,
   type Visibility,
+  useMailStatus,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import {
@@ -731,7 +732,7 @@ function Composer({
             status={fieldErrors.some((f) => f.field === 'body.cc') ? 'error' : undefined}
             data-testid="conv-cc"
           />
-          <Alert type="info" showIcon message={t('conversation.email_not_configured_hint')} />
+          <MailNotSetUp />
         </>
       )}
       {draft.kind === 'note' && (
@@ -1020,5 +1021,31 @@ function EventLine({
         </Typography.Text>
       </Flex>
     </Flex>
+  );
+}
+
+/**
+ * Said only when outgoing e-mail really is not set up (QA6-INC-01): a reply then waits, marked
+ * "not sent". Inbound mailboxes don't matter here. Nothing while the status loads, so it never
+ * flashes (lane A's ask).
+ */
+function MailNotSetUp() {
+  const t = useLabel();
+  const list = useListFormat();
+  const status = useMailStatus();
+  if (status.data === undefined || status.data.mail_configured) return null;
+  const names = status.data.who_can_fix.map((p) => p.display_name);
+  return (
+    <Alert
+      type="warning"
+      showIcon
+      data-testid="conv-mail-not-set-up"
+      message={t('conversation.outgoing_mail_not_set_up')}
+      description={
+        names.length > 0
+          ? t('conversation.outgoing_mail_who_can_fix', { names: list(names) })
+          : undefined
+      }
+    />
   );
 }

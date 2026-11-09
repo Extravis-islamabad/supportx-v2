@@ -5,12 +5,14 @@ import json
 import httpx
 import pytest
 
+from app.core.config import Settings
 from app.modules.ai.service.providers import (
     ChatRequest,
     FakeProvider,
     Message,
     OpenAICompatibleProvider,
     ProviderError,
+    ProviderNotConfigured,
     Tool,
     prompt_key,
     provider_from,
@@ -201,3 +203,21 @@ async def test_embeddings_can_come_from_a_server_of_their_own() -> None:
     assert isinstance(built, OpenAICompatibleProvider)
     assert built._embed_client is not built._client  # noqa: SLF001 - the wiring under test
     await built.aclose()
+
+
+async def test_qa6_ai_01_without_a_model_the_fake_refuses_instead_of_echoing() -> None:
+    """QA6-AI-01: no recording and no echo: refused as not configured, never the prompt."""
+    provider = FakeProvider(echo=False)
+    request = ChatRequest(
+        feature="conversation_summary", messages=(Message("user", "The printer jams."),)
+    )
+    with pytest.raises(ProviderNotConfigured):
+        await provider.chat(request)
+    with pytest.raises(ProviderNotConfigured):
+        async for _piece in provider.stream(request):
+            pass
+
+
+def test_qa6_ai_01_installations_have_no_echo_unless_told() -> None:
+    """The setting's default is off: only tests and CI turn the echo on."""
+    assert Settings.model_fields["ai_fake_echo"].default is False
