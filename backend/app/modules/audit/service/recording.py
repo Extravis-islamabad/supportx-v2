@@ -19,7 +19,7 @@ outside the hash in `audit_personal`, committed to by salted hashes (domain/inte
 import os
 import uuid
 from collections.abc import AsyncIterator, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -41,7 +41,7 @@ from app.modules.audit.domain.catalogue import (
     read_action,
 )
 from app.modules.audit.domain.integrity import SALT_SIZE, commitment, entry_hash, plain
-from app.modules.audit.domain.lifecycle import RECORD_TYPES, FieldDiff, events_of
+from app.modules.audit.domain.lifecycle import RECORD_TYPES, FieldDiff, events_of_saves
 from app.modules.audit.events import AuditAlertRaised, AuditEntryRecorded
 from app.modules.audit.infra.models import AuditEntry, AuditPersonal, AuditQueueItem
 from app.modules.audit.service.settings import load_settings
@@ -235,61 +235,53 @@ def _automation(ref: object) -> dict[str, Any]:
 
 async def _write_save(
     session: AsyncSession,
-    saved: SavedRecord,
+    saves: Sequence[SavedRecord],
     *,
     facts: RequestFacts,
     route: str | None,
     note: AuditNote | None = None,
 ) -> uuid.UUID:
-    """One save's one entry: all its lifecycle events, the first being the action."""
-    spec = RECORD_TYPES[saved.subtype or saved.record_type]
-    diffs = [FieldDiff(c.field, c.old, c.new) for c in saved.changes]
-    events = events_of(spec, saved.kind, diffs, route, saved.source)
+    """One record's entry for its saves in this request: all their events, the first the action.
+
+    Each save's events come from its own kind and source (lane A: the SLA engine's save in the
+    same request is not a person's due-date edit); the last save gives the change ID and
+    version.
+    """
+    last = saves[-1]
+    spec = RECORD_TYPES[last.subtype or last.record_type]
+    events = events_of_saves(
+        spec,
+        [(s.kind, [FieldDiff(c.field, c.old, c.new) for c in s.changes], s.source) for s in saves],
+        route,
+    )
+    sources = list(dict.fromkeys(s.source for s in saves))
     details: dict[str, Any] = dict(note.details) if note is not None else {}
     details.update(
-        {"record_version": saved.version, "source": saved.source},
-        **_automation(saved.automation_ref),
+        {"record_version": last.version, "source": sources[0] if len(sources) == 1 else sources},
+        **_automation(next((s.automation_ref for s in saves if s.automation_ref), None)),
     )
-    reason = (note.reason if note is not None else None) or saved.reason
+    reason = (note.reason if note is not None else None) or next(
+        (s.reason for s in saves if s.reason), None
+    )
     return await record(
         session,
         action_code=events[0],
         facts=facts,
         object_type=spec.record_type,
-        object_id=saved.record_id,
+        object_id=last.record_id,
         details=details,
         reason=reason,
-        change_id=saved.change_id,
+        change_id=last.change_id,
         events=events,
     )
 
 
-# The kind that names a merged save, most telling first (a create beats an edit).
-_KIND_ORDER = ("created", "deleted", "restored", "status")
-
-
-def merge_saves(saves: Sequence[SavedRecord]) -> list[SavedRecord]:
-    """A request's saves, one per record, in first-save order (one user action, one entry).
-
-    Changes are joined; the last save's change ID and version, the most telling kind (D-150).
-    """
+def group_saves(saves: Sequence[SavedRecord]) -> list[list[SavedRecord]]:
+    """A request's saves, grouped by record in first-save order (one user action, one entry)."""
     groups: dict[tuple[str, str | None, uuid.UUID], list[SavedRecord]] = {}
     for saved in saves:
         groups.setdefault((saved.record_type, saved.subtype, saved.record_id), []).append(saved)
-    found: list[SavedRecord] = []
-    for group in groups.values():
-        last = group[-1]
-        kinds = [s.kind for s in group]
-        kind = next((k for k in _KIND_ORDER if k in kinds), kinds[0])
-        found.append(
-            replace(
-                last,
-                kind=kind,
-                changes=tuple(c for s in group for c in s.changes),
-                reason=next((s.reason for s in group if s.reason), None),
-            )
-        )
-    return found
+    return list(groups.values())
 
 
 class LifecycleSink:
@@ -304,7 +296,7 @@ class LifecycleSink:
         if session.info.get(ROUTE_ACTION_KEY) is not None:
             session.info.setdefault(PENDING_SAVES_KEY, []).append(record)
             return
-        await _write_save(session, record, facts=_session_facts(session), route=None)
+        await _write_save(session, [record], facts=_session_facts(session), route=None)
 
 
 # --- route dependencies ------------------------------------------------------------------------
@@ -346,9 +338,9 @@ def audited(
             # for the route's own record, with the route's details and reason; the route writes
             # no second entry (WP-064, ADR-045).
             facts = RequestFacts.of(request)
-            merged = merge_saves(saves)
+            merged = group_saves(saves)
             lead = next(
-                (i for i, m in enumerate(merged) if str(m.record_id) == str(note.object_id)), 0
+                (i for i, m in enumerate(merged) if str(m[-1].record_id) == str(note.object_id)), 0
             )
             for index, saved in enumerate(merged):
                 await _write_save(

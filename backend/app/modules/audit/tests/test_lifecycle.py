@@ -7,10 +7,12 @@ from app.modules.audit.domain.catalogue import ACTIONS
 from app.modules.audit.domain.integrity import entry_hash
 from app.modules.audit.domain.lifecycle import (
     ASSET,
+    RECORD_TYPES,
     FieldDiff,
     RecordAudit,
     ValueRule,
     events_of,
+    events_of_saves,
     lifecycle_codes,
 )
 
@@ -120,3 +122,35 @@ def test_a_named_part_replaces_the_generic_part_event() -> None:
     )
     assert "ticket.linked" in _TICKET.events()
     assert "ticket.reopened" in _TICKET.events()
+
+
+def test_each_save_keeps_its_own_source_when_one_request_holds_several() -> None:
+    """Lane A: a person's priority change and the SLA engine's due rewrite in one request."""
+    incident = RECORD_TYPES["incident"]
+    person = ("updated", [FieldDiff("priority", "low", "high")], "ui")
+    engine = ("updated", [FieldDiff("resolution_due_at", "a", "b")], "sla")
+    for saves in ([person, engine], [engine, person]):
+        assert events_of_saves(incident, saves) == ("incident.priority_changed",)
+    own_edit = ("updated", [FieldDiff("resolution_due_at", "a", "c")], "ui")
+    assert events_of_saves(incident, [engine, own_edit], "incident.due_date_changed") == (
+        "incident.due_date_changed",
+    )
+
+
+def test_release_stages_plans_and_people_name_their_events() -> None:
+    release = RECORD_TYPES["release"]
+    changes = [
+        FieldDiff("schedule.build.scheduled_end", "a", "b"),
+        FieldDiff("schedule.deploy.outcome", None, "successful"),
+        FieldDiff("plan.backout", "x", "y"),
+        FieldDiff("release_engineer_id", None, "u1"),
+    ]
+    assert set(events_of(release, "updated", changes)) == {
+        "release.assigned",
+        "release.access_changed",
+        "release.rescheduled",
+        "release.stage_outcome_recorded",
+        "release.plan_changed",
+    }
+    assert "release.sla_paused" not in release.events()
+    assert "release.emergency_override" not in release.events()

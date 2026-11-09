@@ -10,7 +10,8 @@ state), decide the events. The owning module adds facts history does not store (
 code's category, `status_category`) to the copy the sink sees (app/shared/history annotators).
 """
 
-from collections.abc import Iterable, Mapping
+import fnmatch
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 # A kind of save (app/shared/history ChangeKind) -> its event, where the kind alone names one.
@@ -62,7 +63,8 @@ class RecordAudit:
     # The kinds of save this type has (a subset of _KIND_EVENTS; "updated" is always possible).
     kinds: frozenset[str]
     # Field name -> its event or events. Order matters: earlier ones come first in the list. A
-    # name ending in "." stands for every field it starts (`role.` for role.line_manager ...).
+    # name ending in "." stands for every field it starts (`role.` for role.line_manager ...);
+    # one with "*" is a pattern (`schedule.*.outcome` for a stage's outcome).
     fields: Mapping[str, str | tuple[str, ...]] = field(default_factory=dict)
     # A boolean field whose change is a move to the trash (False -> True) or a restore.
     trash_field: str | None = None
@@ -86,6 +88,8 @@ def _as_tuple(value: str | tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _field_matches(key: str, names: set[str]) -> bool:
+    if "*" in key:  # schedule.*.outcome: a stage's field
+        return any(fnmatch.fnmatchcase(n, key) for n in names)
     return any(n.startswith(key) for n in names) if key.endswith(".") else key in names
 
 
@@ -138,17 +142,34 @@ _WORK_FIELDS: Mapping[str, str | tuple[str, ...]] = {
     "follower": _ACCESS,
     "follower_access": _ACCESS,
 }
+# Both staged types (changes and releases): stages, their schedules and outcomes, plans,
+# downtime, role holders (lane A's and lane C's reviews).
 _STAGED_FIELDS: Mapping[str, str | tuple[str, ...]] = {
     **_WORK_FIELDS,
     "stage": "stage_changed",
     "stage_path": "stage_changed",
     "reapproval_restarted": "sent_back_for_approval",
+    "role.": _ACCESS,  # stage role holders: they may work on the record
+    "schedule.*.scheduled_start": "rescheduled",
+    "schedule.*.scheduled_end": "rescheduled",
+    "schedule.*.outcome": "stage_outcome_recorded",
+    "schedule.*.outcome_notes": "stage_outcome_recorded",
+    "schedule.*.issues": "stage_outcome_recorded",
+    "plan.": "plan_changed",  # a changed back-out plan is what auditors look for
+    "downtime.": "downtime_changed",
+}
+_CHANGE_FIELDS: Mapping[str, str | tuple[str, ...]] = {
+    **_STAGED_FIELDS,
     "emergency_override": "emergency_override",
     "pir_required": "pir_required",
     "standard_converted": "standard_converted",
     "risk": "risk_changed",
     "risk_chosen": "risk_changed",
-    "role.": _ACCESS,  # stage role holders: they may work on the record
+}
+_RELEASE_FIELDS: Mapping[str, str | tuple[str, ...]] = {
+    **_STAGED_FIELDS,
+    "release_manager_id": ("assigned", _ACCESS),
+    "release_engineer_id": ("assigned", _ACCESS),
 }
 _WORK_VALUES: tuple[ValueRule, ...] = (
     ValueRule("status_category", "resolved", new_in=frozenset({"resolved"})),
@@ -173,24 +194,33 @@ _WORK_PARTS: Mapping[tuple[str, str], str] = {
 }
 
 
-def _work_item(code: str, *, staged: bool) -> RecordAudit:
+_SLA_EVENTS = frozenset({"sla_paused", "sla_resumed", "sla_breached"})
+
+
+def _work_item(
+    code: str, fields: Mapping[str, str | tuple[str, ...]], *, merges: bool, sla: bool
+) -> RecordAudit:
     return RecordAudit(
         record_type=code,
         module="work_items",
         kinds=_WORK_KINDS,
-        fields=_STAGED_FIELDS if staged else _WORK_FIELDS,
-        # Staged types never merge (only incidents, requests and problems have `merged`).
-        values=tuple(r for r in _WORK_VALUES if not (staged and r.event == "merged")),
+        fields=fields,
+        # Only incidents, requests and problems merge; releases have no SLA (lane C).
+        values=tuple(
+            r
+            for r in _WORK_VALUES
+            if (merges or r.event != "merged") and (sla or r.event not in _SLA_EVENTS)
+        ),
         parts=_WORK_PARTS,
     )
 
 
 WORK_ITEMS = (
-    _work_item("incident", staged=False),
-    _work_item("service_request", staged=False),
-    _work_item("problem", staged=False),
-    _work_item("change", staged=True),
-    _work_item("release", staged=True),
+    _work_item("incident", _WORK_FIELDS, merges=True, sla=True),
+    _work_item("service_request", _WORK_FIELDS, merges=True, sla=True),
+    _work_item("problem", _WORK_FIELDS, merges=True, sla=True),
+    _work_item("change", _CHANGE_FIELDS, merges=False, sla=True),
+    _work_item("release", _RELEASE_FIELDS, merges=False, sla=False),
 )
 
 RECORD_TYPES: Mapping[str, RecordAudit] = {r.record_type: r for r in (ASSET, *WORK_ITEMS)}
@@ -231,6 +261,28 @@ def events_of(
     if route_action is not None:
         codes.insert(0, route_action)
     return tuple(dict.fromkeys(codes))
+
+
+def events_of_saves(
+    spec: RecordAudit,
+    saves: Sequence[tuple[str, Sequence[FieldDiff], str | None]],
+    route_action: str | None = None,
+) -> tuple[str, ...]:
+    """One record's several saves in one request (kind, changes, source each) as one list.
+
+    Each save's events are worked out with its own kind and source (an SLA engine's save in
+    the same request never counts as a person's due-date edit: lane A), then joined in order.
+    `<type>.updated` stays only when no save named anything more.
+    """
+    codes: list[str] = []
+    for kind, changes, source in saves:
+        codes.extend(events_of(spec, kind, changes, None, source))
+    updated = f"{spec.record_type}.{UPDATED}"
+    named = [c for c in dict.fromkeys(codes) if c != updated]
+    found = named or [updated]
+    if route_action is not None:
+        found.insert(0, route_action)
+    return tuple(dict.fromkeys(found))
 
 
 def lifecycle_codes() -> frozenset[str]:
