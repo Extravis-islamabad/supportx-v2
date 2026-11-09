@@ -4,6 +4,7 @@ import type { LabelResource } from '../en';
 export const ur: LabelResource = {
   'custom_field_display.list': 'ڈراپ ڈاؤن فہرست',
   'custom_field_display.radio': 'بٹن',
+  'custom_field_entity.change': 'تبدیلیاں',
   'custom_field_entity.incident': 'واقعات',
   'custom_field_entity.problem': 'مسائل',
   'custom_field_entity.release': 'ریلیزز',

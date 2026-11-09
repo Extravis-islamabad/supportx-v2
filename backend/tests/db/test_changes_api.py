@@ -1,0 +1,102 @@
+"""Changes on the stage engine over HTTP (WP-045a S1; file 05 Appendix A; REQ-CHG-023..027, -033).
+
+Real PostgreSQL with RLS. A change starts in submission on the normal path with its own CHG
+counter; only listed moves are offered; approval outcomes are the approvals code's only; cancel
+needs a reason; the technician's identity grants (view, create) still hold once changes.* left
+identity's reserved list (lane C's check).
+"""
+
+import uuid
+from typing import Any
+
+import httpx
+
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
+
+__all__ = ["world"]  # the fixture, re-used
+
+CHG = "/changes"
+
+
+async def new_change(world: World, org: Org, user: uuid.UUID, **body: Any) -> httpx.Response:  # noqa: ANN401 - JSON
+    return await world.call(
+        "POST",
+        CHG,
+        org,
+        user,
+        json={"subject": "Core switch firmware 9.3", "requester_id": str(org.requester), **body},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+
+
+async def a_change(world: World, org: Org, user: uuid.UUID | None = None) -> dict[str, Any]:
+    made = await new_change(world, org, user or org.admin)
+    assert made.status_code == 201, made.text
+    return dict(made.json())
+
+
+async def move(
+    world: World, org: Org, item: dict[str, Any], to: str, reason_text: str | None = None
+) -> httpx.Response:
+    return await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/moves",
+        org,
+        org.admin,
+        json={"to_status": to, **({"reason_text": reason_text} if reason_text else {})},
+        headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
+    )
+
+
+async def test_req_chg_023_a_change_starts_in_submission_with_its_own_counter(
+    world: World,
+) -> None:
+    a = world.a
+    item = await a_change(world, a)
+    assert item["display_id"] == "CHG-1"
+    assert (item["stage"], item["stage_path"], item["status"]) == (
+        "submission",
+        "default",
+        "submission_submitted",
+    )
+    shown = await world.call("GET", f"{CHG}/{item['id']}/stages", a, a.admin)
+    assert shown.status_code == 200, shown.text
+    offered = {m["to_status"]: m for m in shown.json()["moves"]}
+    assert set(offered) == {
+        "submission_more_info",
+        "submission_awaiting_acceptance",
+        "closure_canceled",
+    }
+    assert offered["closure_canceled"]["reason_mode"] == "required"
+    # Incidents keep their own counter.
+    assert (await world.create(a, a.admin))["display_id"] == "INC-1"
+
+
+async def test_approval_outcomes_are_not_a_persons_move(world: World) -> None:
+    a = world.a
+    item = await a_change(world, a)
+    waiting = await move(world, a, item, "submission_awaiting_acceptance")
+    assert waiting.status_code == 200, waiting.text
+    accepted = await move(world, a, waiting.json(), "submission_accepted")
+    assert problem(accepted)[0] == 409
+
+
+async def test_req_chg_033_cancel_needs_a_reason(world: World) -> None:
+    a = world.a
+    item = await a_change(world, a)
+    assert problem(await move(world, a, item, "closure_canceled"))[0] == 422
+    canceled = await move(world, a, item, "closure_canceled", "Replaced by CHG-2")
+    assert canceled.status_code == 200, canceled.text
+    assert canceled.json()["status"] == "closure_canceled"
+
+
+async def test_a_technician_views_and_creates_changes_from_identity_s_grants(
+    world: World,
+) -> None:
+    a = world.a
+    made = await a_change(world, a, a.tech_a)
+    listed = await world.call("GET", CHG, a, a.tech_a)
+    assert listed.status_code == 200, listed.text
+    assert made["id"] in {i["id"] for i in listed.json()["items"]}
+    # Tenant B sees none of A's changes.
+    assert (await world.call("GET", CHG, world.b, world.b.admin)).json()["items"] == []

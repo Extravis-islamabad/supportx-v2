@@ -2,6 +2,7 @@
 export const en = {
   'custom_field_display.list': 'Drop-down list',
   'custom_field_display.radio': 'Buttons',
+  'custom_field_entity.change': 'Changes',
   'custom_field_entity.incident': 'Incidents',
   'custom_field_entity.problem': 'Problems',
   'custom_field_entity.release': 'Releases',
