@@ -1,6 +1,5 @@
-import { StarFilled, StarOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Empty, Input, List, Modal, Select, Space, Tag, Typography } from 'antd';
+import { Input, Modal, Select, Space, Tag, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -15,18 +14,17 @@ import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
-  FilterBar,
   FormProblem,
   lengthLimit,
-  ListPage,
+  LibraryPage,
   NoAccess,
   PageHeader,
-  SPACE,
-  TYPE,
   useAccess,
   useConflict,
   useFormProblem,
   WriteButton,
+  type LibraryGroup,
+  type LibraryItem,
 } from '@supportx/ui';
 
 import { MyExportsButton, ReportSettingsButton } from './exports';
@@ -37,16 +35,41 @@ interface Entry {
   path: string;
   name: string;
   description: string;
-  folder: string;
+  module: string;
+  /** Where a saved report lives: "My reports" or its shared folder. */
+  place?: string;
   shared: boolean;
 }
 
 const MANAGE_FOLDERS = 'reports.manage_folders';
 
 /**
- * The reports home (REQ-RPT-045): favourites first, built-in reports by module, "My reports",
- * shared folders; one search over names and descriptions in the user's language. Live: a saved or
- * shared report appears and disappears without a refresh.
+ * Every module's tab, in this order, even before a module has reports (D-147: reports of every
+ * module): a built-in report's folder is its module; a saved report goes by its entity.
+ */
+const MODULES = [
+  'incidents',
+  'service_requests',
+  'problems',
+  'changes',
+  'releases',
+  'assets',
+] as const;
+const MODULE_OF_ENTITY: Record<string, string> = {
+  incident: 'incidents',
+  service_request: 'service_requests',
+  problem: 'problems',
+  change: 'changes',
+  release: 'releases',
+  asset: 'assets',
+};
+/** Modules whose reporting data has not arrived yet: their tab says so. */
+const COMING = new Set(['changes', 'assets']);
+
+/**
+ * The reports home on template D (REQ-RPT-045, D-147): search and favourites on top, then one
+ * tab per module with its built-in and saved reports; one search over names and descriptions in
+ * the user's language. Live: a saved or shared report appears and disappears without a refresh.
  */
 export function ReportsHomePage() {
   const t = useLabels();
@@ -76,7 +99,7 @@ export function ReportsHomePage() {
         path: `/reports/builtin/${r.code}`,
         name: t(`report.${r.code}`),
         description: t(`report.${r.code}.description`),
-        folder: t(`report_folder.${r.folder}`),
+        module: r.folder,
         shared: true,
       })),
       ...data.reports.map((r) => ({
@@ -84,7 +107,8 @@ export function ReportsHomePage() {
         path: `/reports/${r.id}`,
         name: r.name,
         description: r.description ?? '',
-        folder:
+        module: MODULE_OF_ENTITY[r.definition.entity] ?? r.definition.entity,
+        place:
           r.folder_id === null
             ? t('reports.my_reports')
             : (folders.get(r.folder_id) ?? t('reports.unknown_value')),
@@ -93,21 +117,39 @@ export function ReportsHomePage() {
     ];
   }, [data, t]);
 
+  const groups = useMemo<LibraryGroup[]>(() => {
+    const item = (entry: Entry): LibraryItem => ({
+      key: entry.ref,
+      searchText: `${entry.name} ${entry.description}`,
+      title: (
+        <Link to={entry.path} data-testid={`reports-open-${entry.ref}`}>
+          {entry.name}
+        </Link>
+      ),
+      description: entry.description === '' ? undefined : entry.description,
+      tags:
+        entry.shared && !entry.ref.startsWith('builtin:') ? (
+          <Tag>{t('reports.shared')}</Tag>
+        ) : undefined,
+      meta: entry.place,
+      testId: `reports-item-${entry.ref}`,
+    });
+    const known = new Set<string>(MODULES);
+    const extra = [...new Set(entries.map((e) => e.module))].filter((m) => !known.has(m));
+    return [...MODULES, ...extra].map((module) => ({
+      key: module,
+      label: t(`report_folder.${module}`),
+      items: entries.filter((e) => e.module === module).map(item),
+      empty: t(COMING.has(module) ? `reports.module_coming.${module}` : 'reports.module_none'),
+    }));
+  }, [entries, t]);
+
   if (!allowed) return <NoAccess titleKey="nav.reports" />;
-  const needle = search.trim().toLocaleLowerCase();
-  const shown = needle
-    ? entries.filter((e) => `${e.name} ${e.description}`.toLocaleLowerCase().includes(needle))
-    : entries;
-  const starred = new Set(data?.favourites ?? []);
-  const sections = new Map<string, Entry[]>();
-  const favourites = shown.filter((e) => starred.has(e.ref));
-  if (favourites.length > 0) sections.set(t('reports.favourites'), favourites);
-  for (const entry of shown)
-    sections.set(entry.folder, [...(sections.get(entry.folder) ?? []), entry]);
+  const favourites = new Set(data?.favourites ?? []);
 
   return (
-    <ListPage
-      testId="reports-home"
+    <LibraryPage
+      testId="reports"
       header={
         <PageHeader
           title={t('reports.title')}
@@ -122,81 +164,16 @@ export function ReportsHomePage() {
           }
         />
       }
-      filters={
-        <FilterBar
-          search={
-            <Input.Search
-              allowClear
-              aria-label={t('reports.search')}
-              placeholder={t('reports.search')}
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-              }}
-              data-testid="reports-search"
-            />
-          }
-        />
-      }
-    >
-      {library.isSuccess && shown.length === 0 && (
-        <Empty description={t(needle ? 'reports.no_match' : 'reports.empty')} />
-      )}
-      {/* Sections side by side on a wide screen, one column on a phone (D-124 density). */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(min(440px, 100%), 1fr))',
-          gap: SPACE.sm,
-          alignItems: 'start',
-        }}
-      >
-        {[...sections.entries()].map(([title, items]) => (
-          <Card key={title} title={title} size="small" data-testid="reports-section">
-            <List
-              size="small"
-              dataSource={items}
-              renderItem={(entry) => (
-                <List.Item
-                  actions={[
-                    <Button
-                      key="star"
-                      type="text"
-                      size="small"
-                      aria-label={t(starred.has(entry.ref) ? 'reports.unstar' : 'reports.star')}
-                      aria-pressed={starred.has(entry.ref)}
-                      icon={starred.has(entry.ref) ? <StarFilled /> : <StarOutlined />}
-                      onClick={() => {
-                        star.mutate({ ref: entry.ref, starred: !starred.has(entry.ref) });
-                      }}
-                      data-testid={`reports-star-${entry.ref}`}
-                    />,
-                  ]}
-                >
-                  <List.Item.Meta
-                    title={
-                      <Space size={SPACE.xs}>
-                        <Link to={entry.path} data-testid={`reports-open-${entry.ref}`}>
-                          {entry.name}
-                        </Link>
-                        {entry.shared && !entry.ref.startsWith('builtin:') && (
-                          <Tag>{t('reports.shared')}</Tag>
-                        )}
-                      </Space>
-                    }
-                    description={
-                      <Typography.Text type="secondary" style={{ fontSize: TYPE.data }} ellipsis>
-                        {entry.description}
-                      </Typography.Text>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-        ))}
-      </div>
-    </ListPage>
+      groups={groups}
+      search={search}
+      onSearch={setSearch}
+      searchLabel={t('reports.search')}
+      favourites={favourites}
+      onStar={(ref, starred) => {
+        star.mutate({ ref, starred });
+      }}
+      loading={!library.isSuccess}
+    />
   );
 }
 
