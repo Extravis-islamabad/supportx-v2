@@ -208,7 +208,10 @@ export function KnowledgePage() {
             {t('knowledge.all_topics')}
           </Button>
           {tree.length === 0 ? (
-            <EmptyText>{t('knowledge.no_topics')}</EmptyText>
+            // Its own line under "All topics" (QA6-KB-04: the two ran together).
+            <div style={{ marginTop: 4 }}>
+              <EmptyText>{t('knowledge.no_topics')}</EmptyText>
+            </div>
           ) : (
             <Tree
               blockNode

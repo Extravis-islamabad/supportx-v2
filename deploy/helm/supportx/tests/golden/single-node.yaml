@@ -671,6 +671,9 @@ data:
   # Files (WP-022): the release's clamd, and whether files wait for it.
   SUPPORTX_FILES_SCAN_REQUIRED: "true"
   SUPPORTX_FILES_CLAMD_ADDRESS: "supportx-clamav:3310"
+  # Without a model, the fake answers only what it has recorded; tests turn its echo on
+  # (QA6-AI-01). Never on in a real installation.
+  SUPPORTX_AI_FAKE_ECHO: "false"
 
 ---
 # Source: supportx/templates/keycloak.yaml
@@ -2235,7 +2238,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: 365251cae998cce2f57c4325da118d9b1bf9ea3e8b139f33fdf58a49a79a1da2
+        checksum/env: 4ce1a63dc934511557b005804a41878ea86ae81503edaeb86d72bc8a7895c7c6
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -2703,7 +2706,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: 365251cae998cce2f57c4325da118d9b1bf9ea3e8b139f33fdf58a49a79a1da2
+        checksum/env: 4ce1a63dc934511557b005804a41878ea86ae81503edaeb86d72bc8a7895c7c6
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -2853,7 +2856,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: 365251cae998cce2f57c4325da118d9b1bf9ea3e8b139f33fdf58a49a79a1da2
+        checksum/env: 4ce1a63dc934511557b005804a41878ea86ae81503edaeb86d72bc8a7895c7c6
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3007,7 +3010,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: 365251cae998cce2f57c4325da118d9b1bf9ea3e8b139f33fdf58a49a79a1da2
+        checksum/env: 4ce1a63dc934511557b005804a41878ea86ae81503edaeb86d72bc8a7895c7c6
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -3152,7 +3155,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: 365251cae998cce2f57c4325da118d9b1bf9ea3e8b139f33fdf58a49a79a1da2
+        checksum/env: 4ce1a63dc934511557b005804a41878ea86ae81503edaeb86d72bc8a7895c7c6
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"

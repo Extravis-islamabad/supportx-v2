@@ -50,6 +50,9 @@ data:
   {{- if .Values.clamav.enabled }}
   SUPPORTX_FILES_CLAMD_ADDRESS: {{ printf "%s-clamav:3310" .Release.Name | quote }}
   {{- end }}
+  # Without a model, the fake answers only what it has recorded; tests turn its echo on
+  # (QA6-AI-01). Never on in a real installation.
+  SUPPORTX_AI_FAKE_ECHO: {{ .Values.ai.fakeEcho | quote }}
   {{- if .Values.ai.local.enabled }}
   # Local AI (WP-037): the release's model servers; chat on the GPU node when there is one.
   SUPPORTX_AI_PROVIDER: openai_compatible

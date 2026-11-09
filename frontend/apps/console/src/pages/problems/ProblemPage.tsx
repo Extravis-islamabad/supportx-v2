@@ -28,6 +28,7 @@ import {
   useAppearance,
   useDateTime,
   useLabel,
+  usePageCrumbs,
   type RecordAction,
 } from '@supportx/ui';
 
@@ -254,6 +255,7 @@ function ProblemView({
   );
   return (
     <>
+      <ProblemCrumbs displayId={item.display_id} />
       <RecordPage
         testId="prb-record"
         header={
@@ -413,4 +415,11 @@ function ProblemView({
       />
     </>
   );
+}
+
+/** Where the user is: "Problems › PRB-7", in the header and the browser tab (QA6-PRB-02). */
+function ProblemCrumbs({ displayId }: { displayId: string }) {
+  const t = useLabel();
+  usePageCrumbs([{ label: t('nav.problems'), path: '/problems' }, { label: displayId }]);
+  return null;
 }

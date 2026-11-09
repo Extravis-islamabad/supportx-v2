@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AiSettings, AiSummary } from '@supportx/api-client';
-import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import { fakeIncident, fakeIncidentCatalogue, problem } from '@supportx/api-client/testing';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -89,6 +89,21 @@ describe('the conversation summary card', () => {
     expect(fake.find('POST', `/api/v1/ai/summaries/incident/${ITEM.id}/refresh`)).toHaveLength(1);
     expect(screen.getByTestId('ai-summary').textContent).toContain('Written by AI (qwen3-4b)');
     expect(screen.queryByTestId('ai-summary-stale')).toBeNull();
+  });
+
+  it('QA9-F-01: nothing to summarise yet is said in the card, not lost', async () => {
+    record(true, NONE, {
+      [`POST /api/v1/ai/summaries/incident/${ITEM.id}/refresh`]: {
+        status: 422,
+        body: problem(422, 'ai_summary_nothing'),
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('ai-summary-refresh'));
+    expect((await screen.findByTestId('ai-summary-refused')).textContent).toContain(
+      'nothing to summarise yet',
+    );
+    expect(screen.getByTestId('ai-summary-empty')).toBeDefined();
   });
 
   it('says when it is out of date, and is absent while the feature is off', async () => {

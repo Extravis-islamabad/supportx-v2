@@ -143,6 +143,20 @@ export function useResetNotificationRule() {
 }
 
 /** E-mails waiting because outgoing mail is not set up (admins' banner). */
+/**
+ * Whether a reply can go out by e-mail now (REQ-INC-060, QA6-INC-01): the outgoing mail sender,
+ * not an inbound mailbox. For staff who reply; also who can set mail up (names only).
+ */
+export function useMailStatus(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.notifications.mailStatus,
+    queryFn: () => call(api.GET('/api/v1/notifications/mail-status')),
+    enabled,
+    staleTime: 60_000,
+    meta: { silent: true },
+  });
+}
+
 export function useNotificationStatus(enabled = true) {
   return useQuery({
     queryKey: queryKeys.notifications.status,

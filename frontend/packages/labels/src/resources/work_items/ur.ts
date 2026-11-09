@@ -332,8 +332,6 @@ export const ur: LabelResource = {
   'closure_code.workaround': 'متبادل حل دیا گیا',
   'conversation.add_note': 'نوٹ شامل کریں',
   'conversation.cc': 'کاپی',
-  'conversation.email_not_configured_hint':
-    'ابھی کوئی ای میل چینل ترتیب نہیں دیا گیا: جواب یہاں محفوظ ہوگا اور "نہیں بھیجا گیا" کے طور پر نشان زد ہوگا۔',
   'conversation.empty.messages': 'ابھی کوئی جواب نہیں۔',
   'conversation.empty.notes': 'ابھی کوئی نوٹ نہیں۔',
   'conversation.field.body': 'متن',
@@ -374,6 +372,9 @@ export const ur: LabelResource = {
   'conversation.not_sent_detail':
     'جواب یہاں محفوظ ہے، لیکن کسی تک نہیں پہنچا۔ ای میل چینل ترتیب دینے کے بعد اسے بھیجا جا سکتا ہے۔',
   'conversation.note_placeholder': 'نوٹ لکھیں۔ کسی کا ذکر کرنے کے لیے @ لکھیں۔',
+  'conversation.outgoing_mail_not_set_up':
+    'باہر جانے والی ای میل ابھی ترتیب نہیں دی گئی: یہ جواب یہاں محفوظ ہوگا اور اس وقت تک «نہیں بھیجا گیا» دکھائے گا۔',
+  'conversation.outgoing_mail_who_can_fix': '{{names}} اسے ترتیب دے سکتے ہیں۔',
   'conversation.private_hint': 'صرف عملہ',
   'conversation.public_hint': 'درخواست دہندہ اسے دیکھ سکتا ہے',
   'conversation.reply_placeholder': 'اپنا جواب لکھیں۔',
@@ -698,6 +699,8 @@ export const ur: LabelResource = {
   'incidents.sla.paused_since': 'رکا ہوا، از',
   'incidents.sla.policy': 'پالیسی',
   'incidents.sla.reason': 'وجہ',
+  'incidents.sla.resolved_late': 'دیر سے حل ہوا',
+  'incidents.sla.resolved_on_time': 'وقت پر حل ہوا',
   'incidents.sla.set_by_hand': '{{name}} نے ہاتھ سے طے کی: {{reason}}',
   'incidents.sla.span_days': '{{days}} دن {{hours}} گھنٹے',
   'incidents.sla.span_hours': '{{hours}} گھنٹے {{minutes}} منٹ',
@@ -842,6 +845,8 @@ export const ur: LabelResource = {
   'portal.catalog.empty': 'کیٹلاگ فی الحال خالی ہے۔',
   'portal.catalog.empty_category': 'یہاں ابھی مانگنے کو کچھ نہیں۔',
   'portal.catalog.featured': 'مقبول',
+  'portal.catalog.items_one': '1 آئٹم',
+  'portal.catalog.items_other': '{{count}} آئٹمز',
   'portal.catalog.needs_approval': 'منظوری درکار ہے',
   'portal.catalog.no_match': 'کچھ نہیں ملا۔ دوسرے الفاظ آزمائیں، یا مسئلے کی اطلاع دیں۔',
   'portal.catalog.search': 'آپ کو کیا چاہیے؟',
@@ -890,6 +895,8 @@ export const ur: LabelResource = {
   'portal.report.for_someone_else': 'کسی اور کے لیے',
   'portal.report.for_whom': 'کس کے لیے',
   'portal.report.form': 'یہ کس بارے میں ہے',
+  'portal.report.nobody_found':
+    'کوئی ایسا شخص نہیں ملا جس کی طرف سے آپ درخواست دے سکیں۔ آپ وہی لوگ چن سکتے ہیں جن کی آپ کی تنظیم اجازت دیتی ہے، عموماً آپ کے اپنے شعبے کے۔ اگر کوئی رہ گیا ہو تو سروس ڈیسک سے پوچھیں۔',
   'portal.report.open': 'مسئلہ بتائیں',
   'portal.report.remove_file': '{{name}} ہٹائیں',
   'portal.report.search_person': 'نام سے تلاش کریں',
@@ -903,6 +910,7 @@ export const ur: LabelResource = {
   'portal.request.no_description': 'کوئی تفصیل نہیں دی گئی۔',
   'portal.request.not_found': 'یہ درخواست موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'portal.request.reported': 'اطلاع دی گئی {{when}}',
+  'portal.request.subject': 'آپ کو کیا چاہیے؟',
   'portal.request.waiting_for_you': 'سروس ڈیسک آپ کے جواب کا منتظر ہے۔ نیچے جواب دیں۔',
   'portal.requests.all_states': 'سب',
   'portal.requests.empty': 'یہاں ابھی کچھ نہیں۔',
@@ -1189,6 +1197,8 @@ export const ur: LabelResource = {
   'releases.move.to': 'منتقل کریں: {{status}}',
   'releases.move.unavailable': 'ابھی ممکن نہیں',
   'releases.new': 'نئی ریلیز',
+  'releases.new_help':
+    'سانچہ اور عنوان منتخب کریں؛ تاریخیں، کردار اور منصوبے ریلیز پر بھرے جاتے ہیں۔',
   'releases.not_found': 'یہ ریلیز موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'releases.not_set': 'مقرر نہیں',
   'releases.path': 'راستہ',

@@ -37,6 +37,7 @@ export const ur: LabelResource = {
     'آپ کے رولز کے لیے لازمی: پاس ورڈ کے بعد آپ تصدیقی ایپ کا کوڈ درج کرتے ہیں۔',
   'account.mfa.reminder':
     'آپ کی تنظیم دو مرحلہ سائن اِن لازمی کرتی ہے۔ اسے {{date}} تک سیٹ اپ کریں؛ اس کے بعد کچھ اور کرنے سے پہلے آپ سے کہا جائے گا۔',
+  'account.mfa.reminder_close': 'اگلے سائن اِن تک یہ یاد دہانی چھپائیں',
   'account.mfa.reminder_short': 'دو مرحلہ سائن اِن {{date}} تک درکار',
   'account.mfa.set_up': 'دو مرحلہ سائن اِن سیٹ اپ کریں',
   'account.mfa.set_up_short': 'سیٹ اپ کریں',
@@ -656,6 +657,12 @@ export const ur: LabelResource = {
   'permission.work_items.view_reports': 'براہِ راست ماتحتوں کی درخواستیں دیکھیں',
   'permission.work_items.view_reports.description':
     'پورٹل میں اپنے براہِ راست ماتحتوں کے واقعات اور درخواستیں ایک الگ فلٹر میں دیکھیں۔',
+  'permission.workflows.manage': 'ورک فلو کا انتظام',
+  'permission.workflows.manage.description':
+    'بصری ورک فلو ڈیزائن، شائع اور آن یا آف کریں، اور وہ کردار چنیں جن سے یہ چلتے ہیں۔',
+  'permission.workflows.run': 'ورک فلو چلائیں',
+  'permission.workflows.run.description':
+    'کسی ریکارڈ پر ورک فلو شروع کریں اور دیکھیں کہ اس کے رن کیسے رہے۔',
   'permission_module.announcements': 'اعلانات',
   'permission_module.api_keys': 'API کلیدیں',
   'permission_module.assets': 'اثاثے',
@@ -688,6 +695,7 @@ export const ur: LabelResource = {
   'permission_module.sla': 'ایس ایل اے',
   'permission_module.users': 'صارفین',
   'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
+  'permission_module.workflows': 'ورک فلو',
   'preferences.date_format': 'تاریخ کا فارمیٹ',
   'preferences.default': 'طے شدہ',
   'preferences.default_value': 'طے شدہ ({{value}})',
@@ -706,6 +714,7 @@ export const ur: LabelResource = {
   'presence.you_elsewhere': 'آپ (دوسری ونڈو میں)',
   'profile.form_density_help': 'مختصر ترتیب میں دو کالم اور ایک طرف لیبل ہوتے ہیں۔',
   'profile.identity': 'نام، ای میل اور زبان آپ کے سائن اِن اکاؤنٹ سے آتے ہیں۔',
+  'profile.replies_card': 'جوابات اور ٹائم زون',
   'profile.saved': 'آپ کی ترجیحات محفوظ ہو گئیں۔',
   'profile.signature': 'جوابی دستخط',
   'profile.signature_help': 'آپ کے بھیجے گئے جوابات میں شامل کیا جاتا ہے۔',
