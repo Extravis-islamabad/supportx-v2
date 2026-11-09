@@ -114,7 +114,7 @@ async def _send_setup_link(
     found = await admin.find_user(who.email)
     if found is None:
         raise NotFound  # not seeded yet: make showcase-seed
-    await admin.send_actions_email(found.id, ["CONFIGURE_TOTP"], SETUP_LINK_SECONDS)
+    # The entry first (lane C): a failed audit never leaves a link sent without one.
     await record_alone(
         database,
         TenantContext(showcase),
@@ -124,6 +124,7 @@ async def _send_setup_link(
         object_id=found.id,
         details={"persona": who.code, "setup_link": True},
     )
+    await admin.send_actions_email(found.id, ["CONFIGURE_TOTP"], SETUP_LINK_SECONDS)
     return QuickSignInOut(setup_link_sent_to=who.email)
 
 
@@ -133,7 +134,7 @@ async def _send_setup_link(
 async def sign_in(
     body: QuickSignInIn, request: Request, response: Response, auth: Auth, showcase: Showcase
 ) -> QuickSignInOut:
-    """Sign a persona in (dev only); the new starter goes to the normal sign-in instead."""
+    """Sign a persona in (dev only); the new starter is mailed Keycloak's set-up link instead."""
     # Another site open in the same browser could post here too (sign-in CSRF against
     # localhost): only the page on this local address may.
     origin = request.headers.get("origin")

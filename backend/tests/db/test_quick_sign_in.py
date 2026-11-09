@@ -4,6 +4,7 @@ Keycloak is FakeIdp (its password grant checks the password and, for an enrolled
 code); PostgreSQL is real. The ASGI transport's client is 127.0.0.1, so "local" is the Host header.
 """
 
+import json
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -233,7 +234,19 @@ async def test_the_new_starter_gets_keycloaks_set_up_link_and_no_session(quick: 
     assert admin.emails == [("kc-new", ["CONFIGURE_TOTP"], 15 * 60)]
     assert quick.idp.password_grants == []
     audited = await _audit(quick.db, quick.showcase)
-    assert any(r["action"] == "session.quick_sign_in" for r in audited)
+    details = [json.loads(r["details"]) for r in audited]
+    assert {"persona": "new_starter", "setup_link": True} in details
+
+
+async def test_a_new_starter_not_seeded_in_keycloak_is_not_found(quick: Quick) -> None:
+    from tests.db.test_identity_api import FakeAdmin  # noqa: PLC0415 - the shared in-memory admin
+
+    admin = FakeAdmin()  # no account for newstarter@showcase.test
+    quick.app.state.identity_admin = admin
+    async with quick.client() as client:
+        missing = await _sign_in(quick, client, "new_starter")
+    assert missing.status_code == 404
+    assert admin.emails == []
 
 
 async def test_the_new_starter_needs_the_identity_admin(quick: Quick) -> None:
