@@ -247,6 +247,8 @@ export const ar: LabelResource = {
   'audit.alert.verification_failed': 'فشل التحقق من سجل التدقيق.',
   'audit.archive_status.failed': 'لم تتم الأرشفة',
   'audit.archive_status.ready': 'مؤرشف ومُتحقق منه',
+  'audit.decision.change.approval_decided.approved': 'وافق على تغيير',
+  'audit.decision.change.approval_decided.rejected': 'رفض تغييرًا',
   'audit.decision.problem.approval_decided.approved': 'وافق على مشكلة',
   'audit.decision.problem.approval_decided.rejected': 'رفض مشكلة',
   'audit.decision.release.approval_decided.approved': 'وافق على إصدار',

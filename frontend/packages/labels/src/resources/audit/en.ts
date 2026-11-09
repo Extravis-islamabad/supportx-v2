@@ -249,6 +249,8 @@ export const en = {
   'audit.alert.verification_failed': 'The audit log failed verification.',
   'audit.archive_status.failed': 'Not archived',
   'audit.archive_status.ready': 'Archived and verified',
+  'audit.decision.change.approval_decided.approved': 'Approved a change',
+  'audit.decision.change.approval_decided.rejected': 'Rejected a change',
   'audit.decision.problem.approval_decided.approved': 'Approved a problem',
   'audit.decision.problem.approval_decided.rejected': 'Rejected a problem',
   'audit.decision.release.approval_decided.approved': 'Approved a release',

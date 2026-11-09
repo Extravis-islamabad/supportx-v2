@@ -248,6 +248,8 @@ export const ur: LabelResource = {
   'audit.alert.verification_failed': 'آڈٹ لاگ تصدیق میں ناکام رہا۔',
   'audit.archive_status.failed': 'محفوظ نہیں ہوا',
   'audit.archive_status.ready': 'محفوظ اور تصدیق شدہ',
+  'audit.decision.change.approval_decided.approved': 'تبدیلی منظور کی',
+  'audit.decision.change.approval_decided.rejected': 'تبدیلی مسترد کی',
   'audit.decision.problem.approval_decided.approved': 'مسئلہ منظور کیا',
   'audit.decision.problem.approval_decided.rejected': 'مسئلہ مسترد کیا',
   'audit.decision.release.approval_decided.approved': 'ریلیز منظور کی',
