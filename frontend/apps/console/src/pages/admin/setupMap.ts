@@ -7,6 +7,7 @@
 export const SETUP_GROUPS = [
   'people_access',
   'service_desk',
+  'assets',
   'automation_sla',
   'channels',
   'organisation',
@@ -84,6 +85,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_knowledge',
     permission: 'knowledge.manage_settings',
     also: 'knowledge.manage_types',
+  },
+  // The asset catalogue (WP-049a): its configure right, or settings.manage for every area.
+  {
+    key: 'assets',
+    group: 'assets',
+    labelKey: 'nav.admin_assets',
+    permission: 'config.assets',
+    also: 'settings.manage',
   },
   {
     key: 'automation',
