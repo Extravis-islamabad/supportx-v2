@@ -77,6 +77,7 @@ export const en = {
   'errors.certificate_not_valid_now': 'The certificate has expired or is not valid yet.',
   'errors.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
+  'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.conflict': 'Someone else changed this item. Reload to see the latest version.',

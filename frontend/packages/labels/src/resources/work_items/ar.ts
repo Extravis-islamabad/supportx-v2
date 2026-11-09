@@ -896,6 +896,7 @@ export const ar: LabelResource = {
   'lifecycle.standard': 'قياسي',
   'link_kind.caused_by': 'ناتجة عن',
   'link_kind.caused_by_release': 'ناتج عن الإصدار',
+  'link_kind.change_for': 'تغيير من أجل',
   'link_kind.follows': 'تتبع',
   'link_kind.merged_into': 'دُمجت في',
   'link_kind.related': 'مرتبطة',

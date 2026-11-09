@@ -543,3 +543,61 @@ async def test_req_chg_039_an_implementing_group_bars_every_member(world: World)
         headers={"If-Match": f'"{rows[0]["version"]}"', **CONSOLE},
     )
     assert refused.status_code == 403
+
+
+async def test_req_chg_002_a_change_made_from_a_problem_is_prefilled_and_linked(
+    world: World,
+) -> None:
+    from tests.db.test_release_templates_api import field_codes  # noqa: PLC0415 - shared helper
+
+    a, b = world.a, world.b
+    made = await world.call(
+        "POST",
+        "/problems",
+        a,
+        a.admin,
+        json={"subject": "Mail relay drops messages", "requester_id": str(a.requester)},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert made.status_code == 201, made.text
+    problem_ = made.json()
+    shown = await world.call("GET", f"{CHG}/prefill?record_id={problem_['id']}", a, a.admin)
+    assert shown.status_code == 200, shown.text
+    filled = shown.json()
+    assert (filled["subject"], filled["from_record_id"]) == (
+        "Mail relay drops messages",
+        problem_["id"],
+    )
+    # The form may edit every value before saving (AC3): here the subject.
+    change = await new_change(
+        world, a, a.admin, subject="Replace the mail relay", from_record_id=problem_["id"]
+    )
+    assert change.status_code == 201, change.text
+    links = await world.sql(
+        "SELECT kind FROM work_item_links WHERE tenant_id = $1 AND source_id = $2"
+        " AND target_id = $3 AND deleted_at IS NULL",
+        a.tenant,
+        uuid.UUID(change.json()["id"]),
+        uuid.UUID(problem_["id"]),
+    )
+    assert [r["kind"] for r in links] == ["change_for"]
+    for record, path in ((change.json(), CHG), (problem_, "/problems")):  # on both records (AC1)
+        history = (await world.call("GET", f"{path}/{record['id']}/history", a, a.admin)).json()
+        assert any(c["field"] == "link" for e in history["items"] for c in e["changes"])
+    # Another tenant's record is not found, and only changes take from_record_id.
+    assert (
+        await world.call("GET", f"{CHG}/prefill?record_id={problem_['id']}", b, b.admin)
+    ).status_code == 404
+    incident = await world.call(
+        "POST",
+        "/incidents",
+        a,
+        a.admin,
+        json={
+            "subject": "VPN down",
+            "requester_id": str(a.requester),
+            "from_record_id": problem_["id"],
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert field_codes(incident) == {("from_record_id", "not_allowed")}

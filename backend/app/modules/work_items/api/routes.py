@@ -70,8 +70,8 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
+from app.modules.work_items.service import change_links, release_links, resolution
 from app.modules.work_items.service import duplicates as duplicates_service
-from app.modules.work_items.service import release_links, resolution
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
@@ -171,6 +171,13 @@ class WorkItemIn(BaseModel):
     )
     change_type: str | None = Field(
         default=None, max_length=40, description="Changes only: a change type code (REQ-CHG-005)."
+    )
+    from_record_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Changes only: the incident, request, problem or release it is made from; linked "
+            "as change_for on both (REQ-CHG-002)."
+        ),
     )
     change_reason: str | None = Field(
         default=None, max_length=40, description="Changes only: a reason for change code."
@@ -1440,6 +1447,18 @@ class ReleaseDetailsOut(BaseModel):
         )
 
 
+class ChangePrefillOut(BaseModel):
+    """A new change's starting values from another record (REQ-CHG-002)."""
+
+    subject: str
+    description: str | None
+    requester_id: uuid.UUID
+    impact: str | None
+    urgency: str | None
+    site_id: uuid.UUID | None
+    from_record_id: uuid.UUID = Field(description="Send back on create to link the two.")
+
+
 class ChangeDetailsIn(BaseModel):
     """A change's own fields to change (send only those you change; null clears one)."""
 
@@ -2080,6 +2099,16 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         # Release and change stage approvals (WP-058a s5, WP-045a) and problem approvals asked
         # ad hoc (WP-044b s4): none has a requester's withdrawal (a change is canceled instead).
         add_approval_routes(router, wtype, withdraw=False)
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        # WP-045a D6 (REQ-CHG-002): before the /{record_id} routes.
+
+        @router.get("/prefill", summary="A new change's values from another record")
+        async def change_prefill(
+            record_id: uuid.UUID, session: TenantSession, subject: Create
+        ) -> ChangePrefillOut:
+            """From an incident, request, problem or release you see; every value is editable."""
+            return ChangePrefillOut(**await change_links.prefill(session, subject, record_id))
+
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
@@ -2105,14 +2134,22 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         """A new record. Send an Idempotency-Key: a retried request returns the same 201."""
 
         async def run() -> Created:
+            values = body.model_dump(exclude_unset=True)
+            from_record = values.pop("from_record_id", None)
+            if from_record is not None and wtype.code is not WorkItemTypeCode.CHANGE:
+                raise service.field_errors([("from_record_id", "not_allowed")])
             view = await service.create(
                 session,
                 subject,
                 wtype,
-                body.model_dump(exclude_unset=True),
+                values,
                 source=source_of(request),
                 holders=policy,
             )
+            if from_record is not None:  # REQ-CHG-002: linked to its source, on both records
+                await change_links.link_new(
+                    session, subject, view.record, from_record, source=source_of(request)
+                )
             out = WorkItemOut.of(view)
             return Created(
                 body=out, headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'}

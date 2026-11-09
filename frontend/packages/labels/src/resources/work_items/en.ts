@@ -819,6 +819,7 @@ export const en = {
   'lifecycle.standard': 'Standard',
   'link_kind.caused_by': 'Caused by',
   'link_kind.caused_by_release': 'Caused by release',
+  'link_kind.change_for': 'Change for',
   'link_kind.follows': 'Follows',
   'link_kind.merged_into': 'Merged into',
   'link_kind.related': 'Related',

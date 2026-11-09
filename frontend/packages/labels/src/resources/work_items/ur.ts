@@ -826,6 +826,7 @@ export const ur: LabelResource = {
   'lifecycle.standard': 'معیاری',
   'link_kind.caused_by': 'کی وجہ سے',
   'link_kind.caused_by_release': 'ریلیز کی وجہ سے',
+  'link_kind.change_for': 'اس کے لیے تبدیلی',
   'link_kind.follows': 'اس کے بعد',
   'link_kind.merged_into': 'میں ضم کیا گیا',
   'link_kind.related': 'متعلقہ',
