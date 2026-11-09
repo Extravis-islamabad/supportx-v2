@@ -491,6 +491,7 @@ async def _email_once(  # noqa: PLR0913, PLR0917 - the delivery and how to write
     message: Message,
     writer: Callable[..., Message],
     portal: str,
+    tenant_slug: str,
 ) -> None:
     """The e-mail, once per event and person, with that person's own links (D-132).
 
@@ -508,7 +509,7 @@ async def _email_once(  # noqa: PLR0913, PLR0917 - the delivery and how to write
         return
     spots = {name: action_links.marker(name) for name in requests}
     links = tuple(
-        MailLink(name=name, prefix=portal + action_links.PUBLIC_PAGE, request=request)
+        MailLink(name=name, prefix=portal + action_links.public_page(tenant_slug), request=request)
         for name, request in requests.items()
     )
     await _email(session, settings, target, person, writer(email_links=spots), links)
@@ -584,11 +585,14 @@ async def notify(  # noqa: C901 - the pipeline of one event, in order
     preferences = await preferences_of(session, ids)
     defaults = await site_defaults(session)
     brand_urls: dict[str, tuple[str, str]] = {}
+    slug = ""
 
     async def origin_for(language: Language) -> Callable[[RecordAccess], str]:
+        nonlocal slug
         if language not in brand_urls:
             brand = await email_branding(session, settings, envelope.tenant_id, language)
             brand_urls[language] = (brand.console_url, brand.portal_url)
+            slug = brand.tenant_slug
         console, portal = brand_urls[language]
         return lambda access: console if access is RecordAccess.FULL else portal
 
@@ -641,7 +645,7 @@ async def notify(  # noqa: C901 - the pipeline of one event, in order
                 await _in_app(session, target, message)
             else:
                 portal = (await origin_for(language))(RecordAccess.PUBLIC)
-                await _email_once(session, settings, target, person, message, writer, portal)
+                await _email_once(session, settings, target, person, message, writer, portal, slug)
     return count
 
 

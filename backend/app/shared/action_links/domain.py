@@ -122,8 +122,14 @@ class LinkRequest:
     object_version: int
 
 
-# The portal's public confirmation page (D-132): the token follows in the URL fragment.
-PUBLIC_PAGE = "approve#"
+def public_page(tenant_slug: str) -> str:
+    """The portal's public confirmation page (D-132), up to the token, which follows the `#`.
+
+    `?t=` names the tenant by slug, for addresses that name none (on-prem and k3s without tenant
+    subdomains); never its id. The token stays in the fragment: never sent to a server, never
+    in an access log.
+    """
+    return f"approve?t={tenant_slug}#"
 
 
 def marker(name: str) -> str:
@@ -140,7 +146,6 @@ __all__ = [
     "DEFAULT_TTL",
     "MAX_FAILED_USES",
     "MAX_TTL",
-    "PUBLIC_PAGE",
     "TOKEN_LENGTH",
     "LinkRequest",
     "LinkState",
@@ -150,6 +155,7 @@ __all__ = [
     "expiry",
     "marker",
     "new_token",
+    "public_page",
     "refusal",
     "well_formed",
 ]

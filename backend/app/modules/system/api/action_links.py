@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from app.core.authorization import public_route, require_signed_in
 from app.core.database import Database, TenantSession, get_database
 from app.core.entitlements import ENTITLEMENT_GATE_STATE, EntitlementGate, entitlement_exempt
-from app.core.errors import AppError, NotFound, RateLimited, ValidationFailed
+from app.core.errors import AppError, RateLimited, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.audit import (
     AuditActorType,
@@ -36,9 +36,9 @@ from app.modules.audit import (
     record_alone,
 )
 from app.modules.identity_access import Subject, subject_for
-from app.modules.organization import tenant_for_host
+from app.modules.organization import tenant_for_host, tenant_for_slug
 from app.shared import action_links
-from app.shared.action_links.domain import TOKEN_LENGTH, Refusal
+from app.shared.action_links.domain import TOKEN_LENGTH
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, rate_limit
 
 router = APIRouter(
@@ -54,6 +54,14 @@ class TokenIn(BaseModel):
     """The link's token, from the page's URL fragment."""
 
     token: str = Field(min_length=TOKEN_LENGTH, max_length=TOKEN_LENGTH)
+    tenant: str | None = Field(
+        default=None,
+        max_length=63,
+        description=(
+            "The link's `?t=`: the tenant's slug, for an address that names no tenant. "
+            "Where the address names one, it wins and a different slug is refused."
+        ),
+    )
 
 
 class UseIn(TokenIn):
@@ -112,22 +120,39 @@ DatabaseDep = Annotated[Database, Depends(get_database)]
 PUBLIC_GROUP = "action_links_public"
 
 
-async def _public_tenant(request: Request, database: Database) -> uuid.UUID:
-    """The tenant of the address used (subdomain or verified domain); unknown: 404.
+# Where the address and the slug name no tenant, the token is looked up here: no tenant has this
+# id, so row-level security finds nothing and the answer is the wrong token's, at its cost
+# (lane B's review: an unknown tenant must look like a wrong token).
+NO_TENANT = uuid.UUID(int=0)
 
-    It only decides where the token is looked up: the token itself is the secret, and a token
-    used on another tenant's address is simply not found there.
+
+async def _public_tenant(
+    request: Request, response: Response, database: Database, slug: str | None
+) -> uuid.UUID:
+    """Where the token is looked up: the address's tenant, else the link's `?t=` slug.
+
+    The address (subdomain or verified domain) wins; a slug naming another tenant is refused.
+    Without tenant subdomains (on-prem, k3s) the address names none and the slug does. It only
+    decides where the token is looked up: the token is the secret, and a token used on another
+    tenant's address is simply not found there. Every way of not finding a tenant gives
+    `NO_TENANT`, so the answer and its cost are a wrong token's.
     """
+    # The one limit, before any lookup and by client address alone: a sweep over slugs or
+    # tenants' addresses shares one budget, and the headers never differ by tenant.
+    await _public_limit(request, response, NO_TENANT)
     found = await tenant_for_host(
         database, request.headers.get("host"), request.app.state.settings.tenant_base_domain
     )
-    if found is None:
-        raise NotFound(code=Refusal.NOT_FOUND.value)
-    return found.tenant_id
+    if found is not None:
+        return found.tenant_id if slug is None or slug == found.slug else NO_TENANT
+    if slug is None:
+        return NO_TENANT
+    by_slug = await tenant_for_slug(database, slug)  # a bad pattern: None, before any query
+    return by_slug.tenant_id if by_slug is not None else NO_TENANT
 
 
 async def _public_limit(request: Request, response: Response, tenant_id: uuid.UUID) -> None:
-    """Rate limit by tenant and client address: there is no person to key on (lane B)."""
+    """Rate limit by client address: there is no person to key on (lane B)."""
     limiter: RateLimiter | None = getattr(request.app.state, RATE_LIMITER_STATE, None)
     if limiter is None:
         return
@@ -175,8 +200,7 @@ async def public_peek(
     then asks the person to sign in.
     """
     response.headers.update(NO_REFERRER)
-    tenant_id = await _public_tenant(request, database)
-    await _public_limit(request, response, tenant_id)
+    tenant_id = await _public_tenant(request, response, database, payload.tenant)
     recipient = await _recipient(request, database, tenant_id, payload.token, write=False)
     async with database.tenant_session(TenantContext(tenant_id, user_id=recipient)) as session:
         subject = await subject_for(session, tenant_id, recipient)
@@ -202,8 +226,7 @@ async def public_use(
     failed uses; never the token or its hash in the entry.
     """
     response.headers.update(NO_REFERRER)
-    tenant_id = await _public_tenant(request, database)
-    await _public_limit(request, response, tenant_id)
+    tenant_id = await _public_tenant(request, response, database, payload.tenant)
     facts = RequestFacts.of(request, client="portal")
     recipient: uuid.UUID | None = None
     try:
@@ -222,6 +245,8 @@ async def public_use(
                 actor=(AuditActorType.PERSON, recipient),
             )
     except AppError as refused:
+        if tenant_id == NO_TENANT:
+            raise  # no tenant to audit in, and no link to count the failure on
         await record_alone(
             database,
             TenantContext(tenant_id, user_id=recipient),
