@@ -2629,6 +2629,9 @@ spec:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
+      annotations:
+        # A changed app list rolls the web pods, so the served files follow the values.
+        checksum/mobile-links: 91bfb07acfb6c6740a1a70cfe155c2d30ea7931deb44432ae51f1155d09afcfa
     spec:
       automountServiceAccountToken: false
       

@@ -1,0 +1,27 @@
+{{- /*
+The mobile app's verified links (ADR-044 item 3), served by the web pods at /.well-known/. Only
+the apps named in values receive the sign-in return, so a code caught by another app never
+reaches it. Rendered only when an app is configured; otherwise the paths answer 404.
+*/ -}}
+{{- $m := .Values.mobile -}}
+{{- if or $m.ios.appIds $m.android.package }}
+{{- $path := printf "%s*" $m.returnPath -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "supportx.name" (dict "root" . "component" "mobile-links") }}
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "web") | nindent 4 }}
+data:
+  {{- if $m.ios.appIds }}
+  apple-app-site-association: |
+    {{- dict "applinks" (dict "details" (list (dict "appIDs" $m.ios.appIds "components" (list (dict "/" $path))))) | toJson | nindent 4 }}
+  {{- end }}
+  {{- if $m.android.package }}
+  {{- if not $m.android.certSha256 }}
+  {{- fail "mobile.android.certSha256 is required with mobile.android.package (ADR-044)" }}
+  {{- end }}
+  assetlinks.json: |
+    {{- list (dict "relation" (list "delegate_permission/common.handle_all_urls") "target" (dict "namespace" "android_app" "package_name" $m.android.package "sha256_cert_fingerprints" $m.android.certSha256)) | toJson | nindent 4 }}
+  {{- end }}
+{{- end }}
