@@ -5,7 +5,7 @@ import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testin
 
 import { App } from '../../App';
 import { clickAction } from '../../test/actions';
-import { consoleApi } from '../../test/api';
+import { consoleApi, problem } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
 // similar problems), and the record with the guided steps and investigators. WP-044b s1: the
@@ -267,6 +267,29 @@ describe('console: problems', () => {
     await screen.findByTestId('prb-record');
     await clickAction('prb-print', 'prb-actions');
     expect(print).toHaveBeenCalledTimes(1);
+  });
+
+  it('QA10-P1-04: a move refused for an empty field names the field, never a vague toast', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api({
+      [`POST /api/v1/problems/${PRB_ID}/actions/analyse`]: {
+        status: 422,
+        body: problem(422, 'closure_rules', {
+          errors: [
+            {
+              field: 'body.root_cause',
+              code: 'required_to_resolve',
+              message_key: 'errors.field.required_to_resolve',
+              params: {},
+            },
+          ],
+        }),
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start the why-analysis' }));
+    expect(await screen.findByText('Fill these on the record first: Root cause.')).toBeDefined();
+    expect(screen.queryByText('Some things are needed before this can be done.')).toBeNull();
   });
 
   it('shows the guided steps, the next move and the investigators', async () => {
