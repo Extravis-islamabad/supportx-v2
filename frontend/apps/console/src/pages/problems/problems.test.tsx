@@ -84,6 +84,7 @@ function api(routes: Record<string, unknown> = {}) {
       },
       'GET /api/v1/problems/templates': { body: [template] },
       'GET /api/v1/problems/similar': { body: [] },
+      'POST /api/v1/problems/from-incidents/preview': { body: { already_caused: [] } },
       [`GET /api/v1/problems/${PRB_ID}`]: { body: record },
       [`GET /api/v1/problems/${PRB_ID}/links`]: { body: [] },
       [`GET /api/v1/problems/${PRB_ID}/investigators`]: {
@@ -236,6 +237,43 @@ describe('console: problems', () => {
     expect(sent.problem.requester_id).toBe(TECH); // reported by: the creator
     expect(sent.problem.template_id).toBe(TEMPLATE_ID); // the default template first
     await screen.findByTestId('prb-record');
+  });
+
+  it('QA10-P1-02: from one incident another problem causes, the move is offered and sent', async () => {
+    window.history.pushState({}, '', `/problems/new?incident=${INC_ID}`);
+    const fake = api({
+      'GET /api/v1/problems/prefill': {
+        body: {
+          subject: 'Mail is down',
+          description: null,
+          impact: null,
+          urgency: null,
+          site_id: null,
+          category_id: null,
+          requester_id: TECH,
+          problem_type: 'reactive',
+          source_incident_id: INC_ID,
+        },
+      },
+      'POST /api/v1/problems/from-incidents/preview': {
+        body: { already_caused: [{ incident_id: INC_ID, problem_display_id: 'PRB-4' }] },
+      },
+      'POST /api/v1/problems/from-incidents': {
+        status: 201,
+        body: { problem: record, bulk_jobs: [] },
+      },
+    });
+    render(<App />);
+    const caused = await screen.findByTestId('prb-already-caused');
+    fireEvent.click(within(caused).getByRole('checkbox'));
+    fireEvent.click(screen.getByTestId('prb-create'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(1);
+    });
+    const sent = fake.find('POST', '/api/v1/problems/from-incidents')[0]?.body as {
+      move_incident_ids: string[];
+    };
+    expect(sent.move_incident_ids).toEqual([INC_ID]);
   });
 
   it("WP-044c S1: a problem gets its group and owner in the incident's assign dialog", async () => {
