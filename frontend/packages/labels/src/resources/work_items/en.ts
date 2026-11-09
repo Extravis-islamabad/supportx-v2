@@ -788,6 +788,8 @@ export const en = {
   'incidents.worklogs.total': 'Total time',
   'incidents.worklogs.type': 'Worklog type',
   'incidents.worklogs.when': '{{from}} to {{to}}',
+  'incidents.worklogs.why_end': 'Enter when it ended, or how long it took.',
+  'incidents.worklogs.why_start': 'Enter when the work started.',
   'level.tier_1': 'Tier 1',
   'level.tier_2': 'Tier 2',
   'level.tier_3': 'Tier 3',

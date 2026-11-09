@@ -72,6 +72,13 @@ const PAGE_CSS =
   // Text for screen readers only (a name where the screen shows initials or an icon).
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
+  // An in-place edit button (template A): out of sight until it has keyboard focus.
+  '.sx-edit-trigger { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
+  'clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0; background: none; } ' +
+  '.sx-edit-trigger:focus-visible { position: static; width: auto; height: auto; overflow: visible; ' +
+  'clip: auto; margin-inline-start: 6px; cursor: pointer; color: inherit; } ' +
+  // No space before a label's colon (en typography; D-147 polish).
+  '.ant-descriptions-item-label::after { margin-inline-start: 0 !important; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
   // A table wider than its box shows that it scrolls: a real scrollbar, never an overlay one
   // that appears only while scrolling (QA 2026-11-05 V1: columns cut off with no cue).
