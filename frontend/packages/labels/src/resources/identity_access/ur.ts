@@ -129,6 +129,31 @@ export const ur: LabelResource = {
   'availability.no_members': 'اس گروپ میں کوئی ٹیکنیشن نہیں۔',
   'availability.set_available_by': '{{name}} نے {{time}} پر دستیاب کیا',
   'availability.set_away_by': '{{name}} نے {{time}} پر غیر حاضر کیا',
+  'dev_persona.admin': 'منتظم',
+  'dev_persona.approver': 'منظوری دینے والا',
+  'dev_persona.lead': 'ٹیم لیڈ',
+  'dev_persona.new_starter': 'نیا ملازم',
+  'dev_persona.requester': 'درخواست گزار',
+  'dev_persona.technician': 'ٹیکنیشن',
+  'dev_sign_in.app_console': 'کنسول',
+  'dev_sign_in.app_portal': 'پورٹل',
+  'dev_sign_in.as': '{{persona}} کے طور پر سائن اِن کریں',
+  'dev_sign_in.reason.account_locked':
+    'ناکام کوششوں کے بعد Keycloak نے یہ اکاؤنٹ چند منٹ کے لیے مقفل کر دیا ہے۔',
+  'dev_sign_in.reason.credentials_refused':
+    'ڈیولپمنٹ .env میں پاس ورڈ یا تصدیقی کلید سیڈ سے میل نہیں کھاتی: make showcase-seed چلائیں۔',
+  'dev_sign_in.reason.grant_not_allowed':
+    'Keycloak یہاں یہ سائن اِن نہیں ہونے دیتا: یہ ڈیولپمنٹ ریلم نہیں۔',
+  'dev_sign_in.reason.keycloak_refused': 'Keycloak نے کسی اور وجہ سے انکار کیا: اس کا لاگ دیکھیں۔',
+  'dev_sign_in.reason.mfa_setup_required':
+    'اس کردار کو پہلے دو مرحلہ سائن اِن سیٹ اپ کرنا ہوگا: پہلے سے اندراج کے لیے make showcase-seed چلائیں۔',
+  'dev_sign_in.reason.not_showcase': 'یہ کردار Showcase Company کا رکن نہیں۔',
+  'dev_sign_in.sets_up_mfa': 'دو مرحلہ سائن اِن سیٹ اپ کرتا ہے',
+  'dev_sign_in.title': 'فوری سائن اِن (صرف ڈیولپمنٹ)',
+  'dev_sign_in.unavailable':
+    'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
+  'dev_sign_in.warning':
+    'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'form_density.title': 'فارم کی ترتیب',
@@ -737,6 +762,10 @@ export const ur: LabelResource = {
   'role.knowledge_manager.description':
     'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
   'role.knowledge_manager.scope': 'تمام علمی مضامین',
+  'role.problem_manager': 'مسائل کا منتظم',
+  'role.problem_manager.description':
+    'مسائل کا انتظام چلاتا ہے: ہر مسئلہ دیکھتا، اس پر کام کرتا، تفویض کرتا، منظور اور بند کرتا ہے، بشمول بنیادی وجہ اور معلوم خرابیاں، اور متعلقہ واقعات پڑھتا ہے۔',
+  'role.problem_manager.scope': 'تمام مسائل',
   'role.purchase_manager': 'خریداری اور معاہدہ مینیجر',
   'role.purchase_manager.description': 'خریداریوں، فروشندگان اور معاہدوں کی دیکھ بھال کرتا ہے۔',
   'role.purchase_manager.scope': 'تمام خریداریاں اور معاہدے',

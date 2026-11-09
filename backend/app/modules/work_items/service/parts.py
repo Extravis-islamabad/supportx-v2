@@ -98,6 +98,7 @@ async def _recorded(  # noqa: PLR0913, PLR0917 - the record, the part and what c
         changes=changes,
         source=source,
     )
+    task = await session.get(WorkItemTask, part_id) if part == "task" else None
     await record_event(
         session,
         WorkItemPartChanged(
@@ -105,6 +106,7 @@ async def _recorded(  # noqa: PLR0913, PLR0917 - the record, the part and what c
             part=part,
             part_id=part_id,
             change=_CHANGES[kind],
+            task_status=task.status if task is not None else None,
         ),
         aggregate_id=record.id,
     )

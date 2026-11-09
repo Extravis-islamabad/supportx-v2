@@ -8,8 +8,10 @@ import {
   AddressBranding,
   AppearanceProvider,
   createQueryClient,
+  DevSignInPage,
   ErrorBoundary,
   ErrorReporterProvider,
+  isDevSignIn,
   LicenceProvider,
   PASSWORD_RESET_PATH,
   PasswordResetPage,
@@ -44,6 +46,9 @@ export function App({ navigate }: AppProps) {
             {window.location.pathname === PASSWORD_RESET_PATH ? (
               // "Forgot password?" is for people who cannot sign in (WP-039 session 2).
               <PasswordResetPage app="portal" />
+            ) : isDevSignIn(window.location.pathname) ? (
+              // Dev-only quick sign-in (D-151): the API answers 404 anywhere but the local stack.
+              <DevSignInPage />
             ) : isPublicApproval(window.location.pathname) ? (
               // An e-mailed approval link without sign-in (D-132): its own page, no session.
               <PublicApprovalPage />

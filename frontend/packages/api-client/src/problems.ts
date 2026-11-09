@@ -2,7 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { api, call } from './client';
 import { ApiError } from './errors';
-import { useSingleFlight, type ActionRun } from './incidents';
+import { useSingleFlight, type ActionRun, type AssignChange } from './incidents';
+import type { FilterExpression } from './users';
 import type { components } from './schema';
 
 // Problems (WP-044a): a work item of its own type on the same engine. This file covers what the
@@ -22,11 +23,18 @@ export type ProblemEvidence = components['schemas']['ProblemEvidenceOut'];
 export interface ProblemsQuery {
   view?: string;
   cursor?: string;
+  /** The shared filter DSL (search words, a display ID). */
+  filter?: FilterExpression;
+  sort?: string;
 }
 
 export const problemKeys = {
   all: ['problems'] as const,
   list: (query: ProblemsQuery) => ['problems', 'list', query] as const,
+  views: ['problems', 'views'] as const,
+  repeats: ['problems', 'repeats'] as const,
+  repeatRules: ['problems', 'repeat-rules'] as const,
+  repeatIncidents: (hitId: string) => ['problems', 'repeats', hitId, 'incidents'] as const,
   detail: (id: string) => ['problems', 'detail', id] as const,
   links: (id: string) => ['problems', 'detail', id, 'links'] as const,
   investigators: (id: string) => ['problems', 'detail', id, 'investigators'] as const,
@@ -43,8 +51,30 @@ const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 export function useProblems(query: ProblemsQuery) {
   return useQuery({
     queryKey: problemKeys.list(query),
-    queryFn: () => call(api.GET('/api/v1/problems', { params: { query } })),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problems', {
+          params: {
+            query: {
+              view: query.view,
+              cursor: query.cursor,
+              sort: query.sort,
+              filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
+            },
+          },
+        }),
+      ),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** The built-in problem views in their fixed order, each with how many you see (WP-044c). */
+export function useProblemViews() {
+  return useQuery({
+    queryKey: problemKeys.views,
+    queryFn: () => call(api.GET('/api/v1/problems/views')),
+    // "Accepted, due for review" changes with the clock, not only with events.
+    refetchInterval: 60_000,
   });
 }
 
@@ -67,8 +97,9 @@ export function useProblemCatalogue(enabled = true) {
   });
 }
 
-export function useProblemTemplates() {
+export function useProblemTemplates(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: problemKeys.templates,
     queryFn: () => call(api.GET('/api/v1/problems/templates')),
     staleTime: 60_000,
@@ -121,6 +152,37 @@ function useSavedProblem() {
     queryClient.setQueryData(problemKeys.detail(saved.id), saved);
     void queryClient.invalidateQueries({ queryKey: [...problemKeys.all, 'list'] });
   };
+}
+
+/** Give a problem to a group and an owner (WP-044c S1); the same rules as an incident's. */
+export function useAssignProblem(id: string) {
+  const saved = useSavedProblem();
+  const queryClient = useQueryClient();
+  const once = useSingleFlight((change: AssignChange) =>
+    call(
+      api.POST('/api/v1/problems/{record_id}/assign', {
+        params: { path: { record_id: id }, header: ifMatch(change.version) },
+        body: {
+          group_id: change.groupId,
+          technician_id: change.technicianId,
+          reason_code: change.reasonCode ?? null,
+          reason_text: change.reasonText?.trim() === '' ? null : (change.reasonText ?? null),
+          confirm_lose_access: change.confirmLoseAccess ?? false,
+          keep_following: change.keepFollowing ?? null,
+        },
+      }),
+    ),
+  );
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: (error) => {
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+      }
+    },
+  });
 }
 
 export function useCreateProblem() {
@@ -610,5 +672,118 @@ export function useStartFollowUp(id: string) {
           body: { incident_ids: incidentIds, copy_text: copy },
         }),
       ),
+  });
+}
+
+/** The problem category tree (the engine's categories route for problems). */
+export function useProblemCategories(enabled = true) {
+  return useQuery({
+    queryKey: [...problemKeys.all, 'categories'] as const,
+    queryFn: () => call(api.GET('/api/v1/problems/categories')),
+    enabled,
+  });
+}
+
+// --- repeated incidents (WP-044c D16, REQ-PRB-068) ---------------------------------------------
+
+export type RepeatHit = components['schemas']['RepeatHitOut'];
+export type RepeatHitIncident = components['schemas']['RepeatHitIncidentOut'];
+
+/** The open sets of repeated incidents (for who may create problems; empty otherwise). */
+export function useRepeatHits(enabled = true) {
+  return useQuery({
+    queryKey: problemKeys.repeats,
+    queryFn: () => call(api.GET('/api/v1/problem-repeats/hits')),
+    enabled,
+  });
+}
+
+/** A set's incidents you may see (the newest 100). */
+export function useRepeatHitIncidents(hitId: string | null) {
+  return useQuery({
+    queryKey: problemKeys.repeatIncidents(hitId ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/problem-repeats/hits/{hit_id}/incidents', {
+          params: { path: { hit_id: hitId ?? '' } },
+        }),
+      ),
+    enabled: hitId !== null,
+  });
+}
+
+export interface RepeatHandle {
+  hitId: string;
+  version: number;
+  outcome: 'problem_created' | 'dismissed';
+  problemId?: string;
+}
+
+/** A problem was made from the set, or it is dismissed: it leaves the list. */
+export function useHandleRepeatHit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ hitId, version, outcome, problemId }: RepeatHandle) =>
+      call(
+        api.POST('/api/v1/problem-repeats/hits/{hit_id}/handle', {
+          params: { path: { hit_id: hitId }, header: ifMatch(version) },
+          body: { outcome, problem_id: problemId ?? null },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.repeats });
+    },
+  });
+}
+
+export type RepeatRule = components['schemas']['RepeatRuleOut'];
+export type RepeatRuleInput = components['schemas']['RepeatRuleIn'];
+export type RepeatRulePatch = components['schemas']['RepeatRulePatch'];
+
+/** The repeat incident rules (admins), the default first. */
+export function useRepeatRules(enabled = true) {
+  return useQuery({
+    queryKey: problemKeys.repeatRules,
+    queryFn: () => call(api.GET('/api/v1/problem-repeats/rules')),
+    enabled,
+  });
+}
+
+export type RepeatRuleChange =
+  | { kind: 'create'; body: RepeatRuleInput; key: string }
+  | { kind: 'update'; id: string; version: number; body: RepeatRulePatch }
+  | { kind: 'delete'; id: string; version: number };
+
+/** Add, change or remove a repeat rule; the list refetches. */
+export function useRepeatRuleChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true }, // the editor shows field problems in place
+    mutationFn: async (change: RepeatRuleChange): Promise<void> => {
+      if (change.kind === 'create') {
+        await call(
+          api.POST('/api/v1/problem-repeats/rules', {
+            params: { header: { 'Idempotency-Key': change.key } },
+            body: change.body,
+          }),
+        );
+      } else if (change.kind === 'update') {
+        await call(
+          api.PATCH('/api/v1/problem-repeats/rules/{rule_id}', {
+            params: { path: { rule_id: change.id }, header: ifMatch(change.version) },
+            body: change.body,
+          }),
+        );
+      } else {
+        await call(
+          api.DELETE('/api/v1/problem-repeats/rules/{rule_id}', {
+            params: { path: { rule_id: change.id }, header: ifMatch(change.version) },
+          }),
+        );
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: problemKeys.repeatRules });
+    },
   });
 }

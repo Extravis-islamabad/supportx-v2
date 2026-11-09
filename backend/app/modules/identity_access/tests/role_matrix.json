@@ -181,6 +181,166 @@
    "own"
   ]
  },
+ "problem_manager@all": {
+  "groups.view": [
+   "all"
+  ],
+  "incidents.view": [
+   "all"
+  ],
+  "problems.add_note": [
+   "all"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "all"
+  ],
+  "problems.assign_outside_group": [
+   "all"
+  ],
+  "problems.cancel": [
+   "all"
+  ],
+  "problems.change_priority": [
+   "all"
+  ],
+  "problems.close": [
+   "all"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.delete": [
+   "all"
+  ],
+  "problems.edit": [
+   "all"
+  ],
+  "problems.edit_analysis": [
+   "all"
+  ],
+  "problems.edit_due_dates": [
+   "all"
+  ],
+  "problems.edit_solution": [
+   "all"
+  ],
+  "problems.manage_followers": [
+   "all"
+  ],
+  "problems.mark_known_error": [
+   "all"
+  ],
+  "problems.reopen": [
+   "all"
+  ],
+  "problems.reply": [
+   "all"
+  ],
+  "problems.resolve": [
+   "all"
+  ],
+  "problems.take": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "problems.view_root_cause": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
+ "problem_manager@group": {
+  "groups.view": [
+   "all"
+  ],
+  "incidents.view": [
+   "all"
+  ],
+  "problems.add_note": [
+   "all"
+  ],
+  "problems.approve": [
+   "all"
+  ],
+  "problems.assign": [
+   "all"
+  ],
+  "problems.assign_outside_group": [
+   "all"
+  ],
+  "problems.cancel": [
+   "all"
+  ],
+  "problems.change_priority": [
+   "all"
+  ],
+  "problems.close": [
+   "all"
+  ],
+  "problems.create": [
+   "all"
+  ],
+  "problems.delete": [
+   "all"
+  ],
+  "problems.edit": [
+   "all"
+  ],
+  "problems.edit_analysis": [
+   "all"
+  ],
+  "problems.edit_due_dates": [
+   "all"
+  ],
+  "problems.edit_solution": [
+   "all"
+  ],
+  "problems.manage_followers": [
+   "all"
+  ],
+  "problems.mark_known_error": [
+   "all"
+  ],
+  "problems.reopen": [
+   "all"
+  ],
+  "problems.reply": [
+   "all"
+  ],
+  "problems.resolve": [
+   "all"
+  ],
+  "problems.take": [
+   "all"
+  ],
+  "problems.view": [
+   "all"
+  ],
+  "problems.view_root_cause": [
+   "all"
+  ],
+  "profile.edit": [
+   "own"
+  ],
+  "sites.view": [
+   "all"
+  ],
+  "users.view": [
+   "all"
+  ]
+ },
  "purchase_manager@all": {
   "assets.view": [
    "all"

@@ -189,7 +189,7 @@ function ConversationBody({
   // History tab, which pages through all of them.
   // A request's own history joins with the type-aware history hooks (#240); until then its
   // conversation shows the entries only, never an incident path (a 404 toast).
-  const words = useHistoryWords(item.id, 'all', base === 'incidents');
+  const words = useHistoryWords(item.id, 'all', 'incidents', base === 'incidents');
   const events = words.entries
     .filter((e) => e.kind !== 'created')
     .map((e) => ({

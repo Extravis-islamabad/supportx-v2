@@ -348,4 +348,21 @@ describe('WP-020c QA findings', () => {
       'requesters could not log',
     );
   });
+
+  it('REQ-PRB-021, -022 AC2: a template may be limited to groups, off with its reason for requesters', async () => {
+    api({ me: ADMIN, routes: COMMON });
+    open('/admin/incidents/templates');
+    fireEvent.click(await screen.findByTestId('tpl-admin-new'));
+    const limited = await screen.findByTestId('tpl-editor-limited');
+    expect(limited.className).not.toContain('ant-select-disabled');
+    fireEvent.click(screen.getByTestId('tpl-editor-portal')); // for requesters: for everyone
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-editor-limited').className).toContain('ant-select-disabled');
+    });
+    expect(
+      document.querySelector(
+        '[aria-description="A template for requesters is offered to everyone, so it cannot be limited to groups."]',
+      ),
+    ).not.toBeNull();
+  });
 });

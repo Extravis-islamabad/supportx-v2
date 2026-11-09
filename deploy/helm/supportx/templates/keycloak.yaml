@@ -11,7 +11,16 @@ metadata:
 data:
   {{- if eq .Values.keycloak.realmImport "dev" }}
   supportx-realm.json: |
-    {{- .Files.Get "files/keycloak/dev/supportx-realm.json" | nindent 4 }}
+    {{- /* The password grant and the week-long "remember me" sessions are the local Compose stack's
+    quick sign-in only (D-151): never in a realm this chart renders, the dev profile included. */}}
+    {{- .Files.Get "files/keycloak/dev/supportx-realm.json"
+      | replace "\"directAccessGrantsEnabled\": true" "\"directAccessGrantsEnabled\": false"
+      | replace "\"rememberMe\": true" "\"rememberMe\": false"
+      | replace "\"ssoSessionIdleTimeout\": 604800" "\"ssoSessionIdleTimeout\": 1800"
+      | replace "\"ssoSessionMaxLifespan\": 604800" "\"ssoSessionMaxLifespan\": 43200"
+      | replace "\"ssoSessionIdleTimeoutRememberMe\": 604800" "\"ssoSessionIdleTimeoutRememberMe\": 0"
+      | replace "\"ssoSessionMaxLifespanRememberMe\": 604800" "\"ssoSessionMaxLifespanRememberMe\": 0"
+      | nindent 4 }}
   {{- else if eq .Values.keycloak.realmImport "base" }}
   supportx-realm.json: |
     {{- .Files.Get "files/keycloak/base/supportx-realm.json" | nindent 4 }}

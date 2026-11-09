@@ -52,6 +52,9 @@ PURCHASE_MANAGER = "purchase_manager"
 # The requests of the person's own department in the portal, read-only, no technician fields.
 # A department's head holds the same right by default, computed from `departments.head_id`.
 DEPARTMENT_VIEWER = "department_viewer"
+# WP-044c D14 (Appendix A), agreed with lane C: runs problem management. Its problems.* grants
+# come from work_items' PermissionSpec defaults; identity gives the key and people's lookups.
+PROBLEM_MANAGER = "problem_manager"
 SYSTEM_ROLES = (
     TENANT_ADMIN,
     TECHNICIAN,
@@ -68,6 +71,7 @@ SYSTEM_ROLES = (
     RELEASE_MANAGER,
     PURCHASE_MANAGER,
     DEPARTMENT_VIEWER,
+    PROBLEM_MANAGER,
 )
 
 ALL = ALL_SCOPES
@@ -227,6 +231,13 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
         ),
         # work_items gives it `work_items.view_department` (PermissionSpec.defaults).
         DEPARTMENT_VIEWER: (("profile.edit", "own"),),
+        # Problem management (WP-044c D14): finds the people and groups problems go to.
+        PROBLEM_MANAGER: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("sites.view", "all"),
+            ("groups.view", "all"),
+        ),
     }
 )
 

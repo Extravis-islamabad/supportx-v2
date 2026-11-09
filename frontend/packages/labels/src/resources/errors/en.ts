@@ -248,6 +248,8 @@ export const en = {
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',
+  'errors.field.default_cannot_be_removed':
+    'The default rule cannot be removed. Switch it off instead.',
   'errors.field.default_language_not_offered':
     'The default language must be one of the languages offered.',
   'errors.field.default_required':
@@ -349,6 +351,8 @@ export const en = {
   'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
   'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
   'errors.field.levels_same_moment': 'Two levels run at the same moment. Give each its own time.',
+  'errors.field.limited_template_for_requesters':
+    'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
@@ -481,6 +485,8 @@ export const en = {
   'errors.field.technician_not_in_group': 'This technician is not a member of the chosen group.',
   'errors.field.template_disabled': 'This template was turned off. Choose another template.',
   'errors.field.template_not_found': 'That template no longer exists. Choose another one.',
+  'errors.field.template_not_offered':
+    'This template is not offered to you. Choose another template.',
   'errors.field.time_format_unknown': 'Choose 24-hour or 12-hour time.',
   'errors.field.time_zone_unknown': 'Choose a time zone from the list.',
   'errors.field.timezone_required': 'Include a time zone.',
@@ -738,6 +744,11 @@ export const en = {
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.privilege_escalation': 'You cannot give access you do not have yourself.',
   'errors.problem_closed': '{{display_id}} is closed, so it cannot be merged.',
+  'errors.quick_sign_in_not_configured':
+    'Quick sign-in isn’t set up on this stack: run make dev-quick-sign-in.',
+  'errors.quick_sign_in_refused': 'Keycloak refused this quick sign-in.',
+  'errors.quick_sign_in_wait':
+    'This persona signed in twice in the last 30 seconds. Try again in {{seconds}} seconds.',
   'errors.range_not_satisfiable': 'That part of the file does not exist.',
   'errors.rate_limited': 'Too many requests. Please wait a moment and try again.',
   // Entitlements (WP-009)
@@ -752,6 +763,8 @@ export const en = {
   'errors.record_closed': 'Closed and canceled records cannot be changed.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
+  'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
+  'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',
   'errors.report_entity_not_found': 'There is nothing of this kind to report on.',
   'errors.report_export_not_found': 'This export does not exist or is not yours.',
