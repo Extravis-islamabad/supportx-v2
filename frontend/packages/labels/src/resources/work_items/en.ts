@@ -326,6 +326,8 @@ export const en = {
   'categories.none_below': 'None to choose',
   'categories.retired_value': '{{name}} (retired)',
   'categories.search_all': 'Search all levels',
+  'change_copy_part.plans': 'Plans',
+  'change_copy_part.roles': 'Roles',
   'change_reason.capacity_or_performance': 'Capacity or performance',
   'change_reason.compliance_requirement': 'Compliance requirement',
   'change_reason.cost_reduction': 'Cost reduction',

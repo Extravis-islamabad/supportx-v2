@@ -3723,6 +3723,7 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
     expected_version: int,
     source: Source,
     convert_to_normal: bool = False,
+    copying: bool = False,
 ) -> WorkItemPlanSection:
     """One section's text, with that section's own If-Match (0: not written yet).
 
@@ -3749,9 +3750,15 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
         return row
     if text is not None and len(text) > DESCRIPTION_MAX:
         raise _errors([("content", "value_too_long")])
-    record = await _unlock_standard(
-        session, wtype, record, field=f"plan.{section}", confirmed=convert_to_normal, source=source
-    )
+    if not copying:  # a copy's plan is its own from the start, never an edit of a locked one
+        record = await _unlock_standard(
+            session,
+            wtype,
+            record,
+            field=f"plan.{section}",
+            confirmed=convert_to_normal,
+            source=source,
+        )
     if row is None:
         row = WorkItemPlanSection(tenant_id=tenant, work_item_id=record.id, section=section)
         session.add(row)
@@ -4918,6 +4925,24 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
 
 visible_record = _visible
 record_for_action = _for_action
+holders_of = _holders_of
+
+
+async def record_copied_from(
+    session: AsyncSession, record: WorkItem, original: WorkItem, *, source: Source
+) -> None:
+    """A copy's history names its source (REQ-CHG-003 AC2)."""
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=[Change("copied_from", None, original.display_id)],
+        source=source,
+    )
+
+
 may = _may
 audience_of = _audience
 now = _now

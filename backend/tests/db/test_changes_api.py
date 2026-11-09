@@ -641,3 +641,52 @@ async def test_req_chg_004_a_retrospective_change_enters_at_its_review(world: Wo
     rail = {s["stage"]: s["state"] for s in stages["rail"]}
     assert rail["review"] == "current"
     assert rail["closure"] == "future"
+
+
+async def test_req_chg_003_a_copy_brings_what_is_chosen_and_never_approvals(
+    world: World,
+) -> None:
+    a = world.a
+    item = (await new_change(world, a, a.admin, change_type="minor")).json()
+    wrote = await world.call(
+        "PUT",
+        f"{CHG}/{item['id']}/plan/backout",
+        a,
+        a.admin,
+        json={"content": "<p>Restore the old firmware</p>"},
+        headers={"If-Match": '"0"', **CONSOLE},
+    )
+    assert wrote.status_code == 200, wrote.text
+    fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert (await move(world, a, fresh, "submission_awaiting_acceptance")).status_code == 200
+
+    async def copy(**body: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON
+        made = await world.call(
+            "POST",
+            f"{CHG}/{item['id']}/copy",
+            a,
+            a.admin,
+            json=body,
+            headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+        )
+        assert made.status_code == 201, made.text
+        return dict(made.json())
+
+    plain = await copy()
+    # Its first stage, no approvals (AC1), its own type.
+    assert (plain["stage"], plain["status"], plain["stage_path"]) == (
+        "submission",
+        "submission_submitted",
+        "minor",
+    )
+    approvals = await world.call("GET", f"{CHG}/{plain['id']}/approvals", a, a.admin)
+    assert approvals.json()["items"] == []
+    history = (await world.call("GET", f"{CHG}/{plain['id']}/history", a, a.admin)).json()
+    lines = {c["field"]: c["new"] for e in history["items"] for c in e["changes"]}
+    assert lines["copied_from"] == item["display_id"]  # AC2
+    plan = (await world.call("GET", f"{CHG}/{plain['id']}/plan", a, a.admin)).json()
+    assert all(not s["content"] for s in plan)  # plans only when chosen
+    with_plans = await copy(parts=["plans"])
+    plan = (await world.call("GET", f"{CHG}/{with_plans['id']}/plan", a, a.admin)).json()
+    backout = next(s for s in plan if s["section"] == "backout")
+    assert "old firmware" in backout["content"]  # AC3: as editable text

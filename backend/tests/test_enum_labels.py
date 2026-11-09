@@ -216,6 +216,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # The stage engine and releases (WP-058a)
     "RailState": "rail_state",
     "ReleaseRisk": "release_risk",
+    "ChangeCopyIn.parts[]": "change_copy_part",  # WP-045a (REQ-CHG-003)
     "StageOutcome": "stage_outcome",
     "DowntimePhase": "downtime_phase",
     "LevelRule": "approval_rule",

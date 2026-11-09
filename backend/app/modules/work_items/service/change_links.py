@@ -68,3 +68,68 @@ async def link_new(
     )
     await parts.link_recorded(session, change, origin, link, "child_added", source)
     return link
+
+
+# What a copy may bring besides its fields (REQ-CHG-003): CIs, services, tasks and checklists
+# come with their parts' sessions (CMDB, WP-045d).
+COPY_PARTS = frozenset({"plans", "roles"})
+
+
+async def copy_change(  # noqa: PLR0913 - the copy and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    record_id: uuid.UUID,
+    *,
+    parts_chosen: frozenset[str],
+    source: Source,
+    holders: Any,  # noqa: ANN401 - identity's PermissionHolders, passed through to create
+) -> WorkItem:
+    """A new change from this one (REQ-CHG-003): its fields, type and reason, and what is chosen.
+
+    It starts at its path's first stage with no approvals, history or schedule of the
+    original (AC1); its history names the source (AC2); plans come as editable text (AC3).
+    """
+    wtype = TYPES[WorkItemTypeCode.CHANGE]
+    original = await items.visible_record(session, subject, wtype, record_id)
+    values: dict[str, Any] = {n: getattr(original, n) for n in items.COPIED_FIELDS}
+    values["custom"] = dict(original.custom or {})
+    own = await items.details(session, subject, wtype, original.id)
+    if own.details is not None:
+        values |= {n: getattr(own.details, n) for n in ("change_type", "change_reason")}
+    values = {n: v for n, v in values.items() if v is not None}
+    made = await items.create(session, subject, wtype, values, source=source, holders=holders)
+    record = made.record
+    await items.record_copied_from(session, record, original, source=source)
+    if "plans" in parts_chosen:
+        _, sections = await items.plan_sections(session, subject, wtype, original.id)
+        for name, row in sections:
+            if row is not None and row.content:
+                await items.put_plan_section(
+                    session,
+                    subject,
+                    wtype,
+                    record.id,
+                    name,
+                    content=row.content,
+                    expected_version=0,
+                    source=source,
+                    copying=True,  # the copy's own plan, not an edit of a standard one
+                )
+    if "roles" in parts_chosen:
+        for role, (users, groups) in (await items.holders_of(session, original.id)).items():
+            if role in {"requester", "change_owner"} or not (users or groups):
+                continue  # the copy's own requester and owner
+            fresh = await items.visible_record(session, subject, wtype, record.id)
+            await items.set_role(
+                session,
+                subject,
+                wtype,
+                record.id,
+                role,
+                user_ids=users,
+                group_ids=groups,
+                expected_version=fresh.version,
+                source=source,
+                holders=holders,
+            )
+    return await items.visible_record(session, subject, wtype, record.id)

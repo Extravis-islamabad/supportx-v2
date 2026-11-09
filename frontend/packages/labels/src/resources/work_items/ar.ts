@@ -333,6 +333,8 @@ export const ar: LabelResource = {
   'categories.none_below': 'لا يوجد ما يُختار',
   'categories.retired_value': '{{name}} (متوقفة)',
   'categories.search_all': 'البحث في كل المستويات',
+  'change_copy_part.plans': 'الخطط',
+  'change_copy_part.roles': 'الأدوار',
   'change_reason.capacity_or_performance': 'السعة أو الأداء',
   'change_reason.compliance_requirement': 'متطلب امتثال',
   'change_reason.cost_reduction': 'خفض التكلفة',

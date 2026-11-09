@@ -328,6 +328,8 @@ export const ur: LabelResource = {
   'categories.none_below': 'منتخب کرنے کو کچھ نہیں',
   'categories.retired_value': '{{name}} (ریٹائرڈ)',
   'categories.search_all': 'تمام سطحوں میں تلاش کریں',
+  'change_copy_part.plans': 'منصوبے',
+  'change_copy_part.roles': 'کردار',
   'change_reason.capacity_or_performance': 'گنجائش یا کارکردگی',
   'change_reason.compliance_requirement': 'تعمیل کی ضرورت',
   'change_reason.cost_reduction': 'لاگت میں کمی',

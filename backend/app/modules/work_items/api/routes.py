@@ -1456,6 +1456,14 @@ class ReleaseDetailsOut(BaseModel):
         )
 
 
+class ChangeCopyIn(BaseModel):
+    """What a copy of a change brings besides its fields (REQ-CHG-003)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parts: list[Literal["plans", "roles"]] = Field(default_factory=list, max_length=2)
+
+
 class ChangePrefillOut(BaseModel):
     """A new change's starting values from another record (REQ-CHG-002)."""
 
@@ -2631,6 +2639,45 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             return ReleaseDetailsOut.of(view)
 
     if wtype.code is WorkItemTypeCode.CHANGE:  # REQ-CHG-005, -011: a change's own fields
+
+        @router.post(
+            "/{record_id}/copy",
+            summary="Copy the change into a new one",
+            status_code=status.HTTP_201_CREATED,
+            response_model=WorkItemOut,
+        )
+        async def copy_change(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ChangeCopyIn,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+        ) -> Response:
+            """A new change from this one's fields, and the plans or roles chosen (REQ-CHG-003).
+
+            Never its approvals, history or schedule. Send an Idempotency-Key: a retry returns
+            the same 201.
+            """
+
+            async def run() -> Created:
+                made = await change_links.copy_change(
+                    session,
+                    subject,
+                    record_id,
+                    parts_chosen=frozenset(body.parts),
+                    source=source_of(request),
+                    holders=policy,
+                )
+                view = await service.get(session, subject, wtype, made.id)
+                out = WorkItemOut.of(view)
+                return Created(
+                    body=out,
+                    headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'},
+                )
+
+            return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
 
         @router.get("/{record_id}/details", summary="The change's own fields")
         async def get_change_details(
