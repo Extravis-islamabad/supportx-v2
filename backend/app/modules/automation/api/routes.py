@@ -675,15 +675,22 @@ async def list_runs(
 
 
 class TriggerActionIO(BaseModel):
-    """`set` a field (fill empty or overwrite) or add a private `note` (REQ-RUL-010)."""
+    """A trigger's action: `set` a field, add a private `note` or `start_workflow`.
+
+    `set` fills empty or overwrites and `note` is private (REQ-RUL-010); `start_workflow`
+    starts a workflow on the record and is a trigger's only (WP-048b).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["set", "note"]
+    kind: Literal["set", "note", "start_workflow"]
     field: str | None = Field(default=None, max_length=80)
     value: Any = None
     mode: ActionMode = ActionMode.FILL_EMPTY
     text: str | None = Field(default=None, max_length=10000, description="The note (note only).")
+    workflow_id: uuid.UUID | None = Field(
+        default=None, description="The workflow to start (start_workflow only)."
+    )
 
 
 class TriggerOut(BaseModel):

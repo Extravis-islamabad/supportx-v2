@@ -9,6 +9,18 @@ import { weekMinutes } from './week';
 
 // WP-025 session 1 screens: Admin › SLA (working calendars, holidays).
 let restore: () => void = () => undefined;
+/** Type a day into an Ant Design date field and confirm it, as a keyboard user does. */
+function typeDate(scope: HTMLElement, testId: string, day: string) {
+  const root = within(scope).getByTestId(testId);
+  const input = root.tagName === 'INPUT' ? root : root.querySelector('input');
+  if (input === null) throw new Error(`no date input in ${testId}`);
+  fireEvent.mouseDown(input);
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: day } });
+  fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
+  fireEvent.blur(input);
+}
+
 function api(...args: Parameters<typeof consoleApi>) {
   const fake = consoleApi(...args);
   restore = fake.restore;
@@ -251,6 +263,26 @@ describe('Admin › SLA › Holidays', () => {
   // The fake API matches the path; the year goes in the query string.
   const holidays = `${LISTS}/list-1/holidays`;
 
+  it('QA6S-AUT-02: an empty holiday says what is missing, in words, without sending', async () => {
+    window.history.pushState({}, '', '/admin/sla/holidays');
+    const fake = api({ me: ADMIN, routes: { ...ROUTES, [`GET ${holidays}`]: { body: [] } } });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sla-holiday-add'));
+    fireEvent.click(await screen.findByTestId('sla-holiday-save'));
+    const editor = await screen.findByTestId('sla-holiday-editor');
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('sla-holiday-starts').closest('.ant-form-item')?.textContent,
+      ).toContain('This field is required.');
+    });
+    // The optional last day has no error, and no Pydantic code shows anywhere.
+    expect(
+      screen.getByTestId('sla-holiday-ends').closest('.ant-form-item')?.className,
+    ).not.toContain('ant-form-item-has-error');
+    expect(editor.textContent).not.toMatch(/Parsing|Datetime/);
+    expect(fake.find('POST', `${LISTS}/list-1/holidays`)).toHaveLength(0);
+  });
+
   it('shows a list’s holidays with their part and a review flag', async () => {
     window.history.pushState({}, '', '/admin/sla/holidays');
     api({
@@ -368,6 +400,9 @@ describe('Admin › SLA › Holidays', () => {
     fireEvent.change(within(editor).getByTestId('sla-holiday-name'), {
       target: { value: 'Long weekend' },
     });
+    // The dates are given (QA6S-AUT-02 checks them first); the server refuses the part.
+    typeDate(editor, 'sla-holiday-starts', '2026-12-17');
+    typeDate(editor, 'sla-holiday-ends', '2026-12-19');
     fireEvent.click(within(editor).getByTestId('sla-holiday-save'));
     expect(
       await within(editor).findByText('A morning or afternoon off is one day only.'),
@@ -434,6 +469,8 @@ describe('Admin › SLA › Special hours for dates', () => {
     fireEvent.change(within(special).getByTestId('sla-special-name'), {
       target: { value: 'Eid week' },
     });
+    typeDate(special, 'sla-special-starts', '2027-02-10');
+    typeDate(special, 'sla-special-ends', '2027-02-12');
     fireEvent.click(within(special).getByTestId('sla-special-save'));
     expect(
       await within(special).findByText(

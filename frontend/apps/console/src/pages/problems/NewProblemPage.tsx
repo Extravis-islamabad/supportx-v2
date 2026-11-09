@@ -1,11 +1,14 @@
 import {
   Alert,
   Button,
+  Card,
   Checkbox,
+  Col,
   Flex,
   Form,
   Input,
   List,
+  Row,
   Select,
   Skeleton,
   Space,
@@ -39,6 +42,7 @@ import {
   reportError,
   useAppearance,
   useLabel,
+  usePageCrumbs,
 } from '@supportx/ui';
 
 import { labelled, scaleLabel } from '../incidents/labels';
@@ -157,6 +161,7 @@ function ProblemForm({
   firstTemplate: string | undefined;
 }) {
   const t = useLabel();
+  usePageCrumbs([{ label: t('nav.problems'), path: '/problems' }, { label: t('problems.new') }]);
   const { locale } = useAppearance();
   const navigate = useNavigate();
   const me = useSession().data?.user.id ?? '';
@@ -234,7 +239,8 @@ function ProblemForm({
   };
 
   return (
-    <Flex vertical gap={16} style={{ width: '100%', maxWidth: 880 }}>
+    // The new-incident form's pattern (QA6-PRB-01): a card across the page, two fields a row.
+    <Flex vertical gap={16} style={{ width: '100%' }}>
       <PageHeader
         title={t('problems.new')}
         back={{ label: t('nav.problems'), onClick: () => void navigate('/problems') }}
@@ -267,119 +273,129 @@ function ProblemForm({
           }
         />
       )}
-      <Form layout="vertical" component="div" requiredMark>
-        <Form.Item label={t('templates.field')} htmlFor="prb-template">
-          <Select
-            id="prb-template"
-            value={templateId}
-            onChange={setTemplateId}
-            data-testid="prb-template"
-            options={offered.map((x) => ({
-              value: x.id,
-              label: labelled(x.labels, locale, () => t(`problem_template.${x.code ?? ''}`)),
-            }))}
-          />
-        </Form.Item>
-        <Form.Item label={t('work_item.field.subject')} htmlFor="prb-subject" required>
-          <Input
-            id="prb-subject"
-            dir="auto"
-            value={subject}
-            onChange={(event) => {
-              setSubject(event.target.value);
-            }}
-            count={lengthLimit(250)}
-            data-testid="prb-subject"
-          />
-        </Form.Item>
-        {(similar.data ?? []).length > 0 && (
-          <Flex vertical gap={4} style={{ marginBottom: 16 }} data-testid="prb-similar">
-            <Typography.Text type="secondary">{t('problems.similar.title')}</Typography.Text>
-            <List
-              size="small"
-              bordered
-              dataSource={similar.data ?? []}
-              renderItem={(found) => <SimilarRow found={found} incidents={incidents} />}
-            />
-          </Flex>
-        )}
-        <Form.Item label={t('work_item.field.description')}>
-          <RichTextField
-            label={t('work_item.field.description')}
-            value={description}
-            onChange={setDescription}
-            testId="prb-description"
-            imageOwnerId={me}
-          />
-        </Form.Item>
-        <Flex gap={16} wrap>
-          <Form.Item label={t('work_item.field.impact')} htmlFor="prb-impact">
+      <Card data-testid="prb-form-card">
+        <Form layout="vertical" component="div" requiredMark>
+          <Form.Item label={t('templates.field')} htmlFor="prb-template">
             <Select
-              id="prb-impact"
-              allowClear
-              style={{ minWidth: 200 }}
-              value={impact}
-              onChange={(value: string | undefined) => {
-                setImpact(value ?? null);
+              id="prb-template"
+              value={templateId}
+              onChange={setTemplateId}
+              data-testid="prb-template"
+              options={offered.map((x) => ({
+                value: x.id,
+                label: labelled(x.labels, locale, () => t(`problem_template.${x.code ?? ''}`)),
+              }))}
+            />
+          </Form.Item>
+          <Form.Item label={t('work_item.field.subject')} htmlFor="prb-subject" required>
+            <Input
+              id="prb-subject"
+              dir="auto"
+              value={subject}
+              onChange={(event) => {
+                setSubject(event.target.value);
               }}
-              options={scaleOptions('impact')}
-              data-testid="prb-impact"
+              count={lengthLimit(250)}
+              data-testid="prb-subject"
             />
           </Form.Item>
-          <Form.Item label={t('work_item.field.urgency')} htmlFor="prb-urgency">
-            <Select
-              id="prb-urgency"
-              allowClear
-              style={{ minWidth: 200 }}
-              value={urgency}
-              onChange={(value: string | undefined) => {
-                setUrgency(value ?? null);
-              }}
-              options={scaleOptions('urgency')}
-              data-testid="prb-urgency"
+          {(similar.data ?? []).length > 0 && (
+            <Flex vertical gap={4} style={{ marginBottom: 16 }} data-testid="prb-similar">
+              <Typography.Text type="secondary">{t('problems.similar.title')}</Typography.Text>
+              <List
+                size="small"
+                bordered
+                dataSource={similar.data ?? []}
+                renderItem={(found) => <SimilarRow found={found} incidents={incidents} />}
+              />
+            </Flex>
+          )}
+          <Form.Item label={t('work_item.field.description')}>
+            <RichTextField
+              label={t('work_item.field.description')}
+              value={description}
+              onChange={setDescription}
+              testId="prb-description"
+              imageOwnerId={me}
             />
           </Form.Item>
-          <Form.Item label={t('work_item.field.problem_type')} htmlFor="prb-type">
-            <Select
-              id="prb-type"
-              allowClear
-              style={{ minWidth: 200 }}
-              value={problemType}
-              onChange={(value: string | undefined) => {
-                setProblemType(value ?? null);
-              }}
-              options={(catalogue.data?.problem_types ?? [])
-                .filter((v) => !v.disabled)
-                .map((v) => ({
-                  value: v.code,
-                  label: labelled(v.labels, locale, () => t(`problem_type.${v.code}`)),
-                }))}
-              data-testid="prb-type"
-            />
-          </Form.Item>
-          <Form.Item label={t('work_item.field.group_id')} htmlFor="prb-group">
-            <GroupPicker
-              id="prb-group"
-              value={groupId}
-              onChange={setGroupId}
-              testId="prb-group"
-              ariaLabel={t('work_item.field.group_id')}
-            />
-          </Form.Item>
-        </Flex>
-        <Space>
-          <Button
-            type="primary"
-            onClick={submit}
-            loading={saving}
-            disabled={subject.trim() === '' || me === ''}
-            data-testid="prb-create"
-          >
-            {t('problems.create')}
-          </Button>
-          <Button onClick={() => void navigate('/problems')}>{t('actions.cancel')}</Button>
-        </Space>
-      </Form>
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label={t('work_item.field.impact')} htmlFor="prb-impact">
+                <Select
+                  id="prb-impact"
+                  allowClear
+                  style={{ width: '100%' }}
+                  value={impact}
+                  onChange={(value: string | undefined) => {
+                    setImpact(value ?? null);
+                  }}
+                  options={scaleOptions('impact')}
+                  data-testid="prb-impact"
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label={t('work_item.field.urgency')} htmlFor="prb-urgency">
+                <Select
+                  id="prb-urgency"
+                  allowClear
+                  style={{ width: '100%' }}
+                  value={urgency}
+                  onChange={(value: string | undefined) => {
+                    setUrgency(value ?? null);
+                  }}
+                  options={scaleOptions('urgency')}
+                  data-testid="prb-urgency"
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label={t('work_item.field.problem_type')} htmlFor="prb-type">
+                <Select
+                  id="prb-type"
+                  allowClear
+                  style={{ width: '100%' }}
+                  value={problemType}
+                  onChange={(value: string | undefined) => {
+                    setProblemType(value ?? null);
+                  }}
+                  options={(catalogue.data?.problem_types ?? [])
+                    .filter((v) => !v.disabled)
+                    .map((v) => ({
+                      value: v.code,
+                      label: labelled(v.labels, locale, () => t(`problem_type.${v.code}`)),
+                    }))}
+                  data-testid="prb-type"
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label={t('work_item.field.group_id')} htmlFor="prb-group">
+                <GroupPicker
+                  id="prb-group"
+                  value={groupId}
+                  onChange={setGroupId}
+                  testId="prb-group"
+                  ariaLabel={t('work_item.field.group_id')}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Space>
+            <Button
+              type="primary"
+              onClick={submit}
+              loading={saving}
+              disabled={subject.trim() === '' || me === ''}
+              data-testid="prb-create"
+            >
+              {t('problems.create')}
+            </Button>
+            <Button onClick={() => void navigate('/problems')}>{t('actions.cancel')}</Button>
+          </Space>
+        </Form>
+      </Card>
     </Flex>
   );
 }

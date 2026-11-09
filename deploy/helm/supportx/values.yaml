@@ -228,6 +228,8 @@ clamav:
 # at the next start); earlier revisions are removed once the current one is verified.
 ai:
   mirror: https://huggingface.co
+  # The fake provider's echo for unrecorded prompts: CI and dev clusters only (QA6-AI-01).
+  fakeEcho: false
   # A CPU-only llama.cpp server for chat and another for embeddings (bge-m3), in every install.
   local:
     enabled: false

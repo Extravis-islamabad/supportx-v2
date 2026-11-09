@@ -329,8 +329,6 @@ export const en = {
   'closure_code.workaround': 'Workaround given',
   'conversation.add_note': 'Add note',
   'conversation.cc': 'Cc',
-  'conversation.email_not_configured_hint':
-    'No email channel is set up yet: the reply will be saved here and marked "not sent".',
   'conversation.empty.messages': 'No replies yet.',
   'conversation.empty.notes': 'No notes yet.',
   'conversation.field.body': 'Text',
@@ -370,6 +368,9 @@ export const en = {
   'conversation.not_sent_detail':
     'The reply is saved here, but it has not reached anyone. It can be sent once an email channel is set up.',
   'conversation.note_placeholder': 'Write a note. Type @ to mention someone.',
+  'conversation.outgoing_mail_not_set_up':
+    'Outgoing e-mail isn\'t set up yet: this reply is saved here and marked "not sent" until it is.',
+  'conversation.outgoing_mail_who_can_fix': '{{names}} can set it up.',
   'conversation.private_hint': 'Staff only',
   'conversation.public_hint': 'The requester can see this',
   'conversation.reply_placeholder': 'Write your reply.',
@@ -692,6 +693,8 @@ export const en = {
   'incidents.sla.paused_since': 'Paused since',
   'incidents.sla.policy': 'Policy',
   'incidents.sla.reason': 'Reason',
+  'incidents.sla.resolved_late': 'Resolved late',
+  'incidents.sla.resolved_on_time': 'Resolved on time',
   'incidents.sla.set_by_hand': 'Set by hand by {{name}}: {{reason}}',
   'incidents.sla.span_days': '{{days}} d {{hours}} h',
   'incidents.sla.span_hours': '{{hours}} h {{minutes}} min',
@@ -838,6 +841,8 @@ export const en = {
   'portal.catalog.empty': 'The catalog is empty for now.',
   'portal.catalog.empty_category': 'Nothing to request here yet.',
   'portal.catalog.featured': 'Popular',
+  'portal.catalog.items_one': '1 item',
+  'portal.catalog.items_other': '{{count}} items',
   'portal.catalog.needs_approval': 'Needs approval',
   'portal.catalog.no_match': 'Nothing matches. Try other words, or report an issue.',
   'portal.catalog.search': 'What do you need?',
@@ -886,6 +891,8 @@ export const en = {
   'portal.report.for_someone_else': 'For someone else',
   'portal.report.for_whom': 'For whom',
   'portal.report.form': 'What is it about',
+  'portal.report.nobody_found':
+    'Nobody you may raise a request for matches. You can choose people your organisation allows, usually in your own department. Ask the service desk if someone is missing.',
   'portal.report.open': 'Report an issue',
   'portal.report.remove_file': 'Remove {{name}}',
   'portal.report.search_person': 'Search by name',
@@ -899,6 +906,7 @@ export const en = {
   'portal.request.no_description': 'No details were given.',
   'portal.request.not_found': 'This request does not exist or is not yours to see.',
   'portal.request.reported': 'Reported {{when}}',
+  'portal.request.subject': 'What do you need?',
   'portal.request.waiting_for_you': 'The service desk is waiting for your answer. Reply below.',
   'portal.requests.all_states': 'All',
   'portal.requests.empty': 'Nothing here yet.',
@@ -1199,6 +1207,8 @@ export const en = {
   'releases.move.to': 'Move to: {{status}}',
   'releases.move.unavailable': 'Not possible now',
   'releases.new': 'New release',
+  'releases.new_help':
+    'Choose a template and a title; dates, roles and plans are filled in on the release.',
   'releases.not_found': 'This release does not exist or is not yours to see.',
   'releases.not_set': 'Not set',
   'releases.path': 'Path',

@@ -10,7 +10,7 @@ At most 50 groups, as for shared views. The downgrade refuses, per tenant with a
 (RLS), while any template is limited: dropping the column would lose that choice (rule 5h).
 
 Revision ID: 0109
-Revises: 0104
+Revises: 0105
 Created: 2026-11-06
 """
 
@@ -21,7 +21,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0109"
-down_revision: str | None = "0104"
+down_revision: str | None = "0105"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

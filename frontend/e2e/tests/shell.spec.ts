@@ -162,8 +162,14 @@ test('where you are: breadcrumbs and the tab title, never "Technician Console", 
         .toBeLessThanOrEqual(0);
       // The top menu never reaches under the search button (QA WP-036 BUG-06): side by side,
       // or (UI pass 2) the menu's band below the header.
-      const nav = await page.getByTestId('nav-top').boundingBox();
-      const search = await page.getByTestId('open-palette').boundingBox();
+      // boundingBox() waits for its element: at phone width the top menu folds away, so look
+      // only when it is there, or the test waits out its whole timeout.
+      const box = async (testId: string) => {
+        const found = page.getByTestId(testId);
+        return (await found.count()) > 0 ? found.first().boundingBox() : null;
+      };
+      const nav = await box('nav-top');
+      const search = await box('open-palette');
       if (nav !== null && search !== null) {
         const apart =
           nav.x + nav.width <= search.x + 1 ||

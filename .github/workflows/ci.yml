@@ -5,7 +5,8 @@ name: CI
 on:
   # labeled: adding the full-ci label runs the heavy jobs on this PR (speed mode, D-122).
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    # ready_for_review: a draft runs only the fast set (below); marking it ready runs everything.
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
   # The merge queue: each queued group is tested on top of main before it merges.
   merge_group:
   # No run on push to main (D-122): the merge queue tested that exact merge commit.
@@ -171,7 +172,7 @@ jobs:
     # Valkey (the changes step below decides; other PRs finish at once), never in the merge
     # queue. Not tied to the full-ci label (coordinator, 2026-11-05): a migration PR needs the
     # core profile and e2e, not the HA cluster.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -209,6 +210,10 @@ jobs:
     # back to backend/tests/shard_weights.json. Never fails: a missing artifact only means the
     # committed weights are used.
     name: shard weights
+    # Drafts run the fast set only (coordinator, 2026-11-06: runners were starved by every draft
+    # and queue entry fanning out ~15 jobs): lint, type checks, migrations, Vitest, build, secret
+    # scan. The DB shards wait for ready_for_review, and the queue always runs them.
+    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -240,6 +245,7 @@ jobs:
   backend-tests:
     name: backend tests ${{ matrix.shard }}/6
     needs: [shard-weights]
+    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) }} # drafts: the fast set only (see shard-weights)
     runs-on: ubuntu-24.04
     timeout-minutes: 20 # the backstop; the aim is 12 minutes or less per shard
     strategy:
@@ -414,10 +420,13 @@ jobs:
           CHECKS: ${{ needs.backend-checks.result }}
           TESTS: ${{ needs.backend-tests.result }}
           PDF: ${{ needs.pdf.result }}
+          DRAFT: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft) }}
         run: |
-          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF"
+          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF, draft: $DRAFT"
           # pdf is skipped outside nightly, manual and full-ci runs (speed mode, D-122).
-          [ "$CHECKS" = "success" ] && [ "$TESTS" = "success" ] &&
+          # The shards are skipped only on a draft; anywhere else a skipped shard fails here.
+          [ "$CHECKS" = "success" ] &&
+            { [ "$TESTS" = "success" ] || { [ "$DRAFT" = "true" ] && [ "$TESTS" = "skipped" ]; }; } &&
             { [ "$PDF" = "success" ] || [ "$PDF" = "skipped" ]; }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

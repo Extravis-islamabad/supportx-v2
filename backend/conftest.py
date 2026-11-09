@@ -20,6 +20,10 @@ from app.core.database import Database, create_engine
 from tests.db.probe import create_probe_table
 from tooling import db_testing
 
+# Tests check the AI features against the fake provider's own answers (an echo of the prompt).
+# Off by default, so an installation without a model never shows them (QA6-AI-01).
+os.environ.setdefault("SUPPORTX_AI_FAKE_ECHO", "true")
+
 
 def make_settings(**overrides: Any) -> Settings:  # noqa: ANN401 - pydantic validates the values
     """Test-profile settings that never read backend/.env or the developer's environment file.

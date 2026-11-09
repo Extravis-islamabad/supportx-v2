@@ -44,7 +44,10 @@ from app.modules.automation.infra.models import (
     AutomationRun,
     AutomationTrigger,
     TransitionSetting,
+    Workflow,
+    WorkflowInstance,
 )
+from app.modules.automation.service import workflow_runtime
 from app.modules.automation.service.business_rules import DESCRIPTION_MAX, _invalid, _text
 from app.modules.automation.service.registry import (
     AutomatedChange,
@@ -104,6 +107,9 @@ async def check(
     state = values.get("state", RuleState.DRAFT.value)
     if state not in {s.value for s in RuleState}:
         problems.append(("state", "invalid_choice", {}))
+    if not problems:
+        enabled = state == RuleState.ENABLED.value
+        problems += await _workflow_problems(session, kind.code, actions, enabled=enabled)
     cleaned = {
         "record_type": kind.code,
         "name": name,
@@ -118,7 +124,34 @@ async def check(
     return cleaned, problems
 
 
+async def _workflow_problems(
+    session: AsyncSession, record_type: str, actions: Sequence[Mapping[str, Any]], *, enabled: bool
+) -> list[tuple[str, str, Mapping[str, Any]]]:
+    """A "start a workflow" action names a workflow of this record type that can start.
+
+    A draft trigger may name a workflow not yet published or switched on (both are prepared
+    together); an enabled one may not. One switched off later is logged on the run instead.
+    """
+    problems: list[tuple[str, str, Mapping[str, Any]]] = []
+    for index, action in enumerate(actions):
+        if action.get("kind") != TriggerActionKind.START_WORKFLOW.value:
+            continue
+        where = f"actions.{index}.workflow_id"
+        workflow = await session.get(Workflow, uuid.UUID(str(action["workflow_id"])))
+        if workflow is None or workflow.deleted_at is not None:
+            problems.append((where, "workflow_not_found", {}))
+        elif workflow.record_type != record_type:
+            problems.append((where, "workflow_wrong_record_type", {}))
+        elif enabled and workflow.published_version is None:
+            problems.append((where, "workflow_not_published", {}))
+        elif enabled and not workflow.enabled:
+            problems.append((where, "workflow_disabled", {}))
+    return problems
+
+
 def _clean_action(action: Mapping[str, Any]) -> dict[str, Any]:
+    if action.get("kind") == TriggerActionKind.START_WORKFLOW.value:
+        return {"kind": "start_workflow", "workflow_id": str(action.get("workflow_id"))}
     if action.get("kind") == TriggerActionKind.NOTE.value:
         return {"kind": "note", "text": str(action.get("text") or "").strip()}
     return {
@@ -411,6 +444,7 @@ async def _run(  # noqa: PLR0913 - one trigger's run and its context, explicit
             action=a,
             current=current,
             change=change,
+            cause=envelope.causation_id,
         )
         for a in actions
     ]
@@ -453,12 +487,17 @@ async def _action(  # noqa: PLR0913 - the action and the record it works on, exp
     action: Mapping[str, Any],
     current: Mapping[str, JsonValue],
     change: AutomatedChange,
+    cause: uuid.UUID | None,
 ) -> dict[str, Any]:
     """Run one action; a failure is rolled back to its savepoint and reported, never raised."""
     shown = {"kind": action.get("kind"), "field": action.get("field")}
+    if action.get("kind") == TriggerActionKind.START_WORKFLOW.value:
+        shown = {"kind": action.get("kind"), "workflow_id": action.get("workflow_id")}
     try:
         async with session.begin_nested():
-            if action.get("kind") == TriggerActionKind.NOTE.value:
+            if action.get("kind") == TriggerActionKind.START_WORKFLOW.value:
+                result = await _start_workflow(session, kind, record_id, action, cause)
+            elif action.get("kind") == TriggerActionKind.NOTE.value:
                 result = await _note(session, kind, record_id, action, change)
             else:
                 result = await _set(
@@ -470,8 +509,33 @@ async def _action(  # noqa: PLR0913 - the action and the record it works on, exp
                     change=change,
                 )
     except AppError as error:
-        result = {"outcome": "failed", "reason": error.code}
+        # A workflow's refusal says which (already running, switched off ...), not "conflict".
+        starting = action.get("kind") == TriggerActionKind.START_WORKFLOW.value
+        result = {"outcome": "failed", "reason": error.instance_code if starting else error.code}
     return {**shown, **result}
+
+
+async def _start_workflow(
+    session: AsyncSession,
+    kind: RecordType,
+    record_id: uuid.UUID,
+    action: Mapping[str, Any],
+    cause: uuid.UUID | None,
+) -> dict[str, Any]:
+    """Start the workflow on the record (REQ-WF-010), as the workflow's run-as identity.
+
+    Loop guard: a change the workflow itself made (its event's cause is one of the workflow's
+    instances, `workflow_runtime`) never starts that workflow again. Already running, switched
+    off or unpublished are Conflicts: the caller logs their code and the other actions still run.
+    """
+    workflow_id = uuid.UUID(str(action.get("workflow_id")))
+    caused = await session.get(WorkflowInstance, cause) if cause is not None else None
+    if caused is not None and caused.workflow_id == workflow_id:
+        return {"outcome": "kept", "reason": "own_change"}
+    instance = await workflow_runtime.start(
+        session, workflow_id=workflow_id, record_type=kind.code, record_id=record_id, how="trigger"
+    )
+    return {"outcome": "applied", "instance_id": str(instance.id)}
 
 
 async def _note(

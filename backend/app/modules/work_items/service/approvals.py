@@ -174,7 +174,18 @@ async def mine(
         .limit(200)
     )
     found = [PendingApproval(a, r) for a, r in rows.all()]
-    return [p for p in found if _may_decide(subject, wtype, p.approval)]
+    # QA6-SR-03: never offer your own request (segregation of duties would refuse it on click).
+    return [
+        p
+        for p in found
+        if _may_decide(subject, wtype, p.approval)
+        and not rules.blocked_for_self(
+            subject.user_id,
+            requested_by=p.record.requester_id,
+            requested_for=requested_for(p.record),
+            self_approval=p.approval.self_approval,
+        )
+    ]
 
 
 DECIDED_DAYS = 30  # the portal inbox lists what you decided this long ago (WP-032 D6)

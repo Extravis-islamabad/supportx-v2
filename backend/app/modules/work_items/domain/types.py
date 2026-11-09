@@ -281,6 +281,7 @@ FIELD_PROBLEMS = frozenset(
         # WP-044c S1 (REQ-PRB-021): a template for requesters is for everyone.
         "limited_template_for_requesters",
         "template_not_offered",
+        "too_many_values",  # more than 50 groups (the shared errors.field label)
         # WP-020f: closure rules and closing settings.
         "required_to_resolve",
         "required_to_close",

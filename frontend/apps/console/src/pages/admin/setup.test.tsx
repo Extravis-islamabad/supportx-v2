@@ -70,7 +70,9 @@ describe('Setup home and menu', () => {
     expect(within(home).getByRole('heading', { name: 'People and access' })).toBeDefined();
     expect(within(home).getByTestId('setup-page-users').textContent).toBe('People');
     expect(home.textContent).toContain('Add people, change their type and status');
-    const menu = screen.getByTestId('admin-sections');
+    // The test window is narrow: the sections open in a drawer, mounted only when opened.
+    fireEvent.click(await screen.findByTestId('admin-sections-button'));
+    const menu = await screen.findByTestId('admin-sections');
     expect(within(menu).getByTestId('admin-sections-home').getAttribute('aria-current')).toBe(
       'page',
     );
@@ -81,9 +83,9 @@ describe('Setup home and menu', () => {
     window.history.pushState({}, '', '/admin');
     api({}, fakeSession());
     render(<App />);
-    await waitFor(() => {
-      expect(screen.queryByTestId('admin-sections-licence')).toBeNull();
-    });
+    fireEvent.click(await screen.findByTestId('admin-sections-button'));
+    await screen.findByTestId('admin-sections');
+    expect(screen.queryByTestId('admin-sections-licence')).toBeNull();
     expect(screen.queryByTestId('admin-sections-security')).toBeNull();
   });
 
@@ -165,5 +167,35 @@ describe('Setup in the command palette (REQ-ADM-107)', () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe('/admin/security');
     });
+  });
+});
+
+describe('QA6S-SHELL-02: no "Setup" heading above a settings page', () => {
+  it('keeps "Setup" as the hidden level 1, the page names itself', async () => {
+    window.history.pushState({}, '', '/admin/api-keys');
+    api();
+    render(<App />);
+    const top = await screen.findByTestId('admin-header');
+    expect(top.tagName).toBe('H1');
+    expect(top.className).toContain('sx-visually-hidden');
+  });
+});
+
+describe('QA9-V-16: every setup page starts with its header', () => {
+  it('the shell heads a page with no header of its own, and not one that has it', async () => {
+    window.history.pushState({}, '', '/admin/licence');
+    api();
+    render(<App />);
+    const header = await screen.findByTestId('admin-page-header');
+    expect(within(header).getByRole('heading', { name: 'Licence and plan' })).toBeDefined();
+    expect(header.textContent).toContain(en['setup.page.licence.description']);
+  });
+
+  it('people keep their own header, once', async () => {
+    window.history.pushState({}, '', '/admin/users');
+    api();
+    render(<App />);
+    await screen.findByTestId('admin-header'); // the setup shell is up
+    expect(screen.queryByTestId('admin-page-header')).toBeNull();
   });
 });

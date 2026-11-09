@@ -42,7 +42,7 @@ import {
 import { AfterActions } from './AfterActions';
 import { ConditionBuilder } from './fields';
 import { emptyAction, fromTree, toTree, triggerOp, type Conditions } from './rules';
-import { conditionAt, isAt, useEditorProblems, whereOf } from './problems';
+import { conditionAt, isAt, missingProblems, useEditorProblems, whereOf } from './problems';
 import { ProblemList } from './ProblemList';
 
 const RECORD_TYPE = 'incident';
@@ -303,6 +303,7 @@ function TriggerEditor({
   };
   const save = (at = version) => {
     problem.clear();
+    if (issues.check(missingProblems(t, { name: draft.name, actions: draft.actions }))) return;
     const done = () => {
       void message.success(t('common.saved'));
       onClose();
