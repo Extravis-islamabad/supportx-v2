@@ -32,13 +32,22 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { cloneElement, isValidElement, type ReactNode, useMemo, useState } from 'react';
+import {
+  cloneElement,
+  createContext,
+  isValidElement,
+  type ReactNode,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
   ApiError,
   attachDrafts,
+  type ConversationBase,
   type ConversationEntry,
   type EntryKind,
   fetchMentionable,
@@ -112,16 +121,39 @@ function initials(name: string): string {
  * lock, a tinted background and says "staff only"; a public one a globe and "requester can see".
  * Replies made before the email channel exists say plainly they were not sent (WP-024).
  */
+// The record type whose conversation this is (UI pass 3: service requests use it too).
+const BaseContext = createContext<ConversationBase>('incidents');
+
 export function IncidentConversation({
   item,
   typing,
   replyRequest = 0,
+  base = 'incidents',
 }: {
   item: Incident;
   typing: Typing;
   /** Bumped by the header's Reply action (UI pass 2): opens the reply composer here. */
   replyRequest?: number;
+  /** Whose conversation routes: incidents (the default) or service requests. */
+  base?: ConversationBase;
 }) {
+  return (
+    <BaseContext.Provider value={base}>
+      <ConversationBody item={item} typing={typing} replyRequest={replyRequest} />
+    </BaseContext.Provider>
+  );
+}
+
+function ConversationBody({
+  item,
+  typing,
+  replyRequest,
+}: {
+  item: Incident;
+  typing: Typing;
+  replyRequest: number;
+}) {
+  const base = useContext(BaseContext);
   const t = useLabel();
   const listFormat = useListFormat();
   const [filter, setFilter] = useState<Filter>('all');
@@ -133,7 +165,7 @@ export function IncidentConversation({
     setSeenRequest(replyRequest);
     if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: 'reply' });
   }
-  const conversation = useIncidentConversation(item.id);
+  const conversation = useIncidentConversation(item.id, true, base);
   const recordFiles = useRecordFiles('incident', item.id).data ?? [];
   const entries = conversation.data?.items ?? [];
   const people = conversation.data?.people ?? {};
@@ -391,7 +423,7 @@ function EntryCard({
   const { token } = theme.useToken();
   const { mode } = useAppearance();
   const { message } = App.useApp();
-  const change = useChangeNoteVisibility(item.id);
+  const change = useChangeNoteVisibility(item.id, useContext(BaseContext));
   // Changed by someone after it was shown (409): the shared dialog (QA WP-029 BUG-05).
   const conflict = useConflictRetry();
   const fieldName = useIncidentFieldName();
@@ -591,7 +623,8 @@ function Composer({
   const listFormat = useListFormat();
   const { message } = App.useApp();
   const { can } = useAccess();
-  const add = useAddConversationEntry(item.id);
+  const base = useContext(BaseContext);
+  const add = useAddConversationEntry(item.id, base);
   const templates = useReplyTemplates();
   const me = useSession().data?.user.id;
   // Files for this entry wait as the author's drafts until it is saved (WP-022).
@@ -632,7 +665,7 @@ function Composer({
   // D-081: warn before sending a mention of someone who cannot see the incident.
   const [unseen, setUnseen] = useState<string[] | null>(null);
   const mentions: MentionSearch = (query) =>
-    fetchMentionable(item.id, query).then((found) =>
+    fetchMentionable(item.id, query, base).then((found) =>
       found.map((p) => ({ id: p.id, label: p.display_name, email: p.email, canSee: p.can_see })),
     );
   const error = add.error instanceof ApiError ? add.error : null;
