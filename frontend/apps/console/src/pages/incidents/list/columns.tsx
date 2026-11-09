@@ -89,7 +89,7 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'requester_id',
-    width: 115,
+    width: 100,
     title: field('requester_id'),
     render: (row, c) => personName(c.people, row.requester_id),
   },
@@ -114,7 +114,7 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'technician_id',
-    width: 115,
+    width: 100,
     title: field('technician_id'),
     render: (row, c) => personName(c.people, row.technician_id),
   },
