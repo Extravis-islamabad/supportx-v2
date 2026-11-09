@@ -48,6 +48,7 @@ from app.shared.history.history import (
     record_changes,
     recorded_change_ids,
     register_audit_sink,
+    register_subtype_resolver,
     source_of,
 )
 
@@ -78,6 +79,7 @@ __all__ = [
     "recorded_change_ids",
     "register_audit_sink",
     "register_people_names",
+    "register_subtype_resolver",
     "source_of",
     "stale_version",
     "with_last_save",

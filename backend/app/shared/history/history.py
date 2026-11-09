@@ -244,6 +244,23 @@ def register_audit_sink(sink: AuditSink | None) -> None:
     _audit_sink = sink
 
 
+# A shared record type's subtype for the audit sink (WP-064): record type -> resolver.
+SubtypeResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[str | None]]
+_subtype_resolvers: dict[str, SubtypeResolver] = {}
+
+
+def register_subtype_resolver(record_type: str, resolver: SubtypeResolver | None) -> None:
+    """Set (None: clear) how the subtype of a shared record type is found when a save names none.
+
+    The owning module registers it (work_items: `work_item` -> `incident`, `problem` ...), so no
+    call site has to pass `subtype`. A resolver never fails a save: it answers None when unsure.
+    """
+    if resolver is None:
+        _subtype_resolvers.pop(record_type, None)
+    else:
+        _subtype_resolvers[record_type] = resolver
+
+
 def audit_sink() -> AuditSink | None:
     """The registered audit sink, if any (tests check the app and workers have one)."""
     return _audit_sink
@@ -327,6 +344,8 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     # The audit log links its entry for this request to the history it wrote (REQ-AUD-006).
     session.info.setdefault(CHANGE_IDS_KEY, []).append(change_id)
     sink = _audit_sink
+    if sink is not None and subtype is None and record_type in _subtype_resolvers:
+        subtype = await _subtype_resolvers[record_type](session, record_id)
     if sink is not None and sink.handles(record_type, subtype):
         await sink.saved(
             session,
