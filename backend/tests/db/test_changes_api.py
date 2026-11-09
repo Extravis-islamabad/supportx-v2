@@ -690,3 +690,58 @@ async def test_req_chg_003_a_copy_brings_what_is_chosen_and_never_approvals(
     plan = (await world.call("GET", f"{CHG}/{with_plans['id']}/plan", a, a.admin)).json()
     backout = next(s for s in plan if s["section"] == "backout")
     assert "old firmware" in backout["content"]  # AC3: as editable text
+
+
+async def test_req_chg_093_the_plan_goes_for_approval_only_with_a_backout_plan(
+    world: World,
+) -> None:
+    from tests.db.test_release_templates_api import field_codes  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    item = await a_change(world, a)
+    raised = (await move(world, a, item, "submission_awaiting_acceptance")).json()
+    [entry] = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/approvals/{entry['id']}/decision",
+        a,
+        a.admin,
+        json={"decision": "approve"},
+        headers={"If-Match": f'"{entry["version"]}"', **CONSOLE},
+    )
+    planning = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert planning["status"] == "planning_planning"
+    refused = await move(world, a, planning, "planning_awaiting_approval")
+    assert field_codes(refused) == {("plan.backout", "required")}
+    wrote = await world.call(
+        "PUT",
+        f"{CHG}/{item['id']}/plan/backout",
+        a,
+        a.admin,
+        json={"content": "<p>Roll back the firmware</p>"},
+        headers={"If-Match": '"0"', **CONSOLE},
+    )
+    assert wrote.status_code == 200, wrote.text
+    planning = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    sent = await move(world, a, planning, "planning_awaiting_approval")
+    assert sent.status_code == 200, sent.text
+    del raised
+
+
+async def test_req_chg_017_an_implementation_past_its_window_shows_overdue(world: World) -> None:
+    a = world.a
+    item = (await new_change(world, a, a.admin, change_type="standard")).json()
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
+    row = next(s for s in shown if s["stage"] == "implementation")
+    assert row["overdue"] is False
+    set_ = await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/schedule/implementation",
+        a,
+        a.admin,
+        json={"scheduled_start": "2026-11-01T20:00:00Z", "scheduled_end": "2026-11-01T22:00:00Z"},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    assert set_.status_code == 200, set_.text
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
+    assert next(s for s in shown if s["stage"] == "implementation")["overdue"] is True

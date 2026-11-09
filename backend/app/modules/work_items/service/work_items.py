@@ -2976,7 +2976,23 @@ async def _field_values(
     session: AsyncSession, record: WorkItem, names: Sequence[str]
 ) -> dict[str, Any]:
     """The record's values of `names`, its type's own fields (release or change details) too."""
-    values = {n: getattr(record, n, None) for n in names if not n.startswith("custom.")}
+    values = {
+        n: getattr(record, n, None)
+        for n in names
+        if not n.startswith("custom.") and not n.startswith("plan.")
+    }
+    sections = [n.removeprefix("plan.") for n in names if n.startswith("plan.")]
+    if sections:  # a plan section required to leave a stage (REQ-CHG-013, WP-045a D7)
+        written = {
+            r.section: r.content
+            for r in await session.scalars(
+                select(WorkItemPlanSection).where(
+                    WorkItemPlanSection.work_item_id == record.id,
+                    WorkItemPlanSection.section.in_(sections),
+                )
+            )
+        }
+        values |= {f"plan.{s}": written.get(s) for s in sections}
     spec = DETAILS.get(WorkItemTypeCode(record.type))
     own = [n for n in names if spec is not None and n in spec.fields]
     if spec is not None and own:
@@ -3885,6 +3901,16 @@ async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the per
         aggregate_version=updated.version,
     )
     return updated
+
+
+def schedule_overdue(row: WorkItemStageSchedule | None, now: datetime | None = None) -> bool:
+    """A stage past its scheduled end that has not ended (REQ-CHG-017).
+
+    A change's implementation running over its window shows it; any staged type's stage alike.
+    """
+    if row is None or row.scheduled_end is None or row.actual_end is not None:
+        return False
+    return row.scheduled_end < (now or _now())
 
 
 async def stage_schedules(

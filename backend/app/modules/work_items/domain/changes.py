@@ -95,10 +95,19 @@ REQUIRED = ReasonMode.REQUIRED
 
 
 def _t(
-    source: str, target: str, *, reason: bool = False, permission: str | None = None
+    source: str,
+    target: str,
+    *,
+    reason: bool = False,
+    permission: str | None = None,
+    required: tuple[str, ...] = (),
 ) -> StatusTransitionDef:
     return StatusTransitionDef(
-        source, target, REQUIRED if reason else ReasonMode.NONE, permission=permission
+        source,
+        target,
+        REQUIRED if reason else ReasonMode.NONE,
+        permission=permission,
+        required_fields=required,
     )
 
 
@@ -111,7 +120,9 @@ _MOVES = (
     _t("submission_awaiting_acceptance", "submission_accepted"),  # approval only
     _t("submission_awaiting_acceptance", "submission_rejected"),  # approval only
     _t("submission_rejected", "closure_closed"),
-    _t("planning_planning", "planning_awaiting_approval"),
+    # Appendix A's closure rules (REQ-CHG-093): the backout plan before the plan goes for
+    # approval, on the person's move (leaving planning is the approval's own move).
+    _t("planning_planning", "planning_awaiting_approval", required=("plan.backout",)),
     _t("planning_awaiting_approval", "planning_plan_approved"),  # approval only
     _t("planning_awaiting_approval", "planning_plan_rejected"),  # approval only
     _t("planning_plan_rejected", "planning_planning"),  # re-plan

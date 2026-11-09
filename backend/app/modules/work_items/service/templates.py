@@ -334,6 +334,8 @@ async def _stage_settings(
             {f.value for f in TemplateField}
             | set(wtype.own_fields)
             | {f"{CUSTOM_PREFIX}{k}" for k in known}
+            # A plan section may be required to leave a stage (REQ-CHG-013, WP-045a D7).
+            | {f"{PLAN_PREFIX}{section}" for section in wtype.plan_sections}
         )
         rules, codes = parse_stage_rules(
             values["stage_rules"] or {}, stages=[s.code for s in model.stages], fields=fields
@@ -342,6 +344,8 @@ async def _stage_settings(
         columns["stage_rules"] = stage_rules_to_json(rules) or None
     return columns, problems
 
+
+PLAN_PREFIX = "plan."  # a plan section as a stage rule's field, e.g. plan.backout
 
 # --- writes ---------------------------------------------------------------------------------------
 

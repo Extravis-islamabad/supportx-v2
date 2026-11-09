@@ -1601,6 +1601,10 @@ class StageScheduleOut(BaseModel):
     outcome_notes: str | None
     issues: str | None
     version: int = Field(description="This stage row's version for If-Match (0: none yet).")
+    overdue: bool = Field(
+        default=False,
+        description="Its scheduled end has passed and it has not ended (REQ-CHG-017).",
+    )
 
 
 class StageScheduleIn(BaseModel):
@@ -2269,6 +2273,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                     stage=stage,
                     **{n: getattr(row, n) if row else None for n in service.SCHEDULE_FIELDS},
                     version=row.version if row else 0,
+                    overdue=service.schedule_overdue(row),
                 )
                 for stage, row in rows
             ]
