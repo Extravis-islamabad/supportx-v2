@@ -1,6 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { expectAccessible, resetLanguage, signInAs } from './helpers';
+import {
+  closeAppearance,
+  expectAccessible,
+  openAppearance,
+  resetLanguage,
+  signInAs,
+} from './helpers';
 
 /**
  * WP-022 files end to end with the real ClamAV (D-082 D9), REQ-INC-079:
@@ -104,10 +110,10 @@ test('files: checked live, previewed, malware blocked, accessible in every theme
       window.localStorage.setItem('supportx.theme_mode', 'light');
     });
     await openDetails(page, item.id);
-    await page.getByTestId('appearance-menu').click();
+    await openAppearance(page);
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();
-    await page.getByTestId('appearance-menu').click();
+    await closeAppearance(page);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(files.getByText('محظور: عُثر على برنامج ضار')).toBeVisible();
     await expectAccessible(page, 'incident with files (Arabic, RTL)');

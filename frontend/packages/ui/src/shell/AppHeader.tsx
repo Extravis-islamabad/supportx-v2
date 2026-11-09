@@ -221,31 +221,6 @@ export function AppHeader({
           </Button>
         ))}
       {extra}
-      <Popover
-        content={
-          <AppearanceControls
-            navLayout={onNavLayoutChange === undefined ? undefined : session.user.nav_layout}
-            onNavLayoutChange={onNavLayoutChange}
-            onLocaleChange={onLocaleChange}
-            onModeChange={onModeChange}
-            languages={languages}
-            vertical
-          />
-        }
-        trigger="click"
-        placement="bottomRight"
-        open={appearanceIsOpen}
-        onOpenChange={setAppearanceOpen}
-      >
-        <Button
-          data-testid="appearance-menu"
-          aria-expanded={appearanceIsOpen}
-          aria-label={compact ? t('appearance.title') : undefined}
-          icon={compact ? <BgColorsOutlined /> : undefined}
-        >
-          {compact ? null : t('appearance.title')}
-        </Button>
-      </Popover>
       {narrow ? null : canSwitch ? (
         <Select
           data-testid="tenant-switcher"
@@ -274,62 +249,97 @@ export function AppHeader({
           {session.tenant.name}
         </Typography.Text>
       )}
-      <Dropdown
-        trigger={['click']}
-        menu={{
-          items: [
-            ...tenantItems,
-            ...(onProfile === undefined
-              ? []
-              : [
-                  {
-                    key: 'profile',
-                    icon: <UserOutlined />,
-                    label: t('nav.profile'),
-                    onClick: onProfile,
-                  },
-                ]),
-            ...(menuItems ?? []),
-            {
-              key: 'about',
-              icon: <InfoCircleOutlined />,
-              label: t('about.open'),
-              onClick: () => {
-                setAboutOpen(true);
-              },
-            },
-            { key: 'logout', label: t('auth.sign_out'), onClick: onLogout, danger: true },
-          ],
+      <Popover
+        content={
+          <AppearanceControls
+            navLayout={onNavLayoutChange === undefined ? undefined : session.user.nav_layout}
+            onNavLayoutChange={onNavLayoutChange}
+            onLocaleChange={onLocaleChange}
+            onModeChange={onModeChange}
+            languages={languages}
+            vertical
+          />
+        }
+        trigger="click"
+        placement="bottomRight"
+        open={appearanceIsOpen}
+        onOpenChange={(open) => {
+          // Opened only from the menu item; a click on the button or outside closes it.
+          if (!open) setAppearanceOpen(false);
         }}
       >
-        <Button
-          type="text"
-          data-testid="user-menu"
-          style={{ height: 'auto', paddingBlock: 4, paddingInline: narrow ? 4 : undefined }}
+        <Dropdown
+          trigger={['click']}
+          menu={{
+            items: [
+              ...tenantItems,
+              {
+                // Appearance lives in the user menu (D-147 global fix 2): it opens its panel
+                // beside the menu button, as the header button used to.
+                key: 'appearance',
+                icon: <BgColorsOutlined />,
+                label: <span data-testid="appearance-menu">{t('appearance.title')}</span>,
+                onClick: () => {
+                  setAppearanceOpen(true);
+                },
+              },
+              ...(onProfile === undefined
+                ? []
+                : [
+                    {
+                      key: 'profile',
+                      icon: <UserOutlined />,
+                      label: t('nav.profile'),
+                      onClick: onProfile,
+                    },
+                  ]),
+              ...(menuItems ?? []),
+              {
+                key: 'about',
+                icon: <InfoCircleOutlined />,
+                label: t('about.open'),
+                onClick: () => {
+                  setAboutOpen(true);
+                },
+              },
+              { key: 'logout', label: t('auth.sign_out'), onClick: onLogout, danger: true },
+            ],
+          }}
         >
-          <Flex align="center" gap={8}>
-            <Avatar aria-hidden style={{ background: token.colorPrimary }}>
-              {initials(session.user.display_name)}
-            </Avatar>
-            {narrow && (
-              // Named by its content, not an aria-label that differs from the initials it shows
-              // (QA WP-036 BUG-07, axe label-content-name-mismatch).
-              <span className="sx-visually-hidden">{`${t('shell.menu')}: ${session.user.display_name}`}</span>
-            )}
-            {!narrow && (
-              <Flex vertical align="flex-start" style={{ lineHeight: 1.2 }}>
-                <Typography.Text strong data-testid="user-name">
-                  {session.user.display_name}
-                </Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }} data-testid="user-role">
-                  {headerRole(t, session.user)}
-                </Typography.Text>
-              </Flex>
-            )}
-            <DownOutlined aria-hidden />
-          </Flex>
-        </Button>
-      </Dropdown>
+          <Button
+            type="text"
+            data-testid="user-menu"
+            data-appearance-open={appearanceIsOpen ? 'true' : 'false'}
+            style={{ height: 'auto', paddingBlock: 4, paddingInline: narrow ? 4 : undefined }}
+          >
+            <Flex align="center" gap={8}>
+              <Avatar aria-hidden style={{ background: token.colorPrimary }}>
+                {initials(session.user.display_name)}
+              </Avatar>
+              {narrow && (
+                // Named by its content, not an aria-label that differs from the initials it shows
+                // (QA WP-036 BUG-07, axe label-content-name-mismatch).
+                <span className="sx-visually-hidden">{`${t('shell.menu')}: ${session.user.display_name}`}</span>
+              )}
+              {!narrow && (
+                <Flex vertical align="flex-start" style={{ lineHeight: 1.2 }}>
+                  <Typography.Text strong data-testid="user-name">
+                    {session.user.display_name}
+                  </Typography.Text>
+                  <Typography.Text
+                    type="secondary"
+                    style={{ fontSize: 12 }}
+                    data-testid="user-role"
+                  >
+                    {headerRole(t, session.user)}
+                  </Typography.Text>
+                </Flex>
+              )}
+              <DownOutlined aria-hidden />
+            </Flex>
+          </Button>
+        </Dropdown>
+      </Popover>
       {/* Mounted only while open: it is the header's one server query (the version). */}
       {aboutOpen && (
         <AboutDialog

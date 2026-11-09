@@ -1,6 +1,14 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { actionEntry, clickAction, expectAccessible, resetLanguage, signInAs } from './helpers';
+import {
+  actionEntry,
+  clickAction,
+  closeAppearance,
+  expectAccessible,
+  openAppearance,
+  resetLanguage,
+  signInAs,
+} from './helpers';
 
 /**
  * WP-020 incidents end to end in real browsers (parity file 01): a new incident with rich text
@@ -319,10 +327,10 @@ test('incident screens are labelled and accessible in light, dark, high contrast
       window.localStorage.setItem('supportx.theme_mode', 'light');
     });
     await page.goto(`/incidents/${item.id}`);
-    await page.getByTestId('appearance-menu').click();
+    await openAppearance(page);
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();
-    await page.getByTestId('appearance-menu').click();
+    await closeAppearance(page);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByTestId('inc-status')).toHaveText('جديدة');
     await expect(page.getByTestId('inc-priority').first()).toContainText('P1 – حرجة');
