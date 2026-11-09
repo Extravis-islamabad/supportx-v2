@@ -269,7 +269,7 @@ describe('Admin › Knowledge (D-120)', () => {
         'The next article will be ART-43.',
       );
     });
-    fireEvent.click(within(card).getByTestId('kb-admin-save'));
+    fireEvent.click(await within(card).findByTestId('settings-save')); // template E's save bar
     await waitFor(() => {
       expect(fake.find('PATCH', '/api/v1/knowledge/settings')).toHaveLength(1);
     });
@@ -298,7 +298,7 @@ describe('Admin › Knowledge (D-120)', () => {
     render(<App />);
     const card = await screen.findByTestId('kb-admin-general');
     fireEvent.change(within(card).getByTestId('kb-admin-next'), { target: { value: '7' } });
-    fireEvent.click(within(card).getByTestId('kb-admin-save'));
+    fireEvent.click(await within(card).findByTestId('settings-save')); // template E's save bar
     expect(
       await within(card).findByText('That number is already used. Choose 43 or higher.'),
     ).toBeDefined();
