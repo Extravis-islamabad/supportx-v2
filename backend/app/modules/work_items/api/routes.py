@@ -172,8 +172,8 @@ class WorkItemIn(BaseModel):
     change_type: str | None = Field(
         default=None, max_length=40, description="Changes only: a change type code (REQ-CHG-005)."
     )
-    retrospective: bool = Field(
-        default=False,
+    retrospective: bool | None = Field(
+        default=None,
         description=(
             "Changes only: work already done (REQ-CHG-004); needs actual_start and actual_end, "
             "both past; it enters at the review."
@@ -1580,8 +1580,8 @@ class PlanSectionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: str | None = Field(default=None, max_length=RESOLUTION_MAX)
-    convert_to_normal: bool = Field(
-        default=False,
+    convert_to_normal: bool | None = Field(
+        default=None,
         description=(
             "A standard change's plan is locked (409 standard_change_locked): true confirms "
             "making it a normal change, which goes through normal approval (REQ-CHG-006)."
@@ -2479,7 +2479,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 content=body.content,
                 expected_version=version,
                 source=source_of(request),
-                convert_to_normal=body.convert_to_normal,
+                convert_to_normal=body.convert_to_normal is True,
             )
             set_etag(response, row.version)
             return PlanSectionOut(
