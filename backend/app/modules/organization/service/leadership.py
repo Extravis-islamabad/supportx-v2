@@ -74,5 +74,6 @@ async def require_group_manager(
     if await may_manage_group(session, actor, group_id):
         return
     if actor.holds(MANAGE_OWN):
-        raise PermissionDenied(code="group_not_led")  # a team lead, another group (D-152)
+        # A team lead, another group (D-152). The group's ID lets the screen name it.
+        raise PermissionDenied(code="group_not_led", params={"group_id": str(group_id)})
     raise PermissionDenied(params={"permission": MANAGE_OWN})
