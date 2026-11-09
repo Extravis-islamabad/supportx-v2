@@ -96,6 +96,8 @@ export const en = {
   'audit.action.incident.reply_template_deleted': 'Removed a reply template',
   'audit.action.incident.restored': 'Restored an incident from the trash',
   'audit.action.incident.settings_changed': 'Changed incident settings',
+  'audit.action.incident.sla_applied_from_creation':
+    'Applied the SLA to an incident from its creation',
   'audit.action.incident.template_changed': 'Changed an incident template',
   'audit.action.incident.template_created': 'Added an incident template',
   'audit.action.invitation.resent': 'Sent an invitation again',

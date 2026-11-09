@@ -95,6 +95,8 @@ export const ur: LabelResource = {
   'audit.action.incident.reply_template_deleted': 'جواب کا سانچہ ہٹایا',
   'audit.action.incident.restored': 'واقعہ ردی کی ٹوکری سے بحال کیا',
   'audit.action.incident.settings_changed': 'واقعات کی ترتیبات تبدیل کیں',
+  'audit.action.incident.sla_applied_from_creation':
+    'واقعے پر اس کے بننے کے وقت سے ایس ایل اے لاگو کیا',
   'audit.action.incident.template_changed': 'واقعے کا سانچہ بدلا',
   'audit.action.incident.template_created': 'واقعے کا سانچہ شامل کیا',
   'audit.action.invitation.resent': 'دعوت نامہ دوبارہ بھیجا',
