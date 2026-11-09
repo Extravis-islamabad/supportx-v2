@@ -25,6 +25,11 @@ export interface RecordHeaderProps {
   testId?: string;
   /** Test ids of the ID and the title (screens keep their own). */
   testIds?: { id?: string; title?: string };
+  /**
+   * Wraps the title, so a screen can make it edit in place (template A: the subject is edited
+   * here, not repeated in the properties).
+   */
+  renderTitle?: (title: ReactNode) => ReactNode;
 }
 
 /**
@@ -42,6 +47,7 @@ export function RecordHeader({
   extra,
   testId,
   testIds = {},
+  renderTitle = (shown) => shown,
 }: RecordHeaderProps) {
   const { token } = theme.useToken();
   const { urduScript } = useAppearance();
@@ -74,22 +80,24 @@ export function RecordHeader({
             </Flex>
           )}
         </Flex>
-        <Tooltip title={<bdi dir="auto">{title}</bdi>} placement="bottomLeft">
-          <Typography.Title
-            level={1}
-            style={{
-              margin: 0,
-              fontSize: TYPE.page,
-              // Room for the dots below Arabic-script letters: the two-line clamp cuts the rest.
-              lineHeight: clampLineHeight(title, 1.3, urduScript),
-              minWidth: 0,
-            }}
-            ellipsis={{ rows: 2 }}
-            data-testid={testIds.title}
-          >
-            <bdi dir="auto">{title}</bdi>
-          </Typography.Title>
-        </Tooltip>
+        {renderTitle(
+          <Tooltip title={<bdi dir="auto">{title}</bdi>} placement="bottomLeft">
+            <Typography.Title
+              level={1}
+              style={{
+                margin: 0,
+                fontSize: TYPE.page,
+                // Room for the dots below Arabic-script letters: the two-line clamp cuts the rest.
+                lineHeight: clampLineHeight(title, 1.3, urduScript),
+                minWidth: 0,
+              }}
+              ellipsis={{ rows: 2 }}
+              data-testid={testIds.title}
+            >
+              <bdi dir="auto">{title}</bdi>
+            </Typography.Title>
+          </Tooltip>,
+        )}
         <Flex gap={SPACE.xs} wrap align="center">
           {tags}
           {meta.length > 0 && (
