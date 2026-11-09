@@ -247,7 +247,10 @@ jobs:
     needs: [shard-weights]
     if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) }} # drafts: the fast set only (see shard-weights)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20 # the backstop; the aim is 12 minutes or less per shard
+    # The backstop, 25 since 2026-11-09 (coordinator): six shards hold about 12.5 min of tests each
+    # plus about 4 min of set-up, and a slow runner reached 20 (#216, #240, #276 cancelled). The
+    # aim stays 12 min or less; a nightly shard past 20 regularly means a seventh (coordinator).
+    timeout-minutes: 25
     strategy:
       fail-fast: false # every shard reports its failures in one run
       matrix:
