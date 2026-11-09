@@ -22,7 +22,9 @@ from app.modules.procurement.service.vendors import (
     register_vendor_usage,
     vendor_names,
     vendor_problem,
+    vendor_report_names,
 )
+from app.shared.reporting import register_names
 
 FEATURE = "procurement"
 
@@ -33,6 +35,9 @@ PERMISSIONS = (
     PermissionSpec(CREATE, FEATURE),
     PermissionSpec(MANAGE, FEATURE),
 )
+
+# Vendor names in report files (assets group by vendor): at import, for the consumers worker too.
+register_names("vendor", vendor_report_names)
 
 module = ModuleSpec(
     name="procurement",
