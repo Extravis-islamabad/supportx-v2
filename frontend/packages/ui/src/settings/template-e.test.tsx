@@ -58,4 +58,19 @@ describe('template E (settings page)', () => {
     fireEvent.click(screen.getByTestId('settings-save'));
     expect(onSave).toHaveBeenCalledTimes(1);
   });
+
+  it('says why Save cannot be used yet, and disables it with that reason', () => {
+    renderUi(
+      <StickySaveBar
+        changes={1}
+        whyNot="Images are being checked."
+        onDiscard={() => undefined}
+        onSave={() => undefined}
+      />,
+    );
+    const save = screen.getByTestId<HTMLButtonElement>('settings-save');
+    expect(save.disabled).toBe(true);
+    expect(save.getAttribute('aria-describedby')).toBe('settings-save-why');
+    expect(screen.getByTestId('settings-save-why').textContent).toBe('Images are being checked.');
+  });
 });
