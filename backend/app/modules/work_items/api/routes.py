@@ -30,6 +30,7 @@ from app.modules.work_items.api.parts_routes import add_parts_collection_routes,
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
+from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -1433,6 +1434,36 @@ class ReleaseDetailsOut(BaseModel):
         )
 
 
+class ChangeDetailsIn(BaseModel):
+    """A change's own fields to change (send only those you change; null clears one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    change_type: str | None = Field(default=None, max_length=40, description="A change type code.")
+    change_reason: str | None = Field(
+        default=None, max_length=40, description="A reason for change code."
+    )
+
+
+class ChangeDetailsOut(BaseModel):
+    """A change's own fields (REQ-CHG-005, -011), with the change's version for If-Match."""
+
+    work_item_id: uuid.UUID
+    version: int = Field(description="The change's version: send it back as If-Match.")
+    change_type: str | None
+    change_reason: str | None
+
+    @classmethod
+    def of(cls, view: service.DetailsView) -> "ChangeDetailsOut":
+        """From the service view (all empty before any field is set)."""
+        row = view.details
+        return cls(
+            work_item_id=view.record.id,
+            version=view.record.version,
+            **{n: (getattr(row, n) if row is not None else None) for n in CHANGE_DETAIL_FIELDS},
+        )
+
+
 class RoleHoldingOut(BaseModel):
     """One role of the record and who holds it."""
 
@@ -2532,6 +2563,42 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             )
             set_etag(response, view.record.version)
             return ReleaseDetailsOut.of(view)
+
+    if wtype.code is WorkItemTypeCode.CHANGE:  # REQ-CHG-005, -011: a change's own fields
+
+        @router.get("/{record_id}/details", summary="The change's own fields")
+        async def get_change_details(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> ChangeDetailsOut:
+            """The change type and the reason for change."""
+            found = await service.details(session, subject, wtype, record_id)
+            set_etag(response, found.record.version)
+            return ChangeDetailsOut.of(found)
+
+        @router.patch(
+            "/{record_id}/details", summary="Change the change's own fields", responses=CONFLICT
+        )
+        async def patch_change_details(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ChangeDetailsIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> ChangeDetailsOut:
+            """Needs If-Match (the change's version). Send only what you change; null clears."""
+            view = await service.update_details(
+                session,
+                subject,
+                wtype,
+                record_id,
+                expected_version=version,
+                values=body.model_dump(include=body.model_fields_set),
+                source=source_of(request),
+            )
+            set_etag(response, view.record.version)
+            return ChangeDetailsOut.of(view)
 
     @router.post(
         "/{record_id}/resolution/confirm",

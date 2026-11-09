@@ -1442,6 +1442,29 @@ class WorkItemReleaseDetails(TenantKeyed, Timestamps, Actors, Base):
     release_engineer_id: Mapped[uuid.UUID | None]
 
 
+class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
+    """A change's own fields, one row per change (WP-045a; REQ-CHG-005, -011; 0101).
+
+    As a release's details: no version of its own, every edit bumps the change's work item.
+    """
+
+    __tablename__ = "work_item_change_details"
+    __table_args__ = (
+        Index(
+            "ix_work_item_change_details_tenant_type",
+            "tenant_id",
+            "change_type",
+            postgresql_where=text("change_type IS NOT NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("work_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    change_type: Mapped[str | None] = mapped_column(String(40))
+    change_reason: Mapped[str | None] = mapped_column(String(40))
+
+
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------
 
 

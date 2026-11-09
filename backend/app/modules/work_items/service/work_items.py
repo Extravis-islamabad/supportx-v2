@@ -18,10 +18,10 @@ status moves (REQ-INC-050); priority comes from the matrix unless set by hand wi
 """
 
 import uuid
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast
 
 from sqlalchemy import ColumnElement, Select, and_, delete, exists, func, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on
@@ -66,6 +66,7 @@ from app.modules.organization import (
     unit_heads,
     users_in_groups,
 )
+from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.classification import (
@@ -128,6 +129,7 @@ from app.modules.work_items.events import (
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemCategory,
+    WorkItemChangeDetails,
     WorkItemConversation,
     WorkItemDowntime,
     WorkItemFollower,
@@ -1433,7 +1435,11 @@ async def _custom_text(
     if record_id is not None and wtype.code is WorkItemTypeCode.RELEASE:
         details = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record_id))
         if details is not None:
-            parts.append(release_rules.search_terms(_detail_values(details)))
+            parts.append(
+                release_rules.search_terms(
+                    _detail_values(details, DETAILS[WorkItemTypeCode.RELEASE])
+                )
+            )
     text = " ".join(p for p in parts if p)
     return text or None
 
@@ -2897,11 +2903,12 @@ async def _move_missing(
 async def _field_values(
     session: AsyncSession, record: WorkItem, names: Sequence[str]
 ) -> dict[str, Any]:
-    """The record's values of `names`, its type's own fields (release details) included."""
+    """The record's values of `names`, its type's own fields (release or change details) too."""
     values = {n: getattr(record, n, None) for n in names if not n.startswith("custom.")}
-    own = [n for n in names if n in release_rules.DETAIL_FIELDS]
-    if own:
-        row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record.id))
+    spec = DETAILS.get(WorkItemTypeCode(record.type))
+    own = [n for n in names if spec is not None and n in spec.fields]
+    if spec is not None and own:
+        row = await session.get(spec.model, (config.tenant_of(session), record.id))
         values.update({n: getattr(row, n) if row is not None else None for n in own})
     return values
 
@@ -3004,19 +3011,81 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
         )
 
 
-# --- a release's own fields (WP-058a; REQ-REL-002..005) -----------------------------------------
+# --- a type's own fields: releases (WP-058a; REQ-REL-002..005), changes (WP-045a) ---------------
+
+DetailsRow = WorkItemReleaseDetails | WorkItemChangeDetails
 
 
 @dataclass(frozen=True)
-class ReleaseDetailsView:
-    """A release and its own fields (None before any is set)."""
+class DetailsSpec:
+    """What a staged type keeps in its own details table, and how its values are checked.
+
+    One code path for every type with own fields (releases first, changes next): the model,
+    its fields, the pick lists they take codes of, the person fields, rich text, the type's own
+    rules, and whether a type's default risk applies (releases, REQ-REL-003).
+    """
+
+    model: type[DetailsRow]
+    fields: tuple[str, ...]
+    pick_lists: tuple[tuple[str, PickList], ...]
+    people: tuple[str, ...] = ()
+    rich_text: frozenset[str] = frozenset()
+    problems: Callable[[Mapping[str, Any]], list[tuple[str, str]]] = lambda _merged: []
+    risk_from_type: bool = False
+
+
+DETAILS: Mapping[WorkItemTypeCode, DetailsSpec] = {
+    WorkItemTypeCode.RELEASE: DetailsSpec(
+        model=WorkItemReleaseDetails,
+        fields=release_rules.DETAIL_FIELDS,
+        pick_lists=(
+            ("release_type", PickList.RELEASE_TYPE),
+            ("release_reason", PickList.RELEASE_REASON),
+        ),
+        people=("release_manager_id", "release_engineer_id"),
+        rich_text=frozenset({"release_notes"}),
+        problems=release_rules.detail_problems,
+        risk_from_type=True,
+    ),
+    WorkItemTypeCode.CHANGE: DetailsSpec(
+        model=WorkItemChangeDetails,
+        fields=change_rules.DETAIL_FIELDS,
+        pick_lists=(
+            ("change_type", PickList.CHANGE_TYPE),
+            ("change_reason", PickList.CHANGE_REASON),
+        ),
+    ),
+}
+
+
+@dataclass(frozen=True)
+class DetailsView:
+    """A record and its type's own fields (None before any is set)."""
 
     record: WorkItem
-    details: WorkItemReleaseDetails | None
+    details: DetailsRow | None
 
 
-def _detail_values(row: WorkItemReleaseDetails | None) -> dict[str, Any]:
-    return {n: (getattr(row, n) if row is not None else None) for n in release_rules.DETAIL_FIELDS}
+ReleaseDetailsView = DetailsView  # the release routes' name (WP-058a)
+
+
+def _spec(wtype: WorkItemType) -> DetailsSpec:
+    """The type's own fields; a type without them has no such route (404)."""
+    found = DETAILS.get(wtype.code)
+    if found is None:
+        raise _not_found(wtype)
+    return found
+
+
+async def _details_row(
+    session: AsyncSession, spec: DetailsSpec, record_id: uuid.UUID
+) -> DetailsRow | None:
+    found = await session.get(spec.model, (config.tenant_of(session), record_id))
+    return cast("DetailsRow | None", found)  # spec.model is one of DetailsRow's classes
+
+
+def _detail_values(row: DetailsRow | None, spec: DetailsSpec) -> dict[str, Any]:
+    return {n: (getattr(row, n) if row is not None else None) for n in spec.fields}
 
 
 def _release_only(wtype: WorkItemType) -> None:
@@ -3024,53 +3093,49 @@ def _release_only(wtype: WorkItemType) -> None:
         raise _not_found(wtype)
 
 
-async def release_details(
+async def details(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
-) -> ReleaseDetailsView:
-    """A release's own fields, within your view scope (404 otherwise)."""
-    _release_only(wtype)
+) -> DetailsView:
+    """A record's own fields, within your view scope (404 otherwise)."""
+    spec = _spec(wtype)
     record = await _visible(session, subject, wtype, record_id)
-    row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record.id))
-    return ReleaseDetailsView(record, row)
+    return DetailsView(record, await _details_row(session, spec, record.id))
 
 
-def _clean_detail(name: str, value: Any) -> Any:  # noqa: ANN401 - field values of several types
-    """Trimmed text (blank: none), sanitised notes; other values as given."""
+release_details = details  # the release routes' name (WP-058a)
+
+
+def _clean_detail(name: str, value: Any, spec: DetailsSpec | None = None) -> Any:  # noqa: ANN401 - values of several types
+    """Trimmed text (blank: none), sanitised rich text; other values as given."""
     if isinstance(value, str):
-        if name == "release_notes":
+        if spec is not None and name in spec.rich_text:
             cleaned = sanitize_html(value)
             return None if is_blank(cleaned) else cleaned
         return " ".join(value.split()) or None
     return value
 
 
-async def _detail_problems(
+async def _detail_problems(  # noqa: PLR0913, PLR0917 - the change and its context, explicit
     session: AsyncSession,
     wtype: WorkItemType,
+    spec: DetailsSpec,
     current: Mapping[str, Any],
     given: Mapping[str, Any],
     risk_reason: str | None,
 ) -> list[tuple[str, str]]:
-    problems = release_rules.detail_problems({**current, **given})
+    problems = spec.problems({**current, **given})
     cat = await config.load(session, wtype)
-    for name, pick in (
-        ("release_type", PickList.RELEASE_TYPE),
-        ("release_reason", PickList.RELEASE_REASON),
-    ):
-        # A retired value is never newly chosen; a release that has it keeps it (REQ-REL-003).
+    for name, pick in spec.pick_lists:
+        # A retired value is never newly chosen; a record that has it keeps it (REQ-REL-003).
         value = given.get(name)
         if value is not None and value != current[name] and value not in cat.reason_codes(pick):
             problems.append((name, "invalid_choice"))
-    people = {
-        n: given[n]
-        for n in ("release_manager_id", "release_engineer_id")
-        if given.get(n) is not None
-    }
+    people = {n: given[n] for n in spec.people if given.get(n) is not None}
     if people:
         found = await user_names(session, [str(v) for v in people.values()])
         problems += [(n, "user_not_found") for n, v in people.items() if str(v) not in found]
     # REQ-REL-004 AC3: a risk set by hand says why, in history.
-    if "risk" in given and given["risk"] != current["risk"] and not risk_reason:
+    if "risk" in given and given["risk"] != current.get("risk") and not risk_reason:
         problems.append(("risk_reason", "reason_required"))
     return problems
 
@@ -3127,7 +3192,9 @@ async def copy_release(  # noqa: PLR0913 - the copy and its context, explicit
     values["custom"] = dict(original.custom or {})
     made = await create(session, subject, wtype, values, source=source, holders=holders)
     row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), original.id))
-    copied = {n: getattr(row, n) for n in COPIED_DETAILS} if row is not None else {}
+    copied = (
+        {n: getattr(row, n) for n in COPIED_DETAILS} if row is not None else {}
+    )  # releases only
     copied = {n: v for n, v in copied.items() if v is not None}
     if copied:
         await update_release_details(
@@ -3145,7 +3212,7 @@ async def copy_release(  # noqa: PLR0913 - the copy and its context, explicit
     )
 
 
-async def update_release_details(  # noqa: PLR0913 - the change and its context, explicit
+async def update_details(  # noqa: PLR0913 - the change and its context, explicit
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -3157,11 +3224,11 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
     risk_reason: str | None = None,
     copying: bool = False,
 ) -> ReleaseDetailsView:
-    """Change the fields you send (If-Match on the release). Unchanged input: no new version.
+    """Change the fields you send (If-Match on the record). Unchanged input: no new version.
 
     `copying`: a copy takes the original's risk, which was set (with its reason) there.
     """
-    _release_only(wtype)
+    spec = _spec(wtype)
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
@@ -3170,15 +3237,15 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
     tenant = config.tenant_of(session)
-    row = await session.get(WorkItemReleaseDetails, (tenant, record.id))
-    current = _detail_values(row)
-    given = {n: _clean_detail(n, v) for n, v in values.items() if n in release_rules.DETAIL_FIELDS}
+    row = await _details_row(session, spec, record.id)
+    current = _detail_values(row, spec)
+    given = {n: _clean_detail(n, v, spec) for n, v in values.items() if n in spec.fields}
     reason = (risk_reason or "").strip() or None
-    by_type = await _risk_from_type(session, wtype, current, given)
+    by_type = await _risk_from_type(session, wtype, current, given) if spec.risk_from_type else None
     if by_type is not None:  # the type's default risk, not set by hand: no reason asked
         given["risk"] = by_type
     problems = await _detail_problems(
-        session, wtype, current, given, reason if by_type is None and not copying else "given"
+        session, wtype, spec, current, given, reason if by_type is None and not copying else "given"
     )
     problems += await _read_only_problems(
         session, record, [n for n, v in given.items() if v != current[n]]
@@ -3187,9 +3254,9 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
         raise _errors(problems)
     changed = {n: v for n, v in given.items() if v != current[n]}
     if not changed:
-        return ReleaseDetailsView(record, row)
+        return DetailsView(record, row)
     if row is None:
-        row = WorkItemReleaseDetails(tenant_id=tenant, work_item_id=record.id)
+        row = spec.model(tenant_id=tenant, work_item_id=record.id)
         session.add(row)
     for name, value in changed.items():
         setattr(row, name, value)
@@ -3225,7 +3292,10 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
-    return ReleaseDetailsView(updated, row)
+    return DetailsView(updated, row)
+
+
+update_release_details = update_details  # the release routes' name (WP-058a)
 
 
 # --- named roles (WP-058a s4; REQ-REL-023, -024; ADR-041) ----------------------------------------

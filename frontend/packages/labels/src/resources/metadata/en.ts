@@ -109,6 +109,8 @@ export const en = {
   'custom_fields.yes': 'Yes',
   'list.separator': ', ',
   'pick_list.cancel': 'Cancel reasons',
+  'pick_list.change_reason': 'Reasons for change',
+  'pick_list.change_type': 'Change types',
   'pick_list.closure_code': 'Closure codes',
   'pick_list.downtime_kind': 'Downtime kinds',
   'pick_list.level': 'Levels',

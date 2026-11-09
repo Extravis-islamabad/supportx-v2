@@ -12,7 +12,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from app.modules.work_items.domain.changes import CHANGE_MODEL, CHANGE_ROLES
+from app.modules.work_items.domain.changes import (
+    CHANGE_MODEL,
+    CHANGE_REASONS,
+    CHANGE_ROLES,
+    CHANGE_TYPES,
+)
+from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
 from app.modules.work_items.domain.changes import OUTCOME_STAGES as CHANGE_OUTCOME_STAGES
 from app.modules.work_items.domain.changes import PLAN_SECTIONS as CHANGE_PLAN_SECTIONS
 from app.modules.work_items.domain.changes import STAGE_APPROVALS as CHANGE_STAGE_APPROVALS
@@ -238,6 +244,11 @@ CHANGE = WorkItemType(
     outcome_stages=CHANGE_OUTCOME_STAGES,
     stage_outcomes=CHANGE_STAGE_OUTCOMES,
     stage_approvals=CHANGE_STAGE_APPROVALS,
+    own_fields=frozenset(CHANGE_DETAIL_FIELDS),
+    own_lists={
+        "change_type": CHANGE_TYPES,
+        "change_reason": tuple((code, None) for code in CHANGE_REASONS),
+    },
 )
 
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {

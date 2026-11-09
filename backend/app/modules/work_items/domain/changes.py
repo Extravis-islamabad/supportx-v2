@@ -210,3 +210,35 @@ STAGE_APPROVALS: Mapping[str, Mapping[str, Any]] = {
         "levels": [{"rule": "any", "approvers": [{"role": "change_manager"}]}],
     },
 }
+
+
+# --- a change's own fields (REQ-CHG-005, -011) --------------------------------------------------
+
+# Appendix A's change types with their colour and model (REQ-CHG-005), seeded per tenant; each
+# type's path is the model's (WP-045a D2 binds them).
+CHANGE_TYPES: tuple[tuple[str, str], ...] = (
+    ("standard", "#389E0D"),
+    ("minor", "#1677FF"),
+    ("normal", "#08979C"),
+    ("major", "#D46B08"),
+    ("emergency", "#CF1322"),
+)
+CHANGE_MODELS: Mapping[str, str] = {
+    "standard": "standard",
+    "minor": "normal",
+    "normal": "normal",
+    "major": "normal",
+    "emergency": "emergency",
+}
+# Appendix A's reasons for change (REQ-CHG-011), a translatable, reportable pick list.
+CHANGE_REASONS = (
+    "security_fix",
+    "vulnerability_patch",
+    "new_service_or_feature",
+    "capacity_or_performance",
+    "compliance_requirement",
+    "end_of_life",
+    "fault_fix",
+    "cost_reduction",
+)
+DETAIL_FIELDS = ("change_type", "change_reason")

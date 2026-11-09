@@ -111,6 +111,8 @@ export const ar: LabelResource = {
   'custom_fields.yes': 'نعم',
   'list.separator': '، ',
   'pick_list.cancel': 'أسباب الإلغاء',
+  'pick_list.change_reason': 'أسباب التغيير',
+  'pick_list.change_type': 'أنواع التغيير',
   'pick_list.closure_code': 'رموز الإغلاق',
   'pick_list.downtime_kind': 'أنواع التوقف',
   'pick_list.level': 'المستويات',

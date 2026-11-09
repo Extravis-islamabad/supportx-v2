@@ -111,6 +111,8 @@ export const ur: LabelResource = {
   'custom_fields.yes': 'ہاں',
   'list.separator': '، ',
   'pick_list.cancel': 'منسوخی کی وجوہات',
+  'pick_list.change_reason': 'تبدیلی کی وجوہات',
+  'pick_list.change_type': 'تبدیلی کی اقسام',
   'pick_list.closure_code': 'بندش کے کوڈ',
   'pick_list.downtime_kind': 'بندش کی اقسام',
   'pick_list.level': 'سطحیں',

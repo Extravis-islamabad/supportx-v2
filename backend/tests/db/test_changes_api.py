@@ -138,3 +138,92 @@ async def test_req_chg_031_the_implementation_records_completed_backed_out_or_fa
         headers={"If-Match": f'"{submission["version"]}"', **CONSOLE},
     )
     assert ("outcome", "not_allowed") in field_codes(refused)
+
+
+async def details(
+    world: World,
+    org: Org,
+    item: dict[str, Any],
+    version: int,
+    **body: Any,  # noqa: ANN401 - JSON
+) -> httpx.Response:
+    return await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/details",
+        org,
+        org.admin,
+        json=body,
+        headers={"If-Match": f'"{version}"', **CONSOLE},
+    )
+
+
+async def test_req_chg_005_011_a_change_has_its_type_and_reason_from_its_own_lists(
+    world: World,
+) -> None:
+    from tests.db.test_release_templates_api import field_codes  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    item = await a_change(world, a)
+    shown = await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)
+    assert shown.status_code == 200, shown.text
+    assert (shown.json()["change_type"], shown.json()["change_reason"]) == (None, None)
+    # A release's type is not a change's: the lists are their own.
+    assert field_codes(
+        await details(world, a, item, item["version"], change_type="maintenance")
+    ) == {("change_type", "invalid_choice")}
+    set_ = await details(
+        world, a, item, item["version"], change_type="minor", change_reason="security_fix"
+    )
+    assert set_.status_code == 200, set_.text
+    assert (set_.json()["change_type"], set_.json()["change_reason"]) == ("minor", "security_fix")
+    assert set_.json()["version"] == item["version"] + 1
+    # A stale version is a conflict; unchanged input makes no new version.
+    assert problem(await details(world, a, item, item["version"], change_type="major"))[0] == 409
+    same = await details(world, a, item, set_.json()["version"], change_type="minor")
+    assert same.json()["version"] == set_.json()["version"]
+    history = await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)
+    changes = {c["field"]: (c["old"], c["new"]) for c in history.json()["items"][0]["changes"]}
+    assert changes["change_type"] == (None, "minor")
+    # Releases have no change fields, and their own route is unchanged.
+    release = await world.call(
+        "POST",
+        "/releases",
+        a,
+        a.admin,
+        json={"subject": "Payroll 4.2", "requester_id": str(a.requester)},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    shown_release = await world.call("GET", f"/releases/{release.json()['id']}/details", a, a.admin)
+    assert "change_type" not in shown_release.json()
+    assert "release_type" in shown_release.json()
+
+
+async def test_change_details_are_isolated_by_rls(world: World) -> None:
+    from sqlalchemy import text  # noqa: PLC0415 - this test only
+
+    from app.core.tenancy import TenantContext  # noqa: PLC0415 - this test only
+
+    a, b = world.a, world.b
+    item = await a_change(world, a)
+    made = await details(world, a, item, item["version"], change_type="normal")
+    assert made.status_code == 200, made.text
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        mine = (
+            await session.execute(text("SELECT count(*) FROM work_item_change_details"))
+        ).scalar_one()
+        assert mine == 1
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        seen = (
+            await session.execute(
+                text("SELECT count(*) FROM work_item_change_details WHERE tenant_id = :a"),
+                {"a": a.tenant},
+            )
+        ).scalar_one()
+        assert seen == 0
+        changed = await session.execute(
+            text("UPDATE work_item_change_details SET change_type = 'x' WHERE tenant_id = :a"),
+            {"a": a.tenant},
+        )
+        assert changed.rowcount == 0
+    other = await world.call("GET", f"{CHG}/{item['id']}/details", b, b.admin)
+    assert other.status_code == 404
