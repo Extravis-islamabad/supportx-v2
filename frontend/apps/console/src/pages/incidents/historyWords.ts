@@ -83,6 +83,7 @@ export function useHistoryWords(
   id: string,
   actors: HistoryActors = 'all',
   base: 'incidents' | 'problems' = 'incidents',
+  enabled = true,
 ) {
   const t = useLabel();
   const listFormat = useListFormat();
@@ -91,7 +92,7 @@ export function useHistoryWords(
   const { can } = useAccess();
   // A problem's history reads its own type's lists (WP-044c); both hooks run, one enabled.
   const isProblem = base === 'problems';
-  const history = useIncidentHistory(id, actors, true, base);
+  const history = useIncidentHistory(id, actors, enabled, base);
   const incidentCatalogue = useIncidentCatalogue(!isProblem);
   const problemCatalogue = useProblemCatalogue(isProblem);
   const catalogue = isProblem ? problemCatalogue : incidentCatalogue;
