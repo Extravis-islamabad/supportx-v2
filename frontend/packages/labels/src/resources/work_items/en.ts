@@ -1302,6 +1302,8 @@ export const en = {
   'scale.impact': 'Impact',
   'scale.priority': 'Priority',
   'scale.urgency': 'Urgency',
+  'stage_outcome.backed_out': 'Backed out',
+  'stage_outcome.completed': 'Completed',
   'stage_outcome.failed': 'Failed',
   'stage_outcome.partly_done': 'Partly done',
   'stage_outcome.passed': 'Passed',

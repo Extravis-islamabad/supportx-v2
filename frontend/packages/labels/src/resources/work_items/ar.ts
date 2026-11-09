@@ -1427,6 +1427,8 @@ export const ar: LabelResource = {
   'scale.impact': 'التأثير',
   'scale.priority': 'الأولوية',
   'scale.urgency': 'الإلحاح',
+  'stage_outcome.backed_out': 'تم التراجع عنه',
+  'stage_outcome.completed': 'اكتمل',
   'stage_outcome.failed': 'فاشل',
   'stage_outcome.partly_done': 'منجز جزئيًا',
   'stage_outcome.passed': 'ناجح',

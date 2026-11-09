@@ -3713,7 +3713,7 @@ def _schedule_problems(
     changed: Mapping[str, Any],
     reason: str | None,
 ) -> list[tuple[str, str]]:
-    problems = release_rules.outcome_problems(stage, merged)
+    problems = release_rules.outcome_problems(stage, merged, wtype.stage_outcomes.get(stage))
     if stage not in wtype.outcome_stages and any(
         n in changed for n in ("outcome", "outcome_notes", "issues")
     ):

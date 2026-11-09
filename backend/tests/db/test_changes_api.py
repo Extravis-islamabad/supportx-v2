@@ -100,3 +100,41 @@ async def test_a_technician_views_and_creates_changes_from_identity_s_grants(
     assert made["id"] in {i["id"] for i in listed.json()["items"]}
     # Tenant B sees none of A's changes.
     assert (await world.call("GET", CHG, world.b, world.b.admin)).json()["items"] == []
+
+
+async def test_req_chg_031_the_implementation_records_completed_backed_out_or_failed(
+    world: World,
+) -> None:
+    from tests.db.test_release_templates_api import field_codes  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    item = await a_change(world, a)
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
+    implementation = next(s for s in shown if s["stage"] == "implementation")
+
+    async def outcome(code: str, **extra: Any) -> httpx.Response:  # noqa: ANN401 - JSON
+        return await world.call(
+            "PATCH",
+            f"{CHG}/{item['id']}/schedule/implementation",
+            a,
+            a.admin,
+            json={"outcome": code, **extra},
+            headers={"If-Match": f'"{implementation["version"]}"', **CONSOLE},
+        )
+
+    # A release's work outcome is not a change implementation's.
+    assert field_codes(await outcome("partly_done")) == {("outcome", "invalid_choice")}
+    backed_out = await outcome("backed_out", outcome_notes="Rolled back at 02:10")
+    assert backed_out.status_code == 200, backed_out.text
+    assert backed_out.json()["outcome"] == "backed_out"
+    # Submission records no outcome.
+    submission = next(s for s in shown if s["stage"] == "submission")
+    refused = await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/schedule/submission",
+        a,
+        a.admin,
+        json={"outcome": "completed"},
+        headers={"If-Match": f'"{submission["version"]}"', **CONSOLE},
+    )
+    assert ("outcome", "not_allowed") in field_codes(refused)

@@ -16,6 +16,7 @@ from app.modules.work_items.domain.changes import CHANGE_MODEL, CHANGE_ROLES
 from app.modules.work_items.domain.changes import OUTCOME_STAGES as CHANGE_OUTCOME_STAGES
 from app.modules.work_items.domain.changes import PLAN_SECTIONS as CHANGE_PLAN_SECTIONS
 from app.modules.work_items.domain.changes import STAGE_APPROVALS as CHANGE_STAGE_APPROVALS
+from app.modules.work_items.domain.changes import STAGE_OUTCOMES as CHANGE_STAGE_OUTCOMES
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
@@ -115,6 +116,8 @@ class WorkItemType:
     roles: tuple[str, ...] = ()
     plan_sections: tuple[str, ...] = ()
     outcome_stages: frozenset[str] = frozenset()
+    # Each outcome stage's own codes; empty: the release's (domain/releases.outcomes_for).
+    stage_outcomes: Mapping[str, frozenset[str]] = field(default_factory=dict)
     # Seeded stage approvals (stage -> settings; REQ-REL-031), copied per tenant on first use.
     stage_approvals: Mapping[str, Mapping[str, object]] = field(default_factory=dict)
 
@@ -233,6 +236,7 @@ CHANGE = WorkItemType(
     roles=CHANGE_ROLES,
     plan_sections=CHANGE_PLAN_SECTIONS,
     outcome_stages=CHANGE_OUTCOME_STAGES,
+    stage_outcomes=CHANGE_STAGE_OUTCOMES,
     stage_approvals=CHANGE_STAGE_APPROVALS,
 )
 

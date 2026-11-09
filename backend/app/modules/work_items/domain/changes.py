@@ -177,8 +177,16 @@ CHANGE_ROLES = (
 )
 # The plan sections (REQ-CHG-013, -016, -017) on #219's plan sections, each with its history.
 PLAN_SECTIONS = ("impact", "rollout", "backout", "test")
-# Stages that record an outcome (REQ-CHG-031): the implementation's completed, backed out or failed.
-OUTCOME_STAGES = frozenset({"implementation", "acceptance_testing", "deployment", "review"})
+# Stages that record an outcome (REQ-CHG-031), and the outcomes each takes: the implementation
+# completed, backed out or failed; tests passed or failed; a deployment as a release's; the
+# review's overall result.
+STAGE_OUTCOMES: Mapping[str, frozenset[str]] = {
+    "implementation": frozenset({"completed", "backed_out", "failed"}),
+    "acceptance_testing": frozenset({"passed", "failed"}),
+    "deployment": frozenset({"passed", "failed", "partly_done"}),
+    "review": frozenset({"successful", "successful_with_issues", "failed"}),
+}
+OUTCOME_STAGES = frozenset(STAGE_OUTCOMES)
 # Appendix A's stage approvals, the first cut (REQ-CHG-042): acceptance by the line manager,
 # the plan and the CAB review by the change manager, one level each. CABs (named boards, the
 # majority and the chair) and the risk rows come with WP-045b; admins add levels any time.

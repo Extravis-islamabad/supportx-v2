@@ -1306,6 +1306,8 @@ export const ur: LabelResource = {
   'scale.impact': 'اثر',
   'scale.priority': 'ترجیح',
   'scale.urgency': 'فوریت',
+  'stage_outcome.backed_out': 'واپس لیا گیا',
+  'stage_outcome.completed': 'مکمل ہوا',
   'stage_outcome.failed': 'ناکام',
   'stage_outcome.partly_done': 'جزوی طور پر مکمل',
   'stage_outcome.passed': 'کامیاب',
