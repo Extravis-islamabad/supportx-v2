@@ -25,6 +25,7 @@ class ChangeGuard(StagedApprovalGuard):
         self, session: AsyncSession, record: WorkItem, move: Move
     ) -> list[stage_service.Refusal]:
         """The approvals' refusals, then the outcome's (REQ-CHG-032 AC1)."""
+        # The parent's sub-release check runs too: a no-op for changes (no release children).
         refusals = await super().check(session, record, move)
         if move.target.code not in rules.OUTCOME_OF_STATUS:
             return refusals
@@ -32,6 +33,7 @@ class ChangeGuard(StagedApprovalGuard):
             WorkItemStageSchedule,
             (catalogue.tenant_of(session), record.id, rules.IMPLEMENTATION),
         )
+        # No schedule row yet is no outcome yet: refused as outcome_required, never passed.
         refused = rules.outcome_refusal(move.target.code, row.outcome if row else None)
         if refused is None:
             return refusals

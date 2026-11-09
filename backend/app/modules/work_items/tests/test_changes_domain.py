@@ -130,3 +130,20 @@ def test_req_chg_006_only_the_system_pre_approves_at_creation() -> None:
             target="submission_accepted",
             path=STANDARD_PATH,
         )
+
+
+def test_req_chg_032_implementation_needs_its_matching_outcome() -> None:
+    from app.modules.work_items.domain.changes import outcome_refusal  # noqa: PLC0415 - here only
+
+    # No outcome (no schedule row yet, or one without an outcome): refused, never passed.
+    assert outcome_refusal("implementation_implemented", None) == (
+        "outcome_required",
+        {"stage": "implementation"},
+    )
+    assert outcome_refusal("implementation_implemented", "failed") == (
+        "outcome_mismatch",
+        {"stage": "implementation", "outcome": "failed"},
+    )
+    assert outcome_refusal("implementation_implemented", "successful_with_issues") is None
+    assert outcome_refusal("implementation_backed_out", "backed_out") is None
+    assert outcome_refusal("implementation_in_progress", None) is None  # not a completing move
