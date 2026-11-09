@@ -1,4 +1,4 @@
-# 2026-11-09: WP-045a changes on the stage engine, backend (lane A)
+### 2026-11-09 — WP-045a changes on the stage engine, backend (lane A)
 
 PR #299 (feat/wp-045a). Plan: ~/Desktop/wp-045-plan.md, D1 to D7. Spec: file 05, REQ-CHG-002 to -039 (V1).
 
@@ -19,8 +19,7 @@ PR #299 (feat/wp-045a). Plan: ~/Desktop/wp-045-plan.md, D1 to D7. Spec: file 05,
 - **D5, roles:**
   - roles take people or groups;
   - the line manager comes from the requester;
-  - segregation of duties: the implementer never approves (0103);
-  - a group as implementer bars all its members, which the PR states for Haider.
+  - segregation of duties (0103), Haider's default: the assigned implementer and the change owner never approve, while members of an implementing group still may. The tenant's strict option, the submit warning and the audit come with WP-045b.
 - **D6, creating:** from another record, prefilled and linked as `change_for` (0115); copy, with the parts chosen; retrospective changes.
 - **D7, plans:**
   - the backout plan is required before the plan goes for approval;
