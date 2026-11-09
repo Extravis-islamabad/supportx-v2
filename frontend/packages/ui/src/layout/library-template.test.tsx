@@ -57,9 +57,13 @@ describe('template D (library page)', () => {
 
   it('keeps a module with nothing yet, saying why', () => {
     renderUi(<Harness />);
+    const changes = screen.getByTestId('library-group-changes');
+    expect(within(changes).getByText('Change reports come later.')).toBeTruthy();
+    // No empty list around the text (axe aria-required-children, visual matrix 42703327955).
+    expect(changes.querySelector('[role="list"]')).toBeNull();
     expect(
-      within(screen.getByTestId('library-group-changes')).getByText('Change reports come later.'),
-    ).toBeTruthy();
+      screen.getByTestId('library-group-incidents').querySelector('[role="list"]'),
+    ).not.toBeNull();
   });
 
   it('filters every group as you type and says when nothing matches', () => {
