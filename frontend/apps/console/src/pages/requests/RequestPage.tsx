@@ -1,8 +1,8 @@
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Descriptions, Flex, Result, Skeleton, Tabs, Typography } from 'antd';
+import { Descriptions, Result, Skeleton, Tabs, Typography } from 'antd';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 
 import {
   serviceRequestKeys,
@@ -30,6 +30,7 @@ import {
 
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
 import { personName } from '../incidents/labels';
+import { PriorityTag, SlaTag } from '../incidents/tags';
 import { ApprovalsPanel, WithdrawButton } from './Approvals';
 import { RequestTasks } from './RequestTasks';
 import { itemName } from './items';
@@ -69,7 +70,6 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const answerWords = useAnswerWords();
   const { locale } = useAppearance();
   const dates = useDateTime();
-  const navigate = useNavigate();
   const item = useCatalogItem(r.catalog_item_id ?? undefined);
   const me = useSession().data?.user.id;
   const withdraw = useWithdrawRequest();
@@ -93,9 +93,19 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
           title={r.subject}
           testIds={{ id: 'sr-display-id', title: 'sr-heading' }}
           tags={
-            <ToneTag tone="info" testId="sr-status">
-              {t(`work_item_status.${r.status}`)}
-            </ToneTag>
+            <>
+              <ToneTag tone="info" testId="sr-status">
+                {t(`work_item_status.${r.status}`)}
+              </ToneTag>
+              <PriorityTag priority={r.priority} source={r.priority_source} />
+              <SlaTag
+                policyId={r.sla_policy_id}
+                dueAt={r.resolution_due_at}
+                state={r.resolution_sla_state}
+                resolvedAt={r.resolved_at}
+                format={dates.format}
+              />
+            </>
           }
           meta={[
             <span key="by">
@@ -105,11 +115,6 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
               {t('incidents.created_on', { date: dates.format(r.created_at) })}
             </span>,
           ]}
-          extra={
-            <Typography.Link onClick={() => void navigate('/requests')}>
-              {t('nav.requests')}
-            </Typography.Link>
-          }
         />
       }
       actions={
@@ -181,11 +186,14 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                       </span>
                     </PropertyRow>
                   )}
-                  <PropertyRow label={t('incidents.col.priority')}>
-                    {t(`priority.${r.priority}`)} · {t(`priority_source.${r.priority_source}`)}
-                  </PropertyRow>
                   <PropertyRow label={t('work_item.field.technician_id')}>
-                    <bdi>{personName(r.people, r.technician_id)}</bdi>
+                    {r.technician_id === null ? (
+                      <Typography.Text type="secondary">
+                        {t('incidents.unassigned')}
+                      </Typography.Text>
+                    ) : (
+                      <bdi>{personName(r.people, r.technician_id)}</bdi>
+                    )}
                   </PropertyRow>
                   <PropertyRow label={t('incidents.col.updated')}>
                     {dates.format(r.updated_at)}
@@ -197,61 +205,57 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
         />
       }
     >
-      <Flex vertical gap={16} style={{ padding: 16 }}>
-        <Tabs
-          data-testid="sr-tabs"
-          destroyOnHidden
-          // While it waits for approval it opens on the approvals: the approver's buttons first.
-          defaultActiveKey={r.approval_status === 'pending' ? 'approvals' : 'conversation'}
-          items={[
-            {
-              key: 'conversation',
-              label: (
-                <span data-testid="sr-tab-conversation">{t('requests.tab.conversation')}</span>
-              ),
-              children: (
-                <IncidentConversation
-                  item={r}
-                  typing={NO_TYPING}
-                  replyRequest={replyRequest}
-                  base="service-requests"
-                />
-              ),
-            },
-            {
-              key: 'details',
-              label: <span data-testid="sr-tab-details">{t('requests.item_details')}</span>,
-              children: (
-                <Descriptions size="small" column={1} data-testid="sr-answers">
-                  {questions.map((q) => (
-                    <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
-                      {answerWords(q, r.answers?.[q.key]) || (
-                        <Typography.Text type="secondary">
-                          {t('catalog.answer.not_given')}
-                        </Typography.Text>
-                      )}
-                    </Descriptions.Item>
-                  ))}
-                </Descriptions>
-              ),
-            },
-            ...(hasApprovals
-              ? [
-                  {
-                    key: 'approvals',
-                    label: <span data-testid="sr-tab-approvals">{t('requests.approvals')}</span>,
-                    children: <ApprovalsPanel recordId={r.id} />,
-                  },
-                ]
-              : []),
-            {
-              key: 'tasks',
-              label: <span data-testid="sr-tab-tasks">{t('requests.tasks')}</span>,
-              children: <RequestTasks recordId={r.id} canEdit={can('requests.edit')} />,
-            },
-          ]}
-        />
-      </Flex>
+      <Tabs
+        data-testid="sr-tabs"
+        destroyOnHidden
+        // While it waits for approval it opens on the approvals: the approver's buttons first.
+        defaultActiveKey={r.approval_status === 'pending' ? 'approvals' : 'conversation'}
+        items={[
+          {
+            key: 'conversation',
+            label: <span data-testid="sr-tab-conversation">{t('requests.tab.conversation')}</span>,
+            children: (
+              <IncidentConversation
+                item={r}
+                typing={NO_TYPING}
+                replyRequest={replyRequest}
+                base="service-requests"
+              />
+            ),
+          },
+          {
+            key: 'details',
+            label: <span data-testid="sr-tab-details">{t('requests.item_details')}</span>,
+            children: (
+              <Descriptions size="small" column={1} data-testid="sr-answers">
+                {questions.map((q) => (
+                  <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
+                    {answerWords(q, r.answers?.[q.key]) || (
+                      <Typography.Text type="secondary">
+                        {t('catalog.answer.not_given')}
+                      </Typography.Text>
+                    )}
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            ),
+          },
+          ...(hasApprovals
+            ? [
+                {
+                  key: 'approvals',
+                  label: <span data-testid="sr-tab-approvals">{t('requests.approvals')}</span>,
+                  children: <ApprovalsPanel recordId={r.id} />,
+                },
+              ]
+            : []),
+          {
+            key: 'tasks',
+            label: <span data-testid="sr-tab-tasks">{t('requests.tasks')}</span>,
+            children: <RequestTasks recordId={r.id} canEdit={can('requests.edit')} />,
+          },
+        ]}
+      />
     </RecordPage>
   );
 }
