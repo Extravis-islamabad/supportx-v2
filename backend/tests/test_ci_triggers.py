@@ -296,3 +296,12 @@ def test_every_job_with_helm_reuses_the_chart_dependencies() -> None:
             assert "hashFiles('deploy/helm/supportx/Chart.lock')" in step, f"{workflow}:{at + 1}"
     makefile = (WORKFLOWS.parents[1] / "Makefile").read_text()
     assert "@bash deploy/scripts/chart-deps.sh" in makefile  # reuses and retries, never one try
+
+
+def test_a_draft_is_not_red_for_missing_coverage() -> None:
+    """A draft runs no shard (#262): coverage is combined only after the shards passed, and a
+    draft says so instead of failing on missing files (coordinator, 2026-11-10)."""
+    text = (WORKFLOWS / "ci.yml").read_text()
+    coverage = text.split("- name: Coverage of all shards together", 1)[1].split("\n", 2)[1]
+    assert "needs.backend-tests.result == 'success'" in coverage
+    assert "skipped: draft (fast set only)" in text
