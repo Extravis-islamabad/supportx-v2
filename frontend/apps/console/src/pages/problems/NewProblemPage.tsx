@@ -169,8 +169,15 @@ function ProblemForm({
       .map((v) => ({ value: v.code, label: scaleLabel(t, catalogue.data, scale, v.code, locale) }));
   const caused = preview.data?.already_caused ?? [];
   const saving = create.isPending || fromIncidents.isPending;
+  const [subjectMissing, setSubjectMissing] = useState(false);
 
   const submit = () => {
+    // As on the new-incident form (QA9-F-10): Create is always there; an empty subject is said
+    // on the field, nothing is sent.
+    if (subject.trim() === '') {
+      setSubjectMissing(true);
+      return;
+    }
     const body: ProblemInput = {
       subject,
       requester_id: filled?.requester_id ?? me,
@@ -252,7 +259,14 @@ function ProblemForm({
               }))}
             />
           </Form.Item>
-          <Form.Item label={t('work_item.field.subject')} htmlFor="prb-subject" required>
+          <Form.Item
+            label={t('work_item.field.subject')}
+            htmlFor="prb-subject"
+            required
+            {...(subjectMissing && subject.trim() === ''
+              ? { validateStatus: 'error' as const, help: t('errors.field.required') }
+              : {})}
+          >
             <Input
               id="prb-subject"
               dir="auto"
@@ -352,7 +366,7 @@ function ProblemForm({
               type="primary"
               onClick={submit}
               loading={saving}
-              disabled={subject.trim() === '' || me === ''}
+              disabled={me === ''}
               data-testid="prb-create"
             >
               {t('problems.create')}

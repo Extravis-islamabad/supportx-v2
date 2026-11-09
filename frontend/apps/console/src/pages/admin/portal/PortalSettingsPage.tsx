@@ -1,16 +1,5 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-import {
-  Button,
-  Card,
-  Checkbox,
-  Flex,
-  List,
-  Select,
-  Skeleton,
-  Switch,
-  Tag,
-  Typography,
-} from 'antd';
+import { Card, Checkbox, Flex, List, Select, Skeleton, Switch, Tag, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -28,7 +17,7 @@ import {
   type PortalSearchSource,
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
-import { PageHeader, reportError, useLabel } from '@supportx/ui';
+import { PageHeader, reportError, useLabel, useLicence, WriteButton } from '@supportx/ui';
 
 const SOURCES: PortalSearchSource[] = ['items', 'articles', 'announcements', 'requests'];
 const SCOPES: OnBehalfScope[] = ['same_department', 'same_site', 'all_requesters', 'all_users'];
@@ -66,6 +55,7 @@ function Setting({
  */
 export function PortalSettingsPage() {
   const t = useLabel();
+  const { writable } = useLicence(); // read-only licence: nothing here saves (coverage §17)
   const queryClient = useQueryClient();
   // Another admin's change shows here at once (§8).
   useTenantChannel((event) => {
@@ -124,6 +114,7 @@ export function PortalSettingsPage() {
             testId="ps-hide-default-form"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.hide_default_form')}
               checked={cat.hide_default_incident_template}
               loading={catalogChange.isPending}
@@ -141,6 +132,7 @@ export function PortalSettingsPage() {
             testId="ps-due-incidents"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.due_incidents')}
               checked={inc.portal_show_due_time}
               loading={incidentChange.isPending}
@@ -158,6 +150,7 @@ export function PortalSettingsPage() {
             testId="ps-due-requests"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.due_requests')}
               checked={sr.portal_show_due_time}
               loading={requestChange.isPending}
@@ -175,6 +168,7 @@ export function PortalSettingsPage() {
           testId="ps-on-behalf"
         >
           <Select
+            disabled={!writable}
             aria-label={t('portal_settings.on_behalf')}
             style={{ minWidth: 240 }}
             value={sr.on_behalf_scope}
@@ -193,6 +187,7 @@ export function PortalSettingsPage() {
             testId="ps-approvals-hidden"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.approvals_hidden')}
               checked={sr.approvals_hidden_from_requesters}
               onChange={(on) => {
@@ -206,6 +201,7 @@ export function PortalSettingsPage() {
             testId="ps-approvals-sign-in"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.approvals_sign_in')}
               checked={sr.approvals_require_sign_in}
               onChange={(on) => {
@@ -235,7 +231,7 @@ export function PortalSettingsPage() {
                     actions={
                       on
                         ? [
-                            <Button
+                            <WriteButton
                               key="up"
                               size="small"
                               type="text"
@@ -248,7 +244,7 @@ export function PortalSettingsPage() {
                                 move(source, -1);
                               }}
                             />,
-                            <Button
+                            <WriteButton
                               key="down"
                               size="small"
                               type="text"
@@ -286,6 +282,7 @@ export function PortalSettingsPage() {
             testId="ps-profile-editing"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.profile_editing')}
               checked={p.profile_editing}
               onChange={(on) => {
@@ -299,6 +296,7 @@ export function PortalSettingsPage() {
             testId="ps-reminders"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.reminders')}
               checked={p.requester_reminders}
               onChange={(on) => {

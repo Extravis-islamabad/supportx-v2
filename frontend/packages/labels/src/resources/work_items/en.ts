@@ -745,6 +745,7 @@ export const en = {
   'incidents.title': 'Incidents',
   'incidents.trash': 'Trash',
   'incidents.trash_empty': 'The trash is empty.',
+  'incidents.type_two_letters': 'Type at least 2 letters',
   'incidents.unassigned': 'Not taken yet',
   'incidents.unknown_value': 'Unknown value',
   'incidents.view': 'View',
