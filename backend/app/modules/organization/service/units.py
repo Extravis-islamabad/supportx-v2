@@ -162,7 +162,8 @@ async def _require_unit(session: AsyncSession, kind: Kind, unit_id: uuid.UUID) -
 
 # Checks a person adding a member to a group (WP-042): identity_access registers one so that a
 # group carrying roles hands them out only to someone who could assign those roles directly.
-MemberGuard = Callable[[AsyncSession, object, uuid.UUID], Awaitable[None]]
+# (session, the person adding, the group, the member being added).
+MemberGuard = Callable[[AsyncSession, object, uuid.UUID, uuid.UUID], Awaitable[None]]
 _MEMBER_GUARDS: list[MemberGuard] = []
 
 
@@ -199,7 +200,7 @@ async def add_member(
     await _require_unit(session, kind, unit_id)
     if kind == "group" and by is not SYSTEM_PATH:
         for guard in _MEMBER_GUARDS:
-            await guard(session, by, unit_id)
+            await guard(session, by, unit_id, user_id)
     unit = UNITS[kind]
     context = session.info[SESSION_TENANT_KEY]
     statement = (

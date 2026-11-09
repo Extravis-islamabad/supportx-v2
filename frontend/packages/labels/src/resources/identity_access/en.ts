@@ -628,6 +628,11 @@ export const en = {
   'permission.work_items.view_reports': 'View requests of their direct reports',
   'permission.work_items.view_reports.description':
     'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
+  'permission.workflows.manage': 'Manage workflows',
+  'permission.workflows.manage.description':
+    'Design, publish and switch visual workflows, and choose the roles they run with.',
+  'permission.workflows.run': 'Run workflows',
+  'permission.workflows.run.description': 'Start a workflow on a record and see how its runs went.',
   'permission_module.announcements': 'Announcements',
   'permission_module.api_keys': 'API keys',
   'permission_module.assets': 'Assets',
@@ -660,6 +665,7 @@ export const en = {
   'permission_module.sla': 'SLA',
   'permission_module.users': 'Users',
   'permission_module.work_items': 'All requests (incidents and service requests)',
+  'permission_module.workflows': 'Workflows',
   'preferences.date_format': 'Date format',
   'preferences.default': 'Default',
   'preferences.default_value': 'Default ({{value}})',

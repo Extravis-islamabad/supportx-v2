@@ -610,6 +610,11 @@ export const ar: LabelResource = {
   'permission.work_items.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
   'permission.work_items.view_reports.description':
     'في البوابة، رؤية حوادث وطلبات الأشخاص الذين يتبعونه مباشرة، ضمن عامل تصفية منفصل.',
+  'permission.workflows.manage': 'إدارة سير العمل',
+  'permission.workflows.manage.description':
+    'تصميم سير العمل المرئي ونشره وتشغيله وإيقافه، واختيار الأدوار التي يعمل بها.',
+  'permission.workflows.run': 'تشغيل سير العمل',
+  'permission.workflows.run.description': 'بدء سير عمل على سجل ومعرفة كيف جرت عمليات تشغيله.',
   'permission_module.announcements': 'الإعلانات',
   'permission_module.api_keys': 'مفاتيح API',
   'permission_module.assets': 'الأصول',
@@ -642,6 +647,7 @@ export const ar: LabelResource = {
   'permission_module.sla': 'اتفاقيات مستوى الخدمة',
   'permission_module.users': 'المستخدمون',
   'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
+  'permission_module.workflows': 'سير العمل',
   'preferences.date_format': 'تنسيق التاريخ',
   'preferences.default': 'الافتراضي',
   'preferences.default_value': 'الافتراضي ({{value}})',

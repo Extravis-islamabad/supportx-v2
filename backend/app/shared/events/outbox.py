@@ -19,6 +19,8 @@ change or delete any outbox row, its own tenant's included.
 """
 
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
@@ -39,6 +41,7 @@ from app.shared.ids import new_id
 OUTBOX_TABLE = "outbox_events"
 OUTBOX_CHANNEL = "supportx_outbox"
 PROCESSED_TABLE = "processed_events"
+CAUSE_KEY = "supportx_event_cause"  # session.info: the cause of events recorded in a block
 
 
 class OutboxEvent(TenantScoped, Timestamps, Base):
@@ -92,6 +95,25 @@ def _traceparent() -> str | None:
     return carrier.get("traceparent")
 
 
+@contextmanager
+def caused_by(session: AsyncSession, cause_id: uuid.UUID) -> Iterator[None]:
+    """Events recorded inside this block carry `cause_id` as their causation, unless given one.
+
+    For a caller acting through another module's public services, which take no cause of their
+    own: a workflow instance's commands (WP-048b, ADR-043 §6), so a trigger can tell the
+    workflow's own changes from a person's. The previous cause comes back when the block ends.
+    """
+    previous = session.info.get(CAUSE_KEY)
+    session.info[CAUSE_KEY] = cause_id
+    try:
+        yield
+    finally:
+        if previous is None:
+            session.info.pop(CAUSE_KEY, None)
+        else:
+            session.info[CAUSE_KEY] = previous
+
+
 async def record_event(  # noqa: PLR0913 - keyword-only envelope fields, most optional
     session: AsyncSession,
     event: DomainEvent,
@@ -115,6 +137,8 @@ async def record_event(  # noqa: PLR0913 - keyword-only envelope fields, most op
         msg = "events can only be recorded in a tenant session (Database.tenant_session)"
         raise TenantContextMissingError(msg)
     event_class = type(event)
+    if causation_id is None and isinstance(session.info.get(CAUSE_KEY), uuid.UUID):
+        causation_id = session.info[CAUSE_KEY]
     if actor is None:
         actor = (
             Actor.user(context.user_id)

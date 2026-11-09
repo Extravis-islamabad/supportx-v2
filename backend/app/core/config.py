@@ -210,6 +210,8 @@ class Settings(BaseSettings):
     temporal_address: str | None = None  # host:port of the Temporal frontend
     temporal_namespace: str = "supportx"
     temporal_task_queue: str = "sla"
+    # Visual workflows' waker (WP-048b, ADR-043 §5): its own queue, its own worker.
+    temporal_workflow_task_queue: str = "workflows"
     consumer_backoff_initial_seconds: float = Field(default=1.0, gt=0)
     consumer_backoff_max_seconds: float = Field(default=60.0, gt=0)
     consumer_ack_wait_seconds: float = Field(default=30.0, ge=1)
