@@ -170,6 +170,13 @@ def _until(check: object, seconds: float) -> None:
     pytest.fail(f"not reached within {seconds} s")
 
 
+def replicated(valkeys: Valkeys) -> None:
+    """Both replicas really hold the key. WAIT is not proof: in Valkey's dual-channel sync it can
+    count a replica still loading (link down, offset 0; seen 2026-11-09)."""
+    for index in (1, 2):
+        _until(lambda i=index: valkeys.cli(i, "get", "session:probe") == "kept", 60)
+
+
 @pytest.fixture
 def valkeys(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Valkeys]:
     tmp_path.chmod(0o755)  # the containers' own user reads the scripts
@@ -218,6 +225,7 @@ def test_a_failover_keeps_the_data_and_the_old_master_rejoins_as_a_replica(
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     # Both replicas have it before the master is lost (WAIT: replicas that acknowledged).
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
+    replicated(valkeys)
 
     valkeys.stop(0)
     _until(
@@ -249,6 +257,7 @@ def test_a_master_back_before_the_sentinels_notice_never_starts_empty(valkeys: V
     _until(lambda: valkeys.master(1).startswith("supportx-valkey-0."), START_SECONDS)
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
+    replicated(valkeys)
 
     valkeys.stop(0)
     valkeys.start(0)  # at once: well inside down-after-milliseconds
@@ -292,6 +301,7 @@ def test_a_master_back_while_its_peers_are_unreachable_waits_and_keeps_the_data(
     _until(lambda: valkeys.master(1).startswith("supportx-valkey-0."), START_SECONDS)
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
+    replicated(valkeys)
 
     valkeys.cut(1)
     valkeys.cut(2)
