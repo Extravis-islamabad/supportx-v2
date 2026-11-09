@@ -374,3 +374,36 @@ describe('Availability switch (WP-029, REQ-ASG-006)', () => {
     ).toEqual({ state: 'away' });
   });
 });
+
+describe('Settings review 2026-11-06: editors say what is missing before sending', () => {
+  beforeEach(() => {
+    setDefaultClientFactory(inertClientFactory);
+  });
+
+  it('QA6S-AUT-01: an empty routing rule names Name and Group, never a raw code', async () => {
+    const fake = routes();
+    open('/admin/automation/routing');
+    fireEvent.click(await screen.findByTestId('routing-add'));
+    fireEvent.click(await screen.findByTestId('routing-save'));
+    const list = await screen.findByTestId('routing-problems');
+    expect(list.textContent).toContain('Name');
+    expect(list.textContent).toContain('This field is required.');
+    expect(list.textContent).toContain('Choose a group.');
+    expect(list.textContent).not.toMatch(/Uuid|Parsing/);
+    expect(fake.find('POST', '/api/v1/automation/routing')).toHaveLength(0);
+  });
+
+  it('QA6S-AUT-03: an action without a field asks to choose one', async () => {
+    const fake = routes();
+    open('/admin/automation/business-rules');
+    fireEvent.click(await screen.findByTestId('rule-add'));
+    fireEvent.change(await screen.findByTestId('rule-name'), { target: { value: 'New' } });
+    fireEvent.click(screen.getByTestId('action-add'));
+    fireEvent.click(screen.getByTestId('rule-save'));
+    const list = await screen.findByTestId('rule-problems');
+    expect(list.textContent).toContain('Action 1');
+    expect(list.textContent).toContain('Choose a field.');
+    expect(list.textContent).not.toContain('A rule cannot set this field.');
+    expect(fake.find('POST', '/api/v1/automation/rules')).toHaveLength(0);
+  });
+});

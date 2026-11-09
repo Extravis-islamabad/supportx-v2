@@ -37,6 +37,7 @@ export const ur: LabelResource = {
     'آپ کے رولز کے لیے لازمی: پاس ورڈ کے بعد آپ تصدیقی ایپ کا کوڈ درج کرتے ہیں۔',
   'account.mfa.reminder':
     'آپ کی تنظیم دو مرحلہ سائن اِن لازمی کرتی ہے۔ اسے {{date}} تک سیٹ اپ کریں؛ اس کے بعد کچھ اور کرنے سے پہلے آپ سے کہا جائے گا۔',
+  'account.mfa.reminder_close': 'اگلے سائن اِن تک یہ یاد دہانی چھپائیں',
   'account.mfa.reminder_short': 'دو مرحلہ سائن اِن {{date}} تک درکار',
   'account.mfa.set_up': 'دو مرحلہ سائن اِن سیٹ اپ کریں',
   'account.mfa.set_up_short': 'سیٹ اپ کریں',

@@ -31,7 +31,7 @@ const SETTINGS: AiSettings = {
     { code: 'conversation_summary', area: 'summaries', enabled: true },
     { code: 'possible_duplicates', area: 'predictions', enabled: true },
   ],
-  provider: { name: 'fake', model: 'qwen3-4b', external: false },
+  provider: { name: 'openai_compatible', model: 'qwen3-4b', external: false },
 };
 
 function api(routes: Record<string, FakeRoute> = {}, me = ADMIN) {
@@ -55,6 +55,19 @@ describe('Admin › AI', () => {
       'qwen3-4b (in your installation)',
     );
     expect(page.textContent).not.toMatch(/reply_draft|conversation_summary|summaries/);
+  });
+
+  it('QA6S-AI-01: the built-in stand-in model is never named to admins', async () => {
+    window.history.pushState({}, '', '/admin/ai');
+    api({
+      'GET /api/v1/ai/settings': {
+        body: { ...SETTINGS, provider: { name: 'fake', model: 'fake', external: false } },
+      },
+    });
+    render(<App />);
+    const model = await screen.findByTestId('ai-model');
+    expect(model.textContent).toContain('No AI model is connected to this server.');
+    expect(model.textContent).not.toMatch(/fake/);
   });
 
   it('switching a feature off asks first, says what happens, then saves with If-Match', async () => {

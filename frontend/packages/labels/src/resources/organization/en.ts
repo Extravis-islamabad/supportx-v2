@@ -27,6 +27,7 @@ export const en = {
   'branding.image.logo_file_id': 'Logo',
   'branding.image.logo_file_id_hint':
     'Shown in the header, on the sign-in page and in emails. A PNG with a transparent background works best; dark and high-contrast versions are made from it.',
+  'branding.image.logo_first': 'Upload a logo first: the dark-mode logo and the icon go with it.',
   'branding.image.ready': 'Ready: save to use it everywhere.',
   'branding.image.remove': 'Remove',
   'branding.image.scanning': 'Checking the file for malware…',

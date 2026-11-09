@@ -19,6 +19,8 @@ export const en = {
   'automation.assign.unassigned_only': 'Only records without a technician',
   'automation.availability.help': 'Away: new records are not auto-assigned to you.',
   'automation.availability.label': 'My availability',
+  'automation.choose_field': 'Choose a field.',
+  'automation.choose_group': 'Choose a group.',
   'automation.col.actions': 'Actions',
   'automation.col.events': 'Runs',
   'automation.col.group': 'Group',

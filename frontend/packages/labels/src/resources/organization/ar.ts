@@ -27,6 +27,7 @@ export const ar: LabelResource = {
   'branding.image.logo_file_id': 'الشعار',
   'branding.image.logo_file_id_hint':
     'يظهر في الرأس وصفحة تسجيل الدخول والرسائل. يُفضَّل ملف PNG بخلفية شفافة؛ وتُنشأ منه النسختان الداكنة وعالية التباين.',
+  'branding.image.logo_first': 'ارفع الشعار أولًا: شعار الوضع الداكن والأيقونة يتبعانه.',
   'branding.image.ready': 'جاهز: احفظ لاستخدامه في كل مكان.',
   'branding.image.remove': 'إزالة',
   'branding.image.scanning': 'جارٍ فحص الملف بحثًا عن البرمجيات الخبيثة…',

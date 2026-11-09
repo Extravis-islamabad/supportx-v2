@@ -155,10 +155,13 @@ export function AiSettingsPage() {
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <Typography.Text type="secondary" data-testid="ai-model">
             {t('ai_settings.model')}:{' '}
-            {t('ai_settings.model_value', {
-              model: saved.provider.model,
-              where: t(saved.provider.external ? 'ai_settings.external' : 'ai_settings.local'),
-            })}
+            {saved.provider.name === 'fake'
+              ? // The built-in stand-in is never named: no model is connected (QA6S-AI-01).
+                t('ai_settings.model_none')
+              : t('ai_settings.model_value', {
+                  model: saved.provider.model,
+                  where: t(saved.provider.external ? 'ai_settings.external' : 'ai_settings.local'),
+                })}
           </Typography.Text>
           {saved.provider.external ? (
             <Typography.Text>{t('ai_settings.always_masked')}</Typography.Text>

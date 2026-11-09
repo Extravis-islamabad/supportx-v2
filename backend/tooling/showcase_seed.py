@@ -52,6 +52,7 @@ from app.modules.identity_access.domain.identity import Identity
 from app.modules.identity_access.service.users import provision_user
 from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
+from tooling import showcase_lane_a as lane_a
 from tooling.keycloak_theme import admin_token
 
 # Every module's tables on the shared metadata before ensure_tenant seeds the catalog: its items
@@ -299,6 +300,7 @@ _BACKDATE_TARGETS = (
     ("work_item_tasks", "t.work_item_id = s.id"),
     ("work_item_worklogs", "t.work_item_id = s.id"),
     ("work_item_followers", "t.work_item_id = s.id"),
+    ("work_item_approvals", "t.work_item_id = s.id"),
     ("sla_applications", "t.record_id = s.id"),
     ("sla_targets", "t.record_id = s.id"),
     (
@@ -311,7 +313,8 @@ _BACKDATE_TARGETS = (
     ),
     ("field_changes", "t.record_type = 'work_item' AND t.record_id = s.id"),
 )
-# Each incident's fixed target: 1 to 30 days and 0 to 8 hours before the tenant was created.
+# Each record's fixed target (incidents, requests, problems; never releases): 1 to 30 days and
+# 0 to 8 hours before the tenant was created.
 _BACKDATE_DELTAS = """
 CREATE TEMP TABLE showcase_shift ON COMMIT DROP AS
 SELECT w.id,
@@ -320,7 +323,7 @@ SELECT w.id,
                         hours => ((w.display_number * 5) % 9)::int))
        - w.created_at AS delta
   FROM work_items w JOIN tenants t ON t.id = w.tenant_id
- WHERE w.tenant_id = $1 AND w.type = 'incident'
+ WHERE w.tenant_id = $1 AND w.type <> 'release'  -- a release's stage history keeps its dates
 """
 
 
@@ -748,9 +751,9 @@ class Catalogue:
         return {}
 
 
-async def catalogue(api: Api) -> Catalogue:
-    """The incident settings the seed's moves need."""
-    found = await api.call("GET", "/api/v1/incidents/settings")
+async def catalogue(api: Api, base: str = "/api/v1/incidents") -> Catalogue:
+    """The type's settings the seed's moves need (incidents unless `base` says otherwise)."""
+    found = await api.call("GET", f"{base}/settings")
     codes = [c["code"] for c in found["closure_codes"] if not c.get("disabled")]
     return Catalogue(found["transitions"], found["reasons"], codes)
 
@@ -1018,6 +1021,33 @@ async def ensure_releases(admin: Api, requester: str) -> int:
     return made_now
 
 
+async def fill_lane_a(
+    admin: Api,
+    people: Mapping[str, str],
+    groups: Mapping[str, str],
+    signed_in: Mapping[str, uuid.UUID],
+    report: "Report",
+) -> None:
+    """Approvers, service requests, problems and rules (tooling/showcase_lane_a.py, QA6-DATA-01)."""
+    requesters = [people[p.email] for p in PEOPLE if p.user_type == "requester"]
+    omar, sana = str(signed_in[TECHNICIAN.email]), str(signed_in[ADMIN.email])
+    # Everyone's request needing their manager's approval has a manager who can decide it
+    # (QA6-SR-01): Omar for the requesters and the admin. Omar's own go to the admin, the
+    # approval administrator (a manager cycle is refused).
+    report.managers = await lane_a.ensure_managers(admin, [*requesters, sana], uuid.UUID(omar))
+    report.service_requests = await lane_a.ensure_service_requests(
+        admin,
+        admin.as_user(uuid.UUID(omar)),
+        rules=await catalogue(admin, lane_a.SR),
+        requesters=requesters,
+        worker=(groups["Service desk"], omar),
+        admin_id=sana,
+    )
+    incidents = [i["id"] for i in await admin.all_pages("/api/v1/incidents")]
+    report.problems = await lane_a.ensure_problems(admin, sana, incidents)
+    report.rules = await lane_a.ensure_rules(admin, groups)
+
+
 @dataclass
 class Report:
     """What this run made (empty lists and zero: everything was already there)."""
@@ -1025,6 +1055,10 @@ class Report:
     tenant: list[str] = field(default_factory=list)
     keycloak: list[str] = field(default_factory=list)
     incidents: int = 0
+    managers: int = 0
+    service_requests: int = 0
+    problems: int = 0
+    rules: int = 0
     dashboard: bool = False
     catalog_published: int = 0
     articles: int = 0
@@ -1052,6 +1086,7 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
         report.catalog_published = await ensure_catalog(admin, groups)
         people = await ensure_people(admin, sites, groups, signed_in)
         report.incidents = await ensure_incidents(admin, people, groups, signed_in)
+        await fill_lane_a(admin, people, groups, signed_in, report)
         report.dashboard = await ensure_dashboard(admin)
         author = admin.as_user(signed_in[TECHNICIAN.email])
         report.articles = await ensure_knowledge(admin, author)
@@ -1128,6 +1163,9 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  made now: {', '.join(report.tenant + report.keycloak) or 'nothing (all present)'}\n"
         f"  incidents made now: {report.incidents}; dashboard made now: {report.dashboard}\n"
         f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
+        f"  service requests made now: {report.service_requests}; problems made now:"
+        f" {report.problems}; rules made now: {report.rules}; managers set now:"
+        f" {report.managers}\n"
         f"  incidents moved into the past 30 days now: {report.backdated}\n"
         f"  sign in as {ADMIN.email} or {TECHNICIAN.email} with ${PASSWORD_ENV}\n"
     )

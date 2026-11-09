@@ -21,6 +21,8 @@ export const ur: LabelResource = {
   'automation.assign.unassigned_only': 'صرف بغیر ٹیکنیشن والے ریکارڈ',
   'automation.availability.help': 'غیر حاضر: نئے ریکارڈ خودکار طور پر آپ کو تفویض نہیں ہوں گے۔',
   'automation.availability.label': 'میری دستیابی',
+  'automation.choose_field': 'ایک فیلڈ منتخب کریں۔',
+  'automation.choose_group': 'ایک گروپ منتخب کریں۔',
   'automation.col.actions': 'اعمال',
   'automation.col.events': 'کب چلتا ہے',
   'automation.col.group': 'گروپ',
