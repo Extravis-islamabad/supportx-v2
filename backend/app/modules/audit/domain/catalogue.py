@@ -228,6 +228,8 @@ ACTIONS: dict[str, Action] = _actions(
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),
+    # The showcase seed's step 6 (Haider, 2026-11-09): an older incident's SLA from creation.
+    ("incident.sla_applied_from_creation", AuditCategory.RECORDS, "work_items"),
     ("incident.bulk_started", AuditCategory.RECORDS, "work_items"),
     ("incident.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("incident.closed_record_edited", AuditCategory.RECORDS, "work_items"),

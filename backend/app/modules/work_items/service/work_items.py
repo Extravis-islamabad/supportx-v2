@@ -4808,3 +4808,61 @@ async def automation_log(
     """What automation did on a record (triggers' outcomes, loop stops), for whoever may see it."""
     await _visible(session, subject, wtype, record_id)
     return list(await record_runs(session, record_id))
+
+
+async def apply_sla_from_creation(
+    session: AsyncSession, record_id: uuid.UUID, *, now: datetime
+) -> bool:
+    """Give a record that never had an SLA its SLA from its creation; False when it had one.
+
+    Idempotent: a record with any SLA (applied, even a policy with no target for it) is left
+    as it is, so the same SLA is never applied twice. The record's columns change through the
+    repository with field history (source `api`), the change event and an audit entry, like
+    every save; nothing else of the record changes. The caller audits it, as routes do
+    (`<type>.sla_applied_from_creation`). See `sla_glue.replay_from_creation`.
+    """
+    record = await session.scalar(
+        select(WorkItem)
+        .where(WorkItem.id == record_id, WorkItem.deleted_at.is_(None))
+        .with_for_update()
+    )
+    if record is None or not sla_glue.has_sla(record):
+        return False
+    shown = await sla_glue.record_view(session, record)
+    if shown.policy_id is not None or shown.applied_at is not None or shown.targets:
+        return False
+    columns = await sla_glue.replay_from_creation(session, record, now=now)
+    changed = {k: v for k, v in columns.items() if getattr(record, k) != v}
+    if not changed:
+        return False
+    audience_before = _audience(record)
+    lines = [
+        Change(k, sla_glue.plain(getattr(record, k)), sla_glue.plain(v)) for k, v in changed.items()
+    ]
+    updated = await WorkItemRepository(session).update(
+        record.id, expected_version=record.version, changes=changed
+    )
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=lines,
+        source="api",
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(changed),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return True
