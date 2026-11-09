@@ -72,6 +72,13 @@ const PAGE_CSS =
   // Text for screen readers only (a name where the screen shows initials or an icon).
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
+  // An in-place edit button (template A): out of sight until it has keyboard focus.
+  '.sx-edit-trigger { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
+  'clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0; background: none; } ' +
+  '.sx-edit-trigger:focus-visible { position: static; width: auto; height: auto; overflow: visible; ' +
+  'clip: auto; margin-inline-start: 6px; cursor: pointer; color: inherit; } ' +
+  // No space before a label's colon (en typography; D-147 polish).
+  '.ant-descriptions-item-label::after { margin-inline-start: 0 !important; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
   // A table wider than its box shows that it scrolls: a real scrollbar, never an overlay one
   // that appears only while scrolling (QA 2026-11-05 V1: columns cut off with no cue).
@@ -87,13 +94,18 @@ const PAGE_CSS =
   // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
   // virtual, so CSS cannot size them by content); they never pass the screen.
   '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +
+  // Multi-select tags show their whole text: no clipped descenders, readable Arabic and Urdu
+  // (QA6S-SHELL-08: the single-line padding rule below no longer reaches them).
+  '.ant-select-multiple .ant-select-selection-item { height: auto; min-height: 24px; ' +
+  'line-height: 1.6; padding-block: 1px; } ' +
+  '.ant-select-multiple .ant-select-selection-item-content { line-height: 1.6; } ' +
   // Option text wraps only between words ("Stacked bar", never "Sta / cked"); a single word
   // too long for the list ends in an ellipsis, its full text in the option's tooltip (title).
   // Room for the dots below Arabic-script letters wherever one line of user text is cut off
   // (QA 2026-11-04: "في" read as "فى"), whatever the UI language: the clip box (the padding
   // box) grows, and the equal negative margin keeps the layout exactly as it was. Two-line
   // clamps take the script's line height instead (clampLineHeight).
-  '.ant-typography-ellipsis-single-line, .ant-card-head-title, .ant-select-selection-item, ' +
+  '.ant-typography-ellipsis-single-line, .ant-card-head-title, .ant-select-single .ant-select-selection-item, ' +
   '.ant-select-item-option-content, .ant-menu-title-content ' +
   '{ padding-block: 0.25em; margin-block: -0.25em; } ' +
   '.ant-select-dropdown .ant-select-item-option .ant-select-item-option-content ' +

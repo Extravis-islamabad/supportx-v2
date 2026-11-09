@@ -11,8 +11,10 @@ export function mirrorForRtl(option: EChartsCoreOption, rtl: boolean): EChartsCo
       : { ...(axis as Axis | undefined), [key]: value };
   return {
     ...option,
-    xAxis: flip(option.xAxis, 'inverse', true),
-    yAxis: flip(option.yAxis, 'position', 'right'),
+    // Only axes that exist flip: an axis made here for a pie or doughnut was drawn as a stray
+    // line through the ring in Arabic (QA 11-09).
+    ...(option.xAxis === undefined ? {} : { xAxis: flip(option.xAxis, 'inverse', true) }),
+    ...(option.yAxis === undefined ? {} : { yAxis: flip(option.yAxis, 'position', 'right') }),
     // Only a legend that exists moves: adding one here drew a default legend over the axis for a
     // single measure in Arabic (QA WP-035 BUG-03).
     ...(option.legend === undefined

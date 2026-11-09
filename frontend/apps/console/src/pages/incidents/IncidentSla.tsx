@@ -26,6 +26,7 @@ import {
 
 import { levelWhen } from '../admin/sla/levels';
 import { incidentView, useIncidentFieldName } from './conflict';
+import { calendarNameOf, policyName } from '../admin/sla/names';
 
 const REASON_MAX = 500;
 
@@ -109,7 +110,7 @@ export function IncidentSla({ item }: { item: Incident }) {
     <Space direction="vertical" size="middle" style={{ width: '100%' }} data-testid="inc-sla">
       <Descriptions column={1} size="small">
         <Descriptions.Item label={t('incidents.sla.policy')}>
-          <bdi data-testid="inc-sla-policy">{panel.policy_name ?? ''}</bdi>
+          <bdi data-testid="inc-sla-policy">{policyName(t, panel.policy_name)}</bdi>
         </Descriptions.Item>
         {panel.reason !== null && (
           <Descriptions.Item label={t('incidents.sla.applied')}>
@@ -154,7 +155,7 @@ export function IncidentSla({ item }: { item: Incident }) {
           )}
           {target.calendar_name !== null && (
             <Descriptions.Item label={t('incidents.sla.calendar')}>
-              <bdi>{target.calendar_name}</bdi>
+              <bdi>{calendarNameOf(t, target.calendar_name)}</bdi>
             </Descriptions.Item>
           )}
           {target.manual !== null && (

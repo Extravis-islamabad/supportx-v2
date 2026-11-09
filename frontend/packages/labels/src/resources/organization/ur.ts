@@ -28,6 +28,7 @@ export const ur: LabelResource = {
   'branding.image.logo_file_id': 'لوگو',
   'branding.image.logo_file_id_hint':
     'ہیڈر، سائن اِن صفحے اور ای میلز میں دکھایا جاتا ہے۔ شفاف پس منظر والی PNG بہترین ہے؛ ڈارک اور ہائی کنٹراسٹ ورژن اسی سے بنتے ہیں۔',
+  'branding.image.logo_first': 'پہلے لوگو اپ لوڈ کریں: ڈارک موڈ لوگو اور آئیکن اسی کے ساتھ ہیں۔',
   'branding.image.ready': 'تیار: ہر جگہ استعمال کے لیے محفوظ کریں۔',
   'branding.image.remove': 'ہٹائیں',
   'branding.image.scanning': 'فائل میں مالویئر کی جانچ ہو رہی ہے…',
@@ -45,7 +46,7 @@ export const ur: LabelResource = {
   'branding.preview.sign_in': 'سائن اِن',
   'branding.preview.title': 'پیش منظر',
   'branding.primary': 'بنیادی رنگ',
-  'branding.ratio': '{{ratio}}:1، درکار {{required}}:1',
+  'branding.ratio': '{{ratio}}، درکار {{required}}',
   'branding.reset': 'SupportX کے طے شدہ پر واپس',
   'branding.reset_body':
     'آپ کا لوگو، رنگ اور متن ہٹا دیے جائیں گے اور ہر اسکرین دوبارہ SupportX کا برانڈ دکھائے گی۔',
@@ -98,6 +99,8 @@ export const ur: LabelResource = {
   'organization.col.actions': 'کارروائیاں',
   'organization.col.members': 'اراکین',
   'organization.col.name': 'نام',
+  'organization.col.people': 'افراد',
+  'organization.col.site_access': 'سائٹ تک رسائی',
   'organization.current_person': 'موجودہ فرد',
   'organization.default': 'ڈیفالٹ',
   'organization.departments': 'شعبے',

@@ -72,7 +72,8 @@ class ValkeyProbe:
         timeouts = {"socket_connect_timeout": timeout_s, "socket_timeout": timeout_s}
         client: valkey.asyncio.Valkey
         if self._settings is not None and self._settings.valkey_sentinels:
-            client = valkey_client(self._settings, **timeouts)
+            # One try: a probe reports what it sees now, without the app's bounded retry.
+            client = valkey_client(self._settings, retry=None, retry_on_error=[], **timeouts)
         else:
             # valkey-py ships no annotations for from_url; the return type is declared here.
             client = valkey.asyncio.from_url(self._url, **timeouts)  # type: ignore[no-untyped-call]

@@ -56,3 +56,19 @@ describe.each(THEME_MODES)('palette, %s', (mode) => {
     );
   });
 });
+
+describe.each(THEME_MODES)('V5: empty tables and lists, %s', (mode) => {
+  it('V5: "nothing here" text in a table or list reads (not the disabled colour)', () => {
+    const config = buildTheme(mode);
+    const token = antdTheme.getDesignToken(config);
+    for (const name of ['Table', 'List'] as const) {
+      const own = config.components?.[name]?.colorTextDisabled;
+      expect(own, `${name} sets its empty text colour`).toBeDefined();
+      const background = flat(token.colorBgContainer, '#ffffff');
+      expect(
+        contrastRatio(flat(own ?? '', background), background),
+        `${name} empty text`,
+      ).toBeGreaterThanOrEqual(AA);
+    }
+  });
+});

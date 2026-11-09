@@ -122,7 +122,9 @@ from app.modules.identity_access.service.roles import (
     use_policy,
 )
 from app.modules.identity_access.service.service_identities import (
+    assign_service_identity_role,
     create_service_identity,
+    remove_service_identity_role,
     set_service_identity_active,
 )
 from app.modules.identity_access.service.users import count_technicians
@@ -135,8 +137,10 @@ from app.modules.organization import (
     memberships,
     register_group_disable_guard,
     register_member_guard,
+    register_site_people_counter,
     unregister_group_disable_guard,
     unregister_member_guard,
+    unregister_site_people_counter,
 )
 from app.shared.clock import system_clock
 from app.shared.labels import missing_labels
@@ -257,6 +261,7 @@ def _start_policy(app: FastAPI, settings: "Settings") -> None:
     app.state.member_guard = member_guard(policy)
     register_member_guard(app.state.member_guard)
     register_group_disable_guard(guard_group_disable)
+    register_site_people_counter(directory.people_by_site)
 
 
 async def _startup(app: FastAPI) -> None:
@@ -315,6 +320,7 @@ async def _shutdown(app: FastAPI) -> None:
     if guard is not None:
         unregister_member_guard(guard)
     unregister_group_disable_guard(guard_group_disable)
+    unregister_site_people_counter(directory.people_by_site)
     use_policy(None)
     policy_client = getattr(app.state, "policy_client", None)
     if policy_client is not None:
@@ -392,6 +398,7 @@ __all__ = [
     "TenantSessionEnder",
     "UserType",
     "active_user_ids",
+    "assign_service_identity_role",
     "authorize",
     "authorize_stored",
     "check_group_grantable",
@@ -414,6 +421,7 @@ __all__ = [
     "register_duties",
     "release_from_directory",
     "remove_ldap_federation",
+    "remove_service_identity_role",
     "require",
     "role_names",
     "scope_filter",

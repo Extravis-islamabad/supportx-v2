@@ -75,3 +75,20 @@ async def tenant_for_host(
                 )
             ).first()
     return HostTenant(row.tenant_id, row.slug) if row is not None else None
+
+
+async def tenant_for_slug(database: Database, slug: str) -> HostTenant | None:
+    """The active tenant with this slug, else None (D-132 links on a shared address).
+
+    Where the address names no tenant (on-prem and k3s without tenant subdomains), an e-mailed
+    link names its tenant by slug (`?t=`). Like the address, it only says where to look.
+    """
+    if not _LABEL.fullmatch(slug):
+        return None
+    async with database.platform_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT tenant_id, slug FROM sx_tenant_for_slug(:slug)"), {"slug": slug}
+            )
+        ).first()
+    return HostTenant(row.tenant_id, row.slug) if row is not None else None

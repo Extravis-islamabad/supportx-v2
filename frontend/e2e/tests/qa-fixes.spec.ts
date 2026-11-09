@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import {
   clickAction,
+  openAppearance,
   resetLanguage,
   settledBox,
   settledLayout,
@@ -127,7 +128,6 @@ test('BUG-07: no sideways scroll from 360 px up, in every layout, on list, recor
       }
       // The header's controls stay reachable (collapsed into icons and the user menu).
       await expect(page.getByTestId('user-menu')).toBeInViewport();
-      await expect(page.getByTestId('appearance-menu')).toBeInViewport();
     }
   }
   await page.setViewportSize({ width: 390, height: 800 });
@@ -147,7 +147,7 @@ test('BUG-04: the language picked survives a reload and follows the user to anot
     await route.continue();
   });
   try {
-    await page.getByTestId('appearance-menu').click();
+    await openAppearance(page);
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -183,7 +183,9 @@ test('BUG-16: long subjects are cut and Restore stays in view in the trash', asy
   const removed = await call(page, 'DELETE', `/incidents/${item.id}`, { version: item.version });
   expect(removed.status()).toBe(204);
   await page.goto('/incidents');
-  await page.getByTestId('inc-mode').getByText('Trash', { exact: true }).click();
+  // Current or trash is a "More" entry since D-147 template C (one toolbar row).
+  await page.getByTestId('inc-header-actions-more').click();
+  await page.getByTestId('inc-mode').click();
   const restore = page.getByTestId(`inc-restore-${item.display_id}`);
   await expect(restore).toBeVisible();
   await expect(restore).toBeInViewport({ ratio: 1 });
@@ -201,11 +203,11 @@ test('C1, C2, C5: counter clear of the buttons; Arabic in a Naskh face; nothing 
   await expect(page.getByTestId('inc-heading')).toBeVisible();
 
   // C5: opening a dialog does not move the header.
-  const before = await settledBox(page.getByTestId('appearance-menu'));
+  const before = await settledBox(page.getByTestId('user-menu'));
   await clickAction(page, 'inc-action-cancel');
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  const during = await settledBox(page.getByTestId('appearance-menu'));
+  const during = await settledBox(page.getByTestId('user-menu'));
   expect(during?.x).toBe(before?.x);
 
   // C1: the "0 / 500" counter sits above the buttons, not under them.
@@ -216,7 +218,7 @@ test('C1, C2, C5: counter clear of the buttons; Arabic in a Naskh face; nothing 
   await expect(dialog).toBeHidden();
 
   // C5: the Appearance panel leaves the page title visible.
-  await page.getByTestId('appearance-menu').click();
+  await openAppearance(page);
   const panel = await settledBox(page.getByTestId('appearance-controls'));
   const title = await settledBox(page.getByTestId('inc-heading').locator('bdi'));
   const overlaps =

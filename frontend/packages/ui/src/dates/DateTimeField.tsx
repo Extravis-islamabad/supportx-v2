@@ -8,6 +8,14 @@ import { fromPicker, toPicker, useTimeZone } from './time';
 const FORMAT = 'YYYY-MM-DD HH:mm';
 const TIME = { format: 'HH:mm' } as const;
 
+/**
+ * "Times are in <zone>", said once under a group of date fields (a range, a row of start, end
+ * and duration) that hide their own notes (D-147: one note, not one per field).
+ */
+export function TimeZoneNote() {
+  return <ZoneNote zone={useTimeZone()} />;
+}
+
 function ZoneNote({ zone }: { zone: string }) {
   const t = useLabel();
   return (

@@ -1,4 +1,4 @@
-import { Breadcrumb, Card, Empty, Flex, Input, Skeleton, Typography } from 'antd';
+import { Breadcrumb, Empty, Flex, Input, Skeleton, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
@@ -6,15 +6,17 @@ import {
   useCatalogCategories,
   useCatalogItemList,
   useCatalogSearch,
+  usePopularCatalogItems,
   type CatalogCategory,
 } from '@supportx/api-client';
 import { textIn, useAppearance, useLabel } from '@supportx/ui';
 
-import { Grid } from './cards';
+import { CategoryTile, Grid } from './cards';
 
 /**
  * The catalog for requesters (WP-031, REQ-CAT-001, -027, -028): search across every language,
- * the featured items, then the categories, each with its subcategories and items. Only what the
+ * the featured items (or, while none is featured, the most requested), then the categories as
+ * tiles with their icon and item count (QA6-PRT-01), each with its subcategories and items. Only what the
  * requester may request is ever listed: the API decides (published, open to everyone, not in a
  * disabled category). Live: a change an admin publishes arrives without a refresh.
  */
@@ -27,9 +29,26 @@ export function CatalogPage() {
   const categories = useCatalogCategories();
   const listed = useCatalogItemList({ category_id: categoryId ?? undefined });
   const featured = useCatalogItemList({ featured: true }, categoryId === null);
+  const noneFeatured = featured.isSuccess && featured.data.length === 0;
+  const popular = usePopularCatalogItems(categoryId === null && noneFeatured);
   const found = useCatalogSearch(search);
   const all = useMemo(() => categories.data ?? [], [categories.data]);
   const byId = useMemo(() => new Map(all.map((c) => [c.id, c])), [all]);
+  // Every item the viewer may request (the top level's own list, shared through its query
+  // key), each counted in its category and every category above it.
+  const everything = useCatalogItemList({});
+  const counts = useMemo(() => {
+    const found = new Map<string, number>();
+    for (const item of everything.data ?? []) {
+      let at = item.category_id === null ? undefined : byId.get(item.category_id);
+      for (let depth = 0; at !== undefined && depth < 6; depth += 1) {
+        found.set(at.id, (found.get(at.id) ?? 0) + 1);
+        at = at.parent_id === null ? undefined : byId.get(at.parent_id);
+      }
+    }
+    return found;
+  }, [everything.data, byId]);
+  const shown = noneFeatured ? (popular.data ?? []) : (featured.data ?? []);
   const current = categoryId === null ? undefined : byId.get(categoryId);
   const children = all
     .filter(
@@ -113,12 +132,12 @@ export function CatalogPage() {
               ]}
             />
           )}
-          {categoryId === null && (featured.data ?? []).length > 0 && (
+          {categoryId === null && shown.length > 0 && (
             <section aria-labelledby="portal-cat-featured">
               <Typography.Title level={2} id="portal-cat-featured" style={{ fontSize: 18 }}>
                 {t('portal.catalog.featured')}
               </Typography.Title>
-              <Grid items={featured.data ?? []} />
+              <Grid items={shown} />
             </section>
           )}
           {children.length > 0 && (
@@ -133,30 +152,19 @@ export function CatalogPage() {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
                   gap: 12,
                 }}
               >
                 {children.map((c) => (
-                  <Card
+                  <CategoryTile
                     key={c.id}
-                    size="small"
-                    hoverable
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => {
+                    category={c}
+                    count={counts.get(c.id) ?? 0}
+                    onOpen={() => {
                       open(c.id);
                     }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        open(c.id);
-                      }
-                    }}
-                    data-testid={`portal-cat-category-${c.id}`}
-                  >
-                    <Typography.Text strong>{textIn(c.names, locale)}</Typography.Text>
-                  </Card>
+                  />
                 ))}
               </div>
             </section>

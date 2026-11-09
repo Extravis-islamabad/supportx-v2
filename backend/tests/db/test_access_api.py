@@ -11,6 +11,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
+import asyncpg
 import httpx
 import pytest
 import pytest_asyncio
@@ -447,6 +448,35 @@ async def test_site_membership_widens_a_site_scope(world: World) -> None:
         403,
         "permission_denied",
     )
+
+
+async def test_peo_01_a_site_counts_its_people_apart_from_its_access(world: World) -> None:
+    """People whose own site it is, and who has the site scope, are two different counts."""
+    a = world.a
+    site = await world.call("POST", "/organization/sites", a, a.admin, json={"name": "Lahore"})
+    site_id = site.json()["id"]
+    conn = await asyncpg.connect(world.db.admin_url)  # users has FORCED RLS
+    try:
+        await conn.execute(
+            "UPDATE users SET site_id = $1 WHERE tenant_id = $2 AND id = ANY($3::uuid[])",
+            uuid.UUID(site_id),
+            a.tenant,
+            [a.tech, a.requester, a.manager],
+        )
+        await conn.execute(  # a removed person no longer counts
+            "UPDATE users SET deleted_at = now() WHERE id = $1", a.manager
+        )
+    finally:
+        await conn.close()
+    await world.call("PUT", f"/organization/sites/{site_id}/members/{a.admin}", a, a.admin)
+    listed = {
+        s["id"]: s for s in (await world.call("GET", "/organization/sites", a, a.admin)).json()
+    }
+    assert listed[site_id]["people_count"] == 2
+    assert listed[site_id]["member_ids"] == [str(a.admin)]
+    # Another tenant's sites never count them.
+    other = (await world.call("GET", "/organization/sites", world.b, world.b.admin)).json()
+    assert all(s["people_count"] == 0 for s in other)
 
 
 @pytest.mark.timing

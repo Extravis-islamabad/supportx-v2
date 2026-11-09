@@ -166,7 +166,9 @@ describe('Admin › Notifications', () => {
     expect(await within(table).findByText('New incident: acknowledgement')).toBeTruthy();
     expect(within(table).getByText('Incident assigned')).toBeTruthy();
     expect(within(table).getByText('Required for people')).toBeTruthy();
-    expect(within(table).getAllByText('Default')).toHaveLength(2);
+    // Only a changed rule is marked (QA6S-CHN-01): no tag on the shipped defaults.
+    expect(within(table).queryByText('Default')).toBeNull();
+    expect(within(table).getByText('Incidents (2)')).toBeTruthy();
     fireEvent.click(within(table).getByTestId('rule-on-incident.created'));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/notifications/rules/incident.created')).toHaveLength(1);
@@ -174,6 +176,40 @@ describe('Admin › Notifications', () => {
     const [saved] = fake.find('PUT', '/api/v1/notifications/rules/incident.created');
     expect(saved?.headers.get('If-Match')).toBe('"0"');
     expect(saved?.body).toMatchObject({ enabled: false, recipients: ['requester'] });
+  });
+
+  it('CHN-01: events are grouped by area and found by name', async () => {
+    const assigned = fakeNotificationRule({
+      event_code: 'incident.assigned',
+      category: 'assignment',
+    });
+    const submitted = fakeNotificationRule({
+      event_code: 'kb_article.submitted',
+      record_type: 'kb_article',
+      category: 'approval',
+    });
+    api({
+      me: ADMIN,
+      routes: { 'GET /api/v1/notifications/rules': { body: [assigned, submitted] } },
+    });
+    window.history.pushState({}, '', '/admin/notifications');
+    render(<App />);
+    const groups = await screen.findByTestId('notification-rules');
+    expect(await within(groups).findByText('Incidents (1)')).toBeTruthy();
+    expect(within(groups).getByText('Knowledge (1)')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('notification-rules-search'), {
+      target: { value: 'assigned' },
+    });
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId('notification-rules')).queryByText('Knowledge (1)'),
+      ).toBeNull();
+    });
+    expect(screen.getByText('Incident assigned')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('notification-rules-search'), {
+      target: { value: 'nothing like this' },
+    });
+    expect(await screen.findByText('No event matches')).toBeTruthy();
   });
 
   it('REQ-NTF-020 AC3: admins see how many e-mails wait for outgoing mail', async () => {

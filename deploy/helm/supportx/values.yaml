@@ -40,6 +40,9 @@ images:
   valkey: valkey/valkey:9.1.2        # HA only (valkeyHa, ADR-038); the bundled chart's own otherwise
   # Local AI (WP-037, D-131): pinned by digest; mirrored through Zot like the others (D-038).
   llamaCpp: ghcr.io/ggml-org/llama.cpp:server-b11960@sha256:8052c13edd987de8858f8150031e025ac3d66823f09cf3ec8220899c4abce220
+  # Bundled Temporal (temporal.bundled): the server, and admin-tools for its schema Job.
+  temporalServer: temporalio/server:1.29.7
+  temporalAdminTools: temporalio/admin-tools:1.29.7-tctl-1.18.4-cli-1.7.2
   vllm: vllm/vllm-openai:v0.32.0@sha256:befccf0e7e4089aa23926bb6f887a85c0d46c2a99e6de5c5ffdf5cb7957c5b34
 
 # --- secrets (never in values) ---------------------------------------------------------------------
@@ -100,18 +103,45 @@ indexWorker:
     requests: {cpu: 20m, memory: 96Mi}
     limits: {cpu: 250m, memory: 256Mi}
 
-# SLA clocks on Temporal (WP-025, ADR-037, D-055). `address` is the Temporal frontend (host:port)
-# of a Temporal the installation runs; empty: no Temporal, and the SLA safety net fires every
-# warning, breach and escalation up to two minutes late (D-115 D5). The bundled Temporal (its
-# official chart on the CloudNativePG cluster, schema by admin-tools, D-017) comes with WP-025
-# session 4.
+# Temporal (§5; SLA clocks WP-025, ADR-037; workflow timers WP-048b, ADR-043).
+# - `bundled.enabled`: this release runs its own Temporal (the official server image, all four
+#   services in one Deployment) on the CloudNativePG cluster, in databases `temporal` and
+#   `temporal_visibility` owned by the `temporal` role (password: key temporal-db-password of
+#   secrets.app). The schema Job creates them, then applies Temporal's versioned schema; it never
+#   drops or overwrites anything (rule 5h). `address` then defaults to the bundled frontend.
+# - else `address`: the frontend (host:port) of a Temporal the installation runs itself.
+# - neither: no Temporal. The SLA safety net fires every warning, breach and escalation up to two
+#   minutes late (D-115 D5), and the workflow sweep wakes due timers within a minute.
 temporal:
   address: ""
   namespace: supportx
   taskQueue: sla
+  workflowTaskQueue: workflows
+  # Days a closed workflow's history is kept in Temporal (our own records keep their history).
+  retentionDays: 3
+  bundled:
+    enabled: false
+    replicas: 1
+    # Fixed at the first start: Temporal cannot change it later. 512 serves thousands of timers a
+    # second; raise it only for a new installation.
+    historyShards: 512
+    logLevel: warn
+    resources:
+      requests: {cpu: 200m, memory: 512Mi}
+      limits: {cpu: "2", memory: 2Gi}
+    schemaResources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
 
 # The SLA timers worker: replicas share the task queue; a repeated task is a no-op (sla.fire).
 slaTimers:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 160Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+# The workflow timers worker (WP-048b, ADR-043): like the SLA timers, only where Temporal is set.
+workflowTimers:
   replicas: 1
   resources:
     requests: {cpu: 50m, memory: 160Mi}
@@ -228,6 +258,8 @@ clamav:
 # at the next start); earlier revisions are removed once the current one is verified.
 ai:
   mirror: https://huggingface.co
+  # The fake provider's echo for unrecorded prompts: CI and dev clusters only (QA6-AI-01).
+  fakeEcho: false
   # A CPU-only llama.cpp server for chat and another for embeddings (bge-m3), in every install.
   local:
     enabled: false

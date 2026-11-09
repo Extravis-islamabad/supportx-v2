@@ -51,6 +51,7 @@ import {
 import { builderFields } from '../../incidents/list/model';
 import { useReportWords } from '../../reports/names';
 import { LevelsEditor } from './LevelsEditor';
+import { calendarNameOf, policyName } from './names';
 
 type Translate = ReturnType<typeof useLabel>;
 type Kind = SlaTargetRow['kind'];
@@ -155,7 +156,7 @@ export function PoliciesTab({ editable }: { editable: boolean }) {
             title: t('sla.policy.field.name'),
             render: (_, row) => (
               <Flex gap={6} wrap align="center">
-                <bdi>{row.name}</bdi>
+                <bdi>{policyName(t, row.name)}</bdi>
                 {row.fallback && <ToneTag tone="info">{t('sla.policies.default')}</ToneTag>}
                 {!row.enabled && <ToneTag tone="default">{t('sla.policies.off')}</ToneTag>}
                 {row.never_matches && (
@@ -552,7 +553,7 @@ function PolicyEditor({
                             }}
                             options={(calendars.data ?? []).map((c) => ({
                               value: c.id,
-                              label: c.name,
+                              label: calendarNameOf(t, c.name),
                             }))}
                             placeholder={t('sla.policy.field.calendar')}
                             style={{ minWidth: 200 }}

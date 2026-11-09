@@ -12,6 +12,14 @@ on:
   schedule:
     - cron: "17 3 * * *" # nightly 03:17 UTC, after the stack smoke
   workflow_dispatch:
+    inputs:
+      screens:
+        description: >-
+          Only these screens (comma-separated keys from visual-matrix.spec.ts; a trailing *
+          matches a prefix, e.g. "incidents,incident,admin-*"). Empty: every screen. A filtered
+          run uses one shard, so a template PR shoots only what it migrates (D-147).
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -22,13 +30,13 @@ concurrency:
 
 jobs:
   shots:
-    name: screens ${{ matrix.shard }}/6
+    name: screens ${{ matrix.shard }}/${{ inputs.screens != '' && 1 || 6 }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: ${{ fromJSON(inputs.screens != '' && '[1]' || '[1, 2, 3, 4, 5, 6]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -71,10 +79,13 @@ jobs:
       - name: Screens (this shard)
         working-directory: frontend
         timeout-minutes: 75
+        env:
+          VISUAL_SCREENS: ${{ inputs.screens }} # through env, never into the script text
         run: |
           pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
           SUPPORTX_SHOWCASE_PASSWORD="$(grep '^SHOWCASE_PASSWORD=' ../deploy/compose/.env | cut -d= -f2-)" \
-          VISUAL_MATRIX=1 VISUAL_SHARD="${{ matrix.shard }}/6" VISUAL_OUT="$PWD/e2e/visual-matrix" \
+          VISUAL_MATRIX=1 VISUAL_SHARD="${{ matrix.shard }}/${{ inputs.screens != '' && 1 || 6 }}" \
+          VISUAL_OUT="$PWD/e2e/visual-matrix" \
             pnpm --filter @supportx/e2e e2e tests/visual-matrix.spec.ts
       - name: Diagnostics on failure
         if: ${{ failure() }}

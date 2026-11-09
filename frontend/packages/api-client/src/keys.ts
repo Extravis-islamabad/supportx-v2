@@ -40,6 +40,7 @@ export const queryKeys = {
     list: ['api-keys', 'list'] as const,
     rules: ['api-keys', 'rules'] as const,
     scopes: ['api-keys', 'scopes'] as const,
+    owners: ['api-keys', 'owners'] as const,
   },
   identity: {
     all: ['identity'] as const,
@@ -215,6 +216,7 @@ export const queryKeys = {
     preferences: ['notifications', 'preferences'] as const,
     rules: ['notifications', 'rules'] as const,
     status: ['notifications', 'status'] as const,
+    mailStatus: ['notifications', 'mail-status'] as const, // the reply composer (REQ-INC-060)
     deliveries: (recordType: string, recordId: string) =>
       ['notifications', 'deliveries', recordType, recordId] as const,
   },

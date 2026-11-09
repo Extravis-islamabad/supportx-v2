@@ -242,3 +242,57 @@ def test_a_mobile_only_change_skips_the_backend_and_frontend_jobs() -> None:
     for name in ("backend checks", "backend tests ${{ matrix.shard }}/6", "backend", "frontend"):
         text = "\n".join(jobs[name])
         assert "light: '^(docs/|mobile/|" in text, name
+
+
+# Drafts run the fast set only (coordinator, 2026-11-06: runners were starved). These skip on a
+# draft and run again at ready_for_review; the queue always runs them.
+DRAFT = "github.event.pull_request.draft"
+SKIPPED_ON_DRAFTS = {
+    "shard weights",
+    "backend tests ${{ matrix.shard }}/6",
+    "valkey failover",
+    "k3d HA smoke (Valkey failover)",
+}
+# Required checks report on drafts (never skipped as a whole) but skip every step.
+STEPS_SKIPPED_ON_DRAFTS = {"dependency audit (pip-audit, pnpm audit)", "filesystem scan (Trivy)"}
+
+
+def test_drafts_skip_the_heavy_jobs() -> None:
+    jobs = _all_jobs()
+    for name in SKIPPED_ON_DRAFTS:
+        assert DRAFT in _job_if(jobs[name]), name
+    for name in STEPS_SKIPPED_ON_DRAFTS:
+        job = jobs[name]
+        assert any(DRAFT in line for line in job), name
+        steps = [line for line in job if re.match(r"^      - (uses|name): ", line)]
+        guarded = [line for line in job if "env.DRAFT != 'true'" in line]
+        assert len(guarded) == len(steps), f"{name}: every step skips on a draft"
+
+
+def test_the_backend_check_allows_skipped_shards_on_drafts_only() -> None:
+    backend = "\n".join(_all_jobs()["backend"])
+    assert f"DRAFT: ${{{{ (github.event_name == 'pull_request' && {DRAFT}) }}}}" in backend
+    assert '[ "$DRAFT" = "true" ] && [ "$TESTS" = "skipped" ]' in backend
+
+
+def test_marking_a_draft_ready_runs_every_pr_workflow_again() -> None:
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        triggers = _triggers(path.read_text(encoding="utf-8").splitlines())
+        if "pull_request" in triggers:
+            types = " ".join(triggers["pull_request"])
+            assert "ready_for_review" in types, f"{path.name}: {types}"
+
+
+def test_every_job_with_helm_reuses_the_chart_dependencies() -> None:
+    """A 504 on one chart download turned five nightly jobs red (2026-11-08): cache by the lock."""
+    for workflow in ("ci.yml", "cluster.yml"):
+        lines = (WORKFLOWS / workflow).read_text().splitlines()
+        helm = [i for i, x in enumerate(lines) if "- uses: azure/setup-helm@" in x]
+        assert helm, f"{workflow}: installs Helm"
+        for at in helm:
+            after = next(i for i in range(at + 1, len(lines)) if lines[i].startswith("      - "))
+            step = "\n".join(lines[after : after + 6])
+            assert "Helm chart dependencies (cached by Chart.lock)" in step, f"{workflow}:{at + 1}"
+            assert "hashFiles('deploy/helm/supportx/Chart.lock')" in step, f"{workflow}:{at + 1}"
+    makefile = (WORKFLOWS.parents[1] / "Makefile").read_text()
+    assert "@bash deploy/scripts/chart-deps.sh" in makefile  # reuses and retries, never one try

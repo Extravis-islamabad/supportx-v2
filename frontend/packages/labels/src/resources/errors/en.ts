@@ -573,6 +573,10 @@ export const en = {
   'errors.field.wider_than_topic':
     "An article can only narrow its topic's audience, never widen it.",
   'errors.field.window_end_before_start': 'Must be after the start.',
+  'errors.field.workflow_disabled': 'This workflow is switched off. Switch it on first.',
+  'errors.field.workflow_not_found': 'Choose a workflow that exists.',
+  'errors.field.workflow_not_published': 'Publish this workflow first.',
+  'errors.field.workflow_wrong_record_type': 'This workflow is for another kind of record.',
   'errors.field.would_loop': 'A release cannot be part of itself, directly or through others.',
   'errors.file_link_expired': 'The link expired. Open the file again.',
   'errors.file_not_an_image': 'This file is not an image.',

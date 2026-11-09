@@ -22,6 +22,7 @@ import {
   queryKeys,
   useMyExports,
   useReportSettings,
+  useExportFormats,
   useRequestExport,
   useUpdateReportSettings,
   type ReportDefinition,
@@ -71,6 +72,8 @@ export function ExportButton({
   const { locale } = useAppearance();
   const { message } = AntApp.useApp();
   const request = useRequestExport();
+  // Only formats this installation can make now: no PDF without its worker (QA6-RPT-01).
+  const offered = useExportFormats();
   // Refusals (queue full, too many rows) at the dialog; failures as the app's toast (D-105).
   const problem = useFormProblem();
   const [open, setOpen] = useState(false);
@@ -128,7 +131,9 @@ export function ExportButton({
               onChange={(event) => {
                 setFormat(event.target.value as Format);
               }}
-              options={FORMATS.map((f) => ({ value: f, label: t(`report_export_format.${f}`) }))}
+              options={FORMATS.filter((f) => (offered.data ?? ['xlsx', 'csv']).includes(f)).map(
+                (f) => ({ value: f, label: t(`report_export_format.${f}`) }),
+              )}
               data-testid="report-export-format"
             />
           </Form.Item>
@@ -150,11 +155,24 @@ export function ExportButton({
 }
 
 /** "My exports": what was asked for, its state, and the file while it lasts. Live. */
-export function MyExportsButton() {
+/**
+ * "My exports": a button and its drawer. A header can open the drawer from its "More" menu
+ * instead (D-147 template C): it passes `open`/`onOpenChange` and `button={false}`.
+ */
+export function MyExportsButton({
+  open: controlled,
+  onOpenChange,
+  button = true,
+}: { open?: boolean; onOpenChange?: (open: boolean) => void; button?: boolean } = {}) {
   const t = useLabels();
   const dates = useDateTime();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = controlled ?? own;
+  const setOpen = (next: boolean) => {
+    setOwn(next);
+    onOpenChange?.(next);
+  };
   const exports = useMyExports(open);
   usePersonalChannel((message) => {
     if (message.type === 'reports.export_finished') {
@@ -164,14 +182,16 @@ export function MyExportsButton() {
 
   return (
     <>
-      <Button
-        onClick={() => {
-          setOpen(true);
-        }}
-        data-testid="report-my-exports"
-      >
-        {t('reports.my_exports')}
-      </Button>
+      {button && (
+        <Button
+          onClick={() => {
+            setOpen(true);
+          }}
+          data-testid="report-my-exports"
+        >
+          {t('reports.my_exports')}
+        </Button>
+      )}
       <Drawer
         open={open}
         title={t('reports.my_exports')}

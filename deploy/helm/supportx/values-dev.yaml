@@ -57,3 +57,16 @@ mail:
   smtpPort: 1025
   smtpSecurity: none
   fromAddress: noreply@supportx.localhost
+
+# The e2e journeys check the AI features against the fake's answers (QA6-AI-01).
+ai:
+  fakeEcho: true
+
+# Temporal on the dev cluster too, smaller.
+temporal:
+  bundled:
+    enabled: true
+    historyShards: 4
+    resources:
+      requests: {cpu: 50m, memory: 192Mi}
+      limits: {cpu: "1", memory: 768Mi}

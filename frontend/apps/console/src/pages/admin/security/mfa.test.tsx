@@ -81,6 +81,14 @@ describe('MFA policy (Admin › Sign-in and security)', () => {
     fireEvent.click(
       within(within(card).getByTestId('security-mfa-mode-requester')).getByText('Required'),
     );
+    // Asked first (QA6S-PEO-11): nothing is sent until the change is confirmed.
+    const ask = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>('.ant-modal-confirm');
+      if (found === null) throw new Error('no confirmation');
+      return found;
+    });
+    expect(fake.find('PUT', '/api/v1/identity/mfa/roles/r-req')).toHaveLength(0);
+    fireEvent.click(within(ask).getByRole('button', { name: 'Change it' }));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/identity/mfa/roles/r-req')).toHaveLength(1);
     });
@@ -144,6 +152,29 @@ describe('MFA reminder', () => {
     expect(within(reminder).getByTestId('mfa-reminder-set-up').getAttribute('href')).toContain(
       'action=mfa',
     );
+  });
+});
+
+describe('QA6-SH-03: the two-step reminder can be closed once read', () => {
+  afterEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it('closes for the rest of the session, and stays closed', async () => {
+    window.history.pushState({}, '', '/');
+    api({}, { ...ADMIN, mfa_due_at: '2026-11-10T00:07:00Z' });
+    const { unmount } = render(<App />);
+    const reminder = await screen.findByTestId('mfa-reminder');
+    fireEvent.click(
+      within(reminder).getByRole('button', { name: 'Hide this reminder until you next sign in' }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByTestId('mfa-reminder')).toBeNull();
+    });
+    unmount();
+    render(<App />); // another page view in the same session
+    await screen.findByTestId('user-name');
+    expect(screen.queryByTestId('mfa-reminder')).toBeNull();
   });
 });
 

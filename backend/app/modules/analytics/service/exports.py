@@ -19,7 +19,7 @@ records.
 
 import tempfile
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -116,19 +116,22 @@ class ExportRequest:
     time_zone: str
 
 
-async def request_export(
+async def request_export(  # noqa: PLR0913 - the request and the installation's state, explicit
     session: AsyncSession,
     subject: Subject,
     request: ExportRequest,
     *,
     validate: Callable[[ReportDefinition], Awaitable[None]],
     storage_ready: bool,
+    formats: Sequence[str] = FORMATS,
 ) -> ReportExport:
     """Record the request and hand it to the worker."""
     if not subject.holds(EXPORT):
         raise PermissionDenied(params={"permission": EXPORT})
     if not storage_ready:
         raise StorageNotConfigured
+    if request.format not in formats:  # refused now, not as a failed export later (QA6-RPT-01)
+        raise Conflict(code="pdf_not_available", params={"format": request.format})
     await validate(request.definition)
     context: TenantContext = session.info["supportx.tenant"]
     row = ReportExport(

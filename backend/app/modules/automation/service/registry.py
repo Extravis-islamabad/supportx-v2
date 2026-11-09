@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.automation.domain.rules import JsonValue, RuleField
 from app.modules.automation.domain.triggers import TriggerEvent
+from app.modules.identity_access import Subject
 from app.shared.events import EventEnvelope
 
 FieldsProvider = Callable[[AsyncSession], Awaitable[Mapping[str, RuleField]]]
@@ -36,6 +37,9 @@ class RecordType:
     add_note: "Noter | None" = None
     # Life-cycle actions a person runs (transition settings, REQ-WF-003, 004).
     transition_actions: tuple[str, ...] = ()
+    # Workflow nodes' commands (WP-048b, ADR-043 §6): carried out through the owning module's
+    # public services as the workflow's own identity, checked like a person's.
+    run_command: "CommandRunner | None" = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,23 @@ Applier = Callable[
     [AsyncSession, uuid.UUID, Mapping[str, JsonValue], AutomatedChange], Awaitable[list[str]]
 ]
 Noter = Callable[[AsyncSession, uuid.UUID, str, AutomatedChange], Awaitable[None]]
+
+
+@dataclass(frozen=True)
+class CommandResult:
+    """What came of a workflow command: done (with outputs) or refused with a stable code."""
+
+    ok: bool
+    error: str | None = None
+    outputs: Mapping[str, JsonValue] = field(default_factory=dict)
+
+
+# (session, the workflow's subject, record, command kind, payload, automation_ref) -> result.
+# A refusal is a result, never an exception: the node's error output decides (ADR-043 §6).
+CommandRunner = Callable[
+    [AsyncSession, Subject, uuid.UUID, str, Mapping[str, Any], Mapping[str, Any]],
+    Awaitable[CommandResult],
+]
 
 
 @dataclass(frozen=True)

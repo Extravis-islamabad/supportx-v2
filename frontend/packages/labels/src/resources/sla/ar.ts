@@ -186,6 +186,7 @@ export const ar: LabelResource = {
   'sla_met_how.at_resolution': 'تحقق عند الحل',
   'sla_met_how.late': 'متأخر',
   'sla_met_how.on_time': 'في الموعد',
+  'sla_policy.fallback': 'السياسة الافتراضية',
   'sla_priority_rule.recalculate': 'إعادة الحساب من البداية',
   'sla_priority_rule.restart': 'بدء الهدف الجديد من وقت التغيير',
   'sla_recipient_kind.assignee': 'المكلَّف',
