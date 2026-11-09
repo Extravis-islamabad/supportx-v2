@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Segmented, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Flex, Select, Space, Table } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -314,7 +314,7 @@ export function IncidentsPage() {
       testId="inc-list"
       header={
         <PageHeader
-          title={t('incidents.title')}
+          title={t(trash ? 'incidents.trash' : 'incidents.title')}
           extra={
             // D-147 template C: at most three header buttons, the rest in "More". The current
             // and trash switch moved to the toolbar row.
@@ -338,8 +338,21 @@ export function IncidentsPage() {
                       },
                     ]
               }
-              more={
-                trash
+              more={[
+                // Current or trash (D-147: one toolbar row; the switch lives in "More").
+                ...(can('incidents.delete')
+                  ? [
+                      {
+                        key: 'mode',
+                        label: t(trash ? 'incidents.current' : 'incidents.trash'),
+                        onClick: () => {
+                          setMode(trash ? 'current' : 'trash');
+                        },
+                        testId: 'inc-mode',
+                      },
+                    ]
+                  : []),
+                ...(trash
                   ? []
                   : [
                       ...(can('reports.export')
@@ -362,8 +375,8 @@ export function IncidentsPage() {
                         },
                         testId: 'inc-bulk-jobs',
                       },
-                    ]
-              }
+                    ]),
+              ]}
               primary={
                 can('incidents.create') ? (
                   <WriteButton
@@ -466,7 +479,7 @@ export function IncidentsPage() {
                         ]
                       : []),
                   ]}
-                  style={{ width: 'min(260px, 100%)' }}
+                  style={{ width: 'min(240px, 100%)' }}
                   data-testid="inc-view"
                 />
                 {saved?.mine === true && (
@@ -519,7 +532,7 @@ export function IncidentsPage() {
                   label: scaleLabel(t, catalogue.data, 'priority', p, locale),
                 })),
               ]}
-              style={{ minWidth: 'min(200px, 100%)' }}
+              style={{ minWidth: 'min(160px, 100%)' }}
               data-testid="inc-filter-priority"
             />
           </>
@@ -530,17 +543,6 @@ export function IncidentsPage() {
         }}
         extra={
           <>
-            {can('incidents.delete') && (
-              <Segmented<'current' | 'trash'>
-                value={mode}
-                onChange={setMode}
-                options={[
-                  { value: 'current', label: t('incidents.current') },
-                  { value: 'trash', label: t('incidents.trash') },
-                ]}
-                data-testid="inc-mode"
-              />
-            )}
             <ColumnChooser
               columns={columns}
               catalogue={columnSpecs}

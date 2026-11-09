@@ -46,13 +46,14 @@ export const DEFAULT_COLUMNS: readonly string[] = [
   'subject',
   'requester_id',
   'technician_id',
-  'group_id',
   'status',
   'priority',
   'resolution_due_at',
 ];
-// The default widths fit their content (D-147 template C): with the subject at its minimum the
-// default columns fit 1280 px with the side navigation (QA9-V-01), and the subject takes the rest.
+// The default widths fit their content (D-147 template C): IDs and tags never wrap or cut, the
+// people columns may cut before the subject does, and the subject takes the remaining width. At
+// 1280 px with the side navigation that leaves no room for Group as well, so it left the defaults
+// (QA9-V-01, the coordinator's P2 review); it stays in the column chooser, and saved views keep it.
 // "Created" left the defaults so they fit 1440 px with the side navigation (QA 2026-11-05 V1);
 // it stays in the column chooser, and saved choices and views keep it.
 
@@ -62,11 +63,11 @@ const OWN: ColumnSpec[] = [
   {
     key: 'display_id',
     sortField: 'display_number',
-    width: 90,
+    width: 120,
     title: (c) => c.t('incidents.col.id'),
     // The channel it came from in front of the ID (UI pass 2), named by its label.
     render: (row) => (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
         <ChannelIcon channel={row.channel} />
         <strong>{row.display_id}</strong>
       </span>
@@ -88,39 +89,39 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'requester_id',
-    width: 120,
+    width: 115,
     title: field('requester_id'),
     render: (row, c) => personName(c.people, row.requester_id),
   },
   {
     key: 'status',
-    width: 120,
+    width: 150,
     title: field('status'),
     render: (row, c) => <StatusTag status={row.status} catalogue={c.catalogue} />,
   },
   {
     key: 'priority',
     sortField: 'priority',
-    width: 90,
+    width: 110,
     title: field('priority'),
     render: (row) => <PriorityTag priority={row.priority} source={row.priority_source} />,
   },
   {
     key: 'group_id',
-    width: 110,
+    width: 120,
     title: field('group_id'),
     render: (row, c) => (row.group_id === null ? '' : (c.groupNames.get(row.group_id) ?? '')),
   },
   {
     key: 'technician_id',
-    width: 120,
+    width: 115,
     title: field('technician_id'),
     render: (row, c) => personName(c.people, row.technician_id),
   },
   {
     key: 'resolution_due_at',
     sortField: 'resolution_due_at',
-    width: 120,
+    width: 160,
     title: (c) => c.t('incidents.col.due'),
     render: (row, c) => (
       <SlaTag
