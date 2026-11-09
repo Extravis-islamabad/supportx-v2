@@ -268,6 +268,36 @@ describe('console: service requests', () => {
     expect(within(row).getByText('For Omar Manager', { exact: false })).toBeDefined();
   });
 
+  it('QA10-P1-08: a problem approval waiting for me counts in the badge and opens its problem', async () => {
+    window.history.pushState({}, '', '/requests');
+    api({
+      'GET /api/v1/problems/my-approvals': {
+        body: {
+          items: [
+            {
+              approval_id: APPROVAL_ID,
+              approval_version: 1,
+              record_id: SR_ID,
+              display_id: 'PRB-6',
+              subject: 'VPN drops',
+              requester_id: MANAGER,
+              on_behalf_of_id: null,
+              catalog_item_id: null,
+              comments_required: false,
+              created_at: '2026-11-04T08:00:00Z',
+            },
+          ],
+          people: {},
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: '1 approval waiting for you' }));
+    const row = await screen.findByTestId('my-approval-PRB-6');
+    expect(within(row).getByRole('link').getAttribute('href')).toBe(`/problems/${SR_ID}`);
+    expect(within(row).getByText('Open it to approve or reject', { exact: false })).toBeDefined();
+  });
+
   it('ticks a fulfilment task done with If-Match', async () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     const task = {

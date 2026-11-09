@@ -1306,6 +1306,7 @@ export const en = {
   'requests.no_approvals_waiting': 'Nothing waits for your approval.',
   'requests.not_found': 'This service request does not exist or is not yours to see.',
   'requests.open_request': 'Open the request',
+  'requests.open_to_decide': 'Open it to approve or reject',
   'requests.private_comment': 'Private: not shown to the requester',
   'requests.properties': 'Properties',
   'requests.record_type': 'Service request',

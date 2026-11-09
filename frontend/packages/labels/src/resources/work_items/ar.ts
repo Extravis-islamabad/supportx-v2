@@ -1440,6 +1440,7 @@ export const ar: LabelResource = {
   'requests.no_approvals_waiting': 'لا شيء بانتظار موافقتك.',
   'requests.not_found': 'طلب الخدمة هذا غير موجود أو لا يحق لك رؤيته.',
   'requests.open_request': 'فتح الطلب',
+  'requests.open_to_decide': 'افتحه للموافقة أو الرفض',
   'requests.private_comment': 'خاص: لا يظهر لمقدم الطلب',
   'requests.properties': 'الخصائص',
   'requests.record_type': 'طلب خدمة',

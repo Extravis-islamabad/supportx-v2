@@ -1311,6 +1311,7 @@ export const ur: LabelResource = {
   'requests.no_approvals_waiting': 'کوئی چیز آپ کی منظوری کی منتظر نہیں۔',
   'requests.not_found': 'یہ سروس درخواست موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'requests.open_request': 'درخواست کھولیں',
+  'requests.open_to_decide': 'منظور یا مسترد کرنے کے لیے اسے کھولیں',
   'requests.private_comment': 'نجی: درخواست گزار کو نہیں دکھایا جاتا',
   'requests.properties': 'خصوصیات',
   'requests.record_type': 'سروس کی درخواست',

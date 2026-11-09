@@ -752,6 +752,7 @@ export {
   useApprovals,
   useDecideApproval,
   useMyApprovals,
+  useMyTypeApprovals,
   useMyDecidedApprovals,
   useApproveMany,
   useWithdrawRequest,
