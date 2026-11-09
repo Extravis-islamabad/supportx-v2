@@ -296,3 +296,11 @@ def test_every_job_with_helm_reuses_the_chart_dependencies() -> None:
             assert "hashFiles('deploy/helm/supportx/Chart.lock')" in step, f"{workflow}:{at + 1}"
     makefile = (WORKFLOWS.parents[1] / "Makefile").read_text()
     assert "@bash deploy/scripts/chart-deps.sh" in makefile  # reuses and retries, never one try
+
+
+def test_no_workflow_cancels_a_queue_run() -> None:
+    """A cancelled merge_group run drops the PR and rebuilds the queue (2026-11-09, #276)."""
+    for workflow in WORKFLOWS.glob("*.yml"):
+        for line in workflow.read_text().splitlines():
+            if line.strip().startswith("cancel-in-progress:"):
+                assert "merge_group" not in line, f"{workflow.name}: {line.strip()}"

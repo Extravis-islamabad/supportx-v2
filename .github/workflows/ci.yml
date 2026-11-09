@@ -18,12 +18,13 @@ permissions:
   contents: read
 
 # One group per PR: a new push cancels that PR's outdated run, freeing runners for every lane.
-# A queue group gets one group per temporary branch (a re-run replaces the old one); a group the
-# queue dropped finishes at once in its first step (.github/actions/changes). Nightly and manual
-# runs each get a group of their own and are never cancelled.
+# A queue group gets one group per temporary branch and is never cancelled by concurrency: a
+# cancelled queue run drops the PR and rebuilds the queue behind it (2026-11-09, #276: about
+# 40 minutes for everyone). A group the queue dropped finishes at once in its first step
+# (.github/actions/changes). Nightly and manual runs each get a group of their own.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'merge_group' && format('queue-{0}', github.event.merge_group.head_ref) || format('run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   FORCE_COLOR: "1"
@@ -429,6 +430,13 @@ jobs:
           DRAFT: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft) }}
         run: |
           echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF, draft: $DRAFT"
+          # A cancelled job (the 20-minute limit, or a superseded run) is named as cancelled, not
+          # as a test failure, so nobody reads a red PR as broken code (lane A, #240).
+          for job in "checks:$CHECKS" "tests:$TESTS" "pdf:$PDF"; do
+            if [ "${job#*:}" = "cancelled" ]; then
+              echo "::error title=backend ${job%%:*} cancelled::a backend ${job%%:*} job was cancelled (time limit or a newer run), not a failed test: re-run it"
+            fi
+          done
           # pdf is skipped outside nightly, manual and full-ci runs (speed mode, D-122).
           # The shards are skipped only on a draft; anywhere else a skipped shard fails here.
           [ "$CHECKS" = "success" ] &&
@@ -530,7 +538,11 @@ jobs:
           MOBILE: ${{ needs.mobile.result }}
         run: |
           echo "mobile: $MOBILE"
-          case "$MOBILE" in success|skipped) ;; *) echo "::error title=mobile::the mobile job $MOBILE"; exit 1 ;; esac
+          case "$MOBILE" in
+            success|skipped) ;;
+            cancelled) echo "::error title=mobile cancelled::the mobile job was cancelled (time limit or a newer run), not a failed test: re-run it"; exit 1 ;;
+            *) echo "::error title=mobile::the mobile job $MOBILE"; exit 1 ;;
+          esac
       - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
