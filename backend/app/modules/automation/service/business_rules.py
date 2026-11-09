@@ -63,6 +63,10 @@ FIELD_PROBLEMS = frozenset(
         "message_required",
         "unknown_record_type",
         "value_no_longer_valid",
+        "workflow_not_found",  # a trigger's "start a workflow" (WP-048b), from triggers.check
+        "workflow_wrong_record_type",
+        "workflow_not_published",
+        "workflow_disabled",
     }
 )
 

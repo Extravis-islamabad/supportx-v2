@@ -181,4 +181,52 @@ describe('portal catalog', () => {
     });
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
   });
+
+  it('QA6-PRT-01: category tiles show their icon and item count; items show their icon', async () => {
+    window.history.pushState({}, '', '/catalog');
+    api();
+    render(<App />);
+    const tile = await screen.findByTestId(`portal-cat-category-${CAT}`);
+    expect(tile.querySelector('[data-icon="account"]')).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.getByTestId(`portal-cat-count-${CAT}`).textContent).toBe('2 items');
+    });
+    const item = await screen.findByTestId(`portal-cat-item-${ITEM}`);
+    expect(item.querySelector('[data-testid="catalog-icon"]')).not.toBeNull();
+  });
+
+  it('QA6-PRT-01: with nothing featured, the most requested items are shown instead', async () => {
+    window.history.pushState({}, '', '/catalog');
+    const unfeatured = { ...reset, featured: false };
+    const fake = api({
+      'GET /api/v1/catalog/items': ({ url }: { url: URL }) => ({
+        body: url.searchParams.get('featured') === 'true' ? [] : [unfeatured, printer],
+      }),
+      'GET /api/v1/catalog/items/popular': { body: [unfeatured] },
+    });
+    render(<App />);
+    const section = await screen.findByRole('region', { name: 'Popular' });
+    await waitFor(() => {
+      expect(section.querySelector(`[data-testid="portal-cat-item-${ITEM}"]`)).not.toBeNull();
+    });
+    expect(fake.find('GET', '/api/v1/catalog/items/popular').length).toBeGreaterThan(0);
+  });
+
+  it('QA6-PRT-01: a request asks "What do you need?", not what is wrong', async () => {
+    window.history.pushState({}, '', `/catalog/items/${ITEM}`);
+    api();
+    render(<App />);
+    await screen.findByTestId('portal-cat-subject');
+    expect(screen.getByText('What do you need?')).toBeDefined();
+    expect(screen.queryByText('In a few words, what is wrong')).toBeNull();
+  });
+
+  it('QA6-PRT-02: the request form sits on a card', async () => {
+    window.history.pushState({}, '', `/catalog/items/${ITEM}`);
+    api();
+    render(<App />);
+    const card = await screen.findByTestId('portal-cat-form');
+    expect(card.className).toContain('ant-card');
+    expect(card.querySelector('[data-testid="portal-cat-subject"]')).not.toBeNull();
+  });
 });

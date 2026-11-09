@@ -1,6 +1,6 @@
 import { AuditOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Badge, Button, Drawer, Empty, List, Space, Typography } from 'antd';
+import { Badge, Button, Drawer, Empty, List, Space, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
@@ -41,17 +41,19 @@ export function ApprovalsDrawer() {
   const { dialog, start } = useDecision(deciding);
   return (
     <>
-      <Badge count={items.length} size="small" offset={[-4, 4]}>
-        <Button
-          type="text"
-          icon={<AuditOutlined />}
-          aria-label={t('requests.my_approvals_count', { count: items.length })}
-          onClick={() => {
-            setOpen(true);
-          }}
-          data-testid="approvals-drawer-open"
-        />
-      </Badge>
+      <Tooltip title={t('requests.my_approvals_count', { count: items.length })}>
+        <Badge count={items.length} size="small" offset={[-4, 4]}>
+          <Button
+            type="text"
+            icon={<AuditOutlined />}
+            aria-label={t('requests.my_approvals_count', { count: items.length })}
+            onClick={() => {
+              setOpen(true);
+            }}
+            data-testid="approvals-drawer-open"
+          />
+        </Badge>
+      </Tooltip>
       <Drawer
         open={open}
         title={t('requests.my_approvals')}

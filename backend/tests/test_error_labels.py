@@ -7,6 +7,7 @@ humanized raw text. Reads the TypeScript resources directly so the check runs in
 import importlib
 import pkgutil
 import re
+import typing
 from pathlib import Path
 
 import pytest
@@ -110,3 +111,41 @@ def test_every_field_error_code_has_a_label(locale: str) -> None:
         if f"errors.field.{code}" not in label_keys(locale)
     )
     assert missing == [], f"add these keys to packages/labels/src/resources/{locale}.ts"
+
+
+def _every_pydantic_error_type() -> list[str]:
+    from pydantic_core.core_schema import ErrorType  # noqa: PLC0415 - only this test needs it
+
+    return sorted(typing.get_args(ErrorType))
+
+
+@pytest.mark.parametrize("locale", ["en", "ar", "ur"])
+def test_qa6_aut_01_02_no_pydantic_code_reaches_a_person(locale: str) -> None:
+    """QA6-AUT-01/02: "Uuid Parsing", "Date From Datetime Parsing" showed as raw codes.
+
+    Every Pydantic error type, empty or not, becomes one of the app's labelled field codes.
+    """
+    keys = label_keys(locale)
+    wrong = []
+    for kind in _every_pydantic_error_type():
+        for given in ("", "x", None):
+            found = errors._field_error({"type": kind, "loc": ("body", "f"), "input": given})  # noqa: SLF001 - the mapping is the contract
+            own = kind == "invalid_key"  # also the app's own code, labelled; passes through
+            if (
+                found.code not in errors.VALIDATION_CODES and not own
+            ) or found.message_key not in keys:
+                wrong.append((kind, given, found.code))
+    assert wrong == []
+
+
+def test_qa6_aut_01_02_plain_codes_for_the_reported_cases() -> None:
+    def code(kind: str, given: object = "x") -> str:
+        return errors._field_error({"type": kind, "loc": ("body", "f"), "input": given}).code  # noqa: SLF001 - the mapping is the contract
+
+    assert code("uuid_parsing") == "invalid_value"
+    assert code("uuid_parsing", "") == "required"
+    assert code("date_from_datetime_parsing") == "invalid_date"
+    assert code("date_from_datetime_parsing", "") == "required"
+    assert code("int_parsing") == "invalid_number"
+    assert code("literal_error") == "invalid_choice"
+    assert code("extra_forbidden") == "invalid_value"

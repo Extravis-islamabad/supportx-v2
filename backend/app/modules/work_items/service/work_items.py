@@ -157,6 +157,7 @@ from app.shared.history import (
     HistoryEntry,
     Source,
     count_saves,
+    current_automation,
     explain_conflict,
     history_entries,
     record_changes,
@@ -1215,6 +1216,29 @@ async def _check_assignment(  # noqa: PLR0913 - the assignment and who makes it,
     return []
 
 
+async def _default_owner(  # noqa: PLR0913 - the assignment check's inputs, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    holders: PermissionHolders,
+    *,
+    values: Mapping[str, Any],
+    group_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """The technician a new record starts with: the one given, else none.
+
+    QA6-PRB-03: whoever opens a problem owns it until someone else takes it, when they could be
+    given it (they may edit problems, and are in its group or may work outside it).
+    """
+    given: uuid.UUID | None = values.get("technician_id")
+    if "technician_id" in values or wtype.code is not WorkItemTypeCode.PROBLEM:
+        return given
+    refused = await _check_assignment(
+        session, subject, wtype, holders, group_id=group_id, technician_id=subject.user_id
+    )
+    return None if refused else subject.user_id
+
+
 # --- writing helpers ------------------------------------------------------------------------------
 
 
@@ -1688,7 +1712,9 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
             action=action,
             from_status=str(before["status"]),
             to_status=record.status,
-            automatic=automatic,
+            # A workflow's move counts as automatic too (lane A's review of WP-048b): notifications
+            # and requester rules treat it like a rule's, never like a person's.
+            automatic=automatic or current_automation(session) is not None,
         ),
         aggregate_id=record.id,
         aggregate_version=record.version,
@@ -2106,6 +2132,9 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     )
     if problems:
         raise await _value_errors(session, wtype, problems)
+    technician_id = await _default_owner(
+        session, subject, wtype, holders, values=values, group_id=group_id
+    )
     await _place(session, cleaned)
     # A staged type starts in its path's first stage and that stage's first status (ADR-041).
     stage_columns = await _first_stage(session, wtype, template)
@@ -2250,7 +2279,9 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
-    await approval_stage.after_submission(session, record, item, source=source)  # REQ-SR-021
+    await approval_stage.after_submission(  # REQ-SR-021
+        session, record, item, source=source, holders=holders
+    )
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
             cat.lifecycle_of(record.lifecycle),

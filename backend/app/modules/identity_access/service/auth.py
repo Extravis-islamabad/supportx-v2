@@ -605,7 +605,8 @@ class AuthService:
 
     async def _refresh(self, session_id: str, session: Session) -> Session:
         """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not."""
-        if not await self.store.lock(session_id, REFRESH_LOCK_TTL):
+        held = await self.store.lock(session_id, REFRESH_LOCK_TTL)
+        if held is None:
             return session  # another request is refreshing this session right now
         client = self.client(_client_app(session))
         try:
@@ -619,7 +620,7 @@ class AuthService:
             log.warning("token_refresh_deferred", reason="identity_provider_unavailable")
             return session
         finally:
-            await self.store.unlock(session_id)
+            await self.store.unlock(session_id, held)
         if session.tenant_uuid not in {m.tenant_id for m in identity.memberships}:
             # Removed from the organization in Keycloak: access to this tenant ends now.
             await self.store.delete_session(session_id)

@@ -19,7 +19,7 @@ import { useListChannel } from '@supportx/realtime';
 import { FormProblem, useDateTime, useFormProblem, useLabel, lengthLimit } from '@supportx/ui';
 
 import { AuditEntryDrawer } from './AuditEntryDrawer';
-import { actorLabel, objectLabel, OUTCOME_COLOURS } from './present';
+import { actionLabel, actorLabel, objectLabel, OUTCOME_COLOURS } from './present';
 import { StateTag } from './StateTag';
 
 /** Every action code that has a label (the catalogue lives in the backend; labels mirror it). */
@@ -49,6 +49,12 @@ const ACTOR_TYPES = [
   'vendor_support',
 ] as const;
 const CLIENTS = ['console', 'portal', 'mobile', 'api', 'worker'] as const;
+// Behind "More filters" (QA6-ADM-01): used less than range, person, action and outcome.
+const MORE = [
+  ['category', CATEGORIES, 'audit_category'],
+  ['actor_type', ACTOR_TYPES, 'audit_actor_type'],
+  ['client', CLIENTS, 'audit_client'],
+] as const;
 const FILTER_KEYS = ['range', 'action', 'category', 'outcome', 'actor_type', 'actor_id', 'client'];
 
 function rangeFilter(range: string | undefined): FilterExpression | undefined {
@@ -74,6 +80,7 @@ function rangeFilter(range: string | undefined): FilterExpression | undefined {
  * under the pointer: they are announced in a pill and shown when the reader asks (REQ-WI-012).
  */
 export function AuditLogTab() {
+  const [moreOpen, setMoreOpen] = useState(false);
   const t = useLabel();
   const dates = useDateTime();
   const [params, setParams] = useSearchParams();
@@ -145,6 +152,29 @@ export function AuditLogTab() {
     label: t(`${prefix}.${value}`),
   });
 
+  // QA6-ADM-01: one row of the filters people use most; the rest behind "More filters", open on
+  // their own while one of them is set, so an applied filter is never hidden.
+  const moreSet = MORE.filter(([key]) => (filters[key] ?? '') !== '').length;
+  const showMore = moreOpen || moreSet > 0;
+  const select = (
+    key: (typeof MORE)[number][0] | 'outcome',
+    values: readonly string[],
+    prefix: string,
+  ) => (
+    <Select
+      key={key}
+      aria-label={t(`audit.ui.filter.${key}`)}
+      prefix={`${t(`audit.ui.filter.${key}`)}:`}
+      value={filters[key] ?? ''}
+      onChange={(value) => {
+        setFilter(key, value);
+      }}
+      options={[any, ...values.map(option(prefix))]}
+      style={{ minWidth: 180 }}
+      data-testid={`audit-filter-${key}`}
+    />
+  );
+
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       <Flex gap={8} wrap align="center">
@@ -178,27 +208,18 @@ export function AuditLogTab() {
           style={{ minWidth: 260 }}
           data-testid="audit-filter-action"
         />
-        {(
-          [
-            ['category', CATEGORIES, 'audit_category'],
-            ['outcome', OUTCOMES, 'audit_outcome'],
-            ['actor_type', ACTOR_TYPES, 'audit_actor_type'],
-            ['client', CLIENTS, 'audit_client'],
-          ] as const
-        ).map(([key, values, prefix]) => (
-          <Select
-            key={key}
-            aria-label={t(`audit.ui.filter.${key}`)}
-            prefix={`${t(`audit.ui.filter.${key}`)}:`}
-            value={filters[key] ?? ''}
-            onChange={(value) => {
-              setFilter(key, value);
-            }}
-            options={[any, ...values.map(option(prefix))]}
-            style={{ minWidth: 180 }}
-            data-testid={`audit-filter-${key}`}
-          />
-        ))}
+        {select('outcome', OUTCOMES, 'audit_outcome')}
+        <Button
+          onClick={() => {
+            setMoreOpen(!showMore);
+          }}
+          aria-expanded={showMore}
+          data-testid="audit-more-filters"
+        >
+          {moreSet > 0
+            ? t('audit.ui.more_filters_set', { count: moreSet })
+            : t('audit.ui.more_filters')}
+        </Button>
         <SavedSearches
           current={filters}
           onApply={(saved) => {
@@ -208,6 +229,11 @@ export function AuditLogTab() {
           }}
         />
       </Flex>
+      {showMore && (
+        <Flex gap={8} wrap align="center" data-testid="audit-more-filter-row">
+          {MORE.map(([key, values, prefix]) => select(key, values, prefix))}
+        </Flex>
+      )}
       <div style={{ minHeight: 32 }}>
         {fresh > 0 && (
           <Button
@@ -249,7 +275,7 @@ export function AuditLogTab() {
           {
             key: 'action',
             title: t('audit.ui.col.action'),
-            render: (_, entry) => t(`audit.action.${entry.action}`),
+            render: (_, entry) => actionLabel(t, entry),
           },
           { key: 'object', title: t('audit.ui.col.object'), render: (_, e) => objectLabel(t, e) },
           {

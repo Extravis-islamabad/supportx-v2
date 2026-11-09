@@ -49,6 +49,7 @@ export const ur: LabelResource = {
   'ai_settings.master_help':
     'بند: کسی کے لیے کوئی AI خصوصیت نہیں چلتی اور کوئی ماڈل نہیں بلایا جاتا۔',
   'ai_settings.model': 'ماڈل',
+  'ai_settings.model_none': 'اس سرور سے کوئی اے آئی ماڈل منسلک نہیں۔',
   'ai_settings.model_value': '{{model}} ({{where}})',
   'ai_settings.no_training':
     'آپ کی AI گفتگو کبھی کسی ماڈل کی تربیت کے لیے استعمال نہیں ہوتی۔ اس کا متن صرف نیچے دی گئی مدت تک رکھا جاتا ہے، پھر حذف ہو جاتا ہے؛ ہر حذف آڈٹ میں درج ہوتا ہے۔',
@@ -86,6 +87,8 @@ export const ur: LabelResource = {
     'وہ گفتگو کے خلاصے حذف کیے جن میں مٹائے گئے شخص کا نام ہو سکتا تھا',
   'errors.ai_call_not_found': 'یہ AI جواب موجود نہیں یا آپ کا نہیں۔',
   'errors.ai_feature_off': 'یہ AI خصوصیت آپ کے ادارے کے لیے بند ہے۔',
+  'errors.ai_not_configured':
+    'اس سرور پر اے آئی ترتیب نہیں دیا گیا۔ اپنے منتظم سے کوئی ماڈل جوڑنے کو کہیں۔',
   'errors.ai_record_not_visible': 'آپ یہ ریکارڈ نہیں دیکھ سکتے، اس لیے AI اس پر کام نہیں کر سکتا۔',
   'errors.ai_summary_nothing': 'ابھی خلاصہ کرنے کو کچھ نہیں: نہ تفصیل، نہ جوابات، نہ نوٹس۔',
   'errors.ai_unavailable': 'AI ماڈل جواب نہیں دے رہا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',

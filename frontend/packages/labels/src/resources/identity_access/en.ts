@@ -35,6 +35,7 @@ export const en = {
     'Required for your roles: after your password, you enter a code from an authenticator app.',
   'account.mfa.reminder':
     'Your organisation requires two-step sign-in. Set it up by {{date}}; after that you will be asked to before anything else.',
+  'account.mfa.reminder_close': 'Hide this reminder until you next sign in',
   'account.mfa.reminder_short': 'Two-step sign-in due {{date}}',
   'account.mfa.set_up': 'Set up two-step sign-in',
   'account.mfa.set_up_short': 'Set up',
@@ -166,6 +167,8 @@ export const en = {
   'password_policy_state.applying': 'Being applied',
   'password_policy_state.default': 'Installation default',
   'password_policy_state.failed': 'Not applied',
+  'people.account.help': 'These apply at once, without Save.',
+  'people.account.title': 'Account',
   'people.add': 'Add person',
   'people.added': '{{name}} added',
   'people.changed_elsewhere':
@@ -640,6 +643,11 @@ export const en = {
   'permission.work_items.view_reports': 'View requests of their direct reports',
   'permission.work_items.view_reports.description':
     'In the portal, see the incidents and requests of the people who report to them, under a separate filter.',
+  'permission.workflows.manage': 'Manage workflows',
+  'permission.workflows.manage.description':
+    'Design, publish and switch visual workflows, and choose the roles they run with.',
+  'permission.workflows.run': 'Run workflows',
+  'permission.workflows.run.description': 'Start a workflow on a record and see how its runs went.',
   'permission_module.announcements': 'Announcements',
   'permission_module.api_keys': 'API keys',
   'permission_module.assets': 'Assets',
@@ -672,6 +680,7 @@ export const en = {
   'permission_module.sla': 'SLA',
   'permission_module.users': 'Users',
   'permission_module.work_items': 'All requests (incidents and service requests)',
+  'permission_module.workflows': 'Workflows',
   'preferences.date_format': 'Date format',
   'preferences.default': 'Default',
   'preferences.default_value': 'Default ({{value}})',
@@ -690,6 +699,7 @@ export const en = {
   'presence.you_elsewhere': 'You (another window)',
   'profile.form_density_help': 'Compact shows two columns with labels on the left.',
   'profile.identity': 'Name, email and language come from your sign-in account.',
+  'profile.replies_card': 'Replies and time zone',
   'profile.saved': 'Your preferences were saved.',
   'profile.signature': 'Reply signature',
   'profile.signature_help': 'Added to the replies you send.',
@@ -752,9 +762,11 @@ export const en = {
   'roles.delete_title': 'Delete {{name}}?',
   'roles.deleted': 'The role was deleted.',
   'roles.description': 'Description',
+  'roles.duplicate': 'Duplicate as a custom role',
   'roles.editor.copy': 'New role from “{{name}}”',
   'roles.editor.edit': 'Role: {{name}}',
   'roles.editor.new': 'New role',
+  'roles.granted_only': 'Granted only',
   'roles.groups': 'Support groups',
   'roles.groups_add': 'Add a group',
   'roles.groups_help':
@@ -763,10 +775,12 @@ export const en = {
   'roles.has_rule': 'Limited by a rule',
   'roles.name': 'Name',
   'roles.new': 'New role',
+  'roles.no_permission_found': 'No permission matches',
   'roles.permissions': 'Permissions',
   'roles.reassign_to': 'Move users to',
   'roles.saved': 'The role was saved.',
   'roles.scope_of': 'Scope for {{permission}}',
+  'roles.search': 'Find a permission',
   'roles.system_read_only':
     'Built-in roles cannot be changed. Create a custom role to grant a different set of permissions.',
   'roles.title': 'Roles',
@@ -810,6 +824,20 @@ export const en = {
   'security.invitations.status': 'Status',
   'security.invitations.title': 'Invitations',
   'security.invitations.valid_days': 'Invitation links work for',
+  'security.mfa.confirm_off_one':
+    '1 person holds this role. Sign-in stops asking for a second step, even if they set one up.',
+  'security.mfa.confirm_off_other':
+    '{{count}} people hold this role. Sign-in stops asking for a second step, even if they set one up.',
+  'security.mfa.confirm_ok': 'Change it',
+  'security.mfa.confirm_optional_one':
+    '1 person holds this role. They may set it up, but sign-in no longer asks for it.',
+  'security.mfa.confirm_optional_other':
+    '{{count}} people hold this role. They may set it up, but sign-in no longer asks for it.',
+  'security.mfa.confirm_required_one':
+    '1 person holds this role; {{missing}} of them still has to set it up. People without it get the grace period, then can only set it up.',
+  'security.mfa.confirm_required_other':
+    '{{count}} people hold this role; {{missing}} of them still have to set it up. People without it get the grace period, then can only set it up.',
+  'security.mfa.confirm_title': 'Set two-step sign-in to {{mode}} for {{role}}?',
   'security.mfa.count': '{{enrolled}} of {{holders}}',
   'security.mfa.enrolled': 'Set up',
   'security.mfa.grace': 'Days to set it up once required',

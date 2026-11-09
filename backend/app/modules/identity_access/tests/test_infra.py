@@ -48,10 +48,30 @@ async def test_store_hashes_keys_and_login_state_is_single_use() -> None:
     assert await store.take_login("state-1") == {"nonce": "n"}
     assert await store.take_login("state-1") is None  # replayed callback
 
-    assert await store.lock("s", timedelta(seconds=5)) is True
-    assert await store.lock("s", timedelta(seconds=5)) is False
-    await store.unlock("s")
-    assert await store.lock("s", timedelta(seconds=5)) is True
+    first = await store.lock("s", timedelta(seconds=5))
+    assert first is not None
+    assert await store.lock("s", timedelta(seconds=5)) is None
+    await store.unlock("s", "not-the-holder")  # never releases another holder's lock
+    assert await store.lock("s", timedelta(seconds=5)) is None
+    await store.unlock("s", first)
+    assert await store.lock("s", timedelta(seconds=5)) is not None
+
+
+class _ReplyLostKeyValue(MemoryKeyValue):
+    """The Valkey client's retry after a lost reply: the first SET NX ran, the retry sees it."""
+
+    async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None:
+        await super().set(key, value, px=px, nx=nx)
+        return None if nx else True
+
+
+async def test_a_retried_lock_whose_first_try_ran_is_still_ours() -> None:
+    kv = _ReplyLostKeyValue()
+    store = SessionStore(kv, SessionCipher("k" * 40))
+    held = await store.lock("s", timedelta(seconds=5))
+    assert held is not None  # not "someone else holds it": the stored token is this attempt's
+    await store.unlock("s", held)
+    assert kv.data == {}
 
 
 def test_pkce_pair_is_s256() -> None:

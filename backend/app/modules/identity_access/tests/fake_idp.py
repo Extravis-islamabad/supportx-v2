@@ -205,3 +205,9 @@ class MemoryKeyValue:
 
     async def hdel(self, key: str, field: str) -> int:
         return 1 if self.hashes.get(key, {}).pop(field, None) is not None else 0
+
+    async def delete_if(self, key: str, value: bytes) -> bool:
+        if self.data.get(key) != value:
+            return False
+        del self.data[key]
+        return True

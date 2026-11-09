@@ -141,19 +141,38 @@ function themeFor(
     const key = name as keyof NonNullable<ThemeConfig['components']>;
     components[key] = { ...(components[key] as object), ...tokens } as never;
   }
+  const token = { ...dense.token, ...base.token };
+  // A table's or list's "nothing here" text is drawn in the disabled colour (about 2.5:1), not
+  // readable text (QA V5): give it the mode's secondary text colour, which passes AA.
+  const empty = token.colorTextSecondary;
+  if (empty !== undefined) {
+    components.Table = { ...components.Table, colorTextDisabled: empty };
+    components.List = { ...components.List, colorTextDisabled: empty };
+  }
   return withShell({
     ...base,
     algorithm: dense.algorithm,
     // The mode's own tokens win (high contrast line widths, readable colours); Urdu keeps its
     // taller line height, so rows grow rather than clip.
-    token: { ...dense.token, ...base.token },
+    token,
     components,
   });
 }
 
+/** Dark mode's surfaces (QA9-V-03): page, cards, popups and their borders, never pure black. */
+export const DARK_SURFACES = {
+  colorBgLayout: '#121317',
+  colorBgContainer: '#1C1D23',
+  colorBgElevated: '#22232A',
+  colorBorderSecondary: '#2E3039',
+} as const;
+
 /** The dark navigation's tokens, in every mode (Ant Design's `dark` Sider and Menu). */
 function withShell(config: ThemeConfig): ThemeConfig {
   const components = { ...config.components };
+  // Checkboxes stay square (radius 4); only radios are round (QA6S-SHELL-09: the theme's radius of
+  // 8 drew them as circles, like radios).
+  components.Checkbox = { ...components.Checkbox, borderRadiusSM: 4 };
   components.Layout = {
     ...components.Layout,
     siderBg: SHELL.navBg,
@@ -269,12 +288,15 @@ function modeTheme(
       colorLinkHover: primaryText,
       colorLinkActive: primaryText,
       colorPrimaryText: primaryText,
+      // Not pure black (QA9-V-03): a dark grey page with lighter cards, so cards stand apart
+      // as the white cards on #F4F5F7 do in light mode, and popups a step lighter again.
+      ...DARK_SURFACES,
     },
     components: {
       // The sidebar uses Ant Design's "light" sider, whose colours are fixed (white): give it
       // the container colours of the dark mode instead, so dark mode has a dark sidebar.
       Layout: {
-        lightSiderBg: '#141414',
+        lightSiderBg: DARK_SURFACES.colorBgContainer,
         lightTriggerBg: '#1f1f1f',
         lightTriggerColor: 'rgba(255, 255, 255, 0.85)',
       },

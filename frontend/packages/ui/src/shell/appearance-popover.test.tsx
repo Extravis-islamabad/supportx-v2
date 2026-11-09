@@ -44,11 +44,13 @@ function Harness() {
  * (layouts.spec.ts, with no retry).
  */
 function isOpen(): boolean {
-  return screen.getByTestId('appearance-menu').getAttribute('aria-expanded') === 'true';
+  return screen.getByTestId('user-menu').getAttribute('data-appearance-open') === 'true';
 }
 
+/** Appearance is an item of the user menu (D-147). */
 async function openPopover() {
-  fireEvent.click(screen.getByTestId('appearance-menu'));
+  fireEvent.click(screen.getByTestId('user-menu'));
+  fireEvent.click(await screen.findByTestId('appearance-menu'));
   await waitFor(() => {
     expect(isOpen()).toBe(true);
   });
@@ -58,7 +60,7 @@ describe('Appearance popover', () => {
   it('baseline: opens and closes with one click each', async () => {
     renderUi(<Harness />);
     await openPopover();
-    fireEvent.click(screen.getByTestId('appearance-menu'));
+    fireEvent.click(screen.getByTestId('user-menu'));
     await waitFor(() => {
       expect(isOpen()).toBe(false);
     });
@@ -73,7 +75,7 @@ describe('Appearance popover', () => {
     });
     // Still open after the change (the user may want to change more).
     expect(isOpen()).toBe(true);
-    fireEvent.click(screen.getByTestId('appearance-menu'));
+    fireEvent.click(screen.getByTestId('user-menu'));
     await waitFor(() => {
       expect(isOpen()).toBe(false);
     });
@@ -94,7 +96,7 @@ describe('Appearance popover', () => {
     await waitFor(() => {
       expect(document.documentElement.getAttribute('dir')).toBe('rtl');
     });
-    fireEvent.click(screen.getByTestId('appearance-menu'));
+    fireEvent.click(screen.getByTestId('user-menu'));
     await waitFor(() => {
       expect(isOpen()).toBe(false);
     });

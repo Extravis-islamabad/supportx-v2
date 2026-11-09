@@ -426,4 +426,25 @@ describe('console: problems', () => {
     );
     expect(screen.getByTestId('prb-evidence-left-out')).toBeDefined();
   });
+
+  it('QA6-PRB-01: the new-problem form sits on a card, two fields a row, at full width', async () => {
+    window.history.pushState({}, '', '/problems/new');
+    api();
+    render(<App />);
+    const card = await screen.findByTestId('prb-form-card');
+    expect(card.className).toContain('ant-card');
+    const group = within(card).getByTestId('prb-group');
+    expect(group.closest('.ant-col-md-12')).not.toBeNull();
+    expect(within(card).getByTestId('prb-impact').closest('.ant-col-md-12')).not.toBeNull();
+  });
+
+  it('QA6-PRB-02: a problem has the breadcrumb Problems / PRB-n and says so in the tab', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api();
+    render(<App />);
+    await screen.findByTestId('prb-record');
+    await waitFor(() => {
+      expect(document.title.startsWith('PRB-7 · Problems')).toBe(true);
+    });
+  });
 });

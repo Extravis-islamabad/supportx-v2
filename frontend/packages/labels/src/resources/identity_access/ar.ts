@@ -35,6 +35,7 @@ export const ar: LabelResource = {
   'account.mfa.policy.required': 'مطلوبة لأدوارك: بعد كلمة المرور تُدخل رمزًا من تطبيق مصادقة.',
   'account.mfa.reminder':
     'تشترط مؤسستك تسجيل الدخول بخطوتين. أعِدّه بحلول {{date}}؛ بعد ذلك سيُطلب منك إعداده قبل أي شيء آخر.',
+  'account.mfa.reminder_close': 'إخفاء هذا التذكير حتى تسجيل دخولك القادم',
   'account.mfa.reminder_short': 'تسجيل الدخول بخطوتين مطلوب قبل {{date}}',
   'account.mfa.set_up': 'إعداد تسجيل الدخول بخطوتين',
   'account.mfa.set_up_short': 'إعداد',
@@ -165,6 +166,8 @@ export const ar: LabelResource = {
   'password_policy_state.applying': 'قيد التطبيق',
   'password_policy_state.default': 'الإعداد الافتراضي للتثبيت',
   'password_policy_state.failed': 'غير مطبّقة',
+  'people.account.help': 'تُطبَّق هذه فورًا، دون حفظ.',
+  'people.account.title': 'الحساب',
   'people.add': 'إضافة شخص',
   'people.added': 'أُضيف {{name}}',
   'people.changed_elsewhere':
@@ -622,6 +625,11 @@ export const ar: LabelResource = {
   'permission.work_items.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
   'permission.work_items.view_reports.description':
     'في البوابة، رؤية حوادث وطلبات الأشخاص الذين يتبعونه مباشرة، ضمن عامل تصفية منفصل.',
+  'permission.workflows.manage': 'إدارة سير العمل',
+  'permission.workflows.manage.description':
+    'تصميم سير العمل المرئي ونشره وتشغيله وإيقافه، واختيار الأدوار التي يعمل بها.',
+  'permission.workflows.run': 'تشغيل سير العمل',
+  'permission.workflows.run.description': 'بدء سير عمل على سجل ومعرفة كيف جرت عمليات تشغيله.',
   'permission_module.announcements': 'الإعلانات',
   'permission_module.api_keys': 'مفاتيح API',
   'permission_module.assets': 'الأصول',
@@ -654,6 +662,7 @@ export const ar: LabelResource = {
   'permission_module.sla': 'اتفاقيات مستوى الخدمة',
   'permission_module.users': 'المستخدمون',
   'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
+  'permission_module.workflows': 'سير العمل',
   'preferences.date_format': 'تنسيق التاريخ',
   'preferences.default': 'الافتراضي',
   'preferences.default_value': 'الافتراضي ({{value}})',
@@ -672,6 +681,7 @@ export const ar: LabelResource = {
   'presence.you_elsewhere': 'أنت (نافذة أخرى)',
   'profile.form_density_help': 'يعرض الوضع المضغوط عمودين مع التسميات على الجانب.',
   'profile.identity': 'يأتي الاسم والبريد الإلكتروني واللغة من حساب تسجيل الدخول.',
+  'profile.replies_card': 'الردود والمنطقة الزمنية',
   'profile.saved': 'تم حفظ تفضيلاتك.',
   'profile.signature': 'توقيع الردود',
   'profile.signature_help': 'يُضاف إلى الردود التي ترسلها.',
@@ -737,9 +747,11 @@ export const ar: LabelResource = {
   'roles.delete_title': 'حذف {{name}}؟',
   'roles.deleted': 'تم حذف الدور.',
   'roles.description': 'الوصف',
+  'roles.duplicate': 'تكرار كدور مخصص',
   'roles.editor.copy': 'دور جديد من «{{name}}»',
   'roles.editor.edit': 'الدور: {{name}}',
   'roles.editor.new': 'دور جديد',
+  'roles.granted_only': 'الممنوحة فقط',
   'roles.groups': 'مجموعات الدعم',
   'roles.groups_add': 'إضافة مجموعة',
   'roles.groups_help':
@@ -748,10 +760,12 @@ export const ar: LabelResource = {
   'roles.has_rule': 'محدود بقاعدة',
   'roles.name': 'الاسم',
   'roles.new': 'دور جديد',
+  'roles.no_permission_found': 'لا توجد صلاحية مطابقة',
   'roles.permissions': 'الصلاحيات',
   'roles.reassign_to': 'نقل المستخدمين إلى',
   'roles.saved': 'تم حفظ الدور.',
   'roles.scope_of': 'نطاق {{permission}}',
+  'roles.search': 'البحث عن صلاحية',
   'roles.system_read_only':
     'لا يمكن تغيير الأدوار المضمّنة. أنشئ دورًا مخصصًا لمنح مجموعة مختلفة من الصلاحيات.',
   'roles.title': 'الأدوار',
@@ -795,6 +809,41 @@ export const ar: LabelResource = {
   'security.invitations.status': 'الحالة',
   'security.invitations.title': 'الدعوات',
   'security.invitations.valid_days': 'تعمل روابط الدعوات لمدة',
+  'security.mfa.confirm_off_few':
+    'يحمل هذا الدور {{count}} أشخاص. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّوها.',
+  'security.mfa.confirm_off_many':
+    'يحمل هذا الدور {{count}} شخصًا. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّوها.',
+  'security.mfa.confirm_off_one':
+    'يحمل هذا الدور شخص واحد. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّها.',
+  'security.mfa.confirm_off_other':
+    'يحمل هذا الدور {{count}} شخص. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّوها.',
+  'security.mfa.confirm_off_two':
+    'يحمل هذا الدور شخصان. لن يطلب تسجيل الدخول خطوة ثانية، حتى إن أعدّاها.',
+  'security.mfa.confirm_off_zero': 'لا أحد يحمل هذا الدور.',
+  'security.mfa.confirm_ok': 'تغيير',
+  'security.mfa.confirm_optional_few':
+    'يحمل هذا الدور {{count}} أشخاص. يمكنهم إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_many':
+    'يحمل هذا الدور {{count}} شخصًا. يمكنهم إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_one':
+    'يحمل هذا الدور شخص واحد. يمكنه إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_other':
+    'يحمل هذا الدور {{count}} شخص. يمكنهم إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_two':
+    'يحمل هذا الدور شخصان. يمكنهما إعداده، لكن تسجيل الدخول لن يطلبه بعد الآن.',
+  'security.mfa.confirm_optional_zero': 'لا أحد يحمل هذا الدور.',
+  'security.mfa.confirm_required_few':
+    'يحمل هذا الدور {{count}} أشخاص؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_many':
+    'يحمل هذا الدور {{count}} شخصًا؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_one':
+    'يحمل هذا الدور شخص واحد؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_other':
+    'يحمل هذا الدور {{count}} شخص؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_two':
+    'يحمل هذا الدور شخصان؛ ولم يُعِدّه بعد {{missing}}. من لم يُعِدّه يحصل على مهلة السماح، ثم لا يمكنه إلا إعداده.',
+  'security.mfa.confirm_required_zero': 'لا أحد يحمل هذا الدور.',
+  'security.mfa.confirm_title': 'تعيين تسجيل الدخول بخطوتين إلى {{mode}} للدور {{role}}؟',
   'security.mfa.count': '{{enrolled}} من {{holders}}',
   'security.mfa.enrolled': 'مُعدّة لدى',
   'security.mfa.grace': 'أيام الإعداد بعد أن تصبح مطلوبة',

@@ -10,40 +10,68 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#7e40d1" />
     <style>
-      /* Shown until the app's first render replaces #root. */
+      /* Shown until the app's first render replaces #root. Self-contained (QA9-V-02): no image
+         to load and no web font, so it never shows a broken picture or a serif fallback. */
       #sx-splash {
         position: fixed;
         inset: 0;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: #ffffff;
+        gap: 20px;
+        background: #f4f5f7;
+        color: #1f1f1f;
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          'Noto Sans',
+          sans-serif;
+      }
+      #sx-splash .sx-word {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      #sx-splash .sx-word span {
+        color: #7e40d1;
+      }
+      #sx-splash .sx-spin {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(126, 64, 209, 0.2);
+        border-top-color: #7e40d1;
+        border-radius: 50%;
+        animation: sx-spin 0.8s linear infinite;
+      }
+      @keyframes sx-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #sx-splash .sx-spin {
+          animation-duration: 2.4s;
+        }
       }
       @media (prefers-color-scheme: dark) {
         #sx-splash {
-          background: #141414;
+          background: #141418;
+          color: #f0f0f0;
+        }
+        #sx-splash .sx-word span {
+          color: #b48cf0;
         }
       }
     </style>
   </head>
   <body>
     <div id="root">
-      <div id="sx-splash">
-        <picture>
-          <source
-            srcset="../../packages/ui/src/brand/assets/logo-high-contrast.png"
-            media="(prefers-contrast: more)"
-          />
-          <source
-            srcset="../../packages/ui/src/brand/assets/logo-white-text.png"
-            media="(prefers-color-scheme: dark)"
-          />
-          <img
-            src="../../packages/ui/src/brand/assets/logo-dark-text.png"
-            alt="SupportX"
-            height="40"
-          />
-        </picture>
+      <div id="sx-splash" role="status" aria-live="polite" aria-label="SupportX">
+        <div class="sx-word" aria-hidden="true">Support<span>X</span></div>
+        <div class="sx-spin" aria-hidden="true"></div>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
