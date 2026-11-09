@@ -125,11 +125,13 @@ async def test_a_retry_makes_a_fresh_link_and_the_old_one_dies(world: World) -> 
     a = world.a
     await manager_of(world, a.requester, a.tech_a)
     item = await an_item(world, a, approval={"approvers": [{"kind": "requested_for_manager"}]})
-    await raise_request(world, a, a.requester, catalog_item_id=item["id"], answers={"model": "air"})
-    await run_engine(world, a, settings=MAIL)
-    [row] = await world.sql(
-        "SELECT id FROM mail_messages WHERE tenant_id = $1 AND links IS NOT NULL", a.tenant
+    made = await raise_request(
+        world, a, a.requester, catalog_item_id=item["id"], answers={"model": "air"}
     )
+    await run_engine(world, a, settings=MAIL)
+    # The approval e-mail (the requester's acknowledgement is another mail, QA10).
+    [mail_id] = (await _mails(world, a, made.json())).values()
+    row = {"id": mail_id}
     server = FakeSmtp()
     server.answer = smtp.TemporaryFailure(code="server_busy")
     assert await _send(world, a, row["id"], server) == "queued"  # minted, never left

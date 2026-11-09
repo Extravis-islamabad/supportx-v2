@@ -90,6 +90,11 @@ export const ur: LabelResource = {
   'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
+  'notification_event.service_request.approved': 'درخواست منظور',
+  'notification_event.service_request.fulfilled': 'درخواست مکمل',
+  'notification_event.service_request.received': 'درخواست موصول: تصدیق',
+  'notification_event.service_request.rejected': 'درخواست نامنظور',
+  'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
   'notification_preferences.col.category': 'قسم',
   'notification_preferences.dnd_help':
     'کوئی پاپ اپ نہیں اور فوری و لازمی کے سوا کوئی ای میل نہیں؛ سب کچھ آپ کی اطلاعات میں پھر بھی آتا ہے۔',
@@ -382,7 +387,38 @@ export const ur: LabelResource = {
     '{{ record.display_id }} آپ کی منظوری کا منتظر ہے: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approved.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کی درخواست {{ record.display_id }} «{{ record.title }}» منظور ہو گئی۔ ہم اب اس پر کام کر رہے ہیں۔',
+  'notification_template.service_request.approved.in_app':
+    '{{ record.display_id }} منظور ہو گئی: {{ record.title }}',
+  'notification_template.service_request.approved.subject':
+    'منظور: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.fulfilled.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کی درخواست {{ record.display_id }} «{{ record.title }}» مکمل ہو گئی۔ براہ کرم تصدیق کریں کہ آپ کو مل گئی، یا بتائیں اگر کچھ رہ گیا ہو۔',
+  'notification_template.service_request.fulfilled.in_app':
+    '{{ record.display_id }} مکمل ہو گئی: {{ record.title }}',
+  'notification_template.service_request.fulfilled.subject':
+    'مکمل: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.received.body':
+    'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست «{{ record.title }}» موصول ہوئی اور اسے {{ record.display_id }} کے طور پر درج کر لیا گیا۔ ہم آپ کو باخبر رکھیں گے۔',
+  'notification_template.service_request.received.in_app':
+    '{{ record.display_id }} موصول ہوئی: {{ record.title }}',
+  'notification_template.service_request.received.subject':
+    'آپ کی درخواست {{ record.display_id }} موصول ہوئی: {{ record.title }}',
+  'notification_template.service_request.rejected.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کی درخواست {{ record.display_id }} «{{ record.title }}» منظور نہیں ہوئی۔{% if approval.comment %}\n\nمنظوری دینے والے نے کہا: {{ approval.comment }}{% endif %}',
+  'notification_template.service_request.rejected.in_app':
+    '{{ record.display_id }} منظور نہیں ہوئی: {{ record.title }}',
+  'notification_template.service_request.rejected.subject':
+    'نامنظور: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.withdrawn.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کی درخواست {{ record.display_id }} «{{ record.title }}» واپس لے لی گئی۔ اس پر مزید کچھ نہیں ہوگا۔',
+  'notification_template.service_request.withdrawn.in_app':
+    '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
+  'notification_template.service_request.withdrawn.subject':
+    'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
+  'notification_variable.approval.comment': 'منظوری دینے والے کا تبصرہ',
   'notification_variable.approval_link': 'منظوری › لنک',
   'notification_variable.article.reason': 'مضمون › وجہ',
   'notification_variable.article.review_on': 'مضمون › جائزے کی تاریخ',

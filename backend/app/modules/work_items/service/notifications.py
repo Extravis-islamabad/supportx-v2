@@ -102,7 +102,8 @@ EVENTS: tuple[NotificationEvent, ...] = (
     NotificationEvent(
         "incident.created",
         NotificationCategory.CREATED,
-        EventDefault(enabled=True, recipients=("requester",)),
+        # The requester's acknowledgement reaches them when they raised it themself (QA10).
+        EventDefault(enabled=True, recipients=("requester",), notify_actor=True),
     ),
     NotificationEvent(
         "incident.created_in_group",
