@@ -4,7 +4,7 @@ Public interface: `issue`, `peek`, `use`, `revoke_for`, `register_handler`, `Act
 `Opened`, `LinkRefused`, `Refusal`.
 """
 
-from app.shared.action_links.domain import PUBLIC_PAGE, LinkRequest, Refusal, marker
+from app.shared.action_links.domain import LinkRequest, Refusal, marker, public_page
 from app.shared.action_links.service import (
     ActionHandler,
     Actor,
@@ -20,7 +20,6 @@ from app.shared.action_links.service import (
 )
 
 __all__ = [
-    "PUBLIC_PAGE",
     "ActionHandler",
     "Actor",
     "LinkRefused",
@@ -31,6 +30,7 @@ __all__ = [
     "marker",
     "note_failed_use",
     "peek",
+    "public_page",
     "recipient_of",
     "register_handler",
     "revoke_for",
