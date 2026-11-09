@@ -57,6 +57,7 @@ export const ur: LabelResource = {
   'knowledge.action.submit': 'جائزے کے لیے بھیجیں',
   'knowledge.action.withdraw': 'واپس لیں',
   'knowledge.all_topics': 'تمام موضوعات',
+  'knowledge.article': 'مضمون',
   'knowledge.article_settings': 'مضمون کی ترتیبات',
   'knowledge.audience.all_requesters': 'تمام درخواست دہندگان',
   'knowledge.audience.all_technicians': 'تمام تکنیکی عملہ',

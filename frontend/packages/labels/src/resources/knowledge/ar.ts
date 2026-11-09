@@ -57,6 +57,7 @@ export const ar: LabelResource = {
   'knowledge.action.submit': 'إرسال للمراجعة',
   'knowledge.action.withdraw': 'سحب',
   'knowledge.all_topics': 'كل الموضوعات',
+  'knowledge.article': 'مقال',
   'knowledge.article_settings': 'إعدادات المقالة',
   'knowledge.audience.all_requesters': 'كل مقدمي الطلبات',
   'knowledge.audience.all_technicians': 'كل الفنيين',

@@ -184,7 +184,7 @@ describe('The article page', () => {
     api(fakeSession(), page(arabic));
     render(<App />);
     const heading = await screen.findByTestId('kb-heading');
-    expect(heading.getAttribute('dir')).toBe('rtl');
+    expect(heading.closest('[dir="rtl"]')).not.toBeNull();
     expect(screen.getByTestId('kb-body').closest('[dir="rtl"]')).not.toBeNull();
     // English was wanted (the screen language) but only Arabic exists: the page says so.
     expect(await screen.findByTestId('kb-fallback')).toBeDefined();

@@ -55,6 +55,7 @@ export const en = {
   'knowledge.action.submit': 'Send for review',
   'knowledge.action.withdraw': 'Withdraw',
   'knowledge.all_topics': 'All topics',
+  'knowledge.article': 'Article',
   'knowledge.article_settings': 'Article settings',
   'knowledge.audience.all_requesters': 'All requesters',
   'knowledge.audience.all_technicians': 'All technicians',
