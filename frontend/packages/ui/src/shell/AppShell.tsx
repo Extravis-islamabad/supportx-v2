@@ -1,4 +1,10 @@
-import { DownOutlined, LockOutlined, MenuOutlined } from '@ant-design/icons';
+import {
+  DownOutlined,
+  LeftOutlined,
+  LockOutlined,
+  MenuOutlined,
+  RightOutlined,
+} from '@ant-design/icons';
 import { Button, ConfigProvider, Drawer, Grid, Layout, Menu, Tooltip, type MenuProps } from 'antd';
 import { useContext, useState, type ReactNode } from 'react';
 
@@ -203,7 +209,9 @@ export function AppShell({
         theme="dark"
         width={220}
         collapsedWidth={64}
-        trigger={compact ? null : undefined}
+        // Our own collapse button at the end of the sticky column, not Ant Design's trigger,
+        // which is fixed to the window's bottom and shows mid-page in a full-page shot (D-147).
+        trigger={null}
         // The dark navigation runs the full height however long the page, also in a full-page
         // screenshot (D-147 global fix 1): the sider itself stretches with the page, and only
         // its content sticks to the viewport while the page scrolls.
@@ -232,6 +240,25 @@ export function AppShell({
           >
             <Menu mode="inline" theme="dark" selectedKeys={selectedKeys} items={items} />
           </nav>
+          {!compact && (
+            <Tooltip title={t(narrow ? 'nav.expand' : 'nav.collapse')} placement="right">
+              <Button
+                type="text"
+                icon={(direction === 'rtl') !== narrow ? <RightOutlined /> : <LeftOutlined />}
+                aria-label={t(narrow ? 'nav.expand' : 'nav.collapse')}
+                aria-expanded={!narrow}
+                onClick={() => {
+                  setCollapsed(!collapsed);
+                }}
+                data-testid="nav-collapse"
+                style={{
+                  color: 'rgba(255, 255, 255, 0.75)',
+                  margin: '8px auto 16px',
+                  display: 'block',
+                }}
+              />
+            </Tooltip>
+          )}
         </div>
       </Layout.Sider>
       {/* min-width 0: the page column may shrink below its widest table (which then scrolls

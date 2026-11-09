@@ -282,3 +282,23 @@ describe('D-147: page widths', () => {
     expect(screen.getByTestId('list').style.width).toBe('100%');
   });
 });
+
+describe('D-147: one close button per line', () => {
+  it('a notice with its own close keeps it, and the strip shows no second one', () => {
+    renderUi(
+      <NoticeStack testId="notices">
+        <div>
+          <div className="ant-alert">
+            Announcement
+            <button type="button" className="ant-alert-close-icon">
+              x
+            </button>
+          </div>
+        </div>
+        <div>MFA due</div>
+      </NoticeStack>,
+    );
+    expect(screen.queryByTestId('notices-dismiss')).toBeNull();
+    expect(screen.getByTestId('notices-toggle')).toBeDefined();
+  });
+});

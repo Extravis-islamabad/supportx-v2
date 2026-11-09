@@ -25,6 +25,7 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [critical, setCritical] = useState(false);
+  const [ownClose, setOwnClose] = useState(false);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
 
   useLayoutEffect(() => {
@@ -44,6 +45,7 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
       }
       setCount(showing.length);
       setCritical(showing.some((child) => child.querySelector(CRITICAL) !== null));
+      setOwnClose(first?.querySelector('.ant-alert-close-icon') != null);
     };
     update();
     const observer = new MutationObserver(update);
@@ -55,6 +57,8 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
 
   const collapsed = count > 1 && !open;
   // Dismissed until a notice is added: hiding the strip never hides news (D-147 global fix 3).
+  // One × per line: a notice with its own close (an announcement's dismissal is stored for the
+  // person) keeps it, and the strip's dismiss shows only for notices without one.
   const hidden = dismissedAt !== null && count <= dismissedAt && !critical;
   return (
     <div data-testid={testId} data-notice-strip="true" hidden={hidden || undefined}>
@@ -80,7 +84,7 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
             {open ? t('layout.hide') : t('layout.notices_more', { count: count - 1 })}
           </Button>
         )}
-        {count > 0 && !critical && (
+        {count > 0 && !critical && !ownClose && (
           <Tooltip title={t('layout.notices_dismiss')}>
             <Button
               type="text"
