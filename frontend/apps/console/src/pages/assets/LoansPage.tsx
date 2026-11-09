@@ -167,6 +167,7 @@ function NewLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }
         </Form.Item>
         <Form.Item label={t('assets.loans.comment')}>
           <Input.TextArea
+            aria-label={t('assets.loans.comment')}
             value={comment}
             count={lengthLimit(COMMENT_MAX)}
             autoSize={{ minRows: 2, maxRows: 5 }}
@@ -266,6 +267,7 @@ function ReturnDialog({ loan, onClose }: { loan: AssetLoan | undefined; onClose:
           extra={outcome === 'in_repair' ? t('assets.loans.repair_help') : undefined}
         >
           <Input.TextArea
+            aria-label={t('assets.loans.comment')}
             value={comment}
             count={lengthLimit(COMMENT_MAX)}
             autoSize={{ minRows: 2, maxRows: 5 }}

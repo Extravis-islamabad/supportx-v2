@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
+  Button,
   Card,
   DatePicker,
   Flex,
@@ -238,13 +239,17 @@ export function GroupsPage() {
             <List.Item key={g.id} data-testid={`asset-group-${g.id}`}>
               <Flex vertical style={{ width: '100%' }}>
                 <Space wrap>
-                  <Typography.Link
+                  <Button
+                    type="link"
+                    style={{ padding: 0 }}
+                    aria-expanded={open === g.id}
                     onClick={() => {
                       setOpen(open === g.id ? undefined : g.id);
                     }}
+                    data-testid={`asset-group-toggle-${g.id}`}
                   >
                     <bdi dir="auto">{g.name}</bdi>
-                  </Typography.Link>
+                  </Button>
                   <ToneTag tone="default">{t(`asset_group_kind.${g.kind}`)}</ToneTag>
                   <Typography.Text type="secondary">
                     {t('assets.groups.count', { count: g.count })}
