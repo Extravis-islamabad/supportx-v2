@@ -45,7 +45,7 @@ export const ar: LabelResource = {
   'branding.preview.sign_in': 'تسجيل الدخول',
   'branding.preview.title': 'معاينة',
   'branding.primary': 'اللون الأساسي',
-  'branding.ratio': '{{ratio}}:1، المطلوب {{required}}:1',
+  'branding.ratio': '{{ratio}}، المطلوب {{required}}',
   'branding.reset': 'العودة إلى الافتراضي من SupportX',
   'branding.reset_body': 'تُزال شعاراتك وألوانك ونصوصك وتعرض كل الشاشات علامة SupportX من جديد.',
   'branding.reset_done': 'عادت العلامة الافتراضية.',

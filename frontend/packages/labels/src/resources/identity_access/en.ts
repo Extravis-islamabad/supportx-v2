@@ -684,6 +684,7 @@ export const en = {
   'presence.you_elsewhere': 'You (another window)',
   'profile.form_density_help': 'Compact shows two columns with labels on the left.',
   'profile.identity': 'Name, email and language come from your sign-in account.',
+  'profile.replies_card': 'Replies and time zone',
   'profile.saved': 'Your preferences were saved.',
   'profile.signature': 'Reply signature',
   'profile.signature_help': 'Added to the replies you send.',

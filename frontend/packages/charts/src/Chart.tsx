@@ -16,6 +16,7 @@ import {
 import { CanvasRenderer } from 'echarts/renderers';
 import { useContext, useEffect, useMemo, useRef } from 'react';
 
+import { withTokenColours } from './themeColours';
 import { mirrorForRtl } from './rtl';
 
 // Only what the charts use is registered: keeps the ECharts chunk small (tree-shaken core).
@@ -59,6 +60,8 @@ export function Chart({ option, ariaLabel, height = 320, onSelect }: ChartProps)
   const { token } = theme.useToken();
   const { direction } = useContext(ConfigProvider.ConfigContext);
 
+  // ECharts draws axis labels, axis lines and legends in its own fixed greys, which read dim on
+  // dark surfaces (QA9-V-03): they take the theme's colours unless the chart set its own.
   const themed = useMemo<EChartsCoreOption>(
     () =>
       mirrorForRtl(
@@ -73,7 +76,12 @@ export function Chart({ option, ariaLabel, height = 320, onSelect }: ChartProps)
           textStyle: { color: token.colorText, fontFamily: token.fontFamily },
           aria: { enabled: true, label: { description: ariaLabel } },
           tooltip: { trigger: 'axis' },
-          ...option,
+          ...withTokenColours(option, {
+            text: token.colorText,
+            secondary: token.colorTextSecondary,
+            line: token.colorBorder,
+            grid: token.colorBorderSecondary,
+          }),
         },
         direction === 'rtl',
       ),

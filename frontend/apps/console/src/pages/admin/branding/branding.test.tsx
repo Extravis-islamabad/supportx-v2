@@ -88,6 +88,10 @@ describe('branding screen', () => {
     fireEvent.change(input, { target: { value: '#1e90ff' } });
     const alert = await screen.findByTestId('branding-contrast-alert');
     expect(within(screen.getByTestId('branding-checks')).getByText('Too faint')).toBeTruthy();
+    // QA9-V-10: the ratio stays "3.32:1" in any direction (an LTR isolate inside the sentence).
+    expect(screen.getByTestId('branding-checks').textContent).toContain(
+      '\u20663.32:1\u2069, needs',
+    );
     expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(true);
     fireEvent.click(within(alert).getByTestId('branding-use-suggested'));
     await waitFor(() => {
