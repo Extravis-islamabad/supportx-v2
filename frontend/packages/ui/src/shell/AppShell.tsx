@@ -202,27 +202,35 @@ export function AppShell({
         width={220}
         collapsedWidth={64}
         trigger={compact ? null : undefined}
-        // The dark navigation runs the full height however long the page (UI pass 2).
-        style={{ position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}
+        // The dark navigation runs the full height however long the page, also in a full-page
+        // screenshot (D-147 global fix 1): the sider itself stretches with the page, and only
+        // its content sticks to the viewport while the page scrolls.
+        style={{ alignSelf: 'stretch' }}
+        data-testid="shell-sider"
       >
         <div
-          style={{
-            padding: 16,
-            minHeight: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: narrow ? 'center' : 'flex-start',
-          }}
+          style={{ position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto' }}
+          data-testid="shell-sider-content"
         >
-          {brand(narrow)}
+          <div
+            style={{
+              padding: 16,
+              minHeight: 64,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: narrow ? 'center' : 'flex-start',
+            }}
+          >
+            {brand(narrow)}
+          </div>
+          <nav
+            aria-label={t('nav.main')}
+            data-testid={compact ? 'nav-compact' : 'nav-side'}
+            data-items={itemKeys}
+          >
+            <Menu mode="inline" theme="dark" selectedKeys={selectedKeys} items={items} />
+          </nav>
         </div>
-        <nav
-          aria-label={t('nav.main')}
-          data-testid={compact ? 'nav-compact' : 'nav-side'}
-          data-items={itemKeys}
-        >
-          <Menu mode="inline" theme="dark" selectedKeys={selectedKeys} items={items} />
-        </nav>
       </Layout.Sider>
       {/* min-width 0: the page column may shrink below its widest table (which then scrolls
           inside its own box), so the page never scrolls sideways (QA BUG-07). */}
