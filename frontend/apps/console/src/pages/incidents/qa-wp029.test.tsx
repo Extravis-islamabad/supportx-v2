@@ -186,10 +186,10 @@ describe('WP-029 QA: a move limited to certain people', () => {
       },
     });
     render(<App />);
-    // The reason is the disabled entry's second line in "More actions" (D-124).
+    // The reason heads its group in "More actions" and is read with the entry (QA6-INC-02).
     const resolve = await actionItem('inc-action-resolve');
     expect(resolve.textContent).toBe(
-      'Resolve' +
+      'Resolve: ' +
         'Only these may do this on this record: Tenant administrator, Night shift, members of Network, and the requester.',
     );
   });

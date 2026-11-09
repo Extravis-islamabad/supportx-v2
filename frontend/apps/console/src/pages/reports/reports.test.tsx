@@ -553,6 +553,37 @@ describe('Reports', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Export' }));
     }
 
+    it('QA6-RPT-01: PDF is not offered when no worker can make it', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'GET /api/v1/reports/export-formats': { body: { formats: ['xlsx', 'csv'] } },
+        }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-export'));
+      const select = await screen.findByTestId('report-export-format');
+      fireEvent.mouseDown(select.querySelector('.ant-select-selector') ?? select);
+      await screen.findAllByText('Excel');
+      expect(screen.queryByText('PDF')).toBeNull();
+    });
+
+    it('QA6-RPT-01: PDF is offered while a worker can make it', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'GET /api/v1/reports/export-formats': { body: { formats: ['xlsx', 'csv', 'pdf'] } },
+        }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-export'));
+      const select = await screen.findByTestId('report-export-format');
+      fireEvent.mouseDown(select.querySelector('.ant-select-selector') ?? select);
+      expect(await screen.findByText('PDF')).toBeTruthy();
+    });
+
     it('a refused export shows once, in its dialog, with no toast', async () => {
       await exportWith(429, problem(429, 'report_queue_full', { params: { seconds: 30 } }));
       const shown = await screen.findByTestId('form-problem');

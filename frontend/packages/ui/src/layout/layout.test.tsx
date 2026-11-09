@@ -75,6 +75,32 @@ describe('ActionBar', () => {
     expect(reopen.textContent).toContain('Not possible now.');
   });
 
+  it('QA6-INC-02: unavailable actions sit under their reason, said once, after the available ones', async () => {
+    const why = 'Not possible in the current status.';
+    renderUi(
+      <ActionBar
+        testId="bar"
+        actions={[
+          action('close', { allowed: false, whyNot: why }),
+          action('assign'),
+          action('reopen', { allowed: false, whyNot: why }),
+          action('resume', { allowed: false, whyNot: why }),
+        ]}
+      />,
+    );
+    const list = await menu();
+    const items = within(list).getAllByRole('menuitem');
+    expect(items.map((i) => i.getAttribute('data-testid'))).toEqual([
+      'a-assign-menu',
+      'a-close-menu',
+      'a-reopen-menu',
+      'a-resume-menu',
+    ]);
+    // One heading for the three; the reason is not repeated on screen beside each entry.
+    const headings = [...list.querySelectorAll('.ant-dropdown-menu-item-group-title')];
+    expect(headings.map((h) => h.textContent)).toEqual([why]);
+  });
+
   it('asks before a destructive action that gives a question, once', async () => {
     const remove = action('delete', {
       danger: true,

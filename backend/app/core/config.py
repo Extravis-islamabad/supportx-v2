@@ -242,6 +242,10 @@ class Settings(BaseSettings):
     ai_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     # JSON file of recorded answers for the fake provider ({"<feature>:<sha256>": "text"}).
     ai_recordings_path: str | None = None
+    # The fake's own answer for a prompt it has no recording of: an echo of the prompt, for tests
+    # and CI only (SUPPORTX_AI_FAKE_ECHO=true). Off, an installation without a model says "AI
+    # isn't set up on this server" and never shows the echo (QA6-AI-01).
+    ai_fake_echo: bool = False
 
     # API conventions (WP-008, docs/architecture/api-conventions.md).
     # Key for signing list cursors. None = derived from SUPPORTX_SESSION_SECRET; with neither

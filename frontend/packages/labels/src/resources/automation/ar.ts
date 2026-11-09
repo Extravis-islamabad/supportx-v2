@@ -21,6 +21,8 @@ export const ar: LabelResource = {
   'automation.assign.unassigned_only': 'السجلات التي بلا فني فقط',
   'automation.availability.help': 'غير متاح: لا تُسند إليك السجلات الجديدة تلقائيًا.',
   'automation.availability.label': 'توفّري',
+  'automation.choose_field': 'اختر حقلًا.',
+  'automation.choose_group': 'اختر مجموعة.',
   'automation.col.actions': 'الإجراءات',
   'automation.col.events': 'يعمل',
   'automation.col.group': 'المجموعة',
