@@ -55,6 +55,40 @@ Tabs (main)                                              │ PropertiesPanel (32
 - The panel stays on every tab. Sections fold; keep their keys stable, other lanes fill them
   (lane A's SLA card goes into `sla`).
 
+### Library page (template D, D-147)
+
+```
+PageHeader   Reports  42                               [New folder] [My exports] [Schedules]
+[ Search reports ……………… ]                                         [filters, if any]
+Favourites   ☆ Open incidents by priority …
+Tabs         All 42 · Incidents 25 · Service requests 8 · Problems 8 · Changes 0 · …
+             ┌ Incidents ────────────────────────────────────────────────────────────────┐
+             │ ☆ Name  [Shared]                                              facts at end │
+             │   One line of description                                                  │
+```
+
+Reports, the dashboards list and the knowledge home use `LibraryPage` from `@supportx/ui`.
+Pass it `groups`, one for each module (or each view). Each group's rows are `LibraryItem`s:
+
+- a `title` (the link);
+- a `searchText` in the user's language;
+- an optional `description`, `tags` and `meta`.
+
+The search is local unless you pass `searchOnServer`. With `favourites` and `onStar`, every row
+gets a star, and the favourites show above the tabs.
+
+Rules:
+
+- Every module keeps its tab, even with nothing in it yet. Give the group an `empty` text that
+  says when it fills in, e.g. "Change reports arrive with the change module." Don't leave the
+  module out.
+- "All" comes first and shows each group as a titled section. While searching, groups with no
+  match are hidden there; a module's own tab says "Nothing matches your search."
+- A library whose tabs are views of one list (knowledge: Published, Drafts, Awaiting approval)
+  passes `withAll={false}`. Give each group its own `content` and set `count: null` when the page
+  can't count it.
+- Hidden tabs unmount, so a row (and its test id) appears once on the page.
+
 ### Analytics and settings
 
 - Reports and dashboards use `PageHeader` (with a back link on a single report or dashboard) and
