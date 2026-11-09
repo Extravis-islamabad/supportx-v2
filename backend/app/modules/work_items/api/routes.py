@@ -1584,7 +1584,7 @@ def _plain(value: object) -> str | int | None:
     return str(value)
 
 
-class FieldChangeOut(BaseModel):
+class ApprovalFieldChangeOut(BaseModel):
     """One watched value that changed since approval."""
 
     field: str = Field(description="window_start, window_end, risk or plans.<section>.")
@@ -1597,7 +1597,7 @@ class StageChangesOut(BaseModel):
     """What changed since one stage of the change was approved (REQ-CHG-053 AC3)."""
 
     stage: str
-    changes: list[FieldChangeOut]
+    changes: list[ApprovalFieldChangeOut]
 
     @classmethod
     def of(cls, found: "reapproval_service.StageChanges") -> "StageChangesOut":
@@ -1605,7 +1605,7 @@ class StageChangesOut(BaseModel):
         return cls(
             stage=found.stage,
             changes=[
-                FieldChangeOut(
+                ApprovalFieldChangeOut(
                     field=c.field, before=_plain(c.before), after=_plain(c.after), effect=c.effect
                 )
                 for c in found.changes
