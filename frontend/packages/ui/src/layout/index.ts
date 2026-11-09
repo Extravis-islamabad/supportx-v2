@@ -24,4 +24,6 @@ export {
   type RecordHeaderProps,
   type RecordPageProps,
 } from './RecordPage';
+export { EditableValue, PropertyList, type PropertyItem } from './PropertyList';
+export { FieldRow, FormPage, FormSection, type FormPageProps } from './FormPage';
 export { useMinWidth } from './useMinWidth';

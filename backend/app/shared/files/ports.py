@@ -40,6 +40,7 @@ class OwnerType(StrEnum):
     DRAFT = "draft"  # pasted into an editor before the entry exists (its uploader's only)
     BRANDING = "branding"  # a tenant's logo and icon uploads (WP-017); the record is the tenant
     KB_ARTICLE = "kb_article"  # a knowledge article's images and attachments (WP-033 s2, lane C)
+    ASSET_DISPOSAL = "asset_disposal"  # a disposal certificate (WP-049a s3, REQ-AST-017; 0108)
 
 
 class Action(StrEnum):

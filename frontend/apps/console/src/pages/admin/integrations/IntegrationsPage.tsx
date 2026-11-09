@@ -138,7 +138,9 @@ function KindCard({ kind }: { kind: ConnectorKind }) {
  */
 export function IntegrationsPage() {
   const t = useLabel();
-  const canManage = useAccess().can('integrations.manage'); // the defaults card (D-041)
+  // The defaults card (D-041): what the server saves them with (connector_settings.py), never
+  // the unregistered `integrations.manage`, which no role held (coverage list §17).
+  const canManage = useAccess().can('integrations.manage_email');
   const queryClient = useQueryClient();
   const catalogue = useConnectorCatalogue();
   const [query, setQuery] = useState('');
