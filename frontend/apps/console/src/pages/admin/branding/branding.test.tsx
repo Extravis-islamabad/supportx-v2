@@ -88,6 +88,10 @@ describe('branding screen', () => {
     fireEvent.change(input, { target: { value: '#1e90ff' } });
     const alert = await screen.findByTestId('branding-contrast-alert');
     expect(within(screen.getByTestId('branding-checks')).getByText('Too faint')).toBeTruthy();
+    // QA9-V-10: the ratio stays "3.32:1" in any direction (an LTR isolate inside the sentence).
+    expect(screen.getByTestId('branding-checks').textContent).toContain(
+      '\u20663.32:1\u2069, needs',
+    );
     expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(true);
     fireEvent.click(within(alert).getByTestId('branding-use-suggested'));
     await waitFor(() => {
@@ -140,6 +144,24 @@ describe('branding screen', () => {
       portal_name: Record<string, string>;
     };
     expect(body.portal_name).toEqual({ en: 'Acme Help', ar: 'مساعدة أكمي' });
+  });
+
+  it('QA6S-ORG-01: a logo tile that cannot be used yet says why', async () => {
+    api({
+      me: ADMIN,
+      routes: {
+        'GET /api/v1/organization/branding/settings': { body: settings() },
+        'POST /api/v1/organization/branding/check': { body: PASSING },
+        'PUT /api/v1/organization/branding/settings': { body: settings({ version: 1 }) },
+      },
+    });
+    render(<App />);
+    const why = await screen.findByTestId('branding-logo_dark_file_id-why');
+    expect(why.textContent).toContain('Upload a logo first');
+    expect(
+      screen.getByTestId<HTMLButtonElement>('branding-logo_dark_file_id-choose').disabled,
+    ).toBe(true);
+    expect(screen.queryByTestId('branding-logo_file_id-why')).toBeNull(); // the main logo is free
   });
 
   it('the tab is offered only to people who may manage branding', async () => {

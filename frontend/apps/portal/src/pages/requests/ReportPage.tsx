@@ -23,6 +23,8 @@ import {
 import { lengthLimit, reportError, RichTextField, useAppearance, useLabel } from '@supportx/ui';
 
 import { ForWhom } from './ForWhom';
+import { FormCard } from '../FormCard';
+import { FORM_COLUMN } from '../formColumn';
 
 const SUBJECT_MAX = 250;
 
@@ -89,123 +91,132 @@ export function ReportPage() {
     !(required.has('description') && empty(description));
 
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 720 }}>
+    <Flex vertical gap={16} style={FORM_COLUMN}>
       <Link to="/requests">{t('portal.request.back')}</Link>
       <Typography.Title level={1} style={{ margin: 0 }}>
         {t('portal.report.title')}
       </Typography.Title>
-      <Form
-        layout="vertical"
-        requiredMark
-        onFinish={() => {
-          if (!ready) return;
-          report.mutate(
-            {
-              key,
-              body: {
-                template_id: chosen.id,
-                subject: subject.trim(),
-                ...(fields.has('description') && !empty(description) ? { description } : {}),
-                ...(onBehalf !== null ? { on_behalf_of_id: onBehalf } : {}),
+      <FormCard testId="portal-report-form">
+        <Form
+          layout="vertical"
+          requiredMark
+          onFinish={() => {
+            if (!ready) return;
+            report.mutate(
+              {
+                key,
+                body: {
+                  template_id: chosen.id,
+                  subject: subject.trim(),
+                  ...(fields.has('description') && !empty(description) ? { description } : {}),
+                  ...(onBehalf !== null ? { on_behalf_of_id: onBehalf } : {}),
+                },
               },
-            },
-            {
-              onSuccess: (made) => {
-                void attach(made.id).then(() =>
-                  navigate(`/requests/${made.id}`, { replace: true }),
-                );
+              {
+                onSuccess: (made) => {
+                  void attach(made.id).then(() =>
+                    navigate(`/requests/${made.id}`, { replace: true }),
+                  );
+                },
+                onError: reportError,
               },
-              onError: reportError,
-            },
-          );
-        }}
-      >
-        {offered.length > 1 && (
-          <Form.Item label={t('portal.report.form')} htmlFor="portal-report-template">
-            <Select
-              id="portal-report-template"
-              value={chosen?.id}
-              onChange={(value: string) => {
-                setTemplateId(value);
-              }}
-              options={offered.map((x) => ({ value: x.id, label: templateName(x, locale, t) }))}
-              data-testid="portal-report-template"
-            />
-          </Form.Item>
-        )}
-        <Form.Item label={t('portal.report.for_whom')}>
-          <ForWhom value={onBehalf} onChange={setOnBehalf} />
-        </Form.Item>
-        <Form.Item label={t('portal.report.subject')} htmlFor="portal-report-subject" required>
-          <Input
-            id="portal-report-subject"
-            size="large"
-            value={subject}
-            count={lengthLimit(SUBJECT_MAX)}
-            onChange={(event) => {
-              setSubject(event.target.value);
-            }}
-            data-testid="portal-report-subject"
-          />
-        </Form.Item>
-        {fields.has('description') && (
-          <Form.Item label={t('portal.report.description')} required={required.has('description')}>
-            <RichTextField
-              value={description}
-              onChange={setDescription}
-              label={t('portal.report.description')}
-              placeholder={t('portal.report.description_hint')}
-              testId="portal-report-description"
-            />
-          </Form.Item>
-        )}
-        <Form.Item label={t('portal.report.files')}>
-          <Flex vertical gap={8}>
-            {chosenFiles.map((file, at) => (
-              <Flex key={`${file.name}-${String(at)}`} align="center" gap={8}>
-                <Typography.Text ellipsis style={{ flex: 1, minWidth: 0 }}>
-                  {file.name}
-                </Typography.Text>
-                <Button
-                  type="text"
-                  icon={<CloseOutlined />}
-                  aria-label={t('portal.report.remove_file', { name: file.name })}
-                  onClick={() => {
-                    setChosenFiles((all) => all.filter((_, i) => i !== at));
-                  }}
-                />
-              </Flex>
-            ))}
-            <Space wrap>
-              <Upload multiple showUploadList={false} beforeUpload={keep}>
-                <Button size="large" icon={<PaperClipOutlined />} data-testid="portal-report-files">
-                  {t('portal.report.add_files')}
-                </Button>
-              </Upload>
-              <Upload
-                accept="image/*"
-                capture="environment"
-                showUploadList={false}
-                beforeUpload={keep}
-              >
-                <Button size="large" icon={<CameraOutlined />} data-testid="portal-report-camera">
-                  {t('files.take_photo')}
-                </Button>
-              </Upload>
-            </Space>
-          </Flex>
-        </Form.Item>
-        <Button
-          type="primary"
-          size="large"
-          htmlType="submit"
-          disabled={!ready}
-          loading={report.isPending || attaching}
-          data-testid="portal-report-send"
+            );
+          }}
         >
-          {t('portal.report.send')}
-        </Button>
-      </Form>
+          {offered.length > 1 && (
+            <Form.Item label={t('portal.report.form')} htmlFor="portal-report-template">
+              <Select
+                id="portal-report-template"
+                value={chosen?.id}
+                onChange={(value: string) => {
+                  setTemplateId(value);
+                }}
+                options={offered.map((x) => ({ value: x.id, label: templateName(x, locale, t) }))}
+                data-testid="portal-report-template"
+              />
+            </Form.Item>
+          )}
+          <Form.Item label={t('portal.report.for_whom')}>
+            <ForWhom value={onBehalf} onChange={setOnBehalf} />
+          </Form.Item>
+          <Form.Item label={t('portal.report.subject')} htmlFor="portal-report-subject" required>
+            <Input
+              id="portal-report-subject"
+              size="large"
+              value={subject}
+              count={lengthLimit(SUBJECT_MAX)}
+              onChange={(event) => {
+                setSubject(event.target.value);
+              }}
+              data-testid="portal-report-subject"
+            />
+          </Form.Item>
+          {fields.has('description') && (
+            <Form.Item
+              label={t('portal.report.description')}
+              required={required.has('description')}
+            >
+              <RichTextField
+                value={description}
+                onChange={setDescription}
+                label={t('portal.report.description')}
+                placeholder={t('portal.report.description_hint')}
+                testId="portal-report-description"
+              />
+            </Form.Item>
+          )}
+          <Form.Item label={t('portal.report.files')}>
+            <Flex vertical gap={8}>
+              {chosenFiles.map((file, at) => (
+                <Flex key={`${file.name}-${String(at)}`} align="center" gap={8}>
+                  <Typography.Text ellipsis style={{ flex: 1, minWidth: 0 }}>
+                    {file.name}
+                  </Typography.Text>
+                  <Button
+                    type="text"
+                    icon={<CloseOutlined />}
+                    aria-label={t('portal.report.remove_file', { name: file.name })}
+                    onClick={() => {
+                      setChosenFiles((all) => all.filter((_, i) => i !== at));
+                    }}
+                  />
+                </Flex>
+              ))}
+              <Space wrap>
+                <Upload multiple showUploadList={false} beforeUpload={keep}>
+                  <Button
+                    size="large"
+                    icon={<PaperClipOutlined />}
+                    data-testid="portal-report-files"
+                  >
+                    {t('portal.report.add_files')}
+                  </Button>
+                </Upload>
+                <Upload
+                  accept="image/*"
+                  capture="environment"
+                  showUploadList={false}
+                  beforeUpload={keep}
+                >
+                  <Button size="large" icon={<CameraOutlined />} data-testid="portal-report-camera">
+                    {t('files.take_photo')}
+                  </Button>
+                </Upload>
+              </Space>
+            </Flex>
+          </Form.Item>
+          <Button
+            type="primary"
+            size="large"
+            htmlType="submit"
+            disabled={!ready}
+            loading={report.isPending || attaching}
+            data-testid="portal-report-send"
+          >
+            {t('portal.report.send')}
+          </Button>
+        </Form>
+      </FormCard>
     </Flex>
   );
 }

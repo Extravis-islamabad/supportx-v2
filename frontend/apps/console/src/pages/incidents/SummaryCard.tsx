@@ -1,13 +1,22 @@
 import { ReloadOutlined, RobotOutlined } from '@ant-design/icons';
-import { Button, Card, Flex, Skeleton, Typography } from 'antd';
+import { Alert, Button, Card, Flex, Skeleton, Typography } from 'antd';
+import { useState } from 'react';
 
-import { useAiSettings, useAiSummary, useRefreshAiSummary } from '@supportx/api-client';
-import { reportError, ToneTag, useDateTime, useLabel } from '@supportx/ui';
+import { isApiError, useAiSettings, useAiSummary, useRefreshAiSummary } from '@supportx/api-client';
+import {
+  describeError,
+  markHandled,
+  reportError,
+  ToneTag,
+  useDateTime,
+  useLabel,
+} from '@supportx/ui';
 
 // The conversation summary at the top of the record's panel (WP-038, REQ-INC-137): made on
 // request through the AI gateway, kept until a newer reply or note makes it stale (live, from
 // the record channel). Shown only while the feature is on for the tenant; the answer is marked
-// as AI-written, with the model and the time.
+// as AI-written, with the model and the time. A refusal (nothing to summarise yet, the plan, the
+// switch) is said in the card itself, where the person clicked (QA9-F-01); failures still report.
 
 export const SUMMARY_FEATURE = 'conversation_summary';
 
@@ -18,6 +27,7 @@ export function SummaryCard({ recordId }: { recordId: string }) {
   const on = settings.data?.features.find((f) => f.code === SUMMARY_FEATURE)?.enabled === true;
   const summary = useAiSummary('incident', recordId, on);
   const refresh = useRefreshAiSummary('incident', recordId);
+  const [refused, setRefused] = useState<string | null>(null);
   if (!on) return null;
   const data = summary.data;
   const made = data?.summary !== null && data?.summary !== undefined;
@@ -37,7 +47,18 @@ export function SummaryCard({ recordId }: { recordId: string }) {
           icon={<ReloadOutlined />}
           loading={refresh.isPending}
           onClick={() => {
-            refresh.mutate(undefined, { onError: reportError });
+            setRefused(null);
+            refresh.mutate(undefined, {
+              onError: (error) => {
+                if (isApiError(error) && error.isRefusal) {
+                  markHandled(error);
+                  const { title, detail } = describeError(error, t);
+                  setRefused(detail ?? title);
+                  return;
+                }
+                reportError(error);
+              },
+            });
           }}
           data-testid="ai-summary-refresh"
         >
@@ -45,6 +66,15 @@ export function SummaryCard({ recordId }: { recordId: string }) {
         </Button>
       }
     >
+      {refused !== null && (
+        <Alert
+          type="info"
+          showIcon
+          message={refused}
+          style={{ marginBottom: 8 }}
+          data-testid="ai-summary-refused"
+        />
+      )}
       {summary.isPending ? (
         <Skeleton active paragraph={{ rows: 2 }} title={false} />
       ) : made ? (

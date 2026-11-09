@@ -1,7 +1,16 @@
-import { Grid, Typography, theme } from 'antd';
+import { MenuOutlined } from '@ant-design/icons';
+import { Button, Drawer, Grid, Typography, theme } from 'antd';
+import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
-import { NoAccess, PageHeader, useAccess, useLabel, usePageCrumbs } from '@supportx/ui';
+import {
+  NoAccess,
+  PageHeader,
+  SettingsPageHeader,
+  useAccess,
+  useLabel,
+  usePageCrumbs,
+} from '@supportx/ui';
 
 import { pagesFor, SETUP_GROUPS, type SetupPage } from './setupMap';
 
@@ -26,11 +35,14 @@ function MenuLink({
   current,
   testId,
   children,
+  onPick,
 }: {
   to: string;
   current: boolean;
   testId: string;
   children: string;
+  /** After a plain click: the phone drawer closes. */
+  onPick?: () => void;
 }) {
   const navigate = useNavigate();
   const { token } = theme.useToken();
@@ -43,6 +55,7 @@ function MenuLink({
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
+        onPick?.();
         void navigate(to);
       }}
     >
@@ -56,11 +69,24 @@ function MenuLink({
  * `<nav>` of links (each page has its own address; `aria-current` on the open one). Beside the
  * page from 992 px, above it on smaller screens. Test ids stay `admin-sections-<key>`.
  */
-function SetupMenu({ pages, active }: { pages: SetupPage[]; active: string | undefined }) {
+function SetupMenu({
+  pages,
+  active,
+  onPick,
+}: {
+  pages: SetupPage[];
+  active: string | undefined;
+  onPick?: () => void;
+}) {
   const t = useLabel();
   return (
     <nav aria-label={t('setup.menu')} data-testid="admin-sections">
-      <MenuLink to="/admin" current={active === undefined} testId="admin-sections-home">
+      <MenuLink
+        to="/admin"
+        current={active === undefined}
+        testId="admin-sections-home"
+        onPick={onPick}
+      >
         {t('setup.home')}
       </MenuLink>
       {SETUP_GROUPS.map((group) => {
@@ -86,6 +112,7 @@ function SetupMenu({ pages, active }: { pages: SetupPage[]; active: string | und
                     to={`/admin/${page.key}`}
                     current={page.key === active}
                     testId={`admin-sections-${page.key}`}
+                    onPick={onPick}
                   >
                     {t(page.labelKey)}
                   </MenuLink>
@@ -99,11 +126,34 @@ function SetupMenu({ pages, active }: { pages: SetupPage[]; active: string | und
   );
 }
 
+/**
+ * Setup pages that have no header of their own: the shell gives them the one settings header
+ * (title and description from the setup menu), so every setup page starts the same way
+ * (QA9-V-16, SHELL-01). The others (people, roles, incidents, automation, instance, mail,
+ * requests, portal, catalog) show their own, with their actions in it.
+ */
+const SHELL_HEADED = new Set([
+  'ai',
+  'api-keys',
+  'audit',
+  'branding',
+  'files',
+  'integrations',
+  'knowledge',
+  'licence',
+  'notifications',
+  'organization',
+  'security',
+  'sla',
+]);
+
 export function AdminLayout() {
   const t = useLabel();
   const { can } = useAccess();
+  const { token } = theme.useToken();
   const { pathname } = useLocation();
   const wide = Grid.useBreakpoint().lg !== false;
+  const [sections, setSections] = useState(false);
   const pages = pagesFor(can);
   const segment = pathname.split('/')[2];
   const active = segment === undefined || segment === '' ? undefined : segment;
@@ -117,10 +167,58 @@ export function AdminLayout() {
   if (pages.length === 0) return <NoAccess titleKey="nav.admin" />;
   // Each page checks its own access and says so (NoAccess); the menu only hides what is not yours.
 
+  const menu = (
+    <SetupMenu
+      pages={pages}
+      active={active}
+      onPick={
+        wide
+          ? undefined
+          : () => {
+              setSections(false);
+            }
+      }
+    />
+  );
   return (
     <>
-      {/* Each setup page shows its own name as its heading (level 2, D-124). */}
-      <PageHeader title={t('setup.title')} testId="admin-header" />
+      {/* "Setup" heads Setup home only; inside a page the top bar's breadcrumb is the path and
+          the page shows its own name (QA6S-SHELL-02: four headings before any content). */}
+      {active === undefined ? (
+        <PageHeader title={t('setup.title')} testId="admin-header" />
+      ) : (
+        // The page's own name is its visible heading (level 2); "Setup" stays its level 1.
+        <h1 className="sx-visually-hidden" data-testid="admin-header">
+          {t('setup.title')}
+        </h1>
+      )}
+      {!wide && (
+        // Below 992 px the sections open in a drawer, not as a screen of links (QA6S-SHELL-04).
+        <>
+          <Button
+            icon={<MenuOutlined />}
+            onClick={() => {
+              setSections(true);
+            }}
+            aria-expanded={sections}
+            data-testid="admin-sections-button"
+            style={{ marginBottom: 12 }}
+          >
+            {page === undefined ? t('setup.menu') : t(page.labelKey)}
+          </Button>
+          <Drawer
+            open={sections}
+            onClose={() => {
+              setSections(false);
+            }}
+            title={t('setup.menu')}
+            placement="left"
+            width={300}
+          >
+            {menu}
+          </Drawer>
+        </>
+      )}
       <div
         style={{
           display: 'grid',
@@ -129,10 +227,31 @@ export function AdminLayout() {
           alignItems: 'start',
         }}
       >
-        <div style={wide ? { position: 'sticky', top: 16 } : undefined}>
-          <SetupMenu pages={pages} active={active} />
-        </div>
+        {wide && (
+          // Sticky under the top bar with its own scroll, so the open page stays in view and a
+          // short page does not scroll for the menu's sake (QA6S-SHELL-03).
+          <div
+            style={{
+              position: 'sticky',
+              top: 72,
+              maxHeight: 'calc(100vh - 88px)',
+              overflowY: 'auto',
+              paddingInlineEnd: 4,
+              scrollbarWidth: 'thin',
+              borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            {menu}
+          </div>
+        )}
         <div style={{ minWidth: 0 }}>
+          {page !== undefined && SHELL_HEADED.has(page.key) && (
+            <SettingsPageHeader
+              title={t(page.labelKey)}
+              description={t(`setup.page.${page.key}.description`)}
+              testId="admin-page-header"
+            />
+          )}
           <Outlet />
         </div>
       </div>

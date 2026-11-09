@@ -87,13 +87,18 @@ const PAGE_CSS =
   // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
   // virtual, so CSS cannot size them by content); they never pass the screen.
   '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +
+  // Multi-select tags show their whole text: no clipped descenders, readable Arabic and Urdu
+  // (QA6S-SHELL-08: the single-line padding rule below no longer reaches them).
+  '.ant-select-multiple .ant-select-selection-item { height: auto; min-height: 24px; ' +
+  'line-height: 1.6; padding-block: 1px; } ' +
+  '.ant-select-multiple .ant-select-selection-item-content { line-height: 1.6; } ' +
   // Option text wraps only between words ("Stacked bar", never "Sta / cked"); a single word
   // too long for the list ends in an ellipsis, its full text in the option's tooltip (title).
   // Room for the dots below Arabic-script letters wherever one line of user text is cut off
   // (QA 2026-11-04: "في" read as "فى"), whatever the UI language: the clip box (the padding
   // box) grows, and the equal negative margin keeps the layout exactly as it was. Two-line
   // clamps take the script's line height instead (clampLineHeight).
-  '.ant-typography-ellipsis-single-line, .ant-card-head-title, .ant-select-selection-item, ' +
+  '.ant-typography-ellipsis-single-line, .ant-card-head-title, .ant-select-single .ant-select-selection-item, ' +
   '.ant-select-item-option-content, .ant-menu-title-content ' +
   '{ padding-block: 0.25em; margin-block: -0.25em; } ' +
   '.ant-select-dropdown .ant-select-item-option .ant-select-item-option-content ' +
@@ -115,6 +120,8 @@ export function AppearanceProvider({
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [urduScript, setUrduScript] = useState<UrduScript>('naskh');
   const [textScale, setTextScale] = useState(100);
+  // The top bar's height at this text size, plus a gap: where toasts start.
+  const belowHeader = Math.round((56 * textScale) / 100) + 8;
   const [digits, setDigits] = useState<Digits>('western');
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
@@ -184,7 +191,14 @@ export function AppearanceProvider({
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
           {/* Messages start below the header, never over its search field (UI pass 2, agreed
               with lane B); the header grows with the text size. Notifications stay top-right. */}
-          <AntApp message={{ top: Math.round((56 * textScale) / 100) + 8 }}>{children}</AntApp>
+          <AntApp
+            // Toasts open below the top bar, never over the user menu (#204 for messages;
+            // QA6-SH-02 for the error notifications).
+            message={{ top: belowHeader }}
+            notification={{ top: belowHeader }}
+          >
+            {children}
+          </AntApp>
         </ConfigProvider>
       </LabelsProvider>
     </AppearanceContext.Provider>

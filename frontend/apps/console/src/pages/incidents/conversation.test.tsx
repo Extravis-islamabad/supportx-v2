@@ -220,6 +220,34 @@ describe('Conversation', () => {
     expect(call?.headers.get('If-Match')).toBe('"1"');
   });
 
+  it('QA6-INC-01: no mail warning in the reply composer while outgoing mail is set up', async () => {
+    api({ routes: COMMON });
+    await openConversation();
+    fireEvent.click(screen.getByTestId('conv-reply').querySelector('button') as HTMLElement);
+    const composer = await screen.findByTestId('conv-composer');
+    expect(within(composer).queryByTestId('conv-mail-not-set-up')).toBeNull();
+  });
+
+  it('QA6-INC-01: the composer says when outgoing mail is not set up, and who can fix it', async () => {
+    api({
+      routes: {
+        ...COMMON,
+        'GET /api/v1/notifications/mail-status': {
+          body: {
+            mail_configured: false,
+            waiting: 2,
+            who_can_fix: [{ id: TECH, display_name: 'Aisha Admin' }],
+          },
+        },
+      },
+    });
+    await openConversation();
+    fireEvent.click(screen.getByTestId('conv-reply').querySelector('button') as HTMLElement);
+    const warned = await screen.findByTestId('conv-mail-not-set-up');
+    expect(warned.textContent).toContain("Outgoing e-mail isn't set up yet");
+    expect(warned.textContent).toContain('Aisha Admin can set it up.');
+  });
+
   it('reply buttons say why they are disabled', async () => {
     api({
       routes: {

@@ -35,6 +35,7 @@ export const ar: LabelResource = {
   'account.mfa.policy.required': 'مطلوبة لأدوارك: بعد كلمة المرور تُدخل رمزًا من تطبيق مصادقة.',
   'account.mfa.reminder':
     'تشترط مؤسستك تسجيل الدخول بخطوتين. أعِدّه بحلول {{date}}؛ بعد ذلك سيُطلب منك إعداده قبل أي شيء آخر.',
+  'account.mfa.reminder_close': 'إخفاء هذا التذكير حتى تسجيل دخولك القادم',
   'account.mfa.reminder_short': 'تسجيل الدخول بخطوتين مطلوب قبل {{date}}',
   'account.mfa.set_up': 'إعداد تسجيل الدخول بخطوتين',
   'account.mfa.set_up_short': 'إعداد',
@@ -609,6 +610,11 @@ export const ar: LabelResource = {
   'permission.work_items.view_reports': 'عرض طلبات مرؤوسيه المباشرين',
   'permission.work_items.view_reports.description':
     'في البوابة، رؤية حوادث وطلبات الأشخاص الذين يتبعونه مباشرة، ضمن عامل تصفية منفصل.',
+  'permission.workflows.manage': 'إدارة سير العمل',
+  'permission.workflows.manage.description':
+    'تصميم سير العمل المرئي ونشره وتشغيله وإيقافه، واختيار الأدوار التي يعمل بها.',
+  'permission.workflows.run': 'تشغيل سير العمل',
+  'permission.workflows.run.description': 'بدء سير عمل على سجل ومعرفة كيف جرت عمليات تشغيله.',
   'permission_module.announcements': 'الإعلانات',
   'permission_module.api_keys': 'مفاتيح API',
   'permission_module.assets': 'الأصول',
@@ -641,6 +647,7 @@ export const ar: LabelResource = {
   'permission_module.sla': 'اتفاقيات مستوى الخدمة',
   'permission_module.users': 'المستخدمون',
   'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
+  'permission_module.workflows': 'سير العمل',
   'preferences.date_format': 'تنسيق التاريخ',
   'preferences.default': 'الافتراضي',
   'preferences.default_value': 'الافتراضي ({{value}})',
@@ -659,6 +666,7 @@ export const ar: LabelResource = {
   'presence.you_elsewhere': 'أنت (نافذة أخرى)',
   'profile.form_density_help': 'يعرض الوضع المضغوط عمودين مع التسميات على الجانب.',
   'profile.identity': 'يأتي الاسم والبريد الإلكتروني واللغة من حساب تسجيل الدخول.',
+  'profile.replies_card': 'الردود والمنطقة الزمنية',
   'profile.saved': 'تم حفظ تفضيلاتك.',
   'profile.signature': 'توقيع الردود',
   'profile.signature_help': 'يُضاف إلى الردود التي ترسلها.',

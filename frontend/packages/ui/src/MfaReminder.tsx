@@ -1,4 +1,6 @@
+import { CloseOutlined } from '@ant-design/icons';
 import { Alert, Button, Grid } from 'antd';
+import { useState } from 'react';
 
 import { accountActionUrl, useSession } from '@supportx/api-client';
 
@@ -12,20 +14,43 @@ import { useDateTime } from './dates';
  *
  * On phones it is one line with a short "Set up" (QA 2026-11-05 V2: the full sentence wrapped into
  * a tall block); the whole sentence stays its accessible description and tooltip.
+ *
+ * Read once, it can be closed for the rest of this browser session (QA6-SH-03: it took room on
+ * every page); it comes back at the next sign-in until two-step sign-in is set up.
  */
+const CLOSED_KEY = 'supportx.mfa_reminder_closed';
+
+function closedBefore(due: string): boolean {
+  try {
+    return window.sessionStorage.getItem(CLOSED_KEY) === due;
+  } catch {
+    return false; // storage blocked: the reminder simply shows
+  }
+}
 export function MfaReminder() {
   const t = useLabel();
   const dates = useDateTime();
   const due = useSession().data?.mfa_due_at;
   const screens = Grid.useBreakpoint();
   const phone = screens.md === false && (screens.xs === true || screens.sm === true);
-  if (due === undefined || due === null) return null;
+  const [closed, setClosed] = useState(false);
+  if (due === undefined || due === null || closed || closedBefore(due)) return null;
   const full = t('account.mfa.reminder', { date: dates.format(due) });
   return (
     <Alert
       type="warning"
       showIcon
       banner
+      closable
+      closeIcon={<CloseOutlined aria-label={t('account.mfa.reminder_close')} />}
+      onClose={() => {
+        try {
+          window.sessionStorage.setItem(CLOSED_KEY, due);
+        } catch {
+          // Storage blocked: closed for this page view only.
+        }
+        setClosed(true);
+      }}
       data-testid="mfa-reminder"
       message={
         phone ? (

@@ -276,6 +276,11 @@ class ArticleOut(BaseModel):
     can_edit: bool
     can_approve: bool
     can_withdraw: bool
+    self_approval_blocked: list[str] = Field(
+        default_factory=list,
+        description="Languages whose version in review is yours while self-approval is off: "
+        "you may not approve them (REQ-KB-028).",
+    )
     featured: bool = False
     version: int
     created_at: datetime
@@ -310,6 +315,7 @@ class ArticleOut(BaseModel):
             drafts={k: VersionOut.of(v, editor=True) for k, v in view.drafts.items()},
             can_edit=view.can_edit,
             can_approve=view.can_approve,
+            self_approval_blocked=sorted(view.self_approval_blocked),
             can_withdraw=view.can_withdraw,
             featured=article.featured,
             version=article.version,

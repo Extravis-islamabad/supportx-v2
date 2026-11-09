@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 import { PORTAL_URL, SEEDED, USERS } from '../stack';
-import { deleteE2eRoles, expectAccessible, signIn, signInAs } from './helpers';
+import { deleteE2eRoles, expectAccessible, openAppearance, signIn, signInAs } from './helpers';
 
 /**
  * WP-012 walking skeleton, end to end in real browsers: announcements live in two browsers, a
@@ -396,7 +396,7 @@ test('announcements screens are labelled and accessible in light, dark and Arabi
     await expect(admin.page.getByTestId('ann-heading')).toBeVisible();
     await expectAccessible(admin.page, 'announcement (light)');
 
-    await admin.page.getByTestId('appearance-menu').click();
+    await openAppearance(admin.page);
     await admin.page.getByText('Dark', { exact: true }).click();
     await admin.page.getByTestId('language-select').click();
     await admin.page.locator('.ant-select-item-option[title="العربية"]').click();

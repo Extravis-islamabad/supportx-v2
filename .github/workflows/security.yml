@@ -4,6 +4,8 @@ name: Security
 
 on:
   pull_request:
+    # ready_for_review: drafts run the secret scan only; marking ready runs the audits too.
+    types: [opened, synchronize, reopened, ready_for_review]
   # The merge queue: each queued group is tested on top of main before it merges.
   merge_group:
   # No run on push to main (D-122): the merge queue tested that exact merge commit.
@@ -91,34 +93,52 @@ jobs:
     name: dependency audit (pip-audit, pnpm audit)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # Required checks never skip as a whole (test_ci_triggers): on a draft each step is skipped
+    # instead, so the check reports at once and the full scan runs at ready_for_review.
+    env:
+      DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ env.DRAFT != 'true' }}
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-backend
+        if: ${{ env.DRAFT != 'true' }}
       - uses: ./.github/actions/setup-frontend
+        if: ${{ env.DRAFT != 'true' }}
       - name: Backend (pip-audit + severity gate)
+        if: ${{ env.DRAFT != 'true' }}
         # The token only raises the GitHub advisory API rate limit for severity lookups.
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: make audit-backend
       - name: Frontend (pnpm audit)
-        if: ${{ !cancelled() }}
+        if: ${{ env.DRAFT != 'true' && !cancelled() }}
         run: make audit-frontend
+      - name: Licences (frontend, mobile when present; CLAUDE.md §3, ADR-012)
+        if: ${{ env.DRAFT != 'true' && !cancelled() }}
+        run: make licence-check
 
   trivy:
     name: filesystem scan (Trivy)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # Required checks never skip as a whole (test_ci_triggers): on a draft each step is skipped
+    # instead, so the check reports at once and the full scan runs at ready_for_review.
+    env:
+      DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ env.DRAFT != 'true' }}
         with:
           persist-credentials: false
       - name: Report all findings
+        if: ${{ env.DRAFT != 'true' }}
         run: |
           docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
             fs --scanners vuln,secret,misconfig --ignorefile /repo/.trivyignore.yaml --exit-code 0 /repo
       - name: Fail on high/critical
+        if: ${{ env.DRAFT != 'true' }}
         run: |
           docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
             fs --scanners vuln,secret,misconfig --ignorefile /repo/.trivyignore.yaml --severity HIGH,CRITICAL --exit-code 1 /repo

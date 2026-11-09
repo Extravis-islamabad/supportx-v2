@@ -1,9 +1,9 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
+.PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription e2e \
-	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
+	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
 	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
@@ -97,6 +97,9 @@ db-guard: ## Check every table's tenant isolation (RLS) in the dev database
 dev-subscription: ## Show or change a dev tenant's plan: TENANT=demo|other|<uuid> ARGS="--technicians 1"
 	$(BACKEND) uv run python -m tooling.dev_subscription --tenant $(or $(TENANT),demo) $(ARGS)
 
+mail-inbound-test: ## Feed one e-mail into a dev tenant's inbound pipeline (QA6-NTF-01): TENANT=demo ARGS="--create"
+	$(BACKEND) uv run python -m tooling.mail_inbound --tenant $(or $(TENANT),demo) $(ARGS)
+
 # --- Event bus (WP-007, docs/architecture/events.md). Workers read backend/.env (make backend-env).
 
 worker-relay: ## Run the outbox relay (outbox table -> NATS JetStream) until Ctrl+C
@@ -117,6 +120,9 @@ worker-indexes: ## Run the custom field index worker (builds requested indexes, 
 
 worker-sla: ## Run the SLA clocks' Temporal worker (needs SUPPORTX_TEMPORAL_ADDRESS, make dev-up-full) until Ctrl+C
 	$(BACKEND) uv run python -m workers.sla_timers
+
+worker-workflows: ## The visual workflows' Temporal waker (WP-048b; needs the full profile's Temporal)
+	$(BACKEND) uv run python -m workers.workflow_timers
 
 worker-fanout: ## Run the realtime fan-out (events -> Centrifugo -> live screens) until Ctrl+C
 	$(BACKEND) uv run python -m workers.realtime_fanout
@@ -197,6 +203,10 @@ audit-backend:
 	uv run python -m tooling.vuln_gate $$tmp/pip-audit.json
 
 # First run lists every advisory; the second fails only on high/critical.
+licence-check: ## The shipped JS dependencies' licences against the allow-list (frontend, and mobile when present)
+	@if [ -f mobile/package.json ]; then (cd mobile && pnpm install --frozen-lockfile --prefer-offline >/dev/null); fi
+	$(BACKEND) uv run python -m tooling.licence_check ../frontend ../mobile
+
 audit-frontend:
 	$(FRONTEND) pnpm audit || true
 	$(FRONTEND) pnpm audit --audit-level high
