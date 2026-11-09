@@ -30,8 +30,9 @@ import {
   type KbVersion,
 } from '@supportx/api-client';
 import {
-  PageHeader,
   ConflictDialog,
+  FormPage,
+  FormSection,
   inlineImageIds,
   lengthLimit,
   NoAccess,
@@ -158,11 +159,26 @@ export function NewArticlePage() {
     );
   };
 
+  // Template B (D-147): the article in one section card, Cancel before Save draft in the footer.
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 960 }}>
-      <PageHeader title={t('knowledge.new_article')} testId="kb-new-header" />
-      {/* The form on a white card, not the grey page (QA6-KB-05). */}
-      <Card>
+    <FormPage
+      testId="kb-new"
+      title={t('knowledge.new_article')}
+      cancel={<Button onClick={() => void navigate(-1)}>{t('actions.cancel')}</Button>}
+      primary={
+        <WriteButton
+          type="primary"
+          loading={create.isPending}
+          onClick={() => {
+            form.submit();
+          }}
+          data-testid="kb-create"
+        >
+          {t('knowledge.save_draft')}
+        </WriteButton>
+      }
+    >
+      <FormSection title={t('knowledge.section.article')} testId="kb-new-section">
         <Form<NewArticleForm>
           form={form}
           layout="vertical"
@@ -237,20 +253,9 @@ export function NewArticlePage() {
           <Form.Item label={t('knowledge.field.keywords')} name="keywords">
             <Select mode="tags" tokenSeparators={[',']} open={false} data-testid="kb-keywords" />
           </Form.Item>
-          <Space>
-            <WriteButton
-              type="primary"
-              htmlType="submit"
-              loading={create.isPending}
-              data-testid="kb-create"
-            >
-              {t('knowledge.save_draft')}
-            </WriteButton>
-            <Button onClick={() => void navigate(-1)}>{t('actions.cancel')}</Button>
-          </Space>
         </Form>
-      </Card>
-    </Space>
+      </FormSection>
+    </FormPage>
   );
 }
 

@@ -233,6 +233,7 @@ export const ar: LabelResource = {
   'knowledge.save_state.saving': 'جارٍ الحفظ…',
   'knowledge.save_state.unsaved': 'تغييرات غير محفوظة',
   'knowledge.search': 'البحث في المقالات',
+  'knowledge.section.article': 'المقال',
   'knowledge.sent_back': 'أُعيدت مع سبب',
   'knowledge.settings.default_is': 'الافتراضي: {{value}}',
   'knowledge.settings.field.next_number': 'الرقم التالي',

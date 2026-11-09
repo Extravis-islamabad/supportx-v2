@@ -225,6 +225,7 @@ export const ur: LabelResource = {
   'knowledge.save_state.saving': 'محفوظ ہو رہا ہے…',
   'knowledge.save_state.unsaved': 'غیر محفوظ تبدیلیاں',
   'knowledge.search': 'مضامین تلاش کریں',
+  'knowledge.section.article': 'مضمون',
   'knowledge.sent_back': 'وجہ کے ساتھ واپس بھیجا گیا',
   'knowledge.settings.default_is': 'پہلے سے طے شدہ: {{value}}',
   'knowledge.settings.field.next_number': 'اگلا نمبر',

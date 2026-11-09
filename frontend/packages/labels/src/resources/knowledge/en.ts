@@ -224,6 +224,7 @@ export const en = {
   'knowledge.save_state.saving': 'Saving…',
   'knowledge.save_state.unsaved': 'Unsaved changes',
   'knowledge.search': 'Search articles',
+  'knowledge.section.article': 'The article',
   'knowledge.sent_back': 'Sent back with a reason',
   'knowledge.settings.default_is': 'Default: {{value}}',
   'knowledge.settings.field.next_number': 'Next number',
