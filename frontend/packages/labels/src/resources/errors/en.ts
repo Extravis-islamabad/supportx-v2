@@ -321,6 +321,7 @@ export const en = {
   'errors.field.not_eligible': 'This person or group may not hold this role.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
+  'errors.field.not_in_past': 'This time must be in the past.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
   'errors.field.number_already_used': 'That number is already used. Choose {{minimum}} or higher.',
   'errors.field.oauth_certificate_invalid':

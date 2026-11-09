@@ -298,6 +298,7 @@ export const ar: LabelResource = {
   'errors.field.not_eligible': 'لا يمكن لهذا الشخص أو هذه المجموعة شغل هذا الدور.',
   'errors.field.not_for_this_status': 'هذا الإعداد للحالات التي تنتظر شخصًا ما فقط.',
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
+  'errors.field.not_in_past': 'يجب أن يكون هذا الوقت في الماضي.',
   'errors.field.note_too_long': 'يمكن أن تحتوي الملاحظة على {{max}} حرفًا على الأكثر.',
   'errors.field.number_already_used': 'هذا الرقم مستخدم بالفعل. اختر {{minimum}} أو أعلى.',
   'errors.field.oauth_certificate_invalid': 'الصق الشهادة ومفتاحها الخاص RSA، كلاهما بصيغة PEM.',

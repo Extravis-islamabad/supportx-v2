@@ -172,6 +172,15 @@ class WorkItemIn(BaseModel):
     change_type: str | None = Field(
         default=None, max_length=40, description="Changes only: a change type code (REQ-CHG-005)."
     )
+    retrospective: bool = Field(
+        default=False,
+        description=(
+            "Changes only: work already done (REQ-CHG-004); needs actual_start and actual_end, "
+            "both past; it enters at the review."
+        ),
+    )
+    actual_start: datetime | None = Field(default=None, description="Changes only, retrospective.")
+    actual_end: datetime | None = Field(default=None, description="Changes only, retrospective.")
     from_record_id: uuid.UUID | None = Field(
         default=None,
         description=(
@@ -1477,6 +1486,7 @@ class ChangeDetailsOut(BaseModel):
     version: int = Field(description="The change's version: send it back as If-Match.")
     change_type: str | None
     change_reason: str | None
+    retrospective: bool = Field(description="Logged after the fact (REQ-CHG-004).")
 
     @classmethod
     def of(cls, view: service.DetailsView) -> "ChangeDetailsOut":
@@ -1486,6 +1496,7 @@ class ChangeDetailsOut(BaseModel):
             work_item_id=view.record.id,
             version=view.record.version,
             **{n: (getattr(row, n) if row is not None else None) for n in CHANGE_DETAIL_FIELDS},
+            retrospective=bool(getattr(row, "retrospective", False)),  # a change's row only
         )
 
 

@@ -2156,6 +2156,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     stage_columns = await _first_stage(
         session, wtype, template, new_change.path if new_change is not None else None
     )
+    await change_types.retrospective_start(session, wtype, new_change, stage_columns)
     initial, group_id, technician_id = _from_item(
         started,
         _initial(cat, stage_columns),

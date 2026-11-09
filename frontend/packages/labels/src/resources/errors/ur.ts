@@ -327,6 +327,7 @@ export const ur: LabelResource = {
   'errors.field.not_eligible': 'یہ شخص یا گروپ یہ کردار نہیں رکھ سکتا۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
+  'errors.field.not_in_past': 'یہ وقت ماضی کا ہونا چاہیے۔',
   'errors.field.note_too_long': 'نوٹ زیادہ سے زیادہ {{max}} حروف کا ہو سکتا ہے۔',
   'errors.field.number_already_used':
     'یہ نمبر پہلے ہی استعمال ہو چکا ہے۔ {{minimum}} یا اس سے زیادہ منتخب کریں۔',

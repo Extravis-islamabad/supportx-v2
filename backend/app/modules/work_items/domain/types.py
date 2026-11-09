@@ -320,6 +320,7 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 FIELD_PROBLEMS = frozenset(
     {
         "required",
+        "not_in_past",  # WP-045a: a retrospective change's actual times (REQ-CHG-004)
         # WP-020f: closure rules and closing settings.
         "required_to_resolve",
         "required_to_close",

@@ -2,7 +2,8 @@
 
 Expand only, no data step (no change exists before this build): `work_item_change_details`
 (RLS), one row per change keyed (tenant_id, work_item_id), with its type and reason for change
-(codes of the tenant's `change_type` and `change_reason` pick lists, which 0102 allows). Like a
+(codes of the tenant's `change_type` and `change_reason` pick lists, which 0102 allows), and
+whether it was logged after the fact (`retrospective`, REQ-CHG-004). Like a
 release's details it has no version of its own: every edit goes through the change's work item,
 whose `version` it bumps (one If-Match for the whole record). Later sessions add their columns
 here (risk in WP-045b).
@@ -38,6 +39,8 @@ def upgrade() -> None:
         sa.Column("work_item_id", sa.Uuid(), nullable=False),
         sa.Column("change_type", sa.String(40), nullable=True),
         sa.Column("change_reason", sa.String(40), nullable=True),
+        # REQ-CHG-004: logged after the fact; reported separately.
+        sa.Column("retrospective", sa.Boolean(), server_default="false", nullable=False),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),

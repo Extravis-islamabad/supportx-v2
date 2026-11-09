@@ -601,3 +601,43 @@ async def test_req_chg_002_a_change_made_from_a_problem_is_prefilled_and_linked(
         headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
     )
     assert field_codes(incident) == {("from_record_id", "not_allowed")}
+
+
+async def test_req_chg_004_a_retrospective_change_enters_at_its_review(world: World) -> None:
+    from tests.db.test_release_templates_api import field_codes  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    missing = await new_change(world, a, a.admin, retrospective=True)
+    assert field_codes(missing) == {("actual_start", "required"), ("actual_end", "required")}
+    future = await new_change(
+        world,
+        a,
+        a.admin,
+        retrospective=True,
+        actual_start="2026-11-01T22:00:00Z",
+        actual_end="2099-01-01T00:00:00Z",
+    )
+    assert field_codes(future) == {("actual_end", "not_in_past")}
+    made = await new_change(
+        world,
+        a,
+        a.admin,
+        change_type="emergency",
+        retrospective=True,
+        actual_start="2026-11-01T22:00:00Z",
+        actual_end="2026-11-01T23:30:00Z",
+    )
+    assert made.status_code == 201, made.text
+    item = made.json()
+    assert (item["stage"], item["status"]) == ("review", "review_in_review")  # AC2
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+    assert shown["retrospective"] is True  # the marker (AC2), for reports too (AC3)
+    schedule = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
+    implementation = next(s for s in schedule if s["stage"] == "implementation")
+    assert implementation["actual_start"].startswith("2026-11-01T22:00")
+    assert implementation["actual_end"].startswith("2026-11-01T23:30")
+    # It still passes review and closure: the past approval stages are skipped, not done.
+    stages = (await world.call("GET", f"{CHG}/{item['id']}/stages", a, a.admin)).json()
+    rail = {s["stage"]: s["state"] for s in stages["rail"]}
+    assert rail["review"] == "current"
+    assert rail["closure"] == "future"

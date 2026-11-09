@@ -1463,6 +1463,7 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     )
     change_type: Mapped[str | None] = mapped_column(String(40))
     change_reason: Mapped[str | None] = mapped_column(String(40))
+    retrospective: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------

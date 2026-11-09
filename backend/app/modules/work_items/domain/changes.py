@@ -12,6 +12,7 @@ moves serves every path.
 """
 
 from collections.abc import Mapping
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -307,3 +308,25 @@ def outcome_refusal(target: str, outcome: str | None) -> tuple[str, dict[str, st
     if outcome not in allowed:
         return "outcome_mismatch", {"stage": IMPLEMENTATION, "outcome": outcome}
     return None
+
+
+# A change logged after the fact (REQ-CHG-004): it enters at the review stage with its actual
+# times, which are both required and both past.
+RETROSPECTIVE_STAGE = "review"
+RETROSPECTIVE_FIELDS = ("retrospective", "actual_start", "actual_end")
+
+
+def retrospective_problems(values: Mapping[str, Any], now: datetime) -> list[tuple[str, str]]:
+    """(field, code) pairs of a retrospective change's times (REQ-CHG-004 AC1)."""
+    if not values.get("retrospective"):
+        return []
+    problems: list[tuple[str, str]] = []
+    start, end = values.get("actual_start"), values.get("actual_end")
+    for name, value in (("actual_start", start), ("actual_end", end)):
+        if value is None:
+            problems.append((name, "required"))
+        elif value > now:
+            problems.append((name, "not_in_past"))
+    if start is not None and end is not None and end < start:
+        problems.append(("actual_end", "end_before_start"))
+    return problems
