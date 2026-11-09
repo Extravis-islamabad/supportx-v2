@@ -51,6 +51,7 @@ import {
   type ConversationEntry,
   type EntryKind,
   fetchMentionable,
+  sendTyping,
   type Incident,
   type IncidentHistoryEntry,
   queryKeys,
@@ -123,6 +124,11 @@ function initials(name: string): string {
  */
 // The record type whose conversation this is (UI pass 3: service requests use it too).
 const BaseContext = createContext<ConversationBase>('incidents');
+// Each base's record type, as the files API names it.
+const RECORD_TYPE: Record<ConversationBase, string> = {
+  incidents: 'incident',
+  'service-requests': 'service_request',
+};
 
 export function IncidentConversation({
   item,
@@ -166,7 +172,8 @@ function ConversationBody({
     if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: 'reply' });
   }
   const conversation = useIncidentConversation(item.id, true, base);
-  const recordFiles = useRecordFiles('incident', item.id).data ?? [];
+  // The record type's own files and history: never an incident path for another type (a 404).
+  const recordFiles = useRecordFiles(RECORD_TYPE[base], item.id).data ?? [];
   const entries = conversation.data?.items ?? [];
   const people = conversation.data?.people ?? {};
   const shown = entries.filter(
@@ -180,7 +187,9 @@ function ConversationBody({
   // time order with the messages; the conversation's own saves are the cards themselves. Only
   // the history pages loaded so far (the first page, newest first): older events stay in the
   // History tab, which pages through all of them.
-  const words = useHistoryWords(item.id);
+  // A request's own history joins with the type-aware history hooks (#240); until then its
+  // conversation shows the entries only, never an incident path (a 404 toast).
+  const words = useHistoryWords(item.id, 'all', base === 'incidents');
   const events = words.entries
     .filter((e) => e.kind !== 'created')
     .map((e) => ({
@@ -654,7 +663,9 @@ function Composer({
   const [cc, setCc] = useState<string[]>(initial.cc);
   const kind: EntryKind = draft.kind;
   // Typing signal: start, repeated while typing goes on, stop after a pause (QA BUG-04).
-  const { typed, stop: stopTyping } = useTypingSignal(item.id, kind);
+  const { typed, stop: stopTyping } = useTypingSignal(item.id, kind, (id, state, what) => {
+    sendTyping(id, state, what, base);
+  });
   // Templates changed by an admin elsewhere: reload the list while this composer is open (BUG-07).
   const queryClient = useQueryClient();
   useTenantChannel((message) => {

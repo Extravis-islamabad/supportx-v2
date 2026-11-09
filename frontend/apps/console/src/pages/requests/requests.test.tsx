@@ -317,6 +317,7 @@ describe('console: the service request record (template A)', () => {
       [`GET /api/v1/service-requests/${SR_ID}/conversation`]: {
         body: { items: [], people: {}, next_cursor: null },
       },
+      [`GET /api/v1/files/records/service_request/${SR_ID}`]: { body: [] },
     });
     render(<App />);
     expect((await screen.findByTestId('sr-status')).textContent).toBe('In progress');
@@ -327,5 +328,16 @@ describe('console: the service request record (template A)', () => {
       expect(fake.find('GET', `/api/v1/service-requests/${SR_ID}/conversation`)).toHaveLength(1);
     });
     expect(fake.find('GET', `/api/v1/incidents/${SR_ID}/conversation`)).toHaveLength(0);
+    // Never an incident path for a request (two 404 toasts, the coordinator's QA of #304):
+    // its history, files and every other part come from its own type's routes.
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/files/records/service_request/${SR_ID}`)).toHaveLength(1);
+    });
+    const strays = fake.calls.filter(
+      (c) =>
+        c.path.includes(SR_ID) &&
+        (c.path.startsWith('/api/v1/incidents/') || c.path.includes('/records/incident/')),
+    );
+    expect(strays.map((c) => c.path)).toEqual([]);
   });
 });
