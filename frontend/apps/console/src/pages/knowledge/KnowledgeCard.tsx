@@ -325,7 +325,7 @@ function SaveAsKnowledge({
         >
           <Form.Item
             name="topic_id"
-            label={t('knowledge.field.topic')}
+            label={t('knowledge.field.topic_id')}
             rules={[{ required: true, message: t('errors.field.required') }]}
           >
             <TreeSelect
@@ -335,7 +335,7 @@ function SaveAsKnowledge({
               data-testid="kb-save-topic"
             />
           </Form.Item>
-          <Form.Item name="type_code" label={t('knowledge.field.type')}>
+          <Form.Item name="type_code" label={t('knowledge.field.type_code')}>
             <Select
               data-testid="kb-save-type"
               options={(types.data ?? [])

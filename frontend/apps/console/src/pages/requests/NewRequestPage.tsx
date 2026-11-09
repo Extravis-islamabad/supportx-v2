@@ -145,7 +145,7 @@ export function NewRequestPage() {
           );
         }}
       >
-        <Form.Item label={t('incidents.col.subject')} htmlFor="sr-subject" required>
+        <Form.Item label={t('work_item.field.subject')} htmlFor="sr-subject" required>
           <Input
             id="sr-subject"
             value={subject}
