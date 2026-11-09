@@ -28,6 +28,7 @@ import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
   AccountSecurityCard,
+  SignedInSessionsCard,
   ContactDetailsCard,
   ConflictDialog,
   FormProblem,
@@ -123,6 +124,7 @@ export function ProfilePage() {
       </Card>
       <ContactDetailsCard />
       <AccountSecurityCard callToAction={false} />
+      <SignedInSessionsCard />
       <ApiKeysPanel mode="mine" />
       <NotificationPreferencesCard />
       <PreferencesCard user={me} />
