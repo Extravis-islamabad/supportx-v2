@@ -137,6 +137,7 @@ export const ar: LabelResource = {
   'assets.admin.types_help':
     'يحدد النوع الرئيسي ما إذا كانت أصوله تقنية معلومات، وما إذا كانت أصولًا أو مكونات أو مستهلكات، وترث الأنواع التي تحته ذلك.',
   'assets.admin.useful_life': 'العمر الإنتاجي (بالسنوات)',
+  'assets.admin.warranty_notice': 'إشعار انتهاء الضمان (أيام مسبقًا)',
   'assets.admin.warranty_notice_days': 'إبلاغ مديري الأصول قبل انتهاء الضمان بهذا العدد من الأيام',
   'assets.admin.yes': 'نعم',
   'assets.age.days_few': '{{count}} أيام',

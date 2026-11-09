@@ -106,6 +106,19 @@ export function SettingsTab({ settings }: { settings: AssetSettings }) {
               data-testid="asset-scan-retention"
             />
           </Form.Item>
+          {/* REQ-AST-059 AC2: how far ahead the managers hear a warranty is ending (Appendix A). */}
+          <Form.Item label={t('assets.admin.warranty_notice')} htmlFor="asset-warranty-notice">
+            <InputNumber
+              id="asset-warranty-notice"
+              min={1}
+              max={365}
+              value={value('warranty_notice_days')}
+              onChange={(next) => {
+                if (next !== null) edit({ warranty_notice_days: next });
+              }}
+              data-testid="asset-warranty-notice"
+            />
+          </Form.Item>
         </Flex>
         {TOGGLES.map((toggle) => (
           <Form.Item

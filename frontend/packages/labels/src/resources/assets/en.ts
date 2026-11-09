@@ -136,6 +136,7 @@ export const en = {
   'assets.admin.types_help':
     'A top-level type sets whether its assets are IT and whether they are assets, components or consumables; the types below inherit both.',
   'assets.admin.useful_life': 'Useful life (years)',
+  'assets.admin.warranty_notice': 'Warranty notice (days ahead)',
   'assets.admin.warranty_notice_days': 'Tell asset managers this many days before a warranty ends',
   'assets.admin.yes': 'Yes',
   'assets.age.days_one': '1 day',

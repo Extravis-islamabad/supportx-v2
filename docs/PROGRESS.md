@@ -1317,7 +1317,23 @@ it with no reload (rule c). Not built yet.
   - **Deferred:** 021/022 (auto-assign, workstation mapping) with discovery (WP-050); 020's
     consumables and licences with WP-052; 024 AC2 "report a problem" and 025's forms are lane
     A's, on the picker.
-- [ ] Session 5: loans, warranty, notifications, e2e.
+- [x] Session 5: loans, warranty, notifications, e2e (migration 0114; REQ-AST-029, 030, 031,
+  059; the PR with session 4 opens from main after #216 merges).
+  - Loanable assets (bulk from the list); loans of loanable, in-stock assets to a person until a
+    due time, moving them in use and to the borrower; one open loan per asset is a unique
+    partial index, so two loans racing for one asset never both win (race test).
+  - Returns of some or all assets, to stock or to repair (a comment needed); the last return
+    closes the loan; an asset on loan is not disposed of (the disposal guard port).
+  - Due and overdue notices to the borrower and the loan's creator, and warranty-ending notices
+    to the asset managers within the tenant's notice days (Appendix A: 30, a setting), each
+    claimed once by one UPDATE ... RETURNING (two-worker test), from a scheduled sweep.
+  - Console loan register (/assets/loans) with New loan and Take back; the portal's My assets
+    shows when a loaned asset is due back, red once overdue; all live (loans_changed, and the
+    borrower's own channel). Shared page parts only, ready for the UI pass 3 list template.
+  - e2e: tests/asset-loans.spec.ts (loanable in bulk, lent, due in the portal, taken back).
+  - **Open:** REQ-AST-017 AC4 (a disposal certificate file) waits for the file link of WP-022's
+    record attachments on assets; REQ-AST-030's display ID, department borrower, site and
+    filters, and REQ-AST-032 (booking ahead), go to WP-049b.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
