@@ -1316,6 +1316,10 @@ export const en = {
   'requests.withdraw': 'Withdraw request',
   'requests.withdraw_confirm':
     'Withdraw this request? The approvers are told it is no longer needed.',
+  'risk_level.high': 'High',
+  'risk_level.low': 'Low',
+  'risk_level.medium': 'Medium',
+  'risk_level.very_high': 'Very high',
   'root_cause.capacity_or_performance': 'Capacity or performance',
   'root_cause.configuration_error': 'Configuration error',
   'root_cause.hardware_failure': 'Hardware failure',

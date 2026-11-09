@@ -9,6 +9,7 @@ a change keeps the version it was assessed with (REQ-CHG-057 AC3).
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 
 class RiskLevel(StrEnum):
@@ -160,3 +161,57 @@ def effective(calculated: RiskLevel | None, chosen: RiskLevel | None) -> RiskLev
 def highest(levels: Sequence[RiskLevel]) -> RiskLevel | None:
     """The highest of several levels (several rules), or None."""
     return max(levels, key=rank) if levels else None
+
+
+# The change details' risk columns (0116): what an assessment and an override write.
+RISK_FIELDS = ("risk", "risk_score", "risk_answers", "risk_version", "risk_chosen", "risk_reason")
+_LEVELS = frozenset(level.value for level in RiskLevel)
+
+
+def details_problems(merged: Mapping[str, object]) -> list[tuple[str, str]]:
+    """(field, code) pairs of a change's risk after an edit (values merged)."""
+    problems: list[tuple[str, str]] = []
+    for name in ("risk", "risk_chosen"):
+        value = merged.get(name)
+        if value is not None and value not in _LEVELS:
+            problems.append((name, "invalid_choice"))
+    chosen = merged.get("risk_chosen")
+    reason = merged.get("risk_reason")
+    problems += override_problems(
+        RiskLevel(chosen) if isinstance(chosen, str) and chosen in _LEVELS else None,
+        reason if isinstance(reason, str) else None,
+    )
+    return problems
+
+
+def questionnaire_from(raw: Any) -> Questionnaire:  # noqa: ANN401 - a template's stored JSON, checked here
+    """A template's own questionnaire (its JSON), else Appendix A's; a broken one falls back."""
+    if not raw:
+        return DEFAULT_QUESTIONNAIRE
+    try:
+        questions = tuple(
+            Question(
+                str(q["code"]),
+                tuple(Answer(str(a["code"]), int(a["score"])) for a in q["answers"]),
+            )
+            for q in raw["questions"]
+        )
+        bands = tuple(Band(int(b["low"]), RiskLevel(b["level"])) for b in raw["bands"])
+        version = int(raw.get("version", 1))
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return DEFAULT_QUESTIONNAIRE
+    if not questions or not bands:
+        return DEFAULT_QUESTIONNAIRE
+    return Questionnaire(version, questions, bands)
+
+
+def questionnaire_json(questionnaire: Questionnaire) -> dict[str, object]:
+    """A questionnaire as the API and the template store it."""
+    return {
+        "version": questionnaire.version,
+        "questions": [
+            {"code": q.code, "answers": [{"code": a.code, "score": a.score} for a in q.answers]}
+            for q in questionnaire.questions
+        ],
+        "bands": [{"low": b.low, "level": b.level.value} for b in questionnaire.bands],
+    }

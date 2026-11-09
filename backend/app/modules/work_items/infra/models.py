@@ -436,6 +436,8 @@ class WorkItemTemplate(TenantEntity):
     # Staged types (ADR-041; 0093): the path its records take, and per stage, per field, whether
     # it is shown, required to leave the stage, or read-only while in it (REQ-REL-011, -013).
     stage_path: Mapped[str | None] = mapped_column(String(40))
+    # A change template's own risk questionnaire (WP-045b, 0116); none: Appendix A's.
+    risk_questionnaire: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     stage_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
 
@@ -1464,6 +1466,14 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     change_type: Mapped[str | None] = mapped_column(String(40))
     change_reason: Mapped[str | None] = mapped_column(String(40))
     retrospective: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-045b S1 (0116): the calculated risk and the questionnaire it came from, and a
+    # person's override with its reason (both levels kept, REQ-CHG-057, -060).
+    risk: Mapped[str | None] = mapped_column(String(20))
+    risk_score: Mapped[int | None]
+    risk_answers: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    risk_version: Mapped[int | None]
+    risk_chosen: Mapped[str | None] = mapped_column(String(20))
+    risk_reason: Mapped[str | None] = mapped_column(String(500))
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------

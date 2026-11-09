@@ -66,6 +66,7 @@ from app.modules.organization import (
     unit_heads,
     users_in_groups,
 )
+from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
@@ -3137,11 +3138,13 @@ DETAILS: Mapping[WorkItemTypeCode, DetailsSpec] = {
     ),
     WorkItemTypeCode.CHANGE: DetailsSpec(
         model=WorkItemChangeDetails,
-        fields=change_rules.DETAIL_FIELDS,
+        # The type and reason, and the risk: assessed and overridden (WP-045b S1, 0116).
+        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS),
         pick_lists=(
             ("change_type", PickList.CHANGE_TYPE),
             ("change_reason", PickList.CHANGE_REASON),
         ),
+        problems=risk_rules.details_problems,
     ),
 }
 
@@ -3222,8 +3225,14 @@ async def _detail_problems(  # noqa: PLR0913, PLR0917 - the change and its conte
     if people:
         found = await user_names(session, [str(v) for v in people.values()])
         problems += [(n, "user_not_found") for n, v in people.items() if str(v) not in found]
-    # REQ-REL-004 AC3: a risk set by hand says why, in history.
-    if "risk" in given and given["risk"] != current.get("risk") and not risk_reason:
+    # REQ-REL-004 AC3: a release's risk set by hand says why, in history. A change's own risk
+    # is assessed (the questionnaire) or overridden with its own reason (risk_reason, REQ-CHG-060).
+    if (
+        spec.risk_from_type
+        and "risk" in given
+        and given["risk"] != current.get("risk")
+        and not risk_reason
+    ):
         problems.append(("risk_reason", "reason_required"))
     return problems
 

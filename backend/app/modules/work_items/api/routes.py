@@ -30,6 +30,8 @@ from app.modules.work_items.api.parts_routes import add_parts_collection_routes,
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
+from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain.change_risk import RiskLevel
 from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
@@ -71,6 +73,7 @@ from app.modules.work_items.domain.types import (
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
 from app.modules.work_items.service import change_links, release_links, resolution
+from app.modules.work_items.service import change_risk as risk_service
 from app.modules.work_items.service import duplicates as duplicates_service
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
@@ -1485,6 +1488,48 @@ class ChangeDetailsIn(BaseModel):
     change_reason: str | None = Field(
         default=None, max_length=40, description="A reason for change code."
     )
+    risk_chosen: RiskLevel | None = Field(
+        default=None,
+        description="Override the calculated risk (REQ-CHG-060): needs risk_reason. Null: none.",
+    )
+    risk_reason: str | None = Field(default=None, max_length=500)
+
+
+class ChangeRiskAssessmentIn(BaseModel):
+    """The questionnaire's answers, one per question (REQ-CHG-057)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answers: dict[str, str] = Field(max_length=50)
+
+
+class ChangeRiskAnswerOut(BaseModel):
+    """One answer and its weight."""
+
+    code: str
+    score: int
+
+
+class ChangeRiskQuestionOut(BaseModel):
+    """One question with its weighted answers (labels: risk_question.<code> and its answers)."""
+
+    code: str
+    answers: list[ChangeRiskAnswerOut]
+
+
+class ChangeRiskBandOut(BaseModel):
+    """Scores from `low` map to `level`."""
+
+    low: int
+    level: RiskLevel
+
+
+class ChangeRiskQuestionnaireOut(BaseModel):
+    """The questionnaire this change is assessed with (its template's, else Appendix A's)."""
+
+    version: int
+    questions: list[ChangeRiskQuestionOut]
+    bands: list[ChangeRiskBandOut]
 
 
 class ChangeDetailsOut(BaseModel):
@@ -1495,6 +1540,12 @@ class ChangeDetailsOut(BaseModel):
     change_type: str | None
     change_reason: str | None
     retrospective: bool = Field(description="Logged after the fact (REQ-CHG-004).")
+    risk: RiskLevel | None = Field(default=None, description="Calculated (REQ-CHG-057).")
+    risk_score: int | None = None
+    risk_answers: dict[str, str] | None = None
+    risk_version: int | None = None
+    risk_chosen: RiskLevel | None = Field(default=None, description="The override, if any.")
+    risk_reason: str | None = None
 
     @classmethod
     def of(cls, view: service.DetailsView) -> "ChangeDetailsOut":
@@ -1505,6 +1556,7 @@ class ChangeDetailsOut(BaseModel):
             version=view.record.version,
             **{n: (getattr(row, n) if row is not None else None) for n in CHANGE_DETAIL_FIELDS},
             retrospective=bool(getattr(row, "retrospective", False)),  # a change's row only
+            **{n: getattr(row, n, None) for n in risk_rules.RISK_FIELDS},
         )
 
 
@@ -2692,6 +2744,40 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             found = await service.details(session, subject, wtype, record_id)
             set_etag(response, found.record.version)
             return ChangeDetailsOut.of(found)
+
+        @router.get("/{record_id}/risk/questionnaire", summary="The change's risk questionnaire")
+        async def risk_questionnaire(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> ChangeRiskQuestionnaireOut:
+            """Its template's own, else Appendix A's (REQ-CHG-057)."""
+            asked = await risk_service.questionnaire(session, subject, record_id)
+            return ChangeRiskQuestionnaireOut.model_validate(risk_rules.questionnaire_json(asked))
+
+        @router.put(
+            "/{record_id}/risk/assessment",
+            summary="Answer the risk questionnaire",
+            responses=CONFLICT,
+        )
+        async def assess_risk(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ChangeRiskAssessmentIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> ChangeDetailsOut:
+            """Scores the answers and sets the calculated risk (If-Match: the change's version)."""
+            view = await risk_service.assess(
+                session,
+                subject,
+                record_id,
+                answers=body.answers,
+                expected_version=version,
+                source=source_of(request),
+            )
+            set_etag(response, view.record.version)
+            return ChangeDetailsOut.of(view)
 
         @router.patch(
             "/{record_id}/details", summary="Change the change's own fields", responses=CONFLICT

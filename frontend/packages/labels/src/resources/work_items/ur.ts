@@ -1319,6 +1319,10 @@ export const ur: LabelResource = {
   'requests.withdraw': 'درخواست واپس لیں',
   'requests.withdraw_confirm':
     'یہ درخواست واپس لیں؟ منظوری دینے والوں کو بتایا جائے گا کہ اب اس کی ضرورت نہیں۔',
+  'risk_level.high': 'زیادہ',
+  'risk_level.low': 'کم',
+  'risk_level.medium': 'درمیانہ',
+  'risk_level.very_high': 'بہت زیادہ',
   'root_cause.capacity_or_performance': 'گنجائش یا کارکردگی',
   'root_cause.configuration_error': 'ترتیب کی غلطی',
   'root_cause.hardware_failure': 'ہارڈویئر کی خرابی',
