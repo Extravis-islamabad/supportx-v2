@@ -12,6 +12,7 @@ import { useJoinParts } from '@supportx/labels';
 import { useAppearance, useLabel } from '@supportx/ui';
 
 import { categoryLabel, duplicateNames } from './labels';
+import { nobodyFound } from './nobodyFound';
 
 /**
  * A person with a second line: the email always, so two people with the same display name are
@@ -114,7 +115,7 @@ export function UserPicker({
       options={options}
       optionLabelProp="name"
       loading={users.isFetching}
-      notFoundContent={t('incidents.nobody_found')}
+      notFoundContent={t(nobodyFound(search))}
       data-testid={testId}
       style={{ width: '100%' }}
     />
@@ -281,7 +282,7 @@ export function TechnicianPicker({
       options={options}
       optionLabelProp="name"
       loading={found.isFetching}
-      notFoundContent={t('incidents.nobody_found')}
+      notFoundContent={t(nobodyFound(search))}
       data-testid={testId}
       style={{ width: '100%' }}
     />

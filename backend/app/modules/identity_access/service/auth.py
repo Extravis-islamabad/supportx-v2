@@ -26,6 +26,7 @@ from app.core.database import Database
 from app.core.errors import (
     AppError,
     BadRequest,
+    Conflict,
     PermissionDenied,
     ServiceUnavailable,
     Unauthenticated,
@@ -33,6 +34,7 @@ from app.core.errors import (
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts
+from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
     Identity,
@@ -361,6 +363,59 @@ class AuthService:
             query = urlencode({"account_action": pending["account_action"], "status": outcome})
             landing += ("&" if "?" in landing else "?") + query
         return LoginResult(session_id, session, landing)
+
+    async def quick_sign_in(self, who: quick.Persona, tenant_id: uuid.UUID) -> "LoginResult":
+        """Dev-only quick sign-in (D-151): a showcase persona, through Keycloak, then a session.
+
+        The caller has checked the dev-only setting, the local address and the showcase tenant.
+        The password grant gives real Keycloak tokens; the TOTP code comes from the persona's
+        dev-only authenticator secret (never logged). From there the normal path: the ID token
+        is checked, the person provisioned, the MFA policy applied, and a session saved.
+        Keycloak's refusal is a 403 naming the reason, never a 500 (the page shows it).
+        """
+        password = self.settings.showcase_password
+        key = self.settings.showcase_totp_key
+        if password is None or key is None:
+            raise ServiceUnavailable(code="quick_sign_in_not_configured")
+        client = self.client(who.app)
+        code: str | None = None
+        if who.enrolled:
+            step = await self._claim_step(who.email)
+            code = quick.totp(quick.totp_value(key.get_secret_value().encode(), who.email), step)
+        try:
+            tokens = await self.oidc.password_grant(
+                client, username=who.email, password=password.get_secret_value(), totp=code
+            )
+        except TokenRejectedError as exc:
+            reason = quick.refusal(exc.error, exc.description)
+            log.warning("quick_sign_in_refused", persona=who.code, reason=reason)
+            raise PermissionDenied(code="quick_sign_in_refused", params={"reason": reason}) from exc
+        identity = await self._identity(tokens, client, nonce=None)
+        if not any(m.tenant_id == tenant_id for m in identity.memberships):
+            await self._end_keycloak_session(client, tokens.refresh_token)
+            raise PermissionDenied(code="quick_sign_in_refused", params={"reason": "not_showcase"})
+        try:
+            session = await self._new_session(identity, tokens, who.app, active=tenant_id)
+        except MfaEnrolmentDue as exc:
+            await self._end_keycloak_session(client, tokens.refresh_token)
+            raise PermissionDenied(
+                code="quick_sign_in_refused", params={"reason": "mfa_setup_required"}
+            ) from exc
+        if session.tenant_id != str(tenant_id):
+            await self._end_keycloak_session(client, tokens.refresh_token)
+            raise PermissionDenied(code="quick_sign_in_refused", params={"reason": "not_showcase"})
+        session_id = await self._save_new(session)
+        log.info("quick_sign_in", persona=who.code, tenant_id=session.tenant_id, client=who.app)
+        return LoginResult(session_id, session, self.landing(who.app, "/", None))
+
+    async def _claim_step(self, email: str) -> int:
+        """A TOTP time step no earlier quick sign-in used, or a 409 to wait a moment."""
+        ttl = timedelta(seconds=quick.TOTP_PERIOD * 3)
+        for step in quick.candidate_steps(quick.time_step(self.clock.now())):
+            if await self.store.claim_totp_step(email, step, ttl):
+                return step
+        # Both codes of this window are used: a wrong code would count toward the lock.
+        raise Conflict(code="quick_sign_in_wait", params={"seconds": quick.TOTP_PERIOD})
 
     async def _requester_only(self, session: Session) -> bool:
         if self.database is None:  # pragma: no cover - a login needs the database

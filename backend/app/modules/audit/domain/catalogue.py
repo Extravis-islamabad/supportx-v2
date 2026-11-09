@@ -84,6 +84,7 @@ def _actions(*items: tuple[str, AuditCategory, str]) -> dict[str, Action]:
 ACTIONS: dict[str, Action] = _actions(
     # sign-in and session (failed sign-ins, MFA and password resets come with WP-039)
     ("session.signed_in", AuditCategory.SESSION, "identity_access"),
+    ("session.quick_sign_in", AuditCategory.SESSION, "identity_access"),  # dev only (D-151)
     ("session.signed_out", AuditCategory.SESSION, "identity_access"),
     ("session.tenant_switched", AuditCategory.SESSION, "identity_access"),
     ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list

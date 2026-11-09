@@ -48,6 +48,8 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { nobodyFound } from '../incidents/nobodyFound';
+
 type Frequency = ReportScheduleInput['frequency'];
 type Format = NonNullable<ReportScheduleInput['format']>;
 
@@ -79,7 +81,7 @@ function PeopleSelect({ value, onChange }: { value: string[]; onChange: (v: stri
       options={options}
       loading={users.isFetching}
       aria-label={t('reports.schedule_people')}
-      notFoundContent={t('incidents.nobody_found')}
+      notFoundContent={t(nobodyFound(search))}
       data-testid="schedule-people"
     />
   );

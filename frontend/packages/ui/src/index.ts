@@ -20,6 +20,8 @@ export { PersonSessions, SESSIONS_CHANGED, SignedInSessionsCard } from './Signed
 export { ContactDetailsCard } from './ContactDetailsCard';
 export { MfaReminder } from './MfaReminder';
 export { PASSWORD_RESET_PATH, PasswordResetPage } from './PasswordResetPage';
+export { DevSignInPage } from './DevSignInPage';
+export { isDevSignIn } from './devSignIn';
 export { SessionGate, type SessionGateProps } from './SessionGate';
 export * from './shell';
 export {

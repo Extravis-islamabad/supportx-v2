@@ -23,6 +23,7 @@ import {
   statusLabel,
   templateLabel,
 } from './labels';
+import { plainText } from './writingText';
 
 // The words of an incident's history (REQ-WI-003/004), shared by the History tab and the
 // conversation timeline's quiet event lines (UI pass 2): field names, values as labels, names
@@ -55,9 +56,15 @@ const TIMES = new Set([
   'resolution_due_at',
 ]);
 // Rich text and references with no words of their own: "changed", never the HTML or an ID.
+// How much of a resolution's text history shows.
+const RESOLUTION_WORDS = 200;
+
+function clip(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+}
+
 const CHANGED_ONLY = new Set([
   'description',
-  'resolution',
   'follows_id',
   'task.position',
   'sla_policy_id', // WP-025: the panel names the policy
@@ -204,6 +211,11 @@ export function useHistoryWords(id: string, actors: HistoryActors = 'all', enabl
       return people[value]?.display_name ?? t('history.changed');
     }
     if (CHANGED_ONLY.has(change.field)) return t('history.changed');
+    // The fix in words (QA9-F-05): its text, never the HTML, kept short.
+    if (change.field === 'resolution' && typeof value === 'string') {
+      const words = plainText(value);
+      return words === '' ? t('history.empty') : clip(words, RESOLUTION_WORDS);
+    }
     if (typeof value === 'boolean') return t(value ? 'history.yes' : 'history.no');
     if (Array.isArray(value))
       return value.length === 0 ? t('history.empty') : listFormat(value.map(String));

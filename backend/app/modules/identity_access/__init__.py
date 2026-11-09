@@ -40,6 +40,7 @@ from app.modules.identity_access.api.people import access_router as access_setti
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
 from app.modules.identity_access.bff.cookies import cookie_name
+from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
@@ -354,6 +355,7 @@ module = ModuleSpec(
     name="identity_access",
     routers=[
         router,
+        quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
         people_router,
         users_router,
         imports_router,

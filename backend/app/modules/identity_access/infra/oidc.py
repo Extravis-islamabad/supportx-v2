@@ -36,6 +36,13 @@ class IdentityProviderUnavailable(ServiceUnavailable):
 class TokenRejectedError(Exception):
     """Keycloak refused a code or refresh token (invalid_grant): the user must log in again."""
 
+    def __init__(self, error: str, description: str | None = None) -> None:
+        super().__init__(error)
+        self.error = error
+        # Keycloak's own words ("Account is not fully set up"): read only by the dev-only quick
+        # sign-in to name the reason (D-151); never shown or logged as is.
+        self.description = description
+
 
 class InvalidTokenError(Exception):
     """An ID token failed signature or format checks."""
@@ -224,7 +231,10 @@ class OidcClient:
         except httpx.HTTPError as exc:
             raise IdentityProviderUnavailable from exc
         if response.status_code in {400, 401}:
-            raise TokenRejectedError(response.json().get("error", "invalid_grant"))
+            body = response.json()
+            raise TokenRejectedError(
+                body.get("error", "invalid_grant"), body.get("error_description")
+            )
         if response.status_code != 200:  # noqa: PLR2004 - HTTP OK
             raise IdentityProviderUnavailable
         body = response.json()
@@ -248,6 +258,19 @@ class OidcClient:
                 "code_verifier": verifier,
             },
         )
+
+    async def password_grant(
+        self, client: ClientCredentials, *, username: str, password: str, totp: str | None
+    ) -> TokenSet:
+        """Username, password and (if the account has one) a TOTP code -> tokens.
+
+        Dev-only quick sign-in only (D-151): the password grant is on in the dev realm file and
+        forced off in the base realm the chart ships for production.
+        """
+        form = {"grant_type": "password", "username": username, "password": password}
+        if totp is not None:
+            form["totp"] = totp
+        return await self._token_request(client, {**form, "scope": SCOPES})
 
     async def refresh(self, client: ClientCredentials, refresh_token: str) -> TokenSet:
         """Refresh token → new tokens (TokenRejectedError if the Keycloak session is gone)."""

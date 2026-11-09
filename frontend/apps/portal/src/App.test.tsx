@@ -51,6 +51,10 @@ describe('portal', () => {
     fireEvent.click(await screen.findByText('My requests'));
     expect(await screen.findByRole('heading', { name: 'My requests' })).toBeDefined();
     expect(screen.queryByTestId('tenant-switcher')).toBeNull();
+    // The browser tab names the page, then the portal (QA9-F-07).
+    await waitFor(() => {
+      expect(document.title).toBe('My requests · Self-Service Portal');
+    });
   });
 
   it('home lists the announcements live for the requester, in words, from the portal', async () => {
