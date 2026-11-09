@@ -187,6 +187,7 @@ export const en = {
   'audit.action.service_request.template_changed': 'Changed a service request template',
   'audit.action.service_request.template_created': 'Added a service request template',
   'audit.action.service_request.withdrawn': 'Withdrew a service request awaiting approval',
+  'audit.action.session.quick_sign_in': 'Signed in with the dev quick sign-in',
   'audit.action.session.signed_in': 'Signed in',
   'audit.action.session.signed_out': 'Signed out',
   'audit.action.session.tenant_switched': 'Switched organisation',

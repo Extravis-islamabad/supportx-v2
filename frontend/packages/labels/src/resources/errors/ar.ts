@@ -617,6 +617,11 @@ export const ar: LabelResource = {
   'errors.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
   'errors.privilege_escalation': 'لا يمكنك منح صلاحيات لا تملكها بنفسك.',
   'errors.problem_closed': '{{display_id}} مغلقة، لذا لا يمكن دمجها.',
+  'errors.quick_sign_in_not_configured':
+    'تسجيل الدخول السريع غير مُعدّ على هذه البيئة: شغّل make dev-quick-sign-in.',
+  'errors.quick_sign_in_refused': 'رفض Keycloak تسجيل الدخول السريع هذا.',
+  'errors.quick_sign_in_wait':
+    'سجّلت هذه الشخصية الدخول مرتين خلال آخر 30 ثانية. حاول مجددًا بعد {{seconds}} ثانية.',
   'errors.range_not_satisfiable': 'هذا الجزء من الملف غير موجود.',
   'errors.rate_limited': 'طلبات كثيرة جدًا. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.',
   // Entitlements (WP-009)

@@ -11,7 +11,9 @@ metadata:
 data:
   {{- if eq .Values.keycloak.realmImport "dev" }}
   supportx-realm.json: |
-    {{- .Files.Get "files/keycloak/dev/supportx-realm.json" | nindent 4 }}
+    {{- /* The password grant is the local Compose stack's quick sign-in only (D-151): never in a realm
+    this chart renders, the dev profile included. */}}
+    {{- .Files.Get "files/keycloak/dev/supportx-realm.json" | replace "\"directAccessGrantsEnabled\": true" "\"directAccessGrantsEnabled\": false" | nindent 4 }}
   {{- else if eq .Values.keycloak.realmImport "base" }}
   supportx-realm.json: |
     {{- .Files.Get "files/keycloak/base/supportx-realm.json" | nindent 4 }}
