@@ -39,14 +39,24 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetState,
 )
-from app.modules.assets.service.assets import MANAGE, VIEW, _refuse, _require, _saved, _visible
+from app.modules.assets.service.assets import (
+    MANAGE,
+    VIEW,
+    _refuse,
+    _require,
+    _saved,
+    _visible,
+    staff_rows,
+)
 from app.modules.assets.service.moves import move_asset
 from app.modules.assets.service.ownership import Holder, set_holder
+from app.modules.assets.service.refs import ASSET_SEARCH
 from app.modules.identity_access import Subject, active_user_ids
 from app.shared.clock import system_clock
 from app.shared.events import record_event
 from app.shared.history import Change, Source
 from app.shared.ids import new_id
+from app.shared.search import ENGINE
 
 log = get_logger(__name__)
 
@@ -423,3 +433,39 @@ async def due_dates(
         )
     )
     return dict(rows.tuples().all())
+
+
+AVAILABLE_MAX = 50
+
+
+async def available(
+    session: AsyncSession, subject: Subject, *, text_: str | None, limit: int = AVAILABLE_MAX
+) -> list[Asset]:
+    """What can go on a new loan now: loanable, in an in-stock state, not out (REQ-AST-029 AC2).
+
+    The same three checks `create_loan` makes, so the new-loan picker offers nothing it refuses;
+    searched by tag, serial or name like the asset list.
+    """
+    _require(subject, MANAGE)
+    out = select(AssetLoanItem.id).where(
+        AssetLoanItem.asset_id == Asset.id,
+        AssetLoanItem.returned_at.is_(None),
+        AssetLoanItem.deleted_at.is_(None),
+    )
+    query = (
+        staff_rows(subject)
+        .join(AssetState, AssetState.id == Asset.state_id)
+        .where(
+            Asset.loanable.is_(True),
+            AssetState.category == AssetStateCategory.IN_STOCK,
+            ~out.exists(),
+        )
+    )
+    if text_:
+        match = await ENGINE.match(session, ASSET_SEARCH, text_)
+        if match is None:
+            return []
+        query = query.where(match.predicate).order_by(match.rank.desc(), Asset.id)
+    else:
+        query = query.order_by(Asset.tag, Asset.id)
+    return list(await session.scalars(query.limit(limit)))

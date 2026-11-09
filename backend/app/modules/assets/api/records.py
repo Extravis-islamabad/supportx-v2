@@ -95,6 +95,7 @@ class AssetOut(BaseModel):
     warranty_expires_on: date | None
     expires_on: date | None
     description: str | None
+    loanable: bool = Field(default=False, description="May go out on a loan (REQ-AST-029).")
     custom: dict[str, Any]
     created_at: datetime
     updated_at: datetime
@@ -126,6 +127,7 @@ class AssetOut(BaseModel):
             currency=row.currency,
             acquired_on=row.acquired_on,
             warranty_expires_on=row.warranty_expires_on,
+            loanable=row.loanable,
             expires_on=row.expires_on,
             description=row.description,
             custom=dict(row.custom),

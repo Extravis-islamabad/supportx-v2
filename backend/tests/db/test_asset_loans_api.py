@@ -232,3 +232,24 @@ async def test_a_loan_change_refreshes_the_register_and_the_borrower_live(world:
         (broadcast(a.tenant), LOANS_CHANGED, (loan["id"],)),
         (personal(a.tenant, a.requester), MINE_CHANGED, (loan["id"],)),
     }
+
+
+async def test_the_new_loan_picker_offers_only_what_a_loan_takes(world: World) -> None:
+    """029 AC2: loanable, in stock and not out; searchable; managers only."""
+    a = world.a
+    free, plain, out = (
+        await _asset(world, "Picker free"),
+        await _asset(world, "Picker plain"),
+        await _asset(world, "Picker out"),
+    )
+    await _loanable(world, free, out)
+    assert (await _loan(world, [out], a.requester)).status_code == 201
+    offered = (await world.call("GET", f"{BASE}/loanable", a, a.admin)).json()
+    ids = {x["id"] for x in offered}
+    assert free["id"] in ids
+    assert not {plain["id"], out["id"]} & ids
+    searched = await world.call("GET", f"{BASE}/loanable?q=Picker%20free", a, a.admin)
+    assert [x["id"] for x in searched.json()] == [free["id"]]
+    record = (await world.call("GET", f"{BASE}/{free['id']}", a, a.admin)).json()
+    assert record["loanable"] is True
+    assert (await world.call("GET", f"{BASE}/loanable", a, a.requester)).status_code == 403

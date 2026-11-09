@@ -1242,6 +1242,23 @@ async def set_loanable(
     return {"changed": changed}
 
 
+class LoanableAssetOut(BaseModel):
+    """An asset that can go on a new loan now."""
+
+    id: uuid.UUID
+    tag: str | None
+    name: str
+
+
+@router.get("/loanable", summary="Assets that can go on a new loan now")
+async def loanable_assets(
+    session: TenantSession, subject: AssetsManage, q: str | None = None
+) -> list[LoanableAssetOut]:
+    """Loanable, in stock and not out on a loan; `q` searches tag, serial or name (50 at most)."""
+    rows = await loans.available(session, subject, text_=q)
+    return [LoanableAssetOut(id=r.id, tag=r.tag, name=r.name) for r in rows]
+
+
 @router.get("/loans", summary="Open loans, overdue first")
 async def list_loans(session: TenantSession, subject: AssetsView) -> list[LoanOut]:
     """Every open loan of the organisation, those past due first."""
