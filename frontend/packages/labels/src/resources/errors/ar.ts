@@ -274,6 +274,8 @@ export const ar: LabelResource = {
   'errors.field.flow_without_groupings': 'تقرير المسجلة مقابل المحلولة بلا تجميع.',
   'errors.field.full_sla_off':
     'للمشكلات تواريخ مستهدفة فقط. فعّل اتفاقيات مستوى الخدمة الكاملة للمشكلات لإضافة أهداف الاستجابة.',
+  'errors.field.group_dashboard_shared':
+    'لا يمكن مشاركة لوحة معلومات المجموعة مع الجميع أيضًا. أخرجها من المجموعة أولًا.',
   'errors.field.group_not_found': 'هذه المجموعة غير موجودة.',
   'errors.field.group_not_yours': 'لست عضوًا في هذه المجموعة.',
   'errors.field.group_required': 'اختر أي من مجموعاتك سيتولاه.',
