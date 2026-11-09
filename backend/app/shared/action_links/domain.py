@@ -129,7 +129,7 @@ def public_page(tenant_slug: str) -> str:
     subdomains); never its id. The token stays in the fragment: never sent to a server, never
     in an access log.
     """
-    return f"approve?t={tenant_slug}#"
+    return f"approve?t={tenant_slug}#" if tenant_slug else "approve#"
 
 
 def marker(name: str) -> str:

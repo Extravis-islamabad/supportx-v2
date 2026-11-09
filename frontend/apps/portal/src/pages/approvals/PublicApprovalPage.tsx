@@ -50,7 +50,8 @@ function useFragmentToken(): string | undefined {
 
 /** The link's `?t=`: the tenant's slug where the address names none (never a secret). */
 function linkTenant(): string | null {
-  return new URLSearchParams(window.location.search).get('t');
+  const slug = new URLSearchParams(window.location.search).get('t');
+  return slug === '' ? null : slug; // an empty ?t= is none
 }
 
 function text(value: unknown): string {

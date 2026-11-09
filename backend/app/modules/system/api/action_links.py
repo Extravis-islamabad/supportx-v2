@@ -137,9 +137,27 @@ async def _public_tenant(
     tenant's address is simply not found there. Every way of not finding a tenant gives
     `NO_TENANT`, so the answer and its cost are a wrong token's.
     """
-    # The one limit, before any lookup and by client address alone: a sweep over slugs or
-    # tenants' addresses shares one budget, and the headers never differ by tenant.
-    await _public_limit(request, response, NO_TENANT)
+    slug = slug or None  # an empty `?t=` is no slug (lane B)
+    # Two limits (lane B's review). Before any lookup, both budgets keyed on the client address
+    # alone: a sweep over slugs or tenants' addresses shares one budget, and no client fills
+    # another's. After it, the resolved tenant's own budget, as before ?t=: junk with unknown
+    # slugs only ever fills NO_TENANT's, which no real link uses. Every request makes both hits.
+    await _public_limit(request, response, _address_scope(request))
+    tenant_id = await _resolve(request, database, slug)
+    await _public_limit(request, response, tenant_id)
+    return tenant_id
+
+
+def _address(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _address_scope(request: Request) -> uuid.UUID:
+    """A budget scope of the client address alone, never shared with a tenant or another client."""
+    return uuid.uuid5(NO_TENANT, f"action-links-address:{_address(request)}")
+
+
+async def _resolve(request: Request, database: Database, slug: str | None) -> uuid.UUID:
     found = await tenant_for_host(
         database, request.headers.get("host"), request.app.state.settings.tenant_base_domain
     )
@@ -156,9 +174,8 @@ async def _public_limit(request: Request, response: Response, tenant_id: uuid.UU
     limiter: RateLimiter | None = getattr(request.app.state, RATE_LIMITER_STATE, None)
     if limiter is None:
         return
-    address = request.client.host if request.client else "unknown"
     try:
-        decision = await limiter.hit(PUBLIC_GROUP, tenant_id, f"address:{address}")
+        decision = await limiter.hit(PUBLIC_GROUP, tenant_id, f"address:{_address(request)}")
     except (valkey.exceptions.ValkeyError, OSError):
         return  # the limiter is down: the token stays the protection
     if not decision.allowed:
@@ -246,7 +263,11 @@ async def public_use(
             )
     except AppError as refused:
         if tenant_id == NO_TENANT:
-            raise  # no tenant to audit in, and no link to count the failure on
+            # No tenant to audit in and no link to count the failure on. Accepted (lane B's
+            # review, minor 1): this answer skips the audit write a wrong token in a real tenant
+            # makes, one transaction measurable over many tries. Peek, the obvious probe, has no
+            # such difference, and slugs are no secret (every SaaS tenant's subdomain).
+            raise
         await record_alone(
             database,
             TenantContext(tenant_id, user_id=recipient),

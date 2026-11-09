@@ -300,3 +300,57 @@ async def test_a_verified_domain_wins_over_a_different_slug(world: World) -> Non
     assert (await _peek(world, host, token, await slug_of(world, a))).status_code == 200
     refused = await _peek(world, host, token, await slug_of(world, b))
     assert problem(refused) == (404, "action_link_not_found")
+
+
+class CountingValkey:
+    """The limiter's one script: both counters up by one, their counts back (no expiry needed)."""
+
+    def __init__(self) -> None:
+        self.counts: dict[str, int] = {}
+
+    async def eval(self, script: str, keys: int, *args: Any) -> list[int]:  # noqa: ANN401 - keys and a TTL
+        del script
+        found = []
+        for key in args[:keys]:
+            self.counts[key] = self.counts.get(key, 0) + 1
+            found.append(self.counts[key])
+        return found
+
+
+async def test_one_client_spending_its_budget_never_blocks_another_tenants_links(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane B's major: no shared bucket across tenants (a cross-tenant denial of service)."""
+    from app.shared.api.ratelimit import (  # noqa: PLC0415 - this test only
+        RATE_LIMITER_STATE,
+        RateLimiter,
+        SettingsPolicyProvider,
+    )
+
+    a, b = world.a, world.b
+    settings = world.app.state.settings.model_copy(
+        update={"rate_limits": {"action_links_public": {"user": 3, "tenant": 5}}}
+    )
+    limiter = RateLimiter(CountingValkey(), prefix="t:", provider=SettingsPolicyProvider(settings))
+    set_state(monkeypatch, world.app.state, RATE_LIMITER_STATE, limiter)
+    await manager_of(world, b.requester, b.tech_b)
+    record = await waiting(world, b)
+    token = await token_for(world, b, record)
+    shared, slug_a, slug_b = (
+        "supportx.localhost:8080",
+        await slug_of(world, a),
+        await slug_of(world, b),
+    )
+
+    async def peek(address: str, tenant: str, link: str) -> int:
+        transport = world.client._transport  # noqa: SLF001 - the ASGI transport's client address
+        monkeypatch.setattr(transport, "client", (address, 1234))
+        return int((await _peek(world, shared, link, tenant)).status_code)
+
+    # One client sweeps tenant A, then unknown slugs, until refused.
+    spent = [await peek("10.0.0.1", slug_a, "B" * 43) for _ in range(4)]
+    assert spent[-1] == 429
+    assert await peek("10.0.0.1", "nobody-here", "B" * 43) == 429  # its own budget, any slug
+    # Other clients on other tenants are untouched, and so is a fresh client on tenant A.
+    assert await peek("10.0.0.2", slug_b, token) == 200
+    assert await peek("10.0.0.3", slug_a, "B" * 43) == 404
