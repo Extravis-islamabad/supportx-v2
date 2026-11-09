@@ -1,6 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { expectAccessible, goToSection, mainNav, navItems, settledBox, signInAs } from './helpers';
+import {
+  closeAppearance,
+  expectAccessible,
+  goToSection,
+  mainNav,
+  navItems,
+  openAppearance,
+  settledBox,
+  signInAs,
+} from './helpers';
 
 /**
  * Navigation layouts (WP-011): top bar (default), side bar, compact side bar. The choice is a
@@ -22,10 +31,10 @@ const LAYOUTS = [
  */
 async function inAppearance(page: Page, action: () => Promise<void>): Promise<void> {
   const panel = page.getByTestId('nav-layout');
-  if (!(await panel.isVisible())) await page.getByTestId('appearance-menu').click();
+  if (!(await panel.isVisible())) await openAppearance(page);
   await expect(panel).toBeVisible();
   await action();
-  await page.getByTestId('appearance-menu').click();
+  await closeAppearance(page);
   await expect(panel).toBeHidden();
 }
 
