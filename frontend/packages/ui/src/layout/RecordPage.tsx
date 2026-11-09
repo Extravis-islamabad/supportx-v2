@@ -1,5 +1,5 @@
 import { Flex, Tooltip, Typography, theme } from 'antd';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { useAppearance } from '../appearance';
 import { PANEL_WIDTH, SPACE, TYPE } from '../density';
@@ -239,6 +239,8 @@ export function RecordPage({ header, actions, alerts, children, panel, testId }:
     border: `1px solid ${token.colorBorderSecondary}`,
     borderRadius: token.borderRadius,
   } as const;
+  const [columns, setColumns] = useState<HTMLDivElement | null>(null);
+  const side = useSideBySide(columns);
   return (
     <Flex vertical gap={SPACE.md} data-testid={testId}>
       <section style={{ ...card, padding: `${String(SPACE.md)}px 18px` }}>
@@ -248,14 +250,65 @@ export function RecordPage({ header, actions, alerts, children, panel, testId }:
         </Flex>
       </section>
       {alerts}
-      <Flex wrap gap={SPACE.md} align="flex-start">
-        <main
-          style={{ ...card, flex: '999 1 500px', minWidth: 0, padding: `0 ${String(SPACE.sm)}px` }}
+      <div
+        ref={setColumns}
+        data-layout={side ? 'side' : 'stacked'}
+        style={
+          side
+            ? {
+                display: 'grid',
+                gridTemplateColumns: `minmax(0, 1fr) ${String(PANEL_WIDTH)}px`,
+                gap: SPACE.md,
+                // The tabs' card runs as far down as the panel, so neither column leaves an
+                // empty grey void beside the other (D-147 template A).
+                alignItems: 'stretch',
+              }
+            : { display: 'flex', flexDirection: 'column', gap: SPACE.md }
+        }
+      >
+        <main style={{ ...card, minWidth: 0, padding: `0 ${String(SPACE.sm)}px` }}>{children}</main>
+        <div
+          data-testid={testId === undefined ? undefined : `${testId}-panel`}
+          style={
+            side
+              ? {
+                  // Beside the tabs the panel stays in view while a long conversation scrolls,
+                  // and scrolls itself when it is taller than the window.
+                  alignSelf: 'start',
+                  position: 'sticky',
+                  top: SPACE.md,
+                  maxHeight: `calc(100vh - ${String(2 * SPACE.md)}px)`,
+                  overflowY: 'auto',
+                  minWidth: 0,
+                }
+              : { minWidth: 0 }
+          }
         >
-          {children}
-        </main>
-        <div style={{ flex: `1 1 ${String(PANEL_WIDTH)}px`, minWidth: 0 }}>{panel}</div>
-      </Flex>
+          {panel}
+        </div>
+      </div>
     </Flex>
   );
+}
+
+/** Room for the tabs (500 px) and the panel side by side; below that the panel goes under. */
+const SIDE_BY_SIDE_MIN = 500 + PANEL_WIDTH + SPACE.md;
+
+function useSideBySide(element: HTMLElement | null): boolean {
+  const [side, setSide] = useState(true);
+  useEffect(() => {
+    if (element === null) return undefined;
+    const measure = () => {
+      setSide(element.getBoundingClientRect().width >= SIDE_BY_SIDE_MIN);
+    };
+    measure();
+    // jsdom (unit tests) has no ResizeObserver: the first measure stands.
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [element]);
+  return side;
 }
