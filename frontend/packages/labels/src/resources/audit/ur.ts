@@ -228,6 +228,7 @@ export const ur: LabelResource = {
   'audit.action.user.role_removed': 'کسی فرد سے کردار واپس لیا',
   'audit.action.user.sign_in_changed': 'کسی فرد کا سائن اِن کھولا یا بند کیا',
   'audit.action.user.type_changed': 'کسی فرد کی صارف کی قسم تبدیل کی',
+  'audit.action.work_item.dates_restored': 'ریکارڈ کی اصل تاریخیں بحال کیں',
   'audit.alert.probing': 'ایک فرد کی بار بار مسترد کوششیں۔',
   'audit.alert.unsealed_overdue': 'آڈٹ اندراجات مہر بند نہیں ہو رہے۔',
   'audit.alert.verification_failed': 'آڈٹ لاگ تصدیق میں ناکام رہا۔',
