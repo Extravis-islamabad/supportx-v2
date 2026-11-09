@@ -49,11 +49,17 @@ REQUESTS = (
 )
 # releases.* moved to work_items too (WP-058a); identity's technician grant still names view.
 RELEASES = (PermissionSpec("releases.view", "release", _ALL),)
+# changes.* likewise (WP-045a): identity's technician grants still name view and create.
+CHANGES = (
+    PermissionSpec("changes.view", "change", _ALL),
+    PermissionSpec("changes.create", "change"),
+    PermissionSpec("changes.approve", "change", ("all", "site", "group")),
+)
 FEATURES = frozenset(
     {"incident", "service_request", "problem", "change", "release", "assets", "cmdb", "knowledge"}
 )
 CATALOGUE = Catalogue.build(
-    [*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *REQUESTS, *RELEASES, *ORG], FEATURES
+    [*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *REQUESTS, *RELEASES, *CHANGES, *ORG], FEATURES
 )
 TENANT, ME, OTHER = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
 SITE, GROUP = uuid.uuid4(), uuid.uuid4()

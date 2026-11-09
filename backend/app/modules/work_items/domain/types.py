@@ -12,6 +12,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from app.modules.work_items.domain.changes import CHANGE_MODEL, CHANGE_ROLES
+from app.modules.work_items.domain.changes import OUTCOME_STAGES as CHANGE_OUTCOME_STAGES
+from app.modules.work_items.domain.changes import PLAN_SECTIONS as CHANGE_PLAN_SECTIONS
+from app.modules.work_items.domain.changes import STAGE_APPROVALS as CHANGE_STAGE_APPROVALS
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
@@ -214,14 +218,33 @@ RELEASE = WorkItemType(
     },
 )
 
+# Changes (WP-045a S1, file 05): a staged type on the same engine; its own fields, types and
+# boards come in the next sessions.
+CHANGE = WorkItemType(
+    code=WorkItemTypeCode.CHANGE,
+    path="changes",
+    default_prefix="CHG",
+    feature="change",
+    permission_prefix="changes",
+    statuses=staged_statuses(CHANGE_MODEL),
+    transitions=(),
+    fields=COMMON_FIELDS,
+    stages=CHANGE_MODEL,
+    roles=CHANGE_ROLES,
+    plan_sections=CHANGE_PLAN_SECTIONS,
+    outcome_stages=CHANGE_OUTCOME_STAGES,
+    stage_approvals=CHANGE_STAGE_APPROVALS,
+)
+
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {
     INCIDENT.code: INCIDENT,
     SERVICE_REQUEST.code: SERVICE_REQUEST,
     PROBLEM.code: PROBLEM,
+    CHANGE.code: CHANGE,
     RELEASE.code: RELEASE,
 }
 # Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
-PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, PROBLEM, RELEASE)
+PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, PROBLEM, CHANGE, RELEASE)
 
 
 # --- value rules shared by every type -------------------------------------------------------------

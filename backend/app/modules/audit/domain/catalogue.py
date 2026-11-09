@@ -289,6 +289,22 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("release.due_date_changed", AuditCategory.RECORDS, "work_items"),
     ("release.approval_decided", AuditCategory.RECORDS, "work_items"),
+    # changes (WP-045a): the same actions, by the type's own code
+    ("change.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.category_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.deleted", AuditCategory.RECORDS, "work_items"),
+    ("change.restored", AuditCategory.RECORDS, "work_items"),
+    ("change.bulk_started", AuditCategory.RECORDS, "work_items"),
+    ("change.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
+    ("change.closed_record_edited", AuditCategory.RECORDS, "work_items"),
+    ("change.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    ("change.approval_decided", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),

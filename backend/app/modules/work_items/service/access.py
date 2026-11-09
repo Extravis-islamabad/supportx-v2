@@ -282,6 +282,16 @@ def _type_defaults(
         # Releases (WP-058a): technicians keep only identity's releases.view grant; the type
         # adds no technician defaults, so nothing is widened (lane B review).
         return ()
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        # Changes (WP-045a): technicians keep identity's changes.view and changes.create (all);
+        # the engine adds working their groups' changes, never delete or due dates by hand.
+        if action in {"view", "create"}:
+            return ()
+        return (
+            ()
+            if action in {"delete", "edit_due_dates", "assign_outside_group"}
+            else (("technician", "group"),)
+        )
     return defaults
 
 
@@ -306,6 +316,7 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
         + (APPROVE_SPECS if is_sr else ())
         + (PROBLEM_SPECS if wtype.code is WorkItemTypeCode.PROBLEM else ())
         + (RELEASE_APPROVE_SPECS if is_release else ())
+        + (CHANGE_APPROVE_SPECS if wtype.code is WorkItemTypeCode.CHANGE else ())
     )
 
 
@@ -348,6 +359,12 @@ APPROVE = "approve"
 # admin roles hold it by default; an approver without it is routed to approve_any, never stuck.
 RELEASE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec("releases.approve", "release", ("all",), defaults=_role_defaults("approve")),
+)
+# changes.approve keeps identity's scopes (not own) and grants (WP-045a).
+CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
+    PermissionSpec(
+        "changes.approve", "change", ("all", "site", "group"), defaults=_role_defaults("approve")
+    ),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

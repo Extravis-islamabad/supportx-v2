@@ -11,6 +11,9 @@ stage the record's path does not have is never offered (StageModel.moves_from), 
 moves serves every path.
 """
 
+from collections.abc import Mapping
+from typing import Any
+
 from app.modules.work_items.domain.lifecycle import ReasonMode, StatusCategory
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
@@ -176,3 +179,26 @@ CHANGE_ROLES = (
 PLAN_SECTIONS = ("impact", "rollout", "backout", "test")
 # Stages that record an outcome (REQ-CHG-031): the implementation's completed, backed out or failed.
 OUTCOME_STAGES = frozenset({"implementation", "acceptance_testing", "deployment", "review"})
+# Appendix A's stage approvals, the first cut (REQ-CHG-042): acceptance by the line manager,
+# the plan and the CAB review by the change manager, one level each. CABs (named boards, the
+# majority and the chair) and the risk rows come with WP-045b; admins add levels any time.
+STAGE_APPROVALS: Mapping[str, Mapping[str, Any]] = {
+    "submission": {
+        "raised_by": "submission_awaiting_acceptance",
+        "approved": "submission_accepted",
+        "rejected": "submission_rejected",
+        "levels": [{"rule": "any", "approvers": [{"role": "line_manager"}]}],
+    },
+    "planning": {
+        "raised_by": "planning_awaiting_approval",
+        "approved": "planning_plan_approved",
+        "rejected": "planning_plan_rejected",
+        "levels": [{"rule": "any", "approvers": [{"role": "change_manager"}]}],
+    },
+    "cab_review": {
+        "raised_by": "cab_awaiting",
+        "approved": "cab_approved",
+        "rejected": "cab_rejected",
+        "levels": [{"rule": "any", "approvers": [{"role": "change_manager"}]}],
+    },
+}
