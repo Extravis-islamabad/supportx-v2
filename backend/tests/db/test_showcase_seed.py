@@ -310,8 +310,8 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
             "service_request closed": 1,
             "service_request rejected": 1,
             "service_request canceled": 1,
-            "problem new known error": 2,
-            "problem new": 1,
+            "problem assigned known error": 2,  # the creator owns a new problem (#267)
+            "problem assigned": 1,
             "new unassigned": 10,
             "assigned": 14,
             "in_progress": 12,

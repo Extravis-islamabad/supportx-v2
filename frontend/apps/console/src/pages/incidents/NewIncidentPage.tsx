@@ -450,7 +450,7 @@ export function NewIncidentPage() {
             }, 0);
             return;
           }
-          void navigate(`/incidents/${saved.id}`, { replace: true });
+          void navigate(`/incidents/${saved.id}`, { replace: true, state: { justMade: true } });
         },
         onError: (error) => {
           if (error instanceof ApiError && error.code === 'would_lose_access') {

@@ -165,6 +165,7 @@ export const ur: LabelResource = {
   'sla_met_how.at_resolution': 'حل کے وقت پورا ہوا',
   'sla_met_how.late': 'تاخیر سے',
   'sla_met_how.on_time': 'وقت پر',
+  'sla_policy.fallback': 'ڈیفالٹ پالیسی',
   'sla_priority_rule.recalculate': 'شروع سے دوبارہ حساب',
   'sla_priority_rule.restart': 'نیا ہدف تبدیلی کے وقت سے شروع',
   'sla_recipient_kind.assignee': 'ذمہ دار',

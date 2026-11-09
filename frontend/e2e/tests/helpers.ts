@@ -403,3 +403,17 @@ export async function actionEntry(
   await expect(entry).toBeVisible();
   return entry;
 }
+
+/** Opens the Appearance panel: an item of the user menu since UI pass 3 (D-147). */
+export async function openAppearance(page: Page): Promise<void> {
+  await page.getByTestId('user-menu').click();
+  await page.getByTestId('appearance-menu').click();
+  await expect(page.getByTestId('user-menu')).toHaveAttribute('data-appearance-open', 'true');
+}
+
+/** Closes the Appearance panel (a click on the user menu button, as on any popover trigger). */
+export async function closeAppearance(page: Page): Promise<void> {
+  await page.getByTestId('user-menu').click();
+  await expect(page.getByTestId('user-menu')).toHaveAttribute('data-appearance-open', 'false');
+  await page.keyboard.press('Escape'); // the user menu the click opened
+}

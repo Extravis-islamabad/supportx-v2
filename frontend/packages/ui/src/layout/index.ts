@@ -11,6 +11,7 @@ export {
   type ListPageProps,
 } from './ListPage';
 export { NoticeStack } from './NoticeStack';
+export { ASIDE_WIDTH, FORM_MAX_WIDTH, PageColumn } from './PageColumn';
 export { SectionNav, type SectionNavItem } from './SectionNav';
 export { PageHeader, type PageHeaderProps } from './PageHeader';
 export {

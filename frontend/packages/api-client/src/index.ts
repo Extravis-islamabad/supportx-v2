@@ -337,11 +337,13 @@ export {
   useApiKeyRules,
   useApiKeys,
   useApiKeyScopes,
+  useApiKeyOwners,
   useCreateApiKey,
   useRevokeApiKey,
   type ApiKey,
   type ApiKeyCreated,
   type ApiKeyInput,
+  type ApiKeyOwner,
   type ApiKeyRules,
   type ApiKeyScope,
 } from './apiKeys';

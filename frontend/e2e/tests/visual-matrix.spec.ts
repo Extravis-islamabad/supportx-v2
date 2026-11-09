@@ -22,6 +22,18 @@ const [SHARD, SHARDS] = (process.env.VISUAL_SHARD ?? '1/1').split('/').map(Numbe
   number,
 ];
 const SHOWCASE_PASSWORD = process.env.SUPPORTX_SHOWCASE_PASSWORD ?? '';
+// A run of only some screens (the workflow's `screens` input): keys, or prefixes ending in "*".
+const ONLY = (process.env.VISUAL_SCREENS ?? '')
+  .split(',')
+  .map((key) => key.trim())
+  .filter((key) => key !== '');
+
+function wanted(screen: { key: string }): boolean {
+  if (ONLY.length === 0) return true;
+  return ONLY.some((key) =>
+    key.endsWith('*') ? screen.key.startsWith(key.slice(0, -1)) : screen.key === key,
+  );
+}
 
 const LAYOUTS = ['side', 'side_compact', 'top'] as const;
 const THEMES = ['light', 'dark'] as const;
@@ -458,7 +470,7 @@ test.skip(!RUN, 'the visual matrix runs in its own workflow (VISUAL_MATRIX=1)');
 test(`visual matrix, shard ${String(SHARD)}/${String(SHARDS)}`, async ({ browser }) => {
   test.setTimeout(3 * 60 * 60_000);
   mkdirSync(OUT, { recursive: true });
-  const mine = SCREENS.filter((_, index) => index % SHARDS === SHARD - 1);
+  const mine = SCREENS.filter(wanted).filter((_, index) => index % SHARDS === SHARD - 1);
   const shots: Shot[] = [];
   const skipped: string[] = [];
 
