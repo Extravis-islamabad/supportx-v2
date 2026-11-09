@@ -168,6 +168,20 @@ async def key_rules(session: TenantSession, subject: SignedIn) -> KeyRulesOut:
     )
 
 
+class KeyOwnerOut(BaseModel):
+    """A service identity a key can be made for."""
+
+    id: uuid.UUID
+    display_name: str
+
+
+@router.get("/owners", summary="Service identities you may make keys for")
+async def key_owners(session: TenantSession, subject: SignedIn) -> list[KeyOwnerOut]:
+    """For api_keys.manage only (403 otherwise); you yourself are always an owner too."""
+    rows = await api_keys.service_owners(session, subject)
+    return [KeyOwnerOut(id=r.id, display_name=r.display_name) for r in rows]
+
+
 async def _out(session: TenantSession, rows: list[ApiKey], now: datetime) -> list[ApiKeyOut]:
     names = await user_names(session, sorted({str(r.owner_id) for r in rows}))
     return [ApiKeyOut.of(r, names.get(str(r.owner_id)), now) for r in rows]

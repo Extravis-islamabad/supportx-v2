@@ -21,13 +21,13 @@ import {
   type ApiKeyCreated,
   type ApiKeyRules,
   type ApiKeyScope,
+  useApiKeyOwners,
   useApiKeyRules,
   useApiKeys,
   useApiKeyScopes,
   useCreateApiKey,
   useRevokeApiKey,
   useSession,
-  useUsers,
 } from '@supportx/api-client';
 import { useListChannel, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import {
@@ -105,12 +105,8 @@ function OwnerSelect({
 }) {
   const t = useLabel();
   const me = useSession().data?.user.id ?? '';
-  const services = useUsers({
-    filter: { field: 'user_type', op: 'eq', value: 'service' },
-    sort: 'display_name',
-    limit: 100,
-  });
-  const rows = services.data?.pages.flatMap((page) => page.items) ?? [];
+  const services = useApiKeyOwners();
+  const rows = services.data ?? [];
   return (
     <Select
       id={id}
