@@ -218,7 +218,9 @@ export function AiSettingsPage() {
             label={t('ai_settings.retention')}
             help={t('ai_settings.retention_help')}
             control={
-              <Space>
+              // Wraps as a whole: at 390 px the unit never breaks one letter a line between the
+              // number and Save (QA9-V-11).
+              <Space wrap>
                 <InputNumber
                   min={1}
                   max={365}
@@ -229,7 +231,9 @@ export function AiSettingsPage() {
                   aria-labelledby="ai-retention"
                   data-testid="ai-retention"
                 />
-                <Typography.Text>{t('ai_settings.days')}</Typography.Text>
+                <Typography.Text style={{ whiteSpace: 'nowrap' }}>
+                  {t('ai_settings.days')}
+                </Typography.Text>
                 <WriteButton
                   disabled={days === null || days === saved.log_retention_days}
                   loading={save.isPending}
