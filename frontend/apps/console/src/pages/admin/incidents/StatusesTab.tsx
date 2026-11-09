@@ -1,8 +1,8 @@
-import { Badge, Button, Card, Flex, Select, Switch, Table, Tag, Typography } from 'antd';
+import { Badge, Card, Flex, Select, Switch, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 
 import type { IncidentCatalogue, ReasonMode } from '@supportx/api-client';
-import { ConflictDialog, useAppearance, useLabel } from '@supportx/ui';
+import { ConflictDialog, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { statusLabel } from '../../incidents/labels';
 import { useOpenedVersion, useSettingsSave } from './helpers';
@@ -95,7 +95,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
               title: t('settings.actions'),
               width: 160,
               render: (_: unknown, status: Status) => (
-                <Button
+                <WriteButton
                   type="link"
                   size="small"
                   onClick={() => {
@@ -105,7 +105,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                   data-testid={`status-edit-${status.code}`}
                 >
                   {t('settings.rename')}
-                </Button>
+                </WriteButton>
               ),
             },
           ]}

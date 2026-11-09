@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Flex, Select, Space, Table, Tooltip } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { stripIsolates, useListFormat } from '@supportx/labels';
+import { useListFormat } from '@supportx/labels';
 
 import {
   allOf,
@@ -41,6 +41,7 @@ import {
   NoAccess,
   reportError,
   useAccess,
+  useLicence,
   useAppearance,
   useDateTime,
   useLabel,
@@ -85,6 +86,7 @@ import { SearchChips } from './list/SearchChips';
 import { TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
+import { searchOf } from './searchOf';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
@@ -98,25 +100,14 @@ const ELLIPSIS = new Set(['subject', 'requester_id', 'technician_id', 'group_id'
 const STICKY = new Set(['display_id', 'subject']);
 const SELECT_WIDTH = 40;
 const SUBJECT_MIN = 180;
+// A problem from at most this many chosen incidents (their IDs go in the new form's address).
+const PROBLEM_FROM_MAX = 100;
 const VIEWS_CHANGED = 'work_items.views_changed';
 const SETTINGS_CHANGED = 'work_items.list_settings_changed';
 // On my own channel, what changes only my counts (WP-020d QA BUG-01): a follow or a reply by
 // someone else, a direct report gained or lost, a group joined or left. Someone who sees every
 // incident follows only the shared list channel, which never hears about these.
 const MY_COUNTS_CHANGED = new Set([LISTS_CHANGED, 'users.reports_changed', 'access.changed']);
-const ID_PATTERN = /^([A-Za-z]{2,6}-)?\d{1,18}$/;
-
-/** Subject words, or a display ID ("INC-12", "12"), in one search box. */
-function searchOf(typed: string): FilterExpression | undefined {
-  // A pasted ID or subject may carry directional marks from a screen (isolation rule).
-  const text = stripIsolates(typed).trim();
-  if (text === '') return undefined;
-  const subject: FilterExpression = { field: 'subject', op: 'contains', value: text };
-  if (!ID_PATTERN.test(text)) return subject;
-  const number = Number(text.replace(/^[A-Za-z]+-/, ''));
-  return { or: [subject, { field: 'display_number', op: 'eq', value: number }] };
-}
-
 /**
  * Incidents (REQ-INC-104 to 110, 119, 120): built-in and saved views with live counts, chosen
  * columns per view, a time range, search with chips, a page size, sorting across pages, selection
@@ -128,6 +119,7 @@ export function IncidentsPage() {
   const navigate = useNavigate();
   const dates = useDateTime();
   const { can } = useAccess();
+  const { has } = useLicence();
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
   const [panel, setPanel] = useState<'exports' | 'bulk' | null>(null);
@@ -709,6 +701,37 @@ export function IncidentsPage() {
           capped={total !== null && total >= 1000 && list.hasNextPage}
           onAction={setBulkAction}
           canEdit={bulkAllowed}
+          extra={
+            // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
+            // form starts from them. Chosen rows only, as their IDs travel in the address.
+            has('problem') && can('problems.create') ? (
+              <Tooltip
+                title={
+                  selection.all || selection.ids.length === 0
+                    ? t('incidents.bulk.select_first')
+                    : selection.ids.length > PROBLEM_FROM_MAX
+                      ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
+                      : undefined
+                }
+              >
+                <span>
+                  <Button
+                    disabled={
+                      selection.all ||
+                      selection.ids.length === 0 ||
+                      selection.ids.length > PROBLEM_FROM_MAX
+                    }
+                    onClick={() =>
+                      void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)
+                    }
+                    data-testid="inc-bulk-create-problem"
+                  >
+                    {t('problems.create_from_incident')}
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : undefined
+          }
         />
       )}
       <Table<IncidentListItem>

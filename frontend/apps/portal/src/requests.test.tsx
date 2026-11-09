@@ -342,3 +342,22 @@ describe('portal: the expected resolution time', () => {
     expect(column?.style.maxWidth).toBe('800px');
   });
 });
+
+describe('portal: the problem behind an incident (REQ-PRB-075)', () => {
+  it('REQ-PRB-075: says the issue is known and being worked on, never the problem', async () => {
+    window.history.pushState({}, '', `/requests/${ID}`);
+    const fake = fakeApi({
+      ...BASE,
+      [`GET /api/v1/portal/incidents/${ID}`]: {
+        body: portalIncident({ known_problem: 'being_worked_on' }),
+      },
+      [`GET /api/v1/portal/incidents/${ID}/conversation`]: { body: { items: [] } },
+      [`GET /api/v1/files/records/incident/${ID}`]: { body: [] },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('portal-known-problem')).textContent).toBe(
+      'We know about this issue and are working on a fix.',
+    );
+  });
+});

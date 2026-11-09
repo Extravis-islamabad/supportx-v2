@@ -12,7 +12,12 @@ def test_base_realm_is_the_dev_realm_without_demo_data() -> None:
     assert "organizations" in dev
     assert "users" not in base
     assert "organizations" not in base
-    assert base["clients"] == dev["clients"]
+    # The same clients, but the password grant (dev quick sign-in, D-151) only in the dev file.
+    without_grant = [
+        {**c, "directAccessGrantsEnabled": False} if "directAccessGrantsEnabled" in c else c
+        for c in dev["clients"]
+    ]
+    assert base["clients"] == without_grant
     assert base["passwordPolicy"] == dev["passwordPolicy"]
     # Committed file is current (make keycloak-realm regenerates it).
     assert BASE_REALM.read_text(encoding="utf-8") == render(base_realm(dev))
@@ -24,3 +29,27 @@ def test_no_hard_coded_ui_origins_in_either_realm() -> None:
         assert "localhost" not in text
         assert "${SUPPORTX_KC_CONSOLE_ORIGIN}/api/v1/auth/callback" in text
         assert "${SUPPORTX_KC_PORTAL_ORIGIN}/api/v1/auth/callback" in text
+
+
+def test_the_production_realm_never_allows_the_password_grant() -> None:
+    """D-151: the base realm forbids it on every client, and keeps its own session limits."""
+    base = json.loads(BASE_REALM.read_text(encoding="utf-8"))
+    assert all(c.get("directAccessGrantsEnabled") is not True for c in base["clients"])
+    assert (base["rememberMe"], base["ssoSessionIdleTimeout"], base["ssoSessionMaxLifespan"]) == (
+        False,
+        1800,
+        43200,
+    )
+    assert "ssoSessionIdleTimeoutRememberMe" not in base
+
+
+def test_the_dev_realm_has_the_quick_sign_in_settings() -> None:
+    dev = json.loads(DEV_REALM.read_text(encoding="utf-8"))
+    week = 7 * 86400
+    assert (dev["rememberMe"], dev["ssoSessionIdleTimeout"], dev["ssoSessionMaxLifespan"]) == (
+        True,
+        week,
+        week,
+    )
+    granted = {c["clientId"] for c in dev["clients"] if c.get("directAccessGrantsEnabled")}
+    assert granted == {"supportx-console", "supportx-portal"}

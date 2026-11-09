@@ -20,6 +20,15 @@ app.kubernetes.io/component: {{ .component }}
 
 {{/* Fail early on settings every profile needs. */}}
 {{- define "supportx.validate" -}}
+{{- /* The dev-only quick sign-in (D-151) is for the local Compose stack: never in a cluster. */}}
+{{- if hasKey .Values "devQuickSignIn" }}
+{{- fail "devQuickSignIn is the local dev stack's quick sign-in (D-151): it is never set in the chart" }}
+{{- end }}
+{{- range $name := list "SUPPORTX_DEV_QUICK_SIGN_IN" "SUPPORTX_SHOWCASE_PASSWORD" "SUPPORTX_SHOWCASE_TOTP_KEY" }}
+{{- if hasKey $.Values.app.extraEnv $name }}
+{{- fail (printf "%s is for the local dev stack only (D-151): never set it in the chart" $name) }}
+{{- end }}
+{{- end }}
 {{- if and .Values.valkeyHa.enabled .Values.valkey.enabled }}
 {{- fail "valkeyHa (HA, ADR-038) replaces the bundled valkey chart: set valkey.enabled=false" }}
 {{- end }}

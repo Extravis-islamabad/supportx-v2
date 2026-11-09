@@ -12,6 +12,7 @@ import { useJoinParts } from '@supportx/labels';
 import { useAppearance, useLabel } from '@supportx/ui';
 
 import { categoryLabel, duplicateNames } from './labels';
+import { nobodyFound } from './nobodyFound';
 
 /**
  * A person with a second line: the email always, so two people with the same display name are
@@ -114,7 +115,7 @@ export function UserPicker({
       options={options}
       optionLabelProp="name"
       loading={users.isFetching}
-      notFoundContent={t('incidents.nobody_found')}
+      notFoundContent={t(nobodyFound(search))}
       data-testid={testId}
       style={{ width: '100%' }}
     />
@@ -235,11 +236,16 @@ export function TechnicianPicker({
   disabled,
   testId,
   ariaLabel,
-}: PickerProps & { groupId: string | null }) {
+  base = 'incidents',
+}: PickerProps & {
+  groupId: string | null;
+  /** The record type's prefix: who may be given a problem differs from an incident. */
+  base?: 'incidents' | 'problems';
+}) {
   const t = useLabel();
   const spoken = useSpoken();
   const [search, setSearch] = useState('');
-  const found = useIncidentAssignees(groupId, search, disabled !== true);
+  const found = useIncidentAssignees(groupId, search, disabled !== true, base);
   const rows = found.data ?? [];
   const twice = duplicateNames(rows.map((r) => r.display_name));
   const options = rows.map((r) => ({
@@ -281,7 +287,7 @@ export function TechnicianPicker({
       options={options}
       optionLabelProp="name"
       loading={found.isFetching}
-      notFoundContent={t('incidents.nobody_found')}
+      notFoundContent={t(nobodyFound(search))}
       data-testid={testId}
       style={{ width: '100%' }}
     />
