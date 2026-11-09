@@ -136,6 +136,13 @@ describe('console: problems', () => {
     const subject = await screen.findByTestId('prb-subject');
     expect((subject as HTMLInputElement).value).toBe('Mail is down');
     expect(await screen.findByTestId('prb-similar-PRB-7')).toBeDefined();
+    // Create is always there, as on the incident form (QA9-F-10): an empty subject is said on
+    // the field and nothing is sent.
+    fireEvent.change(subject, { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('prb-create'));
+    expect(await screen.findByText('This field is required.')).toBeDefined();
+    expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(0);
+    fireEvent.change(subject, { target: { value: 'Mail is down' } });
     fireEvent.click(screen.getByTestId('prb-create'));
     await waitFor(() => {
       expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(1);
