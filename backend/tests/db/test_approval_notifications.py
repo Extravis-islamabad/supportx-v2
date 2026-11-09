@@ -27,7 +27,8 @@ pytestmark = pytest.mark.db
 
 __all__ = ["world"]  # the fixture, re-used
 
-LINK = re.compile(r"/approve#([A-Za-z0-9_-]{43})")
+# The tenant by slug, then the token in the fragment (D-132; ?t= for shared addresses).
+LINK = re.compile(r"/approve\?t=[a-z0-9-]+#([A-Za-z0-9_-]{43})")
 
 
 async def two_approvers(world: World, org: Org) -> dict[str, Any]:

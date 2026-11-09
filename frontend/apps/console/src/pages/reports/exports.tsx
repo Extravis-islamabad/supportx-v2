@@ -155,11 +155,24 @@ export function ExportButton({
 }
 
 /** "My exports": what was asked for, its state, and the file while it lasts. Live. */
-export function MyExportsButton() {
+/**
+ * "My exports": a button and its drawer. A header can open the drawer from its "More" menu
+ * instead (D-147 template C): it passes `open`/`onOpenChange` and `button={false}`.
+ */
+export function MyExportsButton({
+  open: controlled,
+  onOpenChange,
+  button = true,
+}: { open?: boolean; onOpenChange?: (open: boolean) => void; button?: boolean } = {}) {
   const t = useLabels();
   const dates = useDateTime();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = controlled ?? own;
+  const setOpen = (next: boolean) => {
+    setOwn(next);
+    onOpenChange?.(next);
+  };
   const exports = useMyExports(open);
   usePersonalChannel((message) => {
     if (message.type === 'reports.export_finished') {
@@ -169,14 +182,16 @@ export function MyExportsButton() {
 
   return (
     <>
-      <Button
-        onClick={() => {
-          setOpen(true);
-        }}
-        data-testid="report-my-exports"
-      >
-        {t('reports.my_exports')}
-      </Button>
+      {button && (
+        <Button
+          onClick={() => {
+            setOpen(true);
+          }}
+          data-testid="report-my-exports"
+        >
+          {t('reports.my_exports')}
+        </Button>
+      )}
       <Drawer
         open={open}
         title={t('reports.my_exports')}

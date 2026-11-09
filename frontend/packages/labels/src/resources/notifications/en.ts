@@ -88,6 +88,8 @@ export const en = {
   'notification_reason.no_access': 'They can no longer see the record',
   'notification_reason.no_address': 'Inactive, or no e-mail address',
   'notification_reason.preference': 'Switched off in their preferences',
+  'notification_recipient.approval_administrators': 'Approval administrators',
+  'notification_recipient.approver': 'Approver',
   'notification_recipient.approvers': 'Approvers',
   'notification_recipient.assignee': 'Assigned technician',
   'notification_recipient.author': 'Author',

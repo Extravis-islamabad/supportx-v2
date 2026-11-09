@@ -25,9 +25,9 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 
 ## Lane split for the remaining modules
 
-- **Lane A:** Problems (file 04), then Changes (file 05: risk scoring, CAB, change calendar, freeze and maintenance windows), then the V1 items of files 01, 02 and 03 (incidents, service requests and catalog, SLA, assignment and rules).
-- **Lane B:** Assets, CMDB, software, purchase and contracts (file 07), including asset discovery, remote assistance and the MonetX read-only connector; then the remaining integrations and ESM (file 12), notifications V1 (file 03 §16-19), and the sign-in, security and audit V1 items (file 11 §14-21).
-- **Lane C:** Releases (file 06; projects are LATER), the remaining AI (file 10), knowledge V1 (file 08), reports and dashboards V1 (file 09) with reports and dashboards for every new module, admin V1 (file 11 §1-13), and the visual workflow designer (file 03 §15), moved from lane A to balance the lanes.
+- **Lane A:** Problems (file 04), then Changes (file 05: risk scoring, CAB, change calendar, freeze and maintenance windows), then the V1 items of files 01, 02 and 03 (incidents, service requests and catalog, SLA, assignment and rules); then integrations and ESM V1 (file 12, not §5) and notifications V1 (file 03 §16-19), moved from lane B (D-149).
+- **Lane B:** Assets, CMDB, software, purchase and contracts (file 07), including asset discovery, the SupportX Agent and remote assistance, and the MonetX read-only connector; plus WP-013 and WP-014c. **Lane B reviews every PR, in any lane, that touches identity, sign-in, sessions, MFA, secrets or security; the review is blocking (D-149).**
+- **Lane C:** Releases (file 06; projects are LATER), the remaining AI (file 10), knowledge V1 (file 08), reports and dashboards V1 (file 09) with reports and dashboards for every new module, admin V1 (file 11 §1-13), and the visual workflow designer (file 03 §15), moved from lane A to balance the lanes; and sign-in, security and audit V1 (file 11 §14-21), moved from lane B (D-149), each PR reviewed and approved by lane B. UI pass 3 (D-147, about 7 sessions) also sits with lane C.
 
 ## Asset discovery (lane B, WP-050; file 07 §16-18 plus the product owner's scope)
 
@@ -55,7 +55,7 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 
 ## Work packages in order
 
-### Lane A (about 61 sessions)
+### Lane A (about 69 sessions; WP-055 and WP-056 added by D-149)
 
 | WP | Title | V1 requirements (file §) | Count | Sessions |
 |---|---|---|---|---|
@@ -71,8 +71,10 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 | WP-047a | Service requests V1: raising, approvals, fulfilment | 02 §2-4 | 29 | 5 |
 | WP-047b | Catalog and portal V1: forms, item settings, publishing, portal shell, branding, access, chat entry | 02 §7-13 | 22 | 4 |
 | WP-048a | SLA, routing, business rules, triggers, custom actions and functions, automation safety, life cycles | 03 §1-14 (not NTF) | 41 | 9 |
+| WP-055 | Integrations and ESM V1: framework, REST API, webhooks, email, chat tools, calendars, DevOps, endpoint, relay, MCP | 12 (not §5) | 37 | 6 |
+| WP-056 | Notifications V1: engine, templates, preferences, digests, quiet hours, delivery | 03 §16-19 | 11 | 2 |
 
-### Lane B (about 59 sessions)
+### Lane B (about 51 sessions; WP-055, WP-056 and WP-057 moved out by D-149; WP-064 added by D-150)
 
 | WP | Title | V1 requirements (file §) | Count | Sessions |
 |---|---|---|---|---|
@@ -83,12 +85,10 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 | WP-052 | Software asset management: catalogue, licences, compliance and metering | 07 §19-21 | 17 | 3 |
 | WP-053 | CMDB: CI types, relationships and map, impact, reconciliation, downtimes, baselines, access; MonetX read-only connector | 07 §22-28, 12 §5 | 36 | 7 |
 | WP-054 | Purchase and contracts | 07 §29-32 | 16 | 3 |
-| WP-055 | Integrations and ESM V1: framework, REST API, webhooks, email, chat tools, calendars, DevOps, endpoint, relay, MCP | 12 (not §5) | 37 | 6 |
-| WP-056 | Notifications V1: engine, templates, preferences, digests, quiet hours, delivery | 03 §16-19 | 11 | 2 |
-| WP-057 | Sign-in, MFA, sessions, network and API access, data protection, audit V1 | 11 §14-21 | 25 | 4 |
+| WP-064 | Record lifecycle in the tamper-evident audit log: one chained entry per save naming every event in it, a change-set fingerprint over record history, personal data outside the chain (erasure shows "erased on request"), legal hold, verified before/after in the audit viewer, retention per category, sealing to about 2,000/s with a 10M benchmark (D-150) | new (product owner) | — | 4 |
 | (WIP) | WP-014b S2-S3, WP-013, WP-014c | | | 7 |
 
-### Lane C (about 58 sessions)
+### Lane C (about 62 sessions; WP-057 added by D-149)
 
 | WP | Title | V1 requirements (file §) | Count | Sessions |
 |---|---|---|---|---|
@@ -105,6 +105,7 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 | WP-062a | Admin V1: people, roles, groups, organisation, customisation, instance, preferences | 11 §1-7 | 31 | 5 |
 | WP-062b | Admin V1: mail, surveys, announcements, data administration, privacy, setup and licence page | 11 §8-13 | 32 | 5 |
 | WP-048b | The visual workflow designer (React Flow) | 03 §15 | 22 | 4 |
+| WP-057 | Sign-in, MFA, sessions, network and API access, data protection, audit V1 | 11 §14-21 | 25 | 4 |
 
 ## Totals and calendar
 
@@ -113,11 +114,18 @@ Maps every remaining **V1** requirement in the parity files, plus the product ow
 | V1 requirements mapped | **886** of 886, each exactly once (checked by script; list below) |
 | Extra scope | discovery probe and agent, remote assistance, reports for new modules |
 | Sessions, work in progress | about 12 |
-| Sessions, new work packages | A about 61, B about 59, C about 58: **about 178** |
+| Sessions, new work packages | Original split: A about 61, B about 59, C about 58, **about 178**. After D-149: A about 69, B about 47, C about 62. After D-150: B about 51 (WP-064) |
 | Pace observed (3 lanes, 24 h) | about 1.5 to 2 sessions per lane per day, plus about 15% for merge choreography, QA fixes and red nightlies |
-| **Calendar, all lanes in parallel** | **about 35 to 46 days: feature-complete about 10 to 21 December 2026** |
-| Then | WP-043 (the full gate returns) and hardening: about 3 to 5 days, so **the first full release is about 15 to 26 December 2026** |
-| Critical path | lane A (Changes, then incidents and SLA V1) and lane B (discovery and agent) |
+| **Calendar, all lanes in parallel** | Original: about 35 to 46 days, feature-complete about 10 to 21 December 2026. **Re-estimate 2026-11-09 (after D-147 and D-149, see below): feature-complete about 8 to 18 December 2026** |
+| Then | WP-043 (the full gate returns) and hardening: about 3 to 5 days, so **the first full release is about 13 to 23 December 2026** (re-estimate 2026-11-09; was 15 to 26 December) |
+| Critical path | After D-149: lane A (Changes, incidents and SLA V1, then integrations) and lane C (UI pass 3, the workflow designer, security V1); lane B (discovery and agent) is no longer the longest |
+
+**Re-estimate, 2026-11-09:**
+- **Done:** 423 of 1,283 MVP and V1 requirements were on main (33%: MVP 93%, V1 6%), and 24 of about 204 sessions had merged.
+- **Plan size:** it grew by 14 sessions, mostly UI pass 3 (D-147).
+- **Lost time:** the weekly usage limit stopped all lanes for about 2.5 days (11-06 to 11-09).
+- **Remaining after D-149:** about A 63, B 55, C 62 sessions.
+- **Pace:** 1.7 sessions per lane per day, outage included, and about 2.4 with work in flight. That puts feature-complete at about 8 to 18 December.
 
 **Risks to the calendar:**
 - the weekly usage limit at full three-lane speed;

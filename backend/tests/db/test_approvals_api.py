@@ -392,3 +392,23 @@ async def test_the_tenant_may_hide_approvals_from_requesters(world: World) -> No
     assert (await fresh(world, a, record))["approval_status"] == "pending"
     assert len(await approvals(world, a, a.admin, record)) == 1
     assert len(await approvals(world, a, a.tech_a, record)) == 1  # the approver, of course
+
+
+async def test_qa9_f03_the_audit_says_approved_or_rejected(world: World) -> None:
+    """The decision's audit entry carries its outcome, for "Approved" or "Rejected" (lane B)."""
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    approved, rejected = await waiting(world, a), await waiting(world, a)
+    for record, decision, comment in ((approved, "approve", None), (rejected, "reject", "No")):
+        [entry] = await approvals(world, a, a.tech_a, record)
+        made = await decide(world, a, a.tech_a, record, entry, decision, comment)
+        assert made.status_code == 200, made.text
+    rows = await world.sql(
+        "SELECT object_id, details->>'outcome' AS outcome FROM audit_entries"
+        " WHERE tenant_id = $1 AND action = 'service_request.approval_decided'",
+        a.tenant,
+    )
+    assert {(str(r["object_id"]), r["outcome"]) for r in rows} == {
+        (approved["id"], "approved"),
+        (rejected["id"], "rejected"),
+    }

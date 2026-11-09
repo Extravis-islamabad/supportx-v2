@@ -1,5 +1,5 @@
 import type { AuditEntry } from '@supportx/api-client';
-import type { LabelInput, LabelParams } from '@supportx/labels';
+import { en, type LabelInput, type LabelParams } from '@supportx/labels';
 
 import { OpenLink } from './StateTag';
 
@@ -10,6 +10,19 @@ export const OUTCOME_COLOURS: Record<AuditEntry['outcome'], string> = {
   refused: 'warning',
   failed: 'error',
 };
+
+/**
+ * What happened, in words. An approval decision names its outcome ("Approved a service request")
+ * when the entry records one (`details.outcome`, QA9-F-03); older entries keep the general label.
+ */
+export function actionLabel(t: T, entry: Pick<AuditEntry, 'action' | 'details'>): string {
+  const outcome = entry.details.outcome;
+  if (typeof outcome === 'string') {
+    const key = `audit.decision.${entry.action}.${outcome}`;
+    if (key in en) return t(key);
+  }
+  return t(`audit.action.${entry.action}`);
+}
 
 /** Who acted: a person's name, else the kind of actor (never an ID or a code). */
 export function actorLabel(t: T, entry: AuditEntry): string {
