@@ -440,3 +440,67 @@ async def test_raising_acceptance_opens_the_stage_approval(world: World) -> None
         a.tenant,
     )
     assert len(audit) == 1  # its outcome ("approved") comes with #283 (QA9-F-03)
+
+
+async def test_req_chg_036_the_line_manager_comes_from_the_requester(world: World) -> None:
+    from tests.db.test_approvals_api import manager_of  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    item = await a_change(world, a)
+
+    async def line_manager(record_id: str) -> list[str]:
+        roles = (await world.call("GET", f"{CHG}/{record_id}/roles", a, a.admin)).json()
+        held = next(r for r in roles["roles"] if r["code"] == "line_manager")
+        return [str(u) for u in held["user_ids"]]
+
+    assert await line_manager(item["id"]) == [str(a.tech_a)]  # AC1
+    # Raising acceptance asks the line manager, not the administrators.
+    raised = await move(world, a, item, "submission_awaiting_acceptance")
+    [entry] = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    assert entry["approver_id"] == str(a.tech_a)
+    # A requester with no manager leaves it empty (AC2).
+    other = (await new_change(world, a, a.admin, requester_id=str(a.admin))).json()
+    assert await line_manager(other["id"]) == []
+    del raised
+    # The requester changes: the line manager follows (it was filled in, not chosen).
+    await manager_of(world, a.admin, a.tech_b)
+    fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    changed = await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}",
+        a,
+        a.admin,
+        json={"requester_id": str(a.admin)},
+        headers={"If-Match": f'"{fresh["version"]}"', **CONSOLE},
+    )
+    assert changed.status_code == 200, changed.text
+    assert await line_manager(item["id"]) == [str(a.tech_b)]
+
+
+async def test_req_chg_039_the_implementer_never_approves(world: World) -> None:
+    from tests.db.test_approvals_api import manager_of  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)  # tech_a is the line manager
+    item = await a_change(world, a)
+
+    async def implementer(user: uuid.UUID) -> None:
+        fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+        set_ = await world.call(
+            "PUT",
+            f"{CHG}/{item['id']}/roles/implementer",
+            a,
+            a.admin,
+            json={"user_ids": [str(user)]},
+            headers={"If-Match": f'"{fresh["version"]}"', **CONSOLE},
+        )
+        assert set_.status_code == 200, set_.text
+
+    await implementer(a.tech_a)
+    fresh = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    raised = await move(world, a, fresh, "submission_awaiting_acceptance")
+    assert raised.status_code == 200, raised.text
+    [entry] = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    # Skipped when named: the administrators decide, and the record says why (AC1).
+    assert (entry["approver_id"], entry["route_reason"]) == (None, "segregation_of_duties")

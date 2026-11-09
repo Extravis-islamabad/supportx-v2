@@ -2269,12 +2269,8 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         name: (entered.get(name) if name in automated.values else value)
         for name, value in after.items()
     }
-    own: dict[str, Any] = dict(new_change.details) if new_change is not None else {}
-    if own:  # a change's type and reason, kept in its own fields (WP-045a, 0101)
-        session.add(
-            WorkItemChangeDetails(tenant_id=record.tenant_id, work_item_id=record.id, **own)
-        )
-        await session.flush()
+    own = await change_types.store(session, record, new_change)  # a change's type and reason
+    roles_filled = await change_types.fill_line_manager(session, record)
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -2282,9 +2278,12 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         version=record.version,
         kind="created",
         changes=[
-            Change(name, None, value)
-            for name, value in {**by_person, **own}.items()
-            if value not in (None, [])
+            *(
+                Change(name, None, value)
+                for name, value in {**by_person, **own}.items()
+                if value not in (None, [])
+            ),
+            *roles_filled,
         ],
         source=source,
         reason=priority_reason,
@@ -2500,6 +2499,20 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
             automation_ref={"kind": "matrix"},
         )
     await _record_automation(session, updated, automated)
+    if before["requester_id"] != after["requester_id"]:  # REQ-CHG-036: the new requester's manager
+        refilled = await change_types.fill_line_manager(
+            session, updated, was_requester=uuid.UUID(str(before["requester_id"]))
+        )
+        if refilled:
+            await record_changes(
+                session,
+                record_type=RECORD_TYPE,
+                record_id=updated.id,
+                version=updated.version,
+                kind="updated",
+                changes=refilled,
+                source=source,
+            )
     await record_event(
         session,
         WorkItemUpdated(

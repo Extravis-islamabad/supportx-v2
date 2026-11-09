@@ -56,6 +56,7 @@ export const ar: LabelResource = {
   'approval_route_reason.approver_inactive': 'الموافق لم يعد نشطًا، لذا أُحيلت إلى الموافق البديل.',
   'approval_route_reason.no_holder': 'لا أحد يشغل دور الموافقة بعد',
   'approval_route_reason.no_manager': 'لا يوجد مدير مسجّل، لذا أُحيلت إلى الموافق البديل.',
+  'approval_route_reason.segregation_of_duties': 'المعتمِد هو المنفّذ أيضًا، ولا يجوز له الاعتماد',
   'approval_route_reason.self_approval_blocked':
     'لا يوافق أحد على طلبه بنفسه، لذا أُحيلت إلى الموافق البديل.',
   'approval_rule.all': 'جميع المعتمدين',

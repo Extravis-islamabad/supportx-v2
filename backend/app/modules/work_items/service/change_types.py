@@ -6,17 +6,26 @@ change is approved at creation: the system's move to `submission_accepted`, whic
 submission, with a history line saying so (never an unexplained tick, REQ-CHG-006 AC1).
 """
 
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.identity_access import person_placement
 from app.modules.work_items.domain import changes as rules
 from app.modules.work_items.domain.templates import PickList
 from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem, WorkItemChangeDetails, WorkItemTemplate
+from app.modules.work_items.infra.models import (
+    WorkItem,
+    WorkItemChangeDetails,
+    WorkItemRoleHolder,
+    WorkItemTemplate,
+)
 from app.modules.work_items.service.catalogue import Catalogue
+from app.shared.history import Change
 
 # The create request's fields that only changes take.
 CREATE_FIELDS = rules.DETAIL_FIELDS
@@ -89,3 +98,70 @@ async def store(session: AsyncSession, record: WorkItem, new: NewChange | None) 
         )
         await session.flush()
     return own
+
+
+LINE_MANAGER = "line_manager"
+
+
+def _holding(users: list[uuid.UUID]) -> dict[str, list[str]]:
+    """A role's holders as history shows them (as set_role writes them)."""
+    return {"users": [str(u) for u in users], "groups": []}
+
+
+async def _line_manager_rows(
+    session: AsyncSession, record_id: uuid.UUID
+) -> list[WorkItemRoleHolder]:
+    return list(
+        await session.scalars(
+            select(WorkItemRoleHolder).where(
+                WorkItemRoleHolder.work_item_id == record_id,
+                WorkItemRoleHolder.role == LINE_MANAGER,
+            )
+        )
+    )
+
+
+async def fill_line_manager(
+    session: AsyncSession, record: WorkItem, *, was_requester: uuid.UUID | None = None
+) -> list[Change]:
+    """The line manager from the requester's reporting manager (REQ-CHG-036); history lines.
+
+    On creation (`was_requester` None) and when the requester changes. A role someone set by
+    hand is kept: it is replaced only while it still holds the earlier requester's manager (or
+    nobody). No manager: the role stays empty, and a stage needing it goes to the approval
+    administrators, saying why (the approvals' `no_holder`, AC2).
+    """
+    if record.type != WorkItemTypeCode.CHANGE:
+        return []
+    rows = await _line_manager_rows(session, record.id)
+    held = [r.user_id for r in rows if r.user_id is not None]
+    if any(r.group_id is not None for r in rows):
+        return []  # a group set by hand
+    before = (
+        None
+        if was_requester is None
+        else (await person_placement(session, was_requester)).manager_id
+    )
+    if held and held != [before]:
+        return []  # someone chose the line manager: theirs stays
+    manager = (await person_placement(session, record.requester_id)).manager_id
+    now = [manager] if manager is not None else []
+    if now == held:
+        return []
+    await session.execute(
+        delete(WorkItemRoleHolder).where(
+            WorkItemRoleHolder.work_item_id == record.id, WorkItemRoleHolder.role == LINE_MANAGER
+        )
+    )
+    session.add_all(
+        WorkItemRoleHolder(
+            tenant_id=record.tenant_id,
+            work_item_id=record.id,
+            type=record.type,
+            role=LINE_MANAGER,
+            user_id=u,
+        )
+        for u in now
+    )
+    await session.flush()
+    return [Change(f"role.{LINE_MANAGER}", _holding(held), _holding(now))]

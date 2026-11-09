@@ -56,6 +56,8 @@ export const en = {
     'The approver is no longer active, so it went to the fallback approver.',
   'approval_route_reason.no_holder': 'Nobody holds the approving role yet',
   'approval_route_reason.no_manager': 'No manager on record, so it went to the fallback approver.',
+  'approval_route_reason.segregation_of_duties':
+    'The approver is also the implementer, who may not approve',
   'approval_route_reason.self_approval_blocked':
     'Nobody approves their own request, so it went to the fallback approver.',
   'approval_rule.all': 'Every approver',

@@ -21,6 +21,7 @@ from app.modules.work_items.domain.changes import (
 from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
 from app.modules.work_items.domain.changes import OUTCOME_STAGES as CHANGE_OUTCOME_STAGES
 from app.modules.work_items.domain.changes import PLAN_SECTIONS as CHANGE_PLAN_SECTIONS
+from app.modules.work_items.domain.changes import SEGREGATED_ROLES as CHANGE_SEGREGATED_ROLES
 from app.modules.work_items.domain.changes import STAGE_APPROVALS as CHANGE_STAGE_APPROVALS
 from app.modules.work_items.domain.changes import STAGE_OUTCOMES as CHANGE_STAGE_OUTCOMES
 from app.modules.work_items.domain.lifecycle import (
@@ -122,6 +123,8 @@ class WorkItemType:
     roles: tuple[str, ...] = ()
     plan_sections: tuple[str, ...] = ()
     outcome_stages: frozenset[str] = frozenset()
+    # Roles whose holders may never approve the record (segregation of duties, REQ-CHG-039).
+    segregated_roles: tuple[str, ...] = ()
     # Each outcome stage's own codes; empty: the release's (domain/releases.outcomes_for).
     stage_outcomes: Mapping[str, frozenset[str]] = field(default_factory=dict)
     # Seeded stage approvals (stage -> settings; REQ-REL-031), copied per tenant on first use.
@@ -243,6 +246,7 @@ CHANGE = WorkItemType(
     plan_sections=CHANGE_PLAN_SECTIONS,
     outcome_stages=CHANGE_OUTCOME_STAGES,
     stage_outcomes=CHANGE_STAGE_OUTCOMES,
+    segregated_roles=CHANGE_SEGREGATED_ROLES,
     stage_approvals=CHANGE_STAGE_APPROVALS,
     own_fields=frozenset(CHANGE_DETAIL_FIELDS),
     own_lists={

@@ -28,7 +28,7 @@ from app.modules.identity_access import active_user_ids
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.stages import Move, SetBy
-from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemApproval,
@@ -101,6 +101,30 @@ async def _candidates(
     return list(dict.fromkeys(people)), unheld
 
 
+async def segregated(session: AsyncSession, record: WorkItem) -> set[uuid.UUID]:
+    """People who may not approve this record: holders of its type's segregated roles.
+
+    The requester is kept out by the self-approval rule; these are the others (a change's
+    implementer, REQ-CHG-039), as people or through a group.
+    """
+    wtype = TYPES.get(WorkItemTypeCode(record.type))
+    if wtype is None or not wtype.segregated_roles:
+        return set()
+    held = (
+        await session.execute(
+            select(WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id).where(
+                WorkItemRoleHolder.work_item_id == record.id,
+                WorkItemRoleHolder.role.in_(wtype.segregated_roles),
+            )
+        )
+    ).all()
+    people = {r.user_id for r in held if r.user_id}
+    groups = frozenset(r.group_id for r in held if r.group_id)
+    if groups:
+        people |= set(await session.scalars(users_in_groups(groups)))
+    return people
+
+
 async def open_level(
     session: AsyncSession,
     record: WorkItem,
@@ -113,6 +137,7 @@ async def open_level(
     level = settings.levels[index]
     people, unheld = await _candidates(session, record, level)
     active = await active_user_ids(session, people)
+    barred = await segregated(session, record)
     named: list[uuid.UUID] = []
     reason: rules.RouteReason | None = rules.RouteReason.NO_HOLDER if unheld else None
     for person in people:
@@ -121,6 +146,9 @@ async def open_level(
             continue
         if not settings.self_approval and person == record.requester_id:
             reason = reason or rules.RouteReason.SELF_APPROVAL_BLOCKED
+            continue
+        if person in barred:
+            reason = reason or rules.RouteReason.SEGREGATION_OF_DUTIES
             continue
         named.append(person)  # named: decides by being named, no extra permission needed
     if not people and reason is None:

@@ -178,6 +178,9 @@ CHANGE_ROLES = (
     "implementer",
     "reviewer",
 )
+# By default the requester and the implementer may not approve a change (REQ-CHG-039); the
+# requester through the approvals' self-approval rule, the implementer's holders here.
+SEGREGATED_ROLES = ("implementer",)
 # The plan sections (REQ-CHG-013, -016, -017) on #219's plan sections, each with its history.
 PLAN_SECTIONS = ("impact", "rollout", "backout", "test")
 # Stages that record an outcome (REQ-CHG-031, -032), and the outcomes each takes: the

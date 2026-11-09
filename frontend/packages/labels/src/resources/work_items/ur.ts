@@ -59,6 +59,8 @@ export const ur: LabelResource = {
     'منظوری دہندہ اب فعال نہیں، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
   'approval_route_reason.no_holder': 'منظوری والا کردار ابھی کسی کے پاس نہیں',
   'approval_route_reason.no_manager': 'کوئی مینیجر درج نہیں، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
+  'approval_route_reason.segregation_of_duties':
+    'منظوری دینے والا عمل درآمد کرنے والا بھی ہے، جو منظوری نہیں دے سکتا',
   'approval_route_reason.self_approval_blocked':
     'کوئی اپنی درخواست خود منظور نہیں کرتا، اس لیے یہ متبادل منظوری دہندہ کو گئی۔',
   'approval_rule.all': 'تمام منظور کنندگان',
