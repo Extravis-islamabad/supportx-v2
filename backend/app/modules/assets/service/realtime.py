@@ -151,7 +151,27 @@ async def _group_changed(envelope: EventEnvelope, session: AsyncSession) -> Real
     )
 
 
+LOANS_CHANGED = "assets.loans_changed"
+
+
+async def _loan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A loan changed: the register refreshes on staff screens, and the borrower's own list.
+
+    Made, returned, closed, due or overdue. IDs only; the API checks who may read them.
+    """
+    del session
+    loan_id = str(envelope.payload["loan_id"])
+    borrower = uuid.UUID(str(envelope.payload["borrower_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(broadcast(envelope.tenant_id), LOANS_CHANGED, ids=(loan_id,)),
+            Publication(personal(envelope.tenant_id, borrower), MINE_CHANGED, ids=(loan_id,)),
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(("assets.loan.changed",), _loan_changed),
     RealtimeRoute(("assets.group.changed",), _group_changed),
     RealtimeRoute(("assets.catalogue.changed", "assets.product.changed"), _catalogue_changed),
     RealtimeRoute(("assets.asset.changed",), _asset_changed),

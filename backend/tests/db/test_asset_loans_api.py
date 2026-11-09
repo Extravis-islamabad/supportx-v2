@@ -1,6 +1,7 @@
 """Loanable assets, loans, returns and their notices (WP-049a s5; REQ-AST-029..031, 059; 0114)."""
 
 import asyncio
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -10,6 +11,9 @@ from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
 from app.modules.assets.service.loans import notify_due
+from app.modules.assets.service.realtime import LOANS_CHANGED, MINE_CHANGED, ROUTES
+from app.shared.events import EventEnvelope
+from app.shared.realtime import broadcast, personal
 from tests.db import test_incidents_api
 from tests.db.test_asset_holders_api import _asset
 from tests.db.test_asset_moves_api import _states
@@ -206,3 +210,25 @@ async def test_loans_are_isolated_by_rls(world: World) -> None:
             assert await session.scalar(text(f"SELECT count(*) FROM {table}")) == 0  # noqa: S608 - fixed names
         assert (await session.execute(text("UPDATE asset_loans SET comment = 'x'"))).rowcount == 0
     assert (await world.call("GET", f"{BASE}/loans", b, b.admin)).json() == []
+
+
+async def test_a_loan_change_refreshes_the_register_and_the_borrower_live(world: World) -> None:
+    """Rule c: the register and the borrower's own list update with no refresh; IDs only."""
+    a = world.a
+    asset = await _asset(world, "Live loan")
+    await _loanable(world, asset)
+    loan = (await _loan(world, [asset], a.requester)).json()
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
+        " AND event_type = 'assets.loan.changed' ORDER BY created_at DESC LIMIT 1",
+        a.tenant,
+    )
+    envelope = EventEnvelope.model_validate(json.loads(rows[0]["envelope"]))
+    route = next(r for r in ROUTES if envelope.event_type in r.event_types)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        effects = await route.route(envelope, session)
+    sent = {(p.channel, p.type, p.ids) for p in effects.publications}
+    assert sent == {
+        (broadcast(a.tenant), LOANS_CHANGED, (loan["id"],)),
+        (personal(a.tenant, a.requester), MINE_CHANGED, (loan["id"],)),
+    }
