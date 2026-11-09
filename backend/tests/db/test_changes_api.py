@@ -439,7 +439,7 @@ async def test_raising_acceptance_opens_the_stage_approval(world: World) -> None
         " WHERE tenant_id = $1 AND action = 'change.approval_decided'",
         a.tenant,
     )
-    assert len(audit) == 1  # its outcome ("approved") comes with #283 (QA9-F-03)
+    assert [r["outcome"] for r in audit] == ["approved"]  # QA9-F-03 (#283)
 
 
 async def test_req_chg_036_the_line_manager_comes_from_the_requester(world: World) -> None:
