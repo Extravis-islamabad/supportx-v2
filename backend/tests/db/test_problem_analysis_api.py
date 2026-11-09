@@ -266,7 +266,7 @@ async def test_merge_moves_the_incidents_and_undo_puts_them_back(world: World) -
     )
     assert undo.status_code == 200, undo.text
     back = undo.json()
-    assert back["status"] == "new"  # the status it had
+    assert back["status"] == "assigned"  # the status it had (its creator owns it, QA6-PRB-03)
     assert back["moved_incident_ids"] == [first["id"]]
     assert back["stayed_incident_ids"] == [second["id"]]
     mine = (await world.call("GET", f"{PRB}/{duplicate['id']}/links", a, a.tech_a)).json()

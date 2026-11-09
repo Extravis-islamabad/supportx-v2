@@ -141,12 +141,20 @@ function themeFor(
     const key = name as keyof NonNullable<ThemeConfig['components']>;
     components[key] = { ...(components[key] as object), ...tokens } as never;
   }
+  const token = { ...dense.token, ...base.token };
+  // A table's or list's "nothing here" text is drawn in the disabled colour (about 2.5:1), not
+  // readable text (QA V5): give it the mode's secondary text colour, which passes AA.
+  const empty = token.colorTextSecondary;
+  if (empty !== undefined) {
+    components.Table = { ...components.Table, colorTextDisabled: empty };
+    components.List = { ...components.List, colorTextDisabled: empty };
+  }
   return withShell({
     ...base,
     algorithm: dense.algorithm,
     // The mode's own tokens win (high contrast line widths, readable colours); Urdu keeps its
     // taller line height, so rows grow rather than clip.
-    token: { ...dense.token, ...base.token },
+    token,
     components,
   });
 }

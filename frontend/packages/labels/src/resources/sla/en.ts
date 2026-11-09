@@ -166,6 +166,7 @@ export const en = {
   'sla_met_how.at_resolution': 'Met at resolution',
   'sla_met_how.late': 'Late',
   'sla_met_how.on_time': 'On time',
+  'sla_policy.fallback': 'Default policy',
   'sla_priority_rule.recalculate': 'Recalculate from the start',
   'sla_priority_rule.restart': 'Start the new target from the change',
   'sla_recipient_kind.assignee': 'Assignee',
