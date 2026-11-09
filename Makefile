@@ -330,10 +330,8 @@ keycloak-identity: $(DEV_ENV) ## Set up the service account SupportX manages SSO
 brand-assets: ## Regenerate logos, favicons and the Keycloak theme from docs/brand (branding.md)
 	$(BACKEND) uv run python -m tooling.brand_assets
 
-chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Chart.lock
-	helm repo add nats https://nats-io.github.io/k8s/helm/charts/ --force-update >/dev/null
-	helm repo add valkey https://valkey.io/valkey-helm/ --force-update >/dev/null
-	helm dependency build $(CHART)
+chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Chart.lock; kept ones reused, retried
+	@bash deploy/scripts/chart-deps.sh
 
 chart-lint: chart-deps ## Lint and render the chart for every profile (kubeconform too, if installed)
 	@bash deploy/scripts/chart-lint.sh
