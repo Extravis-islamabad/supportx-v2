@@ -1641,3 +1641,93 @@ class WorkItemDowntime(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
     )
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     deleted_at: Mapped[datetime | None]
+
+
+# --- change advisory boards (WP-045b S2; REQ-CHG-040, -041; 0117) --------------------------------
+
+
+class ChangeBoard(TenantEntity):
+    """A change advisory board: members, an optional chair, its quorum rule and its mapping.
+
+    `mapping` says which changes it reviews (types, risk levels, sites, templates; all
+    optional); `position` orders the boards; the default board reviews what nothing else maps.
+    """
+
+    __tablename__ = "change_boards"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_change_boards_tenant_id_id"),
+        CheckConstraint(
+            "rule IN ('any', 'all', 'majority', 'majority_with_chair')", name="rule_code"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "chair_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_change_boards_chair",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "uq_change_boards_tenant_code",
+            "tenant_id",
+            "code",
+            unique=True,
+            postgresql_where=text("code IS NOT NULL AND deleted_at IS NULL"),
+        ),
+    )
+
+    code: Mapped[str | None] = mapped_column(String(40))
+    name: Mapped[str] = mapped_column(String(200))
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    description: Mapped[str | None] = mapped_column(String(2000))
+    chair_id: Mapped[uuid.UUID | None]
+    rule: Mapped[str] = mapped_column(String(30), server_default="majority")
+    mapping: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    position: Mapped[int] = mapped_column(Integer, server_default="0")
+    is_default: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class ChangeBoardMember(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
+    """A board's member: a person or a group (exactly one), optionally optional."""
+
+    __tablename__ = "change_board_members"
+    __table_args__ = (
+        CheckConstraint("(user_id IS NULL) <> (group_id IS NULL)", name="one_member"),
+        ForeignKeyConstraint(
+            ["tenant_id", "board_id"],
+            ["change_boards.tenant_id", "change_boards.id"],
+            name="fk_change_board_members_board",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_change_board_members_user",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "group_id"],
+            ["support_groups.tenant_id", "support_groups.id"],
+            name="fk_change_board_members_group",
+            ondelete="CASCADE",
+        ),
+        Index(
+            "uq_change_board_members_user_id",
+            "tenant_id",
+            "board_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_change_board_members_group_id",
+            "tenant_id",
+            "board_id",
+            "group_id",
+            unique=True,
+            postgresql_where=text("group_id IS NOT NULL"),
+        ),
+    )
+
+    board_id: Mapped[uuid.UUID]
+    user_id: Mapped[uuid.UUID | None]
+    group_id: Mapped[uuid.UUID | None]
+    optional: Mapped[bool] = mapped_column(Boolean, server_default="false")
