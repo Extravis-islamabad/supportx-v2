@@ -83,4 +83,37 @@ describe('template D (library page)', () => {
     const unstar = screen.getAllByTestId('item-b-star')[0];
     expect(unstar?.getAttribute('aria-pressed')).toBe('true');
   });
+
+  it('shows views of one server-searched list as tabs, without "All" or counts', () => {
+    const onSearch = vi.fn();
+    renderUi(
+      <LibraryPage
+        header={null}
+        testId="kb"
+        search="vpn"
+        onSearch={onSearch}
+        searchLabel="Search articles"
+        searchOnServer
+        withAll={false}
+        tab="drafts"
+        groups={[
+          { key: 'published', label: 'Published', items: [], count: null, content: null },
+          {
+            key: 'drafts',
+            label: 'Drafts',
+            items: [],
+            count: null,
+            content: <p>the drafts table</p>,
+          },
+        ]}
+      />,
+    );
+    const names = within(screen.getByTestId('kb-tabs'))
+      .getAllByRole('tab')
+      .map((tab) => tab.textContent);
+    expect(names).toEqual(['Published', 'Drafts']);
+    // The server searched: the body is shown as given, with no "nothing matches" here.
+    expect(screen.getByText('the drafts table')).toBeTruthy();
+    expect(screen.queryByText('Nothing matches your search.')).toBeNull();
+  });
 });

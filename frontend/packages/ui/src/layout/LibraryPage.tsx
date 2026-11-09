@@ -28,6 +28,10 @@ export interface LibraryGroup {
   items: readonly LibraryItem[];
   /** Shown when the group has nothing yet (a module whose reports come later). */
   empty?: ReactNode;
+  /** The tab's own body instead of rows (knowledge: its topic tree and article table). */
+  content?: ReactNode;
+  /** The number on the tab; the visible rows by default, none when the page has no count. */
+  count?: number | null;
 }
 
 export interface LibraryPageProps {
@@ -46,6 +50,10 @@ export interface LibraryPageProps {
   extra?: ReactNode;
   /** While the library loads: no empty texts yet. */
   loading?: boolean;
+  /** The server searches (knowledge): rows are shown as given, not filtered here. */
+  searchOnServer?: boolean;
+  /** An "All" tab first (default); off when the tabs are views of one list. */
+  withAll?: boolean;
   testId?: string;
 }
 
@@ -72,10 +80,12 @@ export function LibraryPage({
   onTab,
   extra,
   loading = false,
+  searchOnServer = false,
+  withAll = true,
   testId = 'library',
 }: LibraryPageProps) {
   const t = useLabel();
-  const needle = search.trim().toLocaleLowerCase();
+  const needle = searchOnServer ? '' : search.trim().toLocaleLowerCase();
   const shown = groups.map((g) => ({ ...g, items: g.items.filter((i) => matches(i, needle)) }));
   const starred = shown.flatMap((g) => g.items).filter((i) => favourites?.has(i.key) === true);
   const total = shown.reduce((n, g) => n + g.items.length, 0);
@@ -93,15 +103,16 @@ export function LibraryPage({
       title={titled ? group.label : undefined}
       testId={`${testId}-group-${group.key}`}
     >
-      {group.items.length > 0
-        ? group.items.map(row)
-        : !loading && (
-            <Typography.Text type="secondary" style={{ display: 'block', padding: SPACE.sm }}>
-              {needle !== ''
-                ? t('layout.library_no_match')
-                : (group.empty ?? t('layout.library_empty'))}
-            </Typography.Text>
-          )}
+      {group.content ??
+        (group.items.length > 0
+          ? group.items.map(row)
+          : !loading && (
+              <Typography.Text type="secondary" style={{ display: 'block', padding: SPACE.sm }}>
+                {needle !== ''
+                  ? t('layout.library_no_match')
+                  : (group.empty ?? t('layout.library_empty'))}
+              </Typography.Text>
+            ))}
     </LibrarySection>
   );
 
@@ -134,26 +145,34 @@ export function LibraryPage({
       )}
       <Tabs
         activeKey={tab}
-        defaultActiveKey={LIBRARY_ALL}
+        defaultActiveKey={withAll ? LIBRARY_ALL : groups[0]?.key}
         onChange={onTab}
+        // One copy of each row on the page: "All" and a module's tab show the same entries.
+        destroyOnHidden
         data-testid={`${testId}-tabs`}
         items={[
-          {
-            key: LIBRARY_ALL,
-            label: <TabLabel label={t('layout.library_all')} count={total} />,
-            children:
-              needle !== '' && total === 0 && !loading ? (
-                <Empty description={t('layout.library_no_match')} />
-              ) : (
-                shown
-                  .filter((g) => needle === '' || g.items.length > 0)
-                  .map((g) => section(g, true))
-              ),
-          },
+          ...(withAll
+            ? [
+                {
+                  key: LIBRARY_ALL,
+                  label: <TabLabel label={t('layout.library_all')} count={total} />,
+                  children:
+                    needle !== '' && total === 0 && !loading ? (
+                      <Empty description={t('layout.library_no_match')} />
+                    ) : (
+                      shown
+                        .filter((g) => needle === '' || g.items.length > 0)
+                        .map((g) => section(g, true))
+                    ),
+                },
+              ]
+            : []),
           ...shown.map((g) => ({
             key: g.key,
-            label: <TabLabel label={g.label} count={g.items.length} />,
-            children: section(g, false),
+            label: (
+              <TabLabel label={g.label} count={g.count === undefined ? g.items.length : g.count} />
+            ),
+            children: g.content !== undefined ? g.content : section(g, false),
           })),
         ]}
       />
@@ -161,7 +180,8 @@ export function LibraryPage({
   );
 }
 
-function TabLabel({ label, count }: { label: ReactNode; count: number }) {
+function TabLabel({ label, count }: { label: ReactNode; count: number | null }) {
+  if (count === null) return <span>{label}</span>;
   return (
     <span>
       {label}{' '}
