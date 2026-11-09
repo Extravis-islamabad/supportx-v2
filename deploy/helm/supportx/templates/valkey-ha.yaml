@@ -36,7 +36,8 @@ data:
     # There is no persistence: every server starts empty. A pod that would start as master must
     # therefore know the set holds no data, or the replicas would copy its empty set (data loss,
     # valkey failover job 2026-11-09). It starts as master only on positive evidence:
-    #   - fresh: every peer's server answered and none ever replicated (offset 0);
+    #   - fresh: every peer's server answered, holds no key, never replicated (offset 0) and is
+    #     not in the middle of a sync;
     #   - otherwise it waits, logging why each time, and never starts empty: while a peer holds
     #     data it asks the sentinels to hand over to that peer; while a peer does not answer,
     #     it cannot tell a fresh set from one holding data, so it asks again.
@@ -48,19 +49,30 @@ data:
       echo "valkey: waiting: $1" >&2
       echo "$1" > "$WAITING"
     }
-    # "data", "fresh", or "unknown: <peers not answering>": what this pod's peers hold.
+    # "data", "fresh", or "unknown: <peers>": what this pod's peers hold. The replication offset
+    # alone is no proof of an empty peer: in Valkey's dual-channel sync a replica can hold the
+    # data (and be counted by WAIT) while it still reports offset 0 with its link down (seen
+    # 2026-11-09). So a peer holds data when it has any key or a non-zero offset; a peer still
+    # syncing or loading is unknown; only a peer that answers with neither is empty.
     set_state() {
       silent=""
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
         peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
         [ "$peer" = "$SELF" ] && continue
-        offset=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
-          info replication 2>/dev/null | tr -d '\r' | sed -n 's/^master_repl_offset://p')
-        case "$offset" in
-          ''|*[!0-9]*) silent="$silent ${peer%%.*}" ;;
-          0) ;;
-          *) echo data; return 0 ;;
+        info=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
+          info all 2>/dev/null | tr -d '\r')
+        keys=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
+          dbsize 2>/dev/null | tr -d '\r')
+        offset=$(echo "$info" | sed -n 's/^master_repl_offset://p')
+        syncing=$(echo "$info" | sed -n 's/^master_sync_in_progress://p')
+        loading=$(echo "$info" | sed -n 's/^loading://p')
+        case "$offset:$keys" in
+          *[!0-9:]*|:*|*:) silent="$silent ${peer%%.*}"; continue ;;  # no answer
         esac
+        if [ "$keys" -gt 0 ] || [ "$offset" -gt 0 ]; then echo data; return 0; fi
+        if [ "${syncing:-0}" != 0 ] || [ "${loading:-0}" != 0 ]; then
+          silent="$silent ${peer%%.*}(syncing)"
+        fi
       done
       if [ -z "$silent" ]; then echo fresh; else echo "unknown:$silent"; fi
     }
@@ -104,7 +116,7 @@ data:
           fi
           ;;
         *)
-          waiting "peers not answering:${state#unknown:}; cannot tell a fresh set from one holding data (try $tries)"
+          waiting "peers not answering or still syncing:${state#unknown:}; cannot tell a fresh set from one holding data (try $tries)"
           ;;
       esac
       sleep 2

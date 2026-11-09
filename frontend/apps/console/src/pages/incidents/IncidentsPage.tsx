@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Segmented, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Flex, Select, Space, Table } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -48,7 +48,9 @@ import {
   FilterBar,
   FiltersDrawer,
   ListPage,
+  HeaderActions,
   PageHeader,
+  useMinWidth,
 } from '@supportx/ui';
 
 import { choiceName, fieldName } from '../customFields/values';
@@ -57,9 +59,16 @@ import { useIncidentFieldName } from './conflict';
 import { scaleLabel } from './labels';
 import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
+import { MyExportsButton } from '../reports/exports';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
 import { ColumnChooser, ResizableHeader, SelectPageBox } from './list/ColumnChooser';
-import { chosenColumns, columnCatalogue, sortOf, type ColumnContext } from './list/columns';
+import {
+  chosenColumns,
+  columnCatalogue,
+  GROUP_DEFAULT_MIN_WIDTH,
+  sortOf,
+  type ColumnContext,
+} from './list/columns';
 import { ListExport } from './list/ListExport';
 import {
   chipsFilter,
@@ -87,7 +96,8 @@ const LISTS_CHANGED = 'work_items.lists_changed';
 // sideways (QA 2026-11-05 V1). Tags (status, priority, due) never shrink below their width.
 const ELLIPSIS = new Set(['subject', 'requester_id', 'technician_id', 'group_id']);
 const STICKY = new Set(['display_id', 'subject']);
-const SELECT_WIDTH = 48;
+const SELECT_WIDTH = 40;
+const SUBJECT_MIN = 180;
 const VIEWS_CHANGED = 'work_items.views_changed';
 const SETTINGS_CHANGED = 'work_items.list_settings_changed';
 // On my own channel, what changes only my counts (WP-020d QA BUG-01): a follow or a reply by
@@ -120,6 +130,8 @@ export function IncidentsPage() {
   const { can } = useAccess();
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
+  const [panel, setPanel] = useState<'exports' | 'bulk' | null>(null);
+  const wideWindow = useMinWidth(GROUP_DEFAULT_MIN_WIDTH);
   // A built-in view code, or `custom:<saved view id>`.
   const [view, setView] = useState<string>(DEFAULT_VIEW);
   // A filter tried without saving (REQ-INC-106 AC2): this screen only.
@@ -198,10 +210,22 @@ export function IncidentsPage() {
   const columns = chosenColumns(
     stored?.version != null ? stored.columns : (saved?.columns ?? []),
     columnSpecs,
+    wideWindow,
   );
+  // The table's least width: every column at its width, but the subject at its minimum, since it
+  // takes whatever room is left (D-147 template C). The table fits its card at 1280 and 1440, and
+  // scrolls sideways only below that, or when someone chooses many or wide columns.
   const tableWidth =
     SELECT_WIDTH +
-    columns.reduce((sum, c) => sum + (c.width ?? columnSpecs.get(c.key)?.width ?? 0), 0);
+    columns.reduce(
+      (sum, c) =>
+        sum +
+        (c.key === 'subject'
+          ? // A subject someone widened keeps its width; otherwise only its minimum counts.
+            Math.max(SUBJECT_MIN, c.width ?? 0)
+          : (c.width ?? columnSpecs.get(c.key)?.width ?? 0)),
+      0,
+    );
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
   const pageSize = stored?.page_size ?? 50;
   const saveSettings = (change: { columns?: ListColumn[]; sort?: string; page_size?: number }) => {
@@ -299,43 +323,100 @@ export function IncidentsPage() {
       testId="inc-list"
       header={
         <PageHeader
-          title={t('incidents.title')}
+          title={t(trash ? 'incidents.trash' : 'incidents.title')}
           extra={
-            <>
-              {!trash && (
-                <ListExport
-                  title={viewName}
-                  filter={exported}
-                  columns={columns.map((c) => c.key)}
-                  sort={sort}
-                />
-              )}
-              {!trash && <BulkJobsButton onOpen={setJobId} />}
-              {can('incidents.delete') && (
-                <Segmented<'current' | 'trash'>
-                  value={mode}
-                  onChange={setMode}
-                  options={[
-                    { value: 'current', label: t('incidents.current') },
-                    { value: 'trash', label: t('incidents.trash') },
-                  ]}
-                  data-testid="inc-mode"
-                />
-              )}
-              {can('incidents.create') && (
-                <WriteButton
-                  type="primary"
-                  onClick={() => void navigate('/incidents/new')}
-                  data-testid="inc-new"
-                >
-                  {t('incidents.new')}
-                </WriteButton>
-              )}
-            </>
+            // D-147 template C: at most three header buttons, the rest in "More". The current
+            // and trash switch moved to the toolbar row.
+            <HeaderActions
+              testId="inc-header-actions"
+              buttons={
+                trash
+                  ? []
+                  : [
+                      {
+                        key: 'export',
+                        node: (
+                          <ListExport
+                            title={viewName}
+                            filter={exported}
+                            columns={columns.map((c) => c.key)}
+                            sort={sort}
+                            myExports={false}
+                          />
+                        ),
+                      },
+                    ]
+              }
+              more={[
+                // Current or trash (D-147: one toolbar row; the switch lives in "More").
+                ...(can('incidents.delete')
+                  ? [
+                      {
+                        key: 'mode',
+                        label: t(trash ? 'incidents.current' : 'incidents.trash'),
+                        onClick: () => {
+                          setMode(trash ? 'current' : 'trash');
+                        },
+                        testId: 'inc-mode',
+                      },
+                    ]
+                  : []),
+                ...(trash
+                  ? []
+                  : [
+                      ...(can('reports.export')
+                        ? [
+                            {
+                              key: 'my-exports',
+                              label: t('reports.my_exports'),
+                              onClick: () => {
+                                setPanel('exports');
+                              },
+                              testId: 'report-my-exports',
+                            },
+                          ]
+                        : []),
+                      {
+                        key: 'bulk-jobs',
+                        label: t('incidents.bulk.recent'),
+                        onClick: () => {
+                          setPanel('bulk');
+                        },
+                        testId: 'inc-bulk-jobs',
+                      },
+                    ]),
+              ]}
+              primary={
+                can('incidents.create') ? (
+                  <WriteButton
+                    type="primary"
+                    onClick={() => void navigate('/incidents/new')}
+                    data-testid="inc-new"
+                  >
+                    {t('incidents.new')}
+                  </WriteButton>
+                ) : undefined
+              }
+            />
           }
         />
       }
     >
+      <MyExportsButton
+        button={false}
+        open={panel === 'exports'}
+        onOpenChange={(open) => {
+          if (!open) setPanel(null);
+        }}
+      />
+      <BulkJobsButton
+        onOpen={setJobId}
+        button={false}
+        open={panel === 'bulk'}
+        onOpenChange={(open) => {
+          if (!open) setPanel(null);
+        }}
+      />
       {!trash && (
         <PersonalCounters
           active={view}
@@ -407,7 +488,7 @@ export function IncidentsPage() {
                         ]
                       : []),
                   ]}
-                  style={{ width: 'min(260px, 100%)' }}
+                  style={{ width: 'min(240px, 100%)' }}
                   data-testid="inc-view"
                 />
                 {saved?.mine === true && (
@@ -460,7 +541,7 @@ export function IncidentsPage() {
                   label: scaleLabel(t, catalogue.data, 'priority', p, locale),
                 })),
               ]}
-              style={{ minWidth: 'min(200px, 100%)' }}
+              style={{ minWidth: 'min(160px, 100%)' }}
               data-testid="inc-filter-priority"
             />
           </>
@@ -642,6 +723,7 @@ export function IncidentsPage() {
             ? undefined
             : {
                 fixed: true, // stays with the ID and subject when the table scrolls sideways
+                columnWidth: SELECT_WIDTH, // the width the table's least width counts
                 selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
                 columnTitle: (
                   <SelectPageBox
