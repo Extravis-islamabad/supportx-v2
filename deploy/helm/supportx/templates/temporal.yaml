@@ -1,0 +1,280 @@
+{{- /*
+The bundled Temporal (temporal.bundled; §5, ADR-037, ADR-043): the official server image with all
+four services (frontend, history, matching, worker) in one Deployment, on this release's
+CloudNativePG cluster.
+
+  1. The schema Job of this revision creates the `temporal` role and its two databases if they
+     are missing, then applies Temporal's versioned schema (setup only on an empty database,
+     then update-schema, which only moves forward). It never drops or overwrites (rule 5h).
+  2. The server waits for that Job (tooling/wait_for_job, as the API waits for migrate).
+  3. The namespace Job waits for the frontend, then creates the SupportX namespace once.
+
+Only the API, the workers that use Temporal and Temporal itself may connect (ingress policy).
+*/ -}}
+{{- if .Values.temporal.bundled.enabled }}
+{{- if ne .Values.postgresql.mode "cnpg" }}
+{{- fail "temporal.bundled runs on this release's CloudNativePG cluster (postgresql.mode: cnpg). With an external database, run Temporal yourself and set temporal.address." }}
+{{- end }}
+{{- $rel := .Release.Name }}
+{{- $t := .Values.temporal.bundled }}
+{{- $schema := dict "root" . "component" "temporal-schema" }}
+{{- $server := dict "root" . "component" "temporal" }}
+{{- $ns := dict "root" . "component" "temporal-namespace" }}
+{{- $dbHost := include "supportx.dbHost" . }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "supportx.temporalSchemaJob" . }}
+  labels:
+    {{- include "supportx.labels" $schema | nindent 4 }}
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: {{ .Values.migrate.waitTimeoutSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $schema | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000   # the image's own `temporal` user
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: schema
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.temporalAdminTools) }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              until pg_isready -h "$PGHOST" -p 5432 -q; do echo "waiting for PostgreSQL"; sleep 3; done
+              # The role and its databases, as the superuser; existing ones are kept as they are.
+              # Passwords come from the environment, never from a command line.
+              psql -v ON_ERROR_STOP=1 -d postgres <<'SQL'
+              \getenv pw SQL_PASSWORD
+              SELECT format('CREATE ROLE temporal LOGIN PASSWORD %L', :'pw')
+                WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'temporal') \gexec
+              SELECT format('ALTER ROLE temporal LOGIN PASSWORD %L', :'pw') \gexec
+              SELECT 'CREATE DATABASE temporal OWNER temporal'
+                WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'temporal') \gexec
+              SELECT 'CREATE DATABASE temporal_visibility OWNER temporal'
+                WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'temporal_visibility') \gexec
+              SQL
+              # Temporal's own schema, as its owner: set up an empty database, then move forward.
+              for db in temporal temporal_visibility; do
+                dir=temporal; [ "$db" = temporal_visibility ] && dir=visibility
+                export SQL_DATABASE="$db"
+                fresh=$(PGPASSWORD="$SQL_PASSWORD" psql -U temporal -d "$db" -tAc "SELECT to_regclass('public.schema_version') IS NULL")
+                if [ "$fresh" = t ]; then temporal-sql-tool setup-schema -v 0.0; fi
+                temporal-sql-tool update-schema -d "/etc/temporal/schema/postgresql/v12/$dir/versioned"
+              done
+          env:
+            - {name: PGHOST, value: {{ $dbHost | quote }}}
+            - {name: PGUSER, value: postgres}
+            - name: PGPASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $rel }}-pg-superuser, key: password}}
+            # temporal-sql-tool reads these (and psql's \getenv the password).
+            - {name: SQL_PLUGIN, value: postgres12}
+            - {name: SQL_HOST, value: {{ $dbHost | quote }}}
+            - {name: SQL_PORT, value: "5432"}
+            - {name: SQL_USER, value: temporal}
+            - name: SQL_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: temporal-db-password}}
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml $t.schemaResources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $rel }}-temporal
+  labels:
+    {{- include "supportx.labels" $server | nindent 4 }}
+spec:
+  replicas: {{ $t.replicas }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $server | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $server | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $rel }}-workload
+      automountServiceAccountToken: true   # the wait init container reads the Job's status
+      {{- with include "supportx.scheduling" $server }}{{ . | nindent 6 }}{{- end }}
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: wait-for-schema
+          image: {{ include "supportx.image" (dict "root" . "name" "backend") }}
+          imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+          command: ["python", "-m", "tooling.wait_for_job"]
+          env:
+            - name: SUPPORTX_MIGRATE_JOB
+              value: {{ include "supportx.temporalSchemaJob" . }}
+            - name: SUPPORTX_WAIT_TIMEOUT_SECONDS
+              value: {{ .Values.migrate.waitTimeoutSeconds | quote }}
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+          securityContext:
+            runAsUser: {{ .Values.podSecurity.runAsUser }}
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+        # The entrypoint renders its config next to the template, so the config folder is
+        # copied to a writable volume; the root filesystem stays read-only.
+        - name: config
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.temporalServer) }}
+          command: ["/bin/sh", "-ec", "cp -R /etc/temporal/config/. /config/"]
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          volumeMounts:
+            - {name: config, mountPath: /config}
+      containers:
+        - name: temporal
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.temporalServer) }}
+          env:
+            - {name: DB, value: postgres12}
+            - {name: DB_PORT, value: "5432"}
+            - {name: POSTGRES_SEEDS, value: {{ $dbHost | quote }}}
+            - {name: POSTGRES_USER, value: temporal}
+            - name: POSTGRES_PWD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: temporal-db-password}}
+            - {name: DBNAME, value: temporal}
+            - {name: VISIBILITY_DBNAME, value: temporal_visibility}
+            - {name: NUM_HISTORY_SHARDS, value: {{ $t.historyShards | quote }}}
+            - {name: LOG_LEVEL, value: {{ $t.logLevel | quote }}}
+            - {name: BIND_ON_IP, value: 0.0.0.0}
+            - name: TEMPORAL_BROADCAST_ADDRESS
+              valueFrom: {fieldRef: {fieldPath: status.podIP}}
+            - {name: PROMETHEUS_ENDPOINT, value: "0.0.0.0:9090"}
+          ports:
+            - {name: grpc, containerPort: 7233}
+            - {name: metrics, containerPort: 9090}
+          readinessProbe:
+            tcpSocket: {port: grpc}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: grpc}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml $t.resources | nindent 12 }}
+          volumeMounts:
+            - {name: config, mountPath: /etc/temporal/config}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $rel }}-temporal-frontend
+  labels:
+    {{- include "supportx.labels" $server | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $server | nindent 4 }}
+  ports:
+    - {name: grpc, port: 7233, targetPort: grpc}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $rel }}-temporal-namespace-{{ .Release.Revision }}
+  labels:
+    {{- include "supportx.labels" $ns | nindent 4 }}
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: {{ .Values.migrate.waitTimeoutSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $ns | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: namespace
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.temporalAdminTools) }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              until temporal operator cluster health --address "$TEMPORAL_ADDRESS" >/dev/null 2>&1; do
+                echo "waiting for Temporal"; sleep 5
+              done
+              temporal operator namespace describe -n "$NS" --address "$TEMPORAL_ADDRESS" >/dev/null 2>&1 ||
+                temporal operator namespace create -n "$NS" --retention "${DAYS}d" --address "$TEMPORAL_ADDRESS"
+          env:
+            - {name: TEMPORAL_ADDRESS, value: {{ printf "%s-temporal-frontend:7233" $rel | quote }}}
+            - {name: NS, value: {{ .Values.temporal.namespace | quote }}}
+            - {name: DAYS, value: {{ .Values.temporal.retentionDays | quote }}}
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml $t.schemaResources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- if .Values.networkPolicies.enabled }}
+---
+# Who may reach Temporal: its gRPC from the API and the workers that start or run its work, and
+# its own pods (membership and the services' internal ports).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-temporal-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+      app.kubernetes.io/component: temporal
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/instance, operator: In, values: [{{ $rel | quote }}]}
+              - {key: app.kubernetes.io/component, operator: In, values: [api, consumers, sla-timers, workflow-timers, temporal-namespace]}
+      ports:
+        - {port: 7233, protocol: TCP}
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ $rel }}
+              app.kubernetes.io/component: temporal
+{{- end }}
+{{- end }}

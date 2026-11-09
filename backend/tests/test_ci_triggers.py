@@ -281,3 +281,18 @@ def test_marking_a_draft_ready_runs_every_pr_workflow_again() -> None:
         if "pull_request" in triggers:
             types = " ".join(triggers["pull_request"])
             assert "ready_for_review" in types, f"{path.name}: {types}"
+
+
+def test_every_job_with_helm_reuses_the_chart_dependencies() -> None:
+    """A 504 on one chart download turned five nightly jobs red (2026-11-08): cache by the lock."""
+    for workflow in ("ci.yml", "cluster.yml"):
+        lines = (WORKFLOWS / workflow).read_text().splitlines()
+        helm = [i for i, x in enumerate(lines) if "- uses: azure/setup-helm@" in x]
+        assert helm, f"{workflow}: installs Helm"
+        for at in helm:
+            after = next(i for i in range(at + 1, len(lines)) if lines[i].startswith("      - "))
+            step = "\n".join(lines[after : after + 6])
+            assert "Helm chart dependencies (cached by Chart.lock)" in step, f"{workflow}:{at + 1}"
+            assert "hashFiles('deploy/helm/supportx/Chart.lock')" in step, f"{workflow}:{at + 1}"
+    makefile = (WORKFLOWS.parents[1] / "Makefile").read_text()
+    assert "@bash deploy/scripts/chart-deps.sh" in makefile  # reuses and retries, never one try

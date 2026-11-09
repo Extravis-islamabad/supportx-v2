@@ -63,3 +63,9 @@ valkeyHa:
 # Realtime: three copies sharing the Valkey engine through the sentinels.
 centrifugo:
   replicas: 3
+
+# Temporal on this cluster, two server pods (their membership shares the work).
+temporal:
+  bundled:
+    enabled: true
+    replicas: 2

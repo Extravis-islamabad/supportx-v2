@@ -867,6 +867,8 @@ export const ar: LabelResource = {
   'incidents.worklogs.total': 'إجمالي الوقت',
   'incidents.worklogs.type': 'نوع سجل العمل',
   'incidents.worklogs.when': 'من {{from}} إلى {{to}}',
+  'incidents.worklogs.why_end': 'أدخل وقت انتهاء العمل أو المدة التي استغرقها.',
+  'incidents.worklogs.why_start': 'أدخل وقت بدء العمل.',
   'level.tier_1': 'المستوى 1',
   'level.tier_2': 'المستوى 2',
   'level.tier_3': 'المستوى 3',
