@@ -103,6 +103,8 @@ export const en = {
   'errors.dashboard_not_found': 'This dashboard does not exist or is not shared with you.',
   'errors.database_not_configured':
     'The service is not fully configured yet. Please contact your administrator.',
+  'errors.default_board_kept':
+    'The default change advisory board cannot be removed. Changes that no other board reviews go to it.',
   'errors.default_site_required':
     'The default site cannot be removed. Make another site the default first.',
   'errors.delivery_not_failed': 'This reply has not failed, so there is nothing to resend.',

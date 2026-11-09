@@ -291,6 +291,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.approval_decided", AuditCategory.RECORDS, "work_items"),
     # changes (WP-045a): the same actions, by the type's own code
     ("change.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.board_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-045b S2
     ("change.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.template_created", AuditCategory.CONFIGURATION, "work_items"),

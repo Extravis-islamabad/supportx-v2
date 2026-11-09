@@ -8,8 +8,8 @@ Expand only, no data step (the two default boards are seeded per tenant on first
 - `change_board_members` (RLS): a board's members, a person or a group (exactly one), each at
   most once, optionally marked optional.
 
-The downgrade drops both tables while no board has members or a mapping someone set; with
-either it stops and keeps the data (rule 5h).
+The downgrade drops both tables while the tenant has only its two seeded boards, unchanged and
+without members; anything someone set up stops it and keeps the data (rule 5h).
 
 Revision ID: 0117
 Revises: 0116
@@ -39,7 +39,8 @@ BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (SELECT 1 FROM {MEMBERS}) OR EXISTS (
-            SELECT 1 FROM {BOARDS} WHERE mapping IS NOT NULL OR NOT is_default
+            SELECT 1 FROM {BOARDS}
+            WHERE code IS NULL OR code NOT IN ('cab', 'emergency_cab') OR version > 1
         ) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has change boards set up (rule 5h)', t;
         END IF;
@@ -156,7 +157,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Back to before boards (stops while a board has members or was set up by someone)."""
+    """Back to before boards (stops while a board was set up or changed by someone)."""
     op.execute(GUARD)
     for column in ("user_id", "group_id"):
         op.drop_index(f"uq_change_board_members_{column}", table_name=MEMBERS)

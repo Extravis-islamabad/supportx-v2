@@ -327,6 +327,17 @@ class WorkItemApprovalChanged(DomainEvent):
     change: ApprovalChange
 
 
+class ChangeBoardChanged(DomainEvent):
+    """A change advisory board was added, changed or removed (WP-045b S2; settings reload)."""
+
+    event_type: ClassVar[str] = "work_items.change_board.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "change_board"
+
+    board_id: uuid.UUID
+    change: str
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCreated,
     WorkItemUpdated,
@@ -350,4 +361,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPartChanged,
     WorkItemPartChangedV2,
     WorkItemApprovalChanged,
+    ChangeBoardChanged,
 )

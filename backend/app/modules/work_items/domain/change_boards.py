@@ -9,13 +9,28 @@ mapping of <board> on its risk", AC1).
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 
 # Appendix A's two boards, seeded per tenant with no members (REQ-CHG-040).
 DEFAULT_BOARD = "cab"
 EMERGENCY_BOARD = "emergency_cab"
 SEEDED = (DEFAULT_BOARD, EMERGENCY_BOARD)
-RULES = ("any", "all", "majority", "majority_with_chair")
+
+
+class BoardRule(StrEnum):
+    """How a board decides (REQ-CHG-042).
+
+    Anyone, everyone, a majority, or a majority whose ties the chair breaks (D-146).
+    """
+
+    ANY = "any"
+    ALL = "all"
+    MAJORITY = "majority"
+    MAJORITY_WITH_CHAIR = "majority_with_chair"
+
+
+RULES = tuple(rule.value for rule in BoardRule)
 MAPPING_KEYS = ("change_types", "risk_levels", "site_ids", "template_ids")
 
 
