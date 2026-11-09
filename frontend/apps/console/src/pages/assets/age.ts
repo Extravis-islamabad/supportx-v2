@@ -2,6 +2,8 @@
 // same rule as backend app/modules/assets/domain/assets.py `age` (same test cases), computed
 // here so switching the tenant's age basis recalculates every age live (AC2).
 
+import dayjs from 'dayjs';
+
 export interface Age {
   years: number;
   months: number;
@@ -46,5 +48,9 @@ export function basisDay(
   basis: 'acquisition_date' | 'created_date',
   asset: { acquired_on: string | null; created_at: string },
 ): string | null {
-  return basis === 'acquisition_date' ? asset.acquired_on : asset.created_at.slice(0, 10);
+  // The creation day where the viewer is, like "today" it is compared with: the UTC date of the
+  // timestamp would make a new asset a day old after local midnight east of UTC.
+  return basis === 'acquisition_date'
+    ? asset.acquired_on
+    : dayjs(asset.created_at).format('YYYY-MM-DD');
 }
