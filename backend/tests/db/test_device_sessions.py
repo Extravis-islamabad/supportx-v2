@@ -96,7 +96,10 @@ async def test_ending_needs_the_csrf_token(bff: Bff) -> None:
     mine = (await bff.client.get(SESSIONS)).json()[0]["id"]
     refused = await bff.client.delete(f"{SESSIONS}/{mine}")
     assert refused.status_code == 403
+    wrong = await bff.client.delete(f"{SESSIONS}/{mine}", headers={"X-CSRF-Token": "not-the-token"})
+    assert wrong.status_code == 403
     assert (await bff.me()).status_code == 200
+    assert [r["id"] for r in (await bff.client.get(SESSIONS)).json()] == [mine]  # still there
 
 
 async def test_you_cannot_end_someone_elses_session(bff: Bff) -> None:
@@ -105,9 +108,18 @@ async def test_you_cannot_end_someone_elses_session(bff: Bff) -> None:
         their_id = (await theirs.get(SESSIONS)).json()[0]["id"]
         await bff.login(bff.user("a", email="attacker@demo.test"))
         refused = await bff.client.delete(f"{SESSIONS}/{their_id}", headers=await _csrf(bff.client))
-        assert refused.status_code == 404
-        assert (await theirs.get("/api/v1/auth/me")).status_code == 200
-        assert [r["id"] for r in (await bff.client.get(SESSIONS)).json()] != [their_id]
+        # The same answer as an id that never existed: nothing says the session is real.
+        unknown = await bff.client.delete(
+            f"{SESSIONS}/{'0' * len(their_id)}", headers=await _csrf(bff.client)
+        )
+        assert (refused.status_code, refused.json()["code"]) == (404, "session_not_found")
+        assert (unknown.status_code, unknown.json()["code"]) == (404, "session_not_found")
+        assert (await theirs.get("/api/v1/auth/me")).status_code == 200  # never ended
+        # The attacker's list holds only the attacker's own session.
+        listed = (await bff.client.get(SESSIONS)).json()
+        assert their_id not in {r["id"] for r in listed}
+        assert len(listed) == 1
+        assert listed[0]["current"]
 
 
 async def test_signed_out_and_expired_sessions_leave_the_list(bff: Bff) -> None:
