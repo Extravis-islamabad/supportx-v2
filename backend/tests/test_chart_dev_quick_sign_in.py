@@ -18,7 +18,15 @@ BASE = (
 )  # fmt: skip
 PROFILES = ("values.yaml", "values-dev.yaml", "values-single-node.yaml", "values-ha.yaml")
 
-pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="needs Helm")
+# Rendering needs Helm and the chart's fetched dependencies (`make chart-deps`). The backend
+# shards have neither fetched, so they skip; the CI chart job runs this file after `make
+# chart-lint`, so it always runs there (ci.yml).
+pytestmark = pytest.mark.skipif(
+    shutil.which("helm") is None
+    or not list((CHART / "charts").glob("nats-*.tgz"))
+    or not list((CHART / "charts").glob("valkey-*.tgz")),
+    reason="needs Helm and the chart's dependencies (make chart-deps); run by the chart job",
+)
 
 
 def _render(*values: str) -> subprocess.CompletedProcess[str]:
