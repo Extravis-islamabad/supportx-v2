@@ -141,6 +141,7 @@ export const ur: LabelResource = {
   'knowledge.field.language': 'زبان',
   'knowledge.field.name_ar': 'عربی میں نام',
   'knowledge.field.name_en': 'انگریزی میں نام',
+  'knowledge.field.name_ur': 'اردو میں نام',
   'knowledge.field.names': 'نام',
   'knowledge.field.own_audience': 'اپنے قارئین',
   'knowledge.field.owner_id': 'مالک',
@@ -282,6 +283,9 @@ export const ur: LabelResource = {
   'knowledge.types.restore': 'بحال کریں',
   'knowledge.types.restored_done': 'قسم بحال ہو گئی۔',
   'knowledge.types.retire': 'ریٹائر کریں',
+  'knowledge.types.retire_confirm': '{{name}} ریٹائر کریں؟',
+  'knowledge.types.retire_explain':
+    'یہ نئے مضامین کے لیے پیش نہیں ہوگا۔ جن مضامین میں یہ ہے وہ اسے رکھیں گے، اور آپ اسے بحال کر سکتے ہیں۔',
   'knowledge.types.retired': 'ریٹائر',
   'knowledge.types.retired_done': 'قسم ریٹائر ہو گئی۔',
   'knowledge.types.saved': 'قسم محفوظ ہو گئی۔',
@@ -307,5 +311,7 @@ export const ur: LabelResource = {
   'knowledge.why.not_withdrawer':
     'یہ صرف موضوع کا مالک یا مضامین واپس لینے کا اختیار رکھنے والا کر سکتا ہے۔',
   'knowledge.why.nothing_in_review': 'اس زبان میں کچھ بھی جائزے کا منتظر نہیں۔',
+  'knowledge.why.own_version':
+    'یہ ورژن آپ نے لکھا ہے اور خود منظوری بند ہے: کوئی دوسرا منظور کنندہ اسے شائع کرے گا۔',
   'knowledge.withdrawn_notice': 'یہ مضمون واپس لے لیا گیا ہے۔ قارئین اب اسے نہیں دیکھتے۔',
 };

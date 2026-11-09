@@ -79,6 +79,10 @@ class ProviderError(RuntimeError):
     """The model could not answer (down, timed out, refused). The gateway logs and reports it."""
 
 
+class ProviderNotConfigured(ProviderError):
+    """No model is set up on this installation (the fake, with no recording and no echo)."""
+
+
 class Provider(Protocol):
     """A model behind the gateway."""
 
@@ -124,25 +128,36 @@ class FakeProvider:
         model: str = "fake",
         recordings: dict[str, str] | None = None,
         embedding_model: str = "fake-embeddings",
+        *,
+        echo: bool = True,
     ) -> None:
         self.model = model
         self.recordings = recordings or {}
         self.embedding_model = embedding_model
+        # Off on an installation without a model (QA6-AI-01): unrecorded prompts are refused.
+        self.echo = echo
 
     @classmethod
     def from_file(
-        cls, model: str, path: str | None, embedding_model: str = "fake-embeddings"
+        cls,
+        model: str,
+        path: str | None,
+        embedding_model: str = "fake-embeddings",
+        *,
+        echo: bool = True,
     ) -> "FakeProvider":
         """With the recordings in `path` (a JSON object), when given."""
         if path is None:
-            return cls(model, embedding_model=embedding_model)
+            return cls(model, embedding_model=embedding_model, echo=echo)
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        return cls(model, {str(k): str(v) for k, v in data.items()}, embedding_model)
+        return cls(model, {str(k): str(v) for k, v in data.items()}, embedding_model, echo=echo)
 
     def _answer(self, request: ChatRequest) -> str:
         recorded = self.recordings.get(prompt_key(request))
         if recorded is not None:
             return recorded
+        if not self.echo:
+            raise ProviderNotConfigured(request.feature)
         last = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
         return f"[{request.feature}] {' '.join(last.split()[:40])}"
 
@@ -316,5 +331,8 @@ def provider_from(settings: Settings) -> Provider:
             embedding_base_url=settings.ai_embedding_base_url,
         )
     return FakeProvider.from_file(
-        settings.ai_model, settings.ai_recordings_path, settings.ai_embedding_model
+        settings.ai_model,
+        settings.ai_recordings_path,
+        settings.ai_embedding_model,
+        echo=settings.ai_fake_echo,
     )

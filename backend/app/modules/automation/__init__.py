@@ -18,6 +18,7 @@ Public interface: `register_record_type(RecordType(...))`; inside a save
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.automation.api.routes import router
+from app.modules.automation.api.workflows import router as workflows_router
 from app.modules.automation.domain.assignment import AssignmentChoice, RoutingChoice
 from app.modules.automation.domain.rules import (
     FieldKind,
@@ -29,6 +30,7 @@ from app.modules.automation.domain.rules import (
 from app.modules.automation.domain.triggers import People, Relative, TriggerEvent
 from app.modules.automation.events import EVENTS
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
+from app.modules.automation.service import workflow_events, workflow_scheduler
 from app.modules.automation.service.assignment import (
     AssignmentResult,
     Member,
@@ -46,6 +48,8 @@ from app.modules.automation.service.realtime import ROUTES
 from app.modules.automation.service.registry import (
     Applier,
     AutomatedChange,
+    CommandResult,
+    CommandRunner,
     FactsReader,
     Noter,
     RecordEvent,
@@ -67,10 +71,21 @@ from app.shared.schedules import ScheduleSpec
 
 FEATURE = "incident"  # rules work on incidents first; other types join with their modules
 
+WORKFLOWS = "workflows"  # the licence feature visual workflows sit behind (Professional)
+
 PERMISSIONS = (
     PermissionSpec("automation.view", feature=FEATURE, defaults=(("service_desk_manager", "all"),)),
     PermissionSpec(
         "automation.manage", feature=FEATURE, defaults=(("service_desk_manager", "all"),)
+    ),
+    # WP-048b: designing and publishing workflows; starting one on a record and reading its runs.
+    PermissionSpec(
+        "workflows.manage", feature=WORKFLOWS, defaults=(("service_desk_manager", "all"),)
+    ),
+    PermissionSpec(
+        "workflows.run",
+        feature=WORKFLOWS,
+        defaults=(("service_desk_manager", "all"), ("technician", "all")),
     ),
 )
 
@@ -78,7 +93,8 @@ register_usage_checks()
 
 module = ModuleSpec(
     name="automation",
-    routers=[router],
+    routers=[router, workflows_router],
+    router_features=[None, WORKFLOWS],
     events=EVENTS,
     permissions=PERMISSIONS,
     realtime=ROUTES,
@@ -88,9 +104,21 @@ module = ModuleSpec(
             name="automation__triggers",
             event_types=TRIGGER_EVENT_TYPES,
             handler=on_record_event,
-        )
+        ),
+        # An instance that moved on wakes its Temporal waker (off without Temporal).
+        workflow_scheduler.SCHEDULER,
+        # Waiting workflow instances hear their record's committed changes (ADR-043 §5).
+        ConsumerSpec(
+            name="automation__workflow_events",
+            event_types=TRIGGER_EVENT_TYPES,
+            handler=workflow_events.on_record_event,
+        ),
     ],
-    schedules=[ScheduleSpec("automation__purge_runs", 3600, purge_runs)],
+    schedules=[
+        ScheduleSpec("automation__purge_runs", 3600, purge_runs),
+        # Due workflow timers, the net beneath Temporal's waker (ADR-043 §5).
+        ScheduleSpec("automation__workflow_wake", 60, workflow_events.wake_due),
+    ],
 )
 
 __all__ = [
@@ -99,6 +127,8 @@ __all__ = [
     "AssignmentChoice",
     "AssignmentResult",
     "AutomatedChange",
+    "CommandResult",
+    "CommandRunner",
     "FactsReader",
     "FieldKind",
     "Member",

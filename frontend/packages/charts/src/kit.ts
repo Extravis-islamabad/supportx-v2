@@ -78,10 +78,17 @@ export function kitOption(input: KitInput): EChartsCoreOption {
           center: ['50%', '44%'],
           radius: ['40%', '64%'],
           avoidLabelOverlap: true,
+          // Labels keep apart: a margin between them, slices too thin for a label go without
+          // one, and any label that would still overlap is hidden; the legend and tooltip name
+          // every slice (QA6-RPT-02: "P1 - Critical" and "P2 - High" nearly touched).
+          minShowLabelAngle: 6,
           label: {
             show: input.compact !== true,
+            minMargin: 6,
             formatter: (params: { name: string }) => shortLabel(params.name),
           },
+          labelLine: { length: 12, length2: 10 },
+          labelLayout: { hideOverlap: true },
           data: input.categories.map((name, i) => ({
             name,
             value: first[i] ?? 0,

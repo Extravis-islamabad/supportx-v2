@@ -108,10 +108,11 @@ export function ProfilePage() {
 
   if (me === undefined || user.data === undefined) return <Skeleton active />;
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 720 }}>
+    // One column of cards as wide as the settings pages, not 720 px with the right empty (QA9-V-12).
+    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 960 }}>
       <Typography.Title level={1}>{t('profile.title')}</Typography.Title>
       <Card>
-        <Descriptions column={1} size="small">
+        <Descriptions column={1} size="small" colon={false}>
           <Descriptions.Item label={t('users.col.name')}>{me.display_name}</Descriptions.Item>
           <Descriptions.Item label={t('users.col.email')}>{me.email}</Descriptions.Item>
           <Descriptions.Item label={t('appearance.language')}>
@@ -121,7 +122,7 @@ export function ProfilePage() {
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
       <ContactDetailsCard />
-      <AccountSecurityCard />
+      <AccountSecurityCard callToAction={false} />
       <ApiKeysPanel mode="mine" />
       <NotificationPreferencesCard />
       <PreferencesCard user={me} />
@@ -217,7 +218,10 @@ function ProfileForm({
   };
 
   return (
-    <Card extra={<PresenceAvatars viewers={viewers} selfUserId={user.id} />}>
+    <Card
+      title={t('profile.replies_card')}
+      extra={<PresenceAvatars viewers={viewers} selfUserId={user.id} />}
+    >
       {changedBy !== null && (
         <Alert
           type="warning"

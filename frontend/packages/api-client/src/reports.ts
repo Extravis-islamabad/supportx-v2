@@ -218,6 +218,18 @@ export function useMyExports(enabled = true) {
   });
 }
 
+/** The formats this installation can export to now: PDF only while a worker renders it. */
+export function useExportFormats(enabled = true) {
+  return useQuery({
+    // Not reachable: Excel and CSV are offered as before, with no error shown.
+    meta: { silent: true },
+    queryKey: [...queryKeys.reports.exports, 'formats'],
+    queryFn: async () => (await call(api.GET('/api/v1/reports/export-formats'))).formats,
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
 /** Ask for an export; the worker builds it and the personal channel says when it is ready. */
 export function useRequestExport() {
   const queryClient = useQueryClient();

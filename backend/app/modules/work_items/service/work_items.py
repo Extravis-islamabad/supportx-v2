@@ -157,6 +157,7 @@ from app.shared.history import (
     HistoryEntry,
     Source,
     count_saves,
+    current_automation,
     explain_conflict,
     history_entries,
     record_changes,
@@ -1711,7 +1712,9 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
             action=action,
             from_status=str(before["status"]),
             to_status=record.status,
-            automatic=automatic,
+            # A workflow's move counts as automatic too (lane A's review of WP-048b): notifications
+            # and requester rules treat it like a rule's, never like a person's.
+            automatic=automatic or current_automation(session) is not None,
         ),
         aggregate_id=record.id,
         aggregate_version=record.version,
@@ -2276,7 +2279,9 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
-    await approval_stage.after_submission(session, record, item, source=source)  # REQ-SR-021
+    await approval_stage.after_submission(  # REQ-SR-021
+        session, record, item, source=source, holders=holders
+    )
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
             cat.lifecycle_of(record.lifecycle),

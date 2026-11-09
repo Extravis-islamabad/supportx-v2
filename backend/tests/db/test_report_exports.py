@@ -20,6 +20,7 @@ from app.core.database import Database, create_engine
 from app.core.errors import ServiceUnavailable
 from app.core.tenancy import TenantContext
 from app.modules.analytics.api.routes import STORAGE_STATE
+from app.modules.analytics.service import capabilities
 from app.modules.analytics.service.exports import (
     SubjectLoader,
     Worker,
@@ -30,7 +31,7 @@ from app.modules.identity_access import subject_for
 from app.shared.labels import label
 from tests.db import test_reports_api
 from tests.db.test_custom_fields_api import add_field, choices
-from tests.db.test_incidents_api import CONSOLE, Org, World
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = pytest.mark.db
@@ -219,11 +220,24 @@ async def test_exports_need_permission_and_storage(exporting: tuple[World, Memor
 
 
 async def test_pdf_without_the_worker_image_fails_visibly(
-    exporting: tuple[World, MemoryStorage], migrated_db: ThrowawayDatabase
+    exporting: tuple[World, MemoryStorage],
+    migrated_db: ThrowawayDatabase,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     world, storage = exporting
     a = world.a
+    # No worker says it can make PDFs: refused up front, with a reason (QA6-RPT-01).
+    refused = await _request(world, a, a.tech_a, format="pdf")
+    assert problem(refused) == (409, "pdf_not_available")
+
+    # One said so, then stopped before building it: the export still fails visibly.
+    async def with_pdf(settings: object) -> list[str]:
+        del settings
+        return ["xlsx", "csv", "pdf"]
+
+    monkeypatch.setattr(capabilities, "export_formats", with_pdf)
     requested = await _request(world, a, a.tech_a, format="pdf")
+    assert requested.status_code == 202, requested.text
     await _build(migrated_db, storage, a, requested.json()["id"])
     mine = (await world.call("GET", "/reports/exports", a, a.tech_a)).json()[0]
     assert (mine["status"], mine["problem"]) == ("failed", "pdf_not_available")

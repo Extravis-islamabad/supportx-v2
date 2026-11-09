@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules import automation
 from app.modules.work_items.domain.types import TYPES, WorkItemType
 from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import conversations
+from app.modules.work_items.service import conversations, workflow_commands
 from app.modules.work_items.service import work_items as items
 from app.shared.events import EventEnvelope
 
@@ -136,6 +136,7 @@ def register_triggers() -> None:
                 facts=_facts(wtype),
                 apply=_apply(wtype),
                 add_note=_note(wtype),
+                run_command=workflow_commands.runner(wtype),  # WP-048b, ADR-043 §6
                 transition_actions=tuple(a.value for a in items.ACTION_PERMISSION),
             )
         )

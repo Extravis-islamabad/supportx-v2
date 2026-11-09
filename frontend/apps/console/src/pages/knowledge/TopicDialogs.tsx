@@ -19,6 +19,7 @@ import { subtreeIds, topicTree, type TopicNode } from './model';
 interface TopicForm extends AudienceValue {
   name_en: string;
   name_ar?: string;
+  name_ur?: string;
   parent_id?: string | null;
   owner_id?: string | null;
 }
@@ -74,6 +75,7 @@ export function TopicDialog({
       : {
           name_en: names.en ?? '',
           name_ar: names.ar,
+          name_ur: names.ur,
           parent_id: topic.parent_id,
           owner_id: topic.owner_id,
           tech_all: topic.tech_all,
@@ -89,6 +91,8 @@ export function TopicDialog({
       names: {
         en: values.name_en,
         ...(values.name_ar?.trim() ? { ar: values.name_ar } : {}),
+        // Urdu too: shown text in every UI language (QA6-KB-03).
+        ...(values.name_ur?.trim() ? { ur: values.name_ur } : {}),
       },
       parent_id: values.parent_id ?? null,
       owner_id: values.owner_id ?? null,
@@ -154,6 +158,9 @@ export function TopicDialog({
         </Form.Item>
         <Form.Item label={t('knowledge.field.name_ar')} name="name_ar">
           <Input count={lengthLimit(200)} dir="rtl" data-testid="kb-topic-name-ar" />
+        </Form.Item>
+        <Form.Item label={t('knowledge.field.name_ur')} name="name_ur">
+          <Input count={lengthLimit(200)} dir="rtl" lang="ur" data-testid="kb-topic-name-ur" />
         </Form.Item>
         <Form.Item label={t('knowledge.field.parent_id')} name="parent_id">
           <TreeSelect
