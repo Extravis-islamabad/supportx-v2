@@ -53,7 +53,7 @@ describe('Admin › Files', () => {
       expect(size.value).toBe('25');
     });
     fireEvent.change(size, { target: { value: '40' } });
-    fireEvent.click(screen.getByTestId('files-save'));
+    fireEvent.click(await screen.findByTestId('settings-save')); // template E's save bar
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/files/settings/rules')).toHaveLength(1);
     });
