@@ -47,7 +47,8 @@ describe('Admin › Instance settings', () => {
     });
     render(<App />);
     const page = await screen.findByTestId('instance');
-    expect(within(page).getByText('Instance settings')).toBeDefined();
+    // Template E: the shell's settings header names the page.
+    expect(screen.getByTestId('admin-page-header').textContent).toContain('Instance settings');
     // Choose another currency, then save: the confirmation names both.
     const currency = within(page).getByTestId('instance-currency');
     fireEvent.mouseDown(currency.querySelector('input') ?? currency);
@@ -55,7 +56,7 @@ describe('Admin › Instance settings', () => {
     fireEvent.click(
       await screen.findByText(/\(AED\)$/, { selector: '.ant-select-item-option-content' }),
     );
-    fireEvent.click(within(page).getByTestId('instance-save'));
+    fireEvent.click(await screen.findByTestId('settings-save')); // template E's save bar
     const dialog = await screen.findByRole('dialog', { name: /Change the base currency from/ });
     expect(fake.find('PATCH', '/api/v1/organization/settings')).toHaveLength(0);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Change currency' }));

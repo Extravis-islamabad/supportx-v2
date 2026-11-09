@@ -138,6 +138,7 @@ const SHELL_HEADED = new Set([
   'audit',
   'branding',
   'files',
+  'instance',
   'integrations',
   'knowledge',
   'licence',
