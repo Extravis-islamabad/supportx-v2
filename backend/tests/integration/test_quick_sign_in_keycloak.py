@@ -119,6 +119,42 @@ def test_a_user_made_before_the_key_is_enrolled_once_the_key_is_set(
     assert granted.status_code == 200, granted.text
 
 
+def test_a_pending_two_step_set_up_is_cleared_for_an_enrolled_persona(
+    private_keycloak: PrivateKeycloak,
+) -> None:
+    """Past the grace period SupportX adds Keycloak's enrol actions; the seed clears them."""
+    first = asyncio.run(_ensure(private_keycloak, KEY))
+    user_id = first.subjects["admin@showcase.test"]
+    token = httpx.post(
+        f"{private_keycloak.base_url}/realms/master/protocol/openid-connect/token",
+        data={
+            "grant_type": "password",
+            "client_id": "admin-cli",
+            "username": private_keycloak.admin_user,
+            "password": private_keycloak.admin_password,
+        },
+        timeout=30,
+    ).json()["access_token"]
+    url = f"{private_keycloak.base_url}/admin/realms/supportx/users/{user_id}"
+    headers = {"Authorization": f"Bearer {token}"}
+    user = httpx.get(url, headers=headers, timeout=30).json()
+    actions = ["CONFIGURE_TOTP", "CONFIGURE_RECOVERY_AUTHN_CODES"]
+    httpx.put(url, headers=headers, json={**user, "requiredActions": actions}, timeout=30)
+    refused = _grant(private_keycloak, "admin@showcase.test", _code(KEY, "admin@showcase.test"))
+    assert refused.status_code == 400  # "Account is not fully set up", as on the shared stack
+    again = asyncio.run(_ensure(private_keycloak, KEY))
+    assert (
+        "admin@showcase.test: already enrolled (cleared a pending two-step set-up)"
+        in again.enrolment
+    )
+    assert "admin@showcase.test" in again.pre_enrolled
+    # The refused try used this step's code (Keycloak never takes a code twice): the next one.
+    step = quick.time_step(datetime.now(UTC)) + 1
+    code = quick.totp(quick.totp_value(KEY.encode(), "admin@showcase.test"), step)
+    granted = _grant(private_keycloak, "admin@showcase.test", code)
+    assert granted.status_code == 200, granted.text
+
+
 def test_a_new_key_in_the_env_re_enrols(private_keycloak: PrivateKeycloak) -> None:
     asyncio.run(_ensure(private_keycloak, KEY))
     changed = asyncio.run(_ensure(private_keycloak, KEY + "-new"))
