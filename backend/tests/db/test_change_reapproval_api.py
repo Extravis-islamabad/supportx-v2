@@ -8,6 +8,7 @@ a change setting; tenant B never sees tenant A's snapshots (rule 5a).
 import uuid
 from typing import Any
 
+import asyncpg
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -134,6 +135,20 @@ async def test_req_chg_053_ac2_a_raised_risk_sends_the_change_back_for_approval(
             {"r": item["id"]},
         )
     assert audited == "submission"
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        notices = [
+            r["notice"]
+            for r in await conn.fetch(
+                "SELECT envelope->'payload'->>'notice' AS notice FROM outbox_events"
+                " WHERE envelope->>'event_type' = 'work_items.change.approval_notice'"
+                " AND envelope->'payload'->>'work_item_id' = $1",
+                item["id"],
+            )
+        ]
+    finally:
+        await conn.close()
+    assert "sent_back" in notices  # recorded for the change notifications (WP-056)
     # A lowered risk afterwards only notifies: nothing moves.
     current = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
     lowered = await details(

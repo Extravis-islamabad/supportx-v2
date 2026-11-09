@@ -691,6 +691,7 @@ export const en = {
   'event_type.system.mail.state_changed': 'Email sent, retried or failed',
   'event_type.work_items.approval.changed': 'Approval opened or decided',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
+  'event_type.work_items.change.approval_notice': 'Change approval notice',
   'event_type.work_items.change_board.changed': 'Change advisory board changed',
   'event_type.work_items.conversation.added': 'Reply or note added',
   'event_type.work_items.conversation.delivery_changed': 'Reply delivery changed',

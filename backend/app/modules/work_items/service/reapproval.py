@@ -20,6 +20,7 @@ from app.modules.work_items.domain import reapproval as rules
 from app.modules.work_items.domain.change_risk import RiskLevel
 from app.modules.work_items.domain.changes import IMPLEMENTATION
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
+from app.modules.work_items.events import ChangeApprovalNotice
 from app.modules.work_items.infra.models import (
     ChangeApprovalSnapshot,
     WorkItem,
@@ -31,6 +32,7 @@ from app.modules.work_items.infra.models import (
 from app.modules.work_items.service import catalogue, stage_approvals
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service import work_items as items
+from app.shared.events import record_event
 from app.shared.history import Change, Source
 from app.shared.ids import new_id
 
@@ -181,6 +183,13 @@ async def after_save(session: AsyncSession, record: WorkItem, *, source: Source)
         details.resume_stage, details.resume_status = from_stage, str(before["status"])
         await session.flush()
     await stage_approvals.open_if_raised(session, CHANGE, updated)
+    await notice(
+        session,
+        updated,
+        "sent_back",
+        stage=first.stage,
+        fields=[c.field for c in first.changes if c.effect is rules.OnChange.RESTART],
+    )
     return updated
 
 
@@ -254,6 +263,7 @@ async def emergency_override(  # noqa: PLR0913 - the change, its version and why
     details.resume_stage = details.resume_status = None
     details.pir_required = True
     await session.flush()
+    await notice(session, updated, "overridden", stage=str(updated.stage))
     return updated
 
 
@@ -312,3 +322,27 @@ async def preview(
         for stage, before in approved.items()
     ]
     return [s for s in found if rules.restarts(list(s.changes))]
+
+
+async def notice(  # noqa: PLR0913 - what happened, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    kind: str,
+    *,
+    stage: str | None,
+    fields: list[str] | None = None,
+    board_id: uuid.UUID | None = None,
+) -> None:
+    """Record a notice through the outbox (same transaction); WP-056 sends it."""
+    await record_event(
+        session,
+        ChangeApprovalNotice(
+            work_item_id=record.id,
+            notice=kind,
+            stage=stage,
+            fields=fields or [],
+            board_id=board_id,
+        ),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )

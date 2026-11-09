@@ -265,6 +265,16 @@ async def open_level(
     await session.flush()
     for row in rows:
         await approval_event(session, record, row, "opened")
+    if plan.empty_board is not None:  # REQ-CHG-040: the change manager hears of it
+        from app.modules.work_items.service import reapproval  # noqa: PLC0415 - cycle
+
+        await reapproval.notice(
+            session,
+            record,
+            "board_has_no_members",
+            stage=stage,
+            board_id=plan.empty_board.board_id,
+        )
     return rows
 
 

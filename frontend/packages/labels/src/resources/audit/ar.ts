@@ -695,6 +695,7 @@ export const ar: LabelResource = {
   'event_type.system.mail.state_changed': 'أُرسل البريد أو أُعيدت محاولته أو فشل',
   'event_type.work_items.approval.changed': 'فُتحت موافقة أو بُتّ فيها',
   'event_type.work_items.bulk_job.progressed': 'تقدّم تغيير جماعي',
+  'event_type.work_items.change.approval_notice': 'إشعار موافقة تغيير',
   'event_type.work_items.change_board.changed': 'تغيّر مجلس استشاري للتغييرات',
   'event_type.work_items.conversation.added': 'تمت إضافة رد أو ملاحظة',
   'event_type.work_items.conversation.delivery_changed': 'تغيّرت حالة تسليم الرد',
