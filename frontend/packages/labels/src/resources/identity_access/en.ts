@@ -780,6 +780,9 @@ export const en = {
   'role.knowledge_manager': 'Knowledge manager',
   'role.knowledge_manager.description':
     'Writes, reviews and publishes knowledge articles for the whole organisation.',
+  'role.problem_manager': 'Problem manager',
+  'role.problem_manager.description':
+    'Runs problem management: sees, works, assigns, approves and closes every problem, including its root cause and known errors, and reads the incidents they are about.',
   'role.report_viewer': 'Report viewer',
   'role.report_viewer.description':
     'Reads every incident and request and their reports, without changing anything.',

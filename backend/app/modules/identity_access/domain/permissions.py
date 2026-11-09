@@ -37,6 +37,9 @@ KNOWLEDGE_MANAGER = "knowledge_manager"
 SERVICE_DESK_MANAGER = "service_desk_manager"
 SITE_ADMIN = "site_admin"
 REPORT_VIEWER = "report_viewer"
+# WP-044c D14 (Appendix A), agreed with lane C: runs problem management. Its problems.* grants
+# come from work_items' PermissionSpec defaults; identity gives the key and people's lookups.
+PROBLEM_MANAGER = "problem_manager"
 SYSTEM_ROLES = (
     TENANT_ADMIN,
     TECHNICIAN,
@@ -47,6 +50,7 @@ SYSTEM_ROLES = (
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
     REPORT_VIEWER,
+    PROBLEM_MANAGER,
 )
 
 ALL = ALL_SCOPES
@@ -167,6 +171,13 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
         # Reads incidents, requests and their reports, read-only (lane B: reports apply the
         # viewer's own scope, so without view rights they would be empty).
         REPORT_VIEWER: (("profile.edit", "own"), ("requests.view", "all")),
+        # Problem management (WP-044c D14): finds the people and groups problems go to.
+        PROBLEM_MANAGER: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("sites.view", "all"),
+            ("groups.view", "all"),
+        ),
     }
 )
 

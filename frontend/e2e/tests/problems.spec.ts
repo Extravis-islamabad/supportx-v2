@@ -294,3 +294,58 @@ test('the problem pages in Arabic are right to left and accessible', async ({ br
   await resetLanguage(tech.page);
   await tech.context.close();
 });
+
+test('WP-044c in Arabic: the causing problem on an incident, the repeat rules, the list at 390 px', async ({
+  browser,
+}) => {
+  const admin = await open(browser, 'admin', '/');
+  const adminId = await userId(admin.page);
+  const problem = await made(
+    await call(admin.page, 'POST', '/problems', {
+      body: {
+        subject: `E2E مشكلة الطابعة ${String(Date.now())}`,
+        requester_id: adminId,
+        workaround: '<p>أعد تشغيل الطابعة.</p>',
+      },
+    }),
+  );
+  const incident = await made(
+    await call(admin.page, 'POST', '/incidents', {
+      body: { subject: `E2E الطابعة لا تطبع ${String(Date.now())}`, requester_id: adminId },
+    }),
+  );
+  const linked = await call(admin.page, 'POST', `/problems/${problem.id}/incidents`, {
+    body: { incident_id: incident.id, move: false },
+  });
+  expect([200, 201]).toContain(linked.status());
+  await admin.page.goto('/');
+  await admin.page.getByTestId('appearance-menu').click();
+  await admin.page.getByTestId('language-select').click();
+  await admin.page.locator('.ant-select-item-option[title="العربية"]').click();
+  await admin.page.getByTestId('appearance-menu').click();
+  await expect(admin.page.locator('html')).toHaveAttribute('dir', 'rtl', LIVE);
+
+  // The incident tells what causes it, never the root cause (D14, REQ-PRB-071).
+  await admin.page.goto(`/incidents/${incident.id}`);
+  const cause = admin.page.getByTestId('inc-causing-problem');
+  await expect(cause).toContainText(problem.display_id, LIVE);
+  await expect(cause).toContainText('أعد تشغيل الطابعة.');
+  await expectAccessible(admin.page, 'incident with its causing problem (ar)');
+
+  // The repeat incident rules, the default named in Arabic (D16).
+  await admin.page.goto('/admin/incidents/repeat-rules');
+  await expect(admin.page.getByTestId('repeat-rules')).toContainText('الفئة والموقع نفسهما', LIVE);
+  await expectAccessible(admin.page, 'repeat incident rules (ar)');
+
+  // The problems list fits a phone: it scrolls inside its table, never the page.
+  await admin.page.setViewportSize({ width: 390, height: 844 });
+  await admin.page.goto('/problems');
+  await expect(admin.page.getByTestId(`prb-row-${problem.display_id}`)).toBeVisible(LIVE);
+  const overflow = await admin.page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+  await expectAccessible(admin.page, 'problems list at 390 px (ar)');
+  await resetLanguage(admin.page);
+  await admin.context.close();
+});

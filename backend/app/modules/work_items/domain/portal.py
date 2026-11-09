@@ -25,6 +25,26 @@ from app.modules.work_items.domain.lifecycle import (
 from app.modules.work_items.domain.templates import FieldRule, TemplateField
 
 
+class KnownProblem(StrEnum):
+    """What a requester is told of the problem behind their incident (REQ-PRB-075).
+
+    Never the problem itself: only that the issue is known and being worked on, or that it was
+    fixed. A problem being opened, cancelled or merged away says nothing.
+    """
+
+    BEING_WORKED_ON = "being_worked_on"
+    FIXED = "fixed"
+
+
+def known_problem(category: str | None) -> KnownProblem | None:
+    """The requester's word for the causing problem's status category (None: say nothing)."""
+    if category in {StatusCategory.RESOLVED.value, StatusCategory.CLOSED.value}:
+        return KnownProblem.FIXED
+    if category in {StatusCategory.OPEN.value, StatusCategory.PAUSED.value}:
+        return KnownProblem.BEING_WORKED_ON
+    return None
+
+
 class PortalStatus(StrEnum):
     """What a requester is told about their incident."""
 

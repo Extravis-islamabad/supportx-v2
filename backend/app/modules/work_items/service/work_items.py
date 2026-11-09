@@ -695,6 +695,13 @@ def view_predicates(
                 [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value]
             ),
         ),
+        # Problems (WP-044c, Appendix A): live known errors, and accepted ones due for review.
+        "known_errors": and_(
+            WorkItem.known_error_at.is_not(None), WorkItem.known_error_retired_at.is_(None)
+        ),
+        "accepted_due_review": and_(
+            WorkItem.accepted_at.is_not(None), WorkItem.accept_review_at <= now
+        ),
         "all": WorkItem.id.is_not(None),
         **_personal(subject, now=now, today_end=tomorrow),
     }
@@ -800,6 +807,8 @@ async def view_filters(
                 "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
             },
         ),
+        "known_errors": NOT_EXPRESSIBLE,  # the known error fields are not in the DSL yet
+        "accepted_due_review": NOT_EXPRESSIBLE,
         "all": None,
         "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
@@ -887,6 +896,7 @@ VIEW_CODES = (
 )
 # Service requests add their approval views (WP-030, REQ-SR-009); incidents never show them.
 SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
+PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 COUNT_CAP = 1000
 
 
@@ -894,6 +904,8 @@ def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
     """The built-in views of one type, in the menu's order."""
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         return (*VIEW_CODES[:-1], *SR_VIEW_CODES, VIEW_CODES[-1])
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        return (*VIEW_CODES[:-1], *PROBLEM_VIEW_CODES, VIEW_CODES[-1])
     return VIEW_CODES
 
 
@@ -2125,7 +2137,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     item = await _request_item(session, subject, wtype, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
-    template = await templates.for_create(session, wtype, values.get("template_id"))
+    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     problems += await templates.required_problems(
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
     )

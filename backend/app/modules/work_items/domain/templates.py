@@ -22,6 +22,8 @@ from app.modules.work_items.domain.lifecycle import ReasonList, WorkItemAction
 
 IMPACT_DETAILS_MAX = 2000
 TEMPLATE_GROUP_MAX = 60
+# A template offered only to these support groups' members (REQ-PRB-021; 0109's cap).
+TEMPLATE_GROUPS_MAX = 50
 TEMPLATE_DESCRIPTION_MAX = 500
 LIST_VALUES_MAX = 100
 

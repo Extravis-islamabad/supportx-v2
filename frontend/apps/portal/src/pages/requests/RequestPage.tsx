@@ -101,6 +101,17 @@ export function RequestPage() {
         </Space>
       </Flex>
 
+      {/* The problem behind it, in plain words only (REQ-PRB-075): never the problem itself. */}
+      {item.known_problem != null && (
+        <Alert
+          type={item.known_problem === 'fixed' ? 'success' : 'info'}
+          showIcon
+          role="status"
+          message={t(`known_problem.${item.known_problem}`)}
+          data-testid="portal-known-problem"
+        />
+      )}
+
       {item.portal_status === 'resolved' && own && (
         <Card data-testid="portal-fix">
           <Typography.Title level={2} style={{ marginTop: 0 }}>

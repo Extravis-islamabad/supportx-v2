@@ -80,6 +80,11 @@ const PAGE_CSS =
   // No space before a label's colon (en typography; D-147 polish).
   '.ant-descriptions-item-label::after { margin-inline-start: 0 !important; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
+  // Printing a record (WP-044c S1): the page's content only, without the navigation, the
+  // header, the actions and anything marked not for print.
+  '@media print { .ant-layout-sider, .ant-layout-header, [data-sx-no-print], ' +
+  '.ant-btn, .ant-dropdown, .ant-float-btn { display: none !important; } ' +
+  'body, .ant-layout { background: #fff !important; } } ' +
   // A table wider than its box shows that it scrolls: a real scrollbar, never an overlay one
   // that appears only while scrolling (QA 2026-11-05 V1: columns cut off with no cue).
   '.ant-table-content { scrollbar-width: thin; scrollbar-color: rgba(127, 127, 127, 0.55) transparent; } ' +

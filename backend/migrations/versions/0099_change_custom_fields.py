@@ -9,7 +9,7 @@ The downgrade narrows the check back; while a tenant still has a change custom f
 narrowed check fails and the downgrade stops, keeping the data (rule 5h).
 
 Revision ID: 0099
-Revises: 0105
+Revises: 0110
 Created: 2026-11-09
 """
 
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0099"
-down_revision: str | None = "0105"
+down_revision: str | None = "0110"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

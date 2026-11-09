@@ -19,6 +19,22 @@ export interface VisibleNavItem extends NavItem {
   locked: boolean;
 }
 
+/** How a feature outside or inside the plan shows: on, locked with the upgrade hint, or hidden. */
+export type FeatureState = 'on' | 'locked' | 'hidden';
+
+/**
+ * The one rule for features outside the plan (WP-009; D-044's admin switch joins it here when
+ * built): on when in the plan, else locked with the upgrade hint for whoever manages the
+ * licence and hidden for everyone else. The nav and every locked screen ask this.
+ */
+export function featureState(
+  feature: Feature,
+  { has, managesLicence }: { has: (feature: Feature) => boolean; managesLicence: boolean },
+): FeatureState {
+  if (has(feature)) return 'on';
+  return managesLicence ? 'locked' : 'hidden';
+}
+
 /**
  * Which sections a user sees (WP-016): those whose permission they hold. A section outside the
  * tenant's plan is shown locked, with an upgrade hint, to users who manage the licence: they can
@@ -38,9 +54,10 @@ export function visibleNav(
 ): VisibleNavItem[] {
   const result: VisibleNavItem[] = [];
   for (const item of items) {
-    const outsidePlan = item.feature !== undefined && !has(item.feature);
-    if (outsidePlan) {
-      if (managesLicence) result.push({ ...item, locked: true });
+    const state =
+      item.feature === undefined ? 'on' : featureState(item.feature, { has, managesLicence });
+    if (state !== 'on') {
+      if (state === 'locked') result.push({ ...item, locked: true });
       continue;
     }
     if (item.permissions === undefined || canAny(item.permissions)) {

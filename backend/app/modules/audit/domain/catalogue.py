@@ -276,6 +276,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("problem.approval_requested", AuditCategory.RECORDS, "work_items"),  # WP-044b s4
     ("problem.approval_decided", AuditCategory.RECORDS, "work_items"),
     ("problem.investigator_removed", AuditCategory.RECORDS, "work_items"),
+    # WP-044c D16 (REQ-PRB-068): repeat incident rules and what was done with their sets.
+    ("problem.repeat_rule_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.repeat_rule_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.repeat_rule_removed", AuditCategory.CONFIGURATION, "work_items"),
+    ("problem.repeat_hit_handled", AuditCategory.RECORDS, "work_items"),
     # releases (WP-058a): the same actions, by the type's own code
     ("release.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("release.category_created", AuditCategory.CONFIGURATION, "work_items"),

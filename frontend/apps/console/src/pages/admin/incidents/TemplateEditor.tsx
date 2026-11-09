@@ -19,6 +19,7 @@ import {
   useCustomFields,
   useIncidentCatalogue,
   useIncidentTemplateChange,
+  useUnits,
   type FieldRule,
   type IncidentTemplate,
   type Labels,
@@ -154,6 +155,9 @@ export function TemplateEditor({
   const [description, setDescription] = useState(template?.description ?? '');
   const [group, setGroup] = useState(template?.group_name ?? '');
   const [forRequesters, setForRequesters] = useState(template?.for_requesters ?? false);
+  // Offered only to these groups' members (REQ-PRB-021); empty: everyone who may create.
+  const [limitedGroups, setLimitedGroups] = useState<string[]>(template?.limited_group_ids ?? []);
+  const groupList = useUnits('groups');
   const [rules, setRules] = useState<Rules>(() => ({
     ...blankRules(),
     ...(template?.fields ?? {}),
@@ -188,6 +192,7 @@ export function TemplateEditor({
     setDescription(next.description ?? '');
     setGroup(next.group_name ?? '');
     setForRequesters(next.for_requesters);
+    setLimitedGroups(next.limited_group_ids ?? []);
     setRules({
       ...blankRules(),
       ...next.fields,
@@ -216,6 +221,7 @@ export function TemplateEditor({
       description: description.trim() === '' ? null : description.trim(),
       group_name: group.trim() === '' ? null : group.trim(),
       for_requesters: forRequesters,
+      limited_group_ids: forRequesters ? [] : limitedGroups,
       // Only fields that exist now: a rule left by a removed field is dropped (AC4).
       fields: Object.fromEntries(rows.map((name) => [name, ruleOf(name)])),
       defaults: cleanDefaults,
@@ -473,6 +479,30 @@ export function TemplateEditor({
             />
           </Form.Item>
         </Flex>
+        <Form.Item
+          label={t('templates.limited_groups')}
+          htmlFor="tpl-editor-limited"
+          help={t('templates.limited_groups_help')}
+        >
+          {/* A template for requesters is for everyone: the control says why it is off
+              (REQ-PRB-022 AC2), on hover and on focus. */}
+          <Tooltip title={forRequesters ? t('templates.limited_groups_why_not') : undefined}>
+            <Select
+              id="tpl-editor-limited"
+              mode="multiple"
+              allowClear
+              disabled={forRequesters}
+              aria-description={forRequesters ? t('templates.limited_groups_why_not') : undefined}
+              optionFilterProp="label"
+              maxCount={50}
+              value={forRequesters ? [] : limitedGroups}
+              onChange={setLimitedGroups}
+              options={(groupList.data ?? []).map((g) => ({ value: g.id, label: g.name }))}
+              placeholder={t('templates.limited_groups_everyone')}
+              data-testid="tpl-editor-limited"
+            />
+          </Tooltip>
+        </Form.Item>
         <Form.Item label={t('templates.description')} htmlFor="tpl-editor-description">
           <Input.TextArea
             id="tpl-editor-description"

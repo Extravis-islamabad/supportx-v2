@@ -34,11 +34,14 @@ from app.modules.identity_access import (
 )
 from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import StatusCategory
+from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.portal import (
+    KnownProblem,
     PortalReach,
     PortalStatus,
     RecordFacts,
     Viewer,
+    known_problem,
     portal_status,
     reaches,
     requester_fields,
@@ -55,6 +58,7 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemConversation,
+    WorkItemLink,
     WorkItemTemplate,
 )
 from app.modules.work_items.service import catalogue, resolution, templates
@@ -170,12 +174,16 @@ class PortalRecord:
     reach: PortalReach
     fields: frozenset[str]
     status: PortalStatus
+    # The problem behind it, in the requester's words only (REQ-PRB-075, WP-044c D15).
+    known_problem: KnownProblem | None = None
 
     def values(self) -> dict[str, Any]:
         """Only the allowed fields (the allow-list, D1), plus the portal status."""
         out: dict[str, Any] = {name: getattr(self.record, name, None) for name in self.fields}
         out["portal_status"] = self.status
         out["reach"] = self.reach
+        if self.known_problem is not None:
+            out["known_problem"] = self.known_problem
         return out
 
 
@@ -206,6 +214,7 @@ async def _shape(
     rules = await _rules(session, {r.template_id for r in records if r.template_id is not None})
     # The expected resolution time, only if the tenant shows it (REQ-INC-147, D5).
     shown = DUE_TIME if records and await _shows_due_time(session, records[0].type) else frozenset()
+    causes = await _known_problems(session, [r.id for r in records])
     out: list[PortalRecord] = []
     for record in records:
         reach = reaches(seen_by, _facts(record))
@@ -218,9 +227,38 @@ async def _shape(
                 reach,
                 requester_fields(found if found is not None else rules_from_json(None)) | shown,
                 portal_status(record.status, StatusCategory(record.status_category)),
+                causes.get(record.id),
             )
         )
     return out
+
+
+async def _known_problems(
+    session: AsyncSession, incident_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, KnownProblem]:
+    """Each incident's causing problem, as its requester is told (REQ-PRB-075), in one query.
+
+    Read here as system data: the requester never holds a problem right, and is told only this.
+    """
+    if not incident_ids:
+        return {}
+    problem = WorkItem.__table__.alias("problem")
+    rows = await session.execute(
+        select(WorkItemLink.source_id, problem.c.status_category)
+        .join(problem, problem.c.id == WorkItemLink.target_id)
+        .where(
+            WorkItemLink.source_id.in_(incident_ids),
+            WorkItemLink.kind == LinkKind.CAUSED_BY.value,
+            WorkItemLink.deleted_at.is_(None),
+            problem.c.deleted_at.is_(None),
+        )
+    )
+    found: dict[uuid.UUID, KnownProblem] = {}
+    for incident_id, category in rows.all():
+        said = known_problem(category)
+        if said is not None:
+            found[incident_id] = said
+    return found
 
 
 DUE_TIME = frozenset({"resolution_due_at"})
