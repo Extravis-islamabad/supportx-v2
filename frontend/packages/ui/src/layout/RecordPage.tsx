@@ -259,9 +259,10 @@ export function RecordPage({ header, actions, alerts, children, panel, testId }:
                 display: 'grid',
                 gridTemplateColumns: `minmax(0, 1fr) ${String(PANEL_WIDTH)}px`,
                 gap: SPACE.md,
-                // The tabs' card runs as far down as the panel, so neither column leaves an
-                // empty grey void beside the other (D-147 template A).
-                alignItems: 'stretch',
+                // Each column ends where its content ends (no empty white card below a short
+                // conversation); the panel beside it stays in view and scrolls itself, so the
+                // page is never longer than the longer of the two (D-147 template A, #293).
+                alignItems: 'start',
               }
             : { display: 'flex', flexDirection: 'column', gap: SPACE.md }
         }

@@ -40,6 +40,7 @@ class EmailBranding:
     logo_url: str | None  # None: the product name is written instead
     portal_url: str
     console_url: str = ""  # the console on the tenant's address, ending in "/" (WP-023 links)
+    tenant_slug: str = ""  # names the tenant in e-mailed links where the address does not (D-132)
 
 
 def tenant_origin(settings: Settings, slug: str, base_url: str | None = None) -> str:
@@ -76,6 +77,7 @@ async def email_branding(
         logo_url=logo,
         portal_url=f"{portal_origin}{portal_path}/",
         console_url=f"{origin}{urlsplit(settings.console_url).path.rstrip('/')}/",
+        tenant_slug=tenant.slug,
     )
 
 

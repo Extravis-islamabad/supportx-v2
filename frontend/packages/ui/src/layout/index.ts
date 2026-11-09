@@ -10,6 +10,7 @@ export {
   type KpiTileProps,
   type ListPageProps,
 } from './ListPage';
+export { HeaderActions, MAX_HEADER_BUTTONS, type MoreAction } from './HeaderActions';
 export { NoticeStack } from './NoticeStack';
 export { ASIDE_WIDTH, FORM_MAX_WIDTH, PageColumn } from './PageColumn';
 export { SectionNav, type SectionNavItem } from './SectionNav';
@@ -25,3 +26,4 @@ export {
 } from './RecordPage';
 export { EditableValue, PropertyList, type PropertyItem } from './PropertyList';
 export { FieldRow, FormPage, FormSection, type FormPageProps } from './FormPage';
+export { useMinWidth } from './useMinWidth';

@@ -1,8 +1,8 @@
 {{- /*
 HA Valkey (WP-014b, ADR-038): a StatefulSet of Valkey servers, each with a Sentinel beside it, on
 the official image. At start each pod asks the sentinels for the current master and replicates
-from it unless it is that master. Only on a first start, when no sentinel answers, does pod 0
-begin as master. So a restarted former master always rejoins as a replica. The app and
+from it unless it is that master. A pod starts as master only when every peer answered and
+none holds data (a fresh set); otherwise it waits and says why, never starting empty. So a restarted former master always rejoins as a replica. The app and
 Centrifugo find the master through the sentinels (SUPPORTX_VALKEY_SENTINELS). Passwords come
 from the installation secret only, written to files in memory, never on a command line.
 */ -}}
@@ -33,87 +33,95 @@ data:
   valkey.sh: |
     set -eu
     . /scripts/common.sh
-    # Only pod 0 ever starts as master for lack of an answer (the others default to replicating
-    # pod 0, which loses nothing), so only pod 0 waits. When a peer exists but no sentinel
-    # answers, either this is the set's first start (the sentinels wait for their own servers)
-    # or this pod's new IP is not yet admitted by the network policies after a restart. A peer's
-    # server answering PING tells them apart: the network works, so the silence is a first start.
-    # Otherwise keep asking for up to 60 s before deciding.
-    peers=0
-    for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
-      peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
-      [ "$peer" = "$SELF" ] && continue
-      getent hosts "$peer" >/dev/null 2>&1 && peers=$((peers + 1))
-    done
-    peer_answers() {
+    # There is no persistence: every server starts empty. A pod that would start as master must
+    # therefore know the set holds no data, or the replicas would copy its empty set (data loss,
+    # valkey failover job 2026-11-09). It starts as master only on positive evidence:
+    #   - fresh: every peer's server answered, holds no key, never replicated (offset 0) and is
+    #     not in the middle of a sync;
+    #   - otherwise it waits, logging why each time, and never starts empty: while a peer holds
+    #     data it asks the sentinels to hand over to that peer; while a peer does not answer,
+    #     it cannot tell a fresh set from one holding data, so it asks again.
+    # Pods other than 0 never become master by default, so they start at once as replicas; their
+    # servers then answer pod 0 (offset 0 on a fresh install), so a first start never deadlocks.
+    # Why it waits is also in $WAITING, which the readiness probe prints (kubectl describe).
+    WAITING=/run/valkey/waiting
+    waiting() {
+      echo "valkey: waiting: $1" >&2
+      echo "$1" > "$WAITING"
+    }
+    # "data", "fresh", or "unknown: <peers>": what this pod's peers hold. The replication offset
+    # alone is no proof of an empty peer: in Valkey's dual-channel sync a replica can hold the
+    # data (and be counted by WAIT) while it still reports offset 0 with its link down (seen
+    # 2026-11-09). So a peer holds data when it has any key or a non-zero offset; a peer still
+    # syncing or loading is unknown; only a peer that answers with neither is empty.
+    set_state() {
+      silent=""
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
         peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
         [ "$peer" = "$SELF" ] && continue
-        REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
-          ping 2>/dev/null | grep -q PONG && return 0
-      done
-      return 1
-    }
-    master=$(ask_sentinels)
-    if [ -z "$master" ] && [ "${HOSTNAME##*-}" = "0" ] && [ "$peers" -gt 0 ]; then
-      for _ in $(seq 1 30); do
-        sleep 2
-        master=$(ask_sentinels)
-        [ -n "$master" ] && break
-        if peer_answers; then
-          master=$(ask_sentinels)
-          break
+        info=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
+          info all 2>/dev/null | tr -d '\r')
+        keys=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
+          dbsize 2>/dev/null | tr -d '\r')
+        offset=$(echo "$info" | sed -n 's/^master_repl_offset://p')
+        syncing=$(echo "$info" | sed -n 's/^master_sync_in_progress://p')
+        loading=$(echo "$info" | sed -n 's/^loading://p')
+        case "$offset:$keys" in
+          *[!0-9:]*|:*|*:) silent="$silent ${peer%%.*}"; continue ;;  # no answer
+        esac
+        if [ "$keys" -gt 0 ] || [ "$offset" -gt 0 ]; then echo data; return 0; fi
+        if [ "${syncing:-0}" != 0 ] || [ "${loading:-0}" != 0 ]; then
+          silent="$silent ${peer%%.*}(syncing)"
         fi
       done
-      if [ -z "$master" ] && ! peer_answers; then
-        echo "valkey: peers exist but none answered in 60 s; starting as master" >&2
-      fi
-    fi
-    # Whether any peer's server ever replicated from a master (its offset moves past 0 on the
-    # first sync): then the set holds data that a fresh, empty master would wipe out.
-    peer_synced() {
+      if [ -z "$silent" ]; then echo fresh; else echo "unknown:$silent"; fi
+    }
+    hand_over() {
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
         peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
         [ "$peer" = "$SELF" ] && continue
-        offset=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
-          info replication 2>/dev/null | tr -d '\r' | sed -n 's/^master_repl_offset://p')
-        [ "${offset:-0}" -gt 0 ] 2>/dev/null && return 0
+        REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 --no-auth-warning \
+          SENTINEL FAILOVER supportx >/dev/null 2>&1 && return 0
       done
-      return 1
+      return 0
     }
-    if [ "$master" = "$SELF" ] && ! peer_synced; then
-      # The sentinels name this pod, but no replica ever synced: the set's first start (a peer's
-      # sentinel came up first and named pod 0). Nothing to protect: start as master at once.
-      echo "valkey: named master and no replica ever synced (first start); starting as master"
-    elif [ "$master" = "$SELF" ]; then
-      # Back before the sentinels noticed it was gone (inside down-after-milliseconds): they
-      # still name this pod master, but it has no data (no persistence), and the replicas hold
-      # the set. Starting as master would make every replica copy the empty set. Hand over
-      # first: ask a sentinel to fail over until another master is named, then follow it. A
-      # NOGOODSLAVE reply can be momentary (the sentinels' view of the replicas is a few seconds
-      # old), so it is retried too. Only when no other master appears in 60 s does it start
-      # as master.
-      for _ in $(seq 1 30); do
-        for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
-          peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
-          [ "$peer" = "$SELF" ] && continue
-          REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 --no-auth-warning \
-            SENTINEL FAILOVER supportx >/dev/null 2>&1 && break
-        done
-        sleep 2
-        master=$(ask_sentinels)
-        [ "$master" != "$SELF" ] && [ -n "$master" ] && break
-      done
-      if [ "$master" = "$SELF" ] || [ -z "$master" ]; then
-        echo "valkey: no replica took over in 60 s; starting as master"
-        master="$SELF"
+    pod0="{{ $name }}-0.{{ $headless }}.{{ .Release.Namespace }}.svc"
+    tries=0
+    while :; do
+      master=$(ask_sentinels)
+      if [ -n "$master" ] && [ "$master" != "$SELF" ]; then
+        break  # replicate the master the sentinels name
       fi
-    fi
-    if [ -z "$master" ]; then
-      # First start of the set: pod 0 begins as master, the others replicate from it.
-      if [ "${HOSTNAME##*-}" = "0" ]; then master="$SELF"; else
-        master="{{ $name }}-0.{{ $headless }}.{{ .Release.Namespace }}.svc"; fi
-    fi
+      if [ -z "$master" ] && [ "$SELF" != "$pod0" ]; then
+        master="$pod0"  # never master by default: replicating loses nothing
+        break
+      fi
+      # Here this pod would start as master: the sentinels name it, or none answers and it is pod 0.
+      state=$(set_state)
+      tries=$((tries + 1))
+      case "$state" in
+        fresh)
+          echo "valkey: every peer answered and none holds data (a fresh set); starting as master"
+          master="$SELF"
+          break
+          ;;
+        data)
+          if [ "$master" = "$SELF" ]; then
+            # Back before the sentinels noticed it was gone (inside down-after-milliseconds).
+            # A NOGOODSLAVE answer can be momentary, so it is asked again each time.
+            hand_over
+            waiting "the sentinels still name this pod master but a peer holds the data; asked them to hand over (try $tries)"
+          else
+            waiting "a peer holds data but no sentinel names a master yet (try $tries)"
+          fi
+          ;;
+        *)
+          waiting "peers not answering or still syncing:${state#unknown:}; cannot tell a fresh set from one holding data (try $tries)"
+          ;;
+      esac
+      sleep 2
+    done
+    rm -f "$WAITING"
     {
       echo "port 6379"
       echo "requirepass $VALKEY_PASSWORD"
@@ -130,9 +138,13 @@ data:
     set -eu
     . /scripts/common.sh
     # Wait for this pod's own server, then monitor the master it knows (or the sentinels know).
-    for _ in $(seq 1 60); do
-      REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -p 6379 --no-auth-warning ping >/dev/null 2>&1 && break
+    # As long as it takes: a server that waits to start (valkey.sh) must not leave its sentinel
+    # monitoring this pod as master. The server's decision never asks this pod's own sentinel.
+    waited=0
+    until REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -p 6379 --no-auth-warning ping >/dev/null 2>&1; do
       sleep 1
+      waited=$((waited + 1))
+      [ $((waited % 30)) -eq 0 ] && echo "sentinel: waiting for this pod's server (${waited}s)" >&2
     done
     master=$(ask_sentinels)
     if [ -z "$master" ]; then
@@ -207,7 +219,8 @@ spec:
             - {name: {{ $role }}, containerPort: {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }}}
           readinessProbe:
             exec:
-              command: ["/bin/sh", "-c", "REDISCLI_AUTH=\"$VALKEY_PASSWORD\" valkey-cli -p {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }} --no-auth-warning ping | grep -q PONG"]
+              # While the server waits to start, the probe prints why (valkey.sh's $WAITING).
+              command: ["/bin/sh", "-c", "{{ if eq $role "valkey" }}if [ -f /run/valkey/waiting ]; then cat /run/valkey/waiting; exit 1; fi; {{ end }}REDISCLI_AUTH=\"$VALKEY_PASSWORD\" valkey-cli -p {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }} --no-auth-warning ping | grep -q PONG"]
             periodSeconds: 5
           resources:
             {{- toYaml $.Values.valkeyHa.resources | nindent 12 }}
