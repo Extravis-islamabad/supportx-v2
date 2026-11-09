@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderUi } from '../test/render';
 import { ActionBar, type RecordAction } from './ActionBar';
 import { AlertStrip } from './AlertStrip';
+import { HeaderActions } from './HeaderActions';
 import { NoticeStack } from './NoticeStack';
 import { SectionNav } from './SectionNav';
 
@@ -236,5 +237,34 @@ describe('AlertStrip', () => {
     expect(screen.queryByText('Second')).toBeNull();
     fireEvent.click(screen.getByTestId('strip-toggle'));
     expect(screen.getByText('Second')).toBeDefined();
+  });
+});
+
+describe('D-147 template C: header actions', () => {
+  it('shows at most three buttons with the primary last, the rest in More', async () => {
+    const opened: string[] = [];
+    renderUi(
+      <HeaderActions
+        testId="head"
+        primary={<button type="button">New</button>}
+        buttons={[
+          { key: 'a', node: <button type="button">Export</button> },
+          {
+            key: 'b',
+            node: <button type="button">Import</button>,
+            overflow: { key: 'b', label: 'Import', onClick: () => opened.push('b'), testId: 'b' },
+          },
+        ]}
+        more={[{ key: 'c', label: 'Recent jobs', onClick: () => opened.push('c'), testId: 'c' }]}
+      />,
+    );
+    const head = screen.getByTestId('head');
+    const visible = within(head)
+      .getAllByRole('button')
+      .map((b) => b.textContent.trim());
+    expect(visible).toEqual(['Export', 'More', 'New']); // three places: Import moved into More
+    fireEvent.click(screen.getByTestId('head-more'));
+    fireEvent.click(await screen.findByTestId('b'));
+    expect(opened).toEqual(['b']);
   });
 });

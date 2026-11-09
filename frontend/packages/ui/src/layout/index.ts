@@ -10,6 +10,7 @@ export {
   type KpiTileProps,
   type ListPageProps,
 } from './ListPage';
+export { HeaderActions, MAX_HEADER_BUTTONS, type MoreAction } from './HeaderActions';
 export { NoticeStack } from './NoticeStack';
 export { SectionNav, type SectionNavItem } from './SectionNav';
 export { PageHeader, type PageHeaderProps } from './PageHeader';

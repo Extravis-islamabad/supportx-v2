@@ -51,6 +51,8 @@ export const DEFAULT_COLUMNS: readonly string[] = [
   'priority',
   'resolution_due_at',
 ];
+// The default widths fit their content (D-147 template C): with the subject at its minimum the
+// default columns fit 1280 px with the side navigation (QA9-V-01), and the subject takes the rest.
 // "Created" left the defaults so they fit 1440 px with the side navigation (QA 2026-11-05 V1);
 // it stays in the column chooser, and saved choices and views keep it.
 
@@ -60,7 +62,7 @@ const OWN: ColumnSpec[] = [
   {
     key: 'display_id',
     sortField: 'display_number',
-    width: 110,
+    width: 90,
     title: (c) => c.t('incidents.col.id'),
     // The channel it came from in front of the ID (UI pass 2), named by its label.
     render: (row) => (
@@ -86,39 +88,39 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'requester_id',
-    width: 130,
+    width: 120,
     title: field('requester_id'),
     render: (row, c) => personName(c.people, row.requester_id),
   },
   {
     key: 'status',
-    width: 140,
+    width: 120,
     title: field('status'),
     render: (row, c) => <StatusTag status={row.status} catalogue={c.catalogue} />,
   },
   {
     key: 'priority',
     sortField: 'priority',
-    width: 100,
+    width: 90,
     title: field('priority'),
     render: (row) => <PriorityTag priority={row.priority} source={row.priority_source} />,
   },
   {
     key: 'group_id',
-    width: 120,
+    width: 110,
     title: field('group_id'),
     render: (row, c) => (row.group_id === null ? '' : (c.groupNames.get(row.group_id) ?? '')),
   },
   {
     key: 'technician_id',
-    width: 130,
+    width: 120,
     title: field('technician_id'),
     render: (row, c) => personName(c.people, row.technician_id),
   },
   {
     key: 'resolution_due_at',
     sortField: 'resolution_due_at',
-    width: 150,
+    width: 120,
     title: (c) => c.t('incidents.col.due'),
     render: (row, c) => (
       <SlaTag
