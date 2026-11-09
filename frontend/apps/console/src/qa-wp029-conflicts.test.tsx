@@ -223,9 +223,9 @@ describe('QA WP-029 BUG-05: the shared conflict dialog', () => {
       target: { value: 'Acme Desk' },
     });
     await waitFor(() => {
-      expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(false);
+      expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(false);
     });
-    fireEvent.click(screen.getByTestId('branding-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await expectNamed('Portal name');
   });
 
