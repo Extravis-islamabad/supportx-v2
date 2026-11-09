@@ -186,7 +186,10 @@ describe('console: service requests', () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     api();
     render(<App />);
-    expect((await screen.findByTestId('sr-approval')).textContent).toBe('Awaiting approval');
+    // One status chip; the pending approval is not said twice (UI pass 3, Haider).
+    expect((await screen.findByTestId('sr-status')).textContent).toBe('Awaiting approval');
+    expect(screen.queryByTestId('sr-approval')).toBeNull();
+    fireEvent.click(await screen.findByTestId('sr-tab-details'));
     const answers = await screen.findByTestId('sr-answers');
     await waitFor(() => {
       expect(within(answers).getByText('air')).toBeDefined();
@@ -294,6 +297,7 @@ describe('console: service requests', () => {
       [`PATCH ${path}`]: { body: { ...task, status: 'done', version: 3 } },
     });
     render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-tasks')); // fulfilment is a tab (template A)
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Order the laptop' }));
     await waitFor(() => {
       expect(fake.find('PATCH', path)).toHaveLength(1);
@@ -301,5 +305,27 @@ describe('console: service requests', () => {
     const [sent] = fake.find('PATCH', path);
     expect(sent?.body).toEqual({ status: 'done' });
     expect(sent?.headers.get('If-Match')).toBe('"2"');
+  });
+});
+
+describe('console: the service request record (template A)', () => {
+  it("shows the requester and the conversation from the request's own routes", async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const fulfilled = { ...request, status: 'in_progress', approval_status: 'approved' };
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: { body: fulfilled },
+      [`GET /api/v1/service-requests/${SR_ID}/conversation`]: {
+        body: { items: [], people: {}, next_cursor: null },
+      },
+    });
+    render(<App />);
+    expect((await screen.findByTestId('sr-status')).textContent).toBe('In progress');
+    // A decided approval adds its words in the panel; the requester is there too.
+    expect((await screen.findByTestId('sr-approval')).textContent).toBe('Approved');
+    expect(screen.getByTestId('sr-panel').textContent).toContain('Requester');
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/service-requests/${SR_ID}/conversation`)).toHaveLength(1);
+    });
+    expect(fake.find('GET', `/api/v1/incidents/${SR_ID}/conversation`)).toHaveLength(0);
   });
 });
