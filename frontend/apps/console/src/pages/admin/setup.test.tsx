@@ -180,3 +180,22 @@ describe('QA6S-SHELL-02: no "Setup" heading above a settings page', () => {
     expect(top.className).toContain('sx-visually-hidden');
   });
 });
+
+describe('QA9-V-16: every setup page starts with its header', () => {
+  it('the shell heads a page with no header of its own, and not one that has it', async () => {
+    window.history.pushState({}, '', '/admin/licence');
+    api();
+    render(<App />);
+    const header = await screen.findByTestId('admin-page-header');
+    expect(within(header).getByRole('heading', { name: 'Licence and plan' })).toBeDefined();
+    expect(header.textContent).toContain(en['setup.page.licence.description']);
+  });
+
+  it('people keep their own header, once', async () => {
+    window.history.pushState({}, '', '/admin/users');
+    api();
+    render(<App />);
+    await screen.findByTestId('admin-header'); // the setup shell is up
+    expect(screen.queryByTestId('admin-page-header')).toBeNull();
+  });
+});
