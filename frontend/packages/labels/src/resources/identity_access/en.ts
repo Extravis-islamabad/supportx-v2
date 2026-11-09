@@ -126,6 +126,31 @@ export const en = {
   'availability.no_members': 'No technicians in this group.',
   'availability.set_available_by': 'Set Available by {{name}} at {{time}}',
   'availability.set_away_by': 'Set Away by {{name}} at {{time}}',
+  'dev_persona.admin': 'Administrator',
+  'dev_persona.approver': 'Approver',
+  'dev_persona.lead': 'Team lead',
+  'dev_persona.new_starter': 'New starter',
+  'dev_persona.requester': 'Requester',
+  'dev_persona.technician': 'Technician',
+  'dev_sign_in.app_console': 'Console',
+  'dev_sign_in.app_portal': 'Portal',
+  'dev_sign_in.as': 'Sign in as {{persona}}',
+  'dev_sign_in.reason.account_locked':
+    'Keycloak has locked this account for a few minutes after failed attempts.',
+  'dev_sign_in.reason.credentials_refused':
+    'The password or authenticator key in the dev .env doesn’t match the seed: run make showcase-seed.',
+  'dev_sign_in.reason.grant_not_allowed':
+    'Keycloak doesn’t allow this sign-in here: the realm isn’t the dev realm.',
+  'dev_sign_in.reason.keycloak_refused': 'Keycloak refused for another reason: see its log.',
+  'dev_sign_in.reason.mfa_setup_required':
+    'This persona must set up two-step sign-in first: run make showcase-seed to pre-enrol it.',
+  'dev_sign_in.reason.not_showcase': 'This persona isn’t a member of Showcase Company.',
+  'dev_sign_in.sets_up_mfa': 'sets up two-step sign-in',
+  'dev_sign_in.title': 'Quick sign-in (dev only)',
+  'dev_sign_in.unavailable':
+    'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
+  'dev_sign_in.warning':
+    'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'form_density.title': 'Form layout',

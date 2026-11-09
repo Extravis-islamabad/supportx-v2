@@ -219,6 +219,7 @@ export const ur: LabelResource = {
   'audit.action.service_request.template_changed': 'سروس کی درخواست کا سانچہ بدلا',
   'audit.action.service_request.template_created': 'سروس کی درخواست کا سانچہ شامل کیا',
   'audit.action.service_request.withdrawn': 'منظوری کی منتظر سروس درخواست واپس لی',
+  'audit.action.session.quick_sign_in': 'ڈیولپمنٹ کے فوری سائن اِن سے سائن اِن کیا',
   'audit.action.session.signed_in': 'سائن اِن کیا',
   'audit.action.session.signed_out': 'سائن آؤٹ کیا',
   'audit.action.session.tenant_switched': 'تنظیم تبدیل کی',

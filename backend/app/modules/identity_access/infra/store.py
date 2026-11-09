@@ -24,6 +24,8 @@ LOCK_PREFIX = "sx:session-lock:"
 ENDED_PREFIX = "sx:sessions-ended:"
 SSO_TEST_PREFIX = "sx:sso-test:"
 LIMIT_PREFIX = "sx:limit:"
+# Dev-only quick sign-in (D-151): which TOTP time steps a persona's codes were sent for.
+QUICK_STEP_PREFIX = "sx:dev-quick-step:"
 
 
 def _hashed(prefix: str, value: str) -> str:
@@ -110,6 +112,13 @@ class SessionStore:
         """Remember a pending login (PKCE verifier, nonce, returnTo) under its state value."""
         key = _hashed(LOGIN_PREFIX, state)
         await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+
+    async def claim_totp_step(self, email: str, step: int, ttl: timedelta) -> bool:
+        """Claim one TOTP time step for a persona, once (SET NX): never the same code twice."""
+        claimed = await self._kv.set(
+            _hashed(QUICK_STEP_PREFIX, f"{email.lower()}:{step}"), b"1", px=_ms(ttl), nx=True
+        )
+        return bool(claimed)
 
     async def hit(self, scope: str, subject: str, window: timedelta) -> int:
         """Count one more request of `subject` in the current `window`; the count so far."""

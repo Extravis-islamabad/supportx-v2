@@ -739,6 +739,11 @@ export const en = {
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.privilege_escalation': 'You cannot give access you do not have yourself.',
   'errors.problem_closed': '{{display_id}} is closed, so it cannot be merged.',
+  'errors.quick_sign_in_not_configured':
+    'Quick sign-in isn’t set up on this stack: run make dev-quick-sign-in.',
+  'errors.quick_sign_in_refused': 'Keycloak refused this quick sign-in.',
+  'errors.quick_sign_in_wait':
+    'This persona signed in twice in the last 30 seconds. Try again in {{seconds}} seconds.',
   'errors.range_not_satisfiable': 'That part of the file does not exist.',
   'errors.rate_limited': 'Too many requests. Please wait a moment and try again.',
   // Entitlements (WP-009)

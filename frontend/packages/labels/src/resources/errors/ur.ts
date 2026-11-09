@@ -747,6 +747,11 @@ export const ur: LabelResource = {
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
   'errors.privilege_escalation': 'آپ وہ رسائی نہیں دے سکتے جو خود آپ کے پاس نہیں۔',
   'errors.problem_closed': '{{display_id}} بند ہے، اس لیے ضم نہیں ہو سکتا۔',
+  'errors.quick_sign_in_not_configured':
+    'اس اسٹیک پر فوری سائن اِن سیٹ اپ نہیں: make dev-quick-sign-in چلائیں۔',
+  'errors.quick_sign_in_refused': 'Keycloak نے یہ فوری سائن اِن مسترد کر دیا۔',
+  'errors.quick_sign_in_wait':
+    'اس کردار نے پچھلے 30 سیکنڈ میں دو بار سائن اِن کیا۔ {{seconds}} سیکنڈ بعد دوبارہ کوشش کریں۔',
   'errors.range_not_satisfiable': 'فائل کا یہ حصہ موجود نہیں۔',
   'errors.rate_limited': 'بہت زیادہ درخواستیں۔ براہِ کرم ذرا انتظار کر کے دوبارہ کوشش کریں۔',
   'errors.read_only_mode':
