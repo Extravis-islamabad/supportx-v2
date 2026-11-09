@@ -224,6 +224,7 @@ export {
   useReplyTemplateChange,
   useReplyTemplates,
   type ConversationAdded,
+  type ConversationBase,
   type ConversationEntry,
   type ConversationEntryInput,
   type EntryKind,
