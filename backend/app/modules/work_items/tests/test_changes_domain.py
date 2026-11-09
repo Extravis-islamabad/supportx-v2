@@ -95,3 +95,38 @@ def test_req_chg_031_backed_out_and_failed_go_to_the_review() -> None:
     for status in ("implementation_backed_out", "implementation_failed"):
         targets = {t.to_status for t in CHANGE_MODEL.moves_from(status, DEFAULT_PATH)}
         assert targets == {"review_in_review"}
+
+
+def test_req_chg_005_a_type_has_one_model_and_its_path() -> None:
+    from app.modules.work_items.domain.changes import (  # noqa: PLC0415 - this test only
+        ChangeModel,
+        model_of,
+        path_of,
+    )
+
+    assert model_of("standard", None) is ChangeModel.STANDARD
+    assert model_of("major", None) is ChangeModel.NORMAL
+    assert model_of("emergency", {}) is ChangeModel.EMERGENCY
+    assert model_of("datacentre_move", {"model": "emergency"}) is ChangeModel.EMERGENCY
+    assert model_of("datacentre_move", {"model": "nonsense"}) is ChangeModel.NORMAL
+    assert path_of("standard", ChangeModel.STANDARD) == STANDARD_PATH
+    assert path_of("major", ChangeModel.NORMAL) == MAJOR_PATH
+    assert path_of("datacentre_move", ChangeModel.NORMAL) == DEFAULT_PATH
+
+
+def test_req_chg_006_only_the_system_pre_approves_at_creation() -> None:
+    moved = plan_move(
+        CHANGE_MODEL,
+        current="submission_submitted",
+        target="submission_accepted",
+        path=STANDARD_PATH,
+        system=True,
+    )
+    assert moved.landed.code == "implementation_scheduled"  # standard: no planning, no CAB
+    with pytest.raises(MoveRefused):
+        plan_move(
+            CHANGE_MODEL,
+            current="submission_submitted",
+            target="submission_accepted",
+            path=STANDARD_PATH,
+        )

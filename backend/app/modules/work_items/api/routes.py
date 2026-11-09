@@ -169,6 +169,12 @@ class WorkItemIn(BaseModel):
     review_actions: str | None = Field(
         default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
     )
+    change_type: str | None = Field(
+        default=None, max_length=40, description="Changes only: a change type code (REQ-CHG-005)."
+    )
+    change_reason: str | None = Field(
+        default=None, max_length=40, description="Changes only: a reason for change code."
+    )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )

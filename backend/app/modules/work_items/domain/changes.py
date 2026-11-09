@@ -12,6 +12,7 @@ moves serves every path.
 """
 
 from collections.abc import Mapping
+from enum import StrEnum
 from typing import Any
 
 from app.modules.work_items.domain.lifecycle import ReasonMode, StatusCategory
@@ -101,6 +102,8 @@ def _t(
 
 
 _MOVES = (
+    # A standard change is approved at creation (REQ-CHG-006): the system's move only.
+    _t("submission_submitted", "submission_accepted"),
     _t("submission_submitted", "submission_more_info", reason=True),
     _t("submission_submitted", "submission_awaiting_acceptance"),
     _t("submission_more_info", "submission_submitted"),
@@ -242,3 +245,38 @@ CHANGE_REASONS = (
     "cost_reduction",
 )
 DETAIL_FIELDS = ("change_type", "change_reason")
+
+
+class ChangeModel(StrEnum):
+    """What a change type behaves as (REQ-CHG-005): pre-approved, assessed, or fast-tracked."""
+
+    STANDARD = "standard"
+    NORMAL = "normal"
+    EMERGENCY = "emergency"
+
+
+# Each model's path when the template sets none (REQ-CHG-005, -027); the seeded types keep their
+# own (minor and major are normal changes on paths of their own).
+MODEL_PATHS: Mapping[ChangeModel, str] = {
+    ChangeModel.STANDARD: STANDARD_PATH,
+    ChangeModel.NORMAL: DEFAULT_PATH,
+    ChangeModel.EMERGENCY: EMERGENCY_PATH,
+}
+TYPE_PATHS: Mapping[str, str] = {"minor": MINOR_PATH, "major": MAJOR_PATH}
+
+
+def model_of(change_type: str, attributes: Mapping[str, Any] | None) -> ChangeModel:
+    """A type's model: an admin's type says it (`attributes.model`), a seeded one has its own."""
+    given = (attributes or {}).get("model")
+    if given in {m.value for m in ChangeModel}:
+        return ChangeModel(given)
+    return ChangeModel(CHANGE_MODELS.get(change_type, ChangeModel.NORMAL.value))
+
+
+def path_of(change_type: str, model: ChangeModel) -> str:
+    """The path of a change of this type when its template names none."""
+    return TYPE_PATHS.get(change_type) or MODEL_PATHS[model]
+
+
+# A standard change's status on creation (REQ-CHG-006 AC1): accepted, which completes submission.
+PRE_APPROVED = "submission_accepted"

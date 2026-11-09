@@ -140,7 +140,14 @@ from app.modules.work_items.infra.models import (
     WorkItemStageSchedule,
     WorkItemTemplate,
 )
-from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
+from app.modules.work_items.service import (
+    approval_stage,
+    automation,
+    change_types,
+    closing,
+    followers,
+    templates,
+)
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service import stages as stage_service
@@ -2026,16 +2033,17 @@ async def _on_behalf_problems(
 
 
 async def _first_stage(
-    session: AsyncSession, wtype: WorkItemType, template: WorkItemTemplate
+    session: AsyncSession, wtype: WorkItemType, template: WorkItemTemplate, path: str | None
 ) -> dict[str, Any]:
     """Stage columns and first status of a new staged record ({} for other types).
 
-    The template decides the path (REQ-REL-007: no separate workflow picker).
+    The template decides the path (REQ-REL-007: no separate workflow picker), or a change's
+    type does (`path`, REQ-CHG-005; change_types.prepare says which).
     """
     if wtype.stages is None:
         return {}
     model = await stage_service.load_model(session, wtype)
-    return stage_service.first_columns(model, template.stage_path or DEFAULT_PATH)
+    return stage_service.first_columns(model, path or template.stage_path or DEFAULT_PATH)
 
 
 async def _read_only_problems(
@@ -2054,7 +2062,7 @@ def _initial(cat: Catalogue, stage_columns: dict[str, Any]) -> str:
     return next(s.code for s in cat.statuses if not s.system and not s.disabled)
 
 
-async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks, explicit
+async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and checks, one branch per entry point, explicit
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -2098,6 +2106,8 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     problems += await templates.required_problems(
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
     )
+    new_change, change_problems = change_types.prepare(wtype, cat, values, template)
+    problems += change_problems + change_types.problems_for(wtype, values)
     problems += _check_level(cat, cleaned.get("level"), current=None)
     problems += _check_problem_fields(wtype, cat, cleaned, None)
     if problems:
@@ -2117,7 +2127,9 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         raise await _value_errors(session, wtype, problems)
     await _place(session, cleaned)
     # A staged type starts in its path's first stage and that stage's first status (ADR-041).
-    stage_columns = await _first_stage(session, wtype, template)
+    stage_columns = await _first_stage(
+        session, wtype, template, new_change.path if new_change is not None else None
+    )
     initial, group_id, technician_id = _from_item(
         started,
         _initial(cat, stage_columns),
@@ -2231,6 +2243,12 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         name: (entered.get(name) if name in automated.values else value)
         for name, value in after.items()
     }
+    own: dict[str, Any] = dict(new_change.details) if new_change is not None else {}
+    if own:  # a change's type and reason, kept in its own fields (WP-045a, 0101)
+        session.add(
+            WorkItemChangeDetails(tenant_id=record.tenant_id, work_item_id=record.id, **own)
+        )
+        await session.flush()
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -2239,7 +2257,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         kind="created",
         changes=[
             Change(name, None, value)
-            for name, value in by_person.items()
+            for name, value in {**by_person, **own}.items()
             if value not in (None, [])
         ],
         source=source,
@@ -2262,6 +2280,19 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     await approval_stage.after_submission(  # REQ-SR-021
         session, record, item, source=source, holders=holders
     )
+    if change_types.pre_approved(new_change):  # REQ-CHG-006: a standard change, approved now
+        record = await _stage_move(
+            session,
+            wtype,
+            record,
+            target=change_rules.PRE_APPROVED,
+            expected_version=record.version,
+            reason_code=None,
+            reason_text=None,
+            source=source,
+            subject=None,
+            extra=[Change("pre_approved", None, own["change_type"])],
+        )
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
             cat.lifecycle_of(record.lifecycle),
@@ -2752,6 +2783,7 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     source: Source,
     subject: Subject | None,
     given: closing.MoveInput = closing.MoveInput(),  # noqa: B008 - a frozen, empty default
+    extra: Sequence[Change] = (),
 ) -> WorkItem:
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     try:
@@ -2831,7 +2863,7 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         entries=entries,
         source=source,
         reason=text,
-        extra=closing_step.history,
+        extra=[*closing_step.history, *extra],
     )
     await _record_automation(session, updated, automated)
     # A guard may act after the move (ADR-041 §5): releases open a stage's approvals here.

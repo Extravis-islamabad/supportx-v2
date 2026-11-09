@@ -10,6 +10,7 @@ import uuid
 from typing import Any
 
 import httpx
+import pytest
 
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
 
@@ -227,3 +228,61 @@ async def test_change_details_are_isolated_by_rls(world: World) -> None:
         assert changed.rowcount == 0
     other = await world.call("GET", f"{CHG}/{item['id']}/details", b, b.admin)
     assert other.status_code == 404
+
+
+async def test_req_chg_006_a_standard_change_is_approved_at_creation_and_says_why(
+    world: World,
+) -> None:
+    a = world.a
+    made = await new_change(world, a, a.admin, change_type="standard")
+    assert made.status_code == 201, made.text
+    item = made.json()
+    # Accepted completes submission: on the standard path the next stage is implementation.
+    assert (item["stage_path"], item["stage"], item["status"]) == (
+        "standard",
+        "implementation",
+        "implementation_scheduled",
+    )
+    history = (await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)).json()
+    lines = {c["field"]: c["new"] for entry in history["items"] for c in entry["changes"]}
+    assert lines["pre_approved"] == "standard"  # the record says why, not a bare tick
+    assert lines["change_type"] == "standard"
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+    assert shown["change_type"] == "standard"
+
+
+@pytest.mark.parametrize(
+    ("change_type", "path", "status"),
+    [
+        ("minor", "minor", "submission_submitted"),
+        ("major", "major", "submission_submitted"),
+        ("emergency", "emergency", "submission_submitted"),
+        ("normal", "default", "submission_submitted"),
+    ],
+)
+async def test_req_chg_005_the_type_s_model_picks_the_path(
+    world: World, change_type: str, path: str, status: str
+) -> None:
+    a = world.a
+    made = await new_change(world, a, a.admin, change_type=change_type)
+    assert made.status_code == 201, made.text
+    assert (made.json()["stage_path"], made.json()["status"]) == (path, status)
+
+
+async def test_a_change_s_fields_are_checked_and_only_changes_take_them(world: World) -> None:
+    from tests.db.test_release_templates_api import field_codes  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    wrong = await new_change(world, a, a.admin, change_type="maintenance")
+    assert field_codes(wrong) == {("change_type", "invalid_choice")}
+    reason = await new_change(world, a, a.admin, change_reason="because")
+    assert field_codes(reason) == {("change_reason", "invalid_choice")}
+    incident = await world.call(
+        "POST",
+        "/incidents",
+        a,
+        a.admin,
+        json={"subject": "VPN down", "requester_id": str(a.requester), "change_type": "minor"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert ("change_type", "not_allowed") in field_codes(incident)
