@@ -1,8 +1,8 @@
 # ADR-044: Mobile sign-in through the system browser, a one-time hand-off, and a BFF session
 
-- **Status:** Proposed. Haider approved it in principle on 2026-11-06 with the conditions below;
-  final approval is his. Lane B wrote it and reviews the backend. The mobile team (#236) builds
-  the app.
+- **Status:** Accepted — Haider, 2026-11-09 (approved in principle 2026-11-06 with the
+  conditions below, which this record carries). Lane B wrote it and reviews the backend. The
+  mobile team (#236) builds the app.
 - **Date:** 2026-11-06
 - **Deciders:** Haider (Product Owner), the coordinator, lane B (identity), the Extravis mobile team
 
