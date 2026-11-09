@@ -29,7 +29,7 @@ from app.modules.work_items.domain.closure import (
 )
 from app.modules.work_items.domain.conversation import FirstResponseAction
 from app.modules.work_items.domain.service_requests import OnBehalfScope
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTypeSettings
 from app.modules.work_items.service import catalogue as config
@@ -93,6 +93,10 @@ async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue
     return await config.load(session, wtype)
 
 
+# Settings only changes have (WP-045b S3); audited with the type's settings_changed.
+CHANGE_ONLY = ("segregation_strict", "cab_every_match")
+
+
 async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
@@ -149,6 +153,11 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         if any(code not in set(Priority) for code in wanted):
             problem("review_required_priorities", "invalid_choice")
         changes["review_required_priorities"] = [p for p in Priority if p in wanted]
+    for name in CHANGE_ONLY:  # WP-045b S3: changes' approval settings
+        if name in values:
+            if wtype.code is not WorkItemTypeCode.CHANGE:
+                problem(name, "not_allowed")
+            changes[name] = bool(values[name])
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):
@@ -172,6 +181,8 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "approvals_require_sign_in": current.approvals_require_sign_in,
         "portal_show_due_time": current.portal_show_due_time,
         "review_required_priorities": list(current.review_required_priorities),
+        "segregation_strict": current.segregation_strict,
+        "cab_every_match": current.cab_every_match,
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,
         "default_urgency": current.default_urgency,

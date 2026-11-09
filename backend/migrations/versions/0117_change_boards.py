@@ -7,6 +7,8 @@ Expand only, no data step (the two default boards are seeded per tenant on first
   the order, whether it is the default, and a version for If-Match; soft-deleted.
 - `change_board_members` (RLS): a board's members, a person or a group (exactly one), each at
   most once, optionally marked optional.
+- `work_item_type_settings` (S3): `segregation_strict` (implementing groups barred from
+  approving too; off by default) and `cab_every_match` (every matching board reviews; off).
 
 The downgrade drops both tables while the tenant has only its two seeded boards, unchanged and
 without members; anything someone set up stops it and keeps the data (rule 5h).
@@ -31,6 +33,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 BOARDS, MEMBERS = "change_boards", "change_board_members"
+SETTINGS = ("segregation_strict", "cab_every_match")
 RULES = "('any', 'all', 'majority', 'majority_with_chair')"
 GUARD = f"""
 DO $$
@@ -39,6 +42,8 @@ BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (SELECT 1 FROM {MEMBERS}) OR EXISTS (
+            SELECT 1 FROM work_item_type_settings WHERE segregation_strict OR cab_every_match
+        ) OR EXISTS (
             SELECT 1 FROM {BOARDS}
             WHERE code IS NULL OR code NOT IN ('cab', 'emergency_cab') OR version > 1
         ) THEN
@@ -154,11 +159,18 @@ def upgrade() -> None:
         enable_actor_audit(table)
     grant_app(BOARDS, ("SELECT", "INSERT", "UPDATE"))
     grant_app(MEMBERS, ("SELECT", "INSERT", "UPDATE", "DELETE"))
+    for column in SETTINGS:
+        op.add_column(
+            "work_item_type_settings",
+            sa.Column(column, sa.Boolean(), server_default="false", nullable=False),
+        )
 
 
 def downgrade() -> None:
-    """Back to before boards (stops while a board was set up or changed by someone)."""
+    """Back to before boards (stops while a board or a board setting was set up or changed by someone)."""
     op.execute(GUARD)
+    for column in SETTINGS:
+        op.drop_column("work_item_type_settings", column)
     for column in ("user_id", "group_id"):
         op.drop_index(f"uq_change_board_members_{column}", table_name=MEMBERS)
     op.drop_table(MEMBERS)

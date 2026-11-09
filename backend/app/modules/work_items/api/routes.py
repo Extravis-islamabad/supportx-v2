@@ -1081,6 +1081,14 @@ class WorkItemCatalogueOut(BaseModel):
         default_factory=list,
         description="Problems: priorities that need a review before closing (major ones always).",
     )
+    segregation_strict: bool = Field(
+        default=False,
+        description="Changes: implementing groups' members may not approve either (REQ-CHG-039).",
+    )
+    cab_every_match: bool = Field(
+        default=False,
+        description="Changes: every board the mapping matches reviews, not only the first.",
+    )
     version: int
     statuses: list[WorkItemStatusOut]
     actions: list[WorkItemAction] = Field(description="User actions in their fixed order.")
@@ -1119,6 +1127,8 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
+            segregation_strict=cat.segregation_strict,
+            cab_every_match=cat.cab_every_match,
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -1243,6 +1253,8 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
+    segregation_strict: bool | None = Field(default=None, description="Changes only.")
+    cab_every_match: bool | None = Field(default=None, description="Changes only.")
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 

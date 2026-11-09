@@ -102,18 +102,21 @@ async def _candidates(
 
 
 async def segregated(
-    session: AsyncSession, record: WorkItem, *, strict: bool = False
+    session: AsyncSession, record: WorkItem, *, strict: bool | None = None
 ) -> set[uuid.UUID]:
     """People who may not approve this record: holders of its type's segregated roles.
 
     The requester is kept out by the self-approval rule; these are the others (REQ-CHG-039,
     Haider's decision): by default the people assigned (a change's implementer) and the record's
-    owner (its technician). `strict` bars every member of an implementing group as well; the
-    per-tenant setting for it comes with WP-045b.
+    owner (its technician). Strict also bars every member of an implementing group; `None` takes
+    the tenant's setting (`segregation_strict`, WP-045b S3), recommended for regulated
+    organisations.
     """
     wtype = TYPES.get(WorkItemTypeCode(record.type))
     if wtype is None or not wtype.segregated_roles:
         return set()
+    if strict is None:
+        strict = (await catalogue.load(session, wtype)).segregation_strict
     held = (
         await session.execute(
             select(WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id).where(

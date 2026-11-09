@@ -162,6 +162,11 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     review_required_priorities: Mapped[list[str]] = mapped_column(
         ARRAY(String(10)), server_default="{p1}"
     )
+    # Changes (WP-045b S3, migration 0117): segregation of duties bars every member of an
+    # implementing group too (strict; off by Haider's default), and a change goes to every board
+    # its mapping matches rather than the first.
+    segregation_strict: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
