@@ -221,14 +221,28 @@ export function columnCatalogue(fields: IncidentListField[]): Map<string, Column
 }
 
 /** The chosen columns that still exist (a removed custom field drops out), else the defaults. */
+/**
+ * Group joins the defaults where it fits beside a usable subject: windows of at least this width
+ * (1440 px and up with the side navigation; the coordinator's P2 review). Below, it waits in the
+ * column chooser.
+ */
+export const GROUP_DEFAULT_MIN_WIDTH = 1400;
+
 export function chosenColumns(
   saved: readonly ListColumn[],
   catalogue: Map<string, ColumnSpec>,
+  wide = false,
 ): ListColumn[] {
   const kept = saved.filter((c) => catalogue.has(c.key));
-  return kept.length > 0
-    ? kept
-    : DEFAULT_COLUMNS.filter((key) => catalogue.has(key)).map((key) => ({ key, width: null }));
+  if (kept.length > 0) return kept; // the person's own choice is never changed by the width
+  const keys = wide ? withGroup(DEFAULT_COLUMNS) : DEFAULT_COLUMNS;
+  return keys.filter((key) => catalogue.has(key)).map((key) => ({ key, width: null }));
+}
+
+/** The defaults with Group before Status, where it sat before. */
+function withGroup(keys: readonly string[]): string[] {
+  const at = keys.indexOf('status');
+  return [...keys.slice(0, at), 'group_id', ...keys.slice(at)];
 }
 
 /** `-field` or `field` → the column it sorts and its order (null: not a column's sort). */

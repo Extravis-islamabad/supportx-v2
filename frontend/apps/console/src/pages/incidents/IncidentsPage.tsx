@@ -50,6 +50,7 @@ import {
   ListPage,
   HeaderActions,
   PageHeader,
+  useMinWidth,
 } from '@supportx/ui';
 
 import { choiceName, fieldName } from '../customFields/values';
@@ -61,7 +62,13 @@ import { PersonalCounters } from './PersonalCounters';
 import { MyExportsButton } from '../reports/exports';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
 import { ColumnChooser, ResizableHeader, SelectPageBox } from './list/ColumnChooser';
-import { chosenColumns, columnCatalogue, sortOf, type ColumnContext } from './list/columns';
+import {
+  chosenColumns,
+  columnCatalogue,
+  GROUP_DEFAULT_MIN_WIDTH,
+  sortOf,
+  type ColumnContext,
+} from './list/columns';
 import { ListExport } from './list/ListExport';
 import {
   chipsFilter,
@@ -124,6 +131,7 @@ export function IncidentsPage() {
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
   const [panel, setPanel] = useState<'exports' | 'bulk' | null>(null);
+  const wideWindow = useMinWidth(GROUP_DEFAULT_MIN_WIDTH);
   // A built-in view code, or `custom:<saved view id>`.
   const [view, setView] = useState<string>(DEFAULT_VIEW);
   // A filter tried without saving (REQ-INC-106 AC2): this screen only.
@@ -202,6 +210,7 @@ export function IncidentsPage() {
   const columns = chosenColumns(
     stored?.version != null ? stored.columns : (saved?.columns ?? []),
     columnSpecs,
+    wideWindow,
   );
   // The table's least width: every column at its width, but the subject at its minimum, since it
   // takes whatever room is left (D-147 template C). The table fits its card at 1280 and 1440, and

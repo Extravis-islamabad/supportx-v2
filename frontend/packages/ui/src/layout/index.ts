@@ -24,3 +24,4 @@ export {
   type RecordHeaderProps,
   type RecordPageProps,
 } from './RecordPage';
+export { useMinWidth } from './useMinWidth';
