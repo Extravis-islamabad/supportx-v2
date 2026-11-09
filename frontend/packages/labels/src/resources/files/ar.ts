@@ -7,6 +7,7 @@ export const ar: LabelResource = {
   'file_kind.image': 'صورة',
   'file_kind.other': 'ملف',
   'file_kind.pdf': 'PDF',
+  'file_owner_type.asset_disposal': 'شهادة التخلّص',
   'file_owner_type.branding': 'العلامة التجارية',
   'file_owner_type.conversation_entry': 'رد أو ملاحظة',
   'file_owner_type.draft': 'مسودة',

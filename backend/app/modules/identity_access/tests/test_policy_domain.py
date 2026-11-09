@@ -47,13 +47,18 @@ REQUESTS = (
     PermissionSpec("requests.assign", "service_request", ("all", "site", "group")),
     PermissionSpec("requests.close", "service_request", _ALL),
 )
+# The assets keys as the assets module declares them (WP-049a).
+ASSETS = (
+    PermissionSpec("assets.view", "assets", _ALL),
+    PermissionSpec("assets.manage", "assets", ("all", "site", "group")),
+)
 # releases.* moved to work_items too (WP-058a); identity's technician grant still names view.
 RELEASES = (PermissionSpec("releases.view", "release", _ALL),)
 FEATURES = frozenset(
     {"incident", "service_request", "problem", "change", "release", "assets", "cmdb", "knowledge"}
 )
 CATALOGUE = Catalogue.build(
-    [*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *REQUESTS, *RELEASES, *ORG], FEATURES
+    [*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *REQUESTS, *RELEASES, *ASSETS, *ORG], FEATURES
 )
 TENANT, ME, OTHER = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
 SITE, GROUP = uuid.uuid4(), uuid.uuid4()

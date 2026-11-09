@@ -1,0 +1,99 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { Alert, Flex, Skeleton, Tabs } from 'antd';
+
+import {
+  queryKeys,
+  useAssetLifeCycles,
+  useAssetProductTypes,
+  useAssetSettings,
+  useAssetStates,
+} from '@supportx/api-client';
+import { useTenantChannel } from '@supportx/realtime';
+import { PageHeader, useLabel, useLicence } from '@supportx/ui';
+
+import { LifeCyclesTab } from './LifeCyclesTab';
+import { ProductsTab } from './ProductsTab';
+import { SettingsTab } from './SettingsTab';
+import { StatesTab } from './StatesTab';
+import { TypesTab } from './TypesTab';
+
+/**
+ * The asset catalogue (WP-049a, D-141): product types, products, states, life cycles and the
+ * asset settings, for config.assets (or settings.manage). Another admin's change arrives live:
+ * `assets.catalogue_changed` carries no IDs (§5c), so every asset query refetches. Outside the
+ * plan (feature `assets`) the page says so instead of failing on the server's refusal.
+ */
+export function AssetCatalogPage() {
+  const t = useLabel();
+  const licence = useLicence();
+  const queryClient = useQueryClient();
+  const licensed = licence.has('assets');
+  const settings = useAssetSettings(licensed);
+  const states = useAssetStates(licensed);
+  const lifeCycles = useAssetLifeCycles(licensed);
+  const types = useAssetProductTypes(licensed);
+  useTenantChannel((event) => {
+    if (event.type === 'assets.catalogue_changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+    }
+  });
+  const header = <PageHeader title={t('nav.admin_assets')} />;
+  if (!licensed) {
+    return (
+      <Flex vertical gap={16}>
+        {header}
+        <Alert
+          type="info"
+          showIcon
+          message={t('licence.locked')}
+          description={t(licence.isAdmin ? 'licence.upgrade_hint' : 'licence.ask_admin')}
+          data-testid="asset-catalogue-locked"
+        />
+      </Flex>
+    );
+  }
+  if (
+    settings.data === undefined ||
+    states.data === undefined ||
+    lifeCycles.data === undefined ||
+    types.data === undefined
+  ) {
+    return <Skeleton active />;
+  }
+  return (
+    <Flex vertical gap={16}>
+      {header}
+      <Tabs
+        destroyOnHidden
+        items={[
+          {
+            key: 'types',
+            label: t('assets.admin.product_types'),
+            children: <TypesTab types={types.data} lifeCycles={lifeCycles.data} />,
+          },
+          {
+            key: 'products',
+            label: t('assets.admin.products'),
+            children: <ProductsTab types={types.data} />,
+          },
+          {
+            key: 'states',
+            label: t('assets.admin.states'),
+            children: <StatesTab states={states.data} />,
+          },
+          {
+            key: 'life_cycles',
+            label: t('assets.admin.life_cycles'),
+            children: <LifeCyclesTab lifeCycles={lifeCycles.data} states={states.data} />,
+          },
+          {
+            key: 'settings',
+            label: t('assets.admin.settings'),
+            children: <SettingsTab settings={settings.data} />,
+          },
+        ]}
+        data-testid="asset-catalogue-tabs"
+      />
+    </Flex>
+  );
+}

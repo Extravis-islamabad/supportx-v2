@@ -33,6 +33,13 @@ ENUM_PREFIXES: dict[str, str] = {
     "RecipientSet": "problem_recipient_set",
     "CopyPart": "problem_follow_up_copy",
     "OutcomeIn.outcome": "ai_outcome",
+    # Asset catalogue (WP-049a)
+    "AssetAgeBasis": "asset_age_basis",
+    "AssetDepreciationMethod": "asset_depreciation",
+    "AssetStateCategory": "asset_state_category",
+    "AssetDisposalIn.method": "asset_disposal_method",
+    "AssetTypeCategory": "asset_type_category",
+    "AssetTypeKind": "asset_type_kind",
     # SLA set-up (WP-025)
     "ActionKind": "sla_action_kind",
     "Anchor": "sla_level_anchor",
