@@ -129,12 +129,32 @@ describe('Reports', () => {
     render(<App />);
     const link = await screen.findByTestId('reports-open-builtin:incidents_open_by_priority');
     expect(link.textContent).toBe('Open incidents by priority');
-    const section = screen.getByTestId('reports-section');
-    expect(section.querySelector('.ant-card-head-title')?.textContent).toBe('Incidents');
+    // Template D (D-147): the report sits in its module's group under "All", and every module
+    // keeps a tab even before it has reports.
+    const group = screen.getByTestId('reports-group-incidents');
+    expect(group.querySelector('h3')?.textContent).toBe('Incidents');
+    expect(group.contains(link)).toBe(true);
+    const tabs = within(screen.getByTestId('reports-tabs'))
+      .getAllByRole('tab')
+      .map((tab) => tab.textContent.replace(/\s*\d+$/, ''));
+    expect(tabs).toEqual([
+      'All',
+      'Incidents',
+      'Service requests',
+      'Problems',
+      'Changes',
+      'Releases',
+      'Assets',
+    ]);
+    expect(
+      within(screen.getByTestId('reports-group-changes')).getByText(
+        'Change reports arrive with the change module.',
+      ),
+    ).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/incidents_open_by_priority/);
     // No folder management without reports.manage_folders.
     expect(screen.queryByTestId('reports-new-folder')).toBeNull();
-    fireEvent.click(screen.getByTestId('reports-star-builtin:incidents_open_by_priority'));
+    fireEvent.click(screen.getByTestId('reports-item-builtin:incidents_open_by_priority-star'));
     await waitFor(() => {
       expect(
         fake.find('PUT', '/api/v1/reports/favourites/builtin%3Aincidents_open_by_priority'),
