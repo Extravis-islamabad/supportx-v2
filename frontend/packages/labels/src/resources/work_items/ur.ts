@@ -1496,6 +1496,7 @@ export const ur: LabelResource = {
   'work_item.field.priority_reason': 'ترجیح ہاتھ سے مقرر کرنے کی وجہ',
   'work_item.field.priority_source': 'ترجیح کا ذریعہ',
   'work_item.field.problem_type': 'مسئلے کی قسم',
+  'work_item.field.reapproval_restarted': 'دوبارہ منظوری کے لیے واپس بھیجا گیا، وجہ',
   'work_item.field.reassignment_count': 'دوبارہ تفویض کی تعداد',
   'work_item.field.release_engineer_id': 'ریلیز انجینئر',
   'work_item.field.release_manager_id': 'ریلیز مینیجر',

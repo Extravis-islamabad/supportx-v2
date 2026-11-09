@@ -1954,6 +1954,23 @@ class StagePanelOut(BaseModel):
         )
 
 
+async def _audit_reapproval(
+    session: AsyncSession, request: Request, wtype: WorkItemType, record_id: uuid.UUID
+) -> None:
+    """A change sent back for approval by this save is audited (REQ-CHG-053, Haider)."""
+    if wtype.code is not WorkItemTypeCode.CHANGE:
+        return
+    for entry in await reapproval_service.sent_back_in_this_save(session, record_id):
+        await record_audit(
+            session,
+            action_code="change.sent_back_for_approval",
+            facts=RequestFacts.of(request),
+            object_type="change",
+            object_id=record_id,
+            details={"stage": entry.stage, "entry_id": str(entry.id)},
+        )
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -2469,6 +2486,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 reason=body.reason,
                 source=source_of(request),
             )
+            await _audit_reapproval(session, request, wtype, record_id)
             set_etag(response, row.version)
             return StageScheduleOut(
                 stage=stage,
@@ -2667,6 +2685,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 source=source_of(request),
                 convert_to_normal=body.convert_to_normal is True,
             )
+            await _audit_reapproval(session, request, wtype, record_id)
             set_etag(response, row.version)
             return PlanSectionOut(
                 section=section,
@@ -2933,6 +2952,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 expected_version=version,
                 source=source_of(request),
             )
+            await _audit_reapproval(session, request, wtype, record_id)
             set_etag(response, view.record.version)
             return ChangeDetailsOut.of(view)
 
@@ -2958,6 +2978,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 values=body.model_dump(include=body.model_fields_set),
                 source=source_of(request),
             )
+            await _audit_reapproval(session, request, wtype, record_id)
             set_etag(response, view.record.version)
             return ChangeDetailsOut.of(view)
 

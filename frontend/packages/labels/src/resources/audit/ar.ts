@@ -61,6 +61,7 @@ export const ar: LabelResource = {
   'audit.action.change.reply_template_created': 'أضاف قالب رد',
   'audit.action.change.reply_template_deleted': 'أزال قالب رد',
   'audit.action.change.restored': 'استعاد تغيير من سلة المحذوفات',
+  'audit.action.change.sent_back_for_approval': 'أعاد تغييرًا للموافقة',
   'audit.action.change.settings_changed': 'غيّر إعدادات التغييرات',
   'audit.action.change.template_changed': 'غيّر قالب تغييرات',
   'audit.action.change.template_created': 'أضاف قالب تغييرات',

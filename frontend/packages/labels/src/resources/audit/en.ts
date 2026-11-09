@@ -59,6 +59,7 @@ export const en = {
   'audit.action.change.reply_template_created': 'Added a reply template',
   'audit.action.change.reply_template_deleted': 'Removed a reply template',
   'audit.action.change.restored': 'Restored a change from the trash',
+  'audit.action.change.sent_back_for_approval': 'Sent a change back for approval',
   'audit.action.change.settings_changed': 'Changed change settings',
   'audit.action.change.template_changed': 'Changed a change template',
   'audit.action.change.template_created': 'Added a change template',

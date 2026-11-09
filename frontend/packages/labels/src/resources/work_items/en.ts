@@ -1492,6 +1492,7 @@ export const en = {
   'work_item.field.priority_reason': 'Reason for setting the priority by hand',
   'work_item.field.priority_source': 'Priority set',
   'work_item.field.problem_type': 'Problem type',
+  'work_item.field.reapproval_restarted': 'Sent back for approval again because of',
   'work_item.field.reassignment_count': 'Times reassigned',
   'work_item.field.release_engineer_id': 'Release engineer',
   'work_item.field.release_manager_id': 'Release manager',

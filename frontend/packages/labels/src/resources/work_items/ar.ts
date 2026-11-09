@@ -1612,6 +1612,7 @@ export const ar: LabelResource = {
   'work_item.field.priority_reason': 'سبب تحديد الأولوية يدويًا',
   'work_item.field.priority_source': 'مصدر الأولوية',
   'work_item.field.problem_type': 'نوع المشكلة',
+  'work_item.field.reapproval_restarted': 'أُعيد للموافقة مجددًا بسبب',
   'work_item.field.reassignment_count': 'مرات إعادة الإسناد',
   'work_item.field.release_engineer_id': 'مهندس الإصدار',
   'work_item.field.release_manager_id': 'مدير الإصدار',

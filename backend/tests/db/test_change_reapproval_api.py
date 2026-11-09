@@ -105,3 +105,43 @@ async def test_snapshots_are_isolated_by_rls(world: World) -> None:
                 ),
                 {"i": uuid.uuid4(), "t": a.tenant, "w": item_id},
             )
+
+
+async def test_req_chg_053_ac2_a_raised_risk_sends_the_change_back_for_approval(
+    world: World,
+) -> None:
+    """Haider: the change goes back to the stage's raising status and its approval reopens."""
+    a = world.a
+    item = await accepted(world, a)
+    assert item["stage"] == "planning"
+    raised = await details(
+        world, a, item, item["version"], risk_chosen="high", risk_reason="Core switch"
+    )
+    assert raised.status_code == 200, raised.text
+    after = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert (after["stage"], after["status"]) == ("submission", "submission_awaiting_acceptance")
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    assert sorted(r["state"] for r in rows) == ["approved", "pending"]  # the earlier one kept
+    history = (await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)).json()
+    fields = {c["field"] for entry in history["items"] for c in entry["changes"]}
+    assert "reapproval_restarted" in fields
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        audited = await session.scalar(
+            text(
+                "SELECT details->>'stage' FROM audit_entries "
+                "WHERE action = 'change.sent_back_for_approval' AND object_id = :r"
+            ),
+            {"r": item["id"]},
+        )
+    assert audited == "submission"
+    # A lowered risk afterwards only notifies: nothing moves.
+    current = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    lowered = await details(
+        world, a, current, current["version"], risk_chosen="medium", risk_reason="Rechecked"
+    )
+    assert lowered.status_code == 200, lowered.text
+    again = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert again["status"] == "submission_awaiting_acceptance"
+    entries = (await world.call("GET", f"{CHG}/{item['id']}/stages", a, a.admin)).json()
+    [submission] = [s for s in entries["rail"] if s["stage"] == "submission"]
+    assert len(submission["entries"]) == 2  # sent back once, not again while it waits

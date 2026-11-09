@@ -61,6 +61,7 @@ export const ur: LabelResource = {
   'audit.action.change.reply_template_created': 'جواب کا سانچہ شامل کیا',
   'audit.action.change.reply_template_deleted': 'جواب کا سانچہ ہٹایا',
   'audit.action.change.restored': 'تبدیلی ردی کی ٹوکری سے بحال کیا',
+  'audit.action.change.sent_back_for_approval': 'تبدیلی کو منظوری کے لیے واپس بھیجا',
   'audit.action.change.settings_changed': 'تبدیلیوں کی ترتیبات تبدیل کیں',
   'audit.action.change.template_changed': 'تبدیلی کا سانچہ بدلا',
   'audit.action.change.template_created': 'تبدیلی کا سانچہ شامل کیا',

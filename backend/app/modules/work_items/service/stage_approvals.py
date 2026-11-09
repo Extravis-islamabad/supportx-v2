@@ -363,6 +363,17 @@ async def after_decision(
     await items.system_stage_move(session, wtype, record, target=target, source=source)
 
 
+async def open_if_raised(session: AsyncSession, wtype: WorkItemType, record: WorkItem) -> None:
+    """At its stage's raising status, a record's level 1 opens (once: not while it is open)."""
+    settings = await settings_of(session, wtype, record, record.stage)
+    if settings is None or record.status != settings.raised_by:
+        return
+    stage = str(record.stage)
+    if any(r.state == rules.ApprovalState.PENDING for r in await _rows(session, record, stage)):
+        return
+    await open_level(session, record, settings, stage=stage, index=0)
+
+
 class StagedApprovalGuard:
     """The engine's hooks for approvals (ADR-041 §5); registered for releases."""
 
@@ -405,13 +416,7 @@ class StagedApprovalGuard:
 
     async def on_moved(self, session: AsyncSession, record: WorkItem, move: Move) -> None:
         """Reaching the raising status opens level 1 (once: not while it is open)."""
-        settings = await settings_of(session, self.wtype, record, record.stage)
-        if settings is None or record.status != settings.raised_by:
-            return
-        stage = str(record.stage)
-        if any(r.state == rules.ApprovalState.PENDING for r in await _rows(session, record, stage)):
-            return
-        await open_level(session, record, settings, stage=stage, index=0)
+        await open_if_raised(session, self.wtype, record)
         del move
 
 

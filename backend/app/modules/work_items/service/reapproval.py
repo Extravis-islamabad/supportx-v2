@@ -9,8 +9,9 @@ board's members comes with the change notifications (WP-056).
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import Subject
@@ -23,10 +24,13 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemChangeDetails,
     WorkItemPlanSection,
+    WorkItemStageEntry,
     WorkItemStageSchedule,
 )
-from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import catalogue, stage_approvals
+from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service import work_items as items
+from app.shared.history import Change, Source
 from app.shared.ids import new_id
 
 CHANGE = TYPES[WorkItemTypeCode.CHANGE]
@@ -116,3 +120,77 @@ async def changes_since(
 async def to_restart(session: AsyncSession, record: WorkItem) -> list[StageChanges]:
     """The approved stages whose approval a save's changes restart (AC1, AC2)."""
     return [s for s in await _compare(session, record) if rules.restarts(list(s.changes))]
+
+
+REASON = "reapproval"  # the stage entry's reason code (labels: stage_entry_reason.*)
+
+
+async def after_save(session: AsyncSession, record: WorkItem, *, source: Source) -> WorkItem:
+    """After a save of the window, the risk or a plan: restart what the policy says (AC1, AC2).
+
+    The earliest approved stage that needs approval again takes the change back to its raising
+    status by a system move (Haider, 2026-11-10), its level 1 opens as a new round, and the
+    history names every field that caused it. Later stages' approvals go with it (the guard
+    closes them on entering), since the change passes them again.
+    """
+    if record.type != WorkItemTypeCode.CHANGE:
+        return record
+    due = await to_restart(session, record)
+    if not due:
+        return record
+    model = await stage_service.load_model(session, CHANGE, record.lifecycle_version)
+    order = list(model.path(str(record.stage_path)).stages)
+    first = min(due, key=lambda s: order.index(s.stage) if s.stage in order else len(order))
+    settings = await stage_approvals.settings_of(session, CHANGE, record, first.stage)
+    if settings is None:  # the stage needs no approval any more: nothing to restart
+        return record
+    if record.stage == first.stage and record.status == settings.raised_by:
+        return record  # already waiting for that approval again: one round, not another
+    now = datetime.now(UTC)
+    before = items.snapshot_of(record, (*items.STAMP_FIELDS, "stage", "stage_path"))
+    from_stage = str(record.stage)
+    columns = await stage_service.send_back(
+        session,
+        CHANGE,
+        record,
+        stage=first.stage,
+        status=settings.raised_by,
+        now=now,
+        reason_code=REASON,
+    )
+    updated = await items.save_system_entry(
+        session,
+        record,
+        columns,
+        now=now,
+        before=before,
+        from_stage=from_stage,
+        extra=[
+            Change(
+                "reapproval_restarted",
+                None,
+                [c.field for c in first.changes if c.effect is rules.OnChange.RESTART],
+            )
+        ],
+        source=source,
+    )
+    await stage_approvals.open_if_raised(session, CHANGE, updated)
+    return updated
+
+
+async def sent_back_in_this_save(
+    session: AsyncSession, record_id: uuid.UUID
+) -> list[WorkItemStageEntry]:
+    """The stage entries this transaction made to re-approve (for the audit).
+
+    `created_at` defaults to now(), the transaction's start, so equal means "this save".
+    """
+    return list(
+        await session.scalars(
+            select(WorkItemStageEntry).where(
+                WorkItemStageEntry.work_item_id == record_id,
+                WorkItemStageEntry.reason_code == REASON,
+                WorkItemStageEntry.created_at == func.now(),
+            )
+        )
+    )
