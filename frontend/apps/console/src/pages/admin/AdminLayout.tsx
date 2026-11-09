@@ -12,7 +12,7 @@ import {
   usePageCrumbs,
 } from '@supportx/ui';
 
-import { pagesFor, SETUP_GROUPS, SETUP_PAGES, type SetupPage } from './setupMap';
+import { opens, pagesFor, SETUP_GROUPS, SETUP_PAGES, type SetupPage } from './setupMap';
 
 type Token = ReturnType<typeof theme.useToken>['token'];
 
@@ -164,12 +164,14 @@ export function AdminLayout() {
       : [{ label: t('setup.title'), path: '/admin' }, { label: t(page.labelKey) }],
   );
 
-  if (pages.length === 0) return <NoAccess titleKey="nav.admin" />;
-  // A setup page this person may not open says so here, by the same rule as the menu, instead
-  // of rendering and failing on the server's 403 (coverage 2026-11-09 §17 item 2). Pages may
-  // still check finer rights of their own.
+  // A setup page this person may not open says so here instead of rendering and failing on the
+  // server's 403 (coverage 2026-11-09 §17 item 2). A view right opens some pages read-only
+  // without listing them (option b): those render, and say read-only themselves.
   const known = SETUP_PAGES.find((candidate) => candidate.key === active);
-  const refused = known !== undefined && page === undefined;
+  const refused = known !== undefined && !opens(known, can);
+  if (pages.length === 0 && (known === undefined || refused)) {
+    return <NoAccess titleKey={known?.labelKey ?? 'nav.admin'} />;
+  }
 
   const menu = (
     <SetupMenu

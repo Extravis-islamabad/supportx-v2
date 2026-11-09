@@ -24,17 +24,60 @@ export interface SetupPage {
   /** `nav.admin_<labelKey>`: the page name. */
   labelKey: LabelKey;
   permission: string;
-  /** A second permission that also opens the page. */
-  also?: string;
+  /** Other permissions that also open the page. */
+  also?: string | readonly string[];
+  /**
+   * The rights that list the page in the setup menu (and so show Admin), when they differ from
+   * the ones that open it: a view right opens some pages read-only (REQ-INT-013, the SLA
+   * calendars) but lists none of them; Admin is for a manage or configure right (coordinator,
+   * 2026-11-09, option b).
+   */
+  listedBy?: readonly string[];
+}
+
+// The connector categories (backend app/shared/connectors/ports.py ConnectorCategory).
+const INTEGRATION_CATEGORIES = [
+  'identity',
+  'email',
+  'collaboration',
+  'monitoring',
+  'devops',
+  'endpoint',
+  'telephony',
+  'automation',
+  'analytics',
+  'knowledge',
+  'ai',
+] as const;
+
+/** The rights that list a page in the menu. */
+function listing(page: SetupPage): readonly string[] {
+  return page.listedBy ?? opening(page);
+}
+
+/** The rights that open a page (read-only for a view right). */
+function opening(page: SetupPage): string[] {
+  const also =
+    page.also === undefined ? [] : typeof page.also === 'string' ? [page.also] : page.also;
+  return [page.permission, ...also];
 }
 
 export const SETUP_PAGES: readonly SetupPage[] = [
-  { key: 'users', group: 'people_access', labelKey: 'nav.admin_users', permission: 'users.view' },
+  // View rights (users.view, sites.view, sla.view, integrations.view) open their pages read-only
+  // by URL or an in-context link, but only a manage or configure right lists them (listedBy).
+  {
+    key: 'users',
+    group: 'people_access',
+    labelKey: 'nav.admin_users',
+    permission: 'users.view',
+    listedBy: ['users.manage'],
+  },
   {
     key: 'organization',
     group: 'people_access',
     labelKey: 'nav.admin_organization',
     permission: 'sites.view',
+    listedBy: ['sites.manage', 'groups.manage', 'departments.manage'],
   },
   { key: 'roles', group: 'people_access', labelKey: 'nav.admin_roles', permission: 'roles.view' },
   {
@@ -94,7 +137,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     permission: 'automation.view',
   },
   { key: 'ai', group: 'automation_sla', labelKey: 'nav.admin_ai', permission: 'ai.manage' },
-  { key: 'sla', group: 'automation_sla', labelKey: 'nav.admin_sla', permission: 'sla.view' },
+  {
+    key: 'sla',
+    group: 'automation_sla',
+    labelKey: 'nav.admin_sla',
+    permission: 'sla.view',
+    listedBy: ['sla.manage'],
+  },
   {
     key: 'mail',
     group: 'channels',
@@ -112,6 +161,8 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     group: 'channels',
     labelKey: 'nav.admin_integrations',
     permission: 'integrations.view',
+    // Each connector category's own set-up right lists it (REQ-INT-013).
+    listedBy: INTEGRATION_CATEGORIES.map((category) => `integrations.manage_${category}`),
   },
   {
     key: 'branding',
@@ -135,15 +186,16 @@ export const SETUP_PAGES: readonly SetupPage[] = [
  * Every permission that opens a setup page: the sidebar shows Admin to anyone holding one of
  * them, so the Admin link and the setup menu always agree (coverage 2026-11-09 §17 item 1).
  */
-export const SETUP_PERMISSIONS: readonly string[] = [
-  ...new Set(SETUP_PAGES.flatMap((page) => [page.permission, ...(page.also ? [page.also] : [])])),
-];
+export const SETUP_PERMISSIONS: readonly string[] = [...new Set(SETUP_PAGES.flatMap(listing))];
 
-/** Pages this person may open, in map order. */
+/** Pages listed for this person (the menu, setup home, search), in map order. */
 export function pagesFor(can: (permission: string) => boolean): SetupPage[] {
-  return SETUP_PAGES.filter(
-    (page) => can(page.permission) || (page.also !== undefined && can(page.also)),
-  );
+  return SETUP_PAGES.filter((page) => listing(page).some(can));
+}
+
+/** Whether this person may open the page at all (read-only included): the setup gate's rule. */
+export function opens(page: SetupPage, can: (permission: string) => boolean): boolean {
+  return opening(page).some(can);
 }
 
 /** Letters only, case and Arabic marks folded, so "Sign-in" finds "signin" and أ finds ا. */
