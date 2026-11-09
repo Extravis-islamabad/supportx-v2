@@ -84,7 +84,11 @@ class ValkeyKeyValue:
     async def hset(self, key: str, field: str, value: bytes, *, px: int) -> None:  # noqa: D102
         async with self._client.pipeline(transaction=True) as pipe:
             pipe.hset(key, field, value)  # type: ignore[arg-type]  # valkey-py's stubs say str; bytes are stored as is
-            pipe.pexpire(key, px)  # as long as the person's newest session
+            # As long as the person's longest-lived session: a shorter one's save never cuts the
+            # list's life (lane C's #249 review). NX sets it on a new index; GT only lengthens it
+            # (a key without a TTL counts as infinite for GT, so GT alone would never set one).
+            pipe.pexpire(key, px, nx=True)
+            pipe.pexpire(key, px, gt=True)
             await pipe.execute()
 
     async def hgetall(self, key: str) -> dict[str, bytes]:  # noqa: D102
