@@ -819,6 +819,7 @@ export const ar: LabelResource = {
   'incidents.title': 'الحوادث',
   'incidents.trash': 'سلة المحذوفات',
   'incidents.trash_empty': 'سلة المحذوفات فارغة.',
+  'incidents.type_two_letters': 'اكتب حرفين على الأقل',
   'incidents.unassigned': 'لم يتولّها أحد بعد',
   'incidents.unknown_value': 'قيمة غير معروفة',
   'incidents.view': 'العرض',

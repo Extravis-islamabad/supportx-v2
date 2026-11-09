@@ -752,6 +752,7 @@ export const ur: LabelResource = {
   'incidents.title': 'واقعات',
   'incidents.trash': 'ردی کی ٹوکری',
   'incidents.trash_empty': 'ردی کی ٹوکری خالی ہے۔',
+  'incidents.type_two_letters': 'کم از کم 2 حروف لکھیں',
   'incidents.unassigned': 'ابھی کسی نے نہیں لیا',
   'incidents.unknown_value': 'نامعلوم قدر',
   'incidents.view': 'منظر',
