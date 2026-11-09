@@ -32,11 +32,26 @@ function useFragmentToken(): string | undefined {
     return found === '' ? undefined : found;
   });
   useEffect(() => {
+    // No referrer leaves this page (lane B's review), before its first request; the token is in
+    // the fragment, which a referrer never carries anyway.
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="referrer"]');
+    if (meta === null) {
+      meta = document.createElement('meta');
+      meta.name = 'referrer';
+      document.head.appendChild(meta);
+    }
+    meta.content = 'no-referrer';
     if (window.location.hash !== '') {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   }, []);
   return token;
+}
+
+/** The link's `?t=`: the tenant's slug where the address names none (never a secret). */
+function linkTenant(): string | null {
+  const slug = new URLSearchParams(window.location.search).get('t');
+  return slug === '' ? null : slug; // an empty ?t= is none
 }
 
 function text(value: unknown): string {
@@ -57,7 +72,8 @@ function refusalText(t: ReturnType<typeof useLabel>, error: unknown): string {
 export function PublicApprovalPage() {
   const t = useLabel();
   const token = useFragmentToken();
-  const peek = usePublicPeekActionLink(token);
+  const [tenant] = useState(linkTenant);
+  const peek = usePublicPeekActionLink(token, tenant);
   const act = usePublicActionLink();
   const [comment, setComment] = useState('');
   const [isPrivate, setPrivate] = useState(false);
@@ -101,7 +117,11 @@ export function PublicApprovalPage() {
     const reasonMissing = comment.trim() === '';
     const send = (decision: 'approve' | 'reject') => {
       act.mutate(
-        { token, body: { decision, comment: comment.trim() || null, private: isPrivate } },
+        {
+          token,
+          tenant,
+          body: { decision, comment: comment.trim() || null, private: isPrivate },
+        },
         {
           onSuccess: () => {
             setDone(decision);

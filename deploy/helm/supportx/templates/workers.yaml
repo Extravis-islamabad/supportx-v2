@@ -6,8 +6,10 @@
   (dict "component" "indexes" "module" "workers.custom_field_indexes" "replicas" 1 "resources" .Values.indexWorker.resources)
 -}}
 {{- /* The SLA clocks' Temporal worker (WP-025, ADR-037), only where Temporal is set up. */ -}}
-{{- if .Values.temporal.address }}
+{{- if include "supportx.temporalAddress" . }}
 {{- $workers = append $workers (dict "component" "sla-timers" "module" "workers.sla_timers" "replicas" .Values.slaTimers.replicas "resources" .Values.slaTimers.resources) }}
+{{- /* Workflow timers (WP-048b, ADR-043): the same rule; without Temporal the sweep wakes them. */ -}}
+{{- $workers = append $workers (dict "component" "workflow-timers" "module" "workers.workflow_timers" "replicas" .Values.workflowTimers.replicas "resources" .Values.workflowTimers.resources) }}
 {{- end }}
 {{- range $w := $workers }}
 {{- $c := dict "root" $ "component" $w.component }}

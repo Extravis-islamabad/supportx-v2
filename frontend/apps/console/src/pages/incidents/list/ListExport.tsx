@@ -29,6 +29,7 @@ export function ListExport({
   filter,
   columns,
   sort,
+  myExports = true,
 }: {
   title: string;
   /** null: the active view cannot be exported. */
@@ -37,6 +38,8 @@ export function ListExport({
   columns: string[];
   /** The list's sort, e.g. "-updated_at". */
   sort: string;
+  /** "My exports" beside the button; false where the header's "More" menu offers it. */
+  myExports?: boolean;
 }) {
   const t = useLabel();
   const { can } = useAccess();
@@ -70,7 +73,7 @@ export function ListExport({
           </Button>
         </span>
       </Tooltip>
-      {can('reports.export') && <MyExportsButton />}
+      {myExports && can('reports.export') && <MyExportsButton />}
       <Modal
         open={open}
         title={t('incidents.export.title')}

@@ -213,7 +213,7 @@ test('an approver approves from the e-mailed link without signing in (D-132)', a
 
     // The e-mail carries this approver's own link: the token only after '#'.
     const mail = await mailTo(USERS.limited.email, sentAt);
-    const link = /(https?:\/\/[^"\s<]*)\/(approve#[A-Za-z0-9_-]{43})/.exec(mail.html);
+    const link = /(https?:\/\/[^"\s<]*)\/(approve\?t=[a-z0-9-]+#[A-Za-z0-9_-]{43})/.exec(mail.html);
     expect(link, 'the e-mail has the approval link').not.toBeNull();
     // Deployed, the portal is served on the tenant's origin under /portal/, which is where the
     // link points; the dev stack serves the portal on a port of its own (lane B fixes
