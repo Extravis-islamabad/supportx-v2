@@ -90,6 +90,7 @@ export const ar: LabelResource = {
   'catalog.answer.files_other': '{{count}} ملف',
   'catalog.answer.files_two': 'ملفان',
   'catalog.answer.files_zero': 'لا ملفات',
+  'catalog.answer.not_given': 'لم يُقدَّم',
   'catalog.answer.someone': 'شخص ما',
   'catalog.form.choose': 'اختر',
   'catalog.form.files_later': 'يمكن إضافة الملفات بعد إرسال الطلب.',

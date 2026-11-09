@@ -85,6 +85,7 @@ export const en = {
   'bulk_status.running': 'Running',
   'catalog.answer.files_one': '1 file',
   'catalog.answer.files_other': '{{count}} files',
+  'catalog.answer.not_given': 'Not given',
   'catalog.answer.someone': 'Someone',
   'catalog.form.choose': 'Choose',
   'catalog.form.files_later': 'Files can be added after the request is raised.',

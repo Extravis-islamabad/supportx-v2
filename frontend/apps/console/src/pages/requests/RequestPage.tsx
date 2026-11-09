@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Descriptions, Result, Skeleton, Space } from 'antd';
+import { Descriptions, Result, Skeleton, Space, Typography } from 'antd';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import {
@@ -119,7 +119,9 @@ export function RequestPage() {
       >
         {questions.map((q) => (
           <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
-            {answerWords(q, r.answers?.[q.key])}
+            {answerWords(q, r.answers?.[q.key]) || (
+              <Typography.Text type="secondary">{t('catalog.answer.not_given')}</Typography.Text>
+            )}
           </Descriptions.Item>
         ))}
       </Descriptions>

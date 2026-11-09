@@ -89,6 +89,7 @@ export const ur: LabelResource = {
   'bulk_status.running': 'جاری',
   'catalog.answer.files_one': '1 فائل',
   'catalog.answer.files_other': '{{count}} فائلیں',
+  'catalog.answer.not_given': 'نہیں دیا گیا',
   'catalog.answer.someone': 'کوئی فرد',
   'catalog.form.choose': 'منتخب کریں',
   'catalog.form.files_later': 'درخواست بھیجنے کے بعد فائلیں شامل کی جا سکتی ہیں۔',
