@@ -8,6 +8,8 @@ with `audited(...)` (an architecture test fails otherwise).
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.modules.audit.domain.lifecycle import RECORD_TYPES
+
 
 class AuditCategory(StrEnum):
     """Groups of actions, used in filters and for the read-logging switches."""
@@ -367,6 +369,12 @@ ACTIONS: dict[str, Action] = _actions(
     ("read.secrets", AuditCategory.READS, "integrations"),
     ("read.exports", AuditCategory.READS, "audit"),
 )
+
+# A save's lifecycle events (WP-064, domain/lifecycle.py): every code the event table can produce
+# is a records action of the table's module. Codes written by hand above keep their entries.
+for _spec in RECORD_TYPES.values():
+    for _code in sorted(_spec.events()):
+        ACTIONS.setdefault(_code, Action(_code, AuditCategory.RECORDS, _spec.module))
 
 
 def action(code: str) -> Action:

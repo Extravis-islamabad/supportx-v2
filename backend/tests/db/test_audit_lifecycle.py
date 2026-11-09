@@ -163,3 +163,60 @@ async def test_other_record_types_get_no_lifecycle_entry(world: World) -> None:
         a.tenant,
     )
     assert after[0]["n"] == before[0]["n"]
+
+
+async def _incident_entries(world: World, org: Org, item_id: str) -> list[Any]:
+    return await world.sql(
+        "SELECT action, events FROM audit_entries WHERE tenant_id = $1"
+        " AND object_type = 'incident' AND object_id = $2 AND events IS NOT NULL"
+        " ORDER BY occurred_at, id",
+        org.tenant,
+        item_id,
+    )
+
+
+async def test_an_incident_resolve_lists_resolved_by_category_and_history_stays_clean(
+    world: World,
+) -> None:
+    """Lane A's guard: status_category reaches the audit entry only, never record history."""
+    a = world.a
+    item = await world.create(a, a.admin)
+    resolved = await world.act(a, a.admin, item, "resolve")
+    assert resolved.status_code == 200, resolved.text
+    events = [list(e["events"]) for e in await _incident_entries(world, a, item["id"])]
+    assert events[0][:1] == ["incident.created"]
+    assert any("incident.resolved" in e and "incident.status_changed" in e for e in events[1:])
+    page = await world.call("GET", f"/incidents/{item['id']}/history", a, a.admin)
+    assert page.status_code == 200, page.text
+    fields = {c["field"] for e in page.json()["items"] for c in e["changes"]}
+    assert "status_category" not in fields
+    stored = await world.sql(
+        "SELECT count(*) AS n FROM field_changes"
+        " WHERE tenant_id = $1 AND field = 'status_category'",
+        a.tenant,
+    )
+    assert stored[0]["n"] == 0
+
+
+async def test_an_incident_delete_and_restore_are_one_entry_each(world: World) -> None:
+    a = world.a
+    item = await world.create(a, a.admin)
+    gone = await world.call(
+        "DELETE", f"/incidents/{item['id']}", a, a.admin, headers=_match(item["version"])
+    )
+    assert gone.status_code in {200, 204}, gone.text
+    back = await world.call(
+        "POST",
+        f"/incidents/{item['id']}/restore",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{item["version"] + 1}"'},
+    )
+    assert back.status_code == 200, back.text
+    actions = await world.sql(
+        "SELECT action FROM audit_entries WHERE tenant_id = $1 AND object_id = $2"
+        " AND action IN ('incident.deleted', 'incident.restored') ORDER BY occurred_at",
+        a.tenant,
+        item["id"],
+    )
+    assert [r["action"] for r in actions] == ["incident.deleted", "incident.restored"]

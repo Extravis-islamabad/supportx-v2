@@ -19,7 +19,7 @@ outside the hash in `audit_personal`, committed to by salted hashes (domain/inte
 import os
 import uuid
 from collections.abc import AsyncIterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -244,7 +244,7 @@ async def _write_save(
     """One save's one entry: all its lifecycle events, the first being the action."""
     spec = RECORD_TYPES[saved.subtype or saved.record_type]
     diffs = [FieldDiff(c.field, c.old, c.new) for c in saved.changes]
-    events = events_of(spec, saved.kind, diffs, route)
+    events = events_of(spec, saved.kind, diffs, route, saved.source)
     details: dict[str, Any] = dict(note.details) if note is not None else {}
     details.update(
         {"record_version": saved.version, "source": saved.source},
@@ -262,6 +262,34 @@ async def _write_save(
         change_id=saved.change_id,
         events=events,
     )
+
+
+# The kind that names a merged save, most telling first (a create beats an edit).
+_KIND_ORDER = ("created", "deleted", "restored", "status")
+
+
+def merge_saves(saves: Sequence[SavedRecord]) -> list[SavedRecord]:
+    """A request's saves, one per record, in first-save order (one user action, one entry).
+
+    Changes are joined; the last save's change ID and version, the most telling kind (D-150).
+    """
+    groups: dict[tuple[str, str | None, uuid.UUID], list[SavedRecord]] = {}
+    for saved in saves:
+        groups.setdefault((saved.record_type, saved.subtype, saved.record_id), []).append(saved)
+    found: list[SavedRecord] = []
+    for group in groups.values():
+        last = group[-1]
+        kinds = [s.kind for s in group]
+        kind = next((k for k in _KIND_ORDER if k in kinds), kinds[0])
+        found.append(
+            replace(
+                last,
+                kind=kind,
+                changes=tuple(c for s in group for c in s.changes),
+                reason=next((s.reason for s in group if s.reason), None),
+            )
+        )
+    return found
 
 
 class LifecycleSink:
@@ -314,11 +342,22 @@ def audited(
         saves: list[SavedRecord] = session.info.pop(PENDING_SAVES_KEY, [])
         session.info.pop(ROUTE_ACTION_KEY, None)
         if saves:
-            # The route's saves each get their one entry, led by the route's action, with its
-            # details and reason; the route writes no second entry (WP-064, ADR-045).
+            # One entry per record the route saved (its saves merged), led by the route's action
+            # for the route's own record, with the route's details and reason; the route writes
+            # no second entry (WP-064, ADR-045).
             facts = RequestFacts.of(request)
-            for saved in saves:
-                await _write_save(session, saved, facts=facts, route=action_code, note=note)
+            merged = merge_saves(saves)
+            lead = next(
+                (i for i, m in enumerate(merged) if str(m.record_id) == str(note.object_id)), 0
+            )
+            for index, saved in enumerate(merged):
+                await _write_save(
+                    session,
+                    saved,
+                    facts=facts,
+                    route=action_code if index == lead else None,
+                    note=note if index == lead else None,
+                )
             return
         if note.skip:
             return

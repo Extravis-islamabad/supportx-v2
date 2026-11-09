@@ -261,6 +261,24 @@ def register_subtype_resolver(record_type: str, resolver: SubtypeResolver | None
         _subtype_resolvers[record_type] = resolver
 
 
+# Facts a save's diff implies that history does not store, for the audit sink only (WP-064): a
+# status code's category, so the audit log can tell a resolve from a stage move. Pure, no I/O.
+ChangeAnnotator = Callable[[str | None, tuple[Change, ...]], tuple[Change, ...]]
+_annotators: dict[str, ChangeAnnotator] = {}
+
+
+def register_change_annotator(record_type: str, annotator: ChangeAnnotator | None) -> None:
+    """Set (None: clear) the extra changes the audit sink sees for saves of `record_type`.
+
+    They are added after the history rows are written and reach only the sink's copy: never
+    field_changes, the history API, realtime payloads or the outbox (lane A's guard).
+    """
+    if annotator is None:
+        _annotators.pop(record_type, None)
+    else:
+        _annotators[record_type] = annotator
+
+
 def audit_sink() -> AuditSink | None:
     """The registered audit sink, if any (tests check the app and workers have one)."""
     return _audit_sink
@@ -347,6 +365,8 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     if sink is not None and subtype is None and record_type in _subtype_resolvers:
         subtype = await _subtype_resolvers[record_type](session, record_id)
     if sink is not None and sink.handles(record_type, subtype):
+        annotate = _annotators.get(record_type)
+        seen = changes + annotate(subtype, changes) if annotate is not None else changes
         await sink.saved(
             session,
             SavedRecord(
@@ -355,7 +375,7 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
                 record_id=record_id,
                 version=version,
                 kind=kind,
-                changes=changes,
+                changes=seen,
                 source=source,
                 reason=reason,
                 change_id=change_id,
