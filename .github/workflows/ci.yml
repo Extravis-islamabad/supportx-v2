@@ -613,14 +613,14 @@ jobs:
       - name: Lint, render and validate every profile
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make chart-lint
-      # The chart's own guard tests (D-151: the dev-only quick sign-in never renders), which need
+      # The chart's own tests (tests/test_chart_*.py: D-151's guards, the mobile links), which need
       # the fetched dependencies above and so skip in the backend shards.
       - uses: ./.github/actions/setup-backend
         if: ${{ steps.changes.outputs.run == 'true' }}
       - name: Chart guard tests
         if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
-        run: uv run pytest tests/test_chart_dev_quick_sign_in.py --no-cov -p no:cacheprovider -q
+        run: uv run pytest tests/test_chart_*.py --no-cov -p no:cacheprovider -q
 
   pre-commit:
     name: pre-commit
