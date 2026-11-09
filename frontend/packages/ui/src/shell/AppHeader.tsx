@@ -255,11 +255,22 @@ export function AppHeader({
           disabled={switchingTenant}
           onChange={onSwitchTenant}
           options={session.tenants.map((tenant) => ({ value: tenant.id, label: tenant.name }))}
-          style={{ minWidth: 180 }}
-          labelRender={() => <span data-testid="tenant-name">{session.tenant.name}</span>}
+          style={{ minWidth: 140, maxWidth: 240 }}
+          popupMatchSelectWidth={false}
+          labelRender={() => (
+            <Typography.Text ellipsis={{ tooltip: session.tenant.name }} data-testid="tenant-name">
+              {session.tenant.name}
+            </Typography.Text>
+          )}
         />
       ) : (
-        <Typography.Text data-testid="tenant-name" type="secondary">
+        // One line, cut with an ellipsis and the full name on hover (D-147 global fix 2).
+        <Typography.Text
+          data-testid="tenant-name"
+          type="secondary"
+          ellipsis={{ tooltip: session.tenant.name }}
+          style={{ maxWidth: 240, whiteSpace: 'nowrap' }}
+        >
           {session.tenant.name}
         </Typography.Text>
       )}
