@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SESSION_TENANT_KEY
 from app.core.tenancy import TenantContext
 from app.modules.organization import default_desk_id
+from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain.classification import (
     DEFAULT_COLOURS,
     DEFAULT_MATRIX,
@@ -405,11 +406,15 @@ async def _seed_stage_moves(
 async def _seed_path_templates(
     session: AsyncSession, type_code: str, staged: StageModel, tenant: uuid.UUID
 ) -> None:
-    """One template per path (REQ-REL-011).
+    """One template per path (REQ-REL-011), or for changes one per change type (REQ-CHG-022).
 
     The standard one follows the default path; each other path gets a template of its own name
-    (releases: emergency, Appendix A).
+    (releases: emergency, Appendix A). Changes: Appendix A's five templates, each binding its
+    type (`defaults.change_type`) and that type's path; the default one is the normal change.
     """
+    if type_code == WorkItemTypeCode.CHANGE:
+        await _seed_change_templates(session, type_code, tenant)
+        return
     await session.execute(
         update(WorkItemTemplate)
         .where(WorkItemTemplate.type == type_code, WorkItemTemplate.code == STANDARD_TEMPLATE)
@@ -430,6 +435,36 @@ async def _seed_path_templates(
             )
             for p in staged.paths
             if p.code != DEFAULT_PATH
+        ]
+    )
+    await session.flush()
+
+
+async def _seed_change_templates(session: AsyncSession, type_code: str, tenant: uuid.UUID) -> None:
+    def bound(code: str) -> dict[str, Any]:
+        model = change_rules.model_of(code, None)
+        return {"defaults": {"change_type": code}, "stage_path": change_rules.path_of(code, model)}
+
+    default_type = change_rules.ChangeModel.NORMAL.value
+    await session.execute(
+        update(WorkItemTemplate)
+        .where(WorkItemTemplate.type == type_code, WorkItemTemplate.code == STANDARD_TEMPLATE)
+        .values(code=default_type, **bound(default_type))
+    )
+    desk = await default_desk_id(session)
+    session.add_all(
+        [
+            WorkItemTemplate(
+                tenant_id=tenant,
+                type=type_code,
+                code=code,
+                is_default=False,
+                desk_id=desk,
+                field_rules=rules_to_json(default_rules()),
+                **bound(code),
+            )
+            for code, _colour in change_rules.CHANGE_TYPES
+            if code != default_type
         ]
     )
     await session.flush()

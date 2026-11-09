@@ -68,9 +68,9 @@ def prepare(
         None,
     )
     model = rules.model_of(change_type, attributes)
-    # A template that binds a type keeps its own path (file 05 §3: the template binds the type);
-    # otherwise the type chosen decides it, so the default template serves every type.
-    bound = defaults.get("change_type") is not None and template.stage_path is not None
+    # A template binds a type and its path (file 05 §3, REQ-CHG-022); a type chosen on the form
+    # that differs from the template's takes its own path, so any template serves every type.
+    bound = defaults.get("change_type") == change_type and template.stage_path is not None
     path = template.stage_path if bound else rules.path_of(change_type, model)
     return NewChange({n: v for n, v in chosen.items() if v is not None}, model, path), []
 

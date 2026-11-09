@@ -167,7 +167,8 @@ async def test_req_chg_005_011_a_change_has_its_type_and_reason_from_its_own_lis
     item = await a_change(world, a)
     shown = await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)
     assert shown.status_code == 200, shown.text
-    assert (shown.json()["change_type"], shown.json()["change_reason"]) == (None, None)
+    # The default template binds the normal type (REQ-CHG-022); no reason yet.
+    assert (shown.json()["change_type"], shown.json()["change_reason"]) == ("normal", None)
     # A release's type is not a change's: the lists are their own.
     assert field_codes(
         await details(world, a, item, item["version"], change_type="maintenance")
@@ -184,7 +185,7 @@ async def test_req_chg_005_011_a_change_has_its_type_and_reason_from_its_own_lis
     assert same.json()["version"] == set_.json()["version"]
     history = await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)
     changes = {c["field"]: (c["old"], c["new"]) for c in history.json()["items"][0]["changes"]}
-    assert changes["change_type"] == (None, "minor")
+    assert changes["change_type"] == ("normal", "minor")
     # Releases have no change fields, and their own route is unchanged.
     release = await world.call(
         "POST",
@@ -286,3 +287,36 @@ async def test_a_change_s_fields_are_checked_and_only_changes_take_them(world: W
         headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
     )
     assert ("change_type", "not_allowed") in field_codes(incident)
+
+
+async def test_req_chg_022_five_templates_each_bind_their_type_and_path(world: World) -> None:
+    a = world.a
+    listed = await world.call("GET", f"{CHG}/templates", a, a.admin)
+    assert listed.status_code == 200, listed.text
+    seeded = {t["code"]: t for t in listed.json()}
+    assert set(seeded) == {"standard", "minor", "normal", "major", "emergency"}
+    assert [c for c, t in seeded.items() if t["is_default"]] == ["normal"]
+    assert {c: t["stage_path"] for c, t in seeded.items()} == {
+        "standard": "standard",
+        "minor": "minor",
+        "normal": "default",
+        "major": "major",
+        "emergency": "emergency",
+    }
+    # Raised from the standard template: its type, its path, approved at creation.
+    from_standard = await new_change(world, a, a.admin, template_id=seeded["standard"]["id"])
+    assert from_standard.status_code == 201, from_standard.text
+    assert (from_standard.json()["stage_path"], from_standard.json()["status"]) == (
+        "standard",
+        "implementation_scheduled",
+    )
+    # The default (normal) template with another type chosen: that type's path.
+    other = await new_change(world, a, a.admin, change_type="emergency")
+    assert other.json()["stage_path"] == "emergency"
+    plain = await new_change(world, a, a.admin)
+    assert (plain.json()["stage_path"], plain.json()["status"]) == (
+        "default",
+        "submission_submitted",
+    )
+    shown = (await world.call("GET", f"{CHG}/{plain.json()['id']}/details", a, a.admin)).json()
+    assert shown["change_type"] == "normal"  # the default template's type
