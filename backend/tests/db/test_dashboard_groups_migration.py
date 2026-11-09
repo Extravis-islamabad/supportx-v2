@@ -58,8 +58,8 @@ def test_the_downgrade_refuses_while_group_dashboards_exist(
     try:
         asyncio.run(_group_dashboard(database.admin_url))
         with pytest.raises(Exception, match="group dashboards"):
-            db_testing.downgrade(database.migrator_url, "0108")
+            db_testing.downgrade(database.migrator_url, "0121")
         asyncio.run(_clear(database.admin_url))
-        db_testing.downgrade(database.migrator_url, "0108")
+        db_testing.downgrade(database.migrator_url, "0121")
     finally:
         db_testing.destroy(db_config, database)

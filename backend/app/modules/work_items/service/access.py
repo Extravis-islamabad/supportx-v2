@@ -27,6 +27,7 @@ from sqlalchemy import ColumnElement, and_, false, or_, select
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import (
     PROBLEM_MANAGER,
+    RELEASE_MANAGER,
     REPORT_VIEWER,
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
@@ -285,8 +286,10 @@ def _type_defaults(
         return (*defaults, (PROBLEM_MANAGER, "all"))
     if wtype.code is WorkItemTypeCode.RELEASE:
         # Releases (WP-058a): technicians keep only identity's releases.view grant; the type
-        # adds no technician defaults, so nothing is widened (lane B review).
-        return ()
+        # adds no technician defaults, so nothing is widened (lane B review). The release
+        # manager (D-153) holds every release permission at "all" but delete: the trash stays
+        # with the service desk manager and admins, as for the other types (lane B's review).
+        return () if action == "delete" else ((RELEASE_MANAGER, "all"),)
     return defaults
 
 
@@ -355,8 +358,15 @@ PROBLEM_SPECS: tuple[PermissionSpec, ...] = (
 APPROVE = "approve"
 # Releases (WP-058a s5; lane B's review): a release sign-off is a change-control duty, so only the
 # admin roles hold it by default; an approver without it is routed to approve_any, never stuck.
+# The release manager signs off too (D-153); the stage approvals' segregation still keeps anyone
+# from approving a stage of a release they requested or own.
 RELEASE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
-    PermissionSpec("releases.approve", "release", ("all",), defaults=_role_defaults("approve")),
+    PermissionSpec(
+        "releases.approve",
+        "release",
+        ("all",),
+        defaults=(*_role_defaults("approve"), (RELEASE_MANAGER, "all")),
+    ),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (
