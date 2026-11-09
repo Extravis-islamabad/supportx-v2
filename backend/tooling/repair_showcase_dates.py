@@ -96,6 +96,8 @@ class Plan:
     skip: str | None = None
     # table -> how many rows move back
     rows: dict[str, int] = field(default_factory=dict)
+    # For the dry run: each column and history save, current -> restored (and its evidence).
+    details: list[str] = field(default_factory=list)
 
     def line(self) -> str:
         """One line of the dry-run output."""
@@ -105,6 +107,7 @@ class Plan:
         return (
             f"{self.display_id}: created_at {self.current} -> {self.restored}"
             f" (delta {self.delta}); rows: {rows}; evidence: {'; '.join(self.evidence)}"
+            + "".join(f"\n      {d}" for d in self.details)
         )
 
 
@@ -269,7 +272,7 @@ async def plan(session: AsyncSession, now: datetime) -> list[Plan]:
     return plans
 
 
-async def _judge(  # noqa: C901, PLR0913 - one check per kind of evidence, flat
+async def _judge(  # noqa: C901, PLR0912, PLR0913 - one check per kind of evidence, flat
     session: AsyncSession,
     item: Plan,
     *,
@@ -290,6 +293,7 @@ async def _judge(  # noqa: C901, PLR0913 - one check per kind of evidence, flat
         if value is None:
             continue
         back = value + delta
+        item.details.append(f"work_items.{column}: {value.isoformat()} -> {back.isoformat()}")
         if back > now + TOLERANCE or back < born - TOLERANCE:
             item.skip = f"{column} would be {back.isoformat()} (not moved with the record?)"
             return
@@ -328,6 +332,18 @@ async def _judge(  # noqa: C901, PLR0913 - one check per kind of evidence, flat
                 item.skip = f"a history row ({moved.id}) does not match its change_id time"
                 return
         item.rows[table] = len(found)
+        groups: dict[Any, list[Any]] = {}
+        for moved in found:
+            key = getattr(moved, "change_id", None) or moved.id
+            groups.setdefault(key, []).append(moved)
+        for key, members in groups.items():
+            first = members[0]
+            proof = id_created_at(key) if isinstance(key, uuid.UUID) else None
+            item.details.append(
+                f"{table} x{len(members)}: {first.at.isoformat()}"
+                f" -> {(first.at + delta).isoformat()}"
+                + ("" if proof is None else f" (id time {proof.isoformat()})")
+            )
     item.rows = {"work_items": 1, **item.rows}
     await _confirm(session, item, delta)
 
