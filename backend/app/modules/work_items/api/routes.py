@@ -1613,6 +1613,16 @@ class StageChangesOut(BaseModel):
         )
 
 
+class ReapprovalPreviewIn(BaseModel):
+    """What a person is about to save; leave out what stays."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+    risk: RiskLevel | None = None
+
+
 class ChangeApprovalBarredOut(BaseModel):
     """Someone the level would name who may not approve, and why."""
 
@@ -2902,6 +2912,25 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         ) -> list[StageChangesOut]:
             """Per approved stage, field by field, with what each change does (REQ-CHG-053)."""
             found = await reapproval_service.changes_since(session, subject, record_id)
+            return [StageChangesOut.of(s) for s in found]
+
+        @router.post(
+            "/{record_id}/approvals/reapproval-preview",
+            summary="Would this save send the change back for approval?",
+        )
+        async def reapproval_preview(
+            record_id: uuid.UUID, body: ReapprovalPreviewIn, session: TenantSession, subject: View
+        ) -> list[StageChangesOut]:
+            """The approved stages the proposed window or risk would send the change back to.
+
+            Empty: the save keeps every approval. Changes nothing (REQ-CHG-053, Haider).
+            """
+            found = await reapproval_service.preview(
+                session,
+                subject,
+                record_id,
+                reapproval_service.Proposed(body.window_start, body.window_end, body.risk),
+            )
             return [StageChangesOut.of(s) for s in found]
 
         @router.get(

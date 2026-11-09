@@ -194,3 +194,39 @@ async def sent_back_in_this_save(
             )
         )
     )
+
+
+@dataclass(frozen=True)
+class Proposed:
+    """Values a person is about to save (None: unchanged)."""
+
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+    risk: RiskLevel | None = None
+
+
+async def preview(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID, proposed: Proposed
+) -> list[StageChanges]:
+    """The approved stages a save would send the change back to (Haider: warn first).
+
+    "This sends the change back to CAB; current approvals will be withdrawn": the screen asks
+    before saving when this lists a stage. Changes nothing.
+    """
+    record = await items.visible_record(session, subject, CHANGE, record_id)
+    approved = await _latest(session, record.id)
+    if not approved:
+        return []
+    policy = rules.policy_from((await catalogue.load(session, CHANGE)).reapproval)
+    now = await snapshot_now(session, record)
+    after = rules.Snapshot(
+        proposed.window_start or now.window_start,
+        proposed.window_end or now.window_end,
+        proposed.risk or now.risk,
+        now.plans,
+    )
+    found = [
+        StageChanges(stage, tuple(rules.compare(before, after, policy)))
+        for stage, before in approved.items()
+    ]
+    return [s for s in found if rules.restarts(list(s.changes))]

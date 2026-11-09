@@ -145,3 +145,17 @@ async def test_req_chg_053_ac2_a_raised_risk_sends_the_change_back_for_approval(
     entries = (await world.call("GET", f"{CHG}/{item['id']}/stages", a, a.admin)).json()
     [submission] = [s for s in entries["rail"] if s["stage"] == "submission"]
     assert len(submission["entries"]) == 2  # sent back once, not again while it waits
+
+
+async def test_the_save_warns_before_sending_the_change_back(world: World) -> None:
+    """Haider: warn first; the preview names the stage and changes nothing."""
+    a = world.a
+    item = await accepted(world, a)
+    url = f"{CHG}/{item['id']}/approvals/reapproval-preview"
+    warned = await world.call("POST", url, a, a.admin, json={"risk": "very_high"}, headers=CONSOLE)
+    assert warned.status_code == 200, warned.text
+    assert [s["stage"] for s in warned.json()] == ["submission"]
+    quiet = await world.call("POST", url, a, a.admin, json={}, headers=CONSOLE)
+    assert quiet.json() == []
+    after = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert after["stage"] == "planning"  # nothing moved
