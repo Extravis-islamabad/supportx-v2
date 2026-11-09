@@ -320,13 +320,43 @@ async def test_non_admin_cannot_edit_a_role_above_their_own_power(world: World) 
 
 
 async def test_system_roles_cannot_be_changed_or_deleted(world: World) -> None:
+    from app.modules.identity_access.domain.permissions import SYSTEM_ROLES  # noqa: PLC0415 - every built-in
+
     a = world.a
     technician = await world.role_id(a, "technician")
-    for method, kw in (("PATCH", {"json": {"name": "Hacked"}}), ("DELETE", {})):
+    changed = await world.call(
+        "PATCH",
+        f"/roles/{technician}",
+        a,
+        a.admin,
+        headers={"If-Match": '"1"'},
+        json={"name": "Hacked"},
+    )
+    assert problem(changed) == (409, "system_role_immutable")
+    # D-153: no built-in role can be deleted, the new ones included; a copy of one can.
+    listed = (await world.call("GET", "/roles", a, a.admin)).json()
+    built_in = {r["key"]: r["id"] for r in listed if r["is_system"]}
+    assert set(built_in) == set(SYSTEM_ROLES)
+    for key, role_id in built_in.items():
         attempt = await world.call(
-            method, f"/roles/{technician}", a, a.admin, headers={"If-Match": '"1"'}, **kw
+            "DELETE", f"/roles/{role_id}", a, a.admin, headers={"If-Match": '"1"'}
         )
-        assert problem(attempt) == (409, "system_role_immutable")
+        assert problem(attempt) == (409, "system_role_not_deletable"), key
+    copy = await world.call(
+        "POST",
+        "/roles",
+        a,
+        a.admin,
+        json={
+            "name": "Team lead copy",
+            "permissions": [{"permission": "groups.view", "scope": "all"}],
+        },
+    )
+    assert copy.status_code == 201, copy.text
+    gone = await world.call(
+        "DELETE", f"/roles/{copy.json()['id']}", a, a.admin, headers={"If-Match": '"1"'}
+    )
+    assert gone.status_code in {200, 204}, gone.text
 
 
 async def test_the_last_tenant_admin_keeps_the_role(world: World) -> None:
