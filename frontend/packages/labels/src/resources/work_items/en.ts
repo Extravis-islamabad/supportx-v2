@@ -1498,6 +1498,7 @@ export const en = {
   'work_item.field.sla_policy_id': 'SLA policy',
   'work_item.field.stage': 'Stage',
   'work_item.field.stage_path': 'Stage path',
+  'work_item.field.standard_converted': 'Made a normal change by editing',
   'work_item.field.status': 'Status',
   'work_item.field.status_reason_code': 'Reason',
   'work_item.field.subject': 'Subject',

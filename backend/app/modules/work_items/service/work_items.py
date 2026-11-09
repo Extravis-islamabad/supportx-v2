@@ -3708,11 +3708,14 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
     content: str | None,
     expected_version: int,
     source: Source,
+    convert_to_normal: bool = False,
 ) -> WorkItemPlanSection:
     """One section's text, with that section's own If-Match (0: not written yet).
 
     Two people editing different sections both keep their work; the same section conflicts
-    (REQ-REL-025 AC2). Its history names the section, the editor and the time (AC1).
+    (REQ-REL-025 AC2). Its history names the section, the editor and the time (AC1). A standard
+    change's plan is locked: the edit is refused with a warning unless `convert_to_normal`,
+    which makes it a normal change first (REQ-CHG-006 AC2).
     """
     if section not in wtype.plan_sections:
         raise NotFound(code="plan_section_not_found")
@@ -3732,6 +3735,9 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
         return row
     if text is not None and len(text) > DESCRIPTION_MAX:
         raise _errors([("content", "value_too_long")])
+    record = await _unlock_standard(
+        session, wtype, record, field=f"plan.{section}", confirmed=convert_to_normal, source=source
+    )
     if row is None:
         row = WorkItemPlanSection(tenant_id=tenant, work_item_id=record.id, section=section)
         session.add(row)
@@ -3743,6 +3749,121 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
     await _part_history(session, record, [Change(f"plan.{section}", before, text)], source=source)
     await _part_event(session, record, "plan_section", _part_id(record.id, section), "changed")
     return row
+
+
+async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the person's choice
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    field: str,
+    confirmed: bool,
+    source: Source,
+) -> WorkItem:
+    """A standard change's locked field: refused with a warning, or the change made normal.
+
+    REQ-CHG-006 AC2: confirming converts the change to normal and resets its approval to not
+    submitted, so it goes through normal approval. In this transaction: the type becomes
+    normal, the record restarts on the normal path in submission (a new round; the earlier
+    ones stay), with history and the status and stage events. Other records pass unchanged.
+    """
+    if wtype.code is not WorkItemTypeCode.CHANGE:
+        return record
+    row = await session.get(WorkItemChangeDetails, (config.tenant_of(session), record.id))
+    if row is None or row.change_type is None:
+        return record
+    cat = await config.load(session, wtype)
+    attributes = next(
+        (v.attributes for v in cat.list_values(PickList.CHANGE_TYPE) if v.code == row.change_type),
+        None,
+    )
+    if change_rules.model_of(row.change_type, attributes) is not change_rules.ChangeModel.STANDARD:
+        return record
+    if not confirmed:
+        raise Conflict(code="standard_change_locked", params={"field": field})
+    now = _now()
+    before = _snapshot(record, (*STAMP_FIELDS, "stage", "stage_path"))
+    was_type = row.change_type
+    normal = change_rules.ChangeModel.NORMAL.value
+    row.change_type = normal
+    from_stage = str(record.stage)
+    columns = await stage_service.restart(
+        session,
+        wtype,
+        record,
+        path=change_rules.path_of(normal, change_rules.ChangeModel.NORMAL),
+        now=now,
+        reason_code="standard_converted",
+    )
+    clock = move_pause_clock(
+        PauseClock(record.paused_since, record.paused_seconds),
+        old=StatusCategory(record.status_category),
+        new=StatusCategory(columns["status_category"]),
+        now=now,
+    )
+    updated = await _update(
+        session,
+        record,
+        record.version,
+        {
+            **columns,
+            "status_changed_at": now,
+            "status_reason_code": None,
+            "status_reason_text": None,
+            "paused_since": clock.paused_since,
+            "paused_seconds": clock.paused_seconds,
+        },
+    )
+    after = _snapshot(updated, (*STAMP_FIELDS, "stage", "stage_path"))
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="status",
+        changes=[
+            *(Change(n, before[n], v) for n, v in after.items() if before[n] != v),
+            Change("change_type", was_type, normal),
+            Change("standard_converted", None, field),
+        ],
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemStatusChanged(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            action=STAGE_MOVE,
+            from_status=str(before["status"]),
+            to_status=updated.status,
+            automatic=True,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    entries = await stage_service.entries_of(session, updated)
+    await record_event(
+        session,
+        WorkItemStageChanged(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            from_stage=from_stage,
+            to_stage=str(updated.stage),
+            stages_entered=[str(updated.stage)],
+            entry_id=entries[-1].id,
+            path=str(updated.stage_path),
+            automatic=True,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
 
 
 async def stage_schedules(

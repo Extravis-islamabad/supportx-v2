@@ -1542,6 +1542,13 @@ class PlanSectionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: str | None = Field(default=None, max_length=RESOLUTION_MAX)
+    convert_to_normal: bool = Field(
+        default=False,
+        description=(
+            "A standard change's plan is locked (409 standard_change_locked): true confirms "
+            "making it a normal change, which goes through normal approval (REQ-CHG-006)."
+        ),
+    )
 
 
 class StageScheduleOut(BaseModel):
@@ -2412,6 +2419,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 content=body.content,
                 expected_version=version,
                 source=source_of(request),
+                convert_to_normal=body.convert_to_normal,
             )
             set_etag(response, row.version)
             return PlanSectionOut(

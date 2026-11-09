@@ -1503,6 +1503,7 @@ export const ur: LabelResource = {
   'work_item.field.sla_policy_id': 'ایس ایل اے پالیسی',
   'work_item.field.stage': 'مرحلہ',
   'work_item.field.stage_path': 'مراحل کا راستہ',
+  'work_item.field.standard_converted': 'ترمیم سے عام تبدیلی بنی',
   'work_item.field.status': 'حیثیت',
   'work_item.field.status_reason_code': 'وجہ',
   'work_item.field.subject': 'موضوع',

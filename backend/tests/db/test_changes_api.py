@@ -320,3 +320,55 @@ async def test_req_chg_022_five_templates_each_bind_their_type_and_path(world: W
     )
     shown = (await world.call("GET", f"{CHG}/{plain.json()['id']}/details", a, a.admin)).json()
     assert shown["change_type"] == "normal"  # the default template's type
+
+
+async def test_req_chg_006_ac2_editing_the_plan_warns_then_makes_the_change_normal(
+    world: World,
+) -> None:
+    a = world.a
+    item = (await new_change(world, a, a.admin, change_type="standard")).json()
+    assert item["stage"] == "implementation"
+
+    async def plan(**extra: Any) -> httpx.Response:  # noqa: ANN401 - JSON
+        return await world.call(
+            "PUT",
+            f"{CHG}/{item['id']}/plan/rollout",
+            a,
+            a.admin,
+            json={"content": "<p>Roll out at 22:00</p>", **extra},
+            headers={"If-Match": '"0"', **CONSOLE},
+        )
+
+    warned = await plan()
+    assert problem(warned) == (409, "standard_change_locked")
+    assert warned.json()["params"]["field"] == "plan.rollout"
+    converted = await plan(convert_to_normal=True)
+    assert converted.status_code == 200, converted.text
+    after = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    # Not submitted again, on the normal path (REQ-CHG-006 AC2).
+    assert (after["stage_path"], after["stage"], after["status"]) == (
+        "default",
+        "submission",
+        "submission_submitted",
+    )
+    shown = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+    assert shown["change_type"] == "normal"
+    history = (await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)).json()
+    lines = {c["field"]: (c["old"], c["new"]) for e in history["items"] for c in e["changes"]}
+    assert lines["standard_converted"] == (None, "plan.rollout")
+    assert lines["stage_path"] == ("standard", "default")
+    # The rail keeps the earlier round: submission twice, implementation once (left).
+    stages = (await world.call("GET", f"{CHG}/{item['id']}/stages", a, a.admin)).json()
+    rail = {s["stage"]: (s["state"], len(s["entries"])) for s in stages["rail"]}
+    assert rail["submission"] == ("current", 2)
+    assert rail["implementation"][1] == 1
+    # A normal change's plan is not locked.
+    again = await world.call(
+        "PUT",
+        f"{CHG}/{item['id']}/plan/rollout",
+        a,
+        a.admin,
+        json={"content": "<p>Roll out at 23:00</p>"},
+        headers={"If-Match": f'"{converted.json()["version"]}"', **CONSOLE},
+    )
+    assert again.status_code == 200, again.text

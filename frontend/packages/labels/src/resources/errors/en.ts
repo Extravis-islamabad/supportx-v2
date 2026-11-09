@@ -749,7 +749,10 @@ export const en = {
   'errors.stage_move_refused':
     'Something must be done before this move. See the reasons on the record.',
   'errors.stage_not_found': 'This stage does not exist.',
+  'errors.stage_path_disabled': 'That path is switched off for new records.',
   'errors.stage_status_system_only': 'Only an approval decision sets this status.',
+  'errors.standard_change_locked':
+    'A standard change keeps its plan as approved. Changing it makes this a normal change, which needs normal approval.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',
   'errors.storage_quota_exceeded':

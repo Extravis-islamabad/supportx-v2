@@ -757,7 +757,10 @@ export const ur: LabelResource = {
     'موجودہ حیثیت سے یہ منتقلی ممکن نہیں۔ تازہ ترین دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.stage_move_refused': 'اس منتقلی سے پہلے کچھ کام باقی ہے۔ ریکارڈ پر وجوہات دیکھیں۔',
   'errors.stage_not_found': 'یہ مرحلہ موجود نہیں۔',
+  'errors.stage_path_disabled': 'یہ راستہ نئے ریکارڈز کے لیے بند ہے۔',
   'errors.stage_status_system_only': 'یہ حیثیت صرف منظوری کے فیصلے سے لگتی ہے۔',
+  'errors.standard_change_locked':
+    'معیاری تبدیلی اپنا منصوبہ منظور شدہ حالت میں رکھتی ہے۔ اسے بدلنے سے یہ عام تبدیلی بن جائے گی، جسے عام منظوری درکار ہے۔',
   'errors.status_not_found': 'یہ حالت اب موجود نہیں۔',
   'errors.storage_not_configured': 'اس تنصیب کے لیے فائل اسٹوریج ترتیب نہیں دی گئی۔',
   'errors.storage_quota_exceeded':

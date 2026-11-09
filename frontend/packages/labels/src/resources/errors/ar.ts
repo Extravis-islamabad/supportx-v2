@@ -685,7 +685,10 @@ export const ar: LabelResource = {
     'هذا الانتقال غير مسموح به من الحالة الحالية. أعد التحميل لرؤية أحدث نسخة.',
   'errors.stage_move_refused': 'يجب إنجاز أمر ما قبل هذا الانتقال. راجع الأسباب في السجل.',
   'errors.stage_not_found': 'هذه المرحلة غير موجودة.',
+  'errors.stage_path_disabled': 'هذا المسار معطّل للسجلات الجديدة.',
   'errors.stage_status_system_only': 'لا يضبط هذه الحالة إلا قرار موافقة.',
+  'errors.standard_change_locked':
+    'يحتفظ التغيير القياسي بخطته كما اعتُمدت. تعديلها يجعله تغييرًا عاديًا يحتاج إلى موافقة عادية.',
   'errors.status_not_found': 'هذه الحالة لم تعد موجودة.',
   'errors.storage_not_configured': 'لم يُعدّ تخزين الملفات لهذا التثبيت.',
   'errors.storage_quota_exceeded':

@@ -1620,6 +1620,7 @@ export const ar: LabelResource = {
   'work_item.field.sla_policy_id': 'سياسة اتفاقية مستوى الخدمة',
   'work_item.field.stage': 'المرحلة',
   'work_item.field.stage_path': 'مسار المراحل',
+  'work_item.field.standard_converted': 'أصبح تغييرًا عاديًا بتعديل',
   'work_item.field.status': 'الحالة',
   'work_item.field.status_reason_code': 'السبب',
   'work_item.field.subject': 'الموضوع',
