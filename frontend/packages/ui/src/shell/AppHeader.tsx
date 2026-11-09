@@ -14,6 +14,7 @@ import {
   Layout,
   Popover,
   Select,
+  Tooltip,
   Typography,
   theme,
   type MenuProps,
@@ -195,12 +196,14 @@ export function AppHeader({
       )}
       {onOpenPalette !== undefined &&
         (compact ? (
-          <Button
-            icon={<SearchOutlined />}
-            aria-label={t('palette.open')}
-            onClick={onOpenPalette}
-            data-testid="open-palette"
-          />
+          <Tooltip title={t('palette.open')}>
+            <Button
+              icon={<SearchOutlined />}
+              aria-label={t('palette.open')}
+              onClick={onOpenPalette}
+              data-testid="open-palette"
+            />
+          </Tooltip>
         ) : (
           // Looks like the search field it opens (the command palette), not a button.
           <Button

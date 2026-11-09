@@ -99,17 +99,19 @@ export function AppShell({
 
   if (phone) {
     const menu = (
-      <Button
-        type="text"
-        icon={<MenuOutlined />}
-        aria-label={t('nav.open_menu')}
-        aria-expanded={drawer}
-        aria-controls="nav-drawer"
-        onClick={() => {
-          setDrawer(true);
-        }}
-        data-testid="nav-menu-button"
-      />
+      <Tooltip title={t('nav.open_menu')}>
+        <Button
+          type="text"
+          icon={<MenuOutlined />}
+          aria-label={t('nav.open_menu')}
+          aria-expanded={drawer}
+          aria-controls="nav-drawer"
+          onClick={() => {
+            setDrawer(true);
+          }}
+          data-testid="nav-menu-button"
+        />
+      </Tooltip>
     );
     return (
       <Layout style={{ minHeight: '100vh' }} data-layout={layout} data-phone="true">
