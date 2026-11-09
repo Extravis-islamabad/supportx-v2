@@ -105,6 +105,24 @@ async def _counts(url: str, tenant: uuid.UUID) -> dict[str, int]:
         await conn.close()
 
 
+async def _slas(url: str) -> Counter[str]:
+    """Each incident's SLA policy by name; "none" when it has no target clock."""
+    conn = await asyncpg.connect(url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            rows = await conn.fetch(
+                "SELECT CASE WHEN EXISTS (SELECT FROM sla_targets t WHERE t.record_id = w.id)"
+                " THEN p.name ELSE 'none' END AS name FROM work_items w"
+                " LEFT JOIN sla_applications a ON a.record_id = w.id"
+                " LEFT JOIN sla_policies p ON p.id = a.policy_id"
+                " WHERE w.type = 'incident'"
+            )
+    finally:
+        await conn.close()
+    return Counter(r["name"] for r in rows)
+
+
 async def _states(url: str) -> Counter[str]:
     conn = await asyncpg.connect(url)
     try:
@@ -274,6 +292,13 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         assert counts["users"] == len(seed.PEOPLE) + len(seed.SIGN_INS)
         assert counts["work_items"] == 70 + len(seed.RELEASES)
         assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
+        # Named SLAs with live countdowns, not "No SLA applies" (QA9, Haider): every incident
+        # has targets, the urgent ones and the network ones on the showcase's own policies.
+        assert first.sla_policies == len(lane_a.SLA_POLICIES) == 2
+        slas = asyncio.run(_slas(database.migrator_url))
+        assert slas["none"] == 0
+        assert slas["Critical and high incidents"] == 10  # p1 and p2
+        assert slas["Network and access faults"] > 0
         assert asyncio.run(_states(database.migrator_url)) == {
             "service_request awaiting_approval": 2,
             "service_request in_progress": 1,
@@ -281,8 +306,8 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
             "service_request closed": 1,
             "service_request rejected": 1,
             "service_request canceled": 1,
-            "problem new known error": 2,
-            "problem new": 1,
+            "problem assigned known error": 2,  # the creator owns a new problem (#267)
+            "problem assigned": 1,
             "new unassigned": 10,
             "assigned": 14,
             "in_progress": 12,
@@ -304,7 +329,8 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
             second.problems,
             second.managers,
             second.rules,
-        ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0)
+            second.sla_policies,
+        ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0)
         assert second.backdated == 0  # idempotent: the targets are fixed
         assert asyncio.run(_audit_chain(database.app_url)) == "passed"
         # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the

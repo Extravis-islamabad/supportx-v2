@@ -256,6 +256,7 @@ describe('console shell', () => {
   it('switches theme and direction from the appearance menu', async () => {
     api();
     render(<App />);
+    fireEvent.click(await screen.findByTestId('user-menu'));
     fireEvent.click(await screen.findByTestId('appearance-menu'));
     fireEvent.click(await screen.findByText('High contrast'));
     expect(document.documentElement.dataset.theme).toBe('high_contrast');

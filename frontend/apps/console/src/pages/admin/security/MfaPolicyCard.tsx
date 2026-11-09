@@ -128,7 +128,7 @@ function GraceDays() {
  */
 export function MfaPolicyCard() {
   const t = useLabel();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const policy = useMfaPolicy();
   const setMode = useSetMfaMode();
   const roleName = (role: MfaRole) => (role.key === null ? role.name : t(`role.${role.key}`));
@@ -183,7 +183,23 @@ export function MfaPolicyCard() {
                   data-testid={`security-mfa-mode-${role.key ?? role.role_id}`}
                   options={MODES.map((value) => ({ value, label: t(`mfa_mode.${value}`) }))}
                   onChange={(mode) => {
-                    change(role, mode);
+                    // Applies at once and changes how people sign in: always asked first
+                    // (QA6S-PEO-11), saying what happens and to how many people.
+                    modal.confirm({
+                      title: t('security.mfa.confirm_title', {
+                        role: roleName(role),
+                        mode: t(`mfa_mode.${mode}`),
+                      }),
+                      content: t(`security.mfa.confirm_${mode}`, {
+                        count: role.holders,
+                        missing: Math.max(role.holders - role.enrolled, 0),
+                      }),
+                      okText: t('security.mfa.confirm_ok'),
+                      cancelText: t('actions.cancel'),
+                      onOk: () => {
+                        change(role, mode);
+                      },
+                    });
                   }}
                 />
               ),

@@ -194,3 +194,9 @@ class MemoryKeyValue:
         value = int(self.data.get(key, b"0")) + 1
         self.data[key] = str(value).encode()
         return value
+
+    async def delete_if(self, key: str, value: bytes) -> bool:
+        if self.data.get(key) != value:
+            return False
+        del self.data[key]
+        return True

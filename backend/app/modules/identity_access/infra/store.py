@@ -5,13 +5,16 @@ session IDs nor tokens (the values are AES-GCM encrypted).
 """
 
 import hashlib
+import secrets
 import time
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from app.modules.identity_access.infra.crypto import SessionCipher
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
     import valkey.asyncio
 
 SESSION_PREFIX = "sx:session:"
@@ -35,6 +38,7 @@ class KeyValue(Protocol):
     async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None: ...  # noqa: D102
     async def delete(self, key: str) -> int: ...  # noqa: D102
     async def count(self, key: str, *, px: int) -> int: ...  # noqa: D102 - one more hit, kept px ms
+    async def delete_if(self, key: str, value: bytes) -> bool: ...  # noqa: D102 - only while it holds value
 
 
 class ValkeyKeyValue:
@@ -65,6 +69,19 @@ class ValkeyKeyValue:
             pipe.pexpire(key, px, nx=True)
             hits, _ = await pipe.execute()
         return int(hits)
+
+    async def delete_if(self, key: str, value: bytes) -> bool:  # noqa: D102
+        # valkey-py's stubs type eval's result as sync-or-async and its args as str only; the
+        # async client returns an awaitable and sends bytes as they are.
+        pending = cast("Awaitable[int]", self._client.eval(_DELETE_IF, 1, key, value))  # type: ignore[arg-type]
+        return bool(await pending)
+
+
+# Compare and delete in one step: a lock is released only by the holder that set it.
+_DELETE_IF = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
+return 0
+"""
 
 
 class SessionStore:
@@ -127,15 +144,22 @@ class SessionStore:
         blob = await self._kv.get(_hashed(ENDED_PREFIX, user_key))
         return datetime.fromisoformat(blob.decode()) if blob else None
 
-    async def lock(self, session_id: str, ttl: timedelta) -> bool:
-        """Short exclusive lock (token refresh), True if acquired."""
-        return bool(
-            await self._kv.set(_hashed(LOCK_PREFIX, session_id), b"1", px=_ms(ttl), nx=True)
-        )
+    async def lock(self, session_id: str, ttl: timedelta) -> str | None:
+        """Short exclusive lock (token refresh): the holder's token, or None if another holds it.
 
-    async def unlock(self, session_id: str) -> None:
-        """Release `lock`."""
-        await self._kv.delete(_hashed(LOCK_PREFIX, session_id))
+        Safe under the Valkey client's retry (app/core/valkey.py): when the first SET NX ran but
+        its reply was lost, the retry finds the key, and the key holding this attempt's own token
+        means the lock is ours.
+        """
+        key = _hashed(LOCK_PREFIX, session_id)
+        token = secrets.token_hex(16).encode()
+        if await self._kv.set(key, token, px=_ms(ttl), nx=True):
+            return token.decode()
+        return token.decode() if await self._kv.get(key) == token else None
+
+    async def unlock(self, session_id: str, token: str) -> None:
+        """Release `lock`, only while this holder still has it (never another's after the TTL)."""
+        await self._kv.delete_if(_hashed(LOCK_PREFIX, session_id), token.encode())
 
 
 def _ms(ttl: timedelta) -> int:

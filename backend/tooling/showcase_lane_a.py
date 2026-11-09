@@ -266,26 +266,47 @@ PROBLEMS = (
 )
 
 
-async def ensure_problems(api: Api, owner: str, incidents: Sequence[str]) -> int:
-    """Three problems, two known errors, each with linked incidents; returns how many were made."""
-    existing = {p["subject"] for p in await api.all_pages("/api/v1/problems")}
+def _number(display_id: str) -> int:
+    return int(display_id.rsplit("-", 1)[-1])
+
+
+async def ensure_problems(api: Api, owner: str, incidents: Sequence[Mapping[str, Any]]) -> int:
+    """Three problems, two known errors, each with linked incidents; returns how many were made.
+
+    Idempotent (QA9-F-02): a problem is found by its subject (the seed's stable key) and is never
+    made twice; its incidents are picked by display number, which never changes (the list's
+    order does, once records are backdated or worked on); an incident already caused by a
+    problem is left as it is; a known error is marked once. A run that stopped half way is
+    finished by the next. Never deletes.
+    """
+    existing = {p["subject"]: p for p in await api.all_pages("/api/v1/problems")}
+    ordered = [i["id"] for i in sorted(incidents, key=lambda i: _number(i["display_id"]))]
     made = 0
     for n, (subject, symptoms, workaround, known) in enumerate(PROBLEMS):
-        if subject in existing:
-            continue
-        record = await api.call(
-            "POST",
-            "/api/v1/problems",
-            json={
-                "subject": subject,
-                "requester_id": owner,
-                "symptoms": symptoms,
-                **({"workaround": workaround} if workaround else {}),
-            },
-            idempotency=_key("problem", subject),
-        )
-        made += 1
-        for incident in incidents[n * 2 : n * 2 + 2]:
+        record = existing.get(subject)
+        if record is None:
+            record = await api.call(
+                "POST",
+                "/api/v1/problems",
+                json={
+                    "subject": subject,
+                    "requester_id": owner,
+                    "symptoms": symptoms,
+                    **({"workaround": workaround} if workaround else {}),
+                },
+                idempotency=_key("problem", subject),
+            )
+            made += 1
+        wanted = ordered[n * 2 : n * 2 + 2]
+        caused: set[str] = set()
+        if wanted:
+            preview = await api.call(
+                "POST", "/api/v1/problems/from-incidents/preview", json={"incident_ids": wanted}
+            )
+            caused = {c["incident_id"] for c in preview["already_caused"]}
+        for incident in wanted:
+            if incident in caused:
+                continue  # linked already, to this problem or another: never moved
             await api.call(
                 "POST",
                 f"/api/v1/problems/{record['id']}/incidents",
@@ -293,12 +314,13 @@ async def ensure_problems(api: Api, owner: str, incidents: Sequence[str]) -> int
             )
         if known:
             fresh = await api.call("GET", f"/api/v1/problems/{record['id']}")
-            await api.call(
-                "POST",
-                f"/api/v1/problems/{record['id']}/known-error",
-                json={"comment": "Seen several times this month."},
-                version=fresh["version"],
-            )
+            if fresh.get("known_error_at") is None:
+                await api.call(
+                    "POST",
+                    f"/api/v1/problems/{record['id']}/known-error",
+                    json={"comment": "Seen several times this month."},
+                    version=fresh["version"],
+                )
     return made
 
 
@@ -351,6 +373,65 @@ async def ensure_rules(api: Api, groups: Mapping[str, str]) -> int:
                 "state": "enabled",
             },
             idempotency=_key("rule", record_type, name),
+        )
+        made += 1
+    return made
+
+
+SLA = "/api/v1/sla/record-types/incident/policies"
+# (name, Arabic, Urdu, condition on the incident or a group by name, response, resolution)
+# Above the default policy, so the showcase's incidents show named SLAs with live countdowns;
+# the rest keep the default (QA9, Haider).
+SLA_POLICIES: tuple[
+    tuple[str, str, str, dict[str, Any] | str, tuple[int, str], tuple[int, str]], ...
+] = (
+    (
+        "Critical and high incidents",
+        "الحوادث الحرجة وذات الأولوية العالية",
+        "اہم اور زیادہ ترجیح والے واقعات",
+        {"field": "priority", "op": "in", "value": ["p1", "p2"]},
+        (30, "minutes"),
+        (4, "hours"),
+    ),
+    (
+        "Network and access faults",
+        "أعطال الشبكة والوصول",
+        "نیٹ ورک اور رسائی کی خرابیاں",
+        "Network and access",
+        (1, "hours"),
+        (8, "hours"),
+    ),
+)
+
+
+async def ensure_sla_policies(api: Api, groups: Mapping[str, str]) -> int:
+    """The showcase's named incident SLA policies, each once (by name); returns how many were made.
+
+    Made before the incidents, which take their SLA when they are created.
+    """
+    names = {p["name"] for p in await api.call("GET", SLA)}
+    made = 0
+    for name, arabic, urdu, condition, response, resolution in SLA_POLICIES:
+        if name in names:
+            continue
+        conditions = (
+            condition
+            if isinstance(condition, dict)
+            else {"field": "group_id", "op": "eq", "value": groups[condition]}
+        )
+        await api.call(
+            "POST",
+            SLA,
+            json={
+                "name": name,
+                "labels": {"en": name, "ar": arabic, "ur": urdu},
+                "conditions": conditions,
+                "targets": [
+                    {"kind": "first_response", "amount": response[0], "unit": response[1]},
+                    {"kind": "resolution", "amount": resolution[0], "unit": resolution[1]},
+                ],
+            },
+            idempotency=_key("sla_policy", name),
         )
         made += 1
     return made

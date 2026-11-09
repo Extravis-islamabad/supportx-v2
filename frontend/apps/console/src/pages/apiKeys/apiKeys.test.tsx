@@ -61,7 +61,7 @@ function api(routes: Record<string, unknown>, me = ADMIN) {
       'GET /api/v1/api-keys/scopes': { body: SCOPES },
       'GET /api/v1/api-keys': { body: [KEY] },
       'GET /api/v1/identity/settings': { body: IDENTITY },
-      'GET /api/v1/users': { body: { items: [], next_cursor: null, has_more: false } },
+      'GET /api/v1/api-keys/owners': { body: [] },
       ...routes,
     },
   });
@@ -122,6 +122,25 @@ describe('Admin › API keys', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('api-key-text')).toBeNull();
     });
+  });
+
+  it('offers the service identities as owners, from their own list (PEO-14)', async () => {
+    window.history.pushState({}, '', '/admin/api-keys');
+    const fake = api({
+      'GET /api/v1/api-keys/owners': {
+        body: [{ id: '01900000-0000-7000-8000-00000000b001', display_name: 'Jira connector' }],
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('api-key-new-open'));
+    const dialog = await screen.findByTestId('api-key-new');
+    const owner = within(dialog).getByTestId('api-key-owner');
+    const opener = owner.querySelector('.ant-select-selector') ?? owner;
+    fireEvent.mouseDown(opener);
+    expect(await screen.findByText('Jira connector')).toBeTruthy();
+    expect(fake.find('GET', '/api/v1/api-keys/owners').length).toBeGreaterThan(0);
+    // Never through the people list, which refuses service identities (they are not people).
+    expect(fake.find('GET', '/api/v1/users')).toHaveLength(0);
   });
 
   it('refuses to send a key with no scope', async () => {
