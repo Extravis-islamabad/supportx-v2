@@ -37,6 +37,34 @@ export const ur: LabelResource = {
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
+  'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
+  'errors.asset_bulk_empty': 'کم از کم ایک اثاثہ منتخب کریں۔',
+  'errors.asset_bulk_too_many': 'ایک بار میں زیادہ سے زیادہ {{max}} اثاثے منتخب کریں۔',
+  'errors.asset_copy_limit': 'ایک بار میں 1 سے {{max}} تک نقول بنائیں۔',
+  'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
+  'errors.asset_disposed_read_only':
+    'یہ اثاثہ تلف ہو چکا ہے، اس لیے صرف پڑھا جا سکتا ہے۔ اسے بدلنے کے لیے تلف شدہ اثاثے بدلنے کی اجازت درکار ہے۔',
+  'errors.asset_life_cycle_in_use':
+    'پروڈکٹ اقسام ابھی یہ لائف سائیکل استعمال کرتی ہیں ({{used}})۔ پہلے انہیں کسی اور پر منتقل کریں۔',
+  'errors.asset_life_cycle_not_found': 'یہ لائف سائیکل موجود نہیں۔',
+  'errors.asset_life_cycle_protected':
+    'طے شدہ لائف سائیکل حذف نہیں ہو سکتا۔ پہلے کسی اور کو طے شدہ بنائیں۔',
+  'errors.asset_limit_reached':
+    'آپ کی تنظیم کے پلان میں آئی ٹی اثاثوں کی تمام جگہیں استعمال میں ہیں۔ کوئی اثاثہ تلف کریں یا اپنے منتظم سے مزید شامل کرنے کو کہیں۔',
+  'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
+  'errors.asset_no_disposed_state':
+    'اثاثے کو منتقل کرنے کے لیے کوئی تلف شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
+  'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
+  'errors.asset_product_type_has_children':
+    'اس کے نیچے دوسری پروڈکٹ اقسام ہیں ({{used}})۔ پہلے انہیں منتقل یا حذف کریں۔',
+  'errors.asset_product_type_in_use': 'پروڈکٹس ابھی یہ قسم استعمال کرتی ہیں ({{used}})۔',
+  'errors.asset_product_type_not_found': 'پروڈکٹ کی یہ قسم موجود نہیں۔',
+  'errors.asset_state_in_use':
+    'لائف سائیکلز کی منتقلیاں ابھی یہ حالت استعمال کرتی ہیں ({{used}})۔ پہلے انہیں ہٹائیں۔',
+  'errors.asset_state_not_found': 'اثاثے کی یہ حالت موجود نہیں۔',
+  'errors.asset_state_protected':
+    'یہ حالت ادھار، تلفی یا اپنی کیٹیگری کی طے شدہ حالت کے طور پر استعمال ہوتی ہے، اس لیے حذف نہیں ہو سکتی۔',
   'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
   'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
   'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
@@ -149,8 +177,33 @@ export const ur: LabelResource = {
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
   'errors.field.approver_is_requester': 'آپ اپنی درخواست منظور نہیں کر سکتے؛ کسی اور کا نام دیں۔',
+  'errors.field.approver_not_active': 'کوئی فعال فرد چنیں۔',
   'errors.field.approver_not_eligible':
     'نامزد افراد میں سے کوئی یہ مسئلہ منظور نہیں کر سکتا (غیر فعال، یا اختیار کے بغیر)۔',
+  'errors.field.asset_api_name_taken': 'پروڈکٹ کی کوئی اور قسم یہ API نام رکھتی ہے۔',
+  'errors.field.asset_identifier_invalid':
+    'صرف حروف، ہندسے اور - . / : # استعمال کریں، خالی جگہ کے بغیر۔',
+  'errors.field.asset_life_cycle_code_taken': 'کوئی اور لائف سائیکل یہ کوڈ رکھتا ہے۔',
+  'errors.field.asset_life_cycle_default_needed':
+    'ایک طے شدہ لائف سائیکل لازمی ہے۔ اس کے بجائے کسی اور کو طے شدہ بنائیں۔',
+  'errors.field.asset_life_cycle_not_found': 'فہرست سے لائف سائیکل منتخب کریں۔',
+  'errors.field.asset_move_duplicate': 'یہ منتقلی پہلے سے فہرست میں ہے، یا اسی حالت میں جاتی ہے۔',
+  'errors.field.asset_product_not_found': 'یہ پروڈکٹ اب موجود نہیں۔',
+  'errors.field.asset_product_type_cycle':
+    'پروڈکٹ کی قسم خود اپنے یا اپنی ذیلی قسم کے نیچے نہیں آ سکتی۔',
+  'errors.field.asset_product_type_inherited': 'یہ والدین قسم سے آتا ہے۔ اسے وہاں تبدیل کریں۔',
+  'errors.field.asset_product_type_not_found': 'فہرست سے پروڈکٹ کی قسم منتخب کریں۔',
+  'errors.field.asset_product_type_too_deep': 'درخت زیادہ سے زیادہ {{max}} درجے گہرا ہو سکتا ہے۔',
+  'errors.field.asset_serial_number_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ سیریل نمبر ہے۔',
+  'errors.field.asset_state_code_taken': 'کوئی اور حالت یہ کوڈ رکھتی ہے۔',
+  'errors.field.asset_state_default_needed':
+    'ہر کیٹیگری کو ایک طے شدہ حالت چاہیے۔ اس کے بجائے کسی اور حالت کو طے شدہ بنائیں۔',
+  'errors.field.asset_state_not_found': 'فہرست سے حالتیں منتخب کریں۔',
+  'errors.field.asset_state_system':
+    'ادھار اور تلفی اس حالت پر انحصار کرتے ہیں، اس لیے اس کی کیٹیگری برقرار رہتی ہے۔',
+  'errors.field.asset_tag_pattern_invalid':
+    'کاؤنٹر {n} ایک بار، اس کے ساتھ کچھ متن کے ساتھ استعمال کریں، مثلاً AST-{n}۔',
+  'errors.field.asset_tag_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ ٹیگ ہے۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
@@ -195,6 +248,7 @@ export const ur: LabelResource = {
   'errors.field.dashboard_not_shared':
     'کسی کردار کا ہوم صرف بلٹ اِن یا شیئر شدہ ڈیش بورڈ ہو سکتا ہے۔',
   'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
+  'errors.field.date_in_future': 'آج یا اس سے پہلے کی تاریخ چنیں۔',
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
@@ -279,12 +333,14 @@ export const ur: LabelResource = {
   'errors.field.invalid_node': 'فلٹر کا یہ حصہ نہ شرط ہے نہ گروپ۔',
   'errors.field.invalid_number': 'عدد درج کریں۔',
   'errors.field.invalid_pattern': 'یہ پیٹرن درست ریگولر ایکسپریشن نہیں ہے۔',
+  'errors.field.invalid_phone': 'فون نمبر درج کریں: ہندسے، خالی جگہیں، +، - اور قوسین۔',
   'errors.field.invalid_prefix': '2 سے 6 بڑے انگریزی حروف استعمال کریں۔',
   'errors.field.invalid_range': 'حد کا آغاز اس کے اختتام کے بعد ہے۔',
   'errors.field.invalid_sort': 'ترتیب کے لیے ایک سے تین فیلڈز منتخب کریں۔',
   'errors.field.invalid_tag': 'ٹیگ میں حروف، ہندسے، خالی جگہ، نقطے اور ڈیش ہو سکتے ہیں (40 تک)۔',
   'errors.field.invalid_text': 'متن درج کریں۔',
   'errors.field.invalid_value': 'یہ قدر درست نہیں۔',
+  'errors.field.invalid_website': 'http:// یا https:// سے شروع ہونے والا ویب پتہ درج کریں۔',
   'errors.field.invitation_days_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
   'errors.field.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.field.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
@@ -374,6 +430,7 @@ export const ur: LabelResource = {
   'errors.field.required': 'یہ خانہ ضروری ہے۔',
   'errors.field.required_for_known_error':
     'معلوم خرابی نشان زد کرنے سے پہلے عارضی حل یا بنیادی وجہ لکھیں۔',
+  'errors.field.required_for_move': 'منتقلی سے پہلے یہ بھریں۔',
   'errors.field.required_to_close': 'بند کرنے سے پہلے درکار ہے۔',
   'errors.field.required_to_confirm_cause': 'تصدیق سے پہلے بنیادی وجہ لکھیں۔',
   'errors.field.required_to_leave_stage': 'اس مرحلے سے نکلنے سے پہلے یہ بھریں۔',
@@ -443,6 +500,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_categories':
     'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
+  'errors.field.too_many_decimals': 'زیادہ سے زیادہ {{max}} اعشاری مقامات استعمال کریں۔',
   'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
   'errors.field.too_many_keywords': 'ہر زبان میں زیادہ سے زیادہ 20 کلیدی الفاظ استعمال کریں۔',
   'errors.field.too_many_levels': 'ہر ہدف کے لیے زیادہ سے زیادہ {{max}} ایسکلیشن درجے۔',
@@ -490,6 +548,9 @@ export const ur: LabelResource = {
   'errors.field.value_too_long': 'یہ قدر بہت لمبی ہے۔',
   'errors.field.value_too_long_max': 'زیادہ سے زیادہ {{max_length}} حروف استعمال کریں۔',
   'errors.field.value_too_short': 'کم از کم {{min}} حروف استعمال کریں۔',
+  'errors.field.vendor_inactive': 'یہ وینڈر غیر فعال ہے اور منتخب نہیں ہو سکتا۔',
+  'errors.field.vendor_name_taken': 'کسی اور وینڈر کا یہی نام ہے۔',
+  'errors.field.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
   'errors.field.week_empty': 'کم از کم ایک کام کا دورانیہ شامل کریں۔',
   'errors.field.week_start_unknown': 'ہفتہ شروع ہونے کا دن چنیں۔',
   'errors.field.week_too_many_periods':
@@ -792,6 +853,9 @@ export const ur: LabelResource = {
     'آپ کے ادارے میں ایک اور اکاؤنٹ پہلے سے یہ ای میل پتہ استعمال کرتا ہے۔',
   'errors.user_not_found': 'صارف نہیں ملا۔',
   'errors.validation_failed': 'کچھ فیلڈز پر توجہ درکار ہے۔',
+  'errors.vendor_in_use':
+    'ریکارڈز ابھی بھی اس وینڈر کا نام لیتے ہیں ({{used}})۔ اس کے بجائے اسے غیر فعال کریں۔',
+  'errors.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
   'errors.version_conflict':
     'آپ کے کھولنے کے بعد کسی اور نے یہ آئٹم محفوظ کر دیا۔ ان کی تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',

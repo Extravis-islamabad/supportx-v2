@@ -303,8 +303,13 @@ export const en = {
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',
+  'permission.assets.edit_disposed': 'Change disposed assets',
+  'permission.assets.edit_disposed.description':
+    'Change an asset after it is disposed of, giving a reason each time.',
   'permission.assets.manage': 'Manage assets',
   'permission.assets.manage.description': 'Add and change assets.',
+  'permission.assets.reinstate': 'Bring retired assets back',
+  'permission.assets.reinstate.description': 'Move a retired asset back into stock.',
   'permission.assets.view': 'View assets',
   'permission.assets.view.description': 'See hardware and software assets.',
   'permission.audit.export': 'Export the audit log',
@@ -343,6 +348,9 @@ export const en = {
   'permission.config.announcements': 'Configure announcements',
   'permission.config.announcements.description':
     'Who may publish, and whether a second person must approve.',
+  'permission.config.assets': 'Configure assets',
+  'permission.config.assets.description':
+    'Change product types, products, asset states, life cycles and asset settings.',
   'permission.config.organisation': 'Configure the organisation',
   'permission.config.organisation.description': 'Desks and the organisation’s structure settings.',
   'permission.config.reports': 'Configure reports',
@@ -634,6 +642,12 @@ export const en = {
   // Authorization (WP-016)
   'permission.users.view': 'View users',
   'permission.users.view.description': 'See the people in the organisation and their details.',
+  'permission.vendors.create': 'Add vendors',
+  'permission.vendors.create.description': 'Add a vendor, also from another form.',
+  'permission.vendors.manage': 'Manage vendors',
+  'permission.vendors.manage.description': 'Change, deactivate and delete vendors.',
+  'permission.vendors.view': 'See vendors',
+  'permission.vendors.view.description': 'See vendors and their details, and pick them on records.',
   'permission.work_items.approve_any': 'Decide fallback approvals',
   'permission.work_items.approve_any.description':
     'Decide approvals that have no active approver (approval administrators).',
@@ -679,6 +693,7 @@ export const en = {
   'permission_module.sites': 'Sites',
   'permission_module.sla': 'SLA',
   'permission_module.users': 'Users',
+  'permission_module.vendors': 'Vendors',
   'permission_module.work_items': 'All requests (incidents and service requests)',
   'permission_module.workflows': 'Workflows',
   'preferences.date_format': 'Date format',

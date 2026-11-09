@@ -73,4 +73,7 @@ def index_sql(table: str, entity: str, key: str, kind: FieldType) -> str:
     name = index_name(entity, key, kind)
     if kind == FieldType.MULTI_CHOICE:
         return f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {name} ON {table} USING gin ({sql})"
-    return f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {name} ON {table} (tenant_id, type, {sql})"
+    # work_items holds every type's records, so its indexes lead with the type; a module's own
+    # table (assets) holds one entity only.
+    lead = "tenant_id, type" if table == "work_items" else "tenant_id"
+    return f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {name} ON {table} ({lead}, {sql})"

@@ -302,8 +302,13 @@ export const ar: LabelResource = {
   'permission.api_keys.manage': 'إدارة مفاتيح API',
   'permission.api_keys.manage.description':
     'إنشاء مفاتيح API لهويات الخدمة، ورؤية كل المفاتيح وإبطالها.',
+  'permission.assets.edit_disposed': 'تغيير الأصول المتخلَّص منها',
+  'permission.assets.edit_disposed.description':
+    'تغيير أصل بعد التخلّص منه، مع ذكر السبب في كل مرة.',
   'permission.assets.manage': 'إدارة الأصول',
   'permission.assets.manage.description': 'إضافة الأصول وتغييرها.',
+  'permission.assets.reinstate': 'إعادة الأصول المتقاعدة',
+  'permission.assets.reinstate.description': 'إعادة أصل متقاعد إلى المخزون.',
   'permission.assets.view': 'عرض الأصول',
   'permission.assets.view.description': 'رؤية أصول الأجهزة والبرمجيات.',
   'permission.audit.export': 'تصدير سجل التدقيق',
@@ -340,6 +345,9 @@ export const ar: LabelResource = {
   'permission.config.announcements': 'إعداد الإعلانات',
   'permission.config.announcements.description':
     'من يمكنه النشر، وما إذا كان يلزم موافقة شخص ثانٍ.',
+  'permission.config.assets': 'تهيئة الأصول',
+  'permission.config.assets.description':
+    'تغيير أنواع المنتجات والمنتجات وحالات الأصول ودورات حياتها وإعدادات الأصول.',
   'permission.config.organisation': 'إعداد المؤسسة',
   'permission.config.organisation.description': 'المكاتب وإعدادات هيكل المؤسسة.',
   'permission.config.reports': 'إعداد التقارير',
@@ -616,6 +624,12 @@ export const ar: LabelResource = {
   // Authorization (WP-016)
   'permission.users.view': 'عرض المستخدمين',
   'permission.users.view.description': 'رؤية الأشخاص في المؤسسة وتفاصيلهم.',
+  'permission.vendors.create': 'إضافة موردين',
+  'permission.vendors.create.description': 'إضافة مورد، حتى من نموذج آخر.',
+  'permission.vendors.manage': 'إدارة الموردين',
+  'permission.vendors.manage.description': 'تعديل الموردين وإيقافهم وحذفهم.',
+  'permission.vendors.view': 'عرض الموردين',
+  'permission.vendors.view.description': 'عرض الموردين وتفاصيلهم واختيارهم في السجلات.',
   'permission.work_items.approve_any': 'البت في الموافقات البديلة',
   'permission.work_items.approve_any.description':
     'البت في الموافقات التي ليس لها موافق نشط (مسؤولو الموافقات).',
@@ -661,6 +675,7 @@ export const ar: LabelResource = {
   'permission_module.sites': 'المواقع',
   'permission_module.sla': 'اتفاقيات مستوى الخدمة',
   'permission_module.users': 'المستخدمون',
+  'permission_module.vendors': 'الموردون',
   'permission_module.work_items': 'كل الطلبات (الحوادث وطلبات الخدمة)',
   'permission_module.workflows': 'سير العمل',
   'preferences.date_format': 'تنسيق التاريخ',
