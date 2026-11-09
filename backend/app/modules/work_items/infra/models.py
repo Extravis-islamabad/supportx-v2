@@ -1220,6 +1220,8 @@ class WorkItemApproval(TenantEntity):
     # WP-045b S3 (0117): the change advisory board this row came from, and why that board.
     board_id: Mapped[uuid.UUID | None]
     board_reason: Mapped[str | None] = mapped_column(String(10))
+    # WP-045b S4 (0118): an optional board member's vote, shown but never counted (Haider).
+    advisory: Mapped[bool] = mapped_column(Boolean, server_default="false")
     state: Mapped[str] = mapped_column(String(20), server_default="pending")
     decided_at: Mapped[datetime | None]
     decided_by: Mapped[uuid.UUID | None]

@@ -457,6 +457,7 @@ class Reviewing:
     rule: rules.BoardRule
     reason: str | None  # "mapped" or "default" for a mapped board; None for one named outright
     people: tuple[uuid.UUID, ...]
+    advisory: tuple[uuid.UUID, ...] = ()  # optional members: their votes never count (Haider)
 
 
 async def _facts(session: AsyncSession, record: WorkItem) -> rules.ChangeFacts:
@@ -470,6 +471,15 @@ async def _facts(session: AsyncSession, record: WorkItem) -> rules.ChangeFacts:
         site_id=str(record.site_id) if record.site_id else None,
         template_id=str(record.template_id) if record.template_id else None,
     )
+
+
+async def _people(session: AsyncSession, members: Sequence[Member]) -> tuple[uuid.UUID, ...]:
+    """Members as people now: each person, and each group's members, once."""
+    people = [m.user_id for m in members if m.user_id is not None]
+    groups = frozenset(m.group_id for m in members if m.group_id is not None)
+    if groups:
+        people += list(await session.scalars(users_in_groups(groups)))
+    return tuple(dict.fromkeys(people))
 
 
 async def reviewing(
@@ -499,17 +509,15 @@ async def reviewing(
             chosen.append((uuid.UUID(ref), None))
     found: list[Reviewing] = []
     for board_id, reason in dict.fromkeys(chosen):
-        board_members = [m for m in members[board_id] if not m.optional]
-        people = [m.user_id for m in board_members if m.user_id is not None]
-        groups = frozenset(m.group_id for m in board_members if m.group_id is not None)
-        if groups:
-            people += list(await session.scalars(users_in_groups(groups)))
+        required = await _people(session, [m for m in members[board_id] if not m.optional])
+        optional = await _people(session, [m for m in members[board_id] if m.optional])
         found.append(
             Reviewing(
                 board_id,
                 rules.BoardRule(by_id[board_id].rule),
                 reason,
-                tuple(dict.fromkeys(people)),
+                required,
+                tuple(p for p in optional if p not in required),
             )
         )
     return found

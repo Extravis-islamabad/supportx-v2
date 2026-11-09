@@ -254,3 +254,49 @@ async def test_a_level_names_a_board_that_exists(world: World) -> None:
         headers={"If-Match": f'"{version}"', **CONSOLE},
     )
     assert field_codes(refused) == {"approvals.levels": "board_not_found"}
+
+
+async def test_an_optional_members_vote_is_advisory_and_never_counts(world: World) -> None:
+    """Haider: an optional member may record a reject; the level's outcome ignores it."""
+    a = world.a
+    await acceptance_by_board(world, a)
+    made = await add(
+        world,
+        a,
+        a.admin,
+        rule="any",
+        mapping={"change_types": ["normal"]},
+        members=[{"user_id": str(a.lead)}, {"user_id": str(a.tech_b), "optional": True}],
+    )
+    assert made.status_code == 201, made.text
+    rows = await raised(world, a, change_type="normal")
+    by_person = {r["approver_id"]: r for r in rows}
+    assert (by_person[str(a.lead)]["advisory"], by_person[str(a.tech_b)]["advisory"]) == (
+        False,
+        True,
+    )
+    [change] = (await world.call("GET", "/changes", a, a.admin)).json()["items"]  # the one made
+    advisory = by_person[str(a.tech_b)]
+    rejected = await world.call(
+        "POST",
+        f"/changes/{change['id']}/approvals/{advisory['id']}/decision",
+        a,
+        a.tech_b,
+        json={"decision": "reject", "comment": "Weekend freeze"},
+        headers={"If-Match": f'"{advisory["version"]}"', **CONSOLE},
+    )
+    assert rejected.status_code == 200, rejected.text
+    still = (await world.call("GET", f"/changes/{change['id']}", a, a.admin)).json()
+    assert still["status"] == "submission_awaiting_acceptance"  # the reject changed nothing
+    counted = by_person[str(a.lead)]
+    approved = await world.call(
+        "POST",
+        f"/changes/{change['id']}/approvals/{counted['id']}/decision",
+        a,
+        a.lead,
+        json={"decision": "approve"},
+        headers={"If-Match": f'"{counted["version"]}"', **CONSOLE},
+    )
+    assert approved.status_code == 200, approved.text
+    done = (await world.call("GET", f"/changes/{change['id']}", a, a.admin)).json()
+    assert done["stage"] == "planning"

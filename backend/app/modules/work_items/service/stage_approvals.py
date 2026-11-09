@@ -153,6 +153,7 @@ class PlannedLevel:
     barred: tuple[tuple[uuid.UUID, rules.RouteReason], ...]
     board_of: dict[uuid.UUID, change_boards.Reviewing]
     empty_board: change_boards.Reviewing | None
+    advisory: tuple[uuid.UUID, ...] = ()  # optional board members: shown, never counted
 
 
 async def plan_level(
@@ -188,7 +189,25 @@ async def plan_level(
         reason = reason or why
     if not people and reason is None:
         reason = rules.RouteReason.NO_HOLDER
-    return PlannedLevel(level, tuple(named), reason, tuple(left_out), board_of, empty)
+    active |= await active_user_ids(session, [p for b in boards for p in b.advisory])
+    advisory = [
+        p
+        for b in boards
+        for p in b.advisory
+        if p in active and p not in barred and p not in named and p != record.requester_id
+    ]
+    for b in boards:
+        for p in b.advisory:
+            board_of.setdefault(p, b)
+    return PlannedLevel(
+        level,
+        tuple(named),
+        reason,
+        tuple(left_out),
+        board_of,
+        empty,
+        tuple(dict.fromkeys(advisory)),
+    )
 
 
 async def open_level(
@@ -227,6 +246,19 @@ async def open_level(
                 board=plan.empty_board,
             )
         )
+    for person in plan.advisory:  # Haider: recorded and shown, never counted
+        advisory = _row(
+            record,
+            stage=stage,
+            index=index,
+            level=plan.level,
+            approver=person,
+            origin=rules.ApproverOrigin.NAMED,
+            reason=None,
+            board=plan.board_of.get(person),
+        )
+        advisory.advisory = True
+        rows.append(advisory)
     for row in rows:
         row.self_approval = settings.self_approval
         session.add(row)
@@ -342,9 +374,11 @@ async def after_decision(
     settings = await settings_of(session, wtype, record, stage)
     rows = await _rows(session, record, stage)
     level_rows = [r for r in rows if r.stage == decided.stage]
+    if decided.advisory:  # an optional member's vote: shown, never counted (Haider)
+        return
     outcome = rules.level_outcome(
         rules.LevelRule(decided.rule or rules.LevelRule.ANY),
-        [rules.ApprovalState(r.state) for r in level_rows],
+        [rules.ApprovalState(r.state) for r in level_rows if not r.advisory],
     )
     if outcome is rules.LevelOutcome.PENDING or settings is None:
         return

@@ -7,6 +7,8 @@ Expand only, no data step:
   the stage's latest row.
 - `work_item_type_settings.reapproval` (JSONB, NULL: the shipped policy): per watched value,
   restart, notify or ignore, and the window's tolerance in minutes.
+- `work_item_approvals.advisory` (false): an optional board member's approval, recorded and shown
+  but never counted under any rule (Haider, 2026-11-10).
 
 The downgrade drops both while no snapshot exists and no tenant set a policy; otherwise it stops
 and keeps the data (rule 5h).
@@ -38,6 +40,8 @@ BEGIN
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (SELECT 1 FROM {TABLE}) OR EXISTS (
             SELECT 1 FROM work_item_type_settings WHERE reapproval IS NOT NULL
+        ) OR EXISTS (
+            SELECT 1 FROM work_item_approvals WHERE advisory
         ) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has re-approval data (rule 5h)', t;
         END IF;
@@ -89,11 +93,16 @@ def upgrade() -> None:
     op.add_column(
         "work_item_type_settings", sa.Column("reapproval", postgresql.JSONB(), nullable=True)
     )
+    op.add_column(
+        "work_item_approvals",
+        sa.Column("advisory", sa.Boolean(), server_default="false", nullable=False),
+    )
 
 
 def downgrade() -> None:
     """Back to before re-approval (stops while there are snapshots or a policy)."""
     op.execute(GUARD)
+    op.drop_column("work_item_approvals", "advisory")
     op.drop_column("work_item_type_settings", "reapproval")
     op.drop_index(f"ix_{TABLE}_tenant_item_stage", table_name=TABLE)
     op.drop_table(TABLE)
