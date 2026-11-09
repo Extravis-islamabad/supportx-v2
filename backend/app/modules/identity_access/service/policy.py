@@ -35,6 +35,7 @@ from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import api_keys
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
+    DEPARTMENT_VIEWER,
     REQUESTER,
     SYSTEM_ROLES,
     TECHNICIAN,
@@ -59,7 +60,7 @@ from app.modules.identity_access.infra.models import (
     UserRole,
 )
 from app.modules.identity_access.service.access_settings import tenant_technician_scope
-from app.modules.organization import active_groups, users_in_groups
+from app.modules.organization import active_groups, heads_department, users_in_groups
 from app.shared.api.filters import ResourceFields, compile_filter
 from app.shared.search import ENGINE, SearchDocument
 
@@ -450,6 +451,14 @@ class PolicyService:
                 for permission, scope in self.catalogue.system_grants(
                     key, technician_scope=technician_scope
                 )
+            ]
+        # A department's head views its requests in the portal by default (D-152), computed
+        # here, so a new head has it at once and a replaced one loses it (the department's save
+        # makes compiled permissions stale).
+        if DEPARTMENT_VIEWER not in role_keys and await heads_department(session, user_id):
+            grants += [
+                (permission, Grant(scope))
+                for permission, scope in self.catalogue.system_grants(DEPARTMENT_VIEWER)
             ]
         custom = [r.id for r in roles if not r.is_system]
         if custom:

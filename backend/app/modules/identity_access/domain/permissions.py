@@ -37,6 +37,21 @@ KNOWLEDGE_MANAGER = "knowledge_manager"
 SERVICE_DESK_MANAGER = "service_desk_manager"
 SITE_ADMIN = "site_admin"
 REPORT_VIEWER = "report_viewer"
+# D-152/D-153 (Haider, 2026-11-10). A team lead works its groups' records and manages only the
+# groups it leads (`groups.manage_own`, organization's `require_group_manager`); it views changes,
+# assets and CMDB. The service desk manager keeps every desk record and no settings.
+TEAM_LEAD = "team_lead"
+# Assets, CMDB, software licences and discovery results, in full; technicians view assets.
+ASSET_MANAGER = "asset_manager"
+# Change and release lifecycles: lanes A (WP-045) and C (WP-058) declare their permissions'
+# defaults for these keys in their modules. CAB membership stays per board.
+CHANGE_MANAGER = "change_manager"
+RELEASE_MANAGER = "release_manager"
+# Purchases and contracts (WP-054 declares its permissions for this key).
+PURCHASE_MANAGER = "purchase_manager"
+# The requests of the person's own department in the portal, read-only, no technician fields.
+# A department's head holds the same right by default, computed from `departments.head_id`.
+DEPARTMENT_VIEWER = "department_viewer"
 SYSTEM_ROLES = (
     TENANT_ADMIN,
     TECHNICIAN,
@@ -47,6 +62,12 @@ SYSTEM_ROLES = (
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
     REPORT_VIEWER,
+    TEAM_LEAD,
+    ASSET_MANAGER,
+    CHANGE_MANAGER,
+    RELEASE_MANAGER,
+    PURCHASE_MANAGER,
+    DEPARTMENT_VIEWER,
 )
 
 ALL = ALL_SCOPES
@@ -169,8 +190,64 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
         # Reads incidents, requests and their reports, read-only (lane B: reports apply the
         # viewer's own scope, so without view rights they would be empty).
         REPORT_VIEWER: (("profile.edit", "own"), ("requests.view", "all")),
+        # Its record rights come from the technician's (see _INHERITS); these are its own.
+        TEAM_LEAD: (("profile.edit", "own"),),
+        ASSET_MANAGER: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("sites.view", "all"),
+            ("groups.view", "all"),
+            ("assets.view", "all"),
+            ("assets.manage", "all"),
+            ("cmdb.view", "all"),
+            ("cmdb.manage", "all"),
+        ),
+        CHANGE_MANAGER: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("sites.view", "all"),
+            ("groups.view", "all"),
+            ("changes.view", "all"),
+            ("changes.create", "all"),
+            ("changes.approve", "all"),
+            ("cmdb.view", "all"),
+        ),
+        RELEASE_MANAGER: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("groups.view", "all"),
+            ("releases.view", "all"),
+            ("changes.view", "all"),
+        ),
+        PURCHASE_MANAGER: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("sites.view", "all"),
+            ("assets.view", "all"),
+        ),
+        # work_items gives it `work_items.view_department` (PermissionSpec.defaults).
+        DEPARTMENT_VIEWER: (("profile.edit", "own"),),
     }
 )
+
+# A role that starts from another's computed grants (D-153): the team lead works what a
+# technician works, but only its groups' records (the tenant's "technicians see all" answer never
+# widens it), and views assets and changes without changing them. Then its own grants apply.
+_INHERITS: Mapping[str, tuple[str, frozenset[str]]] = MappingProxyType(
+    {TEAM_LEAD: (TECHNICIAN, frozenset({"assets.manage", "changes.create"}))}
+)
+# The desk's record families a team lead works only in its groups (D-152): an inherited `all`
+# becomes `group`. Creating stays anywhere (a new record lands in a group by its own rules), and
+# approving stays with the approvals a person is asked for.
+_GROUP_RECORDS = ("incidents.", "requests.", "problems.")
+_ANY_GROUP = frozenset({"create", "approve"})
+
+
+def _group_capped(key: str, scope: Scope) -> Scope:
+    action = key.rsplit(".", 1)[-1]
+    if scope == "all" and key.startswith(_GROUP_RECORDS) and action not in _ANY_GROUP:
+        return "group"
+    return scope
 
 
 class CatalogueError(RuntimeError):
@@ -233,7 +310,20 @@ class Catalogue:
             for granted_to, scope in spec.defaults
             if granted_to == role
         )
-        return SYSTEM_ROLE_GRANTS.get(role, ()) + declared
+        own = SYSTEM_ROLE_GRANTS.get(role, ()) + declared
+        if role not in _INHERITS:
+            return own
+        parent, left_out = _INHERITS[role]
+        inherited: list[tuple[str, Scope]] = []
+        for key, scope in self.system_grants(parent, technician_scope="group"):
+            capped = _group_capped(key, scope)
+            # Left out, or a record right with no group scope to narrow to: not inherited.
+            if key in left_out or capped not in self.permissions[key].scopes:
+                continue
+            inherited.append((key, capped))
+        # Each (permission, scope) once. Scopes are not merged: group and own reach different
+        # records, and only `all` covers the others.
+        return tuple(dict.fromkeys((*inherited, *own)))
 
 
 def _widened(spec: PermissionSpec, role: str, scope: Scope, technician_scope: Scope) -> Scope:

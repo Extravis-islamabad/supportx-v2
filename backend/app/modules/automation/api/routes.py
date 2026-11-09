@@ -624,8 +624,10 @@ async def put_availability(
 ) -> AvailabilityOut:
     """Yourself always; a member of your group as its lead; anyone with `users.manage`."""
     if not await assignment.may_set_availability(
-        session, subject.user_id, user_id, manages_people=subject.holds("users.manage")
+        session, subject, user_id, manages_people=subject.holds("users.manage")
     ):
+        if subject.holds("groups.manage_own"):  # a team lead, not one of its groups (D-152)
+            raise PermissionDenied(code="group_not_led")
         raise PermissionDenied(params={"permission": "users.manage"})
     await assignment.set_availability(session, user_id, body.state, source_of(request))
     found = await assignment.availability_states(session, [user_id])
