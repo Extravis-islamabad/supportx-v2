@@ -660,6 +660,7 @@ export const ar: LabelResource = {
   'presence.you_elsewhere': 'أنت (نافذة أخرى)',
   'profile.form_density_help': 'يعرض الوضع المضغوط عمودين مع التسميات على الجانب.',
   'profile.identity': 'يأتي الاسم والبريد الإلكتروني واللغة من حساب تسجيل الدخول.',
+  'profile.replies_card': 'الردود والمنطقة الزمنية',
   'profile.saved': 'تم حفظ تفضيلاتك.',
   'profile.signature': 'توقيع الردود',
   'profile.signature_help': 'يُضاف إلى الردود التي ترسلها.',
