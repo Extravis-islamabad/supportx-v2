@@ -127,6 +127,45 @@ async def _set_tenant(session: AsyncSession) -> None:
     )
 
 
+async def _check_role(session: AsyncSession) -> None:
+    """Refuse to start unless RLS confines this role (Haider, 2026-11-09).
+
+    The role must not be a superuser and must not have BYPASSRLS, and every table the repair
+    reads or writes must force RLS, so the database keeps it inside the showcase tenant even if
+    a guard here had a bug (read-only queries run as postgres once crossed tenants silently).
+    """
+    role = (
+        await session.execute(
+            text(
+                "SELECT current_user AS name, rolsuper, rolbypassrls FROM pg_roles"
+                " WHERE rolname = current_user"
+            )
+        )
+    ).one()
+    if role.rolsuper or role.rolbypassrls:
+        msg = (
+            f"refusing to run as {role.name}: a superuser or BYPASSRLS role is not confined by RLS"
+        )
+        raise RepairError(msg)
+    tables = [t for t, _ in seed._BACKDATE_TARGETS] + ["audit_entries", "outbox_events"]  # noqa: SLF001 - step 5's tables
+    loose = (
+        (
+            await session.execute(
+                text(
+                    "SELECT relname FROM pg_class WHERE relname = ANY(:t) AND relkind IN ('r', 'p')"
+                    " AND NOT (relrowsecurity AND relforcerowsecurity) ORDER BY relname"
+                ),
+                {"t": tables},
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if loose:
+        msg = f"refusing to run: RLS is not forced on {', '.join(loose)}"
+        raise RepairError(msg)
+
+
 async def _check_tenant(session: AsyncSession) -> None:
     found = await session.scalar(
         text("SELECT id FROM tenants WHERE slug = :slug"), {"slug": seed.SLUG}
@@ -188,6 +227,7 @@ async def _seed_defined(session: AsyncSession) -> Any:  # noqa: ANN401 - a predi
 
 async def plan(session: AsyncSession, now: datetime) -> list[Plan]:
     """Every moved record not the seed's, with its repair or why it is skipped. Reads only."""
+    await _check_role(session)
     await _set_tenant(session)
     await _check_tenant(session)
     defined = await _seed_defined(session)

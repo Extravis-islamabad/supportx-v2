@@ -70,6 +70,12 @@ def test_puts_back_what_the_old_step_moved_and_only_what_is_certain(
         assert before["row"]["created_at"] < before["born"] - timedelta(days=1)
 
         settings = make_settings(database_url=database.app_url, migration_database_url=url)
+        # Haider: never as a role RLS does not confine (postgres silently crossed tenants once).
+        as_superuser = make_settings(
+            database_url=database.app_url, migration_database_url=database.admin_url
+        )
+        with pytest.raises(repair.RepairError, match="superuser or BYPASSRLS"):
+            asyncio.run(repair.run(as_superuser, write=False))
         plans = {p.record_id: p for p in asyncio.run(repair.run(settings, write=False))}
         # Only the two hand-made ones: the seed's own (backdated on purpose) are never listed.
         assert set(plans) == {uuid.UUID(moved), uuid.UUID(odd)}
