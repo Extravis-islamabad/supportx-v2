@@ -17,11 +17,13 @@ import {
   Divider,
   Typography,
 } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
 import {
   ApiError,
+  queryKeys,
   useSlaCalendars,
   useStructure,
   useStructureChange,
@@ -43,6 +45,8 @@ import {
   useLabel,
   useLicence,
 } from '@supportx/ui';
+
+import { refreshList, useListChannel } from '@supportx/realtime';
 
 import { GroupMembersAvailability } from '../../../GroupMembersAvailability';
 
@@ -167,6 +171,12 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
   const { message } = App.useApp();
   const rows = useStructure(kind);
   const { remove } = useStructureChange(kind);
+  // A person's site changing changes a site's people count: follow the people list (live, §8).
+  const { can } = useAccess();
+  const queryClient = useQueryClient();
+  useListChannel(kind === 'sites' && can('users.view') ? 'users' : null, () => {
+    refreshList(queryClient, queryKeys.access.units('sites'));
+  });
   const [editing, setEditing] = useState<Row | 'new'>();
   // Live: a change by another admin arrives as organization.structure_changed on the tenant's
   // channel; ConsoleLayout refreshes these lists.
@@ -287,11 +297,24 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
                 },
               ]
             : []),
+          // PEO-01: a site's people (their own site) and who has access to it (the `site` scope)
+          // are different things; each column says which one it counts.
+          ...(kind === 'sites'
+            ? [
+                {
+                  key: 'people',
+                  title: t('organization.col.people'),
+                  render: (_: unknown, row: Row) => Number(row.people_count ?? 0),
+                },
+              ]
+            : []),
           ...(kind === 'sites' || kind === 'groups'
             ? [
                 {
                   key: 'members',
-                  title: t('organization.col.members'),
+                  title: t(
+                    kind === 'sites' ? 'organization.col.site_access' : 'organization.col.members',
+                  ),
                   render: (_: unknown, row: Row) => (row.member_ids as string[]).length,
                 },
               ]

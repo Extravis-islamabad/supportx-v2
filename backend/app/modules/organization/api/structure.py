@@ -37,7 +37,7 @@ RATE = [Depends(rate_limit("organization"))]
 
 
 class SiteOut(BaseModel):
-    """A site with its details and the IDs of its members (the `site` scope)."""
+    """A site with its details, the IDs of its members (the `site` scope) and its people."""
 
     id: uuid.UUID
     name: str
@@ -51,6 +51,9 @@ class SiteOut(BaseModel):
     is_default: bool
     calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
     disabled: bool = Field(description="Inactive: kept where used, not offered for new ones.")
+    people_count: int = Field(
+        default=0, description="People whose own site this is (their profile's site)."
+    )
     member_ids: list[uuid.UUID]
     version: int = Field(description="Send back as If-Match to change it.")
 
@@ -90,8 +93,9 @@ class SitePatch(BaseModel):
     disabled: bool | None = None
 
 
-def _site_out(row: Site, member_ids: list[uuid.UUID]) -> SiteOut:
+def _site_out(row: Site, member_ids: list[uuid.UUID], people: int) -> SiteOut:
     return SiteOut(
+        people_count=people,
         id=row.id,
         name=row.name,
         description=row.description,
@@ -121,7 +125,8 @@ async def list_sites(session: TenantSession) -> list[SiteOut]:
     """Every site by name, inactive ones included (marked), with member IDs."""
     rows = await structure.list_sites(session)
     members = await structure.site_members(session)
-    return [_site_out(r, members.get(r.id, [])) for r in rows]
+    people = await structure.site_people(session)
+    return [_site_out(r, members.get(r.id, []), people.get(r.id, 0)) for r in rows]
 
 
 @sites.post(
@@ -145,7 +150,7 @@ async def create_site(
         row = await structure.save_site(session, None, body.model_dump(exclude_unset=True))
         note.skip = False
         note.object_id = str(row.id)
-        return Created(_site_out(row, []), {"ETag": f'"{row.version}"'})
+        return Created(_site_out(row, [], 0), {"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, operation)
 
@@ -171,7 +176,8 @@ async def patch_site(
     )
     set_etag(response, row.version)
     members = await structure.site_members(session)
-    return _site_out(row, members.get(row.id, []))
+    people = await structure.site_people(session)
+    return _site_out(row, members.get(row.id, []), people.get(row.id, 0))
 
 
 @sites.delete(

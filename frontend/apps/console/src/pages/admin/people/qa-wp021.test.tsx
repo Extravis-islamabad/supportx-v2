@@ -37,6 +37,7 @@ function site(id: string, name: string): SiteOut {
     is_default: false,
     disabled: false,
     member_ids: [],
+    people_count: 0,
     version: 1,
   };
 }

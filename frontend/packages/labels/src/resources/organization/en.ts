@@ -99,6 +99,8 @@ export const en = {
   'organization.col.actions': 'Actions',
   'organization.col.members': 'Members',
   'organization.col.name': 'Name',
+  'organization.col.people': 'People',
+  'organization.col.site_access': 'Site access',
   'organization.current_person': 'Current person',
   'organization.default': 'Default',
   'organization.departments': 'Departments',
