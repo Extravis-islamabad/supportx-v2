@@ -763,6 +763,10 @@ export const en = {
   'role.knowledge_manager.description':
     'Writes, reviews and publishes knowledge articles for the whole organisation.',
   'role.knowledge_manager.scope': 'All knowledge articles',
+  'role.problem_manager': 'Problem manager',
+  'role.problem_manager.description':
+    'Runs problem management: sees, works, assigns, approves and closes every problem, including its root cause and known errors, and reads the incidents they are about.',
+  'role.problem_manager.scope': 'Every problem',
   'role.purchase_manager': 'Purchase and contract manager',
   'role.purchase_manager.description': 'Looks after purchases, vendors and contracts.',
   'role.purchase_manager.scope': 'Every purchase and contract',

@@ -45,12 +45,19 @@ from app.modules.identity_access.bff.realtime import router as realtime_router
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
+    ASSET_MANAGER,
+    CHANGE_MANAGER,
+    DEPARTMENT_VIEWER,
     IDENTITY_PERMISSIONS,
     KNOWLEDGE_MANAGER,
+    PROBLEM_MANAGER,
+    PURCHASE_MANAGER,
+    RELEASE_MANAGER,
     REPORT_VIEWER,
     RESERVED_PERMISSIONS,
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
+    TEAM_LEAD,
     Catalogue,
 )
 from app.modules.identity_access.domain.policy import AccessRule, RecordFacts, Subject
@@ -376,10 +383,17 @@ AUTHZ_CACHE_TTL_SECONDS = 300
 register_people_usage()
 
 __all__ = [
+    "ASSET_MANAGER",
+    "CHANGE_MANAGER",
+    "DEPARTMENT_VIEWER",
     "KNOWLEDGE_MANAGER",
+    "PROBLEM_MANAGER",
+    "PURCHASE_MANAGER",
+    "RELEASE_MANAGER",
     "REPORT_VIEWER",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",
+    "TEAM_LEAD",
     "AccessRule",
     "DutyLookup",
     "FederationFailed",

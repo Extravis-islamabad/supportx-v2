@@ -236,11 +236,16 @@ export function TechnicianPicker({
   disabled,
   testId,
   ariaLabel,
-}: PickerProps & { groupId: string | null }) {
+  base = 'incidents',
+}: PickerProps & {
+  groupId: string | null;
+  /** The record type's prefix: who may be given a problem differs from an incident. */
+  base?: 'incidents' | 'problems';
+}) {
   const t = useLabel();
   const spoken = useSpoken();
   const [search, setSearch] = useState('');
-  const found = useIncidentAssignees(groupId, search, disabled !== true);
+  const found = useIncidentAssignees(groupId, search, disabled !== true, base);
   const rows = found.data ?? [];
   const twice = duplicateNames(rows.map((r) => r.display_name));
   const options = rows.map((r) => ({

@@ -762,6 +762,10 @@ export const ur: LabelResource = {
   'role.knowledge_manager.description':
     'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
   'role.knowledge_manager.scope': 'تمام علمی مضامین',
+  'role.problem_manager': 'مسائل کا منتظم',
+  'role.problem_manager.description':
+    'مسائل کا انتظام چلاتا ہے: ہر مسئلہ دیکھتا، اس پر کام کرتا، تفویض کرتا، منظور اور بند کرتا ہے، بشمول بنیادی وجہ اور معلوم خرابیاں، اور متعلقہ واقعات پڑھتا ہے۔',
+  'role.problem_manager.scope': 'تمام مسائل',
   'role.purchase_manager': 'خریداری اور معاہدہ مینیجر',
   'role.purchase_manager.description': 'خریداریوں، فروشندگان اور معاہدوں کی دیکھ بھال کرتا ہے۔',
   'role.purchase_manager.scope': 'تمام خریداریاں اور معاہدے',

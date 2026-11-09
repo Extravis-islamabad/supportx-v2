@@ -743,6 +743,10 @@ export const ar: LabelResource = {
   'role.knowledge_manager': 'مدير المعرفة',
   'role.knowledge_manager.description': 'يكتب مقالات المعرفة ويراجعها وينشرها للمؤسسة بأكملها.',
   'role.knowledge_manager.scope': 'كل مقالات المعرفة',
+  'role.problem_manager': 'مدير المشكلات',
+  'role.problem_manager.description':
+    'يدير إدارة المشكلات: يرى كل المشكلات ويعمل عليها ويسندها ويوافق عليها ويغلقها، بما في ذلك السبب الجذري والأخطاء المعروفة، ويقرأ الحوادث المرتبطة بها.',
+  'role.problem_manager.scope': 'كل المشكلات',
   'role.purchase_manager': 'مدير المشتريات والعقود',
   'role.purchase_manager.description': 'يتولى المشتريات والمورّدين والعقود.',
   'role.purchase_manager.scope': 'كل المشتريات والعقود',

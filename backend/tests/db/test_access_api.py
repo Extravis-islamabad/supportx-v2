@@ -171,6 +171,7 @@ async def test_roles_lifecycle_with_etags(world: World) -> None:
         "service_desk_manager",
         "site_admin",
         "report_viewer",
+        "problem_manager",  # WP-044c D14 (Appendix A), grants from work_items' defaults
     }
 
     created = await world.create_role(

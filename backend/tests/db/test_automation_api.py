@@ -581,9 +581,20 @@ async def make_lead(world: World, org: Org, group: uuid.UUID, lead: uuid.UUID) -
 async def test_follow_up_a_group_lead_sets_a_member_away_and_it_is_recorded(
     world: World,
 ) -> None:
-    """Product owner, 2026-10-28: leads and admins set a member's availability, with history."""
+    """Product owner, 2026-10-28: leads and admins set a member's availability, with history.
+
+    D-152: leading the group is not enough; the lead is a team lead (`groups.manage_own`).
+    """
     org = world.a
     await make_lead(world, org, org.ga, org.tech_c)
+    not_yet = await world.call(
+        "PUT", f"/automation/availability/{org.tech_a}", org, org.tech_c, json={"state": "away"}
+    )
+    assert (not_yet.status_code, not_yet.json()["code"]) == (403, "permission_denied")
+    roles = (await world.call("GET", "/roles", org, org.admin)).json()
+    (team_lead,) = [r["id"] for r in roles if r["key"] == "team_lead"]
+    granted = await world.call("PUT", f"/users/{org.tech_c}/roles/{team_lead}", org, org.admin)
+    assert granted.status_code in {200, 204}, granted.text
     away = await world.call(
         "PUT", f"/automation/availability/{org.tech_a}", org, org.tech_c, json={"state": "away"}
     )
@@ -599,11 +610,11 @@ async def test_follow_up_a_group_lead_sets_a_member_away_and_it_is_recorded(
     ).json()
     assert (state["state"], state["changed_by"]) == ("away", "Alpha Tech C")
     assert state["changed_at"] is not None
-    # Someone the lead does not lead (tech B is only in GB): refused.
+    # Someone the lead does not lead (tech B is only in GB): refused, naming the group rule.
     other = await world.call(
         "PUT", f"/automation/availability/{org.tech_b}", org, org.tech_c, json={"state": "away"}
     )
-    assert other.status_code == 403
+    assert (other.status_code, other.json()["code"]) == (403, "group_not_led")
     # Back to Available by an admin; both changes are in the history, newest first.
     back = await world.call(
         "PUT", f"/automation/availability/{org.tech_a}", org, org.admin, json={"state": "available"}

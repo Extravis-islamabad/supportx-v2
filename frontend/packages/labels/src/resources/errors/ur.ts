@@ -252,6 +252,8 @@ export const ur: LabelResource = {
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
+  'errors.field.default_cannot_be_removed':
+    'طے شدہ اصول ہٹایا نہیں جا سکتا۔ اس کے بجائے اسے بند کریں۔',
   'errors.field.default_language_not_offered':
     'پہلے سے طے شدہ زبان دستیاب زبانوں میں سے ہونی چاہیے۔',
   'errors.field.default_required':
@@ -355,6 +357,8 @@ export const ur: LabelResource = {
   'errors.field.level_too_many_actions': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} کارروائیاں۔',
   'errors.field.level_too_many_recipients': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} وصول کنندگان۔',
   'errors.field.levels_same_moment': 'دو درجے ایک ہی وقت پر چلتے ہیں۔ ہر ایک کو اپنا وقت دیں۔',
+  'errors.field.limited_template_for_requesters':
+    'درخواست گزاروں کا سانچہ سب کے لیے ہے: اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
@@ -491,6 +495,7 @@ export const ur: LabelResource = {
   'errors.field.technician_not_in_group': 'یہ ٹیکنیشن منتخب گروپ کا رکن نہیں۔',
   'errors.field.template_disabled': 'یہ سانچہ بند کر دیا گیا ہے۔ کوئی اور سانچہ منتخب کریں۔',
   'errors.field.template_not_found': 'یہ سانچہ اب موجود نہیں۔ کوئی اور منتخب کریں۔',
+  'errors.field.template_not_offered': 'یہ سانچہ آپ کے لیے دستیاب نہیں۔ کوئی اور سانچہ منتخب کریں۔',
   'errors.field.time_format_unknown': '24 گھنٹے یا 12 گھنٹے کا وقت چنیں۔',
   'errors.field.time_zone_unknown': 'فہرست میں سے ٹائم زون چنیں۔',
   'errors.field.timezone_required': 'ٹائم زون شامل کریں۔',
@@ -766,6 +771,8 @@ export const ur: LabelResource = {
   'errors.record_closed': 'بند یا منسوخ ریکارڈ تبدیل نہیں ہو سکتے۔',
   'errors.reference_copied': 'حوالہ کاپی ہو گیا',
   'errors.reference_is': 'حوالہ: {{reference}}',
+  'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
+  'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',
   'errors.report_entity_not_found': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
   'errors.report_export_not_found': 'یہ ایکسپورٹ موجود نہیں یا آپ کا نہیں۔',

@@ -262,7 +262,7 @@ describe('dashboards on screen', () => {
     fireEvent.change(screen.getByTestId('dashboards-search'), {
       target: { value: '' },
     });
-    fireEvent.click(await screen.findByTestId('dashboards-star-builtin:my_work'));
+    fireEvent.click(await screen.findByTestId('dashboards-item-builtin:my_work-star'));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/dashboards/favourites/builtin%3Amy_work')).toHaveLength(1);
     });

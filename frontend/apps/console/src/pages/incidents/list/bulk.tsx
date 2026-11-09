@@ -14,7 +14,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import {
   useBulkJob,
@@ -57,6 +57,7 @@ export function BulkBar({
   capped,
   onAction,
   canEdit,
+  extra,
 }: {
   selection: Selection;
   onSelection: (selection: Selection) => void;
@@ -65,6 +66,8 @@ export function BulkBar({
   capped: boolean;
   onAction: (action: BulkAction) => void;
   canEdit: (action: BulkAction) => boolean;
+  /** Actions on the selection that are not background jobs (a problem from these incidents). */
+  extra?: ReactNode;
 }) {
   const t = useLabel();
   const count = selection.all ? (total ?? 0) : selection.ids.length;
@@ -129,6 +132,7 @@ export function BulkBar({
             </Tooltip>
           );
         })}
+        {extra}
       </Space>
     </Flex>
   );
