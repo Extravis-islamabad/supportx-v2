@@ -191,6 +191,31 @@ describe('console: releases', () => {
     expect(screen.getByTestId('new-release')).toBeTruthy();
   });
 
+  it('template C: the count, quick views and search go to the API, in one filter bar', async () => {
+    window.history.pushState({}, '', '/releases');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('release-row-REL-1');
+    const bar = screen.getByTestId('releases-filters');
+    expect(within(bar).getByTestId('releases-view')).toBeTruthy();
+    expect(within(bar).getByTestId('releases-search')).toBeTruthy();
+    const first = fake.find('GET', '/api/v1/releases')[0];
+    expect(first?.url.searchParams.get('view')).toBe('open');
+    expect(first?.url.searchParams.get('include_total')).toBe('true');
+    fireEvent.click(within(bar).getByText('All'));
+    fireEvent.change(within(bar).getByRole('searchbox'), { target: { value: 'rel-1' } });
+    await waitFor(() => {
+      const last = fake.find('GET', '/api/v1/releases').at(-1);
+      expect(last?.url.searchParams.get('view')).toBeNull();
+      expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toEqual({
+        or: [
+          { field: 'subject', op: 'contains', value: 'rel-1' },
+          { field: 'display_id', op: 'eq', value: 'REL-1' },
+        ],
+      });
+    });
+  });
+
   it('shows the rail, says why a move is not possible, and asks for the reason a move needs', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();

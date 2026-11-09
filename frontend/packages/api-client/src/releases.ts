@@ -45,6 +45,9 @@ export const releaseKeys = {
 export interface ReleasesQuery {
   view?: string;
   cursor?: string;
+  /** The filter DSL as JSON (the list's search). */
+  filter?: string;
+  include_total?: boolean;
 }
 
 export function useReleases(query: ReleasesQuery) {
