@@ -20,6 +20,10 @@ export interface FormPageProps {
   notice?: ReactNode;
   /** The help column beside the form on wide screens. */
   aside?: ReactNode;
+  /** Page actions in the header that are not the form's submit (Preview), at most two. */
+  extra?: ReactNode;
+  /** `full` for editors that need the width (a form designer); forms keep FORM_MAX_WIDTH. */
+  width?: 'form' | 'full';
   testId?: string;
 }
 
@@ -37,12 +41,14 @@ export function FormPage({
   primary,
   notice,
   aside,
+  extra,
+  width = 'form',
   testId,
 }: FormPageProps) {
   const { token } = theme.useToken();
   return (
-    <PageColumn kind="form" aside={aside} testId={testId}>
-      <PageHeader title={title} back={back} description={description} />
+    <PageColumn kind={width === 'full' ? 'list' : 'form'} aside={aside} testId={testId}>
+      <PageHeader title={title} back={back} description={description} extra={extra} />
       <Flex vertical gap={SPACE.md}>
         {children}
       </Flex>
