@@ -167,6 +167,9 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     # its mapping matches rather than the first.
     segregation_strict: Mapped[bool] = mapped_column(Boolean, server_default="false")
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
+    # NULL: the shipped policy.
+    reapproval: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
@@ -1749,3 +1752,28 @@ class ChangeBoardMember(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
     user_id: Mapped[uuid.UUID | None]
     group_id: Mapped[uuid.UUID | None]
     optional: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class ChangeApprovalSnapshot(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
+    """A change's watched values when one of its stages was approved (WP-045b S4; 0118)."""
+
+    __tablename__ = "change_approval_snapshots"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "work_item_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_change_approval_snapshots_work_item",
+            ondelete="CASCADE",
+        ),
+        Index(
+            "ix_change_approval_snapshots_tenant_item_stage",
+            "tenant_id",
+            "work_item_id",
+            "record_stage",
+            "created_at",
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    record_stage: Mapped[str] = mapped_column(String(40))
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
