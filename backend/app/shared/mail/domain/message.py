@@ -67,7 +67,7 @@ class MailLink:
     """
 
     name: str
-    prefix: str  # e.g. "https://acme.example/portal/approve#"
+    prefix: str  # e.g. "https://acme.example/portal/approve?t=acme#"
     request: LinkRequest
 
 

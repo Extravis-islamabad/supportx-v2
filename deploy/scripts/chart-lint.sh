@@ -23,7 +23,7 @@ PROFILES=(
   "dev|-f $CHART/values-dev.yaml"
   "single-node|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
   "ingress|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.mode=ingress --set routing.ingress.tlsSecret=supportx-tls --set routing.hostnames={supportx.example.com}"
-  "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com"
+  "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com --set temporal.bundled.enabled=false --set temporal.address=temporal.example.com:7233"
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"
   "ha-ci|-f $CHART/values-dev.yaml -f $CHART/values-ha.yaml -f $CHART/values-ha-ci.yaml --set networkPolicies.egress.kubeApiCidrs={10.0.0.10/32}"
   "ha|-f $CHART/values-ha.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls"
@@ -144,6 +144,16 @@ if helm template supportx "$CHART" --namespace supportx $AI_ARGS --set ai.gpu.en
   echo "ai-gpu: the chart must refuse a GPU node without ai.gpu.resourceName" >&2; exit 1
 fi
 echo "ai: off by default; weights checked before start; GPU resource required"
+
+# The bundled Temporal needs this release's CloudNativePG cluster: with an external database the
+# chart refuses it (run Temporal yourself and set temporal.address).
+EXT_ARGS=""
+for entry in "${PROFILES[@]}"; do [ "${entry%%|*}" = external-db ] && EXT_ARGS="${entry#*|}"; done
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $EXT_ARGS --set temporal.bundled.enabled=true >/dev/null 2>&1; then
+  echo "temporal: the chart must refuse the bundled Temporal with an external database" >&2; exit 1
+fi
+echo "temporal: bundled only on the release's CloudNativePG cluster"
 
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"
