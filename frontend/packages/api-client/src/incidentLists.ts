@@ -179,8 +179,16 @@ export function useBulkJob(id: string | undefined) {
         api.GET('/api/v1/incidents/bulk-jobs/{job_id}', { params: { path: { job_id: id ?? '' } } }),
       ),
     enabled: id !== undefined,
+    // Live through the personal channel; while it runs, also re-read now and then, so a job
+    // that moved before the screen listened never stays at "waiting" (QA10-P1-09, rule 5c).
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'queued' || status === 'running' ? RUNNING_REFETCH_MS : false;
+    },
   });
 }
+
+const RUNNING_REFETCH_MS = 5000;
 
 /** Your latest bulk jobs, newest first (without results). */
 export function useBulkJobs(enabled = true) {
