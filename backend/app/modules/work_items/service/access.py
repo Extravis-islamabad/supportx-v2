@@ -158,6 +158,10 @@ FIELDS = ResourceFields(
         "closed_at": FilterField(
             WorkItem.closed_at, FieldType.DATETIME, sortable=True, simple=False
         ),
+        # Haider, 2026-11-10: "restored from trash" (the latest restore), for SLA reports.
+        "restored_at": FilterField(
+            WorkItem.restored_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
         "resolution_due_at": FilterField(
             WorkItem.resolution_due_at, FieldType.DATETIME, sortable=True, simple=False
         ),

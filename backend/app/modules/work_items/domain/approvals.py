@@ -46,6 +46,7 @@ class ApprovalPurpose(StrEnum):
 
     RECORD = "record"  # the record's own approval (a request's item, a problem asked ad hoc)
     ACCEPT_WITHOUT_FIX = "accept_without_fix"  # a known error kept without a fix (REQ-PRB-050)
+    WORKFLOW = "workflow"  # a workflow's approval node opened it (WP-048b S2, REQ-WF-014)
 
 
 class RouteReason(StrEnum):
@@ -206,14 +207,23 @@ class LevelOutcome(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    TIED = "tied"  # an exact majority split that a chair decides (D-146); only with a chair
 
 
-def level_outcome(rule: LevelRule, states: Iterable[ApprovalState]) -> LevelOutcome:
+def level_outcome(
+    rule: LevelRule,
+    states: Iterable[ApprovalState],
+    *,
+    chair: bool = False,
+    chair_vote: ApprovalState | None = None,
+) -> LevelOutcome:
     """The level's outcome from its approvers' states (withdrawn and not-needed do not count).
 
-    Majority: more than half of the level's approvers must approve. The level is rejected as
-    soon as a majority can no longer be reached, so an exact split (2 of 4 each way) rejects:
-    the tie case (the coordinator's condition).
+    Majority: more than half of the level's approvers must approve. Without a chair the level is
+    rejected as soon as a majority can no longer be reached, so an exact split (2 of 4 each way)
+    rejects: the tie case (the coordinator's condition, D-146). With the tenant's chair (D-146),
+    a level that can still end in an exact split waits for it; the split is TIED until the
+    chair's `chair_vote` decides it.
     """
     counted = [
         s
@@ -224,6 +234,8 @@ def level_outcome(rule: LevelRule, states: Iterable[ApprovalState]) -> LevelOutc
         return LevelOutcome.PENDING
     approved = sum(s == ApprovalState.APPROVED for s in counted)
     rejected = sum(s == ApprovalState.REJECTED for s in counted)
+    if rule == LevelRule.MAJORITY and chair:
+        return _majority_with_chair(approved, rejected, len(counted), chair_vote)
     decide = {LevelRule.ANY: _any, LevelRule.ALL: _all, LevelRule.MAJORITY: _majority}[rule]
     return decide(approved, rejected, len(counted))
 
@@ -246,6 +258,25 @@ def _majority(approved: int, rejected: int, total: int) -> LevelOutcome:
     if approved >= needed:
         return LevelOutcome.APPROVED
     if total - rejected < needed:  # the rest approving can no longer make a majority
+        return LevelOutcome.REJECTED
+    return LevelOutcome.PENDING
+
+
+def _majority_with_chair(
+    approved: int, rejected: int, total: int, vote: ApprovalState | None
+) -> LevelOutcome:
+    needed = total // 2 + 1
+    if approved >= needed:
+        return LevelOutcome.APPROVED
+    split = total % 2 == 0 and approved == rejected == total // 2
+    if split:
+        if vote == ApprovalState.APPROVED:
+            return LevelOutcome.APPROVED
+        if vote == ApprovalState.REJECTED:
+            return LevelOutcome.REJECTED
+        return LevelOutcome.TIED
+    tie_reachable = total % 2 == 0 and total - rejected >= total // 2
+    if total - rejected < needed and not tie_reachable:
         return LevelOutcome.REJECTED
     return LevelOutcome.PENDING
 

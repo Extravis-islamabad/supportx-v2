@@ -159,6 +159,16 @@ class WorkItemPortalSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class WorkItemApprovalSettingsChanged(DomainEvent):
+    """The tenant's approval settings changed (the D-146 chair): open settings pages reload."""
+
+    event_type: ClassVar[str] = "work_items.approval_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_approval_settings"
+
+    changed_fields: list[str]
+
+
 class _ConversationEvent(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item_conversation"
 
@@ -230,6 +240,26 @@ class WorkItemFollowerRemoved(_FollowerEvent):
 
     event_type: ClassVar[str] = "work_items.follower.removed"
     schema_version: ClassVar[int] = 1
+
+
+class WorkItemWorkflowNotice(DomainEvent):
+    """A workflow's notify node tells people about the record (WP-048b S2, REQ-WF-022).
+
+    The one notification engine sends it (work_items' record source maps it to
+    `<type>.workflow_notice`): access checked at send time, personal preferences, the delivery
+    log. The audience is resolved then; the texts are the node's own, per language.
+    """
+
+    event_type: ClassVar[str] = "work_items.workflow.notice"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    record_id: uuid.UUID
+    type: str
+    instance_id: uuid.UUID
+    audience: dict[str, list[str]]  # relatives, user_ids, group_ids
+    subject: dict[str, str]
+    body: dict[str, str]
 
 
 class WorkItemReplyTemplatesChanged(DomainEvent):
@@ -437,6 +467,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemAssetLinkChanged,
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
+    WorkItemWorkflowNotice,
     WorkItemUpdated,
     WorkItemStatusChanged,
     WorkItemStageChanged,
@@ -446,6 +477,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemRestored,
     WorkItemSettingsChanged,
     WorkItemPortalSettingsChanged,
+    WorkItemApprovalSettingsChanged,
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,

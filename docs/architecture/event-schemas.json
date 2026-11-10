@@ -1824,6 +1824,190 @@
         "type": "object"
       }
     },
+    "automation.workflow.command_finished": {
+      "1": {
+        "description": "A workflow command an owning module accepted for later is done (WP-048b S2, REQ-WF-014).\n\nWritten by the owning module in the transaction that finished it (an approval's deciding\nvote), through `automation.command_finished`; automation's consumer then continues the\nnode: `port` is the output it leaves by (approved, rejected), or `error` refuses it.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          },
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "outputs": {
+            "additionalProperties": true,
+            "title": "Outputs",
+            "type": "object"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Port"
+          }
+        },
+        "required": [
+          "instance_id",
+          "command",
+          "ok"
+        ],
+        "title": "WorkflowCommandFinished",
+        "type": "object"
+      }
+    },
+    "automation.workflow.function_requested": {
+      "1": {
+        "description": "A function node asks the worker to run a custom function (WP-048b S2; §6.7).\n\nNever run in the API process: the worker's consumer calls the installation's runner and\nreports back as `WorkflowCommandFinished`. The inputs are the node's own values and the\nnames of record fields, read by the worker; `assign` maps outputs to variables.",
+        "properties": {
+          "assign": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Assign",
+            "type": "object"
+          },
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "function": {
+            "title": "Function",
+            "type": "string"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "title": "Inputs",
+            "type": "object"
+          },
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance_id",
+          "command",
+          "record_type",
+          "record_id",
+          "function",
+          "inputs",
+          "assign",
+          "timeout_seconds"
+        ],
+        "title": "WorkflowFunctionRequested",
+        "type": "object"
+      }
+    },
+    "automation.workflow.webhook_requested": {
+      "1": {
+        "description": "A webhook node asks the worker to make one guarded call (WP-048b S2; ADR-043 §8).\n\nNever sent from a request: the worker's consumer sends it through the shared egress client\nand reports back as `WorkflowCommandFinished`. The record's fields are read by the worker,\nso the outbox holds only their names.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Headers",
+            "type": "object"
+          },
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "status_variable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status Variable"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "command",
+          "record_type",
+          "record_id",
+          "url",
+          "method",
+          "headers",
+          "fields"
+        ],
+        "title": "WorkflowWebhookRequested",
+        "type": "object"
+      }
+    },
     "automation.workflow_instance.changed": {
       "1": {
         "description": "A workflow instance moved on, waited, failed or ended (WP-048b, REQ-WF-023, -025).\n\nThe record's execution view and the overview refresh; IDs and codes only.",
@@ -4414,6 +4598,25 @@
         "type": "object"
       }
     },
+    "work_items.approval_settings.changed": {
+      "1": {
+        "description": "The tenant's approval settings changed (the D-146 chair): open settings pages reload.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "WorkItemApprovalSettingsChanged",
+        "type": "object"
+      }
+    },
     "work_items.asset_link.changed": {
       "1": {
         "description": "An asset was linked to a record or unlinked (REQ-AST-025). IDs only.\n\nThe record's screens refresh its assets; the assets module may hear it too (an asset's\n\"linked to my tickets\" scope, D-153).",
@@ -5746,6 +5949,61 @@
           "audience_before"
         ],
         "title": "WorkItemUpdated",
+        "type": "object"
+      }
+    },
+    "work_items.workflow.notice": {
+      "1": {
+        "description": "A workflow's notify node tells people about the record (WP-048b S2, REQ-WF-022).\n\nThe one notification engine sends it (work_items' record source maps it to\n`<type>.workflow_notice`): access checked at send time, personal preferences, the delivery\nlog. The audience is resolved then; the texts are the node's own, per language.",
+        "properties": {
+          "audience": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Audience",
+            "type": "object"
+          },
+          "body": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Body",
+            "type": "object"
+          },
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "subject": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Subject",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "type",
+          "instance_id",
+          "audience",
+          "subject",
+          "body"
+        ],
+        "title": "WorkItemWorkflowNotice",
         "type": "object"
       }
     }

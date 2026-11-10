@@ -267,6 +267,7 @@ export const ar: LabelResource = {
   'errors.field.certificate_not_valid_now': 'انتهت صلاحية الشهادة أو لم تصبح صالحة بعد.',
   'errors.field.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.field.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
+  'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
   'errors.field.channel_reserved':
     'يمكن اختيار الهاتف أو الحضور الشخصي فقط؛ تُحدَّد القنوات الأخرى تلقائيًا.',
   'errors.field.choices_required': 'أضف خيارًا واحدًا على الأقل.',

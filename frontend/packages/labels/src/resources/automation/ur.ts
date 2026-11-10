@@ -262,4 +262,75 @@ export const ur: LabelResource = {
   'workflow_instance_status.finished': 'مکمل',
   'workflow_instance_status.running': 'چل رہا ہے',
   'workflow_instance_status.waiting': 'منتظر',
+  'workflow_problem.approval_not_offered': 'اس قسم کے ریکارڈ میں منظوریاں نہیں ہوتیں۔',
+  'workflow_problem.approval_role_unknown': 'اس ریکارڈ میں {{role}} کا کردار نہیں ہے۔',
+  'workflow_problem.approval_without_approvers': 'منظوری دینے والے چنیں: افراد، گروپ یا کردار۔',
+  'workflow_problem.definition_format_invalid':
+    'یہ ورک فلو ایسی شکل میں محفوظ ہے جو یہ ورژن نہیں پڑھ سکتا۔',
+  'workflow_problem.definition_shape_invalid':
+    'ورک فلو پڑھا نہیں جا سکا۔ ڈیزائنر دوبارہ لوڈ کریں اور پھر کوشش کریں۔',
+  'workflow_problem.duration_invalid': 'ایک سیکنڈ سے ایک سال کے درمیان دورانیہ درج کریں۔',
+  'workflow_problem.end_needed': 'اختتامی مرحلہ شامل کریں۔',
+  'workflow_problem.field_not_settable': 'ورک فلو یہ فیلڈ مقرر نہیں کر سکتا۔',
+  'workflow_problem.field_update_empty': 'اپ ڈیٹ کے لیے کم از کم ایک فیلڈ چنیں۔',
+  'workflow_problem.function_missing': 'چلانے کے لیے فنکشن چنیں۔',
+  'workflow_problem.function_not_offered':
+    'حسبِ ضرورت فنکشنز کے لیے آپ کے پلان میں سینڈ باکس اور حسبِ ضرورت فنکشنز، اور فنکشن رنر کی ترتیب ضروری ہے۔',
+  'workflow_problem.function_timeout_invalid': 'فنکشن 1 سے {{max}} سیکنڈ تک چلتا ہے۔',
+  'workflow_problem.join_count_invalid': 'کتنی شاخوں کا انتظار کرنا ہے، 1 سے {{max}} تک درج کریں۔',
+  'workflow_problem.join_mode_invalid': 'چنیں کہ یہ مرحلہ کیسے آگے بڑھے۔',
+  'workflow_problem.join_without_split':
+    'ہر اس راستے پر جو ملاپ تک جاتا ہے، اس سے پہلے تقسیم درکار ہے۔',
+  'workflow_problem.link_into_start': 'کوئی مرحلہ واپس آغاز کی طرف نہیں جا سکتا۔',
+  'workflow_problem.link_invalid': 'یہ ربط پڑھا نہیں جا سکا۔ اسے دوبارہ بنائیں۔',
+  'workflow_problem.link_node_missing': 'یہ ربط ایسے مرحلے تک جاتا ہے جو اب موجود نہیں۔',
+  'workflow_problem.link_port_invalid': 'اس مرحلے کا ایسا کوئی راستہ نہیں۔',
+  'workflow_problem.link_port_twice': 'یہ راستہ دو بار جڑا ہے۔ ایک رکھیں۔',
+  'workflow_problem.loop_limit_invalid':
+    'لوپ کتنی بار دہرایا جا سکتا ہے، 1 سے {{max}} تک درج کریں۔',
+  'workflow_problem.no_path_to_end': 'اس مرحلے سے کسی اختتام تک کوئی راستہ نہیں۔',
+  'workflow_problem.node_id_invalid': 'اس مرحلے کا نام دو بار استعمال ہوا ہے یا پڑھا نہیں جا سکتا۔',
+  'workflow_problem.node_invalid': 'یہ مرحلہ پڑھا نہیں جا سکا۔ اسے ہٹا کر دوبارہ شامل کریں۔',
+  'workflow_problem.node_not_for_type': 'اس قسم کا مرحلہ اس ریکارڈ کی قسم کے لیے دستیاب نہیں۔',
+  'workflow_problem.node_unreachable': 'آغاز سے کوئی راستہ اس مرحلے تک نہیں پہنچتا۔',
+  'workflow_problem.note_text_invalid': 'نوٹ کا متن درج کریں، زیادہ سے زیادہ {{max}} حروف۔',
+  'workflow_problem.notify_not_offered': 'اس قسم کا ریکارڈ ابھی ورک فلو پیغام نہیں بھیج سکتا۔',
+  'workflow_problem.notify_text_invalid':
+    'موضوع (زیادہ سے زیادہ {{subject}} حروف) اور پیغام (زیادہ سے زیادہ {{body}}) لکھیں۔',
+  'workflow_problem.notify_without_audience': 'چنیں کون سنے: ریکارڈ کے لوگ، نامزد افراد یا گروپ۔',
+  'workflow_problem.one_start_needed': 'ورک فلو کو بالکل ایک آغاز درکار ہے۔',
+  'workflow_problem.output_not_linked': 'اس مرحلے کا راستہ جوڑیں۔',
+  'workflow_problem.retries_invalid': 'دوبارہ کوشش کتنی بار، 0 سے {{max}} تک درج کریں۔',
+  'workflow_problem.retry_wait_invalid':
+    'دوبارہ کوشش سے پہلے {{min}} سے {{max}} سیکنڈ انتظار کریں۔',
+  'workflow_problem.split_branches_invalid': 'اس مرحلے کو {{min}} سے {{max}} شاخیں دیں۔',
+  'workflow_problem.sub_flow_recursion':
+    '“{{workflow}}” واپس اسی ورک فلو تک لے جاتا ہے۔ کوئی اور چنیں۔',
+  'workflow_problem.sub_flow_workflow_missing': 'چلانے کے لیے ورک فلو چنیں۔',
+  'workflow_problem.switch_case_invalid': 'ہر صورت کو ایک شرط اور اپنا راستہ درکار ہے۔',
+  'workflow_problem.switch_cases_invalid': 'اس مرحلے کو 1 سے {{max}} صورتیں دیں۔',
+  'workflow_problem.system_status_not_allowed': 'یہ حالت کی تبدیلی صرف سسٹم کر سکتا ہے۔',
+  'workflow_problem.tasks_due_invalid': 'مقررہ تاریخ 0 سے {{max}} کاروباری دنوں کے اندر ہو۔',
+  'workflow_problem.tasks_titles_invalid':
+    '1 سے {{max}} کام شامل کریں، ہر ایک کا عنوان زیادہ سے زیادہ {{length}} حروف۔',
+  'workflow_problem.time_basis_invalid': 'کیلنڈر وقت یا کاروباری وقت چنیں۔',
+  'workflow_problem.timer_needs_duration_or_date': 'دورانیہ درج کریں یا تاریخ کا فیلڈ چنیں۔',
+  'workflow_problem.too_many_links': 'ورک فلو میں زیادہ سے زیادہ {{max}} ربط ہو سکتے ہیں۔',
+  'workflow_problem.too_many_nodes': 'ورک فلو میں زیادہ سے زیادہ {{max}} مراحل ہو سکتے ہیں۔',
+  'workflow_problem.unknown_action': 'اس ریکارڈ کی قسم کی کوئی حالت کی تبدیلی چنیں۔',
+  'workflow_problem.unknown_field': 'اس ریکارڈ کی قسم کا کوئی فیلڈ چنیں۔',
+  'workflow_problem.unknown_node_type': 'اس قسم کا مرحلہ یہاں معلوم نہیں۔',
+  'workflow_problem.variable_unknown': 'ورک فلو کے متغیرات میں سے ایک چنیں۔',
+  'workflow_problem.variable_value_invalid': 'یہ قدر متغیر کی قسم کے مطابق نہیں۔',
+  'workflow_problem.variables_invalid':
+    'متغیرات کے نام مختلف اور قسم درکار ہے؛ زیادہ سے زیادہ {{max}}۔',
+  'workflow_problem.wait_events_invalid': 'چنیں کہ یہ مرحلہ کس کا انتظار کرے۔',
+  'workflow_problem.wait_never_finishes':
+    'اس انتظار کو ختم کرنے والا کچھ نہیں۔ کوئی شرط یا وقت کی حد شامل کریں۔',
+  'workflow_problem.webhook_headers_invalid':
+    'سادہ ناموں کے ساتھ زیادہ سے زیادہ {{max}} ہیڈرز؛ Content-Type اور Idempotency-Key پلیٹ فارم خود لگاتا ہے۔',
+  'workflow_problem.webhook_url_invalid':
+    'کال کرنے کا پتہ دیں، جو https:// سے شروع ہو (زیادہ سے زیادہ {{max}} حروف)۔',
+  'workflow_problem.workflow_not_found': 'ایسا ورک فلو چنیں جو موجود ہو۔',
+  'workflow_problem.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
 };

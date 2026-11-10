@@ -293,6 +293,7 @@ export const en = {
   'errors.field.certificate_not_valid_now': 'The certificate has expired or is not valid yet.',
   'errors.field.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.field.certificate_wrong_host': 'The certificate does not name this domain.',
+  'errors.field.chair_inactive': 'Choose an active person as the chair.',
   'errors.field.channel_reserved':
     'Only phone or walk-up can be chosen; other channels are set automatically.',
   'errors.field.choices_required': 'Add at least one choice.',

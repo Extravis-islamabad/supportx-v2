@@ -14,6 +14,7 @@ import {
 } from '@supportx/api-client';
 import { useRecordChannel } from '@supportx/realtime';
 import {
+  StageRail,
   RecordHeader,
   RecordPage,
   ToneTag,
@@ -39,7 +40,6 @@ import {
   SubReleasesPart,
 } from './ReleaseParts';
 import { ReleaseProperties } from './ReleaseProperties';
-import { StageRail } from './StageRail';
 
 // Beside "More": the page's 4-action rule (UI pass 2; QA6-REL-01).
 const CANCELED = 'closure_canceled';
@@ -236,7 +236,7 @@ export function ReleasePage() {
       alerts={
         // The rail has the page's full width, so all nine stages stay readable (QA6-REL-01).
         <Card size="small" data-testid="release-stages">
-          {panel.data && <StageRail rail={panel.data.rail} />}
+          {panel.data && <StageRail rail={panel.data.rail} testId="release-rail" />}
         </Card>
       }
       panel={<ReleaseProperties id={r.id} release={r} />}
