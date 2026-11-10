@@ -4,8 +4,9 @@
   exactly as `field_changes` stores them (JSON), with the data subjects' salts for personal
   fields (domain/lifecycle.py names them per record type).
 * `statuses`: the verifier. For each fingerprinted entry it reads the saves back from
-  `field_changes` and recomputes: `verified`, `mismatch`, or `erased_on_request` (a subject's
-  salt is gone and their erasure is logged after the entry).
+  `field_changes` and recomputes both halves: `verified`, `mismatch` (always when the ordinary
+  half differs), or `erased_on_request` (the ordinary half matches, and a subject's salt is
+  gone with their erasure logged after the entry).
 
 Salts never leave the database except into this process's memory for hashing: the app role
 cannot read `audit_subject_salts`; the migrator-owned definer functions get or create them
@@ -18,7 +19,8 @@ import os
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import Any
 
 from sqlalchemy import bindparam, func, select, text
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA
@@ -30,15 +32,13 @@ from app.modules.audit.domain.fingerprint import (
     FingerprintStatus,
     SaveValues,
     fingerprint,
+    personal_fingerprint,
     status_of,
 )
 from app.modules.audit.domain.integrity import SALT_SIZE
 from app.modules.audit.domain.lifecycle import RECORD_TYPES, RecordAudit
 from app.modules.audit.infra.models import AuditEntry
 from app.shared.history import Change, FieldChange, SavedRecord, record_subjects
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 ERASED_ACTION = "audit.subject_erased"
 CHUNK = 500  # entries per verification query
@@ -53,9 +53,14 @@ _SALTS_OF = text(
 
 @dataclass(frozen=True)
 class EntryFingerprint:
-    """What a lifecycle entry stores of its change set (inside the entry hash)."""
+    """What a lifecycle entry stores of its change set (inside the entry hash).
+
+    `value` commits to the ordinary fields (no salt: it always recomputes, even after an
+    erasure); `personal` to the personal fields, salted, and is None without any.
+    """
 
     value: str
+    personal: str | None
     saves: tuple[uuid.UUID, ...]
     subjects: tuple[uuid.UUID, ...]
 
@@ -112,13 +117,19 @@ async def for_saves(
     last = saves[-1]
     values = [_save_values(spec, s) for s in saves]
     salts: dict[uuid.UUID, bytes] = {}
-    if any(f.personal for v in values for f in v.fields) and spec.data_subjects:
+    personal = any(f.personal for v in values for f in v.fields)
+    if personal and spec.data_subjects:
         people = await record_subjects(session, spec.history_record_type, last.record_id)
         found = {p for name in spec.data_subjects if (p := people.get(name)) is not None}
         salts = await ensure_salts(session, found)
     subjects = tuple(sorted(salts, key=str))
-    value = fingerprint(spec.history_record_type, last.record_id, values, subjects, salts)
-    return EntryFingerprint(value, tuple(s.change_id for s in saves), subjects)
+    record_type, record_id = spec.history_record_type, last.record_id
+    return EntryFingerprint(
+        fingerprint(record_type, record_id, values),
+        personal_fingerprint(record_type, record_id, values, subjects, salts),
+        tuple(s.change_id for s in saves),
+        subjects,
+    )
 
 
 # --- verification -------------------------------------------------------------------------------
@@ -196,11 +207,10 @@ async def _erasures(session: AsyncSession, subjects: Iterable[uuid.UUID]) -> dic
     return {uuid.UUID(object_id): at for object_id, at in rows}
 
 
-def _recompute(
-    entry: Mapping[str, Any],
-    history: Mapping[uuid.UUID, list[FieldChange]],
-    salts: Mapping[uuid.UUID, bytes],
-) -> str | None:
+def _saves_of(
+    entry: Mapping[str, Any], history: Mapping[uuid.UUID, list[FieldChange]]
+) -> tuple[RecordAudit, uuid.UUID, list[SaveValues]] | None:
+    """The entry's saves read back from history, or None when they cannot belong to it."""
     spec = RECORD_TYPES.get(entry["object_type"] or "")
     record_id = _uuid(entry["object_id"])
     if spec is None or record_id is None:
@@ -222,8 +232,39 @@ def _recompute(
                 ),
             )
         )
-    subjects = list(entry["personal_subjects"] or ())
-    return fingerprint(spec.history_record_type, record_id, saves, subjects, salts)
+    return spec, record_id, saves
+
+
+def _verdict(
+    entry: Mapping[str, Any],
+    history: Mapping[uuid.UUID, list[FieldChange]],
+    salts: Mapping[uuid.UUID, bytes],
+    erased: Mapping[uuid.UUID, datetime],
+) -> FingerprintStatus:
+    found = _saves_of(entry, history)
+    if found is None:
+        return FingerprintStatus.MISMATCH
+    spec, record_id, saves = found
+    record_type = spec.history_record_type
+    needed: list[uuid.UUID] = list(entry["personal_subjects"] or ())
+    have = [s for s in needed if s in salts]
+    # The ordinary half has no salt: it is checked whatever happened to the subjects, so an
+    # erasure can never hide a change to an ordinary value (ADR-046).
+    ordinary = fingerprint(record_type, record_id, saves) == entry["fingerprint"]
+    personal = (
+        personal_fingerprint(record_type, record_id, saves, needed, salts)
+        if len(have) == len(needed)
+        else None
+    )
+    return status_of(
+        ordinary_matches=ordinary,
+        personal_stored=entry.get("personal_fingerprint"),
+        personal_recomputed=personal,
+        subjects=needed,
+        salted=have,
+        erased_after=erased,
+        occurred_at=entry["occurred_at"],
+    )
 
 
 async def statuses(
@@ -239,18 +280,7 @@ async def statuses(
         salts = await salts_of(session, subjects)
         erased = await _erasures(session, subjects - salts.keys())
         for entry in chunk:
-            needed: list[uuid.UUID] = list(entry["personal_subjects"] or ())
-            have = [s for s in needed if s in salts]
-            recomputed = _recompute(entry, history, salts) if len(have) == len(needed) else None
-            occurred: datetime = entry["occurred_at"]
-            out[entry["id"]] = status_of(
-                entry["fingerprint"],
-                recomputed,
-                subjects=needed,
-                salted=have,
-                erased_after=erased,
-                occurred_at=occurred,
-            )
+            out[entry["id"]] = _verdict(entry, history, salts, erased)
     return out
 
 

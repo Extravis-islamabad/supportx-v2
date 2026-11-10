@@ -111,11 +111,14 @@ class AuditEntry(TenantKeyed, Base):
     # The lifecycle events of a save's entry, most significant first (WP-064, ADR-045); codes
     # only, inside the hash. NULL for every other entry.
     events: Mapped[list[str] | None] = mapped_column(ARRAY(String(80)))
-    # A save's change-set fingerprint (WP-064 S2, ADR-046): `fp1:<hex>` over digests of the
-    # values in field_changes, never the values. With it: the saves (change IDs, in order) it
-    # covers and the data subjects whose salts its personal values use. Inside the hash when
+    # A save's change-set fingerprints (WP-064 S2, ADR-046): `fp1:<hex>` over digests of the
+    # values in field_changes, never the values: `fingerprint` over the ordinary fields (no
+    # salt, so it verifies even after an erasure), `personal_fingerprint` over the personal
+    # ones, salted (NULL when the saves changed none). With them: the saves (change IDs, in
+    # order) and the data subjects whose salts the personal half uses. Inside the hash when
     # set; NULL on every older entry and every non-save entry, which hash exactly as before.
     fingerprint: Mapped[str | None] = mapped_column(String(80))
+    personal_fingerprint: Mapped[str | None] = mapped_column(String(80))
     fingerprint_saves: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(Uuid))
     personal_subjects: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(Uuid))
     entry_hash: Mapped[bytes] = mapped_column(LargeBinary)

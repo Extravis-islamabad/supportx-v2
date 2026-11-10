@@ -11,9 +11,9 @@ Golden tests pin all three to the same bytes.
 Entry hash
     SHA-256 of the canonical JSON of the entry's content (`ENTRY_FIELDS`, plus `events` when an
     entry has them: ADR-045; plus `fingerprint`, `fingerprint_saves` and `personal_subjects`
-    when it has a fingerprint: ADR-046). Canonical JSON: keys sorted, no whitespace, UTF-8,
-    strings and integers only (no floats), times as `YYYY-MM-DDTHH:MM:SS.ffffffZ` in UTC, UUIDs
-    as lowercase strings.
+    when it has a fingerprint, and `personal_fingerprint` when that is set: ADR-046).
+    Canonical JSON: keys sorted, no whitespace, UTF-8, strings and integers only (no floats),
+    times as `YYYY-MM-DDTHH:MM:SS.ffffffZ` in UTC, UUIDs as lowercase strings.
 
 Chain hash
     `SHA-256(b"sx-audit-v1" ‖ tenant UUID (16 bytes) ‖ seq (8 bytes, big-endian) ‖ previous chain
@@ -131,6 +131,10 @@ def entry_content(row: Mapping[str, Any]) -> dict[str, Any]:
         content["fingerprint"] = fingerprint
         content["fingerprint_saves"] = list(row.get("fingerprint_saves") or ())
         content["personal_subjects"] = list(row.get("personal_subjects") or ())
+        # The salted half, only when the saves changed a personal field (same rule).
+        personal = row.get("personal_fingerprint")
+        if personal is not None:
+            content["personal_fingerprint"] = personal
     return plain(content)  # type: ignore[no-any-return]  # a dict in, a dict out
 
 

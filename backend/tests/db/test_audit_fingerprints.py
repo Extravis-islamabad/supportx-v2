@@ -34,7 +34,8 @@ SECRET = "Ahmed Raza's laptop"
 
 async def _saves(world: World, org: Org, item_id: str) -> list[Any]:
     return await world.sql(
-        "SELECT id, action, fingerprint, fingerprint_saves, personal_subjects,"
+        "SELECT id, action, fingerprint, personal_fingerprint, fingerprint_saves,"
+        " personal_subjects,"
         " row_to_json(e)::text AS raw FROM audit_entries e"
         " WHERE tenant_id = $1 AND object_id = $2 AND fingerprint IS NOT NULL"
         " ORDER BY occurred_at, id",
@@ -99,6 +100,8 @@ async def test_a_save_is_fingerprinted_without_its_values_and_verifies(world: Wo
         assert len(entry["fingerprint"]) == 68
         assert list(entry["personal_subjects"]) == [a.requester]  # free text: the requester's
         assert entry["fingerprint_saves"]
+        assert entry["personal_fingerprint"].startswith("fp1:")  # the subject is salted in
+        assert entry["personal_fingerprint"] != entry["fingerprint"]
         # No value, and no salt, in the stored entry ...
         assert "Ahmed" not in entry["raw"]
         assert "boot" not in entry["raw"]
@@ -123,6 +126,7 @@ async def test_a_save_without_free_text_uses_no_salt(world: World) -> None:
     assert raised.status_code == 200, raised.text
     last = (await _saves(world, a, item["id"]))[-1]
     assert list(last["personal_subjects"]) == []
+    assert last["personal_fingerprint"] is None  # no personal field, no personal half
     assert (await _detail(world, a, last["id"]))["fingerprint_status"] == "verified"
 
 
@@ -222,6 +226,60 @@ async def test_erasure_shows_erased_on_request_and_everyone_else_still_verifies(
     newest = (await _saves(world, a, erased["id"]))[-1]
     assert list(newest["personal_subjects"]) == []
     assert (await _detail(world, a, newest["id"]))["fingerprint_status"] == "verified"
+
+
+async def test_an_ordinary_value_changed_before_an_erasure_is_still_a_mismatch(
+    world: World,
+) -> None:
+    """The attack ADR-046 closes: change an ordinary value, then erase the subject."""
+    a = world.a
+    tampered = await _incident(world, a, a.requester)
+    first = (await _saves(world, a, tampered["id"]))[0]
+    assert first["personal_subjects"]  # the save lists the requester
+    await world.sql(
+        "UPDATE field_changes SET new_value = '\"p1\"'::jsonb"
+        " WHERE tenant_id = $1 AND change_id = $2 AND field = 'priority'",
+        a.tenant,
+        first["fingerprint_saves"][0],
+    )
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await erase_subject(session, a.requester)
+    # The erasure is logged and the salt is gone, yet the changed priority is still caught.
+    assert (await _detail(world, a, first["id"]))["fingerprint_status"] == "mismatch"
+    for entry in (await _saves(world, a, tampered["id"]))[1:]:
+        assert (await _detail(world, a, entry["id"]))["fingerprint_status"] == "erased_on_request"
+    result = await _verified(world, a)
+    assert result.status == "failed"
+    run = await _run(world, a, result.run_id)
+    assert run["problem"] == "fingerprint_mismatch"
+    assert run["first_broken_entry_id"] == str(first["id"])
+
+
+async def test_an_ordinary_row_blanked_through_the_definer_is_a_mismatch(world: World) -> None:
+    """The definer blanks any row of the person's saves it is given; blanking an ordinary one
+    (the app passes personal rows only) shows as a mismatch, since that half has no salt."""
+    b = world.b
+    item = await _incident(world, b, b.requester)
+    first = (await _saves(world, b, item["id"]))[0]
+    rows = await world.sql(
+        "SELECT id FROM field_changes"
+        " WHERE tenant_id = $1 AND change_id = $2 AND field = 'priority'",
+        b.tenant,
+        first["fingerprint_saves"][0],
+    )
+    conn = await asyncpg.connect(world.db.app_direct_url)
+    try:
+        (result,) = await _in_tenant(
+            conn,
+            b.tenant,
+            "SELECT audit_erase_subject($1, $2::uuid[]) AS r",
+            b.requester,
+            [r["id"] for r in rows],
+        )
+    finally:
+        await conn.close()
+    assert json.loads(result["r"])["history_values"] == 1
+    assert (await _detail(world, b, first["id"]))["fingerprint_status"] == "mismatch"
 
 
 async def test_a_missing_salt_without_a_logged_erasure_is_a_mismatch(world: World) -> None:

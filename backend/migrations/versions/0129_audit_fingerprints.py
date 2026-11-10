@@ -2,8 +2,10 @@
 
 Expand only; no data step (older entries get no fingerprint and hash exactly as before).
 
-- `audit_entries`: `fingerprint` (`fp1:<hex>`), `fingerprint_saves` (the change IDs it covers)
-  and `personal_subjects` (whose salts it uses), all NULL on older entries. A plain GIN index
+- `audit_entries`: `fingerprint` (`fp1:<hex>` over the ordinary fields, no salt),
+  `personal_fingerprint` (over the personal fields, salted; NULL when there are none),
+  `fingerprint_saves` (the change IDs they cover) and `personal_subjects` (whose salts the
+  personal half uses), all NULL on older entries. A plain GIN index
   on `personal_subjects` finds a person's entries for erasure (no btree_gin, as in 0122).
 - `audit_verification_runs`: counts of fingerprint verdicts per run.
 - `audit_subject_salts`: one random 16-byte salt per data subject and tenant. RLS forced, and
@@ -144,6 +146,9 @@ def upgrade() -> None:
     """Adds the columns, the salts table (no app rights) and the definer functions."""
     op.add_column("audit_entries", sa.Column("fingerprint", sa.String(length=80), nullable=True))
     op.add_column(
+        "audit_entries", sa.Column("personal_fingerprint", sa.String(length=80), nullable=True)
+    )
+    op.add_column(
         "audit_entries", sa.Column("fingerprint_saves", postgresql.ARRAY(sa.Uuid()), nullable=True)
     )
     op.add_column(
@@ -219,5 +224,5 @@ def downgrade() -> None:
     for column in ("fingerprint_mismatches", "fingerprints_erased", "fingerprints_verified"):
         op.drop_column("audit_verification_runs", column)
     op.drop_index(INDEX, table_name="audit_entries")
-    for column in ("personal_subjects", "fingerprint_saves", "fingerprint"):
+    for column in ("personal_subjects", "fingerprint_saves", "personal_fingerprint", "fingerprint"):
         op.drop_column("audit_entries", column)

@@ -24,13 +24,19 @@ Field digest (`value_digest`)
     digest is SHA-256(canonical value). Personal values are thus committed to with salts that
     erasure destroys (crypto-shredding): an erased value cannot be guessed back from the chain.
 
-Change set and fingerprint (`fingerprint`)
-    The canonical JSON (same rules) of
-        {"record_id": "<uuid>", "record_type": "<history record type>",
-         "saves": [{"change_id": "<uuid>", "fields": [[field, digest(old), digest(new),
-                    [subject ids]], ...], "kind": "<kind>", "version": <int>}, ...], "v": 1}
-    with the saves in the entry's save order and each save's fields sorted (by field, then the
-    rest of the tuple). The fingerprint is `fp1:` + lowercase hex SHA-256 of those bytes.
+Two fingerprints (`fingerprint`, `personal_fingerprint`)
+    The change set is committed to in two halves, each the canonical JSON (same rules) of
+        {"part": "ordinary" | "personal", "record_id": "<uuid>",
+         "record_type": "<history record type>",
+         "saves": [{"change_id": "<uuid>", "fields": [...], "kind": "<kind>",
+                    "version": <int>}, ...], "v": 1}
+    with every save listed, in the entry's save order. The ordinary half's fields are the
+    fields that are not personal, each `[field, digest(old), digest(new)]` with no salt; the
+    personal half's are the personal fields, each `[field, digest(old), digest(new),
+    [subject ids]]` salted. Fields are sorted by their canonical JSON bytes. Each fingerprint
+    is `fp1:` + lowercase hex SHA-256 of its half's bytes. The personal one exists only when a
+    save changed a personal field. The ordinary half therefore always recomputes, so erasing
+    a subject never hides a change to an ordinary value.
 """
 
 import hashlib
@@ -45,6 +51,8 @@ from enum import StrEnum
 
 PREFIX = "fp1:"
 VERSION = 1
+ORDINARY = "ordinary"
+PERSONAL = "personal"
 
 
 class FingerprintError(ValueError):
@@ -138,59 +146,97 @@ class SaveValues:
     fields: tuple[FieldValues, ...]
 
 
-def change_set(
+def _fields(
+    save: SaveValues, part: str, salts: Sequence[bytes], ids: list[str]
+) -> list[list[object]]:
+    if part == ORDINARY:
+        rows: list[list[object]] = [
+            [f.field, value_digest(f.old), value_digest(f.new)]
+            for f in save.fields
+            if not f.personal
+        ]
+    else:
+        rows = [
+            [f.field, value_digest(f.old, salts), value_digest(f.new, salts), ids]
+            for f in save.fields
+            if f.personal
+        ]
+    return sorted(rows, key=canonical_value)
+
+
+def change_set(  # noqa: PLR0913 - the record, its saves, which half, and the salts
     record_type: str,
     record_id: uuid.UUID,
     saves: Sequence[SaveValues],
-    subjects: Sequence[uuid.UUID],
-    salts: Mapping[uuid.UUID, bytes],
+    part: str = ORDINARY,
+    *,
+    subjects: Sequence[uuid.UUID] = (),
+    salts: Mapping[uuid.UUID, bytes] | None = None,
 ) -> dict[str, object]:
-    """The canonical change set: digests only, never a value.
+    """One half of the canonical change set: digests only, never a value.
 
-    `subjects` are the data subjects of the personal fields (the entry stores them); `salts`
-    must hold each one's salt. Personal fields are digested with all of them, in ID order.
+    `part` is `ordinary` (the fields that are not personal, unsalted) or `personal` (the
+    personal fields, digested with the salts of all `subjects` in ID order; `salts` must hold
+    each one: a missing salt is a caller bug, never a guess).
     """
-    ordered = sorted(set(subjects), key=str)
-    subject_salts = [salts[s] for s in ordered]  # KeyError: a caller bug, never a guess
+    if part not in {ORDINARY, PERSONAL}:
+        msg = f"unknown part {part!r}"
+        raise FingerprintError(msg)
+    ordered = sorted(set(subjects), key=str) if part == PERSONAL else []
+    subject_salts = [(salts or {})[s] for s in ordered]
     ids = [str(s) for s in ordered]
-    out: list[dict[str, object]] = []
-    for save in saves:
-        fields = sorted(
-            (
-                f.field,
-                value_digest(f.old, subject_salts if f.personal else ()),
-                value_digest(f.new, subject_salts if f.personal else ()),
-                ids if f.personal else [],
-            )
-            for f in save.fields
-        )
-        out.append(
-            {
-                "change_id": str(save.change_id),
-                "fields": [list(f) for f in fields],
-                "kind": save.kind,
-                "version": save.version,
-            }
-        )
-    return {"record_id": str(record_id), "record_type": record_type, "saves": out, "v": VERSION}
+    out = [
+        {
+            "change_id": str(save.change_id),
+            "fields": _fields(save, part, subject_salts, ids),
+            "kind": save.kind,
+            "version": save.version,
+        }
+        for save in saves
+    ]
+    return {
+        "part": part,
+        "record_id": str(record_id),
+        "record_type": record_type,
+        "saves": out,
+        "v": VERSION,
+    }
 
 
-def fingerprint(
+def _digest(content: Mapping[str, object]) -> str:
+    return PREFIX + hashlib.sha256(canonical_value(content)).hexdigest()
+
+
+def fingerprint(record_type: str, record_id: uuid.UUID, saves: Sequence[SaveValues]) -> str:
+    """The ordinary fingerprint: `fp1:` + hex SHA-256 of the ordinary half (no salts)."""
+    return _digest(change_set(record_type, record_id, saves, ORDINARY))
+
+
+def has_personal(saves: Sequence[SaveValues]) -> bool:
+    """Whether any of the saves changed a personal field."""
+    return any(f.personal for save in saves for f in save.fields)
+
+
+def personal_fingerprint(
     record_type: str,
     record_id: uuid.UUID,
     saves: Sequence[SaveValues],
     subjects: Sequence[uuid.UUID] = (),
     salts: Mapping[uuid.UUID, bytes] | None = None,
-) -> str:
-    """`fp1:` + hex SHA-256 of the canonical change set."""
-    content = change_set(record_type, record_id, saves, subjects, salts or {})
-    return PREFIX + hashlib.sha256(canonical_value(content)).hexdigest()
+) -> str | None:
+    """The personal fingerprint (salted), or None when the saves changed no personal field."""
+    if not has_personal(saves):
+        return None
+    return _digest(
+        change_set(record_type, record_id, saves, PERSONAL, subjects=subjects, salts=salts)
+    )
 
 
 def status_of(  # noqa: PLR0913 - the stored entry's parts and what the database still has
-    stored: str,
-    recomputed: str | None,
     *,
+    ordinary_matches: bool,
+    personal_stored: str | None,
+    personal_recomputed: str | None,
     subjects: Sequence[uuid.UUID],
     salted: Sequence[uuid.UUID],
     erased_after: Mapping[uuid.UUID, datetime],
@@ -198,15 +244,19 @@ def status_of(  # noqa: PLR0913 - the stored entry's parts and what the database
 ) -> FingerprintStatus:
     """The verdict on one entry.
 
-    A subject whose salt is gone makes the entry `erased_on_request` only when that subject's
-    erasure was logged after the entry (an `audit.subject_erased` entry, itself in the chain);
-    a missing salt without one is a mismatch. With every salt present, the recomputed
-    fingerprint must equal the stored one.
+    The ordinary half always recomputes (no salts): if it does not match, the entry is a
+    mismatch, whatever happened to its subjects. Only then: a subject whose salt is gone makes
+    the entry `erased_on_request` when that subject's erasure was logged after the entry (an
+    `audit.subject_erased` entry, itself in the chain); a missing salt without one is a
+    mismatch. With every salt present, the personal half must match too (both absent counts).
     """
-    missing = [s for s in subjects if s not in set(salted)]
+    if not ordinary_matches:
+        return FingerprintStatus.MISMATCH
+    have = set(salted)
+    missing = [s for s in subjects if s not in have]
     if missing:
         logged = all(s in erased_after and erased_after[s] > occurred_at for s in missing)
         return FingerprintStatus.ERASED_ON_REQUEST if logged else FingerprintStatus.MISMATCH
-    if recomputed is not None and recomputed == stored:
+    if personal_recomputed == personal_stored:
         return FingerprintStatus.VERIFIED
     return FingerprintStatus.MISMATCH

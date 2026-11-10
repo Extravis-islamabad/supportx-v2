@@ -192,6 +192,7 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
         "personal_commitments": commitments,
         "events": list(events) if events is not None else None,
         "fingerprint": fingerprint.value if fingerprint is not None else None,
+        "personal_fingerprint": fingerprint.personal if fingerprint is not None else None,
         "fingerprint_saves": list(fingerprint.saves) if fingerprint is not None else None,
         "personal_subjects": list(fingerprint.subjects) if fingerprint is not None else None,
     }
