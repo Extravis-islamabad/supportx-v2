@@ -33,6 +33,7 @@ import {
   useDateTime,
   useLabel,
   WriteButton,
+  EmptyText,
 } from '@supportx/ui';
 
 import { BULK_ACTIONS, BULK_MAX, skipReason, type Selection } from './model';
@@ -551,7 +552,7 @@ export function BulkJobsButton({
       >
         <List
           dataSource={jobs.data ?? []}
-          locale={{ emptyText: t('incidents.bulk.none') }}
+          locale={{ emptyText: <EmptyText>{t('incidents.bulk.none')}</EmptyText> }}
           renderItem={(job) => (
             <List.Item
               actions={[
