@@ -1592,6 +1592,8 @@ export const ur: LabelResource = {
   'why.write_first': 'پہلے کچھ لکھیں۔',
   'work_item.field.actual_end': 'اصل اختتام',
   'work_item.field.actual_start': 'اصل آغاز',
+  'work_item.field.asset': 'اثاثہ',
+  'work_item.field.asset_ids': 'اثاثے',
   'work_item.field.assignment_reason': 'منتقلی کی وجہ',
   'work_item.field.build_ref': 'بلڈ',
   'work_item.field.category_id': 'زمرہ',

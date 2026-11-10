@@ -1586,6 +1586,8 @@ export const en = {
   'why.write_first': 'Write something first.',
   'work_item.field.actual_end': 'Actual end',
   'work_item.field.actual_start': 'Actual start',
+  'work_item.field.asset': 'Asset',
+  'work_item.field.asset_ids': 'Assets',
   'work_item.field.assignment_reason': 'Reason for the move',
   'work_item.field.build_ref': 'Build',
   'work_item.field.category_id': 'Category',

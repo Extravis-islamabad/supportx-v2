@@ -864,6 +864,7 @@ export const en = {
   'event_type.system.mail.queued': 'Email queued',
   'event_type.system.mail.state_changed': 'Email sent, retried or failed',
   'event_type.work_items.approval.changed': 'Approval opened or decided',
+  'event_type.work_items.asset_link.changed': 'Asset linked or unlinked',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
   'event_type.work_items.change.approval_notice': 'Change approval notice',
   'event_type.work_items.change_board.changed': 'Change advisory board changed',

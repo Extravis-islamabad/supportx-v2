@@ -867,6 +867,7 @@ export const ar: LabelResource = {
   'event_type.system.mail.queued': 'وُضع بريد في قائمة الانتظار',
   'event_type.system.mail.state_changed': 'أُرسل البريد أو أُعيدت محاولته أو فشل',
   'event_type.work_items.approval.changed': 'فُتحت موافقة أو بُتّ فيها',
+  'event_type.work_items.asset_link.changed': 'ربط أصل أو فك ربطه',
   'event_type.work_items.bulk_job.progressed': 'تقدّم تغيير جماعي',
   'event_type.work_items.change.approval_notice': 'إشعار موافقة تغيير',
   'event_type.work_items.change_board.changed': 'تغيّر مجلس استشاري للتغييرات',

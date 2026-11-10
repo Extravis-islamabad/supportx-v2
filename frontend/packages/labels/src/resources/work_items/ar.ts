@@ -1726,6 +1726,8 @@ export const ar: LabelResource = {
   'why.write_first': 'اكتب شيئًا أولًا.',
   'work_item.field.actual_end': 'الانتهاء الفعلي',
   'work_item.field.actual_start': 'البدء الفعلي',
+  'work_item.field.asset': 'الأصل',
+  'work_item.field.asset_ids': 'الأصول',
   'work_item.field.assignment_reason': 'سبب النقل',
   'work_item.field.build_ref': 'البناء',
   'work_item.field.category_id': 'الفئة',
