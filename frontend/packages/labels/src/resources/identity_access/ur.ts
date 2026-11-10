@@ -373,9 +373,6 @@ export const ur: LabelResource = {
   'permission.changes.approve.description': 'تبدیلی کی درخواستیں منظور یا مسترد کریں۔',
   'permission.changes.assign': 'تبدیلیاں تفویض کریں',
   'permission.changes.assign.description': 'تبدیلیاں کا گروپ اور مالک منتخب کریں۔',
-  'permission.changes.assign_outside_group': 'تبدیلیاں گروپ سے باہر تفویض کریں',
-  'permission.changes.assign_outside_group.description':
-    'تبدیلی کسی ایسے فرد کو دیں جو اس کے گروپ میں نہ ہو۔',
   'permission.changes.cancel': 'تبدیلیاں منسوخ کریں',
   'permission.changes.cancel.description': 'تبدیلیاں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
   'permission.changes.change_priority': 'تبدیلی کی ترجیح ہاتھ سے بدلیں',
@@ -452,9 +449,6 @@ export const ur: LabelResource = {
   'permission.incidents.add_note.description': 'واقعات پر صرف عملے کے لیے نوٹس لکھیں۔',
   'permission.incidents.assign': 'واقعات تفویض کریں',
   'permission.incidents.assign.description': 'واقعات کا گروپ اور ٹیکنیشن چنیں۔',
-  'permission.incidents.assign_outside_group': 'گروپ سے باہر تفویض',
-  'permission.incidents.assign_outside_group.description':
-    'ایسا ٹیکنیشن تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.incidents.cancel': 'واقعات منسوخ کریں',
   'permission.incidents.cancel.description':
     'واقعات کو وجہ کے ساتھ منسوخ کریں اور منسوخی واپس لیں۔',
@@ -538,9 +532,6 @@ export const ur: LabelResource = {
     'ان مسئلہ منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں، جیسے معلوم خرابی کو حل کے بغیر قبول کرنا۔',
   'permission.problems.assign': 'مسائل تفویض کریں',
   'permission.problems.assign.description': 'مسائل کا گروپ اور مالک منتخب کریں۔',
-  'permission.problems.assign_outside_group': 'مسائل گروپ سے باہر تفویض کریں',
-  'permission.problems.assign_outside_group.description':
-    'مسئلہ کسی ایسے فرد کو دیں جو اس کے گروپ میں نہ ہو۔',
   'permission.problems.cancel': 'مسائل منسوخ کریں',
   'permission.problems.cancel.description': 'مسائل وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
   'permission.problems.change_priority': 'مسئلے کی ترجیح ہاتھ سے بدلیں',
@@ -588,9 +579,6 @@ export const ur: LabelResource = {
     'ریلیز کے ان مراحل کی منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
   'permission.releases.assign': 'ریلیزز تفویض کریں',
   'permission.releases.assign.description': 'ریلیزز لوگوں اور گروپوں کو تفویض کریں۔',
-  'permission.releases.assign_outside_group': 'گروپ سے باہر ریلیزز تفویض کریں',
-  'permission.releases.assign_outside_group.description':
-    'ریلیز کسی ایسے شخص کو تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.releases.cancel': 'ریلیزز منسوخ کریں',
   'permission.releases.cancel.description': 'بندش سے پہلے ریلیزز وجہ کے ساتھ منسوخ کریں۔',
   'permission.releases.change_priority': 'ریلیز کی ترجیح ہاتھ سے بدلیں',
@@ -643,9 +631,6 @@ export const ur: LabelResource = {
     'ان سروس درخواستوں کی منظوری کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
   'permission.requests.assign': 'سروس درخواستیں تفویض کریں',
   'permission.requests.assign.description': 'سروس درخواستیں ٹیکنیشنز اور گروپوں کو تفویض کریں۔',
-  'permission.requests.assign_outside_group': 'درخواستیں گروپ سے باہر تفویض کریں',
-  'permission.requests.assign_outside_group.description':
-    'ایسے ٹیکنیشن کو سروس درخواست تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.requests.cancel': 'سروس درخواستیں منسوخ کریں',
   'permission.requests.cancel.description':
     'سروس درخواستیں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',

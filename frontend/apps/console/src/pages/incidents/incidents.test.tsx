@@ -241,6 +241,58 @@ describe('One incident', () => {
     expect(sent?.headers.get('If-Match')).toBe('"1"');
   });
 
+  it('D-154a: someone outside the group is assigned by moving the incident to their group', async () => {
+    const mine = { ...ITEM, group_id: 'g-a' };
+    const fake = api({
+      routes: {
+        ...COMMON,
+        'GET /api/v1/organization/groups': {
+          body: [
+            { id: 'g-a', name: 'Service Desk', member_ids: [] },
+            { id: 'g-b', name: 'Network', member_ids: [] },
+            { id: 'g-c', name: 'Business apps', member_ids: [] },
+          ],
+        },
+        [`GET ${PATH}`]: { body: mine, headers: { ETag: '"1"' } },
+        'GET /api/v1/incidents/assignees': {
+          body: [
+            {
+              id: 'u-hamza',
+              display_name: 'Hamza Ali',
+              email: 'hamza@demo.test',
+              open_count: 2,
+              group_ids: ['g-b', 'g-c'],
+            },
+          ],
+        },
+        [`POST ${PATH}/assign`]: { body: { ...mine, group_id: 'g-b', version: 2 } },
+      },
+    });
+    render(<App />);
+    await clickAction('inc-op-assign');
+    fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-technician')));
+    fireEvent.click(await screen.findByText('Hamza Ali'));
+    const notice = await screen.findByTestId('inc-assign-outside');
+    expect(notice.textContent).toContain("Hamza Ali isn't in Service Desk");
+    // In two groups: the group is picked first; until then the action says so and waits.
+    const ok = screen.getByTestId('inc-assign-confirm');
+    expect(ok.textContent).toContain('Pick the group, then assign to Hamza Ali');
+    expect(ok.hasAttribute('disabled')).toBe(true);
+    fireEvent.mouseDown(selectorOf(screen.getByTestId('inc-assign-move-to')));
+    fireEvent.click(await screen.findByTitle('Network'));
+    await waitFor(() => {
+      expect(screen.getByTestId('inc-assign-confirm').textContent).toContain(
+        'Move to Network and assign to Hamza Ali',
+      );
+    });
+    fireEvent.click(screen.getByTestId('inc-assign-confirm'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/assign`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', `${PATH}/assign`);
+    expect(sent?.body).toMatchObject({ group_id: 'g-b', technician_id: 'u-hamza' });
+  });
+
   it('D-053/D-068: a hand-over warns first; unticking "keep following" gives up access', async () => {
     const handed = {
       ...ITEM,

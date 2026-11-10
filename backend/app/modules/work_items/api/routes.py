@@ -955,6 +955,11 @@ class WorkItemAssigneeOut(BaseModel):
     display_name: str
     email: str = Field(description="Second line in pickers: two people may share a name.")
     open_count: int
+    group_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="Their groups: someone outside the record's group is assigned by moving "
+        "the record to one of these in the same request (D-154a).",
+    )
 
 
 class WorkItemStatusOut(BaseModel):
@@ -1914,7 +1919,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             limit=limit,
         )
         return [
-            WorkItemAssigneeOut(id=u, display_name=n, email=e, open_count=c) for u, n, e, c in found
+            WorkItemAssigneeOut(
+                id=u, display_name=n, email=e, open_count=c, group_ids=sorted(g, key=str)
+            )
+            for u, n, e, c, g in found
         ]
 
     @router.get("/search", summary=f"Search {wtype.path}")

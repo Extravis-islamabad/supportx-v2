@@ -1040,10 +1040,11 @@ async def assignees(  # noqa: PLR0913 - search options, explicit
     group_id: uuid.UUID | None,
     search: str | None,
     limit: int,
-) -> list[tuple[uuid.UUID, str, str, int]]:
+) -> list[tuple[uuid.UUID, str, str, int, frozenset[uuid.UUID]]]:
     """Who may be assigned: members of `group_id` (or anyone) who can work on the type.
 
-    Each with their number of open records of the type (REQ-INC-053 AC2).
+    Each with their number of open records of the type (REQ-INC-053 AC2) and their groups: a
+    person of another group is assigned by moving the record to one of them (D-154a).
     """
     if not subject.holds(wtype.permission("assign")) and not subject.holds(
         wtype.permission("take")
@@ -1073,7 +1074,8 @@ async def assignees(  # noqa: PLR0913 - search options, explicit
         )
         loads = {row[0]: int(row[1]) for row in rows if row[0] is not None}
     contacts = await user_contacts(session, [str(u) for u in ids])
-    return [(u, n, contacts.get(str(u), (n, ""))[1], loads.get(u, 0)) for u, n in found]
+    groups = {u: (await memberships(session, u)).group_ids for u in ids}  # at most `limit`
+    return [(u, n, contacts.get(str(u), (n, ""))[1], loads.get(u, 0), groups[u]) for u, n in found]
 
 
 # --- validation -----------------------------------------------------------------------------------
@@ -1230,7 +1232,10 @@ async def _check_assignment(  # noqa: PLR0913 - the assignment and who makes it,
         session, subject.tenant_id, technician_id, wtype.permission("edit")
     ):
         return [("technician_id", "technician_not_allowed")]
-    if group_id is not None and not subject.holds(wtype.permission("assign_outside_group")):
+    # D-154a (Haider, 2026-11-10), for everyone and all work-item types: the technician is in
+    # the record's group. Someone of another group is assigned by moving the record to their
+    # group in the same request, never past it (no role may skip this any more).
+    if group_id is not None:
         members = set(await session.scalars(users_in_groups(frozenset({group_id}))))
         if technician_id not in members:
             return [("technician_id", "technician_not_in_group")]

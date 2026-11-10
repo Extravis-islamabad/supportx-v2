@@ -109,7 +109,6 @@ const ADMIN_EXTRA: Grant[] = [
   ['incidents.view', 'all'],
   ['incidents.edit', 'all'],
   ['incidents.assign', 'all'],
-  ['incidents.assign_outside_group', 'all'],
   ['incidents.delete', 'all'],
   ['audit.view', 'all'],
   ['audit.export', 'all'],
