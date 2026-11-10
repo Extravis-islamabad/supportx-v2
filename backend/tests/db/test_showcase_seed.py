@@ -327,15 +327,17 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(  # 
         assert first.catalog_published == 14  # the starter catalog (D-138), with its group
         assert first.incidents == len(seed.STATES) == 60
         # QA6-DATA-01: service requests in every state, problems with known errors.
-        assert first.service_requests == len(lane_a.REQUESTS) == 7
-        assert first.problems == len(lane_a.PROBLEMS) == 3
+        # And three in Arabic and Urdu, with two problems (right-to-left records to show).
+        assert first.service_requests == len(lane_a.REQUESTS) + len(lane_a.LOCAL_REQUESTS) == 10
+        assert first.problems == len(lane_a.PROBLEMS) == 5
+        assert first.featured == len(lane_a.FEATURED) == 3
         assert first.rules == len(lane_a.RULES) == 3
         assert first.managers == sum(p.user_type == "requester" for p in seed.PEOPLE) + 1
         assert first.dashboard
         # QA6-DATA-01: knowledge and releases to show, not empty modules.
         assert first.articles == len(seed.KB_ARTICLES) == 5
         assert first.releases == len(seed.RELEASES) == 2
-        assert first.backdated == 70  # spread over the past 30 days (choice (b)); not releases
+        assert first.backdated == 75  # spread over the past 30 days (choice (b)); not releases
         assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
         assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
         # The password is the environment's, set only on the users made here.
@@ -345,7 +347,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(  # 
         assert {u["email"] for u in keycloak.users.values()} == {s.email for s in seed.SIGN_INS}
         counts = asyncio.run(_counts(database.migrator_url, seed.TENANT_ID))
         assert counts["users"] == len(seed.PEOPLE) + len(seed.SIGN_INS)
-        assert counts["work_items"] == 70 + len(seed.RELEASES)
+        assert counts["work_items"] == 75 + len(seed.RELEASES)
         assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
         # Named SLAs with live countdowns, not "No SLA applies" (QA9, Haider): every incident
         # has targets, the urgent ones and the network ones on the showcase's own policies.
@@ -356,14 +358,14 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(  # 
         assert slas["Critical and high incidents"] == 10  # p1 and p2
         assert slas["Network and access faults"] > 0
         assert asyncio.run(_states(database.migrator_url)) == {
-            "service_request awaiting_approval": 2,
-            "service_request in_progress": 1,
-            "service_request fulfilled": 1,
+            "service_request awaiting_approval": 3,
+            "service_request in_progress": 2,
+            "service_request fulfilled": 2,
             "service_request closed": 1,
             "service_request rejected": 1,
             "service_request canceled": 1,
-            "problem assigned known error": 2,  # the creator owns a new problem (#267)
-            "problem assigned": 1,
+            "problem assigned known error": 3,  # the creator owns a new problem (#267)
+            "problem assigned": 2,
             "new unassigned": 10,
             "assigned": 14,
             "in_progress": 12,
@@ -391,9 +393,10 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(  # 
             second.problems,
             second.managers,
             second.rules,
+            second.featured,
             second.sla_policies,
             second.sla_from_creation,
-        ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         assert second.backdated == 0  # nothing made now, so nothing moved
         assert asyncio.run(_audit_chain(database.app_url)) == "passed"
         # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
