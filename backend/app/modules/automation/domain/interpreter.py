@@ -77,6 +77,7 @@ class CommandKind(StrEnum):
     ADD_NOTE = "add_note"
     START_SUB_FLOW = "start_sub_flow"  # carried out by the runtime, not an owning module
     OPEN_APPROVAL = "open_approval"  # opened now, decided later: its result names the output
+    OPEN_TASKS = "open_tasks"  # opened now, done later: all done is its result
 
 
 @dataclass(frozen=True)
@@ -379,6 +380,18 @@ def _run_node(run: _Run, token: Token) -> None:  # noqa: C901, PLR0912 - one bra
         case NodeType.SUB_FLOW:
             _command(
                 run, token, CommandKind.START_SUB_FLOW, {"workflow_id": config.get("workflow_id")}
+            )
+        case NodeType.TASKS:
+            _command(
+                run,
+                token,
+                CommandKind.OPEN_TASKS,
+                {
+                    "titles": [dict(t) for t in config.get("titles", [])],
+                    "owner_user_id": config.get("owner_user_id"),
+                    "owner_group_id": config.get("owner_group_id"),
+                    "due_days": config.get("due_days"),
+                },
             )
         case NodeType.APPROVAL:
             _command(

@@ -296,6 +296,9 @@ export const ur: LabelResource = {
   'workflow_problem.switch_case_invalid': 'ہر صورت کو ایک شرط اور اپنا راستہ درکار ہے۔',
   'workflow_problem.switch_cases_invalid': 'اس مرحلے کو 1 سے {{max}} صورتیں دیں۔',
   'workflow_problem.system_status_not_allowed': 'یہ حالت کی تبدیلی صرف سسٹم کر سکتا ہے۔',
+  'workflow_problem.tasks_due_invalid': 'مقررہ تاریخ 0 سے {{max}} کاروباری دنوں کے اندر ہو۔',
+  'workflow_problem.tasks_titles_invalid':
+    '1 سے {{max}} کام شامل کریں، ہر ایک کا عنوان زیادہ سے زیادہ {{length}} حروف۔',
   'workflow_problem.time_basis_invalid': 'کیلنڈر وقت یا کاروباری وقت چنیں۔',
   'workflow_problem.timer_needs_duration_or_date': 'دورانیہ درج کریں یا تاریخ کا فیلڈ چنیں۔',
   'workflow_problem.too_many_links': 'ورک فلو میں زیادہ سے زیادہ {{max}} ربط ہو سکتے ہیں۔',

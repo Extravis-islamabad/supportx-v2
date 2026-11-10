@@ -9,6 +9,9 @@ Automation (sub-flows, REQ-WF-017):
 - `parent_command`: the parent's command that waits for this child; the child's end comes back
   to the parent as that command's result.
 
+work_items (tasks, REQ-WF-015): `work_item_tasks.workflow_instance_id` and `workflow_command`,
+the task node that opened a task (by ID only); when its tasks are done the node continues.
+
 work_items (the approval engine, lane A's review):
 - `work_item_approvals.workflow_instance_id` and purpose `workflow`: approvals a workflow's
   approval node opened. The instance is named by ID, never by a foreign key into automation's
@@ -64,6 +67,7 @@ def upgrade() -> None:
         postgresql_where=sa.text("parent_instance_id IS NOT NULL"),
     )
     _approvals()
+    _tasks()
 
 
 def _approvals() -> None:
@@ -124,6 +128,23 @@ def _approvals() -> None:
     grant_app(SETTINGS, ("SELECT", "INSERT", "UPDATE"))
 
 
+def _tasks() -> None:
+    """Tasks a workflow's task node opened (REQ-WF-015): the instance and the node's command."""
+    op.add_column("work_item_tasks", sa.Column("workflow_instance_id", sa.Uuid(), nullable=True))
+    op.add_column("work_item_tasks", sa.Column("workflow_command", sa.String(20), nullable=True))
+    op.create_check_constraint(
+        op.f("ck_work_item_tasks_workflow_pair"),
+        "work_item_tasks",
+        "(workflow_instance_id IS NULL) = (workflow_command IS NULL)",
+    )
+    op.create_index(
+        "ix_wit_tenant_workflow",
+        "work_item_tasks",
+        ["tenant_id", "workflow_instance_id", "workflow_command"],
+        postgresql_where=sa.text("workflow_instance_id IS NOT NULL"),
+    )
+
+
 # Rule 5h: never drop tenants' data. Each tenant is checked with app.tenant_id set, as the tables
 # force RLS (a bare SELECT would see nothing and pass).
 _REFUSE_IF_ANY = """
@@ -133,8 +154,9 @@ BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (SELECT 1 FROM work_item_approval_settings WHERE chair_user_id IS NOT NULL)
-           OR EXISTS (SELECT 1 FROM work_item_approvals WHERE purpose = 'workflow') THEN
-            RAISE EXCEPTION 'downgrade refused: tenant % has a chair or workflow approvals', t;
+           OR EXISTS (SELECT 1 FROM work_item_approvals WHERE purpose = 'workflow')
+           OR EXISTS (SELECT 1 FROM work_item_tasks WHERE workflow_instance_id IS NOT NULL) THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has a chair or workflow approvals or tasks', t;
         END IF;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
@@ -145,6 +167,10 @@ END $$;
 def downgrade() -> None:
     """Drop the approval parts (refused while any tenant uses them), then the parent link."""
     op.execute(_REFUSE_IF_ANY)
+    op.drop_index("ix_wit_tenant_workflow", table_name="work_item_tasks")
+    op.drop_constraint(op.f("ck_work_item_tasks_workflow_pair"), "work_item_tasks", type_="check")
+    op.drop_column("work_item_tasks", "workflow_command")
+    op.drop_column("work_item_tasks", "workflow_instance_id")
     op.drop_table(SETTINGS)
     op.drop_index("ix_wia_tenant_workflow_instance", table_name="work_item_approvals")
     op.drop_constraint(

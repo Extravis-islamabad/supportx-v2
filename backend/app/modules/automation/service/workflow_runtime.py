@@ -272,6 +272,10 @@ async def run(
     return instance
 
 
+# Commands whose result comes later, naming the command (an approval decided, tasks done).
+_LATER = frozenset({CommandKind.OPEN_APPROVAL, CommandKind.OPEN_TASKS})
+
+
 async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs with
     session: AsyncSession,
     instance: WorkflowInstance,
@@ -291,7 +295,7 @@ async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs w
         command=command,
         # A result that comes later (an approval's decision) names its command; the history's
         # automation_ref of every other command stays as it was.
-        ref={**ref, "command": command.id} if command.kind == CommandKind.OPEN_APPROVAL else ref,
+        ref={**ref, "command": command.id} if command.kind in _LATER else ref,
     )
     if outcome.ok and outcome.pending:
         return None  # waits, as a sub-flow does, until the owning module's event continues it

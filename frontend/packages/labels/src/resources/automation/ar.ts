@@ -295,6 +295,9 @@ export const ar: LabelResource = {
   'workflow_problem.switch_case_invalid': 'تحتاج كل حالة إلى شرط ومخرج خاص بها.',
   'workflow_problem.switch_cases_invalid': 'اجعل لهذه الخطوة من 1 إلى {{max}} حالات.',
   'workflow_problem.system_status_not_allowed': 'النظام وحده يمكنه إجراء هذا الانتقال في الحالة.',
+  'workflow_problem.tasks_due_invalid': 'موعد الاستحقاق بعد 0 إلى {{max}} يوم عمل.',
+  'workflow_problem.tasks_titles_invalid':
+    'أضف من 1 إلى {{max}} مهمة، لكل منها عنوان حتى {{length}} حرفًا.',
   'workflow_problem.time_basis_invalid': 'اختر وقت التقويم أو وقت العمل.',
   'workflow_problem.timer_needs_duration_or_date': 'أدخل مدة أو اختر حقل تاريخ.',
   'workflow_problem.too_many_links': 'يمكن أن يحتوي سير العمل على {{max}} ربط كحد أقصى.',

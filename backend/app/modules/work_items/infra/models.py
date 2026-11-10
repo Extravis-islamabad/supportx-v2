@@ -1056,6 +1056,16 @@ class WorkItemTask(TenantEntity):
             "owner_id",
             postgresql_where=text("deleted_at IS NULL AND status IN ('open', 'in_progress')"),
         ),
+        CheckConstraint(
+            "(workflow_instance_id IS NULL) = (workflow_command IS NULL)", name="workflow_pair"
+        ),
+        Index(
+            "ix_wit_tenant_workflow",
+            "tenant_id",
+            "workflow_instance_id",
+            "workflow_command",
+            postgresql_where=text("workflow_instance_id IS NOT NULL"),
+        ),
     )
 
     work_item_id: Mapped[uuid.UUID]
@@ -1075,6 +1085,10 @@ class WorkItemTask(TenantEntity):
     done_at: Mapped[datetime | None]
     # D-154d: who ticked it done ("Done by <name>"); cleared when it is opened again.
     done_by: Mapped[uuid.UUID | None]
+    # 0106 (WP-048b S2, REQ-WF-015): the workflow's task node that opened it (by ID only); when
+    # its tasks are done the node continues.
+    workflow_instance_id: Mapped[uuid.UUID | None]
+    workflow_command: Mapped[str | None] = mapped_column(String(20))
 
 
 class WorkItemWorklog(TenantEntity):

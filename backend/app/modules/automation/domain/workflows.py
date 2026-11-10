@@ -84,6 +84,7 @@ class NodeType(StrEnum):
     SET_VARIABLE = "set_variable"
     SUB_FLOW = "sub_flow"
     APPROVAL = "approval"  # people: an approval on the record, its decision picks the output
+    TASKS = "tasks"  # people: a checklist of tasks on the record; all done continues it
 
 
 class WaitEvent(StrEnum):
@@ -107,6 +108,9 @@ class ApprovalRule(StrEnum):
 
 
 MAX_APPROVERS = 50  # people, groups and roles named by one approval node
+MAX_NODE_TASKS = 20  # one task node's checklist (a single task is a checklist of one)
+TASK_TITLE_MAX = 200  # a task's title (work_items' own limit)
+MAX_DUE_DAYS = 365  # a task node's due date: working days on the record's calendar
 
 
 class JoinMode(StrEnum):
@@ -492,6 +496,31 @@ def _check_approval(
     return []
 
 
+def _check_tasks(
+    config: Mapping[str, Any], _facts: TypeFacts
+) -> list[tuple[str, dict[str, JsonValue]]]:
+    """A checklist (REQ-WF-015): titles in their languages, an optional owner and due date."""
+    titles = config.get("titles")
+    if (
+        not isinstance(titles, list)
+        or not 1 <= len(titles) <= MAX_NODE_TASKS
+        or not all(
+            isinstance(t, dict)
+            and t
+            and all(isinstance(v, str) and 0 < len(v.strip()) <= TASK_TITLE_MAX for v in t.values())
+            for t in titles
+        )
+    ):
+        return [("tasks_titles_invalid", {"max": MAX_NODE_TASKS, "length": TASK_TITLE_MAX})]
+    for key in ("owner_user_id", "owner_group_id"):
+        if config.get(key) is not None and not _uuid_list([config[key]]):
+            return [("invalid_value", {"field": key})]
+    due = config.get("due_days")
+    if due is not None and (not _whole(due) or not 0 <= due <= MAX_DUE_DAYS):
+        return [("tasks_due_invalid", {"max": MAX_DUE_DAYS})]
+    return []
+
+
 def _split_ports(config: Mapping[str, Any]) -> tuple[str, ...]:
     branches = config.get("branches")
     return tuple(str(b) for b in branches) if isinstance(branches, list) else ()
@@ -566,6 +595,15 @@ REGISTRY: Mapping[NodeType, NodeSpec] = {
     ),
     # The decision picks the output; "error" when it cannot open (no approver could be named,
     # the record type refuses), else the instance stops there (REQ-WF-014, -024).
+    # Every task done continues it; "error" when a task is canceled or removed, else the
+    # instance stops there (REQ-WF-015, -024).
+    NodeType.TASKS: NodeSpec(
+        NodeType.TASKS,
+        Category.PEOPLE,
+        _fixed("next", "error"),
+        lambda _c: frozenset({"error"}),
+        _check_tasks,
+    ),
     NodeType.APPROVAL: NodeSpec(
         NodeType.APPROVAL,
         Category.PEOPLE,

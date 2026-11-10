@@ -292,6 +292,9 @@ export const en = {
   'workflow_problem.switch_case_invalid': 'Each case needs a condition and its own way out.',
   'workflow_problem.switch_cases_invalid': 'Give this step from 1 to {{max}} cases.',
   'workflow_problem.system_status_not_allowed': 'Only the system can make this status move.',
+  'workflow_problem.tasks_due_invalid': 'The due date is 0 to {{max}} working days away.',
+  'workflow_problem.tasks_titles_invalid':
+    'Add 1 to {{max}} tasks, each with a title of up to {{length}} characters.',
   'workflow_problem.time_basis_invalid': 'Choose calendar or business time.',
   'workflow_problem.timer_needs_duration_or_date': 'Enter a duration or choose a date field.',
   'workflow_problem.too_many_links': 'A workflow can have at most {{max}} connections.',

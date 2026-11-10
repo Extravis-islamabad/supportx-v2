@@ -105,3 +105,49 @@ def test_an_approval_names_who_decides_and_how() -> None:
     assert _problems({"approvers": {"user_ids": [PERSON]}}, FACTS) == {
         ("node:a", "approval_not_offered")
     }
+
+
+# --- the task node (REQ-WF-015) -------------------------------------------------------------------
+
+
+def test_req_wf_015_a_task_node_opens_its_checklist_and_continues_when_all_are_done() -> None:
+    definition = flow(
+        [
+            node("s", "start"),
+            node("do", "tasks", titles=[{"en": "Back up"}, {"en": "Patch"}], due_days=2),
+            node("e", "end"),
+            node("bad", "end"),
+        ],
+        [("s", "next", "do"), ("do", "next", "e"), ("do", "error", "bad")],
+        [],
+    )
+    started = step(definition, State.start(definition))
+    [command] = started.commands
+    assert command.kind == CommandKind.OPEN_TASKS
+    assert command.payload["titles"] == [{"en": "Back up"}, {"en": "Patch"}]
+    assert command.payload["due_days"] == 2
+    assert started.state.status == InstanceStatus.WAITING
+    done = step(definition, started.state, event=CommandDone(command.id, ok=True))
+    assert done.state.status == InstanceStatus.FINISHED
+    canceled = step(
+        definition, started.state, event=CommandDone(command.id, ok=False, error="task_canceled")
+    )
+    assert [s.result for s in canceled.steps if s.node == "do"] == ["error"]
+
+
+def test_a_task_node_needs_titles_and_a_sensible_due_date() -> None:
+    def found(config: dict[str, object]) -> set[tuple[str, str]]:
+        nodes = [raw_node("s", "start"), raw_node("t", "tasks", **config), raw_node("e", "end")]
+        links = [link("s", "next", "t"), link("t", "next", "e")]
+        parsed = parse({"format": 1, "nodes": nodes, "links": links, "variables": []})
+        assert parsed.definition is not None, parsed.problems
+        return {(where, code) for where, code, _ in validate(parsed.definition, FACTS)}
+
+    assert found({"titles": [{"en": "Back up"}]}) == set()
+    assert found({}) == {("node:t", "tasks_titles_invalid")}
+    assert found({"titles": [{"en": " "}]}) == {("node:t", "tasks_titles_invalid")}
+    assert found({"titles": [{"en": "x"}] * 21}) == {("node:t", "tasks_titles_invalid")}
+    assert found({"titles": [{"en": "x"}], "due_days": 400}) == {("node:t", "tasks_due_invalid")}
+    assert found({"titles": [{"en": "x"}], "owner_user_id": "nope"}) == {
+        ("node:t", "invalid_value")
+    }

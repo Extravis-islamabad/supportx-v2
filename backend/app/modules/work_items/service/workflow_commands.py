@@ -21,19 +21,20 @@ output decides (ADR-043 §6).
 import html
 import uuid
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, BadRequest
-from app.modules import automation
+from app.modules import automation, sla
 from app.modules.identity_access import Subject, worker_policy
 from app.modules.work_items.domain.conversation import EntryKind, Visibility
 from app.modules.work_items.domain.lifecycle import WorkItemAction
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import conversations, workflow_approvals
+from app.modules.work_items.service import conversations, parts, workflow_approvals
 from app.modules.work_items.service import work_items as items
 from app.shared.history import Source, automated
 
@@ -41,6 +42,7 @@ SOURCE: Source = "workflow"
 # The interpreter's command kinds (automation.CommandKind values).
 MOVE, UPDATE_FIELDS, ADD_NOTE = "move", "update_fields", "add_note"
 OPEN_APPROVAL = "open_approval"  # decided later: the result comes with the decision
+OPEN_TASKS = "open_tasks"  # done later: the result comes when every task is done
 
 
 async def _version(session: AsyncSession, record_id: uuid.UUID) -> int | None:
@@ -71,6 +73,8 @@ def runner(wtype: WorkItemType) -> automation.CommandRunner:
             return automation.CommandResult(ok=False, error="not_found")
         if kind == OPEN_APPROVAL:
             return await _open_approval(session, wtype, record_id, payload, ref)
+        if kind == OPEN_TASKS:
+            return await _open_tasks(session, record_id, payload, ref)
         policy = worker_policy()
         try:
             with automated(session, ref):
@@ -117,6 +121,43 @@ async def _open_approval(
         )
     except ValueError:  # an approver or a rule the definition should not have held
         return automation.CommandResult(ok=False, error="approval_invalid")
+    return automation.CommandResult(ok=True, pending=True)
+
+
+def _id(value: Any) -> uuid.UUID | None:  # noqa: ANN401 - untrusted JSON
+    return uuid.UUID(str(value)) if value else None
+
+
+async def _open_tasks(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    payload: Mapping[str, Any],
+    ref: Mapping[str, Any],
+) -> automation.CommandResult:
+    """The task node (REQ-WF-015): its checklist opened now; all done continues the node."""
+    record = await session.get(WorkItem, record_id)
+    if record is None:
+        return automation.CommandResult(ok=False, error="not_found")
+    due_days = payload.get("due_days")
+    due_at = None
+    if isinstance(due_days, int) and not isinstance(due_days, bool):
+        # Working days on the record's own calendar (its resolution target's, else the
+        # tenant's operating hours), as the record's other business-day rules count.
+        calendar = await sla.record_calendar(session, record_id)
+        due_at = calendar.add_working_days(datetime.now(UTC), due_days)
+    try:
+        await parts.open_workflow_tasks(
+            session,
+            record,
+            instance_id=uuid.UUID(str(ref["instance_id"])),
+            command=str(ref["command"]),
+            titles=[dict(t) for t in payload.get("titles") or []],
+            owner_id=_id(payload.get("owner_user_id")),
+            group_id=_id(payload.get("owner_group_id")),
+            due_at=due_at,
+        )
+    except ValueError:  # an owner id the definition should not have held
+        return automation.CommandResult(ok=False, error="tasks_invalid")
     return automation.CommandResult(ok=True, pending=True)
 
 
