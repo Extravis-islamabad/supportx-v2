@@ -1,13 +1,11 @@
 import {
   CheckOutlined,
-  DownOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
   GlobalOutlined,
   LockOutlined,
   MailOutlined,
   RollbackOutlined,
-  SendOutlined,
   ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -17,9 +15,7 @@ import {
   Avatar,
   Button,
   Card,
-  Dropdown,
   Modal,
-  Empty,
   Flex,
   Popconfirm,
   Radio,
@@ -32,15 +28,7 @@ import {
   Typography,
   theme,
 } from 'antd';
-import {
-  cloneElement,
-  createContext,
-  isValidElement,
-  type ReactNode,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -69,7 +57,9 @@ import {
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import {
+  EmptyText,
   Attachments,
+  ChannelTag,
   ConflictDialog,
   describeError,
   FormProblem,
@@ -134,18 +124,29 @@ export function IncidentConversation({
   item,
   typing,
   replyRequest = 0,
+  replyMode = 'reply',
   base = 'incidents',
 }: {
   item: Incident;
   typing: Typing;
-  /** Bumped by the header's Reply action (UI pass 2): opens the reply composer here. */
+  /**
+   * Bumped by the header's Reply (UI pass 2): opens the reply composer here. The header holds
+   * the record's one Reply, with reply to all and forward in its dropdown (D-155).
+   */
   replyRequest?: number;
+  /** How the header's last Reply asked to answer. */
+  replyMode?: ReplyMode;
   /** Whose conversation routes: incidents (the default) or service requests. */
   base?: ConversationBase;
 }) {
   return (
     <BaseContext.Provider value={base}>
-      <ConversationBody item={item} typing={typing} replyRequest={replyRequest} />
+      <ConversationBody
+        item={item}
+        typing={typing}
+        replyRequest={replyRequest}
+        replyMode={replyMode}
+      />
     </BaseContext.Provider>
   );
 }
@@ -154,10 +155,12 @@ function ConversationBody({
   item,
   typing,
   replyRequest,
+  replyMode,
 }: {
   item: Incident;
   typing: Typing;
   replyRequest: number;
+  replyMode: ReplyMode;
 }) {
   const base = useContext(BaseContext);
   const t = useLabel();
@@ -169,7 +172,7 @@ function ConversationBody({
   const [seenRequest, setSeenRequest] = useState(0);
   if (replyRequest !== seenRequest) {
     setSeenRequest(replyRequest);
-    if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: 'reply' });
+    if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: replyMode });
   }
   const conversation = useIncidentConversation(item.id, true, base);
   // The record type's own files and history: never an incident path for another type (a 404).
@@ -284,22 +287,10 @@ function ConversationBody({
           )}
           {rows.map((row) => row.node)}
           {filter === 'system' && events.length === 0 && (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <Typography.Text type="secondary">{t('conversation.system_empty')}</Typography.Text>
-              }
-            />
+            <EmptyText>{t('conversation.system_empty')}</EmptyText>
           )}
           {filter !== 'system' && filter !== 'all' && shown.length === 0 && (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <Typography.Text type="secondary">
-                  {t(`conversation.empty.${filter}`)}
-                </Typography.Text>
-              }
-            />
+            <EmptyText>{t(`conversation.empty.${filter}`)}</EmptyText>
           )}
         </Flex>
       )}
@@ -318,51 +309,12 @@ function ComposeButtons({
 }) {
   const t = useLabel();
   const state = (name: string) => item.conversation_actions.find((a) => a.action === name);
-  const reply = state('reply');
   const note = state('add_note');
-  const why = (s: typeof reply) =>
+  const why = (s: typeof note) =>
     s === undefined || s.allowed ? undefined : t(`action_reason.${s.reason ?? 'no_permission'}`);
-  // Opens on click (keyboard too) and closes once something is chosen (QA BUG-10).
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <Space wrap>
-      <Tooltip title={why(reply)}>
-        {/* Default, not primary: the record header's Reply is the page's one primary action
-            (the coordinator's visual QA, one primary per screen). */}
-        <Dropdown.Button
-          disabled={disabled || reply?.allowed !== true}
-          icon={<DownOutlined />}
-          trigger={['click']}
-          open={menuOpen}
-          onOpenChange={setMenuOpen}
-          onClick={() => {
-            onCompose({ kind: 'reply', mode: 'reply' });
-          }}
-          menu={{
-            items: (['reply_all', 'forward'] as const).map((mode) => ({
-              key: mode,
-              label: t(`reply_mode.${mode}`),
-            })),
-            onClick: ({ key }) => {
-              setMenuOpen(false);
-              onCompose({ kind: 'reply', mode: key as ReplyMode });
-            },
-          }}
-          buttonsRender={([left, right]) => [
-            <span key="l" data-testid="conv-reply">
-              {left}
-            </span>,
-            <span key="r" data-testid="conv-reply-more" aria-label={t('conversation.more_reply')}>
-              {/* Ant Design disables only the left part; the arrow must look disabled too. */}
-              {isValidElement<{ disabled?: boolean }>(right)
-                ? cloneElement(right, { disabled: disabled || reply?.allowed !== true })
-                : right}
-            </span>,
-          ]}
-        >
-          <SendOutlined /> {t('reply_mode.reply')}
-        </Dropdown.Button>
-      </Tooltip>
+      {/* One Reply on the record, in its header (D-155): this toolbar adds notes. */}
       <Tooltip title={why(note)}>
         <WriteButton
           disabled={disabled || note?.allowed !== true}
@@ -398,7 +350,7 @@ function DescriptionEntry({ item }: { item: Incident }) {
             <bdi dir="auto">{author}</bdi>
           </Typography.Text>
           <Tag>{t('conversation.kind.description')}</Tag>
-          <Tag icon={<GlobalOutlined />}>{t(`work_item_channel.${item.channel}`)}</Tag>
+          <ChannelTag channel={item.channel} />
         </Space>
         <Typography.Text type="secondary">{dates.format(item.created_at)}</Typography.Text>
       </Flex>

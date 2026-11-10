@@ -42,6 +42,7 @@ const state: AssetState = {
 const asset: AssetRecord = {
   id: '01900000-0000-7000-8000-00000000d001',
   name: 'Finance laptop',
+  loanable: false,
   product_id: '01900000-0000-7000-8000-00000000e001',
   product_type_id: type.id,
   state_id: state.id,
@@ -243,7 +244,7 @@ describe('console: assets', () => {
     basis = 'created_date';
     view.unmount();
     render(<App />);
-    expect(await screen.findByText('0 days')).toBeTruthy();
+    expect(await screen.findByText('Today')).toBeTruthy();
   });
 
   it('shows one asset with price, tax and total, and saves an edit with If-Match', async () => {
@@ -527,5 +528,152 @@ describe('console: assets', () => {
     expect(within(card).queryByText('returned_to_vendor')).toBeNull();
     expect(await within(card).findByText('wipe-certificate.pdf')).toBeTruthy();
     expect(screen.queryByTestId('asset-dispose-open')).toBeNull();
+  });
+
+  it('Holder and links: the holder by name, who held it, links from both ends, give with If-Match', async () => {
+    const holder = '01900000-0000-7000-8000-0000000000b1';
+    const switchId = '01900000-0000-7000-8000-00000000d009';
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=relations`);
+    const fake = assetsApi({
+      [`GET /api/v1/assets/${asset.id}`]: {
+        body: { ...asset, owner_user_id: holder },
+        headers: { ETag: '"3"' },
+      },
+      [`GET /api/v1/users/${holder}`]: { body: { id: holder, display_name: 'Rana Requester' } },
+      [`GET /api/v1/assets/${asset.id}/holdings`]: {
+        body: [
+          {
+            asset_id: asset.id,
+            holder_kind: 'user',
+            holder_id: holder,
+            started_at: '2026-11-01T09:00:00Z',
+            ended_at: null,
+            source: 'ui',
+            assigned_by: null,
+          },
+        ],
+      },
+      [`GET /api/v1/assets/${asset.id}/links`]: {
+        body: [
+          {
+            id: 'l-1',
+            kind: 'connected_to',
+            outgoing: false,
+            other: { ...asset, id: switchId, name: 'Floor switch', tag: 'AST-9' },
+          },
+        ],
+      },
+      [`PUT /api/v1/assets/${asset.id}/holder`]: { body: { ...asset, version: 4 } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const card = await screen.findByTestId('asset-holder');
+    expect((await within(card).findAllByText('Rana Requester')).length).toBeGreaterThan(0);
+    const links = screen.getByTestId('asset-links');
+    // The other end of a "connected to" link reads "Connected from".
+    expect(await within(links).findByText('Connected from')).toBeTruthy();
+    expect(within(links).getByText('Floor switch')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('asset-holder-open'));
+    const dialog = await screen.findByTestId('asset-holder-dialog');
+    fireEvent.click(within(dialog).getByText('Department'));
+    expect(within(dialog).getByRole('button', { name: 'Give to…' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
+
+  it('groups: counts shown, a dynamic group by state, the selection added to a static group', async () => {
+    const floor = {
+      id: 'g-1',
+      name: 'Floor 3',
+      description: null,
+      kind: 'static',
+      filter: null,
+      count: 2,
+      version: 1,
+    };
+    window.history.pushState({}, '', '/assets/groups');
+    const fake = assetsApi({
+      'GET /api/v1/assets/groups': { body: [floor] },
+      'POST /api/v1/assets/groups': {
+        status: 201,
+        body: { ...floor, id: 'g-2', name: 'In stock', kind: 'dynamic', count: 1 },
+      },
+      'POST /api/v1/assets/groups/g-1/members': { body: { added: 1 } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const row = await screen.findByTestId('asset-group-g-1');
+    expect(within(row).getByText('2 assets')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('asset-group-new-open'));
+    const dialog = await screen.findByTestId('asset-group-new');
+    fireEvent.change(within(dialog).getByTestId('asset-group-name'), {
+      target: { value: 'In stock' },
+    });
+    fireEvent.click(within(dialog).getByText('Dynamic'));
+    fireEvent.mouseDown(
+      within(within(dialog).getByTestId('asset-group-state')).getByRole('combobox'),
+    );
+    fireEvent.click(await screen.findByTitle('In stock'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add group' }));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/assets/groups')).toHaveLength(1);
+    });
+    const [made] = fake.find('POST', '/api/v1/assets/groups');
+    expect(made?.body).toEqual({
+      name: 'In stock',
+      kind: 'dynamic',
+      filter: { field: 'state_id', op: 'eq', value: state.id },
+    });
+    expect(made?.headers.get('Idempotency-Key')).toBeTruthy();
+  });
+
+  it('loans: the register by name and status; a return to repair needs a comment', async () => {
+    const borrower = '01900000-0000-7000-8000-00000000b101';
+    const loan = {
+      id: 'l-1',
+      borrower_id: borrower,
+      starts_at: '2026-11-01T09:00:00Z',
+      due_at: '2026-11-08T17:00:00Z',
+      closed_at: null,
+      comment: null,
+      status: 'overdue',
+      outstanding: [asset.id],
+      assets: [
+        { id: asset.id, tag: 'AST-7', name: 'Finance laptop', returned_at: null, outcome: null },
+      ],
+      version: 1,
+    };
+    window.history.pushState({}, '', '/assets/loans');
+    const fake = assetsApi({
+      'GET /api/v1/assets/loans': { body: [loan] },
+      [`GET /api/v1/users/${borrower}`]: { body: { id: borrower, display_name: 'Sara Field' } },
+      'POST /api/v1/assets/loans/l-1/returns': {
+        body: { ...loan, status: 'closed', outstanding: [] },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const table = await screen.findByTestId('asset-loans');
+    expect(await within(table).findByText('Sara Field')).toBeTruthy();
+    expect(within(table).getByText('AST-7 Finance laptop')).toBeTruthy();
+    expect(screen.getByTestId('asset-loan-status-l-1').textContent).toBe('Overdue');
+    fireEvent.click(screen.getByTestId('asset-loan-return-open-l-1'));
+    const dialog = await screen.findByTestId('asset-loan-return');
+    fireEvent.click(within(dialog).getByText('To repair'));
+    const send = within(dialog).getByRole('button', { name: 'Take back' });
+    expect(send.hasAttribute('disabled')).toBe(true); // to repair says what is wrong
+    fireEvent.change(within(dialog).getByTestId('asset-loan-return-comment'), {
+      target: { value: 'Hinge broken' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Take back' }));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/assets/loans/l-1/returns')).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', '/api/v1/assets/loans/l-1/returns');
+    expect(sent?.body).toEqual({
+      asset_ids: [asset.id],
+      outcome: 'in_repair',
+      comment: 'Hinge broken',
+    });
   });
 });

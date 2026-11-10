@@ -1,3 +1,4 @@
+import { NotificationOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -169,6 +170,8 @@ function AnnouncementDetail({
         testId="ann-record"
         header={
           <RecordHeader
+            icon={<NotificationOutlined />}
+            kind="announcement"
             typeLabel={t('announcements.one')}
             displayId={item.display_id}
             title={item.title}

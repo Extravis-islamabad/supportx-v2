@@ -61,6 +61,8 @@ export function ProblemsPage() {
   const widths = useColumnWidths({
     kind: 'problems',
     viewKey: view ?? views.data?.[0]?.view ?? 'all',
+    // Not before the views load: a resize then would land on another view's settings.
+    enabled: view !== undefined || views.data !== undefined,
     keys: Object.keys(titles),
     defaults: OWN_WIDTHS,
     minWidths: { subject: SUBJECT_MIN },

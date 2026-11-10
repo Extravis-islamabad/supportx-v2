@@ -4,7 +4,6 @@ import {
   App,
   Button,
   Card,
-  Empty,
   Flex,
   Skeleton,
   Space,
@@ -27,6 +26,7 @@ import {
 import { Chart, kitOption } from '@supportx/charts';
 import { useListFormat } from '@supportx/labels';
 import {
+  EmptyText,
   ConflictDialog,
   FormProblem,
   inlineImageIds,
@@ -339,7 +339,7 @@ export function ProblemEvidence({ id }: { id: string }) {
         />
       )}
       {d.incidents.length === 0 ? (
-        <Empty description={t('problems.evidence.none')} />
+        <EmptyText>{t('problems.evidence.none')}</EmptyText>
       ) : (
         <Timeline
           items={d.incidents.map((i) => ({
