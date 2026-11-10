@@ -20,11 +20,19 @@ import {
   useReportIssue,
   type PortalTemplate,
 } from '@supportx/api-client';
-import { lengthLimit, reportError, RichTextField, useAppearance, useLabel } from '@supportx/ui';
+import {
+  lengthLimit,
+  reportError,
+  RichTextField,
+  useAppearance,
+  useLabel,
+  useLicence,
+} from '@supportx/ui';
 
 import { ForWhom } from './ForWhom';
 import { FormCard } from '../FormCard';
 import { FORM_COLUMN } from '../formColumn';
+import { AssetsField } from './AssetsField';
 
 const SUBJECT_MAX = 250;
 
@@ -57,6 +65,8 @@ export function ReportPage() {
   const [subject, setSubject] = useState(params.get('subject') ?? ''); // from search (WP-032 D2)
   const [onBehalf, setOnBehalf] = useState<string | null>(null);
   const [description, setDescription] = useState('');
+  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const hasAssets = useLicence().has('assets');
   const key = useMemo(() => crypto.randomUUID(), []);
   const [chosenFiles, setChosenFiles] = useState<File[]>([]);
   const [attaching, setAttaching] = useState(false);
@@ -110,6 +120,7 @@ export function ReportPage() {
                   subject: subject.trim(),
                   ...(fields.has('description') && !empty(description) ? { description } : {}),
                   ...(onBehalf !== null ? { on_behalf_of_id: onBehalf } : {}),
+                  ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
                 },
               },
               {
@@ -162,6 +173,18 @@ export function ReportPage() {
                 label={t('portal.report.description')}
                 placeholder={t('portal.report.description_hint')}
                 testId="portal-report-description"
+              />
+            </Form.Item>
+          )}
+          {/* REQ-AST-025: the assets it is about, the person's own only (AC1). */}
+          {hasAssets && (
+            <Form.Item label={t('work_item.field.asset_ids')} htmlFor="portal-report-assets">
+              <AssetsField
+                id="portal-report-assets"
+                value={assetIds}
+                onChange={setAssetIds}
+                forUser={onBehalf}
+                testId="portal-report-assets"
               />
             </Form.Item>
           )}
