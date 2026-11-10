@@ -136,178 +136,182 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     </Form.Item>
   );
   return (
-    <SettingsCard title={t('settings.closing.title')} testId="settings-closing">
-      {stale && (
-        <Alert
-          type="warning"
-          showIcon
-          role="status"
-          style={{ marginBottom: 12 }}
-          message={t('settings.stale')}
-          action={
-            <Button size="small" onClick={reset} data-testid="settings-stale-reload">
-              {t('live.reload')}
-            </Button>
-          }
-          data-testid="settings-stale"
-        />
-      )}
-      <Typography.Paragraph type="secondary">{t('settings.closing.help')}</Typography.Paragraph>
-      <Form layout="vertical" component="div">
-        {fieldsSelect('resolve', 'resolve_requires', 'settings-resolve-requires')}
-        {fieldsSelect('close', 'close_requires', 'settings-close-requires')}
-        <fieldset style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
-          <legend>
-            <Typography.Text strong>{t('settings.closing.open_work')}</Typography.Text>
-          </legend>
-          <Typography.Paragraph type="secondary" data-testid="settings-open-work-note">
-            {t('settings.closing.open_work_help')}
-          </Typography.Paragraph>
-          <Flex gap={16} wrap>
-            {OPEN_WORK_KINDS.map((kind) => (
-              <Form.Item
-                key={kind}
-                label={t(`open_work_kind.${kind}`)}
-                htmlFor={`settings-open-work-${kind}`}
-              >
-                <Select
-                  id={`settings-open-work-${kind}`}
-                  value={draft.openWork[kind]}
-                  style={{ width: 200 }}
-                  onChange={(mode: string) => {
-                    edit({ ...draft, openWork: { ...draft.openWork, [kind]: mode } });
-                  }}
-                  options={['warn', 'block'].map((mode) => ({
-                    value: mode,
-                    label: t(`open_work_mode.${mode}`),
-                  }))}
-                  data-testid={`settings-open-work-${kind}`}
-                />
-              </Form.Item>
-            ))}
-          </Flex>
-          <Flex gap={12} align="start">
-            <Switch
-              id="settings-complete-open-work"
-              checked={draft.complete}
-              onChange={(checked) => {
-                edit({ ...draft, complete: checked });
-              }}
-              data-testid="settings-complete-open-work"
-            />
-            <label htmlFor="settings-complete-open-work">
-              <Typography.Text strong>{t('settings.closing.complete_open_work')}</Typography.Text>
-              <br />
-              <Typography.Text type="secondary">
-                {t('settings.closing.complete_open_work_help')}
-              </Typography.Text>
-            </label>
-          </Flex>
-          <Flex gap={12} align="start">
-            <Switch
-              id="settings-task-owner-access"
-              checked={draft.taskOwners}
-              onChange={(checked) => {
-                edit({ ...draft, taskOwners: checked });
-              }}
-              data-testid="settings-task-owner-access"
-            />
-            <label htmlFor="settings-task-owner-access">
-              <Typography.Text strong>{t('settings.closing.task_owner_access')}</Typography.Text>
-              <br />
-              <Typography.Text type="secondary">
-                {t('settings.closing.task_owner_access_help')}
-              </Typography.Text>
-            </label>
-          </Flex>
-        </fieldset>
-        <Flex gap={12} align="start" style={{ marginBottom: 8 }}>
-          <Switch
-            id="settings-auto-close"
-            checked={draft.autoClose}
-            // Never auto-close what the requester was never told (product owner, 2026-10-28).
-            disabled={noChannel && !draft.autoClose}
-            onChange={(checked) => {
-              edit({ ...draft, autoClose: checked });
-            }}
-            data-testid="settings-auto-close"
-          />
-          <label htmlFor="settings-auto-close">
-            <Typography.Text strong>{t('settings.closing.auto_close')}</Typography.Text>
-            <br />
-            <Typography.Text type="secondary">
-              {t('settings.closing.auto_close_help')}
-            </Typography.Text>
-          </label>
-        </Flex>
-        {noChannel && (
+    <Flex vertical gap={16}>
+      <SettingsCard title={t('settings.closing.title')} testId="settings-closing">
+        {stale && (
           <Alert
-            type="info"
+            type="warning"
             showIcon
-            role="note"
+            role="status"
             style={{ marginBottom: 12 }}
-            message={t('settings.closing.auto_close_needs_notifications')}
-            // Why each channel cannot tell requesters yet, so the admin knows what to fix (QA BUG-02).
-            description={
-              blocked.length > 0 && (
-                <ul
-                  style={{ margin: 0, paddingInlineStart: 20 }}
-                  data-testid="settings-requester-channels"
-                >
-                  {blocked.map((state) => (
-                    <li key={state.channel}>
-                      {t('settings.closing.channel_state', {
-                        channel: t(`notification_channel.${state.channel}`),
-                        reason: t(`requester_channel_reason.${state.reason ?? ''}`),
-                      })}
-                    </li>
-                  ))}
-                </ul>
-              )
+            message={t('settings.stale')}
+            action={
+              <Button size="small" onClick={reset} data-testid="settings-stale-reload">
+                {t('live.reload')}
+              </Button>
             }
-            data-testid="settings-auto-close-needs"
+            data-testid="settings-stale"
           />
         )}
-        <Flex gap={16} wrap>
-          <Form.Item
-            label={t('settings.closing.auto_close_days')}
-            htmlFor="settings-auto-close-days"
-            validateStatus={problemAt('auto_close_days') === undefined ? undefined : 'error'}
-            help={problemAt('auto_close_days') ?? t('settings.closing.days_range', DAYS)}
-          >
-            <InputNumber
-              id="settings-auto-close-days"
-              value={draft.autoCloseDays}
-              disabled={!draft.autoClose}
-              style={{ width: 160 }}
-              onChange={(value) => {
-                edit({ ...draft, autoCloseDays: typeof value === 'number' ? value : null });
+        <Typography.Paragraph type="secondary">{t('settings.closing.help')}</Typography.Paragraph>
+        <Form layout="vertical" component="div">
+          {fieldsSelect('resolve', 'resolve_requires', 'settings-resolve-requires')}
+          {fieldsSelect('close', 'close_requires', 'settings-close-requires')}
+          <fieldset style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
+            <legend>
+              <Typography.Text strong>{t('settings.closing.open_work')}</Typography.Text>
+            </legend>
+            <Typography.Paragraph type="secondary" data-testid="settings-open-work-note">
+              {t('settings.closing.open_work_help')}
+            </Typography.Paragraph>
+            <Flex gap={16} wrap>
+              {OPEN_WORK_KINDS.map((kind) => (
+                <Form.Item
+                  key={kind}
+                  label={t(`open_work_kind.${kind}`)}
+                  htmlFor={`settings-open-work-${kind}`}
+                >
+                  <Select
+                    id={`settings-open-work-${kind}`}
+                    value={draft.openWork[kind]}
+                    style={{ width: 200 }}
+                    onChange={(mode: string) => {
+                      edit({ ...draft, openWork: { ...draft.openWork, [kind]: mode } });
+                    }}
+                    options={['warn', 'block'].map((mode) => ({
+                      value: mode,
+                      label: t(`open_work_mode.${mode}`),
+                    }))}
+                    data-testid={`settings-open-work-${kind}`}
+                  />
+                </Form.Item>
+              ))}
+            </Flex>
+            <Flex gap={12} align="start">
+              <Switch
+                id="settings-complete-open-work"
+                checked={draft.complete}
+                onChange={(checked) => {
+                  edit({ ...draft, complete: checked });
+                }}
+                data-testid="settings-complete-open-work"
+              />
+              <label htmlFor="settings-complete-open-work">
+                <Typography.Text strong>{t('settings.closing.complete_open_work')}</Typography.Text>
+                <br />
+                <Typography.Text type="secondary">
+                  {t('settings.closing.complete_open_work_help')}
+                </Typography.Text>
+              </label>
+            </Flex>
+            <Flex gap={12} align="start">
+              <Switch
+                id="settings-task-owner-access"
+                checked={draft.taskOwners}
+                onChange={(checked) => {
+                  edit({ ...draft, taskOwners: checked });
+                }}
+                data-testid="settings-task-owner-access"
+              />
+              <label htmlFor="settings-task-owner-access">
+                <Typography.Text strong>{t('settings.closing.task_owner_access')}</Typography.Text>
+                <br />
+                <Typography.Text type="secondary">
+                  {t('settings.closing.task_owner_access_help')}
+                </Typography.Text>
+              </label>
+            </Flex>
+          </fieldset>
+          <Flex gap={12} align="start" style={{ marginBottom: 8 }}>
+            <Switch
+              id="settings-auto-close"
+              checked={draft.autoClose}
+              // Never auto-close what the requester was never told (product owner, 2026-10-28).
+              disabled={noChannel && !draft.autoClose}
+              onChange={(checked) => {
+                edit({ ...draft, autoClose: checked });
               }}
-              data-testid="settings-auto-close-days"
+              data-testid="settings-auto-close"
             />
-          </Form.Item>
-          <Form.Item
-            label={t('settings.closing.reopen_window_days')}
-            htmlFor="settings-reopen-days"
-            validateStatus={problemAt('reopen_window_days') === undefined ? undefined : 'error'}
-            help={problemAt('reopen_window_days') ?? t('settings.closing.reopen_window_help')}
-          >
-            <InputNumber
-              id="settings-reopen-days"
-              value={draft.reopenDays}
-              style={{ width: 160 }}
-              onChange={(value) => {
-                edit({ ...draft, reopenDays: typeof value === 'number' ? value : null });
-              }}
-              data-testid="settings-reopen-days"
+            <label htmlFor="settings-auto-close">
+              <Typography.Text strong>{t('settings.closing.auto_close')}</Typography.Text>
+              <br />
+              <Typography.Text type="secondary">
+                {t('settings.closing.auto_close_help')}
+              </Typography.Text>
+            </label>
+          </Flex>
+          {noChannel && (
+            <Alert
+              type="info"
+              showIcon
+              role="note"
+              style={{ marginBottom: 12 }}
+              message={t('settings.closing.auto_close_needs_notifications')}
+              // Why each channel cannot tell requesters yet, so the admin knows what to fix (QA BUG-02).
+              description={
+                blocked.length > 0 && (
+                  <ul
+                    style={{ margin: 0, paddingInlineStart: 20 }}
+                    data-testid="settings-requester-channels"
+                  >
+                    {blocked.map((state) => (
+                      <li key={state.channel}>
+                        {t('settings.closing.channel_state', {
+                          channel: t(`notification_channel.${state.channel}`),
+                          reason: t(`requester_channel_reason.${state.reason ?? ''}`),
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              }
+              data-testid="settings-auto-close-needs"
             />
-          </Form.Item>
-        </Flex>
-        {/* A refusal with no field to point at (QA WP-029 BUG-02); field ones show in place. */}
-        {(Object.keys(byField).length === 0 ||
-          Object.keys(byField).some((key) => !PLACED.has(key))) && <Problems problems={problems} />}
-      </Form>
-      {/* One save bar for the page (template E, D-147): no save or reset inside the card. */}
+          )}
+          <Flex gap={16} wrap>
+            <Form.Item
+              label={t('settings.closing.auto_close_days')}
+              htmlFor="settings-auto-close-days"
+              validateStatus={problemAt('auto_close_days') === undefined ? undefined : 'error'}
+              help={problemAt('auto_close_days') ?? t('settings.closing.days_range', DAYS)}
+            >
+              <InputNumber
+                id="settings-auto-close-days"
+                value={draft.autoCloseDays}
+                disabled={!draft.autoClose}
+                style={{ width: 160 }}
+                onChange={(value) => {
+                  edit({ ...draft, autoCloseDays: typeof value === 'number' ? value : null });
+                }}
+                data-testid="settings-auto-close-days"
+              />
+            </Form.Item>
+            <Form.Item
+              label={t('settings.closing.reopen_window_days')}
+              htmlFor="settings-reopen-days"
+              validateStatus={problemAt('reopen_window_days') === undefined ? undefined : 'error'}
+              help={problemAt('reopen_window_days') ?? t('settings.closing.reopen_window_help')}
+            >
+              <InputNumber
+                id="settings-reopen-days"
+                value={draft.reopenDays}
+                style={{ width: 160 }}
+                onChange={(value) => {
+                  edit({ ...draft, reopenDays: typeof value === 'number' ? value : null });
+                }}
+                data-testid="settings-reopen-days"
+              />
+            </Form.Item>
+          </Flex>
+          {/* A refusal with no field to point at (QA WP-029 BUG-02); field ones show in place. */}
+          {(Object.keys(byField).length === 0 ||
+            Object.keys(byField).some((key) => !PLACED.has(key))) && (
+            <Problems problems={problems} />
+          )}
+        </Form>
+      </SettingsCard>
+      {/* One save bar for the page (template E, D-147), below the card as on every page. */}
       <StickySaveBar
         changes={changes}
         saving={pending}
@@ -316,6 +320,6 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
         testId="settings-closing-save-bar"
       />
       <ConflictDialog {...conflictDialog} />
-    </SettingsCard>
+    </Flex>
   );
 }
