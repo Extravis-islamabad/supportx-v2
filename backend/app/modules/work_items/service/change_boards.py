@@ -43,7 +43,10 @@ from app.shared.history import Change, ChangeKind, Source, record_changes
 from app.shared.ids import new_id
 
 RECORD_TYPE = "change_board"
-MANAGE = ("config.service_desk", "settings.manage")
+# The change manager and administrators run the boards (Haider, 2026-11-10); the service desk
+# configuration permission may still read them, as the route allows.
+MANAGE = ("changes.manage_boards", "settings.manage")
+READ_ALSO = ("config.service_desk", *MANAGE)
 NAME_MAX, DESCRIPTION_MAX, LABEL_MAX, MAX_MEMBERS = 200, 2000, 200, 200
 LANGUAGES = frozenset({"en", "ar", "ur"})
 EDITABLE = ("name", "labels", "description", "chair_id", "rule", "mapping", "position")
@@ -91,7 +94,7 @@ def _uuid_or_none(value: Any) -> uuid.UUID | None:  # noqa: ANN401 - a JSON valu
 
 def _require_view(subject: Subject) -> None:
     view = TYPES[WorkItemTypeCode.CHANGE].permission("view")
-    if not subject.holds(view) and not any(subject.holds(p) for p in MANAGE):
+    if not subject.holds(view) and not any(subject.holds(p) for p in READ_ALSO):
         raise PermissionDenied(params={"permission": view, "reason": "no_permission"})
 
 

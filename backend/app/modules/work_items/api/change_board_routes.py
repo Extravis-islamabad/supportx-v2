@@ -2,7 +2,8 @@
 
 `/api/v1/change-boards`: list, read, add (with members, Idempotency-Key), change (If-Match;
 `members` replaces them) and remove (not the default board). Reading needs `changes.view` or
-the settings permission; changing needs the settings permission and is audited.
+the settings permission; changing needs `changes.manage_boards` (the change manager) or the
+settings permission, and is audited.
 """
 
 import uuid
@@ -34,7 +35,8 @@ LOCATION = "/api/v1/change-boards"
 View = Annotated[
     Subject, Depends(require_permission(CHANGE.permission("view"), "config.service_desk"))
 ]
-Admin = Annotated[Subject, Depends(require_permission("config.service_desk", "settings.manage"))]
+# The change manager and administrators only (Haider, 2026-11-10).
+Admin = Annotated[Subject, Depends(require_permission("changes.manage_boards", "settings.manage"))]
 Note = Annotated[AuditNote, audited("change.board_changed", object_type="change_board")]
 
 

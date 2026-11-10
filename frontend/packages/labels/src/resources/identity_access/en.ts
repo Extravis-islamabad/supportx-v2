@@ -390,6 +390,9 @@ export const en = {
   'permission.changes.emergency_override': 'Override the approval of a change in an emergency',
   'permission.changes.emergency_override.description':
     'Keep a change going that was sent back for approval, with a reason. It is audited, and the change then needs its review before closing.',
+  'permission.changes.manage_boards': 'Manage change advisory boards',
+  'permission.changes.manage_boards.description':
+    'Add, change and remove the boards that review changes, and who sits on them.',
   'permission.changes.manage_followers': 'Manage followers of changes',
   'permission.changes.manage_followers.description':
     'Add and remove the people who follow a change.',

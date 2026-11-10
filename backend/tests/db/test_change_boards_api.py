@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from app.core.tenancy import TenantContext
-from tests.db.test_incidents_api import CONSOLE, Org, World, field_codes, problem, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, field_codes, problem, role, world
 
 __all__ = ["world"]  # the fixture, re-used
 
@@ -300,3 +300,22 @@ async def test_an_optional_members_vote_is_advisory_and_never_counts(world: Worl
     assert approved.status_code == 200, approved.text
     done = (await world.call("GET", f"/changes/{change['id']}", a, a.admin)).json()
     assert done["stage"] == "planning"
+
+
+async def test_boards_are_managed_by_the_change_manager_right_not_desk_config(
+    world: World,
+) -> None:
+    """Haider (2026-11-10): the change manager and administrators run the boards, not every
+    service desk configurer. Holding config.service_desk alone may read them, not change them."""
+    a = world.a
+    desk = await role(world, a, "Desk config", [("config.service_desk", "all")])
+    boards = await role(world, a, "Board keeper", [("changes.manage_boards", "all")])
+    for user, granted in ((a.tech_a, desk), (a.tech_b, boards)):
+        given = await world.call("PUT", f"/users/{user}/roles/{granted}", a, a.admin)
+        assert given.status_code == 204, given.text
+    assert problem(await add(world, a, a.tech_a, name="Network board")) == (
+        403,
+        "permission_denied",
+    )
+    made = await add(world, a, a.tech_b, name="Network board")
+    assert made.status_code == 201, made.text

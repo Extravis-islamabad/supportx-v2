@@ -373,6 +373,10 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     # review. Nobody holds it by default but administrators; the change manager role (D-153)
     # gets it when lane B's role model lands.
     PermissionSpec("changes.emergency_override", "change", ("all", "site", "group")),
+    # Haider (2026-11-10): change boards are run by the change manager and administrators only,
+    # not by every service desk configurer. Administrators hold it; the change manager role
+    # (D-153) gets it with the role model.
+    PermissionSpec("changes.manage_boards", "change", ("all",)),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

@@ -384,6 +384,9 @@ export const ar: LabelResource = {
   'permission.changes.emergency_override': 'تجاوز موافقة تغيير في حالة طارئة',
   'permission.changes.emergency_override.description':
     'مواصلة تغيير أُعيد للموافقة، مع ذكر السبب. يُسجَّل في سجل التدقيق، ويحتاج التغيير بعدها إلى مراجعته قبل الإغلاق.',
+  'permission.changes.manage_boards': 'إدارة مجالس استشارات التغيير',
+  'permission.changes.manage_boards.description':
+    'إضافة المجالس التي تراجع التغييرات وتعديلها وإزالتها، وتحديد أعضائها.',
   'permission.changes.manage_followers': 'إدارة متابعي التغييرات',
   'permission.changes.manage_followers.description': 'إضافة وإزالة من يتابعون تغيير.',
   'permission.changes.reopen': 'إعادة فتح التغييرات',

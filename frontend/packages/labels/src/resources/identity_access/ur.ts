@@ -393,6 +393,9 @@ export const ur: LabelResource = {
   'permission.changes.emergency_override': 'ہنگامی حالت میں تبدیلی کی منظوری کو نظر انداز کریں',
   'permission.changes.emergency_override.description':
     'منظوری کے لیے واپس بھیجی گئی تبدیلی کو وجہ بتا کر جاری رکھیں۔ یہ آڈٹ ہوتا ہے، اور پھر بند کرنے سے پہلے تبدیلی کا جائزہ ضروری ہے۔',
+  'permission.changes.manage_boards': 'تبدیلی کے مشاورتی بورڈز کا انتظام',
+  'permission.changes.manage_boards.description':
+    'تبدیلیوں کا جائزہ لینے والے بورڈز شامل کریں، بدلیں اور ہٹائیں، اور ان کے ارکان طے کریں۔',
   'permission.changes.manage_followers': 'تبدیلیاں کے فالوورز کا انتظام',
   'permission.changes.manage_followers.description':
     'تبدیلی کو فالو کرنے والے لوگ شامل کریں اور ہٹائیں۔',
