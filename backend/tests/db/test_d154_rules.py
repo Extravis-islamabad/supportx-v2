@@ -25,6 +25,7 @@ from app.modules.work_items.service.notifications import (
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import LabelRef
 from tests.db import test_incidents_api
+from tests.db.test_automation_triggers_api import drain
 from tests.db.test_incidents_api import Org, World
 from tests.db.test_sla_clock import POLICIES, _p1, _targets
 from tests.db.test_sla_timers import _fire_all
@@ -227,3 +228,73 @@ async def test_a_business_rule_naming_someone_away_assigns_the_group_only(world:
         context = await IncidentNotifications().context(session, UNAVAILABLE, envelope)
     assert context is not None
     assert context.relatives[STEP_OWNER] == frozenset({a.admin})
+
+
+async def test_a_rule_or_trigger_naming_someone_in_several_groups_needs_the_group(
+    world: World,
+) -> None:
+    a = world.a
+    for path in ("/automation/rules", "/automation/triggers"):
+        body: dict[str, Any] = {
+            "record_type": "incident",
+            "name": "Send to Sara",
+            "events": ["create"] if path.endswith("rules") else ["created"],
+            "state": "enabled",
+        }
+        person = {"kind": "set", "field": "technician_id", "value": str(a.tech_c)}
+        refused = await world.call(
+            "POST", path, a, a.admin, json={**body, "actions": [{**person, "mode": "overwrite"}]}
+        )
+        assert refused.status_code == 422, refused.text
+        assert {e["code"] for e in refused.json()["errors"]} == {"reassign_group_required"}
+        group = {"kind": "set", "field": "group_id", "value": str(a.gb), "mode": "overwrite"}
+        saved = await world.call(
+            "POST",
+            path,
+            a,
+            a.admin,
+            json={**body, "actions": [group, {**person, "mode": "overwrite"}]},
+        )
+        assert saved.status_code == 201, saved.text
+        other = {**group, "value": str(a.gb)}
+        wrong = await world.call(
+            "POST",
+            path,
+            a,
+            a.admin,
+            json={
+                **body,
+                "actions": [other, {**person, "value": str(a.tech_a), "mode": "overwrite"}],
+            },
+        )
+        assert wrong.status_code == 422, wrong.text
+        assert {e["code"] for e in wrong.json()["errors"]} == {"person_not_in_group"}
+
+
+async def test_a_trigger_moves_the_record_with_the_technician_it_sets(world: World) -> None:
+    a = world.a
+    created = await world.call(
+        "POST",
+        "/automation/triggers",
+        a,
+        a.admin,
+        json={
+            "record_type": "incident",
+            "name": "Send to Bilal",
+            "events": ["created"],
+            "state": "enabled",
+            "actions": [
+                {
+                    "kind": "set",
+                    "field": "technician_id",
+                    "value": str(a.tech_b),
+                    "mode": "overwrite",
+                }
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    item = await world.create(a, a.admin, group_id=str(a.ga))
+    await drain(world, a)
+    moved = await world.fresh(a, item)
+    assert (moved["group_id"], moved["technician_id"]) == (str(a.gb), str(a.tech_b))
