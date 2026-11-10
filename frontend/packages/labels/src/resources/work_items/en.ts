@@ -1328,6 +1328,8 @@ export const en = {
   'releases.view.my_open': 'Mine',
   'releases.view.open': 'Open',
   'releases.view.resolved': 'Completed',
+  'releases.why.subject': 'Give the release a subject first.',
+  'releases.why.template': 'Choose a template first.',
   'releases.window_chip': 'Planned {{start}} – {{end}}',
   'repeat_match.category': 'The same category',
   'repeat_match.category_site': 'The same category and site',

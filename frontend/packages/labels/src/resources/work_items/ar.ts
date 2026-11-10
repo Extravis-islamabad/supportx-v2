@@ -1451,6 +1451,8 @@ export const ar: LabelResource = {
   'releases.view.my_open': 'إصداراتي',
   'releases.view.open': 'المفتوحة',
   'releases.view.resolved': 'المكتملة',
+  'releases.why.subject': 'اكتب موضوع الإصدار أولًا.',
+  'releases.why.template': 'اختر قالبًا أولًا.',
   'releases.window_chip': 'مخطط {{start}} – {{end}}',
   'repeat_match.category': 'الفئة نفسها',
   'repeat_match.category_site': 'الفئة والموقع نفسهما',

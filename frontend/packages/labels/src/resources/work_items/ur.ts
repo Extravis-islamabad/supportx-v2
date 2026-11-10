@@ -1333,6 +1333,8 @@ export const ur: LabelResource = {
   'releases.view.my_open': 'میری',
   'releases.view.open': 'کھلی',
   'releases.view.resolved': 'مکمل',
+  'releases.why.subject': 'پہلے ریلیز کا موضوع لکھیں۔',
+  'releases.why.template': 'پہلے ایک ٹیمپلیٹ منتخب کریں۔',
   'releases.window_chip': 'منصوبہ {{start}} – {{end}}',
   'repeat_match.category': 'ایک ہی زمرہ',
   'repeat_match.category_site': 'ایک ہی زمرہ اور مقام',
