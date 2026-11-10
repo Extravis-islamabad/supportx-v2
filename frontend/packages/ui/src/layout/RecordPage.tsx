@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useAppearance } from '../appearance';
 import { PANEL_WIDTH, SPACE, TYPE } from '../density';
 import { clampLineHeight } from '../fonts/fonts';
+import { DEV, sectionsBeforeProperties } from './panelOrder';
 
 /** The record types with a tile of their own (D-155: one header for every type). */
 export type RecordKind =
@@ -202,6 +203,15 @@ export function PropertiesPanel({
   testId?: string;
 }) {
   const { token } = theme.useToken();
+  if (DEV) {
+    const early = sectionsBeforeProperties(sections);
+    if (early.length > 0) {
+      // A developer's note in dev builds, never shown to users.
+      console.warn(
+        `PropertiesPanel${testId === undefined ? '' : ` (${testId})`}: ${early.join(', ')} before properties; fold it into Properties (D-147 template A).`,
+      );
+    }
+  }
   return (
     <aside
       data-testid={testId}
