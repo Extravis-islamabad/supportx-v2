@@ -169,6 +169,14 @@ async def _with_links(session: AsyncSession, mail: OutgoingMail) -> OutgoingMail
     return replace(mail, text=text, html=html, links=())
 
 
+# Never sent late (D-116, REQ-INC-060): a message that waited this long for outgoing mail to be
+# set up fails instead. The same 7 days as the notification engine's WAITING_DAYS, which this
+# shared module cannot import; the reason is the engine's too (its labels say "never sent: mail
+# was not set up within 7 days").
+WAITING_FOR_MAIL_DAYS = 7
+NOT_SENT_IN_TIME = "not_sent_in_time"
+
+
 async def deliver(
     session: AsyncSession, settings: Settings, mail_id: uuid.UUID, *, send: smtp.Sender = smtp.send
 ) -> str:
@@ -177,9 +185,11 @@ async def deliver(
     With no mail server set up here (removed after the message was queued, or this process
     lacks the settings the queueing one had), nothing is attempted: the message waits, due as
     soon as mail works, and its callers hear `retrying` with failure `mail_not_configured` (QA
-    2026-11-04 #2: never "sending" for ever). Before this, building the message (no sender
-    address) or `smtp_settings` raised out of the attempt, the transaction rolled back and the
-    message stayed queued with no next attempt, which the retry schedule never picks up.
+    2026-11-04 #2: never "sending" for ever). After `WAITING_FOR_MAIL_DAYS` it fails as
+    `not_sent_in_time` instead, set up or not: never sent late (D-116). Before this, building
+    the message (no sender address) or `smtp_settings` raised out of the attempt, the
+    transaction rolled back and the message stayed queued with no next attempt, which the retry
+    schedule never picks up.
     """
     row = await session.scalar(
         select(MailMessage).where(MailMessage.id == mail_id).with_for_update(skip_locked=True)
@@ -187,7 +197,17 @@ async def deliver(
     if row is None or row.state != "queued":
         return "gone" if row is None else row.state  # handled already, or being sent now
     now = datetime.now(UTC)
-    if not mail_configured(settings):
+    configured = mail_configured(settings)
+    waited = not configured or row.failure == MailNotConfigured.code
+    if waited and row.created_at < now - timedelta(days=WAITING_FOR_MAIL_DAYS):
+        # Mail was not set up in time: never sent late, even once it is set up now (D-116).
+        row.state, row.failure, row.next_attempt_at = "failed", NOT_SENT_IN_TIME, None
+        row.purge_after = now + timedelta(days=settings.mail_content_retention_days)
+        row.version += 1
+        log.warning("mail_not_sent_in_time", mail_id=str(mail_id))
+        await _changed(session, row, "failed", now)
+        return row.state
+    if not configured:
         await _wait_for_mail(session, row, now)
         return row.state
     row.attempts += 1

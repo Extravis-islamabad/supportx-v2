@@ -361,6 +361,69 @@ async def test_qa_no_mail_server_where_it_is_sent_waits_then_goes_once_set_up(
     ]
 
 
+async def test_d116_a_reply_waiting_for_mail_is_never_sent_late(world: World) -> None:
+    """D-116 (coordinator, 2026-11-10): waiting for mail to be set up ends after 7 days.
+
+    Day 6 still waits; day 8 fails as `not_sent_in_time`; setting mail up afterwards sends
+    nothing old. The reply says so, live and in its history.
+    """
+    org = world.a
+    _, entry = await _reply(world, org)
+    await run_engine(world, org, settings=MAIL)
+    mail_id = await _requester_mail(world, entry["id"])
+    server = FakeSmtp()
+
+    async def aged(days: int) -> None:
+        await world.sql(
+            "UPDATE mail_messages SET created_at = now() - make_interval(days => $2) WHERE id = $1",
+            mail_id,
+            days,
+        )
+
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "queued"
+    await aged(6)
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "queued"  # still waits
+    await aged(8)
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "failed"
+    (mail,) = await world.sql(
+        "SELECT state, failure, next_attempt_at FROM mail_messages WHERE id = $1", mail_id
+    )
+    assert (mail["state"], mail["failure"], mail["next_attempt_at"]) == (
+        "failed",
+        "not_sent_in_time",
+        None,
+    )
+    await run_engine(world, org, settings=MAIL)
+    gone = await _entry(world, entry["id"])
+    assert (gone["delivery_state"], gone["delivery_reason"]) == ("failed", "not_sent_in_time")
+    # Mail is set up now: nothing old goes out.
+    assert mail_id not in await _in_session(world, org, due_messages)
+    assert await _deliver_with(world, org, mail_id, MAIL, server) == "failed"
+    assert server.sent == []
+    assert await _delivery_changes(world, org, entry["id"]) == [
+        ("queued", None),
+        ("waiting", "mail_not_configured"),
+        ("failed", "not_sent_in_time"),
+    ]
+
+
+async def test_d116_a_message_that_waited_too_long_is_not_sent_once_mail_is_set_up(
+    world: World,
+) -> None:
+    """D-116: one that waited for mail more than 7 days fails, even if mail works by its turn."""
+    org = world.a
+    _, entry = await _reply(world, org)
+    await run_engine(world, org, settings=MAIL)
+    mail_id = await _requester_mail(world, entry["id"])
+    server = FakeSmtp()
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "queued"
+    await world.sql(
+        "UPDATE mail_messages SET created_at = now() - interval '8 days' WHERE id = $1", mail_id
+    )
+    assert await _deliver_with(world, org, mail_id, MAIL, server) == "failed"
+    assert server.sent == []
+
+
 @pytest.mark.parametrize("settings", [MAIL, NO_MAIL], ids=["mail", "no_mail"])
 async def test_qa_a_reply_no_requester_email_is_made_for_fails_as_not_notified(
     world: World,

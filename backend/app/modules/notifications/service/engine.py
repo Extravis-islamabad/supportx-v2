@@ -459,7 +459,7 @@ async def _settle_untold(
             entry_id,
             state="failed",
             reason="not_notified",
-            at=datetime.now(UTC),
+            at=envelope.occurred_at,  # when the reply was made (lane A's #359 review)
         )
 
 
