@@ -141,6 +141,7 @@ export const ar: LabelResource = {
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
   'notification_recipient.topic_owner': 'مالك الموضوع',
+  'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
   'notification_rules.any_priority': 'أي أولوية',
   'notification_rules.changed': 'غُيّر {{when}}',
   'notification_rules.col.channels': 'كيف',

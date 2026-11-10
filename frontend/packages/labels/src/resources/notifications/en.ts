@@ -139,6 +139,7 @@ export const en = {
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
   'notification_recipient.topic_owner': 'Topic owner',
+  'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
   'notification_rules.changed': 'Changed {{when}}',
   'notification_rules.col.channels': 'How',
