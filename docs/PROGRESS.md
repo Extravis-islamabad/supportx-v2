@@ -1414,7 +1414,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045; session 1 of 4 built 2026-11-10)
+### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
 - [x] S1: the audit sink port in `app/shared/history.record_changes` and the audit module's sink;
   one entry per save listing all its events (route's code first, merged with the route's entry
@@ -1423,8 +1423,14 @@ it with no reload (rule c). Not built yet.
   event tables for assets and the five work-item types (lane A reviewed the field lists;
   statuses by category through work_items' annotator, never stored in history); the subtype
   resolver; catalogue and en/ar/ur labels; tests (unit, DB, the history guard).
-- [ ] S2: change-set fingerprints in the verifier, per-subject salts (0119), history erasure,
-  "erased on request".
+- [x] S2 (ADR-046, migration 0129): each save's entry holds `fp1:` digests of its values in
+  record history (never the values), inside the entry hash only when set; the canonical
+  encoding fixed in ADR-046 with a golden vector; personal fields per record type in
+  `audit/domain/lifecycle.py` (work items: free text, subjects = requester and on-behalf
+  person; assets none; people later) for lanes A and C to review; per-subject salts in
+  `audit_subject_salts` (no app rights, definer functions only); the verifier reports
+  verified / mismatch / erased on request (runs and the entry view); erasure blanks the
+  person's free text in history and destroys the salt; labels en/ar/ur.
 - [ ] S3: per-category retention and legal hold (0120), sealing to about 2,000/s, the 10M run,
   the save-latency check.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
