@@ -13,6 +13,7 @@ from typing import Any
 import asyncpg
 import pytest
 
+from tests.db.test_changes_api import a_change
 from tests.db.test_incidents_api import CONSOLE, Org, World, world
 from tests.db.test_release_approvals_api import approvals, current, decide
 from tests.db.test_release_parts_api import put_role, settings_version
@@ -97,37 +98,42 @@ async def test_a_standard_release_walks_from_request_to_closed(world: World) -> 
     await _walk(world, world.a)
 
 
-async def _look_old(world: World, org: Org, *, drop_roles: bool = True) -> None:
+async def _look_old(
+    world: World, org: Org, *, drop_roles: bool = True, kind: str = "release"
+) -> None:
     """Make the tenant's release settings look like the seed from before roles and approvals."""
     conn = await asyncpg.connect(world.db.admin_url)
     try:
         if drop_roles:
             await conn.execute(
-                "DELETE FROM work_item_role_defs WHERE tenant_id = $1 AND type = 'release'",
+                "DELETE FROM work_item_role_defs WHERE tenant_id = $1 AND type = $2",
                 org.tenant,
+                kind,
             )
         await conn.execute(
             "UPDATE work_item_type_settings SET seed_version = 3"
-            " WHERE tenant_id = $1 AND type = 'release'",
+            " WHERE tenant_id = $1 AND type = $2",
             org.tenant,
+            kind,
         )
     finally:
         await conn.close()
 
 
-async def _state(world: World, org: Org) -> tuple[list[str], dict[str, Any]]:
+async def _state(world: World, org: Org, kind: str = "release") -> tuple[list[str], dict[str, Any]]:
     """The tenant's release role codes and stage approvals, as stored."""
     conn = await asyncpg.connect(world.db.admin_url)
     try:
         roles = await conn.fetch(
-            "SELECT code FROM work_item_role_defs WHERE tenant_id = $1 AND type = 'release'"
-            " ORDER BY code",
+            "SELECT code FROM work_item_role_defs WHERE tenant_id = $1 AND type = $2 ORDER BY code",
             org.tenant,
+            kind,
         )
         stages = await conn.fetch(
             "SELECT code, approvals FROM work_item_stages WHERE tenant_id = $1"
-            " AND type = 'release' ORDER BY code",
+            " AND type = $2 ORDER BY code",
             org.tenant,
+            kind,
         )
     finally:
         await conn.close()
@@ -229,3 +235,16 @@ async def test_a_stage_whose_approvals_were_removed_moves_on_by_itself(world: Wo
     # The answer already shows it moved on: plan approved, so into Build.
     assert item["status"] == "build_in_progress"
     assert await approvals(world, a, item) == []
+
+
+async def test_a_change_seed_with_roles_and_approvals_ends_v4_unchanged(world: World) -> None:
+    # Lane A's ask, for the type with the most stage approvals (Appendix A's three stages).
+    a = world.a
+    await a_change(world, a)
+    before = await _state(world, a, "change")
+    assert before[0]  # it has its roles
+    assert any(v is not None for v in before[1].values())  # and its stage approvals
+    await _look_old(world, a, drop_roles=False, kind="change")
+    await a_change(world, a)
+    assert await _state(world, a, "change") == before
+    assert await _topped_up(world, a) == []

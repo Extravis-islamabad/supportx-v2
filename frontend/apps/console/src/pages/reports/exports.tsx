@@ -33,6 +33,7 @@ import {
 import { useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   ConflictDialog,
   FormProblem,
   ToneTag,
@@ -204,7 +205,7 @@ export function MyExportsButton({
         <List
           loading={exports.isPending}
           dataSource={exports.data ?? []}
-          locale={{ emptyText: t('reports.no_exports') }}
+          locale={{ emptyText: <EmptyText>{t('reports.no_exports')}</EmptyText> }}
           renderItem={(item) => (
             <List.Item
               actions={

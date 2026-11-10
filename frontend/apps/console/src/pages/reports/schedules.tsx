@@ -35,6 +35,7 @@ import {
 import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   ConflictDialog,
   FormProblem,
   lengthLimit,
@@ -396,7 +397,7 @@ export function SchedulesButton() {
         <List
           loading={schedules.isPending}
           dataSource={items}
-          locale={{ emptyText: t('reports.no_schedules') }}
+          locale={{ emptyText: <EmptyText>{t('reports.no_schedules')}</EmptyText> }}
           renderItem={(item) => (
             <List.Item
               actions={[
