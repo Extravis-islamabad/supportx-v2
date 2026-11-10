@@ -1,7 +1,9 @@
 """Event contracts published by automation (WP-029). IDs and codes only, never record values."""
 
 import uuid
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
+
+from pydantic import Field
 
 from app.shared.events import DomainEvent
 
@@ -121,10 +123,35 @@ class WorkflowCommandFinished(DomainEvent):
     ok: bool
     port: str | None = None
     error: str | None = None
+    # A function node's outputs, by the variables the node keeps them in (never record data).
+    outputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkflowFunctionRequested(DomainEvent):
+    """A function node asks the worker to run a custom function (WP-048b S2; §6.7).
+
+    Never run in the API process: the worker's consumer calls the installation's runner and
+    reports back as `WorkflowCommandFinished`. The inputs are the node's own values and the
+    names of record fields, read by the worker; `assign` maps outputs to variables.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.function_requested"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_instance"
+
+    instance_id: uuid.UUID
+    command: str
+    record_type: str
+    record_id: uuid.UUID
+    function: str
+    inputs: dict[str, Any]
+    assign: dict[str, str]
+    timeout_seconds: int
 
 
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkflowChanged,
+    WorkflowFunctionRequested,
     WorkflowCommandFinished,
     WorkflowInstanceChanged,
     AutomationChanged,

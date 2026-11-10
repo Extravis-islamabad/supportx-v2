@@ -1574,6 +1574,11 @@
             "title": "Ok",
             "type": "boolean"
           },
+          "outputs": {
+            "additionalProperties": true,
+            "title": "Outputs",
+            "type": "object"
+          },
           "port": {
             "anyOf": [
               {
@@ -1593,6 +1598,63 @@
           "ok"
         ],
         "title": "WorkflowCommandFinished",
+        "type": "object"
+      }
+    },
+    "automation.workflow.function_requested": {
+      "1": {
+        "description": "A function node asks the worker to run a custom function (WP-048b S2; §6.7).\n\nNever run in the API process: the worker's consumer calls the installation's runner and\nreports back as `WorkflowCommandFinished`. The inputs are the node's own values and the\nnames of record fields, read by the worker; `assign` maps outputs to variables.",
+        "properties": {
+          "assign": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Assign",
+            "type": "object"
+          },
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "function": {
+            "title": "Function",
+            "type": "string"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "title": "Inputs",
+            "type": "object"
+          },
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance_id",
+          "command",
+          "record_type",
+          "record_id",
+          "function",
+          "inputs",
+          "assign",
+          "timeout_seconds"
+        ],
+        "title": "WorkflowFunctionRequested",
         "type": "object"
       }
     },

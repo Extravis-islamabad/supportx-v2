@@ -42,7 +42,7 @@ from app.modules.automation.domain.interpreter import (
 )
 from app.modules.automation.domain.rules import JsonValue
 from app.modules.automation.domain.workflows import Definition, TimeBasis, parse
-from app.modules.automation.events import WorkflowInstanceChanged
+from app.modules.automation.events import WorkflowFunctionRequested, WorkflowInstanceChanged
 from app.modules.automation.infra.models import (
     Workflow,
     WorkflowInstance,
@@ -287,6 +287,23 @@ async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs w
 ) -> CommandDone | None:
     if command.kind == CommandKind.START_SUB_FLOW:
         return await _start_child(session, instance, command, now)
+    if command.kind == CommandKind.RUN_FUNCTION:
+        # Never in this process (§6.7): the worker runs it and reports back to the node.
+        await record_event(
+            session,
+            WorkflowFunctionRequested(
+                instance_id=instance.id,
+                command=command.id,
+                record_type=instance.record_type,
+                record_id=instance.record_id,
+                function=str(command.payload.get("function")),
+                inputs=dict(command.payload.get("inputs", {})),
+                assign={str(k): str(v) for k, v in dict(command.payload.get("assign", {})).items()},
+                timeout_seconds=int(command.payload.get("timeout_seconds", 10)),
+            ),
+            aggregate_id=instance.id,
+        )
+        return None
     outcome = await _carry_out(
         session,
         kind,

@@ -28,7 +28,11 @@ from app.modules.automation.domain.rules import (
     TraceLine,
 )
 from app.modules.automation.domain.triggers import People, Relative, TriggerEvent
-from app.modules.automation.events import EVENTS, WorkflowCommandFinished
+from app.modules.automation.events import (
+    EVENTS,
+    WorkflowCommandFinished,
+    WorkflowFunctionRequested,
+)
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
 from app.modules.automation.service import workflow_events, workflow_scheduler
 from app.modules.automation.service.assignment import (
@@ -42,6 +46,11 @@ from app.modules.automation.service.business_rules import (
     record_runs,
     refusal_error,
     run_business_rules,
+)
+from app.modules.automation.service.functions import (
+    FunctionOutcome,
+    FunctionRunner,
+    register_function_runner,
 )
 from app.modules.automation.service.jobs import purge_runs
 from app.modules.automation.service.realtime import ROUTES
@@ -114,6 +123,12 @@ module = ModuleSpec(
             event_types=TRIGGER_EVENT_TYPES,
             handler=workflow_events.on_record_event,
         ),
+        # A function node's request, run by the worker through the runner port (§6.7).
+        ConsumerSpec(
+            name="automation__workflow_functions",
+            event_types=(WorkflowFunctionRequested.event_type,),
+            handler=workflow_events.on_function_requested,
+        ),
         # A command decided later (an approval node) continues its node (REQ-WF-014).
         ConsumerSpec(
             name="automation__workflow_commands",
@@ -138,6 +153,8 @@ __all__ = [
     "CommandRunner",
     "FactsReader",
     "FieldKind",
+    "FunctionOutcome",
+    "FunctionRunner",
     "Member",
     "Noter",
     "People",
@@ -160,6 +177,7 @@ __all__ = [
     "record_type",
     "refusal_error",
     "register_event_reader",
+    "register_function_runner",
     "register_record_type",
     "route_record",
     "run_business_rules",

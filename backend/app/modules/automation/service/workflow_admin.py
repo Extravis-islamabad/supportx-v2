@@ -34,6 +34,7 @@ from app.modules.automation.domain.workflows import (
 )
 from app.modules.automation.events import WorkflowChanged
 from app.modules.automation.infra.models import Workflow, WorkflowVersion
+from app.modules.automation.service import functions
 from app.modules.automation.service.registry import record_type as registered
 from app.modules.identity_access import create_service_identity, set_service_identity_active
 from app.shared.events import record_event
@@ -65,6 +66,7 @@ async def type_facts(session: AsyncSession, record_type: str) -> TypeFacts:
             name for name, spec in fields.items() if spec.kind == FieldKind.DATETIME
         ),
         approvals=kind.approval_roles is not None,
+        functions=await functions.offered(session.info[SESSION_TENANT_KEY].tenant_id),
         roles=frozenset(kind.approval_roles or ()),
     )
 

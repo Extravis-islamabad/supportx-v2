@@ -267,6 +267,10 @@ export const ur: LabelResource = {
   'workflow_problem.end_needed': 'اختتامی مرحلہ شامل کریں۔',
   'workflow_problem.field_not_settable': 'ورک فلو یہ فیلڈ مقرر نہیں کر سکتا۔',
   'workflow_problem.field_update_empty': 'اپ ڈیٹ کے لیے کم از کم ایک فیلڈ چنیں۔',
+  'workflow_problem.function_missing': 'چلانے کے لیے فنکشن چنیں۔',
+  'workflow_problem.function_not_offered':
+    'حسبِ ضرورت فنکشنز کے لیے آپ کے پلان میں سینڈ باکس اور حسبِ ضرورت فنکشنز، اور فنکشن رنر کی ترتیب ضروری ہے۔',
+  'workflow_problem.function_timeout_invalid': 'فنکشن 1 سے {{max}} سیکنڈ تک چلتا ہے۔',
   'workflow_problem.join_count_invalid': 'کتنی شاخوں کا انتظار کرنا ہے، 1 سے {{max}} تک درج کریں۔',
   'workflow_problem.join_mode_invalid': 'چنیں کہ یہ مرحلہ کیسے آگے بڑھے۔',
   'workflow_problem.join_without_split':

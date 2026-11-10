@@ -151,3 +151,31 @@ def test_a_task_node_needs_titles_and_a_sensible_due_date() -> None:
     assert found({"titles": [{"en": "x"}], "owner_user_id": "nope"}) == {
         ("node:t", "invalid_value")
     }
+
+
+# --- the function node (REQ-WF-021; §6.7) -------------------------------------------------------
+
+
+def test_req_wf_021_a_function_node_is_offered_only_when_licensed_and_names_what_it_uses() -> None:
+    def found(config: dict[str, object], *, offered: bool = True) -> set[tuple[str, str]]:
+        facts = replace(FACTS, functions=offered)
+        nodes = [raw_node("s", "start"), raw_node("f", "function", **config), raw_node("e", "end")]
+        links = [link("s", "next", "f"), link("f", "next", "e")]
+        parsed = parse(
+            {
+                "format": 1,
+                "nodes": nodes,
+                "links": links,
+                "variables": [{"name": "score", "kind": "number"}],
+            }
+        )
+        assert parsed.definition is not None, parsed.problems
+        return {(where, code) for where, code, _ in validate(parsed.definition, facts)}
+
+    good: dict[str, object] = {"function": "score_risk", "assign": {"out": "score"}}
+    assert found(good) == set()
+    assert found(good, offered=False) == {("node:f", "function_not_offered")}
+    assert found({"function": "Bad Name"}) == {("node:f", "function_missing")}
+    assert found({**good, "timeout_seconds": 60}) == {("node:f", "function_timeout_invalid")}
+    assert found({**good, "assign": {"out": "nope"}}) == {("node:f", "variable_unknown")}
+    assert found({**good, "inputs": {"x": {"field": "nope"}}}) == {("node:f", "unknown_field")}

@@ -10,13 +10,14 @@
 """
 
 import uuid
+from collections.abc import Mapping
 
 import structlog
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.database import Database
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict
 from app.core.tenancy import TenantContext
 from app.modules.automation.domain.interpreter import (
@@ -25,11 +26,12 @@ from app.modules.automation.domain.interpreter import (
     RecordChanged,
     TimerFired,
 )
+from app.modules.automation.domain.rules import JsonValue
 from app.modules.automation.domain.triggers import TriggerEvent
 from app.modules.automation.domain.workflows import WaitEvent
-from app.modules.automation.events import WorkflowCommandFinished
+from app.modules.automation.events import WorkflowCommandFinished, WorkflowFunctionRequested
 from app.modules.automation.infra.models import Workflow, WorkflowInstance
-from app.modules.automation.service import workflow_runtime
+from app.modules.automation.service import functions, workflow_runtime
 from app.modules.automation.service.registry import event_reader
 from app.modules.automation.service.registry import record_type as registered
 from app.shared.clock import system_clock
@@ -84,6 +86,7 @@ async def command_finished(  # noqa: PLR0913 - the result, explicit
     ok: bool,
     port: str | None = None,
     error: str | None = None,
+    outputs: Mapping[str, JsonValue] | None = None,
 ) -> None:
     """An owning module's later result for a workflow command, in its own transaction (rule b).
 
@@ -93,7 +96,12 @@ async def command_finished(  # noqa: PLR0913 - the result, explicit
     await record_event(
         session,
         WorkflowCommandFinished(
-            instance_id=instance_id, command=command, ok=ok, port=port, error=error
+            instance_id=instance_id,
+            command=command,
+            ok=ok,
+            port=port,
+            error=error,
+            outputs=dict(outputs or {}),
         ),
         aggregate_id=instance_id,
     )
@@ -110,7 +118,49 @@ async def on_command_finished(envelope: EventEnvelope, session: AsyncSession | N
     await workflow_runtime.run(
         session,
         done.instance_id,
-        CommandDone(done.command, done.ok, error=done.error, port=done.port),
+        CommandDone(done.command, done.ok, error=done.error, outputs=done.outputs, port=done.port),
+    )
+
+
+async def on_function_requested(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer (a worker, never the API, §6.7): run the node's function, report its result."""
+    if session is None:  # transactional consumer: the registry always gives one
+        msg = "workflow functions need the consumer's session"
+        raise RuntimeError(msg)
+    asked = WorkflowFunctionRequested.model_validate(envelope.payload)
+    tenant_id = session.info[SESSION_TENANT_KEY].tenant_id
+    runner = functions.function_runner()
+    if runner is None or not await functions.offered(tenant_id):
+        await command_finished(
+            session,
+            instance_id=asked.instance_id,
+            command=asked.command,
+            ok=False,
+            error=functions.NOT_OFFERED,
+        )
+        return
+    kind = registered(asked.record_type)
+    facts = await kind.facts(session, asked.record_id) if kind and kind.facts else None
+    inputs = {
+        name: (facts or {}).get(str(value["field"]))
+        if isinstance(value, dict) and "field" in value
+        else (value.get("value") if isinstance(value, dict) else value)
+        for name, value in asked.inputs.items()
+    }
+    outcome = await runner.run(
+        tenant_id=tenant_id,
+        function=asked.function,
+        inputs=inputs,
+        timeout_seconds=asked.timeout_seconds,
+    )
+    await command_finished(
+        session,
+        instance_id=asked.instance_id,
+        command=asked.command,
+        ok=outcome.ok,
+        error=outcome.error,
+        # Only the outputs the node keeps, as its variables (by the names it chose).
+        outputs={variable: outcome.outputs.get(name) for name, variable in asked.assign.items()},
     )
 
 

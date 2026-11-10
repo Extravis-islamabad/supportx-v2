@@ -270,6 +270,10 @@ export const ar: LabelResource = {
   'workflow_problem.end_needed': 'أضف خطوة نهاية.',
   'workflow_problem.field_not_settable': 'لا يمكن لسير العمل تعيين هذا الحقل.',
   'workflow_problem.field_update_empty': 'اختر حقلًا واحدًا على الأقل لتحديثه.',
+  'workflow_problem.function_missing': 'اختر الدالة التي ستُشغَّل.',
+  'workflow_problem.function_not_offered':
+    'تتطلب الدوال المخصصة بيئة العزل والدوال المخصصة في خطتك، ومشغّل دوال مُعدًّا.',
+  'workflow_problem.function_timeout_invalid': 'تعمل الدالة من 1 إلى {{max}} ثانية.',
   'workflow_problem.join_count_invalid': 'أدخل عدد الفروع التي يُنتظر اكتمالها، من 1 إلى {{max}}.',
   'workflow_problem.join_mode_invalid': 'اختر كيف تتابع هذه الخطوة.',
   'workflow_problem.join_without_split': 'يحتاج الدمج إلى تفرّع قبله، في كل مسار يؤدي إليه.',

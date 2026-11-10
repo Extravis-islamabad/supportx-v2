@@ -78,6 +78,7 @@ class CommandKind(StrEnum):
     START_SUB_FLOW = "start_sub_flow"  # carried out by the runtime, not an owning module
     OPEN_APPROVAL = "open_approval"  # opened now, decided later: its result names the output
     OPEN_TASKS = "open_tasks"  # opened now, done later: all done is its result
+    RUN_FUNCTION = "run_function"  # run by a worker through the runner port (§6.7)
 
 
 @dataclass(frozen=True)
@@ -391,6 +392,18 @@ def _run_node(run: _Run, token: Token) -> None:  # noqa: C901, PLR0912 - one bra
                     "owner_user_id": config.get("owner_user_id"),
                     "owner_group_id": config.get("owner_group_id"),
                     "due_days": config.get("due_days"),
+                },
+            )
+        case NodeType.FUNCTION:
+            _command(
+                run,
+                token,
+                CommandKind.RUN_FUNCTION,
+                {
+                    "function": config.get("function"),
+                    "inputs": dict(config.get("inputs", {})),
+                    "assign": dict(config.get("assign", {})),
+                    "timeout_seconds": int(config.get("timeout_seconds", 10)),
                 },
             )
         case NodeType.APPROVAL:

@@ -265,6 +265,10 @@ export const en = {
   'workflow_problem.end_needed': 'Add an end step.',
   'workflow_problem.field_not_settable': 'A workflow cannot set this field.',
   'workflow_problem.field_update_empty': 'Choose at least one field to update.',
+  'workflow_problem.function_missing': 'Choose the function to run.',
+  'workflow_problem.function_not_offered':
+    'Custom functions need the sandbox and custom functions on your plan, and a function runner set up.',
+  'workflow_problem.function_timeout_invalid': 'A function runs for 1 to {{max}} seconds.',
   'workflow_problem.join_count_invalid': 'Enter how many branches to wait for, from 1 to {{max}}.',
   'workflow_problem.join_mode_invalid': 'Choose how this step continues.',
   'workflow_problem.join_without_split': 'A join needs a split before it, on every path into it.',

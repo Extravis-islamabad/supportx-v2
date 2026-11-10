@@ -17,6 +17,7 @@ before taking their error output (REQ-WF-024, S2). A sub-flow starts another wor
 record and waits for it to finish; recursion is refused on save by the service (REQ-WF-017).
 """
 
+import re
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -85,6 +86,7 @@ class NodeType(StrEnum):
     SUB_FLOW = "sub_flow"
     APPROVAL = "approval"  # people: an approval on the record, its decision picks the output
     TASKS = "tasks"  # people: a checklist of tasks on the record; all done continues it
+    FUNCTION = "function"  # actions: a custom function, run outside the API (§6.7, the port)
 
 
 class WaitEvent(StrEnum):
@@ -111,6 +113,9 @@ MAX_APPROVERS = 50  # people, groups and roles named by one approval node
 MAX_NODE_TASKS = 20  # one task node's checklist (a single task is a checklist of one)
 TASK_TITLE_MAX = 200  # a task's title (work_items' own limit)
 MAX_DUE_DAYS = 365  # a task node's due date: working days on the record's calendar
+FUNCTION_TIMEOUT_MAX = 30  # seconds a function node may run (the runner enforces it)
+MAX_FUNCTION_IO = 20  # inputs, and outputs kept as variables
+_FUNCTION_NAME = re.compile(r"^[a-z][a-z0-9_]{0,59}$")
 
 
 class JoinMode(StrEnum):
@@ -205,6 +210,7 @@ class TypeFacts:
     date_fields: frozenset[str] = frozenset()  # what a timer may count to
     roles: frozenset[str] = frozenset()  # the record's roles an approval may name (ADR-041)
     approvals: bool = False  # the type opens approvals on the WP-030 engine
+    functions: bool = False  # SANDBOX and CUSTOM_FUNCTIONS licensed, and a runner configured
 
 
 @dataclass(frozen=True)
@@ -521,6 +527,42 @@ def _check_tasks(
     return []
 
 
+def _function_io_problem(
+    inputs: Any,  # noqa: ANN401 - untrusted JSON
+    assign: Any,  # noqa: ANN401 - untrusted JSON
+    facts: TypeFacts,
+) -> tuple[str, dict[str, JsonValue]] | None:
+    """What is wrong with a function node's inputs (record fields) or kept outputs (variables)."""
+    if not isinstance(inputs, dict) or len(inputs) > MAX_FUNCTION_IO:
+        return ("invalid_value", {"field": "inputs"})
+    fields = [v["field"] for v in inputs.values() if isinstance(v, dict) and "field" in v]
+    if unknown := [str(f) for f in fields if f not in facts.fields]:
+        return ("unknown_field", {"field": unknown[0]})
+    if not isinstance(assign, dict) or len(assign) > MAX_FUNCTION_IO:
+        return ("invalid_value", {"field": "assign"})
+    if missing := [str(v) for v in assign.values() if f"{VAR_PREFIX}{v}" not in facts.fields]:
+        return ("variable_unknown", {"variable": missing[0]})
+    return None
+
+
+def _check_function(
+    config: Mapping[str, Any], facts: TypeFacts
+) -> list[tuple[str, dict[str, JsonValue]]]:
+    """A custom function (REQ-WF-021): its name, its inputs, the variables its outputs fill."""
+    name = config.get("function")
+    timeout = config.get("timeout_seconds", 10)
+    problem: tuple[str, dict[str, JsonValue]] | None
+    if not facts.functions:  # say why at design time, never a surprise at run time
+        problem = ("function_not_offered", {})
+    elif not isinstance(name, str) or not _FUNCTION_NAME.match(name):
+        problem = ("function_missing", {})
+    elif not _whole(timeout) or not 1 <= timeout <= FUNCTION_TIMEOUT_MAX:
+        problem = ("function_timeout_invalid", {"max": FUNCTION_TIMEOUT_MAX})
+    else:
+        problem = _function_io_problem(config.get("inputs", {}), config.get("assign", {}), facts)
+    return [problem] if problem is not None else _retries(config)
+
+
 def _split_ports(config: Mapping[str, Any]) -> tuple[str, ...]:
     branches = config.get("branches")
     return tuple(str(b) for b in branches) if isinstance(branches, list) else ()
@@ -603,6 +645,13 @@ REGISTRY: Mapping[NodeType, NodeSpec] = {
         _fixed("next", "error"),
         lambda _c: frozenset({"error"}),
         _check_tasks,
+    ),
+    NodeType.FUNCTION: NodeSpec(
+        NodeType.FUNCTION,
+        Category.ACTIONS,
+        _fixed("next", "error"),
+        lambda _c: frozenset({"error"}),
+        _check_function,
     ),
     NodeType.APPROVAL: NodeSpec(
         NodeType.APPROVAL,
