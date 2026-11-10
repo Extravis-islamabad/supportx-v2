@@ -57,6 +57,7 @@ import {
   WriteButton,
   lengthLimit,
   usePageCrumbs,
+  useLicence,
 } from '@supportx/ui';
 
 import { CustomFormField } from '../customFields/fields';
@@ -81,6 +82,7 @@ import { listValueLabel, scaleLabel, templateLabel } from './labels';
 import { DepartmentPicker, GroupPicker, SitePicker, TechnicianPicker, UserPicker } from './pickers';
 import { PriorityTag } from './tags';
 import { TagsInput } from './TagsInput';
+import { AssetPickerField } from './RecordAssets';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -249,6 +251,8 @@ export function NewIncidentPage() {
   const draftSubject = useDebounced(typedSubject, 600);
   const draftDescription = useDebounced(typedDescription.replace(/<[^>]*>/g, ' '), 600);
   const typedRequester = form.watch('requester_id');
+  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const { has } = useLicence();
   const duplicates = usePossibleDuplicates(
     {
       title: draftSubject,
@@ -402,6 +406,7 @@ export function NewIncidentPage() {
         shownCustom.map((f) => f.key),
       ),
       keep_following: keepFollowing ?? null,
+      ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
     };
     const variant = keepFollowing === undefined ? '' : `-${String(keepFollowing)}`;
     problem.clear();
@@ -442,6 +447,7 @@ export function NewIncidentPage() {
           if (another) {
             const requester = keepRequester ? values.requester_id : null;
             form.reset({ ...EMPTY, requester_id: requester });
+            setAssetIds([]);
             started.current = {};
             apply(template);
             setKey(crypto.randomUUID());
@@ -788,6 +794,20 @@ export function NewIncidentPage() {
                     />
                   )}
                 />,
+              )}
+              {/* REQ-AST-025: the assets it is about, the requester's own first. */}
+              {has('assets') && (
+                <Col xs={24}>
+                  <Form.Item label={t('work_item.field.asset_ids')} htmlFor="inc-assets">
+                    <AssetPickerField
+                      id="inc-assets"
+                      value={assetIds}
+                      onChange={setAssetIds}
+                      forUser={typedRequester ?? null}
+                      testId="inc-assets"
+                    />
+                  </Form.Item>
+                </Col>
               )}
               {cell(
                 'level',

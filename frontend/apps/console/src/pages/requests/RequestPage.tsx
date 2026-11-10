@@ -52,6 +52,7 @@ import { useStatusActions } from '../incidents/StatusActions';
 import { useTakeAction } from '../incidents/take';
 import { IncidentSla } from '../incidents/IncidentSla';
 import { itemName } from './items';
+import { RecordAssets } from '../incidents/RecordAssets';
 
 const NO_TYPING: Typing = {};
 
@@ -121,6 +122,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const me = useSession().data?.user.id;
   const withdraw = useWithdrawRequest();
   const { can } = useAccess();
+  const hasAssets = useLicence().has('assets');
   const [replyRequest, setReplyRequest] = useState(0);
   const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   const questions = item.data?.questions ?? [];
@@ -336,6 +338,24 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   </div>
                 ),
               },
+              // REQ-AST-025: the assets this request is about (the assets feature).
+              ...(hasAssets
+                ? [
+                    {
+                      key: 'assets',
+                      title: t('assets.link.title'),
+                      testId: 'sr-panel-assets',
+                      children: (
+                        <RecordAssets
+                          base="service-requests"
+                          recordId={r.id}
+                          canEdit={can('requests.edit')}
+                          requesterId={r.on_behalf_of_id ?? r.requester_id}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
               // Haider E3: the Service level card, as on incidents (read-only here).
               {
                 key: 'sla',
