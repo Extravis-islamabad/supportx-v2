@@ -1,5 +1,5 @@
-import { CloseOutlined, LaptopOutlined } from '@ant-design/icons';
-import { Button, Flex, Select, Typography } from 'antd';
+import { CloseOutlined, LaptopOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Flex, Select, Tooltip, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 
 import {
@@ -31,12 +31,15 @@ export function AssetPickerField({
   forUser,
   testId,
   id,
+  ariaLabel,
 }: {
   value: string[];
   onChange: (ids: string[]) => void;
   forUser: string | null;
   testId: string;
   id?: string;
+  /** Its name when no form label names it (the record panel's add field). */
+  ariaLabel?: string;
 }) {
   const t = useLabel();
   const [search, setSearch] = useState('');
@@ -72,6 +75,7 @@ export function AssetPickerField({
       options={options}
       maxCount={20}
       style={{ width: '100%' }}
+      aria-label={ariaLabel}
       data-testid={testId}
     />
   );
@@ -104,6 +108,7 @@ export function RecordAssets({
   const link = useLinkAssets(base, recordId);
   const unlink = useUnlinkAsset(base, recordId);
   const [adding, setAdding] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
   const rows = found.data?.items ?? [];
   const linked = new Set(rows.map((r) => r.asset_id));
   const add = () => {
@@ -133,27 +138,44 @@ export function RecordAssets({
           <LaptopOutlined aria-hidden />
           <Typography.Text
             type={row.gone || row.hidden ? 'secondary' : undefined}
-            ellipsis
+            ellipsis={{ tooltip: assetText(t, row) }}
             style={{ flex: 1, minWidth: 0 }}
           >
             <bdi>{assetText(t, row)}</bdi>
           </Typography.Text>
           {canEdit && (
-            <Button
-              type="text"
-              size="small"
-              icon={<CloseOutlined aria-hidden />}
-              aria-label={t('assets.link.remove', { name: assetText(t, row) })}
-              loading={unlink.isPending && unlink.variables.link.id === row.id}
-              onClick={() => {
-                unlink.mutate({ link: row }, { onError: reportError });
-              }}
-              data-testid={`record-asset-remove-${row.asset_id}`}
-            />
+            <Tooltip title={t('assets.link.remove', { name: assetText(t, row) })}>
+              <Button
+                type="text"
+                size="small"
+                icon={<CloseOutlined aria-hidden />}
+                aria-label={t('assets.link.remove', { name: assetText(t, row) })}
+                loading={unlink.isPending && unlink.variables.link.id === row.id}
+                onClick={() => {
+                  unlink.mutate({ link: row }, { onError: reportError });
+                }}
+                data-testid={`record-asset-remove-${row.asset_id}`}
+              />
+            </Tooltip>
           )}
         </Flex>
       ))}
-      {canEdit && (
+      {/* A small link until someone links one (lane C, #357): no open picker on every record. */}
+      {canEdit && !open && (
+        <Button
+          type="link"
+          size="small"
+          icon={<PlusOutlined aria-hidden />}
+          style={{ paddingInline: 0, alignSelf: 'flex-start' }}
+          onClick={() => {
+            setOpen(true);
+          }}
+          data-testid={`${base}-assets-open`}
+        >
+          {t('assets.link.open')}
+        </Button>
+      )}
+      {canEdit && open && (
         <Flex gap={8} align="start">
           <div style={{ flex: 1, minWidth: 0 }}>
             <AssetPickerField
@@ -161,6 +183,7 @@ export function RecordAssets({
               onChange={setAdding}
               forUser={requesterId}
               testId={`${base}-assets-add`}
+              ariaLabel={t('assets.link.open')}
             />
           </div>
           <WriteButton

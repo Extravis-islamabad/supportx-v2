@@ -259,6 +259,7 @@ export const ar: LabelResource = {
   'assets.link.mine': '{{name}} (لك)',
   'assets.link.none_found': 'لم يُعثر على أصل',
   'assets.link.none_held': 'لا تحمل أي أصول',
+  'assets.link.open': 'ربط أصل',
   'assets.link.placeholder': 'اختر الأصول أو ابحث بالرمز أو الاسم',
   'assets.link.portal_placeholder': 'اختر أصولك',
   'assets.link.remove': 'فك ربط {{name}}',

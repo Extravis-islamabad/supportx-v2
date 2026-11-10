@@ -347,7 +347,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                         <RecordAssets
                           base="service-requests"
                           recordId={r.id}
-                          canEdit={can('requests.edit')}
+                          canEdit={op('edit')?.allowed === true}
                           requesterId={r.on_behalf_of_id ?? r.requester_id}
                         />
                       ),

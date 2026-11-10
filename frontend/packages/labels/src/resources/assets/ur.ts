@@ -226,6 +226,7 @@ export const ur: LabelResource = {
   'assets.link.mine': '{{name}} (آپ کا)',
   'assets.link.none_found': 'کوئی اثاثہ نہیں ملا',
   'assets.link.none_held': 'آپ کے پاس کوئی اثاثہ نہیں',
+  'assets.link.open': 'اثاثہ منسلک کریں',
   'assets.link.placeholder': 'اثاثے چنیں یا ٹیگ یا نام سے تلاش کریں',
   'assets.link.portal_placeholder': 'اپنے اثاثے چنیں',
   'assets.link.remove': '{{name}} الگ کریں',

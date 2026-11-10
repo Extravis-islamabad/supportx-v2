@@ -84,8 +84,11 @@ describe('REQ-AST-025: an incident’s assets', () => {
       'An asset you may not see',
     );
     expect(section.textContent).not.toContain(GONE);
-    // The Link button says why it waits.
+    // A small link opens the picker (lane C, #357); the Link button then says why it waits.
+    expect(screen.queryByTestId('incidents-assets-add')).toBeNull();
+    fireEvent.click(screen.getByTestId('incidents-assets-open'));
     expect(screen.getByTestId('incidents-assets-link')).toHaveProperty('disabled', true);
+    expect(screen.getByRole('combobox', { name: 'Link an asset' })).toBeDefined();
     fireEvent.click(within(section).getByTestId(`record-asset-remove-${LAPTOP}`));
     await waitFor(() => {
       expect(fake.find('DELETE', `${PATH}/assets/l-${LAPTOP}`)).toHaveLength(1);

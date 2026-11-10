@@ -223,6 +223,7 @@ export const en = {
   'assets.link.mine': '{{name}} (yours)',
   'assets.link.none_found': 'No asset found',
   'assets.link.none_held': 'You hold no assets',
+  'assets.link.open': 'Link an asset',
   'assets.link.placeholder': 'Choose assets, or search by tag or name',
   'assets.link.portal_placeholder': 'Choose your assets',
   'assets.link.remove': 'Unlink {{name}}',
