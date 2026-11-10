@@ -1021,13 +1021,7 @@ function EventLine({
   const who = entry.actor_name ?? t(`actor_type.${entry.actor_type}`);
   // Joined the language's way (Arabic and Urdu use their own conjunction), not with "; ".
   const what = listFormat(
-    changes.map((c) =>
-      t('history.change', {
-        field: words.fieldText(c.field),
-        old: words.valueText(c, c.old),
-        new: words.valueText(c, c.new),
-      }),
-    ),
+    changes.map((c) => words.changeText(c)),
     'unit',
   );
   return (

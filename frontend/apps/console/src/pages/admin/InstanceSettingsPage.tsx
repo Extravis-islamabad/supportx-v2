@@ -19,6 +19,7 @@ import {
 } from '@supportx/ui';
 
 import { showFieldErrors } from '../knowledge/formErrors';
+import { LeaveGuard } from './useLeaveGuard';
 
 // WP-042 (REQ-ADM-049, 050, 052): Admin › Instance settings. The defaults for people and sites,
 // the base currency (chosen once; a change asks first) and the languages offered (English
@@ -122,7 +123,13 @@ export function InstanceSettingsPage() {
   return (
     <div data-testid="instance">
       <Typography.Paragraph type="secondary">{t('instance.intro')}</Typography.Paragraph>
-      <Form<FormValues> form={form} layout="vertical" onFinish={onFinish} initialValues={saved}>
+      <Form<FormValues>
+        form={form}
+        layout="vertical"
+        onFinish={onFinish}
+        initialValues={saved}
+        noValidate
+      >
         <SettingsCard title={t('instance.defaults')}>
           <Flex gap={16} wrap>
             <Form.Item
@@ -193,12 +200,21 @@ export function InstanceSettingsPage() {
         </SettingsCard>
         <SettingsCard title={t('instance.contact')}>
           <Flex gap={16} wrap>
+            {/* The app's own field error, never the browser's English bubble (QA10-P3-12):
+                type="email" is for the phone keyboard only, the form does not use native checks. */}
             <Form.Item
               name="contact_email"
               label={t('instance.contact_email')}
               style={{ flex: '1 1 260px' }}
+              rules={[{ type: 'email', message: t('errors.field.email_invalid') }]}
+              validateTrigger="onBlur"
             >
-              <Input type="email" dir="ltr" />
+              <Input
+                type="email"
+                inputMode="email"
+                dir="ltr"
+                data-testid="instance-contact-email"
+              />
             </Form.Item>
             <Form.Item
               name="contact_phone"
@@ -248,6 +264,8 @@ export function InstanceSettingsPage() {
           </Form.Item>
         </SettingsCard>
       </Form>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
       <StickySaveBar
         changes={changes}
         saving={save.isPending}

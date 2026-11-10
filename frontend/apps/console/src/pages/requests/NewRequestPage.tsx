@@ -10,6 +10,7 @@ import {
   useSession,
 } from '@supportx/api-client';
 import {
+  EmptyText,
   lengthLimit,
   LibraryPage,
   PageHeader,
@@ -61,6 +62,7 @@ export function NewRequestPage() {
     );
     const row = (i: (typeof raisable)[number]): LibraryItem => ({
       key: i.id,
+      testId: `sr-row-${i.id}`,
       title: (
         <Button
           type="link"
@@ -94,18 +96,21 @@ export function NewRequestPage() {
       }
       return ids;
     };
-    const groups: LibraryGroup[] = tops.map((c) => {
-      const ids = under(c.id);
-      return {
-        key: c.id,
-        label: textIn(c.names, locale),
-        items: raisable
-          .filter((i) =>
-            [i.category_id, ...i.extra_category_ids].some((id) => id !== null && ids.has(id)),
-          )
-          .map(row),
-      };
-    });
+    // Each item in one tab only, its own category's first (lane C's #315 review): "All" then
+    // lists it once.
+    const home = new Map<string, string>();
+    for (const i of raisable) {
+      const top = [i.category_id, ...i.extra_category_ids]
+        .map((id) => tops.find((c) => id !== null && under(c.id).has(id)))
+        .find((c) => c !== undefined);
+      if (top !== undefined) home.set(i.id, top.id);
+    }
+    const groups: LibraryGroup[] = tops.map((c) => ({
+      key: c.id,
+      label: textIn(c.names, locale),
+      items: raisable.filter((i) => home.get(i.id) === c.id).map(row),
+      empty: <EmptyText>{t('requests.catalog_empty_category')}</EmptyText>,
+    }));
     const placed = new Set(groups.flatMap((g) => g.items.map((i) => i.key)));
     const others = raisable.filter((i) => !placed.has(i.id)).map(row);
     if (others.length > 0 || groups.length === 0) {

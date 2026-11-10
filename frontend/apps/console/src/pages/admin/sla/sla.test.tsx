@@ -16,7 +16,9 @@ function typeDate(scope: HTMLElement, testId: string, day: string) {
   if (input === null) throw new Error(`no date input in ${testId}`);
   fireEvent.mouseDown(input);
   fireEvent.focus(input);
-  fireEvent.change(input, { target: { value: day } });
+  // Typed as the picker shows a day: the default dd/mm/yyyy (QA10-P3-14), from an ISO day.
+  const [year, month, date] = day.split('-');
+  fireEvent.change(input, { target: { value: `${date ?? ''}/${month ?? ''}/${year ?? ''}` } });
   fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
   fireEvent.blur(input);
 }

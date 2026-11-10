@@ -169,6 +169,10 @@ describe('One announcement', () => {
     render(<App />);
     fireEvent.click(await screen.findByTestId('ann-edit'));
     fireEvent.change(await screen.findByTestId('ann-title'), { target: { value: 'New title' } });
+    // QA10-P4-14: Edit's Cancel and Save sit in template B's sticky footer, Cancel first.
+    const footer = screen.getByTestId('ann-edit-footer');
+    expect(footer.style.position).toBe('sticky');
+    expect(footer.contains(screen.getByTestId('ann-save'))).toBe(true);
     fireEvent.click(screen.getByTestId('ann-save'));
     const who = await screen.findByTestId('conflict-who');
     expect(who.textContent).toContain('Aisha Tech saved it at');

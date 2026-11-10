@@ -35,8 +35,11 @@ import {
 import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   ConflictDialog,
   FormProblem,
+  pickerFormat,
+  useAppearance,
   lengthLimit,
   ToneTag,
   type Tone,
@@ -117,6 +120,8 @@ export function ScheduleButton({
   changed: boolean;
 }) {
   const t = useLabels();
+  // The person's date format in the pickers (QA10-P3-14).
+  const dayFormat = pickerFormat(useAppearance().dates, false);
   const { can } = useAccess();
   const { message } = AntApp.useApp();
   const zone = useTimeZone();
@@ -262,12 +267,16 @@ export function ScheduleButton({
               />
             </Form.Item>
             <Form.Item label={t('reports.schedule_zone')}>
-              <Typography.Text>{zone}</Typography.Text>
+              {/* Never cut off (QA10-P4-26): the zone wraps rather than being clipped. */}
+              <Typography.Text style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                <bdi dir="ltr">{zone}</bdi>
+              </Typography.Text>
             </Form.Item>
           </Space>
           <Space wrap>
             <Form.Item label={t('reports.schedule_start')}>
               <DatePicker
+                format={dayFormat}
                 value={start}
                 allowClear={false}
                 onChange={(value) => {
@@ -276,7 +285,7 @@ export function ScheduleButton({
               />
             </Form.Item>
             <Form.Item label={t('reports.schedule_end')}>
-              <DatePicker value={end} onChange={setEnd} />
+              <DatePicker format={dayFormat} value={end} onChange={setEnd} />
             </Form.Item>
           </Space>
           <Alert type="info" showIcon message={t('reports.schedule_recipients_hint')} />
@@ -396,7 +405,7 @@ export function SchedulesButton() {
         <List
           loading={schedules.isPending}
           dataSource={items}
-          locale={{ emptyText: t('reports.no_schedules') }}
+          locale={{ emptyText: <EmptyText>{t('reports.no_schedules')}</EmptyText> }}
           renderItem={(item) => (
             <List.Item
               actions={[

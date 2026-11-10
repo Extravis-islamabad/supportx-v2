@@ -167,6 +167,7 @@ export const en = {
     'Licence information is temporarily unavailable. Please try again shortly.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
   'errors.field.already_linked': 'These records are already linked.',
+  'errors.field.announcement_message_required': 'Write the message people will see.',
   'errors.field.api_key_allowlist_invalid':
     'Enter up to 20 valid addresses or networks, such as 10.0.0.0/8.',
   'errors.field.api_key_expiry_past': 'The expiry date must be in the future.',
