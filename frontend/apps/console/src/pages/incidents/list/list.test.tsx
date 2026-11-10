@@ -204,8 +204,8 @@ describe('Incident list (WP-020d)', () => {
     api({ routes: routes() });
     render(<App />);
     await screen.findByTestId('inc-row-INC-7');
-    const create = screen.getByTestId('inc-bulk-create-problem');
-    expect((create as HTMLButtonElement).disabled).toBe(true); // nothing chosen yet
+    // Nothing chosen yet: no selection bar at all, the toolbar instead (Haider, 2026-11-10).
+    expect(screen.queryByTestId('inc-bulk-create-problem')).toBeNull();
     const table = screen.getByTestId('inc-table');
     const all = within(table).getAllByRole('checkbox')[0];
     if (all === undefined) throw new Error('no select-all checkbox');
@@ -223,7 +223,7 @@ describe('Incident list (WP-020d)', () => {
     );
   });
 
-  it('REQ-INC-119 AC2: bulk actions are disabled until something is selected, then "all N"', async () => {
+  it('REQ-INC-119 as Haider changed it (2026-11-10): the selection bar replaces the toolbar only while rows are selected, then "all N"', async () => {
     const fake = api({
       routes: routes({
         'POST /api/v1/incidents/bulk': {
@@ -246,14 +246,16 @@ describe('Incident list (WP-020d)', () => {
     });
     render(<App />);
     await screen.findByTestId('inc-row-INC-7');
-    const take = screen.getByTestId('inc-bulk-take');
-    expect((take as HTMLButtonElement).disabled).toBe(true); // no blocking alert, a reason
-    expect(screen.getByTestId('inc-selected').textContent).toBe('0 incidents selected');
+    // One control row: the toolbar, and no selection bar until something is selected.
+    expect(screen.getByTestId('inc-filterbar')).toBeDefined();
+    expect(screen.queryByTestId('inc-bulk-take')).toBeNull();
     const table = screen.getByTestId('inc-table');
     const all = within(table).getAllByRole('checkbox')[0];
     if (all === undefined) throw new Error('no select-all checkbox');
     fireEvent.click(all);
     expect(screen.getByTestId('inc-selected').textContent).toBe('2 incidents selected');
+    expect(screen.queryByTestId('inc-filterbar')).toBeNull(); // replaced, not stacked
+    expect(screen.getByTestId('inc-filterbar-selection')).toBeDefined();
     fireEvent.click(screen.getByTestId('inc-select-all')); // AC1: every match, not the page
     expect(screen.getByTestId('inc-selected').textContent).toBe(
       'All 120 matching incidents are selected.',
@@ -266,6 +268,8 @@ describe('Incident list (WP-020d)', () => {
     const call = fake.find('POST', '/api/v1/incidents/bulk')[0];
     expect(call?.body).toEqual({ action: 'take', changes: {}, record_ids: [], all_matching: true });
     expect(call?.url.searchParams.get('view')).toBe('open');
+    // The job started and the selection cleared: the toolbar is back.
+    expect(await screen.findByTestId('inc-filterbar')).toBeDefined();
   });
 
   it('REQ-INC-104 AC1/AC3: an added column is saved for this view (and only this view)', async () => {

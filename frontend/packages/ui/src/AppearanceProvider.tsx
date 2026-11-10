@@ -72,6 +72,12 @@ function useFavicon(brand: Branding): void {
 // A table wider than the screen scrolls inside its own box, never the page (QA BUG-03, 390 px).
 const PAGE_CSS =
   'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
+  // In a list page the page's own gaps space the header (16 px, Haider 2026-11-10); the
+  // header's margin elsewhere is inline, hence the !important here.
+  '.sx-list-page > .sx-page-header { margin-bottom: 0 !important; } ' +
+  // A list cell's text: cut at its own end, in its own direction, aligned as the column is.
+  '.sx-cell-text { display: block; overflow: hidden; text-overflow: ellipsis; ' +
+  'white-space: nowrap; text-align: match-parent; } ' +
   // Text for screen readers only (a name where the screen shows initials or an icon).
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +

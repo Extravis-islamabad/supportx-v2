@@ -138,6 +138,7 @@ export const en = {
   'layout.alerts_count_one': '{{count}} alert',
   'layout.alerts_count_other': '{{count}} alerts',
   'layout.also_above': 'Also above',
+  'layout.dismiss': 'Hide this line',
   'layout.done': 'Done',
   'layout.edit_field': 'Edit {{field}}',
   'layout.favourites': 'Favourites',

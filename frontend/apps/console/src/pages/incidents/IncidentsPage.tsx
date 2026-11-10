@@ -48,6 +48,7 @@ import {
   WriteButton,
   FilterBar,
   FiltersDrawer,
+  ListNotice,
   ListPage,
   HeaderActions,
   PageHeader,
@@ -315,6 +316,49 @@ export function IncidentsPage() {
   const bulkAllowed = (action: BulkAction) =>
     can(action === 'resolve' || action === 'close' ? 'incidents.edit' : `incidents.${action}`);
 
+  // Rows selected: the selection bar takes the toolbar's place (Haider, 2026-11-10), so the
+  // list keeps one control row; it goes once nothing is selected.
+  const selected = !trash && (selection.all || selection.ids.length > 0);
+  const bulkBar = selected ? (
+    <BulkBar
+      selection={selection}
+      onSelection={setSelection}
+      pageCount={rows.length}
+      total={total}
+      capped={total !== null && total >= 1000 && list.hasNextPage}
+      onAction={setBulkAction}
+      canEdit={bulkAllowed}
+      extra={
+        // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
+        // form starts from them. Chosen rows only, as their IDs travel in the address.
+        has('problem') && can('problems.create') ? (
+          <Tooltip
+            title={
+              selection.all || selection.ids.length === 0
+                ? t('incidents.bulk.select_first')
+                : selection.ids.length > PROBLEM_FROM_MAX
+                  ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
+                  : undefined
+            }
+          >
+            <span>
+              <Button
+                disabled={
+                  selection.all ||
+                  selection.ids.length === 0 ||
+                  selection.ids.length > PROBLEM_FROM_MAX
+                }
+                onClick={() => void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)}
+                data-testid="inc-bulk-create-problem"
+              >
+                {t('problems.create_from_incident')}
+              </Button>
+            </span>
+          </Tooltip>
+        ) : undefined
+      }
+    />
+  ) : undefined;
   return (
     <ListPage
       testId="inc-list"
@@ -437,6 +481,7 @@ export function IncidentsPage() {
       )}
       <FilterBar
         testId="inc-filterbar"
+        selection={bulkBar}
         view={
           <>
             {!trash && (
@@ -715,48 +760,6 @@ export function IncidentsPage() {
           }}
         />
       )}
-      {!trash && (
-        <BulkBar
-          selection={selection}
-          onSelection={setSelection}
-          pageCount={rows.length}
-          total={total}
-          capped={total !== null && total >= 1000 && list.hasNextPage}
-          onAction={setBulkAction}
-          canEdit={bulkAllowed}
-          extra={
-            // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
-            // form starts from them. Chosen rows only, as their IDs travel in the address.
-            has('problem') && can('problems.create') ? (
-              <Tooltip
-                title={
-                  selection.all || selection.ids.length === 0
-                    ? t('incidents.bulk.select_first')
-                    : selection.ids.length > PROBLEM_FROM_MAX
-                      ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
-                      : undefined
-                }
-              >
-                <span>
-                  <Button
-                    disabled={
-                      selection.all ||
-                      selection.ids.length === 0 ||
-                      selection.ids.length > PROBLEM_FROM_MAX
-                    }
-                    onClick={() =>
-                      void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)
-                    }
-                    data-testid="inc-bulk-create-problem"
-                  >
-                    {t('problems.create_from_incident')}
-                  </Button>
-                </span>
-              </Tooltip>
-            ) : undefined
-          }
-        />
-      )}
       <Table<IncidentListItem>
         rowKey="id"
         data-testid="inc-table"
@@ -972,22 +975,27 @@ function ViewNotice({
       }),
     );
   }
+  // One small line under the toolbar, closable for the session (Haider, 2026-11-10).
   return (
-    <Alert
-      type="info"
-      showIcon
-      role="status"
-      data-testid="inc-view-notice"
-      data-hidden={hidden}
-      message={parts.join(' ')}
+    <ListNotice
+      testId="inc-view-notice"
+      dismissKey={`incidents.view.${view}`}
       action={
         view !== 'all' && hidden > 0 ? (
-          <Button size="small" onClick={onShowAll} data-testid="inc-show-all">
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, height: 'auto' }}
+            onClick={onShowAll}
+            data-testid="inc-show-all"
+          >
             {t('incidents.show_all')}
           </Button>
         ) : undefined
       }
-    />
+    >
+      <span data-hidden={hidden}>{parts.join(' ')}</span>
+    </ListNotice>
   );
 }
 

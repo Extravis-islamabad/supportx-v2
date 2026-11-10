@@ -21,6 +21,7 @@ import {
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import {
+  CellText,
   ChannelIcon,
   PageHeader,
   ToneTag,
@@ -291,7 +292,8 @@ export function RequestsPage() {
             title: t('work_item.field.subject'),
             width: widths.width('subject'),
             onHeaderCell: () => widths.header('subject'),
-            render: (_, row) => <bdi dir="auto">{row.subject}</bdi>,
+            ellipsis: true,
+            render: (_, row) => <CellText title={row.subject}>{row.subject}</CellText>,
           },
           {
             key: 'item',

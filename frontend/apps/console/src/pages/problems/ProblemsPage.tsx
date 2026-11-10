@@ -12,6 +12,7 @@ import {
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import {
+  CellText,
   EmptyText,
   PageHeader,
   reportError,
@@ -166,11 +167,7 @@ export function ProblemsPage() {
             fixed: 'left' as const,
             // Cut with an ellipsis; the whole subject is the cell's tooltip.
             ellipsis: true,
-            render: (_, row) => (
-              <bdi dir="auto" title={row.subject}>
-                {row.subject}
-              </bdi>
-            ),
+            render: (_, row) => <CellText title={row.subject}>{row.subject}</CellText>,
           },
           {
             key: 'status',
@@ -194,8 +191,11 @@ export function ProblemsPage() {
             width: widths.width('owner'),
             onHeaderCell: () => widths.header('owner'),
             ellipsis: true,
-            render: (_, row) =>
-              row.technician_id === null ? '' : (people[row.technician_id]?.display_name ?? ''),
+            render: (_, row) => (
+              <CellText>
+                {row.technician_id === null ? '' : (people[row.technician_id]?.display_name ?? '')}
+              </CellText>
+            ),
           },
           {
             key: 'updated',

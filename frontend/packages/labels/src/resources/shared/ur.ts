@@ -139,6 +139,7 @@ export const ur: LabelResource = {
   'layout.alerts_count_one': '{{count}} انتباہ',
   'layout.alerts_count_other': '{{count}} انتباہات',
   'layout.also_above': 'اوپر بھی موجود ہے',
+  'layout.dismiss': 'یہ سطر چھپائیں',
   'layout.done': 'ہو گیا',
   'layout.edit_field': '{{field}} میں ترمیم',
   'layout.favourites': 'پسندیدہ',

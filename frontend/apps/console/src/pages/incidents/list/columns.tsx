@@ -9,7 +9,7 @@ import type {
   ListColumn,
   ReportField,
 } from '@supportx/api-client';
-import { ChannelIcon, type useDateTime } from '@supportx/ui';
+import { CellText, ChannelIcon, type useDateTime } from '@supportx/ui';
 
 import type { ReportWords } from '../../reports/names';
 import { closureCodeLabel, personName } from '../labels';
@@ -81,17 +81,13 @@ const OWN: ColumnSpec[] = [
     width: 240,
     title: field('subject'),
     // The whole subject is the tooltip, and it reads in its own direction (QA BUG-12, BUG-16).
-    render: (row) => (
-      <bdi dir="auto" title={row.subject}>
-        {row.subject}
-      </bdi>
-    ),
+    render: (row) => <CellText title={row.subject}>{row.subject}</CellText>,
   },
   {
     key: 'requester_id',
     width: 100,
     title: field('requester_id'),
-    render: (row, c) => personName(c.people, row.requester_id),
+    render: (row, c) => <CellText>{personName(c.people, row.requester_id)}</CellText>,
   },
   {
     key: 'status',
@@ -110,13 +106,15 @@ const OWN: ColumnSpec[] = [
     key: 'group_id',
     width: 120,
     title: field('group_id'),
-    render: (row, c) => (row.group_id === null ? '' : (c.groupNames.get(row.group_id) ?? '')),
+    render: (row, c) => (
+      <CellText>{row.group_id === null ? '' : (c.groupNames.get(row.group_id) ?? '')}</CellText>
+    ),
   },
   {
     key: 'technician_id',
     width: 100,
     title: field('technician_id'),
-    render: (row, c) => personName(c.people, row.technician_id),
+    render: (row, c) => <CellText>{personName(c.people, row.technician_id)}</CellText>,
   },
   {
     key: 'resolution_due_at',
