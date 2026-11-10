@@ -389,6 +389,16 @@ describe('D-147: page widths', () => {
     expect(screen.getByTestId('form').querySelector('aside')?.textContent).toBe('Help');
     expect(screen.getByTestId('list').style.width).toBe('100%');
   });
+
+  it('a full-width page keeps its aside (lane A, #351: it was dropped silently)', () => {
+    renderUi(
+      <PageColumn kind="list" testId="wide" aside={<p>Suggestions</p>}>
+        <p>Fields</p>
+      </PageColumn>,
+    );
+    expect(screen.getByTestId('wide').style.width).toBe('100%');
+    expect(screen.getByTestId('wide').querySelector('aside')?.textContent).toBe('Suggestions');
+  });
 });
 
 describe('D-147: one close button per line', () => {
