@@ -55,6 +55,12 @@ describe('console: portal settings', () => {
     }
     expect(screen.getByTestId('ps-later-guest_requests')).toBeDefined(); // shown as later
     fireEvent.click(within(screen.getByTestId('ps-profile-editing')).getByRole('switch'));
+    // One save bar (template E): a switch changes the draft; Save sends it.
+    expect(fake.find('PATCH', '/api/v1/portal/settings')).toHaveLength(0);
+    expect((await screen.findByTestId('portal-settings-save-bar')).textContent).toContain(
+      '1 unsaved change',
+    );
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PATCH', '/api/v1/portal/settings')).toHaveLength(1);
     });
