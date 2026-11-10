@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router';
 import { releaseKeys, useReleases, type ReleaseListItem } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import {
-  EmptyText,
+  loadedEmpty,
   FilterBar,
   ListPage,
   PageHeader,
@@ -153,12 +153,9 @@ export function ReleasesPage() {
           locale={{
             // Nothing to say while the first page loads: no "No releases yet." under the spinner
             // (QA10-P4-15).
-            emptyText: list.isPending ? (
-              <span />
-            ) : (
-              <EmptyText>
-                {t(text.trim() !== '' || view !== 'all' ? 'releases.no_match' : 'releases.empty')}
-              </EmptyText>
+            emptyText: loadedEmpty(
+              list.isPending,
+              t(text.trim() !== '' || view !== 'all' ? 'releases.no_match' : 'releases.empty'),
             ),
           }}
           onRow={(row) => ({

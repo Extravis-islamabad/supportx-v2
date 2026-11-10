@@ -41,6 +41,8 @@ export interface RecordHeaderProps {
   typeLabel?: string;
   /** The human ID (INC-1042), copyable. */
   displayId: string;
+  /** False when `displayId` is a stand-in ("No tag"), not an ID worth copying. */
+  copyable?: boolean;
   /** The subject; what people typed reads in its own direction. */
   title: string;
   /** Status, priority and similar compact tags. */
@@ -69,6 +71,7 @@ export function RecordHeader({
   badge,
   typeLabel,
   displayId,
+  copyable = true,
   title,
   tags,
   meta = [],
@@ -114,7 +117,7 @@ export function RecordHeader({
         <Flex align="center" gap={SPACE.xs} wrap style={{ fontSize: TYPE.meta }}>
           <Typography.Text
             strong
-            copyable
+            copyable={copyable}
             style={{ fontSize: TYPE.meta, whiteSpace: 'nowrap' }}
             data-testid={testIds.id}
           >
