@@ -9,9 +9,12 @@ using pytest-xdist inside (product owner, 2026-10-27: the backend CI job under 1
   least time so far, using the seconds in `tests/shard_weights.json`. A file not listed there
   weighs DEFAULT_SECONDS. The assignment depends only on the collected file names and the
   weights, so every shard computes the same split without talking to the others.
-- Tests that use the private Keycloak (`private_keycloak`, tests/integration) share one
-  xdist group, so with `--dist loadgroup` one worker per shard starts one Keycloak (about 1 GB
-  and 20 seconds), never one per worker.
+- Each shard runs `pytest -n 4 --dist loadfile`: a file's tests stay on one worker, so its
+  module fixtures (a private Keycloak, about 1 GB and 20-120 s; a seeded stack) are built once
+  per file, never once per worker. `--dist loadgroup` with xdist 3.8 and pytest 9 did not group
+  at all (a bare probe spread one group over four workers), so a file's Keycloak tests started
+  up to four Keycloaks at once (2026-11-10). The `keycloak` xdist group below is kept for the
+  split's chain arithmetic only.
 - `SUPPORTX_TEST_TIMINGS=<path>` writes how long each file took (call phases plus fixtures) as
   JSON. CI keeps each shard's as an artifact. The nightly combines them (`backend-shard-weights`)
   and every later CI run balances on the newest nightly's (`SUPPORTX_TEST_WEIGHTS`), so the split
