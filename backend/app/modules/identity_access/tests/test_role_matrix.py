@@ -138,3 +138,22 @@ def test_no_role_assigns_outside_a_records_group() -> None:
     """D-154a: the right is gone for every type, so no built-in role can hold it."""
     catalogue = _catalogue()
     assert not [k for k in catalogue.permissions if k.endswith(".assign_outside_group")]
+
+
+def test_a_team_lead_works_its_groups_changes_and_views_the_others() -> None:
+    """D-153 (Haider, option a): a technician's change work, in its groups only; no boards."""
+    catalogue = _catalogue()
+    for technician_scope in ("group", "all"):
+        grants = dict(catalogue.system_grants(TEAM_LEAD, technician_scope=technician_scope))
+        assert grants.get("changes.view") == "all"
+        for action in ("edit", "assign", "close"):
+            assert grants.get(f"changes.{action}") == "group", action
+        working = {
+            k: s for k, s in grants.items() if k.startswith("changes.") and k != "changes.view"
+        }
+        assert working, "a team lead works changes"
+        assert set(working.values()) <= {"group", "own"}, working
+        assert grants.keys().isdisjoint(
+            {"changes.manage_boards", "changes.emergency_override", "changes.approve"}
+        )
+        assert grants.keys().isdisjoint(TENANT_WIDE)
