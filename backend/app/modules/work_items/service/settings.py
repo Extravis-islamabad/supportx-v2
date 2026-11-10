@@ -84,7 +84,7 @@ async def stale_settings(
         row,
         expected_version=expected_version,
         record_type=SETTINGS_RECORD_TYPE,
-        record_id=uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}"),
+        record_id=config.settings_record_id(wtype.code),
     )
 
 
@@ -200,7 +200,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
             updated_by=user_id,
         )
     )
-    settings_id = uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}")
+    settings_id = config.settings_record_id(wtype.code)
     await record_changes(
         session,
         record_type=SETTINGS_RECORD_TYPE,
@@ -312,7 +312,7 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         .where(WorkItemTypeSettings.type == wtype.code)
         .values(**changes, version=WorkItemTypeSettings.version + 1, updated_by=user_id)
     )
-    settings_id = uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}")
+    settings_id = config.settings_record_id(wtype.code)
     await record_changes(
         session,
         record_type=SETTINGS_RECORD_TYPE,
