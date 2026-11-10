@@ -260,7 +260,14 @@ describe('console: service requests', () => {
     const CAT = '01a1a2b3-0000-7000-8000-00000000ca01';
     api({
       'GET /api/v1/catalog/items': {
-        body: [{ ...laptop, category_id: CAT, descriptions: { en: 'A work laptop' } }],
+        // Rich text, as the catalogue editor saves it (QA10V-01: never shown as markup).
+        body: [
+          {
+            ...laptop,
+            category_id: CAT,
+            descriptions: { en: '<p>A <strong>work</strong> laptop</p>' },
+          },
+        ],
       },
       'GET /api/v1/catalog/categories': {
         body: [
@@ -280,6 +287,8 @@ describe('console: service requests', () => {
     render(<App />);
     expect(await screen.findByRole('tab', { name: /Hardware/ })).toBeDefined();
     expect(await screen.findByText('A work laptop')).toBeDefined();
+    expect(document.body.textContent).not.toContain('<p>');
+    expect(document.body.textContent).not.toContain('<strong>');
     expect(screen.getByTestId(`sr-item-${ITEM_ID}`)).toBeDefined();
   });
 
