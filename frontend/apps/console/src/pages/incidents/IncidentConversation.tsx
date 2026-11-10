@@ -191,7 +191,7 @@ function ConversationBody({
   );
   const writers = Object.entries(typing);
   // Automation and status events from the history as quiet one-line entries (UI pass 2), in
-  // time order with the messages; the conversation's own saves are the cards themselves. Only
+  // time order, under "System"; the conversation's own saves are the cards themselves. Only
   // the history pages loaded so far (the first page, newest first): older events stay in the
   // History tab, which pages through all of them.
   // A request's own history joins with the type-aware history hooks (#240); until then its
@@ -206,7 +206,9 @@ function ConversationBody({
       ),
     }))
     .filter((e) => e.changes.length > 0);
-  const withEvents = filter === 'all' || filter === 'system';
+  // Under "System" only (Haider, 2026-11-10: the tab's count is what it shows by default, the
+  // description, replies and notes; system lines are history, also on the History tab).
+  const withEvents = filter === 'system';
   const rows = [
     ...(filter === 'system' ? [] : shown).map((entry) => ({
       at: entry.created_at,
