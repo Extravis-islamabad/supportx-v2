@@ -98,3 +98,68 @@ async def test_a_sweep_pages_past_records_it_skips(
     await timers.safety_net(world.app.state.db, settings=None)  # type: ignore[arg-type]  # settings is unused
     for item in (first, second):
         assert "breached" in await _states(world, uuid.UUID(item["id"]))
+
+
+async def test_a_trashed_record_waits_then_fires_after_its_restore(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane B's #353 review: in the trash nothing fires; restored, it fires as it was."""
+    a = world.a
+    item: dict[str, Any] = await _p1(world, a)
+    removed = await world.call(
+        "DELETE", f"{BASE}/{item['id']}", a, a.admin, headers={"If-Match": f'"{item["version"]}"'}
+    )
+    assert removed.status_code == 204, removed.text
+    late = (await _targets(world, item))["resolution:1"]["due_at"] + timedelta(hours=1)
+    monkeypatch.setattr(timers, "system_clock", FrozenClock(late))
+    await timers.safety_net(world.app.state.db, settings=None)  # type: ignore[arg-type]  # settings is unused
+    assert await _states(world, uuid.UUID(item["id"])) == {"running"}
+    trashed = await world.sql(
+        "SELECT version FROM work_items WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    restored = await world.call(
+        "POST",
+        f"{BASE}/{item['id']}/restore",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{trashed[0]["version"]}"'},
+    )
+    assert restored.status_code == 200, restored.text
+    await timers.safety_net(world.app.state.db, settings=None)  # type: ignore[arg-type]  # settings is unused
+    assert "breached" in await _states(world, uuid.UUID(item["id"]))
+
+
+async def test_a_gone_record_stops_once_and_a_second_sweep_changes_nothing(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    a = world.a
+    item: dict[str, Any] = await _p1(world, a)
+    erased = uuid.uuid4()
+    await world.sql(
+        "UPDATE sla_targets SET record_id = $1 WHERE tenant_id = $2 AND record_id = $3",
+        erased,
+        a.tenant,
+        uuid.UUID(item["id"]),
+    )
+    late = (await _targets(world, item | {"id": str(erased)}))["resolution:1"]["due_at"]
+    monkeypatch.setattr(timers, "system_clock", FrozenClock(late + timedelta(hours=1)))
+    await timers.safety_net(world.app.state.db, settings=None)  # type: ignore[arg-type]  # settings is unused
+
+    async def snapshot() -> list[tuple[str, int]]:
+        rows = await world.sql(
+            "SELECT state, version FROM sla_targets WHERE record_id = $1 ORDER BY id", erased
+        )
+        return [(r["state"], r["version"]) for r in rows]
+
+    first = await snapshot()
+    assert {state for state, _ in first} == {"stopped"}
+    runs = await world.sql(
+        "SELECT r.state FROM sla_escalation_runs r JOIN sla_targets t ON t.id = r.target_id"
+        " WHERE t.record_id = $1",
+        erased,
+    )
+    assert {r["state"] for r in runs} <= {"cancelled", "ran"}
+    await timers.safety_net(world.app.state.db, settings=None)  # type: ignore[arg-type]  # settings is unused
+    assert await snapshot() == first  # nothing moved: never retried
