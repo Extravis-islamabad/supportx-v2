@@ -57,6 +57,6 @@ export {
   TYPE,
   type Density,
 } from './density';
-export { ChannelIcon, type ChannelIconProps } from './workItems/ChannelIcon';
+export { ChannelIcon, ChannelTag, type ChannelIconProps } from './workItems/ChannelIcon';
 export { CHANNEL_LOOKS } from './workItems/channelLooks';
 export * from './catalog';

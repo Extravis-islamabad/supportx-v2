@@ -80,8 +80,8 @@ const PAGE_CSS =
   '.sx-list-page > .sx-page-header { margin-bottom: 0 !important; } ' +
   // Chips (Haider, 2026-11-10): the dot keeps a clear gap before its words, the dot and words
   // sit on one line, and two chips side by side never touch.
-  '.ant-tag { display: inline-flex; align-items: center; } ' +
-  '.ant-tag > .ant-badge { margin-inline-end: 6px !important; line-height: 1; } ' +
+  '.ant-tag { display: inline-flex; align-items: center; gap: 4px; } ' +
+  '.ant-tag > .ant-badge { margin-inline-end: 2px !important; line-height: 1; } ' +
   '.ant-tag + .ant-tag { margin-inline-start: 6px; } ' +
   // In a table cell a long chip stays inside its column, never over the next one.
   '.ant-table-cell .ant-tag { max-width: 100%; overflow: hidden; white-space: nowrap; } ' +

@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tag, Tooltip } from 'antd';
 
 import { useAppearance, useLabel } from '../appearance';
 import { CHANNEL_LOOKS, FALLBACK_LOOK } from './channelLooks';
@@ -40,5 +40,19 @@ export function ChannelIcon({ channel, size = 26 }: ChannelIconProps) {
         {look.icon}
       </span>
     </Tooltip>
+  );
+}
+
+/**
+ * A channel as a chip, with that channel's own icon (Haider, 2026-11-10: a phone call showed a
+ * globe). Every chip and tile names the channel through the same looks as ChannelIcon.
+ */
+export function ChannelTag({ channel }: { channel: string }) {
+  const t = useLabel();
+  const look = CHANNEL_LOOKS[channel] ?? FALLBACK_LOOK;
+  return (
+    <Tag icon={<span aria-hidden>{look.icon}</span>} data-testid={`channel-tag-${channel}`}>
+      {t(`work_item_channel.${channel}`)}
+    </Tag>
   );
 }
