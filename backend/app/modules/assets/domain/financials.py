@@ -3,11 +3,13 @@
 Pure Python, no I/O (architecture.md §6.3). Parity 07 §9:
 
 - **Cost lines (REQ-AST-036):** besides the purchase (the asset's price and tax, D-141), an asset
-  has operational costs (a move, a service, a contract, anything else) and disposal costs, each
-  with a date, an amount and a description. The total cost of ownership is purchase plus
-  operational plus disposal. Amounts are `Decimal` all the way: no float ever touches them, so
-  1,000 lines add up to the cent (AC3). Everything is in the tenant's base currency; nothing is
-  converted (an asset bought in another currency is shown as such, never converted).
+  has operational cost lines (a move, a service, a contract, anything else), each with a date, an
+  amount and a description. The disposal cost has one home only: the disposal record's own cost
+  (REQ-AST-017), so it can never be counted twice; there is no disposal kind of line. The total
+  cost of ownership is purchase plus operational plus disposal. Amounts are `Decimal` all the
+  way: no float ever touches them, so 1,000 lines add up to the cent (AC3). Everything is in
+  the tenant's base currency; nothing is converted (an asset bought in another currency is
+  shown as such, never converted).
 - **Depreciation (REQ-AST-037):** straight line, declining balance (150 %), double declining
   balance (200 %) and the sum of the years' digits, or none. The yearly amounts are worked out
   to the cent, the last year taking what rounding left over, so the book value ends exactly at
@@ -53,16 +55,16 @@ class DepreciationChoice(StrEnum):
 
 
 class CostKind(StrEnum):
-    """A cost line's kind (REQ-AST-036). The purchase is the asset's own price and tax."""
+    """A cost line's kind (REQ-AST-036): all operational.
+
+    The purchase is the asset's own price and tax, the disposal cost the disposal record's
+    (counted once, from there only).
+    """
 
     MOVE = "move"
     SERVICE = "service"
     CONTRACT = "contract"
     OTHER = "other"
-    DISPOSAL = "disposal"
-
-
-OPERATIONAL = frozenset({CostKind.MOVE, CostKind.SERVICE, CostKind.CONTRACT, CostKind.OTHER})
 
 
 class TermsSource(StrEnum):
@@ -86,16 +88,11 @@ class CostSummary:
         return self.purchase + self.operational + self.disposal
 
 
-def summarize(purchase: Decimal | None, lines: Iterable[tuple[str, Decimal]]) -> CostSummary:
-    """Purchase plus each line by its kind (`(kind, amount)`), exactly."""
-    operational = ZERO
-    disposal = ZERO
-    for kind, amount in lines:
-        if kind == CostKind.DISPOSAL:
-            disposal += amount
-        else:
-            operational += amount
-    return CostSummary(purchase or ZERO, operational, disposal)
+def summarize(
+    purchase: Decimal | None, lines: Iterable[Decimal], disposal: Decimal | None = None
+) -> CostSummary:
+    """Purchase, the cost lines' amounts and the disposal record's cost, exactly."""
+    return CostSummary(purchase or ZERO, sum(lines, ZERO), disposal or ZERO)
 
 
 @dataclass(frozen=True, slots=True)

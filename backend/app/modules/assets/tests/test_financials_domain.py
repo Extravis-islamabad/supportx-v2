@@ -156,12 +156,14 @@ def test_ac2_the_assets_own_settings_win_and_the_rest_comes_from_the_product() -
 
 
 def test_ac1_and_ac3_costs_add_up_exactly() -> None:
-    summary = summarize(D(1200), [(CostKind.SERVICE, D(200))])
+    summary = summarize(D(1200), [D(200)])
     assert (summary.operational, summary.total) == (D(200), D(1400))
-    many = summarize(None, [(CostKind.OTHER, D("0.01"))] * 1000 + [(CostKind.DISPOSAL, D("0.10"))])
+    # The disposal record's cost is the only disposal cost: counted once, beside the lines.
+    many = summarize(None, [D("0.01")] * 1000, D("0.10"))
     assert (many.purchase, many.operational, many.disposal) == (D(0), D("10.00"), D("0.10"))
     assert many.total == D("10.10")
-    thirds = summarize(D("0.10"), [(CostKind.MOVE, D("0.20"))] * 1000)
+    assert "disposal" not in set(CostKind)  # no disposal line can double it
+    thirds = summarize(D("0.10"), [D("0.20")] * 1000)
     assert thirds.total == D("200.10")  # 0.1 + 0.2 never drifts in decimals
 
 

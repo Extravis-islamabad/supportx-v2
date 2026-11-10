@@ -239,7 +239,10 @@ async def add_cost(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     idempotency: Idempotency,
     request: Request,
 ) -> Response:
-    """A move, service, contract, other or disposal cost (base currency). Idempotency-Key."""
+    """A move, service, contract or other cost (base currency). Idempotency-Key.
+
+    The disposal cost is the disposal record's own (`/dispose`), so it counts once.
+    """
 
     async def run() -> Created:
         row = await service.add_cost(

@@ -11,8 +11,9 @@ No person edits a valuation; it carries no version and no history (it is derived
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, tzinfo
 from decimal import Decimal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -40,6 +41,7 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetValuation,
 )
+from app.modules.organization import regional_defaults
 from app.shared.clock import system_clock
 
 log = get_logger(__name__)
@@ -60,9 +62,23 @@ VALUED_FIELDS = frozenset(
 SWEEP_BATCH = 500
 
 
-def today() -> date:
-    """The day figures are worked out for (UTC)."""
-    return system_clock.now().astimezone(UTC).date()
+def _zone(name: str | None) -> tzinfo:
+    if not name:
+        return UTC
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):  # checked when saved; never fail a valuation
+        return UTC
+
+
+async def today(session: AsyncSession) -> date:
+    """Today in the tenant's time zone (its setting; UTC when it has none).
+
+    Accounting periods are local: a Karachi tenant's month ends at midnight in Karachi, not five
+    hours later, so book values, their month proration and the daily valuation follow this day.
+    """
+    zone = (await regional_defaults(session, None)).time_zone
+    return system_clock.now().astimezone(_zone(zone)).date()
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,7 +124,7 @@ async def figures(
     lines: list[AssetCost] | None = None,
 ) -> Figures:
     """The asset's totals, depreciation in effect and book value on `on` (today)."""
-    on = on or today()
+    on = on or await today(session)
     lines = await lines_of(session, row.id) if lines is None else lines
     purchase = await _purchase(session, row)
     disposal = await session.scalar(
@@ -116,9 +132,8 @@ async def figures(
             AssetDisposal.asset_id == row.id, AssetDisposal.deleted_at.is_(None)
         )
     )
-    summary = summarize(purchase, [(line.kind, line.amount) for line in lines])
-    if disposal is not None:  # the disposal record's own cost (REQ-AST-017) counts as disposal
-        summary = CostSummary(summary.purchase, summary.operational, summary.disposal + disposal)
+    # The disposal record's own cost (REQ-AST-017) is the only disposal cost: counted once.
+    summary = summarize(purchase, [line.amount for line in lines], disposal)
     product = await session.get(AssetProduct, row.product_id)
     terms = resolve(
         asset_method=row.depreciation_method,
@@ -164,8 +179,8 @@ async def refresh(session: AsyncSession, row: Asset, *, on: date | None = None) 
 
 
 async def refresh_stale(session: AsyncSession, *, on: date | None = None) -> int:
-    """Value up to SWEEP_BATCH live assets not valued on `on` yet; how many were."""
-    on = on or today()
+    """Value up to SWEEP_BATCH live assets not valued on `on` (the tenant's today) yet."""
+    on = on or await today(session)
     stale = (
         select(Asset)
         .outerjoin(AssetValuation, AssetValuation.asset_id == Asset.id)
@@ -183,7 +198,7 @@ async def refresh_stale(session: AsyncSession, *, on: date | None = None) -> int
 
 
 async def valuation_sweep(database: Database, settings: Settings) -> None:
-    """Each tenant's assets valued once a day (RLS: app.tenant_id set), in batches."""
+    """Each tenant's assets valued once a day, its own day (RLS: app.tenant_id set), in batches."""
     del settings
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())

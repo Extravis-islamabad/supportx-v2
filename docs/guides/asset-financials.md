@@ -18,9 +18,11 @@ manage the asset.
   (purchase + operational + disposal costs).
 - **Currency:** every total is in the tenant's base currency (Admin > Organisation). Nothing is
   converted: an asset bought in another currency says so above the totals.
-- **Cost lines:** Add cost records a move, service, contract, other or disposal cost with its date,
-  amount and a description. A disposal record's own cost counts as disposal too. Removing a line
-  keeps its history.
+- **Cost lines:** Add cost records a move, service, contract or other cost with its date, amount
+  and a description. Removing a line keeps its history. The disposal cost is entered once, on the
+  disposal record (Dispose), and counted from there only, so it is never counted twice.
+- **Which day:** "today" is the tenant's day in its own time zone (Admin > Organisation), so a
+  month ends at local midnight; book values and the daily valuation follow it.
 - **Depreciation:** Configure depreciation sets the asset's own method, useful life and salvage
   value. Anything left empty comes from the product (Admin > Assets > Products); each setting shows
   where it came from. Methods:

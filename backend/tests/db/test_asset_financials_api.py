@@ -8,7 +8,7 @@ one; org B is there for isolation.
 
 import json
 import uuid
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -22,11 +22,14 @@ from app.modules.assets.service import valuations
 from app.modules.assets.service.file_access import FILE_ACCESS
 from app.modules.assets.service.realtime import ASSET_CHANGED, RECORD_KIND, ROUTES
 from app.modules.identity_access import subject_for
+from app.modules.organization.service.instance import settings_row
+from app.shared.clock import FrozenClock
 from app.shared.events import EventEnvelope
 from app.shared.files.ports import Action, OwnerType
 from app.shared.realtime import record
 from app.shared.reporting import provider_for
 from tests.db import test_incidents_api
+from tests.db.test_asset_disposals_api import RECORD, _dispose, _retired
 from tests.db.test_assets_api import _add, _product, _types, asset_manager
 from tests.db.test_incidents_api import Org, World, field_codes, problem, role
 from tests.db.test_knowledge_api import _match, _new
@@ -40,7 +43,7 @@ D = Decimal
 
 
 def _today() -> date:
-    return valuations.today()  # the UTC day the figures are worked out for
+    return datetime.now(UTC).date()  # the test tenants set no time zone: their day is UTC's
 
 
 async def _asset(world: World, org: Org, name: str, **values: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON
@@ -116,8 +119,10 @@ async def test_036_ac1_a_service_cost_adds_to_the_total_cost_of_ownership(world:
     )
     assert (money["currency"], money["currency_differs"]) == ("USD", False)
     assert [c["id"] for c in money["costs"]] == [line["id"]]
-    # A disposal cost line counts as disposal; changing and removing need the version read.
-    disposal = (await _cost(world, a, laptop, "50", kind="disposal")).json()
+    # Changing and removing need the version read; there is no disposal kind of line (the
+    # disposal record carries the disposal cost, so it is counted once).
+    assert (await _cost(world, a, laptop, "50", kind="disposal")).status_code == 422
+    courier = (await _cost(world, a, laptop, "50", kind="move")).json()
     stale = await world.call(
         "PATCH", f"{BASE}/{laptop['id']}/costs/{line['id']}", a, a.admin,
         json={"amount": "250"}, headers=_match(line["version"] + 5),
@@ -129,8 +134,8 @@ async def test_036_ac1_a_service_cost_adds_to_the_total_cost_of_ownership(world:
     )  # fmt: skip
     assert changed.status_code == 200, changed.text
     gone = await world.call(
-        "DELETE", f"{BASE}/{laptop['id']}/costs/{disposal['id']}", a, a.admin,
-        headers=_match(disposal["version"]),
+        "DELETE", f"{BASE}/{laptop['id']}/costs/{courier['id']}", a, a.admin,
+        headers=_match(courier["version"]),
     )  # fmt: skip
     assert gone.status_code == 204, gone.text
     money = (await _money(world, a, laptop)).json()
@@ -146,7 +151,7 @@ async def test_036_ac1_a_service_cost_adds_to_the_total_cost_of_ownership(world:
     # The asset's history names the line (its ID only, never the amount).
     history = (await world.call("GET", f"{BASE}/{laptop['id']}/history", a, a.tech_a)).json()
     costs = [c for e in history["items"] for c in e["changes"] if c["field"] == "cost"]
-    assert {c["new"] for c in costs} == {line["id"], disposal["id"]}
+    assert {c["new"] for c in costs} == {line["id"], courier["id"]}
     events = await _events(world, a, "assets.cost.changed")
     assert {e["payload"]["action"] for e in events} >= {"created", "updated", "deleted"}
     assert all("amount" not in e["payload"] for e in events)  # §8.2: IDs only
@@ -525,5 +530,80 @@ async def test_the_daily_sweep_values_assets_not_valued_today(world: World) -> N
             select(AssetValuation).where(AssetValuation.asset_id == asset_id)
         )
         assert valued is not None
-        assert (valued.valued_on, valued.total_cost) == (valuations.today(), D(300))
+        assert (valued.valued_on, valued.total_cost) == (await valuations.today(session), D(300))
         assert await valuations.refresh_stale(session) == 0  # nothing left for today
+
+
+async def test_036_the_disposal_cost_counts_once_from_the_disposal_record(world: World) -> None:
+    """TCO with one disposal = purchase + the other cost lines + the disposal cost, once."""
+    a = world.a
+    asset = await _retired(world, "Disposed with money")
+    priced = await world.call(
+        "PATCH", f"{BASE}/{asset['id']}", a, a.admin,
+        json={"purchase_price": "1000"}, headers=_match(asset["version"]),
+    )  # fmt: skip
+    assert priced.status_code == 200, priced.text
+    assert (await _cost(world, a, asset, "200", kind="service")).status_code == 201
+    assert (await _cost(world, a, asset, "30", kind="other")).status_code == 201
+    done = await _dispose(world, priced.json(), {**RECORD, "cost": "75.25", "currency": "USD"})
+    assert done.status_code == 200, done.text
+    money = (await _money(world, a, asset)).json()
+    assert (D(money["operational"]), D(money["disposal"]), D(money["total_cost"])) == (
+        D(230),
+        D("75.25"),
+        D("1305.25"),
+    )
+    # The valuation reports read counts it once too.
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await valuations.refresh_stale(session, on=_today() + timedelta(days=1))
+        valued = await session.get(AssetValuation, (a.tenant, uuid.UUID(asset["id"])))
+    assert valued is not None
+    assert valued.total_cost == D("1305.25")
+
+
+async def _karachi(world: World, org: Org) -> None:
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant, org.admin)) as session:
+        (await settings_row(session)).time_zone = "Asia/Karachi"
+
+
+@pytest.mark.parametrize(
+    ("utc_now", "local_day", "book_value"),
+    [
+        # 23:30 on 31 October in Karachi (UTC+5): still October, one month written off.
+        (datetime(2026, 10, 31, 18, 30, tzinfo=UTC), date(2026, 10, 31), D(1100)),
+        # 00:30 on 1 November in Karachi, while UTC is still 31 October: the next month counts.
+        (datetime(2026, 10, 31, 19, 30, tzinfo=UTC), date(2026, 11, 1), D(1000)),
+    ],
+)
+async def test_037_today_and_the_months_are_the_tenants_local_ones(
+    world: World,
+    monkeypatch: pytest.MonkeyPatch,
+    utc_now: datetime,
+    local_day: date,
+    book_value: Decimal,
+) -> None:
+    """Accounting periods are local: a Karachi month ends at midnight in Karachi."""
+    a = world.a
+    await _karachi(world, a)
+    # 1,200 over one year straight line from 1 September: 100 a month.
+    asset = await _asset(
+        world, a, "Local months", purchase_price="1200", acquired_on="2026-09-01",
+        depreciation_method="straight_line", useful_life_years=1,
+    )  # fmt: skip
+    monkeypatch.setattr(valuations, "system_clock", FrozenClock(utc_now))
+    money = (await _money(world, a, asset)).json()  # no `on`: the tenant's today
+    assert (money["on"], D(money["book_value"])) == (local_day.isoformat(), book_value)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await valuations.today(session) == local_day
+        # Valued before (on the real day at its creation): made a month old for the sweep.
+        await session.execute(
+            text(
+                "UPDATE asset_valuations SET valued_on = DATE '2026-09-30', updated_at = now()"
+                " WHERE asset_id = :id"
+            ),
+            {"id": uuid.UUID(asset["id"])},
+        )
+        assert await valuations.refresh_stale(session) >= 1  # the daily valuation, local day
+        valued = await session.get(AssetValuation, (a.tenant, uuid.UUID(asset["id"])))
+    assert valued is not None
+    assert (valued.valued_on, valued.book_value) == (local_day, book_value)

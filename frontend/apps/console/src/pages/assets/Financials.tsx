@@ -45,7 +45,8 @@ import { okFooter } from './dialogOk';
 import { useMoney } from './money';
 import { problemText } from './problemText';
 
-const KINDS: AssetCostKind[] = ['service', 'move', 'contract', 'other', 'disposal'];
+// No disposal kind: the disposal record carries the disposal cost (counted once).
+const KINDS: AssetCostKind[] = ['service', 'move', 'contract', 'other'];
 const METHODS: AssetDepreciationChoice[] = [
   'straight_line',
   'declining_balance',

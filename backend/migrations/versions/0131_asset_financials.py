@@ -4,8 +4,8 @@ Number 0131 from the coordinator. Expand only, no data step:
 - `assets`: `cost_centre` and `gl_code` (REQ-AST-038; free text until WP-054 brings real cost
   centres), and the asset's own depreciation settings (REQ-AST-037): `depreciation_method`
   (a method or `none`; NULL takes the product's), `useful_life_years`, `salvage_value`.
-- `asset_costs` (REQ-AST-036): the asset's cost lines (move, service, contract, other,
-  disposal), each with a date, an amount (base currency) and a description. The purchase is the
+- `asset_costs` (REQ-AST-036): the asset's operational cost lines (move, service, contract,
+  other), each with a date, an amount (base currency) and a description. The purchase is the
   asset's own price and tax, so it is no line.
 - `asset_notes` (REQ-AST-050): notes on an asset, sanitised rich text, with the people mentioned;
   edited and deleted notes keep their history (`field_changes`), a deleted one stays as a
@@ -66,7 +66,7 @@ CHOICES = (
     "sum_of_years_digits",
     "none",
 )
-COST_KINDS = ("move", "service", "contract", "other", "disposal")
+COST_KINDS = ("move", "service", "contract", "other")
 OWNER_TYPES_BEFORE = (
     "owner_type IN ('work_item', 'conversation_entry', 'draft', 'branding', 'kb_article',"
     " 'asset_disposal')"

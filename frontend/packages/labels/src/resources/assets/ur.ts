@@ -17,7 +17,6 @@ export const ur: LabelResource = {
   'asset_components_choice.detach': 'انہیں الگ کریں',
   'asset_components_choice.dispose': 'انہیں بھی تلف کریں',
   'asset_cost_kind.contract': 'معاہدہ',
-  'asset_cost_kind.disposal': 'تلفی',
   'asset_cost_kind.move': 'منتقلی',
   'asset_cost_kind.other': 'دیگر',
   'asset_cost_kind.service': 'سروس',

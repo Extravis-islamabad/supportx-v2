@@ -17,7 +17,6 @@ export const ar: LabelResource = {
   'asset_components_choice.detach': 'فصلها',
   'asset_components_choice.dispose': 'التخلّص منها أيضًا',
   'asset_cost_kind.contract': 'عقد',
-  'asset_cost_kind.disposal': 'تخلّص',
   'asset_cost_kind.move': 'نقل',
   'asset_cost_kind.other': 'أخرى',
   'asset_cost_kind.service': 'صيانة',

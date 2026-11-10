@@ -15,7 +15,6 @@ export const en = {
   'asset_components_choice.detach': 'Detach them',
   'asset_components_choice.dispose': 'Dispose of them too',
   'asset_cost_kind.contract': 'Contract',
-  'asset_cost_kind.disposal': 'Disposal',
   'asset_cost_kind.move': 'Move',
   'asset_cost_kind.other': 'Other',
   'asset_cost_kind.service': 'Service',

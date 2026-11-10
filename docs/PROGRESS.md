@@ -1458,11 +1458,12 @@ it with no reload (rule c). Not built yet.
     is there, and the portal's picker uses the same query); AC2 of 035 with WP-054.
 - [x] **Session 2 (migration 0131 after 0130; REQ-AST-036, 037, 038, 048, 049, 050; branch
   backup/wp-049b-s2, its PR after #367 lands):**
-  - Cost lines (move, service, contract, other, disposal) in the base currency and the total cost
+  - Cost lines (move, service, contract, other) in the base currency, the disposal record's cost
+    as the only disposal cost (counted once), and the total cost
     of ownership, exact decimals (036 AC1, AC3); depreciation as a pure domain (straight line,
     declining balance 150 %, double declining, sum of the years' digits, none; prorated by month;
     golden-value tests) with the asset's own settings or its product's (037 AC1-AC3); book value
-    on any day and the schedule by year.
+    on any day and the schedule by year; "today" is the tenant's local day (its time zone).
   - Cost centre and GL code (free text; GL from the product) on assets; `asset_valuations` for
     reports by cost centre (038 AC2), refreshed on save and by a daily sweep. Dimension codes for
     lane C: `cost_centre`, `gl_code`; money fields `book_value`, `total_cost`.

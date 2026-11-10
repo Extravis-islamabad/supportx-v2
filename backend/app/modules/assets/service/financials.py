@@ -5,8 +5,8 @@ Parity 07 §9 (REQ-AST-036, 037, 038):
   manager's and the administrators' by default); changing cost lines also needs `assets.manage`
   on the asset. Without it the API refuses (403) and the console shows no money.
 - **Cost lines** are in the tenant's base currency (organization's settings); the purchase is
-  the asset's own price and tax, the disposal record's cost counts as disposal. Totals are
-  exact decimals (`domain/financials.py`).
+  the asset's own price and tax, the disposal record's cost is the disposal cost (its only
+  home, so it counts once). Totals are exact decimals (`domain/financials.py`).
 - **Depreciation** is set on the asset through its usual save (`assets.update_asset`, which asks
   for this permission when depreciation settings are sent) or inherited from its product.
 - Every change keeps history on the asset (a part added, changed or removed: the line's ID only,
