@@ -7,7 +7,7 @@ report answered 500 ("permission denied for table assets"). The source's list qu
 RLS still filters by tenant. No data step.
 
 Revision ID: 0124
-Revises: 0110
+Revises: 0115
 Created: 2026-11-10
 """
 
@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from migrations.helpers import grant_report, revoke_report
 
 revision: str = "0124"
-down_revision: str | None = "0110"
+down_revision: str | None = "0115"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
