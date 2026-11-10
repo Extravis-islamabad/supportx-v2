@@ -36,6 +36,7 @@ import {
   useDateTime,
   useLabel,
   useLicence,
+  useMinWidth,
   usePageCrumbs,
   type RecordAction,
 } from '@supportx/ui';
@@ -133,6 +134,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   // Haider E2: the incident's actions here too (Reply, Assign, Take, the moves, Fulfil in
   // them, the rest under More), through the requests' own routes.
   const queryClient = useQueryClient();
+  const wide = useMinWidth(576);
   const reload = () => queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(r.id) });
   const catalogue = useServiceRequestCatalogue();
   const act = useServiceRequestAction(r.id);
@@ -220,7 +222,9 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
         actions={
           <ActionBar
             testId="sr-actions"
-            max={3}
+            // Two buttons on a phone: the third wrapped "More actions" onto a second line
+            // (the visual matrix at 390 px).
+            max={wide ? 3 : 2}
             lead={
               mayWithdraw ? (
                 <WithdrawButton
