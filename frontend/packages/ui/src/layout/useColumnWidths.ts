@@ -17,6 +17,7 @@ export function useColumnWidths({
   viewKey,
   keys,
   minWidths = {},
+  defaults = {},
   label,
 }: {
   kind: ListKind;
@@ -24,6 +25,8 @@ export function useColumnWidths({
   keys: readonly string[];
   /** Columns that must never get narrower, e.g. `{ subject: 180 }`. */
   minWidths?: Readonly<Record<string, number>>;
+  /** Columns with a width of their own (others size automatically). */
+  defaults?: Readonly<Record<string, number>>;
   /** The separator's name for one column, e.g. "Width of Subject: use the arrow keys". */
   label: (key: string) => string;
 }) {
@@ -31,7 +34,7 @@ export function useColumnWidths({
   const save = useSaveListSetting(kind);
   const [dragged, setDragged] = useState<{ key: string; width: number } | null>(null);
   const saved = new Map((setting.data?.columns ?? []).map((c) => [c.key, c.width ?? null]));
-  const savedWidth = (key: string) => saved.get(key) ?? undefined;
+  const savedWidth = (key: string) => saved.get(key) ?? defaults[key];
   const store = (widths: Map<string, number | null>) => {
     save.mutate({
       viewKey,
@@ -43,13 +46,14 @@ export function useColumnWidths({
     });
   };
   return {
-    /** The width to draw the column at: a drag in progress, else the saved one, else automatic. */
+    /** The width to draw the column at: a drag, else the saved one, else its own or automatic. */
     width: (key: string): number | undefined =>
       dragged?.key === key ? dragged.width : savedWidth(key),
     /** For the column's `onHeaderCell`. */
     header: (key: string) =>
       ({
         width: savedWidth(key),
+        defaultWidth: defaults[key],
         minWidth: minWidths[key],
         resizeLabel: label(key),
         onPreview: (next: number | null) => {

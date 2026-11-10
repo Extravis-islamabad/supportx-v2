@@ -11,7 +11,15 @@ import {
   useProblemViews,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
-import { EmptyText, PageHeader, reportError, useAccess, useDateTime, useLabel } from '@supportx/ui';
+import {
+  EmptyText,
+  PageHeader,
+  reportError,
+  useAccess,
+  useColumnWidths,
+  useDateTime,
+  useLabel,
+} from '@supportx/ui';
 
 import { searchOf } from '../incidents/searchOf';
 import { PriorityTag, StatusTag } from '../incidents/tags';
@@ -25,6 +33,9 @@ import { RepeatedIncidents } from './RepeatedIncidents';
  * display ID (PRB-7), across problems and known errors alike (both are problems). The subject
  * ends in an ellipsis and the ID and subject stay in view when the table scrolls sideways.
  */
+const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
+const OWN_WIDTHS = { id: 130, subject: 320, status: 150, priority: 130, owner: 180, updated: 170 };
+
 export function ProblemsPage() {
   const t = useLabel();
   const { format } = useDateTime();
@@ -37,6 +48,23 @@ export function ProblemsPage() {
   const views = useProblemViews();
   const list = useProblems({ view, filter: searchOf(text) });
   const catalogue = useProblemCatalogue();
+  // Each person's column widths, per view (Haider, 2026-11-10): drag or arrow keys on a header.
+  const titles: Record<string, string> = {
+    id: t('incidents.col.id'),
+    subject: t('work_item.field.subject'),
+    status: t('work_item.field.status'),
+    priority: t('work_item.field.priority'),
+    owner: t('problems.owner'),
+    updated: t('incidents.col.updated'),
+  };
+  const widths = useColumnWidths({
+    kind: 'problems',
+    viewKey: view ?? views.data?.[0]?.view ?? 'all',
+    keys: Object.keys(titles),
+    defaults: OWN_WIDTHS,
+    minWidths: { subject: SUBJECT_MIN },
+    label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
+  });
   useListChannel('problems', () => {
     void queryClient.invalidateQueries({ queryKey: [...problemKeys.all, 'list'] });
     void queryClient.invalidateQueries({ queryKey: problemKeys.views });
@@ -93,6 +121,11 @@ export function ProblemsPage() {
           }}
           data-testid="prb-search"
         />
+        {widths.changed && (
+          <Button onClick={widths.reset} data-testid="prb-reset-widths">
+            {t('layout.reset_widths')}
+          </Button>
+        )}
       </Flex>
       <Table
         rowKey="id"
@@ -101,6 +134,7 @@ export function ProblemsPage() {
         dataSource={rows}
         pagination={false}
         data-testid="prb-list"
+        components={widths.components}
         locale={{
           emptyText: list.isLoading ? (
             <span />
@@ -115,7 +149,8 @@ export function ProblemsPage() {
           {
             key: 'id',
             title: t('incidents.col.id'),
-            width: 130,
+            width: widths.width('id'),
+            onHeaderCell: () => widths.header('id'),
             fixed: 'left' as const,
             render: (_, row) => (
               <Link to={`/problems/${row.id}`} data-testid={`prb-row-${row.display_id}`}>
@@ -126,7 +161,8 @@ export function ProblemsPage() {
           {
             key: 'subject',
             title: t('work_item.field.subject'),
-            width: 320,
+            width: widths.width('subject'),
+            onHeaderCell: () => widths.header('subject'),
             fixed: 'left' as const,
             // Cut with an ellipsis; the whole subject is the cell's tooltip.
             ellipsis: true,
@@ -139,13 +175,15 @@ export function ProblemsPage() {
           {
             key: 'status',
             title: t('work_item.field.status'),
-            width: 150,
+            width: widths.width('status'),
+            onHeaderCell: () => widths.header('status'),
             render: (_, row) => <StatusTag status={row.status} catalogue={catalogue.data} />,
           },
           {
             key: 'priority',
             title: t('work_item.field.priority'),
-            width: 130,
+            width: widths.width('priority'),
+            onHeaderCell: () => widths.header('priority'),
             render: (_, row) => (
               <PriorityTag priority={row.priority} source={row.priority_source} />
             ),
@@ -153,7 +191,8 @@ export function ProblemsPage() {
           {
             key: 'owner',
             title: t('problems.owner'),
-            width: 180,
+            width: widths.width('owner'),
+            onHeaderCell: () => widths.header('owner'),
             ellipsis: true,
             render: (_, row) =>
               row.technician_id === null ? '' : (people[row.technician_id]?.display_name ?? ''),
@@ -161,7 +200,8 @@ export function ProblemsPage() {
           {
             key: 'updated',
             title: t('incidents.col.updated'),
-            width: 170,
+            width: widths.width('updated'),
+            onHeaderCell: () => widths.header('updated'),
             render: (_, row) => format(row.updated_at),
           },
         ]}
