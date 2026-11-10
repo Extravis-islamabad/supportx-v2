@@ -156,6 +156,13 @@ function api() {
           release_engineer_id: null,
         },
       },
+      'GET /api/v1/releases/list-settings/open': {
+        body: { view_key: 'open', columns: [], sort: null, page_size: 50, version: null },
+      },
+      'PUT /api/v1/releases/list-settings/open': (call: { body: unknown }) => ({
+        body: { view_key: 'open', version: 1, ...(call.body as object) },
+        headers: { ETag: '"1"' },
+      }),
       'GET /api/v1/releases/settings': {
         body: {
           closure_codes: [],
@@ -213,6 +220,36 @@ describe('console: releases', () => {
           { field: 'display_id', op: 'eq', value: 'REL-1' },
         ],
       });
+    });
+  });
+
+  it('Haider 2026-11-10: a column resized by keyboard is kept per view; Reset widths clears it', async () => {
+    window.history.pushState({}, '', '/releases');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('release-row-REL-1');
+    expect(screen.queryByTestId('releases-reset-widths')).toBeNull(); // nothing to reset yet
+    const [subject] = screen.getAllByRole('separator', { name: /Subject/ });
+    if (subject === undefined) throw new Error('no resize handle on the subject');
+    expect(subject.getAttribute('aria-valuemin')).toBe('180');
+    fireEvent.keyDown(subject, { key: 'ArrowRight' });
+    const last = () =>
+      fake.find('PUT', '/api/v1/releases/list-settings/open').at(-1)?.body as {
+        columns: { key: string; width: number | null }[];
+      };
+    await waitFor(() => {
+      expect(last().columns.find((c) => c.key === 'subject')?.width).toBeGreaterThanOrEqual(180);
+    });
+    expect(last().columns.map((c) => c.key)).toEqual([
+      'id',
+      'subject',
+      'stage',
+      'status',
+      'updated',
+    ]);
+    fireEvent.click(await screen.findByTestId('releases-reset-widths'));
+    await waitFor(() => {
+      expect(last().columns.every((c) => c.width === null)).toBe(true);
     });
   });
 

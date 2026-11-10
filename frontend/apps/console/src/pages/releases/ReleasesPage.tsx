@@ -1,6 +1,6 @@
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Flex, Input, Segmented, Table } from 'antd';
+import { Button, Flex, Input, Segmented, Table } from 'antd';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -18,12 +18,14 @@ import {
   useAccess,
   useDateTime,
   useLabel,
+  useColumnWidths,
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
 
 // Quick views of the list (the engine's built-in views; "all" sends none).
+const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
 const VIEWS = ['open', 'my_open', 'resolved', 'all'] as const;
 type View = (typeof VIEWS)[number];
 
@@ -53,6 +55,21 @@ export function ReleasesPage() {
   const { can } = useAccess();
   const { format } = useDateTime();
   const [view, setView] = useState<View>('open');
+  // Each person's column widths, per view (Haider, 2026-11-10): drag or arrow keys on a header.
+  const titles: Record<string, string> = {
+    id: t('releases.col.id'),
+    subject: t('work_item.field.subject'),
+    stage: t('work_item.field.stage'),
+    status: t('work_item.field.status'),
+    updated: t('releases.col.updated'),
+  };
+  const widths = useColumnWidths({
+    kind: 'releases',
+    viewKey: view,
+    keys: Object.keys(titles),
+    minWidths: { subject: SUBJECT_MIN },
+    label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
+  });
   const [search, setSearch] = useState('');
   const text = useDebounced(search, 300);
   const list = useReleases({
@@ -114,6 +131,13 @@ export function ReleasesPage() {
               data-testid="releases-search"
             />
           }
+          extra={
+            widths.changed && (
+              <Button onClick={widths.reset} data-testid="releases-reset-widths">
+                {t('layout.reset_widths')}
+              </Button>
+            )
+          }
         />
       }
     >
@@ -125,6 +149,7 @@ export function ReleasesPage() {
           dataSource={list.data?.items ?? []}
           pagination={false}
           tableLayout="auto"
+          components={widths.components}
           locale={{
             emptyText: (
               <EmptyText>
@@ -141,12 +166,15 @@ export function ReleasesPage() {
             {
               key: 'id',
               title: t('releases.col.id'),
-              width: 1,
+              width: widths.width('id') ?? 1,
+              onHeaderCell: () => widths.header('id'),
               render: (_, row) => <bdi style={{ whiteSpace: 'nowrap' }}>{row.display_id}</bdi>,
             },
             {
               key: 'subject',
               title: t('work_item.field.subject'),
+              width: widths.width('subject') ?? undefined,
+              onHeaderCell: () => widths.header('subject'),
               render: (_, row) => (
                 <Flex gap={8} align="center" wrap>
                   <bdi>{row.subject}</bdi>
@@ -165,7 +193,8 @@ export function ReleasesPage() {
             {
               key: 'stage',
               title: t('work_item.field.stage'),
-              width: 1,
+              width: widths.width('stage') ?? 1,
+              onHeaderCell: () => widths.header('stage'),
               render: (_, row) => (
                 <span style={{ whiteSpace: 'nowrap' }}>{stageName(t, row.stage)}</span>
               ),
@@ -173,7 +202,8 @@ export function ReleasesPage() {
             {
               key: 'status',
               title: t('work_item.field.status'),
-              width: 1,
+              width: widths.width('status') ?? 1,
+              onHeaderCell: () => widths.header('status'),
               render: (_, row) => (
                 <span style={{ whiteSpace: 'nowrap' }}>{statusName(t, row.status)}</span>
               ),
@@ -181,7 +211,8 @@ export function ReleasesPage() {
             {
               key: 'updated',
               title: t('releases.col.updated'),
-              width: 1,
+              width: widths.width('updated') ?? 1,
+              onHeaderCell: () => widths.header('updated'),
               render: (_, row) => (
                 <span style={{ whiteSpace: 'nowrap' }}>{format(row.updated_at)}</span>
               ),

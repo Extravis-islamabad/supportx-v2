@@ -34,3 +34,10 @@ export {
   type LibraryItem,
   type LibraryPageProps,
 } from './LibraryPage';
+export {
+  COLUMN_MAX_WIDTH,
+  COLUMN_MIN_WIDTH,
+  ResizableHeader,
+  type ResizableHeaderProps,
+} from './ResizableHeader';
+export { useColumnWidths } from './useColumnWidths';

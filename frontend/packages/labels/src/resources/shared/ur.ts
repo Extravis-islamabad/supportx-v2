@@ -157,6 +157,8 @@ export const ur: LabelResource = {
   'layout.properties': 'خصوصیات',
   'layout.properties_add': 'تفصیلات شامل کریں ({{n}})',
   'layout.properties_fewer': 'خالی فیلڈز چھپائیں',
+  'layout.reset_widths': 'چوڑائی دوبارہ طے کریں',
+  'layout.resize_column': '{{column}} کی چوڑائی: تیر والی کلیدیں استعمال کریں',
   'layout.star': 'پسندیدہ میں شامل کریں',
   'layout.unstar': 'پسندیدہ سے ہٹائیں',
   'layout.view': 'دیکھیں',

@@ -51,6 +51,7 @@ import {
   ListPage,
   HeaderActions,
   PageHeader,
+  ResizableHeader,
   useMinWidth,
 } from '@supportx/ui';
 
@@ -62,7 +63,7 @@ import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
 import { MyExportsButton } from '../reports/exports';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
-import { ColumnChooser, ResizableHeader, SelectPageBox } from './list/ColumnChooser';
+import { ColumnChooser, SelectPageBox } from './list/ColumnChooser';
 import {
   chosenColumns,
   columnCatalogue,
@@ -221,6 +222,8 @@ export function IncidentsPage() {
           : (c.width ?? columnSpecs.get(c.key)?.width ?? 0)),
       0,
     );
+  // A column being dragged shows its new width at once; the save follows on release.
+  const [dragged, setDragged] = useState<{ key: string; width: number } | null>(null);
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
   const pageSize = stored?.page_size ?? 50;
   const saveSettings = (change: { columns?: ListColumn[]; sort?: string; page_size?: number }) => {
@@ -825,13 +828,14 @@ export function IncidentsPage() {
           ...columns.flatMap((column) => {
             const spec = columnSpecs.get(column.key);
             if (spec === undefined) return [];
-            const width = column.width ?? spec.width;
+            const own = column.width ?? spec.width;
+            const width = dragged?.key === column.key ? dragged.width : own;
             return [
               {
                 key: spec.key,
                 title: spec.title(context),
                 // The subject takes what is left over; the others keep their width.
-                width: spec.key === 'subject' ? undefined : width,
+                width: spec.key === 'subject' && dragged?.key !== 'subject' ? undefined : width,
                 // Text that does not fit ends in an ellipsis; the cell's own tooltip holds it all.
                 ellipsis: ELLIPSIS.has(spec.key) ? { showTitle: spec.key !== 'subject' } : false,
                 fixed: STICKY.has(spec.key) ? ('left' as const) : undefined,
@@ -846,8 +850,14 @@ export function IncidentsPage() {
                 render: (_: unknown, row: IncidentListItem) => spec.render(row, context),
                 onHeaderCell: () =>
                   ({
-                    width,
+                    width: own,
+                    defaultWidth: spec.width,
+                    // The subject never gets too narrow to read (Haider, 2026-11-10).
+                    minWidth: spec.key === 'subject' ? SUBJECT_MIN : undefined,
                     resizeLabel: t('incidents.columns.resize', { column: spec.title(context) }),
+                    onPreview: (next: number | null) => {
+                      setDragged(next === null ? null : { key: column.key, width: next });
+                    },
                     onResize: (next: number) => {
                       saveSettings({
                         columns: columns.map((c) =>

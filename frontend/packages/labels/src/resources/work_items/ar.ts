@@ -635,6 +635,7 @@ export const ar: LabelResource = {
   'incidents.columns.none': 'لا يطابق أي حقل آخر.',
   'incidents.columns.remove': 'إزالة {{column}}',
   'incidents.columns.reset': 'الأعمدة الافتراضية',
+  'incidents.columns.reset_widths': 'إعادة ضبط العرض',
   'incidents.columns.resize': 'عرض {{column}}: استخدم مفاتيح الأسهم',
   'incidents.columns.search': 'البحث في الحقول',
   'incidents.columns.shown': 'المعروضة، بهذا الترتيب',

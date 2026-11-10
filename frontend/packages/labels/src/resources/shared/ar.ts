@@ -168,6 +168,8 @@ export const ar: LabelResource = {
   'layout.properties': 'الخصائص',
   'layout.properties_add': 'إضافة تفاصيل ({{n}})',
   'layout.properties_fewer': 'إخفاء الحقول الفارغة',
+  'layout.reset_widths': 'إعادة ضبط العرض',
+  'layout.resize_column': 'عرض {{column}}: استخدم مفاتيح الأسهم',
   'layout.star': 'إضافة إلى المفضلة',
   'layout.unstar': 'إزالة من المفضلة',
   'layout.view': 'عرض',

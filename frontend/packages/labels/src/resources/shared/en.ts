@@ -156,6 +156,8 @@ export const en = {
   'layout.properties': 'Properties',
   'layout.properties_add': 'Add details ({{n}})',
   'layout.properties_fewer': 'Hide empty fields',
+  'layout.reset_widths': 'Reset widths',
+  'layout.resize_column': 'Width of {{column}}: use the arrow keys',
   'layout.star': 'Add to favourites',
   'layout.unstar': 'Remove from favourites',
   'layout.view': 'View',

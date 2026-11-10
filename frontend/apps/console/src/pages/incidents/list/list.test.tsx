@@ -297,6 +297,40 @@ describe('Incident list (WP-020d)', () => {
     expect(fake.find('PUT', '/api/v1/incidents/list-settings/my_open')).toHaveLength(0);
   });
 
+  it('Haider 2026-11-10: a column resized by keyboard is saved for this view; the subject keeps its minimum; Reset widths', async () => {
+    const fake = api({
+      routes: routes({
+        'PUT /api/v1/incidents/list-settings/open': (call: { body: unknown }) => ({
+          body: { view_key: 'open', version: 1, ...(call.body as object) },
+          headers: { ETag: '"1"' },
+        }),
+      }),
+    });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    const [subject] = screen.getAllByRole('separator', { name: /Subject/ });
+    if (subject === undefined) throw new Error('no resize handle on the subject');
+    for (let i = 0; i < 4; i += 1) fireEvent.keyDown(subject, { key: 'ArrowLeft', shiftKey: true });
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/incidents/list-settings/open').length).toBeGreaterThan(0);
+    });
+    const widths = () => {
+      const puts = fake.find('PUT', '/api/v1/incidents/list-settings/open');
+      const last = puts.at(-1)?.body as { columns: { key: string; width: number | null }[] };
+      return new Map(last.columns.map((c) => [c.key, c.width]));
+    };
+    await waitFor(() => {
+      expect(widths().get('subject')).toBe(180); // never narrower than the subject's minimum
+    });
+    fireEvent.click(screen.getByTestId('inc-columns'));
+    fireEvent.click(await screen.findByTestId('inc-columns-reset-widths'));
+    await waitFor(() => {
+      expect(widths().get('subject')).toBeNull();
+    });
+    expect([...widths().values()].every((w) => w === null)).toBe(true);
+    expect(fake.find('PUT', '/api/v1/incidents/list-settings/my_open')).toHaveLength(0);
+  });
+
   it('QA10-P1-10: three quick column moves save one final order, with no conflict', async () => {
     // The server checks If-Match like the real one: a save with an old version is a 409.
     let version = 0;
