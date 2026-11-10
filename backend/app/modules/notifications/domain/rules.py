@@ -73,7 +73,12 @@ class Rule:
     @classmethod
     def from_default(cls, default: EventDefault) -> "Rule":
         """The rule an event ships with (no set-up step, REQ-NTF-008 AC1)."""
-        return cls(default.enabled, default.recipients, default.channels)
+        return cls(
+            default.enabled,
+            default.recipients,
+            default.channels,
+            notify_actor=default.notify_actor,
+        )
 
     def applies(self, values: Mapping[str, str | None]) -> bool:
         """On, and every condition passes (REQ-NTF-008 AC2)."""

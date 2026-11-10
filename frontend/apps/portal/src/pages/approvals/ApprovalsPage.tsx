@@ -13,6 +13,7 @@ import {
   Typography,
 } from 'antd';
 import { useState } from 'react';
+import { Link } from 'react-router';
 
 import {
   ApiError,
@@ -144,9 +145,15 @@ export function ApprovalsPage() {
                     data-testid={`portal-approval-pick-${a.display_id}`}
                   />
                 )}
-                <Typography.Text strong>
-                  <span dir="ltr">{a.display_id}</span> · <bdi>{a.subject}</bdi>
-                </Typography.Text>
+                {/* What is asked opens read-only before deciding (QA10-P2-06). */}
+                <Link
+                  to={`/service-requests/${a.record_id}`}
+                  data-testid={`portal-approval-open-${a.display_id}`}
+                >
+                  <Typography.Text strong>
+                    <span dir="ltr">{a.display_id}</span> · <bdi>{a.subject}</bdi>
+                  </Typography.Text>
+                </Link>
                 {a.origin === 'backup' && (
                   <Tag data-testid={`portal-approval-delegated-${a.display_id}`}>
                     {t('portal.approvals.delegated')}

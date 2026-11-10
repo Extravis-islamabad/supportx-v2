@@ -18,15 +18,27 @@ export async function fetchMe(): Promise<MeResponse> {
 }
 
 /** The current session. A 401 resolves to `null` (not logged in) rather than an error. */
+// Why the last /me had no session, when the server said (QA10: "console_requester_only" sends a
+// requester to the portal, not to a password page).
+let refusal: string | null = null;
+
+/** The code of the last "no session" answer, or null (a plain sign-out or none yet). */
+export function sessionRefusalCode(): string | null {
+  return refusal;
+}
+
 export function useSession() {
   return useQuery({
     queryKey: queryKeys.session,
     queryFn: async (): Promise<MeResponse | null> => {
       try {
-        return await fetchMe();
+        const me = await fetchMe();
+        refusal = null;
+        return me;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           setCsrfToken(null);
+          refusal = error.code;
           return null;
         }
         throw error;

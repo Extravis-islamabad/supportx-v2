@@ -158,6 +158,8 @@ export const en = {
     'This persona must set up two-step sign-in first: run make showcase-seed to pre-enrol it.',
   'dev_sign_in.reason.not_showcase': 'This persona isn’t a member of Showcase Company.',
   'dev_sign_in.sets_up_mfa': 'sets up two-step sign-in',
+  'dev_sign_in.setup_link_sent':
+    'We e-mailed {{email}} a link to set up two-step sign-in. Open it in the local mail catcher (Mailpit) within 15 minutes.',
   'dev_sign_in.title': 'Quick sign-in (dev only)',
   'dev_sign_in.unavailable':
     'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
@@ -360,10 +362,44 @@ export const en = {
   'permission.catalog_items.manage': 'Manage the service catalog',
   'permission.catalog_items.manage.description':
     'Add and change catalog categories and items: their forms, approval and fulfilment.',
+  'permission.changes.add_note': 'Add private notes on changes',
+  'permission.changes.add_note.description': 'Write staff-only notes on changes.',
   'permission.changes.approve': 'Approve changes',
   'permission.changes.approve.description': 'Approve or reject change requests.',
+  'permission.changes.assign': 'Assign changes',
+  'permission.changes.assign.description': 'Choose the group and owner of changes.',
+  'permission.changes.assign_outside_group': 'Assign changes outside the group',
+  'permission.changes.assign_outside_group.description':
+    'Give a change to someone who is not in its group.',
+  'permission.changes.cancel': 'Cancel changes',
+  'permission.changes.cancel.description': 'Cancel changes with a reason, and undo it.',
+  'permission.changes.change_priority': "Change a change's priority by hand",
+  'permission.changes.change_priority.description': 'Set the priority instead of the matrix.',
+  'permission.changes.close': 'Close changes',
+  'permission.changes.close.description': 'Move changes through their life cycle and close them.',
   'permission.changes.create': 'Create changes',
   'permission.changes.create.description': 'Raise new change requests.',
+  'permission.changes.delete': 'Delete changes',
+  'permission.changes.delete.description': 'Move changes to the trash and restore them.',
+  'permission.changes.edit': 'Work on changes',
+  'permission.changes.edit.description':
+    'Change the details of changes, their analysis and their tasks.',
+  'permission.changes.edit_due_dates': 'Set change target dates by hand',
+  'permission.changes.edit_due_dates.description':
+    "Set or clear a change's due time by hand, with a reason.",
+  'permission.changes.manage_followers': 'Manage followers of changes',
+  'permission.changes.manage_followers.description':
+    'Add and remove the people who follow a change.',
+  'permission.changes.reopen': 'Reopen changes',
+  'permission.changes.reopen.description':
+    'Take a resolved or closed change back into investigation.',
+  'permission.changes.reply': 'Add public notes on changes',
+  'permission.changes.reply.description':
+    'Reply to requesters on changes and add notes they can see.',
+  'permission.changes.resolve': 'Resolve changes',
+  'permission.changes.resolve.description': 'Mark changes as resolved with their resolution.',
+  'permission.changes.take': 'Take changes',
+  'permission.changes.take.description': 'Take a change nobody owns yet.',
   'permission.changes.view': 'View changes',
   'permission.changes.view.description': 'See change requests.',
   'permission.cmdb.manage': 'Manage CMDB',
