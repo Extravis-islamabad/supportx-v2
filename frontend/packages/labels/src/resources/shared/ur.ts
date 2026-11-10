@@ -552,6 +552,9 @@ export const ur: LabelResource = {
   'setup.page.users.description': 'لوگ شامل کریں، ان کی قسم اور حالت بدلیں، فائل سے درآمد کریں۔',
   'setup.page.users.keywords': 'لوگ، صارفین، ٹیکنیشن، درخواست گزار، درآمد، عملہ، اکاؤنٹس، غیر فعال',
   'setup.palette_group': 'سیٹ اپ',
+  'setup.read_only': 'آپ یہ صفحہ دیکھ سکتے ہیں لیکن بدل نہیں سکتے۔',
+  'setup.read_only_reason':
+    'آپ کا کردار یہ ترتیبات دیکھنے دیتا ہے۔ انہیں بدلنے کے لیے انتظام کا حق درکار ہے؛ ضرورت ہو تو منتظم سے کہیں۔',
   'setup.search': 'سیٹ اپ میں تلاش',
   'setup.search_placeholder': 'جیسے پاس ورڈ، چھٹیاں، لوگو',
   'setup.title': 'سیٹ اپ',

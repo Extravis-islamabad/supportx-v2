@@ -137,6 +137,8 @@ export const ur: LabelResource = {
   'dashboards.editing_hint':
     'وجیٹس کو گھسیٹیں، یا انہیں منتقل کرنے اور سائز بدلنے کے لیے تیر استعمال کریں۔ «مکمل» محفوظ کرتا ہے؛ «واپس» آخری تبدیلی منسوخ کرتا ہے۔',
   'dashboards.empty': 'ابھی کوئی وجیٹ نہیں۔ کچھ شامل کرنے کے لیے ترتیب میں ترمیم کریں۔',
+  'dashboards.empty_editing':
+    'ابھی کوئی وجٹ نہیں۔ ایک شامل کرنے کے لیے "وجٹ شامل کریں" استعمال کریں۔',
   'dashboards.expand': 'بڑا کریں',
   'dashboards.filter_days': 'وقت کی حد',
   'dashboards.filter_group_id': 'گروپ',
@@ -203,6 +205,8 @@ export const ur: LabelResource = {
   'dashboards.widget_unavailable': 'اس وجیٹ کے پیچھے کی رپورٹ آپ کے لیے دستیاب نہیں۔',
   'dashboards.your_home': 'آپ کا ہوم',
   'errors.pdf_not_available': 'اس سرور پر PDF ایکسپورٹ دستیاب نہیں۔',
+  'measure.asset.count': 'اثاثے',
+  'measure.asset.count.help': 'ہر وہ اثاثہ جو فلٹرز سے ملتا ہو اور جسے آپ دیکھ سکتے ہوں۔',
   'measure.incident.average_reassignments': 'دوبارہ تفویض کی اوسط تعداد',
   'measure.incident.average_reassignments.help':
     'کسی واقعے کے دوسرے گروپ یا ٹیکنیشن کو منتقل ہونے کی اوسط تعداد۔',
@@ -252,6 +256,16 @@ export const ur: LabelResource = {
   'measure.service_request.count': 'سروس درخواستیں',
   'measure.service_request.count.help':
     'ہر وہ سروس درخواست جو فلٹرز سے ملتی ہو اور جسے آپ دیکھ سکتے ہوں۔',
+  'report.assets_by_age': 'عمر کے مطابق اثاثے',
+  'report.assets_by_age.description': 'ہر اثاثہ کتنا عرصہ پہلے حاصل کیا گیا۔',
+  'report.assets_by_product_type': 'پروڈکٹ کی قسم کے مطابق اثاثے',
+  'report.assets_by_product_type.description':
+    'ہر وہ اثاثہ جو آپ دیکھ سکتے ہیں، اس کی پروڈکٹ کی قسم کے مطابق۔',
+  'report.assets_by_state': 'حالت کے مطابق اثاثے',
+  'report.assets_by_state.description': 'ہر وہ اثاثہ جو آپ دیکھ سکتے ہیں، اس کی حالت کے مطابق۔',
+  'report.assets_warranty_ending': 'ختم ہونے کے مہینے کے مطابق وارنٹیاں',
+  'report.assets_warranty_ending.description':
+    'وارنٹی والے اثاثے، وارنٹی ختم ہونے کے مہینے کے مطابق۔',
   'report.incidents_all': 'تمام واقعات',
   'report.incidents_all.description': 'مدت میں بننے والا ہر واقعہ، حیثیت کے مطابق۔',
   'report.incidents_by_status': 'حیثیت کے مطابق واقعات',
@@ -521,7 +535,6 @@ export const ur: LabelResource = {
   'reports.max_rows': 'ایک ایکسپورٹ فائل میں زیادہ سے زیادہ قطاریں',
   'reports.measure_value': '{{name}}: {{value}}',
   'reports.measures': 'پیمانے',
-  'reports.module_coming.assets': 'اثاثوں کی رپورٹس جلد آ رہی ہیں۔',
   'reports.module_coming.changes': 'تبدیلیوں کی رپورٹس تبدیلی ماڈیول کے ساتھ آئیں گی۔',
   'reports.module_none': 'یہاں کوئی رپورٹ نہیں جسے آپ کھول سکیں۔',
   'reports.move_reports_to': 'اس کی رپورٹس کہاں جائیں؟',

@@ -227,7 +227,6 @@ export function IncidentsPage() {
     saveSetting.mutate(
       {
         viewKey: settingKey,
-        version: stored?.version ?? null,
         setting: {
           columns: change.columns ?? columns,
           sort: change.sort ?? sort,

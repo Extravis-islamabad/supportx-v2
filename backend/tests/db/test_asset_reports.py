@@ -67,3 +67,36 @@ async def test_states_product_types_and_vendors_are_named_for_files(world: World
         vendors = names_resolver("vendor")
         assert vendors is not None
         assert await vendors(session, [str(uuid.uuid4())], "en", "") == {}
+
+
+async def test_the_asset_built_ins_run_and_name_their_values_in_the_reader_s_language(
+    world: World,
+) -> None:
+    """Lane C's asset reports: they run for the admin, and a run names states for the screen."""
+    from app.modules.analytics.domain.builtin import BUILTIN  # noqa: PLC0415 - this test only
+    from tests.db.test_incidents_api import CONSOLE  # noqa: PLC0415 - this test only
+
+    a = world.a
+    laptop = await _product(world, a, "laptop", "Named for screen")
+    assert (await _add(world, a, {"name": "On screen", "product_id": laptop})).status_code == 201
+    for code in (
+        "assets_by_state",
+        "assets_by_product_type",
+        "assets_warranty_ending",
+        "assets_by_age",
+    ):
+        report = BUILTIN[code]
+        ran = await world.call(
+            "POST",
+            "/reports/run",
+            a,
+            a.admin,
+            json={"definition": report.definition.model_dump(mode="json"), "language": "ar"},
+            headers=CONSOLE,
+        )
+        assert ran.status_code == 200, (code, ran.text)
+        body = ran.json()
+        if code == "assets_by_state":
+            keys = {row["keys"][0] for row in body["rows"]}
+            assert keys
+            assert set(body["names"]["state_id"]) == keys  # every state named, none as an id

@@ -211,6 +211,40 @@ describe('NoticeStack', () => {
     expect(screen.getByTestId('notices').hidden).toBe(false); // a new notice brings it back
   });
 
+  it('QA10-P3-10: a dismissed notice that goes and comes back, or a remount, keeps it hidden', () => {
+    window.sessionStorage.clear();
+    const view = renderUi(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+      </NoticeStack>,
+    );
+    fireEvent.click(screen.getByTestId('notices-dismiss'));
+    // Another page: the MFA reminder is not shown there, then is again.
+    view.rerender(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').hidden).toBe(true);
+    view.rerender(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').hidden).toBe(true);
+    // The strip mounted again (the layout re-rendered from scratch): still hidden.
+    view.unmount();
+    renderUi(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').hidden).toBe(true);
+    window.sessionStorage.clear();
+  });
+
   it('an empty box never takes the visible place; a critical notice does (announcements.spec)', () => {
     const Empty = () => <div />;
     const view = renderUi(
