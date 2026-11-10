@@ -144,6 +144,8 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         )
     if "portal_show_due_time" in values:
         changes["portal_show_due_time"] = bool(values["portal_show_due_time"])
+    if "first_task_starts_work" in values:
+        changes["first_task_starts_work"] = bool(values["first_task_starts_work"])
     if "review_required_priorities" in values:
         wanted = list(values["review_required_priorities"] or [])
         if any(code not in set(Priority) for code in wanted):
@@ -171,6 +173,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "approvals_hidden_from_requesters": current.approvals_hidden_from_requesters,
         "approvals_require_sign_in": current.approvals_require_sign_in,
         "portal_show_due_time": current.portal_show_due_time,
+        "first_task_starts_work": current.first_task_starts_work,
         "review_required_priorities": list(current.review_required_priorities),
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,

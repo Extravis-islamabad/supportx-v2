@@ -831,6 +831,7 @@ export const ar: LabelResource = {
   'incidents.tasks.delete': 'إزالة المهمة',
   'incidents.tasks.delete_confirm': 'إزالة المهمة «{{title}}»؟',
   'incidents.tasks.delete_one': 'إزالة {{title}}',
+  'incidents.tasks.done_by': 'أنجزها {{name}}',
   'incidents.tasks.due': 'مستحقة {{at}}',
   'incidents.tasks.move_down': 'نقل {{title}} لأسفل',
   'incidents.tasks.move_up': 'نقل {{title}} لأعلى',
@@ -1499,6 +1500,10 @@ export const ar: LabelResource = {
   'requests.search_catalog': 'البحث في الكتالوج',
   'requests.self_approved': 'موافقة ذاتية',
   'requests.send': 'تقديم الطلب',
+  'requests.settings.first_task_starts_work': 'بدء العمل مع أول مهمة',
+  'requests.settings.first_task_starts_work_help':
+    'عندما يُنجز فني الطلب أو أحد أعضاء مجموعته مهمة تنفيذ، ينتقل الطلب الجديد أو المُسند إلى قيد التنفيذ. ولا يُسند إلى أحد بذلك.',
+  'requests.settings.fulfilment': 'التنفيذ',
   'requests.settings.hide_approvals': 'إخفاء الموافقات عن مقدمي الطلبات',
   'requests.settings.hide_approvals_help':
     'يرى مقدمو الطلبات عندها فقط أن الطلب بانتظار الموافقة، دون أسماء الموافقين أو تعليقاتهم.',
@@ -1717,6 +1722,7 @@ export const ar: LabelResource = {
   'work_item.field.symptoms': 'الأعراض',
   'work_item.field.tags': 'الوسوم',
   'work_item.field.task': 'مهمة',
+  'work_item.field.task.done_by': 'أنجز المهمة',
   'work_item.field.task.due_at': 'موعد استحقاق المهمة',
   'work_item.field.task.group_id': 'مجموعة المهمة',
   'work_item.field.task.owner_id': 'مسؤول المهمة',

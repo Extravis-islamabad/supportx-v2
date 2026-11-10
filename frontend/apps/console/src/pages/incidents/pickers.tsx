@@ -262,6 +262,7 @@ export function TechnicianPicker({
 }) {
   const t = useLabel();
   const spoken = useSpoken();
+  const joinParts = useJoinParts();
   const [search, setSearch] = useState('');
   const found = useIncidentAssignees(everyone ? null : groupId, search, disabled !== true, base);
   const inGroup = (groupIds: string[] | undefined) =>
@@ -273,10 +274,13 @@ export function TechnicianPicker({
   const twice = duplicateNames(rows.map((r) => r.display_name));
   const options = rows.map((r) => {
     const outside = !inGroup(r.group_ids);
-    const extra = [
-      t('incidents.open_load', { count: r.open_count }),
-      ...(outside ? [t('incidents.not_in_this_group')] : []),
-    ].join(t('list.separator'));
+    const extra = joinParts(
+      [
+        t('incidents.open_load', { count: r.open_count }),
+        ...(outside ? [t('incidents.not_in_this_group')] : []),
+      ],
+      t('list.separator'),
+    );
     return {
       value: r.id,
       name: twice.has(r.display_name.trim().toLocaleLowerCase())

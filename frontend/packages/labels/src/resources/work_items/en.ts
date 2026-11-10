@@ -759,6 +759,7 @@ export const en = {
   'incidents.tasks.delete': 'Remove task',
   'incidents.tasks.delete_confirm': 'Remove the task “{{title}}”?',
   'incidents.tasks.delete_one': 'Remove {{title}}',
+  'incidents.tasks.done_by': 'Done by {{name}}',
   'incidents.tasks.due': 'Due {{at}}',
   'incidents.tasks.move_down': 'Move {{title}} down',
   'incidents.tasks.move_up': 'Move {{title}} up',
@@ -1369,6 +1370,10 @@ export const en = {
   'requests.search_catalog': 'Search the catalog',
   'requests.self_approved': 'Self-approval',
   'requests.send': 'Raise the request',
+  'requests.settings.first_task_starts_work': 'Start the work with the first task',
+  'requests.settings.first_task_starts_work_help':
+    "When the request's technician or someone of its group ticks a fulfilment task done, a New or Assigned request moves to In progress. Nobody is assigned by it.",
+  'requests.settings.fulfilment': 'Fulfilment',
   'requests.settings.hide_approvals': 'Hide approvals from requesters',
   'requests.settings.hide_approvals_help':
     'Requesters then see only that a request awaits approval, without the approvers’ names or comments.',
@@ -1591,6 +1596,7 @@ export const en = {
   'work_item.field.symptoms': 'Symptoms',
   'work_item.field.tags': 'Tags',
   'work_item.field.task': 'Task',
+  'work_item.field.task.done_by': 'Task done by',
   'work_item.field.task.due_at': 'Task due',
   'work_item.field.task.group_id': 'Task group',
   'work_item.field.task.owner_id': 'Task owner',

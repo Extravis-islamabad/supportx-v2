@@ -165,6 +165,7 @@ class Catalogue:
     on_behalf_scope: str  # WP-030, REQ-SR-011
     approvals_hidden_from_requesters: bool  # WP-030 s2, REQ-SR-024 AC3
     approvals_require_sign_in: bool  # D-132: e-mailed approval links need a signed-in approver
+    first_task_starts_work: bool  # D-154c: the first ticked task moves a request on
     portal_show_due_time: bool  # WP-028 D5: requesters see the expected resolution time
     review_required_priorities: tuple[str, ...]  # WP-044b s4: problems needing a review
     lifecycle: Lifecycle  # the standard one; a record follows `lifecycle_of(record.lifecycle)`
@@ -712,6 +713,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         on_behalf_scope=settings.on_behalf_scope,
         approvals_hidden_from_requesters=settings.approvals_hidden_from_requesters,
         approvals_require_sign_in=settings.approvals_require_sign_in,
+        first_task_starts_work=settings.first_task_starts_work,
         portal_show_due_time=settings.portal_show_due_time,
         review_required_priorities=tuple(settings.review_required_priorities),
         first_response_on=tuple(settings.first_response_on),

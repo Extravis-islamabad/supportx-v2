@@ -766,6 +766,7 @@ export const ur: LabelResource = {
   'incidents.tasks.delete': 'کام ہٹائیں',
   'incidents.tasks.delete_confirm': 'کام “{{title}}” ہٹائیں؟',
   'incidents.tasks.delete_one': '{{title}} ہٹائیں',
+  'incidents.tasks.done_by': '{{name}} نے مکمل کیا',
   'incidents.tasks.due': 'آخری وقت {{at}}',
   'incidents.tasks.move_down': '{{title}} نیچے لے جائیں',
   'incidents.tasks.move_up': '{{title}} اوپر لے جائیں',
@@ -1373,6 +1374,10 @@ export const ur: LabelResource = {
   'requests.search_catalog': 'کیٹلاگ میں تلاش کریں',
   'requests.self_approved': 'خود منظوری',
   'requests.send': 'درخواست دیں',
+  'requests.settings.first_task_starts_work': 'پہلے کام کے ساتھ کام شروع کریں',
+  'requests.settings.first_task_starts_work_help':
+    'جب درخواست کا ٹیکنیشن یا اس کے گروپ کا کوئی فرد تکمیل کا کوئی کام مکمل کرے تو نئی یا تفویض شدہ درخواست جاری حالت میں چلی جاتی ہے۔ اس سے کسی کو تفویض نہیں کیا جاتا۔',
+  'requests.settings.fulfilment': 'تکمیل',
   'requests.settings.hide_approvals': 'منظوریاں درخواست گزاروں سے چھپائیں',
   'requests.settings.hide_approvals_help':
     'درخواست گزار تب صرف یہ دیکھیں گے کہ درخواست منظوری کی منتظر ہے، منظوری دہندگان کے نام یا تبصروں کے بغیر۔',
@@ -1596,6 +1601,7 @@ export const ur: LabelResource = {
   'work_item.field.symptoms': 'علامات',
   'work_item.field.tags': 'ٹیگز',
   'work_item.field.task': 'کام',
+  'work_item.field.task.done_by': 'کام مکمل کرنے والے',
   'work_item.field.task.due_at': 'کام کا آخری وقت',
   'work_item.field.task.group_id': 'کام کا گروپ',
   'work_item.field.task.owner_id': 'کام کا ذمہ دار',

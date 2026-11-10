@@ -169,6 +169,7 @@ export const en = {
   'automation.why.assignment_move': 'Moved automatically when it was assigned.',
   'automation.why.auto_closed':
     'Closed automatically: the requester was told of the resolution and did not answer in time.',
+  'automation.why.first_task_started': 'Started when the first fulfilment task was ticked done.',
   'automation.why.fulfilled': 'Fulfilled: every required task is done',
   'automation.why.matrix': 'From the priority matrix (impact and urgency).',
   'automation.why.requester_confirmed': 'The requester confirmed the fix, so it was closed.',
