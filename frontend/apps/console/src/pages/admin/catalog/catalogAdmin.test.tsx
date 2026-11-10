@@ -135,6 +135,9 @@ describe('Admin › Service catalog', () => {
       'POST /api/v1/catalog/items': { status: 201, body: { ...laptop, id: ITEM, version: 1 } },
     });
     render(<App />);
+    // QA10V-23: the description's language switch names the language, never "Name in …".
+    const langs = await screen.findByTestId('cat-description-lang');
+    expect(langs.textContent).toBe('EnglishArabicUrdu');
     fireEvent.change(await screen.findByTestId('cat-name-en'), {
       target: { value: 'New laptop' },
     });

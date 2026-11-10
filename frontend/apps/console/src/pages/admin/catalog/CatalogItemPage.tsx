@@ -10,6 +10,7 @@ import {
   Input,
   Popover,
   Radio,
+  Segmented,
   Select,
   Space,
   Switch,
@@ -527,23 +528,22 @@ function DetailsTab({ draft, set }: TabProps) {
         />
       </Form.Item>
       <Form.Item label={t('catalog_admin.description')} help={t('catalog_admin.description_help')}>
-        <Radio.Group
+        {/* The language of the text, by its name (QA10V-23: it said "Name in …"). */}
+        <Segmented<(typeof LANGUAGES)[number]>
           value={descriptionLang}
-          onChange={(event) => {
-            setDescriptionLang(event.target.value as (typeof LANGUAGES)[number]);
-          }}
-          optionType="button"
-          size="small"
+          onChange={setDescriptionLang}
+          aria-label={t('catalog_admin.description')}
           options={LANGUAGES.map((lang) => ({
             value: lang,
-            label: t(`settings.name_in.${lang}`),
+            label: t(`catalog_admin.lang.${lang}`),
           }))}
           style={{ marginBottom: 8 }}
+          data-testid="cat-description-lang"
         />
         <div dir={descriptionLang === 'en' ? 'ltr' : 'rtl'} lang={descriptionLang}>
           <RichTextField
             key={descriptionLang}
-            label={`${t('catalog_admin.description')} (${t(`settings.name_in.${descriptionLang}`)})`}
+            label={`${t('catalog_admin.description')} (${t(`catalog_admin.lang.${descriptionLang}`)})`}
             value={draft.descriptions?.[descriptionLang] ?? ''}
             onChange={(html) => {
               set({ descriptions: { ...(draft.descriptions ?? {}), [descriptionLang]: html } });

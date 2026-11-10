@@ -9,7 +9,7 @@ import { theme } from 'antd';
 import type { ReactNode } from 'react';
 
 import { useIncidentCounters } from '@supportx/api-client';
-import { useAppearance, useLabel } from '@supportx/ui';
+import { useAppearance, useLabel, useMinWidth } from '@supportx/ui';
 
 import { COUNTERS } from './counters';
 
@@ -39,17 +39,31 @@ export function PersonalCounters({
   const { token } = theme.useToken();
   const { mode } = useAppearance();
   const counters = useIncidentCounters();
+  const wide = useMinWidth(576);
   const found = new Map((counters.data ?? []).map((c) => [c.counter, c]));
   return (
     <div
       role="group"
       aria-label={t('counters.title')}
       data-testid="inc-counters"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-        gap: 12,
-      }}
+      style={
+        wide
+          ? {
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+              gap: 12,
+            }
+          : // A phone: one row that scrolls sideways (QA10V-26: five tiles stacked to ~430 px
+            // before the list began).
+            {
+              display: 'grid',
+              gridAutoFlow: 'column',
+              gridAutoColumns: 'minmax(140px, 1fr)',
+              gap: 8,
+              overflowX: 'auto',
+              paddingBlockEnd: 4,
+            }
+      }
     >
       {COUNTERS.map((code) => {
         const counter = found.get(code);
@@ -80,7 +94,7 @@ export function PersonalCounters({
               display: 'flex',
               alignItems: 'center',
               gap: 12,
-              padding: '12px 14px',
+              padding: wide ? '12px 14px' : '8px 10px',
               textAlign: 'start',
               font: 'inherit',
               color: token.colorText,

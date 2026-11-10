@@ -185,6 +185,40 @@ describe('console: service requests', () => {
     });
   });
 
+  it('QA10V-05: the approval filter and the search go to the server as the filter DSL', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('sr-row-SR-1');
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Approval' }));
+    fireEvent.click(await screen.findByTitle('Approved'));
+    fireEvent.change(
+      screen.getByTestId('sr-search').querySelector('input') ?? screen.getByTestId('sr-search'),
+      {
+        target: { value: 'laptop' },
+      },
+    );
+    await waitFor(() => {
+      const filters = fake
+        .find('GET', '/api/v1/service-requests')
+        .map((r) => r.url.searchParams.get('filter'))
+        .filter((f): f is string => f !== null)
+        .map((f) => JSON.parse(f) as unknown);
+      expect(filters).toContainEqual({
+        and: [
+          { field: 'approval_status', op: 'eq', value: 'approved' },
+          { field: 'subject', op: 'contains', value: 'laptop' },
+        ],
+      });
+    });
+    // Never the old parameter the route does not read.
+    expect(
+      fake
+        .find('GET', '/api/v1/service-requests')
+        .some((r) => r.url.searchParams.has('approval_status')),
+    ).toBe(false);
+  });
+
   it('raises one from the catalog with the form’s answers, once', async () => {
     window.history.pushState({}, '', '/requests/new');
     const fake = api({ 'POST /api/v1/service-requests': { status: 201, body: request } });
@@ -261,7 +295,14 @@ describe('console: service requests', () => {
     const CAT = '01a1a2b3-0000-7000-8000-00000000ca01';
     api({
       'GET /api/v1/catalog/items': {
-        body: [{ ...laptop, category_id: CAT, descriptions: { en: 'A work laptop' } }],
+        // Rich text, as the catalogue editor saves it (QA10V-01: never shown as markup).
+        body: [
+          {
+            ...laptop,
+            category_id: CAT,
+            descriptions: { en: '<p>A <strong>work</strong> laptop</p>' },
+          },
+        ],
       },
       'GET /api/v1/catalog/categories': {
         body: [
@@ -281,6 +322,8 @@ describe('console: service requests', () => {
     render(<App />);
     expect(await screen.findByRole('tab', { name: /Hardware/ })).toBeDefined();
     expect(await screen.findByText('A work laptop')).toBeDefined();
+    expect(document.body.textContent).not.toContain('<p>');
+    expect(document.body.textContent).not.toContain('<strong>');
     expect(screen.getByTestId(`sr-item-${ITEM_ID}`)).toBeDefined();
   });
 
@@ -455,6 +498,8 @@ describe('console: service requests', () => {
     render(<App />);
     // One status chip; the pending approval is not said twice (UI pass 3, Haider).
     expect((await screen.findByTestId('sr-status')).textContent).toBe('Awaiting approval');
+    // QA10V-13: the dot chip of the other record headers.
+    expect(screen.getByTestId('sr-status').querySelector('.ant-badge')).not.toBeNull();
     expect(screen.queryByTestId('sr-approval')).toBeNull();
     fireEvent.click(await screen.findByTestId('sr-tab-details'));
     const answers = await screen.findByTestId('sr-answers');

@@ -603,10 +603,13 @@ export function IncidentWorklogs({
   );
 }
 
-/** Fields that share a row, each at least as wide as a date and time field (D-147 template B). */
+/**
+ * Fields that share a row, each exactly as wide as a date and time field (D-147 template B), so
+ * the two rows line up column by column (QA10V-24: Duration was wider than Start and End).
+ */
 const WORKLOG_GRID = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, 220px)',
   columnGap: SPACE.sm,
 } as const;
 

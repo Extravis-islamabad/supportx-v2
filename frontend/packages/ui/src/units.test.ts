@@ -20,6 +20,12 @@ describe('theme', () => {
     expect(buildTheme('dark').algorithm).toBe(theme.darkAlgorithm);
   });
 
+  it('QA10V-08: page titles are on our scale at both densities, and grow with the text size', () => {
+    expect(buildTheme('light').token?.fontSizeHeading1).toBe(24); // comfortable (the portal)
+    expect(buildTheme('light', {}, 'en', 'compact').token?.fontSizeHeading1).toBe(20);
+    expect(buildTheme('light', {}, 'en', 'comfortable', 150).token?.fontSizeHeading1).toBe(36);
+  });
+
   it('high contrast: black text and borders, thicker lines, darker primary', () => {
     const contrast = buildTheme('high_contrast');
     expect(contrast.token?.colorText).toBe('#000000');

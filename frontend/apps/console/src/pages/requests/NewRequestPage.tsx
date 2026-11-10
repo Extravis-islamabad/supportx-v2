@@ -33,6 +33,7 @@ import {
 
 import { UserPicker } from '../incidents/pickers';
 import { AssetPickerField } from '../incidents/RecordAssets';
+import { plainText } from '../incidents/writingText';
 import { deliveryText, itemName } from './items';
 
 const SUBJECT_MAX = 250;
@@ -82,8 +83,9 @@ export function NewRequestPage() {
           {itemName(i, locale)}
         </Button>
       ),
-      searchText: `${itemName(i, locale)} ${textIn(i.descriptions, locale)}`,
-      description: textIn(i.descriptions, locale) || undefined,
+      // The description is rich text: a list shows its words, never its markup (QA10V-01).
+      searchText: `${itemName(i, locale)} ${plainText(textIn(i.descriptions, locale))}`,
+      description: plainText(textIn(i.descriptions, locale)) || undefined,
       tags:
         i.audience === 'technicians' ? (
           <Tag>{t('catalog_item_audience.technicians')}</Tag>

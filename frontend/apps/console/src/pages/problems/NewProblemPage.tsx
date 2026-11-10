@@ -1,7 +1,6 @@
 import {
   Alert,
   Button,
-  Card,
   Checkbox,
   Col,
   Flex,
@@ -36,7 +35,8 @@ import {
   type SimilarProblem,
 } from '@supportx/api-client';
 import {
-  PageHeader,
+  FormPage,
+  FormSection,
   RichTextField,
   lengthLimit,
   reportError,
@@ -247,43 +247,66 @@ function ProblemForm({
     );
   };
 
+  // Template B (D-147; QA10V-12): the form in section cards, Cancel before Create in the
+  // sticky footer, as the release and announcement forms.
   return (
-    // The new-incident form's pattern (QA6-PRB-01): a card across the page, two fields a row.
-    <Flex vertical gap={16} style={{ width: '100%' }}>
-      <PageHeader
-        title={t('problems.new')}
-        back={{ label: t('nav.problems'), onClick: () => void navigate('/problems') }}
-      />
-      {incidents.length > 0 && (
-        <Alert
-          type="info"
-          showIcon
-          data-testid="prb-from-incidents"
-          message={t('problems.from_incidents', { count: incidents.length })}
-        />
-      )}
-      {caused.length > 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          data-testid="prb-already-caused"
-          message={t('problems.already_caused.title', { count: caused.length })}
-          description={
-            <Checkbox.Group
-              value={move}
-              onChange={(values) => {
-                setMove(values);
-              }}
-              options={caused.map((c) => ({
-                value: c.incident_id,
-                label: t('problems.already_caused.move', { problem: c.problem_display_id }),
-              }))}
-            />
-          }
-        />
-      )}
-      <Card data-testid="prb-form-card">
-        <Form layout="vertical" component="div" requiredMark>
+    <FormPage
+      testId="prb-new"
+      title={t('problems.new')}
+      back={{ label: t('nav.problems'), onClick: () => void navigate('/problems') }}
+      notice={
+        incidents.length > 0 || caused.length > 0 ? (
+          <Flex vertical gap={8}>
+            {incidents.length > 0 && (
+              <Alert
+                type="info"
+                showIcon
+                data-testid="prb-from-incidents"
+                message={t('problems.from_incidents', { count: incidents.length })}
+              />
+            )}
+            {caused.length > 0 && (
+              <Alert
+                type="warning"
+                showIcon
+                data-testid="prb-already-caused"
+                message={t('problems.already_caused.title', { count: caused.length })}
+                description={
+                  <Checkbox.Group
+                    value={move}
+                    onChange={(values) => {
+                      setMove(values);
+                    }}
+                    options={caused.map((c) => ({
+                      value: c.incident_id,
+                      label: t('problems.already_caused.move', { problem: c.problem_display_id }),
+                    }))}
+                  />
+                }
+              />
+            )}
+          </Flex>
+        ) : undefined
+      }
+      cancel={
+        <Button onClick={() => void navigate('/problems')} data-testid="prb-cancel">
+          {t('actions.cancel')}
+        </Button>
+      }
+      primary={
+        <Button
+          type="primary"
+          onClick={submit}
+          loading={saving}
+          disabled={me === ''}
+          data-testid="prb-create"
+        >
+          {t('problems.create')}
+        </Button>
+      }
+    >
+      <FormSection title={t('problems.section.problem')} testId="prb-section-problem">
+        <Form layout="vertical" component="div" requiredMark data-testid="prb-form-card">
           <Form.Item label={t('templates.field')} htmlFor="prb-template">
             <Select
               id="prb-template"
@@ -335,12 +358,17 @@ function ProblemForm({
               imageOwnerId={me}
             />
           </Form.Item>
+        </Form>
+      </FormSection>
+      <FormSection title={t('problems.section.classification')} testId="prb-section-classification">
+        <Form layout="vertical" component="div">
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item label={t('work_item.field.impact')} htmlFor="prb-impact">
                 <Select
                   id="prb-impact"
                   allowClear
+                  placeholder={t('form.choose')}
                   style={{ width: '100%' }}
                   value={impact}
                   onChange={(value: string | undefined) => {
@@ -356,6 +384,7 @@ function ProblemForm({
                 <Select
                   id="prb-urgency"
                   allowClear
+                  placeholder={t('form.choose')}
                   style={{ width: '100%' }}
                   value={urgency}
                   onChange={(value: string | undefined) => {
@@ -371,6 +400,7 @@ function ProblemForm({
                 <Select
                   id="prb-type"
                   allowClear
+                  placeholder={t('form.choose')}
                   style={{ width: '100%' }}
                   value={problemType}
                   onChange={(value: string | undefined) => {
@@ -398,20 +428,8 @@ function ProblemForm({
               </Form.Item>
             </Col>
           </Row>
-          <Space>
-            <Button
-              type="primary"
-              onClick={submit}
-              loading={saving}
-              disabled={me === ''}
-              data-testid="prb-create"
-            >
-              {t('problems.create')}
-            </Button>
-            <Button onClick={() => void navigate('/problems')}>{t('actions.cancel')}</Button>
-          </Space>
         </Form>
-      </Card>
-    </Flex>
+      </FormSection>
+    </FormPage>
   );
 }

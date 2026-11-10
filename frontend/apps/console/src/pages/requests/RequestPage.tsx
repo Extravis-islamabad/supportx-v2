@@ -29,7 +29,6 @@ import {
   RecordHeader,
   RecordPage,
   reportError,
-  ToneTag,
   useAccess,
   useAnswerWords,
   useAppearance,
@@ -43,7 +42,7 @@ import {
 
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
 import { labelled, personName } from '../incidents/labels';
-import { PriorityTag, SlaTag } from '../incidents/tags';
+import { PriorityTag, SlaTag, StatusTag } from '../incidents/tags';
 import { ApprovalsPanel, WithdrawButton } from './Approvals';
 import { RequestTasks } from './RequestTasks';
 import { useActionReason } from '../incidents/actionReason';
@@ -199,9 +198,8 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
             testIds={{ id: 'sr-display-id', title: 'sr-heading' }}
             tags={
               <>
-                <ToneTag tone="info" testId="sr-status">
-                  {t(`work_item_status.${r.status}`)}
-                </ToneTag>
+                {/* The dot chip of the incident and problem headers (QA10V-13). */}
+                <StatusTag status={r.status} catalogue={catalogue.data} testId="sr-status" />
                 <PriorityTag priority={r.priority} source={r.priority_source} />
                 <SlaTag
                   policyId={r.sla_policy_id}

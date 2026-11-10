@@ -1,4 +1,5 @@
 import {
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -51,12 +52,31 @@ export function ResizableHeader({
   const start = useRef<{ x: number; width: number } | null>(null);
   const cell = useRef<HTMLTableCellElement>(null);
   const [dragging, setDragging] = useState<number | null>(null);
-  if (onResize === undefined) return <th {...rest}>{children}</th>;
+  // The width an automatic column is drawn at, so the separator always has a value
+  // (QA10V-04, axe aria-required-attr: a separator that can be focused needs aria-valuenow).
+  const [drawn, setDrawn] = useState<number | null>(null);
+  const resizable = onResize !== undefined;
+  useLayoutEffect(() => {
+    const element = cell.current;
+    if (element === null) return;
+    const read = () => {
+      if (element.offsetWidth > 0) setDrawn(element.offsetWidth);
+    };
+    read();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(read);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+    // Again when resizing turns on: lists enable it once their views load (useColumnWidths).
+  }, [resizable]);
+  if (!resizable) return <th {...rest}>{children}</th>;
   const least = Math.max(COLUMN_MIN_WIDTH, minWidth);
   const clamp = (value: number) => Math.min(COLUMN_MAX_WIDTH, Math.max(least, Math.round(value)));
   // An automatic column has no number yet: it starts from the width it is drawn at.
   const now = () => clamp(width ?? cell.current?.offsetWidth ?? least);
-  const shown = dragging ?? (width === undefined ? undefined : clamp(width));
+  const shown = dragging ?? clamp(width ?? drawn ?? defaultWidth ?? least);
   const reset = () => {
     if (onReset !== undefined) onReset();
     else if (defaultWidth !== undefined) commit(clamp(defaultWidth));
