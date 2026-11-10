@@ -733,6 +733,7 @@ export const ar: LabelResource = {
   'history.change': '{{field}}: من {{old}} إلى {{new}}',
   'history.changed': 'تغيّر',
   'history.empty': '(فارغ)',
+  'history.field_changed': 'تغيّر {{field}}',
   'history.no': 'لا',
   'history.none': 'لا توجد تغييرات بعد.',
   'history.reason': 'السبب: {{reason}}',

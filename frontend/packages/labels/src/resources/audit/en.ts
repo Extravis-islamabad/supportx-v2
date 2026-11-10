@@ -729,6 +729,7 @@ export const en = {
   'history.change': '{{field}}: {{old}} → {{new}}',
   'history.changed': 'changed',
   'history.empty': '(empty)',
+  'history.field_changed': '{{field}} changed',
   'history.no': 'No',
   'history.none': 'No changes yet.',
   'history.reason': 'Reason: {{reason}}',

@@ -727,6 +727,7 @@ export const ur: LabelResource = {
   'history.change': '{{field}}: {{old}} سے {{new}}',
   'history.changed': 'تبدیل',
   'history.empty': '(خالی)',
+  'history.field_changed': '{{field}} تبدیل ہوا',
   'history.no': 'نہیں',
   'history.none': 'ابھی تک کوئی تبدیلی نہیں۔',
   'history.reason': 'وجہ: {{reason}}',
