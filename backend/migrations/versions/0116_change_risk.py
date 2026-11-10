@@ -13,7 +13,7 @@ The downgrade drops the columns while none holds data; with an assessed or overr
 it stops and keeps the data (rule 5h).
 
 Revision ID: 0116
-Revises: 0115
+Revises: 0124
 Created: 2026-11-09
 """
 
@@ -24,7 +24,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0116"
-down_revision: str | None = "0115"
+down_revision: str | None = "0124"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
