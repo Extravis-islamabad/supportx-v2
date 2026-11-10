@@ -963,6 +963,7 @@ export const ur: LabelResource = {
   'security.password.digits': 'ایک ہندسہ',
   'security.password.expiry': 'پاس ورڈ کی میعاد ختم ہوتی ہے',
   'security.password.expiry_hint': '0: پاس ورڈ کی میعاد کبھی ختم نہیں ہوتی (تجویز کردہ)۔',
+  'security.password.fix_first': 'پہلے اوپر نشان زدہ قدریں درست کریں۔',
   'security.password.history': 'پچھلے استعمال شدہ پاس ورڈ رد کریں',
   'security.password.history_hint':
     'کتنے پچھلے پاس ورڈ دوبارہ استعمال نہیں ہو سکتے۔ 0 ہر ایک کی اجازت دیتا ہے۔',

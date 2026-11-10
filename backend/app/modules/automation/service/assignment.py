@@ -34,6 +34,7 @@ from app.modules.automation.infra.models import (
     AutomationTrigger,
     BusinessRule,
     TechnicianAvailability,
+    Workflow,
 )
 from app.modules.automation.service.business_rules import _invalid
 from app.modules.organization import (
@@ -181,8 +182,8 @@ async def _named(session: AsyncSession, user_ids: Sequence[uuid.UUID]) -> dict[u
 async def step_owner(session: AsyncSession, ref: Mapping[str, Any]) -> uuid.UUID | None:
     """Who owns the business rule or trigger a history ref names, if anyone.
 
-    D-154 rules: the owner hears when the person a step assigns could not be. None for other
-    steps (an SLA level has no owner).
+    D-154 rules: the owner hears when the person a step assigns could not be. A workflow's step
+    names the workflow's owner. None for other steps (an SLA level has no owner).
     """
     found: uuid.UUID | None = None
     try:
@@ -197,6 +198,11 @@ async def step_owner(session: AsyncSession, ref: Mapping[str, Any]) -> uuid.UUID
                 select(AutomationTrigger.owner_id).where(
                     AutomationTrigger.id == uuid.UUID(str(ref["trigger_id"]))
                 )
+            )
+        elif ref.get("kind") == "workflow" and ref.get("workflow_id"):
+            # WP-048b S2: a workflow's set-technician step tells the workflow's owner.
+            found = await session.scalar(
+                select(Workflow.owner_id).where(Workflow.id == uuid.UUID(str(ref["workflow_id"])))
             )
     except ValueError:  # a ref from before ids were stored: nobody to name
         return None

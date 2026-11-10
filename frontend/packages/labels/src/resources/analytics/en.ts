@@ -267,8 +267,9 @@ export const en = {
   'report.assets_by_product_type.description': 'Every asset you may see, by its product type.',
   'report.assets_by_state': 'Assets by state',
   'report.assets_by_state.description': 'Every asset you may see, by its state.',
-  'report.assets_warranty_ending': 'Warranties by the month they end',
-  'report.assets_warranty_ending.description': 'Assets with a warranty, by the month it ends.',
+  'report.assets_warranty_ending': 'Warranties ending in the next 90 days',
+  'report.assets_warranty_ending.description':
+    'Assets whose warranty ends within 90 days, by the month it ends.',
   'report.incidents_all': 'All incidents',
   'report.incidents_all.description': 'Every incident created in the period, by status.',
   'report.incidents_by_status': 'Incidents by status',

@@ -106,6 +106,13 @@ async def _candidates(
     return list(dict.fromkeys(people)), unheld
 
 
+async def level_people(
+    session: AsyncSession, record: WorkItem, level: rules.LevelApprovers
+) -> tuple[list[uuid.UUID], bool]:
+    """A level's people now and whether a named role had no holder (a workflow's node too)."""
+    return await _candidates(session, record, level)
+
+
 async def segregated(
     session: AsyncSession, record: WorkItem, *, strict: bool | None = None
 ) -> set[uuid.UUID]:

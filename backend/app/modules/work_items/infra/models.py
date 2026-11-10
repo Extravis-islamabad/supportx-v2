@@ -1090,6 +1090,16 @@ class WorkItemTask(TenantEntity):
             "owner_id",
             postgresql_where=text("deleted_at IS NULL AND status IN ('open', 'in_progress')"),
         ),
+        CheckConstraint(
+            "(workflow_instance_id IS NULL) = (workflow_command IS NULL)", name="workflow_pair"
+        ),
+        Index(
+            "ix_wit_tenant_workflow",
+            "tenant_id",
+            "workflow_instance_id",
+            "workflow_command",
+            postgresql_where=text("workflow_instance_id IS NOT NULL"),
+        ),
     )
 
     work_item_id: Mapped[uuid.UUID]
@@ -1109,6 +1119,10 @@ class WorkItemTask(TenantEntity):
     done_at: Mapped[datetime | None]
     # D-154d: who ticked it done ("Done by <name>"); cleared when it is opened again.
     done_by: Mapped[uuid.UUID | None]
+    # 0106 (WP-048b S2, REQ-WF-015): the workflow's task node that opened it (by ID only); when
+    # its tasks are done the node continues.
+    workflow_instance_id: Mapped[uuid.UUID | None]
+    workflow_command: Mapped[str | None] = mapped_column(String(20))
 
 
 class WorkItemWorklog(TenantEntity):
@@ -1246,6 +1260,18 @@ class WorkItemApproval(TenantEntity):
             ondelete="RESTRICT",
         ),
         CheckConstraint(_codes("purpose", ApprovalPurpose), name="purpose_code"),
+        CheckConstraint(
+            "(purpose = 'workflow') = (workflow_instance_id IS NOT NULL)", name="workflow_instance"
+        ),
+        CheckConstraint(
+            "(workflow_instance_id IS NULL) = (workflow_command IS NULL)", name="workflow_command"
+        ),
+        Index(
+            "ix_wia_tenant_workflow_instance",
+            "tenant_id",
+            "workflow_instance_id",
+            postgresql_where=text("workflow_instance_id IS NOT NULL"),
+        ),
         Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
         Index(
             "ix_wia_tenant_approver_pending",
@@ -1280,6 +1306,34 @@ class WorkItemApproval(TenantEntity):
     comments_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # What it decides (WP-044b s4): the record's approval, or accepting a known error unfixed.
     purpose: Mapped[str] = mapped_column(String(30), server_default="record")
+    # The workflow instance whose approval node opened it (0106; purpose "workflow"). By ID only:
+    # automation's table is never a foreign key here (rule e).
+    workflow_instance_id: Mapped[uuid.UUID | None]
+    # The approval node's command (its decision continues that node, 0106).
+    workflow_command: Mapped[str | None] = mapped_column(String(20))
+
+
+class WorkItemApprovalSettings(Timestamps, Actors, Versioned, Base):
+    """The tenant's approval settings (0106; one row, RLS): the chair of D-146.
+
+    The chair, when set, breaks an exact majority split in any level that uses the shared level
+    outcome (workflow approvals now; lane A's CAB and problem approvals when they pass it).
+    """
+
+    __tablename__ = "work_item_approval_settings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "chair_user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_work_item_approval_settings_chair",
+            ondelete="RESTRICT",
+        ),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="RESTRICT"), primary_key=True
+    )
+    chair_user_id: Mapped[uuid.UUID | None]
 
 
 # The portal's own search sources, in their default order (WP-032 D2, D-143).

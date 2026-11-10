@@ -269,9 +269,9 @@ export const ur: LabelResource = {
     'ہر وہ اثاثہ جو آپ دیکھ سکتے ہیں، اس کی پروڈکٹ کی قسم کے مطابق۔',
   'report.assets_by_state': 'حالت کے مطابق اثاثے',
   'report.assets_by_state.description': 'ہر وہ اثاثہ جو آپ دیکھ سکتے ہیں، اس کی حالت کے مطابق۔',
-  'report.assets_warranty_ending': 'ختم ہونے کے مہینے کے مطابق وارنٹیاں',
+  'report.assets_warranty_ending': 'اگلے 90 دنوں میں ختم ہونے والی وارنٹیاں',
   'report.assets_warranty_ending.description':
-    'وارنٹی والے اثاثے، وارنٹی ختم ہونے کے مہینے کے مطابق۔',
+    'وہ اثاثے جن کی وارنٹی 90 دنوں میں ختم ہو رہی ہے، ختم ہونے کے مہینے کے مطابق۔',
   'report.incidents_all': 'تمام واقعات',
   'report.incidents_all.description': 'مدت میں بننے والا ہر واقعہ، حیثیت کے مطابق۔',
   'report.incidents_by_status': 'حیثیت کے مطابق واقعات',

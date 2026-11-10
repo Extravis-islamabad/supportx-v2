@@ -54,4 +54,11 @@ describe('filter model (REQ-RPT-029)', () => {
       value: null,
     });
   });
+
+  it('calendar dates take the relative periods too, and still start on equals (#352)', () => {
+    expect(OPERATORS.date).toEqual(
+      expect.arrayContaining(['eq', 'between', 'next_n_days', 'this_month', 'before_now']),
+    );
+    expect(newRow({ name: 'warranty_expires_on', type: 'date', label: 'Warranty' }).op).toBe('eq');
+  });
 });

@@ -261,8 +261,9 @@ export const ar: LabelResource = {
   'report.assets_by_product_type.description': 'كل أصل يمكنك رؤيته حسب نوع منتجه.',
   'report.assets_by_state': 'الأصول حسب الحالة',
   'report.assets_by_state.description': 'كل أصل يمكنك رؤيته حسب حالته.',
-  'report.assets_warranty_ending': 'الضمانات حسب شهر انتهائها',
-  'report.assets_warranty_ending.description': 'الأصول المشمولة بضمان، حسب شهر انتهائه.',
+  'report.assets_warranty_ending': 'الضمانات المنتهية خلال الأيام الـ 90 القادمة',
+  'report.assets_warranty_ending.description':
+    'الأصول التي ينتهي ضمانها خلال 90 يومًا، حسب شهر انتهائه.',
   'report.incidents_all': 'جميع الحوادث',
   'report.incidents_all.description': 'كل حادثة أُنشئت في الفترة، حسب الحالة.',
   'report.incidents_by_status': 'الحوادث حسب الحالة',

@@ -24,6 +24,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied
+from app.modules import automation
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.parts import (
@@ -360,6 +361,8 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
     changes = _task_history(before, updated)
     if len(changes) > 1:  # something besides the task's name changed
         await _recorded(session, record, "task", updated.id, "child_changed", changes, source)
+    if "status" in clean and updated.workflow_instance_id is not None:
+        await workflow_task_settled(session, updated)
     if "status" in clean and updated.from_plan:
         # Imported here: fulfilment uses this module's tasks (WP-030 s3, REQ-SR-058).
         from app.modules.work_items.service import fulfilment  # noqa: PLC0415 - see above
@@ -400,6 +403,8 @@ async def delete_task(  # noqa: PLR0913 - the task, its version and the source, 
         [Change("task", removed.title, None)],
         source,
     )
+    if removed.workflow_instance_id is not None:
+        await workflow_task_settled(session, removed, removed_now=True)
 
 
 async def move_task(  # noqa: PLR0913 - the task, the direction and the source, explicit
@@ -501,6 +506,90 @@ async def complete_tasks(session: AsyncSession, record: WorkItem) -> None:
                 ],
                 "system",
             )
+            if task.workflow_instance_id is not None:
+                await workflow_task_settled(session, task)
+
+
+# --- a workflow's task node (WP-048b S2, REQ-WF-015) ------------------------------------------
+
+
+def _title(titles: dict[str, Any]) -> str:
+    """A task's title: English, else the first language given (a task holds one title)."""
+    chosen = titles.get("en") or next(iter(titles.values()), "")
+    return str(chosen).strip()[:200]
+
+
+async def open_workflow_tasks(  # noqa: PLR0913 - the node's command, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    *,
+    instance_id: uuid.UUID,
+    command: str,
+    titles: list[dict[str, Any]],
+    owner_id: uuid.UUID | None,
+    group_id: uuid.UUID | None,
+    due_at: datetime | None,
+) -> list[WorkItemTask]:
+    """The node's checklist at the end of the record's tasks, each naming its node."""
+    existing = await _tasks(session, record.id)
+    if len(existing) + len(titles) > MAX_TASKS:
+        raise items.field_errors([("title", "too_many_items")], max=MAX_TASKS)
+    position = (existing[-1].position + 1) if existing else 0
+    repository = TaskRepository(session)
+    made: list[WorkItemTask] = []
+    for offset, titled in enumerate(titles):
+        row = await repository.add(
+            WorkItemTask(
+                work_item_id=record.id,
+                position=position + offset,
+                title=_title(titled),
+                owner_id=owner_id,
+                group_id=group_id,
+                due_at=due_at,
+                status=TaskStatus.OPEN.value,
+                priority="normal",
+                workflow_instance_id=instance_id,
+                workflow_command=command,
+            )
+        )
+        await _recorded(
+            session, record, "task", row.id, "child_added", _task_history(None, row), "workflow"
+        )
+        made.append(row)
+    return made
+
+
+async def workflow_task_settled(
+    session: AsyncSession, task: WorkItemTask, *, removed_now: bool = False
+) -> None:
+    """A task of a node changed: all done continues the node; canceled or removed: its error.
+
+    A result the node already took is ignored by the interpreter, so a later change of another
+    task of the same checklist changes nothing.
+    """
+    if task.workflow_instance_id is None or task.workflow_command is None:
+        return
+    rows = list(
+        await session.scalars(
+            select(WorkItemTask).where(
+                WorkItemTask.workflow_instance_id == task.workflow_instance_id,
+                WorkItemTask.workflow_command == task.workflow_command,
+            )
+        )
+    )
+    gone = removed_now or any(
+        r.deleted_at is not None or r.status == TaskStatus.CANCELED for r in rows
+    )
+    done = all(r.deleted_at is None and r.status == TaskStatus.DONE for r in rows)
+    if not gone and not done:
+        return
+    await automation.command_finished(
+        session,
+        instance_id=task.workflow_instance_id,
+        command=task.workflow_command,
+        ok=not gone,
+        error="task_canceled" if gone else None,
+    )
 
 
 # --- worklogs (REQ-INC-067) -----------------------------------------------------------------------
