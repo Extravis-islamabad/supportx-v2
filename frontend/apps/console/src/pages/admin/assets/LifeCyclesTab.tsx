@@ -15,7 +15,7 @@ import {
 import { useState } from 'react';
 
 import type { AssetLifeCycle, AssetMove, AssetState } from '@supportx/api-client';
-import { useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import { EmptyText, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { LabelsFields, Problems } from '../incidents/shared';
 import { codeFrom, nameOf, useCatalogueSave, type Names } from './shared';
@@ -167,7 +167,7 @@ export function LifeCyclesTab({
             rowKey={(move) => `${move.from_state_id}-${move.to_state_id}`}
             pagination={false}
             dataSource={cycle.moves}
-            locale={{ emptyText: t('assets.admin.no_moves') }}
+            locale={{ emptyText: <EmptyText>{t('assets.admin.no_moves')}</EmptyText> }}
             columns={[
               {
                 key: 'from',

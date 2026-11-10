@@ -106,6 +106,12 @@ describe('console: problems', () => {
     const fake = api();
     render(<App />);
     await screen.findByTestId('prb-row-PRB-7');
+    // QA 2026-11-10: the list asks for the view the selector shows, from its first request on
+    // (no view meant every problem, a closed one under "All open (7)").
+    expect(
+      fake.find('GET', '/api/v1/problems').map((c) => c.url.searchParams.get('view')),
+    ).not.toContain(null);
+    expect(fake.find('GET', '/api/v1/problems')[0]?.url.searchParams.get('view')).toBe('all_open');
     const selector = screen.getByTestId('prb-view').querySelector('.ant-select-selector');
     if (selector === null) throw new Error('not an Ant Design Select');
     fireEvent.mouseDown(selector);
