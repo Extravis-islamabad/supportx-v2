@@ -160,6 +160,7 @@ const EMPTY_ASSIGNMENT: AssignmentSettingsOut = {
 };
 
 function useGroupOptions(keep?: string | null) {
+  const t = useLabel();
   const groups = useStructure('groups');
   return {
     loading: groups.isPending,
@@ -167,10 +168,12 @@ function useGroupOptions(keep?: string | null) {
       .filter((g) => !g.disabled || g.id === keep)
       .map((g) => ({ value: g.id, label: g.name })),
     name: (id: string | null | undefined) =>
-      groups.data?.find((g) => g.id === id)?.name ?? t_unknown,
+      // A group not in the list was removed (QA, lane C's #318 note); nothing while it loads.
+      groups.data === undefined
+        ? ''
+        : (groups.data.find((g) => g.id === id)?.name ?? t('automation.group_gone')),
   };
 }
-const t_unknown = '—';
 
 /** Category suggestion and the fallback group (none until an admin picks one, D-097). */
 interface RoutingSettingsDraft {
@@ -342,7 +345,12 @@ function RoutingRules() {
               rule.site_id === null ? (
                 t('automation.routing.any_site')
               ) : (
-                <bdi>{sites.data?.find((s) => s.id === rule.site_id)?.name ?? t_unknown}</bdi>
+                <bdi>
+                  {sites.data === undefined
+                    ? ''
+                    : (sites.data.find((s) => s.id === rule.site_id)?.name ??
+                      t('automation.site_gone'))}
+                </bdi>
               ),
           },
           {
