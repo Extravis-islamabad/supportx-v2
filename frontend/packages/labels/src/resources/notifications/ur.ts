@@ -33,12 +33,14 @@ export const ur: LabelResource = {
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.announcement': 'اعلانات',
   'notification_area.asset': 'اثاثے',
+  'notification_area.change': 'تبدیلیاں',
   'notification_area.connector': 'کنیکٹرز',
   'notification_area.incident': 'واقعات',
   'notification_area.kb_article': 'علمی ذخیرہ',
   'notification_area.mailbox': 'میل',
   'notification_area.problem': 'مسائل',
   'notification_area.problem_repeat': 'مسائل',
+  'notification_area.release': 'ریلیزز',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
@@ -58,6 +60,7 @@ export const ur: LabelResource = {
   'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
   'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
   'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
+  'notification_event.change.public_reply': 'درخواست گزار کو جواب',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
@@ -98,10 +101,12 @@ export const ur: LabelResource = {
   'notification_event.problem.target_breached': 'مسئلے کی ہدف تاریخ گزر گئی',
   'notification_event.problem.target_warning': 'مسئلے کی ہدف تاریخ قریب',
   'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
+  'notification_event.release.public_reply': 'درخواست گزار کو جواب',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
   'notification_event.service_request.fulfilled': 'درخواست مکمل',
+  'notification_event.service_request.public_reply': 'درخواست گزار کو جواب',
   'notification_event.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
@@ -199,6 +204,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} کی وارنٹی {{ warranty.ends_on }} کو ختم',
   'notification_template.asset.warranty_expiring.subject':
     'وارنٹی ختم ہو رہی ہے: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.change.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.change.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':
@@ -424,6 +435,12 @@ export const ur: LabelResource = {
     '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
+  'notification_template.release.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.release.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.release.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -448,6 +465,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} مکمل ہو گئی: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'مکمل: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.service_request.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.service_request.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
   'notification_template.service_request.ready_to_fulfil.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کے سب کام ہو گئے، مگر یہ کسی کو تفویض نہیں۔ اپنے گروپ کے کسی فرد کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
   'notification_template.service_request.ready_to_fulfil.in_app':
