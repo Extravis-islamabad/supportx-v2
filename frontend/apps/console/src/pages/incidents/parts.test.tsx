@@ -83,6 +83,20 @@ describe('Incident parts (WP-020e)', () => {
     });
   });
 
+  it('Haider 2026-11-10 (A8): a disabled Add task says why, reachable by keyboard', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'tasks');
+    api({});
+    render(<App />);
+    const add = await screen.findByTestId('inc-task-add');
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+    const wrapper = add.closest('[data-testid="disabled-why"]');
+    if (wrapper === null) throw new Error('no reason around the disabled button');
+    expect(wrapper.getAttribute('tabindex')).toBe('0'); // a keyboard reaches the reason
+    fireEvent.mouseEnter(wrapper);
+    expect(await screen.findByText('Give the task a title first.')).toBeDefined();
+  });
+
   it('D-154d: a done task says who did it', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'tasks');
@@ -150,8 +164,34 @@ describe('Incident parts (WP-020e)', () => {
     rememberTab(SESSION_USER, 'worklogs');
     api({});
     render(<App />);
+    fireEvent.click(await screen.findByTestId('inc-worklog-open'));
     const form = await screen.findByTestId('inc-worklog-form');
     expect(within(form).getByTestId<HTMLButtonElement>('inc-worklog-add').disabled).toBe(true);
+    // Disabled only with the reason beside it (Haider, 2026-11-10).
+    expect(within(form).getByTestId('inc-worklog-why').textContent).not.toBe('');
+  });
+
+  it('Haider 2026-11-10: the worklog footer is Cancel then Log time; Cancel clears and closes', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'worklogs');
+    api({});
+    render(<App />);
+    expect(screen.queryByTestId('inc-worklog-form')).toBeNull(); // closed until asked for
+    fireEvent.click(await screen.findByTestId('inc-worklog-open'));
+    const form = await screen.findByTestId('inc-worklog-form');
+    const buttons = [...form.querySelectorAll('button')].map((b) => b.getAttribute('data-testid'));
+    expect(buttons.slice(-2)).toEqual(['inc-worklog-cancel', 'inc-worklog-add']);
+    expect(form.querySelectorAll('[data-testid="time-zone-note"]')).toHaveLength(1); // one note
+    fireEvent.change(within(form).getByRole('textbox', { name: 'What was done' }), {
+      target: { value: 'Swapped the toner' },
+    });
+    fireEvent.click(within(form).getByTestId('inc-worklog-cancel'));
+    expect(screen.queryByTestId('inc-worklog-form')).toBeNull();
+    fireEvent.click(screen.getByTestId('inc-worklog-open'));
+    const reopened = await screen.findByTestId('inc-worklog-form');
+    expect(
+      within(reopened).getByRole<HTMLTextAreaElement>('textbox', { name: 'What was done' }).value,
+    ).toBe(''); // cleared, not kept
   });
 
   it('REQ-INC-084 AC3: a link to a record you cannot see shows without its ID or subject', async () => {

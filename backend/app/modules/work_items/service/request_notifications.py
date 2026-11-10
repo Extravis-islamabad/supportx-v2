@@ -27,11 +27,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound
 from app.modules.identity_access import subject_for, user_names, worker_policy
+from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.events import (
+    ServiceRequestReadyToFulfil,
     WorkItemApprovalChanged,
     WorkItemCreated,
     WorkItemStatusChanged,
@@ -63,6 +65,8 @@ APPROVED = "service_request.approved"
 REJECTED = "service_request.rejected"
 WITHDRAWN = "service_request.withdrawn"
 FULFILLED = "service_request.fulfilled"
+READY = "service_request.ready_to_fulfil"  # D-154 "E1 follows d": to its group, in the app
+GROUP = "group"  # the request's group
 REQUESTER = "requester"  # the requester and the person it is for
 APPROVER = "approver"
 ADMINISTRATORS = "approval_administrators"
@@ -107,6 +111,11 @@ EVENTS: tuple[NotificationEvent, ...] = (
     NotificationEvent(
         FULFILLED, NotificationCategory.STATUS, EventDefault(enabled=True, recipients=(REQUESTER,))
     ),
+    NotificationEvent(
+        READY,
+        NotificationCategory.ASSIGNMENT,
+        EventDefault(enabled=True, recipients=(GROUP,), channels=(NotificationChannel.IN_APP,)),
+    ),
 )
 VARIABLES = (
     Variable("record.display_id", "notification_variable.record.display_id"),
@@ -132,13 +141,14 @@ class ServiceRequestNotifications:
     record_type = "service_request"
     channel_kind = RECORD_KIND
     events = EVENTS
-    recipient_kinds = (APPROVER, ADMINISTRATORS, REQUESTER)
+    recipient_kinds = (APPROVER, ADMINISTRATORS, REQUESTER, GROUP)
     variables = VARIABLES
     conditions = ("priority",)
     event_types = (
         WorkItemApprovalChanged.event_type,
         WorkItemCreated.event_type,
         WorkItemStatusChanged.event_type,
+        ServiceRequestReadyToFulfil.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
@@ -150,6 +160,8 @@ class ServiceRequestNotifications:
             return (REQUESTED,) if payload.get("approver_id") else (FALLBACK,)
         if payload.get("type") != SERVICE_REQUEST.code.value:
             return ()
+        if envelope.event_type == ServiceRequestReadyToFulfil.event_type:
+            return (READY,)
         if envelope.event_type == WorkItemCreated.event_type:
             return (RECEIVED,)
         return _status_event(payload)
@@ -160,6 +172,8 @@ class ServiceRequestNotifications:
         """The request now, and who is told now (a decided approval tells nobody)."""
         if event_code in REQUESTER_EVENTS:
             return await _requester_context(session, event_code, envelope)
+        if event_code == READY:
+            return await _ready_context(session, envelope)
         payload = envelope.payload
         row = await session.get(WorkItemApproval, uuid.UUID(str(payload["approval_id"])))
         record = await session.get(WorkItem, uuid.UUID(str(payload["work_item_id"])))
@@ -247,6 +261,37 @@ class ServiceRequestNotifications:
 
 
 REQUESTER_EVENTS = frozenset({RECEIVED, APPROVED, REJECTED, WITHDRAWN, FULFILLED})
+
+
+async def _ready_context(session: AsyncSession, envelope: EventEnvelope) -> RecordContext | None:
+    """Its group, while the request is still open with nobody on it (D-154, "E1 follows d")."""
+    record = await session.get(WorkItem, uuid.UUID(str(envelope.payload["work_item_id"])))
+    if (
+        record is None
+        or record.deleted_at is not None
+        or record.technician_id is not None  # someone took it meanwhile: no news
+        or record.group_id is None
+        or StatusCategory(record.status_category) is not StatusCategory.OPEN
+    ):
+        return None
+    members = frozenset(await session.scalars(users_in_groups(frozenset({record.group_id}))))
+    names = await user_names(session, [str(record.requester_id)])
+    variables: dict[str, VariableValue] = {
+        "record.display_id": record.display_id,
+        "record.title": record.subject,
+        "record.link": f"/requests/{record.id}",
+        "requester.name": names.get(str(record.requester_id)),
+    }
+    return RecordContext(
+        record_id=record.id,
+        display_id=record.display_id,
+        link=f"/requests/{record.id}",
+        variables=variables,
+        public_variables=variables,
+        relatives={GROUP: members},
+        conditions={"priority": record.priority},
+        event_code=READY,
+    )
 
 
 def _status_event(payload: Mapping[str, object]) -> tuple[str, ...]:

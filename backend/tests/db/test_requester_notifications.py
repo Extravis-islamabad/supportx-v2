@@ -101,3 +101,38 @@ async def test_an_incident_the_requester_raised_themself_is_acknowledged(world: 
     await run_engine(world, a, settings=MAIL)
     news = await told(world, a, made.json()["id"], a.requester)
     assert "incident.created" in news
+
+
+async def test_e1_a_request_ready_to_fulfil_tells_its_group_once_in_the_app(world: World) -> None:
+    """D-154 "E1 follows d": its last task done with nobody on it, each person of its group
+    gets one in-app notice; the requester hears nothing of it."""
+    from tests.db.test_service_requests_api import an_item, raise_request  # noqa: PLC0415 - shared helpers
+
+    a = world.a
+    item = await an_item(world, a, plan=[{"title": {"en": "Order the laptop"}}])
+    record = (
+        await raise_request(
+            world,
+            a,
+            a.admin,
+            catalog_item_id=item["id"],
+            answers={"model": "air"},
+            group_id=str(a.ga),
+        )
+    ).json()
+    listed = await world.call("GET", f"{SR}/{record['id']}/tasks", a, a.admin)
+    [task] = listed.json()["items"]
+    ticked = await world.call(
+        "PATCH",
+        f"{SR}/{record['id']}/tasks/{task['id']}",
+        a,
+        a.admin,
+        json={"status": "done"},
+        headers={"If-Match": f'"{task["version"]}"', **CONSOLE},
+    )
+    assert ticked.status_code == 200, ticked.text
+    await run_engine(world, a, settings=MAIL)
+    for member in (a.tech_a, a.tech_c):  # GA's people
+        news = await told(world, a, record["id"], member)
+        assert news.get("service_request.ready_to_fulfil") == ["in_app"], news
+    assert "service_request.ready_to_fulfil" not in await told(world, a, record["id"], a.admin)

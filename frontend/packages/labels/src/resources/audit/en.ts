@@ -324,6 +324,8 @@ export const en = {
   'audit.action.service_request.created': 'Created a service request',
   'audit.action.service_request.deleted': 'Moved a service request to the trash',
   'audit.action.service_request.due_date_changed': "Changed a service request's due date",
+  'audit.action.service_request.fulfiller_repaired':
+    'Gave a request fulfilled with nobody on it its fulfiller',
   'audit.action.service_request.linked': 'Linked a service request to another record',
   'audit.action.service_request.merged': 'Merged a service request into another record',
   'audit.action.service_request.note_visibility_changed':
@@ -876,6 +878,7 @@ export const en = {
   'event_type.work_items.problem_repeat.changed': 'Repeat incident rule or set changed',
   'event_type.work_items.problem_repeat.detected': 'Repeated incidents found',
   'event_type.work_items.reply_templates.changed': 'Reply templates changed',
+  'event_type.work_items.service_request.ready_to_fulfil': 'Request ready to fulfil',
   'event_type.work_items.settings.changed': 'Record settings changed',
   'event_type.work_items.view.changed': 'Saved view changed',
   'event_type.work_items.work_item.assigned': 'Record assigned',

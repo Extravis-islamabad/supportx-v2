@@ -98,6 +98,7 @@ export const ar: LabelResource = {
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
   'notification_event.service_request.fulfilled': 'تنفيذ الطلب',
+  'notification_event.service_request.ready_to_fulfil': 'طلب جاهز للتنفيذ',
   'notification_event.service_request.received': 'استلام الطلب: إشعار',
   'notification_event.service_request.rejected': 'رفض الطلب',
   'notification_event.service_request.withdrawn': 'سحب الطلب',
@@ -435,6 +436,12 @@ export const ar: LabelResource = {
     'نُفّذ {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'تم التنفيذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.ready_to_fulfil.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُنجزت كل مهام {{ record.display_id }} «{{ record.title }}» لكن لا أحد مسند إليه. أسنده إلى أحد أعضاء مجموعتك لتنفيذه.',
+  'notification_template.service_request.ready_to_fulfil.in_app':
+    '{{ record.display_id }} جاهز للتنفيذ: أسنده إلى أحد',
+  'notification_template.service_request.ready_to_fulfil.subject':
+    'جاهز للتنفيذ: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.received.body':
     'مرحبًا {{ recipient.name }}،\n\nاستلمنا طلبك «{{ record.title }}» وسجّلناه برقم {{ record.display_id }}. سنبقيك على اطلاع.',
   'notification_template.service_request.received.in_app':

@@ -458,6 +458,15 @@ async def get_item(session: AsyncSession, subject: Subject, item_id: uuid.UUID) 
     return ItemView(row, rules_of(row), subject.holds(MANAGE))
 
 
+async def expected_delivery(session: AsyncSession, item: CatalogItem) -> sla.DeliveryTarget | None:
+    """How long a request for `item` usually takes, from the SLA that would apply.
+
+    The item's own policy, else the requests' fallback, at its default priority (Haider,
+    2026-11-10). None when no SLA applies; the form then says nothing about delivery.
+    """
+    return await sla.delivery_target(session, SR_TYPE, item.sla_policy_id, item.default_priority)
+
+
 def snapshot(item: CatalogItem) -> dict[str, Any]:
     """The item's fields as field history keeps them (IDs and times as text)."""
     out: dict[str, Any] = {}

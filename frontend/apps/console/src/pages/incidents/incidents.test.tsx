@@ -146,7 +146,7 @@ describe('One incident', () => {
     expect(screen.queryByTestId('inc-op-delete')).toBeNull();
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
     expect(tabs).toEqual([
-      'Conversation (0)',
+      'Conversation (1)', // the description, and no replies or notes yet
       'Details',
       'Tasks',
       'Worklogs',

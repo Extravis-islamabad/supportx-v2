@@ -330,6 +330,7 @@ export const en = {
     'A calendar is only chosen when the source is a fixed calendar.',
   'errors.field.flow_not_available': 'This kind of record has no created-vs-resolved report.',
   'errors.field.flow_without_groupings': 'A created-vs-resolved report has no groupings.',
+  'errors.field.fulfiller_required': 'Assign someone to fulfil this request first.',
   'errors.field.full_sla_off':
     'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
   'errors.field.group_not_found': 'This group does not exist.',
@@ -606,6 +607,7 @@ export const en = {
   'errors.files_not_configured': 'Files cannot be stored: file encryption keys are not configured.',
   'errors.follower_not_found': 'This person is not following it.',
   'errors.group_not_found': 'The support group was not found.',
+  'errors.group_not_led': 'You can only manage the groups you lead.',
   'errors.holiday_list_not_found': 'This holiday list does not exist or was deleted.',
   'errors.holiday_not_found': 'This holiday does not exist or was deleted.',
   'errors.ical_too_large': 'The file is larger than 1 MB.',
@@ -871,6 +873,8 @@ export const en = {
   'errors.system_calendar_required':
     'Every organisation keeps this calendar, so it cannot be deleted.',
   'errors.system_role_immutable': 'Built-in roles cannot be changed or deleted.',
+  'errors.system_role_not_deletable':
+    "Built-in roles can't be deleted. Copy the role to make your own version.",
   'errors.technician_limit_reached':
     'All technician seats in your organisation’s plan are in use. Ask your administrator to free a seat or add more.',
   'errors.technicians_only': 'Only technicians can see other users.',

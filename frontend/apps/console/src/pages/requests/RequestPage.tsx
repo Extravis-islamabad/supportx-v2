@@ -1,12 +1,13 @@
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Descriptions, Flex, Result, Skeleton, Tabs, Typography } from 'antd';
+import { Alert, Descriptions, Flex, Result, Skeleton, Tabs, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import {
   serviceRequestKeys,
   useCatalogItem,
+  useRequestTasks,
   useServiceRequest,
   useSession,
   useStructure,
@@ -90,11 +91,31 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
     [r.requester_id, r.on_behalf_of_id].includes(me);
   const reply = r.conversation_actions.find((a) => a.action === 'reply');
   const hasApprovals = r.approval_status != null && r.approval_status !== 'not_needed';
+  // D-154 "E1 follows d": every required task done but nobody on it, so it is not fulfilled
+  // by itself; the record says so until someone takes it.
+  const tasks = useRequestTasks(r.id);
+  const required = (tasks.data?.items ?? []).filter((task) => task.from_plan && task.required);
+  const readyToFulfil =
+    r.status_category === 'open' &&
+    r.technician_id === null &&
+    required.length > 0 &&
+    required.every((task) => task.status === 'done');
   return (
     <>
       <RequestCrumbs item={r} />
       <RecordPage
         testId="sr-record"
+        alerts={
+          readyToFulfil ? (
+            <Alert
+              type="warning"
+              showIcon
+              role="status"
+              message={t('requests.ready_to_fulfil')}
+              data-testid="sr-ready-to-fulfil"
+            />
+          ) : undefined
+        }
         header={
           <RecordHeader
             icon={<ShoppingCartOutlined />}

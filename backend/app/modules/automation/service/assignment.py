@@ -34,7 +34,12 @@ from app.modules.automation.infra.models import (
     TechnicianAvailability,
 )
 from app.modules.automation.service.business_rules import _invalid
-from app.modules.organization import active_unit_ids, memberships, unit_heads
+from app.modules.organization import (
+    GroupActor,
+    active_unit_ids,
+    may_manage_group,
+    memberships,
+)
 from app.shared.events import record_event
 from app.shared.history import (
     Change,
@@ -200,14 +205,18 @@ async def availability_states(
 
 
 async def may_set_availability(
-    session: AsyncSession, setter: uuid.UUID, user_id: uuid.UUID, *, manages_people: bool
+    session: AsyncSession, setter: GroupActor, user_id: uuid.UUID, *, manages_people: bool
 ) -> bool:
-    """Yourself; anyone with `users.manage`; or the lead of a group the person is in."""
-    if setter == user_id or manages_people:
+    """Yourself; anyone with `users.manage`; or a team lead of a group the person is in.
+
+    D-152: leading the group is not enough on its own; the lead holds `groups.manage_own`
+    (the Team lead role), or `groups.manage` for every group.
+    """
+    if setter.user_id == user_id or manages_people:
         return True
-    for group_id in (await memberships(session, user_id)).group_ids:
-        lead, _ = await unit_heads(session, group_id, None)
-        if lead == setter:
+    groups = (await memberships(session, user_id)).group_ids
+    for group_id in groups:
+        if await may_manage_group(session, setter, group_id):
             return True
     return False
 
