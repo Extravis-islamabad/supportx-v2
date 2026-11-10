@@ -172,13 +172,24 @@ async def _with_links(session: AsyncSession, mail: OutgoingMail) -> OutgoingMail
 async def deliver(
     session: AsyncSession, settings: Settings, mail_id: uuid.UUID, *, send: smtp.Sender = smtp.send
 ) -> str:
-    """Send one queued message; its state afterwards (`sent`, `failed`, or `queued` to retry)."""
+    """Send one queued message; its state afterwards (`sent`, `failed`, or `queued` to retry).
+
+    With no mail server set up here (removed after the message was queued, or this process
+    lacks the settings the queueing one had), nothing is attempted: the message waits, due as
+    soon as mail works, and its callers hear `retrying` with failure `mail_not_configured` (QA
+    2026-11-04 #2: never "sending" for ever). Before this, building the message (no sender
+    address) or `smtp_settings` raised out of the attempt, the transaction rolled back and the
+    message stayed queued with no next attempt, which the retry schedule never picks up.
+    """
     row = await session.scalar(
         select(MailMessage).where(MailMessage.id == mail_id).with_for_update(skip_locked=True)
     )
     if row is None or row.state != "queued":
         return "gone" if row is None else row.state  # handled already, or being sent now
     now = datetime.now(UTC)
+    if not mail_configured(settings):
+        await _wait_for_mail(session, row, now)
+        return row.state
     row.attempts += 1
     row.version += 1
     mime = build_mime(
@@ -213,6 +224,16 @@ async def deliver(
     row.purge_after = now + timedelta(days=settings.mail_content_retention_days)
     await _changed(session, row, "sent", now)
     return row.state
+
+
+async def _wait_for_mail(session: AsyncSession, row: MailMessage, now: datetime) -> None:
+    """Keep `row` queued until outgoing mail is set up; say so once (a redelivery says nothing)."""
+    if row.failure == MailNotConfigured.code and row.next_attempt_at is not None:
+        return
+    row.failure = MailNotConfigured.code
+    row.next_attempt_at = now  # the retry schedule sends it on its first run with mail set up
+    row.version += 1
+    await _changed(session, row, "retrying", now)
 
 
 async def _changed(

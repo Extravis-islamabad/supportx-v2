@@ -58,6 +58,7 @@ from app.shared.labels import label
 from app.shared.mail import (
     Language,
     MailLink,
+    MailNotConfigured,
     MailRefused,
     OutgoingMail,
     links_from_json,
@@ -92,6 +93,7 @@ WAITING_BATCH = 200
 # An e-mail that waited this long for outgoing mail is never sent late (REQ-INC-060; D-116).
 WAITING_DAYS = 7
 NOT_SENT_IN_TIME = "not_sent_in_time"
+MAIL_NOT_CONFIGURED = MailNotConfigured.code  # a queued e-mail's failure while there is no server
 REQUESTER = "requester"  # the recipient kind whose e-mail a reply's delivery state follows
 
 
@@ -402,17 +404,63 @@ async def entry_changed(  # noqa: PLR0913 - the change, explicit
     at: datetime,
 ) -> None:
     """Tell the record's module how the e-mail carrying one of its entries went (REQ-INC-059)."""
+    if delivery.entry_id is None:
+        return
+    await _move_entry(
+        session, source, delivery.record_id, delivery.entry_id, state=state, reason=reason, at=at
+    )
+
+
+async def _move_entry(  # noqa: PLR0913 - the change, explicit
+    session: AsyncSession,
+    source: RecordSource,
+    record_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    *,
+    state: str,
+    reason: str | None,
+    at: datetime,
+) -> None:
     hook = getattr(source, "delivery_changed", None)
-    if hook is None or delivery.entry_id is None:
+    if hook is None:
         return
     await cast("DeliveryChange", source).delivery_changed(
-        session,
-        record_id=delivery.record_id,
-        entry_id=delivery.entry_id,
-        state=state,
-        reason=reason,
-        at=at,
+        session, record_id=record_id, entry_id=entry_id, state=state, reason=reason, at=at
     )
+
+
+async def _settle_untold(
+    session: AsyncSession,
+    source: RecordSource,
+    envelope: EventEnvelope,
+    carried: set[tuple[uuid.UUID, uuid.UUID]],
+) -> None:
+    """An entry no requester e-mail was made for fails as `not_notified` (QA 2026-11-04 #2).
+
+    The record's module saved the reply as queued (or waiting) for the e-mail this event makes.
+    When the rule makes none for the requester (switched off, no e-mail channel, the requester
+    not among its recipients), nothing would ever move it on: it showed "Sending" for ever. The
+    source ignores entries that are not outbound replies (notes, received ones, sent ones).
+    """
+    for record_id, entry_id in carried:
+        rows = await session.scalars(
+            select(NotificationDelivery.reasons).where(
+                NotificationDelivery.event_id == envelope.event_id,
+                NotificationDelivery.entry_id == entry_id,
+                NotificationDelivery.channel == NotificationChannel.EMAIL.value,
+            )
+        )
+        if any(REQUESTER in reasons for reasons in rows):
+            continue
+        await _move_entry(
+            session,
+            source,
+            record_id,
+            entry_id,
+            state="failed",
+            reason="not_notified",
+            at=datetime.now(UTC),
+        )
 
 
 async def mail_changed(session: AsyncSession, envelope: EventEnvelope) -> int:
@@ -433,11 +481,14 @@ async def mail_changed(session: AsyncSession, envelope: EventEnvelope) -> int:
             row.state, row.reason = DeliveryState.FAILED.value, str(failure or "gave_up")
         row.updated_at = datetime.now(UTC)
         if row.entry_id is not None and REQUESTER in row.reasons:
+            # Tried again once mail is set up (the sender has no server): the reply waits for
+            # it, as one saved while mail was not set up does (QA 2026-11-04 #2).
+            entry_state = "waiting" if failure == MAIL_NOT_CONFIGURED else state
             await entry_changed(
                 session,
                 record_source(row.record_type),
                 row,
-                state=state,
+                state=entry_state,
                 reason=None if state == "sent" else str(failure or "gave_up"),
                 at=at,
             )
@@ -559,17 +610,25 @@ def _language(person: NotifiablePerson, site: str | None) -> Language:
     return site if site in LANGUAGES else "en"
 
 
-async def notify(  # noqa: C901 - the pipeline of one event, in order
+async def notify(  # noqa: C901, PLR0913, PLR0915 - the pipeline of one event, in order
     session: AsyncSession,
     settings: Settings,
     source: RecordSource,
     code: str,
     envelope: EventEnvelope,
+    *,
+    carried: set[tuple[uuid.UUID, uuid.UUID]] | None = None,
 ) -> int:
-    """Send one notification event to everyone its rule reaches; how many deliveries."""
+    """Send one notification event to everyone its rule reaches; how many deliveries.
+
+    `carried` collects (record, entry) of the entries this event's e-mails carry, for
+    `_settle_untold`.
+    """
     context = await source.context(session, code, envelope)
     if context is None:
         return 0
+    if carried is not None and context.entry_id is not None:
+        carried.add((context.record_id, context.entry_id))
     code = context.event_code or code
     _, event = find_event(code)
     rule = await rule_for(session, event)
@@ -657,8 +716,10 @@ async def dispatch(session: AsyncSession, settings: Settings, envelope: EventEnv
     total = 0
     for source in record_sources():
         if envelope.event_type in source.event_types:
+            carried: set[tuple[uuid.UUID, uuid.UUID]] = set()
             for code in source.events_for(envelope):
-                total += await notify(session, settings, source, code, envelope)
+                total += await notify(session, settings, source, code, envelope, carried=carried)
+            await _settle_untold(session, source, envelope, carried)
     return total
 
 
