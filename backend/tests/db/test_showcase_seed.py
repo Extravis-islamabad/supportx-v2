@@ -827,7 +827,10 @@ def test_e1_repair_gives_a_fulfilled_request_its_fulfiller_once_and_audits_it(
         for e in asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
         if e not in set(audit_before)
     ]
-    assert [e[1] for e in added] == ["service_request.fulfiller_repaired"]
+    # The repair's own entry; with WP-064 (#340) the save's lifecycle entry joins it.
+    actions = [e[1] for e in added]
+    assert actions.count("service_request.fulfiller_repaired") == 1, actions
+    assert all(a.startswith("service_request.") for a in actions), actions
     # Its update event too, so open screens and search follow (rule 5b, lane B).
     events = asyncio.run(_updates_of(database.admin_url, orphan))
     assert events == [["technician_id"]]
