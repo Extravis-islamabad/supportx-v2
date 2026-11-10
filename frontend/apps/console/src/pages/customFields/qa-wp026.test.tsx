@@ -219,7 +219,7 @@ describe('WP-026 QA findings', () => {
     const size = screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Largest file (MB)' });
     fireEvent.change(size, { target: { value: '40' } });
     // Someone else saved meanwhile: this save is refused (409), never applied over theirs.
-    fireEvent.click(screen.getByTestId('files-save'));
+    fireEvent.click(await screen.findByTestId('settings-save')); // template E's save bar
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/files/settings/rules')).toHaveLength(1);
     });
@@ -306,7 +306,7 @@ describe('WP-026 QA findings', () => {
     fireEvent.change(size, { target: { value: '500' } });
     fireEvent.blur(size);
     expect(size.value).toBe('500');
-    fireEvent.click(screen.getByTestId('files-save'));
+    fireEvent.click(await screen.findByTestId('settings-save')); // template E's save bar
     expect(await screen.findByText('Maximum is 100.')).toBeDefined();
   });
 

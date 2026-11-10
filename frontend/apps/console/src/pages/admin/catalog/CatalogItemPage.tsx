@@ -725,7 +725,7 @@ function ApprovalTab({ draft, set }: TabProps) {
                   />
                 </Flex>
               ))}
-              <Button
+              <WriteButton
                 size="small"
                 style={{ alignSelf: 'flex-start' }}
                 disabled={approvers.length >= 10}
@@ -735,7 +735,7 @@ function ApprovalTab({ draft, set }: TabProps) {
                 data-testid="cat-approver-add"
               >
                 {t('catalog_admin.approval.add_person')}
-              </Button>
+              </WriteButton>
             </Flex>
           </Form.Item>
           <Form.Item label={t('catalog_admin.approval.backup')} style={{ maxWidth: 360 }}>
@@ -916,7 +916,7 @@ function LifeTab({
     <Form layout="vertical" component="div">
       <Flex gap={8} wrap style={{ marginBottom: 16 }}>
         {status !== 'published' && (
-          <Button
+          <WriteButton
             type="primary"
             loading={busy}
             onClick={() => {
@@ -925,10 +925,10 @@ function LifeTab({
             data-testid="cat-publish"
           >
             {t(status === 'retired' ? 'catalog_admin.publish_again' : 'catalog_admin.publish')}
-          </Button>
+          </WriteButton>
         )}
         {status === 'published' && (
-          <Button
+          <WriteButton
             loading={busy}
             onClick={() => {
               onStatus('retired');
@@ -936,7 +936,7 @@ function LifeTab({
             data-testid="cat-retire"
           >
             {t('catalog_admin.retire')}
-          </Button>
+          </WriteButton>
         )}
       </Flex>
       <Flex gap={16} wrap>

@@ -1,5 +1,5 @@
 export { useAppearance, useLabel, type Appearance, type Direction } from './appearance';
-export { ADMIN_PERMISSIONS, useAccess, type Access } from './access';
+export { useAccess, type Access } from './access';
 export * from './announcements';
 export * from './brand';
 export * from './dates';
