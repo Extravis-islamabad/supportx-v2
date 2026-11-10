@@ -67,4 +67,44 @@ describe('Admin › Instance settings', () => {
     expect(call?.headers.get('If-Match')).toBe('"3"');
     expect(call?.body).toMatchObject({ base_currency: 'AED', confirm_currency: true });
   });
+
+  it("QA10-P3-12: a wrong e-mail gets the app's own field error, and nothing is saved", async () => {
+    window.history.pushState({}, '', '/admin/instance');
+    const fake = api({
+      'PATCH /api/v1/organization/settings': { body: { ...SAVED, version: 4 } },
+    });
+    render(<App />);
+    const email = await screen.findByTestId('instance-contact-email');
+    expect(email.closest('form')?.noValidate).toBe(true); // never the browser's bubble
+    fireEvent.change(email, { target: { value: 'not-an-email' } });
+    fireEvent.blur(email);
+    expect(await screen.findByText('Enter an e-mail address like name@example.com.')).toBeTruthy();
+    fireEvent.click(await screen.findByTestId('settings-save'));
+    await waitFor(() => {
+      expect(screen.getAllByText('Enter an e-mail address like name@example.com.').length).toBe(1);
+    });
+    expect(fake.find('PATCH', '/api/v1/organization/settings')).toHaveLength(0);
+  });
+
+  it('QA10-P3-13: leaving with unsaved changes asks first, and Stay keeps them', async () => {
+    window.history.pushState({}, '', '/admin/instance');
+    api();
+    render(<App />);
+    const email = await screen.findByTestId('instance-contact-email');
+    fireEvent.change(email, { target: { value: 'desk@example.com' } });
+    await screen.findByTestId('settings-save');
+    fireEvent.click(await screen.findByTestId('admin-sections-button'));
+    fireEvent.click(await screen.findByTestId('admin-sections-home'));
+    await waitFor(() => {
+      expect(screen.getAllByText('Leave without saving?').length).toBeGreaterThan(0);
+    });
+    expect(document.querySelectorAll('.ant-modal-confirm')).toHaveLength(1); // asked once
+    fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/admin/instance');
+    });
+    expect(screen.getByTestId<HTMLInputElement>('instance-contact-email').value).toBe(
+      'desk@example.com',
+    );
+  });
 });

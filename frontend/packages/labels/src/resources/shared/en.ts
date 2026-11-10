@@ -566,6 +566,9 @@ export const en = {
   'setup.page.users.keywords':
     'people, users, technicians, requesters, import, staff, accounts, deactivate',
   'setup.palette_group': 'Setup',
+  'setup.read_only': 'You can view this page but not change it.',
+  'setup.read_only_reason':
+    'Your role lets you see these settings. Changing them needs a manage right; ask an administrator if you need it.',
   'setup.search': 'Search setup',
   'setup.search_placeholder': 'e.g. password, holidays, logo',
   'setup.title': 'Setup',

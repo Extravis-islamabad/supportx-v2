@@ -43,6 +43,7 @@ import {
 import { useKnowledgeLive } from '../../knowledge/live';
 import { showFieldErrors } from '../../knowledge/formErrors';
 import { articleLanguage, typeName } from '../../knowledge/model';
+import { LeaveGuard } from '../useLeaveGuard';
 
 interface SettingsForm {
   self_approval: boolean;
@@ -270,6 +271,8 @@ function GeneralForm({ current }: { current: KbSettings }) {
           </Typography.Paragraph>
         </SettingsCard>
       </Form>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
       <StickySaveBar
         changes={changes}
         saving={update.isPending}

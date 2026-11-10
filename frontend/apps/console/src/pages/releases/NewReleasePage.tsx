@@ -1,11 +1,12 @@
-import { Card, Flex, Form, Input, Select, Typography } from 'antd';
+import { Button, Form, Input, Select, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { useCreateRelease, useReleaseTemplates, useSession } from '@supportx/api-client';
 import {
+  FormPage,
   FormProblem,
-  PageHeader,
+  FormSection,
   usePageCrumbs,
   WriteButton,
   useAppearance,
@@ -58,17 +59,37 @@ export function NewReleasePage() {
   };
   // The path in the top bar and the tab's title (QA6-REL-04).
   usePageCrumbs([{ label: t('nav.releases'), path: '/releases' }, { label: t('releases.new') }]);
+  // Template B (D-147): the form in a section card, Cancel before Create in the sticky footer.
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 720, width: '100%' }}>
-      <PageHeader
-        title={t('releases.new')}
-        description={t('releases.new_help')}
-        back={{ label: t('nav.releases'), onClick: () => void navigate('/releases') }}
-        testId="new-release-header"
-      />
-      {/* A short form on its card, not three fields over an empty page (QA6-REL-03). */}
-      <Card>
-        <Form layout="vertical" data-testid="release-form">
+    <FormPage
+      testId="new-release"
+      title={t('releases.new')}
+      description={t('releases.new_help')}
+      back={{ label: t('nav.releases'), onClick: () => void navigate('/releases') }}
+      notice={
+        <Typography.Text type="secondary">
+          {t('releases.starts_in', { stage: stageName(t, 'submission') })}
+        </Typography.Text>
+      }
+      cancel={
+        <Button onClick={() => void navigate('/releases')} data-testid="release-cancel">
+          {t('actions.cancel')}
+        </Button>
+      }
+      primary={
+        <WriteButton
+          type="primary"
+          disabled={subject.trim() === '' || chosen === undefined}
+          loading={create.isPending}
+          onClick={submit}
+          data-testid="release-save"
+        >
+          {t('releases.create')}
+        </WriteButton>
+      }
+    >
+      <FormSection title={t('releases.section.release')} testId="release-section">
+        <Form layout="vertical" data-testid="release-form" component="div">
           <Form.Item label={t('releases.template')} required htmlFor="release-template">
             <Select
               id="release-template"
@@ -105,20 +126,8 @@ export function NewReleasePage() {
             />
           </Form.Item>
           <FormProblem problem={problem} />
-          <WriteButton
-            type="primary"
-            disabled={subject.trim() === '' || chosen === undefined}
-            loading={create.isPending}
-            onClick={submit}
-            data-testid="release-save"
-          >
-            {t('releases.create')}
-          </WriteButton>
-          <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>
-            {t('releases.starts_in', { stage: stageName(t, 'submission') })}
-          </Typography.Paragraph>
         </Form>
-      </Card>
-    </Flex>
+      </FormSection>
+    </FormPage>
   );
 }
