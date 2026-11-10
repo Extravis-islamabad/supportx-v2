@@ -43,7 +43,7 @@ readable only by you. Look there whenever you need a password (see the table bel
 | Command | What it does |
 |---|---|
 | `make dev-up` | Start the **core** services (enough for most backend and frontend work). |
-| `make dev-up-full` | Start core **plus** Temporal, Temporal UI, OpenSearch, ClickHouse and ClamAV. The first start takes several minutes because ClamAV downloads its virus signatures. |
+| `make dev-up-full` | Start core **plus** Temporal, Temporal UI, OpenSearch, ClickHouse and ClamAV. The first start takes several minutes because ClamAV downloads its virus signatures. `make backend-env` points the API at ClamAV only when clamd answers, so run it after this (a core-only stack has no scanner: files wait as "scanning" and /ready lists no malware_signatures check). |
 | `make dev-ps` | Show every service and whether it is healthy. |
 | `make dev-logs` | Follow all logs. One service only: `make dev-logs s=keycloak`. |
 | `make dev-check` | Check every running service end to end. Services from the full set that are not running are reported as SKIP. |

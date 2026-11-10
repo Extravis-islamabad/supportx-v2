@@ -172,6 +172,8 @@ test('raise, approve from the drawer, fulfil and confirm receipt, all live', asy
     await tech.page.goto(`/requests/${record.id}`);
     await clickAction(tech.page, 'inc-op-take', 'sr-actions');
     await expect(tech.page.getByTestId('sr-details')).not.toContainText(UNASSIGNED, LIVE);
+    // The tasks are on their own tab; the record opens on its conversation.
+    await tech.page.getByTestId('sr-tab-tasks').click();
     const task = tech.page.getByRole('checkbox', { name: `E2E laptop ${tag}: hand it over` });
     // The box follows the saved task (a controlled checkbox): click, then wait for the save.
     await task.click();
