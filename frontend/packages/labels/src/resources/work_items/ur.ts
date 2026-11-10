@@ -1286,6 +1286,7 @@ export const ur: LabelResource = {
   'releases.rail.optional': 'اختیاری',
   'releases.rail.rounds_one': '1 دور',
   'releases.rail.rounds_other': '{{count}} دور',
+  'releases.record_type': 'ریلیز',
   'releases.risk_reason': 'خطرہ کیوں بدلا',
   'releases.roles.groups_one': '1 گروپ',
   'releases.roles.groups_other': '{{count}} گروپ',

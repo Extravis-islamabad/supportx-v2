@@ -178,6 +178,9 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
         action.variants !== undefined && action.variants.length > 0 ? (
           <Dropdown.Button
             key={action.key}
+            // Ant Design's split button is a full-width block: in a wrapping row it took a line
+            // of its own and broke the header's one row of actions (D-155, the after shots).
+            style={{ width: 'auto' }}
             type={action.key === main ? 'primary' : 'default'}
             loading={action.loading}
             trigger={['click']}

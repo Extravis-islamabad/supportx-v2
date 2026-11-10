@@ -1282,6 +1282,7 @@ export const en = {
   'releases.rail.optional': 'Optional',
   'releases.rail.rounds_one': '1 round',
   'releases.rail.rounds_other': '{{count}} rounds',
+  'releases.record_type': 'Release',
   'releases.risk_reason': 'Why the risk changed',
   'releases.roles.groups_one': '1 group',
   'releases.roles.groups_other': '{{count}} groups',

@@ -1402,6 +1402,7 @@ export const ar: LabelResource = {
   'releases.rail.rounds_other': '{{count}} جولة',
   'releases.rail.rounds_two': 'جولتان',
   'releases.rail.rounds_zero': 'لا جولات',
+  'releases.record_type': 'إصدار',
   'releases.risk_reason': 'سبب تغيّر المخاطر',
   'releases.roles.groups_few': '{{count}} مجموعات',
   'releases.roles.groups_many': '{{count}} مجموعة',

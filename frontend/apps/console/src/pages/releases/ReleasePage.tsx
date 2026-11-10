@@ -164,7 +164,7 @@ export function ReleasePage() {
         <RecordHeader
           icon={<RocketOutlined />}
           kind="release"
-          typeLabel={t('nav.releases')}
+          typeLabel={t('releases.record_type')}
           displayId={r.display_id}
           title={r.subject}
           tags={
