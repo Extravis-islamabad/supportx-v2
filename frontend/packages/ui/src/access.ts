@@ -2,21 +2,6 @@ import { useMemo } from 'react';
 
 import { useSession, type EffectivePermission } from '@supportx/api-client';
 
-/** Permissions that make the console's Admin area visible (any one of them; WP-016). */
-export const ADMIN_PERMISSIONS = [
-  'users.manage',
-  'roles.view',
-  'roles.manage',
-  'sites.manage',
-  'groups.manage',
-  'settings.manage',
-  'files.manage',
-  'licence.manage',
-  'audit.view',
-  'ai.manage',
-  'api_keys.manage',
-] as const;
-
 export interface Access {
   /** Whether the user holds the permission at any scope. */
   can: (permission: string) => boolean;

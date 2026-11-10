@@ -284,6 +284,11 @@ export {
 export {
   accountActionUrl,
   useAccountSecurity,
+  useEndMySession,
+  useEndPersonSession,
+  useMySessions,
+  usePersonSessions,
+  type ListedSession,
   useApplyPasswordPolicy,
   useMfaPolicy,
   useResetMfa,
@@ -355,6 +360,8 @@ export {
   useIncidentViewFilters,
   useListSetting,
   useSaveListSetting,
+  listSettingKey,
+  type ListKind,
   useSavedViewChange,
   useSavedViews,
   useStartBulk,
@@ -510,6 +517,7 @@ export {
 export type { components, paths } from './schema';
 export {
   fetchMe,
+  sessionRefusalCode,
   useLogout,
   useSession,
   useSwitchTenant,
@@ -752,6 +760,7 @@ export {
   useApprovals,
   useDecideApproval,
   useMyApprovals,
+  useMyTypeApprovals,
   useMyDecidedApprovals,
   useApproveMany,
   useWithdrawRequest,

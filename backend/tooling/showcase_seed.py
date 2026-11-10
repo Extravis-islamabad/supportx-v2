@@ -59,6 +59,7 @@ from typing import Any
 import asyncpg
 import httpx
 from fastapi import FastAPI, Request
+from sqlalchemy import update
 
 from app.core.config import Settings
 from app.core.database import Database, create_engine
@@ -69,8 +70,10 @@ from app.modules import sla
 from app.modules.audit import RequestFacts
 from app.modules.audit import record as record_audit
 from app.modules.audit.domain.catalogue import AuditClient
+from app.modules.identity_access.domain import mfa as mfa_rules
 from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import Identity
+from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service.users import provision_user
 from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
@@ -497,6 +500,11 @@ class KeycloakResult:
 
     subjects: dict[str, str]
     made: list[str]
+    # One line per persona about its authenticator (D-151): "enrolled", "already enrolled",
+    # "sets it up in QA" or why none was made. Never the secret.
+    enrolment: list[str] = field(default_factory=list)
+    # The personas holding the dev authenticator now: SupportX records them as enrolled.
+    pre_enrolled: list[str] = field(default_factory=list)
 
 
 async def _ensure_user(  # noqa: PLR0913, PLR0917 - the realm call context and the person, explicit
@@ -624,22 +632,62 @@ async def ensure_keycloak(client: httpx.AsyncClient, target: KeycloakTarget) -> 
         made.append("organization")
 
     subjects: dict[str, str] = {}
+    enrolment: list[str] = []
+    pre_enrolled: list[str] = []
     for person in SIGN_INS:
         user_id, done = await _ensure_user(
             client, realm, headers, org_id, person, target.sign_in_password
         )
         made += done
-        if target.totp_key and await _ensure_totp(
-            client, realm, headers, user_id, person, target.totp_key
-        ):
+        persona = quick.persona_by_email(person.email)
+        if persona is None:
+            pass  # not a quick sign-in persona: no line
+        elif not persona.enrolled:
+            enrolment.append(f"{person.email}: not enrolled (sets it up the normal way)")
+        elif not target.totp_key:
+            enrolment.append(f"{person.email}: NOT enrolled, no {TOTP_KEY_ENV}")
+        elif await _ensure_totp(client, realm, headers, user_id, person, target.totp_key):
             # Keycloak's partial import replaced the user (same ID) without its password, roles
             # and membership: put them back the same way as above.
             _, done = await _ensure_user(
                 client, realm, headers, org_id, person, target.sign_in_password
             )
             made += [f"authenticator {person.email}"]
+            enrolment.append(
+                f"{person.email}: enrolled" + await _clear_enrol(client, realm, headers, user_id)
+            )
+            pre_enrolled.append(person.email)
+        else:
+            enrolment.append(
+                f"{person.email}: already enrolled"
+                + await _clear_enrol(client, realm, headers, user_id)
+            )
+            pre_enrolled.append(person.email)
         subjects[person.email] = user_id
-    return KeycloakResult(subjects, made)
+    return KeycloakResult(subjects, made, enrolment, pre_enrolled)
+
+
+async def _clear_enrol(
+    client: httpx.AsyncClient, realm: str, headers: dict[str, str], user_id: str
+) -> str:
+    """Drop a pending two-step set-up from a persona that holds its authenticator (D-151).
+
+    SupportX adds Keycloak's enrol actions once a tenant's grace period ends to everyone it has
+    not seen enrol, and Keycloak then refuses the persona's password grant ("not fully set up").
+    The persona is enrolled, so the actions go; SupportX records it as enrolled (step 3).
+    """
+    found = await client.get(f"{realm}/users/{user_id}", headers=headers)
+    found.raise_for_status()
+    user = found.json()
+    pending = [a for a in user.get("requiredActions") or [] if a in mfa_rules.ENROL_ACTIONS]
+    if not pending:
+        return ""
+    kept = [a for a in user["requiredActions"] if a not in mfa_rules.ENROL_ACTIONS]
+    put = await client.put(
+        f"{realm}/users/{user_id}", headers=headers, json={**user, "requiredActions": kept}
+    )
+    put.raise_for_status()
+    return " (cleared a pending two-step set-up)"
 
 
 async def _ensure_totp(  # noqa: PLR0913, PLR0917 - the realm call context and the person, explicit
@@ -694,8 +742,14 @@ async def _ensure_totp(  # noqa: PLR0913, PLR0917 - the realm call context and t
 # --- 3. First sign-in ------------------------------------------------------------------------
 
 
-async def sign_in_once(database: Database, subjects: Mapping[str, str]) -> dict[str, uuid.UUID]:
-    """Each sign-in's SupportX person, made or linked as a first login would."""
+async def sign_in_once(
+    database: Database, subjects: Mapping[str, str], pre_enrolled: Sequence[str] = ()
+) -> dict[str, uuid.UUID]:
+    """Each sign-in's SupportX person, made or linked as a first login would.
+
+    The personas holding the dev authenticator are recorded as enrolled, as a sign-in would
+    after Keycloak reported their credential, so the schedule never asks them to set it up.
+    """
     users: dict[str, uuid.UUID] = {}
     for person in SIGN_INS:
         identity = Identity(
@@ -711,6 +765,14 @@ async def sign_in_once(database: Database, subjects: Mapping[str, str]) -> dict[
             database, TENANT_ID, identity, datetime.now(UTC), client="console", reason="login"
         )
         users[person.email] = provisioned.user_id
+    enrolled = [users[email] for email in pre_enrolled if email in users]
+    if enrolled:
+        async with database.tenant_session(TenantContext(TENANT_ID)) as session:
+            await session.execute(
+                update(User)
+                .where(User.id.in_(enrolled), User.mfa_enrolled_at.is_(None))
+                .values(mfa_enrolled_at=datetime.now(UTC))
+            )
     return users
 
 
@@ -1282,6 +1344,7 @@ async def fill_lane_a(
     incidents = await admin.all_pages("/api/v1/incidents")
     report.problems = await lane_a.ensure_problems(admin, sana, incidents)
     report.rules = await lane_a.ensure_rules(admin, groups)
+    report.featured = await lane_a.ensure_featured(admin)
 
 
 @dataclass
@@ -1290,12 +1353,14 @@ class Report:
 
     tenant: list[str] = field(default_factory=list)
     keycloak: list[str] = field(default_factory=list)
+    enrolment: list[str] = field(default_factory=list)  # D-151: one line per persona
     placed: list[str] = field(default_factory=list)  # D-151: departments, places, lead, roles
     incidents: int = 0
     managers: int = 0
     service_requests: int = 0
     problems: int = 0
     rules: int = 0
+    featured: int = 0  # catalog items featured on the portal's home now
     sla_policies: int = 0
     sla_from_creation: int = 0
     dashboard: bool = False
@@ -1310,7 +1375,12 @@ class Report:
     made: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
 
 
-async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) -> None:
+async def fill(
+    settings: Settings,
+    subjects: Mapping[str, str],
+    report: Report,
+    pre_enrolled: Sequence[str] = (),
+) -> None:
     """Steps 3 and 4, inside the running app (sign-in needs its entitlements service)."""
     contexts: dict[uuid.UUID, TenantContext] = {}
     async with console_api(settings, contexts) as client:
@@ -1319,7 +1389,7 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
             msg = "SUPPORTX_DATABASE_URL is not set"
             raise SeedError(msg)
         try:
-            signed_in = await sign_in_once(database, subjects)
+            signed_in = await sign_in_once(database, subjects, pre_enrolled)
         finally:
             await database.dispose()
         for person in SIGN_INS:
@@ -1382,7 +1452,8 @@ async def run(settings: Settings, keycloak: KeycloakTarget) -> Report:
     async with httpx.AsyncClient(base_url=keycloak.base_url, timeout=20) as client:
         found = await ensure_keycloak(client, keycloak)
     report.keycloak = found.made
-    await fill(settings, found.subjects, report)
+    report.enrolment = found.enrolment
+    await fill(settings, found.subjects, report, found.pre_enrolled)
     report.backdated = await backdate(migrator.get_secret_value(), report.made)
     report.sla_from_creation = await sla_from_creation(
         settings, TENANT_ID, report.admin_id, report.without_sla
@@ -1460,7 +1531,10 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         password=env["SUPPORTX_KEYCLOAK_ADMIN_PASSWORD"],
         sign_in_password=password,
         realm=env.get("SUPPORTX_KEYCLOAK_REALM", "supportx"),
-        totp_key=env.get(TOTP_KEY_ENV) or None,
+        # The make target passes deploy/compose/.env's key; the API's own setting (backend/.env)
+        # is the same key, so either one enrols (they must match, or sign-in codes are refused).
+        totp_key=env.get(TOTP_KEY_ENV)
+        or (settings.showcase_totp_key.get_secret_value() if settings.showcase_totp_key else None),
     )
     try:
         report = asyncio.run(run(settings, target))
@@ -1474,10 +1548,12 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
         f"  service requests made now: {report.service_requests}; problems made now:"
         f" {report.problems}; rules made now: {report.rules}; managers set now:"
-        f" {report.managers}\n"
+        f" {report.managers}; catalog items featured now: {report.featured}\n"
         f"  incidents moved into the past 30 days now: {report.backdated}\n"
         f"  sign in as {ADMIN.email} or {TECHNICIAN.email} with ${PASSWORD_ENV}\n"
     )
+    for line in report.enrolment:
+        sys.stdout.write(f"  quick sign-in authenticator: {line}\n")
     return 0
 
 

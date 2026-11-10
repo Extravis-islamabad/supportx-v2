@@ -156,10 +156,13 @@ export function KnowledgePage() {
       extra={
         <Space wrap>
           {can('knowledge.approve') && (
+            // The count sits inline after the words, never pushed over the next button
+            // (QA10-P4-01: it hid under New article, and only a red dot showed).
             <Link to="/knowledge/approvals" data-testid="kb-open-inbox">
-              <Badge count={awaiting} size="small" offset={[8, 0]}>
+              <Space size={6} align="center">
                 {t('knowledge.inbox.title')}
-              </Badge>
+                <Badge count={awaiting} size="small" />
+              </Space>
             </Link>
           )}
           {can('knowledge.create') && (
@@ -285,7 +288,18 @@ export function KnowledgePage() {
           dataSource={list.data ?? []}
           pagination={false}
           scroll={{ x: 'max-content' }}
-          locale={{ emptyText: <EmptyText>{t(`knowledge.empty.${view}`)}</EmptyText> }}
+          locale={{
+            // A search or filter that finds nothing says so, not that the view is empty (QA10-P4-02).
+            emptyText: (
+              <EmptyText>
+                {t(
+                  text !== '' || typeCode !== undefined || onlyLanguage !== undefined || topicId
+                    ? 'knowledge.no_match'
+                    : `knowledge.empty.${view}`,
+                )}
+              </EmptyText>
+            ),
+          }}
           columns={[
             {
               key: 'display_id',

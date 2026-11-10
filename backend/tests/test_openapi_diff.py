@@ -8,19 +8,13 @@ from typing import Any
 import pytest
 
 from tooling import openapi_diff
-from tooling.export_openapi import build_schema
-
-
-@pytest.fixture(scope="module")
-def _contract() -> dict[str, Any]:
-    # Built from the code: the file is generated, never committed (D-127).
-    return build_schema()
 
 
 @pytest.fixture
-def base(_contract: dict[str, Any]) -> dict[str, Any]:
-    document: dict[str, Any] = json.loads(json.dumps(_contract))  # a copy each test may change
-    return document
+def base(openapi_contract: dict[str, Any]) -> dict[str, Any]:
+    # Built from the code (the file is generated, never committed, D-127); once per shard,
+    # a copy each test may change (conftest.openapi_contract).
+    return openapi_contract
 
 
 def users_get(document: dict[str, Any]) -> dict[str, Any]:

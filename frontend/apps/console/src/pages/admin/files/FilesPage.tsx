@@ -30,11 +30,13 @@ import {
   useDateTime,
   useFormProblem,
   useLabel,
-  WriteButton,
+  SettingsCard,
+  StickySaveBar,
 } from '@supportx/ui';
 
 import { numberProblem } from '../../../numbers';
 import { FilesBanner } from './FilesBanner';
+import { LeaveGuard } from '../useLeaveGuard';
 
 /**
  * Admin › Files (WP-022, D-082): the tenant's file rules (largest file up to 100 MB, files per
@@ -60,6 +62,9 @@ export function FilesPage() {
   // Rules another admin saved first (409): the shared dialog; "Keep my changes" saves these.
   const conflict = useConflict();
   const [sent, setSent] = useState<FileRulesInput>();
+  // Template E (D-147): the page's one save bar counts the rules that differ from the saved ones.
+  const [form] = Form.useForm<FileRulesInput>();
+  const watched = Form.useWatch([], form) as Partial<FileRulesInput> | undefined;
   const latest = rules.data;
   if (latest !== undefined && latest.version !== base?.version && (base === null || !dirty)) {
     setBase(latest);
@@ -113,13 +118,23 @@ export function FilesPage() {
           blocked_extensions: r.blocked_extensions,
         };
 
+  const shown = rulesView(base);
+  const changes =
+    shown === undefined || watched === undefined
+      ? 0
+      : (Object.keys(shown) as (keyof FileRulesInput)[]).filter(
+          (key) =>
+            watched[key] !== undefined &&
+            JSON.stringify(watched[key]) !== JSON.stringify(shown[key]),
+        ).length;
+
   const used = usage.data?.bytes_used ?? 0;
   const limit = usage.data?.limit_bytes ?? null;
   const scanning = status.data;
   return (
     <Flex vertical gap={16} data-testid="admin-files">
       <FilesBanner showLink={false} />
-      <Card title={t('files.admin.rules')}>
+      <SettingsCard title={t('files.admin.rules')} testId="files-rules">
         {stale && (
           <Alert
             type="warning"
@@ -143,6 +158,7 @@ export function FilesPage() {
           />
         )}
         <Form<FileRulesInput>
+          form={form}
           // A new saved version is a new form, filled from it (no effect needed).
           key={base?.version ?? 'loading'}
           initialValues={
@@ -184,14 +200,6 @@ export function FilesPage() {
             />
           </Form.Item>
           <FormProblem problem={problem} />
-          <WriteButton
-            type="primary"
-            htmlType="submit"
-            loading={save.isPending}
-            data-testid="files-save"
-          >
-            {t('files.admin.save')}
-          </WriteButton>
         </Form>
         <ConflictDialog
           open={conflict.open}
@@ -209,7 +217,7 @@ export function FilesPage() {
             if (sent !== undefined) submit(sent, conflict.latestVersion ?? latest?.version ?? 0);
           }}
         />
-      </Card>
+      </SettingsCard>
       <Card title={t('files.admin.usage')} data-testid="files-usage">
         {usage.data !== undefined && (
           <Flex vertical gap={8} style={{ maxWidth: 480 }}>
@@ -265,6 +273,19 @@ export function FilesPage() {
           {t('files.admin.check_now')}
         </Button>
       </Card>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
+      <StickySaveBar
+        changes={changes}
+        saving={save.isPending}
+        onDiscard={() => {
+          form.resetFields();
+          setDirty(false);
+        }}
+        onSave={() => {
+          form.submit();
+        }}
+      />
     </Flex>
   );
 }

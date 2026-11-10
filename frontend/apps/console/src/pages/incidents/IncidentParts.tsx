@@ -119,7 +119,7 @@ export function IncidentTasks({
   const [owner, setOwner] = useState<string | null>(null);
   const [due, setDue] = useState<string | null>(null);
   const rows = found.data?.items ?? [];
-  const people = usePeople(rows.map((r) => r.owner_id));
+  const people = usePeople(rows.flatMap((r) => [r.owner_id, r.done_by ?? null]));
   const add = () => {
     change.mutate(
       {
@@ -243,6 +243,14 @@ export function IncidentTasks({
               {task.owner_id !== null && (
                 <Typography.Text type="secondary">
                   {people.get(task.owner_id) ?? t('incidents.unknown_value')}
+                </Typography.Text>
+              )}
+              {task.status === 'done' && task.done_by != null && (
+                // D-154d: who did it, never a guess from the history.
+                <Typography.Text type="secondary" data-testid={`inc-task-done-by-${String(index)}`}>
+                  {t('incidents.tasks.done_by', {
+                    name: people.get(task.done_by) ?? t('incidents.unknown_value'),
+                  })}
                 </Typography.Text>
               )}
               {task.due_at !== null && (
@@ -576,6 +584,8 @@ const WORKLOG_GRID = {
 
 // --- links ----------------------------------------------------------------------------------------
 
+const OWN_ROUTE = new Set(['caused_by', 'causes', 'merged_into', 'merged_from']);
+
 export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
   const t = useLabel();
   const found = useIncidentLinks(item.id);
@@ -603,7 +613,9 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
             <List.Item
               data-testid={`inc-link-${link.other_display_id ?? 'hidden'}`}
               actions={
-                canEdit
+                // A cause or a merge is undone in its own place (unlink, undo the merge): the
+                // generic delete would be refused (QA10-P1-03), so it is not offered.
+                canEdit && !OWN_ROUTE.has(link.relation)
                   ? [
                       <Popconfirm
                         key="delete"

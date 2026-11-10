@@ -17,15 +17,16 @@ from app.core.tenancy import TenantContext
 from app.modules.notifications.service.engine import dispatch
 from app.shared.events import EventEnvelope
 from app.shared.mail.infra import smtp
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import manager_of
-from tests.db.test_incidents_api import Org, World, world
+from tests.db.test_incidents_api import Org, World
 from tests.db.test_notifications_api import MAIL, run_engine
 from tests.db.test_reply_delivery import FakeSmtp, _send
 from tests.db.test_service_requests_api import an_item, raise_request
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 # The tenant by slug, then the token in the fragment (D-132; ?t= for shared addresses).
 LINK = re.compile(r"/approve\?t=[a-z0-9-]+#([A-Za-z0-9_-]{43})")
@@ -125,11 +126,13 @@ async def test_a_retry_makes_a_fresh_link_and_the_old_one_dies(world: World) -> 
     a = world.a
     await manager_of(world, a.requester, a.tech_a)
     item = await an_item(world, a, approval={"approvers": [{"kind": "requested_for_manager"}]})
-    await raise_request(world, a, a.requester, catalog_item_id=item["id"], answers={"model": "air"})
-    await run_engine(world, a, settings=MAIL)
-    [row] = await world.sql(
-        "SELECT id FROM mail_messages WHERE tenant_id = $1 AND links IS NOT NULL", a.tenant
+    made = await raise_request(
+        world, a, a.requester, catalog_item_id=item["id"], answers={"model": "air"}
     )
+    await run_engine(world, a, settings=MAIL)
+    # The approval e-mail (the requester's acknowledgement is another mail, QA10).
+    [mail_id] = (await _mails(world, a, made.json())).values()
+    row = {"id": mail_id}
     server = FakeSmtp()
     server.answer = smtp.TemporaryFailure(code="server_busy")
     assert await _send(world, a, row["id"], server) == "queued"  # minted, never left
@@ -185,3 +188,22 @@ async def test_a_fallback_approval_tells_the_administrators_in_app_without_a_lin
     assert a.admin in {r["user_id"] for r in found}
     links = await world.sql("SELECT count(*) AS n FROM action_links WHERE tenant_id = $1", a.tenant)
     assert links[0]["n"] == 0
+
+
+async def test_qa10_p2_06_a_portal_approvers_mail_opens_the_request_in_the_portal(
+    world: World,
+) -> None:
+    """A requester-only approver (the manager) is sent to /service-requests/<id> in the portal,
+    where they read what is asked, never to the portal's home."""
+    a = world.a
+    await manager_of(world, a.requester, a.requester2)
+    item = await an_item(world, a, approval={"approvers": [{"kind": "requested_for_manager"}]})
+    made = await raise_request(
+        world, a, a.requester, catalog_item_id=item["id"], answers={"model": "air"}
+    )
+    assert made.status_code == 201, made.text
+    await run_engine(world, a, settings=MAIL)
+    mail_id = (await _mails(world, a, made.json())).get(a.requester2)
+    assert mail_id is not None, "the approver gets an e-mail"
+    [mail] = await world.sql("SELECT text_body FROM mail_messages WHERE id = $1", mail_id)
+    assert f"/service-requests/{made.json()['id']}" in mail["text_body"]

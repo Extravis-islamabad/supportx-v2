@@ -33,6 +33,7 @@ export function DevSignInPage() {
   const [personas, setPersonas] = useState<Persona[] | null | undefined>(undefined);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   useEffect(() => {
     void fetch(`${base()}/personas`, { credentials: 'same-origin' })
@@ -44,6 +45,7 @@ export function DevSignInPage() {
   const signIn = async (persona: Persona) => {
     setBusy(persona.code);
     setProblem(null);
+    setSentTo(null);
     try {
       const answer = await fetch(`${base()}/sign-in`, {
         method: 'POST',
@@ -52,8 +54,17 @@ export function DevSignInPage() {
         body: JSON.stringify({ persona: persona.code }),
       });
       if (answer.ok) {
-        const { redirect_to } = (await answer.json()) as { redirect_to: string };
-        window.location.assign(redirect_to);
+        const done = (await answer.json()) as {
+          redirect_to: string | null;
+          setup_link_sent_to: string | null;
+        };
+        if (done.redirect_to) {
+          window.location.assign(done.redirect_to);
+          return;
+        }
+        // The new starter: Keycloak mailed the two-step set-up link (QA never types a password).
+        setSentTo(done.setup_link_sent_to);
+        setBusy(null);
         return;
       }
       const body = (await answer.json().catch(() => ({}))) as Problem;
@@ -84,6 +95,15 @@ export function DevSignInPage() {
               <Typography.Paragraph data-testid="dev-sign-in-unavailable" style={{ margin: 0 }}>
                 {t('dev_sign_in.unavailable')}
               </Typography.Paragraph>
+            )}
+            {sentTo !== null && (
+              <Alert
+                type="info"
+                showIcon
+                role="status"
+                message={t('dev_sign_in.setup_link_sent', { email: sentTo })}
+                data-testid="dev-sign-in-setup-sent"
+              />
             )}
             {problem !== null && (
               <Alert

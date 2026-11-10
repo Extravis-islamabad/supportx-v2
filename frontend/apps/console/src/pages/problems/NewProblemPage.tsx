@@ -166,7 +166,9 @@ function ProblemForm({
   const navigate = useNavigate();
   const me = useSession().data?.user.id ?? '';
   const main = incidents[0];
-  const preview = useFromIncidentsPreview(incidents.length > 1 ? incidents : []);
+  // From one incident too (QA10-P1-02): an incident another problem already causes is offered
+  // to move here, never refused with no way on.
+  const preview = useFromIncidentsPreview(incidents);
   const catalogue = useProblemCatalogue();
   const create = useCreateProblem();
   const handle = useHandleRepeatHit();

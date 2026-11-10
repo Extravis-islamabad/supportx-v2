@@ -175,6 +175,8 @@ class PortalReach(StrEnum):
     DEPARTMENT = "department"
     SITE = "site"
     ALL = "all"
+    # Named on one of the request's approvals: sees it to decide, read-only (QA10-P2-06).
+    APPROVER = "approver"
 
 
 @dataclass(frozen=True)

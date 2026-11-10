@@ -182,6 +182,67 @@ describe('console: service requests', () => {
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
+  it('QA10-P1-11: the catalog is a library: a tab per category, each item with its description', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const CAT = '01a1a2b3-0000-7000-8000-00000000ca01';
+    api({
+      'GET /api/v1/catalog/items': {
+        body: [{ ...laptop, category_id: CAT, descriptions: { en: 'A work laptop' } }],
+      },
+      'GET /api/v1/catalog/categories': {
+        body: [
+          {
+            id: CAT,
+            names: { en: 'Hardware' },
+            descriptions: {},
+            enabled: true,
+            icon: null,
+            parent_id: null,
+            sort_order: 1,
+            version: 1,
+          },
+        ],
+      },
+    });
+    render(<App />);
+    expect(await screen.findByRole('tab', { name: /Hardware/ })).toBeDefined();
+    expect(await screen.findByText('A work laptop')).toBeDefined();
+    expect(screen.getByTestId(`sr-item-${ITEM_ID}`)).toBeDefined();
+  });
+
+  it('an item in two categories is listed once; an empty category says so', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const HW = '01a1a2b3-0000-7000-8000-00000000ca01';
+    const OFFICE = '01a1a2b3-0000-7000-8000-00000000ca02';
+    const EMPTY = '01a1a2b3-0000-7000-8000-00000000ca03';
+    const category = (id: string, name: string, order: number) => ({
+      id,
+      names: { en: name },
+      descriptions: {},
+      enabled: true,
+      icon: null,
+      parent_id: null,
+      sort_order: order,
+      version: 1,
+    });
+    api({
+      'GET /api/v1/catalog/items': {
+        body: [{ ...laptop, category_id: HW, extra_category_ids: [OFFICE] }],
+      },
+      'GET /api/v1/catalog/categories': {
+        body: [
+          category(HW, 'Hardware', 1),
+          category(OFFICE, 'Office', 2),
+          category(EMPTY, 'Moves', 3),
+        ],
+      },
+    });
+    render(<App />);
+    expect(await screen.findAllByTestId(`sr-item-${ITEM_ID}`)).toHaveLength(1);
+    fireEvent.click(screen.getByRole('tab', { name: /Moves/ }));
+    expect(await screen.findByText('No requests in this category yet.')).toBeDefined();
+  });
+
   it('shows one request with its item details and approval status', async () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     api();
@@ -266,6 +327,36 @@ describe('console: service requests', () => {
     fireEvent.click(opener);
     const row = await screen.findByTestId('my-approval-SR-1');
     expect(within(row).getByText('For Omar Manager', { exact: false })).toBeDefined();
+  });
+
+  it('QA10-P1-08: a problem approval waiting for me counts in the badge and opens its problem', async () => {
+    window.history.pushState({}, '', '/requests');
+    api({
+      'GET /api/v1/problems/my-approvals': {
+        body: {
+          items: [
+            {
+              approval_id: APPROVAL_ID,
+              approval_version: 1,
+              record_id: SR_ID,
+              display_id: 'PRB-6',
+              subject: 'VPN drops',
+              requester_id: MANAGER,
+              on_behalf_of_id: null,
+              catalog_item_id: null,
+              comments_required: false,
+              created_at: '2026-11-04T08:00:00Z',
+            },
+          ],
+          people: {},
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: '1 approval waiting for you' }));
+    const row = await screen.findByTestId('my-approval-PRB-6');
+    expect(within(row).getByRole('link').getAttribute('href')).toBe(`/problems/${SR_ID}`);
+    expect(within(row).getByText('Open it to approve or reject', { exact: false })).toBeDefined();
   });
 
   it('ticks a fulfilment task done with If-Match', async () => {

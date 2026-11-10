@@ -14,10 +14,13 @@ from sqlalchemy import text
 from app.core.tenancy import TenantContext
 from app.modules.work_items.service.approvals import on_user_status_changed, reroute_inactive
 from app.shared.events import EventEnvelope
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 from tests.db.test_service_requests_api import SR, an_item, raise_request
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 MANAGER = {"approval": {"approvers": [{"kind": "requested_for_manager"}]}}
 PORTAL = {"X-SupportX-Client": "portal"}

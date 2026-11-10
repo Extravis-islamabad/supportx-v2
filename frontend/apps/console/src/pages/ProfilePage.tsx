@@ -28,11 +28,14 @@ import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
   AccountSecurityCard,
+  SignedInSessionsCard,
   ContactDetailsCard,
   ConflictDialog,
   FormProblem,
+  PageHeader,
   PresenceAvatars,
   reportError,
+  SettingsCard,
   useFormProblem,
   useLabel,
   useLicence,
@@ -110,8 +113,14 @@ export function ProfilePage() {
   return (
     // One column of cards as wide as the settings pages, not 720 px with the right empty (QA9-V-12).
     <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 960 }}>
-      <Typography.Title level={1}>{t('profile.title')}</Typography.Title>
-      <Card>
+      {/* UI pass 3 P7 (D-147): the shared page header; each card below saves itself (they are
+          personal preferences, applied as you choose them), so there is no page save bar. */}
+      <PageHeader title={t('profile.title')} testId="profile-header" />
+      <SettingsCard
+        title={t('profile.who')}
+        description={t('profile.identity')}
+        testId="profile-identity"
+      >
         <Descriptions column={1} size="small" colon={false}>
           <Descriptions.Item label={t('users.col.name')}>{me.display_name}</Descriptions.Item>
           <Descriptions.Item label={t('users.col.email')}>{me.email}</Descriptions.Item>
@@ -119,10 +128,10 @@ export function ProfilePage() {
             {t(`locale.${me.locale}`)}
           </Descriptions.Item>
         </Descriptions>
-        <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
-      </Card>
+      </SettingsCard>
       <ContactDetailsCard />
       <AccountSecurityCard callToAction={false} />
+      <SignedInSessionsCard />
       <ApiKeysPanel mode="mine" />
       <NotificationPreferencesCard />
       <PreferencesCard user={me} />

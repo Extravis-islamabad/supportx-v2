@@ -69,11 +69,14 @@ export function useSavedReport(id: string | undefined) {
  * report_timeout) are shown by the viewer itself.
  */
 export function useReportRun(definition: ReportDefinition | undefined, enabled = true) {
+  // The screen's language (the shell keeps <html lang> current): other modules' records in the
+  // result (asset states, products, vendors) are named by the server in it.
+  const language = screenLanguage();
   return useQuery({
-    queryKey: queryKeys.reports.run(definition),
+    queryKey: [...queryKeys.reports.run(definition), language],
     queryFn: () => {
       if (definition === undefined) throw new Error('report run without a definition');
-      return call(api.POST('/api/v1/reports/run', { body: { definition } }));
+      return call(api.POST('/api/v1/reports/run', { body: { definition, language } }));
     },
     enabled: enabled && definition !== undefined,
     placeholderData: keepPreviousData,
@@ -354,4 +357,9 @@ export function useScheduleChange() {
       }
     },
   });
+}
+
+function screenLanguage(): 'en' | 'ar' | 'ur' {
+  const lang = typeof document === 'undefined' ? 'en' : document.documentElement.lang.slice(0, 2);
+  return lang === 'ar' || lang === 'ur' ? lang : 'en';
 }

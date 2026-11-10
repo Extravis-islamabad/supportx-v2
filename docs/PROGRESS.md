@@ -1064,6 +1064,39 @@ it with no reload (rule c). Not built yet.
     - Problem-specific closure codes (REQ-PRB-056) use the shared closure code list for now.
     - The tenant defaults for the follow-up (notify, copy as a note) beyond Q1's resolve.
 
+### [~] WP-045b — Changes: risk, advisory boards, approvals, re-approval (lane A, 2026-11-10; 4 sessions; backend; PR after #299)
+- **Plan:** ~/Desktop/wp-045-plan.md D8-D11, approved by the coordinator. Migrations 0116-0118.
+  Haider's decisions of 2026-11-10 (SoD default, optional members, sending back) and D-144.
+- **S1 risk (0116):** levels low to very high; a scored questionnaire per template (Appendix A by
+  default, versioned); rules may raise it; a person's override always needs a reason.
+- **S2 advisory boards (0117):** `/api/v1/change-boards`, with two seeded boards per tenant
+  (default, emergency) and no members. An admin's board needs at least one member, and the
+  default board can't be removed. Each board has a mapping (types, risk levels, sites,
+  templates), an order and a rule (any, all, majority, majority with the chair). Tenant
+  isolation is tested for both tables.
+- **S3 approvals:**
+  - a level may name the mapped board or a specific one; the rows record which board and why;
+  - a board with no members goes to the approval administrators (`board_has_no_members`);
+  - strict segregation of duties is a tenant setting (audited);
+  - a submit-time preview names who is left out;
+  - every fallback is audited (`change.approval_rerouted`);
+  - admin guide: docs/guides/change-approvals.md.
+- **S4 re-approval (0118):**
+  - each approved stage's window, risk and plans are kept; `changes-since` lists, field by
+    field, what changed since approval;
+  - the tenant policy (restart, notify or ignore, with a tolerance) decides;
+  - a restart sends the change back to the stage's raising status by an audited system move,
+    with a warning preview first;
+  - optional members' votes are advisory and never counted;
+  - the emergency override (D-144) needs a permission and a reason, is audited, and makes the
+    review mandatory;
+  - notices are recorded in the outbox for WP-056.
+- **Not yet:**
+  - sending the notices (WP-056);
+  - the chair's tie-break (lane C's WP-048b S2 wires `chair=`);
+  - CIs and services in the snapshot (with the CMDB);
+  - the screens (UI pass 3 templates).
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)

@@ -1,10 +1,12 @@
 """The showcase seed (D-124 (5)): only `showcase`, through the API, once, nobody else's data."""
 
 import asyncio
+import copy
 import json
 import uuid
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
@@ -309,105 +311,144 @@ async def _backdating_is_consistent(url: str) -> list[str]:
     return wrong
 
 
-def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(  # noqa: PLR0915 - one journey: two runs and what each must leave
-    db_config: db_testing.DbTestConfig,
-) -> None:
-    database = db_testing.create(db_config)
+IMPORTED = "imported-tech"
+
+
+@dataclass(frozen=True)
+class Seeded:
+    """The first seed run, made once per module (~a minute); every test copies it."""
+
+    template: db_testing.ThrowawayDatabase
+    keycloak: FakeKeycloak
+    first: seed.Report
+    bystander: uuid.UUID
+    before: dict[str, int]
+
+
+@pytest.fixture(scope="module")
+def seeded(db_config: db_testing.DbTestConfig) -> Iterator[Seeded]:
+    """A bystander tenant, then the seed's first run, as the template of each test's database.
+
+    Only the first run is shared. Every later run (the "nothing changes" re-runs, the step-6
+    run after a hand-made record) runs again in each test, on that test's own copy.
+    """
+    template = db_testing.create(db_config)
     try:
-        bystander = asyncio.run(create_tenant(database.migrator_url, "Bystander"))
-        before = asyncio.run(_counts(database.migrator_url, bystander))
+        bystander = asyncio.run(create_tenant(template.migrator_url, "Bystander"))
+        before = asyncio.run(_counts(template.migrator_url, bystander))
         keycloak = FakeKeycloak()
         # The technician came from the dev realm file without a password: the seed gives one.
-        imported = "imported-tech"
-        keycloak.users[imported] = {"id": imported, "email": seed.TECHNICIAN.email}
-        keycloak.roles[imported] = set()
+        keycloak.users[IMPORTED] = {"id": IMPORTED, "email": seed.TECHNICIAN.email}
+        keycloak.roles[IMPORTED] = set()
+        first = asyncio.run(_run(template, keycloak))
+        yield Seeded(template, keycloak, first, bystander, before)
+    finally:
+        db_testing.destroy(db_config, template)
 
-        first = asyncio.run(_run(database, keycloak))
-        assert first.tenant == ["tenant", "subscription", "starter_catalog"]
-        assert first.catalog_published == 14  # the starter catalog (D-138), with its group
-        assert first.incidents == len(seed.STATES) == 60
-        # QA6-DATA-01: service requests in every state, problems with known errors.
-        assert first.service_requests == len(lane_a.REQUESTS) == 7
-        assert first.problems == len(lane_a.PROBLEMS) == 3
-        assert first.rules == len(lane_a.RULES) == 3
-        assert first.managers == sum(p.user_type == "requester" for p in seed.PEOPLE) + 1
-        assert first.dashboard
-        # QA6-DATA-01: knowledge and releases to show, not empty modules.
-        assert first.articles == len(seed.KB_ARTICLES) == 5
-        assert first.releases == len(seed.RELEASES) == 2
-        assert first.backdated == 70  # spread over the past 30 days (choice (b)); not releases
-        assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
-        assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
-        # The password is the environment's, set only on the users made here.
-        assert keycloak.passwords == dict.fromkeys(keycloak.users, "Showcase-Pass-2026!")
-        assert any(f"password {seed.TECHNICIAN.email}" == m for m in first.keycloak)
-        keycloak.passwords[imported] = "Changed-By-Hand-1!"  # never overwritten
-        assert {u["email"] for u in keycloak.users.values()} == {s.email for s in seed.SIGN_INS}
-        counts = asyncio.run(_counts(database.migrator_url, seed.TENANT_ID))
-        assert counts["users"] == len(seed.PEOPLE) + len(seed.SIGN_INS)
-        assert counts["work_items"] == 70 + len(seed.RELEASES)
-        assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
-        # Named SLAs with live countdowns, not "No SLA applies" (QA9, Haider): every incident
-        # has targets, the urgent ones and the network ones on the showcase's own policies.
-        assert first.sla_policies == len(lane_a.SLA_POLICIES) == 2
-        assert first.sla_from_creation == 0  # every new incident took its SLA when created
-        slas = asyncio.run(_slas(database.migrator_url))
-        assert slas["none"] == 0
-        assert slas["Critical and high incidents"] == 10  # p1 and p2
-        assert slas["Network and access faults"] > 0
-        assert asyncio.run(_states(database.migrator_url)) == {
-            "service_request awaiting_approval": 2,
-            "service_request in_progress": 1,
-            "service_request fulfilled": 1,
-            "service_request closed": 1,
-            "service_request rejected": 1,
-            "service_request canceled": 1,
-            "problem assigned known error": 2,  # the creator owns a new problem (#267)
-            "problem assigned": 1,
-            "new unassigned": 10,
-            "assigned": 14,
-            "in_progress": 12,
-            "awaiting_requester": 6,
-            "resolved": 10,
-            "closed": 8,
-        }
 
-        # QA 2026-11-09 (INC-62): a record someone else made keeps its times and its history.
-        by_hand = asyncio.run(_by_hand(database))
-        untouched = asyncio.run(_times_of(database.migrator_url, by_hand))
-        assert untouched[2], "the edit wrote history to compare"
-
-        second = asyncio.run(_run(database, keycloak))
-        assert asyncio.run(_times_of(database.migrator_url, by_hand)) == untouched
-        assert (
-            second.tenant,
-            second.keycloak,
-            second.incidents,
-            second.dashboard,
-            second.catalog_published,
-            second.articles,
-            second.releases,
-            second.service_requests,
-            second.problems,
-            second.managers,
-            second.rules,
-            second.sla_policies,
-            second.sla_from_creation,
-        ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        assert second.backdated == 0  # nothing made now, so nothing moved
-        assert asyncio.run(_audit_chain(database.app_url)) == "passed"
-        # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
-        # database refuses the change outright).
-        if asyncio.run(_shift_one_audit_entry(database.admin_url)) == "shifted":
-            assert asyncio.run(_audit_chain(database.app_url)) == "failed"
-        assert asyncio.run(_counts(database.migrator_url, seed.TENANT_ID)) == {
-            **counts,
-            "work_items": counts["work_items"] + 1,  # the one made by hand
-        }
-        assert asyncio.run(_counts(database.migrator_url, bystander)) == before
-        assert keycloak.passwords[imported] == "Changed-By-Hand-1!"
+@pytest.fixture
+def seeded_copy(
+    db_config: db_testing.DbTestConfig, seeded: Seeded
+) -> Iterator[tuple[db_testing.ThrowawayDatabase, FakeKeycloak]]:
+    """This test's own copy of the seeded database and of Keycloak's state."""
+    database = db_testing.clone(db_config, seeded.template)
+    try:
+        yield database, copy.deepcopy(seeded.keycloak)
     finally:
         db_testing.destroy(db_config, database)
+
+
+def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
+    seeded: Seeded, seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak]
+) -> None:
+    database, keycloak = seeded_copy
+    first, bystander, before, imported = seeded.first, seeded.bystander, seeded.before, IMPORTED
+    assert first.tenant == ["tenant", "subscription", "starter_catalog"]
+    assert first.catalog_published == 14  # the starter catalog (D-138), with its group
+    assert first.incidents == len(seed.STATES) == 60
+    # QA6-DATA-01: service requests in every state, problems with known errors.
+    # And three in Arabic and Urdu, with two problems (right-to-left records to show).
+    assert first.service_requests == len(lane_a.REQUESTS) + len(lane_a.LOCAL_REQUESTS) == 10
+    assert first.problems == len(lane_a.PROBLEMS) == 5
+    assert first.featured == len(lane_a.FEATURED) == 3
+    assert first.rules == len(lane_a.RULES) == 3
+    assert first.managers == sum(p.user_type == "requester" for p in seed.PEOPLE) + 1
+    assert first.dashboard
+    # QA6-DATA-01: knowledge and releases to show, not empty modules.
+    assert first.articles == len(seed.KB_ARTICLES) == 5
+    assert first.releases == len(seed.RELEASES) == 2
+    assert first.backdated == 75  # spread over the past 30 days (choice (b)); not releases
+    assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
+    assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
+    # The password is the environment's, set only on the users made here.
+    assert keycloak.passwords == dict.fromkeys(keycloak.users, "Showcase-Pass-2026!")
+    assert any(f"password {seed.TECHNICIAN.email}" == m for m in first.keycloak)
+    keycloak.passwords[imported] = "Changed-By-Hand-1!"  # never overwritten
+    assert {u["email"] for u in keycloak.users.values()} == {s.email for s in seed.SIGN_INS}
+    counts = asyncio.run(_counts(database.migrator_url, seed.TENANT_ID))
+    assert counts["users"] == len(seed.PEOPLE) + len(seed.SIGN_INS)
+    assert counts["work_items"] == 75 + len(seed.RELEASES)
+    assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
+    # Named SLAs with live countdowns, not "No SLA applies" (QA9, Haider): every incident
+    # has targets, the urgent ones and the network ones on the showcase's own policies.
+    assert first.sla_policies == len(lane_a.SLA_POLICIES) == 2
+    assert first.sla_from_creation == 0  # every new incident took its SLA when created
+    slas = asyncio.run(_slas(database.migrator_url))
+    assert slas["none"] == 0
+    assert slas["Critical and high incidents"] == 10  # p1 and p2
+    assert slas["Network and access faults"] > 0
+    assert asyncio.run(_states(database.migrator_url)) == {
+        "service_request awaiting_approval": 3,
+        "service_request in_progress": 2,
+        "service_request fulfilled": 2,
+        "service_request closed": 1,
+        "service_request rejected": 1,
+        "service_request canceled": 1,
+        "problem assigned known error": 3,  # the creator owns a new problem (#267)
+        "problem assigned": 2,
+        "new unassigned": 10,
+        "assigned": 14,
+        "in_progress": 12,
+        "awaiting_requester": 6,
+        "resolved": 10,
+        "closed": 8,
+    }
+
+    # QA 2026-11-09 (INC-62): a record someone else made keeps its times and its history.
+    by_hand = asyncio.run(_by_hand(database))
+    untouched = asyncio.run(_times_of(database.migrator_url, by_hand))
+    assert untouched[2], "the edit wrote history to compare"
+
+    second = asyncio.run(_run(database, keycloak))
+    assert asyncio.run(_times_of(database.migrator_url, by_hand)) == untouched
+    assert (
+        second.tenant,
+        second.keycloak,
+        second.incidents,
+        second.dashboard,
+        second.catalog_published,
+        second.articles,
+        second.releases,
+        second.service_requests,
+        second.problems,
+        second.managers,
+        second.rules,
+        second.featured,
+        second.sla_policies,
+        second.sla_from_creation,
+    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    assert second.backdated == 0  # nothing made now, so nothing moved
+    assert asyncio.run(_audit_chain(database.app_url)) == "passed"
+    # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
+    # database refuses the change outright).
+    if asyncio.run(_shift_one_audit_entry(database.admin_url)) == "shifted":
+        assert asyncio.run(_audit_chain(database.app_url)) == "failed"
+    assert asyncio.run(_counts(database.migrator_url, seed.TENANT_ID)) == {
+        **counts,
+        "work_items": counts["work_items"] + 1,  # the one made by hand
+    }
+    assert asyncio.run(_counts(database.migrator_url, bystander)) == before
+    assert keycloak.passwords[imported] == "Changed-By-Hand-1!"
 
 
 # --- step 6: SLAs from creation for incidents made before any SLA (Haider, 2026-11-09) --------
@@ -551,51 +592,44 @@ async def _audit(url: str, tenant: uuid.UUID) -> list[tuple[Any, ...]]:
 
 
 def test_older_incidents_get_their_sla_from_creation_once(
-    db_config: db_testing.DbTestConfig,
+    seeded: Seeded, seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak]
 ) -> None:
-    database = db_testing.create(db_config)
-    try:
-        bystander = asyncio.run(create_tenant(database.migrator_url, "Bystander"))
-        keycloak = FakeKeycloak()
-        keycloak.users["imported-tech"] = {"id": "imported-tech", "email": seed.TECHNICIAN.email}
-        keycloak.roles["imported-tech"] = set()
-        asyncio.run(_run(database, keycloak))
-        # A person's own incident, the worst case: a seed subject and requester, made by the
-        # technician (not the seed's admin), and with no SLA either. Step 6 never touches it.
-        hand_made = asyncio.run(_hand_made(database))
-        open_id, quick_id = asyncio.run(_as_before_slas(database.admin_url, extra=[hand_made]))
-        hand_before = asyncio.run(_row_and_history(database.admin_url, hand_made))
-        audit_before = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
-        bystander_before = asyncio.run(_counts(database.migrator_url, bystander))
+    database, keycloak = seeded_copy
+    bystander = seeded.bystander
+    # A person's own incident, the worst case: a seed subject and requester, made by the
+    # technician (not the seed's admin), and with no SLA either. Step 6 never touches it.
+    hand_made = asyncio.run(_hand_made(database))
+    open_id, quick_id = asyncio.run(_as_before_slas(database.admin_url, extra=[hand_made]))
+    hand_before = asyncio.run(_row_and_history(database.admin_url, hand_made))
+    audit_before = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
+    bystander_before = asyncio.run(_counts(database.migrator_url, bystander))
 
-        again = asyncio.run(_run(database, keycloak))
-        assert again.sla_from_creation == 2  # not the hand-made one
-        assert asyncio.run(_row_and_history(database.admin_url, hand_made)) == hand_before
-        clocks = asyncio.run(_clocks(database.migrator_url, [open_id, quick_id]))
-        # From creation, never from now: open for days, its 4 hours ran out long ago.
-        assert clocks[(open_id, "resolution")] == "breached"
-        assert clocks[(quick_id, "first_response")] == "met"
-        assert clocks[(quick_id, "resolution")] == "met"
-        # New audit entries, one per incident; the old ones are exactly as they were.
-        audit_after = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
-        assert set(audit_before) <= set(audit_after)
-        added = [e for e in audit_after if e not in set(audit_before)]
-        applied = [e for e in added if e[1] == "incident.sla_applied_from_creation"]
-        assert sorted(e[2] for e in applied) == sorted(str(i) for i in (open_id, quick_id))
-        assert asyncio.run(_audit_chain(database.app_url)) == "passed"
-        history = asyncio.run(_history_sources(database.migrator_url, open_id))
-        assert "api" in history
+    again = asyncio.run(_run(database, keycloak))
+    assert again.sla_from_creation == 2  # not the hand-made one
+    assert asyncio.run(_row_and_history(database.admin_url, hand_made)) == hand_before
+    clocks = asyncio.run(_clocks(database.migrator_url, [open_id, quick_id]))
+    # From creation, never from now: open for days, its 4 hours ran out long ago.
+    assert clocks[(open_id, "resolution")] == "breached"
+    assert clocks[(quick_id, "first_response")] == "met"
+    assert clocks[(quick_id, "resolution")] == "met"
+    # New audit entries, one per incident; the old ones are exactly as they were.
+    audit_after = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
+    assert set(audit_before) <= set(audit_after)
+    added = [e for e in audit_after if e not in set(audit_before)]
+    applied = [e for e in added if e[1] == "incident.sla_applied_from_creation"]
+    assert sorted(e[2] for e in applied) == sorted(str(i) for i in (open_id, quick_id))
+    assert asyncio.run(_audit_chain(database.app_url)) == "passed"
+    history = asyncio.run(_history_sources(database.migrator_url, open_id))
+    assert "api" in history
 
-        # A re-run changes nothing; another tenant is never touched, nor can be asked for.
-        third = asyncio.run(_run(database, keycloak))
-        assert third.sla_from_creation == 0
-        assert asyncio.run(_clocks(database.migrator_url, [open_id, quick_id])) == clocks
-        assert asyncio.run(_counts(database.migrator_url, bystander)) == bystander_before
-        settings = make_settings(database_url=database.app_url)
-        with pytest.raises(seed.SeedError):
-            asyncio.run(seed.sla_from_creation(settings, bystander, uuid.uuid4(), [open_id]))
-    finally:
-        db_testing.destroy(db_config, database)
+    # A re-run changes nothing; another tenant is never touched, nor can be asked for.
+    third = asyncio.run(_run(database, keycloak))
+    assert third.sla_from_creation == 0
+    assert asyncio.run(_clocks(database.migrator_url, [open_id, quick_id])) == clocks
+    assert asyncio.run(_counts(database.migrator_url, bystander)) == bystander_before
+    settings = make_settings(database_url=database.app_url)
+    with pytest.raises(seed.SeedError):
+        asyncio.run(seed.sla_from_creation(settings, bystander, uuid.uuid4(), [open_id]))
 
 
 async def _history_sources(url: str, record_id: uuid.UUID) -> set[str]:

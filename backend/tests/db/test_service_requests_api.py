@@ -8,10 +8,13 @@ group, and the technician (after approval when it says so); the answers follow t
 import uuid
 from typing import Any
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_catalog_api import add as add_item
-from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, problem, world
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 SR = "/service-requests"
 
@@ -242,3 +245,23 @@ async def test_requests_have_approval_views_incidents_do_not(world: World) -> No
     assert (found["pending_approval"], found["awaiting_fulfilment"]) == (1, 1)
     incident_views = (await world.call("GET", f"{BASE}/views", a, a.admin)).json()
     assert not {"pending_approval", "awaiting_fulfilment"} & {c["view"] for c in incident_views}
+
+
+async def test_qa10_p4_40_a_request_raised_in_the_portal_reads_as_the_portal(world: World) -> None:
+    a = world.a
+    item = await an_item(world, a)
+    made = await world.call(
+        "POST",
+        SR,
+        a,
+        a.requester,
+        json={
+            "subject": "Laptop",
+            "requester_id": str(a.requester),
+            "catalog_item_id": item["id"],
+            "answers": {"model": "air"},
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4()), "X-SupportX-Client": "portal"},
+    )
+    assert made.status_code == 201, made.text
+    assert made.json()["channel"] == "portal"

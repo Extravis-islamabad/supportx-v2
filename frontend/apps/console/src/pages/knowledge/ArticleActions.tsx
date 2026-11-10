@@ -1,5 +1,5 @@
 import { MoreOutlined } from '@ant-design/icons';
-import { App, Button, Dropdown, Input, Modal, Space } from 'antd';
+import { App, Button, Dropdown, Input, Modal, Space, Typography } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -136,6 +136,12 @@ export function ArticleActions({
   ];
   const primary = shown.find((a) => a.which === 'submit' || a.which === 'approve')?.which;
 
+  // Your own version in review with self-approval off: say who approves it, rather than offer
+  // only Send back with no word why (QA10-P4-06).
+  const ownVersion =
+    (only === undefined || only.includes('approve')) &&
+    stepBlocked('approve', article, language) === 'knowledge.why.own_version';
+
   const kind = asking === null ? undefined : NEEDS_TEXT[asking];
   return (
     <Space wrap>
@@ -169,6 +175,11 @@ export function ArticleActions({
             {t('actions.more')}
           </Button>
         </Dropdown>
+      )}
+      {ownVersion && (
+        <Typography.Text type="secondary" data-testid="kb-own-version">
+          {t('knowledge.why.own_version')}
+        </Typography.Text>
       )}
       <Modal
         open={asking !== null}
@@ -205,14 +216,14 @@ export function ArticleActions({
         />
       </Modal>
       {article.withdrawn && only === undefined && (
-        <Button
+        <WriteButton
           onClick={() => {
             void navigate(`/knowledge/articles/${article.id}/edit/${language}`);
           }}
           data-testid="kb-republish"
         >
           {t('knowledge.action.republish')}
-        </Button>
+        </WriteButton>
       )}
     </Space>
   );

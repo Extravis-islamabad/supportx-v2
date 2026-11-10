@@ -13,9 +13,12 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.core.tenancy import TenantContext
-from tests.db.test_incidents_api import World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 TABLES = ("workflows", "workflow_versions", "workflow_instances", "workflow_steps")
 

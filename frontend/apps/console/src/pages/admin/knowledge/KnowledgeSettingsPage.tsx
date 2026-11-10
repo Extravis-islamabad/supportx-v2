@@ -31,6 +31,8 @@ import {
   lengthLimit,
   NoAccess,
   reportError,
+  SettingsCard,
+  StickySaveBar,
   useAccess,
   useAppearance,
   useConflictRetry,
@@ -41,6 +43,7 @@ import {
 import { useKnowledgeLive } from '../../knowledge/live';
 import { showFieldErrors } from '../../knowledge/formErrors';
 import { articleLanguage, typeName } from '../../knowledge/model';
+import { LeaveGuard } from '../useLeaveGuard';
 
 interface SettingsForm {
   self_approval: boolean;
@@ -95,6 +98,15 @@ function GeneralForm({ current }: { current: KbSettings }) {
   const stale = current.version !== shownVersion;
   const prefix = (Form.useWatch('prefix', form) as string | undefined) ?? current.prefix;
   const next = Form.useWatch('next_number', form) as number | null | undefined;
+  // Template E (D-147): the page's one save bar counts the fields that differ from what is saved.
+  const watched = Form.useWatch([], form) as Partial<SettingsForm> | undefined;
+  const shown = formOf(current);
+  const changes = (Object.keys(shown) as (keyof SettingsForm)[]).filter((key) => {
+    const value = watched?.[key];
+    if (value === undefined) return false;
+    const mine = key === 'prefix' && typeof value === 'string' ? value.trim().toUpperCase() : value;
+    return mine !== shown[key] && !(key === 'next_number' && mine === null);
+  }).length;
 
   const reload = () => {
     form.resetFields();
@@ -146,7 +158,7 @@ function GeneralForm({ current }: { current: KbSettings }) {
   };
   const yesNo = (value: boolean) => t(value ? 'filter.yes' : 'filter.no');
   return (
-    <Card title={t('knowledge.settings.general')} data-testid="kb-admin-general">
+    <div data-testid="kb-admin-general">
       <ConflictDialog
         {...conflict.dialog}
         fieldLabel={(field) => t(`knowledge.settings.field.${field}`)}
@@ -174,79 +186,39 @@ function GeneralForm({ current }: { current: KbSettings }) {
           save(values, shownVersion);
         }}
       >
-        <Form.Item
-          name="self_approval"
-          valuePropName="checked"
-          label={t('knowledge.settings.field.self_approval')}
-          extra={t('knowledge.settings.default_is', { value: yesNo(defaults.self_approval) })}
-        >
-          <Switch data-testid="kb-admin-self-approval" />
-        </Form.Item>
-        <Form.Item
-          name="requesters_enabled"
-          valuePropName="checked"
-          label={t('knowledge.settings.field.requesters_enabled')}
-          extra={t('knowledge.settings.default_is', {
-            value: yesNo(defaults.requesters_enabled),
-          })}
-        >
-          <Switch data-testid="kb-admin-requesters" />
-        </Form.Item>
-        {/* REQ-KB-062 AC3: off hides the panel on the technician's form; the portal still suggests. */}
-        <Form.Item
-          name="suggest_on_technician_form"
-          valuePropName="checked"
-          label={t('knowledge.settings.field.suggest_on_technician_form')}
-          extra={t('knowledge.settings.default_is', {
-            value: yesNo(defaults.suggest_on_technician_form),
-          })}
-        >
-          <Switch data-testid="kb-admin-suggest" />
-        </Form.Item>
-        <Typography.Title level={2} style={{ fontSize: 16 }}>
-          {t('settings.numbering')}
-        </Typography.Title>
-        <Typography.Paragraph type="secondary">
-          {t('knowledge.settings.numbering_help')}
-        </Typography.Paragraph>
-        <Flex gap={16} wrap>
+        <SettingsCard title={t('knowledge.settings.general')} testId="kb-admin-card-general">
           <Form.Item
-            name="prefix"
-            label={t('settings.prefix')}
-            extra={t('knowledge.settings.default_is', { value: defaults.prefix })}
-            normalize={(value: string) => value.toUpperCase()}
+            name="self_approval"
+            valuePropName="checked"
+            label={t('knowledge.settings.field.self_approval')}
+            extra={t('knowledge.settings.default_is', { value: yesNo(defaults.self_approval) })}
           >
-            <Input
-              dir="ltr"
-              count={lengthLimit(6)}
-              style={{ width: 140 }}
-              data-testid="kb-admin-prefix"
-            />
+            <Switch data-testid="kb-admin-self-approval" />
           </Form.Item>
           <Form.Item
-            name="next_number"
-            label={t('settings.next_number')}
-            extra={t('settings.next_number_help', { minimum: current.next_number })}
+            name="requesters_enabled"
+            valuePropName="checked"
+            label={t('knowledge.settings.field.requesters_enabled')}
+            extra={t('knowledge.settings.default_is', {
+              value: yesNo(defaults.requesters_enabled),
+            })}
           >
-            <InputNumber min={1} precision={0} style={{ width: 160 }} data-testid="kb-admin-next" />
+            <Switch data-testid="kb-admin-requesters" />
           </Form.Item>
-        </Flex>
-        <Typography.Paragraph data-testid="kb-admin-next-id">
-          {t('knowledge.settings.next_id', {
-            id: `${prefix.trim().toUpperCase()}-${String(next ?? current.next_number)}`,
-          })}
-        </Typography.Paragraph>
-        <Space wrap>
-          <WriteButton
-            type="primary"
-            htmlType="submit"
-            loading={update.isPending}
-            data-testid="kb-admin-save"
+          {/* REQ-KB-062 AC3: off hides the panel on the technician's form; the portal still suggests. */}
+          <Form.Item
+            name="suggest_on_technician_form"
+            valuePropName="checked"
+            label={t('knowledge.settings.field.suggest_on_technician_form')}
+            extra={t('knowledge.settings.default_is', {
+              value: yesNo(defaults.suggest_on_technician_form),
+            })}
           >
-            {t('actions.save')}
-          </WriteButton>
-          <Button onClick={reload}>{t('actions.reset')}</Button>
+            <Switch data-testid="kb-admin-suggest" />
+          </Form.Item>
           <Button
+            type="link"
+            style={{ paddingInline: 0, marginBottom: 8 }}
             onClick={() => {
               form.setFieldsValue({
                 self_approval: defaults.self_approval,
@@ -259,9 +231,57 @@ function GeneralForm({ current }: { current: KbSettings }) {
           >
             {t('knowledge.settings.use_defaults')}
           </Button>
-        </Space>
+        </SettingsCard>
+        <SettingsCard
+          title={t('settings.numbering')}
+          description={t('knowledge.settings.numbering_help')}
+          testId="kb-admin-card-numbering"
+        >
+          <Flex gap={16} wrap>
+            <Form.Item
+              name="prefix"
+              label={t('settings.prefix')}
+              extra={t('knowledge.settings.default_is', { value: defaults.prefix })}
+              normalize={(value: string) => value.toUpperCase()}
+            >
+              <Input
+                dir="ltr"
+                count={lengthLimit(6)}
+                style={{ width: 140 }}
+                data-testid="kb-admin-prefix"
+              />
+            </Form.Item>
+            <Form.Item
+              name="next_number"
+              label={t('settings.next_number')}
+              extra={t('settings.next_number_help', { minimum: current.next_number })}
+            >
+              <InputNumber
+                min={1}
+                precision={0}
+                style={{ width: 160 }}
+                data-testid="kb-admin-next"
+              />
+            </Form.Item>
+          </Flex>
+          <Typography.Paragraph data-testid="kb-admin-next-id">
+            {t('knowledge.settings.next_id', {
+              id: `${prefix.trim().toUpperCase()}-${String(next ?? current.next_number)}`,
+            })}
+          </Typography.Paragraph>
+        </SettingsCard>
       </Form>
-    </Card>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
+      <StickySaveBar
+        changes={changes}
+        saving={update.isPending}
+        onDiscard={reload}
+        onSave={() => {
+          form.submit();
+        }}
+      />
+    </div>
   );
 }
 

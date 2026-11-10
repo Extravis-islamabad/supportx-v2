@@ -1,10 +1,19 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { useState } from 'react';
+import dayjs from 'dayjs';
+import { useEffect, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeApi, fakeSession } from '@supportx/api-client/testing';
 
-import { DateTimeField, DateTimeRangeField, instantOf, isKnownZone, wallTimeIn } from './dates';
+import { useAppearance, type DatePreferences } from './appearance';
+import {
+  DateTimeField,
+  DateTimeRangeField,
+  instantOf,
+  isKnownZone,
+  useDateTime,
+  wallTimeIn,
+} from './dates';
 import { renderUi } from './test/render';
 
 describe('time zone conversion', () => {
@@ -86,12 +95,12 @@ describe('DateTimeField', () => {
     expect(await screen.findByText('Times are in Pacific/Kiritimati.')).toBeDefined();
     const input = document.getElementById('when') as HTMLInputElement;
     await waitFor(() => {
-      expect(input.value).toBe('2026-11-02 18:00');
+      expect(input.value).toBe('2 Nov 2026 18:00'); // the default written out, 24 hours (D-155)
     });
 
     fireEvent.mouseDown(input);
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: '2026-11-03 10:30' } });
+    fireEvent.change(input, { target: { value: '3 Nov 2026 10:30' } });
     fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     await waitFor(() => {
       expect(changed).toHaveBeenLastCalledWith('2026-11-02T20:30:00.000Z');
@@ -124,7 +133,53 @@ describe('DateTimeField', () => {
     expect(await screen.findAllByTestId('time-zone-note')).toHaveLength(1);
     await waitFor(() => {
       const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input'));
-      expect(inputs.map((i) => i.value)).toEqual(['2026-11-02 09:30', '']);
+      expect(inputs.map((i) => i.value)).toEqual(['2 Nov 2026 09:30', '']);
+    });
+  });
+});
+
+// QA10-P3-14: dates and pickers follow the person's (else the organisation's) date format, time
+// format and first day of the week, not the browser's or a fixed medium style.
+function Shown({ prefs }: { prefs: Partial<DatePreferences> }) {
+  const { setDates } = useAppearance();
+  const { format, formatDay } = useDateTime();
+  useEffect(() => {
+    setDates(prefs);
+  }, [prefs, setDates]);
+  return (
+    <>
+      <span data-testid="at">{format('2026-11-10T00:26:00Z')}</span>
+      <span data-testid="day">{formatDay('2026-11-10')}</span>
+    </>
+  );
+}
+
+describe('date preferences (QA10-P3-14)', () => {
+  it('D-155: the default writes the day out (10 Nov 2026) in 24 hours, the week from Monday', async () => {
+    renderUi(<Shown prefs={{}} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('day').textContent).toBe('10 Nov 2026');
+    });
+    expect(screen.getByTestId('at').textContent).toMatch(/^(9|10) Nov 2026, \d\d:26$/);
+    // The pickers' calendar (dayjs's locale), set once the preferences apply.
+    await waitFor(() => {
+      expect(dayjs().startOf('week').day()).toBe(1);
+    });
+  });
+
+  it('mm/dd/yyyy in 12 hours with a Sunday week, as chosen', async () => {
+    const prefs: Partial<DatePreferences> = {
+      dateFormat: 'mm/dd/yyyy',
+      timeFormat: '12h',
+      weekStart: 'sunday',
+    };
+    renderUi(<Shown prefs={prefs} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('day').textContent).toBe('11/10/2026');
+    });
+    expect(screen.getByTestId('at').textContent).toMatch(/^11\/10\/2026, \d\d:26\s?(AM|PM)$/);
+    await waitFor(() => {
+      expect(dayjs().startOf('week').day()).toBe(0);
     });
   });
 });

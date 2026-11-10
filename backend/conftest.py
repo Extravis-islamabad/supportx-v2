@@ -1,6 +1,7 @@
 """Shared pytest fixtures for app-level tests (tests/) and module tests (app/modules/*/tests/)."""
 
 import asyncio
+import fcntl
 import json
 import os
 import secrets
@@ -205,3 +206,34 @@ async def assign_system_role(
             await conn.execute("UPDATE users SET roles_mapped_at = now() WHERE id = $1", user_id)
     finally:
         await conn.close()
+
+
+# --- The OpenAPI contract, built once per shard --------------------------------------------------
+# Building the app's OpenAPI document takes ~12 s and every schema test reads the same document
+# (export, diff, enum labels, filter DSL). The first worker builds it and leaves it next to
+# pytest's base temp; the other workers of the shard read that file (the pattern in the xdist
+# docs, with fcntl in place of filelock). Tests get their own copy, so one test's change never
+# reaches another.
+
+
+@pytest.fixture(scope="session")
+def _openapi_contract_json(tmp_path_factory: pytest.TempPathFactory) -> str:
+    from tooling.export_openapi import build_schema  # noqa: PLC0415 - only schema tests pay
+
+    if os.environ.get("PYTEST_XDIST_WORKER") is None:
+        return json.dumps(build_schema())
+    shared = tmp_path_factory.getbasetemp().parent / "openapi-contract.json"
+    with (shared.parent / "openapi-contract.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not shared.exists():
+            partial = shared.with_suffix(".partial")
+            partial.write_text(json.dumps(build_schema()))
+            partial.replace(shared)  # readers never see half a file
+        return shared.read_text()
+
+
+@pytest.fixture
+def openapi_contract(_openapi_contract_json: str) -> dict[str, Any]:
+    """The app's OpenAPI document as `make generated` builds it; a fresh copy per test."""
+    document: dict[str, Any] = json.loads(_openapi_contract_json)
+    return document

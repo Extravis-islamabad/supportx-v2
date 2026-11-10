@@ -1,4 +1,4 @@
-import { App, Card, Checkbox, Flex, Form, Input, Select, Space, Typography } from 'antd';
+import { App, Checkbox, Flex, Form, Input, Select, Typography } from 'antd';
 import { useEffect, useMemo } from 'react';
 
 import {
@@ -10,15 +10,16 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 import {
   NoAccess,
-  PageHeader,
   reportError,
   useAccess,
   useAppearance,
   useLabel,
-  WriteButton,
+  SettingsCard,
+  StickySaveBar,
 } from '@supportx/ui';
 
 import { showFieldErrors } from '../knowledge/formErrors';
+import { LeaveGuard } from './useLeaveGuard';
 
 // WP-042 (REQ-ADM-049, 050, 052): Admin › Instance settings. The defaults for people and sites,
 // the base currency (chosen once; a change asks first) and the languages offered (English
@@ -65,6 +66,8 @@ export function InstanceSettingsPage() {
     if (m.type === 'organization.settings_changed') void settings.refetch();
   });
   const saved = settings.data;
+  // Template E (D-147): the page's one save bar counts the fields that differ from the saved ones.
+  const watched = Form.useWatch([], form) as Partial<FormValues> | undefined;
   useEffect(() => {
     if (saved !== undefined) form.setFieldsValue(saved);
   }, [saved, form]);
@@ -108,12 +111,26 @@ export function InstanceSettingsPage() {
     submit(values);
   };
 
+  const shown: Partial<FormValues> = { ...saved };
+  const changes = (Object.keys(saved) as (keyof FormValues)[]).filter(
+    (key) =>
+      (key as string) !== 'version' &&
+      watched?.[key] !== undefined &&
+      JSON.stringify(watched[key]) !== JSON.stringify(shown[key]),
+  ).length;
+
+  // The shell gives the header (title and the setup map's description); the cards and one bar.
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="instance">
-      <PageHeader level={2} title={t('nav.admin_instance')} />
+    <div data-testid="instance">
       <Typography.Paragraph type="secondary">{t('instance.intro')}</Typography.Paragraph>
-      <Form<FormValues> form={form} layout="vertical" onFinish={onFinish} initialValues={saved}>
-        <Card title={t('instance.defaults')}>
+      <Form<FormValues>
+        form={form}
+        layout="vertical"
+        onFinish={onFinish}
+        initialValues={saved}
+        noValidate
+      >
+        <SettingsCard title={t('instance.defaults')}>
           <Flex gap={16} wrap>
             <Form.Item
               name="time_zone"
@@ -180,15 +197,24 @@ export function InstanceSettingsPage() {
               />
             </Form.Item>
           </Flex>
-        </Card>
-        <Card title={t('instance.contact')} style={{ marginTop: 16 }}>
+        </SettingsCard>
+        <SettingsCard title={t('instance.contact')}>
           <Flex gap={16} wrap>
+            {/* The app's own field error, never the browser's English bubble (QA10-P3-12):
+                type="email" is for the phone keyboard only, the form does not use native checks. */}
             <Form.Item
               name="contact_email"
               label={t('instance.contact_email')}
               style={{ flex: '1 1 260px' }}
+              rules={[{ type: 'email', message: t('errors.field.email_invalid') }]}
+              validateTrigger="onBlur"
             >
-              <Input type="email" dir="ltr" />
+              <Input
+                type="email"
+                inputMode="email"
+                dir="ltr"
+                data-testid="instance-contact-email"
+              />
             </Form.Item>
             <Form.Item
               name="contact_phone"
@@ -198,8 +224,8 @@ export function InstanceSettingsPage() {
               <Input dir="ltr" />
             </Form.Item>
           </Flex>
-        </Card>
-        <Card title={t('instance.money_languages')} style={{ marginTop: 16 }}>
+        </SettingsCard>
+        <SettingsCard title={t('instance.money_languages')}>
           <Form.Item
             name="base_currency"
             label={t('instance.base_currency')}
@@ -236,17 +262,20 @@ export function InstanceSettingsPage() {
               options={LANGUAGES.map((lang) => ({ value: lang, label: t(`locale.${lang}`) }))}
             />
           </Form.Item>
-        </Card>
-        <WriteButton
-          type="primary"
-          htmlType="submit"
-          loading={save.isPending}
-          style={{ marginTop: 16 }}
-          data-testid="instance-save"
-        >
-          {t('actions.save')}
-        </WriteButton>
+        </SettingsCard>
       </Form>
-    </Space>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
+      <StickySaveBar
+        changes={changes}
+        saving={save.isPending}
+        onDiscard={() => {
+          form.setFieldsValue(saved);
+        }}
+        onSave={() => {
+          form.submit();
+        }}
+      />
+    </div>
   );
 }

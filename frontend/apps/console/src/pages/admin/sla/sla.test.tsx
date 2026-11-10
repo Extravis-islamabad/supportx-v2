@@ -16,7 +16,13 @@ function typeDate(scope: HTMLElement, testId: string, day: string) {
   if (input === null) throw new Error(`no date input in ${testId}`);
   fireEvent.mouseDown(input);
   fireEvent.focus(input);
-  fireEvent.change(input, { target: { value: day } });
+  // Typed as the picker shows a day: the default written out, "3 Nov 2026" (D-155).
+  const [year, month, date] = day.split('-');
+  // dayjs's English month names ("Sep", where en-GB's Intl writes "Sept").
+  const name = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')[Number(month) - 1];
+  fireEvent.change(input, {
+    target: { value: `${String(Number(date))} ${name ?? ''} ${year ?? ''}` },
+  });
   fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
   fireEvent.blur(input);
 }
@@ -245,6 +251,17 @@ describe('Admin › SLA › Working calendars', () => {
     await screen.findByTestId('sla-calendar-row-cal-riyadh');
     expect(screen.queryByTestId('sla-calendar-add')).toBeNull();
     expect(screen.queryByTestId('sla-calendar-delete-cal-riyadh')).toBeNull();
+  });
+
+  it('coverage §17 (b): a technician has no Admin link, yet opens the SLA calendars read-only by URL', async () => {
+    window.history.pushState({}, '', '/admin/sla/calendars');
+    api({ me: TECH, routes: ROUTES });
+    render(<App />);
+    await screen.findByTestId('sla-calendar-row-cal-riyadh');
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    expect(within(nav).queryByText('Admin')).toBeNull();
+    expect(screen.queryByText(/you do not have permission/i)).toBeNull();
+    expect(screen.queryByTestId('sla-calendar-add')).toBeNull();
   });
 
   it('counts a night period once, across midnight', () => {

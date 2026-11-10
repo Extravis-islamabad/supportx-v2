@@ -105,6 +105,7 @@ export const en = {
   'errors.certificate_not_valid_now': 'The certificate has expired or is not valid yet.',
   'errors.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
+  'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.conflict': 'Someone else changed this item. Reload to see the latest version.',
@@ -130,6 +131,8 @@ export const en = {
   'errors.dashboard_not_found': 'This dashboard does not exist or is not shared with you.',
   'errors.database_not_configured':
     'The service is not fully configured yet. Please contact your administrator.',
+  'errors.default_board_kept':
+    'The default change advisory board cannot be removed. Changes that no other board reviews go to it.',
   'errors.default_site_required':
     'The default site cannot be removed. Make another site the default first.',
   'errors.delivery_not_failed': 'This reply has not failed, so there is nothing to resend.',
@@ -166,6 +169,7 @@ export const en = {
     'Licence information is temporarily unavailable. Please try again shortly.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
   'errors.field.already_linked': 'These records are already linked.',
+  'errors.field.announcement_message_required': 'Write the message people will see.',
   'errors.field.api_key_allowlist_invalid':
     'Enter up to 20 valid addresses or networks, such as 10.0.0.0/8.',
   'errors.field.api_key_expiry_past': 'The expiry date must be in the future.',
@@ -210,6 +214,7 @@ export const en = {
   'errors.field.before_publish': 'Retiring must come after publishing.',
   'errors.field.before_start': 'The end cannot be before the start.',
   'errors.field.below_minimum': 'Minimum is {{min}}.',
+  'errors.field.board_not_found': 'This advisory board does not exist.',
   'errors.field.brand_image_svg':
     'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
   'errors.field.brand_image_too_large': 'This image is too large: at most 5 MB and 25 megapixels.',
@@ -270,6 +275,7 @@ export const en = {
   'errors.field.duplicate_name': 'This name is already used.',
   'errors.field.duplicate_permission': 'This permission is listed twice.',
   'errors.field.duplicate_sort_field': 'Each field can be used only once in the sort.',
+  'errors.field.duplicate_value': 'This is listed more than once.',
   'errors.field.duration_mismatch': 'The duration does not match the start and end times.',
   'errors.field.email_invalid': 'Enter an e-mail address like name@example.com.',
   'errors.field.email_not_valid': 'Enter an email address, such as name@example.com.',
@@ -381,6 +387,7 @@ export const en = {
   'errors.field.not_eligible': 'This person or group may not hold this role.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
+  'errors.field.not_in_past': 'This time must be in the past.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
   'errors.field.number_already_used': 'That number is already used. Choose {{minimum}} or higher.',
   'errors.field.oauth_certificate_invalid':
@@ -712,6 +719,8 @@ export const en = {
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
+  'errors.nothing_to_override':
+    'This change is not waiting for approval again, so there is nothing to override.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
@@ -797,6 +806,7 @@ export const en = {
     'This is a connector’s own identity. Change it from Admin › Integrations.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
+  'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
@@ -825,7 +835,10 @@ export const en = {
   'errors.stage_move_refused':
     'Something must be done before this move. See the reasons on the record.',
   'errors.stage_not_found': 'This stage does not exist.',
+  'errors.stage_path_disabled': 'That path is switched off for new records.',
   'errors.stage_status_system_only': 'Only an approval decision sets this status.',
+  'errors.standard_change_locked':
+    'A standard change keeps its plan as approved. Changing it makes this a normal change, which needs normal approval.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',
   'errors.storage_quota_exceeded':

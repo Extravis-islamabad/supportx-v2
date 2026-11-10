@@ -9,7 +9,14 @@ import {
   type KbArticle,
   type KbLanguage,
 } from '@supportx/api-client';
-import { ConflictDialog, reportError, useConflictRetry, useLabel } from '@supportx/ui';
+import {
+  ConflictDialog,
+  pickerFormat,
+  reportError,
+  useAppearance,
+  useConflictRetry,
+  useLabel,
+} from '@supportx/ui';
 
 import { UserPicker } from '../incidents/pickers';
 import type { AudienceValue } from './audience';
@@ -54,6 +61,8 @@ export function ArticleSettings({
   onClose: () => void;
 }) {
   const t = useLabel();
+  // The person's date format, as the side panel shows the same dates (QA10-P4-07).
+  const dayFormat = pickerFormat(useAppearance().dates, false);
   const { message } = App.useApp();
   const [form] = Form.useForm<SettingsForm>();
   const topics = useKbTopics();
@@ -167,10 +176,18 @@ export function ArticleSettings({
           />
         </Form.Item>
         <Form.Item label={t('knowledge.field.review_on')} name="review_on">
-          <DatePicker style={{ width: '100%' }} data-testid="kb-settings-review" />
+          <DatePicker
+            format={dayFormat}
+            style={{ width: '100%' }}
+            data-testid="kb-settings-review"
+          />
         </Form.Item>
         <Form.Item label={t('knowledge.field.expires_on')} name="expires_on">
-          <DatePicker style={{ width: '100%' }} data-testid="kb-settings-expiry" />
+          <DatePicker
+            format={dayFormat}
+            style={{ width: '100%' }}
+            data-testid="kb-settings-expiry"
+          />
         </Form.Item>
         <Form.Item
           label={t('knowledge.field.own_audience')}

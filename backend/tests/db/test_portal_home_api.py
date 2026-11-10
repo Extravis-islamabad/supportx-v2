@@ -7,12 +7,15 @@ only items the person may see, never one nobody asked for.
 
 import uuid
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import manager_of
 from tests.db.test_incident_settings_api import admin_write
-from tests.db.test_incidents_api import Org, World, world
+from tests.db.test_incidents_api import Org, World
 from tests.db.test_service_requests_api import an_item, raise_request
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 SUMMARY = "/portal/summary"
 POPULAR = "/catalog/items/popular"

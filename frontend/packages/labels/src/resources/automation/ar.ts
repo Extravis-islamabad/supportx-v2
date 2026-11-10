@@ -51,6 +51,7 @@ export const ar: LabelResource = {
   'automation.field_state.help': 'تُحفظ المسودات لكنها لا تعمل أبدًا.',
   'automation.field_stop_after': 'التوقف بعد هذه القاعدة',
   'automation.field_stop_after.help': 'عندما تتحقق هذه القاعدة لا تعمل القواعد التي تليها.',
+  'automation.group_gone': 'مجموعة محذوفة',
   'automation.loop.banner_few': 'أوقفت الأتمتة {{count}} حلقات متكررة خلال اليوم الماضي.',
   'automation.loop.banner_many': 'أوقفت الأتمتة {{count}} حلقةً متكررةً خلال اليوم الماضي.',
   'automation.loop.banner_one': 'أوقفت الأتمتة حلقة متكررة واحدة خلال اليوم الماضي.',
@@ -127,6 +128,7 @@ export const ar: LabelResource = {
   'automation.rules.explain':
     'تعمل قواعد العمل أثناء حفظ السجل من الأعلى إلى الأسفل. كل قاعدة متحققة تضبط حقولًا أو ترفض الحفظ، ويذكر سجل التغييرات أي قاعدة غيّرت ماذا.',
   'automation.rules.none': 'لا قواعد عمل بعد.',
+  'automation.site_gone': 'موقع محذوف',
   'automation.someone': 'شخص',
   'automation.stop_marker': 'يتوقف هنا',
   'automation.transitions.after': 'بعد التغيير',
@@ -176,6 +178,7 @@ export const ar: LabelResource = {
   'automation.why.assignment_move': 'نُقلت تلقائيًا عند إسنادها.',
   'automation.why.auto_closed':
     'أُغلقت تلقائيًا: أُبلغ مقدّم الطلب بالحل ولم يردّ في الوقت المحدد.',
+  'automation.why.first_task_started': 'بدأ العمل عند إنجاز أول مهمة تنفيذ.',
   'automation.why.fulfilled': 'تم التنفيذ: أُنجزت كل المهام المطلوبة',
   'automation.why.matrix': 'من مصفوفة الأولوية (الأثر والإلحاح).',
   'automation.why.requester_confirmed': 'أكّد مقدّم الطلب الحل، فأُغلقت.',

@@ -25,14 +25,15 @@ from app.shared.files.infra.scanner import FakeScanner
 from app.shared.files.keyring import KeyRing
 from app.shared.files.service.core import FileServices
 from app.shared.storage import S3Storage
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_audit_exports import storage
 from tests.db.test_files_api import audit_actions
-from tests.db.test_incidents_api import World, field_codes, world
+from tests.db.test_incidents_api import World, field_codes
 from tests.db.test_notifications_api import deliveries, run_engine
 
-__all__ = ["storage", "world"]  # fixtures, re-used
+__all__ = ["module_world", "shared_world", "storage"]  # fixtures, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 BASE = "/integrations/mailboxes"
 ADDRESS = "help@alpha.test"

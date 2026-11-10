@@ -5,6 +5,7 @@ Findings: ~/Desktop/qa-wp020c/QA-REPORT.md. Same world as the incidents tests.
 
 from typing import Any
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_incident_settings_api import (
     SETTINGS,
     admin_write,
@@ -13,9 +14,11 @@ from tests.db.test_incident_settings_api import (
     patch_template,
     templates,
 )
-from tests.db.test_incidents_api import World, field_codes, world
+from tests.db.test_incidents_api import World, field_codes
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def test_bug_01_numbering_save_is_all_or_nothing(world: World) -> None:

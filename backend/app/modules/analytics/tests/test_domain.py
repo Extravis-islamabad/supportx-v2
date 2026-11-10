@@ -19,6 +19,7 @@ from app.modules.analytics.domain.measures import MEASURES, measure_problems
 from app.modules.analytics.service.compiler import (
     available_measures,
     compile_report,
+    drill_all,
     drill_filter,
 )
 from app.modules.analytics.service.runner import age_bounds, bucket_bounds
@@ -103,6 +104,7 @@ def test_req_rpt_015_every_builtin_report_is_filed_under_its_module() -> None:
         "service_request": "service_requests",
         "problem": "problems",
         "release": "releases",
+        "asset": "assets",
     }
     for report in BUILTIN_REPORTS:
         assert folders[report.definition.entity] == report.folder, report.code
@@ -233,3 +235,20 @@ def test_req_rpt_037_drill_filter_is_the_report_filter_and_the_row() -> None:
     ) == {"field": "priority", "op": "is_null"}
     # The drill filter is valid for the same source (the list accepts it).
     compile_report(_definition(filter=drill), _source(), now=NOW, zone="UTC")
+
+
+def test_qa10_p4_22_a_counted_measure_s_condition_is_in_the_drill() -> None:
+    # "Open incidents" counts open ones only: its drill-down lists exactly those, never all.
+    kpi = _definition(measures=["open_count"], chart="kpi")
+    assert drill_all(kpi) == {"field": "status_category", "op": "in", "value": ["open", "paused"]}
+    filtered = _definition(
+        measures=["open_count"], filter={"field": "priority", "op": "eq", "value": "p1"}
+    )
+    assert drill_all(filtered) == {
+        "and": [
+            {"field": "priority", "op": "eq", "value": "p1"},
+            {"field": "status_category", "op": "in", "value": ["open", "paused"]},
+        ]
+    }
+    # A plain count adds nothing.
+    assert drill_all(_definition(measures=["count"])) is None

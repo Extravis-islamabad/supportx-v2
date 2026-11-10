@@ -52,4 +52,20 @@ describe('dev quick sign-in page', () => {
     });
     expect(fake.find('POST', '/api/v1/auth/dev/sign-in')[0]?.body).toEqual({ persona: 'admin' });
   });
+
+  it('the new starter is told where the set-up link went, and stays on the page', async () => {
+    window.history.pushState({}, '', '/dev/sign-in');
+    restore = fakeApi({
+      'GET /api/v1/auth/dev/personas': { body: PERSONAS },
+      'POST /api/v1/auth/dev/sign-in': {
+        body: { redirect_to: null, setup_link_sent_to: 'newstarter@showcase.test' },
+      },
+    }).restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('dev-sign-in-new_starter'));
+    const sent = await screen.findByTestId('dev-sign-in-setup-sent');
+    expect(sent.textContent).toContain('newstarter@showcase.test');
+    expect(sent.textContent).toContain('Mailpit');
+    expect(window.location.pathname).toBe('/dev/sign-in');
+  });
 });

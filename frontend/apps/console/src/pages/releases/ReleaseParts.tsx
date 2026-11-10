@@ -290,6 +290,7 @@ export function RolesPart({ id }: { id: string }) {
   return (
     <List
       data-testid="release-roles"
+      locale={{ emptyText: <EmptyText>{t('releases.roles.none')}</EmptyText> }}
       dataSource={view.roles.filter((r) => !r.disabled || r.user_ids.length > 0)}
       renderItem={(r) => (
         <List.Item key={r.code} data-testid={`release-role-${r.code}`}>
@@ -552,7 +553,7 @@ export function DowntimePart({ id }: { id: string }) {
             key={d.id}
             data-testid={`downtime-${d.id}`}
             actions={[
-              <Button
+              <WriteButton
                 key="remove"
                 size="small"
                 danger
@@ -561,7 +562,7 @@ export function DowntimePart({ id }: { id: string }) {
                 }}
               >
                 {t('actions.delete')}
-              </Button>,
+              </WriteButton>,
             ]}
           >
             <Space wrap>

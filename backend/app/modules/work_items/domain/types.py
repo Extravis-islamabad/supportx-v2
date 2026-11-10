@@ -12,6 +12,18 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from app.modules.work_items.domain.changes import (
+    CHANGE_MODEL,
+    CHANGE_REASONS,
+    CHANGE_ROLES,
+    CHANGE_TYPES,
+)
+from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
+from app.modules.work_items.domain.changes import OUTCOME_STAGES as CHANGE_OUTCOME_STAGES
+from app.modules.work_items.domain.changes import PLAN_SECTIONS as CHANGE_PLAN_SECTIONS
+from app.modules.work_items.domain.changes import SEGREGATED_ROLES as CHANGE_SEGREGATED_ROLES
+from app.modules.work_items.domain.changes import STAGE_APPROVALS as CHANGE_STAGE_APPROVALS
+from app.modules.work_items.domain.changes import STAGE_OUTCOMES as CHANGE_STAGE_OUTCOMES
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_STATUSES,
     DEFAULT_TRANSITIONS,
@@ -111,6 +123,10 @@ class WorkItemType:
     roles: tuple[str, ...] = ()
     plan_sections: tuple[str, ...] = ()
     outcome_stages: frozenset[str] = frozenset()
+    # Roles whose holders may never approve the record (segregation of duties, REQ-CHG-039).
+    segregated_roles: tuple[str, ...] = ()
+    # Each outcome stage's own codes; empty: the release's (domain/releases.outcomes_for).
+    stage_outcomes: Mapping[str, frozenset[str]] = field(default_factory=dict)
     # Seeded stage approvals (stage -> settings; REQ-REL-031), copied per tenant on first use.
     stage_approvals: Mapping[str, Mapping[str, object]] = field(default_factory=dict)
 
@@ -214,14 +230,40 @@ RELEASE = WorkItemType(
     },
 )
 
+# Changes (WP-045a S1, file 05): a staged type on the same engine; its own fields, types and
+# boards come in the next sessions.
+CHANGE = WorkItemType(
+    code=WorkItemTypeCode.CHANGE,
+    path="changes",
+    default_prefix="CHG",
+    feature="change",
+    permission_prefix="changes",
+    statuses=staged_statuses(CHANGE_MODEL),
+    transitions=(),
+    fields=COMMON_FIELDS,
+    stages=CHANGE_MODEL,
+    roles=CHANGE_ROLES,
+    plan_sections=CHANGE_PLAN_SECTIONS,
+    outcome_stages=CHANGE_OUTCOME_STAGES,
+    stage_outcomes=CHANGE_STAGE_OUTCOMES,
+    segregated_roles=CHANGE_SEGREGATED_ROLES,
+    stage_approvals=CHANGE_STAGE_APPROVALS,
+    own_fields=frozenset(CHANGE_DETAIL_FIELDS),
+    own_lists={
+        "change_type": CHANGE_TYPES,
+        "change_reason": tuple((code, None) for code in CHANGE_REASONS),
+    },
+)
+
 TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {
     INCIDENT.code: INCIDENT,
     SERVICE_REQUEST.code: SERVICE_REQUEST,
     PROBLEM.code: PROBLEM,
+    CHANGE.code: CHANGE,
     RELEASE.code: RELEASE,
 }
 # Every type whose permissions are in the catalogue (a superset of TYPES while one is built).
-PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, PROBLEM, RELEASE)
+PERMISSION_TYPES: tuple[WorkItemType, ...] = (INCIDENT, SERVICE_REQUEST, PROBLEM, CHANGE, RELEASE)
 
 
 # --- value rules shared by every type -------------------------------------------------------------
@@ -278,6 +320,7 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 FIELD_PROBLEMS = frozenset(
     {
         "required",
+        "not_in_past",  # WP-045a: a retrospective change's actual times (REQ-CHG-004)
         # WP-044c S1 (REQ-PRB-021): a template for requesters is for everyone.
         "limited_template_for_requesters",
         "template_not_offered",

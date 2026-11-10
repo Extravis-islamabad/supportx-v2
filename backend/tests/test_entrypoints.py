@@ -28,7 +28,11 @@ def test_python_dash_m_app_runs_uvicorn_with_the_factory(monkeypatch: pytest.Mon
     assert kwargs["access_log"] is False
 
 
-def test_openapi_export_writes_and_checks(tmp_path: Path) -> None:
+def test_openapi_export_writes_and_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, openapi_contract: dict[str, Any]
+) -> None:
+    # The shard's one real build (conftest.openapi_contract), not three more of ~12 s each.
+    monkeypatch.setattr(export_openapi, "build_schema", lambda: openapi_contract)
     target = tmp_path / "openapi.json"
     assert export_openapi.main(["--check", str(target)]) == 1
     assert export_openapi.main([str(target)]) == 0

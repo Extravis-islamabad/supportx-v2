@@ -11,17 +11,12 @@ import httpx
 from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
-from tests.db.test_incidents_api import (
-    BASE,
-    CONSOLE,
-    Org,
-    World,
-    field_codes,
-    problem,
-    world,
-)
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, field_codes, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 SETTINGS = f"{BASE}/settings"
 

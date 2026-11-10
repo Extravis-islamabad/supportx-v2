@@ -171,13 +171,14 @@ button per Showcase Company persona, so a browser-driving QA run signs in with o
 | Team lead | lead@showcase.test (service desk manager, lead of Service desk) | Console |
 | Approver | approver@showcase.test (head of Finance) | Portal |
 | Requester | requester@showcase.test (Finance; the approver is their manager) | Portal |
-| New starter | newstarter@showcase.test: **sets up two-step sign-in** the normal way | Portal |
+| New starter | newstarter@showcase.test: **sets up two-step sign-in**. The button e-mails Keycloak's own set-up link; open it in Mailpit within 15 minutes | Portal |
 
 1. Set `SHOWCASE_PASSWORD` in `deploy/compose/.env` (see Showcase Company above).
 2. `make dev-quick-sign-in`. This puts a random `SHOWCASE_TOTP_KEY` in `deploy/compose/.env` (only
    if it has none; it is never shown), switches the quick sign-in on in `backend/.env`, and runs
-   `make showcase-seed`, which adds the personas and enrols their authenticators.
-3. Restart the API (`make backend-dev`) and open `/dev/sign-in`.
+   `make keycloak-dev-sync` (below).
+3. `make showcase-seed`: adds the personas and enrols their authenticators.
+4. Restart the API (`make backend-dev`) and open `/dev/sign-in`.
 
 How it works:
 - Each button signs the persona in through Keycloak (the password grant, on in the dev realm
@@ -187,6 +188,16 @@ How it works:
   `SHOWCASE_TOTP_KEY`.
 - Every quick sign-in is in the audit log ("Signed in with the dev quick sign-in").
 - It works only from `localhost` and only for the showcase tenant.
+
+**A dev stack made before D-151** has a realm without the quick sign-in's settings: Keycloak
+imports the realm file only when the realm does not exist yet, so a button says Keycloak doesn't
+allow this sign-in here. `make keycloak-dev-sync` (run by `make dev-quick-sign-in`) fixes it in
+place, with no reset and no data lost. Through the admin API it sets only:
+- the password grant on the console and portal clients;
+- remember-me, and SSO idle and max lifespans of at least 7 days.
+It never touches users or data and prints no secret. It refuses unless Keycloak is on this machine,
+the quick sign-in is switched on, and both clients redirect only to localhost. Running it again
+changes nothing.
 
 If a button says the password or key doesn't match, run `make showcase-seed` again; a changed key
 re-enrols the personas. A persona Keycloak locked after failed attempts unlocks after a few
@@ -342,7 +353,9 @@ password (two steps). These **test users** are imported with the realm (dev only
 Keycloak admin console: <http://localhost:28080> (`admin` / `KEYCLOAK_ADMIN_PASSWORD`). Five wrong
 passwords lock a user for a while (brute-force protection is on even in dev). The realm is imported
 only when it does not exist yet: after changing `deploy/helm/supportx/files/keycloak/dev/supportx-realm.json`,
-delete the `supportx` realm in the admin console (or `make dev-reset`) and restart Keycloak.
+delete the `supportx` realm in the admin console (or `make dev-reset`) and restart Keycloak. Both
+wipe the realm's users. For the quick sign-in's settings alone, `make keycloak-dev-sync` is enough
+and keeps everything.
 
 The API's tenant comes from the login session. For scripts and quick `curl` tests you can still let
 the API trust an `X-Tenant-ID` header, but only by opting in: add `SUPPORTX_DEV_TENANT_HEADER=true`

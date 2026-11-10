@@ -87,12 +87,17 @@ export const en = {
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
+  'notification_event.service_request.approved': 'Request approved',
+  'notification_event.service_request.fulfilled': 'Request fulfilled',
+  'notification_event.service_request.received': 'Request received: acknowledgement',
+  'notification_event.service_request.rejected': 'Request rejected',
+  'notification_event.service_request.withdrawn': 'Request withdrawn',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
   'notification_preferences.help':
-    'Choose what you hear about, and where. Some notifications are required by your organization.',
-  'notification_preferences.locked': 'Required by your organization: it cannot be switched off.',
+    'Choose what you hear about, and where. Some notifications are required by your organisation.',
+  'notification_preferences.locked': 'Required by your organisation: it cannot be switched off.',
   'notification_preferences.saved': 'Preferences saved.',
   'notification_preferences.title': 'Notifications',
   'notification_reason.do_not_disturb': 'Do not disturb was on',
@@ -379,7 +384,38 @@ export const en = {
     '{{ record.display_id }} waits for your approval: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'Your approval: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approved.body':
+    'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" was approved. We are working on it now.',
+  'notification_template.service_request.approved.in_app':
+    '{{ record.display_id }} was approved: {{ record.title }}',
+  'notification_template.service_request.approved.subject':
+    'Approved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.fulfilled.body':
+    'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" is done. Please confirm you received it, or tell us if something is missing.',
+  'notification_template.service_request.fulfilled.in_app':
+    '{{ record.display_id }} is done: {{ record.title }}',
+  'notification_template.service_request.fulfilled.subject':
+    'Done: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.received.body':
+    'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" and logged it as {{ record.display_id }}. We will keep you updated.',
+  'notification_template.service_request.received.in_app':
+    'We received {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.received.subject':
+    'We received your request {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.rejected.body':
+    'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" was not approved.{% if approval.comment %}\n\nThe approver said: {{ approval.comment }}{% endif %}',
+  'notification_template.service_request.rejected.in_app':
+    '{{ record.display_id }} was not approved: {{ record.title }}',
+  'notification_template.service_request.rejected.subject':
+    'Not approved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.withdrawn.body':
+    'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" was withdrawn. Nothing more will happen with it.',
+  'notification_template.service_request.withdrawn.in_app':
+    '{{ record.display_id }} was withdrawn: {{ record.title }}',
+  'notification_template.service_request.withdrawn.subject':
+    'Withdrawn: {{ record.display_id }} {{ record.title }}',
   'notification_variable.actor.name': 'Changed by › Name',
+  'notification_variable.approval.comment': 'Approval › Comment',
   'notification_variable.approval_link': 'Approval › Link',
   'notification_variable.article.reason': 'Article › Reason',
   'notification_variable.article.review_on': 'Article › Review date',
