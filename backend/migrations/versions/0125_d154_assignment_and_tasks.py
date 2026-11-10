@@ -36,7 +36,8 @@ DECLARE
 BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
-        DELETE FROM role_permissions WHERE permission LIKE '%.assign_outside_group';
+        -- The action's exact name after the type (LIKE's _ would match any character).
+        DELETE FROM role_permissions WHERE split_part(permission, '.', 2) = 'assign_outside_group';
         GET DIAGNOSTICS dropped = ROW_COUNT;
         IF dropped > 0 THEN
             RAISE NOTICE '0125: tenant % lost % assign_outside_group grant(s)', t, dropped;
