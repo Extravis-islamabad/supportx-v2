@@ -365,7 +365,11 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
             {
               key: 'conversation',
               label: (
-                <span data-testid="sr-tab-conversation">{t('requests.tab.conversation')}</span>
+                // The incident's rule (Haider E4, C4): the count of what the tab lists, the
+                // description with the replies and notes.
+                <span data-testid="sr-tab-conversation">
+                  {t('incidents.tab.conversation', { count: r.conversation_count + 1 })}
+                </span>
               ),
               children: (
                 <IncidentConversation

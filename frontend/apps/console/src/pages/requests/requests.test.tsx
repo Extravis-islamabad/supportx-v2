@@ -422,6 +422,10 @@ describe('console: service requests', () => {
     });
     render(<App />);
     await screen.findByTestId('sr-actions-more');
+    // E4: the Conversation tab counts what it lists, as on incidents (the description too).
+    expect(screen.getByTestId('sr-tab-conversation').textContent).toBe(
+      `Conversation (${String(working.conversation_count + 1)})`,
+    );
     // A button when the bar has room, else in More actions: either way it is offered.
     const assign =
       screen.queryByTestId('sr-op-assign') ?? (await actionItem('sr-op-assign', 'sr-actions'));
