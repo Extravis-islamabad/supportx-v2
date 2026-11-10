@@ -460,9 +460,6 @@
   "releases.assign": [
    "all"
   ],
-  "releases.assign_outside_group": [
-   "all"
-  ],
   "releases.cancel": [
    "all"
   ],
@@ -520,9 +517,6 @@
    "all"
   ],
   "releases.assign": [
-   "all"
-  ],
-  "releases.assign_outside_group": [
    "all"
   ],
   "releases.cancel": [
