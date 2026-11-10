@@ -115,5 +115,6 @@ test('REQ-INC-067 AC3, REQ-INC-084 AC1: time totals, and a link on both incident
   await page.getByRole('tab', { name: 'Links' }).click();
   await expect(page.getByTestId(`inc-link-${first.display_id}`)).toContainText('Same printer');
   await page.getByRole('tab', { name: /^History/ }).click();
-  await expect(page.getByTestId('inc-history')).toContainText('Link');
+  // History reads as a sentence since Haider's C2 (#339): "<who> added a link (Related)".
+  await expect(page.getByTestId('inc-history')).toContainText('added a link (Related)');
 });
