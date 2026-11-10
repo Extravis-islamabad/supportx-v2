@@ -22,7 +22,7 @@ from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.types import WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import approval_settings, stage_approvals
-from app.modules.work_items.service.approval_stage import approval_event
+from app.modules.work_items.service.approval_stage import approval_event, requested_for
 from app.shared import action_links
 
 APPROVED, REJECTED = "approved", "rejected"  # the node's outputs
@@ -134,6 +134,26 @@ async def _level_rows(session: AsyncSession, row: WorkItemApproval) -> list[Work
     )
 
 
+async def _usable_chair(
+    session: AsyncSession, record: WorkItem, chair: uuid.UUID | None
+) -> uuid.UUID | None:
+    """The tenant's chair, if they may break this record's tie (lane A's #366 review).
+
+    Not when inactive (the tie would wait for ever), not on a record they asked for or that is
+    for them (self-approval), and not when they hold one of its segregated roles (REQ-CHG-039).
+    Then there is no chair, and an exact majority split rejects (D-146).
+    """
+    if chair is None:
+        return None
+    if chair not in await active_user_ids(session, [chair]):
+        return None
+    if chair in {record.requester_id, requested_for(record)}:
+        return None
+    if chair in await stage_approvals.segregated(session, record):
+        return None
+    return chair
+
+
 async def after_decision(
     session: AsyncSession, record: WorkItem, decided: WorkItemApproval
 ) -> None:
@@ -144,7 +164,7 @@ async def after_decision(
     rows = await _level_rows(session, decided)
     counted = [r for r in rows if not r.advisory]
     chair_row = next((r for r in rows if r.advisory), None)
-    chair = await approval_settings.chair(session)
+    chair = await _usable_chair(session, record, await approval_settings.chair(session))
     rule = rules.LevelRule(decided.rule or rules.LevelRule.ANY)
     outcome = rules.level_outcome(
         rule,

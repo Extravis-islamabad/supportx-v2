@@ -252,9 +252,13 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
         self_approval=row.self_approval,
     ):
         raise PermissionDenied(code="approval_segregation")
-    if row.record_stage is not None and subject.user_id in await stage_approvals.segregated(
+    staged_or_workflow = (
+        row.record_stage is not None or row.purpose == rules.ApprovalPurpose.WORKFLOW
+    )
+    if staged_or_workflow and subject.user_id in await stage_approvals.segregated(
         session, record
-    ):  # REQ-CHG-039: an implementer named before they became one is refused too
+    ):  # REQ-CHG-039: an implementer named before they became one is refused too, on a
+        # workflow's approval as on a stage's (lane B's #366 review)
         raise PermissionDenied(code="approval_segregation", params={"reason": "segregated_role"})
     if row.version != expected_version:
         raise Conflict(code="approval_changed", params={"version": row.version})
