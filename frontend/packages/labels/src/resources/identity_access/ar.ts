@@ -714,6 +714,7 @@ export const ar: LabelResource = {
   'profile.time_zone': 'المنطقة الزمنية',
   'profile.time_zone_help': 'تُستخدم لعرض التواريخ والأوقات، مثل Asia/Dubai.',
   'profile.title': 'ملفي الشخصي',
+  'profile.who': 'أنت',
   'readiness_check.event_consumers': 'معالجة الأحداث',
   'readiness_check.malware_signatures': 'تواقيع الفيروسات',
   'readiness_check.nats': 'ناقل الرسائل',
