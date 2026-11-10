@@ -289,8 +289,9 @@ async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs w
         subject=subject,
         record_id=instance.record_id,
         command=command,
-        # The command's own id: a result that comes later (an approval's decision) names it.
-        ref={**ref, "command": command.id},
+        # A result that comes later (an approval's decision) names its command; the history's
+        # automation_ref of every other command stays as it was.
+        ref={**ref, "command": command.id} if command.kind == CommandKind.OPEN_APPROVAL else ref,
     )
     if outcome.ok and outcome.pending:
         return None  # waits, as a sub-flow does, until the owning module's event continues it
