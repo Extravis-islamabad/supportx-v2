@@ -38,6 +38,8 @@ import {
   EmptyText,
   ConflictDialog,
   FormProblem,
+  pickerFormat,
+  useAppearance,
   lengthLimit,
   ToneTag,
   type Tone,
@@ -118,6 +120,8 @@ export function ScheduleButton({
   changed: boolean;
 }) {
   const t = useLabels();
+  // The person's date format in the pickers (QA10-P3-14).
+  const dayFormat = pickerFormat(useAppearance().dates, false);
   const { can } = useAccess();
   const { message } = AntApp.useApp();
   const zone = useTimeZone();
@@ -269,6 +273,7 @@ export function ScheduleButton({
           <Space wrap>
             <Form.Item label={t('reports.schedule_start')}>
               <DatePicker
+                format={dayFormat}
                 value={start}
                 allowClear={false}
                 onChange={(value) => {
@@ -277,7 +282,7 @@ export function ScheduleButton({
               />
             </Form.Item>
             <Form.Item label={t('reports.schedule_end')}>
-              <DatePicker value={end} onChange={setEnd} />
+              <DatePicker format={dayFormat} value={end} onChange={setEnd} />
             </Form.Item>
           </Space>
           <Alert type="info" showIcon message={t('reports.schedule_recipients_hint')} />

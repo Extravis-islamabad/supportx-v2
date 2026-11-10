@@ -1,5 +1,6 @@
 import { App as AntApp, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
+import updateLocale from 'dayjs/plugin/updateLocale';
 import 'dayjs/locale/ar';
 import 'dayjs/locale/ur';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -10,7 +11,9 @@ import { ANT_LOCALES } from './antdLocales';
 import { fontFaces, type UrduScript } from './fonts/fonts';
 import {
   AppearanceContext,
+  DEFAULT_DATES,
   intlLocaleFor,
+  type DatePreferences,
   type Appearance,
   type Digits,
   type BrandingSource,
@@ -135,6 +138,10 @@ export function AppearanceProvider({
   // The top bar's height at this text size, plus a gap: where toasts start.
   const belowHeader = Math.round((56 * textScale) / 100) + 8;
   const [digits, setDigits] = useState<Digits>('western');
+  const [dates, setDatesState] = useState<DatePreferences>(DEFAULT_DATES);
+  const setDates = useCallback((next: Partial<DatePreferences>) => {
+    setDatesState((current) => ({ ...current, ...next }));
+  }, []);
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
   useEffect(() => {
@@ -144,10 +151,13 @@ export function AppearanceProvider({
     document.documentElement.dataset.textScale = String(textScale);
   }, [direction, locale, mode, textScale]);
 
-  // Ant Design's pickers take month and weekday names from dayjs's global locale.
+  // Ant Design's pickers take month and weekday names from dayjs's global locale, and the first
+  // day of the week from it too: the person's (else the organisation's) week start (P3-14).
   useEffect(() => {
+    dayjs.extend(updateLocale);
+    dayjs.updateLocale(locale, { weekStart: WEEK_START_DAY[dates.weekStart] });
     dayjs.locale(locale);
-  }, [locale]);
+  }, [locale, dates.weekStart]);
 
   const [sources, setSources] = useState<Partial<Record<BrandingSource, Partial<Branding>>>>({});
   // The tenant's brand wins over the address's, both over the prop (tests) and the default.
@@ -184,12 +194,14 @@ export function AppearanceProvider({
       setBranding,
       urduScript,
       setUrduScript,
+      dates,
+      setDates,
       setLocale: (next) => {
         setLocaleState(next);
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand, setBranding, urduScript, textScale, digits],
+    [mode, direction, locale, brand, setBranding, urduScript, textScale, digits, dates, setDates],
   );
   const themeConfig = useMemo(
     () => buildTheme(mode, brand, locale, density, textScale, urduScript),
@@ -216,3 +228,10 @@ export function AppearanceProvider({
     </AppearanceContext.Provider>
   );
 }
+
+// dayjs counts days from Sunday (0).
+const WEEK_START_DAY: Record<DatePreferences['weekStart'], number> = {
+  sunday: 0,
+  monday: 1,
+  saturday: 6,
+};
