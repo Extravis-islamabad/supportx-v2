@@ -735,7 +735,9 @@ class AssetConsumableMovement(Base):
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=utc_now
+    )  # append-only (no UPDATE grant); the shared rule still holds
     created_by: Mapped[uuid.UUID | None] = mapped_column()
     updated_by: Mapped[uuid.UUID | None] = mapped_column()
     consumable_id: Mapped[uuid.UUID] = mapped_column()
