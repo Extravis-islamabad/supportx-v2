@@ -2176,9 +2176,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         technician_id,
     )
     channel_given = channel
-    channel = (
-        channel or cleaned.get("channel") or (Channel.PHONE if source == "ui" else Channel.API)
-    )
+    # Raised in the portal reads as the portal, never "API" (QA10-P4-40).
+    by_source = {"ui": Channel.PHONE, "portal": Channel.PORTAL}
+    channel = channel or cleaned.get("channel") or by_source.get(source, Channel.API)
     # Automation in the documented order (REQ-RUL-006): business rules, the matrix, routing and
     # auto-assignment. What the person entered stays their history; each automated change is
     # its own entry naming the rule, the routing reason or the assignment method.
@@ -2922,6 +2922,9 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     on_moved = getattr(stage_service.guard_of(updated.type), "on_moved", None)
     if on_moved is not None:
         await on_moved(session, updated, move)
+        # The guard may have moved the record on by itself (a stage with no approvers left):
+        # answer with where it is now.
+        await session.refresh(updated)
     return updated
 
 

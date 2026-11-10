@@ -36,6 +36,7 @@ import {
 
 import { numberProblem } from '../../../numbers';
 import { FilesBanner } from './FilesBanner';
+import { LeaveGuard } from '../useLeaveGuard';
 
 /**
  * Admin › Files (WP-022, D-082): the tenant's file rules (largest file up to 100 MB, files per
@@ -272,6 +273,8 @@ export function FilesPage() {
           {t('files.admin.check_now')}
         </Button>
       </Card>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
       <StickySaveBar
         changes={changes}
         saving={save.isPending}

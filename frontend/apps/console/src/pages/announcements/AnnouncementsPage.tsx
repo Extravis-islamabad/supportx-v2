@@ -29,7 +29,10 @@ import { refreshList, refreshRecord, useListChannel, useTenantChannel } from '@s
 import {
   ConflictDialog,
   EmptyText,
+  FilterBar,
+  ListPage,
   NoAccess,
+  PageHeader,
   reportError,
   useAccess,
   useAppearance,
@@ -114,86 +117,105 @@ export function AnnouncementsPage() {
   });
   const any = { value: '', label: t('users.any') };
 
+  // Template C (D-147): the header with its action, one filter bar (current or trash, search,
+  // status and severity, sort at the end), then the table, where the title takes the width left.
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={1} style={{ margin: 0 }}>
-          {t('announcements.title')}
-        </Typography.Title>
-        <Space wrap>
-          <Segmented<'current' | 'trash'>
-            value={view}
-            onChange={(value) => {
-              setView(value);
-            }}
-            options={[
-              { value: 'current', label: t('announcements.current') },
-              { value: 'trash', label: t('announcements.trash') },
-            ]}
-            data-testid="ann-view"
-          />
-          {can('announcements.manage') && (
-            <WriteButton
-              type="primary"
-              onClick={() => void navigate('/announcements/new')}
-              data-testid="ann-new"
-            >
-              {t('announcements.new')}
-            </WriteButton>
-          )}
-        </Space>
-      </Flex>
-      {(can('config.announcements') || can('settings.manage')) && <FourEyesSetting />}
-      <Flex gap={12} wrap>
-        <Input.Search
-          allowClear
-          aria-label={t('announcements.search')}
-          placeholder={t('announcements.search')}
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-          }}
-          style={{ maxWidth: 320 }}
-          data-testid="ann-search"
+    <ListPage
+      testId="ann-list"
+      header={
+        <PageHeader
+          title={t('announcements.title')}
+          extra={
+            can('announcements.manage') && (
+              <WriteButton
+                type="primary"
+                onClick={() => void navigate('/announcements/new')}
+                data-testid="ann-new"
+              >
+                {t('announcements.new')}
+              </WriteButton>
+            )
+          }
         />
-        <Select
-          aria-label={t('announcement.field.status')}
-          prefix={`${t('announcement.field.status')}:`}
-          value={status ?? ''}
-          onChange={(value) => {
-            setStatus(value === '' ? undefined : value);
-          }}
-          options={[
-            any,
-            ...STATUSES.map((value) => ({ value, label: t(`announcement_status.${value}`) })),
-          ]}
-          style={{ minWidth: 180 }}
-          data-testid="ann-filter-status"
+      }
+      alerts={(can('config.announcements') || can('settings.manage')) && <FourEyesSetting />}
+      filters={
+        <FilterBar
+          testId="ann-filters"
+          view={
+            <Segmented<'current' | 'trash'>
+              value={view}
+              onChange={(value) => {
+                setView(value);
+              }}
+              options={[
+                { value: 'current', label: t('announcements.current') },
+                { value: 'trash', label: t('announcements.trash') },
+              ]}
+              data-testid="ann-view"
+            />
+          }
+          search={
+            <Input.Search
+              allowClear
+              aria-label={t('announcements.search')}
+              placeholder={t('announcements.search')}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              data-testid="ann-search"
+            />
+          }
+          quick={
+            <>
+              <Select
+                aria-label={t('announcement.field.status')}
+                prefix={`${t('announcement.field.status')}:`}
+                value={status ?? ''}
+                onChange={(value) => {
+                  setStatus(value === '' ? undefined : value);
+                }}
+                options={[
+                  any,
+                  ...STATUSES.map((value) => ({ value, label: t(`announcement_status.${value}`) })),
+                ]}
+                style={{ minWidth: 180 }}
+                data-testid="ann-filter-status"
+              />
+              <Select
+                aria-label={t('announcement.field.severity')}
+                prefix={`${t('announcement.field.severity')}:`}
+                value={severity ?? ''}
+                onChange={(value) => {
+                  setSeverity(value === '' ? undefined : value);
+                }}
+                options={[
+                  any,
+                  ...SEVERITIES.map((value) => ({
+                    value,
+                    label: t(`announcement_severity.${value}`),
+                  })),
+                ]}
+                style={{ minWidth: 180 }}
+                data-testid="ann-filter-severity"
+              />
+            </>
+          }
+          extra={
+            <Select
+              aria-label={t('users.sort')}
+              prefix={`${t('users.sort')}:`}
+              value={sort}
+              onChange={setSort}
+              options={SORTS.map((value) => ({ value, label: t(`announcements.sort.${value}`) }))}
+              style={{ minWidth: 220 }}
+              data-testid="ann-sort"
+            />
+          }
         />
-        <Select
-          aria-label={t('announcement.field.severity')}
-          prefix={`${t('announcement.field.severity')}:`}
-          value={severity ?? ''}
-          onChange={(value) => {
-            setSeverity(value === '' ? undefined : value);
-          }}
-          options={[
-            any,
-            ...SEVERITIES.map((value) => ({ value, label: t(`announcement_severity.${value}`) })),
-          ]}
-          style={{ minWidth: 180 }}
-          data-testid="ann-filter-severity"
-        />
-        <Select
-          aria-label={t('users.sort')}
-          prefix={`${t('users.sort')}:`}
-          value={sort}
-          onChange={setSort}
-          options={SORTS.map((value) => ({ value, label: t(`announcements.sort.${value}`) }))}
-          style={{ minWidth: 220 }}
-          data-testid="ann-sort"
-        />
-      </Flex>
+      }
+    >
       {/* On a phone the table is wider than the screen: it scrolls in a region named by the page,
           so a keyboard can reach and scroll it (axe scrollable-region-focusable, visual QA). */}
       <div
@@ -208,7 +230,20 @@ export function AnnouncementsPage() {
           loading={list.isPending && list.fetchStatus === 'fetching'}
           dataSource={rows}
           pagination={false}
-          locale={{ emptyText: <EmptyText>{t('announcements.empty')}</EmptyText> }}
+          locale={{
+            // What the empty list means (QA10-P4-10): nothing matches, an empty trash, or none yet.
+            emptyText: (
+              <EmptyText>
+                {t(
+                  search.trim() !== '' || status !== undefined || severity !== undefined
+                    ? 'announcements.empty'
+                    : trash
+                      ? 'announcements.trash_empty'
+                      : 'announcements.none_yet',
+                )}
+              </EmptyText>
+            ),
+          }}
           onRow={(row) =>
             trash
               ? { 'data-testid': `ann-row-${row.display_id}` }
@@ -219,8 +254,17 @@ export function AnnouncementsPage() {
                 }
           }
           columns={[
-            { key: 'id', title: t('announcements.col.id'), render: (_, row) => row.display_id },
-            { key: 'title', title: t('announcement.field.title'), render: (_, row) => row.title },
+            {
+              key: 'id',
+              title: t('announcements.col.id'),
+              width: 1,
+              render: (_, row) => <bdi style={{ whiteSpace: 'nowrap' }}>{row.display_id}</bdi>,
+            },
+            {
+              key: 'title',
+              title: t('announcement.field.title'),
+              render: (_, row) => <bdi>{row.title}</bdi>,
+            },
             {
               key: 'severity',
               title: t('announcement.field.severity'),
@@ -244,7 +288,12 @@ export function AnnouncementsPage() {
             {
               key: 'updated',
               title: t('announcements.col.updated'),
-              render: (_, row) => dateFormat.format(new Date(row.updated_at)),
+              width: 1,
+              render: (_, row) => (
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  {dateFormat.format(new Date(row.updated_at))}
+                </span>
+              ),
             },
             ...(trash
               ? [
@@ -269,7 +318,7 @@ export function AnnouncementsPage() {
           </Button>
         </Flex>
       )}
-    </Space>
+    </ListPage>
   );
 }
 

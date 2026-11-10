@@ -137,6 +137,7 @@ export const en = {
   'dashboards.editing_hint':
     'Drag widgets, or use their arrows to move and resize them. Done saves; Undo takes back the last change.',
   'dashboards.empty': 'No widgets yet. Edit the layout to add some.',
+  'dashboards.empty_editing': 'No widgets yet. Use Add widget to add one.',
   'dashboards.expand': 'Expand',
   'dashboards.filter_days': 'Time range',
   'dashboards.filter_group_id': 'Group',

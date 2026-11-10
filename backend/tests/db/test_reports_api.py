@@ -10,6 +10,7 @@ import uuid
 from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
+import asyncpg
 import httpx
 import pytest
 import pytest_asyncio
@@ -250,6 +251,28 @@ async def test_every_module_s_builtin_reports_reach_the_admin_and_run(reports: W
             "POST", RUN, a, a.admin, json={"definition": report["definition"]}, headers=CONSOLE
         )
         assert response.status_code == 200, (report["code"], response.text)
+
+
+async def test_qa10_p4_22_a_kpi_count_equals_its_drill_down_list(reports: World) -> None:
+    world = reports
+    a = world.a
+    await seed(world)
+    # One of them resolved (test data in this throwaway database): the KPI must leave it out.
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(
+            "UPDATE work_items SET status_category = 'resolved'"
+            " WHERE id = (SELECT id FROM work_items WHERE tenant_id = $1 ORDER BY id LIMIT 1)",
+            a.tenant,
+        )
+    finally:
+        await conn.close()
+    result = await ran(world, a, a.admin, measures=["open_count"], chart="kpi")
+    counted = result["totals"][0]
+    drilled = await listed(world, a, a.admin, result["drill_all"])
+    every = await listed(world, a, a.admin, None)
+    assert counted == len(drilled)
+    assert len(every) > counted  # resolved or closed ones exist and stay out of the drill
 
 
 # --- REQ-RPT-019, 045, 048: saved reports, folders, permissions ----------------------------------

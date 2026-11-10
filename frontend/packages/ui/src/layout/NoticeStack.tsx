@@ -26,7 +26,11 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
   const [open, setOpen] = useState(false);
   const [critical, setCritical] = useState(false);
   const [ownClose, setOwnClose] = useState(false);
-  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  // The notices showing when the strip was dismissed, by their text (QA10-P3-10): the strip stays
+  // hidden while only those show, through navigation and a notice that comes and goes, and comes
+  // back when a new one appears. Kept for the tab's session (a reload keeps it too).
+  const [texts, setTexts] = useState<string[]>([]);
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(readDismissed);
 
   useLayoutEffect(() => {
     const element = ref.current;
@@ -44,6 +48,7 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
         else child.removeAttribute(EXTRA);
       }
       setCount(showing.length);
+      setTexts(showing.map((child) => child.textContent.trim()));
       setCritical(showing.some((child) => child.querySelector(CRITICAL) !== null));
       setOwnClose(first?.querySelector('.ant-alert-close-icon') != null);
     };
@@ -59,7 +64,8 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
   // Dismissed until a notice is added: hiding the strip never hides news (D-147 global fix 3).
   // One × per line: a notice with its own close (an announcement's dismissal is stored for the
   // person) keeps it, and the strip's dismiss shows only for notices without one.
-  const hidden = dismissedAt !== null && count <= dismissedAt && !critical;
+  const hidden =
+    count > 0 && !critical && texts.every((text) => dismissed.has(text)) && dismissed.size > 0;
   return (
     <div data-testid={testId} data-notice-strip="true" hidden={hidden || undefined}>
       {/* Hidden notices stay mounted, so their own live state (and focus order) is kept. A
@@ -92,7 +98,9 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
               icon={<CloseOutlined />}
               aria-label={t('layout.notices_dismiss')}
               onClick={() => {
-                setDismissedAt(count);
+                const next = new Set([...dismissed, ...texts]);
+                setDismissed(next);
+                writeDismissed(next);
                 setOpen(false);
               }}
               data-testid={testId === undefined ? undefined : `${testId}-dismiss`}
@@ -103,4 +111,26 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
       </Flex>
     </div>
   );
+}
+
+const DISMISSED_KEY = 'supportx.notices.dismissed';
+
+// Per tab and best effort: storage can be missing or refuse (private windows); the strip then
+// simply shows again after a reload.
+function readDismissed(): ReadonlySet<string> {
+  try {
+    const raw = window.sessionStorage.getItem(DISMISSED_KEY);
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.filter((v) => typeof v === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissed(texts: ReadonlySet<string>): void {
+  try {
+    window.sessionStorage.setItem(DISMISSED_KEY, JSON.stringify([...texts].slice(-50)));
+  } catch {
+    // Not stored: shown again after a reload, never an error.
+  }
 }

@@ -3,14 +3,12 @@ import {
   Alert,
   App,
   Button,
-  Card,
   Flex,
   Input,
   Modal,
   Popconfirm,
   Result,
   Skeleton,
-  Space,
   Tabs,
   Tooltip,
   Typography,
@@ -34,6 +32,10 @@ import { useRecordChannel, useTenantChannel, type PresenceMember } from '@suppor
 import {
   useConflictRetry,
   ConflictDialog,
+  PropertiesPanel,
+  PropertyList,
+  RecordHeader,
+  RecordPage,
   describeError,
   FormProblem,
   PresenceAvatars,
@@ -156,113 +158,156 @@ function AnnouncementDetail({
   const canEdit = item.can_manage;
   const me = useSession().data?.user.id;
 
+  // Template A (D-147): the header and every action in one card, the live notice, the tabs, and
+  // the audience and publishing window in the properties panel.
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 960 }}>
-      <Flex justify="space-between" align="start" wrap gap={12}>
-        <Space direction="vertical" size={4}>
-          <Typography.Text type="secondary">{item.display_id}</Typography.Text>
-          <Typography.Title level={1} style={{ margin: 0 }} data-testid="ann-heading">
-            {item.title}
-          </Typography.Title>
-          <Space size={4} wrap>
-            <StatusTag status={item.status} />
-            {item.status === 'published' && <VisibilityTag visibility={item.visibility} />}
-            <SeverityTag severity={item.severity} />
-          </Space>
-        </Space>
-        <PresenceAvatars viewers={viewers} selfUserId={me ?? null} />
-      </Flex>
-      <ConflictDialog
-        {...removeConflict.dialog}
-        fieldLabel={(field) => t(`announcement.field.${field}`)}
-      />
-      {changedBy !== null && (
-        <Alert
-          type="warning"
-          showIcon
-          role="status"
-          data-testid="live-change-notice"
-          message={t('live.changed_by', { name: changedBy })}
-          action={
-            <Button
-              size="small"
-              data-testid="live-change-reload"
-              onClick={() => {
-                setChangedBy(null);
-                setEditing(false);
-                void reload();
-              }}
-            >
-              {t('live.reload')}
-            </Button>
-          }
-        />
-      )}
-      <StatusActions item={item} />
-      <Tabs
-        items={[
-          {
-            key: 'details',
-            label: t('announcements.tab.details'),
-            children: editing ? (
-              <EditForm
-                item={item}
-                reload={reload}
-                onDone={() => {
-                  setEditing(false);
-                  setChangedBy(null);
+    <>
+      <RecordPage
+        testId="ann-record"
+        header={
+          <RecordHeader
+            typeLabel={t('announcements.one')}
+            displayId={item.display_id}
+            title={item.title}
+            testIds={{ title: 'ann-heading' }}
+            tags={
+              <>
+                <StatusTag status={item.status} />
+                {item.status === 'published' && <VisibilityTag visibility={item.visibility} />}
+                <SeverityTag severity={item.severity} />
+              </>
+            }
+            extra={<PresenceAvatars viewers={viewers} selfUserId={me ?? null} />}
+          />
+        }
+        actions={
+          <Flex gap={8} wrap justify="end">
+            <StatusActions item={item} />
+            {canEdit && !editing && (
+              <WriteButton
+                onClick={() => {
+                  setEditing(true);
                 }}
-              />
-            ) : (
-              <Card>
+                data-testid="ann-edit"
+              >
+                {t('actions.edit')}
+              </WriteButton>
+            )}
+            {canEdit && (
+              <Popconfirm
+                title={t('announcements.delete_confirm')}
+                okText={t('announcements.delete')}
+                cancelText={t('actions.cancel')}
+                onConfirm={() => {
+                  removeIt(item.version);
+                }}
+              >
+                <WriteButton danger loading={remove.isPending} data-testid="ann-delete">
+                  {t('announcements.delete')}
+                </WriteButton>
+              </Popconfirm>
+            )}
+          </Flex>
+        }
+        alerts={
+          changedBy !== null && (
+            <Alert
+              type="warning"
+              showIcon
+              role="status"
+              data-testid="live-change-notice"
+              message={t('live.changed_by', { name: changedBy })}
+              action={
+                <Button
+                  size="small"
+                  data-testid="live-change-reload"
+                  onClick={() => {
+                    setChangedBy(null);
+                    setEditing(false);
+                    void reload();
+                  }}
+                >
+                  {t('live.reload')}
+                </Button>
+              }
+            />
+          )
+        }
+        panel={
+          <PropertiesPanel
+            testId="ann-panel"
+            sections={[
+              {
+                key: 'properties',
+                title: t('layout.properties'),
+                children: (
+                  <PropertyList
+                    items={[
+                      {
+                        key: 'audience',
+                        label: t('announcement.field.audience'),
+                        content: t(`announcement_audience.${item.audience}`),
+                        filled: true,
+                      },
+                      {
+                        key: 'banner',
+                        label: t('announcement.field.show_as_banner'),
+                        content: t(item.show_as_banner ? 'history.yes' : 'history.no'),
+                        filled: true,
+                      },
+                      {
+                        key: 'window',
+                        label: t('announcements.window'),
+                        content: <Window item={item} />,
+                        filled: item.publish_from !== null || item.publish_until !== null,
+                      },
+                    ]}
+                  />
+                ),
+              },
+            ]}
+          />
+        }
+      >
+        <Tabs
+          items={[
+            {
+              key: 'details',
+              label: t('announcements.tab.details'),
+              children: editing ? (
+                <EditForm
+                  item={item}
+                  reload={reload}
+                  onDone={() => {
+                    setEditing(false);
+                    setChangedBy(null);
+                  }}
+                />
+              ) : (
                 <Typography.Paragraph
-                  style={{ whiteSpace: 'pre-line' }}
+                  // The message reads in its own direction (QA10-P4-36: an English message in
+                  // the Arabic screen kept its full stop at the end).
+                  dir="auto"
+                  style={{ whiteSpace: 'pre-line', padding: '8px 4px' }}
                   data-testid="ann-body-view"
                 >
                   {item.body}
                 </Typography.Paragraph>
-                <Typography.Text type="secondary">
-                  {t(`announcement_audience.${item.audience}`)}
-                  {item.show_as_banner ? ` · ${t('announcement.field.show_as_banner')}` : ''}
-                </Typography.Text>
-                <Window item={item} />
-                <Flex gap={8} style={{ marginTop: 16 }}>
-                  {canEdit && (
-                    <WriteButton
-                      onClick={() => {
-                        setEditing(true);
-                      }}
-                      data-testid="ann-edit"
-                    >
-                      {t('actions.edit')}
-                    </WriteButton>
-                  )}
-                  {canEdit && (
-                    <Popconfirm
-                      title={t('announcements.delete_confirm')}
-                      okText={t('announcements.delete')}
-                      cancelText={t('actions.cancel')}
-                      onConfirm={() => {
-                        removeIt(item.version);
-                      }}
-                    >
-                      <WriteButton danger loading={remove.isPending} data-testid="ann-delete">
-                        {t('announcements.delete')}
-                      </WriteButton>
-                    </Popconfirm>
-                  )}
-                </Flex>
-              </Card>
-            ),
-          },
-          {
-            key: 'history',
-            label: t('announcements.tab.history', { count: item.history_count }),
-            children: <AnnouncementHistory id={item.id} />,
-          },
-        ]}
+              ),
+            },
+            {
+              key: 'history',
+              label: t('announcements.tab.history', { count: item.history_count }),
+              children: <AnnouncementHistory id={item.id} />,
+            },
+          ]}
+        />
+      </RecordPage>
+      <ConflictDialog
+        {...removeConflict.dialog}
+        fieldLabel={(field) => t(`announcement.field.${field}`)}
       />
-    </Space>
+    </>
   );
 }
 
@@ -271,11 +316,7 @@ function Window({ item }: { item: Announcement }) {
   if (item.publish_from === null && item.publish_until === null) return null;
   const format = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   return (
-    <Typography.Paragraph
-      type="secondary"
-      style={{ marginTop: 8, marginBottom: 0 }}
-      data-testid="ann-window"
-    >
+    <Typography.Paragraph type="secondary" style={{ margin: 0 }} data-testid="ann-window">
       {item.publish_from !== null &&
         t('announcements.from', { time: format.format(new Date(item.publish_from)) })}{' '}
       {item.publish_until !== null &&

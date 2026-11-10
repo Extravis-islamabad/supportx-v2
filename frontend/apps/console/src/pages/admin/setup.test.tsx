@@ -97,6 +97,23 @@ describe('Setup home and menu', () => {
     expect(screen.queryByTestId('branding-save')).toBeNull();
   });
 
+  it('QA10-P3-06: a page opened with a view right says it is read-only, and why', async () => {
+    window.history.pushState({}, '', '/admin/users');
+    api({}, fakeSession());
+    render(<App />);
+    const banner = await screen.findByTestId('setup-read-only');
+    expect(banner.textContent).toContain('You can view this page but not change it.');
+    expect(banner.textContent).toContain('needs a manage right');
+  });
+
+  it('QA10-P3-06: an administrator sees no read-only banner', async () => {
+    window.history.pushState({}, '', '/admin/users');
+    api();
+    render(<App />);
+    await screen.findByTestId('admin-sections-button');
+    expect(screen.queryByTestId('setup-read-only')).toBeNull();
+  });
+
   it('finds a page by a synonym, and says when nothing matches', async () => {
     window.history.pushState({}, '', '/admin');
     api();
