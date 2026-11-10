@@ -45,3 +45,10 @@ Object.defineProperty(window, 'matchMedia', {
 
 // No realtime gateway in unit tests: the realtime package has its own tests with a fake client.
 setDefaultClientFactory(inertClientFactory);
+
+// jsdom has no scrolling: a page that scrolls a field into view (a refused save naming it,
+// QA10-P3-08) threw "scrollIntoView is not a function" as an unhandled error, failing every
+// frontend run on main although the tests passed. A no-op is enough in tests.
+if (typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = () => undefined;
+}

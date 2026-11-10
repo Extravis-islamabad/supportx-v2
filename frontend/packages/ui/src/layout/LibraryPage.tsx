@@ -102,6 +102,7 @@ export function LibraryPage({
       key={group.key}
       title={titled ? group.label : undefined}
       testId={`${testId}-group-${group.key}`}
+      list={group.content === undefined && group.items.length > 0}
     >
       {group.content ??
         (group.items.length > 0
@@ -196,10 +197,13 @@ function TabLabel({ label, count }: { label: ReactNode; count: number | null }) 
 function LibrarySection({
   title,
   testId,
+  list = true,
   children,
 }: {
   title?: ReactNode;
   testId?: string;
+  /** Rows (a list of list items); off for an empty text or a tab's own body (axe). */
+  list?: boolean;
   children: ReactNode;
 }) {
   const { token } = theme.useToken();
@@ -228,7 +232,7 @@ function LibrarySection({
           {title}
         </Typography.Title>
       )}
-      <div role="list">{children}</div>
+      <div role={list ? 'list' : undefined}>{children}</div>
     </section>
   );
 }
