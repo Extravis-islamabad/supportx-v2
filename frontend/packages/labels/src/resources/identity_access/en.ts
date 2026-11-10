@@ -965,6 +965,7 @@ export const en = {
   'security.password.digits': 'A digit',
   'security.password.expiry': 'Passwords expire after',
   'security.password.expiry_hint': '0: passwords never expire (recommended).',
+  'security.password.fix_first': 'Correct the values marked above first.',
   'security.password.history': 'Refuse the last passwords used',
   'security.password.history_hint':
     'How many earlier passwords cannot be used again. 0 allows any.',

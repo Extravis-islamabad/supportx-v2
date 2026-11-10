@@ -9,6 +9,7 @@ import {
   Space,
   Switch,
   Typography,
+  theme,
 } from 'antd';
 import { useState } from 'react';
 
@@ -86,6 +87,7 @@ function problems(t: ReturnType<typeof useLabel>, draft: Draft): Record<string, 
  */
 export function PasswordPolicyCard() {
   const t = useLabel();
+  const { token } = theme.useToken();
   const { message } = App.useApp();
   const settings = useIdentitySettings();
   const save = useSaveIdentitySettings();
@@ -262,12 +264,27 @@ export function PasswordPolicyCard() {
           <Typography.Text type="secondary">{t('security.password.breached_hint')}</Typography.Text>
         </Flex>
         {!readOnly && (
-          <div>
+          // Save stays in reach while the policy is scrolled (QA6 ADM-04): it sits at the bottom
+          // of the screen until the card's end, and a disabled Save says why.
+          <div
+            style={{
+              position: 'sticky',
+              bottom: 0,
+              zIndex: 1,
+              paddingBlock: 8,
+              background: token.colorBgContainer,
+            }}
+          >
             <FormProblem problem={problem} />
             <WriteButton
               type="primary"
               loading={save.isPending}
               disabled={Object.keys(typed).length > 0 || edited === null}
+              whyDisabled={t(
+                Object.keys(typed).length > 0
+                  ? 'security.password.fix_first'
+                  : 'why.nothing_changed',
+              )}
               onClick={() => {
                 submit(saved.version);
               }}
