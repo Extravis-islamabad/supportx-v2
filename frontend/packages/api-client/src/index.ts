@@ -764,6 +764,9 @@ export {
   useMyDecidedApprovals,
   useApproveMany,
   useWithdrawRequest,
+  useAssignServiceRequest,
+  useTakeServiceRequest,
+  useServiceRequestAction,
   useActionLink,
   usePeekActionLink,
   usePublicActionLink,
@@ -1032,3 +1035,13 @@ export {
   type StageScheduleInput,
   type SubRelease,
 } from './releases';
+export {
+  recordAssetKeys,
+  useAssetPicker,
+  useLinkAssets,
+  useRecordAssets,
+  useUnlinkAsset,
+  type AssetBase,
+  type PickedAsset,
+  type RecordAsset,
+} from './recordAssets';

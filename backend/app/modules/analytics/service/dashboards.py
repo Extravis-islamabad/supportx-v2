@@ -6,8 +6,18 @@ Who sees what:
 - each viewer's widgets show the data they may see (they run through the report engine).
 Creating needs `dashboards.create`, sharing `dashboards.share`, setting a role's home
 `dashboards.manage_defaults`. The owner edits and deletes; `dashboards.manage_defaults` also
-edits shared ones. Every write is versioned (If-Match), recorded in field history and emitted
-through the outbox in the same transaction.
+edits shared ones.
+
+Group dashboards (D-152): a dashboard may belong to one support group instead of being shared.
+The group's members see it (their memberships, `Subject.group_ids`); its lead (organization's
+`may_manage_group`: `groups.manage`, or `groups.manage_own` for a group they lead) or
+`dashboards.manage_defaults` change it; anyone else gets 403 `group_not_led` /
+`permission_denied`. Widgets still run as each viewer. If the group is deleted, its dashboards
+are their owner's private ones again, and `dashboards.manage_defaults` holders see them marked
+`group_removed`; they never become visible to everyone.
+
+Every write is versioned (If-Match), recorded in field history and emitted through the outbox in
+the same transaction.
 
 Home (REQ-DSH-002): the person's own choice (while they can still see it), else their role's
 default (an admin's choice, else the built-in role home), else "my work".
@@ -15,7 +25,7 @@ default (an admin's choice, else the built-in role home), else "my work".
 
 import json
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -39,6 +49,12 @@ from app.modules.analytics.events import DashboardDeleted, DashboardHomeChanged,
 from app.modules.analytics.infra.models import Dashboard, DashboardPreference, DashboardRoleDefault
 from app.modules.analytics.service.library import VIEW, get_report
 from app.modules.identity_access import Subject, role_names
+from app.modules.organization import (
+    existing_unit_ids,
+    led_groups,
+    may_manage_group,
+    require_group_manager,
+)
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
@@ -46,6 +62,9 @@ from app.shared.history import Change, Source, record_changes
 CREATE = "dashboards.create"
 SHARE = "dashboards.share"
 MANAGE_DEFAULTS = "dashboards.manage_defaults"
+# organization's group rights (D-152), named here only to offer the right groups in the picker.
+GROUPS_MANAGE = "groups.manage"
+GROUPS_MANAGE_OWN = "groups.manage_own"
 RECORD_TYPE = "dashboard"
 MAX_FAVOURITES = 200
 
@@ -68,6 +87,8 @@ class DashboardView:
     record: Dashboard | None
     body: DashboardBody
     can_edit: bool
+    # D-152: its group was deleted, so it is its owner's private dashboard again.
+    group_removed: bool = False
 
     @property
     def shared(self) -> bool:
@@ -81,23 +102,107 @@ def _require(subject: Subject, permission: str) -> None:
 
 
 def _visible(subject: Subject) -> Any:  # noqa: ANN401 - SQLAlchemy condition
-    return or_(Dashboard.shared.is_(True), Dashboard.owner_id == subject.user_id)
+    seen = [Dashboard.shared.is_(True), Dashboard.owner_id == subject.user_id]
+    if subject.group_ids:
+        seen.append(Dashboard.group_id.in_(sorted(subject.group_ids)))
+    if subject.holds(MANAGE_DEFAULTS):
+        seen.append(Dashboard.group_id.is_not(None))  # including a removed group's (D-152)
+    return or_(*seen)
 
 
-def _can_edit(subject: Subject, record: Dashboard) -> bool:
-    if record.owner_id == subject.user_id and subject.holds(CREATE):
+class _Groups:
+    """Per request: which groups still exist, and which the subject may manage (D-152)."""
+
+    def __init__(self, session: AsyncSession, subject: Subject) -> None:
+        self._session = session
+        self._subject = subject
+        self._live: frozenset[uuid.UUID] = frozenset()
+        self._manages: dict[uuid.UUID, bool] = {}
+
+    async def load(self, records: Sequence[Dashboard]) -> "_Groups":
+        ids = sorted({r.group_id for r in records if r.group_id is not None})
+        self._live = await existing_unit_ids(self._session, "group", ids)
+        return self
+
+    def removed(self, record: Dashboard) -> bool:
+        return record.group_id is not None and record.group_id not in self._live
+
+    async def manages(self, group_id: uuid.UUID) -> bool:
+        if group_id not in self._manages:
+            self._manages[group_id] = await may_manage_group(self._session, self._subject, group_id)
+        return self._manages[group_id]
+
+
+async def _can_edit(subject: Subject, record: Dashboard, groups: _Groups) -> bool:
+    owner = record.owner_id == subject.user_id and subject.holds(CREATE)
+    if record.group_id is None:
+        return owner or (record.shared and subject.holds(MANAGE_DEFAULTS))
+    if subject.holds(MANAGE_DEFAULTS):
         return True
-    return record.shared and subject.holds(MANAGE_DEFAULTS)
+    if groups.removed(record):
+        return owner  # the group is gone: its owner's private dashboard again
+    # A live group's dashboard: its lead, never its owner as such (D-152).
+    return await groups.manages(record.group_id)
 
 
-def _row_view(subject: Subject, record: Dashboard) -> DashboardView:
+async def _row_view(subject: Subject, record: Dashboard, groups: _Groups) -> DashboardView:
     return DashboardView(
         ref=str(record.id),
         builtin=None,
         record=record,
         body=DashboardBody.model_validate(record.body),
-        can_edit=_can_edit(subject, record),
+        can_edit=await _can_edit(subject, record, groups),
+        group_removed=groups.removed(record),
     )
+
+
+async def _row_views(
+    session: AsyncSession, subject: Subject, records: Sequence[Dashboard]
+) -> list[DashboardView]:
+    groups = await _Groups(session, subject).load(records)
+    return [await _row_view(subject, r, groups) for r in records]
+
+
+def _group_and_shared() -> ValidationFailed:
+    # A group's dashboard is never also everyone's (ck_dashboards_group_or_shared).
+    return ValidationFailed(
+        errors=[
+            FieldError(
+                field="body.shared",
+                code="group_dashboard_shared",
+                message_key="errors.field.group_dashboard_shared",
+            )
+        ]
+    )
+
+
+async def group_choices(session: AsyncSession, subject: Subject) -> list[str] | None:
+    """The groups `subject` may make dashboards for: None for any group, else the ones they lead."""
+    if subject.holds(MANAGE_DEFAULTS) or subject.holds(GROUPS_MANAGE):
+        return None
+    if not subject.holds(CREATE) or not subject.holds(GROUPS_MANAGE_OWN):
+        return []
+    return sorted(str(g) for g in await led_groups(session, subject.user_id))
+
+
+async def _check_group(
+    session: AsyncSession, subject: Subject, group_id: uuid.UUID, *, shared: bool
+) -> None:
+    """A dashboard may go into this group: it exists, it isn't also shared, and you may."""
+    if shared:
+        raise _group_and_shared()
+    if group_id not in await existing_unit_ids(session, "group", [group_id]):
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.group_id",
+                    code="group_not_found",
+                    message_key="errors.field.group_not_found",
+                )
+            ]
+        )
+    if not subject.holds(MANAGE_DEFAULTS):
+        await require_group_manager(session, subject, group_id)
 
 
 def _builtin_view(code: str) -> DashboardView:
@@ -120,9 +225,9 @@ async def list_dashboards(session: AsyncSession, subject: Subject) -> list[Dashb
             .order_by(Dashboard.name, Dashboard.id)
         )
     ).all()
-    return [_builtin_view(code) for code in BUILTIN_DASHBOARDS] + [
-        _row_view(subject, r) for r in rows
-    ]
+    return [_builtin_view(code) for code in BUILTIN_DASHBOARDS] + await _row_views(
+        session, subject, rows
+    )
 
 
 async def get_dashboard(session: AsyncSession, subject: Subject, ref: str) -> DashboardView:
@@ -144,7 +249,7 @@ async def get_dashboard(session: AsyncSession, subject: Subject, ref: str) -> Da
     )
     if record is None:
         raise NotFound(code="dashboard_not_found")
-    return _row_view(subject, record)
+    return (await _row_views(session, subject, [record]))[0]
 
 
 def for_viewer(definition: ReportDefinition, subject: Subject) -> ReportDefinition:
@@ -206,6 +311,7 @@ def _snapshot(record: Dashboard) -> dict[str, Any]:
         "names": record.names,
         "description": record.description,
         "shared": record.shared,
+        "group_id": None if record.group_id is None else str(record.group_id),
         "body": record.body,
     }
 
@@ -222,9 +328,15 @@ async def create_dashboard(  # noqa: PLR0913 - the new dashboard's parts, explic
     copied_from: str | None,
     validate: Validator,
     source: Source,
+    group_id: uuid.UUID | None = None,
 ) -> DashboardView:
-    """A new private dashboard, or a shared one for `dashboards.share` (REQ-DSH-019, 026)."""
+    """A new dashboard: private, shared (`dashboards.share`) or a group's (D-152).
+
+    REQ-DSH-019, 026; a group's needs its lead or `dashboards.manage_defaults`.
+    """
     _require(subject, CREATE)
+    if group_id is not None:
+        await _check_group(session, subject, group_id, shared=shared)
     if shared:
         _require(subject, SHARE)
     if copied_from is not None:
@@ -236,6 +348,7 @@ async def create_dashboard(  # noqa: PLR0913 - the new dashboard's parts, explic
         description=(description or "").strip() or None,
         owner_id=subject.user_id,
         shared=shared,
+        group_id=group_id,
         body=body.model_dump(mode="json", by_alias=True),
         copied_from=copied_from,
     )
@@ -258,11 +371,12 @@ async def create_dashboard(  # noqa: PLR0913 - the new dashboard's parts, explic
             was_shared=False,
             created=True,
             changed_fields=[],
+            group_id=record.group_id,
         ),
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
-    return _row_view(subject, record)
+    return (await _row_views(session, subject, [record]))[0]
 
 
 async def _editable(session: AsyncSession, subject: Subject, ref: str) -> Dashboard:
@@ -272,7 +386,7 @@ async def _editable(session: AsyncSession, subject: Subject, ref: str) -> Dashbo
     return found.record
 
 
-async def update_dashboard(  # noqa: PLR0913 - the change, explicit
+async def update_dashboard(  # noqa: PLR0913, C901 - the change, explicit; one branch per field
     session: AsyncSession,
     subject: Subject,
     ref: str,
@@ -292,9 +406,16 @@ async def update_dashboard(  # noqa: PLR0913 - the change, explicit
         columns["names"] = {k: v.strip() for k, v in values["names"].items() if v.strip()}
     if "description" in values:
         columns["description"] = (values["description"] or "").strip() or None
+    if "group_id" in values and values["group_id"] != record.group_id:
+        # Into a group: you must manage that one too; out of one: its owner's private again.
+        if values["group_id"] is not None:
+            await _check_group(session, subject, values["group_id"], shared=False)
+        columns["group_id"] = values["group_id"]
     if "shared" in values and values["shared"] != record.shared:
         _require(subject, SHARE)
         columns["shared"] = values["shared"]
+    if columns.get("shared", record.shared) and columns.get("group_id", record.group_id):
+        raise _group_and_shared()
     if "body" in values:
         body: DashboardBody = values["body"]
         await _check_body(session, subject, body, validate)
@@ -306,8 +427,9 @@ async def update_dashboard(  # noqa: PLR0913 - the change, explicit
                 code="version_conflict",
                 params={"expected_version": expected_version, "current_version": record.version},
             )
-        return _row_view(subject, record)
+        return (await _row_views(session, subject, [record]))[0]
     was_shared = record.shared
+    was_group = record.group_id is not None
     updated = await DashboardRepository(session).update(
         record.id, expected_version=expected_version, changes=columns
     )
@@ -331,11 +453,13 @@ async def update_dashboard(  # noqa: PLR0913 - the change, explicit
             was_shared=was_shared,
             created=False,
             changed_fields=[c.field for c in changes],
+            group_id=updated.group_id,
+            was_group=was_group,
         ),
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
-    return _row_view(subject, updated)
+    return (await _row_views(session, subject, [updated]))[0]
 
 
 async def delete_dashboard(
@@ -365,7 +489,12 @@ async def delete_dashboard(
     )
     await record_event(
         session,
-        DashboardDeleted(dashboard_id=record.id, owner_id=record.owner_id, shared=record.shared),
+        DashboardDeleted(
+            dashboard_id=record.id,
+            owner_id=record.owner_id,
+            shared=record.shared,
+            group_id=record.group_id,
+        ),
         aggregate_id=record.id,
         aggregate_version=deleted.version,
     )

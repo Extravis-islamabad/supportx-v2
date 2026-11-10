@@ -13,9 +13,9 @@ import {
 import { useListChannel } from '@supportx/realtime';
 import {
   CellText,
-  EmptyText,
   FilterBar,
   ListPage,
+  loadedEmpty,
   PageHeader,
   reportError,
   useAccess,
@@ -49,7 +49,14 @@ export function ProblemsPage() {
   const [search, setSearch] = useState('');
   const text = useDebounced(search.trim(), SEARCH_DELAY_MS);
   const views = useProblemViews();
-  const list = useProblems({ view, filter: searchOf(text) });
+  // The list asks for the view the selector shows (QA 2026-11-10: "All open (7)" listed 8,
+  // the closed one too, as no view meant every problem). Not before the views load; if they
+  // fail or there are none, the whole list (lane C, #346: never a spinner for ever).
+  const shown = view ?? views.data?.[0]?.view;
+  const list = useProblems(
+    { view: shown, filter: searchOf(text) },
+    shown !== undefined || !views.isPending,
+  );
   const catalogue = useProblemCatalogue();
   // Each person's column widths, per view (Haider, 2026-11-10): drag or arrow keys on a header.
   const titles: Record<string, string> = {
@@ -62,7 +69,7 @@ export function ProblemsPage() {
   };
   const widths = useColumnWidths({
     kind: 'problems',
-    viewKey: view ?? views.data?.[0]?.view ?? 'all',
+    viewKey: shown ?? 'all',
     // Not before the views load: a resize then would land on another view's settings.
     enabled: view !== undefined || views.data !== undefined,
     keys: Object.keys(titles),
@@ -116,7 +123,7 @@ export function ProblemsPage() {
               style={{ minWidth: 260 }}
               prefix={`${t('incidents.view')}:`}
               aria-label={t('incidents.view')}
-              value={view ?? views.data?.[0]?.view}
+              value={shown}
               onChange={setView}
               loading={views.isLoading}
               options={(views.data ?? []).map((v) => ({
@@ -150,20 +157,20 @@ export function ProblemsPage() {
     >
       <Table
         rowKey="id"
-        loading={list.isLoading}
+        loading={list.isPending}
         scroll={{ x: 960 }}
         dataSource={rows}
         pagination={false}
         data-testid="prb-list"
         components={widths.components}
         locale={{
-          emptyText: list.isLoading ? (
-            <span />
-          ) : (
-            // The same plain empty text as incidents and releases (QA6-PRB-04).
+          // The same plain empty text as incidents and releases (QA6-PRB-04), never while the
+          // first load runs (lane C's loadedEmpty, #345).
+          emptyText: loadedEmpty(
+            list.isPending,
             <span data-testid="prb-empty">
-              <EmptyText>{t(text === '' ? 'problems.empty' : 'problems.no_match')}</EmptyText>
-            </span>
+              {t(text === '' ? 'problems.empty' : 'problems.no_match')}
+            </span>,
           ),
         }}
         columns={[

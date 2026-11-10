@@ -54,6 +54,10 @@ describe('Announcements list', () => {
     expect(within(row).getByText('Scheduled')).toBeDefined();
     expect(within(row).getByText('Warning')).toBeDefined();
     expect(row.textContent).not.toMatch(/scheduled|warning|everyone/);
+    // QA10V-29: the ID is a link, so each row can be reached and opened by keyboard.
+    const link = within(row).getByTestId('ann-link-ANN-1');
+    expect(link.tagName).toBe('A');
+    expect(link.getAttribute('href')).toBe(`/announcements/${ITEM.id}`);
     // Admins see the four-eyes switch.
     expect(await screen.findByTestId('ann-four-eyes')).toBeDefined();
 

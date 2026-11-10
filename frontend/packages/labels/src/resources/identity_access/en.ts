@@ -859,7 +859,9 @@ export const en = {
   'roles.compare_same': 'These roles grant the same permissions.',
   'roles.compare_second': 'Second role',
   'roles.copy': 'Copy',
+  'roles.copy_customise': 'Copy and customise',
   'roles.copy_name': 'Copy of {{name}}',
+  'roles.default_scope': 'Reaches: {{scope}}',
   'roles.delete': 'Delete role',
   'roles.delete_confirm': 'Nobody has this role. It will be deleted.',
   'roles.delete_in_use_one':
@@ -869,7 +871,6 @@ export const en = {
   'roles.delete_title': 'Delete {{name}}?',
   'roles.deleted': 'The role was deleted.',
   'roles.description': 'Description',
-  'roles.duplicate': 'Duplicate as a custom role',
   'roles.editor.copy': 'New role from “{{name}}”',
   'roles.editor.edit': 'Role: {{name}}',
   'roles.editor.new': 'New role',
@@ -964,6 +965,7 @@ export const en = {
   'security.password.digits': 'A digit',
   'security.password.expiry': 'Passwords expire after',
   'security.password.expiry_hint': '0: passwords never expire (recommended).',
+  'security.password.fix_first': 'Correct the values marked above first.',
   'security.password.history': 'Refuse the last passwords used',
   'security.password.history_hint':
     'How many earlier passwords cannot be used again. 0 allows any.',

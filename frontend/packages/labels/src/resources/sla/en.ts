@@ -139,7 +139,7 @@ export const en = {
   'sla_action_kind.reassign_group': 'Reassign to a group',
   'sla_action_kind.reassign_person': 'Reassign to a person',
   'sla_applied_reason.condition_changed': 'After a field it depends on changed',
-  'sla_applied_reason.created': 'When the incident was created',
+  'sla_applied_reason.created': 'When it was created',
   'sla_applied_reason.priority_changed': 'After a priority change',
   'sla_calendar.around_the_clock': 'Around the clock',
   'sla_calendar.operating_hours': 'Operating hours',

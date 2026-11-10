@@ -174,6 +174,12 @@ describe('Admin › Roles', () => {
     fireEvent.click(await screen.findByTestId('role-row-technician'));
     expect(await screen.findByText(/Built-in roles cannot be changed/)).toBeDefined();
     expect(screen.queryByTestId('save-role')).toBeNull();
+    // D-153: what it is for and what it reaches, in words; never a Delete, always a copy.
+    const about = screen.getByTestId('role-built-in');
+    expect(about.textContent).not.toMatch(/role\.|technician\./);
+    expect(screen.getByTestId('role-default-scope').textContent).toMatch(/^Reaches: /);
+    expect(screen.queryByTestId('delete-role')).toBeNull();
+    expect(screen.getByTestId('role-scope-technician').textContent).toMatch(/^Reaches: /);
   });
 
   it('PEO-06: a built-in role opens on what it grants, scopes as text, with a search', async () => {
@@ -191,7 +197,7 @@ describe('Admin › Roles', () => {
       target: { value: 'zzz-nothing' },
     });
     expect(await screen.findByText('No permission matches')).toBeTruthy();
-    expect(screen.getByTestId('copy-role').textContent).toBe('Duplicate as a custom role');
+    expect(screen.getByTestId('copy-role').textContent).toBe('Copy and customise');
   });
 
   it('REQ-ADM-017: a built-in role is copied into a new custom role with the same grants', async () => {
@@ -347,6 +353,38 @@ describe('Admin › Users access drawer', () => {
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/users/u-9/roles/r-hr')).toHaveLength(1);
     });
+  });
+
+  it('keeps a contact on one line and lets a keyboard reach the scrolling table', async () => {
+    const contact = fakeUser({
+      id: 'u-7',
+      display_name: 'Ayesha Contact',
+      email: 'ayesha@demo.test',
+      user_type: 'requester',
+      can_sign_in: false,
+    });
+    adminRoutes({
+      routes: {
+        'GET /api/v1/users': { body: { items: [contact], has_more: false, next_cursor: null } },
+        'GET /api/v1/organization/departments': { body: [] },
+        'GET /api/v1/organization/sites': { body: [] },
+      },
+    });
+    render(<App />);
+    // QA6 ADM-02: the name and its chip share one line, the chip never squeezing the name.
+    const cell = await screen.findByTestId('user-name-u-7');
+    expect(cell.className).not.toContain('ant-flex-wrap-wrap');
+    const name = within(cell).getByText('Ayesha Contact');
+    expect(name.classList.contains('sx-cell-text')).toBe(true);
+    expect(name.getAttribute('title')).toBe('Ayesha Contact');
+    // The chips keep their own width: the name gives way first.
+    const chips = cell.querySelector('span[style*="flex-shrink: 0"]');
+    expect(chips?.textContent).toBe('Contact');
+    // Visual matrix at 390 px (axe scrollable-region-focusable): the table's own scroll box is a
+    // named region a keyboard can focus.
+    const region = await screen.findByRole('region', { name: 'People' });
+    expect(region.classList.contains('ant-table-content')).toBe(true);
+    expect(region.tabIndex).toBe(0);
   });
 });
 

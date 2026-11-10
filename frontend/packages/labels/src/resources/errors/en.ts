@@ -216,6 +216,7 @@ export const en = {
     'This move is already in the list, or goes to the same state.',
   'errors.field.asset_nested_in_itself':
     "An asset can't be fitted to itself or to one of its own parts.",
+  'errors.field.asset_not_found': 'This asset does not exist or you may not see it.',
   'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':
     "A product type can't sit under itself or one of its own types.",
@@ -262,6 +263,7 @@ export const en = {
   'errors.field.certificate_not_valid_now': 'The certificate has expired or is not valid yet.',
   'errors.field.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.field.certificate_wrong_host': 'The certificate does not name this domain.',
+  'errors.field.chair_inactive': 'Choose an active person as the chair.',
   'errors.field.channel_reserved':
     'Only phone or walk-up can be chosen; other channels are set automatically.',
   'errors.field.choices_required': 'Add at least one choice.',
@@ -333,6 +335,8 @@ export const en = {
   'errors.field.fulfiller_required': 'Assign someone to fulfil this request first.',
   'errors.field.full_sla_off':
     'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
+  'errors.field.group_dashboard_shared':
+    "A group's dashboard can't also be shared with everyone. Take it out of the group first.",
   'errors.field.group_not_found': 'This group does not exist.',
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
@@ -532,6 +536,7 @@ export const en = {
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.too_many_actions': 'A rule can have at most {{max}} actions.',
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
+  'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
@@ -909,6 +914,7 @@ export const en = {
     'Someone else saved this item after you opened it. Reload to see their changes.',
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
+  'errors.work_item_asset_not_found': 'This asset is no longer linked to the record.',
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',

@@ -50,6 +50,7 @@ type Records = Partial<
     | 'problem'
     | 'release'
     | 'announcement'
+    | 'asset'
     | 'catalogItem',
     string
   >
@@ -214,6 +215,16 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.problem ? `/problems/${r.problem}` : undefined),
     app: 'console',
   },
+  // Assets (WP-049a, D-155 template A; lane B): the list, one asset, vendors, loans, groups.
+  { key: 'assets', path: '/assets', app: 'console' },
+  {
+    key: 'asset',
+    path: (r) => (r.asset ? `/assets/${r.asset}` : undefined),
+    app: 'console',
+  },
+  { key: 'asset-vendors', path: '/assets/vendors', app: 'console' },
+  { key: 'asset-loans', path: '/assets/loans', app: 'console' },
+  { key: 'asset-groups', path: '/assets/groups', app: 'console' },
   { key: 'releases', path: '/releases', app: 'console' },
   { key: 'release-new', path: '/releases/new', app: 'console' },
   {
@@ -315,6 +326,8 @@ interface Shot {
   url: string;
   warnings: string[];
   axe: string[];
+  /** Each serious violation's first node (selector and markup, cut): enough to find it. */
+  axe_nodes?: string[];
   error?: string;
 }
 
@@ -376,7 +389,12 @@ function checks(): string[] {
       out.push(`clipped:${name(el)}`);
     }
   }
-  const primary = [...document.querySelectorAll('main .ant-btn-primary')].filter(shown).length;
+  // A split button (Reply and its chevron) is one primary action drawn as two buttons.
+  const primary = new Set(
+    [...document.querySelectorAll('main .ant-btn-primary')]
+      .filter(shown)
+      .map((el) => el.closest('.ant-dropdown-button') ?? el),
+  ).size;
   if (primary > 1) out.push(`primary_buttons:${String(primary)}`);
   for (const bar of document.querySelectorAll('[data-testid$="actions"], [role="toolbar"]')) {
     if (!shown(bar)) continue;
@@ -430,6 +448,7 @@ async function findRecords(page: Page): Promise<Records> {
     problem: await first('/api/v1/problems?limit=1', firstItem),
     release: await first('/api/v1/releases?limit=1', firstItem),
     announcement: await first('/api/v1/announcements?limit=1', firstItem),
+    asset: await first('/api/v1/assets?limit=1', firstItem),
     catalogItem: await first('/api/v1/catalog/items', firstOfList),
   };
 }
@@ -472,9 +491,16 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
-      shot.axe = results.violations
-        .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-        .map((v) => `${v.id} (${String(v.nodes.length)})`);
+      const serious = results.violations.filter(
+        (v) => v.impact === 'serious' || v.impact === 'critical',
+      );
+      shot.axe = serious.map((v) => `${v.id} (${String(v.nodes.length)})`);
+      // The first node of each (QA10V-30: without it, a one-node finding needed another run).
+      shot.axe_nodes = serious.flatMap((v) => {
+        const node = v.nodes[0];
+        if (node === undefined) return [];
+        return [`${v.id}: ${node.target.join(' ')} ${node.html.slice(0, 200)}`];
+      });
     }
   } catch (error) {
     // A screen that breaks is a finding, not a crash of the run.

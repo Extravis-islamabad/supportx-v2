@@ -1,11 +1,11 @@
 import {
   Alert,
-  Button,
   Card,
   Flex,
   Form,
   List,
   Modal,
+  Popconfirm,
   Segmented,
   Select,
   Space,
@@ -26,10 +26,11 @@ import {
   type AssetLinkKind,
   type AssetRecord,
 } from '@supportx/api-client';
-import { reportError, useDateTime, useLabel, WriteButton } from '@supportx/ui';
+import { EmptyText, reportError, useDateTime, useLabel, WriteButton } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
 import { DepartmentPicker, UserPicker } from '../incidents/pickers';
+import { okFooter } from './dialogOk';
 
 type HolderKind = 'user' | 'department' | 'asset';
 const LINK_KINDS: AssetLinkKind[] = ['connected_to', 'depends_on', 'runs_on', 'backs_up'];
@@ -126,23 +127,25 @@ function HolderDialog({
     <Modal
       open={open}
       title={t('assets.holder.give_title', { name: asset.name })}
-      okText={t('assets.holder.give')}
       cancelText={t('actions.cancel')}
-      okButtonProps={{ disabled: target === null }}
-      confirmLoading={setHolder.isPending}
       onCancel={close}
-      onOk={() => {
-        if (target === null) return;
-        setHolder.mutate(
-          { id: asset.id, version: asset.version, holder: { kind, id: target } },
-          {
-            onSuccess: close,
-            onError: (error) => {
-              setProblem(problemText(t, error));
+      footer={okFooter({
+        okText: t('assets.holder.give'),
+        loading: setHolder.isPending,
+        whyDisabled: target === null ? t('assets.holder.who_needed') : undefined,
+        onOk: () => {
+          if (target === null) return;
+          setHolder.mutate(
+            { id: asset.id, version: asset.version, holder: { kind, id: target } },
+            {
+              onSuccess: close,
+              onError: (error) => {
+                setProblem(problemText(t, error));
+              },
             },
-          },
-        );
-      }}
+          );
+        },
+      })}
       destroyOnHidden
       data-testid="asset-holder-dialog"
     >
@@ -221,23 +224,25 @@ function LinkDialog({
     <Modal
       open={open}
       title={t('assets.links.add_title', { name: asset.name })}
-      okText={t('assets.links.add')}
       cancelText={t('actions.cancel')}
-      okButtonProps={{ disabled: to === undefined }}
-      confirmLoading={addLink.isPending}
       onCancel={close}
-      onOk={() => {
-        if (to === undefined) return;
-        addLink.mutate(
-          { id: asset.id, to, kind, key },
-          {
-            onSuccess: close,
-            onError: (error) => {
-              setProblem(problemText(t, error));
+      footer={okFooter({
+        okText: t('assets.links.add'),
+        loading: addLink.isPending,
+        whyDisabled: to === undefined ? t('assets.links.to_needed') : undefined,
+        onOk: () => {
+          if (to === undefined) return;
+          addLink.mutate(
+            { id: asset.id, to, kind, key },
+            {
+              onSuccess: close,
+              onError: (error) => {
+                setProblem(problemText(t, error));
+              },
             },
-          },
-        );
-      }}
+          );
+        },
+      })}
       destroyOnHidden
       data-testid="asset-link-dialog"
     >
@@ -297,17 +302,23 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
                 {t('assets.holder.give')}
               </WriteButton>
               {holdings.data?.some((h) => h.ended_at === null) === true && (
-                <Button
-                  onClick={() => {
+                // Taking back ends the holding, so it asks first (lane C's #307 review).
+                <Popconfirm
+                  title={t('assets.holder.take_back_confirm')}
+                  okText={t('assets.holder.take_back')}
+                  cancelText={t('actions.cancel')}
+                  okButtonProps={{ 'data-testid': 'asset-holder-clear-confirm' }}
+                  onConfirm={() => {
                     setHolder.mutate(
                       { id: asset.id, version: asset.version, holder: null },
                       { onError: reportError },
                     );
                   }}
-                  data-testid="asset-holder-clear"
                 >
-                  {t('assets.holder.take_back')}
-                </Button>
+                  <WriteButton loading={setHolder.isPending} data-testid="asset-holder-clear">
+                    {t('assets.holder.take_back')}
+                  </WriteButton>
+                </Popconfirm>
               )}
             </Space>
           )
@@ -321,7 +332,7 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
           size="small"
           header={t('assets.holder.history')}
           dataSource={holdings.data ?? []}
-          locale={{ emptyText: t('assets.holder.never') }}
+          locale={{ emptyText: <EmptyText>{t('assets.holder.never')}</EmptyText> }}
           data-testid="asset-holdings"
           renderItem={(h) => (
             <List.Item key={`${h.holder_id}-${h.started_at}`}>
@@ -350,7 +361,7 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
         <List
           size="small"
           dataSource={componentRows}
-          locale={{ emptyText: t('assets.components.none') }}
+          locale={{ emptyText: <EmptyText>{t('assets.components.none')}</EmptyText> }}
           renderItem={(c) => (
             <List.Item key={c.id}>
               <Link to={`/assets/${c.id}`}>
@@ -379,14 +390,14 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
         <List
           size="small"
           dataSource={links.data ?? []}
-          locale={{ emptyText: t('assets.links.none') }}
+          locale={{ emptyText: <EmptyText>{t('assets.links.none')}</EmptyText> }}
           renderItem={(link) => (
             <List.Item
               key={link.id}
               actions={
                 manage
                   ? [
-                      <Button
+                      <WriteButton
                         key="remove"
                         size="small"
                         onClick={() => {
@@ -398,7 +409,7 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
                         data-testid={`asset-link-remove-${link.id}`}
                       >
                         {t('assets.links.remove')}
-                      </Button>,
+                      </WriteButton>,
                     ]
                   : []
               }

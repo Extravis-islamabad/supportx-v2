@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useAppearance } from '../appearance';
 import { PANEL_WIDTH, SPACE, TYPE } from '../density';
 import { clampLineHeight } from '../fonts/fonts';
+import { DEV, sectionsBeforeProperties } from './panelOrder';
 
 /** The record types with a tile of their own (D-155: one header for every type). */
 export type RecordKind =
@@ -41,6 +42,8 @@ export interface RecordHeaderProps {
   typeLabel?: string;
   /** The human ID (INC-1042), copyable. */
   displayId: string;
+  /** False when `displayId` is a stand-in ("No tag"), not an ID worth copying. */
+  copyable?: boolean;
   /** The subject; what people typed reads in its own direction. */
   title: string;
   /** Status, priority and similar compact tags. */
@@ -69,6 +72,7 @@ export function RecordHeader({
   badge,
   typeLabel,
   displayId,
+  copyable = true,
   title,
   tags,
   meta = [],
@@ -114,7 +118,7 @@ export function RecordHeader({
         <Flex align="center" gap={SPACE.xs} wrap style={{ fontSize: TYPE.meta }}>
           <Typography.Text
             strong
-            copyable
+            copyable={copyable}
             style={{ fontSize: TYPE.meta, whiteSpace: 'nowrap' }}
             data-testid={testIds.id}
           >
@@ -199,6 +203,15 @@ export function PropertiesPanel({
   testId?: string;
 }) {
   const { token } = theme.useToken();
+  if (DEV) {
+    const early = sectionsBeforeProperties(sections);
+    if (early.length > 0) {
+      // A developer's note in dev builds, never shown to users.
+      console.warn(
+        `PropertiesPanel${testId === undefined ? '' : ` (${testId})`}: ${JSON.stringify(early)} before properties; fold it into Properties (D-147 template A).`,
+      );
+    }
+  }
   return (
     <aside
       data-testid={testId}

@@ -1,5 +1,5 @@
 import { ReloadOutlined, RobotOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Flex, Skeleton, Typography } from 'antd';
+import { Alert, Button, Card, Flex, Typography } from 'antd';
 import { useState } from 'react';
 
 import { isApiError, useAiSettings, useAiSummary, useRefreshAiSummary } from '@supportx/api-client';
@@ -45,23 +45,29 @@ export function SummaryCard({ recordId }: { recordId: string }) {
       },
     });
   };
+  // Nothing until the first read is in: never a full card that then turns into a line (QA
+  // fix-round C5).
+  if (summary.isPending) return null;
   // Nothing summarised yet: one quiet line with its button, not an empty card (D-155).
-  if (!summary.isPending && !made && refused === null) {
+  if (!made && refused === null) {
     return (
-      <Flex align="center" gap={8} wrap data-testid="ai-summary" data-collapsed="true">
-        <RobotOutlined aria-hidden />
-        <Typography.Text type="secondary" data-testid="ai-summary-empty">
-          {t('ai.summary.empty')}
+      // The icon stays beside the text and the link follows it flush, however narrow the column
+      // (QA10V-20: the icon wrapped onto a row of its own; the link sat 8 px in).
+      <Flex align="baseline" gap={8} data-testid="ai-summary" data-collapsed="true">
+        <RobotOutlined aria-hidden style={{ flex: 'none' }} />
+        <Typography.Text type="secondary" style={{ minWidth: 0 }}>
+          <span data-testid="ai-summary-empty">{t('ai.summary.empty')}</span>{' '}
+          <Button
+            size="small"
+            type="link"
+            loading={refresh.isPending}
+            onClick={make}
+            style={{ padding: 0, height: 'auto' }}
+            data-testid="ai-summary-refresh"
+          >
+            {t('ai.summary.make')}
+          </Button>
         </Typography.Text>
-        <Button
-          size="small"
-          type="link"
-          loading={refresh.isPending}
-          onClick={make}
-          data-testid="ai-summary-refresh"
-        >
-          {t('ai.summary.make')}
-        </Button>
       </Flex>
     );
   }
@@ -96,9 +102,7 @@ export function SummaryCard({ recordId }: { recordId: string }) {
           data-testid="ai-summary-refused"
         />
       )}
-      {summary.isPending ? (
-        <Skeleton active paragraph={{ rows: 2 }} title={false} />
-      ) : made ? (
+      {made ? (
         <Flex vertical gap={8}>
           <Flex gap={4} wrap>
             {data.stale && (

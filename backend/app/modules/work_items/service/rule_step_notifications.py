@@ -42,7 +42,8 @@ from app.shared.notifications.ports import (
 RECORD_TYPE = "rule_step"  # the area "Rules and escalations" on the rules screen
 UNAVAILABLE = "rule_step.assignee_unavailable"
 STEP_OWNER = "step_owner"
-_STEP_MANAGERS = {"sla_escalation": "sla.manage"}  # rules and triggers: automation.manage
+# Rules and triggers: automation.manage; a workflow step (#366): workflows.manage.
+_STEP_MANAGERS = {"sla_escalation": "sla.manage", "workflow": "workflows.manage"}
 _MANAGER_LIMIT = 200  # administrators told of one record
 # Where each type's record opens in the console.
 _LINKS: Mapping[str, str] = {

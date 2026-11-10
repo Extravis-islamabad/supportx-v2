@@ -4,6 +4,7 @@ import {
   actionEntry,
   clickAction,
   closeAppearance,
+  editProperty,
   expectAccessible,
   openAppearance,
   resetLanguage,
@@ -178,14 +179,16 @@ test('a new incident with rich text appears live for the technician; edits reach
     await form.getByRole('tab', { name: 'Details' }).click();
     await expect(form.getByTestId('inc-description').locator('strong')).toHaveText('tray 2');
 
-    // Live in the technician's "My open" list, no reload.
-    await expect(tech.page.getByText(subject)).toBeVisible(LIVE);
-    await tech.page.getByText(subject).click();
+    // Live in the technician's "My open" list, no reload. In the list's table: a toast about the
+    // new assignment names the subject too.
+    const row = tech.page.getByTestId('inc-table').getByText(subject);
+    await expect(row).toBeVisible(LIVE);
+    await row.click();
     await expect(tech.page.getByTestId('inc-heading')).toHaveText(subject);
     await tech.page.getByRole('tab', { name: 'Details' }).click();
 
     // The admin edits urgency in place; the technician's open record follows by itself.
-    await form.getByTestId('inc-edit-urgency').click();
+    await editProperty(form, 'inc-edit-urgency');
     await pick(form, 'inc-input-urgency', '', 'Critical – business stopped');
     await form.getByTestId('inc-save-urgency').click();
     await expect(tech.page.getByTestId('inc-priority').first()).toHaveAttribute(
@@ -234,8 +237,16 @@ test('D-052/D-053/D-068: the technician sees the site queue, keeps following wha
   try {
     await expect(tech.page.getByTestId('inc-display-id')).toContainText(queued.display_id);
     // Take it into E2E Desk, then hand it to E2E Network (not one of the technician's groups).
+    // In several groups (other specs' E2E groups), Take asks which (REQ-INC-054 AC2).
     await clickAction(tech.page, 'inc-op-take');
-    await expect(tech.page.getByTestId('inc-status')).toHaveText('Assigned');
+    const chooser = tech.page.getByTestId('inc-take-group');
+    const status = tech.page.getByTestId('inc-status');
+    await expect(chooser.or(status.filter({ hasText: 'Assigned' }))).toBeVisible(LIVE);
+    if (await chooser.isVisible()) {
+      await pick(tech.page, 'inc-take-group', 'E2E Desk', /^E2E Desk /);
+      await tech.page.getByTestId('inc-take-confirm').click();
+    }
+    await expect(status).toHaveText('Assigned');
     await clickAction(tech.page, 'inc-op-assign');
     await pick(tech.page, 'inc-assign-group', 'E2E Network', /^E2E Network /);
     await pick(tech.page, 'inc-assign-reason', '', 'Wrong group');

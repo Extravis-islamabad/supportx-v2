@@ -1,8 +1,8 @@
 import { screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderUi } from '../test/render';
-import { FormPage, FormSection } from './FormPage';
+import { FormFooter, FormPage, FormSection } from './FormPage';
 
 // D-147 template B: sections in cards and one sticky footer, Cancel before the primary action.
 describe('template B (form page)', () => {
@@ -29,5 +29,50 @@ describe('template B (form page)', () => {
     // No action inside the sections.
     expect(screen.getByTestId('section').querySelector('button')).toBeNull();
     expect(screen.getByRole('heading', { level: 2, name: 'Message' })).toBeTruthy();
+  });
+});
+
+describe('FormFooter on a phone (lane A, #351)', () => {
+  const footer = () =>
+    renderUi(
+      <FormFooter
+        testId="footer"
+        notice={<span data-testid="why">Give the issue a subject to send it.</span>}
+        cancel={<button type="button">Cancel</button>}
+        primary={<button type="button">Send</button>}
+      />,
+    );
+  const wide = (on: boolean) => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: on,
+          media: query,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        }) as unknown as MediaQueryList,
+    );
+  };
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the notice on its own line above the buttons below 576 px', () => {
+    wide(false);
+    footer();
+    const why = screen.getByTestId('why');
+    const send = screen.getByRole('button', { name: 'Send' });
+    // The notice's line holds no button; the buttons sit in a row of their own below it.
+    expect(why.parentElement?.querySelector('button')).toBeNull();
+    expect(why.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(send.parentElement?.contains(why)).toBe(false);
+  });
+
+  it('keeps the notice beside the buttons when wide', () => {
+    wide(true);
+    footer();
+    const why = screen.getByTestId('why');
+    const send = screen.getByRole('button', { name: 'Send' });
+    expect(why.parentElement?.parentElement).toBe(send.parentElement);
   });
 });

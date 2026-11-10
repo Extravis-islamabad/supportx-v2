@@ -106,6 +106,12 @@ describe('console: problems', () => {
     const fake = api();
     render(<App />);
     await screen.findByTestId('prb-row-PRB-7');
+    // QA 2026-11-10: the list asks for the view the selector shows, from its first request on
+    // (no view meant every problem, a closed one under "All open (7)").
+    expect(
+      fake.find('GET', '/api/v1/problems').map((c) => c.url.searchParams.get('view')),
+    ).not.toContain(null);
+    expect(fake.find('GET', '/api/v1/problems')[0]?.url.searchParams.get('view')).toBe('all_open');
     const selector = screen.getByTestId('prb-view').querySelector('.ant-select-selector');
     if (selector === null) throw new Error('not an Ant Design Select');
     fireEvent.mouseDown(selector);
@@ -179,6 +185,12 @@ describe('console: problems', () => {
     const row = (await screen.findByTestId('prb-row-PRB-7')).closest('tr');
     expect(within(row as HTMLElement).getByText('Mail relay drops messages')).toBeDefined();
     expect(screen.getByTestId('prb-new')).toBeDefined();
+    // QA10V-17: a defaulted priority is an icon with its name, never a bare "*".
+    const priority = within(row as HTMLElement).getByTestId('inc-priority');
+    expect(priority.textContent).not.toContain('*');
+    expect(
+      within(priority).getByRole('img', { name: 'Default (impact and urgency unknown)' }),
+    ).toBeDefined();
   });
 
   it('Haider 2026-11-10: the list is the list template; a column resized by keyboard is kept for this view', async () => {
@@ -326,6 +338,15 @@ describe('console: problems', () => {
       expect(fake.find('GET', '/api/v1/problems/assignees').length).toBeGreaterThan(0);
     });
     expect(fake.find('GET', '/api/v1/incidents/assignees')).toHaveLength(0);
+  });
+
+  it('QA10V-09: the panel lists filled fields only, the empty ones behind Add details', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api(); // no problem type, no owner, no target date
+    render(<App />);
+    const panel = await screen.findByTestId('prb-properties');
+    expect(panel.textContent).not.toContain('Problem type');
+    expect(screen.getByTestId('prb-properties-add').textContent).toMatch(/Add details \(\d\)/);
   });
 
   it('WP-044c S1: a problem prints as a document', async () => {
@@ -659,15 +680,25 @@ describe('console: problems', () => {
     expect(screen.getByTestId('prb-evidence-left-out')).toBeDefined();
   });
 
-  it('QA6-PRB-01: the new-problem form sits on a card, two fields a row, at full width', async () => {
+  it('QA10V-12: the new-problem form is template B: section cards, Cancel then Create', async () => {
     window.history.pushState({}, '', '/problems/new');
     api();
     render(<App />);
-    const card = await screen.findByTestId('prb-form-card');
-    expect(card.className).toContain('ant-card');
-    const group = within(card).getByTestId('prb-group');
-    expect(group.closest('.ant-col-md-12')).not.toBeNull();
-    expect(within(card).getByTestId('prb-impact').closest('.ant-col-md-12')).not.toBeNull();
+    const problem = await screen.findByTestId('prb-section-problem');
+    expect(within(problem).getByTestId('prb-subject')).toBeDefined();
+    const classification = screen.getByTestId('prb-section-classification');
+    // Two fields a row from md up (QA6-PRB-01 kept), each blank select saying what to do.
+    expect(
+      within(classification).getByTestId('prb-group').closest('.ant-col-md-12'),
+    ).not.toBeNull();
+    for (const id of ['prb-impact', 'prb-urgency', 'prb-type']) {
+      expect(within(classification).getByTestId(id).textContent).toContain('Choose…');
+    }
+    // The footer: Cancel first, then the primary, outside the cards.
+    const cancel = screen.getByTestId('prb-cancel');
+    const create = screen.getByTestId('prb-create');
+    expect(cancel.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(problem.contains(create)).toBe(false);
   });
 
   it('QA6-PRB-02: a problem has the breadcrumb Problems / PRB-n and says so in the tab', async () => {

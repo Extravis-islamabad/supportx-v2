@@ -138,7 +138,7 @@ export const ur: LabelResource = {
   'sla_action_kind.reassign_group': 'کسی گروپ کو دوبارہ سونپیں',
   'sla_action_kind.reassign_person': 'کسی شخص کو دوبارہ سونپیں',
   'sla_applied_reason.condition_changed': 'جس فیلڈ پر یہ منحصر ہے اس کے بدلنے کے بعد',
-  'sla_applied_reason.created': 'واقعہ بننے پر',
+  'sla_applied_reason.created': 'بننے پر',
   'sla_applied_reason.priority_changed': 'ترجیح بدلنے کے بعد',
   'sla_calendar.around_the_clock': 'چوبیس گھنٹے',
   'sla_calendar.operating_hours': 'کام کے اوقات',

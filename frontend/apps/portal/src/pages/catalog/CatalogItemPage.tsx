@@ -17,6 +17,7 @@ import {
   useAppearance,
   useLabel,
   type QuestionValue,
+  useLicence,
 } from '@supportx/ui';
 
 import { AttachFiles } from '../requests/attachFiles';
@@ -25,6 +26,7 @@ import { ForWhom } from '../requests/ForWhom';
 import { FormCard } from '../FormCard';
 import { deliveryText } from './delivery';
 import { FORM_COLUMN } from '../formColumn';
+import { AssetsField } from '../requests/AssetsField';
 
 const SUBJECT_MAX = 250;
 
@@ -44,6 +46,8 @@ export function CatalogItemPage() {
   const loaded = useCatalogItem(id);
   const raise = useRaiseServiceRequest();
   const files = useFilesToAttach();
+  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const hasAssets = useLicence().has('assets');
   const [key] = useState(() => crypto.randomUUID());
   const item = loaded.data;
   const questions = useMemo(() => requesterQuestions(item?.questions ?? []), [item]);
@@ -152,6 +156,7 @@ export function CatalogItemPage() {
                   answers: sentAnswers(shown),
                   confirm_lose_access: false,
                   ...(onBehalf !== null ? { on_behalf_of_id: onBehalf } : {}),
+                  ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
                 },
               },
               {
@@ -218,6 +223,18 @@ export function CatalogItemPage() {
               />
             </Form.Item>
           ))}
+          {/* REQ-AST-025: the assets it is about, the person's own only (AC1). */}
+          {hasAssets && (
+            <Form.Item label={t('work_item.field.asset_ids')} htmlFor="portal-cat-assets">
+              <AssetsField
+                id="portal-cat-assets"
+                value={assetIds}
+                onChange={setAssetIds}
+                forUser={onBehalf}
+                testId="portal-cat-assets"
+              />
+            </Form.Item>
+          )}
           <Form.Item label={t('portal.report.files')}>
             <AttachFiles
               files={files.files}

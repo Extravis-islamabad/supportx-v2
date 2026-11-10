@@ -468,6 +468,19 @@ async def _portal_settings_changed(
     )
 
 
+APPROVAL_SETTINGS_CHANGED = "work_items.approval_settings_changed"
+
+
+async def _approval_settings_changed(
+    envelope: EventEnvelope, session: AsyncSession
+) -> RealtimeEffects:
+    """Approval settings changed (the D-146 chair): the open settings page reloads them."""
+    del session
+    return RealtimeEffects(
+        publications=[Publication(broadcast(envelope.tenant_id), APPROVAL_SETTINGS_CHANGED)]
+    )
+
+
 async def _list_settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A user's list settings changed: their other windows reload them."""
     del session
@@ -505,6 +518,24 @@ async def _bulk_progressed(envelope: EventEnvelope, session: AsyncSession) -> Re
             ),
         )
     return RealtimeEffects(publications=publications)
+
+
+async def _asset_link_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An asset linked or unlinked (REQ-AST-025): the record's Assets section refreshes."""
+    del session
+    payload = envelope.payload
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, record_id),
+                PART_CHANGED,
+                ids=(str(payload["asset_id"]),),
+                fields=("asset",),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
 
 
 async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -580,6 +611,7 @@ ROUTES = [
     ),
     RealtimeRoute(("work_items.settings.changed",), _settings_changed),
     RealtimeRoute(("work_items.portal_settings.changed",), _portal_settings_changed),
+    RealtimeRoute(("work_items.approval_settings.changed",), _approval_settings_changed),
     RealtimeRoute(("work_items.change_board.changed",), _change_board_changed),
     RealtimeRoute(
         (
@@ -595,6 +627,7 @@ ROUTES = [
     RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
     RealtimeRoute(("work_items.part.changed",), _part_changed),
+    RealtimeRoute(("work_items.asset_link.changed",), _asset_link_changed),
     RealtimeRoute(("work_items.approval.changed",), _approval_changed),
     RealtimeRoute(
         ("work_items.problem_repeat.detected", "work_items.problem_repeat.changed"),

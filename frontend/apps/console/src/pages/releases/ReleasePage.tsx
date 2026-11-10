@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { MoreOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { DownOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Tabs, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -22,6 +22,7 @@ import {
   useDateTime,
   useLabel,
   usePageCrumbs,
+  SPACE,
 } from '@supportx/ui';
 
 import { personName } from '../incidents/labels';
@@ -102,7 +103,14 @@ export function ReleasePage() {
       ? t('releases.move.to_stage', { stage: stageName(t, m.to_stage) })
       : t('releases.move.to', { status: statusName(t, m.to_status) });
   const actions = (
-    <Flex gap={8} wrap justify="flex-end" data-testid="release-moves">
+    // The same vertical place as the other records' action bars (ActionBar's margin; QA fix-round).
+    <Flex
+      gap={8}
+      wrap
+      justify="flex-end"
+      data-testid="release-moves"
+      style={{ marginBlock: SPACE.xs }}
+    >
       {shown.map((m) => {
         const Write = m.to_status === primary ? WriteButton : Button;
         return (
@@ -156,8 +164,9 @@ export function ReleasePage() {
             ],
           }}
         >
-          <Button icon={<MoreOutlined />} data-testid="release-more">
-            {t('actions.more')}
+          {/* Worded and drawn as every record's menu (QA10V-10: "⋮ More"). */}
+          <Button data-testid="release-more">
+            {t('layout.more_actions')} <DownOutlined aria-hidden />
           </Button>
         </Dropdown>
       )}
@@ -185,9 +194,8 @@ export function ReleasePage() {
             // D-155 A1, as on every record: where it is, its risk and its planned window, then
             // what needs attention (waiting for approval, the emergency path).
             <Space wrap>
-              <ToneTag tone="info" testId="release-stage">
-                {stageName(t, r.stage)}
-              </ToneTag>
+              {/* No stage chip: the stage bar below always shows it (QA fix-round D2); the status
+                  stays in Properties only, never twice (A1). */}
               {details?.risk && (
                 <ToneTag
                   tone={

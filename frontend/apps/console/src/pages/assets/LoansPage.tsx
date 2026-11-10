@@ -16,7 +16,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import {
   ApiError,
@@ -29,13 +29,17 @@ import {
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
 import {
+  CellText,
   EmptyText,
   lengthLimit,
+  ListPage,
   NoAccess,
   PageHeader,
+  pickerFormat,
   reportError,
   ToneTag,
   useAccess,
+  useAppearance,
   useDateTime,
   useLabel,
   WriteButton,
@@ -44,6 +48,7 @@ import {
 
 import { useDebounced } from '../../useDebounced';
 import { UserPicker } from '../incidents/pickers';
+import { okFooter } from './dialogOk';
 
 const STATUS_TONE: Record<AssetLoan['status'], Tone> = {
   open: 'info',
@@ -68,7 +73,7 @@ function problemText(t: T, error: unknown): string | null {
 function Borrower({ id }: { id: string }) {
   const t = useLabel();
   const user = useUser(id);
-  return <bdi dir="auto">{user.data?.display_name ?? t('audit.ui.erased_person')}</bdi>;
+  return <CellText>{user.data?.display_name ?? t('audit.ui.erased_person')}</CellText>;
 }
 
 function assetText(a: { tag: string | null; name: string }): string {
@@ -78,6 +83,7 @@ function assetText(a: { tag: string | null; name: string }): string {
 /** A new loan: who, which loanable assets, until when (REQ-AST-030). */
 function NewLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useLabel();
+  const { dates } = useAppearance();
   const { createLoan } = useLoanActions();
   const [borrower, setBorrower] = useState<string | null>(null);
   const [assets, setAssets] = useState<string[]>([]);
@@ -101,30 +107,39 @@ function NewLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }
     <Modal
       open={open}
       title={t('assets.loans.new')}
-      okText={t('assets.loans.give')}
       cancelText={t('actions.cancel')}
-      okButtonProps={{ disabled: !ready }}
-      confirmLoading={createLoan.isPending}
       onCancel={close}
-      onOk={() => {
-        if (!ready) return;
-        setProblem(null);
-        createLoan.mutate(
-          {
-            key,
-            borrowerId: borrower,
-            assetIds: assets,
-            dueAt: due.toISOString(),
-            comment: comment.trim() || undefined,
-          },
-          {
-            onSuccess: close,
-            onError: (error) => {
-              setProblem(problemText(t, error));
+      footer={okFooter({
+        okText: t('assets.loans.give'),
+        loading: createLoan.isPending,
+        whyDisabled:
+          borrower === null
+            ? t('assets.loans.borrower_needed')
+            : assets.length === 0
+              ? t('assets.loans.assets_needed')
+              : due === null
+                ? t('assets.loans.due_needed')
+                : undefined,
+        onOk: () => {
+          if (!ready) return;
+          setProblem(null);
+          createLoan.mutate(
+            {
+              key,
+              borrowerId: borrower,
+              assetIds: assets,
+              dueAt: due.toISOString(),
+              comment: comment.trim() || undefined,
             },
-          },
-        );
-      }}
+            {
+              onSuccess: close,
+              onError: (error) => {
+                setProblem(problemText(t, error));
+              },
+            },
+          );
+        },
+      })}
       destroyOnHidden
       data-testid="asset-loan-new"
     >
@@ -157,7 +172,8 @@ function NewLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }
         </Form.Item>
         <Form.Item label={t('assets.loans.due')} required>
           <DatePicker
-            showTime={{ format: 'HH:mm' }}
+            showTime={{ format: dates.timeFormat === '12h' ? 'hh:mm A' : 'HH:mm' }}
+            format={pickerFormat(dates, true)}
             value={due}
             onChange={setDue}
             disabledDate={(day) => day.isBefore(dayjs(), 'day')}
@@ -203,29 +219,36 @@ function ReturnDialog({ loan, onClose }: { loan: AssetLoan | undefined; onClose:
     <Modal
       open={loan !== undefined}
       title={t('assets.loans.return_title')}
-      okText={t('assets.loans.take_back')}
       cancelText={t('actions.cancel')}
-      okButtonProps={{ disabled: chosen.length === 0 || needsReason }}
-      confirmLoading={returnItems.isPending}
       onCancel={close}
-      onOk={() => {
-        if (loan === undefined) return;
-        setProblem(null);
-        returnItems.mutate(
-          {
-            loanId: loan.id,
-            assetIds: chosen,
-            outcome,
-            comment: comment.trim() || undefined,
-          },
-          {
-            onSuccess: close,
-            onError: (error) => {
-              setProblem(problemText(t, error));
+      footer={okFooter({
+        okText: t('assets.loans.take_back'),
+        loading: returnItems.isPending,
+        whyDisabled:
+          chosen.length === 0
+            ? t('assets.loans.pick_needed')
+            : needsReason
+              ? t('assets.loans.repair_help')
+              : undefined,
+        onOk: () => {
+          if (loan === undefined) return;
+          setProblem(null);
+          returnItems.mutate(
+            {
+              loanId: loan.id,
+              assetIds: chosen,
+              outcome,
+              comment: comment.trim() || undefined,
             },
-          },
-        );
-      }}
+            {
+              onSuccess: close,
+              onError: (error) => {
+                setProblem(problemText(t, error));
+              },
+            },
+          );
+        },
+      })}
       destroyOnHidden
       data-testid="asset-loan-return"
     >
@@ -289,6 +312,7 @@ function ReturnDialog({ loan, onClose }: { loan: AssetLoan | undefined; onClose:
  */
 export function LoansPage() {
   const t = useLabel();
+  const navigate = useNavigate();
   const access = useAccess();
   const dates = useDateTime();
   const queryClient = useQueryClient();
@@ -304,23 +328,29 @@ export function LoansPage() {
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
   const rows = loans.data ?? [];
   return (
-    <Flex vertical gap={16}>
-      <PageHeader
-        title={t('assets.loans.title')}
-        extra={
-          manage && (
-            <WriteButton
-              type="primary"
-              onClick={() => {
-                setAdding(true);
-              }}
-              data-testid="asset-loan-new-open"
-            >
-              {t('assets.loans.new')}
-            </WriteButton>
-          )
-        }
-      />
+    <ListPage
+      testId="asset-loans-page"
+      header={
+        <PageHeader
+          title={t('assets.loans.title')}
+          back={{ label: t('nav.assets'), onClick: () => void navigate('/assets') }}
+          count={loans.data === undefined ? undefined : String(rows.length)}
+          extra={
+            manage && (
+              <WriteButton
+                type="primary"
+                onClick={() => {
+                  setAdding(true);
+                }}
+                data-testid="asset-loan-new-open"
+              >
+                {t('assets.loans.new')}
+              </WriteButton>
+            )
+          }
+        />
+      }
+    >
       <Card>
         <Table<AssetLoan>
           size="small"
@@ -360,12 +390,16 @@ export function LoansPage() {
             {
               key: 'starts',
               title: t('assets.loans.starts'),
-              render: (_, loan) => dates.format(loan.starts_at),
+              render: (_, loan) => (
+                <span style={{ whiteSpace: 'nowrap' }}>{dates.format(loan.starts_at)}</span>
+              ),
             },
             {
               key: 'due',
               title: t('assets.loans.due'),
-              render: (_, loan) => dates.format(loan.due_at),
+              render: (_, loan) => (
+                <span style={{ whiteSpace: 'nowrap' }}>{dates.format(loan.due_at)}</span>
+              ),
             },
             {
               key: 'status',
@@ -381,6 +415,9 @@ export function LoansPage() {
                   {
                     key: 'actions',
                     title: t('assets.loans.actions'),
+                    // Always in view when the table scrolls sideways (390 px), as on the
+                    // incident list; antd mirrors it in right-to-left.
+                    fixed: 'right' as const,
                     render: (_: unknown, loan: AssetLoan) => (
                       <WriteButton
                         size="small"
@@ -410,6 +447,6 @@ export function LoansPage() {
           setReturning(undefined);
         }}
       />
-    </Flex>
+    </ListPage>
   );
 }

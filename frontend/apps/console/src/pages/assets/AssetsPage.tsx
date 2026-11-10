@@ -8,7 +8,6 @@ import {
   Segmented,
   Select,
   Table,
-  Tag,
   TreeSelect,
   Typography,
 } from 'antd';
@@ -28,10 +27,15 @@ import {
 } from '@supportx/api-client';
 import { refreshList, useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
+  CellText,
   EmptyText,
+  FilterBar,
+  ListNotice,
+  ListPage,
   NoAccess,
   PageHeader,
   reportError,
+  ToneTag,
   useAccess,
   useAppearance,
   useLabel,
@@ -46,6 +50,7 @@ import { BulkMoveDialog } from './AssetActions';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
+import { SelectPageBox } from '../incidents/list/ColumnChooser';
 
 /**
  * The asset list (WP-049a s2): search by name or any identifier, one product type, the trash.
@@ -91,7 +96,7 @@ export function AssetsPage() {
   const staticGroups = groups.data?.filter((g) => g.kind === 'static');
   const { addMembers } = useAssetRelations();
   const { setLoanable } = useLoanActions();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const selectedRows = useMemo(
     () => rows.filter((row) => selected.includes(row.id)),
     [rows, selected],
@@ -126,129 +131,186 @@ export function AssetsPage() {
       },
     );
   };
-  return (
-    <Flex vertical gap={16}>
-      <PageHeader
-        title={t('nav.assets')}
-        extra={
-          <Flex gap={8}>
-            <Link to="/assets/vendors" data-testid="assets-vendors-link">
-              {t('assets.record.vendors')}
-            </Link>
-            <Link to="/assets/groups" data-testid="assets-groups-link">
-              {t('assets.groups.title')}
-            </Link>
-            <Link to="/assets/loans" data-testid="assets-loans-link">
-              {t('assets.loans.title')}
-            </Link>
-            {access.can('assets.manage') && (
-              <WriteButton
-                type="primary"
-                onClick={() => {
-                  clear();
-                  setAdding({ draft: draftOf(null), key: crypto.randomUUID() });
-                }}
-                data-testid="asset-add"
-              >
-                {t('assets.record.add')}
-              </WriteButton>
-            )}
-          </Flex>
-        }
-      />
-      <Flex gap={8} wrap align="center">
-        <Input.Search
-          allowClear
-          aria-label={t('assets.record.search')}
-          placeholder={t('assets.record.search')}
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
+  // Escape or the close button with something typed asks first, like every edit drawer
+  // (EditDrawer's "Discard changes?"; QA10-P4-38); an untouched form just closes.
+  const closeAdding = () => {
+    if (adding === undefined) return;
+    if (Object.keys(bodyOf(adding.draft, draftOf(null))).length === 0) {
+      setAdding(undefined);
+      return;
+    }
+    modal.confirm({
+      title: t('settings.discard_title'),
+      content: t('settings.discard_body'),
+      okText: t('settings.discard'),
+      okButtonProps: { danger: true, 'data-testid': 'asset-add-discard' },
+      cancelText: t('settings.keep_editing'),
+      onOk: () => {
+        setAdding(undefined);
+      },
+    });
+  };
+  // The server's count when it gives one, else the rows when they are all loaded.
+  const total =
+    list.data === undefined
+      ? undefined
+      : (list.data.pages[0]?.estimated_total ?? (list.hasNextPage ? undefined : rows.length));
+  // Rows selected: the selection bar takes the toolbar's place (D-155), so the list keeps one
+  // control row; it goes once nothing is selected.
+  const selectionBar =
+    bulkAllowed && selected.length > 0 ? (
+      <Flex gap={8} wrap align="center" data-testid="assets-selection">
+        <Typography.Text strong>
+          {t('assets.bulk_move.selected', { count: selected.length })}
+        </Typography.Text>
+        <WriteButton
+          onClick={() => {
+            setBulkOpen(true);
           }}
-          style={{ maxWidth: 320 }}
-          data-testid="assets-search"
-        />
-        <TreeSelect
-          aria-label={t('assets.admin.product_type')}
-          allowClear
-          placeholder={t('assets.admin.all_types')}
-          value={typeId}
-          treeData={choices(tree)}
-          onChange={(id: string | undefined) => {
-            setTypeId(id);
+          data-testid="assets-bulk-move-open"
+        >
+          {t('assets.bulk_move.open')}
+        </WriteButton>
+        {/* REQ-AST-028 AC2: a static group is filled from the selection in one step. */}
+        <Select
+          placeholder={t('assets.groups.add_selected')}
+          aria-label={t('assets.groups.add_selected')}
+          style={{ minWidth: 200 }}
+          value={null}
+          options={(staticGroups ?? []).map((g) => ({ value: g.id, label: g.name }))}
+          onChange={(groupId: string) => {
+            addMembers.mutate(
+              { groupId, assetIds: selected },
+              {
+                onSuccess: (answer) => {
+                  void message.success(t('assets.groups.added', { count: answer.added }));
+                  setSelected([]);
+                },
+                onError: reportError,
+              },
+            );
           }}
-          style={{ minWidth: 220 }}
-          data-testid="assets-type-filter"
+          data-testid="assets-add-to-group"
         />
-        {access.can('assets.manage') && (
-          <Segmented
-            value={view}
-            onChange={(value) => {
-              setView(value as 'live' | 'trash');
-            }}
-            options={[
-              { value: 'live', label: t('assets.record.all') },
-              { value: 'trash', label: t('assets.record.trash') },
-            ]}
-            data-testid="assets-view"
-          />
-        )}
-        {bulkAllowed && selected.length > 0 && (
-          <Flex gap={8} align="center" data-testid="assets-selection">
-            <Typography.Text>
-              {t('assets.bulk_move.selected', { count: selected.length })}
-            </Typography.Text>
-            <WriteButton
-              onClick={() => {
-                setBulkOpen(true);
-              }}
-              data-testid="assets-bulk-move-open"
-            >
-              {t('assets.bulk_move.open')}
-            </WriteButton>
-            {/* REQ-AST-028 AC2: a static group is filled from the selection in one step. */}
-            <Select
-              placeholder={t('assets.groups.add_selected')}
-              aria-label={t('assets.groups.add_selected')}
-              style={{ minWidth: 200 }}
-              value={null}
-              options={(staticGroups ?? []).map((g) => ({ value: g.id, label: g.name }))}
-              onChange={(groupId: string) => {
-                addMembers.mutate(
-                  { groupId, assetIds: selected },
-                  {
-                    onSuccess: (answer) => {
-                      void message.success(t('assets.groups.added', { count: answer.added }));
-                      setSelected([]);
-                    },
-                    onError: reportError,
-                  },
-                );
-              }}
-              data-testid="assets-add-to-group"
-            />
-            {/* REQ-AST-029: the selection goes on loans from now on. */}
-            <WriteButton
-              loading={setLoanable.isPending}
-              onClick={() => {
-                setLoanable.mutate(
-                  { assetIds: selected, loanable: true },
-                  {
-                    onSuccess: () => {
-                      void message.success(t('assets.loanable.done'));
-                      setSelected([]);
-                    },
-                    onError: reportError,
-                  },
-                );
-              }}
-              data-testid="assets-make-loanable"
-            >
-              {t('assets.loanable.make')}
-            </WriteButton>
-          </Flex>
-        )}
+        {/* REQ-AST-029: the selection goes on loans from now on. */}
+        <WriteButton
+          loading={setLoanable.isPending}
+          onClick={() => {
+            setLoanable.mutate(
+              { assetIds: selected, loanable: true },
+              {
+                onSuccess: () => {
+                  void message.success(t('assets.loanable.done'));
+                  setSelected([]);
+                },
+                onError: reportError,
+              },
+            );
+          }}
+          data-testid="assets-make-loanable"
+        >
+          {t('assets.loanable.make')}
+        </WriteButton>
+        <Button
+          type="link"
+          onClick={() => {
+            setSelected([]);
+          }}
+          style={{ marginInlineStart: 'auto' }}
+          data-testid="assets-selection-clear"
+        >
+          {t('assets.bulk_move.clear')}
+        </Button>
       </Flex>
+    ) : undefined;
+  return (
+    <ListPage
+      testId="assets-list"
+      header={
+        <PageHeader
+          title={t('nav.assets')}
+          count={total === undefined ? undefined : String(total)}
+          testId="assets-header"
+          extra={
+            <Flex gap={8} wrap align="center">
+              <Link to="/assets/vendors" data-testid="assets-vendors-link">
+                {t('assets.record.vendors')}
+              </Link>
+              <Link to="/assets/groups" data-testid="assets-groups-link">
+                {t('assets.groups.title')}
+              </Link>
+              <Link to="/assets/loans" data-testid="assets-loans-link">
+                {t('assets.loans.title')}
+              </Link>
+              {access.can('assets.manage') && (
+                <WriteButton
+                  type="primary"
+                  onClick={() => {
+                    clear();
+                    setAdding({ draft: draftOf(null), key: crypto.randomUUID() });
+                  }}
+                  data-testid="asset-add"
+                >
+                  {t('assets.record.add')}
+                </WriteButton>
+              )}
+            </Flex>
+          }
+        />
+      }
+      filters={
+        <FilterBar
+          testId="assets-filterbar"
+          selection={selectionBar}
+          view={
+            access.can('assets.manage') && (
+              <Segmented
+                value={view}
+                onChange={(value) => {
+                  setView(value as 'live' | 'trash');
+                }}
+                options={[
+                  { value: 'live', label: t('assets.record.all') },
+                  { value: 'trash', label: t('assets.record.trash') },
+                ]}
+                data-testid="assets-view"
+              />
+            )
+          }
+          search={
+            <Input.Search
+              allowClear
+              aria-label={t('assets.record.search')}
+              placeholder={t('assets.record.search')}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              data-testid="assets-search"
+            />
+          }
+          quick={
+            <TreeSelect
+              aria-label={t('assets.admin.product_type')}
+              allowClear
+              placeholder={t('assets.admin.all_types')}
+              value={typeId}
+              treeData={choices(tree)}
+              onChange={(id: string | undefined) => {
+                setTypeId(id);
+              }}
+              style={{ minWidth: 220 }}
+              data-testid="assets-type-filter"
+            />
+          }
+        />
+      }
+      alerts={
+        view === 'trash' ? (
+          <ListNotice testId="assets-trash-notice">{t('assets.record.trash_notice')}</ListNotice>
+        ) : undefined
+      }
+    >
       <BulkMoveDialog
         assets={selectedRows}
         open={bulkOpen}
@@ -264,9 +326,24 @@ export function AssetsPage() {
           bulkAllowed
             ? {
                 selectedRowKeys: selected,
+                // Labelled boxes; the header one is safe in antd's hidden measure row (axe
+                // label and aria-hidden-focus, found once the showcase had assets).
+                columnTitle: (
+                  <SelectPageBox
+                    checked={rows.length > 0 && selected.length === rows.length}
+                    indeterminate={selected.length > 0 && selected.length < rows.length}
+                    onChange={(checked) => {
+                      setSelected(checked ? rows.map((r) => r.id).slice(0, BULK_MAX) : []);
+                    }}
+                    label={t('assets.bulk_move.select_page')}
+                  />
+                ),
                 onChange: (keys) => {
                   setSelected(keys.map(String).slice(0, BULK_MAX));
                 },
+                getCheckboxProps: (row) => ({
+                  title: t('assets.bulk_move.select_row', { name: row.tag ?? row.name }),
+                }),
               }
             : undefined
         }
@@ -274,7 +351,20 @@ export function AssetsPage() {
         loading={list.isLoading}
         dataSource={rows}
         scroll={{ x: 'max-content' }}
-        locale={{ emptyText: <EmptyText>{t('assets.record.none')}</EmptyText> }}
+        locale={{
+          // Nothing to say while the first page loads; a search or type with no match says so.
+          emptyText: list.isLoading ? (
+            <span />
+          ) : (
+            <EmptyText>
+              {t(
+                debounced.trim() !== '' || typeId !== undefined
+                  ? 'assets.record.no_match'
+                  : 'assets.record.none',
+              )}
+            </EmptyText>
+          ),
+        }}
         onRow={(asset) => ({
           onClick: () => {
             if (view === 'live') void navigate(`/assets/${asset.id}`);
@@ -294,19 +384,23 @@ export function AssetsPage() {
           {
             key: 'name',
             title: t('assets.record.name'),
-            render: (_: unknown, asset: AssetRecord) => <bdi dir="auto">{asset.name}</bdi>,
+            render: (_: unknown, asset: AssetRecord) => (
+              <CellText title={asset.name}>{asset.name}</CellText>
+            ),
           },
           {
             key: 'type',
             title: t('assets.admin.product_type'),
             render: (_: unknown, asset: AssetRecord) => (
-              <bdi dir="auto">{typeName(asset.product_type_id)}</bdi>
+              <CellText>{typeName(asset.product_type_id)}</CellText>
             ),
           },
           {
             key: 'state',
             title: t('assets.record.state'),
-            render: (_: unknown, asset: AssetRecord) => <Tag>{stateName(asset.state_id)}</Tag>,
+            render: (_: unknown, asset: AssetRecord) => (
+              <ToneTag tone="default">{stateName(asset.state_id)}</ToneTag>
+            ),
           },
           {
             key: 'serial',
@@ -353,9 +447,7 @@ export function AssetsPage() {
         title={t('assets.record.add')}
         width={640}
         destroyOnHidden
-        onClose={() => {
-          setAdding(undefined);
-        }}
+        onClose={closeAdding}
         extra={
           <WriteButton
             type="primary"
@@ -379,6 +471,6 @@ export function AssetsPage() {
           />
         )}
       </Drawer>
-    </Flex>
+    </ListPage>
   );
 }

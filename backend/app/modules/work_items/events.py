@@ -159,6 +159,16 @@ class WorkItemPortalSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class WorkItemApprovalSettingsChanged(DomainEvent):
+    """The tenant's approval settings changed (the D-146 chair): open settings pages reload."""
+
+    event_type: ClassVar[str] = "work_items.approval_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_approval_settings"
+
+    changed_fields: list[str]
+
+
 class _ConversationEvent(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item_conversation"
 
@@ -232,6 +242,26 @@ class WorkItemFollowerRemoved(_FollowerEvent):
     schema_version: ClassVar[int] = 1
 
 
+class WorkItemWorkflowNotice(DomainEvent):
+    """A workflow's notify node tells people about the record (WP-048b S2, REQ-WF-022).
+
+    The one notification engine sends it (work_items' record source maps it to
+    `<type>.workflow_notice`): access checked at send time, personal preferences, the delivery
+    log. The audience is resolved then; the texts are the node's own, per language.
+    """
+
+    event_type: ClassVar[str] = "work_items.workflow.notice"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    record_id: uuid.UUID
+    type: str
+    instance_id: uuid.UUID
+    audience: dict[str, list[str]]  # relatives, user_ids, group_ids
+    subject: dict[str, str]
+    body: dict[str, str]
+
+
 class WorkItemReplyTemplatesChanged(DomainEvent):
     """A reply template was added, changed or removed (open composers reload the list)."""
 
@@ -300,6 +330,22 @@ class WorkItemPartChanged(DomainEvent):
     # Tasks only, additive (WP-048b, lane C's task node waits for "done"): the task's status
     # after the change, a code (open, in_progress, done, ...); None for other parts.
     task_status: str | None = None
+
+
+class WorkItemAssetLinkChanged(DomainEvent):
+    """An asset was linked to a record or unlinked (REQ-AST-025). IDs only.
+
+    The record's screens refresh its assets; the assets module may hear it too (an asset's
+    "linked to my tickets" scope, D-153).
+    """
+
+    event_type: ClassVar[str] = "work_items.asset_link.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    asset_id: uuid.UUID
+    change: Literal["added", "removed"]
 
 
 class WorkItemPartChangedV2(DomainEvent):
@@ -418,8 +464,10 @@ class WorkItemAssigneeUnavailable(_WorkItemEvent):
 
 EVENTS: tuple[type[DomainEvent], ...] = (
     ServiceRequestReadyToFulfil,
+    WorkItemAssetLinkChanged,
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
+    WorkItemWorkflowNotice,
     WorkItemUpdated,
     WorkItemStatusChanged,
     WorkItemStageChanged,
@@ -429,6 +477,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemRestored,
     WorkItemSettingsChanged,
     WorkItemPortalSettingsChanged,
+    WorkItemApprovalSettingsChanged,
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,

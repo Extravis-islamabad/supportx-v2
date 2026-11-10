@@ -31,6 +31,13 @@
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
 
+### Known gaps
+
+- **Bulk actions on service requests** (QA10V-05, the coordinator, 2026-11-10). REQ-SR-002 gives
+  requests the engine's bulk actions, but the API has no bulk route for them and the requests
+  list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
+  then the list shows no checkboxes at all, rather than dead ones.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -1457,9 +1464,28 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
 - **Two PRs (coordinator, 2026-11-06):** S1 lands alone on #233, so lane B's chart (#268) can
   follow; S2-S5 go on a new PR from main after #233 merges. Within S2, the guarded HTTP client is
   its own commit for lane B's review; the function node is the runner port only (§6.7).
-- [ ] **S2** — the approval node (with D-146's chair), task and checklist nodes, notification,
-  webhook (the shared guarded HTTP client) and function (runner port) nodes, variables, retries
-  and error outputs, sub-flows.
+- [x] **S2** — built on backup/wp-048b-s2; the PR opens in 0106's migration turn (after 0123).
+  - Variables, retries and error outputs, sub-flows (S2a); D-146's chair in the shared level
+    outcome and the approval settings (S2b); the guarded HTTP client, reviewed by lane B (S2e).
+  - **Approval node:** one level on the record (purpose `workflow`, naming the instance and
+    the command); people, groups or roles; administrators when nobody can be named; the chair
+    breaks a tie. The decision continues the node through the outbox
+    (`automation.command_finished`). Offered on SRs, releases, problems and changes.
+  - **Task node:** a checklist of 1-20 tasks with an owner and a due date in working days;
+    all done continues it, a canceled or removed task takes its error output.
+  - **Function node:** the runner port only, run by a worker (§6.7); offered with SANDBOX and
+    CUSTOM_FUNCTIONS and a registered runner (no runner ships: ADR-011).
+  - **Webhook node:** one call through the guarded client from a worker, with an idempotency
+    key; the status can be kept as a variable.
+  - **Notify node:** through the one notification engine (lane A's design): a
+    `workflow_audience` resolved at send time, access checked per recipient, the node's own
+    words; incidents first (lane A adds SRs and problems after).
+  - 0106 adds `work_item_approvals.workflow_command` and the task pair; the downgrade refuses
+    while any are set (rule 5h).
+  - For lane B's security review: named workflow approvers decide by being named (as stage
+    approvers), the egress use, the function port, NotificationCategory.WORKFLOW.
+  - Open: run-time error codes (`webhook_*`, `task_canceled`, …) get labels with S4's
+    instance view; a task owner that does not exist is refused by a foreign key, not a code.
 - [ ] **S3** — versions and migrating instances, stop and restart, the overview, copy, export and
   import, and the test mode.
 - [ ] **S4** — the React Flow designer.

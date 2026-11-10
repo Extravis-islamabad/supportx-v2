@@ -28,7 +28,12 @@ from app.modules.automation.domain.rules import (
     TraceLine,
 )
 from app.modules.automation.domain.triggers import People, Relative, TriggerEvent
-from app.modules.automation.events import EVENTS
+from app.modules.automation.events import (
+    EVENTS,
+    WorkflowCommandFinished,
+    WorkflowFunctionRequested,
+    WorkflowWebhookRequested,
+)
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
 from app.modules.automation.service import workflow_events, workflow_scheduler
 from app.modules.automation.service.assignment import (
@@ -44,6 +49,11 @@ from app.modules.automation.service.business_rules import (
     record_runs,
     refusal_error,
     run_business_rules,
+)
+from app.modules.automation.service.functions import (
+    FunctionOutcome,
+    FunctionRunner,
+    register_function_runner,
 )
 from app.modules.automation.service.jobs import purge_runs
 from app.modules.automation.service.realtime import ROUTES
@@ -68,6 +78,7 @@ from app.modules.automation.service.transitions import list_settings as transiti
 from app.modules.automation.service.transitions import refusal as transition_refusal
 from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES, on_record_event
 from app.modules.automation.service.usage import register_usage_checks
+from app.modules.automation.service.workflow_events import command_finished
 from app.shared.events import ConsumerSpec
 from app.shared.schedules import ScheduleSpec
 
@@ -115,6 +126,24 @@ module = ModuleSpec(
             event_types=TRIGGER_EVENT_TYPES,
             handler=workflow_events.on_record_event,
         ),
+        # A webhook node's call, sent by the worker through the guarded client (ADR-043 §8).
+        ConsumerSpec(
+            name="automation__workflow_webhooks",
+            event_types=(WorkflowWebhookRequested.event_type,),
+            handler=workflow_events.on_webhook_requested,
+        ),
+        # A function node's request, run by the worker through the runner port (§6.7).
+        ConsumerSpec(
+            name="automation__workflow_functions",
+            event_types=(WorkflowFunctionRequested.event_type,),
+            handler=workflow_events.on_function_requested,
+        ),
+        # A command decided later (an approval node) continues its node (REQ-WF-014).
+        ConsumerSpec(
+            name="automation__workflow_commands",
+            event_types=(WorkflowCommandFinished.event_type,),
+            handler=workflow_events.on_command_finished,
+        ),
     ],
     schedules=[
         ScheduleSpec("automation__purge_runs", 3600, purge_runs),
@@ -133,6 +162,8 @@ __all__ = [
     "CommandRunner",
     "FactsReader",
     "FieldKind",
+    "FunctionOutcome",
+    "FunctionRunner",
     "Member",
     "Noter",
     "People",
@@ -149,12 +180,14 @@ __all__ = [
     "TriggerEvent",
     "auto_assign",
     "away_user_ids",
+    "command_finished",
     "log_trace",
     "module",
     "record_runs",
     "record_type",
     "refusal_error",
     "register_event_reader",
+    "register_function_runner",
     "register_record_type",
     "route_record",
     "run_business_rules",

@@ -31,12 +31,14 @@ export const en = {
   'notification.open_record': 'Open {{id}}',
   'notification_area.announcement': 'Announcements',
   'notification_area.asset': 'Assets',
+  'notification_area.change': 'Changes',
   'notification_area.connector': 'Connectors',
   'notification_area.incident': 'Incidents',
   'notification_area.kb_article': 'Knowledge',
   'notification_area.mailbox': 'Mail',
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
+  'notification_area.release': 'Releases',
   'notification_area.rule_step': 'Rules and escalations',
   'notification_area.service_request': 'Service requests',
   'notification_category.approval': 'Approvals',
@@ -46,6 +48,7 @@ export const en = {
   'notification_category.following': 'Following',
   'notification_category.mention': 'Mentions',
   'notification_category.status': 'Status changes',
+  'notification_category.workflow': 'Workflow messages',
   'notification_channel.email': 'E-mail',
   'notification_channel.in_app': 'In the app',
   'notification_condition_operator.in': 'is one of',
@@ -57,6 +60,7 @@ export const en = {
   'notification_event.asset.loan_due': 'Loan due tomorrow',
   'notification_event.asset.loan_overdue': 'Loan overdue',
   'notification_event.asset.warranty_expiring': 'Warranty ending soon',
+  'notification_event.change.public_reply': 'Reply to the requester',
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
@@ -76,6 +80,7 @@ export const en = {
   'notification_event.incident.sla_escalated': 'SLA escalation',
   'notification_event.incident.sla_warning': 'SLA warning point reached',
   'notification_event.incident.status_changed': 'Status changed',
+  'notification_event.incident.workflow_notice': 'A workflow’s message',
   'notification_event.kb_article.approved': 'Article approved',
   'notification_event.kb_article.rejected': 'Article sent back',
   'notification_event.kb_article.review_due': 'Article review due',
@@ -95,11 +100,13 @@ export const en = {
   'notification_event.problem.target_breached': 'Problem target date passed',
   'notification_event.problem.target_warning': 'Problem target date close',
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
+  'notification_event.release.public_reply': 'Reply to the requester',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
   'notification_event.service_request.fulfilled': 'Request fulfilled',
+  'notification_event.service_request.public_reply': 'Reply to the requester',
   'notification_event.service_request.ready_to_fulfil': 'Request ready to fulfil',
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
@@ -144,6 +151,7 @@ export const en = {
   'notification_recipient.requester': 'Requester',
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.topic_owner': 'Topic owner',
+  'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
   'notification_rules.changed': 'Changed {{when}}',
   'notification_rules.col.channels': 'How',
@@ -197,6 +205,12 @@ export const en = {
     'Warranty of {{ record.display_id }} ends on {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'Warranty ending: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.public_reply.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} replied on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.change.public_reply.in_app':
+    '{{ conversation.author }} replied on {{ record.display_id }}',
+  'notification_template.change.public_reply.subject':
+    'New reply on {{ record.display_id }}: {{ record.title }}',
   'notification_template.connector.failing.body':
     'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
   'notification_template.connector.failing.in_app':
@@ -304,6 +318,9 @@ export const en = {
     '{{ record.display_id }} is now {{ record.status }}',
   'notification_template.incident.status_changed.subject':
     '{{ record.display_id }} is now {{ record.status }}: {{ record.title }}',
+  'notification_template.incident.workflow_notice.body': '{{ notice.body }}',
+  'notification_template.incident.workflow_notice.in_app': '{{ notice.subject }}',
+  'notification_template.incident.workflow_notice.subject': '{{ notice.subject }}',
   'notification_template.kb_article.approved.body':
     'Hello {{ recipient.name }},\n\n{{ actor.name }} approved the article {{ record.display_id }} "{{ record.title }}". Its readers see it now.',
   'notification_template.kb_article.approved.in_app':
@@ -416,6 +433,12 @@ export const en = {
     '{{ incident.count }} similar incidents: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} similar incidents: {{ rule.name }}',
+  'notification_template.release.public_reply.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} replied on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.release.public_reply.in_app':
+    '{{ conversation.author }} replied on {{ record.display_id }}',
+  'notification_template.release.public_reply.subject':
+    'New reply on {{ record.display_id }}: {{ record.title }}',
   'notification_template.rule_step.assignee_unavailable.body':
     'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -446,6 +469,12 @@ export const en = {
     '{{ record.display_id }} is done: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'Done: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.public_reply.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} replied on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.service_request.public_reply.in_app':
+    '{{ conversation.author }} replied on {{ record.display_id }}',
+  'notification_template.service_request.public_reply.subject':
+    'New reply on {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.ready_to_fulfil.body':
     'Hello {{ recipient.name }},\n\nEvery task of {{ record.display_id }} "{{ record.title }}" is done, but nobody is on it. Assign someone of your group to fulfil it.',
   'notification_template.service_request.ready_to_fulfil.in_app':
@@ -488,6 +517,8 @@ export const en = {
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',
+  'notification_variable.notice.body': 'Message › Text',
+  'notification_variable.notice.subject': 'Message › Subject',
   'notification_variable.recipient.name': 'Recipient › Name',
   'notification_variable.record.display_id': 'Record › ID',
   'notification_variable.record.link': 'Record › Link',

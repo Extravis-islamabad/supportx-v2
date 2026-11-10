@@ -33,7 +33,7 @@ from app.shared.api.filters import (
     Op,
     ResourceFields,
     compile_filter,
-    relative_range,
+    relative_bounds,
 )
 
 Record = Mapping[str, Any]
@@ -70,7 +70,7 @@ def _condition(spec: FilterField, op: Op, raw: Any, actual: Any, now: datetime) 
     if op is Op.IS_NOT_NULL:
         return actual is not None
     if op in NO_VALUE_OPERATORS or op in {Op.LAST_N_DAYS, Op.NEXT_N_DAYS}:
-        return _relative(op, raw, actual, now)
+        return _relative(spec, op, raw, actual, now)
     if op in LIST_OPERATORS:
         return _listed(spec, op, raw, actual)
     if op is Op.NE:
@@ -80,13 +80,14 @@ def _condition(spec: FilterField, op: Op, raw: Any, actual: Any, now: datetime) 
     return _compare(spec, op, raw, actual)
 
 
-def _relative(op: Op, raw: Any, actual: Any, now: datetime) -> bool:  # noqa: ANN401 - validated JSON
+def _relative(spec: FilterField, op: Op, raw: Any, actual: Any, now: datetime) -> bool:  # noqa: ANN401 - validated JSON
     days = raw if op in {Op.LAST_N_DAYS, Op.NEXT_N_DAYS} else None
-    start, end = relative_range(op, now, days)
+    start, end = relative_bounds(spec.type, op, now, days)
     if actual is None:
         return False
-    moment = _instant(actual)
-    return (start is None or moment >= start) and (end is None or moment < end)
+    # A DATE field compares calendar days, a DATETIME field instants (as the compiler does).
+    value: Any = _typed(spec, actual) if spec.type is FieldType.DATE else _instant(actual)
+    return (start is None or value >= start) and (end is None or value < end)
 
 
 def _listed(spec: FilterField, op: Op, raw: Any, actual: Any) -> bool:  # noqa: ANN401 - validated JSON

@@ -1,12 +1,24 @@
 import { CopyOutlined, HomeOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Input, Modal, Result, Space, Switch, Tag, Tooltip, Typography } from 'antd';
+import {
+  Button,
+  Input,
+  Modal,
+  Result,
+  Select,
+  Space,
+  Switch,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import {
   queryKeys,
   useCreateDashboard,
+  useUnits,
   useDashboard,
   useDashboards,
   useDeleteDashboard,
@@ -65,7 +77,7 @@ export function DashboardsPage() {
 }
 
 /** The dashboards list on template D (D-147): search and favourites on top, then a tab each for
- * the ready-made, shared and personal dashboards (REQ-DSH-005). */
+ * the ready-made, shared, your groups' (D-152) and personal dashboards (REQ-DSH-005). */
 function Picker() {
   const t = useLabels();
   const { locale } = useAppearance();
@@ -73,8 +85,13 @@ function Picker() {
   const navigate = useNavigate();
   const list = useDashboards();
   const star = useStarDashboard();
+  const units = useUnits('groups', can('groups.view'));
   const [search, setSearch] = useState('');
   const data = list.data;
+  const groupNames = useMemo(
+    () => new Map((units.data ?? []).map((g) => [g.id, g.name])),
+    [units.data],
+  );
   const groups = useMemo<LibraryGroup[]>(() => {
     const items = data?.items ?? [];
     const item = (d: (typeof items)[number]): LibraryItem => {
@@ -94,7 +111,15 @@ function Picker() {
         description: description === null || description === '' ? undefined : description,
         tags: (
           <>
-            <Tag>{t(d.shared ? 'dashboards.shared' : 'dashboards.private')}</Tag>
+            {d.group_id !== null && !d.group_removed ? (
+              <Tag data-testid={`dashboards-group-tag-${d.ref}`}>
+                {groupNames.get(d.group_id) ?? t('dashboards.group')}
+              </Tag>
+            ) : d.group_removed ? (
+              <Tag color="warning">{t('dashboards.group_removed')}</Tag>
+            ) : (
+              <Tag>{t(d.shared ? 'dashboards.shared' : 'dashboards.private')}</Tag>
+            )}
             {data?.home === d.ref && <Tag icon={<HomeOutlined />}>{t('dashboards.your_home')}</Tag>}
           </>
         ),
@@ -104,7 +129,14 @@ function Picker() {
     return [
       { key: 'builtin', items: items.filter((d) => d.builtin) },
       { key: 'shared', items: items.filter((d) => !d.builtin && d.shared) },
-      { key: 'mine', items: items.filter((d) => !d.builtin && !d.shared) },
+      // D-152: the dashboards of your groups (a removed group's go back to their owner's list).
+      { key: 'groups', items: items.filter((d) => d.group_id !== null && !d.group_removed) },
+      {
+        key: 'mine',
+        items: items.filter(
+          (d) => !d.builtin && !d.shared && (d.group_id === null || d.group_removed),
+        ),
+      },
     ].map((g) => ({
       key: g.key,
       label: t(`dashboards.group_${g.key}`),
@@ -113,7 +145,7 @@ function Picker() {
     }));
     // `t` changes identity per render; the locale and data decide the result.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-  }, [data, locale]);
+  }, [data, locale, groupNames]);
 
   return (
     <LibraryPage
@@ -122,7 +154,11 @@ function Picker() {
         <PageHeader
           title={t('nav.dashboards')}
           count={data === undefined ? undefined : String(data.items.length)}
-          extra={can('dashboards.create') ? <NewDashboard /> : undefined}
+          extra={
+            can('dashboards.create') ? (
+              <NewDashboard choices={data?.group_choices} groupNames={groupNames} />
+            ) : undefined
+          }
         />
       }
       groups={groups}
@@ -148,13 +184,26 @@ function Picker() {
   );
 }
 
-function NewDashboard() {
+/** A new dashboard: yours, or (D-152) one of the groups you may make dashboards for. */
+function NewDashboard({
+  choices,
+  groupNames,
+}: {
+  /** The groups offered: null for any group, [] for none (only your own). */
+  choices: string[] | null | undefined;
+  groupNames: Map<string, string>;
+}) {
   const t = useLabels();
   const navigate = useNavigate();
   const create = useCreateDashboard();
   const problem = useFormProblem();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [groupId, setGroupId] = useState<string>('');
+  const offered = (choices === null ? [...groupNames.keys()] : (choices ?? [])).map((id) => ({
+    value: id,
+    label: groupNames.get(id) ?? t('dashboards.group'),
+  }));
   const [key, setKey] = useState(() => crypto.randomUUID());
   return (
     <>
@@ -180,7 +229,10 @@ function NewDashboard() {
         onOk={() => {
           problem.clear();
           create.mutate(
-            { key, body: { name: name.trim(), shared: false } },
+            {
+              key,
+              body: { name: name.trim(), shared: false, group_id: groupId === '' ? null : groupId },
+            },
             {
               onSuccess: (made) => {
                 setOpen(false);
@@ -204,6 +256,17 @@ function NewDashboard() {
           }}
           data-testid="dashboards-new-name"
         />
+        {offered.length > 0 && (
+          <Select
+            aria-label={t('dashboards.for')}
+            prefix={`${t('dashboards.for')}:`}
+            value={groupId}
+            onChange={setGroupId}
+            options={[{ value: '', label: t('dashboards.for_me') }, ...offered]}
+            style={{ width: '100%', marginTop: 12 }}
+            data-testid="dashboards-new-group"
+          />
+        )}
         <FormProblem problem={problem} />
       </Modal>
     </>

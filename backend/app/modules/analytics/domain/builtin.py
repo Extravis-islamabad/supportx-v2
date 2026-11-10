@@ -223,6 +223,9 @@ BUILTIN_REPORTS += (
     *_starter_set("release", RELEASES, "releases"),
 )
 
+# How far ahead the warranty report looks.
+WARRANTY_DAYS = 90
+
 # Assets (lane B's reporting source, #310): what is held, of what kind, its warranty and its age.
 BUILTIN_REPORTS += (
     _of("asset", ASSETS, "assets_by_state", group_by=[{"field": "state_id"}], chart="doughnut"),
@@ -237,9 +240,9 @@ BUILTIN_REPORTS += (
         "asset",
         ASSETS,
         "assets_warranty_ending",
-        # Dates (not times) take no relative ranges in the filter DSL: every asset with a
-        # warranty, by the month it ends, so the coming months read at a glance.
-        filter={"field": "warranty_expires_on", "op": "is_not_null"},
+        # The warranties ending in the next 90 days (calendar dates take relative ranges since
+        # lane B's #352), by the month they end, so the coming months read at a glance.
+        filter={"field": "warranty_expires_on", "op": "next_n_days", "value": WARRANTY_DAYS},
         group_by=[{"field": "warranty_expires_on", "bucket": "month"}],
         chart="bar",
     ),

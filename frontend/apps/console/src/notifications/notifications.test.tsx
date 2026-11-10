@@ -78,6 +78,38 @@ describe('the notification centre', () => {
     });
   });
 
+  it('QA10V-15: live pop-ups never stack: the newest replaces the last', async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    let entries = [fakeNotification({ id: 'n0', title: 'Already here', read: true })];
+    api({
+      routes: {
+        'GET /api/v1/notifications': () => ({
+          body: { items: entries, next_cursor: null, unread: 0 },
+        }),
+      },
+    });
+    window.history.pushState({}, '', '/');
+    render(<App />);
+    await screen.findByTestId('notifications-bell');
+    const arrive = async (id: string, title: string) => {
+      entries = [fakeNotification({ id, title, read: false }), ...entries];
+      act(() => {
+        realtime.publish(':user:01900000-0000-7000-8000-000000000101', {
+          type: 'notifications.created',
+          ids: [id],
+        });
+      });
+      await screen.findByText(title);
+    };
+    await arrive('n1', 'INC-1 is close to its response target');
+    await arrive('n2', 'INC-2 is close to its response target');
+    await waitFor(() => {
+      expect(document.querySelectorAll('.ant-message-notice')).toHaveLength(1);
+    });
+    expect(screen.queryByText('INC-1 is close to its response target')).toBeNull();
+  });
+
   it('marks everything read at once and says when there is nothing', async () => {
     const fake = api({
       routes: {

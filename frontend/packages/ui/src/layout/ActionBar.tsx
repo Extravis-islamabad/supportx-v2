@@ -1,6 +1,6 @@
 import { DownOutlined } from '@ant-design/icons';
 import { App, Button, Dropdown, Flex, Typography, type MenuProps } from 'antd';
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, type ReactNode } from 'react';
 
 import { useLabel } from '../appearance';
 import { useLicence } from '../licence/context';
@@ -164,7 +164,11 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
     })),
   ];
   const items: MenuItem[] = [
-    ...available.flatMap(withVariants),
+    // A split button on the bar holds its variants in its own dropdown: not repeated here
+    // (QA bug 7). A plain bar button keeps its muted "Also above" entry (REQ-WI-010's order).
+    ...available
+      .filter((a) => !(chosen.has(a.key) && (a.variants?.length ?? 0) > 0))
+      .flatMap(withVariants),
     ...(available.length > 0 && unavailable.length > 0 ? [{ type: 'divider' as const }] : []),
     ...unavailable,
     ...(destructive.length > 0 && everyday.length > 0 ? [{ type: 'divider' as const }] : []),
@@ -205,7 +209,12 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
                 key="more"
                 data-testid={action.testId === undefined ? undefined : `${action.testId}-more`}
               >
-                {right}
+                {/* The chevron has only an icon: it needs its own name (QA10V-03, axe button-name). */}
+                {isValidElement<{ 'aria-label'?: string }>(right)
+                  ? cloneElement(right, {
+                      'aria-label': t('layout.more_options_for', { action: action.label }),
+                    })
+                  : right}
               </span>,
             ]}
           >

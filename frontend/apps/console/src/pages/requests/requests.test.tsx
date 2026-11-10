@@ -2,10 +2,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CatalogItem } from '@supportx/api-client';
-import { fakeIncident } from '@supportx/api-client/testing';
+import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
+import { actionItem, clickAction } from '../../test/actions';
 
 // WP-030 s1: service requests in the console: the list, raising one from the catalog, one record.
 
@@ -184,6 +185,40 @@ describe('console: service requests', () => {
     });
   });
 
+  it('QA10V-05: the approval filter and the search go to the server as the filter DSL', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('sr-row-SR-1');
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Approval' }));
+    fireEvent.click(await screen.findByTitle('Approved'));
+    fireEvent.change(
+      screen.getByTestId('sr-search').querySelector('input') ?? screen.getByTestId('sr-search'),
+      {
+        target: { value: 'laptop' },
+      },
+    );
+    await waitFor(() => {
+      const filters = fake
+        .find('GET', '/api/v1/service-requests')
+        .map((r) => r.url.searchParams.get('filter'))
+        .filter((f): f is string => f !== null)
+        .map((f) => JSON.parse(f) as unknown);
+      expect(filters).toContainEqual({
+        and: [
+          { field: 'approval_status', op: 'eq', value: 'approved' },
+          { field: 'subject', op: 'contains', value: 'laptop' },
+        ],
+      });
+    });
+    // Never the old parameter the route does not read.
+    expect(
+      fake
+        .find('GET', '/api/v1/service-requests')
+        .some((r) => r.url.searchParams.has('approval_status')),
+    ).toBe(false);
+  });
+
   it('raises one from the catalog with the form’s answers, once', async () => {
     window.history.pushState({}, '', '/requests/new');
     const fake = api({ 'POST /api/v1/service-requests': { status: 201, body: request } });
@@ -260,7 +295,14 @@ describe('console: service requests', () => {
     const CAT = '01a1a2b3-0000-7000-8000-00000000ca01';
     api({
       'GET /api/v1/catalog/items': {
-        body: [{ ...laptop, category_id: CAT, descriptions: { en: 'A work laptop' } }],
+        // Rich text, as the catalogue editor saves it (QA10V-01: never shown as markup).
+        body: [
+          {
+            ...laptop,
+            category_id: CAT,
+            descriptions: { en: '<p>A <strong>work</strong> laptop</p>' },
+          },
+        ],
       },
       'GET /api/v1/catalog/categories': {
         body: [
@@ -280,6 +322,8 @@ describe('console: service requests', () => {
     render(<App />);
     expect(await screen.findByRole('tab', { name: /Hardware/ })).toBeDefined();
     expect(await screen.findByText('A work laptop')).toBeDefined();
+    expect(document.body.textContent).not.toContain('<p>');
+    expect(document.body.textContent).not.toContain('<strong>');
     expect(screen.getByTestId(`sr-item-${ITEM_ID}`)).toBeDefined();
   });
 
@@ -352,13 +396,116 @@ describe('console: service requests', () => {
     );
   });
 
+  it('Haider E3: the panel shows the service level and who decided each approval', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: {
+        body: { ...request, approval_status: 'approved', status: 'in_progress' },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              ...pendingApproval,
+              state: 'approved',
+              decided_at: '2026-11-04T09:00:00Z',
+              decided_by: MANAGER,
+            },
+          ],
+          people: approvalsBody.people,
+        },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/sla`]: {
+        body: {
+          policy_id: '01a1a2b3-0000-7000-8000-00000000d001',
+          policy_name: 'Requests',
+          reason: 'created',
+          applied_at: '2026-11-04T08:00:00Z',
+          may_set_due_dates: true,
+          targets: [],
+        },
+      },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('sr-sla-card');
+    await waitFor(() => {
+      expect(card.textContent).toContain('Requests');
+    });
+    // Read-only on a request: due dates by hand are incidents' own (no change button).
+    expect(card.querySelector('[data-testid$="-change"]')).toBeNull();
+    const summary = await screen.findByTestId('sr-approvals-summary');
+    expect(summary.textContent).toContain('Approved');
+    expect(summary.textContent).toContain('Omar Manager');
+    expect(summary.textContent).not.toContain('{{'); // every value given
+  });
+
+  it('Haider E2: a request has the incident actions, and a move goes through its own route', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const working = {
+      ...request,
+      status: 'assigned',
+      status_category: 'open',
+      technician_id: '01900000-0000-7000-8000-000000000101',
+      group_id: 'g-a',
+      approval_status: 'approved',
+      actions: request.actions.map((a) =>
+        a.action === 'start_work' ? { ...a, allowed: true, reason: null } : a,
+      ),
+      operations: [
+        { action: 'assign', allowed: true, reason: null },
+        { action: 'take', allowed: false, reason: 'already_yours' },
+      ],
+    };
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: { body: working },
+      'GET /api/v1/service-requests/settings': { body: fakeIncidentCatalogue() },
+      [`POST /api/v1/service-requests/${SR_ID}/actions/start_work`]: {
+        body: { ...working, status: 'in_progress', version: working.version + 1 },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('sr-actions-more');
+    // E4: the Conversation tab counts what it lists, as on incidents (the description too).
+    expect(screen.getByTestId('sr-tab-conversation').textContent).toBe(
+      `Conversation (${String(working.conversation_count + 1)})`,
+    );
+    // A button when the bar has room, else in More actions: either way it is offered.
+    const assign =
+      screen.queryByTestId('sr-op-assign') ?? (await actionItem('sr-op-assign', 'sr-actions'));
+    expect(assign).toBeDefined();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    const slaPath = `/api/v1/service-requests/${SR_ID}/sla`;
+    await waitFor(() => {
+      expect(fake.find('GET', slaPath).length).toBeGreaterThan(0);
+    });
+    const slaBefore = fake.find('GET', slaPath).length;
+    await clickAction('inc-action-start_work', 'sr-actions');
+    await waitFor(() => {
+      expect(
+        fake.find('POST', `/api/v1/service-requests/${SR_ID}/actions/start_work`),
+      ).toHaveLength(1);
+    });
+    expect(fake.find('POST', `/api/v1/incidents/${SR_ID}/actions/start_work`)).toHaveLength(0);
+    // The SLA panel follows a save (lane B, #346: it sits under the request's detail key).
+    await waitFor(() => {
+      expect(fake.find('GET', slaPath).length).toBeGreaterThan(slaBefore);
+    });
+  });
+
   it('shows one request with its item details and approval status', async () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     api();
     render(<App />);
     // One status chip; the pending approval is not said twice (UI pass 3, Haider).
     expect((await screen.findByTestId('sr-status')).textContent).toBe('Awaiting approval');
+    // QA10V-13: the dot chip of the other record headers.
+    expect(screen.getByTestId('sr-status').querySelector('.ant-badge')).not.toBeNull();
     expect(screen.queryByTestId('sr-approval')).toBeNull();
+    // QA10V-13: the requester is a row of the one Properties card, as on incidents.
+    expect(within(screen.getByTestId('sr-details')).getByTestId('sr-requester').textContent).toBe(
+      'Rana Requester',
+    );
+    expect(screen.getByTestId('sr-panel').textContent).not.toContain('rana@demo.test');
     fireEvent.click(await screen.findByTestId('sr-tab-details'));
     const answers = await screen.findByTestId('sr-answers');
     await waitFor(() => {

@@ -1,8 +1,10 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
-import { useSingleFlight } from './incidents';
+import { ApiError } from './errors';
+import { useSingleFlight, type ActionRun, type AssignChange } from './incidents';
 import type { components } from './schema';
+import type { FilterExpression } from './users';
 
 // Service requests and the catalog they come from (WP-030). A service request is a work item of
 // its own type; this file covers what the console needs before its full record page: the
@@ -21,8 +23,8 @@ export type ApprovalDecision = components['schemas']['DecisionIn'];
 export type ServiceRequestViewCount = components['schemas']['WorkItemViewCountOut'];
 
 export interface ServiceRequestsQuery {
-  approval_status?: ApprovalStatus;
-  catalog_item_id?: string;
+  /** The shared filter DSL (approval status, a search): the list route has no own params. */
+  filter?: FilterExpression;
   /** A built-in view code from {@link useServiceRequestViews}. */
   view?: string;
   cursor?: string;
@@ -36,6 +38,8 @@ export const serviceRequestKeys = {
   detail: (id: string) => ['service-requests', 'detail', id] as const,
   settings: ['service-requests', 'settings'] as const,
   approvals: (id: string) => ['service-requests', 'detail', id, 'approvals'] as const,
+  // Under the detail key: realtime, a conflict or a reload of the request refresh it (rule 5c).
+  sla: (id: string) => ['service-requests', 'detail', id, 'sla'] as const,
   myApprovals: ['service-requests', 'my-approvals'] as const,
   catalog: ['catalog'] as const,
   items: ['catalog', 'items'] as const,
@@ -71,7 +75,18 @@ export function useCatalogCategories() {
 export function useServiceRequests(query: ServiceRequestsQuery) {
   return useQuery({
     queryKey: serviceRequestKeys.list(query),
-    queryFn: () => call(api.GET('/api/v1/service-requests', { params: { query } })),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/service-requests', {
+          params: {
+            query: {
+              view: query.view,
+              cursor: query.cursor,
+              filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
+            },
+          },
+        }),
+      ),
     placeholderData: keepPreviousData,
   });
 }
@@ -359,5 +374,112 @@ export function usePublicActionLink() {
           body: { token, tenant: tenant ?? null, body },
         }),
       ),
+  });
+}
+
+const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
+
+/** A request saved by an action: the record at once, its lists refetched (Haider E2). */
+function useSavedRequest() {
+  const queryClient = useQueryClient();
+  return (saved: ServiceRequest) => {
+    queryClient.setQueryData(serviceRequestKeys.detail(saved.id), saved);
+    // A save moves the clocks (an assign, a pause): the SLA panel follows (lane B, #346).
+    void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.sla(saved.id) });
+    void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });
+  };
+}
+
+function useRefetchOnConflict(id: string) {
+  const queryClient = useQueryClient();
+  return (error: unknown) => {
+    if (error instanceof ApiError && error.isConflict) {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
+    }
+  };
+}
+
+/** Give a request to a group and a technician (Haider E2); the same rules as an incident's. */
+export function useAssignServiceRequest(id: string) {
+  const saved = useSavedRequest();
+  const refetch = useRefetchOnConflict(id);
+  const once = useSingleFlight((change: AssignChange) =>
+    call(
+      api.POST('/api/v1/service-requests/{record_id}/assign', {
+        params: { path: { record_id: id }, header: ifMatch(change.version) },
+        body: {
+          group_id: change.groupId,
+          technician_id: change.technicianId,
+          reason_code: change.reasonCode ?? null,
+          reason_text: change.reasonText?.trim() === '' ? null : (change.reasonText ?? null),
+          confirm_lose_access: change.confirmLoseAccess ?? false,
+          keep_following: change.keepFollowing ?? null,
+        },
+      }),
+    ),
+  );
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: refetch,
+  });
+}
+
+/** Take a request (make it yours; the group asked for when you are in several). */
+export function useTakeServiceRequest(id: string) {
+  const saved = useSavedRequest();
+  const refetch = useRefetchOnConflict(id);
+  const once = useSingleFlight(({ version, groupId }: { version: number; groupId?: string }) =>
+    call(
+      api.POST('/api/v1/service-requests/{record_id}/take', {
+        params: { path: { record_id: id }, header: ifMatch(version) },
+        body: groupId === undefined ? undefined : { group_id: groupId },
+      }),
+    ),
+  );
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: refetch,
+  });
+}
+
+/** Run a request's life cycle move with If-Match (the same input as an incident's, so the
+ * status bar and its dialogs are shared: Haider E2). */
+export function useServiceRequestAction(id: string) {
+  const saved = useSavedRequest();
+  const refetch = useRefetchOnConflict(id);
+  const once = useSingleFlight((run: ActionRun) => {
+    const text = run.reasonText?.trim() ?? '';
+    const plain =
+      run.reasonCode === undefined &&
+      text === '' &&
+      run.resolution === undefined &&
+      run.closureCode === undefined &&
+      run.confirmOpenWork !== true &&
+      run.groupId === undefined;
+    return call(
+      api.POST('/api/v1/service-requests/{record_id}/actions/{action}', {
+        params: { path: { record_id: id, action: run.action }, header: ifMatch(run.version) },
+        body: plain
+          ? undefined
+          : {
+              reason_code: run.reasonCode ?? null,
+              reason_text: text === '' ? null : text,
+              confirm_open_work: run.confirmOpenWork === true,
+              ...(run.groupId === undefined ? {} : { group_id: run.groupId }),
+              ...(run.resolution === undefined ? {} : { resolution: run.resolution }),
+              ...(run.closureCode === undefined ? {} : { closure_code: run.closureCode }),
+            },
+      }),
+    );
+  });
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: refetch,
   });
 }

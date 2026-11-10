@@ -171,6 +171,18 @@ function api(
       }),
       'GET /api/v1/releases/settings': {
         body: {
+          // The type's statuses, as the API sends them: the list's status dot (QA10V-06).
+          statuses: [
+            {
+              code: 'build_in_progress',
+              category: 'open',
+              colour: '#1677ff',
+              labels: null,
+              system: false,
+              disabled: false,
+              resume_on_requester_reply: false,
+            },
+          ],
           closure_codes: [],
           own_lists: { release_type: [{ code: 'major', labels: null, disabled: false }] },
         },
@@ -209,14 +221,21 @@ describe('console: releases', () => {
     window.history.pushState({}, '', '/releases');
     const fake = api();
     render(<App />);
-    await screen.findByTestId('release-row-REL-1');
+    const row = await screen.findByTestId('release-row-REL-1');
+    // The ID is a link and the status a dot chip (QA10V-06).
+    expect(within(row).getByTestId('release-link-REL-1').tagName).toBe('A');
+    expect(within(row).getByTestId('inc-status').querySelector('.ant-badge')).not.toBeNull();
     const bar = screen.getByTestId('releases-filters');
     expect(within(bar).getByTestId('releases-view')).toBeTruthy();
     expect(within(bar).getByTestId('releases-search')).toBeTruthy();
     const first = fake.find('GET', '/api/v1/releases')[0];
     expect(first?.url.searchParams.get('view')).toBe('open');
     expect(first?.url.searchParams.get('include_total')).toBe('true');
-    fireEvent.click(within(bar).getByText('All'));
+    // The view select, as on every list (QA10V-06; it was segmented tabs).
+    const selector = within(bar).getByTestId('releases-view').querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    fireEvent.click(await screen.findByTitle('All'));
     fireEvent.change(within(bar).getByRole('searchbox'), { target: { value: 'rel-1' } });
     await waitFor(() => {
       const last = fake.find('GET', '/api/v1/releases').at(-1);
@@ -403,7 +422,7 @@ describe('console: releases', () => {
     expect(visible.length).toBeLessThanOrEqual(3); // beside More: the 4-action rule
   });
 
-  it("D-155: one primary, the next stage's move; the stage chip and key facts; no empty schedule card", async () => {
+  it("D-155: one primary, the next stage's move; the key facts, no chip repeating the stage bar; no empty schedule card", async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     api();
     render(<App />);
@@ -414,8 +433,11 @@ describe('console: releases', () => {
     expect(buttons.map((b) => b.getAttribute('data-testid'))).toEqual(['move-testing_in_progress']);
     expect(buttons[0]?.textContent).toBe('Move to Testing');
     // A1 on every record: the stage chip and the key facts; never the status twice.
-    expect(screen.getByTestId('release-stage').textContent).toBe('Build');
+    // No stage chip: the stage bar always shows the stage (QA fix-round D2).
+    expect(screen.queryByTestId('release-stage')).toBeNull();
     expect(screen.queryByTestId('release-status')).toBeNull();
+    // Worded as every record's menu (QA10V-10: "⋮ More").
+    expect(screen.getByTestId('release-more').textContent).toContain('More actions');
     expect(screen.getByTestId('release-people').textContent).toMatch(/^Requested by /);
     expect(screen.getByTestId('record-kind-tile').getAttribute('data-kind')).toBe('release');
   });

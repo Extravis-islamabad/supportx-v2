@@ -33,12 +33,14 @@ export const ur: LabelResource = {
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.announcement': 'اعلانات',
   'notification_area.asset': 'اثاثے',
+  'notification_area.change': 'تبدیلیاں',
   'notification_area.connector': 'کنیکٹرز',
   'notification_area.incident': 'واقعات',
   'notification_area.kb_article': 'علمی ذخیرہ',
   'notification_area.mailbox': 'میل',
   'notification_area.problem': 'مسائل',
   'notification_area.problem_repeat': 'مسائل',
+  'notification_area.release': 'ریلیزز',
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_category.approval': 'منظوریاں',
@@ -48,6 +50,7 @@ export const ur: LabelResource = {
   'notification_category.following': 'فالو کرنا',
   'notification_category.mention': 'تذکرے',
   'notification_category.status': 'حالت کی تبدیلیاں',
+  'notification_category.workflow': 'ورک فلو پیغامات',
   'notification_channel.email': 'ای میل',
   'notification_channel.in_app': 'ایپ میں',
   'notification_condition_operator.in': 'ان میں سے ایک ہے',
@@ -59,6 +62,7 @@ export const ur: LabelResource = {
   'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
   'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
   'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
+  'notification_event.change.public_reply': 'درخواست گزار کو جواب',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
@@ -78,6 +82,7 @@ export const ur: LabelResource = {
   'notification_event.incident.sla_escalated': 'ایس ایل اے ایسکلیشن',
   'notification_event.incident.sla_warning': 'ایس ایل اے کی انتباہی حد آ گئی',
   'notification_event.incident.status_changed': 'حالت بدلی',
+  'notification_event.incident.workflow_notice': 'ورک فلو کا پیغام',
   'notification_event.kb_article.approved': 'مضمون منظور ہوا',
   'notification_event.kb_article.rejected': 'مضمون واپس بھیجا گیا',
   'notification_event.kb_article.review_due': 'مضمون کے جائزے کا وقت',
@@ -98,11 +103,13 @@ export const ur: LabelResource = {
   'notification_event.problem.target_breached': 'مسئلے کی ہدف تاریخ گزر گئی',
   'notification_event.problem.target_warning': 'مسئلے کی ہدف تاریخ قریب',
   'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
+  'notification_event.release.public_reply': 'درخواست گزار کو جواب',
   'notification_event.rule_step.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
   'notification_event.service_request.fulfilled': 'درخواست مکمل',
+  'notification_event.service_request.public_reply': 'درخواست گزار کو جواب',
   'notification_event.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
@@ -147,6 +154,7 @@ export const ur: LabelResource = {
   'notification_recipient.requester': 'درخواست گزار',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
+  'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
   'notification_rules.any_priority': 'کوئی بھی ترجیح',
   'notification_rules.changed': '{{when}} کو تبدیل ہوا',
   'notification_rules.col.channels': 'کیسے',
@@ -200,6 +208,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} کی وارنٹی {{ warranty.ends_on }} کو ختم',
   'notification_template.asset.warranty_expiring.subject':
     'وارنٹی ختم ہو رہی ہے: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.change.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.change.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':
@@ -307,6 +321,9 @@ export const ur: LabelResource = {
     '{{ record.display_id }} اب {{ record.status }} ہے',
   'notification_template.incident.status_changed.subject':
     '{{ record.display_id }} اب {{ record.status }} ہے: {{ record.title }}',
+  'notification_template.incident.workflow_notice.body': '{{ notice.body }}',
+  'notification_template.incident.workflow_notice.in_app': '{{ notice.subject }}',
+  'notification_template.incident.workflow_notice.subject': '{{ notice.subject }}',
   'notification_template.kb_article.approved.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ actor.name }} نے مضمون {{ record.display_id }} "{{ record.title }}" منظور کر دیا۔ اب اس کے قارئین اسے دیکھ سکتے ہیں۔',
   'notification_template.kb_article.approved.in_app':
@@ -419,6 +436,12 @@ export const ur: LabelResource = {
     '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
+  'notification_template.release.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.release.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.release.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
   'notification_template.rule_step.assignee_unavailable.body':
     'السلام علیکم {{ recipient.name }}،\n\nایک قاعدے یا ایسکلیشن کو {{ record.display_id }} "{{ record.title }}" کو {{ unavailable.person }} کے سپرد کرنا تھا، جو {{ unavailable.reason }}۔ یہ کسی کو تفویض کیے بغیر گروپ میں چلا گیا۔ براہ کرم کسی کو تفویض کریں یا قاعدہ بدلیں۔',
   'notification_template.rule_step.assignee_unavailable.in_app':
@@ -449,6 +472,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} مکمل ہو گئی: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'مکمل: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.service_request.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.service_request.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
   'notification_template.service_request.ready_to_fulfil.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کے سب کام ہو گئے، مگر یہ کسی کو تفویض نہیں۔ اپنے گروپ کے کسی فرد کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
   'notification_template.service_request.ready_to_fulfil.in_app':
@@ -491,6 +520,8 @@ export const ur: LabelResource = {
   'notification_variable.mailbox.address': 'میل باکس › پتہ',
   'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
   'notification_variable.mailbox.reason': 'میل باکس › وجہ',
+  'notification_variable.notice.body': 'پیغام › متن',
+  'notification_variable.notice.subject': 'پیغام › موضوع',
   'notification_variable.recipient.name': 'وصول کنندہ › نام',
   'notification_variable.record.display_id': 'ریکارڈ › شناخت',
   'notification_variable.record.link': 'ریکارڈ › لنک',
