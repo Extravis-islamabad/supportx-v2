@@ -5,11 +5,14 @@ Findings: ~/Desktop/qa-wp026/QA-REPORT.md. Same world as the custom fields tests
 
 from typing import Any
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_custom_fields_api import FIELDS, add, add_field, change, choices
-from tests.db.test_incidents_api import BASE, CONSOLE, World, field_codes, world
+from tests.db.test_incidents_api import BASE, CONSOLE, World, field_codes
 from tests.db.test_search_api import found, search
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 def errors_of(response: Any) -> dict[str, dict[str, Any]]:  # noqa: ANN401 - httpx response

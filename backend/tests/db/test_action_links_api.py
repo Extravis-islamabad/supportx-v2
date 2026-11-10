@@ -10,10 +10,13 @@ from sqlalchemy import select, text
 from app.core.tenancy import TenantContext
 from app.modules.work_items.infra.models import WorkItemApproval
 from app.modules.work_items.service.approvals import issue_links
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, fresh, manager_of, waiting
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 LINKS = "/action-links"
 

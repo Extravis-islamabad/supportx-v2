@@ -17,9 +17,12 @@ from app.modules.automation.service import workflow_events, workflow_runtime
 from app.shared.clock import system_clock
 from app.shared.events import EventEnvelope
 from conftest import make_settings
-from tests.db.test_incidents_api import CONSOLE, World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, World
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 def _node(node_id: str, kind: str, **config: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON

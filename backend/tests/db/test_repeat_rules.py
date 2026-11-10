@@ -11,12 +11,13 @@ from app.core.tenancy import TenantContext
 from app.modules import licensing
 from app.modules.work_items.service import repeat_rules
 from conftest import assign_system_role, create_tenant
-from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, field_codes, problem, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, field_codes, problem
 from tests.db.test_users_api import seed_users
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 API = "/problem-repeats"
 

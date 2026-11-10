@@ -16,4 +16,14 @@ describe('ageBetween', () => {
     expect(basisDay('acquisition_date', asset)).toBeNull();
     expect(basisDay('created_date', asset)).toBe('2026-01-02');
   });
+
+  it("counts the creation day where the viewer is, as today is (not the timestamp's UTC date)", () => {
+    // 21:30 UTC is already the next day east of UTC: the day must follow the viewer's clock.
+    const late = { acquired_on: null, created_at: '2026-01-02T21:30:00Z' };
+    const local = new Date(late.created_at);
+    const day = [local.getFullYear(), local.getMonth() + 1, local.getDate()]
+      .map((part) => String(part).padStart(2, '0'))
+      .join('-');
+    expect(basisDay('created_date', late)).toBe(day);
+  });
 });

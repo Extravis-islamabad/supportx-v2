@@ -31,12 +31,13 @@ from app.core.tenancy import TenantContext
 from app.modules.notifications.service.engine import dispatch, send_waiting
 from app.shared.events import EventEnvelope
 from conftest import make_settings
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import mention, say
-from tests.db.test_incidents_api import Org, World, world
+from tests.db.test_incidents_api import Org, World
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
-__all__ = ["world"]  # the incidents fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the incidents fixture, re-used
 
 NO_MAIL = make_settings()
 DISPATCHED: dict[int, set[int]] = {}  # outbox rows already handed to the engine, per world

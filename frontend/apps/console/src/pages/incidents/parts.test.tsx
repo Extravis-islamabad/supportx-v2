@@ -83,6 +83,37 @@ describe('Incident parts (WP-020e)', () => {
     });
   });
 
+  it('D-154d: a done task says who did it', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'tasks');
+    const by = '01900000-0000-7000-8000-0000000003c1';
+    api({
+      [`GET ${PATH}/tasks`]: {
+        body: {
+          items: [
+            { ...task('Check cable', 'done', 0), done_by: by },
+            task('Swap printer', 'open', 1),
+          ],
+          done: 1,
+          total: 2,
+        },
+      },
+      'GET /api/v1/users': {
+        body: {
+          items: [{ id: by, display_name: 'Omar Farooq', email: 'omar@demo.test' }],
+          has_more: false,
+          next_cursor: null,
+        },
+      },
+    });
+    render(<App />);
+    const doneBy = await screen.findByTestId('inc-task-done-by-0');
+    await waitFor(() => {
+      expect(doneBy.textContent).toBe('Done by Omar Farooq');
+    });
+    expect(screen.queryByTestId('inc-task-done-by-1')).toBeNull(); // open: nobody did it yet
+  });
+
   it('REQ-INC-072: what is typed while a task saves is kept (found by the e2e in CI)', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'tasks');

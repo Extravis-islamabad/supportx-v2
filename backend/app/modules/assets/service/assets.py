@@ -85,6 +85,10 @@ ASSET_FIELDS = ResourceFields(
         "state_id": FilterField(Asset.state_id, FieldType.UUID),
         "vendor_id": FilterField(Asset.vendor_id, FieldType.UUID),
         "site_id": FilterField(Asset.site_id, FieldType.UUID),
+        # Its holder (0111): what a person or department holds, an asset's components.
+        "owner_user_id": FilterField(Asset.owner_user_id, FieldType.UUID),
+        "department_id": FilterField(Asset.department_id, FieldType.UUID),
+        "parent_asset_id": FilterField(Asset.parent_asset_id, FieldType.UUID),
         "acquired_on": FilterField(Asset.acquired_on, FieldType.DATE, sortable=True),
         "warranty_expires_on": FilterField(
             Asset.warranty_expires_on, FieldType.DATE, sortable=True
@@ -317,7 +321,7 @@ async def _custom(
 
 async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, where from
     session: AsyncSession,
-    subject: Subject,
+    subject: Subject | None,
     row: Asset,
     changes: list[Change],
     *,
@@ -325,9 +329,10 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
     source: Source,
     reason: str | None = None,
 ) -> None:
+    """One save: version, history, event. `subject` None: the system (a site that followed)."""
     if action != "created":
         row.version += 1
-    row.updated_by = subject.user_id
+    row.updated_by = None if subject is None else subject.user_id
     await session.flush()
     await session.refresh(row)  # the database's timestamps
     await record_changes(

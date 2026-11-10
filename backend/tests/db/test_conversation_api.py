@@ -15,18 +15,12 @@ from app.core.database import Database
 from app.core.tenancy import TenantContext
 from app.modules.work_items.service.realtime import ROUTES
 from app.shared.events import EventEnvelope
-from tests.db.test_incidents_api import (
-    BASE,
-    CONSOLE,
-    Org,
-    World,
-    field_codes,
-    problem,
-    states,
-    world,
-)
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, field_codes, problem, states
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 MAIL = "<p>Mail is down again</p>"
 

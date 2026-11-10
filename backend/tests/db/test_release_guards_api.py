@@ -15,11 +15,14 @@ import httpx
 
 from app.modules.identity_access.service.authz_consumer import handler as authz_handler
 from app.shared.events import Actor, EventEnvelope
-from tests.db.test_incidents_api import CONSOLE, Org, World, role, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World, role
 from tests.db.test_release_templates_api import field_codes, patch_template, templates
 from tests.db.test_releases_api import REL, a_release, move, panel
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 RELEASE_WORK = [("releases.view", "all"), ("releases.edit", "all"), ("releases.create", "all")]
 

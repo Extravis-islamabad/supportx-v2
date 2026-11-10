@@ -58,4 +58,77 @@ class AssetChanged(DomainEvent):
     site_id: uuid.UUID | None = None
 
 
-EVENTS: tuple[type[DomainEvent], ...] = (CatalogueChanged, ProductChanged, AssetChanged)
+class AssetHolderChanged(DomainEvent):
+    """An asset changed hands (WP-049a s4; REQ-AST-024 AC3): the people before and after.
+
+    IDs only: their "My assets" lists refresh live; staff screens follow `asset.changed`.
+    """
+
+    event_type: ClassVar[str] = "assets.holder.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset"
+
+    asset_id: uuid.UUID
+    people: list[uuid.UUID]
+
+
+class AcknowledgementChanged(DomainEvent):
+    """An acknowledgement was asked for, accepted or disputed (REQ-AST-023)."""
+
+    event_type: ClassVar[str] = "assets.acknowledgement.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_acknowledgement"
+
+    acknowledgement_id: uuid.UUID
+    asset_id: uuid.UUID
+    user_id: uuid.UUID
+    status: Literal["pending", "accepted", "disputed"]
+
+
+class AssetGroupChanged(DomainEvent):
+    """A group was added, changed, removed, or gained or lost members (REQ-AST-028)."""
+
+    event_type: ClassVar[str] = "assets.group.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_group"
+
+    group_id: uuid.UUID
+    change: Literal["created", "updated", "deleted", "members"]
+
+
+LoanChange = Literal["created", "returned", "closed", "due", "overdue"]
+
+
+class AssetLoanChanged(DomainEvent):
+    """A loan was made, partly returned, closed, or came due or overdue (REQ-AST-030, 031, 059)."""
+
+    event_type: ClassVar[str] = "assets.loan.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_loan"
+
+    loan_id: uuid.UUID
+    borrower_id: uuid.UUID
+    created_by: uuid.UUID | None
+    change: LoanChange
+
+
+class WarrantyEnding(DomainEvent):
+    """An asset's warranty ends within the tenant's notice days (REQ-AST-059 AC2), once per date."""
+
+    event_type: ClassVar[str] = "assets.warranty.ending"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset"
+
+    asset_id: uuid.UUID
+
+
+EVENTS: tuple[type[DomainEvent], ...] = (
+    CatalogueChanged,
+    ProductChanged,
+    AssetChanged,
+    AssetHolderChanged,
+    AcknowledgementChanged,
+    AssetGroupChanged,
+    AssetLoanChanged,
+    WarrantyEnding,
+)
