@@ -120,6 +120,7 @@ function useRefreshRecord() {
 /** A listed move, with If-Match on the record and the values the move asks for. */
 export function useMoveRelease() {
   const refresh = useRefreshRecord();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, version, body }: { id: string; version: number; body: StageMoveInput }) =>
       call(
@@ -128,7 +129,17 @@ export function useMoveRelease() {
           body,
         }),
       ),
-    onSettled: (_data, _error, { id }) => {
+    // The move's answer is the record now: show it at once, and stay busy until the rail and
+    // the other parts have caught up, so the dialog never closes on a page that still shows the
+    // old stage (QA10-P4-31).
+    onSuccess: async (moved, { id }) => {
+      queryClient.setQueryData(releaseKeys.detail(id), moved);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: releaseKeys.detail(id) }),
+        queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] }),
+      ]);
+    },
+    onError: (_error, { id }) => {
       refresh(id);
     },
   });
