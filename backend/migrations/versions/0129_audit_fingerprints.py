@@ -15,8 +15,9 @@ Expand only; no data step (older entries get no fingerprint and hash exactly as 
     random salts; an existing salt is never replaced; an erased subject gets none back);
   - `audit_subject_salts_of(subjects)`: read existing salts, for the verifier;
   - `audit_erase_subject(subject, history_rows)` replaces the one-argument version of 0014: it
-    deletes the person's personal rows as before, blanks the given field_changes values (only
-    rows of saves whose entries list the person), then destroys the salt (the row stays as a
+    deletes the person's personal rows as before, blanks the given field_changes values and the
+    free-text reason of every row (only rows of saves whose entries list the person), then
+    destroys the salt (the row stays as a
     tombstone with `erased_at`, so the person never gets a fresh salt older entries would not
     match). Returns counts as JSON.
 
@@ -90,6 +91,7 @@ DECLARE
     t uuid := NULLIF(current_setting('app.tenant_id', true), '')::uuid;
     personal_rows integer;
     history_values integer;
+    history_reasons integer;
     salts integer;
 BEGIN
     IF t IS NULL THEN
@@ -108,12 +110,23 @@ BEGIN
               AND e.fingerprint_saves @> ARRAY[f.change_id]
               AND e.object_id = f.record_id::text);
     GET DIAGNOSTICS history_values = ROW_COUNT;
+    -- Free-text reasons are the subjects' personal data too: every row of those saves.
+    UPDATE field_changes f SET reason = NULL
+     WHERE f.tenant_id = t AND f.reason IS NOT NULL
+       AND EXISTS (
+           SELECT 1 FROM audit_entries e
+            WHERE e.tenant_id = t
+              AND e.personal_subjects @> ARRAY[p_subject]
+              AND e.fingerprint_saves @> ARRAY[f.change_id]
+              AND e.object_id = f.record_id::text);
+    GET DIAGNOSTICS history_reasons = ROW_COUNT;
     -- Crypto-shredding: the salt goes after the values it protects; the row stays a tombstone.
     UPDATE audit_subject_salts SET salt = NULL, erased_at = now()
      WHERE tenant_id = t AND subject_id = p_subject AND salt IS NOT NULL;
     GET DIAGNOSTICS salts = ROW_COUNT;
     RETURN jsonb_build_object(
-        'personal_rows', personal_rows, 'history_values', history_values, 'salts', salts);
+        'personal_rows', personal_rows, 'history_values', history_values,
+        'history_reasons', history_reasons, 'salts', salts);
 END
 $$
 """

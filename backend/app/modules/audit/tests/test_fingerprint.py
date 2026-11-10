@@ -5,13 +5,15 @@ language, must reproduce exactly these digests. Changing a value here breaks eve
 already in a chain; a new layout gets a new prefix instead.
 
 Two commitments per save entry: `fingerprint` over the ordinary fields (no salt, so it always
-recomputes) and `personal_fingerprint` over the personal fields (salted). Vector A is a save
-with ordinary fields only; vector B has both.
+recomputes) and `personal_fingerprint` over the personal fields (salted). Rows' free-text
+reasons go in the personal half for work items, in the ordinary one for assets. Vector A is an
+asset save (ordinary only, with a reason); vector B a work item with both halves and a reason.
 """
 
 import hashlib
 import json
 import uuid
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta, timezone
 from typing import Any
 
@@ -41,29 +43,32 @@ SAVE_3 = uuid.UUID("0190a000-0000-7000-8000-0000000000c3")
 ALICE = uuid.UUID("0190a000-0000-7000-8000-00000000000a")
 BILAL = uuid.UUID("0190a000-0000-7000-8000-00000000000b")
 SALTS = {ALICE: bytes(range(16)), BILAL: bytes(range(16, 32))}
-# Vector A: one save, ordinary fields only.
+# Vector A: an asset save (no data subjects), ordinary fields only; its reason is ordinary.
+WHY = "Moved for the audit"
 ORDINARY_ONLY = [
     SaveValues(
         SAVE_3,
         4,
         "updated",
         (
-            FieldValues("priority", "p3", "p2"),
-            FieldValues("custom.cost", None, 1.0),
-            FieldValues("custom.ratio", None, 1.5e-7),
-            FieldValues("tags", ["a"], ["a", "b"]),
+            FieldValues("location", "Floor 1", "Floor 2", reason=WHY),
+            FieldValues("custom.cost", None, 1.0, reason=WHY),
+            FieldValues("custom.ratio", None, 1.5e-7, reason=WHY),
+            FieldValues("tags", ["a"], ["a", "b"], reason=WHY),
         ),
     )
 ]
-# Vector B: two saves, each with an ordinary and a personal field.
+# Vector B: a work item (reasons are personal), two saves, each with an ordinary and a personal
+# field; the first save has a reason, the second none.
+CALL = "Customer called twice"
 SAVES = [
     SaveValues(
         SAVE_1,
         1,
         "created",
         (
-            FieldValues("subject", None, 'Printer "P-3" jams\n', personal=True),
-            FieldValues("priority", None, "p2"),
+            FieldValues("subject", None, 'Printer "P-3" jams\n', personal=True, reason=CALL),
+            FieldValues("priority", None, "p2", reason=CALL),
         ),
     ),
     SaveValues(
@@ -77,9 +82,9 @@ SAVES = [
     ),
 ]
 NULL = "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"  # SHA-256("null")
-GOLDEN_A = "fp1:bb1da1530c996cd33f32d0ddcb06e5abee569db571995b72379a41b301a33e78"
+GOLDEN_A = "fp1:1257eee2a95aea2d289191c3ce95e9199cf4db92bd3aa5ee7c5dc4217d6065d5"
 GOLDEN_B = "fp1:929257682249c7d55f6eebe8a2e94f6c22d53980a5de35d75c7c6e1aa8bc631a"
-GOLDEN_B_PERSONAL = "fp1:6d5e5a7fe00b3fcd987413b14fbd4e2d62b7dd41d238b01e910aae2a8dcee4fc"
+GOLDEN_B_PERSONAL = "fp1:c2f4a08e9f972dd8d74b5852cafe7f65a0ee0aac2c3be28953983f2b114afa10"
 
 
 def h(value: bytes, *salts: bytes) -> str:
@@ -92,30 +97,53 @@ def fp(text: str) -> str:
     return PREFIX + hashlib.sha256(text.encode()).hexdigest()
 
 
+def fp_work(record_type: str, record: uuid.UUID, saves: list[SaveValues]) -> str:
+    """The ordinary fingerprint of a work item (its reasons are personal)."""
+    return fingerprint(record_type, record, saves, reasons_personal=True)
+
+
+def pfp_work(
+    record_type: str,
+    record: uuid.UUID,
+    saves: list[SaveValues],
+    subjects: list[uuid.UUID],
+    salts: dict[uuid.UUID, bytes],
+) -> str | None:
+    """The personal fingerprint of a work item."""
+    return personal_fingerprint(record_type, record, saves, subjects, salts, reasons_personal=True)
+
+
 # --- the golden vectors (also in docs/adr/ADR-046) ----------------------------------------------
 
 
 def test_golden_vectors() -> None:
-    assert fingerprint("work_item", RECORD, ORDINARY_ONLY) == GOLDEN_A
-    assert personal_fingerprint("work_item", RECORD, ORDINARY_ONLY, [], {}) is None
-    assert fingerprint("work_item", RECORD, SAVES) == GOLDEN_B
-    assert personal_fingerprint("work_item", RECORD, SAVES, [BILAL, ALICE], SALTS) == (
-        GOLDEN_B_PERSONAL
+    assert fingerprint("asset", RECORD, ORDINARY_ONLY) == GOLDEN_A
+    assert personal_fingerprint("asset", RECORD, ORDINARY_ONLY, [], {}) is None
+    assert fingerprint("work_item", RECORD, SAVES, reasons_personal=True) == GOLDEN_B
+    assert (
+        personal_fingerprint(
+            "work_item", RECORD, SAVES, [BILAL, ALICE], SALTS, reasons_personal=True
+        )
+        == GOLDEN_B_PERSONAL
     )
 
 
 def test_golden_vector_a_recomputed_by_hand() -> None:
-    """Only hashlib and the rules written in ADR-046."""
+    """Only hashlib and the rules written in ADR-046; the asset's reason in the ordinary half."""
+    why = h(b'"Moved for the audit"')
     text = (
         '{"part":"ordinary","record_id":"0190a000-0000-7000-8000-000000000001",'
-        '"record_type":"work_item","saves":[{"change_id":"0190a000-0000-7000-8000-0000000000c3",'
+        '"record_type":"asset","saves":[{"change_id":"0190a000-0000-7000-8000-0000000000c3",'
         f'"fields":[["custom.cost","{NULL}","{h(b"1")}"],'
         f'["custom.ratio","{NULL}","{h(b"0.00000015")}"],'
-        f'["priority","{h(b'"p3"')}","{h(b'"p2"')}"],'
+        f'["location","{h(b'"Floor 1"')}","{h(b'"Floor 2"')}"],'
         f'["tags","{h(b'["a"]')}","{h(b'["a","b"]')}"]],'
-        '"kind":"updated","version":4}],"v":1}'
+        '"kind":"updated",'
+        f'"reasons":[["custom.cost","{why}"],["custom.ratio","{why}"],["location","{why}"],'
+        f'["tags","{why}"]],'
+        '"version":4}],"v":1}'
     )
-    assert canonical_value(change_set("work_item", RECORD, ORDINARY_ONLY)) == text.encode()
+    assert canonical_value(change_set("asset", RECORD, ORDINARY_ONLY)) == text.encode()
     assert fp(text) == GOLDEN_A
 
 
@@ -126,6 +154,7 @@ def test_golden_vector_b_recomputed_by_hand() -> None:
     record = '"record_id":"0190a000-0000-7000-8000-000000000001","record_type":"work_item"'
     first = '{"change_id":"0190a000-0000-7000-8000-0000000000c1","fields":['
     second = '{"change_id":"0190a000-0000-7000-8000-0000000000c2","fields":['
+    call, none = h(b'"Customer called twice"', a, b), h(b"null", a, b)
     ordinary = (
         f'{{"part":"ordinary",{record},"saves":[{first}'
         f'["priority","{NULL}","{h(b'"p2"')}"]'
@@ -136,16 +165,54 @@ def test_golden_vector_b_recomputed_by_hand() -> None:
     personal = (
         f'{{"part":"personal",{record},"saves":[{first}'
         f'["subject","{h(b"null", a, b)}","{h(b'"Printer \\"P-3\\" jams\\n"', a, b)}",{people}]'
-        f'],"kind":"created","version":1}},{second}'
+        f'],"kind":"created","reasons":[["priority","{call}"],["subject","{call}"]],'
+        f'"version":1}},{second}'
         f'["description","{h('"قديم"'.encode(), a, b)}",'
         f'"{h(b'{"a":[true,false,null],"z":1}', a, b)}",{people}]'
-        '],"kind":"updated","version":2}],"v":1}'
+        f'],"kind":"updated","reasons":[["description","{none}"],["technician_id","{none}"]],'
+        '"version":2}],"v":1}'
     )
-    assert canonical_value(change_set("work_item", RECORD, SAVES)) == ordinary.encode()
-    built = change_set("work_item", RECORD, SAVES, "personal", subjects=[ALICE, BILAL], salts=SALTS)
+    built = change_set("work_item", RECORD, SAVES, reasons_personal=True)
+    assert canonical_value(built) == ordinary.encode()
+    built = change_set(
+        "work_item",
+        RECORD,
+        SAVES,
+        "personal",
+        subjects=[ALICE, BILAL],
+        salts=SALTS,
+        reasons_personal=True,
+    )
     assert canonical_value(built) == personal.encode()
     assert fp(ordinary) == GOLDEN_B
     assert fp(personal) == GOLDEN_B_PERSONAL
+
+
+def test_reasons_are_committed_to_in_the_right_half() -> None:
+    first, second = SAVES
+    changed = [
+        SaveValues(
+            SAVE_1, 1, "created", tuple(replace(f, reason="Something else") for f in first.fields)
+        ),
+        second,
+    ]
+    # A work item's reason is personal: only the salted half moves.
+    assert fp_work("work_item", RECORD, changed) == GOLDEN_B
+    assert pfp_work("work_item", RECORD, changed, [ALICE, BILAL], SALTS) != GOLDEN_B_PERSONAL
+    # An asset's reason is ordinary: the unsalted half moves, and there is no personal half.
+    (only,) = ORDINARY_ONLY
+    moved = [
+        SaveValues(
+            SAVE_3, 4, "updated", (replace(only.fields[0], reason="Other"), *only.fields[1:])
+        )
+    ]
+    assert fingerprint("asset", RECORD, moved) != GOLDEN_A
+    # A reason alone gives a work item a personal half (no personal field needed).
+    reason_only = [
+        SaveValues(SAVE_3, 4, "status", (FieldValues("status", "open", "paused", reason=CALL),))
+    ]
+    assert pfp_work("work_item", RECORD, reason_only, [], {}) is not None
+    assert personal_fingerprint("asset", RECORD, reason_only, [], {}) is None
 
 
 # --- canonical values -------------------------------------------------------------------------
@@ -217,7 +284,7 @@ def _subject(value: str) -> FieldValues:
 
 def test_every_part_of_a_save_changes_the_ordinary_fingerprint() -> None:
     def ordinary(saves: list[SaveValues], record: uuid.UUID = RECORD) -> str:
-        return fingerprint("work_item", record, saves)
+        return fp_work("work_item", record, saves)
 
     first, second = SAVES
     variants = [
@@ -233,7 +300,7 @@ def test_every_part_of_a_save_changes_the_ordinary_fingerprint() -> None:
     ]
     assert len({ordinary(v) for v in variants} | {GOLDEN_B}) == len(variants) + 1
     assert ordinary(SAVES, uuid.uuid4()) != GOLDEN_B  # another record
-    assert fingerprint("asset", RECORD, SAVES) != GOLDEN_B
+    assert fingerprint("asset", RECORD, SAVES, reasons_personal=True) != GOLDEN_B
     # Field order within a save does not matter (history stores no order); save order does.
     shuffled = SaveValues(SAVE_1, 1, "created", tuple(reversed(first.fields)))
     assert ordinary([shuffled, second]) == GOLDEN_B
@@ -246,27 +313,25 @@ def test_the_halves_are_independent() -> None:
         SaveValues(SAVE_1, 1, "created", (_subject("Other"), first.fields[1])),
         second,
     ]
-    assert fingerprint("work_item", RECORD, personal_changed) == GOLDEN_B
-    assert personal_fingerprint("work_item", RECORD, personal_changed, [ALICE, BILAL], SALTS) != (
+    assert fp_work("work_item", RECORD, personal_changed) == GOLDEN_B
+    assert pfp_work("work_item", RECORD, personal_changed, [ALICE, BILAL], SALTS) != (
         GOLDEN_B_PERSONAL
     )
-    ordinary_changed = [
-        SaveValues(SAVE_1, 1, "created", (first.fields[0], _priority("p1"))),
+    ordinary_changed = [  # the same reason on the row: only its value changes
+        SaveValues(SAVE_1, 1, "created", (first.fields[0], replace(first.fields[1], new="p1"))),
         second,
     ]
-    assert fingerprint("work_item", RECORD, ordinary_changed) != GOLDEN_B
-    assert personal_fingerprint("work_item", RECORD, ordinary_changed, [ALICE, BILAL], SALTS) == (
+    assert fp_work("work_item", RECORD, ordinary_changed) != GOLDEN_B
+    assert pfp_work("work_item", RECORD, ordinary_changed, [ALICE, BILAL], SALTS) == (
         GOLDEN_B_PERSONAL
     )
 
 
 def test_only_the_personal_half_needs_the_salts() -> None:
     other = {ALICE: bytes(16), BILAL: SALTS[BILAL]}
-    assert personal_fingerprint("work_item", RECORD, SAVES, [ALICE, BILAL], other) != (
-        GOLDEN_B_PERSONAL
-    )
+    assert pfp_work("work_item", RECORD, SAVES, [ALICE, BILAL], other) != (GOLDEN_B_PERSONAL)
     with pytest.raises(KeyError):  # a subject without a salt is a caller bug, never a guess
-        personal_fingerprint("work_item", RECORD, SAVES, [ALICE, BILAL], {ALICE: SALTS[ALICE]})
+        pfp_work("work_item", RECORD, SAVES, [ALICE, BILAL], {ALICE: SALTS[ALICE]})
 
 
 def test_the_change_sets_hold_digests_never_values() -> None:

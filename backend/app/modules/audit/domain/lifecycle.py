@@ -88,6 +88,15 @@ class RecordAudit:
         """The record type of this type's rows in `field_changes`."""
         return self.history_type or self.record_type
 
+    @property
+    def reasons_personal(self) -> bool:
+        """Whether a save's free-text reasons are its data subjects' personal data.
+
+        Yes for a type with data subjects (work items: a pause or priority reason is about the
+        ticket's people); otherwise they stay in the ordinary, unsalted half (assets).
+        """
+        return bool(self.data_subjects)
+
     def is_personal(self, name: str) -> bool:
         """Whether a changed field's values are personal data (see `personal`)."""
         return _field_matches_one(name, self.personal)
@@ -244,12 +253,15 @@ _SLA_EVENTS = frozenset({"sla_paused", "sla_resumed", "sla_breached"})
 # people are referred to by ID (ADR-027), and IDs are not personal.
 #
 # Work items, all five types: the text people write about themselves and their problem.
-# - every type: subject, description, impact_details, resolution, the status change's reason
-#   text (pause, cancel ...), custom field values (`custom.<key>`, any of them may be text), a
-#   task's title (`task`, `task.title`);
+# - every type: subject, description, impact_details, resolution, tags, custom field values
+#   (`custom.<key>`, any of them may be text), a task's title (`task`, `task.title`);
 # - problems: the analysis (root cause, symptoms, workaround, review texts);
 # - changes and releases: plan sections, a stage's outcome notes and issues, a downtime's
-#   description.
+#   description; changes also the risk reason; releases also the release notes, version and
+#   build reference (lane C).
+# Every save's free-text reason (`field_changes.reason`: status moves, the priority reason,
+# stage moves, set_fields, known-error comments, the SLA's by-hand reason) is personal too, for
+# every type with data subjects (`RecordAudit.reasons_personal`, lane A's and C's reviews).
 # Assets: none (a name, a location code and IDs; people hold assets by ID).
 # People (identity) are not a lifecycle type yet: their name, email and phone fields join when
 # they are (a later session), with the person themself as the data subject.
@@ -258,7 +270,7 @@ _WORK_PERSONAL: tuple[str, ...] = (
     "description",
     "impact_details",
     "resolution",
-    "status_reason_text",
+    "tags",
     "custom.",
     "task",
     "task.title",
@@ -278,6 +290,13 @@ _STAGED_PERSONAL: tuple[str, ...] = (
     "schedule.*.outcome_notes",
     "schedule.*.issues",
     "downtime.*.description",
+)
+_CHANGE_PERSONAL: tuple[str, ...] = (*_STAGED_PERSONAL, "risk_reason")
+_RELEASE_PERSONAL: tuple[str, ...] = (
+    *_STAGED_PERSONAL,
+    "release_notes",
+    "release_version",
+    "build_ref",
 )
 # Whose: the requester and the person it was raised for (both, when both are set).
 _WORK_SUBJECTS: tuple[str, ...] = ("requester_id", "on_behalf_of_id")
@@ -314,8 +333,8 @@ WORK_ITEMS = (
     _work_item("incident", _WORK_FIELDS, _WORK_PERSONAL, merges=True, sla=True),
     _work_item("service_request", _WORK_FIELDS, _WORK_PERSONAL, merges=True, sla=True),
     _work_item("problem", _WORK_FIELDS, _PROBLEM_PERSONAL, merges=True, sla=True),
-    _work_item("change", _CHANGE_FIELDS, _STAGED_PERSONAL, merges=False, sla=True),
-    _work_item("release", _RELEASE_FIELDS, _STAGED_PERSONAL, merges=False, sla=False),
+    _work_item("change", _CHANGE_FIELDS, _CHANGE_PERSONAL, merges=False, sla=True),
+    _work_item("release", _RELEASE_FIELDS, _RELEASE_PERSONAL, merges=False, sla=False),
 )
 
 RECORD_TYPES: Mapping[str, RecordAudit] = {r.record_type: r for r in (ASSET, *WORK_ITEMS)}

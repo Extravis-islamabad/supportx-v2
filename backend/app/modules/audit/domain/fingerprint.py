@@ -33,9 +33,13 @@ Two fingerprints (`fingerprint`, `personal_fingerprint`)
     with every save listed, in the entry's save order. The ordinary half's fields are the
     fields that are not personal, each `[field, digest(old), digest(new)]` with no salt; the
     personal half's are the personal fields, each `[field, digest(old), digest(new),
-    [subject ids]]` salted. Fields are sorted by their canonical JSON bytes. Each fingerprint
-    is `fp1:` + lowercase hex SHA-256 of its half's bytes. The personal one exists only when a
-    save changed a personal field. The ordinary half therefore always recomputes, so erasing
+    [subject ids]]` salted. Fields are sorted by their canonical JSON bytes. Each row's reason
+    (`field_changes.reason`, free text) is committed to as well: every save of one half carries
+    `"reasons": [[field, digest(reason)], ...]` (sorted), in the personal half, salted, for a
+    record type with data subjects (work items), and in the ordinary half for one without
+    (assets). Each fingerprint is `fp1:` + lowercase hex SHA-256 of its half's bytes. The
+    personal one exists only when a save changed a personal field or, where reasons are
+    personal, a row has a reason. The ordinary half therefore always recomputes, so erasing
     a subject never hides a change to an ordinary value.
 """
 
@@ -134,6 +138,8 @@ class FieldValues:
     old: object
     new: object
     personal: bool = False
+    # The row's free-text reason (`field_changes.reason`; the same on every row of a save).
+    reason: object = None
 
 
 @dataclass(frozen=True)
@@ -164,6 +170,12 @@ def _fields(
     return sorted(rows, key=canonical_value)
 
 
+def _reasons(save: SaveValues, salts: Sequence[bytes]) -> list[list[object]]:
+    """Every row's reason, as `[field, digest(reason)]`, sorted (rows of both kinds)."""
+    rows: list[list[object]] = [[f.field, value_digest(f.reason, salts)] for f in save.fields]
+    return sorted(rows, key=canonical_value)
+
+
 def change_set(  # noqa: PLR0913 - the record, its saves, which half, and the salts
     record_type: str,
     record_id: uuid.UUID,
@@ -172,12 +184,17 @@ def change_set(  # noqa: PLR0913 - the record, its saves, which half, and the sa
     *,
     subjects: Sequence[uuid.UUID] = (),
     salts: Mapping[uuid.UUID, bytes] | None = None,
+    reasons_personal: bool = False,
 ) -> dict[str, object]:
     """One half of the canonical change set: digests only, never a value.
 
     `part` is `ordinary` (the fields that are not personal, unsalted) or `personal` (the
     personal fields, digested with the salts of all `subjects` in ID order; `salts` must hold
     each one: a missing salt is a caller bug, never a guess).
+
+    Rows' reasons (free text) go in the personal half, salted, for a record type with data
+    subjects (`reasons_personal`), and in the ordinary half for one without (assets): each save
+    of that half then carries `reasons`, one `[field, digest(reason)]` per row.
     """
     if part not in {ORDINARY, PERSONAL}:
         msg = f"unknown part {part!r}"
@@ -185,15 +202,18 @@ def change_set(  # noqa: PLR0913 - the record, its saves, which half, and the sa
     ordered = sorted(set(subjects), key=str) if part == PERSONAL else []
     subject_salts = [(salts or {})[s] for s in ordered]
     ids = [str(s) for s in ordered]
-    out = [
-        {
+    with_reasons = reasons_personal == (part == PERSONAL)
+    out: list[dict[str, object]] = []
+    for save in saves:
+        item: dict[str, object] = {
             "change_id": str(save.change_id),
             "fields": _fields(save, part, subject_salts, ids),
             "kind": save.kind,
             "version": save.version,
         }
-        for save in saves
-    ]
+        if with_reasons:
+            item["reasons"] = _reasons(save, subject_salts)
+        out.append(item)
     return {
         "part": part,
         "record_id": str(record_id),
@@ -207,28 +227,50 @@ def _digest(content: Mapping[str, object]) -> str:
     return PREFIX + hashlib.sha256(canonical_value(content)).hexdigest()
 
 
-def fingerprint(record_type: str, record_id: uuid.UUID, saves: Sequence[SaveValues]) -> str:
+def fingerprint(
+    record_type: str,
+    record_id: uuid.UUID,
+    saves: Sequence[SaveValues],
+    *,
+    reasons_personal: bool = False,
+) -> str:
     """The ordinary fingerprint: `fp1:` + hex SHA-256 of the ordinary half (no salts)."""
-    return _digest(change_set(record_type, record_id, saves, ORDINARY))
+    return _digest(
+        change_set(record_type, record_id, saves, ORDINARY, reasons_personal=reasons_personal)
+    )
 
 
-def has_personal(saves: Sequence[SaveValues]) -> bool:
-    """Whether any of the saves changed a personal field."""
-    return any(f.personal for save in saves for f in save.fields)
+def has_personal(saves: Sequence[SaveValues], *, reasons_personal: bool = False) -> bool:
+    """Whether the saves have a personal half: a personal field, or a reason that is personal."""
+    return any(
+        f.personal or (reasons_personal and f.reason is not None)
+        for save in saves
+        for f in save.fields
+    )
 
 
-def personal_fingerprint(
+def personal_fingerprint(  # noqa: PLR0913 - the record, its saves, the salts and the reason rule
     record_type: str,
     record_id: uuid.UUID,
     saves: Sequence[SaveValues],
     subjects: Sequence[uuid.UUID] = (),
     salts: Mapping[uuid.UUID, bytes] | None = None,
+    *,
+    reasons_personal: bool = False,
 ) -> str | None:
-    """The personal fingerprint (salted), or None when the saves changed no personal field."""
-    if not has_personal(saves):
+    """The personal fingerprint (salted), or None when there is no personal half."""
+    if not has_personal(saves, reasons_personal=reasons_personal):
         return None
     return _digest(
-        change_set(record_type, record_id, saves, PERSONAL, subjects=subjects, salts=salts)
+        change_set(
+            record_type,
+            record_id,
+            saves,
+            PERSONAL,
+            subjects=subjects,
+            salts=salts,
+            reasons_personal=reasons_personal,
+        )
     )
 
 

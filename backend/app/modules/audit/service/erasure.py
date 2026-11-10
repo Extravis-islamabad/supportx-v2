@@ -7,7 +7,8 @@ Through the migrator-owned `audit_erase_subject()` (the app itself has no DELETE
 
 1. the person's personal rows (IP addresses, user agents, free-text reasons) are deleted;
 2. the personal values in record history of the saves whose fingerprints use the person's salt
-   are blanked (the free text of tickets they raised or that were raised for them). They are
+   are blanked (the free text of tickets they raised or that were raised for them), and so is
+   every free-text reason of those saves (the function does that itself). They are
    found through the entries' subject lists, and the function blanks only rows of those saves;
    which fields are personal comes from the lifecycle table (domain/lifecycle.py);
 3. the person's salt is destroyed (crypto-shredding), so the salted digests in the chain can
@@ -78,6 +79,7 @@ async def erase_subject(session: AsyncSession, user_id: uuid.UUID) -> int:
         details={
             "personal_rows_removed": removed,
             "history_values_erased": int(result.get("history_values", 0)),
+            "history_reasons_erased": int(result.get("history_reasons", 0)),
             "salt_erased": int(result.get("salts", 0)),
         },
         actor=(AuditActorType.SYSTEM, None),

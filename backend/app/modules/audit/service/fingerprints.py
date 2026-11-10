@@ -32,6 +32,7 @@ from app.modules.audit.domain.fingerprint import (
     FingerprintStatus,
     SaveValues,
     fingerprint,
+    has_personal,
     personal_fingerprint,
     status_of,
 )
@@ -104,10 +105,31 @@ def _save_values(spec: RecordAudit, saved: SavedRecord) -> SaveValues:
         saved.version,
         saved.kind,
         tuple(
-            FieldValues(c.field, as_stored(c.old), as_stored(c.new), spec.is_personal(c.field))
+            FieldValues(
+                c.field,
+                as_stored(c.old),
+                as_stored(c.new),
+                spec.is_personal(c.field),
+                saved.reason,  # record_changes writes the save's reason on every row
+            )
             for c in rows
         ),
     )
+
+
+def _previous_people(spec: RecordAudit, saves: Sequence[SavedRecord]) -> set[uuid.UUID]:
+    """The people a save moved the record away from (an old requester, lane A's review).
+
+    The save's old free text may be theirs, so they are its data subjects too.
+    """
+    found: set[uuid.UUID] = set()
+    for saved in saves:
+        for change in saved.recorded:
+            if change.field in spec.data_subjects and change.old is not None:
+                person = _uuid(change.old)
+                if person is not None:
+                    found.add(person)
+    return found
 
 
 async def for_saves(
@@ -117,16 +139,18 @@ async def for_saves(
     last = saves[-1]
     values = [_save_values(spec, s) for s in saves]
     salts: dict[uuid.UUID, bytes] = {}
-    personal = any(f.personal for v in values for f in v.fields)
-    if personal and spec.data_subjects:
+    reasons = spec.reasons_personal
+    if has_personal(values, reasons_personal=reasons) and spec.data_subjects:
         people = await record_subjects(session, spec.history_record_type, last.record_id)
         found = {p for name in spec.data_subjects if (p := people.get(name)) is not None}
-        salts = await ensure_salts(session, found)
+        salts = await ensure_salts(session, found | _previous_people(spec, saves))
     subjects = tuple(sorted(salts, key=str))
     record_type, record_id = spec.history_record_type, last.record_id
     return EntryFingerprint(
-        fingerprint(record_type, record_id, values),
-        personal_fingerprint(record_type, record_id, values, subjects, salts),
+        fingerprint(record_type, record_id, values, reasons_personal=reasons),
+        personal_fingerprint(
+            record_type, record_id, values, subjects, salts, reasons_personal=reasons
+        ),
         tuple(s.change_id for s in saves),
         subjects,
     )
@@ -227,7 +251,9 @@ def _saves_of(
                 first.record_version if first else -1,
                 first.kind if first else "",
                 tuple(
-                    FieldValues(r.field, r.old_value, r.new_value, spec.is_personal(r.field))
+                    FieldValues(
+                        r.field, r.old_value, r.new_value, spec.is_personal(r.field), r.reason
+                    )
                     for r in rows
                 ),
             )
@@ -250,9 +276,12 @@ def _verdict(
     have = [s for s in needed if s in salts]
     # The ordinary half has no salt: it is checked whatever happened to the subjects, so an
     # erasure can never hide a change to an ordinary value (ADR-046).
-    ordinary = fingerprint(record_type, record_id, saves) == entry["fingerprint"]
+    reasons = spec.reasons_personal
+    ordinary = (
+        fingerprint(record_type, record_id, saves, reasons_personal=reasons) == entry["fingerprint"]
+    )
     personal = (
-        personal_fingerprint(record_type, record_id, saves, needed, salts)
+        personal_fingerprint(record_type, record_id, saves, needed, salts, reasons_personal=reasons)
         if len(have) == len(needed)
         else None
     )

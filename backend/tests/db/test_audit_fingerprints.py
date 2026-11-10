@@ -20,7 +20,7 @@ import pytest_asyncio
 from app.core.tenancy import TenantContext
 from app.modules.audit.service.erasure import erase_subject
 from app.modules.audit.service.recording import WORKER, record
-from app.shared.history import history
+from app.shared.history import Change, history, record_changes
 from tests.db import test_incidents_api
 from tests.db.test_audit_api import run_verify, seal_all
 from tests.db.test_incidents_api import Org, World, incidents_world
@@ -280,6 +280,133 @@ async def test_an_ordinary_row_blanked_through_the_definer_is_a_mismatch(world: 
         await conn.close()
     assert json.loads(result["r"])["history_values"] == 1
     assert (await _detail(world, b, first["id"]))["fingerprint_status"] == "mismatch"
+
+
+REASON = "Ahmed Raza is on medical leave"
+
+
+async def _worker_save(
+    world: World,
+    org: Org,
+    record_type: str,
+    record_id: str,
+    changes: list[Change],
+    reason: str | None,
+) -> None:
+    """A save from a worker (no route), with a free-text reason, as an SLA or rule save is."""
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
+        await record_changes(
+            session,
+            record_type=record_type,
+            record_id=uuid.UUID(record_id),
+            version=9,
+            kind="updated",
+            changes=changes,
+            source="system",
+            reason=reason,
+        )
+
+
+async def _last_entry(world: World, org: Org, record_id: str) -> Any:  # noqa: ANN401 - a row
+    return (await _saves(world, org, record_id))[-1]
+
+
+async def _reasons(world: World, org: Org, change_id: uuid.UUID) -> list[Any]:
+    rows = await world.sql(
+        "SELECT reason FROM field_changes WHERE tenant_id = $1 AND change_id = $2",
+        org.tenant,
+        change_id,
+    )
+    return [r["reason"] for r in rows]
+
+
+async def test_a_changed_reason_is_a_mismatch(world: World) -> None:
+    a = world.a
+    item = await world.create(a, a.admin, requester_id=str(a.requester))
+    await _worker_save(world, a, "work_item", item["id"], [Change("priority", "p3", "p2")], REASON)
+    last = await _last_entry(world, a, item["id"])
+    # A work item's reason is personal: it makes a salted half even with no personal field.
+    assert last["personal_fingerprint"] is not None
+    assert list(last["personal_subjects"]) == [a.requester]
+    assert "Ahmed" not in last["raw"]
+    assert (await _detail(world, a, last["id"]))["fingerprint_status"] == "verified"
+    await world.sql(
+        "UPDATE field_changes SET reason = 'Nothing to see'"
+        " WHERE tenant_id = $1 AND change_id = $2",
+        a.tenant,
+        last["fingerprint_saves"][-1],
+    )
+    assert (await _detail(world, a, last["id"]))["fingerprint_status"] == "mismatch"
+
+
+async def test_an_erased_subjects_reason_is_blanked_and_reads_erased_on_request(
+    world: World,
+) -> None:
+    b = world.b
+    item = await world.create(b, b.admin, requester_id=str(b.requester))
+    await _worker_save(world, b, "work_item", item["id"], [Change("priority", "p3", "p2")], REASON)
+    last = await _last_entry(world, b, item["id"])
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        await erase_subject(session, b.requester)
+    assert await _reasons(world, b, last["fingerprint_saves"][-1]) == [None]
+    assert (await _detail(world, b, last["id"]))["fingerprint_status"] == "erased_on_request"
+    (logged,) = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1"
+        " AND action = 'audit.subject_erased' AND object_id = $2",
+        b.tenant,
+        str(b.requester),
+    )
+    assert json.loads(logged["details"])["history_reasons_erased"] >= 1
+
+
+async def test_an_asset_saves_reason_is_ordinary_and_stays_verifiable(world: World) -> None:
+    a = world.a
+    asset = str(uuid.uuid4())
+    await _worker_save(world, a, "asset", asset, [Change("location", "F1", "F2")], "Audit move")
+    last = await _last_entry(world, a, asset)
+    assert last["personal_fingerprint"] is None  # assets have no data subjects
+    assert list(last["personal_subjects"]) == []
+    # Someone else's erasure leaves it alone; it still verifies.
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await erase_subject(session, a.requester2)
+    assert await _reasons(world, a, last["fingerprint_saves"][-1]) == ["Audit move"]
+    assert (await _detail(world, a, last["id"]))["fingerprint_status"] == "verified"
+    # And its reason is covered by the unsalted half.
+    await world.sql(
+        "UPDATE field_changes SET reason = 'Lost' WHERE tenant_id = $1 AND change_id = $2",
+        a.tenant,
+        last["fingerprint_saves"][-1],
+    )
+    assert (await _detail(world, a, last["id"]))["fingerprint_status"] == "mismatch"
+
+
+async def test_the_previous_requester_is_a_subject_of_the_save_that_replaces_them(
+    world: World,
+) -> None:
+    """Lane A: a save moving the requester may hold the old one's free text."""
+    b = world.b
+    item = await world.create(
+        b, b.admin, subject=SECRET, requester_id=str(b.requester), description="<p>Mine</p>"
+    )
+    moved = await world.patch(
+        b, b.admin, item, requester_id=str(b.requester2), subject=f"{SECRET} (handed over)"
+    )
+    assert moved.status_code == 200, moved.text
+    last = await _last_entry(world, b, item["id"])
+    assert set(last["personal_subjects"]) == {b.requester, b.requester2}
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        await erase_subject(session, b.requester)  # the previous requester
+    assert (await _detail(world, b, last["id"]))["fingerprint_status"] == "erased_on_request"
+    values = await world.sql(
+        "SELECT field, old_value, new_value FROM field_changes"
+        " WHERE tenant_id = $1 AND change_id = $2",
+        b.tenant,
+        last["fingerprint_saves"][-1],
+    )
+    subject = next(v for v in values if v["field"] == "subject")
+    assert (subject["old_value"], subject["new_value"]) == (None, None)
+    requester = next(v for v in values if v["field"] == "requester_id")
+    assert requester["new_value"] is not None  # IDs are not personal: kept
 
 
 async def test_a_missing_salt_without_a_logged_erasure_is_a_mismatch(world: World) -> None:
