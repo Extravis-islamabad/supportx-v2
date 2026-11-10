@@ -300,7 +300,8 @@ def _public_status(
     return found
 
 
-def _excerpt(body: str) -> str:
+def reply_excerpt(body: str) -> str:
+    """A conversation entry's words for a notice: plain text, cut to the excerpt length."""
     text = html.unescape(nh3.clean(body.replace("</p>", "</p>\n"), tags=set())).strip()
     return text if len(text) <= EXCERPT else text[: EXCERPT - 1].rstrip() + "…"
 
@@ -417,6 +418,58 @@ _ONE_NOTICE = {
     WorkItemWorkflowNotice.event_type: NOTICE,
     WorkItemAssigneeUnavailable.event_type: UNAVAILABLE,
 }
+
+
+async def move_reply_delivery(  # noqa: PLR0913 - the port's fields, explicit
+    session: AsyncSession,
+    *,
+    record_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    state: str,
+    reason: str | None,
+    at: datetime,
+) -> None:
+    """Move a reply's delivery state (REQ-INC-059), in order and never back from sent.
+
+    Only replies move (notes have no delivery state, and a reply the requester sent by mail
+    is theirs, not ours to deliver). Each applied change bumps the entry's version, so a
+    resend from a stale screen is refused, and the timeline hears of it live. Shared by every
+    record type's source (incidents, requests, changes, releases).
+    """
+    entry = await session.scalar(
+        select(WorkItemConversation)
+        .where(
+            WorkItemConversation.id == entry_id,
+            WorkItemConversation.work_item_id == record_id,
+            WorkItemConversation.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if entry is None or entry.delivery_state not in MOVABLE:
+        return
+    if entry.delivery_updated_at is not None and at <= entry.delivery_updated_at:
+        return  # an older report arriving late
+    new_state, new_reason = DeliveryState(state), DeliveryReason(reason) if reason else None
+    if (entry.delivery_state, entry.delivery_reason) == (new_state.value, reason):
+        entry.delivery_updated_at = at
+        return
+    entry.delivery_state = new_state.value
+    entry.delivery_reason = new_reason.value if new_reason else None
+    entry.delivery_updated_at = at
+    entry.version += 1
+    await record_event(
+        session,
+        WorkItemConversationDeliveryChanged(
+            work_item_id=record_id,
+            entry_id=entry.id,
+            kind=entry.kind,
+            visibility=entry.visibility,
+            delivery_state=entry.delivery_state,
+            delivery_reason=entry.delivery_reason,
+        ),
+        aggregate_id=entry.id,
+        aggregate_version=entry.version,
+    )
 
 
 class IncidentNotifications:
@@ -536,7 +589,7 @@ class IncidentNotifications:
             if entry is None:
                 return None
             full["conversation.author"] = shared["actor.name"]
-            full["conversation.excerpt"] = _excerpt(entry.body)
+            full["conversation.excerpt"] = reply_excerpt(entry.body)
             if entry.visibility == Visibility.PUBLIC.value:
                 public["conversation.author"] = shared["actor.name"]
                 public["conversation.excerpt"] = full["conversation.excerpt"]
@@ -569,45 +622,9 @@ class IncidentNotifications:
         reason: str | None,
         at: datetime,
     ) -> None:
-        """Move a reply's delivery state (REQ-INC-059), in order and never back from sent.
-
-        Only replies move (notes have no delivery state, and a reply the requester sent by mail
-        is theirs, not ours to deliver). Each applied change bumps the entry's version, so a
-        resend from a stale screen is refused, and the timeline hears of it live.
-        """
-        entry = await session.scalar(
-            select(WorkItemConversation)
-            .where(
-                WorkItemConversation.id == entry_id,
-                WorkItemConversation.work_item_id == record_id,
-                WorkItemConversation.deleted_at.is_(None),
-            )
-            .with_for_update()
-        )
-        if entry is None or entry.delivery_state not in MOVABLE:
-            return
-        if entry.delivery_updated_at is not None and at <= entry.delivery_updated_at:
-            return  # an older report arriving late
-        new_state, new_reason = DeliveryState(state), DeliveryReason(reason) if reason else None
-        if (entry.delivery_state, entry.delivery_reason) == (new_state.value, reason):
-            entry.delivery_updated_at = at
-            return
-        entry.delivery_state = new_state.value
-        entry.delivery_reason = new_reason.value if new_reason else None
-        entry.delivery_updated_at = at
-        entry.version += 1
-        await record_event(
-            session,
-            WorkItemConversationDeliveryChanged(
-                work_item_id=record_id,
-                entry_id=entry.id,
-                kind=entry.kind,
-                visibility=entry.visibility,
-                delivery_state=entry.delivery_state,
-                delivery_reason=entry.delivery_reason,
-            ),
-            aggregate_id=entry.id,
-            aggregate_version=entry.version,
+        """Move a reply's delivery state (REQ-INC-059); the same for every type's replies."""
+        await move_reply_delivery(
+            session, record_id=record_id, entry_id=entry_id, state=state, reason=reason, at=at
         )
 
     async def access(

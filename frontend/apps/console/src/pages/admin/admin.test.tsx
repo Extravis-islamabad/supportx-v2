@@ -354,6 +354,38 @@ describe('Admin › Users access drawer', () => {
       expect(fake.find('PUT', '/api/v1/users/u-9/roles/r-hr')).toHaveLength(1);
     });
   });
+
+  it('keeps a contact on one line and lets a keyboard reach the scrolling table', async () => {
+    const contact = fakeUser({
+      id: 'u-7',
+      display_name: 'Ayesha Contact',
+      email: 'ayesha@demo.test',
+      user_type: 'requester',
+      can_sign_in: false,
+    });
+    adminRoutes({
+      routes: {
+        'GET /api/v1/users': { body: { items: [contact], has_more: false, next_cursor: null } },
+        'GET /api/v1/organization/departments': { body: [] },
+        'GET /api/v1/organization/sites': { body: [] },
+      },
+    });
+    render(<App />);
+    // QA6 ADM-02: the name and its chip share one line, the chip never squeezing the name.
+    const cell = await screen.findByTestId('user-name-u-7');
+    expect(cell.className).not.toContain('ant-flex-wrap-wrap');
+    const name = within(cell).getByText('Ayesha Contact');
+    expect(name.classList.contains('sx-cell-text')).toBe(true);
+    expect(name.getAttribute('title')).toBe('Ayesha Contact');
+    // The chips keep their own width: the name gives way first.
+    const chips = cell.querySelector('span[style*="flex-shrink: 0"]');
+    expect(chips?.textContent).toBe('Contact');
+    // Visual matrix at 390 px (axe scrollable-region-focusable): the table's own scroll box is a
+    // named region a keyboard can focus.
+    const region = await screen.findByRole('region', { name: 'People' });
+    expect(region.classList.contains('ant-table-content')).toBe(true);
+    expect(region.tabIndex).toBe(0);
+  });
 });
 
 describe('Access drawer: roles held through groups (WP-042)', () => {
