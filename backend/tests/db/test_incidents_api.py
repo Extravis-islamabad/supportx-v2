@@ -33,6 +33,8 @@ from httpx import ASGITransport, AsyncClient
 from app.core.database import Database
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
+from app.modules.identity_access import subject_for
+from app.modules.organization.service import structure, units
 from app.modules.work_items.domain.types import WorkItemTypeCode
 from app.modules.work_items.service.realtime import LISTS, ROUTES
 from app.shared.events import EventEnvelope
@@ -253,11 +255,42 @@ async def make_org(world: World, name: str) -> Org:
     )
     assigned = await world.call("PUT", f"/users/{lead}/roles/{lead_role}", org, admin)
     assert assigned.status_code == 204, assigned.text
-    org.s1 = await unit(world, org, "sites", f"{name} S1", [tech_a, tech_c, requester])
-    org.s2 = await unit(world, org, "sites", f"{name} S2", [tech_b, requester2])
-    org.ga = await unit(world, org, "groups", f"{name} GA", [tech_a, tech_c])
-    org.gb = await unit(world, org, "groups", f"{name} GB", [tech_b, tech_c])
+    org.s1, org.s2, org.ga, org.gb = await quick_units(
+        world,
+        org,
+        [
+            ("site", f"{name} S1", [tech_a, tech_c, requester]),
+            ("site", f"{name} S2", [tech_b, requester2]),
+            ("group", f"{name} GA", [tech_a, tech_c]),
+            ("group", f"{name} GB", [tech_b, tech_c]),
+        ],
+    )
     return org
+
+
+async def quick_units(
+    world: World, org: Org, specs: list[tuple[str, str, list[uuid.UUID]]]
+) -> list[uuid.UUID]:
+    """Sites and groups with their members, in one session through the organization service.
+
+    The same service calls the routes make (rows, history, outbox events, the access-change
+    signal), without 13 HTTP round trips per organisation. What it leaves out is the routes'
+    audit entries. Tests about the member API or its audit use `unit()`, which goes through
+    the routes.
+    """
+    made: list[uuid.UUID] = []
+    context = TenantContext(org.tenant, org.admin)
+    async with world.app.state.db.tenant_session(context) as session:
+        by = await subject_for(session, org.tenant, org.admin)
+        for kind, name, members in specs:
+            if kind == "site":
+                unit_id = (await structure.save_site(session, None, {"name": name})).id
+            else:
+                unit_id = (await structure.save_group(session, None, {"name": name})).group.id
+            for member in members:
+                await units.add_member(session, kind, unit_id, member, by=by)  # type: ignore[arg-type]  # "site" | "group"
+            made.append(unit_id)
+    return made
 
 
 @asynccontextmanager
