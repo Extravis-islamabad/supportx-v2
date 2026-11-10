@@ -444,6 +444,9 @@ export const ur: LabelResource = {
   'permission.groups.manage': 'سپورٹ گروپس کا انتظام کریں',
   'permission.groups.manage.description':
     'سپورٹ گروپس بنائیں، ان کے نام بدلیں اور ارکان تبدیل کریں۔',
+  'permission.groups.manage_own': 'اپنی قیادت والے گروپس کا انتظام',
+  'permission.groups.manage_own.description':
+    'جن گروپس کی آپ قیادت کرتے ہیں ان کے ارکان کی دستیابی، تفویض، جوابی سانچے، محفوظ مناظر اور ڈیش بورڈز؛ دوسرے گروپس یا تنظیم کی ترتیبات نہیں۔',
   'permission.groups.view': 'سپورٹ گروپس دیکھیں',
   'permission.groups.view.description': 'سپورٹ گروپس اور ان کے ارکان دیکھیں۔',
   // WP-039 identity: sign-in settings and single sign-on
@@ -778,36 +781,69 @@ export const ur: LabelResource = {
   'readiness_check.realtime_fanout': 'براہ راست اپ ڈیٹس',
   'readiness_status.not_ready': 'تیار نہیں',
   'readiness_status.ready': 'تیار',
+  'role.asset_manager': 'اثاثہ مینیجر',
+  'role.asset_manager.description':
+    'پوری تنظیم کے اثاثوں، CMDB، سافٹ ویئر لائسنسوں اور دریافت کے نتائج کا انتظام کرتا ہے۔',
+  'role.asset_manager.scope': 'تمام اثاثے',
   'role.auditor': 'آڈیٹر',
   'role.auditor.description':
     'آڈٹ لاگ پڑھتا، تلاش کرتا، برآمد کرتا اور اس کی تصدیق کرتا ہے اور رسائی کی ترتیبات پڑھتا ہے؛ کچھ تبدیل نہیں کرتا۔',
+  'role.auditor.scope': 'آڈٹ لاگ، صرف پڑھنے کے لیے',
+  'role.change_manager': 'تبدیلی مینیجر',
+  'role.change_manager.description':
+    'تبدیلیوں کو درخواست سے جائزے تک چلاتا ہے اور تبدیلی کے مشاورتی بورڈ کا شیڈول بناتا ہے۔',
+  'role.change_manager.scope': 'تمام تبدیلیاں',
+  'role.department_viewer': 'شعبہ ناظر',
+  'role.department_viewer.description':
+    'پورٹل میں اپنے شعبے کی درخواستیں صرف پڑھنے کے لیے اور تکنیکی تفصیلات کے بغیر دیکھتا ہے۔',
+  'role.department_viewer.scope': 'صرف اپنا شعبہ',
   'role.knowledge_manager': 'نالج مینیجر',
   'role.knowledge_manager.description':
     'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
+  'role.knowledge_manager.scope': 'تمام علمی مضامین',
   'role.problem_manager': 'مسائل کا منتظم',
   'role.problem_manager.description':
     'مسائل کا انتظام چلاتا ہے: ہر مسئلہ دیکھتا، اس پر کام کرتا، تفویض کرتا، منظور اور بند کرتا ہے، بشمول بنیادی وجہ اور معلوم خرابیاں، اور متعلقہ واقعات پڑھتا ہے۔',
+  'role.problem_manager.scope': 'تمام مسائل',
+  'role.purchase_manager': 'خریداری اور معاہدہ مینیجر',
+  'role.purchase_manager.description': 'خریداریوں، فروشندگان اور معاہدوں کی دیکھ بھال کرتا ہے۔',
+  'role.purchase_manager.scope': 'تمام خریداریاں اور معاہدے',
+  'role.release_manager': 'ریلیز مینیجر',
+  'role.release_manager.description':
+    'ریلیزز کو ان کے مراحل سے گزارتا ہے اور مراحل کے کردار تفویض کرتا ہے۔',
+  'role.release_manager.scope': 'تمام ریلیزز',
   'role.report_viewer': 'رپورٹ دیکھنے والا',
   'role.report_viewer.description':
     'ہر واقعہ اور درخواست اور ان کی رپورٹس پڑھتا ہے، بغیر کچھ بدلے۔',
+  'role.report_viewer.scope': 'تمام واقعات اور درخواستیں، صرف پڑھنے کے لیے',
   'role.requester': 'درخواست گزار',
   'role.requester.description':
     'اپنی درخواستیں درج کرتا اور ان پر نظر رکھتا ہے، اور علمی ذخیرہ پڑھتا ہے۔',
+  'role.requester.scope': 'اپنی درخواستیں',
   'role.security_admin': 'سکیورٹی ایڈمنسٹریٹر',
   'role.security_admin.description':
     'سائن اِن اور سکیورٹی: سنگل سائن آن، پاس ورڈ، ایم ایف اے، سیشن اور دعوت نامے؛ ریکارڈز تک رسائی نہیں۔',
+  'role.security_admin.scope': 'سائن اِن اور سیکیورٹی کی ترتیبات',
   'role.service_desk_manager': 'سروس ڈیسک مینیجر',
   'role.service_desk_manager.description':
     'سروس ڈیسک چلاتا ہے: ہر واقعہ اور درخواست، ڈیسک کے SLA، آٹومیشن، رپورٹس اور اعلانات۔',
+  'role.service_desk_manager.scope': 'سروس ڈیسک کے تمام ریکارڈ',
   'role.site_admin': 'سائٹ ایڈمنسٹریٹر',
   'role.site_admin.description':
     'ایک سائٹ کی دیکھ بھال کرتا ہے: اس کے واقعات اور درخواستیں، لوگ، اثاثے اور اعلانات۔',
+  'role.site_admin.scope': 'ایک سائٹ',
+  'role.team_lead': 'ٹیم لیڈ',
+  'role.team_lead.description':
+    'اپنے گروپس کے واقعات، درخواستوں اور مسائل پر کام کرتا ہے اور صرف انہی گروپس کا انتظام کرتا ہے جن کی وہ قیادت کرتا ہے؛ تبدیلیاں، اثاثے اور CMDB دیکھتا ہے۔',
+  'role.team_lead.scope': 'وہ گروپس جن کی وہ قیادت کرتا ہے',
   'role.technician': 'ٹیکنیشن',
   'role.technician.description':
     'درخواستوں، مسائل، تبدیلیوں اور اثاثوں پر کام کرتا ہے؛ علمی ذخیرہ پڑھتا ہے۔',
+  'role.technician.scope': 'اپنے گروپس اور اپنے ریکارڈ',
   'role.tenant_admin': 'ادارہ منتظم',
   'role.tenant_admin.description':
     'پلان میں موجود ہر چیز تک مکمل رسائی، بشمول صارفین، کردار اور ترتیبات۔',
+  'role.tenant_admin.scope': 'سب کچھ',
   'roles.col.name': 'کردار',
   'roles.col.type': 'قسم',
   'roles.col.users': 'صارفین',

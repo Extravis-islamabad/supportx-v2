@@ -15,7 +15,8 @@ Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantS
 `tenant_for_host`, `HostTenant` (sign-in hint, WP-017), `get_branding`, `BrandingView`,
 `email_branding`, `EmailBranding`, `header_html` (e-mails), `register_calendar_check`,
 `calendar_users`, `CalendarUsers`, `unit_calendars` (WP-025: which calendar a site or group
-names).
+names); `leads_group`, `led_groups`, `may_manage_group`, `require_group_manager`, `GroupActor`
+(D-152: a team lead manages only the groups they lead).
 """
 
 from fastapi import FastAPI
@@ -51,6 +52,13 @@ from app.modules.organization.service.instance import (
     offered_languages,
     regional_defaults,
 )
+from app.modules.organization.service.leadership import (
+    GroupActor,
+    leads_group,
+    led_groups,
+    may_manage_group,
+    require_group_manager,
+)
 from app.modules.organization.service.realtime import ROUTES
 from app.modules.organization.service.structure import (
     SiteDefaults,
@@ -62,6 +70,7 @@ from app.modules.organization.service.structure import (
     existing_departments,
     find_department,
     find_site,
+    heads_department,
     leave_groups,
     register_group_disable_guard,
     register_site_people_counter,
@@ -92,6 +101,8 @@ PERMISSIONS = (
     PermissionSpec("sites.manage"),
     PermissionSpec("groups.view"),
     PermissionSpec("groups.manage"),
+    # The groups you lead only (D-152): availability, assignment, templates, views, dashboards.
+    PermissionSpec("groups.manage_own", defaults=(("team_lead", "all"),)),
     PermissionSpec(
         "departments.view",
         defaults=(("technician", "all"), ("service_desk_manager", "all"), ("site_admin", "all")),
@@ -146,6 +157,7 @@ __all__ = [
     "BrandingView",
     "CalendarUsers",
     "EmailBranding",
+    "GroupActor",
     "HostTenant",
     "Memberships",
     "RegionalDefaults",
@@ -167,7 +179,11 @@ __all__ = [
     "get_branding",
     "get_current_tenant",
     "header_html",
+    "heads_department",
+    "leads_group",
     "leave_groups",
+    "led_groups",
+    "may_manage_group",
     "memberships",
     "module",
     "offered_languages",
@@ -179,6 +195,7 @@ __all__ = [
     "register_site_people_counter",
     "register_usage",
     "remove_member",
+    "require_group_manager",
     "site_defaults",
     "tenant_for_host",
     "tenant_for_slug",

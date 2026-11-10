@@ -14,7 +14,7 @@ from app.core.tenancy import TenantContext
 from app.modules.assets import register_disposal_guard, unregister_disposal_guard
 from tests.db import test_incidents_api
 from tests.db.test_asset_moves_api import _move, _states
-from tests.db.test_assets_api import _add, _product
+from tests.db.test_assets_api import _add, _product, asset_manager
 from tests.db.test_incidents_api import World, field_codes, problem
 from tests.db.test_knowledge_api import _match
 
@@ -129,6 +129,7 @@ async def test_what_still_holds_the_asset_refuses_the_disposal(world: World) -> 
 async def test_a_disposed_asset_is_read_only_without_its_permission(world: World) -> None:
     """AC3: only assets.edit_disposed changes it, and every change asks for a reason."""
     a = world.a
+    await asset_manager(world, a, a.tech_a)  # manages assets, never assets.edit_disposed
     asset = await _retired(world, "Read only")
     done = await _dispose(world, asset, RECORD)
     version = asset["version"] + 1

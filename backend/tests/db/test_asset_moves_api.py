@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from tests.db import test_incidents_api
-from tests.db.test_assets_api import _add, _product
+from tests.db.test_assets_api import _add, _product, asset_manager
 from tests.db.test_incidents_api import Org, World, field_codes, problem
 from tests.db.test_knowledge_api import _match, _new
 
@@ -80,13 +80,14 @@ async def test_moves_follow_the_life_cycle_and_ask_for_reasons(world: World) -> 
 
 async def test_bringing_back_a_retired_asset_needs_its_permission(world: World) -> None:
     a = world.a
+    await asset_manager(world, a, a.tech_a)  # manages assets, never assets.reinstate (D-153)
     states = await _states(world, a)
     laptop = await _product(world, a, "laptop", "Retiring")
     asset = (await _add(world, a, {"name": "Old one", "product_id": laptop}, a.tech_a)).json()
     asset = (await _move(world, a, asset, states["retired"], "End of life", a.tech_a)).json()
     options = await world.call("GET", f"{BASE}/{asset['id']}/moves", a, a.tech_a)
     back = next(o for o in options.json() if o["to_state_id"] == states["in_stock"])
-    assert back["allowed"] is False  # shown, not offered: the technician lacks assets.reinstate
+    assert back["allowed"] is False  # shown, not offered: the asset manager lacks reinstate
     refused = await _move(world, a, asset, states["in_stock"], user=a.tech_a)
     assert problem(refused)[0] == 403
     assert (await _move(world, a, asset, states["in_stock"])).status_code == 200
