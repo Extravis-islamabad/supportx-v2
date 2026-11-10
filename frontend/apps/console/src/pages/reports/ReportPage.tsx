@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Flex,
+  Form,
   Input,
   Modal,
   Result,
@@ -302,8 +303,8 @@ function ReportView({ latest }: { latest: Base }) {
               <Button onClick={reset} data-testid="report-reset">
                 {t('reports.reset')}
               </Button>
+              {/* The header holds the page's one primary Save (QA10-P4-26): this one is secondary. */}
               <WriteButton
-                type="primary"
                 disabled={problems.size > 0 || !can('reports.create')}
                 onClick={() => {
                   setCopying(true);
@@ -984,35 +985,42 @@ function Actions({
           );
         }}
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Input
-            aria-label={t('reports.name')}
-            count={lengthLimit(200)}
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-            }}
-            data-testid="report-save-name"
-          />
-          <Select
-            aria-label={t('reports.folder')}
-            value={folder}
-            onChange={setFolder}
-            style={{ width: '100%' }}
-            options={[
-              { value: 'mine', label: t('reports.my_reports_private') },
-              ...(library.data?.folders ?? []).map((f) => ({
-                value: f.id,
-                label: t('reports.shared_folder_named', { name: isolate(f.name) }),
-              })),
-            ]}
-            data-testid="report-save-folder"
-          />
+        {/* Each field with its visible label above it (QA10-P4-26), not only an aria-label. */}
+        <Form layout="vertical" component="div">
+          <Form.Item label={t('reports.name')} htmlFor="report-save-name" required>
+            <Input
+              id="report-save-name"
+              aria-label={t('reports.name')}
+              count={lengthLimit(200)}
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+              }}
+              data-testid="report-save-name"
+            />
+          </Form.Item>
+          <Form.Item label={t('reports.folder')} htmlFor="report-save-folder">
+            <Select
+              id="report-save-folder"
+              aria-label={t('reports.folder')}
+              value={folder}
+              onChange={setFolder}
+              style={{ width: '100%' }}
+              options={[
+                { value: 'mine', label: t('reports.my_reports_private') },
+                ...(library.data?.folders ?? []).map((f) => ({
+                  value: f.id,
+                  label: t('reports.shared_folder_named', { name: isolate(f.name) }),
+                })),
+              ]}
+              data-testid="report-save-folder"
+            />
+          </Form.Item>
           {folder !== 'mine' && (
             <Alert type="info" showIcon message={t('reports.shared_save_hint')} />
           )}
           <FormProblem problem={copyProblem} />
-        </Space>
+        </Form>
       </Modal>
     </>
   );

@@ -87,6 +87,13 @@ from app.shared.ids import new_id
 # codes, the standard template).
 # The settings' history record type (settings.SETTINGS_RECORD_TYPE; that module imports this one).
 SETTINGS_RECORD_TYPE = "work_item_settings"
+
+
+def settings_record_id(code: str) -> uuid.UUID:
+    """The id a type's settings history is kept under (one place, not one per writer)."""
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{code}")
+
+
 SEED_VERSION = 4  # 3: the closure code "confirmed by requester" (D-107); 4: staged roles, approvals
 STANDARD_TEMPLATE = "standard"
 MAJOR_PROBLEM_TEMPLATE = "major_problem"  # REQ-PRB-017, Appendix A: the guided life cycle
@@ -557,7 +564,7 @@ async def _seed_v4(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID
     """
     if wtype.stages is None:
         return
-    settings_id = uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}")
+    settings_id = settings_record_id(wtype.code)
     edited = await session.scalar(
         select(FieldChange.id)
         .where(
@@ -572,7 +579,10 @@ async def _seed_v4(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID
     held = set(
         (
             await session.scalars(
-                select(WorkItemRoleDef.code).where(WorkItemRoleDef.type == wtype.code)
+                # The tenant as well as RLS (lane A's review): never another tenant's roles.
+                select(WorkItemRoleDef.code).where(
+                    WorkItemRoleDef.tenant_id == tenant, WorkItemRoleDef.type == wtype.code
+                )
             )
         ).all()
     )
