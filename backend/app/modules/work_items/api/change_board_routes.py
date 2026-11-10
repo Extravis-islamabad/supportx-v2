@@ -33,7 +33,10 @@ router = APIRouter(
 )
 LOCATION = "/api/v1/change-boards"
 View = Annotated[
-    Subject, Depends(require_permission(CHANGE.permission("view"), "config.service_desk"))
+    Subject,
+    Depends(
+        require_permission(CHANGE.permission("view"), "config.service_desk", "settings.manage")
+    ),
 ]
 # The change manager and administrators only (Haider, 2026-11-10).
 Admin = Annotated[Subject, Depends(require_permission("changes.manage_boards", "settings.manage"))]
