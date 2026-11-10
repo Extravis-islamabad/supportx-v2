@@ -182,6 +182,34 @@ describe('console: service requests', () => {
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
+  it('QA10-P1-11: the catalog is a library: a tab per category, each item with its description', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const CAT = '01a1a2b3-0000-7000-8000-00000000ca01';
+    api({
+      'GET /api/v1/catalog/items': {
+        body: [{ ...laptop, category_id: CAT, descriptions: { en: 'A work laptop' } }],
+      },
+      'GET /api/v1/catalog/categories': {
+        body: [
+          {
+            id: CAT,
+            names: { en: 'Hardware' },
+            descriptions: {},
+            enabled: true,
+            icon: null,
+            parent_id: null,
+            sort_order: 1,
+            version: 1,
+          },
+        ],
+      },
+    });
+    render(<App />);
+    expect(await screen.findByRole('tab', { name: /Hardware/ })).toBeDefined();
+    expect(await screen.findByText('A work laptop')).toBeDefined();
+    expect(screen.getByTestId(`sr-item-${ITEM_ID}`)).toBeDefined();
+  });
+
   it('shows one request with its item details and approval status', async () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     api();

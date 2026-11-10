@@ -1290,6 +1290,7 @@ export const en = {
   'requests.approvals': 'Approvals',
   'requests.approve': 'Approve',
   'requests.back_to_catalog': 'Back to the catalog',
+  'requests.catalog_other': 'Other items',
   'requests.decided_by': '{{name}} · {{when}} · {{channel}}',
   'requests.decision_comment': 'Comment',
   'requests.empty': 'No service requests yet.',
