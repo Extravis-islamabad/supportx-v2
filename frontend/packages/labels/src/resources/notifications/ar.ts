@@ -90,6 +90,11 @@ export const ar: LabelResource = {
   'notification_event.problem_repeat.detected': 'وُجدت حوادث متكررة',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
+  'notification_event.service_request.approved': 'الموافقة على الطلب',
+  'notification_event.service_request.fulfilled': 'تنفيذ الطلب',
+  'notification_event.service_request.received': 'استلام الطلب: إشعار',
+  'notification_event.service_request.rejected': 'رفض الطلب',
+  'notification_event.service_request.withdrawn': 'سحب الطلب',
   'notification_preferences.col.category': 'النوع',
   'notification_preferences.dnd_help':
     'لا نوافذ منبثقة ولا بريد إلا العاجل والإلزامي؛ ويبقى كل شيء في إشعاراتك.',
@@ -381,7 +386,38 @@ export const ar: LabelResource = {
     '{{ record.display_id }} بانتظار موافقتك: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'موافقتك: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approved.body':
+    'مرحبًا {{ recipient.name }}،\n\nتمت الموافقة على طلبك {{ record.display_id }} «{{ record.title }}». نعمل عليه الآن.',
+  'notification_template.service_request.approved.in_app':
+    'تمت الموافقة على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.approved.subject':
+    'تمت الموافقة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.fulfilled.body':
+    'مرحبًا {{ recipient.name }}،\n\nنُفّذ طلبك {{ record.display_id }} «{{ record.title }}». يرجى تأكيد الاستلام أو إخبارنا إن كان ينقصه شيء.',
+  'notification_template.service_request.fulfilled.in_app':
+    'نُفّذ {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.fulfilled.subject':
+    'تم التنفيذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.received.body':
+    'مرحبًا {{ recipient.name }}،\n\nاستلمنا طلبك «{{ record.title }}» وسجّلناه برقم {{ record.display_id }}. سنبقيك على اطلاع.',
+  'notification_template.service_request.received.in_app':
+    'استلمنا {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.received.subject':
+    'استلمنا طلبك {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.rejected.body':
+    'مرحبًا {{ recipient.name }}،\n\nلم تتم الموافقة على طلبك {{ record.display_id }} «{{ record.title }}».{% if approval.comment %}\n\nقال الموافِق: {{ approval.comment }}{% endif %}',
+  'notification_template.service_request.rejected.in_app':
+    'لم تتم الموافقة على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.rejected.subject':
+    'لم تتم الموافقة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.withdrawn.body':
+    'مرحبًا {{ recipient.name }}،\n\nسُحب طلبك {{ record.display_id }} «{{ record.title }}». لن يُتخذ بشأنه أي إجراء آخر.',
+  'notification_template.service_request.withdrawn.in_app':
+    'سُحب {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.withdrawn.subject':
+    'تم السحب: {{ record.display_id }} {{ record.title }}',
   'notification_variable.actor.name': 'غيّره › الاسم',
+  'notification_variable.approval.comment': 'تعليق الموافِق',
   'notification_variable.approval_link': 'الموافقة › الرابط',
   'notification_variable.article.reason': 'المقالة › السبب',
   'notification_variable.article.review_on': 'المقالة › تاريخ المراجعة',
