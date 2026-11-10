@@ -35,7 +35,7 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
-import { BULK_ACTIONS, BULK_MAX, skipReason, type Selection } from './model';
+import { BULK_ACTIONS, BULK_MAX, skipReason, useBulkLive, type Selection } from './model';
 
 import { CategoryCascade } from '../CategoryCascade';
 import { closureCodeChoices, listValueLabel, scaleLabel } from '../labels';
@@ -448,6 +448,8 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
   const t = useLabel();
   const dates = useDateTime();
   const job = useBulkJob(jobId ?? undefined);
+  // Live wherever it is shown (QA10-P1-09: a problem's follow-up stayed at 0% off the list).
+  useBulkLive();
   const data = job.data;
   const skipped = (data?.results ?? []).filter((r) => r.outcome === 'skipped');
   const running = data?.status === 'queued' || data?.status === 'running';

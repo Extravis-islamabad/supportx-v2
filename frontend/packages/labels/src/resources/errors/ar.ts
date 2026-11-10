@@ -98,6 +98,7 @@ export const ar: LabelResource = {
   'errors.certificate_not_valid_now': 'انتهت صلاحية الشهادة أو لم تصبح صالحة بعد.',
   'errors.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
+  'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.conflict': 'قام شخص آخر بتعديل هذا العنصر. أعد التحميل لعرض أحدث إصدار.',
@@ -355,6 +356,7 @@ export const ar: LabelResource = {
   'errors.field.not_eligible': 'لا يمكن لهذا الشخص أو هذه المجموعة شغل هذا الدور.',
   'errors.field.not_for_this_status': 'هذا الإعداد للحالات التي تنتظر شخصًا ما فقط.',
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
+  'errors.field.not_in_past': 'يجب أن يكون هذا الوقت في الماضي.',
   'errors.field.note_too_long': 'يمكن أن تحتوي الملاحظة على {{max}} حرفًا على الأكثر.',
   'errors.field.number_already_used': 'هذا الرقم مستخدم بالفعل. اختر {{minimum}} أو أعلى.',
   'errors.field.oauth_certificate_invalid': 'الصق الشهادة ومفتاحها الخاص RSA، كلاهما بصيغة PEM.',
@@ -732,6 +734,7 @@ export const ar: LabelResource = {
   'errors.service_identity_managed': 'هذه هوية خاصة بموصّل. غيّرها من الإدارة › التكاملات.',
   'errors.service_unavailable': 'الخدمة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.',
   'errors.session_expired': 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.',
+  'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
@@ -756,7 +759,10 @@ export const ar: LabelResource = {
     'هذا الانتقال غير مسموح به من الحالة الحالية. أعد التحميل لرؤية أحدث نسخة.',
   'errors.stage_move_refused': 'يجب إنجاز أمر ما قبل هذا الانتقال. راجع الأسباب في السجل.',
   'errors.stage_not_found': 'هذه المرحلة غير موجودة.',
+  'errors.stage_path_disabled': 'هذا المسار معطّل للسجلات الجديدة.',
   'errors.stage_status_system_only': 'لا يضبط هذه الحالة إلا قرار موافقة.',
+  'errors.standard_change_locked':
+    'يحتفظ التغيير القياسي بخطته كما اعتُمدت. تعديلها يجعله تغييرًا عاديًا يحتاج إلى موافقة عادية.',
   'errors.status_not_found': 'هذه الحالة لم تعد موجودة.',
   'errors.storage_not_configured': 'لم يُعدّ تخزين الملفات لهذا التثبيت.',
   'errors.storage_quota_exceeded':

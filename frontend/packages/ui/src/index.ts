@@ -16,12 +16,13 @@ export * from './files';
 export * from './licence';
 export * from './richtext';
 export { AccountSecurityCard } from './AccountSecurityCard';
+export { PersonSessions, SESSIONS_CHANGED, SignedInSessionsCard } from './SignedInSessionsCard';
 export { ContactDetailsCard } from './ContactDetailsCard';
 export { MfaReminder } from './MfaReminder';
 export { PASSWORD_RESET_PATH, PasswordResetPage } from './PasswordResetPage';
 export { DevSignInPage } from './DevSignInPage';
 export { isDevSignIn } from './devSignIn';
-export { SessionGate, type SessionGateProps } from './SessionGate';
+export { FROM_CONSOLE, SessionGate, type SessionGateProps } from './SessionGate';
 export * from './shell';
 export {
   buildTheme,

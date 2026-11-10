@@ -105,6 +105,7 @@ export const en = {
   'errors.certificate_not_valid_now': 'The certificate has expired or is not valid yet.',
   'errors.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
+  'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.conflict': 'Someone else changed this item. Reload to see the latest version.',
@@ -381,6 +382,7 @@ export const en = {
   'errors.field.not_eligible': 'This person or group may not hold this role.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
+  'errors.field.not_in_past': 'This time must be in the past.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
   'errors.field.number_already_used': 'That number is already used. Choose {{minimum}} or higher.',
   'errors.field.oauth_certificate_invalid':
@@ -796,6 +798,7 @@ export const en = {
     'This is a connector’s own identity. Change it from Admin › Integrations.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
+  'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
@@ -824,7 +827,10 @@ export const en = {
   'errors.stage_move_refused':
     'Something must be done before this move. See the reasons on the record.',
   'errors.stage_not_found': 'This stage does not exist.',
+  'errors.stage_path_disabled': 'That path is switched off for new records.',
   'errors.stage_status_system_only': 'Only an approval decision sets this status.',
+  'errors.standard_change_locked':
+    'A standard change keeps its plan as approved. Changing it makes this a normal change, which needs normal approval.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',
   'errors.storage_quota_exceeded':

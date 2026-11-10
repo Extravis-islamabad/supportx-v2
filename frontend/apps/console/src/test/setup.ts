@@ -1,10 +1,25 @@
 import { cleanup, configure } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
 
-afterEach(() => {
+// The rich-text editor (@tiptap/react) destroys itself on a 1 ms timer after unmount. Let that
+// timer run here, while jsdom's window still exists: otherwise it can fire after the test file's
+// environment is torn down ("window is not defined", an unhandled error that fails the whole
+// run although every test passed; it dropped #249 from the merge queue). A test that left fake
+// timers on has its pending ones run first and gets real timers back (lane A), so the flake
+// cannot return through it.
+async function settleEditors(): Promise<void> {
+  if (vi.isFakeTimers()) {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+  }
+  await new Promise((resolve) => setTimeout(resolve, 5));
+}
+
+afterEach(async () => {
   cleanup();
+  await settleEditors();
   // Forms keep what was typed in session storage (useKeptDraft): never into the next test.
   window.sessionStorage.clear();
 });

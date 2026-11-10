@@ -25,6 +25,9 @@ second run is safe:
 - INCR + PEXPIRE NX in MULTI (`SessionStore.hit`, password-reset limits) and the rate limiter's
   Lua INCRs (app/shared/api/ratelimit.py): one extra count, so a limit errs strict by one
   request in that window; no limit is ever loosened.
+- HSET + PEXPIRE NX + PEXPIRE GT in MULTI, HGETALL and HDEL of a person's session index
+  (`SessionStore`, the signed-in devices, ADR-044): the same field and value again, or a field
+  already gone.
 - GETDEL of a pending sign-in (`take_login`): the second run finds it gone, so that sign-in
   ends as "expired, start again". It can never be used twice (fails safe, never open).
 - The token-refresh lock (`SessionStore.lock`): SET NX with a per-attempt token; a retry that

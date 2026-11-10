@@ -4,6 +4,7 @@ Keycloak is FakeIdp (its password grant checks the password and, for an enrolled
 code); PostgreSQL is real. The ASGI transport's client is 127.0.0.1, so "local" is the Host header.
 """
 
+import json
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from app.core.config import Settings
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.domain.quick_sign_in import time_step, totp, totp_value
 from app.modules.identity_access.infra.crypto import SessionCipher
+from app.modules.identity_access.infra.keycloak_admin import KeycloakUser
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore
 from app.modules.identity_access.service.auth import AuthService
@@ -211,13 +213,47 @@ async def test_only_the_showcase_tenant(quick: Quick) -> None:
     assert quick.idp.ended_sessions  # the Keycloak session it got is ended
 
 
-async def test_the_new_starter_goes_to_the_real_sign_in(quick: Quick) -> None:
+async def test_the_new_starter_gets_keycloaks_set_up_link_and_no_session(quick: Quick) -> None:
+    """QA10: Keycloak's own action link to the two-step set-up, mailed; nobody is signed in."""
+    from tests.db.test_identity_api import FakeAdmin  # noqa: PLC0415 - the shared in-memory admin
+
+    admin = FakeAdmin()
+    account = KeycloakUser(
+        id="kc-new", email="newstarter@showcase.test", enabled=True, has_password=True
+    )
+    admin.accounts[account.id] = account
+    quick.app.state.identity_admin = admin
     async with quick.client() as client:
         done = await _sign_in(quick, client, "new_starter")
-        assert done.status_code == 200
-        assert "/protocol/openid-connect/auth" in done.json()["redirect_to"]
+        assert done.status_code == 200, done.text
+        assert done.json() == {
+            "redirect_to": None,
+            "setup_link_sent_to": "newstarter@showcase.test",
+        }
         assert (await client.get("/api/v1/auth/me")).status_code == 401  # no session made
+    assert admin.emails == [("kc-new", ["CONFIGURE_TOTP"], 15 * 60)]
     assert quick.idp.password_grants == []
+    audited = await _audit(quick.db, quick.showcase)
+    details = [json.loads(r["details"]) for r in audited]
+    assert {"persona": "new_starter", "setup_link": True} in details
+
+
+async def test_a_new_starter_not_seeded_in_keycloak_is_not_found(quick: Quick) -> None:
+    from tests.db.test_identity_api import FakeAdmin  # noqa: PLC0415 - the shared in-memory admin
+
+    admin = FakeAdmin()  # no account for newstarter@showcase.test
+    quick.app.state.identity_admin = admin
+    async with quick.client() as client:
+        missing = await _sign_in(quick, client, "new_starter")
+    assert missing.status_code == 404
+    assert admin.emails == []
+
+
+async def test_the_new_starter_needs_the_identity_admin(quick: Quick) -> None:
+    quick.app.state.identity_admin = None
+    async with quick.client() as client:
+        refused = await _sign_in(quick, client, "new_starter")
+    assert refused.status_code == 503
 
 
 @pytest.mark.parametrize(

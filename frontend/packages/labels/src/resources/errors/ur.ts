@@ -105,6 +105,7 @@ export const ur: LabelResource = {
   'errors.certificate_not_valid_now': 'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے یا ابھی درست نہیں ہوا۔',
   'errors.certificate_unreadable': 'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
   'errors.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
+  'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.conflict':
@@ -386,6 +387,7 @@ export const ur: LabelResource = {
   'errors.field.not_eligible': 'یہ شخص یا گروپ یہ کردار نہیں رکھ سکتا۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
+  'errors.field.not_in_past': 'یہ وقت ماضی کا ہونا چاہیے۔',
   'errors.field.note_too_long': 'نوٹ زیادہ سے زیادہ {{max}} حروف کا ہو سکتا ہے۔',
   'errors.field.number_already_used':
     'یہ نمبر پہلے ہی استعمال ہو چکا ہے۔ {{minimum}} یا اس سے زیادہ منتخب کریں۔',
@@ -803,6 +805,7 @@ export const ur: LabelResource = {
   'errors.service_unavailable':
     'سروس عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.session_expired': 'آپ کا سیشن ختم ہو گیا ہے۔ براہِ کرم دوبارہ سائن اِن کریں۔',
+  'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unknown_person':
     'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
@@ -830,7 +833,10 @@ export const ur: LabelResource = {
     'موجودہ حیثیت سے یہ منتقلی ممکن نہیں۔ تازہ ترین دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.stage_move_refused': 'اس منتقلی سے پہلے کچھ کام باقی ہے۔ ریکارڈ پر وجوہات دیکھیں۔',
   'errors.stage_not_found': 'یہ مرحلہ موجود نہیں۔',
+  'errors.stage_path_disabled': 'یہ راستہ نئے ریکارڈز کے لیے بند ہے۔',
   'errors.stage_status_system_only': 'یہ حیثیت صرف منظوری کے فیصلے سے لگتی ہے۔',
+  'errors.standard_change_locked':
+    'معیاری تبدیلی اپنا منصوبہ منظور شدہ حالت میں رکھتی ہے۔ اسے بدلنے سے یہ عام تبدیلی بن جائے گی، جسے عام منظوری درکار ہے۔',
   'errors.status_not_found': 'یہ حالت اب موجود نہیں۔',
   'errors.storage_not_configured': 'اس تنصیب کے لیے فائل اسٹوریج ترتیب نہیں دی گئی۔',
   'errors.storage_quota_exceeded':
