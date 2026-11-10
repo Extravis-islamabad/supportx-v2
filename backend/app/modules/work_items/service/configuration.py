@@ -112,7 +112,7 @@ async def _bump(  # noqa: PLR0913 - the step and its context, explicit
             updated_by=user_id,
         )
     )
-    settings_id = uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}")
+    settings_id = config.settings_record_id(wtype.code)
     await record_changes(
         session,
         record_type=SETTINGS_RECORD_TYPE,

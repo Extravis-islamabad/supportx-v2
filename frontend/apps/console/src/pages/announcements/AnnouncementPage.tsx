@@ -32,6 +32,7 @@ import { useRecordChannel, useTenantChannel, type PresenceMember } from '@suppor
 import {
   useConflictRetry,
   ConflictDialog,
+  FormFooter,
   PropertiesPanel,
   PropertyList,
   RecordHeader,
@@ -46,7 +47,6 @@ import {
   useRefetchAfter,
   WriteButton,
   lengthLimit,
-  SPACE,
 } from '@supportx/ui';
 
 import { AnnouncementFields } from './AnnouncementForm';
@@ -428,6 +428,8 @@ function StatusActions({ item }: { item: Announcement }) {
           id="ann-reason"
           rows={3}
           count={lengthLimit(REASON_MAX, true)}
+          // Room for the "0 / 500" counter under the box, above the dialog's buttons (QA10-P4-18).
+          style={{ marginBottom: 24 }}
           value={reason}
           onChange={(event) => {
             setReason(event.target.value);
@@ -498,26 +500,28 @@ function EditForm({
     <div>
       <AnnouncementFields
         form={form}
-        // Template B's bar (D-147): the refusal, then Cancel before Save, at the end side.
+        // Template B's sticky footer (D-147, QA10-P4-14): the refusal, then Cancel before Save,
+        // always in view while the form is longer than the window.
         footer={
-          <Flex align="center" gap={SPACE.sm} wrap>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <FormProblem problem={problem} />
-            </div>
-            <Button onClick={onDone}>{t('actions.cancel')}</Button>
-            <WriteButton
-              type="primary"
-              loading={update.isPending}
-              data-testid="ann-save"
-              onClick={() =>
-                void form.handleSubmit((values) => {
-                  save(values, baseVersion, dirty());
-                })()
-              }
-            >
-              {t('actions.save')}
-            </WriteButton>
-          </Flex>
+          <FormFooter
+            testId="ann-edit-footer"
+            notice={<FormProblem problem={problem} />}
+            cancel={<Button onClick={onDone}>{t('actions.cancel')}</Button>}
+            primary={
+              <WriteButton
+                type="primary"
+                loading={update.isPending}
+                data-testid="ann-save"
+                onClick={() =>
+                  void form.handleSubmit((values) => {
+                    save(values, baseVersion, dirty());
+                  })()
+                }
+              >
+                {t('actions.save')}
+              </WriteButton>
+            }
+          />
         }
       />
       <ConflictDialog

@@ -98,4 +98,5 @@ def test_a_rerun_after_a_half_run_and_a_new_order_makes_no_duplicate() -> None:
 
 def _made(api: FakeApi) -> list[tuple[str, tuple[int, ...]]]:
     by_subject = {p["subject"]: pid for pid, p in api.problems.items()}
-    return [(by_subject[lane_a.PROBLEMS[n][0]], (n * 2 + 1, n * 2 + 2)) for n in (1, 2)]
+    later = range(1, len(lane_a.PROBLEMS))
+    return [(by_subject[lane_a.PROBLEMS[n][0]], (n * 2 + 1, n * 2 + 2)) for n in later]

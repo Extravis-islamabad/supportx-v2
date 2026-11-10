@@ -1018,6 +1018,8 @@ export const en = {
   'portal_settings.reminders': 'Reminders for requesters',
   'portal_settings.reminders_hint':
     'Requesters are reminded of what waits for them, such as a fix to confirm.',
+  'portal_settings.saved_partly':
+    'Some of the changes were saved. The ones still counted on the bar were not; check them and save again.',
   'portal_settings.search_sources': 'What the search box looks through',
   'portal_settings.search_sources_hint':
     'Tick what to search, and order the groups as results show them.',
