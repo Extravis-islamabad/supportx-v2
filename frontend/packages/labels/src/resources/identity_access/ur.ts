@@ -782,6 +782,7 @@ export const ur: LabelResource = {
   'profile.time_zone': 'ٹائم زون',
   'profile.time_zone_help': 'تاریخیں اور اوقات دکھانے کے لیے استعمال ہوتا ہے، مثلاً Asia/Dubai۔',
   'profile.title': 'میری پروفائل',
+  'profile.who': 'آپ',
   'readiness_check.event_consumers': 'واقعات کی پروسیسنگ',
   'readiness_check.malware_signatures': 'وائرس کی شناختی فہرست',
   'readiness_check.nats': 'میسج بس',

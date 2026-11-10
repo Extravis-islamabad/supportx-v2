@@ -785,6 +785,7 @@ export const en = {
   'profile.time_zone': 'Time zone',
   'profile.time_zone_help': 'Used to show dates and times, e.g. Asia/Dubai.',
   'profile.title': 'My profile',
+  'profile.who': 'You',
   'readiness_check.event_consumers': 'Event processing',
   'readiness_check.malware_signatures': 'Virus signatures',
   'readiness_check.nats': 'Message bus',

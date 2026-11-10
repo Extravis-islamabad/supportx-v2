@@ -117,8 +117,6 @@ const chains = new WeakMap<QueryClient, Map<string, SaveChain>>();
  */
 export interface SaveListSettingArgs {
   viewKey: string;
-  /** Kept for callers; the version in the cache (the last save's) is what is sent. */
-  version?: number | null;
   setting: ListSettingInput;
 }
 

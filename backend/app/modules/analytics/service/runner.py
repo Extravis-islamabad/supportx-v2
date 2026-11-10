@@ -27,7 +27,12 @@ from app.core.errors import NotFound, PermissionDenied, RateLimited, ValidationF
 from app.core.tenancy import TenantContext
 from app.modules.analytics.domain.definition import AGE_BUCKETS, DateBucket, ReportDefinition
 from app.modules.analytics.domain.measures import MeasureSpec
-from app.modules.analytics.service.compiler import CompiledGroup, compile_report, drill_filter
+from app.modules.analytics.service.compiler import (
+    CompiledGroup,
+    compile_report,
+    drill_all,
+    drill_filter,
+)
 from app.modules.identity_access import Subject
 from app.shared.reporting import (
     ReportingSource,
@@ -222,5 +227,5 @@ async def run_report(  # noqa: PLR0913 - the run's inputs, explicit
         rows=tuple(_rows(definition, compiled.groups, grouped, zone, now)),
         totals=tuple(_number(v) for v in totals),
         truncated=truncated,
-        drill_all=definition.filter_json(),
+        drill_all=drill_all(definition),
     )

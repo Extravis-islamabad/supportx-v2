@@ -383,6 +383,24 @@ def _order(
     return [by_value, *natural]
 
 
+def counted_where(definition: ReportDefinition) -> Any:  # noqa: ANN401 - filter DSL JSON tree
+    """The condition of the first measure when it counts only some records, else None."""
+    if not definition.measures:
+        return None
+    spec = measures_of(definition.entity).get(definition.measures[0])
+    if spec is None or spec.kind != MeasureKind.COUNT_WHERE:
+        return None
+    return spec.where
+
+
+def drill_all(definition: ReportDefinition) -> Any:  # noqa: ANN401 - filter DSL JSON tree
+    """The list filter behind the totals: the report's filter AND what the first measure counts."""
+    parts = [p for p in (definition.filter_json(), counted_where(definition)) if p is not None]
+    if not parts:
+        return None
+    return parts[0] if len(parts) == 1 else {"and": parts}
+
+
 def drill_filter(
     definition: ReportDefinition,
     groups: Sequence[CompiledGroup],
@@ -394,11 +412,13 @@ def drill_filter(
 
     Opening the entity's list with it shows exactly the records counted in that row, because the
     list applies the same scope and the same DSL. `bucket_bounds[i]` is the [from, to) of a date
-    bucket as ISO instants.
+    bucket as ISO instants. A first measure that counts only some records ("open incidents")
+    adds its condition too, so the list holds what the number counts (QA10-P4-22).
     """
     parts: list[Any] = []
-    if definition.filter is not None:
-        parts.append(definition.filter_json())
+    base = drill_all(definition)
+    if base is not None:
+        parts.append(base)
     for index, (group, key) in enumerate(zip(groups, keys, strict=True)):
         if group.bucket is not None:
             low, high = bucket_bounds[index]

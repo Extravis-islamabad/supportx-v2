@@ -9,6 +9,7 @@ import {
   Radio,
   Select,
   Space,
+  theme,
   Typography,
 } from 'antd';
 import { useState } from 'react';
@@ -96,6 +97,7 @@ function EditorBody({
   sort: string;
 }) {
   const t = useLabel();
+  const { token } = theme.useToken();
   const { message } = App.useApp();
   const change = useSavedViewChange();
   const groups = useUnits('groups');
@@ -184,8 +186,24 @@ function EditorBody({
         <Alert type="warning" showIcon message={t('incidents.views.fix_filter')} />
       )}
       <Typography.Text type="secondary">{t('incidents.views.columns_note')}</Typography.Text>
-      <Flex gap={8} wrap justify="space-between">
+      {/* A sticky footer, Cancel before the primary (D-147 template B, QA10-P1-15). */}
+      <Flex
+        gap={8}
+        wrap
+        justify="space-between"
+        data-testid="inc-view-footer"
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          paddingBlock: 12,
+          background: token.colorBgElevated,
+          borderTop: `1px solid ${token.colorSplit}`,
+        }}
+      >
         <Space wrap>
+          <Button onClick={onClose} data-testid="inc-view-cancel">
+            {t('incidents.views.cancel')}
+          </Button>
           <Button
             disabled={problems.size > 0}
             onClick={() => {
@@ -211,12 +229,12 @@ function EditorBody({
           >
             {t('incidents.views.save')}
           </WriteButton>
-          <Button onClick={onClose}>{t('incidents.views.cancel')}</Button>
         </Space>
         {editing && (
           <Popconfirm
             title={t('incidents.views.delete_confirm', { name: draft.name })}
             okText={t('incidents.views.delete')}
+            okButtonProps={{ danger: true }}
             cancelText={t('incidents.views.cancel')}
             onConfirm={() => {
               change.mutate(

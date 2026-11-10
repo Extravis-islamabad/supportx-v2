@@ -569,6 +569,9 @@ export const ar: LabelResource = {
   'setup.page.users.keywords':
     'أشخاص، مستخدمون، فنيون، مقدمو الطلبات، استيراد، موظفون، حسابات، تعطيل',
   'setup.palette_group': 'الإعداد',
+  'setup.read_only': 'يمكنك عرض هذه الصفحة دون تغييرها.',
+  'setup.read_only_reason':
+    'يتيح لك دورك رؤية هذه الإعدادات. يتطلب تغييرها صلاحية إدارة؛ اطلبها من المسؤول إن احتجت إليها.',
   'setup.search': 'البحث في الإعداد',
   'setup.search_placeholder': 'مثل كلمة المرور، العطلات، الشعار',
   'setup.title': 'الإعداد',

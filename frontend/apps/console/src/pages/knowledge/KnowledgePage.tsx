@@ -285,7 +285,18 @@ export function KnowledgePage() {
           dataSource={list.data ?? []}
           pagination={false}
           scroll={{ x: 'max-content' }}
-          locale={{ emptyText: <EmptyText>{t(`knowledge.empty.${view}`)}</EmptyText> }}
+          locale={{
+            // A search or filter that finds nothing says so, not that the view is empty (QA10-P4-02).
+            emptyText: (
+              <EmptyText>
+                {t(
+                  text !== '' || typeCode !== undefined || onlyLanguage !== undefined || topicId
+                    ? 'knowledge.no_match'
+                    : `knowledge.empty.${view}`,
+                )}
+              </EmptyText>
+            ),
+          }}
           columns={[
             {
               key: 'display_id',

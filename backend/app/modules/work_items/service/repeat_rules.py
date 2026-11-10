@@ -93,7 +93,7 @@ async def entitled(session: AsyncSession) -> bool:
 
 
 async def ensure_default(session: AsyncSession) -> None:
-    """The tenant's default rule, made once (idempotent; the partial unique index decides)."""
+    """The tenant's default rule, made once (idempotent; the unique indexes decide)."""
     await session.execute(
         insert(ProblemRepeatRule)
         .values(
@@ -104,11 +104,9 @@ async def ensure_default(session: AsyncSession) -> None:
             enabled=True,
             **DEFAULT_RULE,
         )
-        .on_conflict_do_nothing(
-            index_elements=[ProblemRepeatRule.tenant_id],
-            # The index's own predicate, word for word (Postgres matches it as written).
-            index_where=text("is_default AND deleted_at IS NULL"),
-        )
+        # Any unique index: two first runs racing may meet on the default index or on the name
+        # index (lane B's #316 shard), and either means the default is already there.
+        .on_conflict_do_nothing()
     )
 
 

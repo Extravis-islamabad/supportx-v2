@@ -182,7 +182,10 @@ async def after_save(session: AsyncSession, record: WorkItem, *, source: Source)
         # Where it was, for the emergency override to return it there (Haider, D-144).
         details.resume_stage, details.resume_status = from_stage, str(before["status"])
         await session.flush()
-    await stage_approvals.open_if_raised(session, CHANGE, updated)
+    # The same entry as a move's guard (lane C's #319): a stage whose approvals were removed
+    # moves on by itself, so answer with where the record is now.
+    await stage_approvals.raise_or_move_on(session, CHANGE, updated)
+    await session.refresh(updated)
     await notice(
         session,
         updated,

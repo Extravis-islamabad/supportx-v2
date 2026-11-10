@@ -412,17 +412,6 @@ async def after_decision(
     await items.system_stage_move(session, wtype, record, target=target, source=source)
 
 
-async def open_if_raised(session: AsyncSession, wtype: WorkItemType, record: WorkItem) -> None:
-    """At its stage's raising status, a record's level 1 opens (once: not while it is open)."""
-    settings = await settings_of(session, wtype, record, record.stage)
-    if settings is None or record.status != settings.raised_by:
-        return
-    stage = str(record.stage)
-    if any(r.state == rules.ApprovalState.PENDING for r in await _rows(session, record, stage)):
-        return
-    await open_level(session, record, settings, stage=stage, index=0)
-
-
 class StagedApprovalGuard:
     """The engine's hooks for approvals (ADR-041 §5); registered for releases."""
 
@@ -464,9 +453,45 @@ class StagedApprovalGuard:
         await _close(session, record, others)
 
     async def on_moved(self, session: AsyncSession, record: WorkItem, move: Move) -> None:
-        """Reaching the raising status opens level 1 (once: not while it is open)."""
-        await open_if_raised(session, self.wtype, record)
+        """Reaching the raising status opens level 1, or moves on when nobody can approve."""
         del move
+        await raise_or_move_on(session, self.wtype, record)
+
+
+async def raise_or_move_on(session: AsyncSession, wtype: WorkItemType, record: WorkItem) -> None:
+    """The record's stage asks for its approvals now, if it is at the raising status.
+
+    Level 1 opens (once: not while it is open). A stage whose approvals were removed moves on by
+    itself instead (QA10-P4-29): its outcome statuses are set by approvals only, so a record at
+    the status that used to raise them would wait for a decision nobody can make. Every path that
+    may raise a stage's approvals calls this (a move's guard, a send-back for re-approval), so all
+    of them behave the same (lane A's review).
+    """
+    settings = await settings_of(session, wtype, record, record.stage)
+    if settings is None:
+        await _move_on_without_approvers(session, wtype, record)
+        return
+    if record.status != settings.raised_by:
+        return
+    stage = str(record.stage)
+    if any(r.state == rules.ApprovalState.PENDING for r in await _rows(session, record, stage)):
+        return
+    await open_level(session, record, settings, stage=stage, index=0)
+
+
+async def _move_on_without_approvers(
+    session: AsyncSession, wtype: WorkItemType, record: WorkItem
+) -> None:
+    """With nothing to approve, take the approved outcome at once, recorded as the system's."""
+    default = wtype.stage_approvals.get(str(record.stage))
+    if default is None or record.status != default.get("raised_by"):
+        return
+    # Imported here: the work item service imports the stage guard registered below.
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - see above
+
+    await items.system_stage_move(
+        session, wtype, record, target=str(default["approved"]), source="system"
+    )
 
 
 def register(types: Sequence[WorkItemType]) -> None:

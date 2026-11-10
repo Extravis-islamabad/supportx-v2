@@ -214,10 +214,12 @@ function ItemEditor({ id }: { id: string | undefined }) {
     if (shown.length > 0) {
       setProblems(shown);
       // Seen at once, wherever the person had scrolled to.
+      // Guarded: browsers without it (jsdom in tests) simply don't scroll.
       requestAnimationFrame(() => {
-        document
-          .querySelector('[data-testid="cat-item-problems"]')
-          ?.scrollIntoView({ block: 'nearest' });
+        const box = document.querySelector('[data-testid="cat-item-problems"]');
+        if (box !== null && typeof box.scrollIntoView === 'function') {
+          box.scrollIntoView({ block: 'nearest' });
+        }
       });
     } else reportError(error);
   };

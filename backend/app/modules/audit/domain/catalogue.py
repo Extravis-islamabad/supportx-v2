@@ -334,6 +334,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.subject_erased", AuditCategory.DATA, "audit"),
     # One-off showcase repair (QA 2026-11-09): dates the old seed step moved, put back.
     ("work_item.dates_restored", AuditCategory.DATA, "work_items"),
+    ("work_item.settings_topped_up", AuditCategory.CONFIGURATION, "work_items"),
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
