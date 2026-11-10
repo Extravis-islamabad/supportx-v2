@@ -14,11 +14,14 @@ from typing import Any
 
 import httpx
 
-from tests.db.test_incidents_api import CONSOLE, Org, World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World
 from tests.db.test_release_templates_api import field_codes, release_from, templates
 from tests.db.test_releases_api import REL, a_release, move
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def set_parent(

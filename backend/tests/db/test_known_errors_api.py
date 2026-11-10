@@ -11,11 +11,14 @@ from datetime import datetime
 from typing import Any
 
 from app.modules.work_items.service.bulk import run_bulk_jobs
-from tests.db.test_incidents_api import CONSOLE, Org, World, field_codes, problem, role, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World, field_codes, problem, role
 from tests.db.test_knowledge_api import _new, _topic
 from tests.db.test_problems_api import PRB, new_problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def fresh(world: World, org: Org, user: uuid.UUID, record: dict[str, Any]) -> dict[str, Any]:

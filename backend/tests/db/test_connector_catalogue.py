@@ -8,12 +8,13 @@ from typing import Any
 
 import pytest
 
-from tests.db.test_incidents_api import World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World
 from tests.db.test_mailboxes_api import add, with_key_ring
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 CATALOGUE = "/integrations/catalogue"
 

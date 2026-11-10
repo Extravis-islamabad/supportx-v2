@@ -16,13 +16,14 @@ from collections.abc import AsyncIterator
 
 import pytest
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_audit_exports import storage
 from tests.db.test_files_api import KEYRING, files
-from tests.db.test_incidents_api import CONSOLE, World, world
+from tests.db.test_incidents_api import CONSOLE, World
 
-__all__ = ["files", "storage", "world"]  # fixtures, re-used
+__all__ = ["files", "module_world", "shared_world", "storage"]  # fixtures, re-used
 
-pytestmark = [pytest.mark.db, pytest.mark.scale]
+pytestmark = [pytest.mark.db, pytest.mark.scale, MODULE_LOOP]
 
 UPLOADS = int(os.environ.get("SUPPORTX_FILES_LOAD_UPLOADS", "0"))
 MB = int(os.environ.get("SUPPORTX_FILES_LOAD_MB", "25"))

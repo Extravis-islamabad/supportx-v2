@@ -17,12 +17,13 @@ from app.modules.integrations.service import connections
 from app.modules.integrations.tests.fake_directory import FakeDirectory
 from app.modules.integrations.tests.fake_providers import endpoint_settings
 from app.shared.files.keyring import KeyRing
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_files_api import audit_actions
-from tests.db.test_incidents_api import World, unit, world
+from tests.db.test_incidents_api import World, unit
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 BASE = "/integrations/directories"
 SECRET = "sync-s3cret-0123456789abcd"

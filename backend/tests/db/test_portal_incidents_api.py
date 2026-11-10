@@ -17,11 +17,14 @@ from app.modules.work_items.service.realtime import CHANNELS, PORTAL_KIND, ROUTE
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import LabelRef
 from app.shared.realtime import Channel, ChannelRequest
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import events_of, say
 from tests.db.test_incident_settings_api import admin_write
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 PORTAL = "/portal/incidents"
 STAFF_ONLY = {"group_id", "technician_id", "priority", "status", "channel", "tags", "level"}

@@ -2,11 +2,12 @@
 
 import pytest
 
-from tests.db.test_incidents_api import CONSOLE, World, world
+from tests.db.per_test_world import MODULE_LOOP, module_world, shared_world  # has sync tests
+from tests.db.test_incidents_api import CONSOLE, World
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 def test_d15_the_problem_source_offers_its_own_figures() -> None:

@@ -29,14 +29,17 @@ from app.modules.service_catalog.service.starter import (
 )
 from app.shared.clock import FrozenClock
 from app.shared.search import ENGINE
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_catalog_api import CATEGORIES as CATEGORIES_PATH
 from tests.db.test_catalog_api import ITEMS as ITEMS_PATH
 from tests.db.test_catalog_api import add, category
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 from tests.db.test_service_requests_api import raise_request
 from tooling import timing
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 def codes(response: Any) -> dict[str, str]:  # noqa: ANN401 - an httpx response

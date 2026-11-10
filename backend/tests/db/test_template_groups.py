@@ -3,10 +3,13 @@
 import uuid
 from typing import Any
 
-from tests.db.test_incidents_api import Org, World, field_codes, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import Org, World, field_codes
 from tests.db.test_problems_api import PRB, new_problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def limited(world: World, org: Org, groups: list[uuid.UUID], **values: Any) -> Any:  # noqa: ANN401 - the response

@@ -14,10 +14,13 @@ from app.core.tenancy import TenantContext
 from app.modules.identity_access.service.realtime import ROUTES as PEOPLE_ROUTES
 from app.modules.work_items.service.realtime import ROUTES
 from app.shared.events import EventEnvelope
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import events_of, follow, say
-from tests.db.test_incidents_api import BASE, Org, World, world
+from tests.db.test_incidents_api import BASE, Org, World
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 LISTS_CHANGED = "work_items.lists_changed"
 CHANGED = "work_items.changed"
