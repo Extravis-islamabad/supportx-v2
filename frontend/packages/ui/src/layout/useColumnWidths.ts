@@ -19,6 +19,7 @@ export function useColumnWidths({
   minWidths = {},
   defaults = {},
   label,
+  enabled = true,
 }: {
   kind: ListKind;
   viewKey: string;
@@ -27,10 +28,12 @@ export function useColumnWidths({
   minWidths?: Readonly<Record<string, number>>;
   /** Columns with a width of their own (others size automatically). */
   defaults?: Readonly<Record<string, number>>;
+  /** Off until the view is known: plain headers, nothing read or saved (lane A's #336 review). */
+  enabled?: boolean;
   /** The separator's name for one column, e.g. "Width of Subject: use the arrow keys". */
   label: (key: string) => string;
 }) {
-  const setting = useListSetting(viewKey, true, kind);
+  const setting = useListSetting(viewKey, enabled, kind);
   const save = useSaveListSetting(kind);
   const [dragged, setDragged] = useState<{ key: string; width: number } | null>(null);
   const saved = new Map((setting.data?.columns ?? []).map((c) => [c.key, c.width ?? null]));
@@ -50,24 +53,26 @@ export function useColumnWidths({
     width: (key: string): number | undefined =>
       dragged?.key === key ? dragged.width : savedWidth(key),
     /** For the column's `onHeaderCell`. */
-    header: (key: string) =>
-      ({
-        width: savedWidth(key),
-        defaultWidth: defaults[key],
-        minWidth: minWidths[key],
-        resizeLabel: label(key),
-        onPreview: (next: number | null) => {
-          setDragged(next === null ? null : { key, width: next });
-        },
-        onResize: (next: number) => {
-          store(new Map([...saved, [key, next]]));
-        },
-        onReset: () => {
-          store(new Map([...saved, [key, null]]));
-        },
-        // Ant Design types onHeaderCell's result as plain cell attributes; these reach the
-        // ResizableHeader cell given in `components`.
-      }) satisfies ResizableHeaderProps as HTMLAttributes<HTMLElement>,
+    header: (key: string): HTMLAttributes<HTMLElement> =>
+      !enabled
+        ? {}
+        : ({
+            width: savedWidth(key),
+            defaultWidth: defaults[key],
+            minWidth: minWidths[key],
+            resizeLabel: label(key),
+            onPreview: (next: number | null) => {
+              setDragged(next === null ? null : { key, width: next });
+            },
+            onResize: (next: number) => {
+              store(new Map([...saved, [key, next]]));
+            },
+            onReset: () => {
+              store(new Map([...saved, [key, null]]));
+            },
+            // Ant Design types onHeaderCell's result as plain cell attributes; these reach the
+            // ResizableHeader cell given in `components`.
+          } satisfies ResizableHeaderProps as HTMLAttributes<HTMLElement>),
     /** Any width someone set: "Reset widths" is offered only then. */
     changed: [...saved.values()].some((w) => w !== null),
     /** Every column back to its automatic width. */

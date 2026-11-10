@@ -297,7 +297,7 @@ describe('QA WP-020b on the incident screens', () => {
   it('BUG-10: the reply menu opens on click, not hover, and closes after a choice', async () => {
     api({ routes: COMMON });
     await openConversation();
-    const arrow = screen.getByTestId('conv-reply-more').querySelector('button');
+    const arrow = screen.getByTestId('inc-op-reply-more').querySelector('button');
     if (arrow === null) throw new Error('no arrow');
     fireEvent.mouseEnter(arrow);
     await new Promise((resolve) => setTimeout(resolve, 300));

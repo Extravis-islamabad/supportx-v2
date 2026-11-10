@@ -13,6 +13,7 @@ import {
   useUnits,
   useWithdrawRequest,
   type ServiceRequest,
+  type ReplyMode,
 } from '@supportx/api-client';
 import { useRecordChannel } from '@supportx/realtime';
 import {
@@ -79,6 +80,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const withdraw = useWithdrawRequest();
   const { can } = useAccess();
   const [replyRequest, setReplyRequest] = useState(0);
+  const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   const questions = item.data?.questions ?? [];
   const sites = useUnits('sites');
   const siteName = sites.data?.find((u) => u.id === r.site_id)?.name;
@@ -96,6 +98,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
         header={
           <RecordHeader
             icon={<ShoppingCartOutlined />}
+            kind="service_request"
             typeLabel={t('requests.record_type')}
             displayId={r.display_id}
             title={r.subject}
@@ -153,9 +156,20 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                       primary: true,
                       rank: 0,
                       onClick: () => {
+                        setReplyMode('reply');
                         setReplyRequest((n) => n + 1);
                       },
                       testId: 'sr-reply',
+                      // D-155: the record's one Reply, as on incidents.
+                      variants: (['reply_all', 'forward'] as const).map((mode) => ({
+                        key: mode,
+                        label: t(`reply_mode.${mode}`),
+                        testId: `sr-${mode}`,
+                        onClick: () => {
+                          setReplyMode(mode);
+                          setReplyRequest((n) => n + 1);
+                        },
+                      })),
                     },
                   ]
             }
@@ -246,6 +260,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   item={r}
                   typing={NO_TYPING}
                   replyRequest={replyRequest}
+                  replyMode={replyMode}
                   base="service-requests"
                 />
               ),

@@ -1,9 +1,9 @@
-import { Button, Empty, Flex, Segmented, Skeleton, Tag, Timeline, Typography } from 'antd';
+import { Button, Flex, Segmented, Skeleton, Tag, Timeline, Typography } from 'antd';
 import { SafetyCertificateOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
-import { useDateTime, useLabel } from '@supportx/ui';
+import { EmptyText, useDateTime, useLabel } from '@supportx/ui';
 
 import { REQUESTER_ACTION, useHistoryWords, type HistoryActors } from './historyWords';
 
@@ -40,7 +40,7 @@ export function IncidentHistory({
       {history.isPending ? (
         <Skeleton active />
       ) : entries.length === 0 ? (
-        <Empty description={t('history.none')} />
+        <EmptyText>{t('history.none')}</EmptyText>
       ) : (
         <Timeline
           items={entries.map((entry) => ({

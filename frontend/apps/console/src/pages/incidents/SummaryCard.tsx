@@ -31,6 +31,40 @@ export function SummaryCard({ recordId }: { recordId: string }) {
   if (!on) return null;
   const data = summary.data;
   const made = data?.summary !== null && data?.summary !== undefined;
+  const make = () => {
+    setRefused(null);
+    refresh.mutate(undefined, {
+      onError: (error) => {
+        if (isApiError(error) && error.isRefusal) {
+          markHandled(error);
+          const { title, detail } = describeError(error, t);
+          setRefused(detail ?? title);
+          return;
+        }
+        reportError(error);
+      },
+    });
+  };
+  // Nothing summarised yet: one quiet line with its button, not an empty card (D-155).
+  if (!summary.isPending && !made && refused === null) {
+    return (
+      <Flex align="center" gap={8} wrap data-testid="ai-summary" data-collapsed="true">
+        <RobotOutlined aria-hidden />
+        <Typography.Text type="secondary" data-testid="ai-summary-empty">
+          {t('ai.summary.empty')}
+        </Typography.Text>
+        <Button
+          size="small"
+          type="link"
+          loading={refresh.isPending}
+          onClick={make}
+          data-testid="ai-summary-refresh"
+        >
+          {t('ai.summary.make')}
+        </Button>
+      </Flex>
+    );
+  }
   return (
     <Card
       size="small"
@@ -46,20 +80,7 @@ export function SummaryCard({ recordId }: { recordId: string }) {
           size="small"
           icon={<ReloadOutlined />}
           loading={refresh.isPending}
-          onClick={() => {
-            setRefused(null);
-            refresh.mutate(undefined, {
-              onError: (error) => {
-                if (isApiError(error) && error.isRefusal) {
-                  markHandled(error);
-                  const { title, detail } = describeError(error, t);
-                  setRefused(detail ?? title);
-                  return;
-                }
-                reportError(error);
-              },
-            });
-          }}
+          onClick={make}
           data-testid="ai-summary-refresh"
         >
           {t(made ? 'ai.summary.refresh' : 'ai.summary.make')}
