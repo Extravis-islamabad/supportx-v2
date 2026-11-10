@@ -16,7 +16,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import {
   ApiError,
@@ -30,6 +30,7 @@ import {
 import { useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   EmptyText,
+  lengthLimit,
   NoAccess,
   ListPage,
   PageHeader,
@@ -122,6 +123,8 @@ function NewGroupDialog({ open, onClose }: { open: boolean; onClose: () => void 
       <Form layout="vertical" component="div">
         <Form.Item label={t('assets.groups.name')} required>
           <Input
+            dir="auto"
+            count={lengthLimit(200)}
             value={name}
             onChange={(event) => {
               setName(event.target.value);
@@ -210,6 +213,7 @@ function GroupAssets({ group }: { group: AssetGroup }) {
  */
 export function GroupsPage() {
   const t = useLabel();
+  const navigate = useNavigate();
   const access = useAccess();
   const queryClient = useQueryClient();
   const allowed = access.can('assets.view');
@@ -229,6 +233,7 @@ export function GroupsPage() {
       header={
         <PageHeader
           title={t('assets.groups.title')}
+          back={{ label: t('nav.assets'), onClick: () => void navigate('/assets') }}
           count={groups.data === undefined ? undefined : String(groups.data.length)}
           extra={
             access.can('assets.manage') && (

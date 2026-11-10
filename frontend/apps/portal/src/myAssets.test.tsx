@@ -101,7 +101,7 @@ describe('portal: my assets', () => {
     let rows: unknown[] = [];
     portal({ 'GET /api/v1/assets/mine': () => ({ body: rows }) });
     render(<App />);
-    expect(await screen.findByText('You hold no assets')).toBeTruthy();
+    expect(await screen.findByText('You hold no assets.')).toBeTruthy();
     rows = [LAPTOP];
     act(() => {
       realtime.publish(`:user:${ME.user.id}`, { type: 'assets.mine_changed', ids: [LAPTOP.id] });

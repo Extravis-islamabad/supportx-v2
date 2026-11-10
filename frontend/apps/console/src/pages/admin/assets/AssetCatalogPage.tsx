@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Flex, Skeleton, Tabs } from 'antd';
+import { useSearchParams } from 'react-router';
 
 import {
   queryKeys,
@@ -17,6 +18,8 @@ import { SettingsTab } from './SettingsTab';
 import { StatesTab } from './StatesTab';
 import { TypesTab } from './TypesTab';
 
+const TAB_KEYS = ['types', 'products', 'states', 'life_cycles', 'settings'];
+
 /**
  * The asset catalogue (WP-049a, D-141): product types, products, states, life cycles and the
  * asset settings, for config.assets (or settings.manage). Another admin's change arrives live:
@@ -27,6 +30,8 @@ export function AssetCatalogPage() {
   const t = useLabel();
   const licence = useLicence();
   const queryClient = useQueryClient();
+  // ?tab=products opens that tab (the asset form's "no products yet" hint links there).
+  const [params] = useSearchParams();
   const licensed = licence.has('assets');
   const settings = useAssetSettings(licensed);
   const states = useAssetStates(licensed);
@@ -65,6 +70,7 @@ export function AssetCatalogPage() {
       {header}
       <Tabs
         destroyOnHidden
+        defaultActiveKey={TAB_KEYS.find((key) => key === params.get('tab'))}
         items={[
           {
             key: 'types',
