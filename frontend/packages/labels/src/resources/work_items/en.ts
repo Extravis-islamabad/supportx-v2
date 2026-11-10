@@ -592,6 +592,7 @@ export const en = {
   'incidents.columns.none': 'No other field matches.',
   'incidents.columns.remove': 'Remove {{column}}',
   'incidents.columns.reset': 'Default columns',
+  'incidents.columns.reset_widths': 'Reset widths',
   'incidents.columns.resize': 'Width of {{column}}: use the arrow keys',
   'incidents.columns.search': 'Search fields',
   'incidents.columns.shown': 'Shown, in this order',

@@ -95,12 +95,12 @@ describe('DateTimeField', () => {
     expect(await screen.findByText('Times are in Pacific/Kiritimati.')).toBeDefined();
     const input = document.getElementById('when') as HTMLInputElement;
     await waitFor(() => {
-      expect(input.value).toBe('02/11/2026 18:00'); // the default dd/mm/yyyy, 24 hours (P3-14)
+      expect(input.value).toBe('2 Nov 2026 18:00'); // the default written out, 24 hours (D-155)
     });
 
     fireEvent.mouseDown(input);
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: '03/11/2026 10:30' } });
+    fireEvent.change(input, { target: { value: '3 Nov 2026 10:30' } });
     fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     await waitFor(() => {
       expect(changed).toHaveBeenLastCalledWith('2026-11-02T20:30:00.000Z');
@@ -133,7 +133,7 @@ describe('DateTimeField', () => {
     expect(await screen.findAllByTestId('time-zone-note')).toHaveLength(1);
     await waitFor(() => {
       const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input'));
-      expect(inputs.map((i) => i.value)).toEqual(['02/11/2026 09:30', '']);
+      expect(inputs.map((i) => i.value)).toEqual(['2 Nov 2026 09:30', '']);
     });
   });
 });
@@ -155,12 +155,12 @@ function Shown({ prefs }: { prefs: Partial<DatePreferences> }) {
 }
 
 describe('date preferences (QA10-P3-14)', () => {
-  it('the default reads dd/mm/yyyy in 24 hours, the week from Monday', async () => {
+  it('D-155: the default writes the day out (10 Nov 2026) in 24 hours, the week from Monday', async () => {
     renderUi(<Shown prefs={{}} />);
     await waitFor(() => {
-      expect(screen.getByTestId('day').textContent).toBe('10/11/2026');
+      expect(screen.getByTestId('day').textContent).toBe('10 Nov 2026');
     });
-    expect(screen.getByTestId('at').textContent).toMatch(/^10\/11\/2026, \d\d:26$/);
+    expect(screen.getByTestId('at').textContent).toMatch(/^(9|10) Nov 2026, \d\d:26$/);
     // The pickers' calendar (dayjs's locale), set once the preferences apply.
     await waitFor(() => {
       expect(dayjs().startOf('week').day()).toBe(1);

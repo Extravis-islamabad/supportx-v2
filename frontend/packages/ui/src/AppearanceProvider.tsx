@@ -75,6 +75,21 @@ const PAGE_CSS =
   // Messages hold text only: clicks pass through to the page header under them, and resting
   // the pointer there no longer keeps them open (QA10-P4-19). Notifications keep their close.
   '.ant-message .ant-message-notice-content { pointer-events: none; } ' +
+  // In a list page the page's own gaps space the header (16 px, Haider 2026-11-10); the
+  // header's margin elsewhere is inline, hence the !important here.
+  '.sx-list-page > .sx-page-header { margin-bottom: 0 !important; } ' +
+  // Chips (Haider, 2026-11-10): the dot keeps a clear gap before its words, the dot and words
+  // sit on one line, and two chips side by side never touch.
+  '.ant-tag { display: inline-flex; align-items: center; } ' +
+  '.ant-tag > .ant-badge { margin-inline-end: 6px !important; line-height: 1; } ' +
+  '.ant-tag + .ant-tag { margin-inline-start: 6px; } ' +
+  // In a table cell a long chip stays inside its column, never over the next one.
+  '.ant-table-cell .ant-tag { max-width: 100%; overflow: hidden; white-space: nowrap; } ' +
+  // A list cell's text: cut at its own end, in its own direction, aligned as the column is.
+  // An inline block: it sits at the column's start whatever its own direction, and cuts at its
+  // own end once it is wider than the cell.
+  '.sx-cell-text { display: inline-block; max-width: 100%; vertical-align: top; ' +
+  'overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } ' +
   // Text for screen readers only (a name where the screen shows initials or an icon).
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
