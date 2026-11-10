@@ -444,21 +444,9 @@ function AssetView({ asset }: { asset: AssetRecord }) {
       )}
     </section>
   );
+  // Lane C's #344 review: type and location are in the panel, so the facts line keeps only
+  // what the panel does not show.
   const facts: ReactNode[] = [
-    ...(typeName === ''
-      ? []
-      : [
-          <bdi key="type" dir="auto">
-            {typeName}
-          </bdi>,
-        ]),
-    ...(asset.location === null
-      ? []
-      : [
-          <bdi key="location" dir="auto">
-            {asset.location}
-          </bdi>,
-        ]),
     <span key="created">
       {t('incidents.created_on', { date: dates.format(asset.created_at) })}
     </span>,

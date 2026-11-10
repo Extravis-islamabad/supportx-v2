@@ -724,7 +724,10 @@ describe('console: assets', () => {
     const chips = within(page).getByTestId('record-chips');
     expect((await within(chips).findByTestId('asset-state')).textContent).toBe('In stock');
     expect(within(chips).getByTestId('asset-loanable').textContent).toBe('Loanable');
-    expect((await within(page).findByTestId('record-facts')).textContent).toContain('Laptop');
+    // Type and location live in the panel only (lane C's #344 review); the facts say created.
+    const facts = (await within(page).findByTestId('record-facts')).textContent;
+    expect(facts).not.toContain('Laptop');
+    expect(within(page).getByTestId('asset-panel').textContent).toContain('Laptop');
     const actions = within(page).getByTestId('asset-actions');
     for (const id of ['asset-move-open', 'asset-edit', 'asset-copy-open', 'asset-actions-more']) {
       expect(within(actions).getByTestId(id)).toBeTruthy();
