@@ -208,7 +208,7 @@ export function PropertiesPanel({
     if (early.length > 0) {
       // A developer's note in dev builds, never shown to users.
       console.warn(
-        `PropertiesPanel${testId === undefined ? '' : ` (${testId})`}: ${early.join(', ')} before properties; fold it into Properties (D-147 template A).`,
+        `PropertiesPanel${testId === undefined ? '' : ` (${testId})`}: ${JSON.stringify(early)} before properties; fold it into Properties (D-147 template A).`,
       );
     }
   }
