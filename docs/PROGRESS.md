@@ -1104,6 +1104,20 @@ it with no reload (rule c). Not built yet.
   - CIs and services in the snapshot (with the CMDB);
   - the screens (UI pass 3 templates).
 
+### [~] Change screens — taken forward from WP-045d D19 (lane A, 2026-11-11; the coordinator; 4 sessions, 2 PRs)
+- **PR 1 (S1+S2, no migration):** the changes list on template C (path, stage, status, the
+  emergency flag, a Pending approval view); a new change on template B (prefilled when raised
+  from another record), opening on its risk questionnaire; the record on template A (stage rail
+  and moves, properties, details with a risk override that says why, the questionnaire, roles,
+  plans, schedule and downtime read-only, history). The staged parts' hooks by type
+  (`api-client/staged.ts`) and one move dialog for staged types (`pages/staged`, lane C's split).
+- **PR 2 (S3+S4, after PR 1):** the CAB and approvals panel (decisions, the SoD preview,
+  changes-since and re-approval, the emergency override), the QA flow 4 e2e, and the advisory
+  board admin on template E (`changes.manage_boards`). Lane B blocks it (D-149).
+- **Not yet:** risk and type columns on the list (not in the list API); conversation and
+  attachments on the record; labels for questions an admin adds to a template's questionnaire
+  (only Appendix A's are labelled); editing schedules and downtime (WP-045c).
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
