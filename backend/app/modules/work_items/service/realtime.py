@@ -440,6 +440,22 @@ async def _view_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
 
 
 PORTAL_SETTINGS_CHANGED = "work_items.portal_settings_changed"
+CHANGE_BOARDS_CHANGED = "work_items.change_boards_changed"
+
+
+async def _change_board_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A change advisory board changed: open board settings refetch (IDs only, WP-045b S2)."""
+    del session
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                broadcast(envelope.tenant_id),
+                CHANGE_BOARDS_CHANGED,
+                ids=(str(envelope.payload["board_id"]),),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
 
 
 async def _portal_settings_changed(
@@ -564,6 +580,7 @@ ROUTES = [
     ),
     RealtimeRoute(("work_items.settings.changed",), _settings_changed),
     RealtimeRoute(("work_items.portal_settings.changed",), _portal_settings_changed),
+    RealtimeRoute(("work_items.change_board.changed",), _change_board_changed),
     RealtimeRoute(
         (
             "work_items.conversation.added",

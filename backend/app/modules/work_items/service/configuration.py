@@ -49,7 +49,7 @@ from app.modules.work_items.domain.templates import (
     new_value_code,
     order_problems,
 )
-from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType
+from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import (
     WorkItemPriorityCell,
@@ -63,6 +63,7 @@ from app.modules.work_items.infra.models import (
     WorkItemTypeSettings,
 )
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import change_boards
 from app.modules.work_items.service.catalogue import Catalogue
 from app.modules.work_items.service.settings import (
     SETTINGS_RECORD_TYPE,
@@ -928,7 +929,10 @@ async def update_stage_approvals(  # noqa: PLR0913 - the change and its context,
         )
     }
     settings, problems = approval_rules.parse_stage_approvals(
-        approvals, stage_statuses=statuses, roles=wtype.roles
+        approvals,
+        stage_statuses=statuses,
+        roles=wtype.roles,
+        boards=wtype.code is WorkItemTypeCode.CHANGE,
     )
     if problems:
         field, code = problems[0]
@@ -940,6 +944,14 @@ async def update_stage_approvals(  # noqa: PLR0913 - the change and its context,
         groups = [g for level in settings.levels for g in level.group_ids]
         if set(groups) - await existing_unit_ids(session, "group", groups):
             raise invalid(field="approvals.levels", field_code="group_not_found")
+        named = {
+            uuid.UUID(b)
+            for level in settings.levels
+            for b in level.boards
+            if b != approval_rules.MAPPED_BOARD
+        }
+        if named - await change_boards.live_board_ids(session, named):
+            raise invalid(field="approvals.levels", field_code="board_not_found")
     cleaned = approval_rules.stage_approvals_to_json(settings) if settings else None
     if cleaned == row.approvals:
         return current

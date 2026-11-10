@@ -132,6 +132,8 @@ export const ur: LabelResource = {
   'errors.dashboard_not_found': 'یہ ڈیش بورڈ موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
   'errors.database_not_configured':
     'سروس ابھی مکمل طور پر ترتیب نہیں دی گئی۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.default_board_kept':
+    'تبدیلیوں کا طے شدہ مشاورتی بورڈ ہٹایا نہیں جا سکتا۔ جن تبدیلیوں کا جائزہ کوئی اور بورڈ نہیں لیتا، وہ اسی کے پاس جاتی ہیں۔',
   'errors.default_site_required':
     'ڈیفالٹ سائٹ ہٹائی نہیں جا سکتی۔ پہلے کسی اور سائٹ کو ڈیفالٹ بنائیں۔',
   'errors.delivery_not_failed': 'یہ جواب ناکام نہیں ہوا، اس لیے دوبارہ بھیجنے کو کچھ نہیں۔',
@@ -211,6 +213,7 @@ export const ur: LabelResource = {
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
   'errors.field.before_start': 'اختتام آغاز سے پہلے نہیں ہو سکتا۔',
   'errors.field.below_minimum': 'کم از کم {{min}} ہے۔',
+  'errors.field.board_not_found': 'یہ مشاورتی بورڈ موجود نہیں۔',
   'errors.field.brand_image_svg':
     'SVG تصاویر قبول نہیں کی جاتیں کیونکہ ان میں اسکرپٹ ہو سکتے ہیں۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
   'errors.field.brand_image_too_large': 'یہ تصویر بہت بڑی ہے: زیادہ سے زیادہ 5 MB اور 25 میگاپکسل۔',
@@ -275,6 +278,7 @@ export const ur: LabelResource = {
   'errors.field.duplicate_name': 'یہ نام پہلے سے استعمال میں ہے۔',
   'errors.field.duplicate_permission': 'یہ اجازت دو بار درج ہے۔',
   'errors.field.duplicate_sort_field': 'ترتیب میں ہر فیلڈ صرف ایک بار استعمال ہو سکتی ہے۔',
+  'errors.field.duplicate_value': 'یہ ایک سے زیادہ بار درج ہے۔',
   'errors.field.duration_mismatch': 'دورانیہ آغاز اور اختتام کے اوقات سے میل نہیں کھاتا۔',
   'errors.field.email_invalid': 'name@example.com جیسا ای میل پتہ درج کریں۔',
   'errors.field.email_not_valid': 'ای میل پتہ درج کریں، جیسے name@example.com۔',
@@ -722,6 +726,8 @@ export const ur: LabelResource = {
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
+  'errors.nothing_to_override':
+    'یہ تبدیلی دوبارہ منظوری کی منتظر نہیں، اس لیے نظر انداز کرنے کو کچھ نہیں۔',
   'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
   'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
   'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',

@@ -29,6 +29,16 @@ def strict() -> bool:
     return os.environ.get("SUPPORTX_PERF_STRICT") == "1"
 
 
+def volume(full: int, smoke: int) -> int:
+    """How many rows or events a volume test makes: all of them nightly, a smoke run in PRs.
+
+    The full volumes (100k list rows, 10k relay events) took about 90 s of a PR shard for a
+    number only the nightly run asserts strictly; a pull request keeps a small run of the same
+    code path at the generous PR bound (coordinator, 2026-11-10).
+    """
+    return full if strict() else smoke
+
+
 def limit(target: float) -> float:
     """The bound to assert against for a timing whose target is `target`."""
     return target if strict() else target * PR_FACTOR
