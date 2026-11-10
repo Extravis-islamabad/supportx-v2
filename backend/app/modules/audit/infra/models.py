@@ -8,6 +8,9 @@ Grants (the database enforces them, whatever this code does):
   which computes every chain hash itself.
 * `audit_anchors`: INSERT and SELECT (signed checkpoints written by the worker).
 * `audit_settings`, `audit_verification_runs`: SELECT, INSERT, UPDATE.
+* `audit_subject_salts`: nothing at all. Salts are reached only through the definer functions
+  `audit_subject_salts_ensure()`, `audit_subject_salts_of()` and `audit_erase_subject()`
+  (migration 0129, ADR-046); no API, viewer or export ever returns one.
 
 `audit_entries` is partitioned by month on `occurred_at`; partitions are created by
 `audit_ensure_partitions()` and never appear here (migrations/env.py skips them).
@@ -24,6 +27,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     UniqueConstraint,
+    Uuid,
     func,
     text,
 )
@@ -75,6 +79,8 @@ class AuditEntry(TenantKeyed, Base):
         ),
         # "action is X or X is among a save's events" (WP-064, migration 0122)
         Index("ix_audit_entries_events", "events", postgresql_using="gin"),
+        # The entries whose fingerprint uses a person's salt, for erasure (migration 0129)
+        Index("ix_audit_entries_personal_subjects", "personal_subjects", postgresql_using="gin"),
         CheckConstraint(f"outcome IN {OUTCOMES}", name="outcome_code"),
         CheckConstraint(f"actor_type IN {ACTOR_TYPES}", name="actor_type_code"),
         CheckConstraint(f"client IN {CLIENTS}", name="client_code"),
@@ -105,6 +111,13 @@ class AuditEntry(TenantKeyed, Base):
     # The lifecycle events of a save's entry, most significant first (WP-064, ADR-045); codes
     # only, inside the hash. NULL for every other entry.
     events: Mapped[list[str] | None] = mapped_column(ARRAY(String(80)))
+    # A save's change-set fingerprint (WP-064 S2, ADR-046): `fp1:<hex>` over digests of the
+    # values in field_changes, never the values. With it: the saves (change IDs, in order) it
+    # covers and the data subjects whose salts its personal values use. Inside the hash when
+    # set; NULL on every older entry and every non-save entry, which hash exactly as before.
+    fingerprint: Mapped[str | None] = mapped_column(String(80))
+    fingerprint_saves: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(Uuid))
+    personal_subjects: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(Uuid))
     entry_hash: Mapped[bytes] = mapped_column(LargeBinary)
 
 
@@ -221,6 +234,31 @@ class AuditVerificationRun(UuidPrimaryKey, TenantScoped, Base):
     requested_by: Mapped[uuid.UUID | None]
     started_at: Mapped[datetime]
     finished_at: Mapped[datetime | None]
+    # Fingerprinted saves checked against record history (WP-064 S2): per verdict.
+    fingerprints_verified: Mapped[int] = mapped_column(Integer, server_default="0")
+    fingerprints_erased: Mapped[int] = mapped_column(Integer, server_default="0")
+    fingerprint_mismatches: Mapped[int] = mapped_column(Integer, server_default="0")
+
+
+class AuditSubjectSalt(TenantKeyed, Base):
+    """One data subject's salt for fingerprinting personal values (WP-064 S2, ADR-046).
+
+    The app role has no right on this table: only the migrator-owned definer functions read,
+    create and erase salts. Erasure sets `salt` NULL (crypto-shredding: the salted digests in
+    the chain can no longer be matched to a guess) and keeps the row as a tombstone, so a
+    later save never gives the erased person a fresh salt that older entries would not match.
+    """
+
+    __tablename__ = "audit_subject_salts"
+    __table_args__ = (
+        CheckConstraint("salt IS NULL OR octet_length(salt) = 16", name="salt_length"),
+        CheckConstraint("(salt IS NULL) = (erased_at IS NOT NULL)", name="salt_or_erased"),
+    )
+
+    subject_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    salt: Mapped[bytes | None] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    erased_at: Mapped[datetime | None]
 
 
 class AuditExport(UuidPrimaryKey, TenantScoped, Base):

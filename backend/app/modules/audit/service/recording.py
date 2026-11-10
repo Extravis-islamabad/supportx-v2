@@ -44,6 +44,7 @@ from app.modules.audit.domain.integrity import SALT_SIZE, commitment, entry_hash
 from app.modules.audit.domain.lifecycle import RECORD_TYPES, FieldDiff, events_of_saves
 from app.modules.audit.events import AuditAlertRaised, AuditEntryRecorded
 from app.modules.audit.infra.models import AuditEntry, AuditPersonal, AuditQueueItem
+from app.modules.audit.service.fingerprints import EntryFingerprint, for_saves
 from app.modules.audit.service.settings import load_settings
 from app.shared.clock import Clock, system_clock
 from app.shared.events import record_event
@@ -128,10 +129,12 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
     actor: tuple[AuditActorType, uuid.UUID | None] | None = None,
     clock: Clock = system_clock,
     events: Sequence[str] | None = None,
+    fingerprint: EntryFingerprint | None = None,
 ) -> uuid.UUID:
     """Write one entry in the session's transaction and queue it for sealing. Returns its ID.
 
     `events`: a save's lifecycle events (WP-064), each a catalogue code; the first is the action.
+    `fingerprint`: the save's change-set fingerprint (WP-064 S2, ADR-046); digests only.
     """
     spec = action(action_code)
     if events is not None:
@@ -188,6 +191,9 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
         "change_id": change_id,
         "personal_commitments": commitments,
         "events": list(events) if events is not None else None,
+        "fingerprint": fingerprint.value if fingerprint is not None else None,
+        "fingerprint_saves": list(fingerprint.saves) if fingerprint is not None else None,
+        "personal_subjects": list(fingerprint.subjects) if fingerprint is not None else None,
     }
     session.add(AuditEntry(**row, entry_hash=entry_hash(row)))
     session.add_all(personal)
@@ -245,7 +251,7 @@ async def _write_save(
 
     Each save's events come from its own kind and source (lane A: the SLA engine's save in the
     same request is not a person's due-date edit); the last save gives the change ID and
-    version.
+    version. The entry carries the fingerprint of all the saves' changes (ADR-046).
     """
     last = saves[-1]
     spec = RECORD_TYPES[last.subtype or last.record_type]
@@ -273,6 +279,7 @@ async def _write_save(
         reason=reason,
         change_id=last.change_id,
         events=events,
+        fingerprint=await for_saves(session, spec, saves),
     )
 
 
