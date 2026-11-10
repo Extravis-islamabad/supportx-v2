@@ -249,6 +249,11 @@ export function LevelsEditor({
                         data-testid={`sla-level-person-group-${String(index)}`}
                       />
                     )}
+                    {person?.target_id && theirs.length > 1 && !person.group_id && (
+                      <Typography.Text type="danger" role="alert">
+                        {t('errors.field.reassign_group_required')}
+                      </Typography.Text>
+                    )}
                     {person?.target_id && theirs.length === 0 && groups.data !== undefined && (
                       <Typography.Text type="danger" role="alert">
                         {t('errors.field.person_in_no_group')}

@@ -234,10 +234,14 @@ describe('Admin › SLA › Policies › reassign to a person (D-154 rules)', ()
     // In two groups: the group is asked for, marked until chosen.
     const group = await screen.findByTestId('sla-level-person-group-0');
     expect(group.className).toContain('ant-select-status-error');
+    // The reason is said under it, not only in red (lane C, #369).
+    const reason = 'This person is in several groups: choose the one the record moves to.';
+    expect(screen.getByText(reason)).toBeDefined();
     const groupSelector = group.querySelector('.ant-select-selector');
     if (groupSelector === null) throw new Error('not an Ant Design Select');
     fireEvent.mouseDown(groupSelector);
     fireEvent.click(await screen.findByTitle('Network'));
+    expect(screen.queryByText(reason)).toBeNull();
     fireEvent.click(screen.getByTestId('sla-policy-save'));
     await waitFor(() => {
       expect(fake.find('POST', POLICIES)).toHaveLength(1);

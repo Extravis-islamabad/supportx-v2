@@ -137,7 +137,7 @@ class RuleStepNotifications:
             link=link,
             public_link=None,
             variables=variables,
-            public_variables=variables,
+            public_variables={},  # staff-only: the person and reason never reach a portal
             relatives={STEP_OWNER: await step_recipients(session, payload)},
             conditions={},
             urgent=False,
