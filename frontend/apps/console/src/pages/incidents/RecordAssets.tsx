@@ -40,8 +40,10 @@ export function AssetPickerField({
 }) {
   const t = useLabel();
   const [search, setSearch] = useState('');
+  const [opened, setOpened] = useState(false);
   const q = useDebounced(search.trim(), SEARCH_DELAY_MS);
-  const picker = useAssetPicker(q, forUser);
+  // Asked only once the list is opened: a form never loads assets nobody looks at.
+  const picker = useAssetPicker(q, forUser, opened);
   const options = useMemo(
     () =>
       (picker.data ?? []).map((a) => ({
@@ -61,6 +63,9 @@ export function AssetPickerField({
       value={value}
       onChange={onChange}
       onSearch={setSearch}
+      onOpenChange={(open) => {
+        if (open) setOpened(true);
+      }}
       loading={picker.isFetching}
       placeholder={t('assets.link.placeholder')}
       notFoundContent={picker.isFetching ? undefined : t('assets.link.none_found')}

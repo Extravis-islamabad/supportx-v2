@@ -52,6 +52,8 @@ export function useAssetPicker(q: string, forUser: string | null, enabled = true
       ),
     enabled,
     staleTime: 30_000,
+    // A form field: a failure shows as an empty list, never a toast over the form.
+    meta: { silent: true },
   });
 }
 
