@@ -219,8 +219,9 @@ export function AnnouncementFields({
               )}
             />
           </FieldRow>
-          {/* One time-zone note for both times (D-147), not one under each field. */}
-          <div style={{ marginTop: -SPACE.sm, marginBottom: SPACE.sm }}>
+          {/* One time-zone note for both times (D-147), not one under each field. It sits below
+              the fields' own help, never pulled up over it (QA10-P4-12). */}
+          <div style={{ marginBottom: SPACE.sm }}>
             <TimeZoneNote />
           </div>
         </FormSection>

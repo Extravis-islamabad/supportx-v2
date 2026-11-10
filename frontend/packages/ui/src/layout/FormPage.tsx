@@ -45,34 +45,61 @@ export function FormPage({
   width = 'form',
   testId,
 }: FormPageProps) {
-  const { token } = theme.useToken();
   return (
     <PageColumn kind={width === 'full' ? 'list' : 'form'} aside={aside} testId={testId}>
       <PageHeader title={title} back={back} description={description} extra={extra} />
       <Flex vertical gap={SPACE.md}>
         {children}
       </Flex>
-      <div
-        data-testid={testId === undefined ? undefined : `${testId}-footer`}
-        style={{
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 2,
-          marginTop: SPACE.md,
-          padding: `${String(SPACE.sm)}px ${String(SPACE.md)}px`,
-          background: token.colorBgContainer,
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: token.borderRadius,
-          boxShadow: token.boxShadowTertiary,
-        }}
-      >
-        <Flex align="center" gap={SPACE.sm} wrap>
-          <div style={{ flex: 1, minWidth: 0 }}>{notice}</div>
-          {cancel}
-          {primary}
-        </Flex>
-      </div>
+      <FormFooter
+        notice={notice}
+        cancel={cancel}
+        primary={primary}
+        testId={testId === undefined ? undefined : `${testId}-footer`}
+      />
     </PageColumn>
+  );
+}
+
+/**
+ * Template B's footer on its own (D-147): stays at the bottom of the window, a notice or the
+ * refusal on the start side, then Cancel before the primary action. FormPage uses it; a form
+ * edited in place inside a record (an announcement's Edit) uses it too, so its Save is never at
+ * the end of a long page (QA10-P4-14).
+ */
+export function FormFooter({
+  notice,
+  cancel,
+  primary,
+  testId,
+}: {
+  notice?: ReactNode;
+  cancel?: ReactNode;
+  primary: ReactNode;
+  testId?: string;
+}) {
+  const { token } = theme.useToken();
+  return (
+    <div
+      data-testid={testId}
+      style={{
+        position: 'sticky',
+        bottom: 0,
+        zIndex: 2,
+        marginTop: SPACE.md,
+        padding: `${String(SPACE.sm)}px ${String(SPACE.md)}px`,
+        background: token.colorBgContainer,
+        border: `1px solid ${token.colorBorderSecondary}`,
+        borderRadius: token.borderRadius,
+        boxShadow: token.boxShadowTertiary,
+      }}
+    >
+      <Flex align="center" gap={SPACE.sm} wrap>
+        <div style={{ flex: 1, minWidth: 0 }}>{notice}</div>
+        {cancel}
+        {primary}
+      </Flex>
+    </div>
   );
 }
 
