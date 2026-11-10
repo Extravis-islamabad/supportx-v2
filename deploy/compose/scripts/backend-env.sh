@@ -17,6 +17,20 @@ set -a
 source "$stack_env"
 set +a
 
+# ClamAV runs only in the `full` profile (make dev-up-full). Point the API at it only when clamd
+# answers now, as for the other full-profile services (Temporal, OpenSearch: not set by default),
+# so a core-only stack's /ready does not report malware_signatures unreachable. Without a
+# scanner, files wait as "scanning" and Admin > Files says none is installed (scanning stays
+# required, as in production). Started ClamAV later? Run `make backend-env` again.
+clamd_answers() {
+  bash -c 'exec 3<>"/dev/tcp/127.0.0.1/$1" && printf "zPING\0" >&3 &&
+    read -r -d "" -t 5 reply <&3; [[ "$reply" == PONG* ]]' _ "${CLAMAV_PORT:-23310}" 2>/dev/null
+}
+scanner=()
+if clamd_answers; then
+  scanner=("SUPPORTX_FILES_CLAMD_ADDRESS=127.0.0.1:${CLAMAV_PORT:-23310}")
+fi
+
 values=(
   "SUPPORTX_PROFILE=dev"
   # The API connects as supportx_app through PgBouncer (RLS applies; CLAUDE.md rule a).
@@ -59,10 +73,9 @@ values=(
   # Audit anchors (ADR-027): a dev-only signing key derived from the dev session secret.
   "SUPPORTX_AUDIT_SIGNING_KEY=dev-1:$(printf '%s' "audit-anchor:${SESSION_SECRET}" | openssl dgst -sha256 -binary | base64)"
   # Files (WP-022, ADR-028): a dev-only key ring derived from the dev session secret, and the
-  # ClamAV of the `full` profile (make dev-up-full). Without it files wait as "scanning" and
-  # Admin > Files says the scanner is unreachable (scanning stays required, as in production).
+  # ClamAV of the `full` profile when it runs (see clamd_answers above).
   "SUPPORTX_FILES_KEYS=dev-1:$(printf '%s' "files-kek:${SESSION_SECRET}" | openssl dgst -sha256 -binary | base64)"
-  "SUPPORTX_FILES_CLAMD_ADDRESS=127.0.0.1:${CLAMAV_PORT}"
+  ${scanner[@]+"${scanner[@]}"}
 )
 
 umask 077

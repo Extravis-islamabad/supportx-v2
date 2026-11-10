@@ -193,6 +193,7 @@ export const ar: LabelResource = {
   'errors.field.asset_move_duplicate':
     'هذا الانتقال موجود في القائمة بالفعل، أو يؤدي إلى الحالة نفسها.',
   'errors.field.asset_nested_in_itself': 'لا يمكن تركيب أصل على نفسه أو على أحد أجزائه.',
+  'errors.field.asset_not_found': 'هذا الأصل غير موجود أو لا يمكنك رؤيته.',
   'errors.field.asset_product_not_found': 'لم يعد هذا المنتج موجودًا.',
   'errors.field.asset_product_type_cycle':
     'لا يمكن وضع نوع منتج تحت نفسه أو تحت أحد أنواعه الفرعية.',
@@ -497,6 +498,7 @@ export const ar: LabelResource = {
   'errors.field.too_many': 'عدد المستلمين كبير جدًا.',
   'errors.field.too_many_actions': 'يمكن أن تحتوي القاعدة على {{max}} إجراء كحد أقصى.',
   'errors.field.too_many_approvers': 'يمكن أن تضم المرحلة 10 موافقين على الأكثر.',
+  'errors.field.too_many_assets': 'يمكن أن يحتوي السجل على {{max}} أصول على الأكثر.',
   'errors.field.too_many_categories': 'يمكن أن يظهر العنصر في خمس فئات أخرى كحد أقصى.',
   'errors.field.too_many_conditions': 'يحتوي عامل التصفية على شروط كثيرة جدًا.',
   'errors.field.too_many_decimals': 'استخدم {{max}} منازل عشرية كحد أقصى.',
@@ -833,6 +835,7 @@ export const ar: LabelResource = {
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
   'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',
   'errors.withdraw_not_pending': 'لا يمكن سحب إلا طلب بانتظار الموافقة.',
+  'errors.work_item_asset_not_found': 'لم يعد هذا الأصل مرتبطًا بالسجل.',
   'errors.work_item_link_not_found': 'لم يعد هذا الرابط موجودًا.',
   'errors.work_item_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
   'errors.work_item_task_not_found': 'لم تعد هذه المهمة موجودة.',

@@ -319,6 +319,9 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 # tests/test_error_labels.py, which reads FIELD_PROBLEMS sets).
 FIELD_PROBLEMS = frozenset(
     {
+        # REQ-AST-025: an asset that is not there or not yours to see, and the per-record cap.
+        "asset_not_found",
+        "too_many_assets",
         "required",
         "chair_inactive",  # D-146: the approval chair must be an active person
         "fulfiller_required",  # D-154: a request is fulfilled only with a technician on it

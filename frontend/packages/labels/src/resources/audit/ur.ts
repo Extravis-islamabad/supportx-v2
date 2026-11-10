@@ -869,6 +869,7 @@ export const ur: LabelResource = {
   'event_type.system.mail.state_changed': 'ای میل بھیجی گئی، دوبارہ کوشش ہوئی یا ناکام',
   'event_type.work_items.approval.changed': 'منظوری کھلی یا فیصلہ ہوا',
   'event_type.work_items.approval_settings.changed': 'منظوری کی ترتیبات بدلیں',
+  'event_type.work_items.asset_link.changed': 'اثاثہ منسلک یا الگ کیا گیا',
   'event_type.work_items.bulk_job.progressed': 'اجتماعی تبدیلی آگے بڑھی',
   'event_type.work_items.change.approval_notice': 'تبدیلی کی منظوری کا نوٹس',
   'event_type.work_items.change_board.changed': 'تبدیلیوں کا مشاورتی بورڈ تبدیل ہوا',

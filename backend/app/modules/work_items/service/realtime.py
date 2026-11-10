@@ -520,6 +520,24 @@ async def _bulk_progressed(envelope: EventEnvelope, session: AsyncSession) -> Re
     return RealtimeEffects(publications=publications)
 
 
+async def _asset_link_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An asset linked or unlinked (REQ-AST-025): the record's Assets section refreshes."""
+    del session
+    payload = envelope.payload
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, record_id),
+                PART_CHANGED,
+                ids=(str(payload["asset_id"]),),
+                fields=("asset",),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
 async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A task, worklog or link changed: the record's screens, and a task owner's own list."""
     payload = envelope.payload
@@ -609,6 +627,7 @@ ROUTES = [
     RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
     RealtimeRoute(("work_items.part.changed",), _part_changed),
+    RealtimeRoute(("work_items.asset_link.changed",), _asset_link_changed),
     RealtimeRoute(("work_items.approval.changed",), _approval_changed),
     RealtimeRoute(
         ("work_items.problem_repeat.detected", "work_items.problem_repeat.changed"),

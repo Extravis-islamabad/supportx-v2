@@ -31,7 +31,13 @@ from app.modules.assets.service.file_access import FILE_ACCESS
 from app.modules.assets.service.loans import loan_sweep, on_loan_guard
 from app.modules.assets.service.ownership import OWNER_SITE_CHANGED
 from app.modules.assets.service.realtime import CHANNELS, ROUTES
-from app.modules.assets.service.refs import AssetRef, asset_refs, assets_of, can_see
+from app.modules.assets.service.refs import (
+    AssetRef,
+    asset_refs,
+    assets_of,
+    can_see,
+    email_includes_assets,
+)
 from app.modules.procurement import register_vendor_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 from app.shared.schedules import ScheduleSpec
@@ -101,6 +107,7 @@ __all__ = [
     "asset_refs",
     "assets_of",
     "can_see",
+    "email_includes_assets",
     "module",
     "register_disposal_guard",
     "unregister_disposal_guard",

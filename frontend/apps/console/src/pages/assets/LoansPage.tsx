@@ -16,7 +16,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import {
   ApiError,
@@ -312,6 +312,7 @@ function ReturnDialog({ loan, onClose }: { loan: AssetLoan | undefined; onClose:
  */
 export function LoansPage() {
   const t = useLabel();
+  const navigate = useNavigate();
   const access = useAccess();
   const dates = useDateTime();
   const queryClient = useQueryClient();
@@ -332,6 +333,7 @@ export function LoansPage() {
       header={
         <PageHeader
           title={t('assets.loans.title')}
+          back={{ label: t('nav.assets'), onClick: () => void navigate('/assets') }}
           count={loans.data === undefined ? undefined : String(rows.length)}
           extra={
             manage && (
@@ -413,6 +415,9 @@ export function LoansPage() {
                   {
                     key: 'actions',
                     title: t('assets.loans.actions'),
+                    // Always in view when the table scrolls sideways (390 px), as on the
+                    // incident list; antd mirrors it in right-to-left.
+                    fixed: 'right' as const,
                     render: (_: unknown, loan: AssetLoan) => (
                       <WriteButton
                         size="small"

@@ -332,6 +332,22 @@ class WorkItemPartChanged(DomainEvent):
     task_status: str | None = None
 
 
+class WorkItemAssetLinkChanged(DomainEvent):
+    """An asset was linked to a record or unlinked (REQ-AST-025). IDs only.
+
+    The record's screens refresh its assets; the assets module may hear it too (an asset's
+    "linked to my tickets" scope, D-153).
+    """
+
+    event_type: ClassVar[str] = "work_items.asset_link.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    asset_id: uuid.UUID
+    change: Literal["added", "removed"]
+
+
 class WorkItemPartChangedV2(DomainEvent):
     """As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.
 
@@ -448,6 +464,7 @@ class WorkItemAssigneeUnavailable(_WorkItemEvent):
 
 EVENTS: tuple[type[DomainEvent], ...] = (
     ServiceRequestReadyToFulfil,
+    WorkItemAssetLinkChanged,
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemWorkflowNotice,

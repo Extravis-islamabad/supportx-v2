@@ -37,6 +37,7 @@ import {
   type IncidentActionState,
   type CustomField,
   type ReplyMode,
+  recordAssetKeys,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
@@ -113,6 +114,7 @@ import { useStatusActions } from './StatusActions';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
 import { TagsInput } from './TagsInput';
 import { CausingProblemCard } from './CausingProblemCard';
+import { RecordAssets } from './RecordAssets';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -249,6 +251,11 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(item.id) });
       } else if (part === 'worklog') {
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+      } else if (part === 'asset') {
+        // REQ-AST-025: an asset linked or unlinked.
+        void queryClient.invalidateQueries({
+          queryKey: recordAssetKeys.of('incidents', item.id),
+        });
       } else {
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
       }
@@ -613,6 +620,24 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   </>
                 ),
               },
+              // REQ-AST-025: the assets this incident is about (the assets feature).
+              ...(has('assets')
+                ? [
+                    {
+                      key: 'assets',
+                      title: t('assets.link.title'),
+                      testId: 'inc-panel-assets',
+                      children: (
+                        <RecordAssets
+                          base="incidents"
+                          recordId={item.id}
+                          canEdit={canEditParts}
+                          requesterId={item.requester_id}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
               {
                 key: 'followers',
                 title: t('incidents.panel.followers'),

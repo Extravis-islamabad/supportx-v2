@@ -1,6 +1,6 @@
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Descriptions, Flex, Result, Skeleton, Tabs, Typography } from 'antd';
+import { Alert, Descriptions, Flex, Result, Skeleton, Tabs, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
@@ -51,6 +51,7 @@ import { useStatusActions } from '../incidents/StatusActions';
 import { useTakeAction } from '../incidents/take';
 import { IncidentSla } from '../incidents/IncidentSla';
 import { itemName } from './items';
+import { RecordAssets } from '../incidents/RecordAssets';
 
 const NO_TYPING: Typing = {};
 
@@ -120,6 +121,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const me = useSession().data?.user.id;
   const withdraw = useWithdrawRequest();
   const { can } = useAccess();
+  const hasAssets = useLicence().has('assets');
   const [replyRequest, setReplyRequest] = useState(0);
   const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   const questions = item.data?.questions ?? [];
@@ -274,40 +276,27 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
             testId="sr-panel"
             sections={[
               {
-                key: 'requester',
-                title: t('requests.requester'),
-                children: (
-                  // A person card, not a row repeating its title: the name, then how to reach
-                  // them and where they are, when known.
-                  <Flex vertical gap={2} data-testid="sr-requester">
-                    <Typography.Text strong>
-                      <bdi>{personName(r.people, r.requester_id)}</bdi>
-                    </Typography.Text>
-                    {r.people[r.requester_id]?.email && (
-                      <Typography.Text type="secondary" copyable>
-                        <bdi dir="ltr">{r.people[r.requester_id]?.email}</bdi>
-                      </Typography.Text>
-                    )}
-                    {siteName !== undefined && (
-                      <Typography.Text type="secondary">
-                        <bdi>{siteName}</bdi>
-                      </Typography.Text>
-                    )}
-                    {r.on_behalf_of_id !== null && (
-                      <Typography.Text type="secondary">
-                        {t('requests.for_person', {
-                          name: personName(r.people, r.on_behalf_of_id),
-                        })}
-                      </Typography.Text>
-                    )}
-                  </Flex>
-                ),
-              },
-              {
                 key: 'properties',
                 title: t('requests.properties'),
                 children: (
+                  // One Properties card as on incidents (QA10V-13): the requester first, their
+                  // address on hover; no separate person card.
                   <div data-testid="sr-details">
+                    <PropertyRow label={t('requests.requester')}>
+                      <Tooltip title={r.people[r.requester_id]?.email}>
+                        <bdi data-testid="sr-requester">{personName(r.people, r.requester_id)}</bdi>
+                      </Tooltip>
+                    </PropertyRow>
+                    {r.on_behalf_of_id !== null && (
+                      <PropertyRow label={t('work_item.field.on_behalf_of_id')}>
+                        <bdi>{personName(r.people, r.on_behalf_of_id)}</bdi>
+                      </PropertyRow>
+                    )}
+                    {siteName !== undefined && (
+                      <PropertyRow label={t('work_item.field.site_id')}>
+                        <bdi>{siteName}</bdi>
+                      </PropertyRow>
+                    )}
                     <PropertyRow label={t('requests.item')}>
                       <bdi>{itemName(item.data, locale)}</bdi>
                     </PropertyRow>
@@ -334,6 +323,24 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   </div>
                 ),
               },
+              // REQ-AST-025: the assets this request is about (the assets feature).
+              ...(hasAssets
+                ? [
+                    {
+                      key: 'assets',
+                      title: t('assets.link.title'),
+                      testId: 'sr-panel-assets',
+                      children: (
+                        <RecordAssets
+                          base="service-requests"
+                          recordId={r.id}
+                          canEdit={op('edit')?.allowed === true}
+                          requesterId={r.on_behalf_of_id ?? r.requester_id}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
               // Haider E3: the Service level card, as on incidents (read-only here).
               {
                 key: 'sla',
