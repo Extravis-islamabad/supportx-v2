@@ -1428,7 +1428,7 @@ it with no reload (rule c). Not built yet.
   ordinary fields unsalted (they always verify, so an erasure never hides a change to them)
   and the personal fields salted; the canonical
   encoding fixed in ADR-046 with a golden vector; personal fields per record type in
-  `audit/domain/lifecycle.py` (work items: free text, subjects = requester and on-behalf
+  `audit/domain/lifecycle.py` (work items: free text and save reasons, subjects = requester and on-behalf
   person; assets none; people later) for lanes A and C to review; per-subject salts in
   `audit_subject_salts` (no app rights, definer functions only); the verifier reports
   verified / mismatch / erased on request (runs and the entry view; erased only when the

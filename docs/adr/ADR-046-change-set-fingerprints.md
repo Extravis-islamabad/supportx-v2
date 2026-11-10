@@ -4,7 +4,8 @@
 - **Date:** 2026-11-11
 - **Source:** WP-064; D-150 ("Values and verification", "Erasure"); ADR-027 §3, §5; ADR-045;
   coordinator 2026-11-11 (migration 0129, ADR-046, conditions 1 and 4; lane B's review: split
-  the commitment so an erasure cannot hide tampering)
+  the commitment so an erasure cannot hide tampering; lane C's and lane A's reviews of #365:
+  reasons, more personal fields, the previous requester)
 - **Owner:** Haider (Product Owner)
 
 ## Context
@@ -54,13 +55,24 @@ would be hidden.
    because exports hold no record history; the live verifier does.
 2. **Personal fields per record type** live in one place, `audit/domain/lifecycle.py`
    (`RecordAudit.personal` and `RecordAudit.data_subjects`), for lanes A and C to review:
-   - work items, all five types: subject, description, impact details, resolution, a status
-     change's reason text, custom field values (`custom.`), a task's title (`task`,
-     `task.title`); problems add root cause, symptoms, workaround and the review texts;
-     changes and releases add plan sections (`plan.`), a stage's outcome notes and issues, a
-     downtime's description. Their data subjects are the record's requester and the person it
-     was raised for (`requester_id`, `on_behalf_of_id`), both when both are set;
-   - assets: none;
+   - work items, all five types: subject, description, impact details, resolution, tags,
+     custom field values (`custom.`), a task's title (`task`, `task.title`);
+   - problems add root cause, symptoms, workaround and the review texts;
+   - changes and releases add plan sections (`plan.`), a stage's outcome notes and issues, and
+     a downtime's description. Changes also add the risk reason (`risk_reason`). Releases also
+     add the release notes, version and build reference (`release_notes`, `release_version`,
+     `build_ref`);
+   - **every row's free-text reason** (`field_changes.reason`, at most 500 characters, written
+     by `record_changes` on every row of a save) is personal for every type with data subjects
+     (`RecordAudit.reasons_personal`). Lane A lists where reasons come from: status moves, the
+     priority reason, stage moves, set_fields, known-error comments, and the SLA's by-hand
+     reason. A status move's reason text lives only there, so it needs no field entry;
+   - the data subjects are the record's requester and the person it was raised for
+     (`requester_id`, `on_behalf_of_id`), both when both are set. A save that **changes**
+     either one also has the previous person as a subject, because that save's old free text
+     may be theirs (lane A);
+   - assets: no personal fields, and no data subjects, so their reasons stay in the ordinary,
+     unsalted half;
    - people records are not a lifecycle type yet; their name, email and phone join when they
      are, with the person as the subject.
    IDs and codes are never personal (ADR-027: people appear by ID). All personal fields of a
@@ -115,30 +127,39 @@ would be hidden.
        not personal: `[field, digest(old), digest(new)]`;
      - in the personal half, `fields` holds one array per personal row:
        `[field, digest(old), digest(new), [subject IDs]]`, with the subject IDs sorted;
-     - `fields` are sorted by their own canonical JSON bytes. A save that changed no field has
-       one stored row, `["", digest(null), digest(null)]`, in the ordinary half.
+     - **reasons:** in the half that holds them (personal, salted, when the record type has
+       data subjects; otherwise ordinary, unsalted), every save also carries
+       `"reasons": [[field, digest(reason)], ...]`, one per stored row of that save, whatever
+       half its field belongs to. A null reason is digested as `null`. The other half's saves
+       have no `reasons` key;
+     - `fields` and `reasons` are sorted by their own canonical JSON bytes. A save that changed
+       no field has one stored row, `["", digest(null), digest(null)]`, in the ordinary half.
    - **Fingerprints:** `fingerprint` = `fp1:` + lowercase hex SHA-256 of the ordinary half's
      bytes. `personal_fingerprint` = `fp1:` + the same over the personal half, only when at
-     least one personal row exists.
+     least one personal row exists or, where reasons are personal, a row has a reason.
    - **Golden vectors** (pinned by `app/modules/audit/tests/test_fingerprint.py`, and rebuilt
      there by hand with hashlib only). Both use record `0190a000-0000-7000-8000-000000000001`
      of type `work_item`. `digest(null)` is
      `74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b`.
-     - **A, ordinary fields only:** save `…-0000000000c3`, version 4, kind `updated`:
-       `priority` `p3` → `p2`, `custom.cost` null → `1.0`, `custom.ratio` null → `1.5e-7`,
-       `tags` `["a"]` → `["a","b"]`.
-       `fingerprint` = **`fp1:bb1da1530c996cd33f32d0ddcb06e5abee569db571995b72379a41b301a33e78`**;
+     - **A, an asset save (no data subjects), ordinary fields only, with a reason:** record
+       type `asset`; save `…-0000000000c3`, version 4, kind `updated`: `location` `Floor 1` →
+       `Floor 2`, `custom.cost` null → `1.0`, `custom.ratio` null → `1.5e-7`, `tags` `["a"]` →
+       `["a","b"]`, each row with the reason `Moved for the audit` (in the ordinary half).
+       `fingerprint` = **`fp1:1257eee2a95aea2d289191c3ce95e9199cf4db92bd3aa5ee7c5dc4217d6065d5`**;
        `personal_fingerprint` = none.
      - **B, ordinary and personal fields:** subjects `…-00000000000a` (salt bytes 0x00..0x0f)
        and `…-00000000000b` (0x10..0x1f).
        - Save `…-0000000000c1`, version 1, kind `created`: `subject` (personal) null →
-         `Printer "P-3" jams\n`; `priority` null → `p2`.
+         `Printer "P-3" jams\n`; `priority` null → `p2`; both rows with the reason
+         `Customer called twice` (in the personal half).
        - Save `…-0000000000c2`, version 2, kind `updated`: `description` (personal) `قديم` →
          `{"z":1,"a":[true,false,null]}`; `technician_id` null →
-         `0190a000-0000-7000-8000-0000000000ff`.
+         `0190a000-0000-7000-8000-0000000000ff`; no reason.
        - `fingerprint` = **`fp1:929257682249c7d55f6eebe8a2e94f6c22d53980a5de35d75c7c6e1aa8bc631a`**.
        - `personal_fingerprint` =
-         **`fp1:6d5e5a7fe00b3fcd987413b14fbd4e2d62b7dd41d238b01e910aae2a8dcee4fc`**.
+         **`fp1:c2f4a08e9f972dd8d74b5852cafe7f65a0ee0aac2c3be28953983f2b114afa10`**.
+       - The reasons sit in the personal half, so B's ordinary fingerprint did not change when
+         they were added.
    A new layout gets a new prefix (`fp2:`); the verifier keeps verifying `fp1:`.
 5. **The verifier** (scheduled and on-demand runs, `service/fingerprints.py`): for each
    fingerprinted entry in the range it reads the saves' rows back from `field_changes` (by
@@ -167,6 +188,8 @@ would be hidden.
      - blanks (SQL NULL) the given `field_changes` values. It accepts only rows of saves whose
        entries list the subject: it checks `fingerprint_saves`, the record and
        `personal_subjects` itself;
+     - sets `reason` to NULL on every row of those same saves (it finds them itself). Only
+       work-item saves list subjects, and their reasons are in the personal half;
      - then destroys the salt: `salt` NULL and `erased_at` set. The row is kept as a tombstone,
        so the person never gets a fresh salt that older entries would not match;
      - returns the counts, which the `audit.subject_erased` entry records (codes and counts
@@ -191,6 +214,15 @@ All in `backend/tests/db/test_audit_fingerprints.py` unless named otherwise:
   saves still verify: `test_erasure_shows_erased_on_request_and_everyone_else_still_verifies`.
 - **A save without personal fields** has no `personal_fingerprint` and verifies:
   `test_a_save_without_free_text_uses_no_salt`.
+- **Reasons:**
+  - a changed reason is a mismatch: `test_a_changed_reason_is_a_mismatch`;
+  - an erased subject's reason is blanked and reads `erased_on_request`:
+    `test_an_erased_subjects_reason_is_blanked_and_reads_erased_on_request`;
+  - an asset save's reason is in the ordinary half and stays verifiable:
+    `test_an_asset_saves_reason_is_ordinary_and_stays_verifiable`;
+  - which half moves: `test_reasons_are_committed_to_in_the_right_half` (unit).
+- **The previous requester** is a subject of the save that replaced them, and erasing them
+  blanks that save: `test_the_previous_requester_is_a_subject_of_the_save_that_replaces_them`.
 - **The golden vectors**, rebuilt by hand: `test_golden_vectors`,
   `test_golden_vector_a_recomputed_by_hand`, `test_golden_vector_b_recomputed_by_hand` (unit).
 
