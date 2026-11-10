@@ -16,7 +16,6 @@ import {
   Button,
   Card,
   Modal,
-  Empty,
   Flex,
   Popconfirm,
   Radio,
@@ -58,6 +57,7 @@ import {
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import {
+  EmptyText,
   Attachments,
   ChannelTag,
   ConflictDialog,
@@ -287,22 +287,10 @@ function ConversationBody({
           )}
           {rows.map((row) => row.node)}
           {filter === 'system' && events.length === 0 && (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <Typography.Text type="secondary">{t('conversation.system_empty')}</Typography.Text>
-              }
-            />
+            <EmptyText>{t('conversation.system_empty')}</EmptyText>
           )}
           {filter !== 'system' && filter !== 'all' && shown.length === 0 && (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <Typography.Text type="secondary">
-                  {t(`conversation.empty.${filter}`)}
-                </Typography.Text>
-              }
-            />
+            <EmptyText>{t(`conversation.empty.${filter}`)}</EmptyText>
           )}
         </Flex>
       )}

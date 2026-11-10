@@ -10,7 +10,6 @@ import {
   Button,
   Card,
   Descriptions,
-  Empty,
   Flex,
   Form,
   Input,
@@ -596,7 +595,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       {rows.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('incidents.links.none')} />
+        <EmptyText>{t('incidents.links.none')}</EmptyText>
       ) : (
         <List
           dataSource={rows}
