@@ -543,7 +543,6 @@ export function NewIncidentPage() {
     <FormPage
       testId="inc-new"
       title={t('incidents.new')}
-      width="full"
       extra={
         <Segmented<FormDensity>
           aria-label={t('form_density.title')}
