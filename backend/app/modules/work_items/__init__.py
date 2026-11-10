@@ -58,6 +58,7 @@ from app.modules.work_items.service import (
     report_names,
     request_notifications,
     resolution,
+    rule_step_notifications,
 )
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
@@ -137,6 +138,7 @@ report_names.register()
 notifications.register()
 request_notifications.register()
 problem_notifications.register()  # WP-044c D15
+rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.

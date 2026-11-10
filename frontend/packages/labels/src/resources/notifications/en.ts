@@ -37,6 +37,7 @@ export const en = {
   'notification_area.mailbox': 'Mail',
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
+  'notification_area.rule_step': 'Rules and escalations',
   'notification_area.service_request': 'Service requests',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
@@ -59,7 +60,6 @@ export const en = {
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
-  'notification_event.incident.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.incident.canceled': 'Incident canceled',
   'notification_event.incident.closed': 'Incident closed',
   'notification_event.incident.created': 'New incident: acknowledgement',
@@ -95,6 +95,7 @@ export const en = {
   'notification_event.problem.target_breached': 'Problem target date passed',
   'notification_event.problem.target_warning': 'Problem target date close',
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
+  'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
@@ -211,12 +212,6 @@ export const en = {
     '{{ record.display_id }} is assigned to {{ assignee.name }}: {{ record.title }}',
   'notification_template.incident.assigned.subject':
     'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
-  'notification_template.incident.assignee_unavailable.body':
-    'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
-  'notification_template.incident.assignee_unavailable.in_app':
-    '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
-  'notification_template.incident.assignee_unavailable.subject':
-    'Nobody assigned: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was canceled.',
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} was canceled',
@@ -421,6 +416,12 @@ export const en = {
     '{{ incident.count }} similar incidents: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} similar incidents: {{ rule.name }}',
+  'notification_template.rule_step.assignee_unavailable.body':
+    'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
+  'notification_template.rule_step.assignee_unavailable.in_app':
+    '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.rule_step.assignee_unavailable.subject':
+    'Nobody assigned: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':

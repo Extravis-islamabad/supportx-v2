@@ -39,6 +39,7 @@ export const ar: LabelResource = {
   'notification_area.mailbox': 'البريد',
   'notification_area.problem': 'المشكلات',
   'notification_area.problem_repeat': 'المشكلات',
+  'notification_area.rule_step': 'القواعد والتصعيدات',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
@@ -61,7 +62,6 @@ export const ar: LabelResource = {
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.incident.assigned': 'أُسند حادث',
-  'notification_event.incident.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'notification_event.incident.canceled': 'أُلغي الحادث',
   'notification_event.incident.closed': 'أُغلق الحادث',
   'notification_event.incident.created': 'حادث جديد: إشعار بالاستلام',
@@ -98,6 +98,7 @@ export const ar: LabelResource = {
   'notification_event.problem.target_breached': 'تجاوزت مشكلة موعدها المستهدف',
   'notification_event.problem.target_warning': 'اقترب الموعد المستهدف لمشكلة',
   'notification_event.problem_repeat.detected': 'وُجدت حوادث متكررة',
+  'notification_event.rule_step.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
@@ -213,12 +214,6 @@ export const ar: LabelResource = {
     'أُسند {{ record.display_id }} إلى {{ assignee.name }}: {{ record.title }}',
   'notification_template.incident.assigned.subject':
     'أُسند إلى {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
-  'notification_template.incident.assignee_unavailable.body':
-    'مرحبًا {{ recipient.name }}،\n\nكان على قاعدة أو تصعيد إسناد {{ record.display_id }} "{{ record.title }}" إلى {{ unavailable.person }}، الذي {{ unavailable.reason }}. انتقل إلى المجموعة دون أن يُسند إلى أحد. يُرجى إسناده إلى شخص ما أو تعديل القاعدة.',
-  'notification_template.incident.assignee_unavailable.in_app':
-    'انتقل {{ record.display_id }} إلى مجموعته دون أن يُسند إلى أحد: {{ unavailable.person }} {{ unavailable.reason }}',
-  'notification_template.incident.assignee_unavailable.subject':
-    'لم يُسند إلى أحد: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
     'مرحبًا {{ recipient.name }}،\n\nأُلغي {{ record.display_id }} «{{ record.title }}».',
   'notification_template.incident.canceled.in_app': 'أُلغي {{ record.display_id }}',
@@ -423,6 +418,12 @@ export const ar: LabelResource = {
     '{{ incident.count }} حوادث متشابهة: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} حوادث متشابهة: {{ rule.name }}',
+  'notification_template.rule_step.assignee_unavailable.body':
+    'مرحبًا {{ recipient.name }}،\n\nكان على قاعدة أو تصعيد إسناد {{ record.display_id }} "{{ record.title }}" إلى {{ unavailable.person }}، الذي {{ unavailable.reason }}. انتقل إلى المجموعة دون أن يُسند إلى أحد. يُرجى إسناده إلى شخص ما أو تعديل القاعدة.',
+  'notification_template.rule_step.assignee_unavailable.in_app':
+    'انتقل {{ record.display_id }} إلى مجموعته دون أن يُسند إلى أحد: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.rule_step.assignee_unavailable.subject':
+    'لم يُسند إلى أحد: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':

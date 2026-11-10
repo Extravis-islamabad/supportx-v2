@@ -39,6 +39,7 @@ export const ur: LabelResource = {
   'notification_area.mailbox': 'میل',
   'notification_area.problem': 'مسائل',
   'notification_area.problem_repeat': 'مسائل',
+  'notification_area.rule_step': 'قواعد اور ایسکلیشن',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
@@ -61,7 +62,6 @@ export const ur: LabelResource = {
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
-  'notification_event.incident.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'notification_event.incident.canceled': 'واقعہ منسوخ ہوا',
   'notification_event.incident.closed': 'واقعہ بند ہوا',
   'notification_event.incident.created': 'نیا واقعہ: وصولی کی تصدیق',
@@ -98,6 +98,7 @@ export const ur: LabelResource = {
   'notification_event.problem.target_breached': 'مسئلے کی ہدف تاریخ گزر گئی',
   'notification_event.problem.target_warning': 'مسئلے کی ہدف تاریخ قریب',
   'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
+  'notification_event.rule_step.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
@@ -214,12 +215,6 @@ export const ur: LabelResource = {
     '{{ record.display_id }} {{ assignee.name }} کو تفویض ہوا: {{ record.title }}',
   'notification_template.incident.assigned.subject':
     '{{ assignee.name }} کو تفویض: {{ record.display_id }} {{ record.title }}',
-  'notification_template.incident.assignee_unavailable.body':
-    'السلام علیکم {{ recipient.name }}،\n\nایک قاعدے یا ایسکلیشن کو {{ record.display_id }} "{{ record.title }}" کو {{ unavailable.person }} کے سپرد کرنا تھا، جو {{ unavailable.reason }}۔ یہ کسی کو تفویض کیے بغیر گروپ میں چلا گیا۔ براہ کرم کسی کو تفویض کریں یا قاعدہ بدلیں۔',
-  'notification_template.incident.assignee_unavailable.in_app':
-    '{{ record.display_id }} کسی کو تفویض کیے بغیر اپنے گروپ میں چلا گیا: {{ unavailable.person }} {{ unavailable.reason }}',
-  'notification_template.incident.assignee_unavailable.subject':
-    'کسی کو تفویض نہیں: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" منسوخ کر دیا گیا۔',
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} منسوخ ہو گیا',
@@ -424,6 +419,12 @@ export const ur: LabelResource = {
     '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} ملتے جلتے واقعات: {{ rule.name }}',
+  'notification_template.rule_step.assignee_unavailable.body':
+    'السلام علیکم {{ recipient.name }}،\n\nایک قاعدے یا ایسکلیشن کو {{ record.display_id }} "{{ record.title }}" کو {{ unavailable.person }} کے سپرد کرنا تھا، جو {{ unavailable.reason }}۔ یہ کسی کو تفویض کیے بغیر گروپ میں چلا گیا۔ براہ کرم کسی کو تفویض کریں یا قاعدہ بدلیں۔',
+  'notification_template.rule_step.assignee_unavailable.in_app':
+    '{{ record.display_id }} کسی کو تفویض کیے بغیر اپنے گروپ میں چلا گیا: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.rule_step.assignee_unavailable.subject':
+    'کسی کو تفویض نہیں: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
