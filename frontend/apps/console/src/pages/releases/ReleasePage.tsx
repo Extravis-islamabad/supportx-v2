@@ -210,7 +210,11 @@ export function ReleasePage() {
         items={[
           { key: 'details', label: t('releases.tab.details'), children: <DetailsPart id={r.id} /> },
           { key: 'roles', label: t('releases.tab.roles'), children: <RolesPart id={r.id} /> },
-          { key: 'plan', label: t('releases.tab.plan'), children: <PlanPart id={r.id} /> },
+          {
+            key: 'plan',
+            label: t('releases.tab.plan'),
+            children: <PlanPart id={r.id} stage={r.stage ?? ''} />,
+          },
           {
             key: 'schedule',
             label: t('releases.tab.schedule'),

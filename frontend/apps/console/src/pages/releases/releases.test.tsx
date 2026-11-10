@@ -119,7 +119,13 @@ afterEach(() => {
   restore();
 });
 
-function api() {
+function api(
+  extra: Parameters<typeof consoleApi>[0] extends infer A
+    ? A extends { routes?: infer R }
+      ? R
+      : never
+    : never = {},
+) {
   const fake = consoleApi({
     me: fakeSession(
       { roles: ['tenant_admin'] },
@@ -179,6 +185,7 @@ function api() {
       [`POST /api/v1/releases/${REL_ID}/approvals/${APPROVAL_ID}/decision`]: {
         body: { ...approval, state: 'rejected', version: 3 },
       },
+      ...extra,
     },
   });
   restore = fake.restore;
@@ -409,6 +416,48 @@ describe('console: releases', () => {
     expect(screen.queryByTestId('release-stage')).toBeNull();
     expect(screen.queryByTestId('release-status')).toBeNull();
     expect(screen.getByTestId('record-kind-tile').getAttribute('data-kind')).toBe('release');
+  });
+
+  it('D-155: the plan shows the sections of this stage; empty ones are one compact Add list', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const section = (code: string, content: string | null) => ({
+      section: code,
+      content,
+      version: 1,
+    });
+    api({
+      [`GET /api/v1/releases/${REL_ID}/plan`]: {
+        body: [
+          section('impact', '<p>Mail is down for ten minutes.</p>'),
+          section('rollout', null),
+          section('backout', null),
+          section('review_findings', null),
+          section('review_went_well', null),
+          section('review_went_badly', null),
+        ],
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Plan' }));
+    expect(await screen.findByTestId('plan-impact')).toBeDefined(); // written: shown
+    const adds = within(screen.getByTestId('release-plan-add')).getAllByRole('button');
+    expect(adds.map((b) => b.textContent)).toEqual(['Add rollout plan', 'Add backout plan']);
+    expect(screen.queryByTestId('plan-review_findings-add')).toBeNull(); // the build stage
+    fireEvent.click(screen.getByTestId('plan-rollout-add'));
+    expect(await screen.findByTestId('plan-rollout-editor')).toBeDefined();
+  });
+
+  it('D-155: downtime on one baseline, the zone said once, and Add says what is missing', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api({ [`GET /api/v1/releases/${REL_ID}/downtimes`]: { body: [] } });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Downtime' }));
+    const tab = await screen.findByTestId('release-downtimes');
+    expect(await within(tab).findByText('No downtime planned.')).toBeDefined();
+    expect(within(tab).getAllByText(/^Times are in /)).toHaveLength(1);
+    expect(screen.getByTestId<HTMLButtonElement>('downtime-add').disabled).toBe(true);
+    fireEvent.mouseOver(within(tab).getByTestId('disabled-why'));
+    expect(await screen.findByText('Choose when it starts and when it ends.')).toBeDefined();
   });
 
   it('QA6-REL-04: the tab and the top bar say which release this is', async () => {
