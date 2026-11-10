@@ -4,6 +4,7 @@ import {
   actionEntry,
   clickAction,
   closeAppearance,
+  editProperty,
   expectAccessible,
   openAppearance,
   resetLanguage,
@@ -187,7 +188,7 @@ test('a new incident with rich text appears live for the technician; edits reach
     await tech.page.getByRole('tab', { name: 'Details' }).click();
 
     // The admin edits urgency in place; the technician's open record follows by itself.
-    await form.getByTestId('inc-edit-urgency').click();
+    await editProperty(form, 'inc-edit-urgency');
     await pick(form, 'inc-input-urgency', '', 'Critical – business stopped');
     await form.getByTestId('inc-save-urgency').click();
     await expect(tech.page.getByTestId('inc-priority').first()).toHaveAttribute(
