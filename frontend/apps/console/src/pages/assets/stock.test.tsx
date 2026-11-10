@@ -180,6 +180,65 @@ describe('console: consumables', () => {
     expect(problemText(t, fixed)).toContain('cannot be switched later');
   });
 
+  it('says the list is empty only once it has loaded, never under the spinner', async () => {
+    window.history.pushState({}, '', '/assets/consumables');
+    let answer: (reply: { body: unknown }) => void = () => undefined;
+    const fake = api({
+      'GET /api/v1/assets/consumables': () =>
+        new Promise<{ body: unknown }>((resolve) => {
+          answer = resolve;
+        }),
+    });
+    restore = fake.restore;
+    render(<App />);
+    const table = await screen.findByTestId('consumables');
+    expect(within(table).queryByText('No consumables kept yet.')).toBeNull();
+    answer({ body: [] });
+    expect(await within(table).findByText('No consumables kept yet.')).toBeTruthy();
+  });
+
+  it('the ledger says nothing has moved only once it has loaded', async () => {
+    window.history.pushState({}, '', `/assets/consumables/${consumable.id}`);
+    const fake = api({
+      [`GET /api/v1/assets/consumables/${consumable.id}/ledger`]: () =>
+        new Promise<{ body: unknown }>(() => undefined),
+    });
+    restore = fake.restore;
+    render(<App />);
+    await screen.findByTestId('consumable-heading');
+    fireEvent.click(screen.getByRole('tab', { name: 'Ledger' }));
+    const ledger = await screen.findByTestId('consumable-ledger');
+    expect(within(ledger).queryByText('Nothing has moved yet.')).toBeNull();
+    expect(within(ledger).getByTestId('empty-loading')).toBeTruthy();
+  });
+
+  it('the record names its path in the top bar and says once, as a notice, that none is left', async () => {
+    window.history.pushState({}, '', `/assets/consumables/${consumable.id}`);
+    const empty = {
+      ...consumable,
+      total: '0.000',
+      stocks: consumable.stocks.map((s) => ({ ...s, quantity: '0.000' })),
+    };
+    const fake = api({
+      [`GET /api/v1/assets/consumables/${consumable.id}`]: {
+        body: empty,
+        headers: { ETag: '"2"' },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const page = await screen.findByTestId('consumable-page');
+    await waitFor(() => {
+      expect(document.title).toContain('Toner 26A');
+    });
+    expect(document.title).toContain('Consumables');
+    // The path is the crumbs' job now, not a link in the record's header.
+    expect(within(page).queryByRole('link', { name: 'Consumables' })).toBeNull();
+    expect(screen.getByTestId('consumable-all-out').textContent).toContain(
+      'None left at any site.',
+    );
+  });
+
   it('batch tracking cannot be switched: the refusal reads as the reason', async () => {
     window.history.pushState({}, '', '/assets/consumables');
     const fake = api({
@@ -267,6 +326,26 @@ describe('console: bookings and loans', () => {
     });
     const [sent] = fake.find('POST', '/api/v1/assets/bookings/bk-1/handover');
     expect(sent?.headers.get('If-Match')).toBe('"1"');
+  });
+
+  it("the asset's bookings say there are none only once they have loaded", async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=bookings`);
+    let answer: (reply: { body: unknown }) => void = () => undefined;
+    const fake = api({
+      [`GET /api/v1/assets/${asset.id}`]: { body: asset, headers: { ETag: '"3"' } },
+      [`GET /api/v1/assets/${asset.id}/history`]: { body: { items: [], next_cursor: null } },
+      'GET /api/v1/assets/states': { body: [] },
+      'GET /api/v1/assets/bookings': () =>
+        new Promise<{ body: unknown }>((resolve) => {
+          answer = resolve;
+        }),
+    });
+    restore = fake.restore;
+    render(<App />);
+    const table = await screen.findByTestId('asset-bookings-table');
+    expect(within(table).queryByText('No bookings ahead.')).toBeNull();
+    answer({ body: [] });
+    expect(await within(table).findByText('No bookings ahead.')).toBeTruthy();
   });
 
   it('the loan register shows the display ID, the department and site, and filters by status', async () => {

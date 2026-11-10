@@ -474,6 +474,8 @@ export const en = {
   'my_assets.accept': 'Accept',
   'my_assets.accepted': 'Accepted',
   'my_assets.book': 'Book an asset',
+  'my_assets.book_asset_needed': 'Choose the asset to book.',
+  'my_assets.book_dates_needed': 'Choose when you need it.',
   'my_assets.book_title': 'Book an asset ahead',
   'my_assets.book_what': 'What',
   'my_assets.book_when': 'When',

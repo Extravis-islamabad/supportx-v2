@@ -513,6 +513,8 @@ export const ar: LabelResource = {
   'my_assets.accept': 'قبول',
   'my_assets.accepted': 'تم القبول',
   'my_assets.book': 'احجز أصلًا',
+  'my_assets.book_asset_needed': 'اختر الأصل الذي تريد حجزه.',
+  'my_assets.book_dates_needed': 'اختر متى تحتاجه.',
   'my_assets.book_title': 'حجز أصل مسبقًا',
   'my_assets.book_what': 'ماذا',
   'my_assets.book_when': 'متى',

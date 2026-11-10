@@ -478,6 +478,8 @@ export const ur: LabelResource = {
   'my_assets.accept': 'قبول کریں',
   'my_assets.accepted': 'قبول کر لیا',
   'my_assets.book': 'اثاثہ بُک کریں',
+  'my_assets.book_asset_needed': 'وہ اثاثہ منتخب کریں جو بُک کرنا ہے۔',
+  'my_assets.book_dates_needed': 'منتخب کریں کہ یہ کب چاہیے۔',
   'my_assets.book_title': 'اثاثہ پیشگی بُک کریں',
   'my_assets.book_what': 'کیا',
   'my_assets.book_when': 'کب',

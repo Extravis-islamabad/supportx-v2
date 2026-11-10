@@ -10,6 +10,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Typography,
 } from 'antd';
 import { useState, type ComponentProps } from 'react';
 
@@ -22,6 +23,7 @@ import {
 } from '@supportx/api-client';
 import { usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import {
+  loadedEmpty,
   EmptyText,
   pickerFormat,
   reportError,
@@ -78,13 +80,23 @@ function BookDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
     setKey(crypto.randomUUID());
     onClose();
   };
+  // A grey button never stays silent (D-155): the dialog says what is still missing.
+  const whyDisabled =
+    asset === null
+      ? t('my_assets.book_asset_needed')
+      : range === null
+        ? t('my_assets.book_dates_needed')
+        : undefined;
   return (
     <Modal
       open={open}
       title={t('my_assets.book_title')}
       okText={t('my_assets.book')}
       cancelText={t('actions.cancel')}
-      okButtonProps={{ disabled: asset === null || range === null }}
+      okButtonProps={{
+        disabled: whyDisabled !== undefined,
+        'aria-describedby': whyDisabled === undefined ? undefined : 'my-booking-why',
+      }}
       confirmLoading={book.isPending}
       onCancel={close}
       onOk={() => {
@@ -153,6 +165,11 @@ function BookDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
           />
         </Form.Item>
       </Form>
+      {whyDisabled !== undefined && (
+        <Typography.Text type="secondary" id="my-booking-why" data-testid="my-booking-why">
+          {whyDisabled}
+        </Typography.Text>
+      )}
     </Modal>
   );
 }
@@ -199,7 +216,7 @@ export function MyBookings() {
     >
       <List
         dataSource={data.bookings}
-        locale={{ emptyText: <EmptyText>{t('my_assets.no_bookings')}</EmptyText> }}
+        locale={{ emptyText: loadedEmpty(mine.isPending, t('my_assets.no_bookings')) }}
         renderItem={(b) => (
           <List.Item
             key={b.id}

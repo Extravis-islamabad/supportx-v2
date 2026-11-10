@@ -1,7 +1,6 @@
 import { InboxOutlined } from '@ant-design/icons';
 import {
   Alert,
-  Card,
   DatePicker,
   Flex,
   Form,
@@ -35,6 +34,7 @@ import {
   CellText,
   EmptyText,
   lengthLimit,
+  loadedEmpty,
   NoAccess,
   PropertiesPanel,
   PropertyList,
@@ -45,6 +45,7 @@ import {
   useAppearance,
   useDateTime,
   useLabel,
+  usePageCrumbs,
   type RecordAction,
 } from '@supportx/ui';
 
@@ -503,7 +504,7 @@ function Ledger({ id }: { id: string }) {
       dataSource={ledger.data ?? []}
       pagination={false}
       scroll={{ x: 'max-content' }}
-      locale={{ emptyText: <EmptyText>{t('assets.stock.no_movements')}</EmptyText> }}
+      locale={{ emptyText: loadedEmpty(ledger.isPending, t('assets.stock.no_movements')) }}
       data-testid="consumable-ledger"
       columns={[
         {
@@ -554,7 +555,9 @@ function Ledger({ id }: { id: string }) {
           key: 'comment',
           title: t('assets.stock.comment'),
           render: (_, row) => (
-            <CellText>{row.comment === null ? '' : <bdi dir="auto">{row.comment}</bdi>}</CellText>
+            <CellText title={row.comment ?? undefined}>
+              {row.comment === null ? '' : <bdi dir="auto">{row.comment}</bdi>}
+            </CellText>
           ),
         },
       ]}
@@ -562,17 +565,18 @@ function Ledger({ id }: { id: string }) {
   );
 }
 
-function Stocks({ consumable }: { consumable: AssetConsumableDetail }) {
+function Stocks({ consumable, loading }: { consumable: AssetConsumableDetail; loading: boolean }) {
   const t = useLabel();
   const siteName = useSiteNames();
   return (
     <Table<AssetStock>
       size="small"
       rowKey="id"
+      loading={loading}
       dataSource={consumable.stocks}
       pagination={false}
       scroll={{ x: 'max-content' }}
-      locale={{ emptyText: <EmptyText>{t('assets.stock.no_stock')}</EmptyText> }}
+      locale={{ emptyText: loadedEmpty(loading, t('assets.stock.no_stock')) }}
       data-testid="consumable-stocks"
       columns={[
         {
@@ -614,7 +618,7 @@ function Stocks({ consumable }: { consumable: AssetConsumableDetail }) {
   );
 }
 
-function Batches({ consumable }: { consumable: AssetConsumableDetail }) {
+function Batches({ consumable, loading }: { consumable: AssetConsumableDetail; loading: boolean }) {
   const t = useLabel();
   const dates = useDateTime();
   const siteName = useSiteNames();
@@ -622,10 +626,11 @@ function Batches({ consumable }: { consumable: AssetConsumableDetail }) {
     <Table<AssetBatch>
       size="small"
       rowKey="id"
+      loading={loading}
       dataSource={consumable.batches}
       pagination={false}
       scroll={{ x: 'max-content' }}
-      locale={{ emptyText: <EmptyText>{t('assets.stock.no_batches')}</EmptyText> }}
+      locale={{ emptyText: loadedEmpty(loading, t('assets.stock.no_batches')) }}
       data-testid="consumable-batches"
       columns={[
         {
@@ -687,6 +692,11 @@ export function ConsumablePage() {
   );
   useConsumablesLive();
   const { locale } = useAppearance();
+  // The path in the top bar and the tab's title: Consumables › Toner 26A (lane C's #367 review).
+  usePageCrumbs([
+    { label: t('assets.stock.title'), path: '/assets/consumables' },
+    ...(found.data ? [{ label: found.data.product_name }] : []),
+  ]);
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
   if (found.isPending) return <Skeleton active />;
   const consumable = found.data;
@@ -734,14 +744,20 @@ export function ConsumablePage() {
               )}
             </>
           }
-          meta={[
-            <Link key="back" to="/assets/consumables">
-              {t('assets.stock.title')}
-            </Link>,
-          ]}
         />
       }
       actions={<ActionBar actions={actions} max={2} testId="consumable-actions" />}
+      alerts={
+        !held && consumable.stocks.length > 0 ? (
+          <Alert
+            type="warning"
+            showIcon
+            role="status"
+            message={t('assets.stock.all_out')}
+            data-testid="consumable-all-out"
+          />
+        ) : undefined
+      }
       panel={
         <PropertiesPanel
           testId="consumable-panel"
@@ -799,9 +815,6 @@ export function ConsumablePage() {
           if (forRequest !== undefined) void navigate(`/assets/consumables/${consumable.id}`);
         }}
       />
-      {!held && consumable.stocks.length > 0 && (
-        <Typography.Paragraph type="secondary">{t('assets.stock.all_out')}</Typography.Paragraph>
-      )}
       <Tabs
         items={[
           {
@@ -809,13 +822,14 @@ export function ConsumablePage() {
             label: t('assets.stock.by_site'),
             children: (
               <Flex vertical gap={16}>
-                <Card size="small">
-                  <Stocks consumable={consumable} />
-                </Card>
+                <Stocks consumable={consumable} loading={found.isPending} />
                 {consumable.batch_tracked && (
-                  <Card size="small" title={t('assets.stock.batches')}>
-                    <Batches consumable={consumable} />
-                  </Card>
+                  <section aria-labelledby="consumable-batches-title">
+                    <Typography.Title level={5} id="consumable-batches-title">
+                      {t('assets.stock.batches')}
+                    </Typography.Title>
+                    <Batches consumable={consumable} loading={found.isPending} />
+                  </section>
                 )}
               </Flex>
             ),
@@ -823,11 +837,7 @@ export function ConsumablePage() {
           {
             key: 'ledger',
             label: t('assets.stock.ledger'),
-            children: (
-              <Card size="small">
-                <Ledger id={consumable.id} />
-              </Card>
-            ),
+            children: <Ledger id={consumable.id} />,
           },
         ]}
         data-testid="consumable-tabs"

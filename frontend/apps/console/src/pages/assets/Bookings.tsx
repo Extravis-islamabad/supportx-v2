@@ -11,8 +11,8 @@ import {
 } from '@supportx/api-client';
 import {
   CellText,
-  EmptyText,
   lengthLimit,
+  loadedEmpty,
   pickerFormat,
   ToneTag,
   useAppearance,
@@ -258,7 +258,7 @@ export function AssetBookings({ asset, manage }: { asset: AssetRecord; manage: b
         dataSource={rows}
         pagination={false}
         scroll={{ x: 'max-content' }}
-        locale={{ emptyText: <EmptyText>{t('assets.bookings.none')}</EmptyText> }}
+        locale={{ emptyText: loadedEmpty(bookings.isPending, t('assets.bookings.none')) }}
         columns={[
           {
             key: 'when',
@@ -299,7 +299,9 @@ export function AssetBookings({ asset, manage }: { asset: AssetRecord; manage: b
             key: 'comment',
             title: t('assets.bookings.comment'),
             render: (_, b) => (
-              <CellText>{b.comment === null ? '' : <bdi dir="auto">{b.comment}</bdi>}</CellText>
+              <CellText title={b.comment ?? undefined}>
+                {b.comment === null ? '' : <bdi dir="auto">{b.comment}</bdi>}
+              </CellText>
             ),
           },
           ...(manage
