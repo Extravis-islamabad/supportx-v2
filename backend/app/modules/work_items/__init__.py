@@ -60,6 +60,7 @@ from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
+from app.modules.work_items.service.change_guard import register as register_change_guard
 from app.modules.work_items.service.closing import (
     register_open_work,
     register_requester_channel,
@@ -119,6 +120,7 @@ _register_ai()  # at import too: the consumers worker runs the re-embed sweep wi
 register_types()
 register_triggers()
 register_stage_approvals(tuple(TYPES.values()))  # WP-058a s5: releases' stage approval guard
+register_change_guard(tuple(TYPES.values()))  # WP-045a D4: approvals and the outcome
 # Release roles as open duties in the role editor's preview (REQ-REL-024 AC2, lane B's #223).
 release_duties.register()
 register_sla()
