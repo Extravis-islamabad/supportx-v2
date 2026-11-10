@@ -12,7 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.work_items.domain import changes as rules
 from app.modules.work_items.domain.stages import Move
 from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem, WorkItemStageSchedule
+from app.modules.work_items.infra.models import (
+    WorkItem,
+    WorkItemChangeDetails,
+    WorkItemStageSchedule,
+)
 from app.modules.work_items.service import catalogue
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service.stage_approvals import StagedApprovalGuard
@@ -27,6 +31,13 @@ class ChangeGuard(StagedApprovalGuard):
         """The approvals' refusals, then the outcome's (REQ-CHG-032 AC1)."""
         # The parent's sub-release check runs too: a no-op for changes (no release children).
         refusals = await super().check(session, record, move)
+        # Closing, not canceling: a change may always be canceled.
+        if move.target.code == rules.CLOSED_STATUS and record.stage != rules.REVIEW:
+            details = await session.get(
+                WorkItemChangeDetails, (catalogue.tenant_of(session), record.id)
+            )
+            if details is not None and details.pir_required:  # D-144: after an override
+                refusals = [*refusals, stage_service.Refusal("pir_required", {})]
         if move.target.code not in rules.OUTCOME_OF_STATUS:
             return refusals
         row = await session.get(

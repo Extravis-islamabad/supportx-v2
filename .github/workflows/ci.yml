@@ -385,7 +385,7 @@ jobs:
           # Each file's seconds, to refresh tests/shard_weights.json from CI (tooling/pytest_shards.py).
           SUPPORTX_TEST_TIMINGS: ${{ runner.temp }}/timings.json
           SUPPORTX_TEMPORAL_TEST_SERVER_DIR: ${{ runner.temp }}/temporal-test-server  # cached above
-        run: uv run pytest -n 4 --dist loadgroup --cov-report= --cov-fail-under=0 --durations=15
+        run: uv run pytest -n 4 --dist loadfile --cov-report= --cov-fail-under=0 --durations=15
       - name: Event bus latency and throughput (job summary)
         if: ${{ steps.changes.outputs.run == 'true' && (!cancelled()) }}
         run: |
@@ -467,8 +467,9 @@ jobs:
           uv run coverage combine .coverage.shard*
           uv run coverage report --skip-covered --sort=cover
       # Fresh shard weights every night: every shard's file timings in one file, ready to commit
-      # as backend/tests/shard_weights.json (`make backend-shard-weights RUN=<this run>`). The
-      # shards warn when more than 10% of the test files have no weight.
+      # as backend/tests/shard_weights.json (`make backend-shard-weights RUN=<this run>`). A
+      # test file without a weight counts as a heavy one (90th percentile of its kind), is dealt
+      # round-robin across the shards, and every shard's summary names it, so it gets a weight.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: ${{ github.event_name == 'schedule' && steps.changes.outputs.run == 'true' }}
         with:

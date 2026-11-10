@@ -131,6 +131,8 @@ export const en = {
   'errors.dashboard_not_found': 'This dashboard does not exist or is not shared with you.',
   'errors.database_not_configured':
     'The service is not fully configured yet. Please contact your administrator.',
+  'errors.default_board_kept':
+    'The default change advisory board cannot be removed. Changes that no other board reviews go to it.',
   'errors.default_site_required':
     'The default site cannot be removed. Make another site the default first.',
   'errors.delivery_not_failed': 'This reply has not failed, so there is nothing to resend.',
@@ -212,6 +214,7 @@ export const en = {
   'errors.field.before_publish': 'Retiring must come after publishing.',
   'errors.field.before_start': 'The end cannot be before the start.',
   'errors.field.below_minimum': 'Minimum is {{min}}.',
+  'errors.field.board_not_found': 'This advisory board does not exist.',
   'errors.field.brand_image_svg':
     'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
   'errors.field.brand_image_too_large': 'This image is too large: at most 5 MB and 25 megapixels.',
@@ -272,6 +275,7 @@ export const en = {
   'errors.field.duplicate_name': 'This name is already used.',
   'errors.field.duplicate_permission': 'This permission is listed twice.',
   'errors.field.duplicate_sort_field': 'Each field can be used only once in the sort.',
+  'errors.field.duplicate_value': 'This is listed more than once.',
   'errors.field.duration_mismatch': 'The duration does not match the start and end times.',
   'errors.field.email_invalid': 'Enter an e-mail address like name@example.com.',
   'errors.field.email_not_valid': 'Enter an email address, such as name@example.com.',
@@ -714,6 +718,8 @@ export const en = {
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
+  'errors.nothing_to_override':
+    'This change is not waiting for approval again, so there is nothing to override.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
