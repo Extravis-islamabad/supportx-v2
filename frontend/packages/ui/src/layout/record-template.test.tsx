@@ -62,6 +62,18 @@ describe('template A (record page)', () => {
     expect(screen.getByText('Add')).toBeTruthy();
   });
 
+  it('copies the ID, but not a stand-in such as "No tag"', () => {
+    const view = renderUi(
+      <RecordHeader displayId="INC-1" title="Printer down" testIds={{ id: 'id' }} />,
+    );
+    expect(screen.getByTestId('id').querySelector('.ant-typography-copy')).not.toBeNull();
+    view.unmount();
+    renderUi(
+      <RecordHeader displayId="No tag" copyable={false} title="Laptop" testIds={{ id: 'id' }} />,
+    );
+    expect(screen.getByTestId('id').querySelector('.ant-typography-copy')).toBeNull();
+  });
+
   it('lets a screen wrap the title (to edit it in place)', () => {
     renderUi(
       <RecordHeader
