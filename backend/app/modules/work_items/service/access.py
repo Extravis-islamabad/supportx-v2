@@ -34,8 +34,10 @@ from app.modules.identity_access import (
     ResourceType,
     Subject,
 )
+from app.modules.work_items.domain.changes import CHANGE_MODEL
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
+from app.modules.work_items.domain.releases import RELEASE_MODEL
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemRoleHolder
@@ -110,7 +112,16 @@ FIELDS = ResourceFields(
         "display_id": FilterField(WorkItem.display_id, FieldType.STRING, sortable=True),
         "display_number": FilterField(WorkItem.display_number, FieldType.INTEGER, sortable=True),
         "subject": FilterField(WorkItem.subject, FieldType.STRING, sortable=True),
-        "status": _enum(WorkItem.status, DefaultStatus),
+        # The staged types' statuses too: a change or release list filters by its own status
+        # (the change screens; "Pending approval" is the change statuses awaiting approval).
+        "status": _enum(
+            WorkItem.status,
+            [
+                *DefaultStatus,
+                *(s.code for s in CHANGE_MODEL.statuses),
+                *(s.code for s in RELEASE_MODEL.statuses),
+            ],
+        ),
         "status_category": _enum(WorkItem.status_category, StatusCategory),
         "priority": FilterField(
             WorkItem.priority,
