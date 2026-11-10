@@ -2186,9 +2186,6 @@
   "announcements.view": [
    "all"
   ],
-  "assets.manage": [
-   "group"
-  ],
   "assets.view": [
    "all"
   ],
@@ -2448,9 +2445,6 @@
   ],
   "announcements.view": [
    "all"
-  ],
-  "assets.manage": [
-   "group"
   ],
   "assets.view": [
    "all"

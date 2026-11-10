@@ -122,7 +122,9 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("changes.create", "all"),
             ("releases.view", "all"),
             ("assets.view", "all"),
-            ("assets.manage", "group"),
+            # D-153: a technician updates only the assets linked to its own tickets. Records
+            # don't link assets yet (they come with the CMDB, WP-050), so for now it only
+            # views them; full asset management is the asset manager's.
             ("cmdb.view", "all"),
         ),
         REQUESTER: (
