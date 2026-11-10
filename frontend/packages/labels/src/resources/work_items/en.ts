@@ -196,6 +196,7 @@ export const en = {
   'catalog_admin.missing_other': '{{count}} translations missing',
   'catalog_admin.move_down': 'Move down',
   'catalog_admin.move_up': 'Move up',
+  'catalog_admin.names': 'Name',
   'catalog_admin.new_category': 'New category',
   'catalog_admin.new_item': 'New item',
   'catalog_admin.no_categories': 'No categories yet.',

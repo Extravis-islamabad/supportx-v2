@@ -200,6 +200,7 @@ export const ar: LabelResource = {
   'catalog_admin.missing_zero': 'لا ترجمات ناقصة',
   'catalog_admin.move_down': 'نقل للأسفل',
   'catalog_admin.move_up': 'نقل للأعلى',
+  'catalog_admin.names': 'الاسم',
   'catalog_admin.new_category': 'فئة جديدة',
   'catalog_admin.new_item': 'عنصر جديد',
   'catalog_admin.no_categories': 'لا فئات بعد.',

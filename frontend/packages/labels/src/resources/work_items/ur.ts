@@ -198,6 +198,7 @@ export const ur: LabelResource = {
   'catalog_admin.missing_other': '{{count}} ترجمے باقی ہیں',
   'catalog_admin.move_down': 'نیچے کریں',
   'catalog_admin.move_up': 'اوپر کریں',
+  'catalog_admin.names': 'نام',
   'catalog_admin.new_category': 'نئی کیٹیگری',
   'catalog_admin.new_item': 'نیا آئٹم',
   'catalog_admin.no_categories': 'ابھی کوئی کیٹیگری نہیں۔',
