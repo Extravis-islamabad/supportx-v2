@@ -1,0 +1,265 @@
+import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
+import { Button, Flex, Input, Select, Table, Tag } from 'antd';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+
+import {
+  changeKeys,
+  useChanges,
+  useStagedSettings,
+  type ChangeListItem,
+} from '@supportx/api-client';
+import { useListChannel } from '@supportx/realtime';
+import {
+  CellText,
+  loadedEmpty,
+  FilterBar,
+  ListPage,
+  PageHeader,
+  usePageCrumbs,
+  ToneTag,
+  WriteButton,
+  reportError,
+  useAccess,
+  useDateTime,
+  useLabel,
+  useColumnWidths,
+} from '@supportx/ui';
+
+import { useDebounced } from '../../useDebounced';
+import { StatusTag } from '../incidents/tags';
+import { stageName } from '../releases/labels';
+import { EMERGENCY_PATH } from './labels';
+
+const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
+const OWN_WIDTHS = { id: 130, subject: 340, path: 170, stage: 170, status: 190, updated: 170 };
+// The engine's built-in views a change list offers (labels `work_item_view.*`); "all" sends none.
+// Pending approval: changes waiting at a stage's approval (acceptance, the plan, the CAB).
+const VIEWS = [
+  'open',
+  'my_open',
+  'my_groups_open',
+  'unassigned',
+  'pending_approval',
+  'overdue',
+  'closed',
+  'canceled',
+  'all',
+] as const;
+type View = (typeof VIEWS)[number];
+
+/** Number or title: the list's search, as a filter the API applies to what you may see. */
+function searchFilter(text: string): string | undefined {
+  const needle = text.trim();
+  if (needle === '') return undefined;
+  return JSON.stringify({
+    or: [
+      { field: 'subject', op: 'contains', value: needle },
+      { field: 'display_id', op: 'eq', value: needle.toUpperCase() },
+    ],
+  });
+}
+
+/**
+ * The changes list on template C (D-147): the header with its count and New change, one filter
+ * bar (the view and the search), then the table where the title takes the width left. Number,
+ * title with the emergency flag, path, stage and status, live on the type's list channel (a new
+ * change or a move shows at once). On a phone the table scrolls in a region a keyboard reaches.
+ */
+export function ChangesPage() {
+  const t = useLabel();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { can } = useAccess();
+  const { format } = useDateTime();
+  const [view, setView] = useState<View>('open');
+  const titles: Record<string, string> = {
+    id: t('incidents.col.id'),
+    subject: t('work_item.field.subject'),
+    path: t('changes.col.path'),
+    stage: t('work_item.field.stage'),
+    status: t('work_item.field.status'),
+    updated: t('releases.col.updated'),
+  };
+  const widths = useColumnWidths({
+    kind: 'changes',
+    viewKey: view,
+    keys: Object.keys(titles),
+    defaults: OWN_WIDTHS,
+    minWidths: { subject: SUBJECT_MIN },
+    label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
+  });
+  const [search, setSearch] = useState('');
+  const text = useDebounced(search, 300);
+  const list = useChanges({
+    view: view === 'all' ? undefined : view,
+    filter: searchFilter(text),
+    include_total: true,
+  });
+  usePageCrumbs([{ label: t('nav.changes') }]);
+  useListChannel('changes', () => {
+    void queryClient.invalidateQueries({ queryKey: changeKeys.list });
+  });
+  useEffect(() => {
+    if (list.error) reportError(list.error);
+  }, [list.error]);
+  const settings = useStagedSettings('changes');
+  const total = list.data?.estimated_total;
+  return (
+    <ListPage
+      testId="changes-list"
+      header={
+        <PageHeader
+          title={t('nav.changes')}
+          count={total === undefined || total === null ? undefined : String(total)}
+          testId="changes-header"
+          extra={
+            can('changes.create') && (
+              <WriteButton
+                type="primary"
+                icon={<PlusOutlined />}
+                data-testid="new-change"
+                onClick={() => void navigate('/changes/new')}
+              >
+                {t('changes.new')}
+              </WriteButton>
+            )
+          }
+        />
+      }
+      filters={
+        <FilterBar
+          testId="changes-filters"
+          view={
+            <Select<View>
+              style={{ minWidth: 220 }}
+              prefix={`${t('incidents.view')}:`}
+              aria-label={t('incidents.view')}
+              value={view}
+              onChange={setView}
+              options={VIEWS.map((code) => ({ value: code, label: t(`work_item_view.${code}`) }))}
+              data-testid="changes-view"
+            />
+          }
+          search={
+            <Input.Search
+              allowClear
+              aria-label={t('releases.search')}
+              placeholder={t('releases.search')}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              data-testid="changes-search"
+            />
+          }
+          extra={
+            widths.changed && (
+              <Button onClick={widths.reset} data-testid="changes-reset-widths">
+                {t('layout.reset_widths')}
+              </Button>
+            )
+          }
+        />
+      }
+    >
+      <Table<ChangeListItem>
+        rowKey="id"
+        data-testid="changes-table"
+        loading={list.isPending}
+        dataSource={list.data?.items ?? []}
+        pagination={false}
+        scroll={{ x: 1080 }}
+        components={widths.components}
+        locale={{
+          emptyText: loadedEmpty(
+            list.isPending,
+            t(text.trim() !== '' || view !== 'all' ? 'changes.no_match' : 'changes.empty'),
+          ),
+        }}
+        onRow={(row) => ({
+          onClick: () => void navigate(`/changes/${row.id}`),
+          style: { cursor: 'pointer' },
+          'data-testid': `change-row-${row.display_id}`,
+        })}
+        columns={[
+          {
+            key: 'id',
+            title: titles.id,
+            width: widths.width('id'),
+            onHeaderCell: () => widths.header('id'),
+            fixed: 'left' as const,
+            render: (_, row) => (
+              <Link
+                to={`/changes/${row.id}`}
+                style={{ color: 'inherit' }}
+                onClick={(event) => {
+                  event.stopPropagation(); // the row's own click would navigate again
+                }}
+                data-testid={`change-link-${row.display_id}`}
+              >
+                <strong dir="ltr" style={{ whiteSpace: 'nowrap' }}>
+                  {row.display_id}
+                </strong>
+              </Link>
+            ),
+          },
+          {
+            key: 'subject',
+            title: titles.subject,
+            width: widths.width('subject'),
+            onHeaderCell: () => widths.header('subject'),
+            fixed: 'left' as const,
+            render: (_, row) => (
+              <Flex gap={8} align="center" style={{ minWidth: 0 }}>
+                <CellText title={row.subject}>{row.subject}</CellText>
+                {row.stage_path === EMERGENCY_PATH && (
+                  <ToneTag
+                    tone="error"
+                    icon={<ThunderboltOutlined />}
+                    testId={`change-emergency-${row.display_id}`}
+                  >
+                    {t('changes.emergency')}
+                  </ToneTag>
+                )}
+              </Flex>
+            ),
+          },
+          {
+            key: 'path',
+            title: titles.path,
+            width: widths.width('path'),
+            onHeaderCell: () => widths.header('path'),
+            render: (_, row) => (row.stage_path ? t(`stage_path.${row.stage_path}`) : ''),
+          },
+          {
+            key: 'stage',
+            title: titles.stage,
+            width: widths.width('stage'),
+            onHeaderCell: () => widths.header('stage'),
+            render: (_, row) => (
+              <Tag data-testid={`change-stage-${row.display_id}`}>{stageName(t, row.stage)}</Tag>
+            ),
+          },
+          {
+            key: 'status',
+            title: titles.status,
+            width: widths.width('status'),
+            onHeaderCell: () => widths.header('status'),
+            render: (_, row) => <StatusTag status={row.status} catalogue={settings.data} />,
+          },
+          {
+            key: 'updated',
+            title: titles.updated,
+            width: widths.width('updated'),
+            onHeaderCell: () => widths.header('updated'),
+            render: (_, row) => (
+              <span style={{ whiteSpace: 'nowrap' }}>{format(row.updated_at)}</span>
+            ),
+          },
+        ]}
+      />
+    </ListPage>
+  );
+}

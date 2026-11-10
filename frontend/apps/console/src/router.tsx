@@ -64,6 +64,31 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        // The change screens (WP-045d D19, taken forward): the list, a new change, the record.
+        path: 'changes',
+        handle: { section: 'changes' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangesPage')).ChangesPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/NewChangePage')).NewChangePage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangePage')).ChangePage,
+            }),
+          },
+        ],
+      },
+      {
         // WP-058a s6: releases on the stage engine (ADR-041).
         path: 'releases',
         handle: { section: 'releases' },
