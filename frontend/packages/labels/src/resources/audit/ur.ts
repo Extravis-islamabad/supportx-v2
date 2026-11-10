@@ -256,6 +256,8 @@ export const ur: LabelResource = {
   'audit.action.vendor.deleted': 'وینڈر حذف کیا',
   'audit.action.vendor.updated': 'وینڈر میں تبدیلی کی',
   'audit.action.work_item.dates_restored': 'ریکارڈ کی اصل تاریخیں بحال کیں',
+  'audit.action.work_item.settings_topped_up':
+    'ریکارڈ کی قسم میں غائب پہلے سے طے شدہ ترتیبات شامل کیں',
   'audit.alert.probing': 'ایک فرد کی بار بار مسترد کوششیں۔',
   'audit.alert.unsealed_overdue': 'آڈٹ اندراجات مہر بند نہیں ہو رہے۔',
   'audit.alert.verification_failed': 'آڈٹ لاگ تصدیق میں ناکام رہا۔',

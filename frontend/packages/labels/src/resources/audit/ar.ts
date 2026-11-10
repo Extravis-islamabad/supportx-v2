@@ -255,6 +255,7 @@ export const ar: LabelResource = {
   'audit.action.vendor.deleted': 'حذف موردًا',
   'audit.action.vendor.updated': 'عدّل موردًا',
   'audit.action.work_item.dates_restored': 'استعاد التواريخ الأصلية لسجل',
+  'audit.action.work_item.settings_topped_up': 'أضاف إعدادات افتراضية ناقصة لنوع سجل',
   'audit.alert.probing': 'محاولات مرفوضة متكررة من شخص واحد.',
   'audit.alert.unsealed_overdue': 'لا يتم ختم إدخالات التدقيق.',
   'audit.alert.verification_failed': 'فشل التحقق من سجل التدقيق.',

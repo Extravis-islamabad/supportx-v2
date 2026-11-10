@@ -7,6 +7,7 @@ and on one whose release settings look like that older seed (no role definitions
 approvals), which the catalogue now tops up once.
 """
 
+import json
 from typing import Any
 
 import asyncpg
@@ -14,7 +15,7 @@ import pytest
 
 from tests.db.test_incidents_api import CONSOLE, Org, World, world
 from tests.db.test_release_approvals_api import approvals, current, decide
-from tests.db.test_release_parts_api import put_role
+from tests.db.test_release_parts_api import put_role, settings_version
 from tests.db.test_releases_api import REL, a_release, moved
 
 pytestmark = pytest.mark.db
@@ -96,6 +97,58 @@ async def test_a_standard_release_walks_from_request_to_closed(world: World) -> 
     await _walk(world, world.a)
 
 
+async def _look_old(world: World, org: Org, *, drop_roles: bool = True) -> None:
+    """Make the tenant's release settings look like the seed from before roles and approvals."""
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        if drop_roles:
+            await conn.execute(
+                "DELETE FROM work_item_role_defs WHERE tenant_id = $1 AND type = 'release'",
+                org.tenant,
+            )
+        await conn.execute(
+            "UPDATE work_item_type_settings SET seed_version = 3"
+            " WHERE tenant_id = $1 AND type = 'release'",
+            org.tenant,
+        )
+    finally:
+        await conn.close()
+
+
+async def _state(world: World, org: Org) -> tuple[list[str], dict[str, Any]]:
+    """The tenant's release role codes and stage approvals, as stored."""
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        roles = await conn.fetch(
+            "SELECT code FROM work_item_role_defs WHERE tenant_id = $1 AND type = 'release'"
+            " ORDER BY code",
+            org.tenant,
+        )
+        stages = await conn.fetch(
+            "SELECT code, approvals FROM work_item_stages WHERE tenant_id = $1"
+            " AND type = 'release' ORDER BY code",
+            org.tenant,
+        )
+    finally:
+        await conn.close()
+    return [r["code"] for r in roles], {r["code"]: r["approvals"] for r in stages}
+
+
+async def _topped_up(world: World, org: Org) -> list[dict[str, Any]]:
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        rows = await conn.fetch(
+            "SELECT details FROM audit_entries WHERE tenant_id = $1"
+            " AND action = 'work_item.settings_topped_up'",
+            org.tenant,
+        )
+    finally:
+        await conn.close()
+    return [
+        json.loads(r["details"]) if isinstance(r["details"], str) else r["details"] for r in rows
+    ]
+
+
 async def test_an_older_release_seed_is_topped_up_and_walks_too(world: World) -> None:
     a = world.a
     await a_release(world, a)  # seeds the release settings
@@ -118,3 +171,41 @@ async def test_an_older_release_seed_is_topped_up_and_walks_too(world: World) ->
     finally:
         await conn.close()
     await _walk(world, a)
+    # Topped up once, audited with what was added (the coordinator's conditions).
+    [entry] = await _topped_up(world, a)
+    assert entry["type"] == "release"
+    assert "release_manager" in entry["roles"]
+    assert set(entry["stage_approvals"]) == {"planning", "acceptance_testing"}
+
+
+async def test_an_approval_an_admin_removed_stays_removed(world: World) -> None:
+    a = world.a
+    await a_release(world, a)
+    cleared = await world.call(
+        "PUT",
+        f"{REL}/settings/stages/planning/approvals",
+        a,
+        a.admin,
+        json={"approvals": None},
+        headers={"If-Match": f'"{await settings_version(world, a)}"', **CONSOLE},
+    )
+    assert cleared.status_code == 200, cleared.text
+    _roles, before = await _state(world, a)
+    assert before["planning"] is None
+    await _look_old(world, a)
+    await a_release(world, a)  # the next access runs the top-up
+    roles, after = await _state(world, a)
+    assert after["planning"] is None  # the administrator's choice is kept
+    assert roles == []  # their type was touched: nothing at all is added
+    assert await _topped_up(world, a) == []
+
+
+async def test_a_seed_with_roles_and_approvals_ends_v4_unchanged(world: World) -> None:
+    # Lane A's ask: a staged type already holding its roles and approvals keeps them as they are.
+    a = world.a
+    await a_release(world, a)
+    before = await _state(world, a)
+    await _look_old(world, a, drop_roles=False)
+    await a_release(world, a)
+    assert await _state(world, a) == before
+    assert await _topped_up(world, a) == []
