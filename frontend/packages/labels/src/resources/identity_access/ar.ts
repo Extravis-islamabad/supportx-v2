@@ -156,6 +156,8 @@ export const ar: LabelResource = {
     'يجب على هذه الشخصية إعداد تسجيل الدخول بخطوتين أولًا: شغّل make showcase-seed لتسجيلها مسبقًا.',
   'dev_sign_in.reason.not_showcase': 'هذه الشخصية ليست عضوًا في Showcase Company.',
   'dev_sign_in.sets_up_mfa': 'يُعدّ تسجيل الدخول بخطوتين',
+  'dev_sign_in.setup_link_sent':
+    'أرسلنا إلى {{email}} رابطًا لإعداد تسجيل الدخول بخطوتين. افتحه في صندوق البريد المحلي (Mailpit) خلال 15 دقيقة.',
   'dev_sign_in.title': 'تسجيل الدخول السريع (للتطوير فقط)',
   'dev_sign_in.unavailable':
     'تسجيل الدخول السريع هذا غير متاح هنا. يعمل فقط على بيئة التطوير المحلية مع make dev-quick-sign-in.',

@@ -33,6 +33,7 @@ import {
   useFormProblem,
   useLabel,
   WriteButton,
+  useAccess,
 } from '@supportx/ui';
 
 // WP-040 (D-118): AD/LDAP directories, connected through the identity service. Only where the
@@ -346,6 +347,8 @@ function LdapEditor({
 
 /** Admin › Integrations › Directories: the AD/LDAP part. */
 export function LdapDirectories() {
+  // Viewers (integrations.view) see the list; only managers get its actions (lane C's P3 note).
+  const manage = useAccess().can('integrations.manage_identity');
   const t = useLabel();
   const { modal } = App.useApp();
   const directories = useLdapDirectories();
@@ -372,7 +375,7 @@ export function LdapDirectories() {
         <Typography.Title level={3} style={{ margin: 0 }}>
           {t('ldap_directories.title')}
         </Typography.Title>
-        {unavailable === null && (
+        {unavailable === null && manage && (
           <WriteButton
             onClick={() => {
               setEditing(null);
@@ -430,30 +433,34 @@ export function LdapDirectories() {
                 </Tag>
               ),
             },
-            {
-              title: <span className="sx-visually-hidden">{t('directories.actions')}</span>,
-              render: (_, d) => (
-                <Flex gap={4} wrap>
-                  <Button
-                    onClick={() => {
-                      setEditing(d);
-                    }}
-                    data-testid={`ldap-edit-${d.id}`}
-                  >
-                    {t('actions.edit')}
-                  </Button>
-                  <WriteButton
-                    danger
-                    onClick={() => {
-                      removeIt(d);
-                    }}
-                    data-testid={`ldap-remove-${d.id}`}
-                  >
-                    {t('actions.delete')}
-                  </WriteButton>
-                </Flex>
-              ),
-            },
+            ...(manage
+              ? [
+                  {
+                    title: <span className="sx-visually-hidden">{t('directories.actions')}</span>,
+                    render: (_: unknown, d: LdapDirectory) => (
+                      <Flex gap={4} wrap>
+                        <Button
+                          onClick={() => {
+                            setEditing(d);
+                          }}
+                          data-testid={`ldap-edit-${d.id}`}
+                        >
+                          {t('actions.edit')}
+                        </Button>
+                        <WriteButton
+                          danger
+                          onClick={() => {
+                            removeIt(d);
+                          }}
+                          data-testid={`ldap-remove-${d.id}`}
+                        >
+                          {t('actions.delete')}
+                        </WriteButton>
+                      </Flex>
+                    ),
+                  },
+                ]
+              : []),
           ]}
         />
       )}

@@ -125,7 +125,7 @@ export function ProblemsPage() {
           },
           {
             key: 'subject',
-            title: t('incidents.col.subject'),
+            title: t('work_item.field.subject'),
             width: 320,
             fixed: 'left' as const,
             // Cut with an ellipsis; the whole subject is the cell's tooltip.
@@ -138,13 +138,13 @@ export function ProblemsPage() {
           },
           {
             key: 'status',
-            title: t('incidents.col.status'),
+            title: t('work_item.field.status'),
             width: 150,
             render: (_, row) => <StatusTag status={row.status} catalogue={catalogue.data} />,
           },
           {
             key: 'priority',
-            title: t('incidents.col.priority'),
+            title: t('work_item.field.priority'),
             width: 130,
             render: (_, row) => (
               <PriorityTag priority={row.priority} source={row.priority_source} />

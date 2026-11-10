@@ -311,7 +311,7 @@ export const en = {
     'Open incidents with no group and no technician, by site: each site’s new-ticket queue.',
   'report.problems_by_status': 'Problems by status',
   'report.problems_by_status.description':
-    'problems created in the period, by their current status.',
+    'Problems created in the period, by their current status.',
   'report.problems_open_ageing': 'Ageing of open problems',
   'report.problems_open_ageing.description': 'How long open and waiting problems have been open.',
   'report.problems_open_by_group': 'Open problems by group',
@@ -329,7 +329,7 @@ export const en = {
   'report.problems_resolved_per_week.description': 'Problems resolved each week, over six months.',
   'report.releases_by_status': 'Releases by status',
   'report.releases_by_status.description':
-    'releases created in the period, by their current status.',
+    'Releases created in the period, by their current status.',
   'report.releases_open_ageing': 'Ageing of open releases',
   'report.releases_open_ageing.description': 'How long open and waiting releases have been open.',
   'report.releases_open_by_group': 'Open releases by group',
@@ -343,11 +343,11 @@ export const en = {
     'Open and waiting releases, by assigned technician.',
   'report.releases_received_per_week': 'Releases received per week',
   'report.releases_received_per_week.description': 'New releases each week, over six months.',
-  'report.releases_resolved_per_week': 'Releases resolved per week',
-  'report.releases_resolved_per_week.description': 'Releases resolved each week, over six months.',
+  'report.releases_resolved_per_week': 'Releases completed per week',
+  'report.releases_resolved_per_week.description': 'Releases completed each week, over six months.',
   'report.requests_by_status': 'Service requests by status',
   'report.requests_by_status.description':
-    'service requests created in the period, by their current status.',
+    'Service requests created in the period, by their current status.',
   'report.requests_open_ageing': 'Ageing of open service requests',
   'report.requests_open_ageing.description':
     'How long open and waiting service requests have been open.',
@@ -525,7 +525,7 @@ export const en = {
   'reports.max_rows': 'Most rows in one export file',
   'reports.measure_value': '{{name}}: {{value}}',
   'reports.measures': 'Measures',
-  'reports.module_coming.assets': 'Asset reports arrive with the asset module.',
+  'reports.module_coming.assets': 'Asset reports are coming soon.',
   'reports.module_coming.changes': 'Change reports arrive with the change module.',
   'reports.module_none': 'No reports here that you can open.',
   'reports.move_reports_to': 'Where should its reports go?',

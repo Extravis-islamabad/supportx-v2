@@ -158,6 +158,8 @@ export const en = {
     'This persona must set up two-step sign-in first: run make showcase-seed to pre-enrol it.',
   'dev_sign_in.reason.not_showcase': 'This persona isn’t a member of Showcase Company.',
   'dev_sign_in.sets_up_mfa': 'sets up two-step sign-in',
+  'dev_sign_in.setup_link_sent':
+    'We e-mailed {{email}} a link to set up two-step sign-in. Open it in the local mail catcher (Mailpit) within 15 minutes.',
   'dev_sign_in.title': 'Quick sign-in (dev only)',
   'dev_sign_in.unavailable':
     'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
