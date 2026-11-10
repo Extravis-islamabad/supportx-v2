@@ -4971,6 +4971,72 @@
         "type": "object"
       }
     },
+    "work_items.work_item.assignee_unavailable": {
+      "1": {
+        "description": "A rule or escalation could not put the person it names on the record (D-154 \"rules\").\n\nThe record went to the step's group with nobody on it; the step's owner (or, with none,\nthe administrators) is told once, in the app. `reason`: inactive, away or not_in_group.",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Owner Id"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "person_id",
+          "reason",
+          "step"
+        ],
+        "title": "WorkItemAssigneeUnavailable",
+        "type": "object"
+      }
+    },
     "work_items.work_item.created": {
       "1": {
         "description": "A new work item was saved.",
