@@ -285,6 +285,9 @@ function AnnouncementDetail({
                 />
               ) : (
                 <Typography.Paragraph
+                  // The message reads in its own direction (QA10-P4-36: an English message in
+                  // the Arabic screen kept its full stop at the end).
+                  dir="auto"
                   style={{ whiteSpace: 'pre-line', padding: '8px 4px' }}
                   data-testid="ann-body-view"
                 >

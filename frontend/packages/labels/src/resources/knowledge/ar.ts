@@ -207,6 +207,7 @@ export const ar: LabelResource = {
   'knowledge.new_article': 'مقالة جديدة',
   'knowledge.new_topic': 'موضوع جديد',
   'knowledge.no_history': 'لا تغييرات بعد.',
+  'knowledge.no_match': 'لا يوجد مقال يطابق بحثك.',
   'knowledge.no_topics': 'لا توجد موضوعات بعد.',
   'knowledge.no_translation': 'لا يوجد إصدار بلغتك؛ يُعرض إصدار آخر.',
   'knowledge.no_versions': 'لا توجد إصدارات بعد.',

@@ -201,6 +201,7 @@ export const ur: LabelResource = {
   'knowledge.new_article': 'نیا مضمون',
   'knowledge.new_topic': 'نیا موضوع',
   'knowledge.no_history': 'ابھی کوئی تبدیلی نہیں۔',
+  'knowledge.no_match': 'آپ کی تلاش سے کوئی مضمون نہیں ملا۔',
   'knowledge.no_topics': 'ابھی کوئی موضوع نہیں۔',
   'knowledge.no_translation': 'آپ کی زبان میں کوئی ورژن نہیں؛ دوسرا دکھایا جا رہا ہے۔',
   'knowledge.no_versions': 'ابھی کوئی ورژن نہیں۔',

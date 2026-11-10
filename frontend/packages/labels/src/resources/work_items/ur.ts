@@ -1257,6 +1257,8 @@ export const ur: LabelResource = {
   'releases.roles.groups_one': '1 گروپ',
   'releases.roles.groups_other': '{{count}} گروپ',
   'releases.roles.nobody': 'ابھی کوئی نہیں',
+  'releases.roles.none':
+    'اس ریلیز کی قسم کے لیے ابھی کوئی کردار مقرر نہیں۔ منتظم انہیں ریلیز کی ترتیبات میں شامل کر سکتا ہے۔',
   'releases.schedule.actual': 'اصل',
   'releases.schedule.outcome': 'نتیجہ',
   'releases.schedule.outcome_of': '{{stage}} کا نتیجہ',

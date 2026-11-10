@@ -199,6 +199,7 @@ export const en = {
   'knowledge.new_article': 'New article',
   'knowledge.new_topic': 'New topic',
   'knowledge.no_history': 'No changes yet.',
+  'knowledge.no_match': 'No article matches your search.',
   'knowledge.no_topics': 'No topics yet.',
   'knowledge.no_translation': 'There is no version in your language; showing another one.',
   'knowledge.no_versions': 'No versions yet.',

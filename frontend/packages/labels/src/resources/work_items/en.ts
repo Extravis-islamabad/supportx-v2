@@ -1253,6 +1253,8 @@ export const en = {
   'releases.roles.groups_one': '1 group',
   'releases.roles.groups_other': '{{count}} groups',
   'releases.roles.nobody': 'Nobody yet',
+  'releases.roles.none':
+    'This release type has no roles set up yet. An administrator can add them in the release settings.',
   'releases.schedule.actual': 'Actual',
   'releases.schedule.outcome': 'Outcome',
   'releases.schedule.outcome_of': 'Outcome of {{stage}}',

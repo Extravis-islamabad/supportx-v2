@@ -230,7 +230,20 @@ export function AnnouncementsPage() {
           loading={list.isPending && list.fetchStatus === 'fetching'}
           dataSource={rows}
           pagination={false}
-          locale={{ emptyText: <EmptyText>{t('announcements.empty')}</EmptyText> }}
+          locale={{
+            // What the empty list means (QA10-P4-10): nothing matches, an empty trash, or none yet.
+            emptyText: (
+              <EmptyText>
+                {t(
+                  search.trim() !== '' || status !== undefined || severity !== undefined
+                    ? 'announcements.empty'
+                    : trash
+                      ? 'announcements.trash_empty'
+                      : 'announcements.none_yet',
+                )}
+              </EmptyText>
+            ),
+          }}
           onRow={(row) =>
             trash
               ? { 'data-testid': `ann-row-${row.display_id}` }

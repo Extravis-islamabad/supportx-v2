@@ -284,7 +284,10 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
                       {
                         key: 'translations',
                         label: t('knowledge.field.translations'),
-                        content: (
+                        // Never an empty value (QA10-P4-03): "Not set" until a language is out.
+                        content: LANGUAGES.some(
+                          (value) => article.published[value] !== undefined,
+                        ) ? (
                           <Space size={4} wrap>
                             {LANGUAGES.filter(
                               (value) => article.published[value] !== undefined,
@@ -292,6 +295,8 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
                               <span key={value}>{t(`knowledge.language.${value}`)}</span>
                             ))}
                           </Space>
+                        ) : (
+                          t('reports.not_set')
                         ),
                         filled: true,
                       },

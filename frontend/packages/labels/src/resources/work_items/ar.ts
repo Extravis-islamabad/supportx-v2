@@ -1378,6 +1378,8 @@ export const ar: LabelResource = {
   'releases.roles.groups_two': 'مجموعتان',
   'releases.roles.groups_zero': 'لا مجموعات',
   'releases.roles.nobody': 'لا أحد بعد',
+  'releases.roles.none':
+    'لم تُعدّ أدوار لنوع الإصدار هذا بعد. يمكن للمسؤول إضافتها من إعدادات الإصدارات.',
   'releases.schedule.actual': 'الفعلي',
   'releases.schedule.outcome': 'النتيجة',
   'releases.schedule.outcome_of': 'نتيجة {{stage}}',
