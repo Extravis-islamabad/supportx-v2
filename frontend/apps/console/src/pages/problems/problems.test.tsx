@@ -328,6 +328,15 @@ describe('console: problems', () => {
     expect(fake.find('GET', '/api/v1/incidents/assignees')).toHaveLength(0);
   });
 
+  it('QA10V-09: the panel lists filled fields only, the empty ones behind Add details', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api(); // no problem type, no owner, no target date
+    render(<App />);
+    const panel = await screen.findByTestId('prb-properties');
+    expect(panel.textContent).not.toContain('Problem type');
+    expect(screen.getByTestId('prb-properties-add').textContent).toMatch(/Add details \(\d\)/);
+  });
+
   it('WP-044c S1: a problem prints as a document', async () => {
     window.history.pushState({}, '', `/problems/${PRB_ID}`);
     api();

@@ -20,7 +20,7 @@ import { useRecordChannel } from '@supportx/realtime';
 import {
   ActionBar,
   PropertiesPanel,
-  PropertyRow,
+  PropertyList,
   RecordHeader,
   RecordPage,
   RichTextView,
@@ -343,25 +343,46 @@ function ProblemView({
               {
                 key: 'properties',
                 title: t('problems.properties'),
+                // Template A (QA10V-09): the fields with a value, then "Add details (n)" for
+                // the empty ones; never an empty "Problem type" row.
                 children: (
-                  <>
-                    <PropertyRow label={t('problems.owner')}>
-                      {personName(item.people, item.technician_id)}
-                    </PropertyRow>
-                    <PropertyRow label={t('work_item.field.problem_type')}>
-                      {problemType === undefined
-                        ? ''
-                        : labelled(problemType.labels, locale, () =>
-                            t(`problem_type.${problemType.code}`),
-                          )}
-                    </PropertyRow>
-                    <PropertyRow label={t('problems.target_date')}>
-                      {item.resolution_due_at === null ? '' : dates.format(item.resolution_due_at)}
-                    </PropertyRow>
-                    <PropertyRow label={t('problems.lifecycle')}>
-                      {t(`lifecycle.${item.lifecycle}`)}
-                    </PropertyRow>
-                  </>
+                  <PropertyList
+                    testId="prb-properties"
+                    items={[
+                      {
+                        key: 'owner',
+                        label: t('problems.owner'),
+                        content: personName(item.people, item.technician_id),
+                        filled: item.technician_id !== null,
+                      },
+                      {
+                        key: 'problem_type',
+                        label: t('work_item.field.problem_type'),
+                        content:
+                          problemType === undefined
+                            ? ''
+                            : labelled(problemType.labels, locale, () =>
+                                t(`problem_type.${problemType.code}`),
+                              ),
+                        filled: problemType !== undefined,
+                      },
+                      {
+                        key: 'target_date',
+                        label: t('problems.target_date'),
+                        content:
+                          item.resolution_due_at === null
+                            ? ''
+                            : dates.format(item.resolution_due_at),
+                        filled: item.resolution_due_at !== null,
+                      },
+                      {
+                        key: 'lifecycle',
+                        label: t('problems.lifecycle'),
+                        content: t(`lifecycle.${item.lifecycle}`),
+                        filled: true,
+                      },
+                    ]}
+                  />
                 ),
               },
               {
