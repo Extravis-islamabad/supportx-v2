@@ -225,3 +225,22 @@ async def test_stopping_a_workflow_closes_its_open_approvals(world: World) -> No
         uuid.UUID(release["id"]),
     )
     assert [r["state"] for r in rows] == ["not_needed"]
+
+
+async def test_a_trashed_record_s_workflow_cannot_be_restarted(world: World) -> None:
+    """Lane A's review: a record in the trash is never editable, so nobody acts on its runs."""
+    a = world.a
+    item = await world.create(a, a.admin)
+    instance = await _start(world, await _workflow(world, WAIT_FOR_P1), item["id"])
+    assert (await _post(world, a, a.admin, instance, "stop", reason="Moving on")).status_code == 200
+    gone = await world.call(
+        "DELETE",
+        f"/incidents/{item['id']}",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{(await world.fresh(a, item))["version"]}"', **CONSOLE},
+    )
+    assert gone.status_code in {200, 204}, gone.text
+    refused = await _post(world, a, a.admin, instance, "restart")
+    assert refused.status_code == 403
+    assert refused.json()["code"] == "record_not_editable"

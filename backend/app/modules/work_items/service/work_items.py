@@ -339,8 +339,13 @@ async def may_edit(
     """Whether `subject` may edit the record (its type's edit permission, in scope).
 
     For other modules that act on a record for a person: running, stopping or restarting a
-    workflow on it (ADR-043 §10).
+    workflow on it (ADR-043 §10). A record in the trash (or gone) is never editable (lane A).
     """
+    live = await session.scalar(
+        _rows(wtype).where(WorkItem.id == record_id).with_only_columns(WorkItem.id)
+    )
+    if live is None:
+        return False
     return await _may(session, subject, wtype, "edit", record_id)
 
 
