@@ -129,18 +129,29 @@ def assign(
         placed[name] = shard + 1
 
     placed: dict[str, int] = {}
-    known = sorted((n for n in files if n in weights), key=lambda n: (-weights[n], n))
-    for name in known:
-        seconds = weights[name]
+
+    def estimate(name: str) -> float:
+        return weights[name] if name in weights else fallback_seconds(weights, name)
+
+    # Measured files, and every serial (private Keycloak) file, weighted or not: heaviest first,
+    # where the shard would finish soonest, its Keycloak chain included. Dealing Keycloak files
+    # round-robin put several Keycloak containers on one runner at once, and they failed to
+    # start (#321's first queue run).
+    planned = sorted(
+        (n for n in files if n in weights or n in serial), key=lambda n: (-estimate(n), n)
+    )
+    for name in planned:
+        seconds = estimate(name)
         put(
             name,
             min(range(count), key=lambda shard: (finish(shard, name, seconds), shard)),
             seconds,
         )
-    # Unweighted files last, dealt out round-robin from the lightest shard: a guess is never
-    # packed onto one shard, however light the guess makes it look.
+    # Other unweighted files last, dealt out round-robin from the lightest shard: a guess is
+    # never packed onto one shard, however light the guess makes it look.
     rotation = sorted(range(count), key=lambda shard: (finish(shard, "", 0.0), shard))
-    for i, name in enumerate(sorted(n for n in files if n not in weights)):
+    rest = sorted(n for n in files if n not in weights and n not in serial)
+    for i, name in enumerate(rest):
         put(name, rotation[i % count], fallback_seconds(weights, name))
     return placed
 

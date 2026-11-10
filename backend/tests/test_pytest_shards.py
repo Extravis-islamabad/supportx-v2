@@ -83,3 +83,13 @@ def test_the_nightly_weights_overlay_the_committed_ones(
     assert pytest_shards._weights() == {"a.py": 30.0, "b.py": 20.0, "new.py": 50.0}  # noqa: SLF001
     monkeypatch.setenv("SUPPORTX_TEST_WEIGHTS", str(tmp_path / "missing.json"))
     assert pytest_shards._weights() == {"a.py": 10.0, "new.py": 50.0}  # noqa: SLF001
+
+
+def test_unweighted_keycloak_files_keep_the_chain_aware_placement() -> None:
+    """Serial files are placed by their Keycloak chain, never dealt round-robin (#321)."""
+    files = [*WEIGHTS, "kc_new1.py", "kc_new2.py"]
+    serial = frozenset({"kc_new1.py", "kc_new2.py"})
+    placed = assign(files, WEIGHTS, 3, serial=serial, workers=4)
+    # Placed as heavy files by finish time: two Keycloak chains go to different shards.
+    assert placed["kc_new1.py"] != placed["kc_new2.py"]
+    assert placed == assign(list(reversed(files)), WEIGHTS, 3, serial=serial, workers=4)
