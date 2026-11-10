@@ -25,7 +25,7 @@ The downgrade refuses while any tenant has a fingerprinted entry or a salt (rule
 them would make those entries fail verification). Then it restores 0014's function.
 
 Revision ID: 0129
-Revises: 0126
+Revises: 0128
 Created: 2026-11-11
 """
 
@@ -39,7 +39,7 @@ from app.shared.db.rls import APP_ROLE
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0129"
-down_revision: str | None = "0126"
+down_revision: str | None = "0128"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
