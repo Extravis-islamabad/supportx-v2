@@ -86,7 +86,7 @@ describe('Incidents list', () => {
     const notice = await screen.findByTestId('inc-view-notice');
     expect(notice.textContent).toContain('View “All open”: 3 shown.');
     expect(notice.textContent).toContain('5 other incidents you can see are not in this view.');
-    expect(notice.getAttribute('data-hidden')).toBe('5');
+    expect(notice.querySelector('[data-hidden]')?.getAttribute('data-hidden')).toBe('5');
     expect(screen.getByTestId('inc-show-all')).toBeDefined();
   });
 

@@ -414,6 +414,20 @@ describe('Reports', () => {
       expect(document.body.textContent).not.toMatch(/pdf_not_available/);
     });
 
+    it('QA10-P4-25: without PDF here, Export says why it is missing', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'GET /api/v1/reports/export-formats': { body: { formats: ['xlsx', 'csv'] } },
+        }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-export'));
+      expect(await screen.findByText('PDF export is not available on this server.')).toBeDefined();
+      expect(screen.queryByText('PDF')).toBeNull();
+    });
+
     it('does not run while a condition has no value, and says why (REQ-RPT-029 AC2)', async () => {
       const fake = api({ me: fakeSession(), routes: routes() });
       render(<App />);

@@ -4,7 +4,9 @@ export {
   FilterBar,
   FiltersDrawer,
   KpiTile,
+  ListNotice,
   ListPage,
+  type ListNoticeProps,
   type FilterBarProps,
   type FiltersDrawerProps,
   type KpiTileProps,
@@ -35,3 +37,11 @@ export {
   type LibraryItem,
   type LibraryPageProps,
 } from './LibraryPage';
+export {
+  COLUMN_MAX_WIDTH,
+  COLUMN_MIN_WIDTH,
+  ResizableHeader,
+  type ResizableHeaderProps,
+} from './ResizableHeader';
+export { useColumnWidths } from './useColumnWidths';
+export { CellText } from './CellText';

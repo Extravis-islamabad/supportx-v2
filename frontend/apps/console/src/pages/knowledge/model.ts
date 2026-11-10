@@ -172,6 +172,43 @@ export function historyField(
   return t(`knowledge.field.${field}`);
 }
 
+/** Fields whose value is too long or is an ID: the history names the field only. */
+const NAME_ONLY = new Set(['body_html', 'internal_note', 'topic_id', 'owner_id', 'parent_id']);
+const TEXT_MAX = 80;
+
+/**
+ * One changed value as people read it (QA10-P4-04): codes labelled, dates local, keywords
+ * listed, short text as typed. Null when only the field's name is shown (long text and IDs,
+ * never a raw ID, rule d).
+ */
+export function historyValue(
+  field: string,
+  value: unknown,
+  t: (key: string, p?: Record<string, string>) => string,
+  dates: Intl.DateTimeFormat,
+  list: (items: string[]) => string,
+): string | null {
+  const what = /^version\.(?:en|ar)\.(\w+)$/.exec(field)?.[1] ?? field;
+  if (NAME_ONLY.has(what) || what.endsWith('_id') || what.endsWith('_ids')) return null;
+  if (value === null || value === undefined || value === '') return t('history.empty');
+  if (typeof value === 'boolean') return t(value ? 'history.yes' : 'history.no');
+  if (what === 'status' && typeof value === 'string') return t(`kb_version_status.${value}`);
+  if (what === 'type' && typeof value === 'string') return t(`kb_type.${value}`);
+  if ((what === 'review_on' || what === 'expires_on') && typeof value === 'string') {
+    const day = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+    return Number.isNaN(day.getTime()) ? null : dates.format(day);
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return t('history.empty');
+    return what === 'keywords' ? list(value.map(String)) : null;
+  }
+  if (typeof value === 'string') {
+    return value.length > TEXT_MAX ? `${value.slice(0, TEXT_MAX)}…` : value;
+  }
+  if (typeof value === 'number') return String(value);
+  return null;
+}
+
 /**
  * Why a step is not available here, as a label key; null when it is. Buttons never vanish:
  * a person who may not use one sees it disabled with the reason (plan §9).

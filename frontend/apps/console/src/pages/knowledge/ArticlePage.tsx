@@ -27,7 +27,7 @@ import {
   type KbArticle,
   type KbLanguage,
 } from '@supportx/api-client';
-import { useJoinParts } from '@supportx/labels';
+import { useJoinParts, useListFormat } from '@supportx/labels';
 import { useRecordChannel } from '@supportx/realtime';
 import {
   EmptyText,
@@ -52,6 +52,7 @@ import {
   articleLanguage,
   headings,
   historyField,
+  historyValue,
   LANGUAGES,
   shownLanguage,
   topicPath,
@@ -117,7 +118,9 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
     void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.votes(article.id) });
   });
 
-  const path = topicPath(topics.data ?? [], article.topic_id, language);
+  // The path is part of the screen, so it reads in the screen's language (QA10-P4-35), as the
+  // topic tree does, whatever language the article itself is shown in.
+  const path = topicPath(topics.data ?? [], article.topic_id, articleLanguage(locale));
   const type = (types.data ?? []).find((row) => row.code === article.type_code);
   const contents = useMemo(() => headings(shown?.body_html ?? ''), [shown?.body_html]);
   const dateFormat = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' });
@@ -426,6 +429,9 @@ function History({ id }: { id: string }) {
   const { intlLocale } = useAppearance();
   const history = useKbHistory(id);
   const format = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
+  const days = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeZone: 'UTC' });
+  const listFormat = useListFormat();
+  const list = (items: string[]) => listFormat(items, 'conjunction');
   const entries = history.data?.pages.flatMap((page) => page.items) ?? [];
   if (entries.length === 0) return <EmptyText>{t('knowledge.no_history')}</EmptyText>;
   return (
@@ -436,17 +442,30 @@ function History({ id }: { id: string }) {
           key: String(index),
           children: (
             <Space direction="vertical" size={0}>
+              <Typography.Text strong>{t(`change_kind.${entry.kind}`)}</Typography.Text>
               <Typography.Text>
                 {t('knowledge.history.by', {
                   name: entry.actor_name ?? t(`change_source.${entry.source}`),
                   when: format.format(new Date(entry.occurred_at)),
                 })}
               </Typography.Text>
-              {entry.changes.map((change) => (
-                <Typography.Text key={change.field} type="secondary">
-                  {historyField(change.field, t)}
-                </Typography.Text>
-              ))}
+              {entry.changes.map((change) => {
+                // Created: what it started with; later saves: from → to (QA10-P4-04).
+                const field = historyField(change.field, t);
+                const before = historyValue(change.field, change.old, t, days, list);
+                const after = historyValue(change.field, change.new, t, days, list);
+                let text = field;
+                if (after !== null && (entry.kind === 'created' || change.old == null)) {
+                  text = t('knowledge.history.set', { field, value: after });
+                } else if (after !== null && before !== null) {
+                  text = t('history.change', { field, old: before, new: after });
+                }
+                return (
+                  <Typography.Text key={change.field} type="secondary" dir="auto">
+                    {text}
+                  </Typography.Text>
+                );
+              })}
               {entry.reason !== null && (
                 <Typography.Text type="secondary" dir="auto">
                   {t('history.reason', { reason: entry.reason })}
