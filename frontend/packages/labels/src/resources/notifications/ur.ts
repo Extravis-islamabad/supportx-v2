@@ -49,6 +49,7 @@ export const ur: LabelResource = {
   'notification_category.following': 'فالو کرنا',
   'notification_category.mention': 'تذکرے',
   'notification_category.status': 'حالت کی تبدیلیاں',
+  'notification_category.workflow': 'ورک فلو پیغامات',
   'notification_channel.email': 'ای میل',
   'notification_channel.in_app': 'ایپ میں',
   'notification_condition_operator.in': 'ان میں سے ایک ہے',
@@ -81,6 +82,7 @@ export const ur: LabelResource = {
   'notification_event.incident.sla_escalated': 'ایس ایل اے ایسکلیشن',
   'notification_event.incident.sla_warning': 'ایس ایل اے کی انتباہی حد آ گئی',
   'notification_event.incident.status_changed': 'حالت بدلی',
+  'notification_event.incident.workflow_notice': 'ورک فلو کا پیغام',
   'notification_event.kb_article.approved': 'مضمون منظور ہوا',
   'notification_event.kb_article.rejected': 'مضمون واپس بھیجا گیا',
   'notification_event.kb_article.review_due': 'مضمون کے جائزے کا وقت',
@@ -151,6 +153,7 @@ export const ur: LabelResource = {
   'notification_recipient.requester': 'درخواست گزار',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
+  'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
   'notification_rules.any_priority': 'کوئی بھی ترجیح',
   'notification_rules.changed': '{{when}} کو تبدیل ہوا',
   'notification_rules.col.channels': 'کیسے',
@@ -323,6 +326,9 @@ export const ur: LabelResource = {
     '{{ record.display_id }} اب {{ record.status }} ہے',
   'notification_template.incident.status_changed.subject':
     '{{ record.display_id }} اب {{ record.status }} ہے: {{ record.title }}',
+  'notification_template.incident.workflow_notice.body': '{{ notice.body }}',
+  'notification_template.incident.workflow_notice.in_app': '{{ notice.subject }}',
+  'notification_template.incident.workflow_notice.subject': '{{ notice.subject }}',
   'notification_template.kb_article.approved.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ actor.name }} نے مضمون {{ record.display_id }} "{{ record.title }}" منظور کر دیا۔ اب اس کے قارئین اسے دیکھ سکتے ہیں۔',
   'notification_template.kb_article.approved.in_app':
@@ -513,6 +519,8 @@ export const ur: LabelResource = {
   'notification_variable.mailbox.address': 'میل باکس › پتہ',
   'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
   'notification_variable.mailbox.reason': 'میل باکس › وجہ',
+  'notification_variable.notice.body': 'پیغام › متن',
+  'notification_variable.notice.subject': 'پیغام › موضوع',
   'notification_variable.recipient.name': 'وصول کنندہ › نام',
   'notification_variable.record.display_id': 'ریکارڈ › شناخت',
   'notification_variable.record.link': 'ریکارڈ › لنک',
