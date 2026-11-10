@@ -1,5 +1,5 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Flex, Form, Input, List, Select, Space, Table, Typography } from 'antd';
+import { Button, Col, Flex, Form, Input, List, Row, Select, Space, Table, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -99,46 +99,43 @@ export function DetailsPart({ id }: { id: string }) {
     );
   };
   return (
-    <Form layout="vertical" data-testid="release-details" style={{ maxWidth: 720 }}>
-      <Flex gap={16} wrap>
-        <Form.Item
-          label={t('work_item.field.release_type')}
-          style={{ minWidth: 220 }}
-          htmlFor="release-type"
-        >
-          <Select
-            id="release-type"
-            allowClear
-            value={value('release_type')}
-            onChange={(v: string | undefined) => {
-              set('release_type', v ?? null);
-            }}
-            placeholder={t('form.choose')}
-            data-testid="release-type"
-            options={types.map((v) => ({
-              value: v.code,
-              label: listValueName(t, locale, 'release_type', v, v.code),
-            }))}
-          />
-        </Form.Item>
-        <Form.Item
-          label={t('work_item.field.risk')}
-          style={{ minWidth: 180 }}
-          htmlFor="release-risk"
-        >
-          <Select
-            id="release-risk"
-            allowClear
-            value={value('risk')}
-            onChange={(v: string | undefined) => {
-              set('risk', v ?? null);
-            }}
-            placeholder={t('form.choose')}
-            data-testid="release-risk"
-            options={RISKS.map((r) => ({ value: r, label: t(`release_risk.${r}`) }))}
-          />
-        </Form.Item>
-      </Flex>
+    // An even two-column grid across the card (QA10V-10: 220/193 px fields in two-thirds of it).
+    <Form layout="vertical" data-testid="release-details">
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <Form.Item label={t('work_item.field.release_type')} htmlFor="release-type">
+            <Select
+              id="release-type"
+              allowClear
+              value={value('release_type')}
+              onChange={(v: string | undefined) => {
+                set('release_type', v ?? null);
+              }}
+              placeholder={t('form.choose')}
+              data-testid="release-type"
+              options={types.map((v) => ({
+                value: v.code,
+                label: listValueName(t, locale, 'release_type', v, v.code),
+              }))}
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={12}>
+          <Form.Item label={t('work_item.field.risk')} htmlFor="release-risk">
+            <Select
+              id="release-risk"
+              allowClear
+              value={value('risk')}
+              onChange={(v: string | undefined) => {
+                set('risk', v ?? null);
+              }}
+              placeholder={t('form.choose')}
+              data-testid="release-risk"
+              options={RISKS.map((r) => ({ value: r, label: t(`release_risk.${r}`) }))}
+            />
+          </Form.Item>
+        </Col>
+      </Row>
       {riskChanged && (
         <Form.Item label={t('releases.risk_reason')} required htmlFor="release-risk-reason">
           <Input
@@ -151,65 +148,69 @@ export function DetailsPart({ id }: { id: string }) {
           />
         </Form.Item>
       )}
-      <Flex gap={16} wrap>
-        <Form.Item label={t('work_item.field.release_version')} htmlFor="release-version">
-          <Input
-            id="release-version"
-            value={value('release_version') ?? ''}
-            count={lengthLimit(60)}
-            onChange={(e) => {
-              set('release_version', e.target.value);
-            }}
-            data-testid="release-version"
-          />
-        </Form.Item>
-        <Form.Item label={t('work_item.field.build_ref')} htmlFor="release-build">
-          <Input
-            id="release-build"
-            value={value('build_ref') ?? ''}
-            count={lengthLimit(200)}
-            onChange={(e) => {
-              set('build_ref', e.target.value);
-            }}
-            data-testid="release-build"
-          />
-        </Form.Item>
-        <Form.Item
-          label={t('work_item.field.release_reason')}
-          style={{ minWidth: 220 }}
-          htmlFor="release-reason"
-        >
-          <Select
-            id="release-reason"
-            allowClear
-            value={value('release_reason')}
-            onChange={(v: string | undefined) => {
-              set('release_reason', v ?? null);
-            }}
-            placeholder={t('form.choose')}
-            data-testid="release-reason"
-            options={reasons.map((v) => ({
-              value: v.code,
-              label: listValueName(t, locale, 'release_reason', v, v.code),
-            }))}
-          />
-        </Form.Item>
-      </Flex>
-      <Flex gap={16} wrap>
-        {(['scheduled_start', 'scheduled_end'] as const).map((k) => (
-          <Form.Item key={k} label={t(`work_item.field.${k}`)} htmlFor={`release-${k}`}>
-            <DateTimeField
-              id={`release-${k}`}
-              value={value(k)}
-              onChange={(v) => {
-                set(k, v);
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <Form.Item label={t('work_item.field.release_version')} htmlFor="release-version">
+            <Input
+              id="release-version"
+              value={value('release_version') ?? ''}
+              count={lengthLimit(60)}
+              onChange={(e) => {
+                set('release_version', e.target.value);
               }}
-              testId={`release-${k}`}
-              hideZone
+              data-testid="release-version"
             />
           </Form.Item>
+        </Col>
+        <Col xs={24} md={12}>
+          <Form.Item label={t('work_item.field.build_ref')} htmlFor="release-build">
+            <Input
+              id="release-build"
+              value={value('build_ref') ?? ''}
+              count={lengthLimit(200)}
+              onChange={(e) => {
+                set('build_ref', e.target.value);
+              }}
+              data-testid="release-build"
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={12}>
+          <Form.Item label={t('work_item.field.release_reason')} htmlFor="release-reason">
+            <Select
+              id="release-reason"
+              allowClear
+              value={value('release_reason')}
+              onChange={(v: string | undefined) => {
+                set('release_reason', v ?? null);
+              }}
+              placeholder={t('form.choose')}
+              data-testid="release-reason"
+              options={reasons.map((v) => ({
+                value: v.code,
+                label: listValueName(t, locale, 'release_reason', v, v.code),
+              }))}
+            />
+          </Form.Item>
+        </Col>
+      </Row>
+      <Row gutter={16}>
+        {(['scheduled_start', 'scheduled_end'] as const).map((k) => (
+          <Col key={k} xs={24} md={12}>
+            <Form.Item label={t(`work_item.field.${k}`)} htmlFor={`release-${k}`}>
+              <DateTimeField
+                id={`release-${k}`}
+                value={value(k)}
+                onChange={(v) => {
+                  set(k, v);
+                }}
+                testId={`release-${k}`}
+                hideZone
+              />
+            </Form.Item>
+          </Col>
         ))}
-      </Flex>
+      </Row>
       {/* Once for the pair (D-155), not under each field. */}
       <div style={{ marginTop: -12, marginBottom: 16 }}>
         <TimeZoneNote />
