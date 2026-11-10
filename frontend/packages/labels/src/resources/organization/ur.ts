@@ -53,6 +53,8 @@ export const ur: LabelResource = {
   'branding.reset_done': 'طے شدہ برانڈ واپس آ گیا۔',
   'branding.reset_title': 'طے شدہ برانڈ پر واپس جائیں؟',
   'branding.save': 'برانڈنگ محفوظ کریں',
+  'branding.save_blocked_colour': 'محفوظ کرنے کے لیے ایسے رنگ چنیں جو کنٹراسٹ جانچ میں کامیاب ہوں۔',
+  'branding.save_blocked_image': 'محفوظ کرنے کے لیے مسترد تصویر ہٹائیں یا بدلیں۔',
   'branding.saved': 'برانڈنگ محفوظ ہو گئی۔ ہر کھلی اسکرین اب اسے دکھاتی ہے۔',
   'branding.text.english_hint': 'جہاں ترجمہ نہ ہو وہاں انگریزی دکھائی جاتی ہے۔',
   'branding.text.portal_name': 'پورٹل کا نام',

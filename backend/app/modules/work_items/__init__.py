@@ -30,9 +30,16 @@ from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
+from app.modules.work_items.api.repeat_routes import router as repeat_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
-from app.modules.work_items.domain.types import INCIDENT, PERMISSION_TYPES, SERVICE_REQUEST, TYPES
+from app.modules.work_items.domain.types import (
+    INCIDENT,
+    PERMISSION_TYPES,
+    PROBLEM,
+    SERVICE_REQUEST,
+    TYPES,
+)
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     ai_sources,
@@ -41,8 +48,10 @@ from app.modules.work_items.service import (
     notifications,
     parts,
     portal,
+    problem_notifications,
     record_facts,
     release_duties,
+    repeat_rules,
     report_names,
     request_notifications,
     resolution,
@@ -51,6 +60,7 @@ from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
+from app.modules.work_items.service.change_guard import register as register_change_guard
 from app.modules.work_items.service.closing import (
     register_open_work,
     register_requester_channel,
@@ -110,6 +120,7 @@ _register_ai()  # at import too: the consumers worker runs the re-embed sweep wi
 register_types()
 register_triggers()
 register_stage_approvals(tuple(TYPES.values()))  # WP-058a s5: releases' stage approval guard
+register_change_guard(tuple(TYPES.values()))  # WP-045a D4: approvals and the outcome
 # Release roles as open duties in the role editor's preview (REQ-REL-024 AC2, lane B's #223).
 release_duties.register()
 register_sla()
@@ -122,6 +133,7 @@ report_names.register()
 # Incident notifications (WP-023, lane B with lane A's review): at import, for the worker too.
 notifications.register()
 request_notifications.register()
+problem_notifications.register()  # WP-044c D15
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
@@ -136,12 +148,14 @@ module = ModuleSpec(
         portal_router,
         portal_request_router,  # WP-030 D9
         portal_home_router,  # WP-032 D1
+        repeat_router,  # WP-044c D16: the problem module's
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
         INCIDENT.feature,
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
+        PROBLEM.feature,  # repeat incident rules (D-140 item 5: not in Essentials)
     ],
     events=EVENTS,
     permissions=(
@@ -166,6 +180,8 @@ module = ModuleSpec(
         ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),
         # Bulk jobs (WP-020d): picked up within seconds of being asked for, like people imports.
         ScheduleSpec("work_items__bulk_jobs", 5, bulk.run_bulk_jobs),
+        # WP-044c D16 (REQ-PRB-068): repeat incident rules, every 15 minutes, without AI.
+        ScheduleSpec("work_items__repeat_incidents", 900, repeat_rules.repeat_schedule),
     ],
 )
 

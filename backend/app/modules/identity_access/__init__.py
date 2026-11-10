@@ -40,12 +40,14 @@ from app.modules.identity_access.api.people import access_router as access_setti
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
 from app.modules.identity_access.bff.cookies import cookie_name
+from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     IDENTITY_PERMISSIONS,
     KNOWLEDGE_MANAGER,
+    PROBLEM_MANAGER,
     REPORT_VIEWER,
     RESERVED_PERMISSIONS,
     SERVICE_DESK_MANAGER,
@@ -59,7 +61,7 @@ from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import directory, mfa
-from app.modules.identity_access.service.auth import AuthService
+from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
 from app.modules.identity_access.service.directory import (
     MailRecipient,
@@ -149,6 +151,8 @@ from app.shared.realtime import (
     SESSION_ENDED,
     CentrifugoClient,
     CentrifugoError,
+    Publish,
+    personal,
     realtime_user,
 )
 from app.shared.schedules import ScheduleSpec
@@ -305,7 +309,20 @@ async def _startup(app: FastAPI) -> None:
         except CentrifugoError:
             log.warning("realtime_disconnect_failed", exc_info=True)
 
+    async def sessions_changed(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        # Sessions live in Valkey, not in a table, so there is no outbox row to follow: a direct,
+        # best-effort signal on the person's own channel (IDs only, §8; the list is refetched).
+        client: CentrifugoClient | None = getattr(app.state, CENTRIFUGO_STATE, None)
+        if client is None:
+            return
+        data = {"type": SESSIONS_CHANGED, "ids": [], "fields": []}
+        try:
+            await client.publish(Publish(personal(tenant_id, user_id).name, data))
+        except CentrifugoError:
+            log.warning("sessions_changed_signal_failed", exc_info=True)
+
     service.end_realtime = end_realtime
+    service.sessions_changed = sessions_changed
     service.identity_admin = app.state.identity_admin
     app.state.auth = service
     app.state.auth_clients = (http, kv)
@@ -339,6 +356,7 @@ module = ModuleSpec(
     name="identity_access",
     routers=[
         router,
+        quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
         people_router,
         users_router,
         imports_router,
@@ -375,6 +393,7 @@ register_people_usage()
 
 __all__ = [
     "KNOWLEDGE_MANAGER",
+    "PROBLEM_MANAGER",
     "REPORT_VIEWER",
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",

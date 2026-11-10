@@ -22,6 +22,8 @@ from app.modules.work_items.domain.lifecycle import ReasonList, WorkItemAction
 
 IMPACT_DETAILS_MAX = 2000
 TEMPLATE_GROUP_MAX = 60
+# A template offered only to these support groups' members (REQ-PRB-021; 0109's cap).
+TEMPLATE_GROUPS_MAX = 50
 TEMPLATE_DESCRIPTION_MAX = 500
 LIST_VALUES_MAX = 100
 
@@ -46,6 +48,9 @@ class PickList(StrEnum):
     RELEASE_TYPE = "release_type"
     RELEASE_REASON = "release_reason"
     DOWNTIME_KIND = "downtime_kind"  # WP-058a s4 (REQ-REL-027)
+    # Changes (WP-045a; REQ-CHG-005, -011): their own lists, never shared with releases.
+    CHANGE_TYPE = "change_type"
+    CHANGE_REASON = "change_reason"
 
 
 # The settings a list's values may carry (0093, `work_item_reasons.attributes`).

@@ -178,8 +178,18 @@ FLOW_MEASURES: tuple[MeasureSpec, ...] = (
 )
 FLOW: Mapping[str, MeasureSpec] = MappingProxyType({m.code: m for m in FLOW_MEASURES})
 
+# The other work item modules count their records (UI pass 3 P6, D-147: each module's built-in
+# reports); their own measures (fulfilment time, change success ...) come with their modules.
+COUNT_ONLY: tuple[MeasureSpec, ...] = (MeasureSpec("count", MeasureKind.COUNT, Unit.COUNT),)
+
 MEASURES: Mapping[str, Mapping[str, MeasureSpec]] = MappingProxyType(
-    {"incident": MappingProxyType({m.code: m for m in INCIDENT_MEASURES})}
+    {
+        "incident": MappingProxyType({m.code: m for m in INCIDENT_MEASURES}),
+        **{
+            entity: MappingProxyType({m.code: m for m in COUNT_ONLY})
+            for entity in ("service_request", "problem", "release")
+        },
+    }
 )
 
 

@@ -32,6 +32,8 @@ export const en = {
   'notification_area.incident': 'Incidents',
   'notification_area.kb_article': 'Knowledge',
   'notification_area.mailbox': 'Mail',
+  'notification_area.problem': 'Problems',
+  'notification_area.problem_repeat': 'Problems',
   'notification_area.service_request': 'Service requests',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
@@ -78,8 +80,24 @@ export const en = {
   'notification_event.mailbox.credential_expiring': 'Mailbox app secret or certificate expiring',
   'notification_event.mailbox.failing': 'Mailbox stopped working',
   'notification_event.mailbox.mail_held': 'A sender is flooding a mailbox',
+  'notification_event.problem.assigned': 'Problem assigned',
+  'notification_event.problem.closed': 'Problem closed',
+  'notification_event.problem.created_in_group': 'Problem created in your group',
+  'notification_event.problem.investigator_added': 'Investigator added',
+  'notification_event.problem.known_error': 'Known error published',
+  'notification_event.problem.mentioned': 'Mentioned on a problem',
+  'notification_event.problem.note': 'Note on a problem',
+  'notification_event.problem.resolved': 'Problem solved',
+  'notification_event.problem.target_breached': 'Problem target date passed',
+  'notification_event.problem.target_warning': 'Problem target date close',
+  'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
+  'notification_event.service_request.approved': 'Request approved',
+  'notification_event.service_request.fulfilled': 'Request fulfilled',
+  'notification_event.service_request.received': 'Request received: acknowledgement',
+  'notification_event.service_request.rejected': 'Request rejected',
+  'notification_event.service_request.withdrawn': 'Request withdrawn',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
@@ -108,10 +126,12 @@ export const en = {
   'notification_recipient.group': 'Group members',
   'notification_recipient.group_head': 'Group lead and department head',
   'notification_recipient.holder': 'The person who holds it',
+  'notification_recipient.linked_incident_technicians': 'Technicians of the linked incidents',
   'notification_recipient.loan_creator': 'The person who made the loan',
   'notification_recipient.mail_admins': 'People who manage mailboxes',
   'notification_recipient.mentioned': 'People mentioned',
   'notification_recipient.new_follower': 'The new follower',
+  'notification_recipient.new_investigator': 'The investigator added',
   'notification_recipient.on_behalf_of': 'Person it is for',
   'notification_recipient.owner': 'Article owner',
   'notification_recipient.previous_assignee': 'Previous technician',
@@ -324,6 +344,71 @@ export const en = {
     'Mail to {{ record.title }} is held for review: a sender sent more than 10 messages in an hour',
   'notification_template.mailbox.mail_held.subject':
     'Mailbox {{ record.title }}: mail held for review',
+  'notification_template.problem.assigned.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now assigned to {{ assignee.name }}.\n\nPriority: {{ record.priority }}\nStatus: {{ record.status }}',
+  'notification_template.problem.assigned.in_app':
+    '{{ record.display_id }} is assigned to {{ assignee.name }}: {{ record.title }}',
+  'notification_template.problem.assigned.subject':
+    'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.closed.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was closed.',
+  'notification_template.problem.closed.in_app': '{{ record.display_id }} was closed',
+  'notification_template.problem.closed.subject':
+    'Closed: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.created_in_group.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was created in your group.',
+  'notification_template.problem.created_in_group.in_app':
+    'New problem: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.created_in_group.subject':
+    'New problem in your group: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.investigator_added.body':
+    'Hello {{ recipient.name }},\n\n{{ actor.name }} added you as an investigator on {{ record.display_id }} "{{ record.title }}". You can work its tasks and worklogs.',
+  'notification_template.problem.investigator_added.in_app':
+    'You are investigating {{ record.display_id }}: {{ record.title }}',
+  'notification_template.problem.investigator_added.subject':
+    'You are investigating {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.known_error.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now a known error. Its workaround can be applied to your incidents.',
+  'notification_template.problem.known_error.in_app':
+    '{{ record.display_id }} is a known error: apply its workaround',
+  'notification_template.problem.known_error.subject':
+    'Known error: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.mentioned.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} mentioned you on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.problem.mentioned.in_app':
+    '{{ conversation.author }} mentioned you on {{ record.display_id }}',
+  'notification_template.problem.mentioned.subject':
+    '{{ conversation.author }} mentioned you on {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.note.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} wrote on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.problem.note.in_app':
+    '{{ conversation.author }} wrote on {{ record.display_id }}',
+  'notification_template.problem.note.subject':
+    'New note on {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.resolved.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is solved. Check the incidents it caused and resolve them.',
+  'notification_template.problem.resolved.in_app':
+    '{{ record.display_id }} is solved: {{ record.title }}',
+  'notification_template.problem.resolved.subject':
+    'Solved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.target_breached.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has passed its {{ sla.target }} target date.',
+  'notification_template.problem.target_breached.in_app':
+    '{{ record.display_id }} is past its target date',
+  'notification_template.problem.target_breached.subject':
+    'Overdue: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem.target_warning.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is close to its {{ sla.target }} target date.',
+  'notification_template.problem.target_warning.in_app':
+    '{{ record.display_id }}: the target date is close',
+  'notification_template.problem.target_warning.subject':
+    'Due soon: {{ record.display_id }} {{ record.title }}',
+  'notification_template.problem_repeat.detected.body':
+    'Hello {{ recipient.name }},\n\n{{ incident.count }} incidents match "{{ rule.name }}" ({{ category.name }}, {{ site.name }}). Look at them and create a problem if they share a cause.',
+  'notification_template.problem_repeat.detected.in_app':
+    '{{ incident.count }} similar incidents: {{ rule.name }}',
+  'notification_template.problem_repeat.detected.subject':
+    '{{ incident.count }} similar incidents: {{ rule.name }}',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -336,18 +421,51 @@ export const en = {
     '{{ record.display_id }} waits for your approval: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'Your approval: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approved.body':
+    'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" was approved. We are working on it now.',
+  'notification_template.service_request.approved.in_app':
+    '{{ record.display_id }} was approved: {{ record.title }}',
+  'notification_template.service_request.approved.subject':
+    'Approved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.fulfilled.body':
+    'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" is done. Please confirm you received it, or tell us if something is missing.',
+  'notification_template.service_request.fulfilled.in_app':
+    '{{ record.display_id }} is done: {{ record.title }}',
+  'notification_template.service_request.fulfilled.subject':
+    'Done: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.received.body':
+    'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" and logged it as {{ record.display_id }}. We will keep you updated.',
+  'notification_template.service_request.received.in_app':
+    'We received {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.received.subject':
+    'We received your request {{ record.display_id }}: {{ record.title }}',
+  'notification_template.service_request.rejected.body':
+    'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" was not approved.{% if approval.comment %}\n\nThe approver said: {{ approval.comment }}{% endif %}',
+  'notification_template.service_request.rejected.in_app':
+    '{{ record.display_id }} was not approved: {{ record.title }}',
+  'notification_template.service_request.rejected.subject':
+    'Not approved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.withdrawn.body':
+    'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" was withdrawn. Nothing more will happen with it.',
+  'notification_template.service_request.withdrawn.in_app':
+    '{{ record.display_id }} was withdrawn: {{ record.title }}',
+  'notification_template.service_request.withdrawn.subject':
+    'Withdrawn: {{ record.display_id }} {{ record.title }}',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
+  'notification_variable.approval.comment': 'Approval › Comment',
   'notification_variable.approval_link': 'Approval › Link',
   'notification_variable.article.reason': 'Article › Reason',
   'notification_variable.article.review_on': 'Article › Review date',
   'notification_variable.assignee.name': 'Technician › Name',
+  'notification_variable.category.name': 'Category',
   'notification_variable.change.from_status': 'Change › Previous status',
   'notification_variable.connector.name': 'Connector › Name',
   'notification_variable.connector.reason': 'Connector › Reason',
   'notification_variable.conversation.author': 'Reply or note › Author',
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
   'notification_variable.holder.name': 'Holder › Name',
+  'notification_variable.incident.count': 'Number of incidents',
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',
@@ -358,6 +476,8 @@ export const en = {
   'notification_variable.record.status': 'Record › Status',
   'notification_variable.record.title': 'Record › Subject',
   'notification_variable.requester.name': 'Requester › Name',
+  'notification_variable.rule.name': 'Rule',
+  'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',
   'notifications.banner.no_mail_one':

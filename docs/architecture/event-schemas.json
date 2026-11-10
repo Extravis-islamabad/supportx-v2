@@ -4456,6 +4456,18 @@
             "title": "Part Id",
             "type": "string"
           },
+          "task_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task Status"
+          },
           "work_item_id": {
             "format": "uuid",
             "title": "Work Item Id",
@@ -4532,6 +4544,73 @@
           "changed_fields"
         ],
         "title": "WorkItemPortalSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.problem_repeat.changed": {
+      "1": {
+        "description": "A repeat rule or hit was added, changed, handled or removed (screens refetch).",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "rule",
+              "hit"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "ProblemRepeatChanged",
+        "type": "object"
+      }
+    },
+    "work_items.problem_repeat.detected": {
+      "1": {
+        "description": "A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.\n\nIDs and a count only; the incidents are read through the API by who may create problems.",
+        "properties": {
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "hit_id": {
+            "format": "uuid",
+            "title": "Hit Id",
+            "type": "string"
+          },
+          "incident_count": {
+            "title": "Incident Count",
+            "type": "integer"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hit_id",
+          "rule_id",
+          "group_id",
+          "incident_count"
+        ],
+        "title": "ProblemRepeatDetected",
         "type": "object"
       }
     },

@@ -3,6 +3,7 @@
 Real PostgreSQL, the incidents test world. Each test names the requirement and criterion.
 """
 
+import json
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -364,3 +365,27 @@ async def test_new_tables_are_isolated_by_rls(world: World) -> None:
             a.tenant,
         )
         assert rows[0]["n"] == 1, table
+
+
+async def test_part_changed_carries_the_tasks_status_for_waiting_workflows(world: World) -> None:
+    """WP-048b (lane C's task node): part.changed says the task's status after the change."""
+    a = world.a
+    item = await world.create(a, a.admin)
+    made = (await add_task(world, a, a.admin, item, title="Swap the printer")).json()
+    path = f"{BASE}/{item['id']}/tasks/{made['id']}"
+    done = await world.call(
+        "PATCH", path, a, a.admin, json={"status": "done"}, headers={"If-Match": '"1"'}
+    )
+    assert done.status_code == 200, done.text
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
+        " AND envelope->>'event_type' = 'work_items.part.changed' ORDER BY id",
+        a.tenant,
+    )
+    statuses = [
+        json.loads(r["envelope"])["payload"].get("task_status")
+        if isinstance(r["envelope"], str)
+        else r["envelope"]["payload"].get("task_status")
+        for r in rows
+    ]
+    assert statuses[-2:] == ["open", "done"]

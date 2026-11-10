@@ -284,6 +284,8 @@ class StageOutcome(StrEnum):
     # The review stage's overall result (REQ-REL-030): successful, with issues, or failed.
     SUCCESSFUL = "successful"
     SUCCESSFUL_WITH_ISSUES = "successful_with_issues"
+    # A change's implementation may also be backed out (REQ-CHG-032).
+    BACKED_OUT = "backed_out"
 
 
 REVIEW_OUTCOMES = frozenset(
@@ -297,11 +299,19 @@ def outcomes_for(stage: str) -> frozenset[str]:
     return frozenset(o.value for o in (REVIEW_OUTCOMES if stage == "review" else WORK_OUTCOMES))
 
 
-def outcome_problems(stage: str, merged: Mapping[str, Any]) -> list[tuple[str, str]]:
-    """(field, code) pairs of a stage's outcome after an edit (values merged)."""
+def outcome_problems(
+    stage: str, merged: Mapping[str, Any], allowed: frozenset[str] | None = None
+) -> list[tuple[str, str]]:
+    """(field, code) pairs of a stage's outcome after an edit (values merged).
+
+    `allowed`: the type's own outcomes for this stage (changes); None: the release's.
+    """
     problems: list[tuple[str, str]] = []
     outcome = merged.get("outcome")
-    if outcome is not None and stage not in OUTCOME_STAGES:
+    if allowed is not None:
+        if outcome is not None and outcome not in allowed:
+            problems.append(("outcome", "invalid_choice"))
+    elif outcome is not None and stage not in OUTCOME_STAGES:
         problems.append(("outcome", "not_allowed"))
     elif outcome is not None and outcome not in outcomes_for(stage):
         problems.append(("outcome", "invalid_choice"))

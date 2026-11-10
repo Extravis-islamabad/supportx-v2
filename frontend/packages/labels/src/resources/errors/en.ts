@@ -122,6 +122,7 @@ export const en = {
   'errors.certificate_not_valid_now': 'The certificate has expired or is not valid yet.',
   'errors.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
+  'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.conflict': 'Someone else changed this item. Reload to see the latest version.',
@@ -272,6 +273,8 @@ export const en = {
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',
+  'errors.field.default_cannot_be_removed':
+    'The default rule cannot be removed. Switch it off instead.',
   'errors.field.default_language_not_offered':
     'The default language must be one of the languages offered.',
   'errors.field.default_required':
@@ -373,6 +376,8 @@ export const en = {
   'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
   'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
   'errors.field.levels_same_moment': 'Two levels run at the same moment. Give each its own time.',
+  'errors.field.limited_template_for_requesters':
+    'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
@@ -401,6 +406,7 @@ export const en = {
   'errors.field.not_eligible': 'This person or group may not hold this role.',
   'errors.field.not_for_this_status': 'This setting is only for statuses that wait on someone.',
   'errors.field.not_found': 'This no longer exists.',
+  'errors.field.not_in_past': 'This time must be in the past.',
   'errors.field.note_too_long': 'The note can be at most {{max}} characters.',
   'errors.field.number_already_used': 'That number is already used. Choose {{minimum}} or higher.',
   'errors.field.oauth_certificate_invalid':
@@ -505,6 +511,8 @@ export const en = {
   'errors.field.technician_not_in_group': 'This technician is not a member of the chosen group.',
   'errors.field.template_disabled': 'This template was turned off. Choose another template.',
   'errors.field.template_not_found': 'That template no longer exists. Choose another one.',
+  'errors.field.template_not_offered':
+    'This template is not offered to you. Choose another template.',
   'errors.field.time_format_unknown': 'Choose 24-hour or 12-hour time.',
   'errors.field.time_zone_unknown': 'Choose a time zone from the list.',
   'errors.field.timezone_required': 'Include a time zone.',
@@ -761,6 +769,11 @@ export const en = {
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.privilege_escalation': 'You cannot give access you do not have yourself.',
   'errors.problem_closed': '{{display_id}} is closed, so it cannot be merged.',
+  'errors.quick_sign_in_not_configured':
+    'Quick sign-in isn’t set up on this stack: run make dev-quick-sign-in.',
+  'errors.quick_sign_in_refused': 'Keycloak refused this quick sign-in.',
+  'errors.quick_sign_in_wait':
+    'This persona signed in twice in the last 30 seconds. Try again in {{seconds}} seconds.',
   'errors.range_not_satisfiable': 'That part of the file does not exist.',
   'errors.rate_limited': 'Too many requests. Please wait a moment and try again.',
   // Entitlements (WP-009)
@@ -775,6 +788,8 @@ export const en = {
   'errors.record_closed': 'Closed and canceled records cannot be changed.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
+  'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
+  'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',
   'errors.report_entity_not_found': 'There is nothing of this kind to report on.',
   'errors.report_export_not_found': 'This export does not exist or is not yours.',
@@ -807,6 +822,7 @@ export const en = {
     'This is a connector’s own identity. Change it from Admin › Integrations.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
+  'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
@@ -835,7 +851,10 @@ export const en = {
   'errors.stage_move_refused':
     'Something must be done before this move. See the reasons on the record.',
   'errors.stage_not_found': 'This stage does not exist.',
+  'errors.stage_path_disabled': 'That path is switched off for new records.',
   'errors.stage_status_system_only': 'Only an approval decision sets this status.',
+  'errors.standard_change_locked':
+    'A standard change keeps its plan as approved. Changing it makes this a normal change, which needs normal approval.',
   'errors.status_not_found': 'That status no longer exists.',
   'errors.storage_not_configured': 'File storage is not set up for this installation.',
   'errors.storage_quota_exceeded':

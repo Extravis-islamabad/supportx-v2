@@ -1,18 +1,16 @@
-import {
-  Alert,
-  Card,
-  Descriptions,
-  Flex,
-  Progress,
-  Skeleton,
-  Space,
-  Table,
-  Typography,
-} from 'antd';
+import { Alert, Descriptions, Flex, Progress, Skeleton, Space, Table, Typography } from 'antd';
 
 import { type Entitlements, useEntitlements } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
-import { NoAccess, ToneTag, type Tone, useAccess, useDateTime, useLabel } from '@supportx/ui';
+import {
+  NoAccess,
+  SettingsCard,
+  ToneTag,
+  type Tone,
+  useAccess,
+  useDateTime,
+  useLabel,
+} from '@supportx/ui';
 
 // WP-042 (REQ-ADM-109): Admin › Licence and plan. Everything comes from the entitlement interface
 // (GET /entitlements); the licence file is never read here. Usage is live: adding or removing a
@@ -73,7 +71,7 @@ export function LicencePage() {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="licence-page">
-      <Card title={t('licence_page.plan')}>
+      <SettingsCard title={t('licence_page.plan')}>
         <Descriptions column={{ xs: 1, md: 2 }} size="small">
           <Descriptions.Item label={t('licence_page.edition')}>
             <span data-testid="licence-edition">
@@ -117,8 +115,8 @@ export function LicencePage() {
             }
           />
         )}
-      </Card>
-      <Card title={t('licence_page.limits')}>
+      </SettingsCard>
+      <SettingsCard title={t('licence_page.limits')}>
         <Table<Limit>
           rowKey="key"
           size="small"
@@ -138,8 +136,8 @@ export function LicencePage() {
             },
           ]}
         />
-      </Card>
-      <Card title={t('licence_page.features')}>
+      </SettingsCard>
+      <SettingsCard title={t('licence_page.features')}>
         <Flex wrap gap={6} data-testid="licence-features">
           {data.features.map((feature) => (
             <ToneTag key={feature} tone="default">
@@ -147,7 +145,7 @@ export function LicencePage() {
             </ToneTag>
           ))}
         </Flex>
-      </Card>
+      </SettingsCard>
       <Typography.Paragraph type="secondary">{t('licence_page.upgrade')}</Typography.Paragraph>
     </Space>
   );

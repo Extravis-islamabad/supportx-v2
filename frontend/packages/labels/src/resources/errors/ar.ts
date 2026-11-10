@@ -113,6 +113,7 @@ export const ar: LabelResource = {
   'errors.certificate_not_valid_now': 'انتهت صلاحية الشهادة أو لم تصبح صالحة بعد.',
   'errors.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
+  'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.conflict': 'قام شخص آخر بتعديل هذا العنصر. أعد التحميل لعرض أحدث إصدار.',
@@ -247,6 +248,8 @@ export const ar: LabelResource = {
   'errors.field.default_cannot_be_disabled':
     'لا يمكن إيقاف القالب الافتراضي. عيّن قالبًا آخر كافتراضي أولًا.',
   'errors.field.default_cannot_be_inactive': 'لا يمكن جعل الافتراضي غير نشط.',
+  'errors.field.default_cannot_be_removed':
+    'لا يمكن إزالة القاعدة الافتراضية. أوقفها بدلًا من ذلك.',
   'errors.field.default_language_not_offered': 'يجب أن تكون اللغة الافتراضية إحدى اللغات المتاحة.',
   'errors.field.default_required':
     'يوجد دائمًا قالب افتراضي. عيّن قالبًا آخر كافتراضي بدلًا من ذلك.',
@@ -344,6 +347,8 @@ export const ar: LabelResource = {
   'errors.field.level_too_many_recipients': 'يُسمح بـ {{max}} مستلمًا على الأكثر لكل مستوى.',
   'errors.field.levels_same_moment':
     'مستويان يعملان في اللحظة نفسها. حدّد لكل منهما وقتًا خاصًا به.',
+  'errors.field.limited_template_for_requesters':
+    'القالب المخصص لمقدمي الطلبات متاح للجميع: لا يمكن قصره على مجموعات.',
   'errors.field.list_too_long': 'هذه القائمة تحتوي على قيم كثيرة جدًا.',
   'errors.field.logo_required': 'حمّل شعارًا أولًا.',
   'errors.field.mailbox_address_invalid': 'أدخل عنوان البريد الإلكتروني لصندوق البريد.',
@@ -371,6 +376,7 @@ export const ar: LabelResource = {
   'errors.field.not_eligible': 'لا يمكن لهذا الشخص أو هذه المجموعة شغل هذا الدور.',
   'errors.field.not_for_this_status': 'هذا الإعداد للحالات التي تنتظر شخصًا ما فقط.',
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
+  'errors.field.not_in_past': 'يجب أن يكون هذا الوقت في الماضي.',
   'errors.field.note_too_long': 'يمكن أن تحتوي الملاحظة على {{max}} حرفًا على الأكثر.',
   'errors.field.number_already_used': 'هذا الرقم مستخدم بالفعل. اختر {{minimum}} أو أعلى.',
   'errors.field.oauth_certificate_invalid': 'الصق الشهادة ومفتاحها الخاص RSA، كلاهما بصيغة PEM.',
@@ -469,6 +475,7 @@ export const ar: LabelResource = {
   'errors.field.technician_not_in_group': 'هذا الفني ليس عضوًا في المجموعة المختارة.',
   'errors.field.template_disabled': 'تم إيقاف هذا القالب. اختر قالبًا آخر.',
   'errors.field.template_not_found': 'هذا القالب لم يعد موجودًا. اختر قالبًا آخر.',
+  'errors.field.template_not_offered': 'هذا القالب غير متاح لك. اختر قالبًا آخر.',
   'errors.field.time_format_unknown': 'اختر نظام 24 ساعة أو 12 ساعة.',
   'errors.field.time_zone_unknown': 'اختر منطقة زمنية من القائمة.',
   'errors.field.timezone_required': 'أضف المنطقة الزمنية.',
@@ -696,6 +703,11 @@ export const ar: LabelResource = {
   'errors.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
   'errors.privilege_escalation': 'لا يمكنك منح صلاحيات لا تملكها بنفسك.',
   'errors.problem_closed': '{{display_id}} مغلقة، لذا لا يمكن دمجها.',
+  'errors.quick_sign_in_not_configured':
+    'تسجيل الدخول السريع غير مُعدّ على هذه البيئة: شغّل make dev-quick-sign-in.',
+  'errors.quick_sign_in_refused': 'رفض Keycloak تسجيل الدخول السريع هذا.',
+  'errors.quick_sign_in_wait':
+    'سجّلت هذه الشخصية الدخول مرتين خلال آخر 30 ثانية. حاول مجددًا بعد {{seconds}} ثانية.',
   'errors.range_not_satisfiable': 'هذا الجزء من الملف غير موجود.',
   'errors.rate_limited': 'طلبات كثيرة جدًا. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.',
   // Entitlements (WP-009)
@@ -710,6 +722,8 @@ export const ar: LabelResource = {
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
   'errors.reference_copied': 'تم نسخ المرجع',
   'errors.reference_is': 'المرجع: {{reference}}',
+  'errors.repeat_hit_not_found': 'لم تعد مجموعة الحوادث المتكررة هذه موجودة.',
+  'errors.repeat_rule_not_found': 'لم تعد قاعدة الحوادث المتكررة هذه موجودة.',
   'errors.reply_template_not_found': 'لم يعد قالب الرد هذا موجودًا.',
   'errors.report_entity_not_found': 'لا يوجد شيء من هذا النوع لإعداد تقرير عنه.',
   'errors.report_export_not_found': 'هذا التصدير غير موجود أو ليس لك.',
@@ -740,6 +754,7 @@ export const ar: LabelResource = {
   'errors.service_identity_managed': 'هذه هوية خاصة بموصّل. غيّرها من الإدارة › التكاملات.',
   'errors.service_unavailable': 'الخدمة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.',
   'errors.session_expired': 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.',
+  'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
@@ -764,7 +779,10 @@ export const ar: LabelResource = {
     'هذا الانتقال غير مسموح به من الحالة الحالية. أعد التحميل لرؤية أحدث نسخة.',
   'errors.stage_move_refused': 'يجب إنجاز أمر ما قبل هذا الانتقال. راجع الأسباب في السجل.',
   'errors.stage_not_found': 'هذه المرحلة غير موجودة.',
+  'errors.stage_path_disabled': 'هذا المسار معطّل للسجلات الجديدة.',
   'errors.stage_status_system_only': 'لا يضبط هذه الحالة إلا قرار موافقة.',
+  'errors.standard_change_locked':
+    'يحتفظ التغيير القياسي بخطته كما اعتُمدت. تعديلها يجعله تغييرًا عاديًا يحتاج إلى موافقة عادية.',
   'errors.status_not_found': 'هذه الحالة لم تعد موجودة.',
   'errors.storage_not_configured': 'لم يُعدّ تخزين الملفات لهذا التثبيت.',
   'errors.storage_quota_exceeded':

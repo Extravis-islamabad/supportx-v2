@@ -52,6 +52,8 @@ export const en = {
   'branding.reset_done': 'The default brand is back.',
   'branding.reset_title': 'Back to the default brand?',
   'branding.save': 'Save branding',
+  'branding.save_blocked_colour': 'Choose colours that pass the contrast check to save.',
+  'branding.save_blocked_image': 'Remove or replace the refused image to save.',
   'branding.saved': 'Branding saved. Every open screen shows it now.',
   'branding.text.english_hint': 'English is shown wherever a translation is missing.',
   'branding.text.portal_name': 'Portal name',

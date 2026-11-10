@@ -18,10 +18,10 @@ status moves (REQ-INC-050); priority comes from the matrix unless set by hand wi
 """
 
 import uuid
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast
 
 from sqlalchemy import ColumnElement, Select, and_, delete, exists, func, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on
@@ -66,6 +66,7 @@ from app.modules.organization import (
     unit_heads,
     users_in_groups,
 )
+from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.classification import (
@@ -128,6 +129,7 @@ from app.modules.work_items.events import (
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemCategory,
+    WorkItemChangeDetails,
     WorkItemConversation,
     WorkItemDowntime,
     WorkItemFollower,
@@ -138,7 +140,14 @@ from app.modules.work_items.infra.models import (
     WorkItemStageSchedule,
     WorkItemTemplate,
 )
-from app.modules.work_items.service import approval_stage, automation, closing, followers, templates
+from app.modules.work_items.service import (
+    approval_stage,
+    automation,
+    change_types,
+    closing,
+    followers,
+    templates,
+)
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service import stages as stage_service
@@ -686,6 +695,13 @@ def view_predicates(
                 [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value]
             ),
         ),
+        # Problems (WP-044c, Appendix A): live known errors, and accepted ones due for review.
+        "known_errors": and_(
+            WorkItem.known_error_at.is_not(None), WorkItem.known_error_retired_at.is_(None)
+        ),
+        "accepted_due_review": and_(
+            WorkItem.accepted_at.is_not(None), WorkItem.accept_review_at <= now
+        ),
         "all": WorkItem.id.is_not(None),
         **_personal(subject, now=now, today_end=tomorrow),
     }
@@ -791,6 +807,8 @@ async def view_filters(
                 "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
             },
         ),
+        "known_errors": NOT_EXPRESSIBLE,  # the known error fields are not in the DSL yet
+        "accepted_due_review": NOT_EXPRESSIBLE,
         "all": None,
         "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
@@ -878,6 +896,7 @@ VIEW_CODES = (
 )
 # Service requests add their approval views (WP-030, REQ-SR-009); incidents never show them.
 SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
+PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 COUNT_CAP = 1000
 
 
@@ -885,6 +904,8 @@ def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
     """The built-in views of one type, in the menu's order."""
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         return (*VIEW_CODES[:-1], *SR_VIEW_CODES, VIEW_CODES[-1])
+    if wtype.code is WorkItemTypeCode.PROBLEM:
+        return (*VIEW_CODES[:-1], *PROBLEM_VIEW_CODES, VIEW_CODES[-1])
     return VIEW_CODES
 
 
@@ -1456,7 +1477,11 @@ async def _custom_text(
     if record_id is not None and wtype.code is WorkItemTypeCode.RELEASE:
         details = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record_id))
         if details is not None:
-            parts.append(release_rules.search_terms(_detail_values(details)))
+            parts.append(
+                release_rules.search_terms(
+                    _detail_values(details, DETAILS[WorkItemTypeCode.RELEASE])
+                )
+            )
     text = " ".join(p for p in parts if p)
     return text or None
 
@@ -2043,16 +2068,17 @@ async def _on_behalf_problems(
 
 
 async def _first_stage(
-    session: AsyncSession, wtype: WorkItemType, template: WorkItemTemplate
+    session: AsyncSession, wtype: WorkItemType, template: WorkItemTemplate, path: str | None
 ) -> dict[str, Any]:
     """Stage columns and first status of a new staged record ({} for other types).
 
-    The template decides the path (REQ-REL-007: no separate workflow picker).
+    The template decides the path (REQ-REL-007: no separate workflow picker), or a change's
+    type does (`path`, REQ-CHG-005; change_types.prepare says which).
     """
     if wtype.stages is None:
         return {}
     model = await stage_service.load_model(session, wtype)
-    return stage_service.first_columns(model, template.stage_path or DEFAULT_PATH)
+    return stage_service.first_columns(model, path or template.stage_path or DEFAULT_PATH)
 
 
 async def _read_only_problems(
@@ -2071,7 +2097,7 @@ def _initial(cat: Catalogue, stage_columns: dict[str, Any]) -> str:
     return next(s.code for s in cat.statuses if not s.system and not s.disabled)
 
 
-async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks, explicit
+async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and checks, one branch per entry point, explicit
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -2111,10 +2137,12 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     item = await _request_item(session, subject, wtype, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
-    template = await templates.for_create(session, wtype, values.get("template_id"))
+    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     problems += await templates.required_problems(
         session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
     )
+    new_change, change_problems = change_types.prepare(wtype, cat, values, template)
+    problems += change_problems + change_types.problems_for(wtype, values)
     problems += _check_level(cat, cleaned.get("level"), current=None)
     problems += _check_problem_fields(wtype, cat, cleaned, None)
     if problems:
@@ -2137,7 +2165,10 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     )
     await _place(session, cleaned)
     # A staged type starts in its path's first stage and that stage's first status (ADR-041).
-    stage_columns = await _first_stage(session, wtype, template)
+    stage_columns = await _first_stage(
+        session, wtype, template, new_change.path if new_change is not None else None
+    )
+    await change_types.retrospective_start(session, wtype, new_change, stage_columns)
     initial, group_id, technician_id = _from_item(
         started,
         _initial(cat, stage_columns),
@@ -2251,6 +2282,8 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         name: (entered.get(name) if name in automated.values else value)
         for name, value in after.items()
     }
+    own = await change_types.store(session, record, new_change)  # a change's type and reason
+    roles_filled = await change_types.fill_line_manager(session, record)
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -2258,9 +2291,12 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         version=record.version,
         kind="created",
         changes=[
-            Change(name, None, value)
-            for name, value in by_person.items()
-            if value not in (None, [])
+            *(
+                Change(name, None, value)
+                for name, value in {**by_person, **own}.items()
+                if value not in (None, [])
+            ),
+            *roles_filled,
         ],
         source=source,
         reason=priority_reason,
@@ -2282,6 +2318,19 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     await approval_stage.after_submission(  # REQ-SR-021
         session, record, item, source=source, holders=holders
     )
+    if change_types.pre_approved(new_change):  # REQ-CHG-006: a standard change, approved now
+        record = await _stage_move(
+            session,
+            wtype,
+            record,
+            target=change_rules.PRE_APPROVED,
+            expected_version=record.version,
+            reason_code=None,
+            reason_text=None,
+            source=source,
+            subject=None,
+            extra=[Change("pre_approved", None, own["change_type"])],
+        )
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
             cat.lifecycle_of(record.lifecycle),
@@ -2463,6 +2512,20 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
             automation_ref={"kind": "matrix"},
         )
     await _record_automation(session, updated, automated)
+    if before["requester_id"] != after["requester_id"]:  # REQ-CHG-036: the new requester's manager
+        refilled = await change_types.fill_line_manager(
+            session, updated, was_requester=uuid.UUID(str(before["requester_id"]))
+        )
+        if refilled:
+            await record_changes(
+                session,
+                record_type=RECORD_TYPE,
+                record_id=updated.id,
+                version=updated.version,
+                kind="updated",
+                changes=refilled,
+                source=source,
+            )
     await record_event(
         session,
         WorkItemUpdated(
@@ -2772,6 +2835,7 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     source: Source,
     subject: Subject | None,
     given: closing.MoveInput = closing.MoveInput(),  # noqa: B008 - a frozen, empty default
+    extra: Sequence[Change] = (),
 ) -> WorkItem:
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     try:
@@ -2851,7 +2915,7 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         entries=entries,
         source=source,
         reason=text,
-        extra=closing_step.history,
+        extra=[*closing_step.history, *extra],
     )
     await _record_automation(session, updated, automated)
     # A guard may act after the move (ADR-041 §5): releases open a stage's approvals here.
@@ -2923,11 +2987,28 @@ async def _move_missing(
 async def _field_values(
     session: AsyncSession, record: WorkItem, names: Sequence[str]
 ) -> dict[str, Any]:
-    """The record's values of `names`, its type's own fields (release details) included."""
-    values = {n: getattr(record, n, None) for n in names if not n.startswith("custom.")}
-    own = [n for n in names if n in release_rules.DETAIL_FIELDS]
-    if own:
-        row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record.id))
+    """The record's values of `names`, its type's own fields (release or change details) too."""
+    values = {
+        n: getattr(record, n, None)
+        for n in names
+        if not n.startswith("custom.") and not n.startswith("plan.")
+    }
+    sections = [n.removeprefix("plan.") for n in names if n.startswith("plan.")]
+    if sections:  # a plan section required to leave a stage (REQ-CHG-013, WP-045a D7)
+        written = {
+            r.section: r.content
+            for r in await session.scalars(
+                select(WorkItemPlanSection).where(
+                    WorkItemPlanSection.work_item_id == record.id,
+                    WorkItemPlanSection.section.in_(sections),
+                )
+            )
+        }
+        values |= {f"plan.{s}": written.get(s) for s in sections}
+    spec = DETAILS.get(WorkItemTypeCode(record.type))
+    own = [n for n in names if spec is not None and n in spec.fields]
+    if spec is not None and own:
+        row = await session.get(spec.model, (config.tenant_of(session), record.id))
         values.update({n: getattr(row, n) if row is not None else None for n in own})
     return values
 
@@ -3030,19 +3111,81 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
         )
 
 
-# --- a release's own fields (WP-058a; REQ-REL-002..005) -----------------------------------------
+# --- a type's own fields: releases (WP-058a; REQ-REL-002..005), changes (WP-045a) ---------------
+
+DetailsRow = WorkItemReleaseDetails | WorkItemChangeDetails
 
 
 @dataclass(frozen=True)
-class ReleaseDetailsView:
-    """A release and its own fields (None before any is set)."""
+class DetailsSpec:
+    """What a staged type keeps in its own details table, and how its values are checked.
+
+    One code path for every type with own fields (releases first, changes next): the model,
+    its fields, the pick lists they take codes of, the person fields, rich text, the type's own
+    rules, and whether a type's default risk applies (releases, REQ-REL-003).
+    """
+
+    model: type[DetailsRow]
+    fields: tuple[str, ...]
+    pick_lists: tuple[tuple[str, PickList], ...]
+    people: tuple[str, ...] = ()
+    rich_text: frozenset[str] = frozenset()
+    problems: Callable[[Mapping[str, Any]], list[tuple[str, str]]] = lambda _merged: []
+    risk_from_type: bool = False
+
+
+DETAILS: Mapping[WorkItemTypeCode, DetailsSpec] = {
+    WorkItemTypeCode.RELEASE: DetailsSpec(
+        model=WorkItemReleaseDetails,
+        fields=release_rules.DETAIL_FIELDS,
+        pick_lists=(
+            ("release_type", PickList.RELEASE_TYPE),
+            ("release_reason", PickList.RELEASE_REASON),
+        ),
+        people=("release_manager_id", "release_engineer_id"),
+        rich_text=frozenset({"release_notes"}),
+        problems=release_rules.detail_problems,
+        risk_from_type=True,
+    ),
+    WorkItemTypeCode.CHANGE: DetailsSpec(
+        model=WorkItemChangeDetails,
+        fields=change_rules.DETAIL_FIELDS,
+        pick_lists=(
+            ("change_type", PickList.CHANGE_TYPE),
+            ("change_reason", PickList.CHANGE_REASON),
+        ),
+    ),
+}
+
+
+@dataclass(frozen=True)
+class DetailsView:
+    """A record and its type's own fields (None before any is set)."""
 
     record: WorkItem
-    details: WorkItemReleaseDetails | None
+    details: DetailsRow | None
 
 
-def _detail_values(row: WorkItemReleaseDetails | None) -> dict[str, Any]:
-    return {n: (getattr(row, n) if row is not None else None) for n in release_rules.DETAIL_FIELDS}
+ReleaseDetailsView = DetailsView  # the release routes' name (WP-058a)
+
+
+def _spec(wtype: WorkItemType) -> DetailsSpec:
+    """The type's own fields; a type without them has no such route (404)."""
+    found = DETAILS.get(wtype.code)
+    if found is None:
+        raise _not_found(wtype)
+    return found
+
+
+async def _details_row(
+    session: AsyncSession, spec: DetailsSpec, record_id: uuid.UUID
+) -> DetailsRow | None:
+    found = await session.get(spec.model, (config.tenant_of(session), record_id))
+    return cast("DetailsRow | None", found)  # spec.model is one of DetailsRow's classes
+
+
+def _detail_values(row: DetailsRow | None, spec: DetailsSpec) -> dict[str, Any]:
+    return {n: (getattr(row, n) if row is not None else None) for n in spec.fields}
 
 
 def _release_only(wtype: WorkItemType) -> None:
@@ -3050,53 +3193,49 @@ def _release_only(wtype: WorkItemType) -> None:
         raise _not_found(wtype)
 
 
-async def release_details(
+async def details(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
-) -> ReleaseDetailsView:
-    """A release's own fields, within your view scope (404 otherwise)."""
-    _release_only(wtype)
+) -> DetailsView:
+    """A record's own fields, within your view scope (404 otherwise)."""
+    spec = _spec(wtype)
     record = await _visible(session, subject, wtype, record_id)
-    row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record.id))
-    return ReleaseDetailsView(record, row)
+    return DetailsView(record, await _details_row(session, spec, record.id))
 
 
-def _clean_detail(name: str, value: Any) -> Any:  # noqa: ANN401 - field values of several types
-    """Trimmed text (blank: none), sanitised notes; other values as given."""
+release_details = details  # the release routes' name (WP-058a)
+
+
+def _clean_detail(name: str, value: Any, spec: DetailsSpec | None = None) -> Any:  # noqa: ANN401 - values of several types
+    """Trimmed text (blank: none), sanitised rich text; other values as given."""
     if isinstance(value, str):
-        if name == "release_notes":
+        if spec is not None and name in spec.rich_text:
             cleaned = sanitize_html(value)
             return None if is_blank(cleaned) else cleaned
         return " ".join(value.split()) or None
     return value
 
 
-async def _detail_problems(
+async def _detail_problems(  # noqa: PLR0913, PLR0917 - the change and its context, explicit
     session: AsyncSession,
     wtype: WorkItemType,
+    spec: DetailsSpec,
     current: Mapping[str, Any],
     given: Mapping[str, Any],
     risk_reason: str | None,
 ) -> list[tuple[str, str]]:
-    problems = release_rules.detail_problems({**current, **given})
+    problems = spec.problems({**current, **given})
     cat = await config.load(session, wtype)
-    for name, pick in (
-        ("release_type", PickList.RELEASE_TYPE),
-        ("release_reason", PickList.RELEASE_REASON),
-    ):
-        # A retired value is never newly chosen; a release that has it keeps it (REQ-REL-003).
+    for name, pick in spec.pick_lists:
+        # A retired value is never newly chosen; a record that has it keeps it (REQ-REL-003).
         value = given.get(name)
         if value is not None and value != current[name] and value not in cat.reason_codes(pick):
             problems.append((name, "invalid_choice"))
-    people = {
-        n: given[n]
-        for n in ("release_manager_id", "release_engineer_id")
-        if given.get(n) is not None
-    }
+    people = {n: given[n] for n in spec.people if given.get(n) is not None}
     if people:
         found = await user_names(session, [str(v) for v in people.values()])
         problems += [(n, "user_not_found") for n, v in people.items() if str(v) not in found]
     # REQ-REL-004 AC3: a risk set by hand says why, in history.
-    if "risk" in given and given["risk"] != current["risk"] and not risk_reason:
+    if "risk" in given and given["risk"] != current.get("risk") and not risk_reason:
         problems.append(("risk_reason", "reason_required"))
     return problems
 
@@ -3153,7 +3292,9 @@ async def copy_release(  # noqa: PLR0913 - the copy and its context, explicit
     values["custom"] = dict(original.custom or {})
     made = await create(session, subject, wtype, values, source=source, holders=holders)
     row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), original.id))
-    copied = {n: getattr(row, n) for n in COPIED_DETAILS} if row is not None else {}
+    copied = (
+        {n: getattr(row, n) for n in COPIED_DETAILS} if row is not None else {}
+    )  # releases only
     copied = {n: v for n, v in copied.items() if v is not None}
     if copied:
         await update_release_details(
@@ -3171,7 +3312,7 @@ async def copy_release(  # noqa: PLR0913 - the copy and its context, explicit
     )
 
 
-async def update_release_details(  # noqa: PLR0913 - the change and its context, explicit
+async def update_details(  # noqa: PLR0913 - the change and its context, explicit
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -3183,11 +3324,11 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
     risk_reason: str | None = None,
     copying: bool = False,
 ) -> ReleaseDetailsView:
-    """Change the fields you send (If-Match on the release). Unchanged input: no new version.
+    """Change the fields you send (If-Match on the record). Unchanged input: no new version.
 
     `copying`: a copy takes the original's risk, which was set (with its reason) there.
     """
-    _release_only(wtype)
+    spec = _spec(wtype)
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
@@ -3196,15 +3337,15 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
     tenant = config.tenant_of(session)
-    row = await session.get(WorkItemReleaseDetails, (tenant, record.id))
-    current = _detail_values(row)
-    given = {n: _clean_detail(n, v) for n, v in values.items() if n in release_rules.DETAIL_FIELDS}
+    row = await _details_row(session, spec, record.id)
+    current = _detail_values(row, spec)
+    given = {n: _clean_detail(n, v, spec) for n, v in values.items() if n in spec.fields}
     reason = (risk_reason or "").strip() or None
-    by_type = await _risk_from_type(session, wtype, current, given)
+    by_type = await _risk_from_type(session, wtype, current, given) if spec.risk_from_type else None
     if by_type is not None:  # the type's default risk, not set by hand: no reason asked
         given["risk"] = by_type
     problems = await _detail_problems(
-        session, wtype, current, given, reason if by_type is None and not copying else "given"
+        session, wtype, spec, current, given, reason if by_type is None and not copying else "given"
     )
     problems += await _read_only_problems(
         session, record, [n for n, v in given.items() if v != current[n]]
@@ -3213,9 +3354,9 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
         raise _errors(problems)
     changed = {n: v for n, v in given.items() if v != current[n]}
     if not changed:
-        return ReleaseDetailsView(record, row)
+        return DetailsView(record, row)
     if row is None:
-        row = WorkItemReleaseDetails(tenant_id=tenant, work_item_id=record.id)
+        row = spec.model(tenant_id=tenant, work_item_id=record.id)
         session.add(row)
     for name, value in changed.items():
         setattr(row, name, value)
@@ -3251,7 +3392,10 @@ async def update_release_details(  # noqa: PLR0913 - the change and its context,
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
-    return ReleaseDetailsView(updated, row)
+    return DetailsView(updated, row)
+
+
+update_release_details = update_details  # the release routes' name (WP-058a)
 
 
 # --- named roles (WP-058a s4; REQ-REL-023, -024; ADR-041) ----------------------------------------
@@ -3606,11 +3750,15 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
     content: str | None,
     expected_version: int,
     source: Source,
+    convert_to_normal: bool = False,
+    copying: bool = False,
 ) -> WorkItemPlanSection:
     """One section's text, with that section's own If-Match (0: not written yet).
 
     Two people editing different sections both keep their work; the same section conflicts
-    (REQ-REL-025 AC2). Its history names the section, the editor and the time (AC1).
+    (REQ-REL-025 AC2). Its history names the section, the editor and the time (AC1). A standard
+    change's plan is locked: the edit is refused with a warning unless `convert_to_normal`,
+    which makes it a normal change first (REQ-CHG-006 AC2).
     """
     if section not in wtype.plan_sections:
         raise NotFound(code="plan_section_not_found")
@@ -3630,6 +3778,15 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
         return row
     if text is not None and len(text) > DESCRIPTION_MAX:
         raise _errors([("content", "value_too_long")])
+    if not copying:  # a copy's plan is its own from the start, never an edit of a locked one
+        record = await _unlock_standard(
+            session,
+            wtype,
+            record,
+            field=f"plan.{section}",
+            confirmed=convert_to_normal,
+            source=source,
+        )
     if row is None:
         row = WorkItemPlanSection(tenant_id=tenant, work_item_id=record.id, section=section)
         session.add(row)
@@ -3641,6 +3798,131 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
     await _part_history(session, record, [Change(f"plan.{section}", before, text)], source=source)
     await _part_event(session, record, "plan_section", _part_id(record.id, section), "changed")
     return row
+
+
+async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the person's choice
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    field: str,
+    confirmed: bool,
+    source: Source,
+) -> WorkItem:
+    """A standard change's locked field: refused with a warning, or the change made normal.
+
+    REQ-CHG-006 AC2: confirming converts the change to normal and resets its approval to not
+    submitted, so it goes through normal approval. In this transaction: the type becomes
+    normal, the record restarts on the normal path in submission (a new round; the earlier
+    ones stay), with history and the status and stage events. Other records pass unchanged.
+    """
+    if wtype.code is not WorkItemTypeCode.CHANGE:
+        return record
+    row = await session.get(WorkItemChangeDetails, (config.tenant_of(session), record.id))
+    if row is None or row.change_type is None:
+        return record
+    cat = await config.load(session, wtype)
+    attributes = next(
+        (v.attributes for v in cat.list_values(PickList.CHANGE_TYPE) if v.code == row.change_type),
+        None,
+    )
+    if change_rules.model_of(row.change_type, attributes) is not change_rules.ChangeModel.STANDARD:
+        return record
+    if not confirmed:
+        raise Conflict(code="standard_change_locked", params={"field": field})
+    now = _now()
+    before = _snapshot(record, (*STAMP_FIELDS, "stage", "stage_path"))
+    was_type = row.change_type
+    normal = change_rules.ChangeModel.NORMAL.value
+    row.change_type = normal
+    from_stage = str(record.stage)
+    columns = await stage_service.restart(
+        session,
+        wtype,
+        record,
+        path=change_rules.path_of(normal, change_rules.ChangeModel.NORMAL),
+        now=now,
+        reason_code="standard_converted",
+    )
+    clock = move_pause_clock(
+        PauseClock(record.paused_since, record.paused_seconds),
+        old=StatusCategory(record.status_category),
+        new=StatusCategory(columns["status_category"]),
+        now=now,
+    )
+    updated = await _update(
+        session,
+        record,
+        record.version,
+        {
+            **columns,
+            "status_changed_at": now,
+            "status_reason_code": None,
+            "status_reason_text": None,
+            "paused_since": clock.paused_since,
+            "paused_seconds": clock.paused_seconds,
+        },
+    )
+    after = _snapshot(updated, (*STAMP_FIELDS, "stage", "stage_path"))
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="status",
+        changes=[
+            *(Change(n, before[n], v) for n, v in after.items() if before[n] != v),
+            Change("change_type", was_type, normal),
+            Change("standard_converted", None, field),
+        ],
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemStatusChanged(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            action=STAGE_MOVE,
+            from_status=str(before["status"]),
+            to_status=updated.status,
+            automatic=True,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    entries = await stage_service.entries_of(session, updated)
+    await record_event(
+        session,
+        WorkItemStageChanged(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            from_stage=from_stage,
+            to_stage=str(updated.stage),
+            stages_entered=[str(updated.stage)],
+            entry_id=entries[-1].id,
+            path=str(updated.stage_path),
+            automatic=True,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
+def schedule_overdue(row: WorkItemStageSchedule | None, now: datetime | None = None) -> bool:
+    """A stage past its scheduled end that has not ended (REQ-CHG-017).
+
+    A change's implementation running over its window shows it; any staged type's stage alike.
+    """
+    if row is None or row.scheduled_end is None or row.actual_end is not None:
+        return False
+    return row.scheduled_end < (now or _now())
 
 
 async def stage_schedules(
@@ -3739,7 +4021,7 @@ def _schedule_problems(
     changed: Mapping[str, Any],
     reason: str | None,
 ) -> list[tuple[str, str]]:
-    problems = release_rules.outcome_problems(stage, merged)
+    problems = release_rules.outcome_problems(stage, merged, wtype.stage_outcomes.get(stage))
     if stage not in wtype.outcome_stages and any(
         n in changed for n in ("outcome", "outcome_notes", "issues")
     ):
@@ -4681,6 +4963,24 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
 
 visible_record = _visible
 record_for_action = _for_action
+holders_of = _holders_of
+
+
+async def record_copied_from(
+    session: AsyncSession, record: WorkItem, original: WorkItem, *, source: Source
+) -> None:
+    """A copy's history names its source (REQ-CHG-003 AC2)."""
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=[Change("copied_from", None, original.display_id)],
+        source=source,
+    )
+
+
 may = _may
 audience_of = _audience
 now = _now

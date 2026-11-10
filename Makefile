@@ -2,11 +2,11 @@
 .DEFAULT_GOAL := help
 .PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
@@ -86,7 +86,22 @@ showcase-seed: $(DEV_ENV) ## Fill Showcase Company (slug showcase) for demos; id
 	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
 	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
 	SUPPORTX_SHOWCASE_PASSWORD="$$(env_value SHOWCASE_PASSWORD)" \
+	SUPPORTX_SHOWCASE_TOTP_KEY="$$(env_value SHOWCASE_TOTP_KEY)" \
 	uv run python -m tooling.showcase_seed showcase
+
+dev-quick-sign-in: $(DEV_ENV) ## DEV ONLY: one-click sign-in per showcase persona at /dev/sign-in (D-151; never production)
+	@bash $(DEV_DIR)/scripts/dev-quick-sign-in.sh
+	@$(MAKE) --no-print-directory keycloak-dev-sync
+
+keycloak-dev-sync: $(DEV_ENV) ## DEV ONLY: give an existing local dev realm the quick sign-in's settings, keeping its data (idempotent)
+	@env_value() { grep "^$$1=" $(CURDIR)/$(DEV_ENV) | cut -d= -f2-; }; \
+	cd backend && SUPPORTX_KEYCLOAK_URL="http://localhost:$$(env_value KEYCLOAK_PORT || echo 28080)" \
+	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
+	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
+	SUPPORTX_DEV_QUICK_SIGN_IN="$$(env_value DEV_QUICK_SIGN_IN)" \
+	uv run python -m tooling.keycloak_dev_sync
+	@$(MAKE) --no-print-directory showcase-seed
+	@echo "Restart the API (make backend-dev), then open http://localhost:5173/dev/sign-in"
 
 custom-field-indexes: ## One index pass now, as the index worker does (CONCURRENTLY; D-088)
 	$(BACKEND) uv run python -m tooling.custom_field_indexes

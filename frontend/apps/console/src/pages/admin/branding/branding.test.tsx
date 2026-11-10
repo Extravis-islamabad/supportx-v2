@@ -92,15 +92,15 @@ describe('branding screen', () => {
     expect(screen.getByTestId('branding-checks').textContent).toContain(
       '\u20663.32:1\u2069, needs',
     );
-    expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(true);
     fireEvent.click(within(alert).getByTestId('branding-use-suggested'));
     await waitFor(() => {
       expect(screen.queryByTestId('branding-contrast-alert')).toBeNull();
     });
     await waitFor(() => {
-      expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(false);
+      expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(false);
     });
-    fireEvent.click(screen.getByTestId('branding-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/organization/branding/settings')).toHaveLength(1);
     });
@@ -134,9 +134,9 @@ describe('branding screen', () => {
       target: { value: 'مساعدة أكمي' },
     });
     await waitFor(() => {
-      expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(false);
+      expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(false);
     });
-    fireEvent.click(screen.getByTestId('branding-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/organization/branding/settings')).toHaveLength(1);
     });
@@ -540,7 +540,7 @@ describe('WP-017-FIX', () => {
     expect(
       within(screen.getByTestId('branding-primary-field')).getByRole('alert').textContent,
     ).toBe('Choose a colour such as #1677ff.');
-    expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(true);
     expect(screen.queryByTestId('branding-checks')).toBeNull(); // no stale result for another colour
     await new Promise((resolve) => setTimeout(resolve, 600));
     const sent = fake
@@ -579,9 +579,9 @@ describe('WP-017-FIX', () => {
       target: { value: 'مساعدة' },
     });
     await waitFor(() => {
-      expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(false);
+      expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(false);
     });
-    fireEvent.click(screen.getByTestId('branding-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     fireEvent.click(await screen.findByRole('tab', { name: 'English' }));
     expect(
       (await within(screen.getByTestId('branding-portal_name-en-field')).findByRole('alert'))
@@ -673,12 +673,12 @@ describe('WP-017-FIX', () => {
       expect(sent).toEqual(['icon.png']);
     });
     expect(await screen.findByText('Checking the file for malware…')).toBeTruthy();
-    expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByTestId('branding-logo_file_id-remove'));
     await waitFor(() => {
-      expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(false);
+      expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(false);
     });
-    fireEvent.click(screen.getByTestId('branding-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/organization/branding/settings')).toHaveLength(1);
     });
@@ -734,7 +734,8 @@ describe('WP-017-FIX', () => {
       expect(await refusal()).toBe('This image is too large: at most 5 MB and 25 megapixels.');
     });
     expect(sent).toEqual([]); // nothing refused was uploaded
-    expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(false);
+    // A refused file is no change and blocks nothing: no save bar, no reason given (template E).
+    expect(screen.queryByTestId('settings-save-bar')).toBeNull();
     // A real one is taken.
     choose('logo_file_id', new File([new Uint8Array(PNG)], 'logo.png', { type: 'image/png' }));
     await waitFor(() => {

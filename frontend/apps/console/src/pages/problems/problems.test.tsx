@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi } from '../../test/api';
+import { clickAction } from '../../test/actions';
+import { consoleApi, problem } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
 // similar problems), and the record with the guided steps and investigators. WP-044b s1: the
@@ -73,8 +74,17 @@ function api(routes: Record<string, unknown> = {}) {
         body: { items: [record], next_cursor: null, has_more: false, people: {} },
       },
       'GET /api/v1/problems/settings': { body: fakeIncidentCatalogue() },
+      'GET /api/v1/problem-repeats/hits': { body: [] },
+      'GET /api/v1/problems/views': {
+        body: [
+          { view: 'all_open', count: 1, capped: false },
+          { view: 'known_errors', count: 0, capped: false },
+          { view: 'accepted_due_review', count: 0, capped: false },
+        ],
+      },
       'GET /api/v1/problems/templates': { body: [template] },
       'GET /api/v1/problems/similar': { body: [] },
+      'POST /api/v1/problems/from-incidents/preview': { body: { already_caused: [] } },
       [`GET /api/v1/problems/${PRB_ID}`]: { body: record },
       [`GET /api/v1/problems/${PRB_ID}/links`]: { body: [] },
       [`GET /api/v1/problems/${PRB_ID}/investigators`]: {
@@ -91,6 +101,77 @@ function api(routes: Record<string, unknown> = {}) {
 }
 
 describe('console: problems', () => {
+  it('WP-044c S1: the views with their counts, and a search for words or a PRB number', async () => {
+    window.history.pushState({}, '', '/problems');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('prb-row-PRB-7');
+    const selector = screen.getByTestId('prb-view').querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    fireEvent.click(await screen.findByText('Known errors (0)'));
+    await waitFor(() => {
+      expect(
+        fake
+          .find('GET', '/api/v1/problems')
+          .some((c) => c.url.searchParams.get('view') === 'known_errors'),
+      ).toBe(true);
+    });
+    fireEvent.change(screen.getByTestId('prb-search'), { target: { value: 'PRB-7' } });
+    await waitFor(() => {
+      const sent = fake
+        .find('GET', '/api/v1/problems')
+        .map((c) => c.url.searchParams.get('filter'))
+        .filter((f): f is string => f !== null);
+      expect(sent.some((f) => f.includes('"display_number"') && f.includes('7'))).toBe(true);
+    });
+  });
+
+  it('WP-044c S1: the ID and subject stay in view and a long subject ends in an ellipsis', async () => {
+    window.history.pushState({}, '', '/problems');
+    api();
+    render(<App />);
+    const row = (await screen.findByTestId('prb-row-PRB-7')).closest('tr') as HTMLElement;
+    const cells = row.querySelectorAll('td');
+    expect(cells[0]?.className).toContain('ant-table-cell-fix-left');
+    expect(cells[1]?.className).toContain('ant-table-cell-fix-left');
+    expect(cells[1]?.className).toContain('ant-table-cell-ellipsis');
+  });
+
+  it('WP-044c D16: a set of repeated incidents, dismissed or turned into a problem', async () => {
+    const HIT = {
+      id: '01a1a2b3-0000-7000-8000-0000000aa001',
+      rule_id: '01a1a2b3-0000-7000-8000-0000000aa002',
+      category_id: null,
+      site_id: null,
+      group_id: null,
+      incident_count: 12,
+      first_at: '2026-11-06T08:00:00Z',
+      last_at: '2026-11-06T10:00:00Z',
+      version: 1,
+    };
+    window.history.pushState({}, '', '/problems');
+    const fake = api({
+      'GET /api/v1/problem-repeats/hits': { body: [HIT] },
+      [`POST /api/v1/problem-repeats/hits/${HIT.id}/handle`]: { body: { ...HIT, version: 2 } },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('prb-repeats');
+    expect(card.textContent).toContain('12 similar incidents');
+    fireEvent.click(within(card).getByTestId(`prb-repeat-dismiss-${HIT.id}`));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/problem-repeats/hits/${HIT.id}/handle`)).toHaveLength(1);
+    });
+    expect(fake.find('POST', `/api/v1/problem-repeats/hits/${HIT.id}/handle`)[0]?.body).toEqual({
+      outcome: 'dismissed',
+      problem_id: null,
+    });
+    fireEvent.click(within(card).getByTestId(`prb-repeat-create-${HIT.id}`));
+    await waitFor(() => {
+      expect(window.location.search).toBe(`?repeat=${HIT.id}`);
+    });
+  });
+
   it('lists problems with a way to create one', async () => {
     window.history.pushState({}, '', '/problems');
     api();
@@ -136,6 +217,13 @@ describe('console: problems', () => {
     const subject = await screen.findByTestId('prb-subject');
     expect((subject as HTMLInputElement).value).toBe('Mail is down');
     expect(await screen.findByTestId('prb-similar-PRB-7')).toBeDefined();
+    // Create is always there, as on the incident form (QA9-F-10): an empty subject is said on
+    // the field and nothing is sent.
+    fireEvent.change(subject, { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('prb-create'));
+    expect(await screen.findByText('This field is required.')).toBeDefined();
+    expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(0);
+    fireEvent.change(subject, { target: { value: 'Mail is down' } });
     fireEvent.click(screen.getByTestId('prb-create'));
     await waitFor(() => {
       expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(1);
@@ -149,6 +237,97 @@ describe('console: problems', () => {
     expect(sent.problem.requester_id).toBe(TECH); // reported by: the creator
     expect(sent.problem.template_id).toBe(TEMPLATE_ID); // the default template first
     await screen.findByTestId('prb-record');
+  });
+
+  it('QA10-P1-02: from one incident another problem causes, the move is offered and sent', async () => {
+    window.history.pushState({}, '', `/problems/new?incident=${INC_ID}`);
+    const fake = api({
+      'GET /api/v1/problems/prefill': {
+        body: {
+          subject: 'Mail is down',
+          description: null,
+          impact: null,
+          urgency: null,
+          site_id: null,
+          category_id: null,
+          requester_id: TECH,
+          problem_type: 'reactive',
+          source_incident_id: INC_ID,
+        },
+      },
+      'POST /api/v1/problems/from-incidents/preview': {
+        body: { already_caused: [{ incident_id: INC_ID, problem_display_id: 'PRB-4' }] },
+      },
+      'POST /api/v1/problems/from-incidents': {
+        status: 201,
+        body: { problem: record, bulk_jobs: [] },
+      },
+    });
+    render(<App />);
+    const caused = await screen.findByTestId('prb-already-caused');
+    fireEvent.click(within(caused).getByRole('checkbox'));
+    fireEvent.click(screen.getByTestId('prb-create'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(1);
+    });
+    const sent = fake.find('POST', '/api/v1/problems/from-incidents')[0]?.body as {
+      move_incident_ids: string[];
+    };
+    expect(sent.move_incident_ids).toEqual([INC_ID]);
+  });
+
+  it("WP-044c S1: a problem gets its group and owner in the incident's assign dialog", async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const fake = api({
+      'GET /api/v1/problems/assignees': {
+        body: [
+          { id: TECH, display_name: 'Nadia Network', email: 'nadia@example.com', open_count: 0 },
+        ],
+      },
+      'GET /api/v1/organization/groups': { body: [] },
+    });
+    render(<App />);
+    await screen.findByTestId('prb-record');
+    await clickAction('prb-op-assign', 'prb-actions');
+    expect(await screen.findByTestId('inc-assign-technician')).toBeDefined();
+    // The owners offered are those who may work problems, not incidents.
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/problems/assignees').length).toBeGreaterThan(0);
+    });
+    expect(fake.find('GET', '/api/v1/incidents/assignees')).toHaveLength(0);
+  });
+
+  it('WP-044c S1: a problem prints as a document', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api();
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    render(<App />);
+    await screen.findByTestId('prb-record');
+    await clickAction('prb-print', 'prb-actions');
+    expect(print).toHaveBeenCalledTimes(1);
+  });
+
+  it('QA10-P1-04: a move refused for an empty field names the field, never a vague toast', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api({
+      [`POST /api/v1/problems/${PRB_ID}/actions/analyse`]: {
+        status: 422,
+        body: problem(422, 'closure_rules', {
+          errors: [
+            {
+              field: 'body.root_cause',
+              code: 'required_to_resolve',
+              message_key: 'errors.field.required_to_resolve',
+              params: {},
+            },
+          ],
+        }),
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start the why-analysis' }));
+    expect(await screen.findByText('Fill these on the record first: Root cause.')).toBeDefined();
+    expect(screen.queryByText('Some things are needed before this can be done.')).toBeNull();
   });
 
   it('shows the guided steps, the next move and the investigators', async () => {
@@ -393,6 +572,28 @@ describe('console: problems', () => {
       expect(sent?.headers.get('If-Match')).toBe('"1"');
       expect((sent?.body as { decision: string }).decision).toBe('approve');
     });
+  });
+
+  it('tasks and worklogs use the parts routes of the problem (WP-044c)', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const fake = api({
+      [`GET /api/v1/problems/${PRB_ID}/tasks`]: { body: { items: [], done: 0, total: 0 } },
+      [`GET /api/v1/problems/${PRB_ID}/worklogs`]: {
+        body: { items: [], total_minutes: 0, people: {} },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('prb-tab-tasks'));
+    await waitFor(() => {
+      expect(fake.calls.some((c) => c.path === `/api/v1/problems/${PRB_ID}/tasks`)).toBe(true);
+    });
+    fireEvent.click(screen.getByTestId('prb-tab-worklogs'));
+    await waitFor(() => {
+      expect(fake.calls.some((c) => c.path === `/api/v1/problems/${PRB_ID}/worklogs`)).toBe(true);
+    });
+    const incidentParts = (c: { path: string }) =>
+      /^\/api\/v1\/incidents\/[^/]+\/(tasks|worklogs)/.test(c.path);
+    expect(fake.calls.some(incidentParts)).toBe(false);
   });
 
   it('evidence: the caused incidents in report order, and what is not there yet', async () => {

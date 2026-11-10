@@ -12,11 +12,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.work_items.domain.types import INCIDENT
+from app.modules.work_items.domain.types import INCIDENT, PROBLEM, WorkItemType
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTemplate
 from app.modules.work_items.service.catalogue import load
 from app.shared.labels import has_label, label
 from app.shared.reporting import register_names
+from app.shared.reporting.names import NameResolver
 
 PATH_SEPARATOR = " \u203a "  # the single right-pointing angle quote of categoryPath (labels.ts)
 
@@ -125,9 +126,52 @@ async def level_names(
     return out
 
 
+def _status_names_of(wtype: WorkItemType) -> NameResolver:
+    async def names(
+        session: AsyncSession, values: Sequence[str], language: str, field: str
+    ) -> Mapping[str, str]:
+        del field
+        catalogue = await load(session, wtype)
+        wanted = set(values)
+        return {
+            s.code: name
+            for s in catalogue.statuses
+            if s.code in wanted
+            and (name := _pick(s.labels, language, f"work_item_status.{s.code}"))
+        }
+
+    return names
+
+
+def _list_names_of(wtype: WorkItemType, pick_list: str, shipped: str) -> NameResolver:
+    """One pick list's values (problem type, root cause category), named as the screens do."""
+
+    async def names(
+        session: AsyncSession, values: Sequence[str], language: str, field: str
+    ) -> Mapping[str, str]:
+        del field
+        catalogue = await load(session, wtype)
+        wanted = set(values)
+        return {
+            v.code: name
+            for v in catalogue.reasons
+            if v.list == pick_list
+            and v.code in wanted
+            and (name := _pick(v.labels, language, f"{shipped}.{v.code}"))
+        }
+
+    return names
+
+
 def register() -> None:
     """Make these names available to report files (idempotent)."""
     register_names("category", category_names)
     register_names("template", template_names)
     register_names("incident.status", status_names)
     register_names("incident.level", level_names)
+    # Problems (WP-044c D15): their statuses and own pick lists, for lane C's report screens.
+    register_names("problem.status", _status_names_of(PROBLEM))
+    register_names("problem.problem_type", _list_names_of(PROBLEM, "problem_type", "problem_type"))
+    register_names(
+        "problem.root_cause_category", _list_names_of(PROBLEM, "root_cause", "root_cause")
+    )

@@ -232,6 +232,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # The stage engine and releases (WP-058a)
     "RailState": "rail_state",
     "ReleaseRisk": "release_risk",
+    "ChangeCopyIn.parts[]": "change_copy_part",  # WP-045a (REQ-CHG-003)
     "StageOutcome": "stage_outcome",
     "DowntimePhase": "downtime_phase",
     "LevelRule": "approval_rule",
@@ -282,6 +283,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "IndexFailure": "custom_field_index_error",
     # The portal (WP-028)
     "PortalStatus": "portal_status",
+    "KnownProblem": "known_problem",  # WP-044c D15 (REQ-PRB-075)
+    # WP-044c D16 (REQ-PRB-068): repeat incident rules
+    "RepeatRuleOut.match": "repeat_match",
+    "RepeatRuleIn.match": "repeat_match",
+    "RepeatRulePatch.match": "repeat_match",
+    "RepeatHandleIn.outcome": "repeat_outcome",
     "PortalReach": "portal_reach",
     "PortalState": "portal_state",
 }

@@ -256,7 +256,7 @@ export function RequestsPage() {
               </span>
             ),
           },
-          { key: 'subject', title: t('incidents.col.subject'), dataIndex: 'subject' },
+          { key: 'subject', title: t('work_item.field.subject'), dataIndex: 'subject' },
           {
             key: 'item',
             title: t('requests.item'),
@@ -264,7 +264,7 @@ export function RequestsPage() {
           },
           {
             key: 'status',
-            title: t('incidents.col.status'),
+            title: t('work_item.field.status'),
             render: (_, row) => (
               <ToneTag tone={STATUS_TONES[row.status_category] ?? 'default'}>
                 {t(`work_item_status.${row.status}`)}

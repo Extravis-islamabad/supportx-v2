@@ -231,7 +231,9 @@ export function ServiceRequestPage() {
         <Descriptions size="small" column={1} data-testid="portal-service-request-answers">
           {questions.map((q) => (
             <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
-              {answerWords(q, r.answers?.[q.key])}
+              {answerWords(q, r.answers?.[q.key]) || (
+                <Typography.Text type="secondary">{t('catalog.answer.not_given')}</Typography.Text>
+              )}
             </Descriptions.Item>
           ))}
         </Descriptions>

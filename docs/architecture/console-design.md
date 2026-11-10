@@ -55,6 +55,40 @@ Tabs (main)                                              │ PropertiesPanel (32
 - The panel stays on every tab. Sections fold; keep their keys stable, other lanes fill them
   (lane A's SLA card goes into `sla`).
 
+### Library page (template D, D-147)
+
+```
+PageHeader   Reports  42                               [New folder] [My exports] [Schedules]
+[ Search reports ……………… ]                                         [filters, if any]
+Favourites   ☆ Open incidents by priority …
+Tabs         All 42 · Incidents 25 · Service requests 8 · Problems 8 · Changes 0 · …
+             ┌ Incidents ────────────────────────────────────────────────────────────────┐
+             │ ☆ Name  [Shared]                                              facts at end │
+             │   One line of description                                                  │
+```
+
+Reports, the dashboards list and the knowledge home use `LibraryPage` from `@supportx/ui`.
+Pass it `groups`, one for each module (or each view). Each group's rows are `LibraryItem`s:
+
+- a `title` (the link);
+- a `searchText` in the user's language;
+- an optional `description`, `tags` and `meta`.
+
+The search is local unless you pass `searchOnServer`. With `favourites` and `onStar`, every row
+gets a star, and the favourites show above the tabs.
+
+Rules:
+
+- Every module keeps its tab, even with nothing in it yet. Give the group an `empty` text that
+  says when it fills in, e.g. "Change reports arrive with the change module." Don't leave the
+  module out.
+- "All" comes first and shows each group as a titled section. While searching, groups with no
+  match are hidden there; a module's own tab says "Nothing matches your search."
+- A library whose tabs are views of one list (knowledge: Published, Drafts, Awaiting approval)
+  passes `withAll={false}`. Give each group its own `content` and set `count: null` when the page
+  can't count it.
+- Hidden tabs unmount, so a row (and its test id) appears once on the page.
+
 ### Analytics and settings
 
 - Reports and dashboards use `PageHeader` (with a back link on a single report or dashboard) and
@@ -63,6 +97,42 @@ Tabs (main)                                              │ PropertiesPanel (32
   is a link to the list behind the number.
 - Administration is one `PageHeader` (h1) with tabs; each admin section opens with
   `PageHeader level={2}` (title, count, actions, description).
+
+### Settings page (template E, D-147)
+
+Every setup page has the same shape: the setup menu on the start side (`AdminLayout`), the page
+header, its settings in grouped cards, and one save bar. How to move a page onto it:
+
+1. **Header.** `AdminLayout` gives the page its `SettingsPageHeader` (title and description from
+   the setup map). A page with actions of its own passes them as the header's `primaryAction` and
+   `actions` (at most four, one primary), never as buttons inside a card.
+2. **Cards.** Group the settings in `SettingsCard`s (`@supportx/ui`): a title, one line of help said
+   once for the group, and the fields with their labels above them. No save, reset or apply button
+   inside a card.
+3. **One save bar.** Keep the page's edits in `useSettingsDraft(saved)`: every card reads `draft`
+   and calls `set({ field: value })`. Render one `StickySaveBar` at the end of the page with
+   `changes`, `onDiscard={discard}` and `onSave`, which sends `changed` only, with If-Match on the
+   version shown. The bar appears only while something differs from what is saved, asks before
+   the tab closes, and its Save is a `WriteButton` (a read-only licence disables it with the
+   reason). A page built on an antd `Form` can count its changes from `Form.useWatch([], form)`
+   against the saved values instead of the hook (knowledge settings does this).
+4. **Switches (the coordinator, 2026-11-09).** A page with any form field puts everything on it in
+   the one save bar, switches included: a switch changes the draft, not the server. Instant apply
+   on change is only for pages made of switches alone, and those keep their confirmation for a
+   risky change (switching a feature off says what happens to existing results). A page never
+   mixes the two. Where a confirmation guarded a switch, ask it on Save when the draft contains
+   that change.
+5. **Lists on settings pages** (statuses, reasons, types) stay lists with their own add, edit and
+   delete in a drawer or dialog (`EditDrawer`, `RowActions`): they are records, not draft fields,
+   and are not counted by the bar.
+6. **Checks.** A test that changing a field shows the bar with its count, Discard returns to what
+   is saved, Save sends only the changed fields with If-Match, and nothing in a card is a button.
+   Add the page to the visual matrix (`ADMIN_SECTIONS` in `visual-matrix.spec.ts`).
+
+Lane C owns the template and its own pages (knowledge, AI, branding, instance, files, licence);
+lane A moves incidents, requests, portal, automation and SLA; lane B people, roles, organisation
+(sites, departments, structure), security, mail and integrations, and the audit settings and
+archives inside WP-064 (which reworks that page anyway). The coordinator, 2026-11-09.
 
 ## Actions (`ActionBar`, updates REQ-WI-010)
 

@@ -17,7 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import FieldError, NotFound, ValidationFailed
 from app.modules import metadata
-from app.modules.organization import default_desk_id, existing_departments, existing_unit_ids
+from app.modules.identity_access import Subject
+from app.modules.organization import (
+    default_desk_id,
+    existing_departments,
+    existing_unit_ids,
+    memberships,
+)
 from app.modules.work_items.domain.classification import Impact, Urgency
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
@@ -29,6 +35,7 @@ from app.modules.work_items.domain.templates import (
     FIXED_FIELDS,
     TEMPLATE_DESCRIPTION_MAX,
     TEMPLATE_GROUP_MAX,
+    TEMPLATE_GROUPS_MAX,
     FieldRule,
     PickList,
     TemplateField,
@@ -73,6 +80,52 @@ def _problems(problems: list[tuple[str, str]]) -> ValidationFailed:
             for f, c in problems
         ]
     )
+
+
+async def _limited_groups(
+    session: AsyncSession, given: Iterable[Any], *, for_requesters: bool
+) -> tuple[list[uuid.UUID], list[tuple[str, str]]]:
+    """The groups a template is limited to (REQ-PRB-021), checked.
+
+    Live groups of this tenant, at most 50; none for a template offered to requesters, which is
+    for everyone (so the portal and the catalog never see a limited one).
+    """
+    ids = list(dict.fromkeys(uuid.UUID(str(g)) for g in given))
+    if not ids:
+        return [], []
+    problems: list[tuple[str, str]] = []
+    if len(ids) > TEMPLATE_GROUPS_MAX:
+        problems.append(("limited_group_ids", "too_many_values"))
+    if for_requesters:
+        problems.append(("limited_group_ids", "limited_template_for_requesters"))
+    live = await existing_unit_ids(session, "group", ids)
+    if any(g not in live for g in ids):
+        problems.append(("limited_group_ids", "group_not_found"))
+    return ids, problems
+
+
+async def offered_to(
+    session: AsyncSession, subject: Subject, rows: Iterable[WorkItemTemplate]
+) -> list[WorkItemTemplate]:
+    """The templates `subject` is offered when creating (REQ-PRB-021 AC1).
+
+    A limited one only to members of its groups; those who manage the settings see them all.
+    """
+    if subject.holds("settings.manage") or subject.holds("config.service_desk"):
+        return list(rows)
+    mine: frozenset[uuid.UUID] | None = None
+    found: list[WorkItemTemplate] = []
+    for row in rows:
+        if row.limited_group_ids:
+            mine = (
+                mine
+                if mine is not None
+                else (await memberships(session, subject.user_id)).group_ids
+            )
+            if not mine.intersection(row.limited_group_ids):
+                continue
+        found.append(row)
+    return found
 
 
 async def list_templates(session: AsyncSession, wtype: WorkItemType) -> list[WorkItemTemplate]:
@@ -244,7 +297,13 @@ async def _name_taken(
 
 
 def _json(value: Any) -> Any:  # noqa: ANN401 - JSON values
-    return value.isoformat() if isinstance(value, datetime) else value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, list):  # the limited groups (REQ-PRB-021)
+        return [_json(v) for v in value]
+    return value
 
 
 async def _changed(  # noqa: PLR0913 - the record, its changes and their context
@@ -334,6 +393,8 @@ async def _stage_settings(
             {f.value for f in TemplateField}
             | set(wtype.own_fields)
             | {f"{CUSTOM_PREFIX}{k}" for k in known}
+            # A plan section may be required to leave a stage (REQ-CHG-013, WP-045a D7).
+            | {f"{PLAN_PREFIX}{section}" for section in wtype.plan_sections}
         )
         rules, codes = parse_stage_rules(
             values["stage_rules"] or {}, stages=[s.code for s in model.stages], fields=fields
@@ -342,6 +403,8 @@ async def _stage_settings(
         columns["stage_rules"] = stage_rules_to_json(rules) or None
     return columns, problems
 
+
+PLAN_PREFIX = "plan."  # a plan section as a stage rule's field, e.g. plan.backout
 
 # --- writes ---------------------------------------------------------------------------------------
 
@@ -393,6 +456,15 @@ async def create_template(
         problems.append(("labels", "duplicate_name"))
     stage_columns, codes = await _stage_settings(session, wtype, values, None)
     problems += codes
+    for_requesters = bool(
+        values.get("for_requesters", copied_from.for_requesters if copied_from else False)
+    )
+    limited, codes = await _limited_groups(
+        session,
+        values.get("limited_group_ids", copied_from.limited_group_ids if copied_from else []),
+        for_requesters=for_requesters,
+    )
+    problems += codes
     if problems:
         raise _problems(problems)
     if wtype.stages is not None:  # a copy keeps the path and rules unless new ones are sent
@@ -408,9 +480,8 @@ async def create_template(
         description=description,
         group_name=group_name,
         is_default=False,
-        for_requesters=bool(
-            values.get("for_requesters", copied_from.for_requesters if copied_from else False)
-        ),
+        for_requesters=for_requesters,
+        limited_group_ids=limited,
         field_rules=rules_to_json(rules),
         defaults=defaults,
         copied_from_id=copied_from.id if copied_from else None,
@@ -510,6 +581,13 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         problems += codes
     if "for_requesters" in values:
         changes["for_requesters"] = bool(values["for_requesters"])
+    if "limited_group_ids" in values or "for_requesters" in values:
+        changes["limited_group_ids"], codes = await _limited_groups(
+            session,
+            values.get("limited_group_ids", template.limited_group_ids) or [],
+            for_requesters=changes.get("for_requesters", template.for_requesters),
+        )
+        problems += codes
     if "lifecycle" in values:  # new records only: running ones keep theirs (REQ-INC-049 style)
         changes["lifecycle"], codes = await _lifecycle(session, wtype, values["lifecycle"])
         problems += codes
@@ -579,9 +657,16 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
 
 
 async def for_create(
-    session: AsyncSession, wtype: WorkItemType, template_id: uuid.UUID | None
+    session: AsyncSession,
+    wtype: WorkItemType,
+    template_id: uuid.UUID | None,
+    subject: Subject | None = None,
 ) -> WorkItemTemplate:
-    """The template a new record uses: the one asked for, else the default (AC1, AC2)."""
+    """The template a new record uses: the one asked for, else the default (AC1, AC2).
+
+    With `subject`, a template limited to groups they are not in is refused as not offered
+    (REQ-PRB-021 AC1): the API never lets past what the form does not offer.
+    """
     await config.ensure_seeded(session, wtype)
     if template_id is None:
         found = await session.scalar(
@@ -601,6 +686,12 @@ async def for_create(
         raise _problems([("template_id", "template_not_found")]) from error
     if found.disabled_at is not None:
         raise _problems([("template_id", "template_disabled")])
+    if (
+        subject is not None
+        and found.limited_group_ids
+        and not await offered_to(session, subject, [found])
+    ):
+        raise _problems([("template_id", "template_not_offered")])
     return found
 
 

@@ -486,7 +486,7 @@ describe('History', () => {
                 changes: [
                   { field: 'status', old: 'resolved', new: 'closed' },
                   { field: 'closure_code', old: null, new: 'fixed' },
-                  { field: 'resolution', old: null, new: '<p>x</p>' },
+                  { field: 'resolution', old: null, new: '<p>Replaced the <b>toner</b></p>' },
                 ],
               }),
             ],
@@ -505,6 +505,7 @@ describe('History', () => {
     expect(text).toContain('Fixed');
     expect(text).not.toContain('auto_close');
     expect(text).not.toContain('<p>');
+    expect(text).toContain('Replaced the toner'); // the fix in words (QA9-F-05), never its HTML
   });
 
   it('REQ-INC-120 AC4: a change made by a bulk job says so', async () => {

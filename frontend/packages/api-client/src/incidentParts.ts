@@ -21,12 +21,28 @@ export type IncidentLink = components['schemas']['WorkItemLinkOut'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
+/** The work-item types whose record parts (tasks, worklogs, links) these hooks serve. */
+export type PartsBase = 'incidents' | 'problems';
+
+/**
+ * The same engine route under another type's prefix (WP-044c: problems' tasks and worklogs).
+ * The parts routes are generated once per type with identical shapes, so the incident path's
+ * types describe them all; only the prefix changes at run time.
+ */
+function at<P extends string>(base: PartsBase, path: P): P {
+  return path.replace('/api/v1/incidents/', `/api/v1/${base}/`) as P;
+}
+
 /** A record's tasks in their order, with "done / total". */
-export function useIncidentTasks(id: string, enabled = true) {
+export function useIncidentTasks(id: string, enabled = true, base: PartsBase = 'incidents') {
   return useQuery({
     queryKey: queryKeys.incidents.tasks(id),
     queryFn: () =>
-      call(api.GET('/api/v1/incidents/{record_id}/tasks', { params: { path: { record_id: id } } })),
+      call(
+        api.GET(at(base, '/api/v1/incidents/{record_id}/tasks'), {
+          params: { path: { record_id: id } },
+        }),
+      ),
     enabled,
   });
 }
@@ -38,31 +54,34 @@ export type TaskChange =
   | { kind: 'move'; taskId: string; direction: 'up' | 'down' };
 
 /** Add, change, remove or move a task of one record. */
-export function useTaskChange(id: string) {
+export function useTaskChange(id: string, base: PartsBase = 'incidents') {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (change: TaskChange): Promise<void> => {
       const path = { record_id: id };
       if (change.kind === 'create') {
         await call(
-          api.POST('/api/v1/incidents/{record_id}/tasks', { params: { path }, body: change.task }),
+          api.POST(at(base, '/api/v1/incidents/{record_id}/tasks'), {
+            params: { path },
+            body: change.task,
+          }),
         );
       } else if (change.kind === 'update') {
         await call(
-          api.PATCH('/api/v1/incidents/{record_id}/tasks/{task_id}', {
+          api.PATCH(at(base, '/api/v1/incidents/{record_id}/tasks/{task_id}'), {
             params: { path: { ...path, task_id: change.taskId }, header: ifMatch(change.version) },
             body: change.task,
           }),
         );
       } else if (change.kind === 'delete') {
         await call(
-          api.DELETE('/api/v1/incidents/{record_id}/tasks/{task_id}', {
+          api.DELETE(at(base, '/api/v1/incidents/{record_id}/tasks/{task_id}'), {
             params: { path: { ...path, task_id: change.taskId }, header: ifMatch(change.version) },
           }),
         );
       } else {
         await call(
-          api.POST('/api/v1/incidents/{record_id}/tasks/{task_id}/move', {
+          api.POST(at(base, '/api/v1/incidents/{record_id}/tasks/{task_id}/move'), {
             params: { path: { ...path, task_id: change.taskId } },
             body: { direction: change.direction },
           }),
@@ -85,12 +104,14 @@ export function useMyTasks(enabled = true) {
 }
 
 /** A record's worklogs with totals per person and per type. */
-export function useIncidentWorklogs(id: string, enabled = true) {
+export function useIncidentWorklogs(id: string, enabled = true, base: PartsBase = 'incidents') {
   return useQuery({
     queryKey: queryKeys.incidents.worklogs(id),
     queryFn: () =>
       call(
-        api.GET('/api/v1/incidents/{record_id}/worklogs', { params: { path: { record_id: id } } }),
+        api.GET(at(base, '/api/v1/incidents/{record_id}/worklogs'), {
+          params: { path: { record_id: id } },
+        }),
       ),
     enabled,
   });
@@ -101,13 +122,13 @@ export type WorklogChange =
   | { kind: 'delete'; worklogId: string; version: number };
 
 /** Log time on a record, or remove a worklog. */
-export function useWorklogChange(id: string) {
+export function useWorklogChange(id: string, base: PartsBase = 'incidents') {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (change: WorklogChange): Promise<void> => {
       if (change.kind === 'create') {
         await call(
-          api.POST('/api/v1/incidents/{record_id}/worklogs', {
+          api.POST(at(base, '/api/v1/incidents/{record_id}/worklogs'), {
             params: { path: { record_id: id } },
             body: change.worklog,
           }),
@@ -115,7 +136,7 @@ export function useWorklogChange(id: string) {
         return;
       }
       await call(
-        api.DELETE('/api/v1/incidents/{record_id}/worklogs/{worklog_id}', {
+        api.DELETE(at(base, '/api/v1/incidents/{record_id}/worklogs/{worklog_id}'), {
           params: {
             path: { record_id: id, worklog_id: change.worklogId },
             header: ifMatch(change.version),
@@ -136,6 +157,29 @@ export function useIncidentLinks(id: string, enabled = true) {
     queryFn: () =>
       call(api.GET('/api/v1/incidents/{record_id}/links', { params: { path: { record_id: id } } })),
     enabled,
+  });
+}
+
+export type CausingProblem = components['schemas']['CausingProblemOut'];
+
+/**
+ * The problem causing an incident, narrowly (WP-044c D14, REQ-PRB-071): what anyone who may see
+ * the incident is told, null when nothing causes it. Under the links key, so a link change
+ * refreshes it too.
+ */
+export function useCausingProblem(id: string, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.incidents.links(id), 'cause'],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/{record_id}/causing-problem', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled,
+    // Who may open the problem follows its channel (the page); who may not cannot subscribe
+    // to it (§8.2), so their card asks again every minute instead.
+    refetchInterval: (query) => (query.state.data && !query.state.data.may_open ? 60_000 : false),
   });
 }
 

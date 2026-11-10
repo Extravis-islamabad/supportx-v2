@@ -18,6 +18,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
+from app.modules.analytics.domain.builtin import BUILTIN_REPORTS
 from app.modules.work_items.service.reporting import WorkItemSource
 from app.shared.reporting import provider_for
 from conftest import assign_system_role
@@ -231,6 +232,22 @@ async def test_req_rpt_015_ac1_builtin_reports_listed_and_run_without_setup(repo
     for report in builtin:
         response = await world.call(
             "POST", RUN, a, a.tech_a, json={"definition": report["definition"]}, headers=CONSOLE
+        )
+        assert response.status_code == 200, (report["code"], response.text)
+
+
+async def test_every_module_s_builtin_reports_reach_the_admin_and_run(reports: World) -> None:
+    # UI pass 3 P6 (D-147): the library has each reportable module's reports, not only incidents.
+    world = reports
+    a = world.a
+    await seed(world)
+    library = await world.call("GET", "/reports/library", a, a.admin)
+    assert library.status_code == 200, library.text
+    listed = {r["code"]: r for r in library.json()["builtin"]}
+    assert set(listed) == {r.code for r in BUILTIN_REPORTS}
+    for report in listed.values():
+        response = await world.call(
+            "POST", RUN, a, a.admin, json={"definition": report["definition"]}, headers=CONSOLE
         )
         assert response.status_code == 200, (report["code"], response.text)
 

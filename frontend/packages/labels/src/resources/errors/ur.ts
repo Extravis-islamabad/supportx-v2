@@ -122,6 +122,7 @@ export const ur: LabelResource = {
   'errors.certificate_not_valid_now': 'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے یا ابھی درست نہیں ہوا۔',
   'errors.certificate_unreadable': 'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM فارمیٹ میں چسپاں کریں۔',
   'errors.certificate_wrong_host': 'سرٹیفکیٹ میں یہ ڈومین شامل نہیں ہے۔',
+  'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.conflict':
@@ -275,6 +276,8 @@ export const ur: LabelResource = {
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
+  'errors.field.default_cannot_be_removed':
+    'طے شدہ اصول ہٹایا نہیں جا سکتا۔ اس کے بجائے اسے بند کریں۔',
   'errors.field.default_language_not_offered':
     'پہلے سے طے شدہ زبان دستیاب زبانوں میں سے ہونی چاہیے۔',
   'errors.field.default_required':
@@ -376,6 +379,8 @@ export const ur: LabelResource = {
   'errors.field.level_too_many_actions': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} کارروائیاں۔',
   'errors.field.level_too_many_recipients': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} وصول کنندگان۔',
   'errors.field.levels_same_moment': 'دو درجے ایک ہی وقت پر چلتے ہیں۔ ہر ایک کو اپنا وقت دیں۔',
+  'errors.field.limited_template_for_requesters':
+    'درخواست گزاروں کا سانچہ سب کے لیے ہے: اسے گروپوں تک محدود نہیں کیا جا سکتا۔',
   'errors.field.list_too_long': 'اس فہرست میں بہت زیادہ قدریں ہیں۔',
   'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
   'errors.field.mailbox_address_invalid': 'میل باکس کا ای میل پتہ درج کریں۔',
@@ -405,6 +410,7 @@ export const ur: LabelResource = {
   'errors.field.not_eligible': 'یہ شخص یا گروپ یہ کردار نہیں رکھ سکتا۔',
   'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
   'errors.field.not_found': 'یہ اب موجود نہیں۔',
+  'errors.field.not_in_past': 'یہ وقت ماضی کا ہونا چاہیے۔',
   'errors.field.note_too_long': 'نوٹ زیادہ سے زیادہ {{max}} حروف کا ہو سکتا ہے۔',
   'errors.field.number_already_used':
     'یہ نمبر پہلے ہی استعمال ہو چکا ہے۔ {{minimum}} یا اس سے زیادہ منتخب کریں۔',
@@ -512,6 +518,7 @@ export const ur: LabelResource = {
   'errors.field.technician_not_in_group': 'یہ ٹیکنیشن منتخب گروپ کا رکن نہیں۔',
   'errors.field.template_disabled': 'یہ سانچہ بند کر دیا گیا ہے۔ کوئی اور سانچہ منتخب کریں۔',
   'errors.field.template_not_found': 'یہ سانچہ اب موجود نہیں۔ کوئی اور منتخب کریں۔',
+  'errors.field.template_not_offered': 'یہ سانچہ آپ کے لیے دستیاب نہیں۔ کوئی اور سانچہ منتخب کریں۔',
   'errors.field.time_format_unknown': '24 گھنٹے یا 12 گھنٹے کا وقت چنیں۔',
   'errors.field.time_zone_unknown': 'فہرست میں سے ٹائم زون چنیں۔',
   'errors.field.timezone_required': 'ٹائم زون شامل کریں۔',
@@ -768,6 +775,11 @@ export const ur: LabelResource = {
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
   'errors.privilege_escalation': 'آپ وہ رسائی نہیں دے سکتے جو خود آپ کے پاس نہیں۔',
   'errors.problem_closed': '{{display_id}} بند ہے، اس لیے ضم نہیں ہو سکتا۔',
+  'errors.quick_sign_in_not_configured':
+    'اس اسٹیک پر فوری سائن اِن سیٹ اپ نہیں: make dev-quick-sign-in چلائیں۔',
+  'errors.quick_sign_in_refused': 'Keycloak نے یہ فوری سائن اِن مسترد کر دیا۔',
+  'errors.quick_sign_in_wait':
+    'اس کردار نے پچھلے 30 سیکنڈ میں دو بار سائن اِن کیا۔ {{seconds}} سیکنڈ بعد دوبارہ کوشش کریں۔',
   'errors.range_not_satisfiable': 'فائل کا یہ حصہ موجود نہیں۔',
   'errors.rate_limited': 'بہت زیادہ درخواستیں۔ براہِ کرم ذرا انتظار کر کے دوبارہ کوشش کریں۔',
   'errors.read_only_mode':
@@ -781,6 +793,8 @@ export const ur: LabelResource = {
   'errors.record_closed': 'بند یا منسوخ ریکارڈ تبدیل نہیں ہو سکتے۔',
   'errors.reference_copied': 'حوالہ کاپی ہو گیا',
   'errors.reference_is': 'حوالہ: {{reference}}',
+  'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
+  'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',
   'errors.report_entity_not_found': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
   'errors.report_export_not_found': 'یہ ایکسپورٹ موجود نہیں یا آپ کا نہیں۔',
@@ -814,6 +828,7 @@ export const ur: LabelResource = {
   'errors.service_unavailable':
     'سروس عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.session_expired': 'آپ کا سیشن ختم ہو گیا ہے۔ براہِ کرم دوبارہ سائن اِن کریں۔',
+  'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unknown_person':
     'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
@@ -841,7 +856,10 @@ export const ur: LabelResource = {
     'موجودہ حیثیت سے یہ منتقلی ممکن نہیں۔ تازہ ترین دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.stage_move_refused': 'اس منتقلی سے پہلے کچھ کام باقی ہے۔ ریکارڈ پر وجوہات دیکھیں۔',
   'errors.stage_not_found': 'یہ مرحلہ موجود نہیں۔',
+  'errors.stage_path_disabled': 'یہ راستہ نئے ریکارڈز کے لیے بند ہے۔',
   'errors.stage_status_system_only': 'یہ حیثیت صرف منظوری کے فیصلے سے لگتی ہے۔',
+  'errors.standard_change_locked':
+    'معیاری تبدیلی اپنا منصوبہ منظور شدہ حالت میں رکھتی ہے۔ اسے بدلنے سے یہ عام تبدیلی بن جائے گی، جسے عام منظوری درکار ہے۔',
   'errors.status_not_found': 'یہ حالت اب موجود نہیں۔',
   'errors.storage_not_configured': 'اس تنصیب کے لیے فائل اسٹوریج ترتیب نہیں دی گئی۔',
   'errors.storage_quota_exceeded':
