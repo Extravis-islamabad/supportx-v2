@@ -18,10 +18,12 @@ from app.modules.organization import users_in_groups
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory, WorkItemAction
 from app.modules.work_items.domain.parts import TaskPriority, TaskStatus
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
+from app.modules.work_items.events import ServiceRequestReadyToFulfil
 from app.modules.work_items.infra.models import WorkItem, WorkItemTask
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import closing, parts
 from app.modules.work_items.service import work_items as items
+from app.shared.events import record_event
 from app.shared.history import Change, Source
 
 FULFILMENT_RULE = "fulfilment"  # history's automatic move: the last required task was done
@@ -138,6 +140,27 @@ async def _start_on_first_task(
         return record
 
 
+async def _tell_ready(session: AsyncSession, record: WorkItem) -> None:
+    """D-154 "E1 follows d": done, but nobody to fulfil it; its group hears once, in the app.
+
+    Not fulfilled by itself and nobody is assigned: the request says "Ready to fulfil: assign
+    someone" until a person of its group takes it and fulfils it.
+    """
+    await record_event(
+        session,
+        ServiceRequestReadyToFulfil(
+            work_item_id=record.id,
+            type=record.type,
+            display_id=record.display_id,
+            status=record.status,
+            status_category=record.status_category,
+            group_id=record.group_id,
+        ),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
+
+
 async def after_task_change(
     session: AsyncSession,
     record_id: uuid.UUID,
@@ -164,8 +187,10 @@ async def after_task_change(
     planned = [t for t in tasks if t.from_plan and t.required]
     if not planned or any(t.status != TaskStatus.DONE for t in planned):
         return None
+    if record.technician_id is None:
+        await _tell_ready(session, record)
     item = await service_catalog.item_decides(session, item_id)
-    if item is None or not item.auto_fulfil:
+    if record.technician_id is None or item is None or not item.auto_fulfil:
         return None
     wtype = TYPES[WorkItemTypeCode.SERVICE_REQUEST]
     cat = await config.load(session, wtype)

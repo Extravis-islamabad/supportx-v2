@@ -98,6 +98,7 @@ export const ur: LabelResource = {
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
   'notification_event.service_request.fulfilled': 'درخواست مکمل',
+  'notification_event.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
@@ -436,6 +437,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} مکمل ہو گئی: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'مکمل: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.ready_to_fulfil.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کے سب کام ہو گئے، مگر یہ کسی کو تفویض نہیں۔ اپنے گروپ کے کسی فرد کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
+  'notification_template.service_request.ready_to_fulfil.in_app':
+    '{{ record.display_id }} تکمیل کے لیے تیار ہے: کسی کو تفویض کریں',
+  'notification_template.service_request.ready_to_fulfil.subject':
+    'تکمیل کے لیے تیار: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.received.body':
     'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست «{{ record.title }}» موصول ہوئی اور اسے {{ record.display_id }} کے طور پر درج کر لیا گیا۔ ہم آپ کو باخبر رکھیں گے۔',
   'notification_template.service_request.received.in_app':

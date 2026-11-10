@@ -320,6 +320,7 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 FIELD_PROBLEMS = frozenset(
     {
         "required",
+        "fulfiller_required",  # D-154: a request is fulfilled only with a technician on it
         "not_in_past",  # WP-045a: a retrospective change's actual times (REQ-CHG-004)
         # WP-044c S1 (REQ-PRB-021): a template for requesters is for everyone.
         "limited_template_for_requesters",

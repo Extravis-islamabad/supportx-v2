@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 
 import { EmptyText, useDateTime, useLabel } from '@supportx/ui';
 
-import { REQUESTER_ACTION, useHistoryWords, type HistoryActors } from './historyWords';
+import { useHistoryWords, type HistoryActors } from './historyWords';
 
 /**
  * The History tab (REQ-WI-003/004): every save, newest first, in true order, with who, when, from
@@ -23,7 +23,7 @@ export function IncidentHistory({
   const t = useLabel();
   const dates = useDateTime();
   const [actors, setActors] = useState<HistoryActors>('all');
-  const { history, entries, changeText, whyText } = useHistoryWords(id, actors, base);
+  const { history, entries, sentences, whyText } = useHistoryWords(id, actors, base);
   return (
     <Flex vertical gap={8} data-testid="inc-history">
       <Segmented<'all' | 'people' | 'automation'>
@@ -93,12 +93,11 @@ export function IncidentHistory({
                   </Typography.Paragraph>
                 )}
                 {entry.kind !== 'created' && entry.changes.length > 0 && (
+                  // Sentences with who did it (Haider, 2026-11-10), never "field: old → new".
                   <ul style={{ margin: 0, paddingInlineStart: 20 }}>
-                    {entry.changes
-                      .filter((change) => change.field !== REQUESTER_ACTION)
-                      .map((change) => (
-                        <li key={change.field}>{changeText(change)}</li>
-                      ))}
+                    {sentences(entry).map((line, index) => (
+                      <li key={index}>{line}</li>
+                    ))}
                   </ul>
                 )}
               </div>

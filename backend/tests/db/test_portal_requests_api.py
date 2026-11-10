@@ -11,8 +11,8 @@ from typing import Any
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, decide, manager_of
 from tests.db.test_fulfilment_api import PLAN, done, tasks
-from tests.db.test_incidents_api import Org, World, problem
-from tests.db.test_service_requests_api import an_item, raise_request
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
+from tests.db.test_service_requests_api import SR, an_item, raise_request
 
 pytestmark = MODULE_LOOP
 
@@ -89,6 +89,17 @@ async def test_the_requester_confirms_receipt_once_it_is_fulfilled(world: World)
     ).json()
     early = await world.call("POST", f"{PORTAL}/{record['id']}/resolution/confirm", a, a.requester)
     assert problem(early)[0] == 409  # nothing to confirm yet
+    # Someone is on it first (D-154 "E1 follows d": nobody, and it would only be ready).
+    current = (await world.call("GET", f"{SR}/{record['id']}", a, a.admin)).json()
+    assigned = await world.call(
+        "POST",
+        f"{SR}/{record['id']}/assign",
+        a,
+        a.admin,
+        json={"group_id": str(a.ga), "technician_id": str(a.tech_a)},
+        headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+    )
+    assert assigned.status_code == 200, assigned.text
     [task] = await tasks(world, a, record)
     await done(world, a, record, task)
     fulfilled = (await world.call("GET", f"{PORTAL}/{record['id']}", a, a.requester)).json()

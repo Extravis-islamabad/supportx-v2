@@ -66,6 +66,18 @@ class WorkItemStatusChanged(_WorkItemEvent):
     automatic: bool = False
 
 
+class ServiceRequestReadyToFulfil(_WorkItemEvent):
+    """A request's last required task is done and nobody is on it (D-154, "E1 follows d").
+
+    It is not fulfilled by itself; its group is told once, in the app, to assign someone.
+    """
+
+    event_type: ClassVar[str] = "work_items.service_request.ready_to_fulfil"
+    schema_version: ClassVar[int] = 1
+
+    group_id: uuid.UUID | None
+
+
 class WorkItemStageChanged(_WorkItemEvent):
     """A staged record entered another stage (ADR-041 §6), with the status move that did it.
 
@@ -389,6 +401,7 @@ class ProblemRepeatChanged(DomainEvent):
 
 
 EVENTS: tuple[type[DomainEvent], ...] = (
+    ServiceRequestReadyToFulfil,
     WorkItemCreated,
     WorkItemUpdated,
     WorkItemStatusChanged,

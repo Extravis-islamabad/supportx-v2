@@ -325,6 +325,59 @@ async def existing_policy_ids(
     return frozenset(rows)
 
 
+@dataclass(frozen=True)
+class DeliveryTarget:
+    """How long a record usually takes to resolve, shown before it is raised.
+
+    `amount` `unit` (minutes, hours or business days), in working time unless
+    `around_the_clock` (Haider, 2026-11-10: "Usually delivered within N working days").
+    """
+
+    amount: int
+    unit: str
+    around_the_clock: bool
+
+
+async def delivery_target(
+    session: AsyncSession, record_type: str, policy_id: uuid.UUID | None, priority: str | None
+) -> DeliveryTarget | None:
+    """The resolution target a new record would usually get, for showing before it is raised.
+
+    The given policy, or the type's fallback when none is given; its row for `priority`, else
+    its row for every priority. None when no live policy or no resolution target applies (the
+    catalogue then says nothing about delivery).
+    """
+    query = select(SlaPolicy.id).where(
+        SlaPolicy.record_type == record_type,
+        SlaPolicy.deleted_at.is_(None),
+        SlaPolicy.enabled.is_(True),
+    )
+    query = (
+        query.where(SlaPolicy.id == policy_id)
+        if policy_id is not None
+        else query.where(SlaPolicy.fallback.is_(True))
+    )
+    found = await session.scalar(query.limit(1))
+    if found is None:
+        return None
+    rows = list(
+        await session.scalars(
+            select(SlaPolicyTarget).where(
+                SlaPolicyTarget.policy_id == found,
+                SlaPolicyTarget.kind == TargetKind.RESOLUTION.value,
+                SlaPolicyTarget.amount.is_not(None),
+            )
+        )
+    )
+    chosen = next((r for r in rows if r.priority == priority), None) or next(
+        (r for r in rows if r.priority is None), None
+    )
+    if chosen is None or chosen.amount is None:
+        return None
+    around = chosen.source == CalendarSource.AROUND_THE_CLOCK.value
+    return DeliveryTarget(chosen.amount, chosen.unit, around)
+
+
 async def list_policies(session: AsyncSession, subject: Subject, code: str) -> list[PolicyView]:
     """A record type's policies in order, each with its targets and a "never matches" flag."""
     require(subject, VIEW)

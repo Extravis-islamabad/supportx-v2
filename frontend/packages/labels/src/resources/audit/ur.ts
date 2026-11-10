@@ -323,6 +323,8 @@ export const ur: LabelResource = {
   'audit.action.service_request.created': 'سروس کی درخواست کو بنایا',
   'audit.action.service_request.deleted': 'سروس کی درخواست ردی کی ٹوکری میں ڈالی',
   'audit.action.service_request.due_date_changed': 'سروس کی درخواست کی مقررہ تاریخ تبدیل کی',
+  'audit.action.service_request.fulfiller_repaired':
+    'بغیر ذمہ دار کے مکمل ہونے والی درخواست کو اس کا ذمہ دار دیا',
   'audit.action.service_request.linked': 'سروس کی درخواست کو دوسرے ریکارڈ سے جوڑا',
   'audit.action.service_request.merged': 'سروس کی درخواست کو دوسرے ریکارڈ میں ضم کیا',
   'audit.action.service_request.note_visibility_changed':
@@ -875,6 +877,7 @@ export const ur: LabelResource = {
   'event_type.work_items.problem_repeat.changed': 'بار بار واقعات کا اصول یا مجموعہ بدلا',
   'event_type.work_items.problem_repeat.detected': 'بار بار واقعات ملے',
   'event_type.work_items.reply_templates.changed': 'جواب کے سانچے تبدیل ہوئے',
+  'event_type.work_items.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
   'event_type.work_items.settings.changed': 'ریکارڈ کی ترتیبات بدلیں',
   'event_type.work_items.view.changed': 'محفوظ ویو تبدیل ہوا',
   'event_type.work_items.work_item.assigned': 'ریکارڈ تفویض ہوا',

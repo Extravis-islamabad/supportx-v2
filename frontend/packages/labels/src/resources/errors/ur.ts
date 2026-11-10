@@ -333,6 +333,7 @@ export const ur: LabelResource = {
   'errors.field.fixed_calendar_unused': 'کیلنڈر صرف تب منتخب ہوتا ہے جب ماخذ مقررہ کیلنڈر ہو۔',
   'errors.field.flow_not_available': 'اس قسم کے ریکارڈ کی درج بمقابلہ حل شدہ رپورٹ دستیاب نہیں۔',
   'errors.field.flow_without_groupings': 'درج بمقابلہ حل شدہ رپورٹ میں گروپ بندی نہیں ہوتی۔',
+  'errors.field.fulfiller_required': 'پہلے یہ درخواست کسی کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
   'errors.field.full_sla_off':
     'مسائل کے لیے صرف ہدف کی تاریخیں ہیں۔ جواب کے اہداف شامل کرنے کے لیے مسائل پر مکمل SLA آن کریں۔',
   'errors.field.group_not_found': 'یہ گروپ موجود نہیں۔',

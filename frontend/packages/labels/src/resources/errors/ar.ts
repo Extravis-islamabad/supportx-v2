@@ -300,6 +300,7 @@ export const ar: LabelResource = {
   'errors.field.fixed_calendar_unused': 'لا يُختار تقويم إلا عندما يكون المصدر تقويمًا ثابتًا.',
   'errors.field.flow_not_available': 'لا يتوفر لهذا النوع من السجلات تقرير المسجلة مقابل المحلولة.',
   'errors.field.flow_without_groupings': 'تقرير المسجلة مقابل المحلولة بلا تجميع.',
+  'errors.field.fulfiller_required': 'أسند هذا الطلب إلى أحد لتنفيذه أولًا.',
   'errors.field.full_sla_off':
     'للمشكلات تواريخ مستهدفة فقط. فعّل اتفاقيات مستوى الخدمة الكاملة للمشكلات لإضافة أهداف الاستجابة.',
   'errors.field.group_not_found': 'هذه المجموعة غير موجودة.',
