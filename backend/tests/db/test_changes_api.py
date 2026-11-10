@@ -812,3 +812,39 @@ async def test_req_chg_057_060_assess_the_risk_then_override_it_with_a_reason(
     )
     assert chosen.status_code == 200, chosen.text
     assert (chosen.json()["risk"], chosen.json()["risk_chosen"]) == ("high", "low")
+
+
+async def test_the_change_list_s_pending_approval_view_holds_changes_at_a_stage_approval(
+    world: World,
+) -> None:
+    """The change screens' "Pending approval" view: changes waiting at a stage's approval.
+
+    Stage approvals never set the record's approval status, so the view also matches the
+    stages' raising statuses; the list's DSL equivalent (for export) says the same.
+    """
+    a = world.a
+    waiting = await a_change(world, a)
+    other = await a_change(world, a)
+    raised = await move(world, a, waiting, "submission_awaiting_acceptance")
+    assert raised.status_code == 200, raised.text
+    views = await world.call("GET", f"{CHG}/views", a, a.admin)
+    assert views.status_code == 200, views.text
+    assert "pending_approval" in [v["view"] for v in views.json()]
+    listed = await world.call(
+        "GET", CHG, a, a.admin, params={"view": "pending_approval", "include_total": "true"}
+    )
+    assert listed.status_code == 200, listed.text
+    ids = {i["id"] for i in listed.json()["items"]}
+    assert waiting["id"] in ids
+    assert other["id"] not in ids
+    filters = (await world.call("GET", f"{CHG}/view-filters", a, a.admin)).json()
+    as_filter = next(f for f in filters if f["view"] == "pending_approval")
+    found = await world.call(
+        "GET",
+        CHG,
+        a,
+        a.admin,
+        params={"filter": __import__("json").dumps(as_filter["filter"])},
+    )
+    assert found.status_code == 200, found.text
+    assert {i["id"] for i in found.json()["items"]} == ids

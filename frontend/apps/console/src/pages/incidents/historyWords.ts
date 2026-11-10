@@ -91,7 +91,7 @@ export type HistoryActors = 'all' | 'people' | 'automation';
 export function useHistoryWords(
   id: string,
   actors: HistoryActors = 'all',
-  base: 'incidents' | 'problems' = 'incidents',
+  base: 'incidents' | 'problems' | 'changes' = 'incidents',
   enabled = true,
 ) {
   const t = useLabel();
