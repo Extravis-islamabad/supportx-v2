@@ -199,6 +199,29 @@ describe('password policy (WP-039 session 2, REQ-SEC-005)', () => {
     expect(screen.getByTestId('security-password-state').textContent).toBe('Being applied');
   });
 
+  it('QA6 ADM-04: a disabled Save says why, nothing changed or a value to correct', async () => {
+    api(routes());
+    render(<App />);
+    const length = await screen.findByTestId('security-password_min_length');
+    const why = () => {
+      const wrapper = screen
+        .getByTestId('security-password-save')
+        .closest('[data-testid="disabled-why"]');
+      if (wrapper === null) throw new Error('no reason around the disabled Save');
+      return wrapper;
+    };
+    expect(why().getAttribute('tabindex')).toBe('0'); // a keyboard reaches the reason
+    fireEvent.mouseEnter(why());
+    expect(await screen.findByText('Nothing has changed yet.')).toBeDefined();
+    fireEvent.change(length, { target: { value: '6' } });
+    fireEvent.mouseEnter(why());
+    expect(await screen.findByText('Correct the values marked above first.')).toBeDefined();
+    fireEvent.change(length, { target: { value: '14' } });
+    expect(
+      screen.getByTestId('security-password-save').closest('[data-testid="disabled-why"]'),
+    ).toBeNull();
+  });
+
   it('a save sends the version read; when another admin saved first the conflict dialog asks, and keeping mine saves on their version', async () => {
     let reads = 0;
     let puts = 0;
