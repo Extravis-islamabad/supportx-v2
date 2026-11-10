@@ -18,6 +18,7 @@ from app.modules.work_items.domain.types import TYPES, WorkItemType
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import conversations, workflow_commands
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.rule_assignment import place_person
 from app.shared.events import EventEnvelope
 
 _RECORD_EVENTS = {
@@ -106,11 +107,43 @@ def _apply(wtype: WorkItemType) -> automation.Applier:
         values: Mapping[str, Any],
         change: automation.AutomatedChange,
     ) -> list[str]:
+        values, ref = await _with_group(session, record_id, values, change.ref)
         return await items.automated_update(
-            session, wtype, record_id, values, ref=change.ref, cause_id=change.cause_id
+            session, wtype, record_id, values, ref=ref, cause_id=change.cause_id
         )
 
     return apply
+
+
+async def _with_group(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    values: Mapping[str, Any],
+    ref: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """A trigger that sets a technician moves the record with them (D-154 "rules").
+
+    The trigger's own group for them when it sets one, else theirs; someone inactive, Away or
+    out of that group leaves the record with the group only, and the ref says why.
+    """
+    person = values.get("technician_id")
+    if not person:
+        return dict(values), dict(ref)
+    current = await session.scalar(select(WorkItem.group_id).where(WorkItem.id == record_id))
+    group = values.get("group_id")
+    placement = await place_person(
+        session,
+        uuid.UUID(str(person)),
+        uuid.UUID(str(group)) if group else None,
+        record_group_id=current,
+    )
+    if placement.unavailable is None:
+        return {**values, **placement.values}, dict(ref)
+    return {**values, **placement.values}, {
+        **ref,
+        "unavailable": placement.unavailable.value,
+        "person_id": str(person),
+    }
 
 
 def _note(wtype: WorkItemType) -> automation.Noter:

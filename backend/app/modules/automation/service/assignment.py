@@ -171,6 +171,21 @@ async def _named(session: AsyncSession, user_ids: Sequence[uuid.UUID]) -> dict[u
     return names
 
 
+async def away_user_ids(
+    session: AsyncSession, user_ids: Sequence[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """Which of `user_ids` set themselves Away (D-154 rules: a rule never assigns them)."""
+    if not user_ids:
+        return frozenset()
+    rows = await session.scalars(
+        select(TechnicianAvailability.user_id).where(
+            TechnicianAvailability.user_id.in_(list(user_ids)),
+            TechnicianAvailability.state == Availability.AWAY.value,
+        )
+    )
+    return frozenset(rows.all())
+
+
 async def availability_states(
     session: AsyncSession, user_ids: Sequence[uuid.UUID]
 ) -> dict[uuid.UUID, AvailabilityState]:

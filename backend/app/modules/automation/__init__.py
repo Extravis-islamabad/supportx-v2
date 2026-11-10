@@ -35,6 +35,7 @@ from app.modules.automation.service.assignment import (
     AssignmentResult,
     Member,
     auto_assign,
+    away_user_ids,
 )
 from app.modules.automation.service.business_rules import (
     RulesRun,
@@ -146,6 +147,7 @@ __all__ = [
     "TransitionAudience",
     "TriggerEvent",
     "auto_assign",
+    "away_user_ids",
     "log_trace",
     "module",
     "record_runs",
