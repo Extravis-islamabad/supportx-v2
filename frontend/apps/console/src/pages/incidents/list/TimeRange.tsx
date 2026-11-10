@@ -20,7 +20,6 @@ export function TimeRange({
   words: ReportWords;
 }) {
   const t = useLabel();
-  const dates = useDateTime();
   const field = value?.field ?? 'created_at';
   return (
     <Space wrap data-testid="inc-time-range">
@@ -57,27 +56,45 @@ export function TimeRange({
           }}
         />
       )}
-      {value !== undefined && (
-        // The active range is always visible and names its field (AC2).
-        <Tag
-          closable
-          onClose={() => {
-            onChange(undefined);
-          }}
-          data-testid="inc-time-active"
-        >
-          {value.preset === 'custom'
-            ? t('incidents.time.active_range', {
-                field: words.field(value.field),
-                from: dates.format(value.range?.[0] ?? null) || '…',
-                to: dates.format(value.range?.[1] ?? null) || '…',
-              })
-            : t('incidents.time.active', {
-                field: words.field(value.field),
-                range: t(`incidents.time.${value.preset}`),
-              })}
-        </Tag>
-      )}
+      <ActiveRange value={value} onChange={onChange} words={words} />
     </Space>
+  );
+}
+
+/** The active range as a closable tag naming its field (AC2); also shown on the list itself
+ * while the filters drawer is closed (QA10-P1-17). */
+export function ActiveRange({
+  value,
+  onChange,
+  words,
+  testId = 'inc-time-active',
+}: {
+  value: TimeRangeValue | undefined;
+  onChange: (value: TimeRangeValue | undefined) => void;
+  words: ReportWords;
+  testId?: string;
+}) {
+  const t = useLabel();
+  const dates = useDateTime();
+  if (value === undefined) return null;
+  return (
+    <Tag
+      closable
+      onClose={() => {
+        onChange(undefined);
+      }}
+      data-testid={testId}
+    >
+      {value.preset === 'custom'
+        ? t('incidents.time.active_range', {
+            field: words.field(value.field),
+            from: dates.format(value.range?.[0] ?? null) || '…',
+            to: dates.format(value.range?.[1] ?? null) || '…',
+          })
+        : t('incidents.time.active', {
+            field: words.field(value.field),
+            range: t(`incidents.time.${value.preset}`),
+          })}
+    </Tag>
   );
 }

@@ -83,7 +83,7 @@ import {
   type ViewDraft,
 } from './list/model';
 import { SearchChips } from './list/SearchChips';
-import { TimeRange } from './list/TimeRange';
+import { ActiveRange, TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { searchOf } from './searchOf';
@@ -526,6 +526,12 @@ export function IncidentsPage() {
               onChips={setChips}
               fields={fields}
               words={words}
+            />
+            <ActiveRange
+              value={range}
+              onChange={setRange}
+              words={words}
+              testId="inc-time-active-list"
             />
           </>
         }

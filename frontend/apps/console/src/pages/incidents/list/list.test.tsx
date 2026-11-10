@@ -343,6 +343,8 @@ describe('Incident list (WP-020d)', () => {
       });
     });
     expect(screen.getByTestId('inc-time-active').textContent).toBe('Created: This week'); // AC2
+    // QA10-P1-17: the list shows it too, with the drawer closed.
+    expect(screen.getByTestId('inc-time-active-list').textContent).toBe('Created: This week');
   });
 });
 
