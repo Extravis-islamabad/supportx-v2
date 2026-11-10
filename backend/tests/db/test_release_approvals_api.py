@@ -15,6 +15,7 @@ from typing import Any
 
 import httpx
 
+from conftest import assign_system_role
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_incidents_api import CONSOLE, Org, World, role
 from tests.db.test_release_parts_api import put_role, settings_version
@@ -160,6 +161,28 @@ async def test_ac4_the_requester_may_not_approve_their_own_release(world: World)
     assert [(r["approver_id"], r["route_reason"]) for r in rows] == [
         (None, "self_approval_blocked")
     ]
+
+
+async def test_d153_a_release_manager_never_signs_off_their_own_release(world: World) -> None:
+    """D-153 (lane B's review): the built-in release manager holds releases.approve at "all",
+    so the segregation rule must also stop them on the row routed away from them."""
+    a = world.a
+    await assign_system_role(world.db.admin_url, a.tenant, a.tech_a, "release_manager")
+    await planning_levels(world, a, [{"rule": "any", "approvers": [{"user_id": str(a.tech_a)}]}])
+    made = await new_release(world, a, a.admin, requester_id=str(a.tech_a))
+    assert made.status_code == 201, made.text
+    waiting = await to_waiting(world, a, made.json())
+    rows = await approvals(world, a, waiting)
+    assert [(r["approver_id"], r["route_reason"]) for r in rows] == [
+        (None, "self_approval_blocked")
+    ]
+    # They hold releases.approve now, but this release is theirs: refused, and nothing moves.
+    own = await decide(world, a, waiting, rows[0], a.tech_a)
+    assert own.status_code == 403, own.text
+    assert (await current(world, a, waiting))["status"] == "planning_waiting_approval"
+    # Another release manager may decide it.
+    await assign_system_role(world.db.admin_url, a.tenant, a.tech_b, "release_manager")
+    assert (await decide(world, a, waiting, rows[0], a.tech_b)).status_code == 200
 
 
 async def test_a_named_approver_decides_by_being_named_and_only_their_own(world: World) -> None:

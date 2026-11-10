@@ -15,6 +15,7 @@ from app.core.tenancy import TenantContext
 from app.modules.analytics.domain.dashboard import ME, with_viewer
 from app.modules.analytics.domain.widgets import BUILTIN_DASHBOARDS
 from app.shared.events import EventEnvelope
+from conftest import assign_system_role
 from tests.db import test_reports_api
 from tests.db.test_incidents_api import CONSOLE, Org, World
 
@@ -359,3 +360,93 @@ async def test_dashboard_tables_are_isolated_by_rls(reports: World) -> None:
         assert changed.rowcount == 0
     assert (await world.call("GET", f"{BASE}/{board['ref']}", b, b.admin)).status_code == 404
     assert await _home(world, a, a.tech_a) == board["ref"]  # org A's role home still applies
+
+
+# --- D-152: group dashboards ---------------------------------------------------------------------
+
+
+async def _group(world: World, org: Org, *, lead: uuid.UUID, members: list[uuid.UUID]) -> str:
+    made = await world.call(
+        "POST",
+        "/organization/groups",
+        org,
+        org.admin,
+        json={"name": f"Group {uuid.uuid4().hex[:6]}", "lead_id": str(lead)},
+        headers=CONSOLE,
+    )
+    assert made.status_code == 201, made.text
+    group = str(made.json()["id"])
+    for member in members:
+        added = await world.call(
+            "PUT", f"/organization/groups/{group}/members/{member}", org, org.admin
+        )
+        assert added.status_code == 204, added.text
+    return group
+
+
+async def test_d152_a_lead_manages_only_their_group_s_dashboards(reports: World) -> None:
+    world = reports
+    a = world.a
+    await assign_system_role(world.db.admin_url, a.tenant, a.tech_c, "team_lead")
+    led = await _group(world, a, lead=a.tech_c, members=[a.tech_a])
+    other = await _group(world, a, lead=a.admin, members=[a.tech_b])
+
+    board = await _create(world, a, a.tech_c, group_id=led)
+    assert (board["group_id"], board["shared"], board["can_edit"]) == (led, False, True)
+    refused = await world.call(
+        "POST",
+        BASE,
+        a,
+        a.tech_c,
+        json=_body(group_id=other),
+        headers={**CONSOLE, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (403, "group_not_led")
+
+    # A member sees it, read-only; someone outside the group doesn't see it at all.
+    seen = (await world.call("GET", BASE, a, a.tech_a)).json()["items"]
+    entry = next(d for d in seen if d["ref"] == board["ref"])
+    assert entry["can_edit"] is False
+    assert (await _patch(world, a, a.tech_a, board, name="Mine now")).status_code == 403
+    outside = await world.call("GET", f"{BASE}/{board['ref']}", a, a.tech_b)
+    assert outside.status_code == 404
+
+    # The lead and dashboards.manage_defaults change it; never shared with everyone as well.
+    renamed = await _patch(world, a, a.tech_c, board, name="Queue health")
+    assert renamed.status_code == 200, renamed.text
+    both = await _patch(world, a, a.admin, renamed.json(), shared=True)
+    assert (both.status_code, both.json()["errors"][0]["code"]) == (
+        422,
+        "group_dashboard_shared",
+    )
+    by_admin = await _patch(world, a, a.admin, renamed.json(), name="Queue health (GA)")
+    assert by_admin.status_code == 200, by_admin.text
+    # Moving it into a group you don't lead is refused too.
+    moved = await _patch(world, a, a.tech_c, by_admin.json(), group_id=other)
+    assert (moved.status_code, moved.json()["code"]) == (403, "group_not_led")
+    # The lead's picker offers only the groups they lead.
+    assert (await world.call("GET", BASE, a, a.tech_c)).json()["group_choices"] == [led]
+    assert (await world.call("GET", BASE, a, a.admin)).json()["group_choices"] is None
+
+
+async def test_d152_a_removed_group_s_dashboard_falls_back_to_its_owner(reports: World) -> None:
+    world = reports
+    a = world.a
+    await assign_system_role(world.db.admin_url, a.tenant, a.tech_c, "team_lead")
+    group = await _group(world, a, lead=a.tech_c, members=[])
+    board = await _create(world, a, a.tech_c, group_id=group)
+    # Nothing uses it (no members, no records): it can go; its dashboards don't hold it.
+    gone = await world.call(
+        "DELETE", f"/organization/groups/{group}", a, a.admin, headers={"If-Match": '"1"'}
+    )
+    assert gone.status_code == 204, gone.text
+
+    # Never everyone's: the owner keeps it as a private one and may change it again...
+    mine = (await world.call("GET", f"{BASE}/{board['ref']}", a, a.tech_c)).json()
+    assert (mine["group_removed"], mine["can_edit"], mine["shared"]) == (True, True, False)
+    # ...dashboards.manage_defaults sees it marked, and nobody else sees it.
+    listed = (await world.call("GET", BASE, a, a.admin)).json()["items"]
+    assert next(d for d in listed if d["ref"] == board["ref"])["group_removed"] is True
+    for viewer in (a.tech_a, a.tech_b):
+        hidden = await world.call("GET", f"{BASE}/{board['ref']}", a, viewer)
+        assert hidden.status_code == 404

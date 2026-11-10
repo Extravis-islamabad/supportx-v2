@@ -174,6 +174,12 @@ describe('Admin › Roles', () => {
     fireEvent.click(await screen.findByTestId('role-row-technician'));
     expect(await screen.findByText(/Built-in roles cannot be changed/)).toBeDefined();
     expect(screen.queryByTestId('save-role')).toBeNull();
+    // D-153: what it is for and what it reaches, in words; never a Delete, always a copy.
+    const about = screen.getByTestId('role-built-in');
+    expect(about.textContent).not.toMatch(/role\.|technician\./);
+    expect(screen.getByTestId('role-default-scope').textContent).toMatch(/^Reaches: /);
+    expect(screen.queryByTestId('delete-role')).toBeNull();
+    expect(screen.getByTestId('role-scope-technician').textContent).toMatch(/^Reaches: /);
   });
 
   it('PEO-06: a built-in role opens on what it grants, scopes as text, with a search', async () => {
@@ -191,7 +197,7 @@ describe('Admin › Roles', () => {
       target: { value: 'zzz-nothing' },
     });
     expect(await screen.findByText('No permission matches')).toBeTruthy();
-    expect(screen.getByTestId('copy-role').textContent).toBe('Duplicate as a custom role');
+    expect(screen.getByTestId('copy-role').textContent).toBe('Copy and customise');
   });
 
   it('REQ-ADM-017: a built-in role is copied into a new custom role with the same grants', async () => {

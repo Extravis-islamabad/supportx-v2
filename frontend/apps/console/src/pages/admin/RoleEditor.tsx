@@ -201,7 +201,22 @@ function RoleForm({
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       {role?.is_system === true && (
-        <Alert type="info" showIcon message={t('roles.system_read_only')} />
+        // D-153: what the built-in role is for and what it reaches; it is never changed or
+        // deleted, so the way to adjust it is a copy.
+        <Alert
+          type="info"
+          showIcon
+          message={t(`role.${role.key}.description`)}
+          description={
+            <Space direction="vertical" size={4}>
+              <span data-testid="role-default-scope">
+                {t('roles.default_scope', { scope: t(`role.${role.key}.scope`) })}
+              </span>
+              <span>{t('roles.system_read_only')}</span>
+            </Space>
+          }
+          data-testid="role-built-in"
+        />
       )}
       {stale && role?.is_system !== true && (
         <Alert
@@ -220,7 +235,7 @@ function RoleForm({
               onCopy(role);
             }}
           >
-            {t('roles.duplicate')}
+            {t('roles.copy_customise')}
           </WriteButton>
         </Flex>
       )}
