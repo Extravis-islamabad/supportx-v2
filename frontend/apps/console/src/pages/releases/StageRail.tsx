@@ -45,11 +45,15 @@ export function StageRail({ rail }: { rail: RailStage[] }) {
           subTitle: stage.optional ? <Tag>{t('releases.rail.optional')}</Tag> : undefined,
           description: (
             <span data-testid={`rail-${stage.stage}-state`}>
-              {stage.state === 'skipped'
-                ? t('rail_state.skipped')
-                : last !== undefined
-                  ? format(last.entered_at)
-                  : t(`rail_state.${stage.state}`)}
+              {stage.state === 'skipped' ? (
+                t('rail_state.skipped')
+              ) : last !== undefined ? (
+                // One line (QA10V-19: "10 Nov 2026," / "19:16"); a step is wide enough, and
+                // the rail stacks on a phone.
+                <span style={{ whiteSpace: 'nowrap' }}>{format(last.entered_at)}</span>
+              ) : (
+                t(`rail_state.${stage.state}`)
+              )}
               {stage.entries.length > 1 &&
                 ` · ${t('releases.rail.rounds', { count: stage.entries.length })}`}
             </span>

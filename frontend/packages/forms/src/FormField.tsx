@@ -49,12 +49,11 @@ export function FormField<T extends FieldValues, N extends Path<T> = Path<T>>({
             htmlFor={id}
             required={required}
             validateStatus={message === null ? undefined : 'error'}
+            // Help text as `extra`, errors as `help` (QA10V-22): Ant Design drops the item's
+            // bottom margin for `help`, so a hint ran straight into the next field's label.
+            extra={message === null && helpKey !== undefined ? t(helpKey) : undefined}
             help={
-              message === null ? (
-                helpKey === undefined ? undefined : (
-                  t(helpKey)
-                )
-              ) : (
+              message === null ? undefined : (
                 <span role="alert" data-testid={`error-${name}`}>
                   {t(message.key, message.params as LabelParams)}
                 </span>

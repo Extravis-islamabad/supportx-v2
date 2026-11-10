@@ -114,7 +114,8 @@ export function NotificationBell() {
           setOpen(false);
         }}
         title={t('notifications.title')}
-        width={420}
+        // Never wider than a phone's screen (QA10V-28 was found at 390 px).
+        width="min(420px, 100vw)"
         data-testid="notifications-drawer"
         extra={
           <Button
@@ -189,7 +190,13 @@ export function NotificationBell() {
                             </a>
                           </Typography.Text>
                         }
-                        description={relative(entry.created_at)}
+                        // Secondary text, not the list's description colour: that is 45% white,
+                        // about 4:1 on the dark drawer (QA10V-28, axe color-contrast).
+                        description={
+                          <Typography.Text type="secondary">
+                            {relative(entry.created_at)}
+                          </Typography.Text>
+                        }
                       />
                     </List.Item>
                   )}
