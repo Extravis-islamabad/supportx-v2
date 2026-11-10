@@ -1811,6 +1811,60 @@
         "type": "object"
       }
     },
+    "automation.workflow_job.progressed": {
+      "1": {
+        "description": "A bulk retry, cancel or migration moved on or ended (WP-048b S3; REQ-WF-021, -025).\n\nThe overview shows its progress live; IDs, counts and codes only.",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "retry",
+              "cancel",
+              "migrate"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "workflow_id",
+          "kind",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "WorkflowJobProgressed",
+        "type": "object"
+      }
+    },
     "identity_access.access_settings.changed": {
       "1": {
         "description": "The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh.",

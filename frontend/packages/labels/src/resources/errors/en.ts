@@ -640,6 +640,7 @@ export const en = {
   'errors.instance_not_failed': 'Only a failed workflow can be retried.',
   'errors.instance_not_running': 'This workflow is not running, so it cannot be stopped.',
   'errors.instance_running': 'Stop this workflow before running it again.',
+  'errors.instances_not_in_workflow': '{{count}} of the chosen runs are not runs of this workflow.',
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
@@ -664,6 +665,8 @@ export const en = {
   'errors.invitation_pending': 'This person has an invitation waiting. Send it again instead.',
   'errors.invitation_person_cannot_sign_in':
     'This person is deactivated or not allowed to sign in.',
+  'errors.job_kind_not_available': 'This kind of job is not available yet.',
+  'errors.job_size': 'Choose between 1 and {{max}} runs.',
   'errors.kb_article_not_editable':
     'You cannot edit this article. Its owner or a knowledge manager can.',
   'errors.kb_article_not_found': 'This article does not exist or is not shared with you.',
@@ -931,6 +934,7 @@ export const en = {
   'errors.workflow_instance_changed':
     'This workflow changed since you opened it. Reload and try again.',
   'errors.workflow_instance_not_found': 'This workflow run was not found.',
+  'errors.workflow_job_not_found': 'This job was not found.',
   'errors.would_lose_access':
     'After this change you will no longer see {{display_id}}. Confirm to hand it over.',
 } as const;

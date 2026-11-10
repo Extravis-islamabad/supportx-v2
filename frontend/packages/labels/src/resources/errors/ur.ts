@@ -648,6 +648,7 @@ export const ur: LabelResource = {
   'errors.instance_not_failed': 'صرف ناکام ورک فلو کو دوبارہ آزمایا جا سکتا ہے۔',
   'errors.instance_not_running': 'یہ ورک فلو نہیں چل رہا، اس لیے اسے روکا نہیں جا سکتا۔',
   'errors.instance_running': 'دوبارہ چلانے سے پہلے اس ورک فلو کو روکیں۔',
+  'errors.instances_not_in_workflow': 'منتخب رنز میں سے {{count}} اس ورک فلو کے رنز نہیں۔',
   'errors.internal_error': 'ہماری طرف کچھ غلط ہو گیا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.invalid_choice': 'یہ قدر دستیاب انتخاب میں سے نہیں۔',
   'errors.invalid_cursor': 'یہ صفحہ لنک اب درست نہیں۔ پہلے صفحے سے شروع کریں۔',
@@ -671,6 +672,8 @@ export const ur: LabelResource = {
   'errors.invitation_not_pending': 'یہ دعوت نامہ اب منتظر نہیں: قبول ہو چکا یا واپس لیا جا چکا۔',
   'errors.invitation_pending': 'اس شخص کا ایک دعوت نامہ منتظر ہے۔ اس کے بجائے اسے دوبارہ بھیجیں۔',
   'errors.invitation_person_cannot_sign_in': 'یہ شخص غیر فعال ہے یا اسے سائن اِن کی اجازت نہیں۔',
+  'errors.job_kind_not_available': 'اس قسم کی جاب ابھی دستیاب نہیں۔',
+  'errors.job_size': '1 سے {{max}} تک رنز منتخب کریں۔',
   'errors.kb_article_not_editable':
     'آپ یہ مضمون نہیں بدل سکتے۔ اس کا مالک یا نالج مینیجر بدل سکتا ہے۔',
   'errors.kb_article_not_found': 'یہ مضمون موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
@@ -937,6 +940,7 @@ export const ur: LabelResource = {
   'errors.workflow_instance_changed':
     'آپ کے کھولنے کے بعد یہ ورک فلو بدل گیا۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.workflow_instance_not_found': 'ورک فلو کا یہ رن نہیں ملا۔',
+  'errors.workflow_job_not_found': 'یہ جاب نہیں ملی۔',
   'errors.would_lose_access':
     'اس تبدیلی کے بعد آپ {{display_id}} نہیں دیکھ سکیں گے۔ حوالے کرنے کے لیے تصدیق کریں۔',
 };

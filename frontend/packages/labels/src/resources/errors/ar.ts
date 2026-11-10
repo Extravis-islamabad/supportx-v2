@@ -592,6 +592,7 @@ export const ar: LabelResource = {
   'errors.instance_not_failed': 'لا يمكن إعادة محاولة سير عمل إلا إذا فشل.',
   'errors.instance_not_running': 'سير العمل هذا لا يعمل، لذا لا يمكن إيقافه.',
   'errors.instance_running': 'أوقف سير العمل هذا قبل تشغيله مرة أخرى.',
+  'errors.instances_not_in_workflow': '{{count}} من عمليات التشغيل المختارة ليست من سير العمل هذا.',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
   'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
@@ -611,6 +612,8 @@ export const ar: LabelResource = {
   'errors.invitation_not_pending': 'لم تعد هذه الدعوة بانتظار القبول: قُبلت أو سُحبت.',
   'errors.invitation_pending': 'لدى هذا الشخص دعوة بانتظار القبول. أرسلها مجددًا بدلًا من ذلك.',
   'errors.invitation_person_cannot_sign_in': 'هذا الشخص معطّل أو غير مسموح له بتسجيل الدخول.',
+  'errors.job_kind_not_available': 'هذا النوع من المهام غير متاح بعد.',
+  'errors.job_size': 'اختر بين 1 و{{max}} من عمليات التشغيل.',
   'errors.kb_article_not_editable':
     'لا يمكنك تعديل هذه المقالة. يمكن لمالكها أو لمدير المعرفة ذلك.',
   'errors.kb_article_not_found': 'هذه المقالة غير موجودة أو غير مشتركة معك.',
@@ -851,5 +854,6 @@ export const ar: LabelResource = {
   'errors.work_item_worklog_not_found': 'لم يعد سجل العمل هذا موجودًا.',
   'errors.workflow_instance_changed': 'تغيّر سير العمل هذا منذ فتحته. أعد التحميل وحاول مرة أخرى.',
   'errors.workflow_instance_not_found': 'لم يُعثر على تشغيل سير العمل هذا.',
+  'errors.workflow_job_not_found': 'لم يُعثر على هذه المهمة.',
   'errors.would_lose_access': 'بعد هذا التغيير لن ترى {{display_id}} بعد الآن. أكّد لتسليمه.',
 };

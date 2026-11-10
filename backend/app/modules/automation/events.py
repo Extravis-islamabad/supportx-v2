@@ -90,6 +90,24 @@ class WorkflowInstanceChanged(DomainEvent):
     version: int
 
 
+class WorkflowJobProgressed(DomainEvent):
+    """A bulk retry, cancel or migration moved on or ended (WP-048b S3; REQ-WF-021, -025).
+
+    The overview shows its progress live; IDs, counts and codes only.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow_job.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_job"
+
+    job_id: uuid.UUID
+    workflow_id: uuid.UUID
+    kind: Literal["retry", "cancel", "migrate"]
+    status: Literal["queued", "running", "done", "failed"]
+    processed: int
+    total: int
+
+
 class WorkflowChanged(DomainEvent):
     """A workflow was made, its draft saved, published, enabled or disabled (WP-048b).
 
@@ -178,6 +196,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkflowFunctionRequested,
     WorkflowCommandFinished,
     WorkflowInstanceChanged,
+    WorkflowJobProgressed,
     AutomationChanged,
     AvailabilityChanged,
     AssignmentWaiting,

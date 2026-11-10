@@ -120,6 +120,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("automation.workflow_stopped", AuditCategory.RECORDS, "automation"),
     ("automation.workflow_restarted", AuditCategory.RECORDS, "automation"),
     ("automation.workflow_retried", AuditCategory.RECORDS, "automation"),
+    ("automation.workflow_job_queued", AuditCategory.RECORDS, "automation"),  # bulk (S3b)
     ("automation.transition_reset", AuditCategory.CONFIGURATION, "automation"),
     ("automation.routing_created", AuditCategory.CONFIGURATION, "automation"),
     ("automation.routing_changed", AuditCategory.CONFIGURATION, "automation"),

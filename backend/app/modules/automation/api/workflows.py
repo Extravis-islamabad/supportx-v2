@@ -15,15 +15,23 @@ from sqlalchemy import select
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import NotFound, PermissionDenied
+from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules.audit import audited
+from app.modules.automation.domain.interpreter import InstanceStatus
 from app.modules.automation.domain.workflows import Problem
-from app.modules.automation.infra.models import Workflow, WorkflowInstance, WorkflowStep
-from app.modules.automation.service import workflow_admin, workflow_runtime
+from app.modules.automation.infra.models import (
+    Workflow,
+    WorkflowInstance,
+    WorkflowJob,
+    WorkflowStep,
+)
+from app.modules.automation.service import workflow_admin, workflow_jobs, workflow_runtime
 from app.modules.automation.service.registry import record_type as registered
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.idempotency import Created, Idempotency
+from app.shared.api.listing import ListQuery, Page, list_query, paginate
 
 router = APIRouter(prefix="/automation/workflows", tags=["automation"])
 Manage = Annotated[Subject, Depends(require_permission("workflows.manage"))]
@@ -422,3 +430,138 @@ async def retry_instance(
     again = await workflow_runtime.retry(session, instance_id, expected_version=version)
     set_etag(response, again.version)
     return _instance(again)
+
+
+# --- the overview and bulk jobs (WP-048b S3b; REQ-WF-025) -------------------------------------
+
+INSTANCE_FIELDS = ResourceFields(
+    name="workflow_instances",
+    fields={
+        "workflow_id": FilterField(WorkflowInstance.workflow_id, FieldType.UUID),
+        "status": FilterField(
+            WorkflowInstance.status,
+            FieldType.ENUM,
+            values=frozenset(s.value for s in InstanceStatus),
+        ),
+        "record_type": FilterField(WorkflowInstance.record_type, FieldType.STRING),
+        "started_at": FilterField(
+            WorkflowInstance.started_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
+        # "Waiting longer than": the last time it moved (REQ-WF-025 AC3).
+        "updated_at": FilterField(
+            WorkflowInstance.updated_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
+    },
+    id_column=WorkflowInstance.id,
+    default_sort=("-started_at",),
+)
+InstancesQuery = Annotated[
+    ListQuery, Depends(list_query(INSTANCE_FIELDS, extra_parameters=frozenset({"node"})))
+]
+
+
+@router.get("/instances", summary="Every workflow run: the overview")
+async def overview(
+    session: TenantSession,
+    query: InstancesQuery,
+    subject: Manage,
+    node: Annotated[str | None, Query(min_length=1, max_length=40)] = None,
+) -> Page[InstanceOut]:
+    """Runs by workflow, state and age, failed ones with their node and error (REQ-WF-025).
+
+    `node=` keeps the runs that have a step there now (a waiting or failed token).
+    """
+    del subject
+    statement = select(WorkflowInstance)
+    if node is not None:
+        statement = statement.where(WorkflowInstance.state["tokens"].contains([{"node": node}]))
+    page = await paginate(session, statement, query)
+    return Page[InstanceOut](
+        items=[_instance(row) for row in page.rows],
+        next_cursor=page.next_cursor,
+        has_more=page.has_more,
+        estimated_total=page.estimated_total,
+    )
+
+
+class JobIn(BaseModel):
+    """A bulk retry or cancel over chosen runs of one workflow (REQ-WF-025 AC2)."""
+
+    kind: Literal["retry", "cancel"]
+    instance_ids: list[uuid.UUID] = Field(min_length=1, max_length=workflow_jobs.MAX_INSTANCES)
+    # Cancelling asks for a reason, as stopping one run does (REQ-WF-026 AC1).
+    reason: str | None = Field(
+        default=None, min_length=1, max_length=workflow_runtime.STOP_REASON_MAX
+    )
+
+
+class JobOut(BaseModel):
+    """A job's progress, and each run's result once it is done."""
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    kind: Literal["retry", "cancel", "migrate"]
+    status: Literal["queued", "running", "done", "failed"]
+    total: int
+    processed: int
+    done_count: int
+    skipped_count: int
+    results: list[dict[str, Any]]
+    created_at: datetime
+    finished_at: datetime | None
+    version: int
+
+
+def _job(row: WorkflowJob) -> JobOut:
+    return JobOut.model_validate(row, from_attributes=True)
+
+
+@router.post(
+    "/{workflow_id}/jobs",
+    summary="Retry or cancel many runs, as a background job",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[
+        audited(
+            "automation.workflow_job_queued", object_type="workflow", object_param="workflow_id"
+        )
+    ],
+)
+async def queue_job(
+    workflow_id: uuid.UUID,
+    body: JobIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+) -> Response:
+    """The worker runs it in batches; its progress reaches the overview live."""
+    del subject
+    if body.kind == "cancel" and not (body.reason or "").strip():
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.reason", code="required", message_key="errors.field.required"
+                )
+            ]
+        )
+
+    async def operation() -> Created:
+        job = await workflow_jobs.create(
+            session,
+            workflow_id=workflow_id,
+            kind=workflow_jobs.JobKind(body.kind),
+            instance_ids=body.instance_ids,
+            options={"reason": body.reason.strip()} if body.reason else {},
+        )
+        return Created(_job(job), {"ETag": f'"{job.version}"'})
+
+    return await idempotency.run(body, operation, status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.get("/jobs/{job_id}", summary="A job's progress and results")
+async def get_job(job_id: uuid.UUID, session: TenantSession, subject: Manage) -> JobOut:
+    """Each run's outcome: done, or skipped with the code why (the overview lists them)."""
+    del subject
+    job = await session.get(WorkflowJob, job_id)
+    if job is None:
+        raise NotFound(code="workflow_job_not_found")
+    return _job(job)

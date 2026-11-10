@@ -35,7 +35,7 @@ from app.modules.automation.events import (
     WorkflowWebhookRequested,
 )
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
-from app.modules.automation.service import workflow_events, workflow_scheduler
+from app.modules.automation.service import workflow_events, workflow_jobs, workflow_scheduler
 from app.modules.automation.service.assignment import (
     AssignmentResult,
     Member,
@@ -56,7 +56,7 @@ from app.modules.automation.service.functions import (
     register_function_runner,
 )
 from app.modules.automation.service.jobs import purge_runs
-from app.modules.automation.service.realtime import ROUTES
+from app.modules.automation.service.realtime import CHANNELS, ROUTES
 from app.modules.automation.service.registry import (
     Applier,
     AutomatedChange,
@@ -112,6 +112,7 @@ module = ModuleSpec(
     events=EVENTS,
     permissions=PERMISSIONS,
     realtime=ROUTES,
+    channels=CHANNELS,
     # Triggers and a move's "after" actions run after the commit, from its events (REQ-RUL-009).
     consumers=[
         ConsumerSpec(
@@ -150,6 +151,8 @@ module = ModuleSpec(
         ScheduleSpec("automation__purge_runs", 3600, purge_runs),
         # Due workflow timers, the net beneath Temporal's waker (ADR-043 §5).
         ScheduleSpec("automation__workflow_wake", 60, workflow_events.wake_due),
+        # Bulk retry and cancel of instances (WP-048b S3b, REQ-WF-025 AC2).
+        ScheduleSpec("automation__workflow_jobs", 5, workflow_jobs.run_jobs),
     ],
 )
 
