@@ -120,6 +120,15 @@ FIRST_SUBJECTS = frozenset(
         "Parking pass for the visitor",
     }
 )
+# Requests in Arabic and Urdu (the coordinator's showcase follow-up): the screens show real
+# right-to-left records. Made in every tenant that lacks them, as they never rename a record.
+LOCAL_REQUESTS = (
+    ("حاسوب محمول جديد لموظف المالية", "awaiting_approval", "New laptop"),
+    ("صلاحية الوصول إلى أداة التقارير الشهرية", "in_progress", "Access to an application"),
+    ("نئے ملازم کے لیے وی پی این رسائی", "fulfilled", "VPN / remote access"),
+)
+# The starter items the portal's home shows first, unless an administrator featured some already.
+FEATURED = ("New laptop", "VPN / remote access", "Install software")
 
 
 SR = "/api/v1/service-requests"
@@ -181,7 +190,10 @@ async def ensure_service_requests(  # noqa: PLR0913 - the seed's sign-ins and lo
     worker: tuple[str, str],
     admin_id: str,
 ) -> int:
-    """Seven requests from the starter catalogue in every state; returns how many were made.
+    """Requests from the starter catalogue in every state; returns how many were made.
+
+    Seven in English (a tenant seeded with the first subjects keeps those), and three in Arabic
+    and Urdu that any tenant without them gets.
 
     `worker` is the group and technician who fulfil them. The withdrawn one is the admin's own
     (only someone who signs in can withdraw); the others are requesters', decided by their
@@ -194,8 +206,9 @@ async def ensure_service_requests(  # noqa: PLR0913 - the seed's sign-ins and lo
     existing = {r["subject"] for r in await admin.all_pages(SR)}
     seeded_before = bool(existing & FIRST_SUBJECTS)
     made = 0
-    for n, (subject, state, item_name) in enumerate(REQUESTS):
-        if subject in existing or seeded_before:
+    wanted = [*([] if seeded_before else REQUESTS), *LOCAL_REQUESTS]
+    for n, (subject, state, item_name) in enumerate(wanted):
+        if subject in existing:
             continue
         item = next(
             (i for i in needing if (i.get("names") or {}).get("en") == item_name),
@@ -277,6 +290,18 @@ PROBLEMS = (
         True,
     ),
     ("Printers on floor 3 go offline", "<p>Jobs queue but never print.</p>", None, False),
+    (
+        "انقطاع شبكة الواي فاي في قاعة الاجتماعات",
+        "<p>ينقطع الاتصال كلما تجاوز عدد الحضور عشرين شخصاً.</p>",
+        "<p>استخدم الشبكة السلكية في القاعة إلى أن يُضاف جهاز إرسال ثانٍ.</p>",
+        True,
+    ),
+    (
+        "ای میل کے بڑے منسلکات نہیں کھلتے",
+        "<p>دس میگابائٹ سے بڑی فائل کھولنے پر خرابی آتی ہے۔</p>",  # noqa: RUF001 - Urdu full stop
+        None,
+        False,
+    ),
 )
 
 
@@ -449,3 +474,26 @@ async def ensure_sla_policies(api: Api, groups: Mapping[str, str]) -> int:
         )
         made += 1
     return made
+
+
+async def ensure_featured(api: Api) -> int:
+    """Three starter items featured on the portal's home; returns how many were featured.
+
+    Only while nothing is featured: an administrator's own choice, or a cleared one after the
+    seed, is never changed again by a re-run (the seed never edits what it did not make).
+    """
+    items = await api.call("GET", "/api/v1/catalog/items", params={"status": "published"})
+    if any(i.get("featured") for i in items):
+        return 0
+    done = 0
+    for item in items:
+        if (item.get("names") or {}).get("en") not in FEATURED:
+            continue
+        await api.call(
+            "PATCH",
+            f"/api/v1/catalog/items/{item['id']}",
+            json={"featured": True},
+            version=item["version"],
+        )
+        done += 1
+    return done

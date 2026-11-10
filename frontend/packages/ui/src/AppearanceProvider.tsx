@@ -72,6 +72,9 @@ function useFavicon(brand: Branding): void {
 // A table wider than the screen scrolls inside its own box, never the page (QA BUG-03, 390 px).
 const PAGE_CSS =
   'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
+  // Messages hold text only: clicks pass through to the page header under them, and resting
+  // the pointer there no longer keeps them open (QA10-P4-19). Notifications keep their close.
+  '.ant-message .ant-message-notice-content { pointer-events: none; } ' +
   // In a list page the page's own gaps space the header (16 px, Haider 2026-11-10); the
   // header's margin elsewhere is inline, hence the !important here.
   '.sx-list-page > .sx-page-header { margin-bottom: 0 !important; } ' +

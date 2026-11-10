@@ -1344,6 +1344,7 @@ async def fill_lane_a(
     incidents = await admin.all_pages("/api/v1/incidents")
     report.problems = await lane_a.ensure_problems(admin, sana, incidents)
     report.rules = await lane_a.ensure_rules(admin, groups)
+    report.featured = await lane_a.ensure_featured(admin)
 
 
 @dataclass
@@ -1359,6 +1360,7 @@ class Report:
     service_requests: int = 0
     problems: int = 0
     rules: int = 0
+    featured: int = 0  # catalog items featured on the portal's home now
     sla_policies: int = 0
     sla_from_creation: int = 0
     dashboard: bool = False
@@ -1546,7 +1548,7 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
         f"  service requests made now: {report.service_requests}; problems made now:"
         f" {report.problems}; rules made now: {report.rules}; managers set now:"
-        f" {report.managers}\n"
+        f" {report.managers}; catalog items featured now: {report.featured}\n"
         f"  incidents moved into the past 30 days now: {report.backdated}\n"
         f"  sign in as {ADMIN.email} or {TECHNICIAN.email} with ${PASSWORD_ENV}\n"
     )

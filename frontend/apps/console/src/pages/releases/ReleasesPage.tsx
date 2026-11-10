@@ -151,7 +151,11 @@ export function ReleasesPage() {
           tableLayout="auto"
           components={widths.components}
           locale={{
-            emptyText: (
+            // Nothing to say while the first page loads: no "No releases yet." under the spinner
+            // (QA10-P4-15).
+            emptyText: list.isPending ? (
+              <span />
+            ) : (
               <EmptyText>
                 {t(text.trim() !== '' || view !== 'all' ? 'releases.no_match' : 'releases.empty')}
               </EmptyText>

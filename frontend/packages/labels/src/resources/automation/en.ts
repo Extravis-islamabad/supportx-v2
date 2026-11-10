@@ -49,6 +49,7 @@ export const en = {
   'automation.field_state.help': 'Drafts are saved but never run.',
   'automation.field_stop_after': 'Stop after this rule',
   'automation.field_stop_after.help': 'When this rule matches, the rules after it do not run.',
+  'automation.group_gone': 'A removed group',
   'automation.loop.banner_one': 'Automation stopped {{count}} loop in the last day.',
   'automation.loop.banner_other': 'Automation stopped {{count}} loops in the last day.',
   'automation.loop.chain_depth':
@@ -121,6 +122,7 @@ export const en = {
   'automation.rules.explain':
     "Business rules run while a record is saved, top to bottom. Each one that matches sets fields or refuses the save, and the record's history says which rule changed what.",
   'automation.rules.none': 'No business rules yet.',
+  'automation.site_gone': 'A removed site',
   'automation.someone': 'Someone',
   'automation.stop_marker': 'Stops here',
   'automation.transitions.after': 'After the change',
