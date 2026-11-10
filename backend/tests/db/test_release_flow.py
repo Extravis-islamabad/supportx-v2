@@ -209,3 +209,23 @@ async def test_a_seed_with_roles_and_approvals_ends_v4_unchanged(world: World) -
     await a_release(world, a)
     assert await _state(world, a) == before
     assert await _topped_up(world, a) == []
+
+
+async def test_a_stage_whose_approvals_were_removed_moves_on_by_itself(world: World) -> None:
+    """Never a silent dead end (the coordinator): no approvers means nothing to wait for."""
+    a = world.a
+    item = await a_release(world, a)
+    cleared = await world.call(
+        "PUT",
+        f"{REL}/settings/stages/planning/approvals",
+        a,
+        a.admin,
+        json={"approvals": None},
+        headers={"If-Match": f'"{await settings_version(world, a)}"', **CONSOLE},
+    )
+    assert cleared.status_code == 200, cleared.text
+    item = await moved(world, a, await current(world, a, item), "submission_accepted")
+    item = await moved(world, a, item, "planning_waiting_approval")
+    # The answer already shows it moved on: plan approved, so into Build.
+    assert item["status"] == "build_in_progress"
+    assert await approvals(world, a, item) == []

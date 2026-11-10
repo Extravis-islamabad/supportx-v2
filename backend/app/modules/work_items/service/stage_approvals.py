@@ -274,13 +274,33 @@ class StagedApprovalGuard:
     async def on_moved(self, session: AsyncSession, record: WorkItem, move: Move) -> None:
         """Reaching the raising status opens level 1 (once: not while it is open)."""
         settings = await settings_of(session, self.wtype, record, record.stage)
-        if settings is None or record.status != settings.raised_by:
+        if settings is None:
+            await self._without_approvers(session, record)
+            return
+        if record.status != settings.raised_by:
             return
         stage = str(record.stage)
         if any(r.state == rules.ApprovalState.PENDING for r in await _rows(session, record, stage)):
             return
         await open_level(session, record, settings, stage=stage, index=0)
         del move
+
+    async def _without_approvers(self, session: AsyncSession, record: WorkItem) -> None:
+        """A stage whose approvals were removed moves on by itself (QA10-P4-29).
+
+        Its outcome statuses are set by the approvals only, so a record that reached the status
+        that used to raise them would wait for a decision nobody can make, with only Cancel left.
+        With nothing to approve, it takes the approved outcome at once, recorded as the system's.
+        """
+        default = self.wtype.stage_approvals.get(str(record.stage))
+        if default is None or record.status != default.get("raised_by"):
+            return
+        # Imported here: the work item service imports the stage guard registered below.
+        from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - see above
+
+        await items.system_stage_move(
+            session, self.wtype, record, target=str(default["approved"]), source="system"
+        )
 
 
 def register(types: Sequence[WorkItemType]) -> None:
