@@ -29,6 +29,8 @@ export function StageRail({ rail }: { rail: RailStage[] }) {
       labelPlacement="vertical"
       responsive
       data-testid="release-rail"
+      // The current stage, for tests and tools (the header's stage chip is gone, D2).
+      data-current={rail[current]?.stage}
       items={rail.map((stage) => {
         const last = stage.entries.at(-1);
         return {
