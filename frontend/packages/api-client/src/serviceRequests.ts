@@ -37,6 +37,8 @@ export const serviceRequestKeys = {
   detail: (id: string) => ['service-requests', 'detail', id] as const,
   settings: ['service-requests', 'settings'] as const,
   approvals: (id: string) => ['service-requests', 'detail', id, 'approvals'] as const,
+  // Under the detail key: realtime, a conflict or a reload of the request refresh it (rule 5c).
+  sla: (id: string) => ['service-requests', 'detail', id, 'sla'] as const,
   myApprovals: ['service-requests', 'my-approvals'] as const,
   catalog: ['catalog'] as const,
   items: ['catalog', 'items'] as const,
@@ -370,6 +372,8 @@ function useSavedRequest() {
   const queryClient = useQueryClient();
   return (saved: ServiceRequest) => {
     queryClient.setQueryData(serviceRequestKeys.detail(saved.id), saved);
+    // A save moves the clocks (an assign, a pause): the SLA panel follows (lane B, #346).
+    void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.sla(saved.id) });
     void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });
   };
 }

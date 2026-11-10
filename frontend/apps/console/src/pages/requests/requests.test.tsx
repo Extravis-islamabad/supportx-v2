@@ -431,6 +431,11 @@ describe('console: service requests', () => {
       screen.queryByTestId('sr-op-assign') ?? (await actionItem('sr-op-assign', 'sr-actions'));
     expect(assign).toBeDefined();
     fireEvent.keyDown(document.body, { key: 'Escape' });
+    const slaPath = `/api/v1/service-requests/${SR_ID}/sla`;
+    await waitFor(() => {
+      expect(fake.find('GET', slaPath).length).toBeGreaterThan(0);
+    });
+    const slaBefore = fake.find('GET', slaPath).length;
     await clickAction('inc-action-start_work', 'sr-actions');
     await waitFor(() => {
       expect(
@@ -438,6 +443,10 @@ describe('console: service requests', () => {
       ).toHaveLength(1);
     });
     expect(fake.find('POST', `/api/v1/incidents/${SR_ID}/actions/start_work`)).toHaveLength(0);
+    // The SLA panel follows a save (lane B, #346: it sits under the request's detail key).
+    await waitFor(() => {
+      expect(fake.find('GET', slaPath).length).toBeGreaterThan(slaBefore);
+    });
   });
 
   it('shows one request with its item details and approval status', async () => {

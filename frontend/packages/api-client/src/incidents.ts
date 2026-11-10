@@ -141,14 +141,25 @@ export function useIncidentSla(
   base: 'incidents' | 'service-requests' = 'incidents',
 ) {
   return useQuery({
-    // A request's SLA has its own key: the same record route shape, another type (Haider E3).
-    queryKey: base === 'incidents' ? queryKeys.incidents.sla(id) : [base, 'sla', id],
+    // A request's SLA sits under its detail key (`serviceRequestKeys.sla`, spelled out here as
+    // that file imports this one), so every refresh of the request refreshes it too (lane B,
+    // #346: rule 5c). Each route by its own typed path.
+    queryKey:
+      base === 'incidents'
+        ? queryKeys.incidents.sla(id)
+        : (['service-requests', 'detail', id, 'sla'] as const),
     queryFn: () =>
-      call(
-        api.GET(`/api/v1/${base}/{record_id}/sla` as '/api/v1/incidents/{record_id}/sla', {
-          params: { path: { record_id: id } },
-        }),
-      ),
+      base === 'incidents'
+        ? call(
+            api.GET('/api/v1/incidents/{record_id}/sla', {
+              params: { path: { record_id: id } },
+            }),
+          )
+        : call(
+            api.GET('/api/v1/service-requests/{record_id}/sla', {
+              params: { path: { record_id: id } },
+            }),
+          ),
     enabled,
     retry: false,
     // A side panel: the record page already reports a record it cannot load.

@@ -50,9 +50,13 @@ export function ProblemsPage() {
   const text = useDebounced(search.trim(), SEARCH_DELAY_MS);
   const views = useProblemViews();
   // The list asks for the view the selector shows (QA 2026-11-10: "All open (7)" listed 8,
-  // the closed one too, as no view meant every problem). Not before the views load.
+  // the closed one too, as no view meant every problem). Not before the views load; if they
+  // fail or there are none, the whole list (lane C, #346: never a spinner for ever).
   const shown = view ?? views.data?.[0]?.view;
-  const list = useProblems({ view: shown, filter: searchOf(text) }, shown !== undefined);
+  const list = useProblems(
+    { view: shown, filter: searchOf(text) },
+    shown !== undefined || !views.isPending,
+  );
   const catalogue = useProblemCatalogue();
   // Each person's column widths, per view (Haider, 2026-11-10): drag or arrow keys on a header.
   const titles: Record<string, string> = {

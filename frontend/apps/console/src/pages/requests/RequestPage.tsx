@@ -90,6 +90,7 @@ function ApprovalsSummary({ recordId }: { recordId: string }) {
   const approvals = useApprovals(recordId);
   const people = approvals.data?.people ?? {};
   const decided = (approvals.data?.items ?? []).filter((a) => a.decided_at != null);
+  if (approvals.isPending) return null; // never "none decided" before they load (lane C, #346)
   if (decided.length === 0) {
     return <EmptyText>{t('requests.approvals_none_decided')}</EmptyText>;
   }
