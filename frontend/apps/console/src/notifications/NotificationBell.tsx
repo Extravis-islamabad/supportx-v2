@@ -179,7 +179,11 @@ export function NotificationBell() {
                       <List.Item.Meta
                         avatar={entry.read ? undefined : <Badge status="processing" />}
                         title={
-                          <Typography.Text strong={!entry.read}>
+                          <Typography.Text
+                            strong={!entry.read}
+                            // The whole title when it is cut (QA10V-27).
+                            ellipsis={{ tooltip: entry.title }}
+                          >
                             <a
                               href={entry.link}
                               onClick={(event) => {
