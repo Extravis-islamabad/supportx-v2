@@ -410,7 +410,8 @@ function ProblemView({
           />
         }
       >
-        <Flex vertical gap={16} style={{ padding: 16 }}>
+        {/* No inset of its own: the tabs line up with the incident's and request's (QA10V-18). */}
+        <Flex vertical gap={16}>
           <MergedBanner item={item} />
           {item.lifecycle === 'guided_analysis' && <GuidedSteps record={item} />}
           <Tabs
