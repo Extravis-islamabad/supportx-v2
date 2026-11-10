@@ -17,6 +17,7 @@ from app.modules.work_items.service import asset_links
 from tests.db import test_incidents_api
 from tests.db.test_asset_holders_api import _asset, _hold
 from tests.db.test_incidents_api import BASE, World, field_codes
+from tests.db.test_portal_incidents_api import report
 
 pytestmark = [pytest.mark.db, pytest.mark.valkey]
 world = test_incidents_api.world  # the incident world fixture, reused
@@ -204,3 +205,18 @@ async def test_linked_to_my_tickets_counts_assigned_records_still_being_worked(
     closed = await world.act(a, a.tech_a, await world.fresh(a, mine), "close")
     assert closed.status_code == 200, closed.text
     assert await linked() == set()
+
+
+async def test_a_requester_links_only_assets_they_hold_from_the_portal(world: World) -> None:
+    """AC1: the portal's assets are the requester's own; another's is refused, never linked."""
+    a = world.a
+    mine = await _asset(world, "Portal laptop")
+    theirs = await _asset(world, "Someone's laptop")
+    assert (await _hold(world, mine, "user", a.requester)).status_code == 200
+    assert (await _hold(world, theirs, "user", a.tech_a)).status_code == 200
+    refused = await report(world, a, a.requester, asset_ids=[theirs["id"]])
+    assert field_codes(refused) == {"asset_ids": "asset_not_found"}, refused.text
+    made = await report(world, a, a.requester, asset_ids=[mine["id"]])
+    assert made.status_code == 201, made.text
+    linked = await _assets_of(world, made.json(), a.admin)
+    assert [x["asset_id"] for x in linked] == [mine["id"]]
