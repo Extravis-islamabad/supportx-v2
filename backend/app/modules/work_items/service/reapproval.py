@@ -225,9 +225,16 @@ async def emergency_override(  # noqa: PLR0913 - the change, its version and why
     mandatory before closing (the guard). The route audits it with the reason.
     """
     record = await items.visible_record(session, subject, CHANGE, record_id)
-    if not subject.holds(OVERRIDE_PERMISSION):
+    # Decided on this change, at the scope it was granted (site, group or all): holding it for
+    # one site never reaches another site's change (lane B's #327 review).
+    if not await items.may(session, subject, CHANGE, OVERRIDE, record.id):
         raise PermissionDenied(
-            params={"permission": OVERRIDE_PERMISSION, "reason": "no_permission"}
+            params={
+                "permission": OVERRIDE_PERMISSION,
+                "reason": items.OUT_OF_SCOPE
+                if subject.holds(OVERRIDE_PERMISSION)
+                else "no_permission",
+            }
         )
     if record.version != expected_version:
         raise Conflict(code="version_conflict", params={"current_version": record.version})
@@ -266,6 +273,10 @@ async def emergency_override(  # noqa: PLR0913 - the change, its version and why
     details.resume_stage = details.resume_status = None
     details.pir_required = True
     await session.flush()
+    # Back at a status that raises its own stage's approvals: they open (or the stage moves on
+    # when it has none), as after any move; never a silent stop (lane C's #327 review).
+    await stage_approvals.raise_or_move_on(session, CHANGE, updated)
+    await session.refresh(updated)
     await notice(session, updated, "overridden", stage=str(updated.stage))
     return updated
 

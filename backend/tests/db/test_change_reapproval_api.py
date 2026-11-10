@@ -15,7 +15,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.core.tenancy import TenantContext
 from tests.db.test_changes_api import CHG, a_change, details, move
-from tests.db.test_incidents_api import CONSOLE, Org, World, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
 
 __all__ = ["world"]  # the fixture, re-used
 
@@ -198,18 +198,23 @@ async def test_d144_the_emergency_override_keeps_the_change_going_and_needs_a_re
     rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
     assert "pending" not in {r["state"] for r in rows}  # the re-approval was withdrawn
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
-        logged = await session.scalar(
-            text(
-                "SELECT details->>'stage' FROM audit_entries "
-                "WHERE action = 'change.emergency_override' AND object_id = :r"
-            ),
-            {"r": item["id"]},
-        )
+        outcomes = {
+            row.outcome: row.stage
+            for row in await session.execute(
+                text(
+                    "SELECT outcome, details->>'stage' AS stage FROM audit_entries "
+                    "WHERE action = 'change.emergency_override' AND object_id = :r"
+                ),
+                {"r": item["id"]},
+            )
+        }
+        logged = outcomes.get("done")
         pir = await session.scalar(
             text("SELECT pir_required FROM work_item_change_details WHERE work_item_id = :r"),
             {"r": item["id"]},
         )
     assert (logged, pir) == ("planning", True)  # the reason is kept as personal data
+    assert "refused" in outcomes  # the technician's refused attempt is audited too (lane B)
     # Nothing left to override.
     again = await world.call(
         "POST",
@@ -220,3 +225,72 @@ async def test_d144_the_emergency_override_keeps_the_change_going_and_needs_a_re
         headers={"If-Match": f'"{done.json()["version"]}"', **CONSOLE},
     )
     assert again.status_code == 409, again.text
+
+
+async def test_d144_the_override_is_decided_at_its_granted_scope(world: World) -> None:
+    """Lane B's #327 review: holding the override for one site never reaches another's change.
+
+    The change is the requester's site (S1). Tech B (S2) and Tech A (S1) hold the override at
+    site scope only: Tech B is refused and nothing changes; Tech A, at the change's site, may.
+    """
+    a = world.a
+    item = await accepted(world, a)
+    await details(world, a, item, item["version"], risk_chosen="high", risk_reason="Core switch")
+    sent = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert sent["site_id"] == str(a.s1)
+    site_override = await role(world, a, "Site override", [("changes.emergency_override", "site")])
+    for tech in (a.tech_a, a.tech_b):
+        given = await world.call("PUT", f"/users/{tech}/roles/{site_override}", a, a.admin)
+        assert given.status_code == 204, given.text
+    url = f"{CHG}/{item['id']}/emergency-override"
+    headers = {"If-Match": f'"{sent["version"]}"', **CONSOLE}
+    other_site = await world.call(
+        "POST", url, a, a.tech_b, json={"reason": "Outage"}, headers=headers
+    )
+    assert problem(other_site) == (403, "permission_denied"), other_site.text
+    assert other_site.json()["params"]["reason"] == "out_of_scope"
+    unchanged = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert (unchanged["version"], unchanged["status"]) == (sent["version"], sent["status"])
+    own_site = await world.call(
+        "POST", url, a, a.tech_a, json={"reason": "Half the switches are done"}, headers=headers
+    )
+    assert own_site.status_code == 200, own_site.text
+
+
+async def test_d144_an_override_back_to_a_raising_status_raises_that_stage_again(
+    world: World,
+) -> None:
+    """Lane C's #327 review: sent back while its plan awaited approval, the change overridden
+    returns there, and the plan's approvals open again (never a silent stop with none)."""
+    a = world.a
+    item = await accepted(world, a)
+    wrote = await world.call(
+        "PUT",
+        f"{CHG}/{item['id']}/plan/backout",
+        a,
+        a.admin,
+        json={"content": "<p>Roll back the firmware</p>"},
+        headers={"If-Match": '"0"', **CONSOLE},
+    )
+    assert wrote.status_code == 200, wrote.text
+    planning = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    asked = await move(world, a, planning, "planning_awaiting_approval")
+    assert asked.status_code == 200, asked.text
+    await details(world, a, item, asked.json()["version"], risk_chosen="high", risk_reason="Core")
+    sent = (await world.call("GET", f"{CHG}/{item['id']}", a, a.admin)).json()
+    assert sent["stage"] == "submission"
+    done = await world.call(
+        "POST",
+        f"{CHG}/{item['id']}/emergency-override",
+        a,
+        a.admin,
+        json={"reason": "Outage"},
+        headers={"If-Match": f'"{sent["version"]}"', **CONSOLE},
+    )
+    assert done.status_code == 200, done.text
+    assert (done.json()["stage"], done.json()["status"]) == (
+        "planning",
+        "planning_awaiting_approval",
+    )
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/approvals", a, a.admin)).json()["items"]
+    assert any(r["record_stage"] == "planning" and r["state"] == "pending" for r in rows), rows

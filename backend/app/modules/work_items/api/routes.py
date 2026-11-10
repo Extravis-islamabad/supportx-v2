@@ -2978,12 +2978,20 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             subject: View,
             response: Response,
             request: Request,
+            note: Annotated[
+                AuditNote,
+                # The dependency also logs a refused attempt (lane B's #327 review).
+                audited(
+                    "change.emergency_override", object_type="change", object_param="record_id"
+                ),
+            ],
         ) -> WorkItemOut:
             """Needs changes.emergency_override, a reason and If-Match (D-144).
 
             The re-approval is withdrawn, the change returns where it was, and its review
-            becomes mandatory. Audited with the reason.
+            becomes mandatory. Audited with the reason, refused attempts too.
             """
+            note.reason = body.reason
             updated = await reapproval_service.emergency_override(
                 session,
                 subject,
@@ -2992,15 +3000,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 expected_version=version,
                 source=source_of(request),
             )
-            await record_audit(
-                session,
-                action_code="change.emergency_override",
-                facts=RequestFacts.of(request),
-                object_type="change",
-                object_id=record_id,
-                reason=body.reason,
-                details={"stage": updated.stage, "status": updated.status},
-            )
+            note.details = {"stage": updated.stage, "status": updated.status}
             view = await service.get(session, subject, wtype, record_id)
             set_etag(response, view.record.version)
             return WorkItemOut.of(view)
