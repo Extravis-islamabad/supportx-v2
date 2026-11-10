@@ -179,6 +179,12 @@ describe('console: problems', () => {
     const row = (await screen.findByTestId('prb-row-PRB-7')).closest('tr');
     expect(within(row as HTMLElement).getByText('Mail relay drops messages')).toBeDefined();
     expect(screen.getByTestId('prb-new')).toBeDefined();
+    // QA10V-17: a defaulted priority is an icon with its name, never a bare "*".
+    const priority = within(row as HTMLElement).getByTestId('inc-priority');
+    expect(priority.textContent).not.toContain('*');
+    expect(
+      within(priority).getByRole('img', { name: 'Default (impact and urgency unknown)' }),
+    ).toBeDefined();
   });
 
   it('Haider 2026-11-10: the list is the list template; a column resized by keyboard is kept for this view', async () => {
