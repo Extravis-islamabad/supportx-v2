@@ -26,6 +26,10 @@ ValueChecker = Callable[[AsyncSession, Mapping[str, JsonValue]], Awaitable[Mappi
 RecordEditCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
 # The record and the stopped instance.
 WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
+# The record, the workflow's history ref, and the version it left and the one it is on now.
+MigrationRecorder = Callable[
+    [AsyncSession, uuid.UUID, Mapping[str, Any], int, int], Awaitable[None]
+]
 
 
 @dataclass(frozen=True)
@@ -55,6 +59,8 @@ class RecordType:
     may_edit: "RecordEditCheck | None" = None
     # A stopped workflow's open parts on the record (its pending approvals) close (REQ-WF-026).
     close_workflow: "WorkflowCloser | None" = None
+    # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).
+    record_migration: "MigrationRecorder | None" = None
 
 
 @dataclass(frozen=True)

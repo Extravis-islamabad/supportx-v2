@@ -10,6 +10,7 @@ export const ur: LabelResource = {
   'errors.action_link_stale': 'یہ لنک بھیجے جانے کے بعد درخواست بدل گئی۔ اسے ایپ میں کھولیں۔',
   'errors.action_link_used': 'یہ لنک پہلے ہی استعمال ہو چکا ہے۔',
   'errors.already_known_error': '{{display_id}} پہلے ہی معلوم خرابی ہے۔',
+  'errors.already_on_version': 'یہ رن پہلے ہی اسی ورژن پر ہے۔',
   'errors.already_taken': '{{taken_by}} نے ابھی اسے لے لیا ہے۔ دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.already_yours': 'یہ پہلے ہی آپ کو تفویض ہے۔',
   'errors.announcement_not_found': 'یہ اعلان موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
@@ -125,6 +126,8 @@ export const ur: LabelResource = {
   'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
+  'errors.command_in_flight':
+    'یہ رن ایک ایسے مرحلے کا انتظار کر رہا ہے جو دوسری قسم کے مرحلے پر جائے گا۔ پہلے اسے مکمل ہونے دیں۔',
   'errors.conflict':
     'کسی اور نے یہ آئٹم تبدیل کر دیا۔ تازہ ترین ورژن دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.console_requester_only': 'یہ اکاؤنٹ درخواست گزار پورٹل استعمال کرتا ہے، کنسول نہیں۔',
@@ -761,6 +764,8 @@ export const ur: LabelResource = {
   'errors.no_organization':
     'آپ کا اکاؤنٹ ابھی کسی ادارے سے منسلک نہیں۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
   'errors.node_not_found': 'یہ مرحلہ ورک فلو کے اس ورژن میں نہیں ہے۔',
+  'errors.node_not_mapped':
+    'یہ رن جس مرحلے پر ہے اس کی نئے ورژن میں جگہ نہیں: اسے کسی مرحلے سے جوڑیں۔',
   'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
@@ -781,6 +786,8 @@ export const ur: LabelResource = {
   'errors.order_out_of_date': 'اس دوران فہرست بدل گئی۔ دوبارہ لوڈ کر کے ترتیب دیں۔',
   'errors.out_of_range': 'یہ قدر اجازت شدہ حد سے باہر ہے۔',
   'errors.own_profile_only': 'آپ صرف اپنی ترجیحات تبدیل کر سکتے ہیں۔',
+  'errors.parallel_in_progress':
+    'یہ رن متوازی شاخوں کے اندر ہے اور ان کے ملنے تک منتقل نہیں ہو سکتا۔',
   'errors.password_policy_not_saved': 'پہلے پاس ورڈ پالیسی محفوظ کریں۔',
   'errors.password_policy_platform': 'اس انسٹالیشن پر پاس ورڈ پالیسی پلیٹ فارم طے کرتا ہے۔',
   'errors.password_reset_not_signed_in':
@@ -941,6 +948,7 @@ export const ur: LabelResource = {
     'آپ کے کھولنے کے بعد یہ ورک فلو بدل گیا۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.workflow_instance_not_found': 'ورک فلو کا یہ رن نہیں ملا۔',
   'errors.workflow_job_not_found': 'یہ جاب نہیں ملی۔',
+  'errors.workflow_version_not_found': 'ورک فلو کا یہ ورژن نہیں ملا۔',
   'errors.would_lose_access':
     'اس تبدیلی کے بعد آپ {{display_id}} نہیں دیکھ سکیں گے۔ حوالے کرنے کے لیے تصدیق کریں۔',
 };

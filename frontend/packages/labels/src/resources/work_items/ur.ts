@@ -1701,6 +1701,7 @@ export const ur: LabelResource = {
   'work_item.field.template_id': 'سانچہ',
   'work_item.field.urgency': 'فوریت',
   'work_item.field.workaround': 'عارضی حل',
+  'work_item.field.workflow_version': 'ورک فلو ورژن',
   'work_item.field.worklog': 'ورک لاگ',
   'work_item.history.changed': '{{who}} نے {{field}} کو {{old}} سے {{new}} میں بدلا',
   'work_item.history.changed_only': '{{who}} نے {{field}} بدلا',

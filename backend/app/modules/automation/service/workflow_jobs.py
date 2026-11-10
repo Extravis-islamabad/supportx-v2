@@ -5,7 +5,8 @@ worker runs the job in batches, as that admin, each instance in its own savepoin
 never stops the others, and keeps each instance's result. Progress reaches the overview live
 (the `workflows` list channel; IDs and counts only).
 
-Migration (REQ-WF-021) joins as a third kind with S3c.
+Migration (REQ-WF-021, S3c) is the third kind: onto `options.to_version` through
+`options.mapping`, or as a dry run that only says what would move (`would_move`).
 """
 
 import uuid
@@ -23,7 +24,12 @@ from app.core.errors import AppError, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.automation.events import WorkflowJobProgressed
-from app.modules.automation.infra.models import Workflow, WorkflowInstance, WorkflowJob
+from app.modules.automation.infra.models import (
+    Workflow,
+    WorkflowInstance,
+    WorkflowJob,
+    WorkflowVersion,
+)
 from app.modules.automation.service import workflow_runtime
 from app.shared.events import record_event
 
@@ -38,7 +44,7 @@ class JobKind(StrEnum):
 
     RETRY = "retry"
     CANCEL = "cancel"
-    MIGRATE = "migrate"  # S3c
+    MIGRATE = "migrate"  # onto another version (REQ-WF-021)
 
 
 class JobStatus(StrEnum):
@@ -50,20 +56,21 @@ class JobStatus(StrEnum):
     FAILED = "failed"
 
 
-async def create(
+async def create(  # noqa: PLR0913 - the job and its choices, explicit
     session: AsyncSession,
     *,
     workflow_id: uuid.UUID,
     kind: JobKind,
     instance_ids: Sequence[uuid.UUID],
     options: dict[str, Any],
+    dry_run: bool = False,
 ) -> WorkflowJob:
     """Queue a job over the chosen instances of one workflow; the worker runs it."""
     workflow = await session.get(Workflow, workflow_id)
     if workflow is None or workflow.deleted_at is not None:
         raise NotFound(code="workflow_not_found")
-    if kind is JobKind.MIGRATE:  # pragma: no cover - joins with S3c
-        raise ValidationFailed(code="job_kind_not_available")
+    if kind is JobKind.MIGRATE:
+        await _check_target(session, workflow, options)
     chosen = list(dict.fromkeys(instance_ids))
     if not 1 <= len(chosen) <= MAX_INSTANCES:
         raise ValidationFailed(code="job_size", params={"max": MAX_INSTANCES})
@@ -84,11 +91,21 @@ async def create(
         options=options,
         status=JobStatus.QUEUED.value,
         total=len(chosen),
+        dry_run=dry_run,
     )
     session.add(job)
     await session.flush()
     await _progress(session, job)
     return job
+
+
+async def _check_target(session: AsyncSession, workflow: Workflow, options: dict[str, Any]) -> None:
+    """A migration names a published version of the same workflow."""
+    found = await session.get(
+        WorkflowVersion, (workflow.tenant_id, workflow.id, int(options["to_version"]))
+    )
+    if found is None:
+        raise NotFound(code="workflow_version_not_found")
 
 
 async def _progress(session: AsyncSession, job: WorkflowJob) -> None:
@@ -166,7 +183,9 @@ async def _batch(session: AsyncSession, job_id: uuid.UUID, instance_ids: list[uu
         return
     results = list(job.results)
     for instance_id in instance_ids:
-        outcome = await _one(session, JobKind(job.kind), instance_id, job.options)
+        outcome = await _one(
+            session, JobKind(job.kind), instance_id, job.options, dry_run=job.dry_run
+        )
         results.append({"instance_id": str(instance_id), **outcome})
         job.processed += 1
         if outcome["outcome"] == "done":
@@ -179,7 +198,12 @@ async def _batch(session: AsyncSession, job_id: uuid.UUID, instance_ids: list[uu
 
 
 async def _one(
-    session: AsyncSession, kind: JobKind, instance_id: uuid.UUID, options: dict[str, Any]
+    session: AsyncSession,
+    kind: JobKind,
+    instance_id: uuid.UUID,
+    options: dict[str, Any],
+    *,
+    dry_run: bool,
 ) -> dict[str, Any]:
     """One instance, in a savepoint: its outcome and, when skipped, the stable code why."""
     try:
@@ -191,8 +215,16 @@ async def _one(
                 await workflow_runtime.stop(
                     session, instance_id, reason=reason, expected_version=None
                 )
-            else:  # pragma: no cover - S3c
-                return {"outcome": "skipped", "code": "job_kind_not_available"}
+            else:
+                await workflow_runtime.migrate(
+                    session,
+                    instance_id,
+                    to_version=int(options["to_version"]),
+                    mapping=dict(options.get("mapping") or {}),
+                    dry_run=dry_run,
+                )
+                if dry_run:
+                    return {"outcome": "would_move"}
     except AppError as refused:  # the instance's own state said no: the job goes on
         return {"outcome": "skipped", "code": refused.instance_code}
     return {"outcome": "done"}

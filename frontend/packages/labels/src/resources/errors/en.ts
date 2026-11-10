@@ -7,6 +7,7 @@ export const en = {
   'errors.action_link_stale': 'The request changed since this link was sent. Open it in the app.',
   'errors.action_link_used': 'This link has already been used.',
   'errors.already_known_error': '{{display_id}} is already a known error.',
+  'errors.already_on_version': 'This run is already on that version.',
   'errors.already_taken': '{{taken_by}} has just taken this. Reload to see it.',
   'errors.already_yours': 'It is already assigned to you.',
   'errors.announcement_not_found': 'This announcement does not exist or is not available to you.',
@@ -125,6 +126,8 @@ export const en = {
   'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
+  'errors.command_in_flight':
+    'This run is waiting on a step that would move to a different kind of step. Let it finish first.',
   'errors.conflict': 'Someone else changed this item. Reload to see the latest version.',
   'errors.console_requester_only': 'This account uses the requester portal, not the console.',
   'errors.contact_editing_off':
@@ -755,6 +758,7 @@ export const en = {
   'errors.no_organization':
     'Your account is not linked to any organisation yet. Please contact your administrator.',
   'errors.node_not_found': 'That step is not in this version of the workflow.',
+  'errors.node_not_mapped': 'A step this run is at has no place in the new version: map it to one.',
   'errors.not_a_member': 'You are not a member of that organisation.',
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
@@ -775,6 +779,8 @@ export const en = {
   'errors.order_out_of_date': 'The list changed meanwhile. Reload it and order again.',
   'errors.out_of_range': 'This value is outside the allowed range.',
   'errors.own_profile_only': 'You can only change your own preferences.',
+  'errors.parallel_in_progress':
+    'This run is inside parallel branches and cannot move until they join.',
   'errors.password_policy_not_saved': 'Save the password policy first.',
   'errors.password_policy_platform': 'The platform sets the password policy on this installation.',
   'errors.password_reset_not_signed_in':
@@ -936,6 +942,7 @@ export const en = {
     'This workflow changed since you opened it. Reload and try again.',
   'errors.workflow_instance_not_found': 'This workflow run was not found.',
   'errors.workflow_job_not_found': 'This job was not found.',
+  'errors.workflow_version_not_found': 'That version of the workflow was not found.',
   'errors.would_lose_access':
     'After this change you will no longer see {{display_id}}. Confirm to hand it over.',
 } as const;

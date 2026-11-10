@@ -9,6 +9,7 @@ export const ar: LabelResource = {
   'errors.action_link_stale': 'تغيّر الطلب منذ إرسال هذا الرابط. افتحه في التطبيق.',
   'errors.action_link_used': 'تم استخدام هذا الرابط من قبل.',
   'errors.already_known_error': '{{display_id}} خطأ معروف بالفعل.',
+  'errors.already_on_version': 'هذا التشغيل على هذا الإصدار بالفعل.',
   'errors.already_taken': 'تولّى {{taken_by}} هذا للتو. أعد التحميل لرؤيته.',
   'errors.already_yours': 'إنها مسندة إليك بالفعل.',
   'errors.announcement_not_found': 'هذا الإعلان غير موجود أو غير متاح لك.',
@@ -116,6 +117,8 @@ export const ar: LabelResource = {
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
+  'errors.command_in_flight':
+    'هذا التشغيل ينتظر خطوة ستنتقل إلى نوع آخر من الخطوات. دعها تنتهي أولًا.',
   'errors.conflict': 'قام شخص آخر بتعديل هذا العنصر. أعد التحميل لعرض أحدث إصدار.',
   'errors.console_requester_only': 'يستخدم هذا الحساب بوابة مقدمي الطلبات، وليس وحدة التحكم.',
   'errors.contact_editing_off': 'لا تسمح مؤسستك بتغيير بيانات الاتصال هنا. اسأل مكتب الخدمة.',
@@ -692,6 +695,8 @@ export const ar: LabelResource = {
   'errors.network_error': 'تعذّر الوصول إلى SupportX حاليًا. تحقّق من اتصالك؛ سنواصل المحاولة.',
   'errors.no_organization': 'حسابك غير مرتبط بأي مؤسسة بعد. يرجى التواصل مع المسؤول.',
   'errors.node_not_found': 'هذه الخطوة ليست في هذا الإصدار من سير العمل.',
+  'errors.node_not_mapped':
+    'خطوة يقف عندها هذا التشغيل ليس لها مكان في الإصدار الجديد: اربطها بخطوة.',
   'errors.not_a_member': 'أنت لست عضوًا في هذه المؤسسة.',
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.not_an_approver': 'لست من الموافقين على هذا الطلب.',
@@ -710,6 +715,7 @@ export const ar: LabelResource = {
   'errors.order_out_of_date': 'تغيّرت القائمة في الأثناء. أعد تحميلها ورتّبها مجددًا.',
   'errors.out_of_range': 'هذه القيمة خارج النطاق المسموح.',
   'errors.own_profile_only': 'يمكنك تغيير تفضيلاتك أنت فقط.',
+  'errors.parallel_in_progress': 'هذا التشغيل داخل فروع متوازية ولا يمكن نقله حتى تلتقي.',
   'errors.password_policy_not_saved': 'احفظ سياسة كلمات المرور أولًا.',
   'errors.password_policy_platform': 'تحدد المنصة سياسة كلمات المرور في هذا التثبيت.',
   'errors.password_reset_not_signed_in':
@@ -856,5 +862,6 @@ export const ar: LabelResource = {
   'errors.workflow_instance_changed': 'تغيّر سير العمل هذا منذ فتحته. أعد التحميل وحاول مرة أخرى.',
   'errors.workflow_instance_not_found': 'لم يُعثر على تشغيل سير العمل هذا.',
   'errors.workflow_job_not_found': 'لم يُعثر على هذه المهمة.',
+  'errors.workflow_version_not_found': 'لم يُعثر على هذا الإصدار من سير العمل.',
   'errors.would_lose_access': 'بعد هذا التغيير لن ترى {{display_id}} بعد الآن. أكّد لتسليمه.',
 };

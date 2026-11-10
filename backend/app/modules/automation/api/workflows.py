@@ -11,7 +11,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Response, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
@@ -24,6 +24,7 @@ from app.modules.automation.infra.models import (
     WorkflowInstance,
     WorkflowJob,
     WorkflowStep,
+    WorkflowVersion,
 )
 from app.modules.automation.service import workflow_admin, workflow_jobs, workflow_runtime
 from app.modules.automation.service.registry import record_type as registered
@@ -486,10 +487,15 @@ async def retry_instance(
 
 
 class JobIn(BaseModel):
-    """A bulk retry or cancel over chosen runs of one workflow (REQ-WF-025 AC2)."""
+    """A bulk retry, cancel or migration over chosen runs of one workflow (REQ-WF-021, -025)."""
 
-    kind: Literal["retry", "cancel"]
+    kind: Literal["retry", "cancel", "migrate"]
     instance_ids: list[uuid.UUID] = Field(min_length=1, max_length=workflow_jobs.MAX_INSTANCES)
+    # A migration (REQ-WF-021): the version to move to, old node → new node where the IDs
+    # differ, and a dry run that says what would move and changes nothing.
+    to_version: int | None = Field(default=None, ge=1)
+    mapping: dict[str, str] = Field(default_factory=dict, max_length=200)
+    dry_run: bool = False
     # Cancelling asks for a reason, as stopping one run does (REQ-WF-026 AC1).
     reason: str | None = Field(
         default=None, min_length=1, max_length=workflow_runtime.STOP_REASON_MAX
@@ -511,6 +517,12 @@ class JobOut(BaseModel):
     created_at: datetime
     finished_at: datetime | None
     version: int
+
+
+def _options(body: JobIn) -> dict[str, Any]:
+    if body.kind == "migrate":
+        return {"to_version": body.to_version, "mapping": body.mapping}
+    return {"reason": body.reason.strip()} if body.reason else {}
 
 
 def _job(row: WorkflowJob) -> JobOut:
@@ -536,6 +548,14 @@ async def queue_job(
 ) -> Response:
     """The worker runs it in batches; its progress reaches the overview live."""
     del subject
+    if body.kind == "migrate" and body.to_version is None:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.to_version", code="required", message_key="errors.field.required"
+                )
+            ]
+        )
     if body.kind == "cancel" and not (body.reason or "").strip():
         raise ValidationFailed(
             errors=[
@@ -551,7 +571,8 @@ async def queue_job(
             workflow_id=workflow_id,
             kind=workflow_jobs.JobKind(body.kind),
             instance_ids=body.instance_ids,
-            options={"reason": body.reason.strip()} if body.reason else {},
+            options=_options(body),
+            dry_run=body.dry_run,
         )
         return Created(_job(job), {"ETag": f'"{job.version}"'})
 
@@ -566,3 +587,56 @@ async def get_job(job_id: uuid.UUID, session: TenantSession, subject: Manage) ->
     if job is None:
         raise NotFound(code="workflow_job_not_found")
     return _job(job)
+
+
+class VersionOut(BaseModel):
+    """One published version: who published it and when, and the runs still on it (WF-027)."""
+
+    number: int
+    published_at: datetime
+    published_by: uuid.UUID | None
+    running: int
+
+
+@router.get("/{workflow_id}/versions", summary="A workflow's published versions")
+async def versions(
+    workflow_id: uuid.UUID, session: TenantSession, subject: Manage
+) -> list[VersionOut]:
+    """Newest first, with how many runs are live on each (REQ-WF-021, -027)."""
+    del subject
+    workflow = await session.get(Workflow, workflow_id)
+    if workflow is None or workflow.deleted_at is not None:
+        raise NotFound(code="workflow_not_found")
+    live = (InstanceStatus.RUNNING.value, InstanceStatus.WAITING.value)
+    grouped = await session.execute(
+        select(WorkflowInstance.version_number, func.count())
+        .where(WorkflowInstance.workflow_id == workflow_id, WorkflowInstance.status.in_(live))
+        .group_by(WorkflowInstance.version_number)
+    )
+    counts = {int(number): int(count) for number, count in grouped.all()}
+    rows = await session.scalars(
+        select(WorkflowVersion)
+        .where(WorkflowVersion.workflow_id == workflow_id)
+        .order_by(WorkflowVersion.number.desc())
+    )
+    return [
+        VersionOut(
+            number=v.number,
+            published_at=v.published_at,
+            published_by=v.published_by,
+            running=int(counts.get(v.number, 0)),
+        )
+        for v in rows
+    ]
+
+
+@router.get(
+    "/{workflow_id}/versions/{number}/occupancy",
+    summary="Where a version's live runs are: the migration's preview",
+)
+async def version_occupancy(
+    workflow_id: uuid.UUID, number: int, session: TenantSession, subject: Manage
+) -> dict[str, int]:
+    """Live runs at each node of the version (REQ-WF-021: the per-node preview)."""
+    del subject
+    return await workflow_runtime.occupancy(session, workflow_id, number)

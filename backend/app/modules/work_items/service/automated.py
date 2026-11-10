@@ -21,6 +21,7 @@ from app.modules.work_items.service import conversations, workflow_approvals, wo
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.rule_assignment import place_person
 from app.shared.events import EventEnvelope
+from app.shared.history import Change, record_changes
 
 _RECORD_EVENTS = {
     "work_items.work_item.created": automation.TriggerEvent.CREATED,
@@ -158,6 +159,30 @@ def _note(wtype: WorkItemType) -> automation.Noter:
     return note
 
 
+async def _record_migration(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    ref: Mapping[str, Any],
+    old_version: int,
+    new_version: int,
+) -> None:
+    """A workflow run on the record moved to another version: one history line naming it."""
+    record = await session.get(WorkItem, record_id)
+    if record is None:
+        return
+    await record_changes(
+        session,
+        record_type=items.RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=[Change("workflow_version", old_version, new_version)],
+        source="workflow",
+        automation_ref=dict(ref),
+        subtype=record.type,
+    )
+
+
 def _may_edit(wtype: WorkItemType) -> automation.RecordEditCheck:
     async def check(session: AsyncSession, subject: Subject, record_id: uuid.UUID) -> bool:
         return await items.may_edit(session, subject, wtype, record_id)
@@ -185,6 +210,7 @@ def register_triggers() -> None:
                 notices=wtype.code.value in workflow_commands.NOTICE_TYPES,
                 may_edit=_may_edit(wtype),  # ADR-043 §10: run, stop, restart on the record
                 close_workflow=workflow_approvals.close_for_instance,  # REQ-WF-026
+                record_migration=_record_migration,  # REQ-WF-021 AC2
             )
         )
     automation.register_event_reader((*_RECORD_EVENTS, _CONVERSATION), read_event)

@@ -19,6 +19,9 @@ from tests.test_error_labels import label_keys
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
     "InstanceOut.status": "workflow_instance_status",  # WP-048b
+    "JobIn.kind": "workflow_job_kind",  # WP-048b S3
+    "JobOut.kind": "workflow_job_kind",
+    "JobOut.status": "workflow_job_status",
     "AiSettingsOut.summary_sources[]": "ai_summary_source",
     "DuplicateOut.reasons[]": "duplicate_reason",
     "DuplicatesOut.method": "duplicate_method",

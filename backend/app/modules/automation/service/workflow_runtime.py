@@ -594,3 +594,68 @@ async def stop_for_record(
     for instance_id in live:
         await stop(session, instance_id, reason=RECORD_CANCELED, expected_version=None, now=now)
     return live
+
+
+async def migrate(  # noqa: PLR0913 - the move and its choices, explicit
+    session: AsyncSession,
+    instance_id: uuid.UUID,
+    *,
+    to_version: int,
+    mapping: Mapping[str, str],
+    dry_run: bool,
+    now: datetime | None = None,
+) -> WorkflowInstance:
+    """Move a running or waiting instance onto `to_version` through `mapping` (REQ-WF-021).
+
+    A dry run checks everything and changes nothing (AC3). A move writes its log line and a
+    history line on the record naming the workflow (AC2). Refusals leave the run where it is.
+    """
+    moment = now or datetime.now(UTC)
+    instance, old = await _locked(session, instance_id, None)
+    if instance.version_number == to_version:
+        raise Conflict(code="already_on_version", params={"version": to_version})
+    target = await session.get(
+        WorkflowVersion, (instance.tenant_id, instance.workflow_id, to_version)
+    )
+    if target is None:
+        raise NotFound(code="workflow_version_not_found")
+    state = load(instance.state, instance.status, instance.failure)
+    try:
+        done = operations.migrate(old, _definition(target), state, mapping, at=moment)
+    except operations.OperationRefused as error:
+        raise _refused(error) from error
+    if dry_run:
+        return instance
+    left = instance.version_number
+    instance.version_number = to_version
+    await _save(session, instance, done.state, steps=done.steps, wake=None, now=moment)
+    kind = registered(instance.record_type)
+    if kind is not None and kind.record_migration is not None:
+        ref = {
+            "kind": "workflow",
+            "workflow_id": str(instance.workflow_id),
+            "instance_id": str(instance.id),
+        }
+        await kind.record_migration(session, instance.record_id, ref, left, to_version)
+    ran = await run(session, instance.id, None, now=moment)  # a token now ready runs on
+    return ran or instance
+
+
+async def occupancy(
+    session: AsyncSession, workflow_id: uuid.UUID, version_number: int
+) -> dict[str, int]:
+    """How many live runs of one version sit at each node (the migration's preview)."""
+    rows = await session.scalars(
+        select(WorkflowInstance.state).where(
+            WorkflowInstance.workflow_id == workflow_id,
+            WorkflowInstance.version_number == version_number,
+            WorkflowInstance.status.in_(
+                (InstanceStatus.RUNNING.value, InstanceStatus.WAITING.value)
+            ),
+        )
+    )
+    counts: dict[str, int] = {}
+    for state in rows:
+        for node in {str(t["node"]) for t in state.get("tokens", [])}:
+            counts[node] = counts.get(node, 0) + 1
+    return counts
