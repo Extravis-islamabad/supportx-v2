@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { App, Card, Flex, Form, Select, Skeleton, Switch, Typography } from 'antd';
+import { App, Flex, Form, Select, Skeleton, Switch, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -9,7 +9,7 @@ import {
   useServiceRequestSettingsChange,
   type OnBehalfScope,
 } from '@supportx/api-client';
-import { PageHeader, reportError, useLabel, WriteButton } from '@supportx/ui';
+import { PageHeader, reportError, SettingsCard, StickySaveBar, useLabel } from '@supportx/ui';
 
 // Whom a requester may raise a request for (REQ-SR-011), widest last. Staff raise for anyone;
 // a requester always may raise for their own direct reports.
@@ -32,6 +32,7 @@ export function RequestSettingsPage() {
     scope: OnBehalfScope;
     hidden: boolean;
     signIn: boolean;
+    starts: boolean;
     version: number;
   }>();
   if (catalogue.isLoading || catalogue.data === undefined) return <Skeleton active />;
@@ -39,51 +40,59 @@ export function RequestSettingsPage() {
   const scope = draft?.scope ?? saved.on_behalf_scope;
   const hidden = draft?.hidden ?? saved.approvals_hidden_from_requesters;
   const signIn = draft?.signIn ?? saved.approvals_require_sign_in;
-  const dirty =
-    draft !== undefined &&
-    (draft.scope !== saved.on_behalf_scope ||
-      draft.hidden !== saved.approvals_hidden_from_requesters ||
-      draft.signIn !== saved.approvals_require_sign_in);
-  const edit = (next: Partial<{ scope: OnBehalfScope; hidden: boolean; signIn: boolean }>) => {
-    setDraft({ scope, hidden, signIn, version: draft?.version ?? saved.version, ...next });
+  const starts = draft?.starts ?? saved.first_task_starts_work;
+  const edit = (
+    next: Partial<{ scope: OnBehalfScope; hidden: boolean; signIn: boolean; starts: boolean }>,
+  ) => {
+    setDraft({ scope, hidden, signIn, starts, version: draft?.version ?? saved.version, ...next });
+  };
+  const changes =
+    draft === undefined
+      ? 0
+      : [
+          draft.scope !== saved.on_behalf_scope,
+          draft.hidden !== saved.approvals_hidden_from_requesters,
+          draft.signIn !== saved.approvals_require_sign_in,
+          draft.starts !== saved.first_task_starts_work,
+        ].filter(Boolean).length;
+  const submit = () => {
+    if (draft === undefined) return;
+    change.mutate(
+      {
+        body: {
+          ...(draft.scope !== saved.on_behalf_scope && { on_behalf_scope: draft.scope }),
+          ...(draft.hidden !== saved.approvals_hidden_from_requesters && {
+            approvals_hidden_from_requesters: draft.hidden,
+          }),
+          ...(draft.signIn !== saved.approvals_require_sign_in && {
+            approvals_require_sign_in: draft.signIn,
+          }),
+          ...(draft.starts !== saved.first_task_starts_work && {
+            first_task_starts_work: draft.starts,
+          }),
+        },
+        version: draft.version,
+      },
+      {
+        onSuccess: () => {
+          setDraft(undefined);
+          void message.success(t('settings.saved'));
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.isConflict) {
+            setDraft(undefined);
+            void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.settings });
+          }
+          reportError(error);
+        },
+      },
+    );
   };
   return (
     <Flex vertical gap={16} style={{ maxWidth: 760 }}>
       <PageHeader title={t('nav.admin_requests')} />
-      <Card title={t('requests.settings.raising_for_others')}>
-        <Form
-          layout="vertical"
-          onFinish={() => {
-            if (draft === undefined) return;
-            change.mutate(
-              {
-                body: {
-                  ...(draft.scope !== saved.on_behalf_scope && { on_behalf_scope: draft.scope }),
-                  ...(draft.hidden !== saved.approvals_hidden_from_requesters && {
-                    approvals_hidden_from_requesters: draft.hidden,
-                  }),
-                  ...(draft.signIn !== saved.approvals_require_sign_in && {
-                    approvals_require_sign_in: draft.signIn,
-                  }),
-                },
-                version: draft.version,
-              },
-              {
-                onSuccess: () => {
-                  setDraft(undefined);
-                  void message.success(t('settings.saved'));
-                },
-                onError: (error) => {
-                  if (error instanceof ApiError && error.isConflict) {
-                    setDraft(undefined);
-                    void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.settings });
-                  }
-                  reportError(error);
-                },
-              },
-            );
-          }}
-        >
+      <SettingsCard title={t('requests.settings.raising_for_others')}>
+        <Form layout="vertical" component="div">
           <Form.Item
             label={t('requests.settings.on_behalf_scope')}
             htmlFor="sr-on-behalf-scope"
@@ -144,17 +153,40 @@ export function RequestSettingsPage() {
               data-testid="sr-require-sign-in"
             />
           </Form.Item>
-          <WriteButton
-            type="primary"
-            htmlType="submit"
-            disabled={!dirty}
-            loading={change.isPending}
-            data-testid="sr-settings-save"
-          >
-            {t('actions.save')}
-          </WriteButton>
         </Form>
-      </Card>
+      </SettingsCard>
+      <SettingsCard title={t('requests.settings.fulfilment')}>
+        <Form layout="vertical" component="div">
+          <Form.Item
+            label={t('requests.settings.first_task_starts_work')}
+            htmlFor="sr-first-task-starts"
+            extra={
+              <Typography.Text type="secondary">
+                {t('requests.settings.first_task_starts_work_help')}
+              </Typography.Text>
+            }
+          >
+            <Switch
+              id="sr-first-task-starts"
+              checked={starts}
+              onChange={(value) => {
+                edit({ starts: value });
+              }}
+              data-testid="sr-first-task-starts"
+            />
+          </Form.Item>
+        </Form>
+      </SettingsCard>
+      {/* One save bar for the page (template E, D-147). */}
+      <StickySaveBar
+        changes={changes}
+        saving={change.isPending}
+        onDiscard={() => {
+          setDraft(undefined);
+        }}
+        onSave={submit}
+        testId="sr-settings-save-bar"
+      />
     </Flex>
   );
 }

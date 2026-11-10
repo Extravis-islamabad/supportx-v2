@@ -26,7 +26,9 @@ from tooling import db_testing, timing
 pytestmark = [pytest.mark.db, pytest.mark.nats]
 
 LATENCY_EVENTS = 1000
-THROUGHPUT_EVENTS = 10_000
+THROUGHPUT_EVENTS = timing.volume(
+    10_000, 1_000
+)  # all of them nightly (perf.yml), a smoke run in PRs
 
 
 def report(name: str, values: dict[str, float | int]) -> None:
@@ -97,6 +99,7 @@ async def test_commit_to_consumer_latency_for_1000_events(
     assert values["p95_ms"] < timing.limit(1000), values
 
 
+@pytest.mark.timing  # nightly runs the full 10,000 (tooling/timing.volume)
 async def test_relay_throughput_for_10000_events(
     app_db: Database,
     migrated_db: db_testing.ThrowawayDatabase,

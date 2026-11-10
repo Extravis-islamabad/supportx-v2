@@ -134,3 +134,17 @@ def test_email_html_is_escaped_paragraphs_with_a_button() -> None:
     assert "&lt;b&gt;hi&lt;/b&gt;<br>line two" in html
     assert html.count("<p ") == 3
     assert 'href="https://x.test/incidents/1"' in html
+
+
+def test_qa10_a_default_may_keep_the_actor() -> None:
+    """The requester's acknowledgement reaches them though they raised it themself."""
+    from app.shared.notifications.ports import EventDefault  # noqa: PLC0415 - local to the case
+
+    me = uuid.uuid4()
+    kept = Rule.from_default(
+        EventDefault(enabled=True, recipients=("requester",), notify_actor=True)
+    )
+    dropped = Rule.from_default(EventDefault(enabled=True, recipients=("requester",)))
+    relatives = {"requester": frozenset({me})}
+    assert [r.user_id for r in recipients(kept, relatives, {}, me)] == [me]
+    assert recipients(dropped, relatives, {}, me) == []

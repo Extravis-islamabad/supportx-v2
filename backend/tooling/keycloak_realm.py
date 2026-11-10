@@ -19,11 +19,34 @@ KEYCLOAK_FILES = Path(__file__).resolve().parents[2] / "deploy/helm/supportx/fil
 DEV_REALM = KEYCLOAK_FILES / "dev/supportx-realm.json"
 BASE_REALM = KEYCLOAK_FILES / "base/supportx-realm.json"
 DEV_ONLY = ("users", "organizations")
+# The dev stack's quick sign-in (D-151) only: 7-day SSO sessions with "remember me", and the
+# password grant on the console and portal clients. The production realm keeps its own values,
+# and never allows the password grant.
+PRODUCTION_SESSIONS: dict[str, Any] = {
+    "rememberMe": False,
+    "ssoSessionIdleTimeout": 1800,
+    "ssoSessionMaxLifespan": 43200,
+}
+DEV_ONLY_SESSION_KEYS = ("ssoSessionIdleTimeoutRememberMe", "ssoSessionMaxLifespanRememberMe")
 
 
 def base_realm(dev: dict[str, Any]) -> dict[str, Any]:
-    """The dev realm without its demo data."""
-    return {key: value for key, value in dev.items() if key not in DEV_ONLY}
+    """The dev realm without its demo data and dev-only sign-in settings."""
+    base = {
+        key: value
+        for key, value in dev.items()
+        if key not in DEV_ONLY and key not in DEV_ONLY_SESSION_KEYS
+    }
+    for key, value in PRODUCTION_SESSIONS.items():
+        if key in base:
+            base[key] = value
+    base["clients"] = [
+        {**client, "directAccessGrantsEnabled": False}
+        if "directAccessGrantsEnabled" in client
+        else client
+        for client in dev.get("clients", [])
+    ]
+    return base
 
 
 def render(realm: dict[str, Any]) -> str:

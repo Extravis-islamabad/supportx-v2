@@ -49,6 +49,19 @@ export const ur: LabelResource = {
   'account.recovery.missing':
     'آپ کے پاس ریکوری کوڈ نہیں: فون کے بغیر آپ سائن اِن نہیں کر سکیں گے۔ ابھی حاصل کریں اور محفوظ رکھیں۔',
   'account.recovery.new': 'نئے ریکوری کوڈ',
+  'account.sessions.app_on': '{{platform}} پر SupportX ایپ',
+  'account.sessions.end': 'سائن آؤٹ',
+  'account.sessions.end_body':
+    'یہ فوراً سائن آؤٹ ہو جاتا ہے اور جاری رکھنے کے لیے دوبارہ سائن اِن کرنا ہوگا۔',
+  'account.sessions.end_title': 'اس آلے سے سائن آؤٹ کریں؟',
+  'account.sessions.ended': 'اس آلے سے سائن آؤٹ ہو گیا',
+  'account.sessions.help':
+    'جہاں جہاں آپ اس تنظیم میں سائن اِن ہیں۔ جسے آپ نہیں پہچانتے یا اب استعمال نہیں کرتے، جیسے گمشدہ فون، اس سے سائن آؤٹ کریں۔',
+  'account.sessions.none': 'کوئی اور سیشن نہیں',
+  'account.sessions.this_device': 'یہ آلہ',
+  'account.sessions.title': 'سائن اِن براؤزر اور آلات',
+  'account.sessions.version': 'ورژن {{version}}',
+  'account.sessions.when': 'سائن اِن {{started}} · آخری استعمال {{used}}',
   'account.sso_only':
     'آپ اپنی تنظیم کے سنگل سائن آن سے سائن اِن کرتے ہیں، اس لیے یہاں کوئی پاس ورڈ نہیں۔',
   'account.title': 'سائن اِن اور سکیورٹی',
@@ -129,6 +142,33 @@ export const ur: LabelResource = {
   'availability.no_members': 'اس گروپ میں کوئی ٹیکنیشن نہیں۔',
   'availability.set_available_by': '{{name}} نے {{time}} پر دستیاب کیا',
   'availability.set_away_by': '{{name}} نے {{time}} پر غیر حاضر کیا',
+  'dev_persona.admin': 'منتظم',
+  'dev_persona.approver': 'منظوری دینے والا',
+  'dev_persona.lead': 'ٹیم لیڈ',
+  'dev_persona.new_starter': 'نیا ملازم',
+  'dev_persona.requester': 'درخواست گزار',
+  'dev_persona.technician': 'ٹیکنیشن',
+  'dev_sign_in.app_console': 'کنسول',
+  'dev_sign_in.app_portal': 'پورٹل',
+  'dev_sign_in.as': '{{persona}} کے طور پر سائن اِن کریں',
+  'dev_sign_in.reason.account_locked':
+    'ناکام کوششوں کے بعد Keycloak نے یہ اکاؤنٹ چند منٹ کے لیے مقفل کر دیا ہے۔',
+  'dev_sign_in.reason.credentials_refused':
+    'ڈیولپمنٹ .env میں پاس ورڈ یا تصدیقی کلید سیڈ سے میل نہیں کھاتی: make showcase-seed چلائیں۔',
+  'dev_sign_in.reason.grant_not_allowed':
+    'Keycloak یہاں یہ سائن اِن نہیں ہونے دیتا: یہ ڈیولپمنٹ ریلم نہیں۔',
+  'dev_sign_in.reason.keycloak_refused': 'Keycloak نے کسی اور وجہ سے انکار کیا: اس کا لاگ دیکھیں۔',
+  'dev_sign_in.reason.mfa_setup_required':
+    'اس کردار کو پہلے دو مرحلہ سائن اِن سیٹ اپ کرنا ہوگا: پہلے سے اندراج کے لیے make showcase-seed چلائیں۔',
+  'dev_sign_in.reason.not_showcase': 'یہ کردار Showcase Company کا رکن نہیں۔',
+  'dev_sign_in.sets_up_mfa': 'دو مرحلہ سائن اِن سیٹ اپ کرتا ہے',
+  'dev_sign_in.setup_link_sent':
+    'ہم نے {{email}} کو دو مرحلہ سائن اِن سیٹ اپ کرنے کا لنک ای میل کیا ہے۔ اسے 15 منٹ کے اندر مقامی میل کیچر (Mailpit) میں کھولیں۔',
+  'dev_sign_in.title': 'فوری سائن اِن (صرف ڈیولپمنٹ)',
+  'dev_sign_in.unavailable':
+    'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
+  'dev_sign_in.warning':
+    'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'form_density.title': 'فارم کی ترتیب',
@@ -246,6 +286,7 @@ export const ur: LabelResource = {
   'people.sign_in': 'سائن اِن',
   'people.tab.access': 'رسائی',
   'people.tab.details': 'تفصیلات',
+  'people.tab.sessions': 'آلات',
   'people.title': 'افراد',
   'people.title_person': '{{name}}',
   'people.total_one': '{{count}} فرد',
@@ -326,10 +367,44 @@ export const ur: LabelResource = {
   'permission.catalog_items.manage': 'سروس کیٹلاگ کا انتظام',
   'permission.catalog_items.manage.description':
     'کیٹلاگ کی کیٹیگریز اور آئٹمز شامل اور تبدیل کریں: ان کے فارم، منظوری اور تکمیل۔',
+  'permission.changes.add_note': 'تبدیلیاں پر نجی نوٹس شامل کریں',
+  'permission.changes.add_note.description': 'تبدیلیاں پر صرف عملے کے لیے نوٹس لکھیں۔',
   'permission.changes.approve': 'تبدیلیوں کی منظوری دیں',
   'permission.changes.approve.description': 'تبدیلی کی درخواستیں منظور یا مسترد کریں۔',
+  'permission.changes.assign': 'تبدیلیاں تفویض کریں',
+  'permission.changes.assign.description': 'تبدیلیاں کا گروپ اور مالک منتخب کریں۔',
+  'permission.changes.cancel': 'تبدیلیاں منسوخ کریں',
+  'permission.changes.cancel.description': 'تبدیلیاں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
+  'permission.changes.change_priority': 'تبدیلی کی ترجیح ہاتھ سے بدلیں',
+  'permission.changes.change_priority.description': 'میٹرکس کے بجائے ترجیح خود مقرر کریں۔',
+  'permission.changes.close': 'تبدیلیاں بند کریں',
+  'permission.changes.close.description': 'تبدیلیاں کو ان کے مراحل سے گزار کر بند کریں۔',
   'permission.changes.create': 'تبدیلیاں بنائیں',
   'permission.changes.create.description': 'تبدیلی کی نئی درخواستیں درج کریں۔',
+  'permission.changes.delete': 'تبدیلیاں حذف کریں',
+  'permission.changes.delete.description': 'تبدیلیاں کوڑے دان میں ڈالیں اور واپس لائیں۔',
+  'permission.changes.edit': 'تبدیلیاں پر کام کریں',
+  'permission.changes.edit.description': 'تبدیلیاں کی تفصیلات، ان کا تجزیہ اور ان کے کام بدلیں۔',
+  'permission.changes.edit_due_dates': 'تبدیلیاں کی ہدف تاریخ ہاتھ سے مقرر کریں',
+  'permission.changes.edit_due_dates.description': 'تبدیلی کی ہدف تاریخ پالیسی کے بجائے خود بدلیں۔',
+  'permission.changes.emergency_override': 'ہنگامی حالت میں تبدیلی کی منظوری کو نظر انداز کریں',
+  'permission.changes.emergency_override.description':
+    'منظوری کے لیے واپس بھیجی گئی تبدیلی کو وجہ بتا کر جاری رکھیں۔ یہ آڈٹ ہوتا ہے، اور پھر بند کرنے سے پہلے تبدیلی کا جائزہ ضروری ہے۔',
+  'permission.changes.manage_boards': 'تبدیلی کے مشاورتی بورڈز کا انتظام',
+  'permission.changes.manage_boards.description':
+    'تبدیلیوں کا جائزہ لینے والے بورڈز شامل کریں، بدلیں اور ہٹائیں، اور ان کے ارکان طے کریں۔',
+  'permission.changes.manage_followers': 'تبدیلیاں کے فالوورز کا انتظام',
+  'permission.changes.manage_followers.description':
+    'تبدیلی کو فالو کرنے والے لوگ شامل کریں اور ہٹائیں۔',
+  'permission.changes.reopen': 'تبدیلیاں دوبارہ کھولیں',
+  'permission.changes.reopen.description': 'حل شدہ یا بند تبدیلی دوبارہ تحقیق میں لائیں۔',
+  'permission.changes.reply': 'تبدیلیاں پر عوامی نوٹس شامل کریں',
+  'permission.changes.reply.description':
+    'ایسے نوٹس لکھیں جو تبدیلی کے فالوورز اور وصول کنندگان دیکھیں۔',
+  'permission.changes.resolve': 'تبدیلیاں حل کریں',
+  'permission.changes.resolve.description': 'تبدیلیاں کو ان کے حل کے ساتھ حل شدہ نشان زد کریں۔',
+  'permission.changes.take': 'تبدیلیاں خود لیں',
+  'permission.changes.take.description': 'ایسا تبدیلی خود لیں جس کا ابھی کوئی مالک نہیں۔',
   'permission.changes.view': 'تبدیلیاں دیکھیں',
   'permission.changes.view.description': 'تبدیلی کی درخواستیں دیکھیں۔',
   'permission.cmdb.manage': 'CMDB کا انتظام کریں',
@@ -380,9 +455,6 @@ export const ur: LabelResource = {
   'permission.incidents.add_note.description': 'واقعات پر صرف عملے کے لیے نوٹس لکھیں۔',
   'permission.incidents.assign': 'واقعات تفویض کریں',
   'permission.incidents.assign.description': 'واقعات کا گروپ اور ٹیکنیشن چنیں۔',
-  'permission.incidents.assign_outside_group': 'گروپ سے باہر تفویض',
-  'permission.incidents.assign_outside_group.description':
-    'ایسا ٹیکنیشن تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.incidents.cancel': 'واقعات منسوخ کریں',
   'permission.incidents.cancel.description':
     'واقعات کو وجہ کے ساتھ منسوخ کریں اور منسوخی واپس لیں۔',
@@ -466,9 +538,6 @@ export const ur: LabelResource = {
     'ان مسئلہ منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں، جیسے معلوم خرابی کو حل کے بغیر قبول کرنا۔',
   'permission.problems.assign': 'مسائل تفویض کریں',
   'permission.problems.assign.description': 'مسائل کا گروپ اور مالک منتخب کریں۔',
-  'permission.problems.assign_outside_group': 'مسائل گروپ سے باہر تفویض کریں',
-  'permission.problems.assign_outside_group.description':
-    'مسئلہ کسی ایسے فرد کو دیں جو اس کے گروپ میں نہ ہو۔',
   'permission.problems.cancel': 'مسائل منسوخ کریں',
   'permission.problems.cancel.description': 'مسائل وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
   'permission.problems.change_priority': 'مسئلے کی ترجیح ہاتھ سے بدلیں',
@@ -516,9 +585,6 @@ export const ur: LabelResource = {
     'ریلیز کے ان مراحل کی منظوریوں کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
   'permission.releases.assign': 'ریلیزز تفویض کریں',
   'permission.releases.assign.description': 'ریلیزز لوگوں اور گروپوں کو تفویض کریں۔',
-  'permission.releases.assign_outside_group': 'گروپ سے باہر ریلیزز تفویض کریں',
-  'permission.releases.assign_outside_group.description':
-    'ریلیز کسی ایسے شخص کو تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.releases.cancel': 'ریلیزز منسوخ کریں',
   'permission.releases.cancel.description': 'بندش سے پہلے ریلیزز وجہ کے ساتھ منسوخ کریں۔',
   'permission.releases.change_priority': 'ریلیز کی ترجیح ہاتھ سے بدلیں',
@@ -571,9 +637,6 @@ export const ur: LabelResource = {
     'ان سروس درخواستوں کی منظوری کا فیصلہ کریں جن کے لیے آپ نامزد ہیں۔',
   'permission.requests.assign': 'سروس درخواستیں تفویض کریں',
   'permission.requests.assign.description': 'سروس درخواستیں ٹیکنیشنز اور گروپوں کو تفویض کریں۔',
-  'permission.requests.assign_outside_group': 'درخواستیں گروپ سے باہر تفویض کریں',
-  'permission.requests.assign_outside_group.description':
-    'ایسے ٹیکنیشن کو سروس درخواست تفویض کریں جو منتخب گروپ کا رکن نہیں۔',
   'permission.requests.cancel': 'سروس درخواستیں منسوخ کریں',
   'permission.requests.cancel.description':
     'سروس درخواستیں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
@@ -707,6 +770,7 @@ export const ur: LabelResource = {
   'profile.time_zone': 'ٹائم زون',
   'profile.time_zone_help': 'تاریخیں اور اوقات دکھانے کے لیے استعمال ہوتا ہے، مثلاً Asia/Dubai۔',
   'profile.title': 'میری پروفائل',
+  'profile.who': 'آپ',
   'readiness_check.event_consumers': 'واقعات کی پروسیسنگ',
   'readiness_check.malware_signatures': 'وائرس کی شناختی فہرست',
   'readiness_check.nats': 'میسج بس',
@@ -720,6 +784,9 @@ export const ur: LabelResource = {
   'role.knowledge_manager': 'نالج مینیجر',
   'role.knowledge_manager.description':
     'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
+  'role.problem_manager': 'مسائل کا منتظم',
+  'role.problem_manager.description':
+    'مسائل کا انتظام چلاتا ہے: ہر مسئلہ دیکھتا، اس پر کام کرتا، تفویض کرتا، منظور اور بند کرتا ہے، بشمول بنیادی وجہ اور معلوم خرابیاں، اور متعلقہ واقعات پڑھتا ہے۔',
   'role.report_viewer': 'رپورٹ دیکھنے والا',
   'role.report_viewer.description':
     'ہر واقعہ اور درخواست اور ان کی رپورٹس پڑھتا ہے، بغیر کچھ بدلے۔',
@@ -974,6 +1041,11 @@ export const ur: LabelResource = {
   'session.idle.sign_out': 'ابھی سائن آؤٹ کریں',
   'session.idle.stay': 'سائن اِن رہیں',
   'session.idle.title': 'کیا آپ ابھی موجود ہیں؟',
+  'session_client.console': 'براؤزر میں کنسول',
+  'session_client.mobile': 'SupportX ایپ',
+  'session_client.portal': 'براؤزر میں پورٹل',
+  'session_platform.android': 'Android',
+  'session_platform.ios': 'iPhone یا iPad',
   'sign_in_method.password': 'پاس ورڈ',
   'sign_in_method.single_sign_on': 'سنگل سائن آن',
   'sign_in_outcome.failed': 'ناکام',

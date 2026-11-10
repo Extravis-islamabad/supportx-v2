@@ -777,6 +777,45 @@
         "type": "object"
       }
     },
+    "assets.acknowledgement.changed": {
+      "1": {
+        "description": "An acknowledgement was asked for, accepted or disputed (REQ-AST-023).",
+        "properties": {
+          "acknowledgement_id": {
+            "format": "uuid",
+            "title": "Acknowledgement Id",
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "accepted",
+              "disputed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "acknowledgement_id",
+          "asset_id",
+          "user_id",
+          "status"
+        ],
+        "title": "AcknowledgementChanged",
+        "type": "object"
+      }
+    },
     "assets.asset.changed": {
       "1": {
         "description": "An asset was added, changed, moved to the trash or restored (REQ-AST-007).\n\n`site_id` is the asset's site after the change, so live lists at that site hear of it.",
@@ -879,6 +918,108 @@
         "type": "object"
       }
     },
+    "assets.group.changed": {
+      "1": {
+        "description": "A group was added, changed, removed, or gained or lost members (REQ-AST-028).",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted",
+              "members"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "change"
+        ],
+        "title": "AssetGroupChanged",
+        "type": "object"
+      }
+    },
+    "assets.holder.changed": {
+      "1": {
+        "description": "An asset changed hands (WP-049a s4; REQ-AST-024 AC3): the people before and after.\n\nIDs only: their \"My assets\" lists refresh live; staff screens follow `asset.changed`.",
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "people": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "People",
+            "type": "array"
+          }
+        },
+        "required": [
+          "asset_id",
+          "people"
+        ],
+        "title": "AssetHolderChanged",
+        "type": "object"
+      }
+    },
+    "assets.loan.changed": {
+      "1": {
+        "description": "A loan was made, partly returned, closed, or came due or overdue (REQ-AST-030, 031, 059).",
+        "properties": {
+          "borrower_id": {
+            "format": "uuid",
+            "title": "Borrower Id",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "created",
+              "returned",
+              "closed",
+              "due",
+              "overdue"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "loan_id": {
+            "format": "uuid",
+            "title": "Loan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loan_id",
+          "borrower_id",
+          "created_by",
+          "change"
+        ],
+        "title": "AssetLoanChanged",
+        "type": "object"
+      }
+    },
     "assets.product.changed": {
       "1": {
         "description": "A product was created, changed or moved to the trash (REQ-AST-005).",
@@ -917,6 +1058,23 @@
           "changed_fields"
         ],
         "title": "ProductChanged",
+        "type": "object"
+      }
+    },
+    "assets.warranty.ending": {
+      "1": {
+        "description": "An asset's warranty ends within the tenant's notice days (REQ-AST-059 AC2), once per date.",
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "title": "WarrantyEnding",
         "type": "object"
       }
     },
@@ -4027,6 +4185,83 @@
         "type": "object"
       }
     },
+    "work_items.change.approval_notice": {
+      "1": {
+        "description": "Someone must hear about a change's approval (WP-045b; REQ-CHG-040, -053; D-144).\n\n`notice`: `sent_back` (an approved change needs approval again: the implementer, the owner\nand the board are told), `overridden` (the emergency override was used) or\n`board_has_no_members` (the change manager is told). Recorded now; the change\nnotifications (WP-056) send it. IDs only: recipients are worked out when it is sent.",
+        "properties": {
+          "board_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board Id"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "notice": {
+            "title": "Notice",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "notice",
+          "stage",
+          "fields",
+          "board_id"
+        ],
+        "title": "ChangeApprovalNotice",
+        "type": "object"
+      }
+    },
+    "work_items.change_board.changed": {
+      "1": {
+        "description": "A change advisory board was added, changed or removed (WP-045b S2; settings reload).",
+        "properties": {
+          "board_id": {
+            "format": "uuid",
+            "title": "Board Id",
+            "type": "string"
+          },
+          "change": {
+            "title": "Change",
+            "type": "string"
+          }
+        },
+        "required": [
+          "board_id",
+          "change"
+        ],
+        "title": "ChangeBoardChanged",
+        "type": "object"
+      }
+    },
     "work_items.conversation.added": {
       "1": {
         "description": "A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.\n\n`mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`\nis true when this entry stamped the record's first response (REQ-INC-065).",
@@ -4298,6 +4533,18 @@
             "title": "Part Id",
             "type": "string"
           },
+          "task_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task Status"
+          },
           "work_item_id": {
             "format": "uuid",
             "title": "Work Item Id",
@@ -4374,6 +4621,73 @@
           "changed_fields"
         ],
         "title": "WorkItemPortalSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.problem_repeat.changed": {
+      "1": {
+        "description": "A repeat rule or hit was added, changed, handled or removed (screens refetch).",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "rule",
+              "hit"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "ProblemRepeatChanged",
+        "type": "object"
+      }
+    },
+    "work_items.problem_repeat.detected": {
+      "1": {
+        "description": "A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.\n\nIDs and a count only; the incidents are read through the API by who may create problems.",
+        "properties": {
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "hit_id": {
+            "format": "uuid",
+            "title": "Hit Id",
+            "type": "string"
+          },
+          "incident_count": {
+            "title": "Incident Count",
+            "type": "integer"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hit_id",
+          "rule_id",
+          "group_id",
+          "incident_count"
+        ],
+        "title": "ProblemRepeatDetected",
         "type": "object"
       }
     },

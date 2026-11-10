@@ -51,6 +51,8 @@ export const ar: LabelResource = {
   'branding.reset_done': 'عادت العلامة الافتراضية.',
   'branding.reset_title': 'العودة إلى العلامة الافتراضية؟',
   'branding.save': 'حفظ العلامة التجارية',
+  'branding.save_blocked_colour': 'اختر ألوانًا تجتاز فحص التباين لتتمكن من الحفظ.',
+  'branding.save_blocked_image': 'احذف الصورة المرفوضة أو استبدلها لتتمكن من الحفظ.',
   'branding.saved': 'تم حفظ العلامة التجارية. تعرضها كل الشاشات المفتوحة الآن.',
   'branding.text.english_hint': 'يظهر النص الإنجليزي حيثما تغيب الترجمة.',
   'branding.text.portal_name': 'اسم البوابة',

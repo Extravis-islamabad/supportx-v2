@@ -25,6 +25,7 @@ import { useMemo, useState } from 'react';
 
 import {
   queryKeys,
+  useExportFormats,
   useReportSchedules,
   useScheduleChange,
   useStructure,
@@ -35,8 +36,11 @@ import {
 import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   ConflictDialog,
   FormProblem,
+  pickerFormat,
+  useAppearance,
   lengthLimit,
   ToneTag,
   type Tone,
@@ -47,6 +51,8 @@ import {
   useTimeZone,
   WriteButton,
 } from '@supportx/ui';
+
+import { nobodyFound } from '../incidents/nobodyFound';
 
 type Frequency = ReportScheduleInput['frequency'];
 type Format = NonNullable<ReportScheduleInput['format']>;
@@ -79,7 +85,7 @@ function PeopleSelect({ value, onChange }: { value: string[]; onChange: (v: stri
       options={options}
       loading={users.isFetching}
       aria-label={t('reports.schedule_people')}
-      notFoundContent={t('incidents.nobody_found')}
+      notFoundContent={t(nobodyFound(search))}
       data-testid="schedule-people"
     />
   );
@@ -115,6 +121,8 @@ export function ScheduleButton({
   changed: boolean;
 }) {
   const t = useLabels();
+  // The person's date format in the pickers (QA10-P3-14).
+  const dayFormat = pickerFormat(useAppearance().dates, false);
   const { can } = useAccess();
   const { message } = AntApp.useApp();
   const zone = useTimeZone();
@@ -133,6 +141,9 @@ export function ScheduleButton({
   const [people, setPeople] = useState<string[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [format, setFormat] = useState<Format>('xlsx');
+  // The same formats as Export: no PDF that the server could not make (QA10-P4-25).
+  const offered = useExportFormats();
+  const formats = FORMATS.filter((f) => (offered.data ?? ['xlsx', 'csv']).includes(f));
   const [note, setNote] = useState('');
   if (!can('reports.schedule')) return null;
   const mailReady = schedules.data?.mail_configured ?? true;
@@ -260,12 +271,16 @@ export function ScheduleButton({
               />
             </Form.Item>
             <Form.Item label={t('reports.schedule_zone')}>
-              <Typography.Text>{zone}</Typography.Text>
+              {/* Never cut off (QA10-P4-26): the zone wraps rather than being clipped. */}
+              <Typography.Text style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                <bdi dir="ltr">{zone}</bdi>
+              </Typography.Text>
             </Form.Item>
           </Space>
           <Space wrap>
             <Form.Item label={t('reports.schedule_start')}>
               <DatePicker
+                format={dayFormat}
                 value={start}
                 allowClear={false}
                 onChange={(value) => {
@@ -274,7 +289,7 @@ export function ScheduleButton({
               />
             </Form.Item>
             <Form.Item label={t('reports.schedule_end')}>
-              <DatePicker value={end} onChange={setEnd} />
+              <DatePicker format={dayFormat} value={end} onChange={setEnd} />
             </Form.Item>
           </Space>
           <Alert type="info" showIcon message={t('reports.schedule_recipients_hint')} />
@@ -284,13 +299,21 @@ export function ScheduleButton({
           <Form.Item label={t('reports.schedule_groups')}>
             <GroupsSelect value={groups} onChange={setGroups} />
           </Form.Item>
-          <Form.Item label={t('reports.export_format')}>
+          <Form.Item
+            label={t('reports.export_format')}
+            extra={
+              offered.data !== undefined && !offered.data.includes('pdf')
+                ? t('errors.pdf_not_available')
+                : undefined
+            }
+          >
             <Radio.Group
               value={format}
               onChange={(event) => {
                 setFormat(event.target.value as Format);
               }}
-              options={FORMATS.map((f) => ({ value: f, label: t(`report_export_format.${f}`) }))}
+              options={formats.map((f) => ({ value: f, label: t(`report_export_format.${f}`) }))}
+              data-testid="schedule-format"
             />
           </Form.Item>
           <Form.Item label={t('reports.schedule_message')}>
@@ -394,7 +417,7 @@ export function SchedulesButton() {
         <List
           loading={schedules.isPending}
           dataSource={items}
-          locale={{ emptyText: t('reports.no_schedules') }}
+          locale={{ emptyText: <EmptyText>{t('reports.no_schedules')}</EmptyText> }}
           renderItem={(item) => (
             <List.Item
               actions={[

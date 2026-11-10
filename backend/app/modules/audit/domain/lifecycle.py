@@ -111,8 +111,24 @@ ASSET = RecordAudit(
         "site_id": "relocated",
         "location": "relocated",
         "product_id": "product_changed",
+        "loanable": "loanable_set",  # WP-049a s5, the code its route writes
     },
     trash_field="deleted",
+    # WP-049a s4/s5 (#307), by the codes their routes write: who holds it (a person, a
+    # department or a parent asset), and its relationships (the target as the new value when
+    # added, as the old one when removed).
+    values=(
+        *(
+            rule
+            for holder in ("owner_user_id", "department_id", "parent_asset_id")
+            for rule in (
+                ValueRule(holder, "assigned", new_not_in=frozenset({None})),
+                ValueRule(holder, "unassigned", new_in=frozenset({None})),
+            )
+        ),
+        ValueRule("relationship", "linked", new_not_in=frozenset({None})),
+        ValueRule("relationship", "unlinked", new_in=frozenset({None})),
+    ),
 )
 
 # --- work items (lane A's review, 2026-11-10) ----------------------------------------------------

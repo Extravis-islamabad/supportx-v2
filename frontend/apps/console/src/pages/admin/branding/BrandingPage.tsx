@@ -38,6 +38,8 @@ import {
   useConflict,
   useFormProblem,
   useLabel,
+  SettingsCard,
+  StickySaveBar,
   WriteButton,
   type Branding,
 } from '@supportx/ui';
@@ -53,6 +55,7 @@ import {
 } from './checks';
 import { DomainsCard } from './DomainsCard';
 import { FieldProblem } from './FieldProblem';
+import { LeaveGuard } from '../useLeaveGuard';
 
 const LOCALES: Locale[] = ['en', 'ar', 'ur'];
 const TEXT_FIELDS = ['product_name', 'portal_name', 'welcome_text'] as const;
@@ -261,6 +264,20 @@ export function BrandingPage() {
       (item.fileId !== null && ['infected', 'scan_failed'].includes(scans[item.fileId] ?? '')),
   );
   const colourFails = report !== undefined && !report.passes;
+  // Template E (D-147): the page's one save bar counts what differs from the saved branding, and
+  // says why Save cannot be used yet instead of a silently disabled button.
+  const savedBody = bodyFrom(draftFrom(settings.data));
+  const wanted = bodyFrom(draft);
+  const changes = (Object.keys(wanted) as (keyof BrandingInput)[]).filter(
+    (key) => JSON.stringify(wanted[key]) !== JSON.stringify(savedBody[key]),
+  ).length;
+  const whyNot = scanning
+    ? t('branding.wait_for_scan')
+    : blocked
+      ? t('branding.save_blocked_image')
+      : colourFails || primaryInvalid
+        ? t('branding.save_blocked_colour')
+        : undefined;
 
   const choose = async (field: ImageField, file: File) => {
     // Type, size and real image content are checked on selection (QA BUG-09): a refused file
@@ -457,13 +474,45 @@ export function BrandingPage() {
             />
           ),
       )}
-      <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-        {t('branding.intro')}
-      </Typography.Paragraph>
+      {/* The page's one other action: back to SupportX's own branding, confirmed (template E). */}
+      <Flex justify="space-between" align="center" gap={12} wrap>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          {t('branding.intro')}
+        </Typography.Paragraph>
+        <WriteButton
+          disabled={!settings.data.customised && version === 0}
+          onClick={() =>
+            Modal.confirm({
+              title: t('branding.reset_title'),
+              content: t('branding.reset_body'),
+              okText: t('branding.reset'),
+              cancelText: t('actions.cancel'),
+              onOk: () => {
+                submit(
+                  {
+                    primary_colour: null,
+                    gradient: null,
+                    product_name: {},
+                    portal_name: {},
+                    welcome_text: {},
+                    logo_file_id: null,
+                    logo_dark_file_id: null,
+                    icon_file_id: null,
+                  },
+                  'branding.reset_done',
+                );
+              },
+            })
+          }
+          data-testid="branding-reset"
+        >
+          {t('branding.reset')}
+        </WriteButton>
+      </Flex>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={12}>
           <Flex vertical gap={16}>
-            <Card title={t('branding.colours')}>
+            <SettingsCard title={t('branding.colours')}>
               <Flex vertical gap={12}>
                 <Flex gap={12} align="center" wrap>
                   <Typography.Text id="branding-primary-label">
@@ -622,8 +671,8 @@ export function BrandingPage() {
                   />
                 )}
               </Flex>
-            </Card>
-            <Card title={t('branding.images')}>
+            </SettingsCard>
+            <SettingsCard title={t('branding.images')}>
               {/* One tile per line: room for each title and its buttons (QA6S-ORG-01: three in
                   half the width truncated titles and overflowed buttons). */}
               <Flex vertical gap={12}>
@@ -631,8 +680,8 @@ export function BrandingPage() {
                   <div key={field}>{imageCard(field)}</div>
                 ))}
               </Flex>
-            </Card>
-            <Card title={t('branding.texts')}>
+            </SettingsCard>
+            <SettingsCard title={t('branding.texts')}>
               <Tabs
                 items={LOCALES.map((locale) => ({
                   key: locale,
@@ -699,55 +748,8 @@ export function BrandingPage() {
                   ),
                 }))}
               />
-            </Card>
+            </SettingsCard>
             <FormProblem problem={problem} />
-            <Flex gap={8} wrap>
-              <WriteButton
-                type="primary"
-                loading={save.isPending}
-                disabled={colourFails || primaryInvalid || scanning || blocked || check.isFetching}
-                onClick={() => {
-                  submit(bodyFrom(draft), 'branding.saved');
-                }}
-                data-testid="branding-save"
-              >
-                {t('branding.save')}
-              </WriteButton>
-              <WriteButton
-                disabled={!settings.data.customised && version === 0}
-                onClick={() =>
-                  Modal.confirm({
-                    title: t('branding.reset_title'),
-                    content: t('branding.reset_body'),
-                    okText: t('branding.reset'),
-                    cancelText: t('actions.cancel'),
-                    onOk: () => {
-                      submit(
-                        {
-                          primary_colour: null,
-                          gradient: null,
-                          product_name: {},
-                          portal_name: {},
-                          welcome_text: {},
-                          logo_file_id: null,
-                          logo_dark_file_id: null,
-                          icon_file_id: null,
-                        },
-                        'branding.reset_done',
-                      );
-                    },
-                  })
-                }
-                data-testid="branding-reset"
-              >
-                {t('branding.reset')}
-              </WriteButton>
-              {scanning && (
-                <Typography.Text type="secondary" role="status">
-                  {t('branding.wait_for_scan')}
-                </Typography.Text>
-              )}
-            </Flex>
           </Flex>
         </Col>
         <Col xs={24} xl={12}>
@@ -757,6 +759,22 @@ export function BrandingPage() {
           </div>
         </Col>
       </Row>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
+      <StickySaveBar
+        changes={changes}
+        saving={save.isPending || check.isFetching}
+        whyNot={whyNot}
+        onDiscard={() => {
+          setDraft(null);
+          setPicked({});
+          setImageProblems({});
+          setProblems({});
+        }}
+        onSave={() => {
+          submit(bodyFrom(draft), 'branding.saved');
+        }}
+      />
       <DomainsCard />
       <ConflictDialog
         open={conflict.open}

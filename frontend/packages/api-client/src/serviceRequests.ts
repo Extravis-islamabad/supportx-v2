@@ -172,6 +172,25 @@ export function useMyApprovals() {
   });
 }
 
+/**
+ * Problem and release approvals waiting for you (QA10-P1-08): the header drawer lists them with
+ * the service requests'. Optional: a plan without the type answers with an error, and the drawer
+ * then simply has none of them, never a toast.
+ */
+export function useMyTypeApprovals(type: 'problems' | 'releases') {
+  return useQuery({
+    queryKey: [type, 'my-approvals'] as const,
+    meta: { silent: true },
+    retry: false,
+    queryFn: () =>
+      call(
+        type === 'problems'
+          ? api.GET('/api/v1/problems/my-approvals')
+          : api.GET('/api/v1/releases/my-approvals'),
+      ),
+  });
+}
+
 /** The approvals you decided in the last 30 days, newest first (WP-032 D6). */
 export function useMyDecidedApprovals() {
   return useQuery({

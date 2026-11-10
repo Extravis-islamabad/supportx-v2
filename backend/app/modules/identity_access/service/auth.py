@@ -14,7 +14,7 @@ import hmac
 import secrets
 import uuid
 from dataclasses import dataclass, replace
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlencode, urlsplit
 
@@ -26,6 +26,7 @@ from app.core.database import Database
 from app.core.errors import (
     AppError,
     BadRequest,
+    Conflict,
     PermissionDenied,
     ServiceUnavailable,
     Unauthenticated,
@@ -33,6 +34,7 @@ from app.core.errors import (
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts
+from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
     Identity,
@@ -56,7 +58,7 @@ from app.modules.identity_access.infra.oidc import (
     TokenRejectedError,
     TokenSet,
 )
-from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.infra.store import SessionStore, public_id
 from app.modules.identity_access.service import api_keys, sso_test
 from app.modules.identity_access.service import mfa as mfa_service
 from app.modules.identity_access.service.users import (
@@ -86,6 +88,34 @@ MAX_SESSION = timedelta(seconds=max(limit["max_absolute"] for limit in SESSION_L
 
 def _client_app(session: Session) -> AppName:
     return "portal" if session.client == "portal" else "console"
+
+
+_EPOCH = datetime.fromtimestamp(0, UTC)
+
+
+def _moment(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value:
+        return datetime.fromisoformat(value)
+    return None
+
+
+# On the person's own channel when their session list changed (ADR-044 item 5).
+SESSIONS_CHANGED = "identity_access.sessions_changed"
+
+
+@dataclass(frozen=True, slots=True)
+class ListedSession:
+    """One of a person's sessions, as My account and admins see it (never its secret id)."""
+
+    id: str
+    client: str
+    platform: str | None
+    app_version: str | None
+    started_at: datetime | None
+    last_used_at: datetime | None
+    current: bool
 
 
 def user_key(tenant_id: str, user_id: str) -> str:
@@ -179,6 +209,9 @@ class AuthService:
         self.identity_admin: IdentityAdmin | None = None
         # Set by the module startup: closes a person's live connections in a tenant (WP-039).
         self.end_realtime: Callable[[uuid.UUID, uuid.UUID], Awaitable[None]] | None = None
+        # Set by the module startup: tells the person's open screens their session list changed
+        # (ADR-044 item 5), best effort.
+        self.sessions_changed: Callable[[uuid.UUID, uuid.UUID], Awaitable[None]] | None = None
 
     # --- clients and origins -------------------------------------------------------------------
 
@@ -331,6 +364,59 @@ class AuthService:
             landing += ("&" if "?" in landing else "?") + query
         return LoginResult(session_id, session, landing)
 
+    async def quick_sign_in(self, who: quick.Persona, tenant_id: uuid.UUID) -> "LoginResult":
+        """Dev-only quick sign-in (D-151): a showcase persona, through Keycloak, then a session.
+
+        The caller has checked the dev-only setting, the local address and the showcase tenant.
+        The password grant gives real Keycloak tokens; the TOTP code comes from the persona's
+        dev-only authenticator secret (never logged). From there the normal path: the ID token
+        is checked, the person provisioned, the MFA policy applied, and a session saved.
+        Keycloak's refusal is a 403 naming the reason, never a 500 (the page shows it).
+        """
+        password = self.settings.showcase_password
+        key = self.settings.showcase_totp_key
+        if password is None or key is None:
+            raise ServiceUnavailable(code="quick_sign_in_not_configured")
+        client = self.client(who.app)
+        code: str | None = None
+        if who.enrolled:
+            step = await self._claim_step(who.email)
+            code = quick.totp(quick.totp_value(key.get_secret_value().encode(), who.email), step)
+        try:
+            tokens = await self.oidc.password_grant(
+                client, username=who.email, password=password.get_secret_value(), totp=code
+            )
+        except TokenRejectedError as exc:
+            reason = quick.refusal(exc.error, exc.description)
+            log.warning("quick_sign_in_refused", persona=who.code, reason=reason)
+            raise PermissionDenied(code="quick_sign_in_refused", params={"reason": reason}) from exc
+        identity = await self._identity(tokens, client, nonce=None)
+        if not any(m.tenant_id == tenant_id for m in identity.memberships):
+            await self._end_keycloak_session(client, tokens.refresh_token)
+            raise PermissionDenied(code="quick_sign_in_refused", params={"reason": "not_showcase"})
+        try:
+            session = await self._new_session(identity, tokens, who.app, active=tenant_id)
+        except MfaEnrolmentDue as exc:
+            await self._end_keycloak_session(client, tokens.refresh_token)
+            raise PermissionDenied(
+                code="quick_sign_in_refused", params={"reason": "mfa_setup_required"}
+            ) from exc
+        if session.tenant_id != str(tenant_id):
+            await self._end_keycloak_session(client, tokens.refresh_token)
+            raise PermissionDenied(code="quick_sign_in_refused", params={"reason": "not_showcase"})
+        session_id = await self._save_new(session)
+        log.info("quick_sign_in", persona=who.code, tenant_id=session.tenant_id, client=who.app)
+        return LoginResult(session_id, session, self.landing(who.app, "/", None))
+
+    async def _claim_step(self, email: str) -> int:
+        """A TOTP time step no earlier quick sign-in used, or a 409 to wait a moment."""
+        ttl = timedelta(seconds=quick.TOTP_PERIOD * 3)
+        for step in quick.candidate_steps(quick.time_step(self.clock.now())):
+            if await self.store.claim_totp_step(email, step, ttl):
+                return step
+        # Both codes of this window are used: a wrong code would count toward the lock.
+        raise Conflict(code="quick_sign_in_wait", params={"seconds": quick.TOTP_PERIOD})
+
     async def _requester_only(self, session: Session) -> bool:
         if self.database is None:  # pragma: no cover - a login needs the database
             return False
@@ -441,7 +527,12 @@ class AuthService:
     async def _save_new(self, session: Session) -> str:
         session_id = secrets.token_urlsafe(32)
         await self._save(session_id, session)
+        await self._sessions_changed(session.tenant_uuid, session.user_uuid)
         return session_id
+
+    async def _sessions_changed(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        if self.sessions_changed is not None:
+            await self.sessions_changed(tenant_id, user_id)
 
     async def _save(self, session_id: str, session: Session) -> None:
         ttl = session.ttl(self.clock.now(), idle=self.idle, absolute=self.absolute)
@@ -475,6 +566,41 @@ class AuthService:
             session = session.touched(now)
             await self._save(session_id, session)
         return session_id, session
+
+    async def listed_sessions(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, *, current: str | None = None
+    ) -> list["ListedSession"]:
+        """A person's live sessions, newest use first (ADR-044 item 5); `current`: this one."""
+        mine = public_id(current) if current else None
+        rows = await self.store.user_sessions(user_key(str(tenant_id), str(user_id)))
+        found = [
+            ListedSession(
+                id=sid,
+                client=str(meta.get("client") or ""),
+                platform=meta.get("platform"),
+                app_version=meta.get("app_version"),
+                started_at=_moment(meta.get("created_at")),
+                last_used_at=_moment(meta.get("last_seen_at")),
+                current=sid == mine,
+            )
+            for sid, meta in rows
+        ]
+        return sorted(found, key=lambda s: s.last_used_at or s.started_at or _EPOCH, reverse=True)
+
+    async def end_listed_session(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, session: str
+    ) -> bool:
+        """End one of a person's sessions by its listed id; its next call answers 401.
+
+        Their live connections in the tenant are cut too, so the ended one can't keep listening;
+        the others reconnect with their own sessions (as after a sign-out).
+        """
+        ended = await self.store.end_listed_session(user_key(str(tenant_id), str(user_id)), session)
+        if ended:
+            await self._sessions_changed(tenant_id, user_id)
+            if self.end_realtime is not None:
+                await self.end_realtime(tenant_id, user_id)
+        return ended
 
     async def end_sessions(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """End every session of a person in a tenant, now (REQ-SEC-031).
@@ -570,6 +696,7 @@ class AuthService:
     async def logout(self, session_id: str, session: Session) -> None:
         """End the local session and the Keycloak SSO session (back channel)."""
         await self.store.delete_session(session_id)
+        await self._sessions_changed(session.tenant_uuid, session.user_uuid)
         client = self.client(_client_app(session))
         try:
             await self._end_keycloak_session(client, session.refresh_token)
@@ -591,6 +718,7 @@ class AuthService:
         For a console session that may not exist (D-129): the person keeps their portal sign-in.
         """
         await self.store.delete_session(session_id)
+        await self._sessions_changed(session.tenant_uuid, session.user_uuid)
         if self.database is not None:
             try:
                 await record_logout(

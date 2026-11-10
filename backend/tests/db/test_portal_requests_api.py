@@ -8,12 +8,15 @@ reads as not found.
 import uuid
 from typing import Any
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, decide, manager_of
 from tests.db.test_fulfilment_api import PLAN, done, tasks
-from tests.db.test_incidents_api import Org, World, problem, world
+from tests.db.test_incidents_api import Org, World, problem
 from tests.db.test_service_requests_api import an_item, raise_request
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 PORTAL = "/portal/service-requests"
 

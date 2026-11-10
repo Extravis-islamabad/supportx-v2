@@ -1,9 +1,12 @@
 """QA6 (2026-11-06) problem fixes, each test named after its bug."""
 
-from tests.db.test_incidents_api import World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World
 from tests.db.test_problems_api import new_problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def test_qa6_prb_03_whoever_opens_a_problem_owns_it(world: World) -> None:

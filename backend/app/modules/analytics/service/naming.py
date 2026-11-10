@@ -93,6 +93,11 @@ class Namer:
             found = await resolver(self.session, wanted, self.language, field) if resolver else {}
         self._cache.setdefault((kind, field), {}).update(found)
 
+    def names_of(self, field: str, dimension: Dimension) -> Mapping[str, str]:
+        """The names `prepare` found for one grouping (value -> name)."""
+        kind = self._kind(field, dimension) or ""
+        return dict(self._cache.get((kind, field), {}))
+
     def _plain(self, field: str, dimension: Dimension, value: object) -> str | None:
         """Values named without a lookup (codes, yes/no, numbers, dates)."""
         if dimension.kind == DimensionKind.CODE:

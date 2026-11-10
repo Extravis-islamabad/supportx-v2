@@ -149,7 +149,7 @@ describe('QA WP-029 BUG-05: the shared conflict dialog', () => {
     });
     open('/admin/incidents/general');
     fireEvent.change(await screen.findByTestId('settings-prefix'), { target: { value: 'QAT' } });
-    fireEvent.click(screen.getByTestId('settings-numbering-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await expectNamed('Keep following an incident after handing it over');
     // Reload: my edit is dropped, their settings are shown.
     fireEvent.click(screen.getByTestId('conflict-reload'));
@@ -223,9 +223,9 @@ describe('QA WP-029 BUG-05: the shared conflict dialog', () => {
       target: { value: 'Acme Desk' },
     });
     await waitFor(() => {
-      expect(screen.getByTestId('branding-save').hasAttribute('disabled')).toBe(false);
+      expect(screen.getByTestId('settings-save').hasAttribute('disabled')).toBe(false);
     });
-    fireEvent.click(screen.getByTestId('branding-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await expectNamed('Portal name');
   });
 

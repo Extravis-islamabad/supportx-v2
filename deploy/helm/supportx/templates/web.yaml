@@ -17,10 +17,12 @@ spec:
     metadata:
       labels:
         {{- include "supportx.labels" $c | nindent 8 }}
-      {{- with .Values.podAnnotations }}
       annotations:
+        # A changed app list rolls the web pods, so the served files follow the values.
+        checksum/mobile-links: {{ toJson .Values.mobile | sha256sum }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
       automountServiceAccountToken: false
       {{- include "supportx.pullSecrets" . | nindent 6 }}
@@ -44,11 +46,18 @@ spec:
           volumeMounts:
             - {name: cache, mountPath: /var/cache/nginx}
             - {name: tmp, mountPath: /tmp}
+            {{- if or .Values.mobile.ios.appIds .Values.mobile.android.package }}
+            - {name: mobile-links, mountPath: /etc/nginx/well-known, readOnly: true}
+            {{- end }}
       volumes:
         - name: cache
           emptyDir: {}
         - name: tmp
           emptyDir: {}
+        {{- if or .Values.mobile.ios.appIds .Values.mobile.android.package }}
+        - name: mobile-links
+          configMap: {name: {{ include "supportx.name" (dict "root" . "component" "mobile-links") }}}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

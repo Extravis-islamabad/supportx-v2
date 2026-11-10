@@ -15,7 +15,7 @@ The downgrade refuses while any tenant has an entry with events: dropping them w
 entries fail verification (rule 5h).
 
 Revision ID: 0122
-Revises: 0108
+Revises: 0114
 Created: 2026-11-10
 """
 
@@ -26,7 +26,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0122"
-down_revision: str | None = "0108"
+down_revision: str | None = "0114"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

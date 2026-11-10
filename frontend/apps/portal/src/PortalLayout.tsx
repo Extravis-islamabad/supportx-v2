@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Flex, Layout, Menu, Typography } from 'antd';
-import { Outlet, useLocation, useNavigate } from 'react-router';
+import { Outlet, useLocation, useMatches, useNavigate } from 'react-router';
 
 import { clearAllKeptDrafts } from '@supportx/forms';
 import {
@@ -18,6 +18,7 @@ import {
   AppHeader,
   BrandLogo,
   brandText,
+  useDocumentTitle,
   ConnectivityBanner,
   LicenceBanners,
   MfaReminder,
@@ -38,6 +39,7 @@ const NAV: { path: string; labelKey: LabelKey; feature?: Feature }[] = [
   },
   { path: '/approvals', labelKey: 'portal.approvals.title', feature: 'service_request' },
   { path: '/catalog', labelKey: 'nav.catalog' },
+  { path: '/my-assets', labelKey: 'my_assets.title', feature: 'assets' },
 ];
 
 /** The menu entry of a path: its own, or the area it lies in (`/requests/…` is My requests). */
@@ -52,6 +54,15 @@ export function PortalLayout() {
   const { branding, locale } = useAppearance();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  // The browser tab names the page, then the portal (QA9-F-07): the deepest route's title.
+  const titleKey = useMatches()
+    .map((m) => (m.handle as { titleKey?: LabelKey } | undefined)?.titleKey)
+    .filter((k): k is LabelKey => k !== undefined)
+    .at(-1);
+  useDocumentTitle(
+    titleKey === undefined ? [] : [{ label: t(titleKey) }],
+    brandText(branding, 'portalName', locale) ?? t('app.portal.name'),
+  );
   const session = useSession().data;
   const logout = useLogout();
   const licence = useLicence();

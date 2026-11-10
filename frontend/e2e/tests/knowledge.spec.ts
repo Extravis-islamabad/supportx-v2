@@ -227,7 +227,7 @@ test('Admin › Knowledge: a new prefix continues the numbering; the screens pas
     await expect(card.getByTestId('kb-admin-next-id')).toContainText(
       `KBE-${String(settings.next_number)}`,
     );
-    await card.getByTestId('kb-admin-save').click();
+    await card.getByTestId('settings-save').click(); // template E's save bar
     await expect(admin.page.getByText('Saved.', { exact: false })).toBeVisible(LIVE);
     original.version += 1;
 

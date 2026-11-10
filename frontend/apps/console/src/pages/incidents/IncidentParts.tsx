@@ -36,6 +36,7 @@ import {
   useUsers,
   useWorklogChange,
   type Incident,
+  type PartsBase,
   type IncidentTask,
   type TaskStatus,
   type WorklogType,
@@ -100,16 +101,25 @@ function useDuration() {
 
 // --- tasks ----------------------------------------------------------------------------------------
 
-export function IncidentTasks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
+export function IncidentTasks({
+  item,
+  canEdit,
+  base = 'incidents',
+}: {
+  item: Incident;
+  canEdit: boolean;
+  /** The record's type prefix: problems use the same parts (WP-044c). */
+  base?: PartsBase;
+}) {
   const t = useLabel();
   const dates = useDateTime();
-  const found = useIncidentTasks(item.id);
-  const change = useTaskChange(item.id);
+  const found = useIncidentTasks(item.id, true, base);
+  const change = useTaskChange(item.id, base);
   const [title, setTitle] = useState('');
   const [owner, setOwner] = useState<string | null>(null);
   const [due, setDue] = useState<string | null>(null);
   const rows = found.data?.items ?? [];
-  const people = usePeople(rows.map((r) => r.owner_id));
+  const people = usePeople(rows.flatMap((r) => [r.owner_id, r.done_by ?? null]));
   const add = () => {
     change.mutate(
       {
@@ -235,6 +245,14 @@ export function IncidentTasks({ item, canEdit }: { item: Incident; canEdit: bool
                   {people.get(task.owner_id) ?? t('incidents.unknown_value')}
                 </Typography.Text>
               )}
+              {task.status === 'done' && task.done_by != null && (
+                // D-154d: who did it, never a guess from the history.
+                <Typography.Text type="secondary" data-testid={`inc-task-done-by-${String(index)}`}>
+                  {t('incidents.tasks.done_by', {
+                    name: people.get(task.done_by) ?? t('incidents.unknown_value'),
+                  })}
+                </Typography.Text>
+              )}
               {task.due_at !== null && (
                 <Tag>{t('incidents.tasks.due', { at: dates.format(task.due_at) })}</Tag>
               )}
@@ -284,13 +302,21 @@ export function IncidentTasks({ item, canEdit }: { item: Incident; canEdit: bool
 
 // --- worklogs -------------------------------------------------------------------------------------
 
-export function IncidentWorklogs({ item, canEdit }: { item: Incident; canEdit: boolean }) {
+export function IncidentWorklogs({
+  item,
+  canEdit,
+  base = 'incidents',
+}: {
+  item: Incident;
+  canEdit: boolean;
+  base?: PartsBase;
+}) {
   const t = useLabel();
   const dates = useDateTime();
   const duration = useDuration();
   const me = useSession().data?.user.id ?? null;
-  const found = useIncidentWorklogs(item.id);
-  const change = useWorklogChange(item.id);
+  const found = useIncidentWorklogs(item.id, true, base);
+  const change = useWorklogChange(item.id, base);
   const [type, setType] = useState<WorklogType>('fix');
   const [owner, setOwner] = useState<string | null>(null);
   const [start, setStart] = useState<string | null>(null);
@@ -558,6 +584,8 @@ const WORKLOG_GRID = {
 
 // --- links ----------------------------------------------------------------------------------------
 
+const OWN_ROUTE = new Set(['caused_by', 'causes', 'merged_into', 'merged_from']);
+
 export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
   const t = useLabel();
   const found = useIncidentLinks(item.id);
@@ -585,7 +613,9 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
             <List.Item
               data-testid={`inc-link-${link.other_display_id ?? 'hidden'}`}
               actions={
-                canEdit
+                // A cause or a merge is undone in its own place (unlink, undo the merge): the
+                // generic delete would be refused (QA10-P1-03), so it is not offered.
+                canEdit && !OWN_ROUTE.has(link.relation)
                   ? [
                       <Popconfirm
                         key="delete"

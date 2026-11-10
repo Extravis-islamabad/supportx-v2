@@ -12,11 +12,18 @@ import { REQUESTER_ACTION, useHistoryWords, type HistoryActors } from './history
  * where, what changed from what to what, why, and which automation did it. Values are labels,
  * names and local times, never raw codes or IDs (rule d).
  */
-export function IncidentHistory({ id }: { id: string }) {
+export function IncidentHistory({
+  id,
+  base = 'incidents',
+}: {
+  id: string;
+  /** The record's type prefix: a problem's history uses the same view (WP-044c). */
+  base?: 'incidents' | 'problems';
+}) {
   const t = useLabel();
   const dates = useDateTime();
   const [actors, setActors] = useState<HistoryActors>('all');
-  const { history, entries, fieldText, valueText, whyText } = useHistoryWords(id, actors);
+  const { history, entries, changeText, whyText } = useHistoryWords(id, actors, base);
   return (
     <Flex vertical gap={8} data-testid="inc-history">
       <Segmented<'all' | 'people' | 'automation'>
@@ -90,13 +97,7 @@ export function IncidentHistory({ id }: { id: string }) {
                     {entry.changes
                       .filter((change) => change.field !== REQUESTER_ACTION)
                       .map((change) => (
-                        <li key={change.field}>
-                          {t('history.change', {
-                            field: fieldText(change.field),
-                            old: valueText(change, change.old),
-                            new: valueText(change, change.new),
-                          })}
-                        </li>
+                        <li key={change.field}>{changeText(change)}</li>
                       ))}
                   </ul>
                 )}

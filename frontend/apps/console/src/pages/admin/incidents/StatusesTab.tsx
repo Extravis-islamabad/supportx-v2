@@ -1,8 +1,8 @@
-import { Badge, Button, Card, Flex, Select, Switch, Table, Tag, Typography } from 'antd';
+import { Badge, Card, Flex, Select, Switch, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 
 import type { IncidentCatalogue, ReasonMode } from '@supportx/api-client';
-import { ConflictDialog, useAppearance, useLabel } from '@supportx/ui';
+import { ConflictDialog, useAppearance, useLabel, useLicence, WriteButton } from '@supportx/ui';
 
 import { statusLabel } from '../../incidents/labels';
 import { useOpenedVersion, useSettingsSave } from './helpers';
@@ -21,6 +21,9 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const { save, conflictDialog, pending, problems, clear } = useSettingsSave();
+  // A read-only licence leaves the settings to look at: no control here saves (lane C, QA §17).
+  const { writable } = useLicence();
+  const locked = pending || !writable;
   const [editing, setEditing] = useState<Status | null>(null);
   // Which card's save a refusal belongs to: shown there, not in both (QA WP-029 BUG-02).
   const [origin, setOrigin] = useState<'statuses' | 'prompts'>('prompts');
@@ -74,7 +77,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                 status.category === 'paused' ? (
                   <Switch
                     checked={status.resume_on_requester_reply}
-                    disabled={pending}
+                    disabled={locked}
                     aria-label={t('settings.resume_on_requester_reply_for', {
                       status: name(status.code),
                     })}
@@ -95,7 +98,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
               title: t('settings.actions'),
               width: 160,
               render: (_: unknown, status: Status) => (
-                <Button
+                <WriteButton
                   type="link"
                   size="small"
                   onClick={() => {
@@ -105,7 +108,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                   data-testid={`status-edit-${status.code}`}
                 >
                   {t('settings.rename')}
-                </Button>
+                </WriteButton>
               ),
             },
           ]}
@@ -154,7 +157,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                     status: name(row.from_status),
                   })}
                   value={row.reason_mode}
-                  disabled={pending}
+                  disabled={locked}
                   style={{ width: '100%' }}
                   onChange={(mode) => {
                     setOrigin('prompts');

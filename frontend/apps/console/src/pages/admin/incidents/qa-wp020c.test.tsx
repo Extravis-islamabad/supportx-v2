@@ -127,7 +127,7 @@ describe('WP-020c QA findings', () => {
     const next = box instanceof HTMLInputElement ? box : box.querySelector('input');
     if (next === null) throw new Error('no number input');
     fireEvent.change(next, { target: { value: '5' } });
-    fireEvent.click(screen.getByTestId('settings-numbering-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     expect((await screen.findByTestId('settings-numbering-error-next_number')).textContent).toBe(
       'That number is already used. Choose 8 or higher.',
     );
@@ -148,9 +148,9 @@ describe('WP-020c QA findings', () => {
     });
     open('/admin/incidents/general');
     fireEvent.change(await screen.findByTestId('settings-prefix'), { target: { value: 'Q1' } });
-    fireEvent.click(screen.getByTestId('settings-numbering-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await screen.findByTestId('settings-numbering-error-prefix');
-    fireEvent.click(within(screen.getByTestId('settings-numbering')).getByText('Reset'));
+    fireEvent.click(screen.getByTestId('settings-discard'));
     await waitFor(() => {
       expect(screen.queryByTestId('settings-numbering-error-prefix')).toBeNull();
     });
@@ -172,22 +172,22 @@ describe('WP-020c QA findings', () => {
       },
     });
     open('/admin/incidents/general');
-    // Unsaved edit in the defaults card, then a save in the automation card.
-    fireEvent.mouseDown(selectorOf(await screen.findByTestId('settings-default-priority')));
-    fireEvent.click(
-      (
-        await screen.findAllByText('P1 – Critical', { selector: '.ant-select-item-option-content' })
-      )[0] as Element,
-    );
-    fireEvent.click(screen.getByTestId('settings-auto-status'));
-    fireEvent.click(screen.getByTestId('settings-automation-save'));
+    // One save bar for the tab (template E): an edit, then this tab's own save.
+    fireEvent.click(await screen.findByTestId('settings-auto-status'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await screen.findByText('Saved. Open forms use the change at once.');
     act(() => {
       realtime.publish(':broadcast', { type: 'work_items.settings_changed', ids: [] });
     });
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(screen.queryByTestId('settings-stale')).toBeNull();
-    // Another admin's change (a version this tab did not make) is announced.
+    // An unsaved edit, then another admin's change (a version this tab did not make).
+    fireEvent.mouseDown(selectorOf(screen.getByTestId('settings-default-priority')));
+    fireEvent.click(
+      (
+        await screen.findAllByText('P1 – Critical', { selector: '.ant-select-item-option-content' })
+      )[0] as Element,
+    );
     version += 1;
     act(() => {
       realtime.publish(':broadcast', { type: 'work_items.settings_changed', ids: [] });
@@ -347,5 +347,61 @@ describe('WP-020c QA findings', () => {
     expect(screen.getByTestId('tpl-editor-locked-note').textContent).toContain(
       'requesters could not log',
     );
+  });
+
+  it('REQ-PRB-021, -022 AC2: a template may be limited to groups, off with its reason for requesters', async () => {
+    api({ me: ADMIN, routes: COMMON });
+    open('/admin/incidents/templates');
+    fireEvent.click(await screen.findByTestId('tpl-admin-new'));
+    const limited = await screen.findByTestId('tpl-editor-limited');
+    expect(limited.className).not.toContain('ant-select-disabled');
+    fireEvent.click(screen.getByTestId('tpl-editor-portal')); // for requesters: for everyone
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-editor-limited').className).toContain('ant-select-disabled');
+    });
+    expect(
+      document.querySelector(
+        '[aria-description="A template for requesters is offered to everyone, so it cannot be limited to groups."]',
+      ),
+    ).not.toBeNull();
+  });
+});
+
+describe('Template E: the general settings (D-147)', () => {
+  it('one save bar: the count, Discard back to saved, only the changes sent with If-Match', async () => {
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...COMMON,
+        'PATCH /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
+      },
+    });
+    open('/admin/incidents/general');
+    const prefix = await screen.findByTestId<HTMLInputElement>('settings-prefix');
+    // Nothing in a card is a button: the bar saves.
+    for (const card of ['settings-numbering', 'settings-defaults', 'settings-automation']) {
+      expect(screen.getByTestId(card).querySelectorAll('button:not([role="switch"])')).toHaveLength(
+        0,
+      );
+    }
+    expect(screen.queryByTestId('settings-general-save')).toBeNull();
+    fireEvent.change(prefix, { target: { value: 'QAT' } });
+    fireEvent.click(screen.getByTestId('settings-auto-status'));
+    expect((await screen.findByTestId('settings-general-save')).textContent).toContain(
+      '2 unsaved changes',
+    );
+    fireEvent.click(screen.getByTestId('settings-discard'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('settings-general-save')).toBeNull();
+    });
+    expect(prefix.value).toBe(fakeIncidentCatalogue().prefix);
+    fireEvent.change(prefix, { target: { value: 'QAT' } });
+    fireEvent.click(await screen.findByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/incidents/settings')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', '/api/v1/incidents/settings');
+    expect(sent?.body).toEqual({ prefix: 'QAT' });
+    expect(sent?.headers.get('If-Match')).toBe(`"${String(fakeIncidentCatalogue().version)}"`);
   });
 });

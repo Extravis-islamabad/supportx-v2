@@ -55,6 +55,28 @@ def test_the_route_code_leads_and_is_not_repeated() -> None:
     assert events_of(ASSET, "updated", restored, "asset.restored") == ("asset.restored",)
 
 
+def test_an_asset_held_given_back_lent_and_linked_names_its_own_codes() -> None:
+    """WP-049a s4/s5 (#307): holder, loan and link saves use the codes their routes write."""
+    for holder in ("owner_user_id", "department_id", "parent_asset_id"):
+        given = [FieldDiff(holder, None, "u1")]
+        assert events_of(ASSET, "updated", given) == ("asset.assigned",), holder
+        back = [FieldDiff(holder, "u1", None)]
+        assert events_of(ASSET, "updated", back) == ("asset.unassigned",), holder
+    handed = [FieldDiff("owner_user_id", "u1", None), FieldDiff("department_id", None, "d1")]
+    assert set(events_of(ASSET, "updated", handed)) == {"asset.assigned", "asset.unassigned"}
+    lent = [FieldDiff("loanable", old=False, new=True)]
+    assert events_of(ASSET, "updated", lent) == ("asset.loanable_set",)
+    assert events_of(ASSET, "updated", [FieldDiff("relationship", None, "runs on SRV-1")]) == (
+        "asset.linked",
+    )
+    assert events_of(ASSET, "updated", [FieldDiff("relationship", "runs on SRV-1", None)]) == (
+        "asset.unlinked",
+    )
+    assert {"asset.assigned", "asset.unassigned", "asset.linked", "asset.loanable_set"} <= set(
+        ASSET.events()
+    )
+
+
 def test_every_lifecycle_code_is_in_the_catalogue() -> None:
     # The catalogue's labels test then covers en/ar/ur for each of them.
     assert lifecycle_codes() <= set(ACTIONS)

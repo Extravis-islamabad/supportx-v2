@@ -24,10 +24,20 @@ LOCK_PREFIX = "sx:session-lock:"
 ENDED_PREFIX = "sx:sessions-ended:"
 SSO_TEST_PREFIX = "sx:sso-test:"
 LIMIT_PREFIX = "sx:limit:"
+# A person's sessions, listed for My account and admins (ADR-044 item 5): one hash per person,
+# field = the session's public id, value = its description, encrypted.
+INDEX_PREFIX = "sx:user-sessions:"
+# Dev-only quick sign-in (D-151): which TOTP time steps a persona's codes were sent for.
+QUICK_STEP_PREFIX = "sx:dev-quick-step:"
 
 
 def _hashed(prefix: str, value: str) -> str:
     return prefix + hashlib.sha256(value.encode()).hexdigest()
+
+
+def public_id(session_id: str) -> str:
+    """A session's id for lists and revocation: derived from it, but never usable as it."""
+    return hashlib.sha256(f"pub:{session_id}".encode()).hexdigest()[:32]
 
 
 class KeyValue(Protocol):
@@ -38,6 +48,9 @@ class KeyValue(Protocol):
     async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None: ...  # noqa: D102
     async def delete(self, key: str) -> int: ...  # noqa: D102
     async def count(self, key: str, *, px: int) -> int: ...  # noqa: D102 - one more hit, kept px ms
+    async def hset(self, key: str, field: str, value: bytes, *, px: int) -> None: ...  # noqa: D102 - field, then the key's TTL
+    async def hgetall(self, key: str) -> dict[str, bytes]: ...  # noqa: D102
+    async def hdel(self, key: str, field: str) -> int: ...  # noqa: D102
     async def delete_if(self, key: str, value: bytes) -> bool: ...  # noqa: D102 - only while it holds value
 
 
@@ -70,6 +83,24 @@ class ValkeyKeyValue:
             hits, _ = await pipe.execute()
         return int(hits)
 
+    async def hset(self, key: str, field: str, value: bytes, *, px: int) -> None:  # noqa: D102
+        async with self._client.pipeline(transaction=True) as pipe:
+            pipe.hset(key, field, value)  # type: ignore[arg-type]  # valkey-py's stubs say str; bytes are stored as is
+            # As long as the person's longest-lived session: a shorter one's save never cuts the
+            # list's life (lane C's #249 review). NX sets it on a new index; GT only lengthens it
+            # (a key without a TTL counts as infinite for GT, so GT alone would never set one).
+            pipe.pexpire(key, px, nx=True)
+            pipe.pexpire(key, px, gt=True)
+            await pipe.execute()
+
+    async def hgetall(self, key: str) -> dict[str, bytes]:  # noqa: D102
+        # valkey-py's stubs type it sync-or-async; the asyncio client always returns an awaitable.
+        found = await cast("Awaitable[dict[bytes | str, bytes]]", self._client.hgetall(key))
+        return {(k.decode() if isinstance(k, bytes) else k): v for k, v in found.items()}
+
+    async def hdel(self, key: str, field: str) -> int:  # noqa: D102
+        return await cast("Awaitable[int]", self._client.hdel(key, field))
+
     async def delete_if(self, key: str, value: bytes) -> bool:  # noqa: D102
         # valkey-py's stubs type eval's result as sync-or-async and its args as str only; the
         # async client returns an awaitable and sends bytes as they are.
@@ -92,9 +123,50 @@ class SessionStore:
         self._cipher = cipher
 
     async def put_session(self, session_id: str, data: dict[str, Any], ttl: timedelta) -> None:
-        """Store (or replace) a session record until `ttl` elapses."""
+        """Store (or replace) a session record until `ttl` elapses, and list it for its person.
+
+        Every save (sign-in, refresh, tenant switch) updates the person's list, so "last used"
+        is the last save. A deleted or rotated session leaves a stale entry, which the list
+        drops when it finds the session gone (`user_sessions`).
+        """
         key = _hashed(SESSION_PREFIX, session_id)
         await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+        tenant, user = data.get("tenant_id"), data.get("user_id")
+        if tenant and user:
+            index = _hashed(INDEX_PREFIX, f"{tenant}:{user}")
+            field = public_id(session_id)
+            meta = {
+                "key": key,
+                "client": data.get("client"),
+                "created_at": data.get("created_at"),
+                "last_seen_at": data.get("last_seen_at"),
+                "platform": data.get("device_platform"),
+                "app_version": data.get("app_version"),
+            }
+            sealed = self._cipher.encrypt(meta, bound_to=f"{index}:{field}")
+            await self._kv.hset(index, field, sealed, px=_ms(ttl))
+
+    async def user_sessions(self, user_key: str) -> list[tuple[str, dict[str, Any]]]:
+        """(public id, description) of a person's live sessions; stale entries are removed."""
+        index = _hashed(INDEX_PREFIX, user_key)
+        found: list[tuple[str, dict[str, Any]]] = []
+        for field, sealed in (await self._kv.hgetall(index)).items():
+            meta = self._cipher.decrypt(sealed, bound_to=f"{index}:{field}")
+            if meta is None or await self._kv.get(str(meta.get("key"))) is None:
+                await self._kv.hdel(index, field)  # ended, rotated or expired
+                continue
+            found.append((field, meta))
+        return found
+
+    async def end_listed_session(self, user_key: str, session: str) -> bool:
+        """End one of a person's sessions by its public id; False when it isn't theirs or live."""
+        index = _hashed(INDEX_PREFIX, user_key)
+        for field, meta in await self.user_sessions(user_key):
+            if field == session:
+                await self._kv.delete(str(meta["key"]))
+                await self._kv.hdel(index, field)
+                return True
+        return False
 
     async def get_session(self, session_id: str) -> dict[str, Any] | None:
         """The session record, or None if unknown, expired or undecryptable."""
@@ -110,6 +182,13 @@ class SessionStore:
         """Remember a pending login (PKCE verifier, nonce, returnTo) under its state value."""
         key = _hashed(LOGIN_PREFIX, state)
         await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+
+    async def claim_totp_step(self, email: str, step: int, ttl: timedelta) -> bool:
+        """Claim one TOTP time step for a persona, once (SET NX): never the same code twice."""
+        claimed = await self._kv.set(
+            _hashed(QUICK_STEP_PREFIX, f"{email.lower()}:{step}"), b"1", px=_ms(ttl), nx=True
+        )
+        return bool(claimed)
 
     async def hit(self, scope: str, subject: str, window: timedelta) -> int:
         """Count one more request of `subject` in the current `window`; the count so far."""

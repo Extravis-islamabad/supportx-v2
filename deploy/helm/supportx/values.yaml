@@ -147,6 +147,18 @@ workflowTimers:
     requests: {cpu: 50m, memory: 160Mi}
     limits: {cpu: 500m, memory: 512Mi}
 
+# The mobile app's verified sign-in return link (ADR-044 item 3): the host serves
+# apple-app-site-association and assetlinks.json naming the app builds this installation trusts,
+# so only those apps receive the return. Empty lists: neither file is served (404). On-prem and
+# air-gapped installations put their own app build's IDs here.
+mobile:
+  returnPath: /mobile/auth  # fixed per installation, never taken from a request
+  ios:
+    appIds: []  # "<Team ID>.<bundle ID>", e.g. "ABCDE12345.com.extravis.supportx"
+  android:
+    package: ""  # e.g. "com.extravis.supportx"
+    certSha256: []  # the signing certificate's SHA-256 fingerprints, "AB:CD:..."
+
 web:
   replicas: 1
   resources:

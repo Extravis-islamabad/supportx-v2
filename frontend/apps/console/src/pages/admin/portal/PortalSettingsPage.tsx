@@ -1,7 +1,7 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import {
+  Alert,
   Button,
-  Card,
   Checkbox,
   Flex,
   List,
@@ -12,9 +12,10 @@ import {
   Typography,
 } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import {
+  ApiError,
   useCatalogSettings,
   useCatalogSettingsChange,
   useIncidentCatalogue,
@@ -28,7 +29,17 @@ import {
   type PortalSearchSource,
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
-import { PageHeader, reportError, useLabel } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  PageHeader,
+  SettingsCard,
+  StickySaveBar,
+  useLabel,
+  useLicence,
+  useFormProblem,
+  useSettingsDraft,
+} from '@supportx/ui';
 
 const SOURCES: PortalSearchSource[] = ['items', 'articles', 'announcements', 'requests'];
 const SCOPES: OnBehalfScope[] = ['same_department', 'same_site', 'all_requesters', 'all_users'];
@@ -66,6 +77,7 @@ function Setting({
  */
 export function PortalSettingsPage() {
   const t = useLabel();
+  const { writable } = useLicence(); // read-only licence: nothing here saves (coverage §17)
   const queryClient = useQueryClient();
   // Another admin's change shows here at once (§8).
   useTenantChannel((event) => {
@@ -81,42 +93,116 @@ export function PortalSettingsPage() {
   const incidentChange = useIncidentSettingsChange();
   const catalog = useCatalogSettings();
   const catalogChange = useCatalogSettingsChange();
-  if (
-    portal.data === undefined ||
-    requests.data === undefined ||
-    incidents.data === undefined ||
-    catalog.data === undefined
-  ) {
-    return <Skeleton active />;
-  }
+  const ready =
+    portal.data !== undefined &&
+    requests.data !== undefined &&
+    incidents.data !== undefined &&
+    catalog.data !== undefined;
+  // One draft for the page (template E, D-147): switches change it, the bar saves it.
+  const saved = useMemo(
+    () => ({
+      hideDefault: catalog.data?.hide_default_incident_template ?? false,
+      incidentDue: incidents.data?.portal_show_due_time ?? false,
+      requestDue: requests.data?.portal_show_due_time ?? false,
+      onBehalf: requests.data?.on_behalf_scope ?? 'same_department',
+      approvalsHidden: requests.data?.approvals_hidden_from_requesters ?? false,
+      approvalsSignIn: requests.data?.approvals_require_sign_in ?? false,
+      sources: portal.data?.search_sources ?? [],
+      profileEditing: portal.data?.profile_editing ?? false,
+      reminders: portal.data?.requester_reminders ?? false,
+    }),
+    [portal.data, requests.data, catalog.data, incidents.data],
+  );
+  const { draft, set, changes, changed, discard } = useSettingsDraft(saved);
+  // A refused save shows above the bar, not as a toast (lane C's #318 note), and a save that
+  // stopped after some owners took theirs says so: the bar then counts only what is left.
+  const problem = useFormProblem();
+  const [partly, setPartly] = useState(false);
+  // Someone saved one of the four owners' settings first (409): the conflict dialog says who and
+  // what, then either the saved values or this person's edits on the latest versions (rule g).
+  const [conflict, setConflict] = useState<ApiError | null>(null);
+  const latest = () =>
+    Promise.all([portal.refetch(), requests.refetch(), incidents.refetch(), catalog.refetch()]);
+  const drop = () => {
+    problem.clear();
+    setPartly(false);
+    discard();
+  };
+  const saving =
+    portalChange.isPending ||
+    requestChange.isPending ||
+    incidentChange.isPending ||
+    catalogChange.isPending;
+  if (!ready) return <Skeleton active />;
   const p = portal.data;
   const sr = requests.data;
-  const inc = incidents.data;
   const cat = catalog.data;
-  const onError = { onError: reportError };
-  const savePortal = (body: Parameters<typeof portalChange.mutate>[0]['body']) => {
-    portalChange.mutate({ body, version: p.version }, onError);
+  // Each setting is saved where it lives, only what changed, with that owner's If-Match.
+  const save = async () => {
+    problem.clear();
+    setPartly(false);
+    let done = 0;
+    try {
+      if (changed.hideDefault !== undefined) {
+        await catalogChange.mutateAsync({
+          body: { hide_default_incident_template: changed.hideDefault },
+          version: cat.version,
+        });
+        done += 1;
+      }
+      if (changed.incidentDue !== undefined) {
+        await incidentChange.mutateAsync({
+          change: { kind: 'settings', body: { portal_show_due_time: changed.incidentDue } },
+        });
+        done += 1;
+      }
+      const forRequests = {
+        ...(changed.requestDue === undefined ? {} : { portal_show_due_time: changed.requestDue }),
+        ...(changed.onBehalf === undefined ? {} : { on_behalf_scope: changed.onBehalf }),
+        ...(changed.approvalsHidden === undefined
+          ? {}
+          : { approvals_hidden_from_requesters: changed.approvalsHidden }),
+        ...(changed.approvalsSignIn === undefined
+          ? {}
+          : { approvals_require_sign_in: changed.approvalsSignIn }),
+      };
+      if (Object.keys(forRequests).length > 0) {
+        await requestChange.mutateAsync({ body: forRequests, version: sr.version });
+        done += 1;
+      }
+      const forPortal = {
+        ...(changed.sources === undefined ? {} : { search_sources: changed.sources }),
+        ...(changed.profileEditing === undefined
+          ? {}
+          : { profile_editing: changed.profileEditing }),
+        ...(changed.reminders === undefined ? {} : { requester_reminders: changed.reminders }),
+      };
+      if (Object.keys(forPortal).length > 0) {
+        await portalChange.mutateAsync({ body: forPortal, version: p.version });
+      }
+    } catch (error) {
+      setPartly(done > 0);
+      if (error instanceof ApiError && error.isConflict) setConflict(error);
+      else problem.show(error);
+    }
   };
-  const saveRequests = (body: Parameters<typeof requestChange.mutate>[0]['body']) => {
-    requestChange.mutate({ body, version: sr.version }, onError);
-  };
-  const sources = p.search_sources;
+  const sources = draft.sources;
   const move = (source: PortalSearchSource, by: number) => {
     const at = sources.indexOf(source);
     const next = [...sources];
     next.splice(at, 1);
     next.splice(at + by, 0, source);
-    savePortal({ search_sources: next });
+    set({ sources: next });
   };
   const toggle = (source: PortalSearchSource, on: boolean) => {
     const next = on ? [...sources, source] : sources.filter((s) => s !== source);
-    if (next.length > 0) savePortal({ search_sources: next });
+    if (next.length > 0) set({ sources: next });
   };
 
   return (
     <Flex vertical gap={16} style={{ maxWidth: 860 }} data-testid="portal-settings">
       <PageHeader title={t('nav.admin_portal')} description={t('portal_settings.intro')} />
-      <Card title={t('portal_settings.group.requests')}>
+      <SettingsCard title={t('portal_settings.group.requests')}>
         <Flex vertical gap={16}>
           <Setting
             name={t('portal_settings.hide_default_form')}
@@ -124,14 +210,11 @@ export function PortalSettingsPage() {
             testId="ps-hide-default-form"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.hide_default_form')}
-              checked={cat.hide_default_incident_template}
-              loading={catalogChange.isPending}
+              checked={draft.hideDefault}
               onChange={(on) => {
-                catalogChange.mutate(
-                  { body: { hide_default_incident_template: on }, version: cat.version },
-                  onError,
-                );
+                set({ hideDefault: on });
               }}
             />
           </Setting>
@@ -141,14 +224,11 @@ export function PortalSettingsPage() {
             testId="ps-due-incidents"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.due_incidents')}
-              checked={inc.portal_show_due_time}
-              loading={incidentChange.isPending}
+              checked={draft.incidentDue}
               onChange={(on) => {
-                incidentChange.mutate(
-                  { change: { kind: 'settings', body: { portal_show_due_time: on } } },
-                  onError,
-                );
+                set({ incidentDue: on });
               }}
             />
           </Setting>
@@ -158,34 +238,35 @@ export function PortalSettingsPage() {
             testId="ps-due-requests"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.due_requests')}
-              checked={sr.portal_show_due_time}
-              loading={requestChange.isPending}
+              checked={draft.requestDue}
               onChange={(on) => {
-                saveRequests({ portal_show_due_time: on });
+                set({ requestDue: on });
               }}
             />
           </Setting>
         </Flex>
-      </Card>
-      <Card title={t('portal_settings.group.people')}>
+      </SettingsCard>
+      <SettingsCard title={t('portal_settings.group.people')}>
         <Setting
           name={t('portal_settings.on_behalf')}
           hint={t('portal_settings.on_behalf_hint')}
           testId="ps-on-behalf"
         >
           <Select
+            disabled={!writable}
             aria-label={t('portal_settings.on_behalf')}
             style={{ minWidth: 240 }}
-            value={sr.on_behalf_scope}
+            value={draft.onBehalf}
             onChange={(scope: OnBehalfScope) => {
-              saveRequests({ on_behalf_scope: scope });
+              set({ onBehalf: scope });
             }}
             options={SCOPES.map((s) => ({ value: s, label: t(`work_item_on_behalf_scope.${s}`) }))}
           />
         </Setting>
-      </Card>
-      <Card title={t('portal_settings.group.approvals')}>
+      </SettingsCard>
+      <SettingsCard title={t('portal_settings.group.approvals')}>
         <Flex vertical gap={16}>
           <Setting
             name={t('portal_settings.approvals_hidden')}
@@ -193,10 +274,11 @@ export function PortalSettingsPage() {
             testId="ps-approvals-hidden"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.approvals_hidden')}
-              checked={sr.approvals_hidden_from_requesters}
+              checked={draft.approvalsHidden}
               onChange={(on) => {
-                saveRequests({ approvals_hidden_from_requesters: on });
+                set({ approvalsHidden: on });
               }}
             />
           </Setting>
@@ -206,16 +288,17 @@ export function PortalSettingsPage() {
             testId="ps-approvals-sign-in"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.approvals_sign_in')}
-              checked={sr.approvals_require_sign_in}
+              checked={draft.approvalsSignIn}
               onChange={(on) => {
-                saveRequests({ approvals_require_sign_in: on });
+                set({ approvalsSignIn: on });
               }}
             />
           </Setting>
         </Flex>
-      </Card>
-      <Card title={t('portal_settings.group.portal')}>
+      </SettingsCard>
+      <SettingsCard title={t('portal_settings.group.portal')}>
         <Flex vertical gap={16}>
           <Flex vertical gap={8} data-testid="ps-search-sources">
             <Typography.Text strong>{t('portal_settings.search_sources')}</Typography.Text>
@@ -266,8 +349,8 @@ export function PortalSettingsPage() {
                     }
                   >
                     <Checkbox
+                      disabled={!writable || (on && sources.length === 1)}
                       checked={on}
-                      disabled={on && sources.length === 1}
                       onChange={(e) => {
                         toggle(source, e.target.checked);
                       }}
@@ -286,10 +369,11 @@ export function PortalSettingsPage() {
             testId="ps-profile-editing"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.profile_editing')}
-              checked={p.profile_editing}
+              checked={draft.profileEditing}
               onChange={(on) => {
-                savePortal({ profile_editing: on });
+                set({ profileEditing: on });
               }}
             />
           </Setting>
@@ -299,16 +383,17 @@ export function PortalSettingsPage() {
             testId="ps-reminders"
           >
             <Switch
+              disabled={!writable}
               aria-label={t('portal_settings.reminders')}
-              checked={p.requester_reminders}
+              checked={draft.reminders}
               onChange={(on) => {
-                savePortal({ requester_reminders: on });
+                set({ reminders: on });
               }}
             />
           </Setting>
         </Flex>
-      </Card>
-      <Card title={t('portal_settings.group.later')}>
+      </SettingsCard>
+      <SettingsCard title={t('portal_settings.group.later')}>
         <Flex vertical gap={12}>
           {LATER.map((key) => (
             <Setting
@@ -321,7 +406,39 @@ export function PortalSettingsPage() {
             </Setting>
           ))}
         </Flex>
-      </Card>
+      </SettingsCard>
+      {partly && (
+        <Alert
+          type="warning"
+          showIcon
+          role="status"
+          message={t('portal_settings.saved_partly')}
+          data-testid="portal-settings-partly"
+        />
+      )}
+      <FormProblem problem={problem} />
+      <ConflictDialog
+        open={conflict !== null}
+        error={conflict ?? undefined}
+        onReload={() => {
+          setConflict(null);
+          void latest().then(drop);
+        }}
+        onKeepMine={() => {
+          // The draft keeps every edit that still differs from the latest saved values.
+          setConflict(null);
+          void latest();
+        }}
+      />
+      {writable && (
+        <StickySaveBar
+          changes={changes}
+          saving={saving}
+          onDiscard={drop}
+          onSave={() => void save()}
+          testId="portal-settings-save-bar"
+        />
+      )}
     </Flex>
   );
 }

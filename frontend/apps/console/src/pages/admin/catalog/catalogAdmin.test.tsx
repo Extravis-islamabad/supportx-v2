@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { CatalogCategory, CatalogItem } from '@supportx/api-client';
 
 import { App } from '../../../App';
-import { consoleApi, fakeSession } from '../../../test/api';
+import { consoleApi, fakeSession, problem } from '../../../test/api';
 
 const ADMIN = fakeSession({ roles: ['tenant_admin', 'technician'] });
 
@@ -163,6 +163,33 @@ describe('Admin › Service catalog', () => {
     const [sent] = fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`);
     expect(sent?.body).toEqual({ status: 'published' });
     expect(sent?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('QA10-P3-08: a refused publish names the missing field and opens its tab', async () => {
+    window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
+    api({
+      [`PATCH /api/v1/catalog/items/${ITEM}`]: {
+        status: 422,
+        body: problem(422, 'validation_failed', {
+          errors: [
+            {
+              field: 'body.group_id',
+              code: 'required',
+              message_key: 'errors.field.required',
+              params: {},
+            },
+          ],
+        }),
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Publishing' }));
+    fireEvent.click(await screen.findByTestId('cat-publish'));
+    const problems = await screen.findByTestId('cat-item-problems');
+    expect(problems.textContent).toContain('Fulfilment group: This field is required.');
+    expect(
+      screen.getByRole('tab', { name: 'SLA and assignment' }).getAttribute('aria-selected'),
+    ).toBe('true');
   });
 
   it('the preview shows the description first and only the requester’s questions', async () => {

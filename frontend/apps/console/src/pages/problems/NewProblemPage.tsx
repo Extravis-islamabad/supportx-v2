@@ -20,6 +20,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
   useCreateProblem,
   useCreateProblemFromIncidents,
+  useHandleRepeatHit,
+  useRepeatHitIncidents,
+  useRepeatHits,
   useFromIncidentsPreview,
   useLinkIncident,
   useProblemCatalogue,
@@ -113,15 +116,29 @@ function SimilarRow({ found, incidents }: { found: SimilarProblem; incidents: st
  * "link the incidents to it instead". Nothing is saved until you press Create.
  */
 export function NewProblemPage() {
-  const incidents = useSourceIncidents();
+  const [params] = useSearchParams();
+  // From a set of repeated incidents (WP-044c D16): its incidents, then the set is handled.
+  const repeat = params.get('repeat');
+  const repeatHits = useRepeatHits(repeat !== null);
+  const members = useRepeatHitIncidents(repeat);
+  const named = useSourceIncidents();
+  const incidents = useMemo(
+    () => (repeat === null ? named : (members.data ?? []).map((m) => m.id)),
+    [repeat, named, members.data],
+  );
+  const hit = repeatHits.data?.find((h) => h.id === repeat);
   const prefill = useProblemPrefill(incidents[0]);
   const templates = useProblemTemplates();
-  const waiting = templates.isLoading || (incidents.length > 0 && prefill.isLoading);
+  const waiting =
+    templates.isLoading ||
+    (repeat !== null && members.isLoading) ||
+    (incidents.length > 0 && prefill.isLoading);
   if (waiting) return <Skeleton active />;
   const offered = (templates.data ?? []).filter((x) => !x.disabled);
   return (
     <ProblemForm
       incidents={incidents}
+      repeat={hit === undefined ? undefined : { hitId: hit.id, version: hit.version }}
       filled={prefill.data}
       templates={offered}
       firstTemplate={(offered.find((x) => x.is_default) ?? offered[0])?.id}
@@ -131,11 +148,14 @@ export function NewProblemPage() {
 
 function ProblemForm({
   incidents,
+  repeat,
   filled,
   templates,
   firstTemplate,
 }: {
   incidents: string[];
+  /** The set of repeated incidents it comes from: marked handled once the problem exists. */
+  repeat?: { hitId: string; version: number };
   filled: ProblemPrefill | undefined;
   templates: ProblemTemplate[];
   firstTemplate: string | undefined;
@@ -146,9 +166,12 @@ function ProblemForm({
   const navigate = useNavigate();
   const me = useSession().data?.user.id ?? '';
   const main = incidents[0];
-  const preview = useFromIncidentsPreview(incidents.length > 1 ? incidents : []);
+  // From one incident too (QA10-P1-02): an incident another problem already causes is offered
+  // to move here, never refused with no way on.
+  const preview = useFromIncidentsPreview(incidents);
   const catalogue = useProblemCatalogue();
   const create = useCreateProblem();
+  const handle = useHandleRepeatHit();
   const fromIncidents = useCreateProblemFromIncidents();
   const [key] = useState(() => crypto.randomUUID());
   // The incident's values start the form; the person changes them before saving (AC1).
@@ -169,8 +192,15 @@ function ProblemForm({
       .map((v) => ({ value: v.code, label: scaleLabel(t, catalogue.data, scale, v.code, locale) }));
   const caused = preview.data?.already_caused ?? [];
   const saving = create.isPending || fromIncidents.isPending;
+  const [subjectMissing, setSubjectMissing] = useState(false);
 
   const submit = () => {
+    // As on the new-incident form (QA9-F-10): Create is always there; an empty subject is said
+    // on the field, nothing is sent.
+    if (subject.trim() === '') {
+      setSubjectMissing(true);
+      return;
+    }
     const body: ProblemInput = {
       subject,
       requester_id: filled?.requester_id ?? me,
@@ -184,11 +214,23 @@ function ProblemForm({
       ...(filled?.category_id ? { category_id: filled.category_id } : {}),
       ...(filled?.site_id ? { site_id: filled.site_id } : {}),
     };
+    // The set it came from leaves the list; the problem opens either way.
+    const done = (problemId: string) => {
+      if (repeat !== undefined) {
+        handle.mutate(
+          { ...repeat, outcome: 'problem_created', problemId },
+          { onError: reportError },
+        );
+      }
+      void navigate(`/problems/${problemId}`);
+    };
     if (main === undefined) {
       create.mutate(
         { body, key },
         {
-          onSuccess: (made) => void navigate(`/problems/${made.id}`),
+          onSuccess: (made) => {
+            done(made.id);
+          },
           onError: reportError,
         },
       );
@@ -197,7 +239,9 @@ function ProblemForm({
     fromIncidents.mutate(
       { body, key, mainIncidentId: main, incidentIds: incidents, moveIncidentIds: move },
       {
-        onSuccess: (made) => void navigate(`/problems/${made.problem.id}`),
+        onSuccess: (made) => {
+          done(made.problem.id);
+        },
         onError: reportError,
       },
     );
@@ -252,7 +296,14 @@ function ProblemForm({
               }))}
             />
           </Form.Item>
-          <Form.Item label={t('work_item.field.subject')} htmlFor="prb-subject" required>
+          <Form.Item
+            label={t('work_item.field.subject')}
+            htmlFor="prb-subject"
+            required
+            {...(subjectMissing && subject.trim() === ''
+              ? { validateStatus: 'error' as const, help: t('errors.field.required') }
+              : {})}
+          >
             <Input
               id="prb-subject"
               dir="auto"
@@ -352,7 +403,7 @@ function ProblemForm({
               type="primary"
               onClick={submit}
               loading={saving}
-              disabled={subject.trim() === '' || me === ''}
+              disabled={me === ''}
               data-testid="prb-create"
             >
               {t('problems.create')}

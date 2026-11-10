@@ -47,7 +47,8 @@ describe('Admin › Instance settings', () => {
     });
     render(<App />);
     const page = await screen.findByTestId('instance');
-    expect(within(page).getByText('Instance settings')).toBeDefined();
+    // Template E: the shell's settings header names the page.
+    expect(screen.getByTestId('admin-page-header').textContent).toContain('Instance settings');
     // Choose another currency, then save: the confirmation names both.
     const currency = within(page).getByTestId('instance-currency');
     fireEvent.mouseDown(currency.querySelector('input') ?? currency);
@@ -55,7 +56,7 @@ describe('Admin › Instance settings', () => {
     fireEvent.click(
       await screen.findByText(/\(AED\)$/, { selector: '.ant-select-item-option-content' }),
     );
-    fireEvent.click(within(page).getByTestId('instance-save'));
+    fireEvent.click(await screen.findByTestId('settings-save')); // template E's save bar
     const dialog = await screen.findByRole('dialog', { name: /Change the base currency from/ });
     expect(fake.find('PATCH', '/api/v1/organization/settings')).toHaveLength(0);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Change currency' }));
@@ -65,5 +66,45 @@ describe('Admin › Instance settings', () => {
     const [call] = fake.find('PATCH', '/api/v1/organization/settings');
     expect(call?.headers.get('If-Match')).toBe('"3"');
     expect(call?.body).toMatchObject({ base_currency: 'AED', confirm_currency: true });
+  });
+
+  it("QA10-P3-12: a wrong e-mail gets the app's own field error, and nothing is saved", async () => {
+    window.history.pushState({}, '', '/admin/instance');
+    const fake = api({
+      'PATCH /api/v1/organization/settings': { body: { ...SAVED, version: 4 } },
+    });
+    render(<App />);
+    const email = await screen.findByTestId('instance-contact-email');
+    expect(email.closest('form')?.noValidate).toBe(true); // never the browser's bubble
+    fireEvent.change(email, { target: { value: 'not-an-email' } });
+    fireEvent.blur(email);
+    expect(await screen.findByText('Enter an e-mail address like name@example.com.')).toBeTruthy();
+    fireEvent.click(await screen.findByTestId('settings-save'));
+    await waitFor(() => {
+      expect(screen.getAllByText('Enter an e-mail address like name@example.com.').length).toBe(1);
+    });
+    expect(fake.find('PATCH', '/api/v1/organization/settings')).toHaveLength(0);
+  });
+
+  it('QA10-P3-13: leaving with unsaved changes asks first, and Stay keeps them', async () => {
+    window.history.pushState({}, '', '/admin/instance');
+    api();
+    render(<App />);
+    const email = await screen.findByTestId('instance-contact-email');
+    fireEvent.change(email, { target: { value: 'desk@example.com' } });
+    await screen.findByTestId('settings-save');
+    fireEvent.click(await screen.findByTestId('admin-sections-button'));
+    fireEvent.click(await screen.findByTestId('admin-sections-home'));
+    await waitFor(() => {
+      expect(screen.getAllByText('Leave without saving?').length).toBeGreaterThan(0);
+    });
+    expect(document.querySelectorAll('.ant-modal-confirm')).toHaveLength(1); // asked once
+    fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/admin/instance');
+    });
+    expect(screen.getByTestId<HTMLInputElement>('instance-contact-email').value).toBe(
+      'desk@example.com',
+    );
   });
 });

@@ -147,4 +147,19 @@ describe('Admin › Integrations › Directories', () => {
       expect(within(row).getByText('43')).toBeTruthy();
     });
   });
+
+  it('a viewer sees the directories but none of their actions (lane C, QA10-P3)', async () => {
+    const viewer = fakeSession({ display_name: 'Tariq Tech', roles: ['technician'] });
+    expect(viewer.permissions?.some((p) => p.key === 'integrations.view')).toBe(true);
+    expect(viewer.permissions?.some((p) => p.key === 'integrations.manage_identity')).toBe(false);
+    api({ me: viewer, routes: { [`GET ${BASE}`]: { body: [directory()] } } });
+    window.history.pushState({}, '', '/admin/integrations/directories');
+    render(<App />);
+    await screen.findByText('Acme Entra');
+    expect(screen.queryByTestId('directory-add')).toBeNull();
+    expect(screen.queryByTestId('directory-sync-dir-1')).toBeNull();
+    expect(screen.queryByTestId('directory-edit-dir-1')).toBeNull();
+    expect(screen.queryByTestId('directory-remove-dir-1')).toBeNull();
+    expect(screen.queryByTestId('ldap-add')).toBeNull();
+  });
 });

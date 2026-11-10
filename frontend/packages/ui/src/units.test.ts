@@ -6,7 +6,7 @@ import { problem } from '@supportx/api-client/testing';
 import { label } from '@supportx/labels';
 
 import { describeError } from './errors/describe';
-import { visibleNav, type NavItem } from './shell/nav';
+import { featureState, visibleNav, type NavItem } from './shell/nav';
 import { clampLineHeight, fontFaces } from './fonts/fonts';
 import { buildTheme, darken, DEFAULT_BRANDING, lighten } from './theme';
 
@@ -197,5 +197,14 @@ describe('C2: fonts per language', () => {
     expect(clampLineHeight('نیٹ ورک سست ہے', 1.3, 'nastaliq')).toBe(1.9);
     expect(clampLineHeight('VPN in دبي', 1.3, 'naskh')).toBe(1.7); // mixed text: the taller one
     expect(clampLineHeight('دبي', 2, 'naskh')).toBe(2); // never lower than asked
+  });
+});
+
+describe('featureState (D-044 joins here)', () => {
+  it('on in the plan; outside it locked for licence managers and hidden for everyone else', () => {
+    const has = (feature: string) => feature === 'incident';
+    expect(featureState('incident', { has, managesLicence: false })).toBe('on');
+    expect(featureState('problem', { has, managesLicence: true })).toBe('locked');
+    expect(featureState('problem', { has, managesLicence: false })).toBe('hidden');
   });
 });

@@ -147,6 +147,8 @@ describe('The article page', () => {
     render(<App />);
     expect(await screen.findByTestId('kb-action-reject')).toBeDefined(); // still decidable by them
     expect(screen.queryByTestId('kb-action-approve')).toBeNull();
+    // QA10-P4-06: and the page says someone else approves it.
+    expect(screen.getByTestId('kb-own-version').textContent).toMatch(/approv/i);
   });
 
   it('saves the article settings with If-Match (rule g)', async () => {
@@ -184,7 +186,7 @@ describe('The article page', () => {
     api(fakeSession(), page(arabic));
     render(<App />);
     const heading = await screen.findByTestId('kb-heading');
-    expect(heading.getAttribute('dir')).toBe('rtl');
+    expect(heading.closest('[dir="rtl"]')).not.toBeNull();
     expect(screen.getByTestId('kb-body').closest('[dir="rtl"]')).not.toBeNull();
     // English was wanted (the screen language) but only Arabic exists: the page says so.
     expect(await screen.findByTestId('kb-fallback')).toBeDefined();

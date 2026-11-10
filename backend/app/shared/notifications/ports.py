@@ -93,6 +93,8 @@ class EventDefault:
         NotificationChannel.IN_APP,
         NotificationChannel.EMAIL,
     )
+    # The person who did it is told too: an acknowledgement of one's own request (QA10).
+    notify_actor: bool = False
 
 
 @dataclass(frozen=True)

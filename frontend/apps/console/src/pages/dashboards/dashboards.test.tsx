@@ -248,8 +248,10 @@ describe('dashboards on screen', () => {
       }),
     });
     render(<App />);
+    // The group renders before its list fills (the library loads, then names it): wait for the
+    // row itself, never assume it came with its group.
     const builtin = await screen.findByTestId('dashboards-group-builtin');
-    expect(within(builtin).getByText('My work')).toBeDefined();
+    expect(await within(builtin).findByText('My work')).toBeDefined();
     expect(
       within(screen.getByTestId('dashboards-group-mine')).getByText('Team board'),
     ).toBeDefined();
@@ -262,7 +264,7 @@ describe('dashboards on screen', () => {
     fireEvent.change(screen.getByTestId('dashboards-search'), {
       target: { value: '' },
     });
-    fireEvent.click(await screen.findByTestId('dashboards-star-builtin:my_work'));
+    fireEvent.click(await screen.findByTestId('dashboards-item-builtin:my_work-star'));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/dashboards/favourites/builtin%3Amy_work')).toHaveLength(1);
     });

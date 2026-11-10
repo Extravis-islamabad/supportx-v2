@@ -69,6 +69,10 @@ describe('portal approvals inbox (WP-032)', () => {
     restore = fake.restore;
     render(<App />);
     expect(await screen.findByTestId('portal-approval-delegated-SR-3')).toBeDefined();
+    // QA10-P2-06: what is asked opens read-only before deciding.
+    expect(screen.getByTestId('portal-approval-open-SR-3').getAttribute('href')).toBe(
+      `/service-requests/${pending(3).record_id}`,
+    );
     fireEvent.click(screen.getByTestId('portal-approvals-pick-all'));
     fireEvent.click(screen.getByTestId('portal-approvals-approve-picked'));
     const named = await screen.findByTestId('portal-approvals-confirm-list');

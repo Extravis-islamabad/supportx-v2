@@ -98,6 +98,7 @@ async def _recorded(  # noqa: PLR0913, PLR0917 - the record, the part and what c
         changes=changes,
         source=source,
     )
+    task = await session.get(WorkItemTask, part_id) if part == "task" else None
     await record_event(
         session,
         WorkItemPartChanged(
@@ -105,6 +106,7 @@ async def _recorded(  # noqa: PLR0913, PLR0917 - the record, the part and what c
             part=part,
             part_id=part_id,
             change=_CHANGES[kind],
+            task_status=task.status if task is not None else None,
         ),
         aggregate_id=record.id,
     )
@@ -207,7 +209,7 @@ def _task_values(values: dict[str, Any], *, creating: bool) -> dict[str, Any]:
     return clean
 
 
-_TRACKED = ("title", "status", "owner_id", "group_id", "priority", "due_at")
+_TRACKED = ("title", "status", "owner_id", "group_id", "priority", "due_at", "done_by")
 
 
 def _snapshot(task: WorkItemTask) -> dict[str, Any]:
@@ -347,7 +349,9 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
         )
     clean = _task_values(values, creating=False)
     if "status" in clean:
-        clean["done_at"] = datetime.now(UTC) if clean["status"] == TaskStatus.DONE else None
+        done = clean["status"] == TaskStatus.DONE
+        clean["done_at"] = datetime.now(UTC) if done else None
+        clean["done_by"] = subject.user_id if done else None  # D-154d: "Done by <name>"
     before = _snapshot(task)
     updated = await TaskRepository(session).update(
         task.id, expected_version=expected_version, changes=clean
@@ -359,7 +363,9 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
         # Imported here: fulfilment uses this module's tasks (WP-030 s3, REQ-SR-058).
         from app.modules.work_items.service import fulfilment  # noqa: PLC0415 - see above
 
-        await fulfilment.after_task_change(session, record.id, source=source)
+        await fulfilment.after_task_change(
+            session, record.id, source=source, ticked_by=subject.user_id
+        )
     return updated
 
 

@@ -285,6 +285,9 @@ class WorkItemPartChanged(DomainEvent):
     part: Literal["task", "worklog", "link"]
     part_id: uuid.UUID
     change: Literal["added", "changed", "removed"]
+    # Tasks only, additive (WP-048b, lane C's task node waits for "done"): the task's status
+    # after the change, a code (open, in_progress, done, ...); None for other parts.
+    task_status: str | None = None
 
 
 class WorkItemPartChangedV2(DomainEvent):
@@ -327,6 +330,64 @@ class WorkItemApprovalChanged(DomainEvent):
     change: ApprovalChange
 
 
+class ChangeBoardChanged(DomainEvent):
+    """A change advisory board was added, changed or removed (WP-045b S2; settings reload)."""
+
+    event_type: ClassVar[str] = "work_items.change_board.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "change_board"
+
+    board_id: uuid.UUID
+    change: str
+
+
+class ChangeApprovalNotice(DomainEvent):
+    """Someone must hear about a change's approval (WP-045b; REQ-CHG-040, -053; D-144).
+
+    `notice`: `sent_back` (an approved change needs approval again: the implementer, the owner
+    and the board are told), `overridden` (the emergency override was used) or
+    `board_has_no_members` (the change manager is told). Recorded now; the change
+    notifications (WP-056) send it. IDs only: recipients are worked out when it is sent.
+    """
+
+    event_type: ClassVar[str] = "work_items.change.approval_notice"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    notice: str
+    stage: str | None
+    fields: list[str]
+    board_id: uuid.UUID | None
+
+
+class ProblemRepeatDetected(DomainEvent):
+    """A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.
+
+    IDs and a count only; the incidents are read through the API by who may create problems.
+    """
+
+    event_type: ClassVar[str] = "work_items.problem_repeat.detected"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "problem_repeat_hit"
+
+    hit_id: uuid.UUID
+    rule_id: uuid.UUID
+    group_id: uuid.UUID | None
+    incident_count: int
+
+
+class ProblemRepeatChanged(DomainEvent):
+    """A repeat rule or hit was added, changed, handled or removed (screens refetch)."""
+
+    event_type: ClassVar[str] = "work_items.problem_repeat.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "problem_repeat"
+
+    kind: Literal["rule", "hit"]
+    id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCreated,
     WorkItemUpdated,
@@ -350,4 +411,8 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPartChanged,
     WorkItemPartChangedV2,
     WorkItemApprovalChanged,
+    ChangeBoardChanged,
+    ChangeApprovalNotice,
+    ProblemRepeatDetected,
+    ProblemRepeatChanged,
 )

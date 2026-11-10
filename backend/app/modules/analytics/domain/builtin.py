@@ -7,7 +7,10 @@ arrives with a later work package) is left out of the catalogue until it does.
 
 Default range: the last 30 days (parity file 09, Appendix A), shown in the filter bar.
 Report set A of the WP-035 plan; SLA, worklog, reopen and service request reports follow their
-work packages (WP-025, WP-020e, WP-020f, WP-030).
+work packages (WP-025, WP-020e, WP-020f, WP-030). UI pass 3 P6 (D-147) adds a starter set for
+every other reportable module (service requests, problems, releases) so the library shows each
+module's reports; they use the shared work item fields and the count measure only, as those
+entities have no measures of their own yet.
 """
 
 from collections.abc import Mapping
@@ -18,6 +21,10 @@ from typing import Any
 from app.modules.analytics.domain.definition import ReportDefinition
 
 INCIDENTS = "incidents"  # folder code; label `report_folder.incidents`
+SERVICE_REQUESTS = "service_requests"
+PROBLEMS = "problems"
+RELEASES = "releases"
+ASSETS = "assets"
 
 _OPEN = {"field": "status_category", "op": "in", "value": ["open", "paused"]}
 _LAST_30 = {"field": "created_at", "op": "last_n_days", "value": 30}
@@ -33,8 +40,66 @@ class BuiltinReport:
 
 
 def _report(code: str, **definition: Any) -> BuiltinReport:  # noqa: ANN401 - definition fields
+    return _of("incident", INCIDENTS, code, **definition)
+
+
+def _of(entity: str, folder: str, code: str, **definition: Any) -> BuiltinReport:  # noqa: ANN401
     return BuiltinReport(
-        code, INCIDENTS, ReportDefinition.model_validate({"entity": "incident", **definition})
+        code, folder, ReportDefinition.model_validate({"entity": entity, **definition})
+    )
+
+
+def _starter_set(entity: str, folder: str, prefix: str) -> tuple[BuiltinReport, ...]:
+    """The reports every work item module gets: what is open, what came in, what got done."""
+
+    def open_by(field: str, chart: str = "bar") -> BuiltinReport:
+        return _of(
+            entity,
+            folder,
+            f"{prefix}_open_by_{field.removesuffix('_id')}",
+            filter=_OPEN,
+            group_by=[{"field": field}],
+            order="value_desc",
+            chart=chart,
+        )
+
+    return (
+        _of(entity, folder, f"{prefix}_by_status", filter=_LAST_30, group_by=[{"field": "status"}]),
+        _of(
+            entity,
+            folder,
+            f"{prefix}_open_by_status",
+            filter=_OPEN,
+            group_by=[{"field": "status"}],
+            chart="doughnut",
+        ),
+        open_by("priority", "doughnut"),
+        open_by("group_id"),
+        open_by("technician_id"),
+        _of(
+            entity,
+            folder,
+            f"{prefix}_received_per_week",
+            filter={"field": "created_at", "op": "last_n_days", "value": 182},
+            group_by=[{"field": "created_at", "bucket": "week"}],
+            chart="line",
+        ),
+        _of(
+            entity,
+            folder,
+            f"{prefix}_resolved_per_week",
+            filter={"field": "resolved_at", "op": "last_n_days", "value": 182},
+            group_by=[{"field": "resolved_at", "bucket": "week"}],
+            chart="line",
+        ),
+        _of(
+            entity,
+            folder,
+            f"{prefix}_open_ageing",
+            filter=_OPEN,
+            group_by=[{"field": "created_at", "bucket": "age"}],
+            chart="bar",
+        ),
     )
 
 
@@ -148,6 +213,41 @@ BUILTIN_REPORTS: tuple[BuiltinReport, ...] = (
         filter={"field": "resolved_at", "op": "last_n_days", "value": 30},
         group_by=[{"field": "priority"}],
         measures=["mean_time_to_resolve", "resolved_count"],
+        chart="bar",
+    ),
+)
+
+BUILTIN_REPORTS += (
+    *_starter_set("service_request", SERVICE_REQUESTS, "requests"),
+    *_starter_set("problem", PROBLEMS, "problems"),
+    *_starter_set("release", RELEASES, "releases"),
+)
+
+# Assets (lane B's reporting source, #310): what is held, of what kind, its warranty and its age.
+BUILTIN_REPORTS += (
+    _of("asset", ASSETS, "assets_by_state", group_by=[{"field": "state_id"}], chart="doughnut"),
+    _of(
+        "asset",
+        ASSETS,
+        "assets_by_product_type",
+        group_by=[{"field": "product_type_id"}],
+        order="value_desc",
+    ),
+    _of(
+        "asset",
+        ASSETS,
+        "assets_warranty_ending",
+        # Dates (not times) take no relative ranges in the filter DSL: every asset with a
+        # warranty, by the month it ends, so the coming months read at a glance.
+        filter={"field": "warranty_expires_on", "op": "is_not_null"},
+        group_by=[{"field": "warranty_expires_on", "bucket": "month"}],
+        chart="bar",
+    ),
+    _of(
+        "asset",
+        ASSETS,
+        "assets_by_age",
+        group_by=[{"field": "acquired_on", "bucket": "age"}],
         chart="bar",
     ),
 )

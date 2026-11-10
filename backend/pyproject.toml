@@ -131,6 +131,7 @@ markers = [
     "resilience: restarts its own PostgreSQL and NATS containers under running workers; only with SUPPORTX_RESILIENCE_TESTS=1 (CI job worker resilience)",
     "ldap_federation: starts its own Keycloak and test OpenLDAP; only with SUPPORTX_LDAP_FEDERATION_TESTS=1 (CI job ldap federation)",
     "ha: starts its own Valkey and Sentinel containers from the HA chart; only with SUPPORTX_HA_TESTS=1 (CI job valkey failover)",
+    "per_test_world: the file opted out of the module app (tests/db/per_test_world): an app per test",
 ]
 
 [tool.coverage.run]
