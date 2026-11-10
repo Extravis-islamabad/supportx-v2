@@ -267,7 +267,10 @@ export function ScheduleButton({
               />
             </Form.Item>
             <Form.Item label={t('reports.schedule_zone')}>
-              <Typography.Text>{zone}</Typography.Text>
+              {/* Never cut off (QA10-P4-26): the zone wraps rather than being clipped. */}
+              <Typography.Text style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                <bdi dir="ltr">{zone}</bdi>
+              </Typography.Text>
             </Form.Item>
           </Space>
           <Space wrap>
