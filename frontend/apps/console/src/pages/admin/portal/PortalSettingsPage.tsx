@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type ReactNode } from 'react';
 
 import {
+  ApiError,
   useCatalogSettings,
   useCatalogSettingsChange,
   useIncidentCatalogue,
@@ -29,6 +30,7 @@ import {
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
 import {
+  ConflictDialog,
   FormProblem,
   PageHeader,
   SettingsCard,
@@ -116,6 +118,11 @@ export function PortalSettingsPage() {
   // stopped after some owners took theirs says so: the bar then counts only what is left.
   const problem = useFormProblem();
   const [partly, setPartly] = useState(false);
+  // Someone saved one of the four owners' settings first (409): the conflict dialog says who and
+  // what, then either the saved values or this person's edits on the latest versions (rule g).
+  const [conflict, setConflict] = useState<ApiError | null>(null);
+  const latest = () =>
+    Promise.all([portal.refetch(), requests.refetch(), incidents.refetch(), catalog.refetch()]);
   const drop = () => {
     problem.clear();
     setPartly(false);
@@ -175,7 +182,8 @@ export function PortalSettingsPage() {
       }
     } catch (error) {
       setPartly(done > 0);
-      problem.show(error);
+      if (error instanceof ApiError && error.isConflict) setConflict(error);
+      else problem.show(error);
     }
   };
   const sources = draft.sources;
@@ -409,6 +417,19 @@ export function PortalSettingsPage() {
         />
       )}
       <FormProblem problem={problem} />
+      <ConflictDialog
+        open={conflict !== null}
+        error={conflict ?? undefined}
+        onReload={() => {
+          setConflict(null);
+          void latest().then(drop);
+        }}
+        onKeepMine={() => {
+          // The draft keeps every edit that still differs from the latest saved values.
+          setConflict(null);
+          void latest();
+        }}
+      />
       {writable && (
         <StickySaveBar
           changes={changes}

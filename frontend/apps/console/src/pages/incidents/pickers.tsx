@@ -6,6 +6,7 @@ import {
   useIncidentCategories,
   useUnits,
   useStructure,
+  useUser,
   useUsers,
 } from '@supportx/api-client';
 import { useJoinParts } from '@supportx/labels';
@@ -98,6 +99,11 @@ export function UserPicker({
       label: <PersonOption name={current.name} email={current.email} />,
     });
   }
+  // A chosen person not on the loaded page (or before it loads) is fetched by id; until then
+  // the field says it is loading, never the raw id (rule 5d, QA10-P4-16).
+  const known = options.find((o) => o.value === value);
+  const missing = value !== null && known === undefined;
+  const person = useUser(missing ? value : undefined);
   return (
     <Select
       id={id}
@@ -105,6 +111,9 @@ export function UserPicker({
       allowClear
       filterOption={false}
       value={value}
+      labelRender={() =>
+        known?.name ?? (person.data === undefined ? t('shell.loading') : person.data.display_name)
+      }
       disabled={disabled}
       aria-label={ariaLabel}
       placeholder={t('incidents.pick_person')}

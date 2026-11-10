@@ -239,7 +239,7 @@ def test_the_mobile_job_is_gated_through_the_required_frontend_check() -> None:
 
 def test_a_mobile_only_change_skips_the_backend_and_frontend_jobs() -> None:
     jobs = _all_jobs()
-    for name in ("backend checks", "backend tests ${{ matrix.shard }}/6", "backend", "frontend"):
+    for name in ("backend checks", "backend tests ${{ matrix.shard }}/8", "backend", "frontend"):
         text = "\n".join(jobs[name])
         assert "light: '^(docs/|mobile/|" in text, name
 
@@ -249,7 +249,7 @@ def test_a_mobile_only_change_skips_the_backend_and_frontend_jobs() -> None:
 DRAFT = "github.event.pull_request.draft"
 SKIPPED_ON_DRAFTS = {
     "shard weights",
-    "backend tests ${{ matrix.shard }}/6",
+    "backend tests ${{ matrix.shard }}/8",
     "valkey failover",
     "k3d HA smoke (Valkey failover)",
 }
