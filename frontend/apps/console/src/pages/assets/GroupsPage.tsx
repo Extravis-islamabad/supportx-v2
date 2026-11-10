@@ -31,7 +31,9 @@ import { useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   EmptyText,
   NoAccess,
+  ListPage,
   PageHeader,
+  pickerFormat,
   reportError,
   ToneTag,
   useAccess,
@@ -41,6 +43,7 @@ import {
 } from '@supportx/ui';
 
 import { nameOf } from '../admin/assets/shared';
+import { okFooter } from './dialogOk';
 
 // A dynamic group's condition: one field the people asking for groups use most (REQ-AST-028).
 type Rule = { field: 'state_id'; value: string } | { field: 'warranty_expires_on'; value: string };
@@ -53,7 +56,7 @@ function endOfQuarter(): Dayjs {
 
 function NewGroupDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { locale, dates } = useAppearance();
   const states = useAssetStates(open);
   const { createGroup } = useAssetRelations();
   const [name, setName] = useState('');
@@ -84,25 +87,32 @@ function NewGroupDialog({ open, onClose }: { open: boolean; onClose: () => void 
     <Modal
       open={open}
       title={t('assets.groups.new')}
-      okText={t('assets.groups.add')}
       cancelText={t('actions.cancel')}
-      okButtonProps={{ disabled: !ready }}
-      confirmLoading={createGroup.isPending}
       onCancel={close}
-      onOk={() => {
-        if (!ready) return;
-        createGroup.mutate(
-          { key, body: { name: name.trim(), kind, filter } },
-          {
-            onSuccess: close,
-            onError: (error) => {
-              if (error instanceof ApiError && error.problem !== null)
-                setProblem(t(error.messageKey, error.params));
-              else reportError(error);
+      footer={okFooter({
+        okText: t('assets.groups.add'),
+        loading: createGroup.isPending,
+        whyDisabled:
+          name.trim() === ''
+            ? t('assets.groups.name_needed')
+            : filter === undefined
+              ? t('assets.groups.rule_needed')
+              : undefined,
+        onOk: () => {
+          if (!ready) return;
+          createGroup.mutate(
+            { key, body: { name: name.trim(), kind, filter } },
+            {
+              onSuccess: close,
+              onError: (error) => {
+                if (error instanceof ApiError && error.problem !== null)
+                  setProblem(t(error.messageKey, error.params));
+                else reportError(error);
+              },
             },
-          },
-        );
-      }}
+          );
+        },
+      })}
       destroyOnHidden
       data-testid="asset-group-new"
     >
@@ -162,6 +172,7 @@ function NewGroupDialog({ open, onClose }: { open: boolean; onClose: () => void 
               <DatePicker
                 value={until}
                 onChange={setUntil}
+                format={pickerFormat(dates, false)}
                 aria-label={t('assets.groups.rule_warranty')}
               />
             )}
@@ -213,23 +224,28 @@ export function GroupsPage() {
   useListChannel(allowed ? 'assets' : null, refresh);
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
   return (
-    <Flex vertical gap={16}>
-      <PageHeader
-        title={t('assets.groups.title')}
-        extra={
-          access.can('assets.manage') && (
-            <WriteButton
-              type="primary"
-              onClick={() => {
-                setAdding(true);
-              }}
-              data-testid="asset-group-new-open"
-            >
-              {t('assets.groups.new')}
-            </WriteButton>
-          )
-        }
-      />
+    <ListPage
+      testId="asset-groups-page"
+      header={
+        <PageHeader
+          title={t('assets.groups.title')}
+          count={groups.data === undefined ? undefined : String(groups.data.length)}
+          extra={
+            access.can('assets.manage') && (
+              <WriteButton
+                type="primary"
+                onClick={() => {
+                  setAdding(true);
+                }}
+                data-testid="asset-group-new-open"
+              >
+                {t('assets.groups.new')}
+              </WriteButton>
+            )
+          }
+        />
+      }
+    >
       <Card data-testid="asset-groups">
         <List
           loading={groups.isPending}
@@ -267,6 +283,6 @@ export function GroupsPage() {
           setAdding(false);
         }}
       />
-    </Flex>
+    </ListPage>
   );
 }

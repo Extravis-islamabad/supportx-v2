@@ -117,7 +117,7 @@ export function useIncidentHistory(
   id: string,
   actors: 'all' | 'people' | 'automation',
   enabled = true,
-  base: 'incidents' | 'problems' = 'incidents',
+  base: 'incidents' | 'problems' | 'service-requests' = 'incidents',
 ) {
   return useInfiniteQuery({
     queryKey: queryKeys.incidents.history(id, actors),
@@ -135,11 +135,31 @@ export function useIncidentHistory(
 }
 
 /** The record's SLA panel: policy, targets, calendars, due dates set by hand (WP-025). */
-export function useIncidentSla(id: string, enabled = true) {
+export function useIncidentSla(
+  id: string,
+  enabled = true,
+  base: 'incidents' | 'service-requests' = 'incidents',
+) {
   return useQuery({
-    queryKey: queryKeys.incidents.sla(id),
+    // A request's SLA sits under its detail key (`serviceRequestKeys.sla`, spelled out here as
+    // that file imports this one), so every refresh of the request refreshes it too (lane B,
+    // #346: rule 5c). Each route by its own typed path.
+    queryKey:
+      base === 'incidents'
+        ? queryKeys.incidents.sla(id)
+        : (['service-requests', 'detail', id, 'sla'] as const),
     queryFn: () =>
-      call(api.GET('/api/v1/incidents/{record_id}/sla', { params: { path: { record_id: id } } })),
+      base === 'incidents'
+        ? call(
+            api.GET('/api/v1/incidents/{record_id}/sla', {
+              params: { path: { record_id: id } },
+            }),
+          )
+        : call(
+            api.GET('/api/v1/service-requests/{record_id}/sla', {
+              params: { path: { record_id: id } },
+            }),
+          ),
     enabled,
     retry: false,
     // A side panel: the record page already reports a record it cannot load.
@@ -203,7 +223,7 @@ export function useIncidentAssignees(
   groupId: string | null,
   search: string,
   enabled = true,
-  base: 'incidents' | 'problems' = 'incidents',
+  base: 'incidents' | 'problems' | 'service-requests' = 'incidents',
 ) {
   return useQuery({
     queryKey: [...queryKeys.incidents.assignees(groupId, search), base],

@@ -55,6 +55,30 @@ describe('ActionBar', () => {
     expect(screen.getByTestId('a-assign').className).not.toContain('ant-btn-primary');
   });
 
+  it('QA bug 7: a split button on the bar is not repeated in More, nor are its variants', async () => {
+    renderUi(
+      <ActionBar
+        testId="bar"
+        actions={[
+          action('reply', {
+            rank: 0,
+            variants: [
+              { key: 'forward', label: 'Forward', onClick: () => undefined, testId: 'a-forward' },
+            ],
+          }),
+          action('assign', { rank: 1 }),
+          action('note', { primary: false }),
+        ]}
+      />,
+    );
+    const items = within(await menu()).getAllByRole('menuitem');
+    const ids = items.map((i) => i.getAttribute('data-testid'));
+    expect(ids).not.toContain('a-reply-menu');
+    expect(screen.queryByTestId('a-forward-menu')).toBeNull();
+    expect(ids).toContain('a-assign-menu'); // a plain bar button keeps its entry ("Also above")
+    expect(ids).toContain('a-note-menu');
+  });
+
   it('QA10-P4-24: menu items that are also buttons say so, in the fixed order', async () => {
     renderUi(
       <ActionBar

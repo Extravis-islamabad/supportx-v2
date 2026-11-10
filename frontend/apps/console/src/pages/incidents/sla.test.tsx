@@ -86,7 +86,7 @@ describe('SLA panel (WP-025)', () => {
     render(<App />);
     const card = await screen.findByTestId('inc-sla');
     expect(within(card).getByTestId('inc-sla-policy').textContent).toBe('Standard support');
-    expect(card.textContent).toContain('When the incident was created');
+    expect(card.textContent).toContain('When it was created'); // any record type (SRs too)
     // D-115 D8: "met at resolution" is its own state.
     expect(screen.getByTestId('inc-sla-first_response-state').textContent).toBe(
       'Met at resolution',
