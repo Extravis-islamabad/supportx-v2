@@ -20,13 +20,15 @@ and refuses a person's move to a completing status while that stage still needs 
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass, replace
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import active_user_ids
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
+from app.modules.work_items.domain.change_boards import BoardRule
 from app.modules.work_items.domain.stages import Move, SetBy
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import (
@@ -36,7 +38,7 @@ from app.modules.work_items.infra.models import (
     WorkItemStage,
     WorkItemStageEntry,
 )
-from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import catalogue, change_boards
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service.approval_stage import approval_event
 from app.shared.history import Source
@@ -56,7 +58,10 @@ async def settings_of(
     model = await stage_service.load_model(session, wtype, record.lifecycle_version)
     statuses = {s.code: s.set_by == SetBy.SYSTEM for s in model.statuses_of(stage)}
     settings, _problems = rules.parse_stage_approvals(
-        row.approvals, stage_statuses=statuses, roles=wtype.roles
+        row.approvals,
+        stage_statuses=statuses,
+        roles=wtype.roles,
+        boards=wtype.code is WorkItemTypeCode.CHANGE,
     )
     return settings  # checked on save; a status removed since makes it None (no approvals)
 
@@ -102,18 +107,21 @@ async def _candidates(
 
 
 async def segregated(
-    session: AsyncSession, record: WorkItem, *, strict: bool = False
+    session: AsyncSession, record: WorkItem, *, strict: bool | None = None
 ) -> set[uuid.UUID]:
     """People who may not approve this record: holders of its type's segregated roles.
 
     The requester is kept out by the self-approval rule; these are the others (REQ-CHG-039,
     Haider's decision): by default the people assigned (a change's implementer) and the record's
-    owner (its technician). `strict` bars every member of an implementing group as well; the
-    per-tenant setting for it comes with WP-045b.
+    owner (its technician). Strict also bars every member of an implementing group; `None` takes
+    the tenant's setting (`segregation_strict`, WP-045b S3), recommended for regulated
+    organisations.
     """
     wtype = TYPES.get(WorkItemTypeCode(record.type))
     if wtype is None or not wtype.segregated_roles:
         return set()
+    if strict is None:
+        strict = (await catalogue.load(session, wtype)).segregation_strict
     held = (
         await session.execute(
             select(WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id).where(
@@ -131,6 +139,77 @@ async def segregated(
     return people
 
 
+@dataclass(frozen=True)
+class PlannedLevel:
+    """Who a level names now, and why the administrators decide too (if they do).
+
+    `barred` are the people left out, each with their reason, so a submit can warn before the
+    approval opens (REQ-CHG-039: the fallback approver is named, never a silent skip).
+    """
+
+    level: rules.LevelApprovers
+    named: tuple[uuid.UUID, ...]
+    reason: rules.RouteReason | None
+    barred: tuple[tuple[uuid.UUID, rules.RouteReason], ...]
+    board_of: dict[uuid.UUID, change_boards.Reviewing]
+    empty_board: change_boards.Reviewing | None
+    advisory: tuple[uuid.UUID, ...] = ()  # optional board members: shown, never counted
+
+
+async def plan_level(
+    session: AsyncSession, record: WorkItem, settings: rules.StageApprovals, *, index: int
+) -> PlannedLevel:
+    """Level `index` (0-based) as it would open now; changes nothing."""
+    level = settings.levels[index]
+    people, unheld = await _candidates(session, record, level)
+    boards = await _boards(session, record, level)
+    board_of = {p: b for b in reversed(boards) for p in b.people}  # a person's first board
+    people = list(dict.fromkeys([*people, *(p for b in boards for p in b.people)]))
+    level = _with_board_rule(level, boards)
+    active = await active_user_ids(session, people)
+    barred = await segregated(session, record)
+    named: list[uuid.UUID] = []
+    left_out: list[tuple[uuid.UUID, rules.RouteReason]] = []
+    reason: rules.RouteReason | None = rules.RouteReason.NO_HOLDER if unheld else None
+    empty = next((b for b in boards if not b.people), None)
+    if empty is not None:  # REQ-CHG-040: a board with no members yet
+        reason = rules.RouteReason.BOARD_HAS_NO_MEMBERS
+    for person in people:
+        why: rules.RouteReason | None = None
+        if person not in active:
+            why = rules.RouteReason.APPROVER_INACTIVE
+        elif not settings.self_approval and person == record.requester_id:
+            why = rules.RouteReason.SELF_APPROVAL_BLOCKED
+        elif person in barred:
+            why = rules.RouteReason.SEGREGATION_OF_DUTIES
+        if why is None:
+            named.append(person)  # named: decides by being named, no extra permission needed
+            continue
+        left_out.append((person, why))
+        reason = reason or why
+    if not people and reason is None:
+        reason = rules.RouteReason.NO_HOLDER
+    active |= await active_user_ids(session, [p for b in boards for p in b.advisory])
+    advisory = [
+        p
+        for b in boards
+        for p in b.advisory
+        if p in active and p not in barred and p not in named and p != record.requester_id
+    ]
+    for b in boards:
+        for p in b.advisory:
+            board_of.setdefault(p, b)
+    return PlannedLevel(
+        level,
+        tuple(named),
+        reason,
+        tuple(left_out),
+        board_of,
+        empty,
+        tuple(dict.fromkeys(advisory)),
+    )
+
+
 async def open_level(
     session: AsyncSession,
     record: WorkItem,
@@ -140,56 +219,110 @@ async def open_level(
     index: int,
 ) -> list[WorkItemApproval]:
     """Level `index` (0-based) of the stage: one row per approver, never none."""
-    level = settings.levels[index]
-    people, unheld = await _candidates(session, record, level)
-    active = await active_user_ids(session, people)
-    barred = await segregated(session, record)
-    named: list[uuid.UUID] = []
-    reason: rules.RouteReason | None = rules.RouteReason.NO_HOLDER if unheld else None
-    for person in people:
-        if person not in active:
-            reason = reason or rules.RouteReason.APPROVER_INACTIVE
-            continue
-        if not settings.self_approval and person == record.requester_id:
-            reason = reason or rules.RouteReason.SELF_APPROVAL_BLOCKED
-            continue
-        if person in barred:
-            reason = reason or rules.RouteReason.SEGREGATION_OF_DUTIES
-            continue
-        named.append(person)  # named: decides by being named, no extra permission needed
-    if not people and reason is None:
-        reason = rules.RouteReason.NO_HOLDER
+    plan = await plan_level(session, record, settings, index=index)
     rows = [
         _row(
             record,
             stage=stage,
             index=index,
-            level=level,
+            level=plan.level,
             approver=p,
             origin=rules.ApproverOrigin.NAMED,
             reason=None,
+            board=plan.board_of.get(p),
         )
-        for p in named
+        for p in plan.named
     ]
-    if reason is not None:  # someone could not be named: the administrators decide for them
+    if plan.reason is not None:  # someone could not be named: the administrators decide too
         rows.append(
             _row(
                 record,
                 stage=stage,
                 index=index,
-                level=level,
+                level=plan.level,
                 approver=None,
                 origin=rules.ApproverOrigin.ADMINISTRATORS,
-                reason=reason,
+                reason=plan.reason,
+                board=plan.empty_board,
             )
         )
+    for person in plan.advisory:  # Haider: recorded and shown, never counted
+        advisory = _row(
+            record,
+            stage=stage,
+            index=index,
+            level=plan.level,
+            approver=person,
+            origin=rules.ApproverOrigin.NAMED,
+            reason=None,
+            board=plan.board_of.get(person),
+        )
+        advisory.advisory = True
+        rows.append(advisory)
     for row in rows:
         row.self_approval = settings.self_approval
         session.add(row)
     await session.flush()
     for row in rows:
         await approval_event(session, record, row, "opened")
+    if plan.empty_board is not None:  # REQ-CHG-040: the change manager hears of it
+        from app.modules.work_items.service import reapproval  # noqa: PLC0415 - cycle
+
+        await reapproval.notice(
+            session,
+            record,
+            "board_has_no_members",
+            stage=stage,
+            board_id=plan.empty_board.board_id,
+        )
     return rows
+
+
+async def rerouted_in_this_save(
+    session: AsyncSession, record_id: uuid.UUID
+) -> list[WorkItemApproval]:
+    """The administrators' rows this transaction opened, with why (for the audit, WP-045b S3).
+
+    `created_at` defaults to now(), the transaction's start, so equal means "opened just now".
+    """
+    return list(
+        await session.scalars(
+            select(WorkItemApproval).where(
+                WorkItemApproval.work_item_id == record_id,
+                WorkItemApproval.origin == rules.ApproverOrigin.ADMINISTRATORS.value,
+                WorkItemApproval.route_reason.is_not(None),
+                WorkItemApproval.created_at == func.now(),
+            )
+        )
+    )
+
+
+async def _boards(
+    session: AsyncSession, record: WorkItem, level: rules.LevelApprovers
+) -> list[change_boards.Reviewing]:
+    """The change advisory boards the level names (WP-045b S3), chosen for this record."""
+    if not level.boards:
+        return []
+    wtype = TYPES[WorkItemTypeCode(record.type)]
+    every = (await catalogue.load(session, wtype)).cab_every_match
+    return await change_boards.reviewing(session, record, level.boards, every_match=every)
+
+
+def _with_board_rule(
+    level: rules.LevelApprovers, boards: Sequence[change_boards.Reviewing]
+) -> rules.LevelApprovers:
+    """A level of boards only decides by its (first) board's rule (REQ-CHG-042).
+
+    A level naming people, groups or roles as well keeps its own rule. The chair's tie-break
+    (D-146) comes with lane C's WP-048b S2; until then a chaired board decides by majority.
+    """
+    if not boards or level.user_ids or level.group_ids or level.roles:
+        return level
+    rule = boards[0].rule
+    # Lane C wires the board's chair into level_outcome(chair=, chair_vote=) with WP-048b S2.
+    if rule is BoardRule.MAJORITY_WITH_CHAIR:
+        return replace(level, rule=rules.LevelRule.MAJORITY)
+    return replace(level, rule=rules.LevelRule(rule.value))
 
 
 def _row(  # noqa: PLR0913 - one approval row, explicit
@@ -201,8 +334,11 @@ def _row(  # noqa: PLR0913 - one approval row, explicit
     approver: uuid.UUID | None,
     origin: rules.ApproverOrigin,
     reason: rules.RouteReason | None,
+    board: change_boards.Reviewing | None = None,
 ) -> WorkItemApproval:
     return WorkItemApproval(
+        board_id=board.board_id if board else None,
+        board_reason=board.reason if board else None,
         tenant_id=record.tenant_id,
         work_item_id=record.id,
         stage=index + 1,  # the engine's levels count from 1
@@ -213,6 +349,11 @@ def _row(  # noqa: PLR0913 - one approval row, explicit
         route_reason=reason.value if reason else None,
         state=rules.ApprovalState.PENDING.value,
     )
+
+
+async def withdraw_pending(session: AsyncSession, record: WorkItem, stage: str) -> None:
+    """The stage's open approvals are not needed any more (an emergency override, D-144)."""
+    await _close(session, record, await _rows(session, record, stage))
 
 
 async def _close(session: AsyncSession, record: WorkItem, rows: Sequence[WorkItemApproval]) -> None:
@@ -248,9 +389,11 @@ async def after_decision(
     settings = await settings_of(session, wtype, record, stage)
     rows = await _rows(session, record, stage)
     level_rows = [r for r in rows if r.stage == decided.stage]
+    if decided.advisory:  # an optional member's vote: shown, never counted (Haider)
+        return
     outcome = rules.level_outcome(
         rules.LevelRule(decided.rule or rules.LevelRule.ANY),
-        [rules.ApprovalState(r.state) for r in level_rows],
+        [rules.ApprovalState(r.state) for r in level_rows if not r.advisory],
     )
     if outcome is rules.LevelOutcome.PENDING or settings is None:
         return
@@ -262,6 +405,10 @@ async def after_decision(
         await open_level(session, record, settings, stage=stage, index=decided.stage)
         return
     target = settings.approved if outcome is rules.LevelOutcome.APPROVED else settings.rejected
+    if outcome is rules.LevelOutcome.APPROVED:  # WP-045b S4: keep what was approved
+        from app.modules.work_items.service import reapproval  # noqa: PLC0415 - as above
+
+        await reapproval.take(session, record, stage)
     await items.system_stage_move(session, wtype, record, target=target, source=source)
 
 

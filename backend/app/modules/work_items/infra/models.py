@@ -164,6 +164,14 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     review_required_priorities: Mapped[list[str]] = mapped_column(
         ARRAY(String(10)), server_default="{p1}"
     )
+    # Changes (WP-045b S3, migration 0117): segregation of duties bars every member of an
+    # implementing group too (strict; off by Haider's default), and a change goes to every board
+    # its mapping matches rather than the first.
+    segregation_strict: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
+    # NULL: the shipped policy.
+    reapproval: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
@@ -444,6 +452,8 @@ class WorkItemTemplate(TenantEntity):
     # Staged types (ADR-041; 0093): the path its records take, and per stage, per field, whether
     # it is shown, required to leave the stage, or read-only while in it (REQ-REL-011, -013).
     stage_path: Mapped[str | None] = mapped_column(String(40))
+    # A change template's own risk questionnaire (WP-045b, 0116); none: Appendix A's.
+    risk_questionnaire: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     stage_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
 
@@ -1191,6 +1201,16 @@ class WorkItemApproval(TenantEntity):
         ),
         CheckConstraint("comment IS NULL OR char_length(comment) <= 4000", name="comment_length"),
         CheckConstraint("stage >= 1", name="stage_positive"),
+        CheckConstraint(
+            "board_reason IS NULL OR board_reason IN ('mapped', 'default')",
+            name="board_reason_code",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "board_id"],
+            ["change_boards.tenant_id", "change_boards.id"],
+            name="fk_work_item_approvals_board",
+            ondelete="RESTRICT",
+        ),
         CheckConstraint(_codes("purpose", ApprovalPurpose), name="purpose_code"),
         Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
         Index(
@@ -1210,6 +1230,11 @@ class WorkItemApproval(TenantEntity):
     approver_id: Mapped[uuid.UUID | None]
     origin: Mapped[str] = mapped_column(String(20))
     route_reason: Mapped[str | None] = mapped_column(String(30))
+    # WP-045b S3 (0117): the change advisory board this row came from, and why that board.
+    board_id: Mapped[uuid.UUID | None]
+    board_reason: Mapped[str | None] = mapped_column(String(10))
+    # WP-045b S4 (0118): an optional board member's vote, shown but never counted (Haider).
+    advisory: Mapped[bool] = mapped_column(Boolean, server_default="false")
     state: Mapped[str] = mapped_column(String(20), server_default="pending")
     decided_at: Mapped[datetime | None]
     decided_by: Mapped[uuid.UUID | None]
@@ -1477,6 +1502,19 @@ class WorkItemChangeDetails(TenantKeyed, Timestamps, Actors, Base):
     change_type: Mapped[str | None] = mapped_column(String(40))
     change_reason: Mapped[str | None] = mapped_column(String(40))
     retrospective: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # WP-045b S1 (0116): the calculated risk and the questionnaire it came from, and a
+    # person's override with its reason (both levels kept, REQ-CHG-057, -060).
+    risk: Mapped[str | None] = mapped_column(String(20))
+    risk_score: Mapped[int | None]
+    risk_answers: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    risk_version: Mapped[int | None]
+    risk_chosen: Mapped[str | None] = mapped_column(String(20))
+    # WP-045b S4 (0118): where a change sent back for approval was, for the emergency
+    # override to return it there, and the review that override makes mandatory (D-144).
+    resume_stage: Mapped[str | None] = mapped_column(String(40))
+    resume_status: Mapped[str | None] = mapped_column(String(40))
+    pir_required: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    risk_reason: Mapped[str | None] = mapped_column(String(500))
 
 
 # --- roles, plan sections, stage schedules, downtimes (WP-058a s4; ADR-041; 0095) ----------------
@@ -1644,6 +1682,121 @@ class WorkItemDowntime(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
     )
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     deleted_at: Mapped[datetime | None]
+
+
+# --- change advisory boards (WP-045b S2; REQ-CHG-040, -041; 0117) --------------------------------
+
+
+class ChangeBoard(TenantEntity):
+    """A change advisory board: members, an optional chair, its quorum rule and its mapping.
+
+    `mapping` says which changes it reviews (types, risk levels, sites, templates; all
+    optional); `position` orders the boards; the default board reviews what nothing else maps.
+    """
+
+    __tablename__ = "change_boards"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_change_boards_tenant_id_id"),
+        CheckConstraint(
+            "rule IN ('any', 'all', 'majority', 'majority_with_chair')", name="rule_code"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "chair_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_change_boards_chair",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "uq_change_boards_tenant_code",
+            "tenant_id",
+            "code",
+            unique=True,
+            postgresql_where=text("code IS NOT NULL AND deleted_at IS NULL"),
+        ),
+    )
+
+    code: Mapped[str | None] = mapped_column(String(40))
+    name: Mapped[str] = mapped_column(String(200))
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    description: Mapped[str | None] = mapped_column(String(2000))
+    chair_id: Mapped[uuid.UUID | None]
+    rule: Mapped[str] = mapped_column(String(30), server_default="majority")
+    mapping: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    position: Mapped[int] = mapped_column(Integer, server_default="0")
+    is_default: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class ChangeBoardMember(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
+    """A board's member: a person or a group (exactly one), optionally optional."""
+
+    __tablename__ = "change_board_members"
+    __table_args__ = (
+        CheckConstraint("(user_id IS NULL) <> (group_id IS NULL)", name="one_member"),
+        ForeignKeyConstraint(
+            ["tenant_id", "board_id"],
+            ["change_boards.tenant_id", "change_boards.id"],
+            name="fk_change_board_members_board",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_change_board_members_user",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "group_id"],
+            ["support_groups.tenant_id", "support_groups.id"],
+            name="fk_change_board_members_group",
+            ondelete="CASCADE",
+        ),
+        Index(
+            "uq_change_board_members_user_id",
+            "tenant_id",
+            "board_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_change_board_members_group_id",
+            "tenant_id",
+            "board_id",
+            "group_id",
+            unique=True,
+            postgresql_where=text("group_id IS NOT NULL"),
+        ),
+    )
+
+    board_id: Mapped[uuid.UUID]
+    user_id: Mapped[uuid.UUID | None]
+    group_id: Mapped[uuid.UUID | None]
+    optional: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class ChangeApprovalSnapshot(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Base):
+    """A change's watched values when one of its stages was approved (WP-045b S4; 0118)."""
+
+    __tablename__ = "change_approval_snapshots"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "work_item_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_change_approval_snapshots_work_item",
+            ondelete="CASCADE",
+        ),
+        Index(
+            "ix_change_approval_snapshots_tenant_item_stage",
+            "tenant_id",
+            "work_item_id",
+            "record_stage",
+            "created_at",
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    record_stage: Mapped[str] = mapped_column(String(40))
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
 
 
 # --- Repeat incident rules (WP-044c D16, REQ-PRB-068; migration 0110) -------------------------

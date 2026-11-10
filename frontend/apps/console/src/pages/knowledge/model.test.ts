@@ -8,6 +8,7 @@ import {
   audienceWords,
   headings,
   historyField,
+  historyValue,
   shownLanguage,
   stepBlocked,
   subtreeIds,
@@ -146,5 +147,26 @@ describe('buttons never vanish: each says why it is off', () => {
     expect(stepBlocked('withdraw', { ...approver, withdrawn: true }, 'en')).toBe(
       'knowledge.why.already_withdrawn',
     );
+  });
+});
+
+describe('QA10-P4-04: history values as people read them', () => {
+  const t = (key: string, params?: Record<string, string>) =>
+    params === undefined ? key : `${key}(${Object.values(params).join(',')})`;
+  const days = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
+  const list = (items: string[]) => items.join(' & ');
+
+  it('labels codes, formats dates, lists keywords and hides long text and IDs', () => {
+    expect(historyValue('version.en.status', 'in_review', t, days, list)).toBe(
+      'kb_version_status.in_review',
+    );
+    expect(historyValue('type', 'how_to', t, days, list)).toBe('kb_type.how_to');
+    expect(historyValue('review_on', '2026-12-01', t, days, list)).toBe('1 Dec 2026');
+    expect(historyValue('keywords', ['vpn', 'wifi'], t, days, list)).toBe('vpn & wifi');
+    expect(historyValue('version.ar.title', 'Reset', t, days, list)).toBe('Reset');
+    expect(historyValue('version.en.body_html', '<p>x</p>', t, days, list)).toBeNull();
+    expect(historyValue('topic_id', '0190-abc', t, days, list)).toBeNull();
+    expect(historyValue('tech_groups', ['0190-abc'], t, days, list)).toBeNull();
+    expect(historyValue('change_note', '', t, days, list)).toBe('history.empty');
   });
 });

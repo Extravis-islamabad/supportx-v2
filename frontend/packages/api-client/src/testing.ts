@@ -596,6 +596,8 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     approvals_require_sign_in: false,
     first_task_starts_work: true,
     portal_show_due_time: false,
+    segregation_strict: false,
+    cab_every_match: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,
     statuses: [
