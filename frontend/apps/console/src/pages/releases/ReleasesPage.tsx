@@ -1,12 +1,18 @@
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Flex, Input, Segmented, Table } from 'antd';
+import { Button, Flex, Input, Select, Table, Tag } from 'antd';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
-import { releaseKeys, useReleases, type ReleaseListItem } from '@supportx/api-client';
+import {
+  releaseKeys,
+  useReleaseSettings,
+  useReleases,
+  type ReleaseListItem,
+} from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import {
+  CellText,
   loadedEmpty,
   FilterBar,
   ListPage,
@@ -22,10 +28,14 @@ import {
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
-import { EMERGENCY_PATH, stageName, statusName } from './labels';
+import { StatusTag } from '../incidents/tags';
+import { EMERGENCY_PATH, stageName } from './labels';
 
 // Quick views of the list (the engine's built-in views; "all" sends none).
 const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
+// Each column's own width, as the problems list (QA10V-06: the subject took ~750 px and squeezed
+// the rest; at 390 px Updated was off-screen). The table scrolls sideways on a phone.
+const OWN_WIDTHS = { id: 130, subject: 360, stage: 170, status: 170, updated: 170 };
 const VIEWS = ['open', 'my_open', 'resolved', 'all'] as const;
 type View = (typeof VIEWS)[number];
 
@@ -57,7 +67,7 @@ export function ReleasesPage() {
   const [view, setView] = useState<View>('open');
   // Each person's column widths, per view (Haider, 2026-11-10): drag or arrow keys on a header.
   const titles: Record<string, string> = {
-    id: t('releases.col.id'),
+    id: t('incidents.col.id'),
     subject: t('work_item.field.subject'),
     stage: t('work_item.field.stage'),
     status: t('work_item.field.status'),
@@ -67,6 +77,7 @@ export function ReleasesPage() {
     kind: 'releases',
     viewKey: view,
     keys: Object.keys(titles),
+    defaults: OWN_WIDTHS,
     minWidths: { subject: SUBJECT_MIN },
     label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
   });
@@ -85,6 +96,7 @@ export function ReleasesPage() {
   useEffect(() => {
     if (list.error) reportError(list.error);
   }, [list.error]);
+  const settings = useReleaseSettings();
   const total = list.data?.estimated_total;
   return (
     <ListPage
@@ -112,7 +124,11 @@ export function ReleasesPage() {
         <FilterBar
           testId="releases-filters"
           view={
-            <Segmented<View>
+            // The view select as on every list (template C), not segmented tabs (QA10V-06).
+            <Select<View>
+              style={{ minWidth: 220 }}
+              prefix={`${t('incidents.view')}:`}
+              aria-label={t('incidents.view')}
               value={view}
               onChange={setView}
               options={VIEWS.map((code) => ({ value: code, label: t(`releases.view.${code}`) }))}
@@ -141,86 +157,99 @@ export function ReleasesPage() {
         />
       }
     >
-      <div role="region" aria-label={t('nav.releases')} tabIndex={0} style={{ overflowX: 'auto' }}>
-        <Table<ReleaseListItem>
-          rowKey="id"
-          data-testid="releases-table"
-          loading={list.isPending}
-          dataSource={list.data?.items ?? []}
-          pagination={false}
-          tableLayout="auto"
-          components={widths.components}
-          locale={{
-            // Nothing to say while the first page loads: no "No releases yet." under the spinner
-            // (QA10-P4-15).
-            emptyText: loadedEmpty(
-              list.isPending,
-              t(text.trim() !== '' || view !== 'all' ? 'releases.no_match' : 'releases.empty'),
+      <Table<ReleaseListItem>
+        rowKey="id"
+        data-testid="releases-table"
+        loading={list.isPending}
+        dataSource={list.data?.items ?? []}
+        pagination={false}
+        scroll={{ x: 960 }}
+        components={widths.components}
+        locale={{
+          // Nothing to say while the first page loads: no "No releases yet." under the spinner
+          // (QA10-P4-15).
+          emptyText: loadedEmpty(
+            list.isPending,
+            t(text.trim() !== '' || view !== 'all' ? 'releases.no_match' : 'releases.empty'),
+          ),
+        }}
+        onRow={(row) => ({
+          onClick: () => void navigate(`/releases/${row.id}`),
+          style: { cursor: 'pointer' },
+          'data-testid': `release-row-${row.display_id}`,
+        })}
+        columns={[
+          {
+            key: 'id',
+            title: t('incidents.col.id'),
+            width: widths.width('id'),
+            onHeaderCell: () => widths.header('id'),
+            fixed: 'left' as const,
+            // A link: the row's click alone left it unreachable by keyboard.
+            render: (_, row) => (
+              <Link
+                to={`/releases/${row.id}`}
+                style={{ color: 'inherit' }}
+                onClick={(event) => {
+                  event.stopPropagation(); // the row's own click would navigate again
+                }}
+                data-testid={`release-link-${row.display_id}`}
+              >
+                <strong dir="ltr" style={{ whiteSpace: 'nowrap' }}>
+                  {row.display_id}
+                </strong>
+              </Link>
             ),
-          }}
-          onRow={(row) => ({
-            onClick: () => void navigate(`/releases/${row.id}`),
-            style: { cursor: 'pointer' },
-            'data-testid': `release-row-${row.display_id}`,
-          })}
-          columns={[
-            {
-              key: 'id',
-              title: t('releases.col.id'),
-              width: widths.width('id') ?? 1,
-              onHeaderCell: () => widths.header('id'),
-              render: (_, row) => <bdi style={{ whiteSpace: 'nowrap' }}>{row.display_id}</bdi>,
-            },
-            {
-              key: 'subject',
-              title: t('work_item.field.subject'),
-              width: widths.width('subject') ?? undefined,
-              onHeaderCell: () => widths.header('subject'),
-              render: (_, row) => (
-                <Flex gap={8} align="center" wrap>
-                  <bdi>{row.subject}</bdi>
-                  {row.stage_path === EMERGENCY_PATH && (
-                    <ToneTag
-                      tone="error"
-                      icon={<ThunderboltOutlined />}
-                      testId={`release-emergency-${row.display_id}`}
-                    >
-                      {t('releases.emergency')}
-                    </ToneTag>
-                  )}
-                </Flex>
-              ),
-            },
-            {
-              key: 'stage',
-              title: t('work_item.field.stage'),
-              width: widths.width('stage') ?? 1,
-              onHeaderCell: () => widths.header('stage'),
-              render: (_, row) => (
-                <span style={{ whiteSpace: 'nowrap' }}>{stageName(t, row.stage)}</span>
-              ),
-            },
-            {
-              key: 'status',
-              title: t('work_item.field.status'),
-              width: widths.width('status') ?? 1,
-              onHeaderCell: () => widths.header('status'),
-              render: (_, row) => (
-                <span style={{ whiteSpace: 'nowrap' }}>{statusName(t, row.status)}</span>
-              ),
-            },
-            {
-              key: 'updated',
-              title: t('releases.col.updated'),
-              width: widths.width('updated') ?? 1,
-              onHeaderCell: () => widths.header('updated'),
-              render: (_, row) => (
-                <span style={{ whiteSpace: 'nowrap' }}>{format(row.updated_at)}</span>
-              ),
-            },
-          ]}
-        />
-      </div>
+          },
+          {
+            key: 'subject',
+            title: t('work_item.field.subject'),
+            width: widths.width('subject'),
+            onHeaderCell: () => widths.header('subject'),
+            fixed: 'left' as const,
+            render: (_, row) => (
+              <Flex gap={8} align="center" style={{ minWidth: 0 }}>
+                <CellText title={row.subject}>{row.subject}</CellText>
+                {row.stage_path === EMERGENCY_PATH && (
+                  <ToneTag
+                    tone="error"
+                    icon={<ThunderboltOutlined />}
+                    testId={`release-emergency-${row.display_id}`}
+                  >
+                    {t('releases.emergency')}
+                  </ToneTag>
+                )}
+              </Flex>
+            ),
+          },
+          {
+            key: 'stage',
+            title: t('work_item.field.stage'),
+            width: widths.width('stage'),
+            onHeaderCell: () => widths.header('stage'),
+            render: (_, row) => (
+              <Tag data-testid={`release-stage-${row.display_id}`}>{stageName(t, row.stage)}</Tag>
+            ),
+          },
+          {
+            key: 'status',
+            title: t('work_item.field.status'),
+            width: widths.width('status'),
+            onHeaderCell: () => widths.header('status'),
+            // The dot chip of every list (QA10V-06), coloured by the type's own statuses.
+            render: (_, row) => <StatusTag status={row.status} catalogue={settings.data} />,
+          },
+          {
+            key: 'updated',
+            title: t('releases.col.updated'),
+            width: widths.width('updated'),
+            onHeaderCell: () => widths.header('updated'),
+            render: (_, row) => (
+              <span style={{ whiteSpace: 'nowrap' }}>{format(row.updated_at)}</span>
+            ),
+          },
+        ]}
+      />
     </ListPage>
   );
 }

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished } from 'vitest';
 
 import type { AssetProductType, AssetRecord, AssetState, Vendor } from '@supportx/api-client';
 
@@ -103,6 +103,28 @@ function assetsApi(routes = {}) {
       ...routes,
     },
   });
+}
+
+// The record's action bar shows three buttons from 576 px and two on a phone (useMinWidth);
+// the test setup's matchMedia matches nothing, i.e. a phone. These tests are the desktop row.
+function wideScreen(): () => void {
+  const saved = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: query.includes('min-width'),
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+  return () => {
+    if (saved !== undefined) Object.defineProperty(window, 'matchMedia', saved);
+  };
 }
 
 describe('console: assets', () => {
@@ -338,6 +360,8 @@ describe('console: assets', () => {
   });
 
   it('copies an asset with an Idempotency-Key, up to the copy limit', async () => {
+    const narrow = wideScreen();
+    onTestFinished(narrow);
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({
       'GET /api/v1/assets/settings': { body: { copy_limit: 5 } },
@@ -707,7 +731,53 @@ describe('console: assets', () => {
     expect(screen.queryByTestId('assets-selection')).toBeNull();
   });
 
+  it('names every selection box: each row by its tag, the header for the page (axe label)', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    const row = (await screen.findByTestId(`asset-row-${asset.id}`)).closest('tr') as HTMLElement;
+    expect(within(row).getByTitle('Select AST-7')).toBeTruthy();
+    expect(screen.getAllByLabelText('Select every asset on this page').length).toBeGreaterThan(0);
+  });
+
+  it('D-155: on a phone the record shows two actions and the rest under More actions', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      [`GET /api/v1/assets/${asset.id}`]: { body: asset, headers: { ETag: '"1"' } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const actions = await screen.findByTestId('asset-actions');
+    expect(within(actions).getByTestId('asset-move-open')).toBeTruthy();
+    expect(within(actions).getByTestId('asset-edit')).toBeTruthy();
+    expect(within(actions).queryByTestId('asset-copy-open')).toBeNull(); // under More actions
+    expect(within(actions).getByTestId('asset-actions-more')).toBeTruthy();
+  });
+
+  it('D-155: a real tag can be copied; an asset without one shows "No tag" as plain text', async () => {
+    for (const [tag, copy] of [
+      ['AST-7', true],
+      [null, false],
+    ] as const) {
+      window.history.pushState({}, '', `/assets/${asset.id}`);
+      const fake = assetsApi({
+        [`GET /api/v1/assets/${asset.id}`]: { body: { ...asset, tag }, headers: { ETag: '"1"' } },
+      });
+      const { unmount } = render(<App />);
+      const id = await within(await screen.findByTestId('asset-page')).findByTestId(
+        'asset-display-tag',
+      );
+      expect(id.textContent).toContain(tag ?? 'No tag');
+      expect(id.querySelector('.ant-typography-copy') !== null).toBe(copy);
+      unmount();
+      fake.restore();
+    }
+  });
+
   it('D-155: the record header shows the tag, the chips, the facts and the actions on one row', async () => {
+    const narrow = wideScreen();
+    onTestFinished(narrow);
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({
       [`GET /api/v1/assets/${asset.id}`]: {
@@ -774,5 +844,199 @@ describe('console: assets', () => {
     expect(give.hasAttribute('disabled')).toBe(true);
     fireEvent.mouseOver(within(dialog).getByTestId('disabled-why'));
     expect(await screen.findByText('Choose who or what gets it first')).toBeTruthy();
+  });
+});
+
+describe('console: assets polish (QA10-P4-38, P4-39; #307 review)', () => {
+  it('Add asset with no products says where products are set up, with a link for an admin', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi(); // the catalogue has no products
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-add'));
+    const hint = await screen.findByTestId('asset-products-none');
+    expect(hint.textContent).toContain('An admin adds them in Admin, Assets, on the Products tab.');
+    const link = within(hint).getByTestId('asset-products-open');
+    expect(link.getAttribute('href')).toBe('/admin/assets?tab=products');
+  });
+
+  it('a person who may not configure assets gets the hint without the link', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = consoleApi({
+      // A technician who manages assets but may not configure the catalogue.
+      me: fakeSession(
+        {},
+        {
+          permissions: ['assets.view', 'assets.manage', 'vendors.view'].map((key) => ({
+            key,
+            scope: 'all' as const,
+            scopes: ['all' as const],
+            conditional: false,
+          })),
+        },
+      ),
+      routes: {
+        'GET /api/v1/assets': { body: page([asset]) },
+        'GET /api/v1/assets/product-types': { body: [type] },
+        'GET /api/v1/assets/states': { body: [state] },
+        'GET /api/v1/assets/products': { body: page([]) },
+        'GET /api/v1/procurement/vendors': { body: page([vendor]) },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-add'));
+    const hint = await screen.findByTestId('asset-products-none');
+    expect(within(hint).queryByTestId('asset-products-open')).toBeNull();
+  });
+
+  it('the hint stays away when products exist', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi({
+      'GET /api/v1/assets/products': {
+        body: page([{ id: asset.product_id, product_type_id: type.id, name: 'XPS 13' }]),
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-add'));
+    await screen.findByTestId('asset-name');
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/assets/products').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByTestId('asset-products-none')).toBeNull();
+  });
+
+  it('Escape on the Add asset drawer asks before dropping what was typed', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-add'));
+    const name = await screen.findByTestId('asset-name');
+    fireEvent.change(name, { target: { value: 'Spare monitor' } });
+    fireEvent.keyDown(name, { key: 'Escape', code: 'Escape', keyCode: 27 });
+    expect((await screen.findAllByText('Discard your changes?')).length).toBeGreaterThan(0);
+    // Keep editing: the drawer and the typed name stay.
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByTestId<HTMLInputElement>('asset-name').value).toBe('Spare monitor');
+    fireEvent.keyDown(screen.getByTestId('asset-name'), {
+      key: 'Escape',
+      code: 'Escape',
+      keyCode: 27,
+    });
+    // The newest prompt (the first one may still be leaving).
+    const [discard] = (await screen.findAllByTestId('asset-add-discard')).reverse();
+    expect(discard).toBeDefined();
+    if (discard !== undefined) fireEvent.click(discard);
+    await waitFor(() => {
+      expect(screen.queryByTestId('asset-name')).toBeNull();
+    });
+  });
+
+  it('Escape on an untouched Add asset drawer closes it without asking', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-add'));
+    const name = await screen.findByTestId('asset-name');
+    fireEvent.keyDown(name, { key: 'Escape', code: 'Escape', keyCode: 27 });
+    await waitFor(() => {
+      expect(screen.queryByTestId('asset-name')).toBeNull();
+    });
+    expect(screen.queryByText('Discard your changes?')).toBeNull();
+  });
+
+  it('an empty vendor name is marked under the field and nothing is sent', async () => {
+    window.history.pushState({}, '', '/assets/vendors');
+    const fake = assetsApi({ 'POST /api/v1/procurement/vendors': { status: 201, body: vendor } });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('vendor-add'));
+    fireEvent.change(await screen.findByTestId('vendor-name'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect((await screen.findByTestId('vendor-name-needed')).textContent).toBe('Enter a name.');
+    expect(fake.find('POST', '/api/v1/procurement/vendors')).toHaveLength(0);
+    // Typing a name clears the mark, and the save goes through.
+    fireEvent.change(screen.getByTestId('vendor-name'), { target: { value: 'Globex' } });
+    await waitFor(() => {
+      expect(screen.queryByTestId('vendor-name-needed')).toBeNull();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/procurement/vendors')).toHaveLength(1);
+    });
+  });
+
+  it.each([
+    ['/assets/vendors', 'vendors-page'],
+    ['/assets/groups', 'asset-groups-page'],
+    ['/assets/loans', 'asset-loans-page'],
+  ])('%s has a back link to the asset list', async (path, testId) => {
+    window.history.pushState({}, '', path);
+    const fake = assetsApi({
+      'GET /api/v1/assets/groups': { body: [] },
+      'GET /api/v1/assets/loans': { body: [] },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const pageEl = await screen.findByTestId(testId);
+    fireEvent.click(within(pageEl).getByRole('button', { name: 'Assets' }));
+    expect(await screen.findByTestId('assets-list')).toBeTruthy();
+    expect(window.location.pathname).toBe('/assets');
+  });
+
+  it('Take back asks first, then ends the holding with If-Match', async () => {
+    const holder = '01900000-0000-7000-8000-0000000000b1';
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=relations`);
+    const fake = assetsApi({
+      [`GET /api/v1/assets/${asset.id}`]: {
+        body: { ...asset, owner_user_id: holder },
+        headers: { ETag: '"3"' },
+      },
+      [`GET /api/v1/users/${holder}`]: { body: { id: holder, display_name: 'Rana Requester' } },
+      [`GET /api/v1/assets/${asset.id}/holdings`]: {
+        body: [
+          {
+            asset_id: asset.id,
+            holder_kind: 'user',
+            holder_id: holder,
+            started_at: '2026-11-01T09:00:00Z',
+            ended_at: null,
+            source: 'ui',
+            assigned_by: null,
+          },
+        ],
+      },
+      [`GET /api/v1/assets/${asset.id}/links`]: { body: [] },
+      [`DELETE /api/v1/assets/${asset.id}/holder`]: { body: { ...asset, version: 4 } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-holder-clear'));
+    expect(
+      await screen.findByText('Take this asset back? This ends the current holding.'),
+    ).toBeTruthy();
+    expect(fake.find('DELETE', `/api/v1/assets/${asset.id}/holder`)).toHaveLength(0);
+    fireEvent.click(screen.getByTestId('asset-holder-clear-confirm'));
+    await waitFor(() => {
+      expect(fake.find('DELETE', `/api/v1/assets/${asset.id}/holder`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('DELETE', `/api/v1/assets/${asset.id}/holder`);
+    expect(sent?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('the group name shows the server limit once it is passed', async () => {
+    window.history.pushState({}, '', '/assets/groups');
+    const fake = assetsApi({ 'GET /api/v1/assets/groups': { body: [] } });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-group-new-open'));
+    const dialog = await screen.findByTestId('asset-group-new');
+    fireEvent.change(within(dialog).getByTestId('asset-group-name'), {
+      target: { value: 'x'.repeat(201) },
+    });
+    expect(await within(dialog).findByText('201 / 200')).toBeTruthy();
   });
 });

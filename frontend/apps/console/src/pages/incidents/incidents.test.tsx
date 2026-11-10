@@ -461,6 +461,14 @@ describe('New incident', () => {
       .getAllByRole('button')
       .map((b) => b.getAttribute('data-testid'));
     expect(ids.indexOf('inc-new-cancel')).toBeLessThan(ids.indexOf('inc-save'));
+    // QA10V-07: template B, the fields in section cards, the bar outside the form.
+    for (const section of ['request', 'classification', 'details']) {
+      expect(screen.getByTestId(`inc-section-${section}`)).toBeDefined();
+    }
+    expect(
+      within(screen.getByTestId('inc-section-request')).getByTestId('inc-subject'),
+    ).toBeDefined();
+    expect(screen.getByTestId('inc-form').contains(footer)).toBe(false);
     fireEvent.click(await screen.findByTestId('inc-save'));
     expect((await screen.findByTestId('error-subject')).textContent).toBe(
       'This field is required.',

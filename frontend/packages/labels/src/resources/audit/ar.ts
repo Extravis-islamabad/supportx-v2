@@ -885,6 +885,7 @@ export const ar: LabelResource = {
   'event_type.work_items.settings.changed': 'تغيرت إعدادات السجلات',
   'event_type.work_items.view.changed': 'تم تغيير طريقة عرض محفوظة',
   'event_type.work_items.work_item.assigned': 'تم إسناد السجل',
+  'event_type.work_items.work_item.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'event_type.work_items.work_item.created': 'تم إنشاء السجل',
   'event_type.work_items.work_item.deleted': 'نُقل السجل إلى سلة المحذوفات',
   'event_type.work_items.work_item.restored': 'تمت استعادة السجل',

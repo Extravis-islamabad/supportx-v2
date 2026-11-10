@@ -1,5 +1,8 @@
 // notifications labels (see ../README.md). English is the reference.
 export const en = {
+  'assignee_unavailable.away': 'is set to Away',
+  'assignee_unavailable.inactive': 'is no longer active',
+  'assignee_unavailable.not_in_group': 'is not in that group any more',
   'delivery_reason.authentication_failed': "the mail server refused SupportX's sign-in",
   'delivery_reason.email_channel_not_configured': 'email channel not configured',
   'delivery_reason.gave_up': 'still failing after every retry',
@@ -56,6 +59,7 @@ export const en = {
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
+  'notification_event.incident.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.incident.canceled': 'Incident canceled',
   'notification_event.incident.closed': 'Incident closed',
   'notification_event.incident.created': 'New incident: acknowledgement',
@@ -137,6 +141,7 @@ export const en = {
   'notification_recipient.owner': 'Article owner',
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
+  'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.topic_owner': 'Topic owner',
   'notification_rules.any_priority': 'Any priority',
   'notification_rules.changed': 'Changed {{when}}',
@@ -206,6 +211,12 @@ export const en = {
     '{{ record.display_id }} is assigned to {{ assignee.name }}: {{ record.title }}',
   'notification_template.incident.assigned.subject':
     'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.assignee_unavailable.body':
+    'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
+  'notification_template.incident.assignee_unavailable.in_app':
+    '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.incident.assignee_unavailable.subject':
+    'Nobody assigned: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was canceled.',
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} was canceled',
@@ -486,6 +497,8 @@ export const en = {
   'notification_variable.rule.name': 'Rule',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
+  'notification_variable.unavailable.person': 'Unassigned › Person',
+  'notification_variable.unavailable.reason': 'Unassigned › Why',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',
   'notifications.banner.no_mail_one':
     '{{count}} e-mail waits because outgoing mail is not set up. In-app notifications still go out; the e-mail is sent once mail works.',

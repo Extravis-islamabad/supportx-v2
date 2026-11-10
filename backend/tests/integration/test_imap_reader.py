@@ -26,6 +26,14 @@ IMAGE = "greenmail/standalone:2.1.3"
 LABEL = "supportx.test=greenmail"
 READY_SECONDS = 90
 USER, PASSWORD, ADDRESS = "it@acme.test", "imap-secret", "it@acme.test"
+GREENMAIL_OPTIONS = " ".join(
+    (
+        "-Dgreenmail.setup.test.all",
+        "-Dgreenmail.hostname=0.0.0.0",
+        "-Dgreenmail.users.login=email",
+        f"-Dgreenmail.users=it:{PASSWORD}@acme.test",
+    )
+)
 
 
 @dataclass(frozen=True)
@@ -36,10 +44,17 @@ class MailServer:
     imaps: int
 
 
-def _free_port() -> int:
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        return int(probe.getsockname()[1])
+def _free_ports(count: int) -> list[int]:
+    """`count` distinct free ports: every probe stays bound until all are picked.
+
+    Probing one at a time let the system hand the same port out twice (#352's CI: one host
+    port mapped to both IMAP ports, so docker refused to start the container).
+    """
+    with contextlib.ExitStack() as stack:
+        probes = [stack.enter_context(socket.socket()) for _ in range(count)]
+        for probe in probes:
+            probe.bind(("127.0.0.1", 0))
+        return [int(probe.getsockname()[1]) for probe in probes]
 
 
 def _ready(port: int) -> bool:
@@ -63,29 +78,7 @@ def _ready(port: int) -> bool:
 def server() -> Iterator[MailServer]:
     if shutil.which("docker") is None:
         pytest.skip("Docker is not available for a private mail server")
-    found = MailServer(
-        f"supportx-test-greenmail-{secrets.token_hex(3)}", _free_port(), _free_port(), _free_port()
-    )
-    options = " ".join(
-        (
-            "-Dgreenmail.setup.test.all",
-            "-Dgreenmail.hostname=0.0.0.0",
-            "-Dgreenmail.users.login=email",
-            f"-Dgreenmail.users=it:{PASSWORD}@acme.test",
-        )
-    )
-    subprocess.run(  # noqa: S603 - fixed arguments
-        [  # noqa: S607 - docker from PATH, as the Keycloak test container
-            "docker", "run", "-d", "--rm", "--name", found.name, "--label", LABEL,
-            "-e", f"GREENMAIL_OPTS={options}",
-            "-p", f"127.0.0.1:{found.smtp}:3025",
-            "-p", f"127.0.0.1:{found.imap}:3143",
-            "-p", f"127.0.0.1:{found.imaps}:3993",
-            IMAGE,
-        ],
-        check=True,
-        capture_output=True,
-    )  # fmt: skip
+    found = _start()
     try:
         deadline = time.monotonic() + READY_SECONDS
         while not _ready(found.imap):
@@ -95,6 +88,32 @@ def server() -> Iterator[MailServer]:
         yield found
     finally:
         subprocess.run(["docker", "rm", "-f", found.name], check=False, capture_output=True)  # noqa: S603, S607
+
+
+def _start(attempts: int = 3) -> MailServer:
+    """Start GreenMail on fresh ports; another process taking one meanwhile tries new ones."""
+    for attempt in range(attempts):
+        found = MailServer(f"supportx-test-greenmail-{secrets.token_hex(3)}", *_free_ports(3))
+        started = subprocess.run(  # noqa: S603 - fixed arguments
+            [  # noqa: S607 - docker from PATH, as the Keycloak test container
+                "docker", "run", "-d", "--rm", "--name", found.name, "--label", LABEL,
+                "-e", f"GREENMAIL_OPTS={GREENMAIL_OPTIONS}",
+                "-p", f"127.0.0.1:{found.smtp}:3025",
+                "-p", f"127.0.0.1:{found.imap}:3143",
+                "-p", f"127.0.0.1:{found.imaps}:3993",
+                IMAGE,
+            ],
+            check=False,
+            capture_output=True,
+        )  # fmt: skip
+        if started.returncode == 0:
+            return found
+        taken = (
+            b"already allocated" in started.stderr or b"address already in use" in started.stderr
+        )
+        if not taken or attempt == attempts - 1:
+            started.check_returncode()
+    raise AssertionError  # pragma: no cover - the loop returns or raises
 
 
 def _send(server: MailServer, subject: str) -> None:

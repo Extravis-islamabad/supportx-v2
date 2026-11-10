@@ -882,6 +882,7 @@ export const en = {
   'event_type.work_items.settings.changed': 'Record settings changed',
   'event_type.work_items.view.changed': 'Saved view changed',
   'event_type.work_items.work_item.assigned': 'Record assigned',
+  'event_type.work_items.work_item.assignee_unavailable': 'Rule could not assign its person',
   'event_type.work_items.work_item.created': 'Record created',
   'event_type.work_items.work_item.deleted': 'Record moved to trash',
   'event_type.work_items.work_item.restored': 'Record restored',

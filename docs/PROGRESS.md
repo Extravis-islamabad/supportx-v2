@@ -31,6 +31,13 @@
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
 
+### Known gaps
+
+- **Bulk actions on service requests** (QA10V-05, the coordinator, 2026-11-10). REQ-SR-002 gives
+  requests the engine's bulk actions, but the API has no bulk route for them and the requests
+  list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
+  then the list shows no checkboxes at all, rather than dead ones.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:

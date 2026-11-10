@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Checkbox, Flex, Form, Input, Modal, Popconfirm, Table } from 'antd';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import { queryKeys, useVendorChange, useVendors, type Vendor } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
@@ -34,6 +35,13 @@ const FIELDS = [
 ] as const;
 type Field = (typeof FIELDS)[number][0];
 type Draft = Record<Field, string> & { is_active: boolean };
+// `checked`: a save was tried, so a missing name is marked under its field (QA10-P4-39).
+interface Editing {
+  vendor: Vendor | null;
+  draft: Draft;
+  key: string;
+  checked?: boolean;
+}
 
 const draftOf = (vendor: Vendor | null): Draft => ({
   name: vendor?.name ?? '',
@@ -55,13 +63,14 @@ const draftOf = (vendor: Vendor | null): Draft => ({
  */
 export function VendorsPage() {
   const t = useLabel();
+  const navigate = useNavigate();
   const access = useAccess();
   const queryClient = useQueryClient();
   const allowed = access.can('vendors.view');
   const vendors = useVendors(false, allowed);
   const change = useVendorChange();
   const { problems, show, clear } = useAssetSaveProblems();
-  const [editing, setEditing] = useState<{ vendor: Vendor | null; draft: Draft; key: string }>();
+  const [editing, setEditing] = useState<Editing>();
   useTenantChannel((message) => {
     if (message.type === 'procurement.vendors_changed' || message.type === 'refresh') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.vendors.all });
@@ -77,6 +86,11 @@ export function VendorsPage() {
   };
   const save = () => {
     if (editing === undefined) return;
+    // The name is checked here before sending; the server still refuses an empty one.
+    if (editing.draft.name.trim() === '') {
+      setEditing({ ...editing, checked: true });
+      return;
+    }
     const blank = (v: string) => (v.trim() === '' ? null : v.trim());
     const all: Record<string, unknown> = Object.fromEntries(
       FIELDS.map(([field]) => [
@@ -119,6 +133,7 @@ export function VendorsPage() {
       header={
         <PageHeader
           title={t('assets.record.vendors')}
+          back={{ label: t('nav.assets'), onClick: () => void navigate('/assets') }}
           count={total === undefined ? undefined : String(total)}
           extra={
             canAdd && (
@@ -236,6 +251,18 @@ export function VendorsPage() {
                 label={t(`assets.record.${field === 'name' ? 'vendor_name' : field}`)}
                 htmlFor={`vendor-${field}`}
                 required={field === 'name'}
+                {...(field === 'name' &&
+                editing.checked === true &&
+                editing.draft.name.trim() === ''
+                  ? {
+                      validateStatus: 'error' as const,
+                      help: (
+                        <span data-testid="vendor-name-needed">
+                          {t('errors.field.name_required')}
+                        </span>
+                      ),
+                    }
+                  : {})}
               >
                 {field === 'address' || field === 'description' ? (
                   <Input.TextArea
