@@ -1423,13 +1423,16 @@ it with no reload (rule c). Not built yet.
   event tables for assets and the five work-item types (lane A reviewed the field lists;
   statuses by category through work_items' annotator, never stored in history); the subtype
   resolver; catalogue and en/ar/ur labels; tests (unit, DB, the history guard).
-- [x] S2 (ADR-046, migration 0129): each save's entry holds `fp1:` digests of its values in
-  record history (never the values), inside the entry hash only when set; the canonical
+- [x] S2 (ADR-046, migration 0129): each save's entry holds two `fp1:` commitments to its
+  values in record history (never the values), inside the entry hash only when set: the
+  ordinary fields unsalted (they always verify, so an erasure never hides a change to them)
+  and the personal fields salted; the canonical
   encoding fixed in ADR-046 with a golden vector; personal fields per record type in
   `audit/domain/lifecycle.py` (work items: free text, subjects = requester and on-behalf
   person; assets none; people later) for lanes A and C to review; per-subject salts in
   `audit_subject_salts` (no app rights, definer functions only); the verifier reports
-  verified / mismatch / erased on request (runs and the entry view); erasure blanks the
+  verified / mismatch / erased on request (runs and the entry view; erased only when the
+  ordinary half matches); erasure blanks the
   person's free text in history and destroys the salt; labels en/ar/ur.
 - [ ] S3: per-category retention and legal hold (0120), sealing to about 2,000/s, the 10M run,
   the save-latency check.
