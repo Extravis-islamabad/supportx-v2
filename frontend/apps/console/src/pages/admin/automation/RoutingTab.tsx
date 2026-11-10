@@ -16,7 +16,7 @@ import {
   Table,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   ApiError,
@@ -41,6 +41,9 @@ import {
   useAccess,
   useLabel,
   type Tone,
+  SettingsCard,
+  StickySaveBar,
+  useSettingsDraft,
 } from '@supportx/ui';
 
 import { ConditionBuilder } from './fields';
@@ -62,17 +65,99 @@ const STATE_TONE: Record<RoutingOut['state'], Tone> = {
  */
 export function RoutingTab() {
   const t = useLabel();
+  const { message } = App.useApp();
+  const { can } = useAccess();
+  const editable = can('automation.manage');
+  // One save bar for the tab (template E, D-147): the routing settings and the chosen group's
+  // assignment are drafts; the routing rules stay a list with their own editor.
+  const settings = useRoutingSettings(RECORD_TYPE, can('automation.view'));
+  const { saveRoutingSettings } = useAutomationChange();
+  const routingSaved = useMemo(
+    () => ({
+      use_category_group: settings.data?.use_category_group ?? true,
+      fallback_group_id: settings.data?.fallback_group_id ?? null,
+    }),
+    [settings.data],
+  );
+  const routing = useSettingsDraft(routingSaved);
+  const [groupId, setGroupId] = useState<string>();
+  const assignment = useGroupAssignment(groupId);
+  const assignSaved = useMemo(() => assignment.data ?? EMPTY_ASSIGNMENT, [assignment.data]);
+  const assign = useSettingsDraft<AssignmentSettingsOut>(assignSaved);
+  const saveAssignment = useSaveGroupAssignment();
+  const problem = useFormProblem(); // a refused save, shown above the bar (QA WP-029 BUG-02)
+  const pickGroup = (next: string | undefined) => {
+    assign.discard(); // edits of one group never carry over to another
+    setGroupId(next);
+  };
+  const save = async () => {
+    problem.clear();
+    try {
+      if (routing.changes > 0 && settings.data !== undefined) {
+        await saveRoutingSettings.mutateAsync({
+          recordType: RECORD_TYPE,
+          version: settings.data.version,
+          body: routing.changed,
+        });
+      }
+      if (assign.changes > 0 && assignment.data !== undefined) {
+        const { group_id: group, version, ...body } = assign.draft;
+        await saveAssignment.mutateAsync({ groupId: group, version, body });
+      }
+      void message.success(t('common.saved'));
+    } catch (error) {
+      problem.show(error);
+    }
+  };
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <Typography.Paragraph type="secondary" style={{ margin: 0, maxWidth: 720 }}>
         {t('automation.routing.explain')}
       </Typography.Paragraph>
-      <RoutingSettingsCard />
+      <RoutingSettingsCard
+        loading={settings.isPending}
+        editable={editable}
+        draft={routing.draft}
+        set={routing.set}
+      />
       <RoutingRules />
-      <AssignmentCard />
+      <AssignmentCard
+        groupId={groupId}
+        onGroup={pickGroup}
+        editable={editable}
+        draft={assignment.data === undefined ? undefined : assign.draft}
+        set={assign.set}
+      />
+      <FormProblem problem={problem} />
+      {editable && (
+        <StickySaveBar
+          changes={routing.changes + assign.changes}
+          saving={saveRoutingSettings.isPending || saveAssignment.isPending}
+          onDiscard={() => {
+            routing.discard();
+            assign.discard();
+            problem.clear();
+          }}
+          onSave={() => void save()}
+          testId="routing-save-bar"
+        />
+      )}
     </Space>
   );
 }
+
+const EMPTY_ASSIGNMENT: AssignmentSettingsOut = {
+  group_id: '',
+  version: 0,
+  enabled: false,
+  method: 'round_robin',
+  load_cap: null,
+  on_create: false,
+  on_move: false,
+  unassigned_only: false,
+  count_paused: false,
+  record_types: [],
+};
 
 function useGroupOptions(keep?: string | null) {
   const groups = useStructure('groups');
@@ -88,36 +173,37 @@ function useGroupOptions(keep?: string | null) {
 const t_unknown = '—';
 
 /** Category suggestion and the fallback group (none until an admin picks one, D-097). */
-function RoutingSettingsCard() {
+interface RoutingSettingsDraft {
+  use_category_group: boolean;
+  fallback_group_id: string | null;
+}
+
+function RoutingSettingsCard({
+  loading,
+  editable,
+  draft,
+  set,
+}: {
+  loading: boolean;
+  editable: boolean;
+  draft: RoutingSettingsDraft;
+  set: (patch: Partial<RoutingSettingsDraft>) => void;
+}) {
   const t = useLabel();
-  const { message } = App.useApp();
-  const { can } = useAccess();
-  const editable = can('automation.manage');
-  const settings = useRoutingSettings(RECORD_TYPE, can('automation.view'));
-  const { saveRoutingSettings } = useAutomationChange();
-  const groups = useGroupOptions(settings.data?.fallback_group_id);
-  const save = (body: { fallback_group_id?: string | null; use_category_group?: boolean }) => {
-    if (settings.data === undefined) return;
-    saveRoutingSettings.mutate(
-      { recordType: RECORD_TYPE, version: settings.data.version, body },
-      {
-        onSuccess: () => void message.success(t('common.saved')),
-        onError: reportError,
-      },
-    );
-  };
+  const groups = useGroupOptions(draft.fallback_group_id);
+  if (loading) return null;
   return (
-    <Card title={t('automation.routing.settings')} loading={settings.isPending} size="small">
-      <Form layout="vertical">
+    <SettingsCard title={t('automation.routing.settings')} testId="routing-settings">
+      <Form layout="vertical" component="div">
         <Form.Item
           label={t('automation.routing.use_category')}
           extra={t('automation.routing.use_category.help')}
         >
           <Switch
-            checked={settings.data?.use_category_group ?? true}
-            disabled={!editable || saveRoutingSettings.isPending}
+            checked={draft.use_category_group}
+            disabled={!editable}
             onChange={(use_category_group) => {
-              save({ use_category_group });
+              set({ use_category_group });
             }}
             aria-label={t('automation.routing.use_category')}
             data-testid="routing-use-category"
@@ -133,12 +219,12 @@ function RoutingSettingsCard() {
             showSearch
             optionFilterProp="label"
             placeholder={t('automation.routing.fallback.none')}
-            value={settings.data?.fallback_group_id ?? undefined}
-            disabled={!editable || saveRoutingSettings.isPending}
+            value={draft.fallback_group_id ?? undefined}
+            disabled={!editable}
             loading={groups.loading}
             options={groups.options}
             onChange={(id: string | undefined) => {
-              save({ fallback_group_id: id ?? null });
+              set({ fallback_group_id: id ?? null });
             }}
             style={{ maxWidth: 360, width: '100%' }}
             aria-label={t('automation.routing.fallback')}
@@ -146,7 +232,7 @@ function RoutingSettingsCard() {
           />
         </Form.Item>
       </Form>
-    </Card>
+    </SettingsCard>
   );
 }
 
@@ -573,56 +659,65 @@ function RoutingEditor({
 }
 
 /** A group's auto-assignment: off by default; only its members, only Available ones. */
-function AssignmentCard() {
+function AssignmentCard({
+  groupId,
+  onGroup,
+  editable,
+  draft,
+  set,
+}: {
+  groupId: string | undefined;
+  onGroup: (groupId: string | undefined) => void;
+  editable: boolean;
+  draft: AssignmentSettingsOut | undefined;
+  set: (patch: Partial<AssignmentSettingsOut>) => void;
+}) {
   const t = useLabel();
-  const [groupId, setGroupId] = useState<string>();
   const groups = useGroupOptions();
-  const settings = useGroupAssignment(groupId);
   return (
-    <Card size="small" title={t('automation.assign.title')}>
+    <SettingsCard
+      title={t('automation.assign.title')}
+      description={t('automation.assign.explain')}
+      testId="assign-card"
+    >
       <Space direction="vertical" style={{ width: '100%' }}>
-        <Typography.Text type="secondary">{t('automation.assign.explain')}</Typography.Text>
         <Select
           showSearch
           optionFilterProp="label"
           placeholder={t('automation.assign.pick_group')}
           value={groupId}
-          onChange={setGroupId}
+          onChange={onGroup}
           options={groups.options}
           loading={groups.loading}
           style={{ maxWidth: 360, width: '100%' }}
           aria-label={t('automation.assign.pick_group')}
           data-testid="assign-group"
         />
-        {settings.data !== undefined && (
-          <AssignmentForm
-            key={`${settings.data.group_id}:${String(settings.data.version)}`}
-            settings={settings.data}
-          />
-        )}
+        {draft !== undefined && <AssignmentForm draft={draft} set={set} disabled={!editable} />}
       </Space>
-    </Card>
+    </SettingsCard>
   );
 }
 
-function AssignmentForm({ settings }: { settings: AssignmentSettingsOut }) {
+function AssignmentForm({
+  draft,
+  set,
+  disabled,
+}: {
+  draft: AssignmentSettingsOut;
+  set: (patch: Partial<AssignmentSettingsOut>) => void;
+  disabled: boolean;
+}) {
   const t = useLabel();
-  const { message } = App.useApp();
-  const { can } = useAccess();
-  const editable = can('automation.manage');
-  const save = useSaveGroupAssignment();
-  const [draft, setDraft] = useState(settings);
-  const problem = useFormProblem(); // a refused save, shown above Save (QA WP-029 BUG-02)
-  const disabled = !editable || save.isPending;
   return (
-    <Form layout="vertical" data-testid="assign-form">
+    <Form layout="vertical" component="div" data-testid="assign-form">
       <Flex gap={32} wrap>
         <Form.Item label={t('automation.assign.enabled')}>
           <Switch
             checked={draft.enabled}
             disabled={disabled}
             onChange={(enabled) => {
-              setDraft({ ...draft, enabled });
+              set({ enabled });
             }}
             aria-label={t('automation.assign.enabled')}
             data-testid="assign-enabled"
@@ -633,7 +728,7 @@ function AssignmentForm({ settings }: { settings: AssignmentSettingsOut }) {
             value={draft.method}
             disabled={disabled}
             onChange={(method: AssignmentSettingsOut['method']) => {
-              setDraft({ ...draft, method });
+              set({ method });
             }}
             options={(['round_robin', 'load_balancing'] as const).map((m) => ({
               value: m,
@@ -654,7 +749,7 @@ function AssignmentForm({ settings }: { settings: AssignmentSettingsOut }) {
             value={draft.load_cap}
             disabled={disabled}
             onChange={(load_cap) => {
-              setDraft({ ...draft, load_cap });
+              set({ load_cap });
             }}
             aria-label={t('automation.assign.load_cap')}
             data-testid="assign-load-cap"
@@ -668,7 +763,7 @@ function AssignmentForm({ settings }: { settings: AssignmentSettingsOut }) {
               checked={draft[key]}
               disabled={disabled}
               onChange={(on) => {
-                setDraft({ ...draft, [key]: on });
+                set({ [key]: on });
               }}
               aria-label={t(`automation.assign.${key}`)}
               data-testid={`assign-${key}`}
@@ -676,27 +771,6 @@ function AssignmentForm({ settings }: { settings: AssignmentSettingsOut }) {
           </Form.Item>
         ))}
       </Flex>
-      <FormProblem problem={problem} />
-      {editable && (
-        <Button
-          type="primary"
-          loading={save.isPending}
-          onClick={() => {
-            const { group_id: groupId, version, ...body } = draft;
-            problem.clear();
-            save.mutate(
-              { groupId, version, body },
-              {
-                onSuccess: () => void message.success(t('common.saved')),
-                onError: problem.show,
-              },
-            );
-          }}
-          data-testid="assign-save"
-        >
-          {t('actions.save')}
-        </Button>
-      )}
     </Form>
   );
 }

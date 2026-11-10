@@ -1,18 +1,7 @@
-import {
-  Alert,
-  Button,
-  Card,
-  Flex,
-  Form,
-  InputNumber,
-  Select,
-  Space,
-  Switch,
-  Typography,
-} from 'antd';
+import { Alert, Button, Flex, Form, InputNumber, Select, Switch, Typography } from 'antd';
 
 import { useCustomFields, type ClosurePatch, type IncidentCatalogue } from '@supportx/api-client';
-import { ConflictDialog, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import { ConflictDialog, SettingsCard, StickySaveBar, useAppearance, useLabel } from '@supportx/ui';
 
 import { numberProblem } from '../../../numbers';
 import { fieldName } from '../../customFields/values';
@@ -85,7 +74,10 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     reopenDays: closure.reopen_window_days,
   };
   const draftState = useDraft(source, catalogue.version);
-  const { draft, edit, stale, dirty } = draftState;
+  const { draft, edit, stale } = draftState;
+  const changes = (Object.keys(source) as (keyof Draft)[]).filter(
+    (key) => JSON.stringify(draft[key]) !== JSON.stringify(source[key]),
+  ).length;
   const reset = () => {
     clear();
     draftState.reset();
@@ -144,7 +136,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     </Form.Item>
   );
   return (
-    <Card title={t('settings.closing.title')} data-testid="settings-closing">
+    <SettingsCard title={t('settings.closing.title')} testId="settings-closing">
       {stale && (
         <Alert
           type="warning"
@@ -314,22 +306,16 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
         {/* A refusal with no field to point at (QA WP-029 BUG-02); field ones show in place. */}
         {(Object.keys(byField).length === 0 ||
           Object.keys(byField).some((key) => !PLACED.has(key))) && <Problems problems={problems} />}
-        <Space>
-          <WriteButton
-            type="primary"
-            loading={pending}
-            disabled={!dirty}
-            onClick={submit}
-            data-testid="settings-closing-save"
-          >
-            {t('actions.save')}
-          </WriteButton>
-          <Button disabled={!dirty} onClick={reset}>
-            {t('actions.reset')}
-          </Button>
-        </Space>
       </Form>
+      {/* One save bar for the page (template E, D-147): no save or reset inside the card. */}
+      <StickySaveBar
+        changes={changes}
+        saving={pending}
+        onDiscard={reset}
+        onSave={submit}
+        testId="settings-closing-save-bar"
+      />
       <ConflictDialog {...conflictDialog} />
-    </Card>
+    </SettingsCard>
   );
 }
