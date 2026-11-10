@@ -360,6 +360,8 @@ export {
   useIncidentViewFilters,
   useListSetting,
   useSaveListSetting,
+  listSettingKey,
+  type ListKind,
   useSavedViewChange,
   useSavedViews,
   useStartBulk,

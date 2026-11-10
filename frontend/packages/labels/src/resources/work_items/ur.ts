@@ -597,6 +597,7 @@ export const ur: LabelResource = {
   'incidents.columns.none': 'کوئی اور فیلڈ میل نہیں کھاتی۔',
   'incidents.columns.remove': '{{column}} ہٹائیں',
   'incidents.columns.reset': 'طے شدہ کالم',
+  'incidents.columns.reset_widths': 'چوڑائی دوبارہ طے کریں',
   'incidents.columns.resize': '{{column}} کی چوڑائی: تیر والی کلیدیں استعمال کریں',
   'incidents.columns.search': 'فیلڈز تلاش کریں',
   'incidents.columns.shown': 'دکھائے گئے، اسی ترتیب میں',

@@ -53,6 +53,14 @@ function OwnerPicker({
         onChange(next);
       }}
       loading={candidates.isFetching}
+      // Until the owner's name arrives the field says it is loading, never their ID (rule d;
+      // Haider's 2026-11-10 recheck).
+      labelRender={(chosen) =>
+        typeof chosen.label === 'string' && chosen.label !== ''
+          ? chosen.label
+          : (candidates.data?.find((user) => user.id === chosen.value)?.display_name ??
+            t('shell.loading'))
+      }
       notFoundContent={candidates.isFetching ? <Spin size="small" /> : undefined}
       options={(candidates.data ?? []).map((user) => ({
         value: user.id,
