@@ -9,6 +9,7 @@ not move a pending approval, REQ-SR-022 AC3) and its switches kept on each appro
 import uuid
 from typing import Protocol
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import service_catalog
@@ -160,3 +161,25 @@ async def approval_event(
 
 
 __all__ = ["after_submission", "approval_event", "open_stage", "requested_for"]
+
+
+async def is_named_approver(
+    session: AsyncSession, user_id: uuid.UUID | None, record_id: uuid.UUID
+) -> bool:
+    """Whether the person is named on one of the record's approvals, open or decided.
+
+    What lets an approver open the request they are asked about, read-only (QA10-P2-06): the
+    administrators' rows name nobody, so they never count here.
+    """
+    if user_id is None:
+        return False
+    found = await session.scalar(
+        select(WorkItemApproval.id)
+        .where(
+            WorkItemApproval.work_item_id == record_id,
+            WorkItemApproval.approver_id == user_id,
+            WorkItemApproval.deleted_at.is_(None),
+        )
+        .limit(1)
+    )
+    return found is not None

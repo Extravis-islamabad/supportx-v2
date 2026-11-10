@@ -515,6 +515,7 @@ export {
 export type { components, paths } from './schema';
 export {
   fetchMe,
+  sessionRefusalCode,
   useLogout,
   useSession,
   useSwitchTenant,
@@ -757,6 +758,7 @@ export {
   useApprovals,
   useDecideApproval,
   useMyApprovals,
+  useMyTypeApprovals,
   useMyDecidedApprovals,
   useApproveMany,
   useWithdrawRequest,

@@ -576,6 +576,8 @@ const WORKLOG_GRID = {
 
 // --- links ----------------------------------------------------------------------------------------
 
+const OWN_ROUTE = new Set(['caused_by', 'causes', 'merged_into', 'merged_from']);
+
 export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
   const t = useLabel();
   const found = useIncidentLinks(item.id);
@@ -603,7 +605,9 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
             <List.Item
               data-testid={`inc-link-${link.other_display_id ?? 'hidden'}`}
               actions={
-                canEdit
+                // A cause or a merge is undone in its own place (unlink, undo the merge): the
+                // generic delete would be refused (QA10-P1-03), so it is not offered.
+                canEdit && !OWN_ROUTE.has(link.relation)
                   ? [
                       <Popconfirm
                         key="delete"
