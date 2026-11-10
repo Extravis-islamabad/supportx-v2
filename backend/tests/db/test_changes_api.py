@@ -763,3 +763,52 @@ async def test_req_chg_017_an_implementation_past_its_window_shows_overdue(world
     assert set_.status_code == 200, set_.text
     shown = (await world.call("GET", f"{CHG}/{item['id']}/schedule", a, a.admin)).json()
     assert next(s for s in shown if s["stage"] == "implementation")["overdue"] is True
+
+
+NINE = {
+    "affected": "organisation",
+    "done_before": "once_or_twice",
+    "backout_plan": "untested",
+    "outage": "none",
+    "critical": "no",
+    "cis_changed": "more_than_five",
+}
+
+
+async def test_req_chg_057_060_assess_the_risk_then_override_it_with_a_reason(
+    world: World,
+) -> None:
+    from tests.db.test_release_templates_api import field_codes  # noqa: PLC0415 - shared helper
+
+    a = world.a
+    item = await a_change(world, a)
+    asked = (await world.call("GET", f"{CHG}/{item['id']}/risk/questionnaire", a, a.admin)).json()
+    assert (asked["version"], len(asked["questions"])) == (1, 6)  # Appendix A's
+
+    async def assess(answers: dict[str, str], version: int) -> httpx.Response:
+        return await world.call(
+            "PUT",
+            f"{CHG}/{item['id']}/risk/assessment",
+            a,
+            a.admin,
+            json={"answers": answers},
+            headers={"If-Match": f'"{version}"', **CONSOLE},
+        )
+
+    wrong = await assess({**NINE, "critical": "maybe"}, item["version"])
+    assert field_codes(wrong) == {("risk_answers.critical", "invalid_choice")}
+    scored = await assess(NINE, item["version"])
+    assert scored.status_code == 200, scored.text
+    shown = scored.json()
+    assert (shown["risk"], shown["risk_score"], shown["risk_version"]) == ("high", 9, 1)  # AC1
+    history = (await world.call("GET", f"{CHG}/{item['id']}/history", a, a.admin)).json()
+    lines = {c["field"]: c["new"] for e in history["items"] for c in e["changes"]}
+    assert lines["risk"] == "high"
+    # An override without a reason is refused; with one, both levels are kept (REQ-CHG-060).
+    bare = await details(world, a, item, shown["version"], risk_chosen="low")
+    assert field_codes(bare) == {("risk_reason", "reason_required")}
+    chosen = await details(
+        world, a, item, shown["version"], risk_chosen="low", risk_reason="Done weekly, no issue"
+    )
+    assert chosen.status_code == 200, chosen.text
+    assert (chosen.json()["risk"], chosen.json()["risk_chosen"]) == ("high", "low")
