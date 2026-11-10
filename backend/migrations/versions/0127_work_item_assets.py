@@ -71,7 +71,6 @@ def upgrade() -> None:
             ["tenant_id", "work_item_id"],
             ["work_items.tenant_id", "work_items.id"],
             name=op.f(f"fk_{TABLE}_work_item"),
-            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f(f"pk_{TABLE}")),
     )
