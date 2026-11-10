@@ -1,7 +1,14 @@
 import { useReleaseDetails, type Release } from '@supportx/api-client';
-import { PropertiesPanel, PropertyRow, useAppearance, useDateTime, useLabel } from '@supportx/ui';
+import {
+  PropertiesPanel,
+  PropertyList,
+  useAppearance,
+  useDateTime,
+  useLabel,
+  type PropertyItem,
+} from '@supportx/ui';
 
-import { listValueName, stageName, statusName } from './labels';
+import { listValueName, statusName } from './labels';
 import { useOwnList } from './lists';
 
 /**
@@ -15,8 +22,57 @@ export function ReleaseProperties({ id, release }: { id: string; release: Releas
   const details = useReleaseDetails(id).data;
   const types = useOwnList('release_type');
   const type = types.find((v) => v.code === details?.release_type);
-  const empty = t('releases.not_set');
-  const when = (value: string | null | undefined) => (value ? format(value) : empty);
+  // D-155: only the fields that hold a value, then "Add details (n)"; never rows of "Not set".
+  // The stage is the stage bar's, so it is not repeated here.
+  const items: PropertyItem[] = [
+    {
+      key: 'status',
+      label: t('work_item.field.status'),
+      content: statusName(t, release.status),
+      filled: true,
+    },
+    {
+      key: 'path',
+      label: t('releases.path'),
+      content: release.stage_path ? t(`stage_path.${release.stage_path}`) : null,
+      filled: Boolean(release.stage_path),
+    },
+    {
+      key: 'type',
+      label: t('work_item.field.release_type'),
+      content: details?.release_type
+        ? listValueName(t, locale, 'release_type', type, details.release_type)
+        : null,
+      filled: Boolean(details?.release_type),
+    },
+    {
+      key: 'risk',
+      label: t('work_item.field.risk'),
+      content: details?.risk ? t(`release_risk.${details.risk}`) : null,
+      filled: Boolean(details?.risk),
+    },
+    {
+      key: 'version',
+      label: t('work_item.field.release_version'),
+      content: details?.release_version ? <bdi>{details.release_version}</bdi> : null,
+      filled: Boolean(details?.release_version),
+    },
+  ];
+  const scheduled = Boolean(details?.scheduled_start) || Boolean(details?.scheduled_end);
+  const schedule: PropertyItem[] = [
+    {
+      key: 'start',
+      label: t('work_item.field.scheduled_start'),
+      content: details?.scheduled_start ? format(details.scheduled_start) : null,
+      filled: Boolean(details?.scheduled_start),
+    },
+    {
+      key: 'end',
+      label: t('work_item.field.scheduled_end'),
+      content: details?.scheduled_end ? format(details.scheduled_end) : null,
+      filled: Boolean(details?.scheduled_end),
+    },
+  ];
   return (
     <PropertiesPanel
       testId="release-properties"
@@ -24,45 +80,18 @@ export function ReleaseProperties({ id, release }: { id: string; release: Releas
         {
           key: 'release',
           title: t('releases.properties'),
-          children: (
-            <>
-              <PropertyRow label={t('work_item.field.stage')}>
-                {stageName(t, release.stage)}
-              </PropertyRow>
-              <PropertyRow label={t('work_item.field.status')}>
-                {statusName(t, release.status)}
-              </PropertyRow>
-              <PropertyRow label={t('releases.path')}>
-                {release.stage_path ? t(`stage_path.${release.stage_path}`) : empty}
-              </PropertyRow>
-              <PropertyRow label={t('work_item.field.release_type')}>
-                {details?.release_type
-                  ? listValueName(t, locale, 'release_type', type, details.release_type)
-                  : empty}
-              </PropertyRow>
-              <PropertyRow label={t('work_item.field.risk')}>
-                {details?.risk ? t(`release_risk.${details.risk}`) : empty}
-              </PropertyRow>
-              <PropertyRow label={t('work_item.field.release_version')}>
-                {details?.release_version ? <bdi>{details.release_version}</bdi> : empty}
-              </PropertyRow>
-            </>
-          ),
+          children: <PropertyList items={items} testId="release-props" />,
         },
-        {
-          key: 'schedule',
-          title: t('releases.tab.schedule'),
-          children: (
-            <>
-              <PropertyRow label={t('work_item.field.scheduled_start')}>
-                {when(details?.scheduled_start)}
-              </PropertyRow>
-              <PropertyRow label={t('work_item.field.scheduled_end')}>
-                {when(details?.scheduled_end)}
-              </PropertyRow>
-            </>
-          ),
-        },
+        // Nothing scheduled yet: no empty Schedule card (D-155); the Schedule tab plans it.
+        ...(scheduled
+          ? [
+              {
+                key: 'schedule',
+                title: t('releases.tab.schedule'),
+                children: <PropertyList items={schedule} testId="release-schedule" />,
+              },
+            ]
+          : []),
       ]}
     />
   );

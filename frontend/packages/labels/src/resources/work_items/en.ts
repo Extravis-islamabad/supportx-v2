@@ -1242,6 +1242,7 @@ export const en = {
   'releases.move.reason': 'Reason',
   'releases.move.title': 'Move to {{status}}',
   'releases.move.to': 'Move to: {{status}}',
+  'releases.move.to_stage': 'Move to {{stage}}',
   'releases.move.unavailable': 'Not possible now',
   'releases.new': 'New release',
   'releases.new_help':

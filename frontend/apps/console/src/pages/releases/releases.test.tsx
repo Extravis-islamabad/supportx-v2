@@ -280,6 +280,8 @@ describe('console: releases', () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();
     render(<App />);
+    // D-155: the next stage's move is the one button; a move within the stage is under More.
+    fireEvent.click(await screen.findByTestId('release-more'));
     fireEvent.click(await screen.findByTestId('move-build_completed'));
     const field = await screen.findByTestId('move-field-release_version');
     expect(screen.queryByTestId('move-reason')).toBeNull(); // this move asks for no reason
@@ -351,6 +353,21 @@ describe('console: releases', () => {
     expect(await screen.findByTestId('release-awaiting-approval')).toBeTruthy();
     const visible = screen.getByTestId('release-moves').querySelectorAll('[data-testid^="move-"]');
     expect(visible.length).toBeLessThanOrEqual(3); // beside More: the 4-action rule
+  });
+
+  it("D-155: one primary, the next stage's move; no chips repeating the stage bar; no empty schedule card", async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    const moves = await screen.findByTestId('release-moves');
+    const buttons = within(moves)
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('data-testid') !== 'release-more');
+    expect(buttons.map((b) => b.getAttribute('data-testid'))).toEqual(['move-testing_in_progress']);
+    expect(buttons[0]?.textContent).toBe('Move to Testing');
+    expect(screen.queryByTestId('release-stage')).toBeNull();
+    expect(screen.queryByTestId('release-status')).toBeNull();
+    expect(screen.getByTestId('record-kind-tile').getAttribute('data-kind')).toBe('release');
   });
 
   it('QA6-REL-04: the tab and the top bar say which release this is', async () => {

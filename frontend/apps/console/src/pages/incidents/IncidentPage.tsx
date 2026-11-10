@@ -1,4 +1,4 @@
-import { EditOutlined } from '@ant-design/icons';
+import { AlertOutlined, EditOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   App,
@@ -42,7 +42,7 @@ import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
   ActionBar,
   AlertStrip,
-  ChannelIcon,
+  ChannelTag,
   ConflictDialog,
   describeError,
   EditableValue,
@@ -438,7 +438,9 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         testId="inc-record"
         header={
           <RecordHeader
-            badge={<ChannelIcon channel={item.channel} size={44} />}
+            icon={<AlertOutlined />}
+            kind="incident"
+            badge={<ChannelTag channel={item.channel} />}
             typeLabel={t('incidents.record_type')}
             displayId={item.display_id}
             title={item.subject}

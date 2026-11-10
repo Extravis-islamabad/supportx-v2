@@ -1359,6 +1359,7 @@ export const ar: LabelResource = {
   'releases.move.reason': 'السبب',
   'releases.move.title': 'النقل إلى {{status}}',
   'releases.move.to': 'الانتقال إلى: {{status}}',
+  'releases.move.to_stage': 'الانتقال إلى {{stage}}',
   'releases.move.unavailable': 'غير ممكن الآن',
   'releases.new': 'إصدار جديد',
   'releases.new_help': 'اختر قالبًا وعنوانًا؛ تُملأ التواريخ والأدوار والخطط في الإصدار نفسه.',

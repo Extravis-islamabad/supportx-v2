@@ -1246,6 +1246,7 @@ export const ur: LabelResource = {
   'releases.move.reason': 'وجہ',
   'releases.move.title': '{{status}} پر منتقل کریں',
   'releases.move.to': 'منتقل کریں: {{status}}',
+  'releases.move.to_stage': '{{stage}} پر منتقل کریں',
   'releases.move.unavailable': 'ابھی ممکن نہیں',
   'releases.new': 'نئی ریلیز',
   'releases.new_help':

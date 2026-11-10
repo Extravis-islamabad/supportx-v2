@@ -70,6 +70,7 @@ import {
 import { useListFormat } from '@supportx/labels';
 import {
   Attachments,
+  ChannelTag,
   ConflictDialog,
   describeError,
   FormProblem,
@@ -398,7 +399,7 @@ function DescriptionEntry({ item }: { item: Incident }) {
             <bdi dir="auto">{author}</bdi>
           </Typography.Text>
           <Tag>{t('conversation.kind.description')}</Tag>
-          <Tag icon={<GlobalOutlined />}>{t(`work_item_channel.${item.channel}`)}</Tag>
+          <ChannelTag channel={item.channel} />
         </Space>
         <Typography.Text type="secondary">{dates.format(item.created_at)}</Typography.Text>
       </Flex>

@@ -297,6 +297,7 @@ function ProblemView({
         header={
           <RecordHeader
             icon={<BugOutlined />}
+            kind="problem"
             typeLabel={t('problems.record_type')}
             displayId={item.display_id}
             title={item.subject}

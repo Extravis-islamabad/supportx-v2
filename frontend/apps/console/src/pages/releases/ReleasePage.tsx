@@ -37,7 +37,6 @@ import { ReleaseProperties } from './ReleaseProperties';
 import { StageRail } from './StageRail';
 
 // Beside "More": the page's 4-action rule (UI pass 2; QA6-REL-01).
-const MAX_SHOWN = 3;
 const CANCELED = 'closure_canceled';
 
 /**
@@ -84,12 +83,18 @@ export function ReleasePage() {
   // Canceling ends the release: never beside the positive moves, always in "More" (QA6-REL-01).
   const ending = (m: StageMove) => m.to_status === CANCELED;
   const positive = allowed.filter((m) => !ending(m));
-  const shown = positive.slice(0, MAX_SHOWN);
-  const primary = shown[0]?.to_status;
-  const overflow = [...positive.slice(MAX_SHOWN), ...allowed.filter(ending)];
+  // D-155: one clear primary action, the next stage ("Move to Planning"); every other move is
+  // under "More", so the header keeps one row.
+  const next = positive.find((m) => m.to_stage !== r.stage) ?? positive[0];
+  const shown = next === undefined ? [] : [next];
+  const primary = next?.to_status;
+  const overflow = [...positive.filter((m) => m !== next), ...allowed.filter(ending)];
   const unavailable = moves.filter((m) => !m.allowed);
   // A move reads as an action ("Move to: …"), never as the status it leads to (QA6-REL-02).
-  const moveLabel = (m: StageMove) => t('releases.move.to', { status: statusName(t, m.to_status) });
+  const moveLabel = (m: StageMove) =>
+    m.to_stage !== r.stage
+      ? t('releases.move.to_stage', { stage: stageName(t, m.to_stage) })
+      : t('releases.move.to', { status: statusName(t, m.to_status) });
   const actions = (
     <Flex gap={8} wrap justify="flex-end" data-testid="release-moves">
       {shown.map((m) => {
@@ -158,17 +163,14 @@ export function ReleasePage() {
       header={
         <RecordHeader
           icon={<RocketOutlined />}
+          kind="release"
           typeLabel={t('nav.releases')}
           displayId={r.display_id}
           title={r.subject}
           tags={
+            // D-155: no chips repeating the stage bar or the properties; only what they
+            // do not show (waiting for approval, the emergency path).
             <Space wrap>
-              <ToneTag tone="info" testId="release-stage">
-                {stageName(t, r.stage)}
-              </ToneTag>
-              <ToneTag tone="default" testId="release-status">
-                {statusName(t, r.status)}
-              </ToneTag>
               {pendingApprovals > 0 && (
                 <ToneTag tone="warning" testId="release-awaiting-approval">
                   {t('releases.awaiting_approval', { count: pendingApprovals })}

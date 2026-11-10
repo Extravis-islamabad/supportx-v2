@@ -96,6 +96,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
         header={
           <RecordHeader
             icon={<ShoppingCartOutlined />}
+            kind="service_request"
             typeLabel={t('requests.record_type')}
             displayId={r.display_id}
             title={r.subject}
