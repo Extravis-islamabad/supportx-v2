@@ -8,6 +8,7 @@ import {
   releaseKeys,
   useRelease,
   useReleaseApprovals,
+  useReleaseDetails,
   useStagePanel,
   type StageMove,
 } from '@supportx/api-client';
@@ -18,9 +19,12 @@ import {
   ToneTag,
   WriteButton,
   reportError,
+  useDateTime,
   useLabel,
   usePageCrumbs,
 } from '@supportx/ui';
+
+import { personName } from '../incidents/labels';
 
 import { EMERGENCY_PATH, stageName, statusName } from './labels';
 import { MoveDialog } from './MoveDialog';
@@ -56,6 +60,8 @@ export function ReleasePage() {
   ]);
   const panel = useStagePanel(id);
   const approvals = useReleaseApprovals(id);
+  const details = useReleaseDetails(id).data;
+  const dates = useDateTime();
   const pendingApprovals = (approvals.data?.items ?? []).filter(
     (a) => a.state === 'pending',
   ).length;
@@ -167,10 +173,43 @@ export function ReleasePage() {
           typeLabel={t('releases.record_type')}
           displayId={r.display_id}
           title={r.subject}
+          meta={[
+            <span key="people" data-testid="release-people">
+              {t('incidents.requested_by', { name: personName(r.people, r.requester_id) })}
+            </span>,
+            <span key="created">
+              {t('incidents.created_on', { date: dates.format(r.created_at) })}
+            </span>,
+          ]}
           tags={
-            // D-155: no chips repeating the stage bar or the properties; only what they
-            // do not show (waiting for approval, the emergency path).
+            // D-155 A1, as on every record: where it is, its risk and its planned window, then
+            // what needs attention (waiting for approval, the emergency path).
             <Space wrap>
+              <ToneTag tone="info" testId="release-stage">
+                {stageName(t, r.stage)}
+              </ToneTag>
+              {details?.risk && (
+                <ToneTag
+                  tone={
+                    details.risk === 'high'
+                      ? 'error'
+                      : details.risk === 'medium'
+                        ? 'warning'
+                        : 'default'
+                  }
+                  testId="release-risk"
+                >
+                  {t('releases.risk_chip', { risk: t(`release_risk.${details.risk}`) })}
+                </ToneTag>
+              )}
+              {(Boolean(details?.scheduled_start) || Boolean(details?.scheduled_end)) && (
+                <ToneTag tone="default" testId="release-window">
+                  {t('releases.window_chip', {
+                    start: details?.scheduled_start ? dates.format(details.scheduled_start) : '…',
+                    end: details?.scheduled_end ? dates.format(details.scheduled_end) : '…',
+                  })}
+                </ToneTag>
+              )}
               {pendingApprovals > 0 && (
                 <ToneTag tone="warning" testId="release-awaiting-approval">
                   {t('releases.awaiting_approval', { count: pendingApprovals })}

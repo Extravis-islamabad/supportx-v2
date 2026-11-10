@@ -126,6 +126,7 @@ export const ur: LabelResource = {
   'filter_op.this_week': 'اس ہفتے',
   'filter_op.today': 'آج',
   'filter_op.yesterday': 'کل (گزشتہ)',
+  'form.choose': 'منتخب کریں…',
   'forms.draft_restored': 'آپ کا غیر محفوظ اندراج بحال کر دیا گیا۔',
   'forms.start_empty': 'خالی سے شروع کریں',
   'home.plan': 'پلان',

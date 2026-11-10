@@ -125,6 +125,7 @@ export const en = {
   'filter_op.this_week': 'this week',
   'filter_op.today': 'today',
   'filter_op.yesterday': 'yesterday',
+  'form.choose': 'Choose…',
   'forms.draft_restored': 'Your unsaved input was restored.',
   'forms.start_empty': 'Start empty',
   'home.plan': 'Plan',
