@@ -103,6 +103,7 @@ def test_req_rpt_015_every_builtin_report_is_filed_under_its_module() -> None:
         "service_request": "service_requests",
         "problem": "problems",
         "release": "releases",
+        "asset": "assets",
     }
     for report in BUILTIN_REPORTS:
         assert folders[report.definition.entity] == report.folder, report.code

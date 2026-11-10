@@ -187,7 +187,7 @@ MEASURES: Mapping[str, Mapping[str, MeasureSpec]] = MappingProxyType(
         "incident": MappingProxyType({m.code: m for m in INCIDENT_MEASURES}),
         **{
             entity: MappingProxyType({m.code: m for m in COUNT_ONLY})
-            for entity in ("service_request", "problem", "release")
+            for entity in ("service_request", "problem", "release", "asset")
         },
     }
 )

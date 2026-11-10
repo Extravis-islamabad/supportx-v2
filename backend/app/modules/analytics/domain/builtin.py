@@ -24,6 +24,7 @@ INCIDENTS = "incidents"  # folder code; label `report_folder.incidents`
 SERVICE_REQUESTS = "service_requests"
 PROBLEMS = "problems"
 RELEASES = "releases"
+ASSETS = "assets"
 
 _OPEN = {"field": "status_category", "op": "in", "value": ["open", "paused"]}
 _LAST_30 = {"field": "created_at", "op": "last_n_days", "value": 30}
@@ -220,6 +221,33 @@ BUILTIN_REPORTS += (
     *_starter_set("service_request", SERVICE_REQUESTS, "requests"),
     *_starter_set("problem", PROBLEMS, "problems"),
     *_starter_set("release", RELEASES, "releases"),
+)
+
+# Assets (lane B's reporting source, #310): what is held, of what kind, its warranty and its age.
+BUILTIN_REPORTS += (
+    _of("asset", ASSETS, "assets_by_state", group_by=[{"field": "state_id"}], chart="doughnut"),
+    _of(
+        "asset",
+        ASSETS,
+        "assets_by_product_type",
+        group_by=[{"field": "product_type_id"}],
+        order="value_desc",
+    ),
+    _of(
+        "asset",
+        ASSETS,
+        "assets_warranty_ending",
+        filter={"field": "warranty_expires_on", "op": "next_n_days", "value": 90},
+        group_by=[{"field": "warranty_expires_on", "bucket": "month"}],
+        chart="bar",
+    ),
+    _of(
+        "asset",
+        ASSETS,
+        "assets_by_age",
+        group_by=[{"field": "acquired_on", "bucket": "age"}],
+        chart="bar",
+    ),
 )
 
 BUILTIN: Mapping[str, BuiltinReport] = MappingProxyType({r.code: r for r in BUILTIN_REPORTS})

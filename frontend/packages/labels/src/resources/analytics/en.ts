@@ -203,6 +203,8 @@ export const en = {
   'dashboards.widget_unavailable': 'The report behind this widget is not available to you.',
   'dashboards.your_home': 'Your home',
   'errors.pdf_not_available': 'PDF export is not available on this server.',
+  'measure.asset.count': 'Assets',
+  'measure.asset.count.help': 'Every asset that matches the filters and that you may see.',
   'measure.incident.average_reassignments': 'Average reassignments',
   'measure.incident.average_reassignments.help':
     'Average number of times an incident moved to another group or technician.',
@@ -252,6 +254,15 @@ export const en = {
   'measure.service_request.count': 'Service requests',
   'measure.service_request.count.help':
     'Every service request that matches the filters and that you may see.',
+  'report.assets_by_age': 'Assets by age',
+  'report.assets_by_age.description': 'How long ago each asset was acquired.',
+  'report.assets_by_product_type': 'Assets by product type',
+  'report.assets_by_product_type.description': 'Every asset you may see, by its product type.',
+  'report.assets_by_state': 'Assets by state',
+  'report.assets_by_state.description': 'Every asset you may see, by its state.',
+  'report.assets_warranty_ending': 'Warranties ending in the next 90 days',
+  'report.assets_warranty_ending.description':
+    'Assets whose warranty ends in the next three months, by month.',
   'report.incidents_all': 'All incidents',
   'report.incidents_all.description': 'Every incident created in the period, by status.',
   'report.incidents_by_status': 'Incidents by status',
