@@ -218,11 +218,10 @@ function AssignBody({
         open={!handover}
         title={t('work_item_operation.assign')}
         okText={
-          outsider === undefined
+          // Until their group is picked the button stays "Assign"; the notice above asks.
+          outsider === undefined || moveTo === undefined
             ? t('work_item_operation.assign')
-            : moveTo === undefined
-              ? t('incidents.move_and_assign_pick', { person: outsider.name })
-              : t('incidents.move_and_assign', { group: nameOf(moveTo), person: outsider.name })
+            : t('incidents.move_and_assign', { group: nameOf(moveTo), person: outsider.name })
         }
         cancelText={t('actions.cancel')}
         confirmLoading={assign.isPending}

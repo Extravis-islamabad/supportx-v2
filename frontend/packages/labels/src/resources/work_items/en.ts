@@ -670,7 +670,6 @@ export const en = {
   'incidents.mail_no_subject': 'E-mail without a subject',
   'incidents.more': 'Show more',
   'incidents.move_and_assign': 'Move to {{group}} and assign to {{person}}',
-  'incidents.move_and_assign_pick': 'Pick the group, then assign to {{person}}',
   'incidents.move_to_which_group': 'Which of their groups should it move to?',
   'incidents.new': 'New incident',
   'incidents.no_category': 'No category',

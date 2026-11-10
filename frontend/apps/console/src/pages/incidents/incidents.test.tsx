@@ -263,6 +263,14 @@ describe('One incident', () => {
               open_count: 2,
               group_ids: ['g-b', 'g-c'],
             },
+            {
+              // In no group: nowhere to move the incident to, so never offered (lane C).
+              id: 'u-nogroup',
+              display_name: 'Nadia Groupless',
+              email: 'nadia@demo.test',
+              open_count: 0,
+              group_ids: [],
+            },
           ],
         },
         [`POST ${PATH}/assign`]: { body: { ...mine, group_id: 'g-b', version: 2 } },
@@ -271,13 +279,16 @@ describe('One incident', () => {
     render(<App />);
     await clickAction('inc-op-assign');
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-technician')));
-    fireEvent.click(await screen.findByText('Hamza Ali'));
+    const hamza = await screen.findByText('Hamza Ali');
+    expect(screen.queryByText('Nadia Groupless')).toBeNull(); // listed, she would show here
+    fireEvent.click(hamza);
     const notice = await screen.findByTestId('inc-assign-outside');
     expect(notice.textContent).toContain("Hamza Ali isn't in Service Desk");
-    // In two groups: the group is picked first; until then the action says so and waits.
+    // In two groups: the group is picked first; until then the action waits and the notice asks.
     const ok = screen.getByTestId('inc-assign-confirm');
-    expect(ok.textContent).toContain('Pick the group, then assign to Hamza Ali');
+    expect(ok.textContent).toContain('Assign');
     expect(ok.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('inc-assign-move-to')).toBeDefined();
     fireEvent.mouseDown(selectorOf(screen.getByTestId('inc-assign-move-to')));
     fireEvent.click(await screen.findByTitle('Network'));
     await waitFor(() => {

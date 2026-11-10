@@ -677,7 +677,6 @@ export const ur: LabelResource = {
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
   'incidents.more': 'مزید دکھائیں',
   'incidents.move_and_assign': '{{group}} میں منتقل کریں اور {{person}} کو تفویض کریں',
-  'incidents.move_and_assign_pick': 'گروپ منتخب کریں، پھر {{person}} کو تفویض کریں',
   'incidents.move_to_which_group': 'ان کے کس گروپ میں منتقل کیا جائے؟',
   'incidents.new': 'نیا واقعہ',
   'incidents.no_category': 'کوئی زمرہ نہیں',

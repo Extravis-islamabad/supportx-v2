@@ -734,7 +734,6 @@ export const ar: LabelResource = {
   'incidents.mail_no_subject': 'بريد إلكتروني بلا موضوع',
   'incidents.more': 'عرض المزيد',
   'incidents.move_and_assign': 'النقل إلى {{group}} والإسناد إلى {{person}}',
-  'incidents.move_and_assign_pick': 'اختر المجموعة، ثم أسند إلى {{person}}',
   'incidents.move_to_which_group': 'إلى أي من مجموعاته يُنقل؟',
   'incidents.new': 'حادثة جديدة',
   'incidents.no_category': 'بلا فئة',

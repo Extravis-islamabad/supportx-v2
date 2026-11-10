@@ -267,10 +267,12 @@ export function TechnicianPicker({
   const found = useIncidentAssignees(everyone ? null : groupId, search, disabled !== true, base);
   const inGroup = (groupIds: string[] | undefined) =>
     groupId === null || (groupIds ?? []).includes(groupId);
-  // The group's own people first, then the rest, each part in the server's order.
-  const rows = [...(found.data ?? [])].sort(
-    (a, b) => Number(!inGroup(a.group_ids)) - Number(!inGroup(b.group_ids)),
-  );
+  // The group's own people first, then the rest, each part in the server's order. Someone in
+  // no group cannot be given a record that has one (D-154a: no group to move it to), so they
+  // are left out, never offered as a dead end (lane C's #337 review).
+  const rows = [...(found.data ?? [])]
+    .filter((r) => !everyone || inGroup(r.group_ids) || (r.group_ids ?? []).length > 0)
+    .sort((a, b) => Number(!inGroup(a.group_ids)) - Number(!inGroup(b.group_ids)));
   const twice = duplicateNames(rows.map((r) => r.display_name));
   const options = rows.map((r) => {
     const outside = !inGroup(r.group_ids);
