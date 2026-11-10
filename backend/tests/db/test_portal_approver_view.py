@@ -2,9 +2,17 @@
 
 Real PostgreSQL. A requester-only person named as the request's approver (their manager) sees
 it in the portal with its answers and requester, the requester's fields only, never technician
-fields; anyone else without reach gets 404; the approver cannot confirm or reject its delivery.
+fields; it cannot confirm, reject or read the conversation, and a decided approval keeps
+the read (open or decided). Anyone else without reach gets 404; the approver cannot confirm or
+reject its delivery.
 """
 
+import uuid
+
+from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
+from app.modules.work_items.domain.types import SERVICE_REQUEST
+from app.modules.work_items.service import portal
 from tests.db.test_approvals_api import manager_of, waiting
 from tests.db.test_incidents_api import CONSOLE, World, world
 
@@ -33,7 +41,23 @@ async def test_qa10_p2_06_the_approver_opens_the_request_read_only(world: World)
         a.requester2,
         headers={"If-Match": f'"{body["version"]}"', **CONSOLE},
     )
-    assert confirm.status_code in {403, 404, 409}, confirm.text
+    assert (confirm.status_code, confirm.json()["code"]) == (403, "permission_denied")
+    not_done = await world.call(
+        "POST",
+        f"{PORTAL}/{record['id']}/resolution/reject",
+        a,
+        a.requester2,
+        json={"comment": "Not mine"},
+        headers={"If-Match": f'"{body["version"]}"', **CONSOLE},
+    )
+    assert not_done.status_code == 403, not_done.text
+    # No conversation: what is asked, not the requester's talk with the desk.
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        approver = await subject_for(session, a.tenant, a.requester2)
+        entries = await portal.conversation(
+            session, approver, uuid.UUID(record["id"]), SERVICE_REQUEST
+        )
+    assert entries == []
     # Not named on it, no reach: 404. A request whose approver is someone else.
     await manager_of(world, a.requester, a.tech_a)
     theirs = await waiting(world, a)
