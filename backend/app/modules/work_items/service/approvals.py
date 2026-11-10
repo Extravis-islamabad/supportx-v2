@@ -38,7 +38,7 @@ from app.modules.work_items.domain.types import (
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
-from app.modules.work_items.service import fulfilment, stage_approvals
+from app.modules.work_items.service import fulfilment, stage_approvals, workflow_approvals
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE, APPROVE_ANY
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
@@ -75,7 +75,9 @@ def _staff(subject: Subject, wtype: WorkItemType) -> bool:
 def _may_decide(subject: Subject, wtype: WorkItemType, row: WorkItemApproval) -> bool:
     if row.state != rules.ApprovalState.PENDING:
         return False
-    if row.record_stage is not None:
+    if row.record_stage is not None or row.purpose == rules.ApprovalPurpose.WORKFLOW:
+        # A workflow's approval node names its approvers as a stage does (WP-048b S2, REQ-WF-014),
+        # so the same rule: lane B reviews it with the S2 PR.
         # A staged record's approval (WP-058a s5; the coordinator's and lane B's rule): the person
         # named on it decides it by being named, with no extra permission. The type's approve
         # permission, or approve_any, is for deciding an approval one is not named on.
@@ -273,9 +275,26 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     await session.flush()
     await approval_event(session, record, row, "decided")
     await action_links.revoke_for(session, LINK_OBJECT, row.id)  # decided another way
+    await _after_vote(session, wtype, record, row, approved=approved, source=source)
+    return _shown(subject, wtype, record, row)
+
+
+async def _after_vote(  # noqa: PLR0913 - the vote and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    row: WorkItemApproval,
+    *,
+    approved: bool,
+    source: Source,
+) -> None:
+    """What one vote decides, by what the approval is for."""
+    if row.purpose == rules.ApprovalPurpose.WORKFLOW:  # a workflow's node: its level decides
+        await workflow_approvals.after_decision(session, record, row)
+        return
     if row.record_stage is not None:  # a staged record: the level's rule decides (WP-058a s5)
         await stage_approvals.after_decision(session, wtype, record, row, source=source)
-        return _shown(subject, wtype, record, row)
+        return
     await _close_others(
         session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
     )
@@ -283,9 +302,8 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # A problem's approvals decide, but never move its status (WP-044b s4).
         await _problem_decided(session, record, status, purpose=row.purpose, source=source)
-        return _shown(subject, wtype, record, row)
+        return
     await _finish(session, wtype, record, status, source=source)
-    return _shown(subject, wtype, record, row)
 
 
 async def _close_others(

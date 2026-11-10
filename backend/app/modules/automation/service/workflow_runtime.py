@@ -284,8 +284,16 @@ async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs w
     if command.kind == CommandKind.START_SUB_FLOW:
         return await _start_child(session, instance, command, now)
     outcome = await _carry_out(
-        session, kind, subject=subject, record_id=instance.record_id, command=command, ref=ref
+        session,
+        kind,
+        subject=subject,
+        record_id=instance.record_id,
+        command=command,
+        # The command's own id: a result that comes later (an approval's decision) names it.
+        ref={**ref, "command": command.id},
     )
+    if outcome.ok and outcome.pending:
+        return None  # waits, as a sub-flow does, until the owning module's event continues it
     return CommandDone(command.id, outcome.ok, error=outcome.error, outputs=outcome.outputs)
 
 

@@ -28,7 +28,7 @@ from app.modules.automation.domain.rules import (
     TraceLine,
 )
 from app.modules.automation.domain.triggers import People, Relative, TriggerEvent
-from app.modules.automation.events import EVENTS
+from app.modules.automation.events import EVENTS, WorkflowCommandFinished
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
 from app.modules.automation.service import workflow_events, workflow_scheduler
 from app.modules.automation.service.assignment import (
@@ -66,6 +66,7 @@ from app.modules.automation.service.transitions import list_settings as transiti
 from app.modules.automation.service.transitions import refusal as transition_refusal
 from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES, on_record_event
 from app.modules.automation.service.usage import register_usage_checks
+from app.modules.automation.service.workflow_events import command_finished
 from app.shared.events import ConsumerSpec
 from app.shared.schedules import ScheduleSpec
 
@@ -113,6 +114,12 @@ module = ModuleSpec(
             event_types=TRIGGER_EVENT_TYPES,
             handler=workflow_events.on_record_event,
         ),
+        # A command decided later (an approval node) continues its node (REQ-WF-014).
+        ConsumerSpec(
+            name="automation__workflow_commands",
+            event_types=(WorkflowCommandFinished.event_type,),
+            handler=workflow_events.on_command_finished,
+        ),
     ],
     schedules=[
         ScheduleSpec("automation__purge_runs", 3600, purge_runs),
@@ -146,6 +153,7 @@ __all__ = [
     "TransitionAudience",
     "TriggerEvent",
     "auto_assign",
+    "command_finished",
     "log_trace",
     "module",
     "record_runs",

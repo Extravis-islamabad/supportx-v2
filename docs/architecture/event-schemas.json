@@ -1545,6 +1545,57 @@
         "type": "object"
       }
     },
+    "automation.workflow.command_finished": {
+      "1": {
+        "description": "A workflow command an owning module accepted for later is done (WP-048b S2, REQ-WF-014).\n\nWritten by the owning module in the transaction that finished it (an approval's deciding\nvote), through `automation.command_finished`; automation's consumer then continues the\nnode: `port` is the output it leaves by (approved, rejected), or `error` refuses it.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          },
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Port"
+          }
+        },
+        "required": [
+          "instance_id",
+          "command",
+          "ok"
+        ],
+        "title": "WorkflowCommandFinished",
+        "type": "object"
+      }
+    },
     "automation.workflow_instance.changed": {
       "1": {
         "description": "A workflow instance moved on, waited, failed or ended (WP-048b, REQ-WF-023, -025).\n\nThe record's execution view and the overview refresh; IDs and codes only.",
@@ -4132,6 +4183,25 @@
           "change"
         ],
         "title": "WorkItemApprovalChanged",
+        "type": "object"
+      }
+    },
+    "work_items.approval_settings.changed": {
+      "1": {
+        "description": "The tenant's approval settings changed (the D-146 chair): open settings pages reload.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "WorkItemApprovalSettingsChanged",
         "type": "object"
       }
     },

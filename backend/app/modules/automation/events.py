@@ -104,8 +104,28 @@ class WorkflowChanged(DomainEvent):
     version: int
 
 
+class WorkflowCommandFinished(DomainEvent):
+    """A workflow command an owning module accepted for later is done (WP-048b S2, REQ-WF-014).
+
+    Written by the owning module in the transaction that finished it (an approval's deciding
+    vote), through `automation.command_finished`; automation's consumer then continues the
+    node: `port` is the output it leaves by (approved, rejected), or `error` refuses it.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.command_finished"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_instance"
+
+    instance_id: uuid.UUID
+    command: str
+    ok: bool
+    port: str | None = None
+    error: str | None = None
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkflowChanged,
+    WorkflowCommandFinished,
     WorkflowInstanceChanged,
     AutomationChanged,
     AvailabilityChanged,

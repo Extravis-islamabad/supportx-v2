@@ -70,6 +70,11 @@ def _approvals() -> None:
     op.add_column(
         "work_item_approvals", sa.Column("workflow_instance_id", sa.Uuid(), nullable=True)
     )
+    # The node's command that opened it: its decision continues that very node (several approval
+    # nodes of one instance can wait at once, on parallel branches).
+    op.add_column(
+        "work_item_approvals", sa.Column("workflow_command", sa.String(20), nullable=True)
+    )
     op.drop_constraint(op.f(PURPOSE_CHECK), "work_item_approvals", type_="check")
     op.create_check_constraint(
         op.f(PURPOSE_CHECK),
@@ -80,6 +85,11 @@ def _approvals() -> None:
         op.f("ck_work_item_approvals_workflow_instance"),
         "work_item_approvals",
         "(purpose = 'workflow') = (workflow_instance_id IS NOT NULL)",
+    )
+    op.create_check_constraint(
+        op.f("ck_work_item_approvals_workflow_command"),
+        "work_item_approvals",
+        "(workflow_instance_id IS NULL) = (workflow_command IS NULL)",
     )
     op.create_index(
         "ix_wia_tenant_workflow_instance",
@@ -138,12 +148,16 @@ def downgrade() -> None:
     op.drop_table(SETTINGS)
     op.drop_index("ix_wia_tenant_workflow_instance", table_name="work_item_approvals")
     op.drop_constraint(
+        op.f("ck_work_item_approvals_workflow_command"), "work_item_approvals", type_="check"
+    )
+    op.drop_constraint(
         op.f("ck_work_item_approvals_workflow_instance"), "work_item_approvals", type_="check"
     )
     op.drop_constraint(op.f(PURPOSE_CHECK), "work_item_approvals", type_="check")
     op.create_check_constraint(
         op.f(PURPOSE_CHECK), "work_item_approvals", "purpose IN ('record', 'accept_without_fix')"
     )
+    op.drop_column("work_item_approvals", "workflow_command")
     op.drop_column("work_item_approvals", "workflow_instance_id")
     op.drop_index("ix_workflow_instances_tenant_parent", table_name="workflow_instances")
     op.drop_constraint(

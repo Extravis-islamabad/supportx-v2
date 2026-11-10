@@ -33,13 +33,14 @@ from app.modules.work_items.domain.conversation import EntryKind, Visibility
 from app.modules.work_items.domain.lifecycle import WorkItemAction
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import conversations
+from app.modules.work_items.service import conversations, workflow_approvals
 from app.modules.work_items.service import work_items as items
 from app.shared.history import Source, automated
 
 SOURCE: Source = "workflow"
 # The interpreter's command kinds (automation.CommandKind values).
 MOVE, UPDATE_FIELDS, ADD_NOTE = "move", "update_fields", "add_note"
+OPEN_APPROVAL = "open_approval"  # decided later: the result comes with the decision
 
 
 async def _version(session: AsyncSession, record_id: uuid.UUID) -> int | None:
@@ -68,6 +69,8 @@ def runner(wtype: WorkItemType) -> automation.CommandRunner:
         version = await _version(session, record_id)
         if version is None:
             return automation.CommandResult(ok=False, error="not_found")
+        if kind == OPEN_APPROVAL:
+            return await _open_approval(session, wtype, record_id, payload, ref)
         policy = worker_policy()
         try:
             with automated(session, ref):
@@ -88,6 +91,33 @@ def runner(wtype: WorkItemType) -> automation.CommandRunner:
         return automation.CommandResult(ok=True)
 
     return run
+
+
+async def _open_approval(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    payload: Mapping[str, Any],
+    ref: Mapping[str, Any],
+) -> automation.CommandResult:
+    """The approval node (REQ-WF-014): one level opened now; the decision continues the node."""
+    if wtype.code not in workflow_approvals.APPROVAL_TYPES:
+        return automation.CommandResult(ok=False, error="approval_not_offered")
+    record = await session.get(WorkItem, record_id)
+    if record is None:
+        return automation.CommandResult(ok=False, error="not_found")
+    try:
+        await workflow_approvals.open_for(
+            session,
+            record,
+            instance_id=uuid.UUID(str(ref["instance_id"])),
+            command=str(ref["command"]),
+            approvers=payload.get("approvers") or {},
+            rule=str(payload.get("rule") or "any"),
+        )
+    except ValueError:  # an approver or a rule the definition should not have held
+        return automation.CommandResult(ok=False, error="approval_invalid")
+    return automation.CommandResult(ok=True, pending=True)
 
 
 async def _carry_out(  # noqa: PLR0913 - the command and its context, explicit

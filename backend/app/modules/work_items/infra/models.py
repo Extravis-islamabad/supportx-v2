@@ -1215,6 +1215,9 @@ class WorkItemApproval(TenantEntity):
         CheckConstraint(
             "(purpose = 'workflow') = (workflow_instance_id IS NOT NULL)", name="workflow_instance"
         ),
+        CheckConstraint(
+            "(workflow_instance_id IS NULL) = (workflow_command IS NULL)", name="workflow_command"
+        ),
         Index(
             "ix_wia_tenant_workflow_instance",
             "tenant_id",
@@ -1258,6 +1261,8 @@ class WorkItemApproval(TenantEntity):
     # The workflow instance whose approval node opened it (0106; purpose "workflow"). By ID only:
     # automation's table is never a foreign key here (rule e).
     workflow_instance_id: Mapped[uuid.UUID | None]
+    # The approval node's command (its decision continues that node, 0106).
+    workflow_command: Mapped[str | None] = mapped_column(String(20))
 
 
 class WorkItemApprovalSettings(Timestamps, Actors, Versioned, Base):

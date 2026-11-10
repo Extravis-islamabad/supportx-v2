@@ -19,15 +19,21 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.core.errors import Conflict
 from app.core.tenancy import TenantContext
-from app.modules.automation.domain.interpreter import InstanceStatus, RecordChanged, TimerFired
+from app.modules.automation.domain.interpreter import (
+    CommandDone,
+    InstanceStatus,
+    RecordChanged,
+    TimerFired,
+)
 from app.modules.automation.domain.triggers import TriggerEvent
 from app.modules.automation.domain.workflows import WaitEvent
+from app.modules.automation.events import WorkflowCommandFinished
 from app.modules.automation.infra.models import Workflow, WorkflowInstance
 from app.modules.automation.service import workflow_runtime
 from app.modules.automation.service.registry import event_reader
 from app.modules.automation.service.registry import record_type as registered
 from app.shared.clock import system_clock
-from app.shared.events import EventEnvelope
+from app.shared.events import EventEnvelope, record_event
 
 log = structlog.get_logger(__name__)
 
@@ -68,6 +74,44 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
     )
     for instance_id in waiting:
         await workflow_runtime.run(session, instance_id, RecordChanged(kind))
+
+
+async def command_finished(  # noqa: PLR0913 - the result, explicit
+    session: AsyncSession,
+    *,
+    instance_id: uuid.UUID,
+    command: str,
+    ok: bool,
+    port: str | None = None,
+    error: str | None = None,
+) -> None:
+    """An owning module's later result for a workflow command, in its own transaction (rule b).
+
+    The approval node's decision: the outbox carries it, and `on_command_finished` continues the
+    instance after the commit, so a decision never runs a workflow inside the person's request.
+    """
+    await record_event(
+        session,
+        WorkflowCommandFinished(
+            instance_id=instance_id, command=command, ok=ok, port=port, error=error
+        ),
+        aggregate_id=instance_id,
+    )
+
+
+async def on_command_finished(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: the waiting node hears its result; one seen twice changes nothing."""
+    if session is None:  # transactional consumer: the registry always gives one
+        msg = "workflow command results need the consumer's session"
+        raise RuntimeError(msg)
+    done = WorkflowCommandFinished.model_validate(envelope.payload)
+    # The interpreter ignores a result for a command no token waits on (activities run at least
+    # once): a redelivered event is a no-op.
+    await workflow_runtime.run(
+        session,
+        done.instance_id,
+        CommandDone(done.command, done.ok, error=done.error, port=done.port),
+    )
 
 
 async def _start_from_template(
