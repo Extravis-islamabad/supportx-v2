@@ -341,6 +341,10 @@ export function RequestsPage() {
                 <Link
                   to={`/requests/${row.id}`}
                   style={{ color: 'inherit' }}
+                  // The row opens it too: one navigation, one history entry (lane C, #351).
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
                   data-testid={`sr-row-${row.display_id}`}
                 >
                   <strong dir="ltr">{row.display_id}</strong>
