@@ -69,6 +69,8 @@ const MY_WORK = {
   description: null,
   owner_id: null,
   shared: true,
+  group_id: null,
+  group_removed: false,
   copied_from: null,
   body: {
     widgets: [
@@ -89,6 +91,8 @@ const MINE = {
   names: { ar: 'لوحة الفريق' },
   owner_id: ME,
   shared: false,
+  group_id: null,
+  group_removed: false,
   version: 3,
   can_edit: true,
 };
@@ -345,6 +349,95 @@ describe('dashboards on screen', () => {
         'المفتوحة حسب الأولوية',
       );
       expect(document.body.textContent).not.toMatch(/dashboard_widget\.|dashboards\./);
+    });
+  });
+});
+
+describe('group dashboards (D-152)', () => {
+  afterEach(() => {
+    restore();
+  });
+
+  const GROUP = '01900000-0000-7000-8000-0000000000a1';
+  const QUEUE = {
+    ...MINE,
+    ref: '01900000-0000-7000-8000-00000000d002',
+    name: 'Queue health',
+    names: {},
+    group_id: GROUP,
+    can_edit: false,
+  };
+  const GONE = { ...MINE, ref: '01900000-0000-7000-8000-00000000d003', name: 'Old queue' };
+
+  it("lists your groups' dashboards in their own tab, named by group; a removed group's go back", async () => {
+    window.history.pushState({}, '', '/dashboards');
+    api({
+      me: fakeSession(),
+      routes: routes({
+        'GET /api/v1/dashboards': {
+          body: {
+            items: [
+              MY_WORK,
+              MINE,
+              QUEUE,
+              { ...GONE, group_id: '01900000-0000-7000-8000-0000000000a9', group_removed: true },
+            ],
+            favourites: [],
+            group_choices: [GROUP],
+            home: 'builtin:my_work',
+            home_chosen: false,
+          },
+        },
+        'GET /api/v1/organization/groups': { body: [{ id: GROUP, name: 'Network', version: 1 }] },
+      }),
+    });
+    render(<App />);
+    await screen.findByText('Queue health');
+    const groups = screen.getByTestId('dashboards-group-groups');
+    expect(within(groups).getByText('Queue health')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId(`dashboards-group-tag-${QUEUE.ref}`).textContent).toBe('Network');
+    });
+    const mine = screen.getByTestId('dashboards-group-mine');
+    expect(within(mine).getByText('Old queue')).toBeTruthy();
+    expect(within(mine).getByText('Group removed')).toBeTruthy();
+    expect(within(groups).queryByText('Old queue')).toBeNull();
+  });
+
+  it('a new dashboard can be for one of the groups you lead', async () => {
+    window.history.pushState({}, '', '/dashboards');
+    const fake = api({
+      me: fakeSession(),
+      routes: routes({
+        'GET /api/v1/dashboards': {
+          body: {
+            items: [MY_WORK],
+            favourites: [],
+            group_choices: [GROUP],
+            home: 'builtin:my_work',
+            home_chosen: false,
+          },
+        },
+        'GET /api/v1/organization/groups': { body: [{ id: GROUP, name: 'Network', version: 1 }] },
+        'POST /api/v1/dashboards': { status: 201, body: { ...QUEUE, can_edit: true } },
+      }),
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('dashboards-new'));
+    fireEvent.change(await screen.findByTestId('dashboards-new-name'), {
+      target: { value: 'Queue health' },
+    });
+    const choose = await screen.findByTestId('dashboards-new-group');
+    fireEvent.mouseDown(within(choose).getByRole('combobox'));
+    fireEvent.click(await screen.findByTitle('Network'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/dashboards')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/dashboards')[0]?.body).toEqual({
+      name: 'Queue health',
+      shared: false,
+      group_id: GROUP,
     });
   });
 });

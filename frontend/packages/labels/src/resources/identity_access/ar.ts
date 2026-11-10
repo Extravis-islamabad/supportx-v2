@@ -832,7 +832,9 @@ export const ar: LabelResource = {
   'roles.compare_same': 'يمنح هذان الدوران الأذونات نفسها.',
   'roles.compare_second': 'الدور الثاني',
   'roles.copy': 'نسخ',
+  'roles.copy_customise': 'نسخ وتخصيص',
   'roles.copy_name': 'نسخة من {{name}}',
+  'roles.default_scope': 'النطاق: {{scope}}',
   'roles.delete': 'حذف الدور',
   'roles.delete_confirm': 'لا أحد لديه هذا الدور. سيتم حذفه.',
   'roles.delete_in_use_few':
@@ -849,7 +851,6 @@ export const ar: LabelResource = {
   'roles.delete_title': 'حذف {{name}}؟',
   'roles.deleted': 'تم حذف الدور.',
   'roles.description': 'الوصف',
-  'roles.duplicate': 'تكرار كدور مخصص',
   'roles.editor.copy': 'دور جديد من «{{name}}»',
   'roles.editor.edit': 'الدور: {{name}}',
   'roles.editor.new': 'دور جديد',

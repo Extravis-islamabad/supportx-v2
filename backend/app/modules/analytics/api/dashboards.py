@@ -4,6 +4,7 @@ Widgets carry report definitions; the console runs each through `POST /reports/r
 dashboard's filters added), so a widget counts exactly what the viewer could list.
 """
 
+import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -52,6 +53,10 @@ class DashboardOut(BaseModel):
     description: str | None
     owner_id: str | None
     shared: bool
+    group_id: str | None = Field(description="The support group it belongs to (D-152).")
+    group_removed: bool = Field(
+        description="Its group was deleted: its owner's private dashboard again (D-152)."
+    )
     copied_from: str | None
     body: DashboardBody
     version: int
@@ -70,6 +75,8 @@ class DashboardOut(BaseModel):
             description=record.description if record else None,
             owner_id=str(record.owner_id) if record else None,
             shared=found.shared,
+            group_id=str(record.group_id) if record and record.group_id else None,
+            group_removed=found.group_removed,
             copied_from=record.copied_from if record else None,
             body=found.body,
             version=record.version if record else 1,
@@ -83,12 +90,15 @@ class DashboardListOut(BaseModel):
 
     items: list[DashboardOut]
     favourites: list[str]
+    group_choices: list[str] | None = Field(
+        description="Groups you may make dashboards for (D-152); null: any group."
+    )
     home: str
     home_chosen: bool = Field(description="True: your own choice; False: your role's home.")
 
 
 class DashboardIn(BaseModel):
-    """A new dashboard (private unless `shared`, which needs `dashboards.share`)."""
+    """A new dashboard: private, `shared` (`dashboards.share`) or a group's (D-152)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -96,6 +106,9 @@ class DashboardIn(BaseModel):
     names: dict[Literal["en", "ar", "ur"], str] = Field(default_factory=dict)
     description: str | None = Field(default=None, max_length=1000)
     shared: bool = False
+    group_id: uuid.UUID | None = Field(
+        default=None, description="A group's dashboard: its lead or dashboards.manage_defaults."
+    )
     body: DashboardBody = Field(default_factory=DashboardBody)
     copied_from: str | None = Field(default=None, max_length=100)
 
@@ -109,6 +122,7 @@ class DashboardPatch(BaseModel):
     names: dict[Literal["en", "ar", "ur"], str] | None = None
     description: str | None = Field(default=None, max_length=1000)
     shared: bool | None = None
+    group_id: uuid.UUID | None = Field(default=None, description="Null takes it out of its group.")
     body: DashboardBody | None = None
 
 
@@ -146,6 +160,7 @@ async def list_dashboards(session: TenantSession, subject: Viewer) -> DashboardL
     return DashboardListOut(
         items=[DashboardOut.of(v) for v in views],
         favourites=await dashboards.favourites(session, subject),
+        group_choices=await dashboards.group_choices(session, subject),
         home=found.ref,
         home_chosen=found.chosen,
     )
@@ -222,6 +237,7 @@ async def create_dashboard(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             names={str(k): v for k, v in body.names.items()},
             description=body.description,
             shared=body.shared,
+            group_id=body.group_id,
             body=body.body,
             copied_from=body.copied_from,
             validate=_validator(request, session, context, subject),
