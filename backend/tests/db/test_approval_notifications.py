@@ -17,15 +17,16 @@ from app.core.tenancy import TenantContext
 from app.modules.notifications.service.engine import dispatch
 from app.shared.events import EventEnvelope
 from app.shared.mail.infra import smtp
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import manager_of
-from tests.db.test_incidents_api import Org, World, world
+from tests.db.test_incidents_api import Org, World
 from tests.db.test_notifications_api import MAIL, run_engine
 from tests.db.test_reply_delivery import FakeSmtp, _send
 from tests.db.test_service_requests_api import an_item, raise_request
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 # The tenant by slug, then the token in the fragment (D-132; ?t= for shared addresses).
 LINK = re.compile(r"/approve\?t=[a-z0-9-]+#([A-Za-z0-9_-]{43})")

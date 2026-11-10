@@ -8,10 +8,13 @@ group, and the technician (after approval when it says so); the answers follow t
 import uuid
 from typing import Any
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_catalog_api import add as add_item
-from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, problem, world
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 SR = "/service-requests"
 

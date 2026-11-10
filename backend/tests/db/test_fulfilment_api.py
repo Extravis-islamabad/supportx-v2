@@ -7,11 +7,14 @@ never before and never after a rejection; the last required task done fulfils th
 import uuid
 from typing import Any
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, decide, fresh, manager_of
-from tests.db.test_incidents_api import CONSOLE, Org, World, world
+from tests.db.test_incidents_api import CONSOLE, Org, World
 from tests.db.test_service_requests_api import SR, an_item, raise_request
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 PLAN = [
     {"title": {"en": "Order the laptop", "ar": "طلب الحاسوب"}},

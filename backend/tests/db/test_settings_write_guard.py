@@ -17,10 +17,11 @@ from typing import Any
 
 import pytest
 
-from tests.db.test_incidents_api import CONSOLE, Org, World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World
 
-pytestmark = pytest.mark.db
-__all__ = ["world"]  # the fixture, used by name
+pytestmark = [pytest.mark.db, MODULE_LOOP]
+__all__ = ["module_world", "shared_world"]  # the fixture, used by name
 
 MATCH = {"If-Match": '"1"'}
 # 403; or 404 where a module hides that the page exists (the audit log, D-076).

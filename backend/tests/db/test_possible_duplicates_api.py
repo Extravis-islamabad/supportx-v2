@@ -17,11 +17,14 @@ from app.modules.ai.service.embeddings import on_work_item_changed, reembed_swee
 from app.modules.ai.service.providers import FakeProvider
 from app.modules.work_items.service.ai_sources import incident_texts
 from conftest import make_settings
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_ai_summaries_api import ai_settings
 from tests.db.test_conversation_api import events_of, say
-from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, world
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 MAIL = "Outlook keeps asking for the password since Monday"
 

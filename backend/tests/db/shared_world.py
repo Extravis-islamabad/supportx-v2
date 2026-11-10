@@ -8,8 +8,8 @@ opts in with:
 with `pytestmark = [..., MODULE_LOOP]`, so its tests run on the module's one event loop
 (asyncpg pools belong to the loop that made them). Every test still gets two new
 organisations (fresh tenants). What a test sets on `app.state` or in `dependency_overrides`
-is put back after it. A file that turns flaky goes back to the per-test `world` of
-test_incidents_api.
+is put back after it. A file that turns flaky goes back to the per-test `world` in one line:
+import the same three names from tests.db.per_test_world instead.
 """
 
 from collections.abc import AsyncIterator

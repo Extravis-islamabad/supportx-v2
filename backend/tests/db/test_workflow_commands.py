@@ -17,9 +17,12 @@ from app.modules.identity_access import subject_for
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service import workflow_commands
-from tests.db.test_incidents_api import CONSOLE, World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, World
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 REF = {"kind": "workflow", "workflow_id": str(uuid.uuid4()), "instance_id": str(uuid.uuid4())}
 

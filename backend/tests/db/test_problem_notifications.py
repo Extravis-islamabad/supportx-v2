@@ -5,13 +5,14 @@ from typing import Any
 
 import pytest
 
-from tests.db.test_incidents_api import CONSOLE, Org, World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World
 from tests.db.test_notifications_api import run_engine
 from tests.db.test_problems_api import PRB, new_problem
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def told(world: World, org: Org, record_id: str) -> set[tuple[str, uuid.UUID]]:

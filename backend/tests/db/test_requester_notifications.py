@@ -11,13 +11,14 @@ from typing import Any
 
 import pytest
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, decide, manager_of, waiting
-from tests.db.test_incidents_api import CONSOLE, Org, World, world
+from tests.db.test_incidents_api import CONSOLE, Org, World
 from tests.db.test_notifications_api import MAIL, run_engine
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 SR = "/service-requests"
 

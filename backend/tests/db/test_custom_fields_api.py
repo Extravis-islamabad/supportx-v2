@@ -16,22 +16,16 @@ from sqlalchemy import text
 
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_incident_settings_api import new_template, patch_template
-from tests.db.test_incidents_api import (
-    BASE,
-    CONSOLE,
-    Org,
-    World,
-    envelopes,
-    field_codes,
-    ids,
-    world,
-)
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, envelopes, field_codes, ids
 from tooling import custom_field_indexes
 from workers.custom_field_indexes.indexer import LOCK_CLASS, LOCK_KEY, run_pass
 
+pytestmark = MODULE_LOOP
+
 FIELDS = "/custom-fields"
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def add_field(world: World, org: Org, **body: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON

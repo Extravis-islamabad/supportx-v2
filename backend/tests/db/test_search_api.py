@@ -11,12 +11,13 @@ import pytest
 
 from app.shared.search import normalize, words
 from conftest import assign_system_role
-from tests.db.test_incidents_api import BASE, Org, World, ids, role, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import BASE, Org, World, ids, role
 from tests.db.test_users_api import seed_users
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 SEARCH = f"{BASE}/search"
 
