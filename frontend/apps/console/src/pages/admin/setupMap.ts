@@ -203,6 +203,11 @@ export function pagesFor(can: (permission: string) => boolean): SetupPage[] {
 }
 
 /** Whether this person may open the page at all (read-only included): the setup gate's rule. */
+/** Opened with a view right only: the page shows, read-only, and says so (QA10-P3-06). */
+export function readOnly(page: SetupPage, can: (permission: string) => boolean): boolean {
+  return opens(page, can) && !listing(page).some((permission) => can(permission));
+}
+
 export function opens(page: SetupPage, can: (permission: string) => boolean): boolean {
   return opening(page).some(can);
 }

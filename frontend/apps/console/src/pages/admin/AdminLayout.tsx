@@ -1,5 +1,5 @@
 import { MenuOutlined } from '@ant-design/icons';
-import { Button, Drawer, Grid, Typography, theme } from 'antd';
+import { Alert, Button, Drawer, Grid, Typography, theme } from 'antd';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
@@ -12,7 +12,7 @@ import {
   usePageCrumbs,
 } from '@supportx/ui';
 
-import { opens, pagesFor, SETUP_GROUPS, SETUP_PAGES, type SetupPage } from './setupMap';
+import { opens, pagesFor, readOnly, SETUP_GROUPS, SETUP_PAGES, type SetupPage } from './setupMap';
 
 type Token = ReturnType<typeof theme.useToken>['token'];
 
@@ -259,7 +259,26 @@ export function AdminLayout() {
               testId="admin-page-header"
             />
           )}
-          {refused ? <NoAccess titleKey={known.labelKey} /> : <Outlet />}
+          {refused ? (
+            <NoAccess titleKey={known.labelKey} />
+          ) : (
+            <>
+              {/* Opened with a view right only (option b): say so, with the reason, once for
+                  every such page, instead of buttons that are simply missing (QA10-P3-06). */}
+              {known !== undefined && readOnly(known, can) && (
+                <Alert
+                  type="info"
+                  showIcon
+                  role="status"
+                  message={t('setup.read_only')}
+                  description={t('setup.read_only_reason')}
+                  style={{ marginBottom: 16 }}
+                  data-testid="setup-read-only"
+                />
+              )}
+              <Outlet />
+            </>
+          )}
         </div>
       </div>
     </>
