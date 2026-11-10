@@ -1620,26 +1620,30 @@ async def freshen(settings: Settings, tenant_id: uuid.UUID, *, now: datetime) ->
         msg = "SUPPORTX_MIGRATION_DATABASE_URL is not set"
         raise SeedError(msg)
     moves: list[tuple[uuid.UUID, str, timedelta]] = []
+    owned: list[tuple[uuid.UUID, str]] = []
+    moved = 0
     conn = await asyncpg.connect(migrator.get_secret_value())
     try:
         async with conn.transaction():
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
             for row in await _seed_owned(conn):
+                owned.append((row["id"], row["type"]))
                 land = freshened_created(row["display_number"], row["status_category"], now)
                 delta = land - row["created_at"]
                 if abs(delta) >= FRESHEN_MIN:
                     moves.append((row["id"], row["type"], delta))
-            if not moves:
-                return 0
-            await conn.execute(
-                "CREATE TEMP TABLE showcase_shift (id uuid PRIMARY KEY, delta interval)"
-                " ON COMMIT DROP"
-            )
-            await conn.executemany(
-                "INSERT INTO showcase_shift (id, delta) VALUES ($1, $2)",
-                [(record_id, delta) for record_id, _, delta in moves],
-            )
-            moved = await _shift(conn, cap=now)
+        if moves:
+            async with conn.transaction():
+                await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
+                await conn.execute(
+                    "CREATE TEMP TABLE showcase_shift (id uuid PRIMARY KEY, delta interval)"
+                    " ON COMMIT DROP"
+                )
+                await conn.executemany(
+                    "INSERT INTO showcase_shift (id, delta) VALUES ($1, $2)",
+                    [(record_id, delta) for record_id, _, delta in moves],
+                )
+                moved = await _shift(conn, cap=now)
     finally:
         await conn.close()
     database = Database.from_settings(settings)
@@ -1648,15 +1652,21 @@ async def freshen(settings: Settings, tenant_id: uuid.UUID, *, now: datetime) ->
         raise SeedError(msg)
     try:
         async with database.tenant_session(TenantContext(TENANT_ID)) as session:
-            for record_id, code, _ in moves:
+            # Every seed record, moved now or not (lanes B and C): a rebase that failed after
+            # an earlier move is finished by the next run; on clocks already right it changes
+            # nothing.
+            for record_id, code in owned:
                 stamp = await sla.rebase(session, code, record_id, now=now)
                 await session.execute(
                     text(
                         "UPDATE work_items SET first_response_due_at = :frd,"
                         " resolution_due_at = :rd, first_response_sla_state = :frs,"
                         " resolution_sla_state = :rs, first_response_breached = :frb,"
-                        " resolution_breached = :rb, updated_at = :now"
+                        " resolution_breached = :rb, updated_at = :now, version = version + 1"
                         " WHERE tenant_id = :t AND id = :id"
+                        " AND (first_response_due_at, resolution_due_at, first_response_sla_state,"
+                        "      resolution_sla_state, first_response_breached, resolution_breached)"
+                        "     IS DISTINCT FROM (:frd, :rd, :frs, :rs, :frb, :rb)"
                     ),
                     {
                         "frd": stamp.first_response_due_at,

@@ -738,13 +738,32 @@ def test_step7_brings_the_seeds_own_records_to_today_silently_and_once(
     assert asyncio.run(_outbox(database.admin_url)) == outbox_before
     assert asyncio.run(_audit(database.admin_url, seed.TENANT_ID)) == audit_before
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
-    # Once: the same day again moves nothing; another tenant is refused.
+    # Once: the same day again moves nothing; another tenant is refused. A clock left wrong
+    # (as if an earlier rebase had failed after its move) is still set right by the re-run.
+    asyncio.run(_breach_all_running(database.admin_url))
     assert asyncio.run(seed.freshen(settings, seed.TENANT_ID, now=now)) == 0
+    healed = asyncio.run(_target_states(database.admin_url))
+    assert Counter(healed.values()) == Counter(states_after.values())
     with pytest.raises(seed.SeedError, match="showcase tenant"):
         asyncio.run(seed.freshen(settings, uuid.uuid4(), now=now))
 
 
 # --- E1 repair (Haider, 2026-11-10): requests fulfilled with nobody on them --------------------
+
+
+async def _updates_of(url: str, record: uuid.UUID) -> list[Any]:
+    """The changed fields of each `work_item.updated` event of the record in the outbox."""
+    conn = await asyncpg.connect(url)
+    try:
+        rows = await conn.fetch(
+            f"SELECT envelope->'payload'->'changed_fields' AS fields FROM {OUTBOX_TABLE}"  # noqa: S608 - fixed name
+            " WHERE event_type = 'work_items.work_item.updated'"
+            " AND envelope->'payload'->>'work_item_id' = $1 ORDER BY id",
+            str(record),
+        )
+    finally:
+        await conn.close()
+    return [json.loads(r["fields"]) for r in rows]
 
 
 async def _orphan_one_fulfilled_request(url: str) -> uuid.UUID:
@@ -809,6 +828,9 @@ def test_e1_repair_gives_a_fulfilled_request_its_fulfiller_once_and_audits_it(
         if e not in set(audit_before)
     ]
     assert [e[1] for e in added] == ["service_request.fulfiller_repaired"]
+    # Its update event too, so open screens and search follow (rule 5b, lane B).
+    events = asyncio.run(_updates_of(database.admin_url, orphan))
+    assert events == [["technician_id"]]
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
     assert asyncio.run(repair.run(settings, write=False)) == []  # once
     assert repair.refuse("other", settings) is not None

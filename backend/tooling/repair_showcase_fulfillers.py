@@ -7,8 +7,9 @@ of the showcase tenant its fulfiller: a person of its own group (D-154a; the fir
 or the seed's technician when it has no group.
 
 The showcase tenant only (a guard refuses any other, and production); in its own RLS context
-as the migrator, like the dates repair. Each repair is one save: the technician, a field
-history row (source `api`) and one new audit entry, `service_request.fulfiller_repaired`,
+as the migrator, like the dates repair. Each repair is one save: the technician, its
+`work_items.work_item.updated` event (so open screens and search follow), a field history
+row (source `api`) and one new audit entry, `service_request.fulfiller_repaired`,
 sealed into the chain like any other; the audit log is otherwise only read. Dry run by default;
 `--apply` writes. A second run finds nothing to repair.
 
@@ -33,6 +34,8 @@ from app.core.tenancy import TenantContext
 from app.modules.audit import AuditActorType, RequestFacts
 from app.modules.audit import record as record_audit
 from app.modules.audit.domain.catalogue import AuditClient
+from app.modules.work_items.events import Audience, WorkItemUpdated
+from app.shared.events import record_event
 from app.shared.history import Change, record_changes
 from tooling import showcase_seed as seed
 
@@ -61,6 +64,9 @@ class Plan:
     version: int
     fulfiller: uuid.UUID | None
     status: str = ""
+    status_category: str = ""
+    group_id: uuid.UUID | None = None
+    site_id: uuid.UUID | None = None
 
     def line(self) -> str:
         """One line of the dry-run output."""
@@ -93,7 +99,8 @@ async def plan(session: AsyncSession) -> list[Plan]:
     rows = (
         await session.execute(
             text(
-                "SELECT id, display_id, version, group_id, status FROM work_items"
+                "SELECT id, display_id, version, group_id, site_id, status, status_category"
+                " FROM work_items"
                 " WHERE tenant_id = :t AND type = 'service_request' AND deleted_at IS NULL"
                 # Fulfilled at some point: a rejected one is closed and stamped resolved too,
                 # but was never fulfilled; a withdrawn one is canceled.
@@ -116,7 +123,18 @@ async def plan(session: AsyncSession) -> list[Plan]:
                 ),
                 {"t": seed.TENANT_ID, "g": row.group_id},
             )
-        plans.append(Plan(row.id, row.display_id, row.version, fulfiller, row.status))
+        plans.append(
+            Plan(
+                row.id,
+                row.display_id,
+                row.version,
+                fulfiller,
+                row.status,
+                row.status_category,
+                row.group_id,
+                row.site_id,
+            )
+        )
     return plans
 
 
@@ -143,6 +161,23 @@ async def apply(session: AsyncSession, item: Plan) -> uuid.UUID:
     if changed.rowcount != 1:  # type: ignore[attr-defined]  # CursorResult on an UPDATE
         msg = f"{item.display_id} changed since the plan"
         raise RepairError(msg)
+    # Open lists, the record and search follow it, as after any save (rule 5b, lane B).
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=item.record_id,
+            type="service_request",
+            display_id=item.display_id,
+            status=item.status,
+            status_category=item.status_category,
+            changed_fields=["technician_id"],
+            audience_before=Audience(
+                group_id=item.group_id, site_id=item.site_id, technician_id=None, unassigned=True
+            ),
+        ),
+        aggregate_id=item.record_id,
+        aggregate_version=item.version + 1,
+    )
     await record_changes(
         session,
         record_type="work_item",
