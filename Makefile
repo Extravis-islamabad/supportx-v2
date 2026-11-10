@@ -12,8 +12,11 @@
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 # The mobile app is its own pnpm project (React 19, D-154; docs/architecture/mobile.md).
+MOBILE := cd mobile &&
 # Expo telemetry stays off (Haider, 2026-11-06; ADR-044 item 7): nothing goes to Expo's servers.
-MOBILE := cd mobile && export EXPO_NO_TELEMETRY=1 &&
+# Exported by make itself, so it reaches every recipe in any shell (cmd.exe on Windows has no
+# `export`).
+export EXPO_NO_TELEMETRY := 1
 PIP_AUDIT_VERSION := 2.10.1
 OPENAPI_FILE := ../frontend/packages/api-client/openapi.json
 # Generated, never committed (D-127): regenerated, never hand-merged.
