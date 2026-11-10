@@ -171,6 +171,8 @@ export const ar: LabelResource = {
   'assets.bulk_move.partial_two': 'نُقل {{moved}}؛ وتعذّر نقل أصلين:',
   'assets.bulk_move.partial_zero': 'نُقل {{moved}}؛ ولم يتعذر نقل أي أصل:',
   'assets.bulk_move.reason_help': 'يُحفظ على كل أصل. بعض الانتقالات تتطلب سببًا.',
+  'assets.bulk_move.select_page': 'تحديد كل الأصول في هذه الصفحة',
+  'assets.bulk_move.select_row': 'تحديد {{name}}',
   'assets.bulk_move.selected_few': '{{count}} أصول محددة',
   'assets.bulk_move.selected_many': '{{count}} أصلًا محددًا',
   'assets.bulk_move.selected_one': 'أصل واحد محدد',

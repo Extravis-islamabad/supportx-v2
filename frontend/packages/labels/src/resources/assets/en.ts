@@ -154,6 +154,8 @@ export const en = {
   'assets.bulk_move.partial_one': '{{moved}} moved; 1 could not move:',
   'assets.bulk_move.partial_other': '{{moved}} moved; {{count}} could not move:',
   'assets.bulk_move.reason_help': 'Saved on each asset. Some moves ask for one.',
+  'assets.bulk_move.select_page': 'Select every asset on this page',
+  'assets.bulk_move.select_row': 'Select {{name}}',
   'assets.bulk_move.selected_one': '1 selected',
   'assets.bulk_move.selected_other': '{{count}} selected',
   'assets.bulk_move.title_one': 'Change the state of 1 asset',

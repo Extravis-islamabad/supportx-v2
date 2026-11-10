@@ -415,6 +415,9 @@ export function LoansPage() {
                   {
                     key: 'actions',
                     title: t('assets.loans.actions'),
+                    // Always in view when the table scrolls sideways (390 px), as on the
+                    // incident list; antd mirrors it in right-to-left.
+                    fixed: 'right' as const,
                     render: (_: unknown, loan: AssetLoan) => (
                       <WriteButton
                         size="small"

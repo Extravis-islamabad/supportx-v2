@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished } from 'vitest';
 
 import type { AssetProductType, AssetRecord, AssetState, Vendor } from '@supportx/api-client';
 
@@ -103,6 +103,28 @@ function assetsApi(routes = {}) {
       ...routes,
     },
   });
+}
+
+// The record's action bar shows three buttons from 576 px and two on a phone (useMinWidth);
+// the test setup's matchMedia matches nothing, i.e. a phone. These tests are the desktop row.
+function wideScreen(): () => void {
+  const saved = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: query.includes('min-width'),
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+  return () => {
+    if (saved !== undefined) Object.defineProperty(window, 'matchMedia', saved);
+  };
 }
 
 describe('console: assets', () => {
@@ -338,6 +360,8 @@ describe('console: assets', () => {
   });
 
   it('copies an asset with an Idempotency-Key, up to the copy limit', async () => {
+    const narrow = wideScreen();
+    onTestFinished(narrow);
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({
       'GET /api/v1/assets/settings': { body: { copy_limit: 5 } },
@@ -707,6 +731,30 @@ describe('console: assets', () => {
     expect(screen.queryByTestId('assets-selection')).toBeNull();
   });
 
+  it('names every selection box: each row by its tag, the header for the page (axe label)', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    const row = (await screen.findByTestId(`asset-row-${asset.id}`)).closest('tr') as HTMLElement;
+    expect(within(row).getByTitle('Select AST-7')).toBeTruthy();
+    expect(screen.getAllByLabelText('Select every asset on this page').length).toBeGreaterThan(0);
+  });
+
+  it('D-155: on a phone the record shows two actions and the rest under More actions', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      [`GET /api/v1/assets/${asset.id}`]: { body: asset, headers: { ETag: '"1"' } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const actions = await screen.findByTestId('asset-actions');
+    expect(within(actions).getByTestId('asset-move-open')).toBeTruthy();
+    expect(within(actions).getByTestId('asset-edit')).toBeTruthy();
+    expect(within(actions).queryByTestId('asset-copy-open')).toBeNull(); // under More actions
+    expect(within(actions).getByTestId('asset-actions-more')).toBeTruthy();
+  });
+
   it('D-155: a real tag can be copied; an asset without one shows "No tag" as plain text', async () => {
     for (const [tag, copy] of [
       ['AST-7', true],
@@ -728,6 +776,8 @@ describe('console: assets', () => {
   });
 
   it('D-155: the record header shows the tag, the chips, the facts and the actions on one row', async () => {
+    const narrow = wideScreen();
+    onTestFinished(narrow);
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({
       [`GET /api/v1/assets/${asset.id}`]: {

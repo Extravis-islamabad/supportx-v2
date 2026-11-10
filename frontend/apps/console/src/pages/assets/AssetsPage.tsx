@@ -50,6 +50,7 @@ import { BulkMoveDialog } from './AssetActions';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
+import { SelectPageBox } from '../incidents/list/ColumnChooser';
 
 /**
  * The asset list (WP-049a s2): search by name or any identifier, one product type, the trash.
@@ -325,9 +326,24 @@ export function AssetsPage() {
           bulkAllowed
             ? {
                 selectedRowKeys: selected,
+                // Labelled boxes; the header one is safe in antd's hidden measure row (axe
+                // label and aria-hidden-focus, found once the showcase had assets).
+                columnTitle: (
+                  <SelectPageBox
+                    checked={rows.length > 0 && selected.length === rows.length}
+                    indeterminate={selected.length > 0 && selected.length < rows.length}
+                    onChange={(checked) => {
+                      setSelected(checked ? rows.map((r) => r.id).slice(0, BULK_MAX) : []);
+                    }}
+                    label={t('assets.bulk_move.select_page')}
+                  />
+                ),
                 onChange: (keys) => {
                   setSelected(keys.map(String).slice(0, BULK_MAX));
                 },
+                getCheckboxProps: (row) => ({
+                  title: t('assets.bulk_move.select_row', { name: row.tag ?? row.name }),
+                }),
               }
             : undefined
         }

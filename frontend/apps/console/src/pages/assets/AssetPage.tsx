@@ -37,6 +37,7 @@ import {
   useAppearance,
   useDateTime,
   useLabel,
+  useMinWidth,
   WriteButton,
   type PanelSection,
   type PropertyItem,
@@ -143,6 +144,9 @@ function AssetView({ asset }: { asset: AssetRecord }) {
     }
   });
   const manage = access.can('assets.manage');
+  // Two buttons on a phone, as on a request: a third wrapped "More actions" to a second line
+  // (the visual matrix at 390 px, once the showcase had an asset to show).
+  const wide = useMinWidth(576);
   const type = types.data?.find((x) => x.id === asset.product_type_id);
   const state = states.data?.find((x) => x.id === asset.state_id);
   const custom = useCustomFields('asset');
@@ -484,7 +488,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
       }
       actions={
         actions.length > 0 ? (
-          <ActionBar actions={actions} max={3} testId="asset-actions" />
+          <ActionBar actions={actions} max={wide ? 3 : 2} testId="asset-actions" />
         ) : undefined
       }
       panel={<PropertiesPanel testId="asset-panel" sections={panelSections} />}

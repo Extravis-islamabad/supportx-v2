@@ -158,6 +158,8 @@ export const ur: LabelResource = {
   'assets.bulk_move.partial_one': '{{moved}} منتقل ہوئے؛ 1 منتقل نہ ہو سکا:',
   'assets.bulk_move.partial_other': '{{moved}} منتقل ہوئے؛ {{count}} منتقل نہ ہو سکے:',
   'assets.bulk_move.reason_help': 'ہر اثاثے پر محفوظ ہوتی ہے۔ کچھ منتقلیوں کے لیے وجہ درکار ہے۔',
+  'assets.bulk_move.select_page': 'اس صفحے کے تمام اثاثے منتخب کریں',
+  'assets.bulk_move.select_row': '{{name}} منتخب کریں',
   'assets.bulk_move.selected_one': '1 منتخب',
   'assets.bulk_move.selected_other': '{{count}} منتخب',
   'assets.bulk_move.title_one': '1 اثاثے کی حالت بدلیں',
