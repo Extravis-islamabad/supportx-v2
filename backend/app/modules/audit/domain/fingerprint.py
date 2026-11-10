@@ -1,0 +1,304 @@
+r"""The change-set fingerprint of a save's audit entry (WP-064 S2, D-150, ADR-046). Pure: no I/O.
+
+A save's before and after values stay in record history (`field_changes`); its audit entry holds
+only a fingerprint of them, inside the entry hash. Record history thereby becomes tamper-evident:
+the verifier recomputes the fingerprint from `field_changes` and compares.
+
+The byte layout is specified in full in docs/adr/ADR-046 (so that a verifier written in another
+language, years from now, can recompute it) and pinned by a golden-vector test. Never change it:
+a new layout gets a new prefix (`fp2:`) and both stay verifiable.
+
+Values (`canonical_value`)
+    The JSON value exactly as `field_changes` stores it (JSONB), written as canonical JSON:
+    `null`, `true`, `false`; numbers as their decimal value (an integral number as its digits,
+    `1.0` as `1`, `-0` as `0`; any other as plain decimal notation with no exponent and no
+    trailing zeros, `1.5e-7` as `0.00000015`); strings as JSON strings in UTF-8 (only `"`, `\\`
+    and U+0000-U+001F escaped: `\\b \\f \\n \\r \\t`, others as `\\u00xx` lowercase); arrays in
+    order; objects with keys sorted by Unicode code point. No whitespace anywhere. Values that
+    are not JSON yet (only direct callers pass them) are written as strings: aware datetimes as
+    `YYYY-MM-DDTHH:MM:SS.ffffffZ` in UTC, dates as `YYYY-MM-DD`, UUIDs lowercase with hyphens.
+
+Field digest (`value_digest`)
+    Lowercase hex of SHA-256(salt_1 ‖ ... ‖ salt_n ‖ canonical value), the salts being those of
+    the field's data subjects in subject-ID order. An ordinary field has no subjects, so its
+    digest is SHA-256(canonical value). Personal values are thus committed to with salts that
+    erasure destroys (crypto-shredding): an erased value cannot be guessed back from the chain.
+
+Two fingerprints (`fingerprint`, `personal_fingerprint`)
+    The change set is committed to in two halves, each the canonical JSON (same rules) of
+        {"part": "ordinary" | "personal", "record_id": "<uuid>",
+         "record_type": "<history record type>",
+         "saves": [{"change_id": "<uuid>", "fields": [...], "kind": "<kind>",
+                    "version": <int>}, ...], "v": 1}
+    with every save listed, in the entry's save order. The ordinary half's fields are the
+    fields that are not personal, each `[field, digest(old), digest(new)]` with no salt; the
+    personal half's are the personal fields, each `[field, digest(old), digest(new),
+    [subject ids]]` salted. Fields are sorted by their canonical JSON bytes. Each row's reason
+    (`field_changes.reason`, free text) is committed to as well: every save of one half carries
+    `"reasons": [[field, digest(reason)], ...]` (sorted), in the personal half, salted, for a
+    record type with data subjects (work items), and in the ordinary half for one without
+    (assets). Each fingerprint is `fp1:` + lowercase hex SHA-256 of its half's bytes. The
+    personal one exists only when a save changed a personal field or, where reasons are
+    personal, a row has a reason. The ordinary half therefore always recomputes, so erasing
+    a subject never hides a change to an ordinary value.
+"""
+
+import hashlib
+import json
+import math
+import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from enum import StrEnum
+
+PREFIX = "fp1:"
+VERSION = 1
+ORDINARY = "ordinary"
+PERSONAL = "personal"
+
+
+class FingerprintError(ValueError):
+    """A value cannot be put in canonical form (NaN, a non-string key, an unknown type)."""
+
+
+class FingerprintStatus(StrEnum):
+    """What the verifier says of one fingerprinted entry (labels: `audit_fingerprint_status.*`)."""
+
+    VERIFIED = "verified"  # record history still matches the entry's fingerprint
+    MISMATCH = "mismatch"  # record history was changed, or a salt is gone without an erasure
+    ERASED_ON_REQUEST = "erased_on_request"  # a subject's salt is gone and their erasure is logged
+
+
+def _number(value: float) -> str:
+    if isinstance(value, int):
+        return str(value)
+    if not math.isfinite(value):
+        msg = "NaN and infinity have no JSON form"
+        raise FingerprintError(msg)
+    # repr() is the shortest text that reads back as the same float, which is also what JSONB
+    # keeps (json.dumps writes repr); as a decimal it is the same number either way.
+    exact = Decimal(repr(value))
+    if exact == exact.to_integral_value():
+        return str(int(exact))
+    return format(exact.normalize(), "f")
+
+
+def _string(value: str) -> str:
+    # json.dumps with ensure_ascii=False escapes exactly ", \ and U+0000-U+001F (see above).
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _encode(value: object) -> str:  # noqa: C901, PLR0911 - one branch per JSON type
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return _number(value)
+    if isinstance(value, str):
+        return _string(value)
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            msg = "naive datetime in a fingerprinted value"
+            raise FingerprintError(msg)
+        return _string(value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+    if isinstance(value, date):
+        return _string(value.isoformat())
+    if isinstance(value, uuid.UUID):
+        return _string(str(value))
+    if isinstance(value, Mapping):
+        if not all(isinstance(key, str) for key in value):
+            msg = "object keys must be strings"
+            raise FingerprintError(msg)
+        items = sorted(value.items())  # str order is Unicode code point order
+        return "{" + ",".join(f"{_string(k)}:{_encode(v)}" for k, v in items) + "}"
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_encode(item) for item in value) + "]"
+    msg = f"cannot fingerprint a {type(value).__name__}"
+    raise FingerprintError(msg)
+
+
+def canonical_value(value: object) -> bytes:
+    """The canonical JSON bytes of one value (see the module docstring)."""
+    return _encode(value).encode("utf-8")
+
+
+def value_digest(value: object, salts: Sequence[bytes] = ()) -> str:
+    """Hex SHA-256 of the subjects' salts (in subject order) followed by the canonical value."""
+    return hashlib.sha256(b"".join(salts) + canonical_value(value)).hexdigest()
+
+
+@dataclass(frozen=True)
+class FieldValues:
+    """One changed field of a save as history stores it, and whose personal data it is."""
+
+    field: str
+    old: object
+    new: object
+    personal: bool = False
+    # The row's free-text reason (`field_changes.reason`; the same on every row of a save).
+    reason: object = None
+
+
+@dataclass(frozen=True)
+class SaveValues:
+    """One save: its change ID, the record version and kind it was written with, its fields."""
+
+    change_id: uuid.UUID
+    version: int
+    kind: str
+    fields: tuple[FieldValues, ...]
+
+
+def _fields(
+    save: SaveValues, part: str, salts: Sequence[bytes], ids: list[str]
+) -> list[list[object]]:
+    if part == ORDINARY:
+        rows: list[list[object]] = [
+            [f.field, value_digest(f.old), value_digest(f.new)]
+            for f in save.fields
+            if not f.personal
+        ]
+    else:
+        rows = [
+            [f.field, value_digest(f.old, salts), value_digest(f.new, salts), ids]
+            for f in save.fields
+            if f.personal
+        ]
+    return sorted(rows, key=canonical_value)
+
+
+def _reasons(save: SaveValues, salts: Sequence[bytes]) -> list[list[object]]:
+    """Every row's reason, as `[field, digest(reason)]`, sorted (rows of both kinds)."""
+    rows: list[list[object]] = [[f.field, value_digest(f.reason, salts)] for f in save.fields]
+    return sorted(rows, key=canonical_value)
+
+
+def change_set(  # noqa: PLR0913 - the record, its saves, which half, and the salts
+    record_type: str,
+    record_id: uuid.UUID,
+    saves: Sequence[SaveValues],
+    part: str = ORDINARY,
+    *,
+    subjects: Sequence[uuid.UUID] = (),
+    salts: Mapping[uuid.UUID, bytes] | None = None,
+    reasons_personal: bool = False,
+) -> dict[str, object]:
+    """One half of the canonical change set: digests only, never a value.
+
+    `part` is `ordinary` (the fields that are not personal, unsalted) or `personal` (the
+    personal fields, digested with the salts of all `subjects` in ID order; `salts` must hold
+    each one: a missing salt is a caller bug, never a guess).
+
+    Rows' reasons (free text) go in the personal half, salted, for a record type with data
+    subjects (`reasons_personal`), and in the ordinary half for one without (assets): each save
+    of that half then carries `reasons`, one `[field, digest(reason)]` per row.
+    """
+    if part not in {ORDINARY, PERSONAL}:
+        msg = f"unknown part {part!r}"
+        raise FingerprintError(msg)
+    ordered = sorted(set(subjects), key=str) if part == PERSONAL else []
+    subject_salts = [(salts or {})[s] for s in ordered]
+    ids = [str(s) for s in ordered]
+    with_reasons = reasons_personal == (part == PERSONAL)
+    out: list[dict[str, object]] = []
+    for save in saves:
+        item: dict[str, object] = {
+            "change_id": str(save.change_id),
+            "fields": _fields(save, part, subject_salts, ids),
+            "kind": save.kind,
+            "version": save.version,
+        }
+        if with_reasons:
+            item["reasons"] = _reasons(save, subject_salts)
+        out.append(item)
+    return {
+        "part": part,
+        "record_id": str(record_id),
+        "record_type": record_type,
+        "saves": out,
+        "v": VERSION,
+    }
+
+
+def _digest(content: Mapping[str, object]) -> str:
+    return PREFIX + hashlib.sha256(canonical_value(content)).hexdigest()
+
+
+def fingerprint(
+    record_type: str,
+    record_id: uuid.UUID,
+    saves: Sequence[SaveValues],
+    *,
+    reasons_personal: bool = False,
+) -> str:
+    """The ordinary fingerprint: `fp1:` + hex SHA-256 of the ordinary half (no salts)."""
+    return _digest(
+        change_set(record_type, record_id, saves, ORDINARY, reasons_personal=reasons_personal)
+    )
+
+
+def has_personal(saves: Sequence[SaveValues], *, reasons_personal: bool = False) -> bool:
+    """Whether the saves have a personal half: a personal field, or a reason that is personal."""
+    return any(
+        f.personal or (reasons_personal and f.reason is not None)
+        for save in saves
+        for f in save.fields
+    )
+
+
+def personal_fingerprint(  # noqa: PLR0913 - the record, its saves, the salts and the reason rule
+    record_type: str,
+    record_id: uuid.UUID,
+    saves: Sequence[SaveValues],
+    subjects: Sequence[uuid.UUID] = (),
+    salts: Mapping[uuid.UUID, bytes] | None = None,
+    *,
+    reasons_personal: bool = False,
+) -> str | None:
+    """The personal fingerprint (salted), or None when there is no personal half."""
+    if not has_personal(saves, reasons_personal=reasons_personal):
+        return None
+    return _digest(
+        change_set(
+            record_type,
+            record_id,
+            saves,
+            PERSONAL,
+            subjects=subjects,
+            salts=salts,
+            reasons_personal=reasons_personal,
+        )
+    )
+
+
+def status_of(  # noqa: PLR0913 - the stored entry's parts and what the database still has
+    *,
+    ordinary_matches: bool,
+    personal_stored: str | None,
+    personal_recomputed: str | None,
+    subjects: Sequence[uuid.UUID],
+    salted: Sequence[uuid.UUID],
+    erased_after: Mapping[uuid.UUID, datetime],
+    occurred_at: datetime,
+) -> FingerprintStatus:
+    """The verdict on one entry.
+
+    The ordinary half always recomputes (no salts): if it does not match, the entry is a
+    mismatch, whatever happened to its subjects. Only then: a subject whose salt is gone makes
+    the entry `erased_on_request` when that subject's erasure was logged after the entry (an
+    `audit.subject_erased` entry, itself in the chain); a missing salt without one is a
+    mismatch. With every salt present, the personal half must match too (both absent counts).
+    """
+    if not ordinary_matches:
+        return FingerprintStatus.MISMATCH
+    have = set(salted)
+    missing = [s for s in subjects if s not in have]
+    if missing:
+        logged = all(s in erased_after and erased_after[s] > occurred_at for s in missing)
+        return FingerprintStatus.ERASED_ON_REQUEST if logged else FingerprintStatus.MISMATCH
+    if personal_recomputed == personal_stored:
+        return FingerprintStatus.VERIFIED
+    return FingerprintStatus.MISMATCH
