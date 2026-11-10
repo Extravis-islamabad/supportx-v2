@@ -460,6 +460,8 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           kind="asset"
           typeLabel={t('assets.record.record_type')}
           displayId={asset.tag ?? t('assets.record.no_tag')}
+          // Only a real tag is copied; "No tag" is plain text (lane C's #344 review, #345).
+          copyable={asset.tag !== null}
           title={asset.name}
           testIds={{ id: 'asset-display-tag', title: 'asset-heading' }}
           tags={

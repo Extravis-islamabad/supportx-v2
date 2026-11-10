@@ -707,6 +707,26 @@ describe('console: assets', () => {
     expect(screen.queryByTestId('assets-selection')).toBeNull();
   });
 
+  it('D-155: a real tag can be copied; an asset without one shows "No tag" as plain text', async () => {
+    for (const [tag, copy] of [
+      ['AST-7', true],
+      [null, false],
+    ] as const) {
+      window.history.pushState({}, '', `/assets/${asset.id}`);
+      const fake = assetsApi({
+        [`GET /api/v1/assets/${asset.id}`]: { body: { ...asset, tag }, headers: { ETag: '"1"' } },
+      });
+      const { unmount } = render(<App />);
+      const id = await within(await screen.findByTestId('asset-page')).findByTestId(
+        'asset-display-tag',
+      );
+      expect(id.textContent).toContain(tag ?? 'No tag');
+      expect(id.querySelector('.ant-typography-copy') !== null).toBe(copy);
+      unmount();
+      fake.restore();
+    }
+  });
+
   it('D-155: the record header shows the tag, the chips, the facts and the actions on one row', async () => {
     window.history.pushState({}, '', `/assets/${asset.id}`);
     const fake = assetsApi({
