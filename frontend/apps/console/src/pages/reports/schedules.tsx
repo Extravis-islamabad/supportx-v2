@@ -25,6 +25,7 @@ import { useMemo, useState } from 'react';
 
 import {
   queryKeys,
+  useExportFormats,
   useReportSchedules,
   useScheduleChange,
   useStructure,
@@ -140,6 +141,9 @@ export function ScheduleButton({
   const [people, setPeople] = useState<string[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [format, setFormat] = useState<Format>('xlsx');
+  // The same formats as Export: no PDF that the server could not make (QA10-P4-25).
+  const offered = useExportFormats();
+  const formats = FORMATS.filter((f) => (offered.data ?? ['xlsx', 'csv']).includes(f));
   const [note, setNote] = useState('');
   if (!can('reports.schedule')) return null;
   const mailReady = schedules.data?.mail_configured ?? true;
@@ -295,13 +299,21 @@ export function ScheduleButton({
           <Form.Item label={t('reports.schedule_groups')}>
             <GroupsSelect value={groups} onChange={setGroups} />
           </Form.Item>
-          <Form.Item label={t('reports.export_format')}>
+          <Form.Item
+            label={t('reports.export_format')}
+            extra={
+              offered.data !== undefined && !offered.data.includes('pdf')
+                ? t('errors.pdf_not_available')
+                : undefined
+            }
+          >
             <Radio.Group
               value={format}
               onChange={(event) => {
                 setFormat(event.target.value as Format);
               }}
-              options={FORMATS.map((f) => ({ value: f, label: t(`report_export_format.${f}`) }))}
+              options={formats.map((f) => ({ value: f, label: t(`report_export_format.${f}`) }))}
+              data-testid="schedule-format"
             />
           </Form.Item>
           <Form.Item label={t('reports.schedule_message')}>

@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, PermissionDenied, ValidationFailed
 from app.modules import service_catalog
-from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
+from app.modules.organization import users_in_groups
+from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory, WorkItemAction
 from app.modules.work_items.domain.parts import TaskPriority, TaskStatus
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemTask
@@ -24,6 +25,9 @@ from app.modules.work_items.service import work_items as items
 from app.shared.history import Change, Source
 
 FULFILMENT_RULE = "fulfilment"  # history's automatic move: the last required task was done
+FIRST_TASK_RULE = "first_task"  # history's automatic move: the first task ticked (D-154c)
+# Where ticking the first task starts the work from (D-154c): not yet being worked.
+NOT_STARTED = frozenset({DefaultStatus.NEW.value, DefaultStatus.ASSIGNED.value})
 TITLE_MAX = 200
 RESOLUTION_MAX = 4000
 
@@ -87,10 +91,64 @@ async def start_plan(
     return made
 
 
+async def _ticked_by_its_people(
+    session: AsyncSession, record: WorkItem, ticked_by: uuid.UUID
+) -> bool:
+    """The request's own technician, or someone of its group (D-154c)."""
+    if ticked_by == record.technician_id:
+        return True
+    if record.group_id is None:
+        return False
+    members = await session.scalars(users_in_groups(frozenset({record.group_id})))
+    return ticked_by in set(members)
+
+
+async def _start_on_first_task(
+    session: AsyncSession, record: WorkItem, ticked_by: uuid.UUID, *, source: Source
+) -> WorkItem:
+    """A New or Assigned request whose task its own people ticked moves to In progress (D-154c).
+
+    The tenant may turn it off (`first_task_starts_work`). Nobody is assigned by it (D-154d):
+    the move is the system's, recorded as automatic with rule `first_task`.
+    """
+    if record.status not in NOT_STARTED:
+        return record
+    wtype = TYPES[WorkItemTypeCode.SERVICE_REQUEST]
+    cat = await config.load(session, wtype)
+    lifecycle = cat.lifecycle_of(record.lifecycle)
+    if not cat.first_task_starts_work or not lifecycle.allows(
+        record.status, WorkItemAction.START_WORK
+    ):
+        return record
+    if not await _ticked_by_its_people(session, record, ticked_by):
+        return record
+    try:
+        async with session.begin_nested():  # a refused move leaves the task's own save
+            return await items.system_move(
+                session,
+                wtype,
+                cat,
+                record,
+                WorkItemAction.START_WORK,
+                source=source,
+                rule=FIRST_TASK_RULE,
+                by_requester=False,
+            )
+    except (ValidationFailed, Conflict, PermissionDenied):
+        return record
+
+
 async def after_task_change(
-    session: AsyncSession, record_id: uuid.UUID, *, source: Source
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    *,
+    source: Source,
+    ticked_by: uuid.UUID | None = None,
 ) -> WorkItem | None:
-    """Fulfil the request once its last required plan task is done (REQ-SR-058 AC1)."""
+    """Start the work on the first ticked task (D-154c); fulfil once the last is done (REQ-SR-058).
+
+    `ticked_by` is who changed the task's status, when it was a person.
+    """
     record = await session.get(WorkItem, record_id)
     if (
         record is None
@@ -99,10 +157,14 @@ async def after_task_change(
         or StatusCategory(record.status_category) is not StatusCategory.OPEN
     ):
         return None
-    planned = [t for t in await parts.tasks_of(session, record_id) if t.from_plan and t.required]
+    item_id = record.catalog_item_id
+    tasks = await parts.tasks_of(session, record_id)
+    if ticked_by is not None and any(t.from_plan and t.status == TaskStatus.DONE for t in tasks):
+        record = await _start_on_first_task(session, record, ticked_by, source=source)
+    planned = [t for t in tasks if t.from_plan and t.required]
     if not planned or any(t.status != TaskStatus.DONE for t in planned):
         return None
-    item = await service_catalog.item_decides(session, record.catalog_item_id)
+    item = await service_catalog.item_decides(session, item_id)
     if item is None or not item.auto_fulfil:
         return None
     wtype = TYPES[WorkItemTypeCode.SERVICE_REQUEST]
@@ -130,4 +192,4 @@ async def after_task_change(
         return None
 
 
-__all__ = ["FULFILMENT_RULE", "after_task_change", "start_plan"]
+__all__ = ["FIRST_TASK_RULE", "FULFILMENT_RULE", "after_task_change", "start_plan"]

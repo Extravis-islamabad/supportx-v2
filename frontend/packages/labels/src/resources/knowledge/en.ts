@@ -164,6 +164,7 @@ export const en = {
   'knowledge.flag.review_due': 'Review due',
   'knowledge.flag.withdrawn': 'Withdrawn',
   'knowledge.history.by': '{{name}}, {{when}}',
+  'knowledge.history.set': '{{field}}: {{value}}',
   'knowledge.history.version_published': '{{language}} version: published',
   'knowledge.history.version_status': '{{language}} version: status',
   'knowledge.history_for_editors': 'The history is for the people who work on this article.',

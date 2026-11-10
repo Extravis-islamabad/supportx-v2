@@ -37,6 +37,8 @@ export const ur: LabelResource = {
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
+  'errors.asset_acknowledgement_answered': 'آپ اس کا جواب پہلے ہی دے چکے ہیں۔',
+  'errors.asset_acknowledgement_not_found': 'یہ تصدیق آپ کی نہیں، یا اب موجود نہیں۔',
   'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
   'errors.asset_bulk_empty': 'کم از کم ایک اثاثہ منتخب کریں۔',
   'errors.asset_bulk_too_many': 'ایک بار میں زیادہ سے زیادہ {{max}} اثاثے منتخب کریں۔',
@@ -44,6 +46,12 @@ export const ur: LabelResource = {
   'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
   'errors.asset_disposed_read_only':
     'یہ اثاثہ تلف ہو چکا ہے، اس لیے صرف پڑھا جا سکتا ہے۔ اسے بدلنے کے لیے تلف شدہ اثاثے بدلنے کی اجازت درکار ہے۔',
+  'errors.asset_group_dynamic':
+    'متحرک گروپ کے اراکین اس کے فلٹر سے آتے ہیں؛ اس کی بجائے فلٹر بدلیں۔',
+  'errors.asset_group_name_taken': 'کسی اور گروپ کا یہی نام ہے۔',
+  'errors.asset_group_not_found': 'یہ گروپ اب موجود نہیں۔',
+  'errors.asset_has_components':
+    'اس پر پرزے لگے ہیں ({{count}}): انہیں الگ کریں یا انہیں بھی تلف کریں۔',
   'errors.asset_life_cycle_in_use':
     'پروڈکٹ اقسام ابھی یہ لائف سائیکل استعمال کرتی ہیں ({{used}})۔ پہلے انہیں کسی اور پر منتقل کریں۔',
   'errors.asset_life_cycle_not_found': 'یہ لائف سائیکل موجود نہیں۔',
@@ -51,10 +59,19 @@ export const ur: LabelResource = {
     'طے شدہ لائف سائیکل حذف نہیں ہو سکتا۔ پہلے کسی اور کو طے شدہ بنائیں۔',
   'errors.asset_limit_reached':
     'آپ کی تنظیم کے پلان میں آئی ٹی اثاثوں کی تمام جگہیں استعمال میں ہیں۔ کوئی اثاثہ تلف کریں یا اپنے منتظم سے مزید شامل کرنے کو کہیں۔',
+  'errors.asset_link_exists': 'یہ دونوں اثاثے پہلے ہی اس طرح جڑے ہوئے ہیں۔',
+  'errors.asset_link_not_found': 'یہ ربط اب موجود نہیں۔',
+  'errors.asset_loan_not_found': 'یہ ادھار بند ہو چکا ہے یا اب موجود نہیں۔',
   'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
+  'errors.asset_no_default_state':
+    'اثاثے کو منتقل کرنے کے لیے کوئی طے شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_no_disposed_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی تلف شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.asset_not_loanable':
+    '{{asset}} ادھار نہیں دیا جا سکتا: یہ ادھار کے قابل نہیں یا اسٹاک میں نہیں۔',
+  'errors.asset_not_on_this_loan': 'یہ اثاثہ اس ادھار میں نہیں۔',
+  'errors.asset_on_loan': '{{asset}} پہلے ہی ادھار پر ہے۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
   'errors.asset_product_type_has_children':
     'اس کے نیچے دوسری پروڈکٹ اقسام ہیں ({{used}})۔ پہلے انہیں منتقل یا حذف کریں۔',
@@ -132,6 +149,8 @@ export const ur: LabelResource = {
   'errors.dashboard_not_found': 'یہ ڈیش بورڈ موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
   'errors.database_not_configured':
     'سروس ابھی مکمل طور پر ترتیب نہیں دی گئی۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.default_board_kept':
+    'تبدیلیوں کا طے شدہ مشاورتی بورڈ ہٹایا نہیں جا سکتا۔ جن تبدیلیوں کا جائزہ کوئی اور بورڈ نہیں لیتا، وہ اسی کے پاس جاتی ہیں۔',
   'errors.default_site_required':
     'ڈیفالٹ سائٹ ہٹائی نہیں جا سکتی۔ پہلے کسی اور سائٹ کو ڈیفالٹ بنائیں۔',
   'errors.delivery_not_failed': 'یہ جواب ناکام نہیں ہوا، اس لیے دوبارہ بھیجنے کو کچھ نہیں۔',
@@ -183,13 +202,18 @@ export const ur: LabelResource = {
   'errors.field.approver_not_eligible':
     'نامزد افراد میں سے کوئی یہ مسئلہ منظور نہیں کر سکتا (غیر فعال، یا اختیار کے بغیر)۔',
   'errors.field.asset_api_name_taken': 'پروڈکٹ کی کوئی اور قسم یہ API نام رکھتی ہے۔',
+  'errors.field.asset_group_static': 'صرف متحرک گروپ کا فلٹر ہوتا ہے۔',
+  'errors.field.asset_holder_not_found':
+    'کوئی فعال فرد، شعبہ یا ایسا اثاثہ چنیں جو آپ دیکھ سکتے ہیں۔',
   'errors.field.asset_identifier_invalid':
     'صرف حروف، ہندسے اور - . / : # استعمال کریں، خالی جگہ کے بغیر۔',
   'errors.field.asset_life_cycle_code_taken': 'کوئی اور لائف سائیکل یہ کوڈ رکھتا ہے۔',
   'errors.field.asset_life_cycle_default_needed':
     'ایک طے شدہ لائف سائیکل لازمی ہے۔ اس کے بجائے کسی اور کو طے شدہ بنائیں۔',
   'errors.field.asset_life_cycle_not_found': 'فہرست سے لائف سائیکل منتخب کریں۔',
+  'errors.field.asset_link_to_itself': 'اثاثہ خود سے نہیں جوڑا جا سکتا۔',
   'errors.field.asset_move_duplicate': 'یہ منتقلی پہلے سے فہرست میں ہے، یا اسی حالت میں جاتی ہے۔',
+  'errors.field.asset_nested_in_itself': 'اثاثہ خود پر یا اپنے کسی حصے پر نہیں لگایا جا سکتا۔',
   'errors.field.asset_product_not_found': 'یہ پروڈکٹ اب موجود نہیں۔',
   'errors.field.asset_product_type_cycle':
     'پروڈکٹ کی قسم خود اپنے یا اپنی ذیلی قسم کے نیچے نہیں آ سکتی۔',
@@ -211,6 +235,7 @@ export const ur: LabelResource = {
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
   'errors.field.before_start': 'اختتام آغاز سے پہلے نہیں ہو سکتا۔',
   'errors.field.below_minimum': 'کم از کم {{min}} ہے۔',
+  'errors.field.board_not_found': 'یہ مشاورتی بورڈ موجود نہیں۔',
   'errors.field.brand_image_svg':
     'SVG تصاویر قبول نہیں کی جاتیں کیونکہ ان میں اسکرپٹ ہو سکتے ہیں۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
   'errors.field.brand_image_too_large': 'یہ تصویر بہت بڑی ہے: زیادہ سے زیادہ 5 MB اور 25 میگاپکسل۔',
@@ -252,6 +277,7 @@ export const ur: LabelResource = {
     'کسی کردار کا ہوم صرف بلٹ اِن یا شیئر شدہ ڈیش بورڈ ہو سکتا ہے۔',
   'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
   'errors.field.date_in_future': 'آج یا اس سے پہلے کی تاریخ چنیں۔',
+  'errors.field.date_in_past': 'ابھی کے بعد کا وقت چنیں۔',
   'errors.field.default_cannot_be_disabled':
     'ڈیفالٹ سانچہ بند نہیں ہو سکتا۔ پہلے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
   'errors.field.default_cannot_be_inactive': 'ڈیفالٹ کو غیر فعال نہیں کیا جا سکتا۔',
@@ -276,6 +302,7 @@ export const ur: LabelResource = {
   'errors.field.duplicate_name': 'یہ نام پہلے سے استعمال میں ہے۔',
   'errors.field.duplicate_permission': 'یہ اجازت دو بار درج ہے۔',
   'errors.field.duplicate_sort_field': 'ترتیب میں ہر فیلڈ صرف ایک بار استعمال ہو سکتی ہے۔',
+  'errors.field.duplicate_value': 'یہ ایک سے زیادہ بار درج ہے۔',
   'errors.field.duration_mismatch': 'دورانیہ آغاز اور اختتام کے اوقات سے میل نہیں کھاتا۔',
   'errors.field.email_invalid': 'name@example.com جیسا ای میل پتہ درج کریں۔',
   'errors.field.email_not_valid': 'ای میل پتہ درج کریں، جیسے name@example.com۔',
@@ -723,6 +750,8 @@ export const ur: LabelResource = {
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
+  'errors.nothing_to_override':
+    'یہ تبدیلی دوبارہ منظوری کی منتظر نہیں، اس لیے نظر انداز کرنے کو کچھ نہیں۔',
   'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
   'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
   'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',

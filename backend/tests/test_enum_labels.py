@@ -15,7 +15,6 @@ from typing import Any
 import pytest
 
 from tests.test_error_labels import label_keys
-from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
@@ -38,6 +37,15 @@ ENUM_PREFIXES: dict[str, str] = {
     "AssetDepreciationMethod": "asset_depreciation",
     "AssetStateCategory": "asset_state_category",
     "AssetDisposalIn.method": "asset_disposal_method",
+    "AssetHolderIn.kind": "asset_holder_kind",
+    "AssetLinkIn.kind": "asset_link_kind",
+    "AssetDisposalIn.components": "asset_components_choice",
+    "AcknowledgementOut.status": "asset_ack_status",
+    "AssetGroupIn.kind": "asset_group_kind",
+    "LoanOut.status": "asset_loan_status",
+    "LoanReturnIn.outcome": "asset_return_outcome",
+    "AssetGroupOut.kind": "asset_group_kind",
+    "AcknowledgementAnswerIn.channel": "asset_ack_channel",
     "AssetTypeCategory": "asset_type_category",
     "AssetTypeKind": "asset_type_kind",
     # SLA set-up (WP-025)
@@ -225,6 +233,11 @@ ENUM_PREFIXES: dict[str, str] = {
     "RailState": "rail_state",
     "ReleaseRisk": "release_risk",
     "ChangeCopyIn.parts[]": "change_copy_part",  # WP-045a (REQ-CHG-003)
+    "RiskLevel": "risk_level",  # WP-045b (REQ-CHG-056)
+    "BoardRule": "change_board_rule",  # WP-045b S2 (REQ-CHG-042)
+    "BoardChoice": "change_board_choice",  # WP-045b S3 (REQ-CHG-041)
+    "Watched": "reapproval_field",  # WP-045b S4 (REQ-CHG-053)
+    "OnChange": "reapproval_effect",
     "StageOutcome": "stage_outcome",
     "DowntimePhase": "downtime_phase",
     "LevelRule": "approval_rule",
@@ -298,9 +311,9 @@ def enums(schemas: dict[str, Any]) -> Iterator[tuple[str, list[str]]]:
                 yield f"{name}.{prop}[]", spec["items"]["enum"]
 
 
-@pytest.fixture(scope="module")
-def contract_enums() -> list[tuple[str, list[str]]]:
-    return list(enums(build_schema()["components"]["schemas"]))
+@pytest.fixture
+def contract_enums(openapi_contract: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    return list(enums(openapi_contract["components"]["schemas"]))
 
 
 def test_every_enum_in_the_contract_has_a_label_prefix(

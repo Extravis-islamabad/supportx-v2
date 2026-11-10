@@ -13,14 +13,15 @@ import pytest
 from app.modules.system.service.files import REALTIME
 from app.shared.events import EventEnvelope
 from app.shared.files.service.core import FileServices
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_files_api import files, scan_waiting, storage, upload
-from tests.db.test_incidents_api import World, problem, world
+from tests.db.test_incidents_api import World, problem
 from tests.db.test_knowledge_api import _topic
 from tests.db.test_knowledge_review_api import _published
 
-__all__ = ["files", "storage", "world"]  # fixtures, re-used
+__all__ = ["files", "module_world", "shared_world", "storage"]  # fixtures, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 
 async def test_article_files_follow_the_article_and_its_channel(

@@ -34,9 +34,12 @@ from app.modules.automation.infra.models import (
 )
 from app.modules.automation.service import registry, workflow_runtime
 from app.modules.automation.service.registry import CommandResult
-from tests.db.test_incidents_api import World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 class FakeRecords:

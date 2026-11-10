@@ -10,15 +10,16 @@ from sqlalchemy import text
 from app.core.tenancy import TenantContext
 from app.modules.integrations.domain.connector_health import RunCounts
 from app.modules.integrations.service import runs
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_directories_api import BODY as DIRECTORY
 from tests.db.test_directories_api import _add as add_directory
 from tests.db.test_directories_api import fake
 from tests.db.test_files_api import audit_actions
-from tests.db.test_incidents_api import World, world
+from tests.db.test_incidents_api import World
 
-__all__ = ["fake", "world"]  # fixtures, re-used
+__all__ = ["fake", "module_world", "shared_world"]  # fixtures, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 API = "/integrations/connector-settings"
 

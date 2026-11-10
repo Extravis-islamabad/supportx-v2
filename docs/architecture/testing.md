@@ -7,7 +7,7 @@ The required `backend` check needs three jobs:
 - `backend checks`: lint, schema drift and breaking-change checks, mypy, migrate and the RLS
   guard.
 - `backend tests 1/3..3/3`: each shard has its own PostgreSQL, PgBouncer, Valkey, NATS and object
-  store and runs `pytest -n 4 --dist loadgroup`. `tooling/pytest_shards.py` gives each shard
+  store and runs `pytest -n 4 --dist loadfile` (a file's tests on one worker: module fixtures such as a private Keycloak are built once per file; `loadgroup` did not group with xdist 3.8 and pytest 9). `tooling/pytest_shards.py` gives each shard
   whole test files, heaviest first, using the seconds in `tests/shard_weights.json`. A new file
   counts 5 seconds until `make backend-test-timings` refreshes the weights.
 - `pdf (worker image)`: report PDFs inside the worker image (lane C).

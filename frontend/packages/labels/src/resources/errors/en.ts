@@ -35,6 +35,9 @@ export const en = {
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
+  'errors.asset_acknowledgement_answered': 'You have already answered this one.',
+  'errors.asset_acknowledgement_not_found':
+    "That acknowledgement isn't yours, or no longer exists.",
   'errors.asset_already_disposed': 'This asset already has a disposal record.',
   'errors.asset_bulk_empty': 'Choose at least one asset.',
   'errors.asset_bulk_too_many': 'Choose at most {{max}} assets at once.',
@@ -42,6 +45,12 @@ export const en = {
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
     'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
+  'errors.asset_group_dynamic':
+    "A dynamic group's members come from its filter; change the filter instead.",
+  'errors.asset_group_name_taken': 'Another group already has this name.',
+  'errors.asset_group_not_found': 'That group no longer exists.',
+  'errors.asset_has_components':
+    'It has fitted components ({{count}}): detach them or dispose of them too.',
   'errors.asset_life_cycle_in_use':
     'Product types still use this life cycle ({{used}}). Move them to another one first.',
   'errors.asset_life_cycle_not_found': 'This life cycle does not exist.',
@@ -49,10 +58,18 @@ export const en = {
     "The default life cycle can't be deleted. Make another one the default first.",
   'errors.asset_limit_reached':
     "Every IT asset slot in your organisation's plan is in use. Dispose of an asset or ask your administrator to add more.",
+  'errors.asset_link_exists': 'These two assets are already linked that way.',
+  'errors.asset_link_not_found': 'That link no longer exists.',
+  'errors.asset_loan_not_found': 'That loan is closed or no longer exists.',
   'errors.asset_move_not_allowed': "This asset can't move to that state from where it is now.",
+  'errors.asset_no_default_state':
+    'There is no default state to move the asset to. Ask an admin to check the asset states.',
   'errors.asset_no_disposed_state':
     'There is no disposed state to move the asset to. Ask an admin to check the asset states.',
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
+  'errors.asset_not_loanable': "{{asset}} can't be loaned: it isn't loanable, or isn't in stock.",
+  'errors.asset_not_on_this_loan': "That asset isn't out on this loan.",
+  'errors.asset_on_loan': '{{asset}} is already out on a loan.',
   'errors.asset_product_not_found': 'This product does not exist.',
   'errors.asset_product_type_has_children':
     'Other product types sit under this one ({{used}}). Move or delete them first.',
@@ -131,6 +148,8 @@ export const en = {
   'errors.dashboard_not_found': 'This dashboard does not exist or is not shared with you.',
   'errors.database_not_configured':
     'The service is not fully configured yet. Please contact your administrator.',
+  'errors.default_board_kept':
+    'The default change advisory board cannot be removed. Changes that no other board reviews go to it.',
   'errors.default_site_required':
     'The default site cannot be removed. Make another site the default first.',
   'errors.delivery_not_failed': 'This reply has not failed, so there is nothing to resend.',
@@ -183,14 +202,20 @@ export const en = {
   'errors.field.approver_not_eligible':
     'Someone named cannot approve this problem (inactive, or without the right).',
   'errors.field.asset_api_name_taken': 'Another product type has this API name.',
+  'errors.field.asset_group_static': 'Only a dynamic group has a filter.',
+  'errors.field.asset_holder_not_found':
+    'Choose an active person, a department or an asset you can see.',
   'errors.field.asset_identifier_invalid':
     'Use letters, digits and - . / : # only, without spaces.',
   'errors.field.asset_life_cycle_code_taken': 'Another life cycle has this code.',
   'errors.field.asset_life_cycle_default_needed':
     'There must be a default life cycle. Make another one the default instead.',
   'errors.field.asset_life_cycle_not_found': 'Choose a life cycle from the list.',
+  'errors.field.asset_link_to_itself': "An asset can't be linked to itself.",
   'errors.field.asset_move_duplicate':
     'This move is already in the list, or goes to the same state.',
+  'errors.field.asset_nested_in_itself':
+    "An asset can't be fitted to itself or to one of its own parts.",
   'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':
     "A product type can't sit under itself or one of its own types.",
@@ -212,6 +237,7 @@ export const en = {
   'errors.field.before_publish': 'Retiring must come after publishing.',
   'errors.field.before_start': 'The end cannot be before the start.',
   'errors.field.below_minimum': 'Minimum is {{min}}.',
+  'errors.field.board_not_found': 'This advisory board does not exist.',
   'errors.field.brand_image_svg':
     'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
   'errors.field.brand_image_too_large': 'This image is too large: at most 5 MB and 25 megapixels.',
@@ -248,6 +274,7 @@ export const en = {
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
   'errors.field.date_format_unknown': 'Choose a date format from the list.',
   'errors.field.date_in_future': 'Choose today or an earlier date.',
+  'errors.field.date_in_past': 'Choose a time later than now.',
   'errors.field.default_cannot_be_disabled':
     'The default template cannot be turned off. Make another template the default first.',
   'errors.field.default_cannot_be_inactive': 'The default cannot be made inactive.',
@@ -273,6 +300,7 @@ export const en = {
   'errors.field.duplicate_name': 'This name is already used.',
   'errors.field.duplicate_permission': 'This permission is listed twice.',
   'errors.field.duplicate_sort_field': 'Each field can be used only once in the sort.',
+  'errors.field.duplicate_value': 'This is listed more than once.',
   'errors.field.duration_mismatch': 'The duration does not match the start and end times.',
   'errors.field.email_invalid': 'Enter an e-mail address like name@example.com.',
   'errors.field.email_not_valid': 'Enter an email address, such as name@example.com.',
@@ -715,6 +743,8 @@ export const en = {
   'errors.not_known_error': '{{display_id}} is not a known error.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
+  'errors.nothing_to_override':
+    'This change is not waiting for approval again, so there is nothing to override.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',

@@ -13,10 +13,13 @@ from app.core.tenancy import TenantContext
 from app.modules.identity_access import subject_for
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.service import portal
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import manager_of, waiting
-from tests.db.test_incidents_api import CONSOLE, World, world
+from tests.db.test_incidents_api import CONSOLE, World
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 PORTAL = "/portal/service-requests"
 

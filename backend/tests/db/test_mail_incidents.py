@@ -21,11 +21,12 @@ from app.modules.work_items.domain.types import SUBJECT_MAX
 from app.modules.work_items.service.inbound_mail import FIELDS_NEEDED, _refusals, fit_subject
 from app.shared.mail.ports import InboundRefused
 from conftest import make_settings
-from tests.db.test_incidents_api import World, world
+from tests.db.per_test_world import MODULE_LOOP, module_world, shared_world  # has sync tests
+from tests.db.test_incidents_api import World
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 SETTINGS = make_settings()
 OWN = ("it@alpha.test",)

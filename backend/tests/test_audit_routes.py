@@ -9,6 +9,7 @@
 from collections.abc import Iterator
 from typing import Any
 
+import pytest
 from fastapi import APIRouter, FastAPI
 
 from app.core.authorization import declared_access, require_permission
@@ -71,8 +72,13 @@ def privileged_routes(app: FastAPI) -> Iterator[tuple[str, AuditRouteSpec | None
             yield f"{method} {path}", _audit_spec(dependant)
 
 
-def test_every_privileged_write_is_audited() -> None:
-    app = create_app(make_settings())
+@pytest.fixture(scope="module")
+def app() -> FastAPI:
+    """The real app, built once for the module (~20 s on CI): the checks only read its routes."""
+    return create_app(make_settings())
+
+
+def test_every_privileged_write_is_audited(app: FastAPI) -> None:
     found = dict(privileged_routes(app))
     assert found, "no privileged routes found: the filter is wrong"
     missing = sorted(
@@ -81,8 +87,7 @@ def test_every_privileged_write_is_audited() -> None:
     assert missing == []
 
 
-def test_audited_routes_name_registered_actions() -> None:
-    app = create_app(make_settings())
+def test_audited_routes_name_registered_actions(app: FastAPI) -> None:
     for route, spec in privileged_routes(app):
         if spec is not None:
             assert spec.action_code in ACTIONS, route
@@ -105,8 +110,7 @@ def test_the_check_catches_an_unaudited_admin_route() -> None:
     assert found["POST /api/v1/synthetic/settings"] is None
 
 
-def test_no_route_changes_or_deletes_audit_entries() -> None:
-    app = create_app(make_settings())
+def test_no_route_changes_or_deletes_audit_entries(app: FastAPI) -> None:
     writes = sorted(
         f"{method} {path}"
         for method, path, _dependant, _endpoint in api_routes(app)

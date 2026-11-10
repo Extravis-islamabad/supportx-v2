@@ -7,11 +7,9 @@ and criterion it proves.
 """
 
 import uuid
-from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 
@@ -19,18 +17,13 @@ from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES, on_record_event
 from app.shared.events import EventEnvelope, claim
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_automation_api import set_
-from tests.db.test_incidents_api import BASE, Org, World, incidents_world, problem
-from tooling.db_testing import ThrowawayDatabase
+from tests.db.test_incidents_api import BASE, Org, World, problem
 
-pytestmark = [pytest.mark.db, pytest.mark.valkey]
+pytestmark = [pytest.mark.db, pytest.mark.valkey, MODULE_LOOP]
+__all__ = ["module_world", "shared_world"]  # the fixtures, used by name
 CONSUMER = "automation__triggers"
-
-
-@pytest_asyncio.fixture
-async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
-    async with incidents_world(migrated_db) as built:
-        yield built
 
 
 async def envelopes(world: World, org: Org) -> list[EventEnvelope]:

@@ -204,7 +204,6 @@ _ACTIONS: tuple[tuple[str, tuple[Scope, ...], tuple[tuple[str, Scope], ...]], ..
     ("create", ("all",), (("technician", "all"),)),
     ("edit", ALL_SCOPES, _TECH),
     ("assign", ALL_SCOPES, _TECH),
-    ("assign_outside_group", ("all",), ()),
     ("take", NOT_OWN, (("technician", "group"),)),
     ("change_priority", ALL_SCOPES, _TECH),
     ("resolve", ALL_SCOPES, _TECH),
@@ -263,7 +262,6 @@ IDENTITY_GRANTED = frozenset({"view", "create", "edit", "assign", "close"})
 _PROBLEM_TECH: dict[str, tuple[tuple[str, Scope], ...]] = {
     "view": (("technician", "all"),),
     "create": (("technician", "all"),),
-    "assign_outside_group": (),
     "delete": (),
     "edit_due_dates": (),
 }
@@ -290,7 +288,7 @@ def _type_defaults(
     if wtype.code is WorkItemTypeCode.CHANGE:
         # Changes (WP-045a): technicians keep identity's changes.view and changes.create (all);
         # the engine adds working their groups' changes, never delete or due dates by hand.
-        kept = {"view", "create", "delete", "edit_due_dates", "assign_outside_group"}
+        kept = {"view", "create", "delete", "edit_due_dates"}
         return () if action in kept else (("technician", "group"),)
     return defaults
 
@@ -369,6 +367,14 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
         "changes.approve", "change", ("all", "site", "group"), defaults=_role_defaults("approve")
     ),
+    # D-144: keep a change going without its approval, with a reason, audited, and a mandatory
+    # review. Nobody holds it by default but administrators; the change manager role (D-153)
+    # gets it when lane B's role model lands.
+    PermissionSpec("changes.emergency_override", "change", ("all", "site", "group")),
+    # Haider (2026-11-10): change boards are run by the change manager and administrators only,
+    # not by every service desk configurer. Administrators hold it; the change manager role
+    # (D-153) gets it with the role model.
+    PermissionSpec("changes.manage_boards", "change", ("all",)),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

@@ -55,6 +55,32 @@ describe('ActionBar', () => {
     expect(screen.getByTestId('a-assign').className).not.toContain('ant-btn-primary');
   });
 
+  it('QA10-P4-24: menu items that are also buttons say so, in the fixed order', async () => {
+    renderUi(
+      <ActionBar
+        testId="bar"
+        max={1}
+        actions={[
+          action('assign', { rank: 2 }),
+          action('resolve', { rank: 1 }),
+          action('note', { primary: false }),
+        ]}
+      />,
+    );
+    const items = within(await menu()).getAllByRole('menuitem');
+    expect(items.map((i) => i.getAttribute('data-testid'))).toEqual([
+      'a-assign-menu',
+      'a-resolve-menu',
+      'a-note-menu',
+    ]);
+    const marked = (testId: string) =>
+      screen.getByTestId(testId).querySelector('[data-also-above]') !== null;
+    expect(marked('a-resolve-menu')).toBe(true);
+    expect(screen.getByTestId('a-resolve-menu').textContent).toContain('Also above');
+    expect(marked('a-assign-menu')).toBe(false);
+    expect(marked('a-note-menu')).toBe(false);
+  });
+
   it('lists every action in the menu, unavailable ones disabled with the reason, destructive last', async () => {
     renderUi(
       <ActionBar

@@ -340,6 +340,37 @@ class WorkItemApprovalChanged(DomainEvent):
     change: ApprovalChange
 
 
+class ChangeBoardChanged(DomainEvent):
+    """A change advisory board was added, changed or removed (WP-045b S2; settings reload)."""
+
+    event_type: ClassVar[str] = "work_items.change_board.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "change_board"
+
+    board_id: uuid.UUID
+    change: str
+
+
+class ChangeApprovalNotice(DomainEvent):
+    """Someone must hear about a change's approval (WP-045b; REQ-CHG-040, -053; D-144).
+
+    `notice`: `sent_back` (an approved change needs approval again: the implementer, the owner
+    and the board are told), `overridden` (the emergency override was used) or
+    `board_has_no_members` (the change manager is told). Recorded now; the change
+    notifications (WP-056) send it. IDs only: recipients are worked out when it is sent.
+    """
+
+    event_type: ClassVar[str] = "work_items.change.approval_notice"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    notice: str
+    stage: str | None
+    fields: list[str]
+    board_id: uuid.UUID | None
+
+
 class ProblemRepeatDetected(DomainEvent):
     """A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.
 
@@ -391,6 +422,8 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPartChanged,
     WorkItemPartChangedV2,
     WorkItemApprovalChanged,
+    ChangeBoardChanged,
+    ChangeApprovalNotice,
     ProblemRepeatDetected,
     ProblemRepeatChanged,
 )

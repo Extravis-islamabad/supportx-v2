@@ -28,6 +28,7 @@ from app.modules.ai import (
 )
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
+from app.modules.work_items.api.change_board_routes import router as change_board_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
@@ -35,6 +36,7 @@ from app.modules.work_items.api.repeat_routes import router as repeat_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import (
+    CHANGE,
     INCIDENT,
     PERMISSION_TYPES,
     PROBLEM,
@@ -150,6 +152,7 @@ module = ModuleSpec(
         portal_request_router,  # WP-030 D9
         portal_home_router,  # WP-032 D1
         approval_settings_router,  # D-146: the approval chair (WP-048b S2)
+        change_board_router,  # WP-045b S2
         repeat_router,  # WP-044c D16: the problem module's
     ],
     router_features=[
@@ -158,6 +161,7 @@ module = ModuleSpec(
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
         None,  # approval settings: the engine is core, every type with approvals uses them
+        CHANGE.feature,  # change advisory boards
         PROBLEM.feature,  # repeat incident rules (D-140 item 5: not in Essentials)
     ],
     events=EVENTS,

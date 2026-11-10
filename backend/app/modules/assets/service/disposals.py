@@ -27,6 +27,7 @@ from app.modules.assets.domain.disposal import disposal_problems
 from app.modules.assets.infra.models import Asset, AssetDisposal, AssetState
 from app.modules.assets.service.assets import MANAGE, _refuse, _require, _visible
 from app.modules.assets.service.moves import move_asset
+from app.modules.assets.service.ownership import set_holder
 from app.modules.identity_access import Subject, active_user_ids
 from app.shared.clock import system_clock
 from app.shared.history import Source
@@ -72,6 +73,41 @@ async def _approver_problems(session: AsyncSession, approver: uuid.UUID | None) 
     return [] if approver in active else [Problem("approved_by", "approver_not_active")]
 
 
+async def _components(
+    session: AsyncSession,
+    subject: Subject,
+    row: Asset,
+    values: Mapping[str, Any],
+    *,
+    source: Source,
+) -> None:
+    """Its fitted components first (REQ-AST-026 AC2): asked, then detached or disposed too.
+
+    Without an answer, 409 `asset_has_components` with their count, so the screen can ask.
+    Disposing them uses the same record, each along its own life cycle; one that can't be
+    disposed refuses the whole step (one transaction), so nothing is half done.
+    """
+    children = list(
+        await session.scalars(
+            select(Asset).where(Asset.parent_asset_id == row.id, Asset.deleted_at.is_(None))
+        )
+    )
+    if not children:
+        return
+    mode = values.get("components")
+    if mode is None:
+        raise Conflict(code="asset_has_components", params={"count": len(children)})
+    for child in children:
+        if mode == "detach":
+            await set_holder(
+                session, subject, child.id, None, expected_version=child.version, source=source
+            )
+        else:
+            await dispose_asset(
+                session, subject, child.id, values, expected_version=child.version, source=source
+            )
+
+
 async def get_disposal(
     session: AsyncSession, subject: Subject, asset_id: uuid.UUID
 ) -> AssetDisposal:
@@ -114,6 +150,7 @@ async def dispose_asset(  # noqa: PLR0913 - the asset, the record, the If-Match 
         code = await guard(session, row.id)
         if code is not None:
             raise Conflict(code=code)
+    await _components(session, subject, row, values, source=source)
     reason = str(values["reason"]).strip()
     target = await _disposed_state(session)
     moved = await move_asset(

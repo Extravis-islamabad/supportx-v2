@@ -109,7 +109,6 @@ const ADMIN_EXTRA: Grant[] = [
   ['incidents.view', 'all'],
   ['incidents.edit', 'all'],
   ['incidents.assign', 'all'],
-  ['incidents.assign_outside_group', 'all'],
   ['incidents.delete', 'all'],
   ['audit.view', 'all'],
   ['audit.export', 'all'],
@@ -595,7 +594,10 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     on_behalf_scope: 'same_department',
     approvals_hidden_from_requesters: false,
     approvals_require_sign_in: false,
+    first_task_starts_work: true,
     portal_show_due_time: false,
+    segregation_strict: false,
+    cab_every_match: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,
     statuses: [
