@@ -84,22 +84,6 @@ RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec("cmdb.manage", "cmdb"),
 )
 
-# Permissions that make the console's Admin area visible (any one of them).
-ADMIN_PERMISSIONS = frozenset(
-    {
-        "users.manage",
-        "roles.view",
-        "roles.manage",
-        "sites.manage",
-        "groups.manage",
-        "settings.manage",
-        "licence.manage",
-        "audit.view",
-        "identity.manage",
-        "api_keys.manage",
-    }
-)
-
 # The technician and requester system roles, as (permission, scope), for the permissions of this
 # module and the reserved ones. Built modules add theirs with PermissionSpec.defaults. The tenant
 # admin holds every catalogue permission at its broadest scope (computed, so modules are included).

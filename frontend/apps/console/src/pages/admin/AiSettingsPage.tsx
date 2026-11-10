@@ -8,7 +8,7 @@ import {
   useSaveAiSettings,
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
-import { NoAccess, reportError, useAccess, useLabel, WriteButton } from '@supportx/ui';
+import { NoAccess, reportError, useAccess, useLabel, useLicence, WriteButton } from '@supportx/ui';
 
 // WP-037 (REQ-AI-027, 018, 031): Admin › AI. The master switch, a switch per feature grouped by
 // area (switching off says what happens, and takes effect for everyone at once), masking for the
@@ -46,6 +46,8 @@ const SUMMARY_SOURCES = ['description', 'replies', 'public_notes', 'private_note
 
 export function AiSettingsPage() {
   const t = useLabel();
+  // A read-only licence: the switches show the state but change nothing (coverage §17 item 3).
+  const { writable } = useLicence();
   const { can } = useAccess();
   const { modal, message } = App.useApp();
   const settings = useAiSettings(can('ai.manage'));
@@ -90,6 +92,7 @@ export function AiSettingsPage() {
           control={
             <Switch
               checked={saved.enabled}
+              disabled={!writable}
               loading={save.isPending}
               aria-labelledby="ai-master"
               data-testid="ai-master"
@@ -126,7 +129,7 @@ export function AiSettingsPage() {
                         control={
                           <Switch
                             checked={!off}
-                            disabled={!saved.enabled}
+                            disabled={!saved.enabled || !writable}
                             loading={save.isPending}
                             aria-labelledby={`ai-feature-${feature.code}`}
                             data-testid={`ai-feature-${feature.code}`}
@@ -173,6 +176,7 @@ export function AiSettingsPage() {
               control={
                 <Switch
                   checked={saved.mask_local}
+                  disabled={!writable}
                   loading={save.isPending}
                   aria-labelledby="ai-mask-local"
                   data-testid="ai-mask-local"
@@ -191,7 +195,7 @@ export function AiSettingsPage() {
             control={
               <Checkbox.Group
                 value={saved.summary_sources}
-                disabled={save.isPending}
+                disabled={save.isPending || !writable}
                 aria-labelledby="ai-summary-sources"
                 data-testid="ai-summary-sources"
                 options={SUMMARY_SOURCES.map((code) => ({

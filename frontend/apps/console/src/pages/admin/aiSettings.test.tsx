@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AiSettings } from '@supportx/api-client';
-import { fakeSession, type FakeRoute } from '@supportx/api-client/testing';
+import { fakeEntitlements, fakeSession, type FakeRoute } from '@supportx/api-client/testing';
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
 import { scriptedRealtime } from '@supportx/realtime/testing';
 
@@ -117,5 +117,18 @@ describe('Admin › AI', () => {
     api({}, fakeSession());
     render(<App />);
     expect(await screen.findByText(/You do not have permission to do this\./)).toBeDefined();
+  });
+
+  it('coverage §17 item 3: a read-only licence shows the switches but changes nothing', async () => {
+    window.history.pushState({}, '', '/admin/ai');
+    api({
+      'GET /api/v1/entitlements': {
+        body: fakeEntitlements({ state: 'read_only', state_reason: 'expired', writable: false }),
+      },
+    });
+    render(<App />);
+    const master = await screen.findByTestId<HTMLButtonElement>('ai-master');
+    expect(master.disabled).toBe(true);
+    expect(screen.getByTestId<HTMLButtonElement>('ai-mask-local').disabled).toBe(true);
   });
 });

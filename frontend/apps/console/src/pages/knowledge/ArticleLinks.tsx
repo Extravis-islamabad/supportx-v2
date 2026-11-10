@@ -1,8 +1,8 @@
-import { Button, List, Space, Tag, Typography } from 'antd';
+import { List, Space, Tag, Typography } from 'antd';
 import { Link } from 'react-router';
 
 import { useKbArticleLinks, useUnlinkKbArticle, type KbArticle } from '@supportx/api-client';
-import { EmptyText, reportError, useLabel } from '@supportx/ui';
+import { EmptyText, reportError, useLabel, WriteButton } from '@supportx/ui';
 
 /**
  * The article's Links tab (REQ-KB-064, D-121): the records it is linked to that the reader may
@@ -31,7 +31,7 @@ export function ArticleLinks({ article }: { article: KbArticle }) {
             actions={
               article.can_edit
                 ? [
-                    <Button
+                    <WriteButton
                       key="unlink"
                       size="small"
                       type="link"
@@ -48,7 +48,7 @@ export function ArticleLinks({ article }: { article: KbArticle }) {
                       }}
                     >
                       {t('knowledge.card.unlink')}
-                    </Button>,
+                    </WriteButton>,
                   ]
                 : []
             }

@@ -1,7 +1,6 @@
 import {
   App,
   Alert,
-  Button,
   Card,
   Form,
   List,
@@ -161,7 +160,7 @@ export function KnowledgeCard({
               actions={
                 item.article.can_edit
                   ? [
-                      <Button
+                      <WriteButton
                         key="unlink"
                         size="small"
                         type="link"
@@ -179,7 +178,7 @@ export function KnowledgeCard({
                         data-testid={`kb-card-unlink-${item.article.display_id}`}
                       >
                         {t('knowledge.card.unlink')}
-                      </Button>,
+                      </WriteButton>,
                     ]
                   : []
               }

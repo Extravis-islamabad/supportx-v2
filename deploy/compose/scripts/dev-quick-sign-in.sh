@@ -5,7 +5,8 @@
 #   1. deploy/compose/.env: a SHOWCASE_TOTP_KEY (random, only if none) and DEV_QUICK_SIGN_IN=true.
 #      The key never leaves this machine: it is not committed and never printed.
 #   2. backend/.env: the three SUPPORTX_* settings the API reads (added or updated).
-# Then `make showcase-seed` (run by `make dev-quick-sign-in`) enrols the personas' authenticators.
+# `make dev-quick-sign-in` then runs `make keycloak-dev-sync` (an older realm gets the settings);
+# `make showcase-seed` enrols the personas' authenticators.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"

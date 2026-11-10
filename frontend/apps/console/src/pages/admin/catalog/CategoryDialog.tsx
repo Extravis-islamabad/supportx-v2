@@ -1,4 +1,4 @@
-import { Button, Form, Modal, Select, Switch } from 'antd';
+import { Form, Modal, Select, Switch } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -9,7 +9,7 @@ import {
   type CatalogCategory,
   type Labels,
 } from '@supportx/api-client';
-import { markHandled, reportError, useAppearance, useLabel } from '@supportx/ui';
+import { markHandled, reportError, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { fieldMessages, refusalMessages } from '../incidents/helpers';
 import { LabelsFields, Problems } from '../incidents/shared';
@@ -78,7 +78,7 @@ export function CategoryDialog({
       footer={(buttons) => (
         <>
           {category !== undefined && (
-            <Button
+            <WriteButton
               danger
               style={{ float: 'inline-start' }}
               loading={remove.isPending}
@@ -101,7 +101,7 @@ export function CategoryDialog({
               }}
             >
               {t('actions.delete')}
-            </Button>
+            </WriteButton>
           )}
           {buttons}
         </>

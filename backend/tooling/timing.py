@@ -13,8 +13,11 @@ beside each other under coverage tracing (#79, #85). So a timing test asserts
 Timing tests carry `@pytest.mark.timing`, which the nightly run selects.
 """
 
+import fcntl
 import json
 import os
+import tempfile
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -35,9 +38,25 @@ def record(name: str, values: Any) -> None:  # noqa: ANN401 - any JSON-ready mea
     """Add `values` under `name` to the run's report (SUPPORTX_PERF_REPORT), if one is asked for.
 
     The nightly run shows the report in its summary and keeps it as an artifact, for trends.
+    Test workers run in parallel (pytest-xdist): each update holds a lock beside the report and
+    replaces the file atomically, so no worker reads another's half-written file. A report that
+    cannot be written is a warning, never a failed test: the test asserts its timing, not this.
     """
-    if target := os.environ.get("SUPPORTX_PERF_REPORT"):
-        path = Path(target)
-        found = json.loads(path.read_text()) if path.is_file() else {}
-        found[name] = values
-        path.write_text(json.dumps(found, indent=2, sort_keys=True))
+    target = os.environ.get("SUPPORTX_PERF_REPORT")
+    if not target:
+        return
+    path = Path(target)
+    try:
+        with path.with_suffix(path.suffix + ".lock").open("w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            found = json.loads(path.read_text()) if path.is_file() else {}
+            found[name] = values
+            fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+            try:
+                with os.fdopen(fd, "w") as out:
+                    json.dump(found, out, indent=2, sort_keys=True)
+                Path(temporary).replace(path)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
+    except (OSError, ValueError) as error:  # ValueError: a report left broken by an older run
+        warnings.warn(f"timing report not written: {error}", stacklevel=2)
