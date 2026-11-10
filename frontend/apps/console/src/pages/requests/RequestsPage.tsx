@@ -7,7 +7,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Select, Skeleton, Table, theme } from 'antd';
+import { Button, Empty, Input, Select, Skeleton, Table, theme } from 'antd';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -15,9 +15,11 @@ import { Link, useNavigate } from 'react-router';
 import {
   serviceRequestKeys,
   useCatalogItems,
+  useServiceRequestCatalogue,
   useServiceRequests,
   useServiceRequestViews,
   type ApprovalStatus,
+  type FilterExpression,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import {
@@ -26,16 +28,17 @@ import {
   FilterBar,
   ListPage,
   PageHeader,
-  ToneTag,
   reportError,
   useAccess,
   useAppearance,
   useColumnWidths,
   useDateTime,
   useLabel,
-  type Tone,
 } from '@supportx/ui';
 
+import { searchOf } from '../incidents/searchOf';
+import { StatusTag } from '../incidents/tags';
+import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { itemName } from './items';
 
 const APPROVAL: ApprovalStatus[] = ['pending', 'approved', 'rejected', 'withdrawn', 'not_needed'];
@@ -49,13 +52,9 @@ const TILES: { view: string; icon: ReactNode; tone: TileTone }[] = [
   { view: 'unassigned_in_my_groups', icon: <UserAddOutlined />, tone: 'purple' },
   { view: 'overdue', icon: <WarningOutlined />, tone: 'error' },
 ];
-const STATUS_TONES: Record<string, Tone> = {
-  open: 'info',
-  waiting: 'warning',
-  resolved: 'success',
-  closed: 'default',
-  canceled: 'default',
-};
+// Each column's own width, as the problems list: the table scrolls sideways on a phone and the
+// ID and subject stay in view, never one letter per line (QA10V-02).
+const OWN_WIDTHS = { id: 150, subject: 320, item: 200, status: 170, approval: 150, updated: 170 };
 
 /** The view counts as tiles: the number large, the view's name below; pressing one filters. */
 function ViewTiles({ active, onPick }: { active?: string; onPick: (view?: string) => void }) {
@@ -160,7 +159,20 @@ export function RequestsPage() {
   const queryClient = useQueryClient();
   const [approval, setApproval] = useState<ApprovalStatus | undefined>(undefined);
   const [view, setView] = useState<string | undefined>(undefined);
-  const list = useServiceRequests({ approval_status: approval, view });
+  const [search, setSearch] = useState('');
+  const text = useDebounced(search.trim(), SEARCH_DELAY_MS);
+  // The approval filter and the search through the filter DSL: the list route reads no
+  // approval_status parameter, so the old one filtered nothing (QA10V-05).
+  const parts = [
+    ...(approval === undefined
+      ? []
+      : [{ field: 'approval_status', op: 'eq', value: approval } as FilterExpression]),
+    ...[searchOf(text)].filter((f): f is FilterExpression => f !== undefined),
+  ];
+  const filter: FilterExpression | undefined =
+    parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : { and: parts };
+  const list = useServiceRequests({ filter, view });
+  const catalogue = useServiceRequestCatalogue();
   const views = useServiceRequestViews();
   const items = useCatalogItems();
   const byId = new Map((items.data ?? []).map((i) => [i.id, i]));
@@ -184,7 +196,7 @@ export function RequestsPage() {
     kind: 'service-requests',
     viewKey: view ?? 'all',
     keys: Object.keys(titles),
-    defaults: { id: 150 },
+    defaults: OWN_WIDTHS,
     minWidths: { subject: SUBJECT_MIN },
     label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
   });
@@ -251,6 +263,19 @@ export function RequestsPage() {
               data-testid="sr-approval-filter"
             />
           }
+          search={
+            <Input.Search
+              allowClear
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              placeholder={t('incidents.search')}
+              aria-label={t('incidents.search')}
+              style={{ maxWidth: 280 }}
+              data-testid="sr-search"
+            />
+          }
           extra={
             widths.changed ? (
               <Button onClick={widths.reset} data-testid="sr-reset-widths">
@@ -266,7 +291,13 @@ export function RequestsPage() {
         loading={list.isLoading}
         dataSource={rows}
         pagination={false}
+        scroll={{ x: 960 }}
         data-testid="sr-list"
+        onRow={(row) => ({
+          // The whole row opens it, as on incidents; the ID stays a link for the keyboard.
+          onClick: () => void navigate(`/requests/${row.id}`),
+          style: { cursor: 'pointer' },
+        })}
         components={widths.components}
         locale={{
           // An empty state only once the answer is in (QA 2026-11-04 #5 on incidents, same here).
@@ -276,7 +307,7 @@ export function RequestsPage() {
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={t(
-                view === undefined && approval === undefined
+                view === undefined && approval === undefined && text === ''
                   ? 'requests.empty'
                   : 'requests.empty_view',
               )}
@@ -295,10 +326,23 @@ export function RequestsPage() {
             title: t('incidents.col.id'),
             width: widths.width('id'),
             onHeaderCell: () => widths.header('id'),
+            fixed: 'left' as const,
             render: (_, row) => (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 <ChannelIcon channel={row.channel} />
-                <Link to={`/requests/${row.id}`} data-testid={`sr-row-${row.display_id}`}>
+                {/* Bold and in the text colour, as the incident list's IDs (QA10V-05). */}
+                <Link
+                  to={`/requests/${row.id}`}
+                  style={{ color: 'inherit' }}
+                  data-testid={`sr-row-${row.display_id}`}
+                >
                   <strong dir="ltr">{row.display_id}</strong>
                 </Link>
               </span>
@@ -309,6 +353,7 @@ export function RequestsPage() {
             title: t('work_item.field.subject'),
             width: widths.width('subject'),
             onHeaderCell: () => widths.header('subject'),
+            fixed: 'left' as const,
             ellipsis: true,
             render: (_, row) => <CellText title={row.subject}>{row.subject}</CellText>,
           },
@@ -317,18 +362,18 @@ export function RequestsPage() {
             title: t('requests.item'),
             width: widths.width('item'),
             onHeaderCell: () => widths.header('item'),
-            render: (_, row) => itemName(byId.get(row.catalog_item_id ?? ''), locale),
+            ellipsis: true,
+            render: (_, row) => (
+              <CellText>{itemName(byId.get(row.catalog_item_id ?? ''), locale)}</CellText>
+            ),
           },
           {
             key: 'status',
             title: t('work_item.field.status'),
             width: widths.width('status'),
             onHeaderCell: () => widths.header('status'),
-            render: (_, row) => (
-              <ToneTag tone={STATUS_TONES[row.status_category] ?? 'default'}>
-                {t(`work_item_status.${row.status}`)}
-              </ToneTag>
-            ),
+            // The dot chip of incidents and problems (QA10V-05).
+            render: (_, row) => <StatusTag status={row.status} catalogue={catalogue.data} />,
           },
           {
             key: 'approval',

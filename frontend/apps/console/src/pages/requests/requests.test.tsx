@@ -184,6 +184,40 @@ describe('console: service requests', () => {
     });
   });
 
+  it('QA10V-05: the approval filter and the search go to the server as the filter DSL', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('sr-row-SR-1');
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Approval' }));
+    fireEvent.click(await screen.findByTitle('Approved'));
+    fireEvent.change(
+      screen.getByTestId('sr-search').querySelector('input') ?? screen.getByTestId('sr-search'),
+      {
+        target: { value: 'laptop' },
+      },
+    );
+    await waitFor(() => {
+      const filters = fake
+        .find('GET', '/api/v1/service-requests')
+        .map((r) => r.url.searchParams.get('filter'))
+        .filter((f): f is string => f !== null)
+        .map((f) => JSON.parse(f) as unknown);
+      expect(filters).toContainEqual({
+        and: [
+          { field: 'approval_status', op: 'eq', value: 'approved' },
+          { field: 'subject', op: 'contains', value: 'laptop' },
+        ],
+      });
+    });
+    // Never the old parameter the route does not read.
+    expect(
+      fake
+        .find('GET', '/api/v1/service-requests')
+        .some((r) => r.url.searchParams.has('approval_status')),
+    ).toBe(false);
+  });
+
   it('raises one from the catalog with the form’s answers, once', async () => {
     window.history.pushState({}, '', '/requests/new');
     const fake = api({ 'POST /api/v1/service-requests': { status: 201, body: request } });
