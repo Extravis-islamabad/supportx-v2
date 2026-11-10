@@ -387,7 +387,12 @@ function checks(): string[] {
       out.push(`clipped:${name(el)}`);
     }
   }
-  const primary = [...document.querySelectorAll('main .ant-btn-primary')].filter(shown).length;
+  // A split button (Reply and its chevron) is one primary action drawn as two buttons.
+  const primary = new Set(
+    [...document.querySelectorAll('main .ant-btn-primary')]
+      .filter(shown)
+      .map((el) => el.closest('.ant-dropdown-button') ?? el),
+  ).size;
   if (primary > 1) out.push(`primary_buttons:${String(primary)}`);
   for (const bar of document.querySelectorAll('[data-testid$="actions"], [role="toolbar"]')) {
     if (!shown(bar)) continue;

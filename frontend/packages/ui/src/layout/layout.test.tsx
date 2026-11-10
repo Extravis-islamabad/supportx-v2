@@ -55,6 +55,16 @@ describe('ActionBar', () => {
     expect(screen.getByTestId('a-assign').className).not.toContain('ant-btn-primary');
   });
 
+  it("QA10V-03: a split button's chevron is named after its action", () => {
+    const reply = action('reply', {
+      label: 'Reply',
+      variants: [{ key: 'reply_all', label: 'Reply all', onClick: vi.fn() }],
+    });
+    renderUi(<ActionBar testId="bar" actions={[reply]} />);
+    const chevron = within(screen.getByTestId('a-reply-more')).getByRole('button');
+    expect(chevron.getAttribute('aria-label')).toBe('More options: Reply');
+  });
+
   it('QA bug 7: a split button on the bar is not repeated in More, nor are its variants', async () => {
     renderUi(
       <ActionBar

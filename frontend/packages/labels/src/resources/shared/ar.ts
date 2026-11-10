@@ -153,6 +153,7 @@ export const ar: LabelResource = {
   'layout.library_empty': 'لا يوجد شيء هنا بعد.',
   'layout.library_no_match': 'لا شيء يطابق بحثك.',
   'layout.more_actions': 'إجراءات أخرى',
+  'layout.more_options_for': 'خيارات أخرى: {{action}}',
   'layout.not_available_now': 'غير متاح الآن',
   'layout.notices_count_few': '{{count}} إشعارات',
   'layout.notices_count_many': '{{count}} إشعارًا',

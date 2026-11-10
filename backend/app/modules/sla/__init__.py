@@ -46,7 +46,12 @@ from app.modules.sla.service.records import (
     record_calendar,
     record_sla,
 )
-from app.modules.sla.service.registry import Fired, SlaRecordType, register_record_type
+from app.modules.sla.service.registry import (
+    Fired,
+    RecordState,
+    SlaRecordType,
+    register_record_type,
+)
 from app.modules.sla.service.scheduler import SCHEDULER
 from app.modules.sla.service.timers import escalation_run, fire, next_wake, safety_net
 from app.shared.schedules import ScheduleSpec
@@ -87,6 +92,7 @@ __all__ = [
     "Level",
     "Recipient",
     "RecipientKind",
+    "RecordState",
     "SlaBreached",
     "SlaEscalated",
     "SlaRecordType",
