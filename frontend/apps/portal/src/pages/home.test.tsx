@@ -117,6 +117,15 @@ describe('portal home and search (WP-032)', () => {
     expect(within(popular).getByText('VPN access')).toBeDefined();
   });
 
+  it('QA10: sent from the console, the home says the console is for the service desk', async () => {
+    window.history.pushState({}, '', '/?from=console');
+    api();
+    render(<App />);
+    expect((await screen.findByTestId('portal-from-console')).textContent).toContain(
+      'The console is for the service desk.',
+    );
+  });
+
   it('searches everything in groups, and offers to report when nothing is found', async () => {
     window.history.pushState({}, '', '/search?q=vpn');
     api({

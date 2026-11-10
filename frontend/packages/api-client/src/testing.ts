@@ -125,6 +125,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
   ['integrations.manage_email', 'all'],
+  ['integrations.manage_identity', 'all'], // directories (an admin holds every permission)
   ['ai.manage', 'all'],
   ['api_keys.manage', 'all'],
 ];

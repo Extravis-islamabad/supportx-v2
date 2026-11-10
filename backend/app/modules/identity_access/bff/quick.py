@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
 
 from app.core.authorization import public_route
+from app.core.database import Database
 from app.core.entitlements import entitlement_exempt
 from app.core.errors import NotFound, ServiceUnavailable
 from app.core.logging import get_logger
@@ -73,9 +74,17 @@ class QuickSignInIn(BaseModel):
 
 
 class QuickSignInOut(BaseModel):
-    """Where to go: the app, signed in; or the normal sign-in, for the new starter."""
+    """Where to go, signed in; or, for the new starter, where their set-up link went."""
 
-    redirect_to: str
+    redirect_to: str | None = None
+    setup_link_sent_to: str | None = Field(
+        default=None,
+        description="The new starter: Keycloak e-mailed this address a two-step set-up link.",
+    )
+
+
+# How long the new starter's set-up link works (Keycloak's action token lifespan).
+SETUP_LINK_SECONDS = 15 * 60
 
 
 @router.get("/personas")
@@ -90,13 +99,42 @@ async def personas(showcase: Showcase) -> list[PersonaOut]:
     ]
 
 
+async def _send_setup_link(
+    request: Request, who: quick.Persona, showcase: uuid.UUID, database: Database
+) -> QuickSignInOut:
+    """The new starter: Keycloak's own e-mail with a link to the two-step set-up (QA10).
+
+    QA never types a password, and Keycloak shows its set-up pages only after one, so its
+    action link (sent to the local mail catcher) opens them without it. Keycloak's real pages,
+    Keycloak's real token; nothing here signs anyone in. Audited like every quick sign-in.
+    """
+    admin = getattr(request.app.state, "identity_admin", None)
+    if admin is None:
+        raise ServiceUnavailable(code="identity_admin_not_configured")
+    found = await admin.find_user(who.email)
+    if found is None:
+        raise NotFound  # not seeded yet: make showcase-seed
+    # The entry first (lane C): a failed audit never leaves a link sent without one.
+    await record_alone(
+        database,
+        TenantContext(showcase),
+        action_code="session.quick_sign_in",
+        facts=RequestFacts.of(request, client=who.app),
+        object_type="user",
+        object_id=found.id,
+        details={"persona": who.code, "setup_link": True},
+    )
+    await admin.send_actions_email(found.id, ["CONFIGURE_TOTP"], SETUP_LINK_SECONDS)
+    return QuickSignInOut(setup_link_sent_to=who.email)
+
+
 @router.post("/sign-in")
 @entitlement_exempt
 @public_route
 async def sign_in(
     body: QuickSignInIn, request: Request, response: Response, auth: Auth, showcase: Showcase
 ) -> QuickSignInOut:
-    """Sign a persona in (dev only); the new starter goes to the normal sign-in instead."""
+    """Sign a persona in (dev only); the new starter is mailed Keycloak's set-up link instead."""
     # Another site open in the same browser could post here too (sign-in CSRF against
     # localhost): only the page on this local address may.
     origin = request.headers.get("origin")
@@ -105,13 +143,11 @@ async def sign_in(
     who = quick.persona(body.persona)
     if who is None:
         raise NotFound
-    if not who.enrolled:
-        # The real flow, so QA tests setting up two-step sign-in: Keycloak's own pages.
-        url = await auth.start_login(who.app, "/", None)
-        return QuickSignInOut(redirect_to=url)
     database = getattr(request.app.state, "db", None)
     if database is None:  # no audit without a database: never a session either
         raise ServiceUnavailable(code="database_not_configured")
+    if not who.enrolled:
+        return await _send_setup_link(request, who, showcase, database)
     result = await auth.quick_sign_in(who, showcase)
     try:
         await record_alone(

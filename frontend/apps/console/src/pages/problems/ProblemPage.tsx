@@ -238,6 +238,7 @@ function ProblemView({
     key: 'follow_up',
     label: t('problems.follow_up.title'),
     allowed: canEdit,
+    testId: 'prb-op-follow-up',
     onClick: () => {
       setFollowing(true);
     },

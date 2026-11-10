@@ -163,4 +163,41 @@ describe('Incident parts (WP-020e)', () => {
     expect(shown.textContent).toContain('INC-9 · Printer again');
     expect(shown.textContent).toContain('Same printer');
   });
+
+  it('QA10-P1-03: a cause has no delete (it is unlinked in its own place); a related link has one', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'links');
+    api({
+      [`GET ${PATH}/links`]: {
+        body: [
+          {
+            id: 'l3',
+            kind: 'caused_by',
+            relation: 'caused_by',
+            other_id: '01900000-0000-7000-8000-0000000009f4',
+            other_display_id: 'PRB-4',
+            other_subject: 'VPN drops',
+            comment: null,
+            version: 1,
+            created_at: '2026-10-28T10:00:00Z',
+          },
+          {
+            id: 'l4',
+            kind: 'related',
+            relation: 'related',
+            other_id: '01900000-0000-7000-8000-0000000009f8',
+            other_display_id: 'INC-8',
+            other_subject: 'Printer',
+            comment: null,
+            version: 1,
+            created_at: '2026-10-28T10:00:00Z',
+          },
+        ],
+      },
+    });
+    render(<App />);
+    expect(await screen.findByTestId('inc-link-PRB-4')).toBeDefined();
+    expect(screen.queryByTestId('inc-link-delete-PRB-4')).toBeNull();
+    expect(screen.getByTestId('inc-link-delete-INC-8')).toBeDefined();
+  });
 });

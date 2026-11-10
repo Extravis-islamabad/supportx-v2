@@ -8,7 +8,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Card, Flex, Input, Statistic, Typography } from 'antd';
 import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import {
   portalKeys,
@@ -22,6 +22,7 @@ import { useListFormat } from '@supportx/labels';
 import { usePersonalChannel } from '@supportx/realtime';
 import {
   brandText,
+  FROM_CONSOLE,
   useAppearance,
   useLabel,
   useLicence,
@@ -149,6 +150,8 @@ export function HomePage() {
   const session = useSession().data;
   const licence = useLicence();
   const catalog = licence.has('service_request');
+  const [params] = useSearchParams();
+  const fromConsole = `from=${params.get('from') ?? ''}` === FROM_CONSOLE;
   // Anything about my records or approvals: the counts follow within a second (AC1).
   usePersonalChannel(() => {
     void queryClient.invalidateQueries({ queryKey: [...portalKeys.all, 'summary'] });
@@ -159,6 +162,17 @@ export function HomePage() {
   const format = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <>
+      {fromConsole && (
+        // Sent here from the console, which is for the service desk (D-129, QA10).
+        <Alert
+          type="info"
+          showIcon
+          closable
+          message={t('portal.from_console')}
+          style={{ marginBottom: 16 }}
+          data-testid="portal-from-console"
+        />
+      )}
       {/* Welcome band in the brand gradient; white text on it reaches 4.97:1 at its lightest
           (branding.md). High contrast shows plain black on white instead. */}
       <section

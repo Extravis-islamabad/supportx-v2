@@ -50,6 +50,7 @@ from app.modules.work_items.domain.portal import (
 from app.modules.work_items.domain.templates import rules_from_json
 from app.modules.work_items.domain.types import (
     INCIDENT,
+    SERVICE_REQUEST,
     TYPES,
     Channel,
     WorkItemType,
@@ -61,7 +62,7 @@ from app.modules.work_items.infra.models import (
     WorkItemLink,
     WorkItemTemplate,
 )
-from app.modules.work_items.service import catalogue, resolution, templates
+from app.modules.work_items.service import approval_stage, catalogue, resolution, templates
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
@@ -209,7 +210,11 @@ def _facts(record: WorkItem) -> RecordFacts:
 
 
 async def _shape(
-    session: AsyncSession, seen_by: Viewer, records: list[WorkItem]
+    session: AsyncSession,
+    seen_by: Viewer,
+    records: list[WorkItem],
+    *,
+    reach: PortalReach | None = None,
 ) -> list[PortalRecord]:
     rules = await _rules(session, {r.template_id for r in records if r.template_id is not None})
     # The expected resolution time, only if the tenant shows it (REQ-INC-147, D5).
@@ -217,14 +222,14 @@ async def _shape(
     causes = await _known_problems(session, [r.id for r in records])
     out: list[PortalRecord] = []
     for record in records:
-        reach = reaches(seen_by, _facts(record))
-        if reach is None:  # pragma: no cover - the SQL predicate already kept it out
+        found_reach = reach or reaches(seen_by, _facts(record))
+        if found_reach is None:  # the SQL predicate kept it out (or the caller says why)
             continue
         found = rules.get(record.template_id) if record.template_id else None
         out.append(
             PortalRecord(
                 record,
-                reach,
+                found_reach,
                 requester_fields(found if found is not None else rules_from_json(None)) | shown,
                 portal_status(record.status, StatusCategory(record.status_category)),
                 causes.get(record.id),
@@ -309,9 +314,24 @@ async def get_record(
     record = await session.scalar(
         _base(wtype).where(WorkItem.id == record_id, reach_predicate(seen_by))
     )
+    if record is None and wtype is SERVICE_REQUEST:
+        record = await _as_approver(session, subject, record_id)
     if record is None:
         raise NotFound(code="work_item_not_found")
-    return (await _shape(session, seen_by, [record]))[0]
+    shaped = await _shape(session, seen_by, [record])
+    if shaped:
+        return shaped[0]
+    # Only an approver gets here: the request's own fields, what its requester sees, no more.
+    return (await _shape(session, seen_by, [record], reach=PortalReach.APPROVER))[0]
+
+
+async def _as_approver(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID
+) -> WorkItem | None:
+    """The request when the person is named on one of its approvals (QA10-P2-06), else None."""
+    if not await approval_stage.is_named_approver(session, subject.user_id, record_id):
+        return None
+    return await session.scalar(_base(SERVICE_REQUEST).where(WorkItem.id == record_id))
 
 
 # --- reporting an issue (REQ-INC-028) ---------------------------------------------------------
@@ -431,6 +451,8 @@ async def conversation(
 ) -> list[PublicEntry]:
     """Public entries only, oldest first (the newest CONVERSATION_MAX); private notes never."""
     found = await get_record(session, subject, record_id, wtype)
+    if found.reach is PortalReach.APPROVER:
+        return []  # an approver sees what is asked, not the requester's talk with the desk
     rows = list(
         await session.scalars(
             select(WorkItemConversation)

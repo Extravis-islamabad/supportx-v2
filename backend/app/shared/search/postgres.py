@@ -33,6 +33,10 @@ _ARABIC: ColumnElement[Any] = literal_column("'arabic'::regconfig")
 def _word_query(word: str) -> ColumnElement[Any]:
     # `words()` keeps letters and digits only, so the word needs no escaping inside the quotes.
     prefix = f"'{word}':*" if len(word) > 1 else f"'{word}'"
+    if word.isdigit():
+        # PostgreSQL's parser reads a number after a hyphen as signed: "QA-2026-11-10" is stored
+        # as qa, -2026, -11, -10, so the typed "2026" also matches "-2026" (QA10-P1-01).
+        prefix = f"{prefix} | '-{word}'" + (":*" if len(word) > 1 else "")
     return (
         func.to_tsquery(_SIMPLE, prefix)
         .op("||")(func.plainto_tsquery(_ENGLISH, word))
