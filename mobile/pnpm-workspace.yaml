@@ -1,0 +1,16 @@
+# The mobile app is its own pnpm project (React 19 here, React 18 in frontend/; D-154).
+# This file holds its pnpm settings only; it lists no other packages.
+packages:
+  - '.'
+
+# Flat node_modules, as Expo recommends for pnpm: native modules autolink from one place and
+# expo-doctor can check for duplicate native modules.
+nodeLinker: hoisted
+
+# Install scripts of dependencies run only when listed here (pnpm refuses unlisted ones in CI).
+# @parcel/watcher (via Expo's CLI): ships prebuilt binaries per platform; its script only
+# builds from source when none fits.
+# protobufjs (via centrifuge, D-030): its postinstall only prints a version notice; not needed.
+allowBuilds:
+  '@parcel/watcher': false
+  protobufjs: false

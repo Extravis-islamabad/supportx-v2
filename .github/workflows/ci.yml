@@ -492,6 +492,8 @@ jobs:
     name: mobile
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      EXPO_NO_TELEMETRY: "1" # no Expo cloud, telemetry off (Haider, 2026-11-06; ADR-044 item 7)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -508,6 +510,10 @@ jobs:
         run: |
           if [ -f mobile/package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else
             echo "present=false" >> "$GITHUB_OUTPUT"; echo "::notice title=mobile::no mobile/ yet"; fi
+      # The mobile targets write the API types first (`generated-frontend`: the OpenAPI export
+      # needs the backend venv); without them the shared packages' calls are `any` (no-unsafe-*).
+      - uses: ./.github/actions/setup-backend
+        if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
       - uses: ./.github/actions/setup-frontend
         if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
       - name: Install mobile dependencies (lockfile only)
