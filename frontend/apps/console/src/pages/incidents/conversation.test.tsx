@@ -63,7 +63,8 @@ const COMMON = {
 
 async function openConversation() {
   render(<App />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Conversation (3)' }));
+  // The description and the three entries (Haider, 2026-11-10: what the tab lists).
+  fireEvent.click(await screen.findByRole('tab', { name: 'Conversation (4)' }));
   return screen.findByTestId('conv-timeline');
 }
 
