@@ -15,7 +15,6 @@ from typing import Any
 import pytest
 
 from tests.test_error_labels import label_keys
-from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
@@ -298,9 +297,9 @@ def enums(schemas: dict[str, Any]) -> Iterator[tuple[str, list[str]]]:
                 yield f"{name}.{prop}[]", spec["items"]["enum"]
 
 
-@pytest.fixture(scope="module")
-def contract_enums() -> list[tuple[str, list[str]]]:
-    return list(enums(build_schema()["components"]["schemas"]))
+@pytest.fixture
+def contract_enums(openapi_contract: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    return list(enums(openapi_contract["components"]["schemas"]))
 
 
 def test_every_enum_in_the_contract_has_a_label_prefix(
