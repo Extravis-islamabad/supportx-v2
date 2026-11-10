@@ -22,6 +22,7 @@ from app.modules.audit import AuditNote, RequestFacts, audited, entries_for_chan
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
+from app.modules.work_items.api.asset_routes import add_asset_routes
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -76,8 +77,14 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
+from app.modules.work_items.service import (
+    asset_links,
+    change_links,
+    release_links,
+    resolution,
+    stage_approvals,
+)
 from app.modules.work_items.service import change_boards as board_service
-from app.modules.work_items.service import change_links, release_links, resolution, stage_approvals
 from app.modules.work_items.service import change_risk as risk_service
 from app.modules.work_items.service import duplicates as duplicates_service
 from app.modules.work_items.service import problems as problem_service
@@ -112,6 +119,10 @@ CONFLICT: Responses = {
 # --- schemas --------------------------------------------------------------------------------------
 
 
+# REQ-AST-025: the record types that link assets (the incident and request forms, e-mail).
+_WITH_ASSETS = frozenset({WorkItemTypeCode.INCIDENT, WorkItemTypeCode.SERVICE_REQUEST})
+
+
 class WorkItemIn(BaseModel):
     """A new record. Group and technician need the assign permission."""
 
@@ -132,6 +143,11 @@ class WorkItemIn(BaseModel):
     )
     group_id: uuid.UUID | None = None
     technician_id: uuid.UUID | None = None
+    asset_ids: list[uuid.UUID] | None = Field(
+        default=None,
+        max_length=20,
+        description="Assets to link (REQ-AST-025; incidents and requests, the assets feature).",
+    )
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
     impact_details: str | None = Field(
@@ -2417,6 +2433,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             from_record = values.pop("from_record_id", None)
             if from_record is not None and wtype.code is not WorkItemTypeCode.CHANGE:
                 raise service.field_errors([("from_record_id", "not_allowed")])
+            asset_ids = values.pop("asset_ids", None) or []
+            if asset_ids and wtype.code not in _WITH_ASSETS:
+                raise service.field_errors([("asset_ids", "not_allowed")])
             view = await service.create(
                 session,
                 subject,
@@ -2428,6 +2447,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             if from_record is not None:  # REQ-CHG-002: linked to its source, on both records
                 await change_links.link_new(
                     session, subject, view.record, from_record, source=source_of(request)
+                )
+            if asset_ids:  # REQ-AST-025: in the same transaction as the record
+                await asset_links.link_new(
+                    session, subject, view.record, asset_ids, source=source_of(request)
                 )
             out = WorkItemOut.of(view)
             return Created(
@@ -3321,4 +3344,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
 
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
+    # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
+    if wtype.code in _WITH_ASSETS:
+        add_asset_routes(router, wtype)
     return router

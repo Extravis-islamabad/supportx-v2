@@ -123,6 +123,19 @@ async def link(  # noqa: PLR0913 - the record, the assets and the source, explic
     return await attach(session, subject, record, asset_ids, source=source)
 
 
+async def link_new(
+    session: AsyncSession,
+    subject: Subject,
+    record: WorkItem,
+    asset_ids: Sequence[uuid.UUID],
+    *,
+    source: Source,
+) -> list[WorkItemAsset]:
+    """Link assets to a record just created (its create body's `asset_ids`)."""
+    await licensing.require_feature(_tenant(session), FEATURE)
+    return await attach(session, subject, record, asset_ids, source=source)
+
+
 async def attach(
     session: AsyncSession,
     subject: Subject,
