@@ -14,6 +14,7 @@ import pytest
 
 from app.core.tenancy import TenantContext
 from app.modules.sla.service import timers
+from app.modules.work_items.service import work_items as work_items_service
 from app.shared.clock import FrozenClock
 from tests.db import test_incidents_api
 from tests.db.test_incidents_api import BASE, World
@@ -163,3 +164,60 @@ async def test_a_gone_record_stops_once_and_a_second_sweep_changes_nothing(
     assert {r["state"] for r in runs} <= {"cancelled", "ran"}
     await timers.safety_net(world.app.state.db, settings=None)  # type: ignore[arg-type]  # settings is unused
     assert await snapshot() == first  # nothing moved: never retried
+
+
+async def test_a_restore_records_where_the_sla_stands_and_fires_what_fell_due(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Haider, 2026-11-10: the clock keeps running in the trash; the restore says so.
+
+    restored_at holds the latest restore (a second one moves it); each restore's history line
+    names each open target's standing; what fell due is breached at once, not at the next sweep;
+    SLA reports may filter on restored_at.
+    """
+    a = world.a
+    item: dict[str, Any] = await _p1(world, a)
+    due = (await _targets(world, item))["resolution:1"]["due_at"]
+    removed = await world.call(
+        "DELETE", f"{BASE}/{item['id']}", a, a.admin, headers={"If-Match": f'"{item["version"]}"'}
+    )
+    assert removed.status_code == 204, removed.text
+    later = due + timedelta(hours=3)
+    monkeypatch.setattr(work_items_service, "_now", lambda: later)
+    trashed = (
+        await world.sql(
+            "SELECT version FROM work_items WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            uuid.UUID(item["id"]),
+        )
+    )[0]["version"]
+    restored = await world.call(
+        "POST",
+        f"{BASE}/{item['id']}/restore",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{trashed}"'},
+    )
+    assert restored.status_code == 200, restored.text
+    row = (
+        await world.sql(
+            "SELECT restored_at FROM work_items WHERE tenant_id = $1 AND id = $2",
+            a.tenant,
+            uuid.UUID(item["id"]),
+        )
+    )[0]
+    assert row["restored_at"] == later
+    restore_lines = [
+        c["new"]
+        for h in await world.history(a, item)
+        if h["kind"] == "restored"
+        for c in h["changes"]
+        if c["field"] == "sla_on_restore"
+    ]
+    assert any(line.startswith("resolution:overdue:") for line in restore_lines)
+    # Breached now: the restore fired what fell due while it was in the trash.
+    assert "breached" in await _states(world, uuid.UUID(item["id"]))
+    # Reports may filter on it ("restored from trash").
+    from app.modules.work_items.service.access import FIELDS  # noqa: PLC0415 - one check
+
+    assert "restored_at" in FIELDS.fields

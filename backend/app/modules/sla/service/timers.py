@@ -38,6 +38,10 @@ log = structlog.get_logger(__name__)
 
 # The safety net fires what is this late (D-115 D5): the waker normally comes at the moment.
 SAFETY_NET_GRACE = timedelta(minutes=2)
+# Targets still counting: running, paused, or past due and not yet met (REQ-SLA-020).
+OPEN_STATES = frozenset(
+    {TargetState.RUNNING.value, TargetState.PAUSED.value, TargetState.BREACHED.value}
+)
 SAFETY_NET_BATCH = 500  # records per tenant per sweep; the next sweep takes the rest
 
 
@@ -153,6 +157,38 @@ async def fire(session: AsyncSession, record_id: uuid.UUID, *, now: datetime) ->
         await rtype.on_fired(session, record_id, stamp.columns(), result.fired, now=now)
     result.next_wake = await next_wake(session, record_id)
     return result
+
+
+@dataclass(frozen=True)
+class OpenClock:
+    """Where one open target stands (the restore warning, Haider 2026-11-10)."""
+
+    kind: str  # first_response | resolution
+    state: str  # overdue | left | paused
+    seconds: int  # how far past due, or how much is left; 0 when paused
+
+
+async def open_clocks(
+    session: AsyncSession, record_id: uuid.UUID, *, now: datetime
+) -> list[OpenClock]:
+    """The record's open targets now: overdue by, time left, or paused (first response first).
+
+    The clock keeps running while a record is in the trash (Haider): a restore says where each
+    target stands, on screen and in the history.
+    """
+    _application, current = await current_clocks(session, record_id)
+    found: list[OpenClock] = []
+    for kind in (TargetKind.FIRST_RESPONSE, TargetKind.RESOLUTION):
+        entry = current.get(kind)
+        row = entry.row if entry is not None else None
+        if row is None or row.state not in OPEN_STATES:
+            continue
+        if row.state == TargetState.PAUSED.value or row.due_at is None:
+            found.append(OpenClock(kind.value, "paused", 0))
+            continue
+        left = int((row.due_at - now).total_seconds())
+        found.append(OpenClock(kind.value, "left" if left > 0 else "overdue", abs(left)))
+    return found
 
 
 async def _stop_gone(session: AsyncSession, record_id: uuid.UUID, *, now: datetime) -> None:
