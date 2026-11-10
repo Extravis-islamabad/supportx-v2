@@ -2,6 +2,7 @@ import { Alert, App, Checkbox, Flex, InputNumber, Space, Switch, Typography } fr
 import { useMemo } from 'react';
 
 import { type AiSettings, useAiSettings, useSaveAiSettings } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useTenantChannel } from '@supportx/realtime';
 import {
   NoAccess,
@@ -60,6 +61,7 @@ export function AiSettingsPage() {
   const { writable } = useLicence();
   const { can } = useAccess();
   const { modal, message } = App.useApp();
+  const list = useListFormat();
   const settings = useAiSettings(can('ai.manage'));
   const save = useSaveAiSettings();
   useTenantChannel((m) => {
@@ -109,7 +111,7 @@ export function AiSettingsPage() {
       title:
         turningOff.length === 1 && saved.enabled && !draft.enabled
           ? t('ai_settings.confirm_master_off')
-          : t('ai_settings.confirm_off', { feature: turningOff.join(', ') }),
+          : t('ai_settings.confirm_off', { feature: list(turningOff) }),
       content: t('ai_settings.off_effect'),
       okText: t('ai_settings.switch_off'),
       okButtonProps: { danger: true },
