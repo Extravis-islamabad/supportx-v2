@@ -123,13 +123,10 @@ async def test_req_inc_085_ac3_never_outside_the_users_scope(world: World) -> No
         "my_group": await world.create(
             a, a.admin, subject=subject, group_id=str(a.ga), requester_id=str(a.requester2)
         ),
+        # Assigned to tech_a in a group they are not in: refused through the API since
+        # D-154a, set below as records from before it can be.
         "assigned_to_me": await world.create(
-            a,
-            a.admin,
-            subject=subject,
-            group_id=str(a.gb),
-            technician_id=str(a.tech_a),
-            requester_id=str(a.requester2),
+            a, a.admin, subject=subject, group_id=str(a.gb), requester_id=str(a.requester2)
         ),
         "my_site_queue": await world.create(a, a.admin, subject=subject),
         "other_site_queue": await world.create(
@@ -139,6 +136,12 @@ async def test_req_inc_085_ac3_never_outside_the_users_scope(world: World) -> No
             a, a.admin, subject=subject, group_id=str(a.gb), requester_id=str(a.requester2)
         ),
     }
+    await world.sql(
+        "UPDATE work_items SET technician_id = $1 WHERE tenant_id = $2 AND id = $3",
+        a.tech_a,
+        a.tenant,
+        uuid.UUID(made["assigned_to_me"]["id"]),
+    )
     other_tenant = await world.create(world.b, world.b.admin, subject=subject)
     by_id = {item["id"]: name for name, item in made.items()}
     for user in (a.tech_a, a.tech_b, a.tech_c, a.lead):

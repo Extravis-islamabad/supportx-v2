@@ -217,7 +217,6 @@ INCIDENT_ACTIONS = (
     "create",
     "edit",
     "assign",
-    "assign_outside_group",
     "take",
     "change_priority",
     "resolve",
@@ -523,8 +522,16 @@ async def test_d052_technician_sees_groups_assigned_and_site_queue_and_404_outsi
 ) -> None:
     a = world.a
     in_my_group = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    # Assigned to tech_a in a group they are not in: D-154a refuses that through the API now, but
+    # records from before it can be so, and rule 2 (assigned to me) must still show them.
     assigned_to_me = await world.create(
-        a, a.admin, group_id=str(a.gb), technician_id=str(a.tech_a), requester_id=str(a.requester2)
+        a, a.admin, group_id=str(a.gb), requester_id=str(a.requester2)
+    )
+    await world.sql(
+        "UPDATE work_items SET technician_id = $1 WHERE tenant_id = $2 AND id = $3",
+        a.tech_a,
+        a.tenant,
+        uuid.UUID(assigned_to_me["id"]),
     )
     my_site_queue = await world.create(a, a.admin)  # requester at S1, no group, no technician
     other_site_queue = await world.create(a, a.admin, requester_id=str(a.requester2))  # S2
@@ -704,14 +711,48 @@ async def test_req_inc_053_assignees_and_group_rules(world: World) -> None:
     item = await world.create(a, a.tech_a, group_id=str(a.ga))
     outside = await world.assign(a, a.tech_a, item, group=a.ga, technician=a.tech_b)
     assert field_codes(outside) == {"technician_id": "technician_not_in_group"}  # AC3
+    # D-154a: nobody passes the group rule any more, a lead neither (see the D-154 test).
     lead = await world.assign(a, a.lead, item, group=a.ga, technician=a.tech_b)
-    assert lead.status_code == 200, lead.text  # the lead holds assign_outside_group
+    assert field_codes(lead) == {"technician_id": "technician_not_in_group"}
+    moved = await world.assign(
+        a, a.lead, item, group=a.gb, technician=a.tech_b, reason_code="wrong_group"
+    )
+    assert moved.status_code == 200, moved.text
     requester_as_tech = await world.assign(
-        a, a.lead, lead.json(), group=a.ga, technician=a.requester
+        a, a.lead, moved.json(), group=a.gb, technician=a.requester
     )
     assert field_codes(requester_as_tech) == {"technician_id": "technician_not_allowed"}
     entries = await world.history(a, item)
     assert any(c["field"] == "technician_id" for e in entries for c in e["changes"])  # AC4
+
+
+async def test_d154_an_assignee_outside_the_group_needs_the_group_moved_for_everyone(
+    world: World,
+) -> None:
+    """D-154a (Haider, 2026-11-10): a technician, a lead and an admin alike may give an incident
+    to someone of another group only by moving it to that person's group in the same request;
+    the person keeps following it by default (D-053/D-068)."""
+    a = world.a
+    for who in (a.tech_a, a.lead, a.admin):
+        item = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+        outside = await world.assign(a, who, item, group=a.ga, technician=a.tech_b)
+        assert field_codes(outside) == {"technician_id": "technician_not_in_group"}, who
+        unchanged = await world.fresh(a, item)
+        assert unchanged["technician_id"] == str(a.tech_a)
+        moved = await world.assign(
+            a,
+            who,
+            unchanged,
+            group=a.gb,
+            technician=a.tech_b,
+            reason_code="wrong_group",
+            confirm_lose_access=True,  # a technician of GA hands it out of their reach (D-053)
+        )
+        assert moved.status_code == 200, moved.text
+        assert (moved.json()["group_id"], moved.json()["technician_id"]) == (
+            str(a.gb),
+            str(a.tech_b),
+        )
 
 
 async def test_req_inc_054_take_sets_the_group_and_conflicts_name_the_winner(world: World) -> None:

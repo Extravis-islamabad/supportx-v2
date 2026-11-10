@@ -79,6 +79,7 @@ const PEOPLE = new Set([
   'follower',
   'follower_access',
   'task.owner_id',
+  'task.done_by', // D-154d
 ]);
 // Flags: "not set" reads "No", not "(empty)".
 const FLAGS = new Set(['handed_over_out_of_reach']);

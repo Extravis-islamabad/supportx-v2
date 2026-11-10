@@ -133,6 +133,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     approvals_hidden_from_requesters: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # D-132: e-mailed approval links work without sign-in unless the tenant asks for it.
     approvals_require_sign_in: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # D-154c: ticking a request's first fulfilment task starts the work (requests only; on).
+    first_task_starts_work: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # REQ-INC-147 (WP-028 D5): requesters see the expected resolution time; off by default.
     portal_show_due_time: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
@@ -1034,6 +1036,9 @@ class WorkItemTask(TenantEntity):
             ["tenant_id", "owner_id"], ["users.tenant_id", "users.id"], name="fk_wit_owner"
         ),
         ForeignKeyConstraint(
+            ["tenant_id", "done_by"], ["users.tenant_id", "users.id"], name="fk_wit_done_by"
+        ),
+        ForeignKeyConstraint(
             ["tenant_id", "group_id"],
             ["support_groups.tenant_id", "support_groups.id"],
             name="fk_wit_group",
@@ -1068,6 +1073,8 @@ class WorkItemTask(TenantEntity):
     required: Mapped[bool] = mapped_column(Boolean, server_default="true")
     internal: Mapped[bool] = mapped_column(Boolean, server_default="false")
     done_at: Mapped[datetime | None]
+    # D-154d: who ticked it done ("Done by <name>"); cleared when it is opened again.
+    done_by: Mapped[uuid.UUID | None]
 
 
 class WorkItemWorklog(TenantEntity):

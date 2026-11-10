@@ -246,31 +246,56 @@ export function TechnicianPicker({
   testId,
   ariaLabel,
   base = 'incidents',
+  everyone = false,
+  onPerson,
 }: PickerProps & {
   groupId: string | null;
   /** The record type's prefix: who may be given a problem differs from an incident. */
   base?: 'incidents' | 'problems';
+  /**
+   * Anyone who can work the type, the group's members first (D-154a): someone of another group
+   * is then assigned by moving the record to their group, never past it.
+   */
+  everyone?: boolean;
+  /** The picked person's groups (or null when cleared), for that move. */
+  onPerson?: (person: { id: string; name: string; groupIds: string[] } | null) => void;
 }) {
   const t = useLabel();
   const spoken = useSpoken();
+  const joinParts = useJoinParts();
   const [search, setSearch] = useState('');
-  const found = useIncidentAssignees(groupId, search, disabled !== true, base);
-  const rows = found.data ?? [];
+  const found = useIncidentAssignees(everyone ? null : groupId, search, disabled !== true, base);
+  const inGroup = (groupIds: string[] | undefined) =>
+    groupId === null || (groupIds ?? []).includes(groupId);
+  // The group's own people first, then the rest, each part in the server's order. Someone in
+  // no group cannot be given a record that has one (D-154a: no group to move it to), so they
+  // are left out, never offered as a dead end (lane C's #337 review).
+  const rows = [...(found.data ?? [])]
+    .filter((r) => !everyone || inGroup(r.group_ids) || (r.group_ids ?? []).length > 0)
+    .sort((a, b) => Number(!inGroup(a.group_ids)) - Number(!inGroup(b.group_ids)));
   const twice = duplicateNames(rows.map((r) => r.display_name));
-  const options = rows.map((r) => ({
-    value: r.id,
-    name: twice.has(r.display_name.trim().toLocaleLowerCase())
-      ? `${r.display_name} (${r.email})`
-      : r.display_name,
-    'aria-label': spoken(r.display_name, r.email),
-    label: (
-      <PersonOption
-        name={r.display_name}
-        email={r.email}
-        extra={t('incidents.open_load', { count: r.open_count })}
-      />
-    ),
-  }));
+  const options = rows.map((r) => {
+    const outside = !inGroup(r.group_ids);
+    const extra = joinParts(
+      [
+        t('incidents.open_load', { count: r.open_count }),
+        ...(outside ? [t('incidents.not_in_this_group')] : []),
+      ],
+      t('list.separator'),
+    );
+    return {
+      value: r.id,
+      name: twice.has(r.display_name.trim().toLocaleLowerCase())
+        ? `${r.display_name} (${r.email})`
+        : r.display_name,
+      'aria-label': spoken(
+        r.display_name,
+        r.email,
+        outside ? t('incidents.not_in_this_group') : undefined,
+      ),
+      label: <PersonOption name={r.display_name} email={r.email} extra={extra} />,
+    };
+  });
   if (current != null && !options.some((o) => o.value === current.id)) {
     options.unshift({
       value: current.id,
@@ -292,6 +317,12 @@ export function TechnicianPicker({
       onSearch={setSearch}
       onChange={(next: string | undefined) => {
         onChange(next ?? null);
+        const row = rows.find((r) => r.id === next);
+        onPerson?.(
+          row === undefined
+            ? null
+            : { id: row.id, name: row.display_name, groupIds: row.group_ids ?? [] },
+        );
       }}
       options={options}
       optionLabelProp="name"
