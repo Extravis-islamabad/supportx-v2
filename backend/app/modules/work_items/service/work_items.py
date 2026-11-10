@@ -66,6 +66,7 @@ from app.modules.organization import (
     unit_heads,
     users_in_groups,
 )
+from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
@@ -3152,11 +3153,13 @@ DETAILS: Mapping[WorkItemTypeCode, DetailsSpec] = {
     ),
     WorkItemTypeCode.CHANGE: DetailsSpec(
         model=WorkItemChangeDetails,
-        fields=change_rules.DETAIL_FIELDS,
+        # The type and reason, and the risk: assessed and overridden (WP-045b S1, 0116).
+        fields=(*change_rules.DETAIL_FIELDS, *risk_rules.RISK_FIELDS),
         pick_lists=(
             ("change_type", PickList.CHANGE_TYPE),
             ("change_reason", PickList.CHANGE_REASON),
         ),
+        problems=risk_rules.details_problems,
     ),
 }
 
@@ -3237,8 +3240,14 @@ async def _detail_problems(  # noqa: PLR0913, PLR0917 - the change and its conte
     if people:
         found = await user_names(session, [str(v) for v in people.values()])
         problems += [(n, "user_not_found") for n, v in people.items() if str(v) not in found]
-    # REQ-REL-004 AC3: a risk set by hand says why, in history.
-    if "risk" in given and given["risk"] != current.get("risk") and not risk_reason:
+    # REQ-REL-004 AC3: a release's risk set by hand says why, in history. A change's own risk
+    # is assessed (the questionnaire) or overridden with its own reason (risk_reason, REQ-CHG-060).
+    if (
+        spec.risk_from_type
+        and "risk" in given
+        and given["risk"] != current.get("risk")
+        and not risk_reason
+    ):
         problems.append(("risk_reason", "reason_required"))
     return problems
 
@@ -3395,6 +3404,7 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
+    updated = await _reapproval(session, updated, source)
     return DetailsView(updated, row)
 
 
@@ -3800,6 +3810,7 @@ async def put_plan_section(  # noqa: PLR0913 - the section and its context, expl
     await session.flush()
     await _part_history(session, record, [Change(f"plan.{section}", before, text)], source=source)
     await _part_event(session, record, "plan_section", _part_id(record.id, section), "changed")
+    await _reapproval(session, record, source)
     return row
 
 
@@ -3847,6 +3858,33 @@ async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the per
         now=now,
         reason_code="standard_converted",
     )
+    return await _save_system_entry(
+        session,
+        record,
+        columns,
+        now=now,
+        before=before,
+        from_stage=from_stage,
+        extra=[
+            Change("change_type", was_type, normal),
+            Change("standard_converted", None, field),
+        ],
+        source=source,
+    )
+
+
+async def _save_system_entry(  # noqa: PLR0913 - the entry, its context and its history
+    session: AsyncSession,
+    record: WorkItem,
+    columns: Mapping[str, Any],
+    *,
+    now: datetime,
+    before: Mapping[str, Any],
+    from_stage: str,
+    extra: Sequence[Change],
+    source: Source,
+) -> WorkItem:
+    """Save a stage entry the system made (a restart or a send-back), with history and events."""
     clock = move_pause_clock(
         PauseClock(record.paused_since, record.paused_seconds),
         old=StatusCategory(record.status_category),
@@ -3875,8 +3913,7 @@ async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the per
         kind="status",
         changes=[
             *(Change(n, before[n], v) for n, v in after.items() if before[n] != v),
-            Change("change_type", was_type, normal),
-            Change("standard_converted", None, field),
+            *extra,
         ],
         source=source,
     )
@@ -3916,6 +3953,20 @@ async def _unlock_standard(  # noqa: PLR0913 - the record, the field and the per
         aggregate_version=updated.version,
     )
     return updated
+
+
+save_system_entry = _save_system_entry  # re-approval's send-back (WP-045b S4)
+snapshot_of = _snapshot
+
+
+async def _reapproval(session: AsyncSession, record: WorkItem, source: Source) -> WorkItem:
+    """A change's approved stage whose window, risk or plan changed may need approval again."""
+    if record.type != WorkItemTypeCode.CHANGE:
+        return record
+    # Imported here: re-approval builds on this module.
+    from app.modules.work_items.service import reapproval  # noqa: PLC0415 - see above
+
+    return await reapproval.after_save(session, record, source=source)
 
 
 def schedule_overdue(row: WorkItemStageSchedule | None, now: datetime | None = None) -> bool:
@@ -4014,6 +4065,7 @@ async def update_stage_schedule(  # noqa: PLR0913 - the change and its context, 
         reason=text,
     )
     await _part_event(session, record, "stage_schedule", _part_id(record.id, stage), "changed")
+    await _reapproval(session, record, source)
     return row
 
 

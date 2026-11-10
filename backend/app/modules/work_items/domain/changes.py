@@ -202,6 +202,8 @@ PLAN_SECTIONS = ("impact", "rollout", "backout", "test")
 # implementation successful, successful with issues, backed out or failed; tests passed or
 # failed; a deployment as a release's; the review's overall result.
 IMPLEMENTATION = "implementation"
+REVIEW, CLOSURE = "review", "closure"
+CLOSED_STATUS = "closure_closed"
 STAGE_OUTCOMES: Mapping[str, frozenset[str]] = {
     IMPLEMENTATION: frozenset({"successful", "successful_with_issues", "backed_out", "failed"}),
     "acceptance_testing": frozenset({"passed", "failed"}),
