@@ -182,6 +182,8 @@ export function NewArticlePage() {
         <Form<NewArticleForm>
           form={form}
           layout="vertical"
+          // A missing title is shown where it is, in view and focused (QA10-P4-08).
+          scrollToFirstError={{ block: 'center', focus: true }}
           initialValues={{
             topic_id: params.get('topic') ?? undefined,
             type_code: 'how_to',

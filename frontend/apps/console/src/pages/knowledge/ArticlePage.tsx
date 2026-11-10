@@ -116,7 +116,9 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
     void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.votes(article.id) });
   });
 
-  const path = topicPath(topics.data ?? [], article.topic_id, language);
+  // The path is part of the screen, so it reads in the screen's language (QA10-P4-35), as the
+  // topic tree does, whatever language the article itself is shown in.
+  const path = topicPath(topics.data ?? [], article.topic_id, articleLanguage(locale));
   const type = (types.data ?? []).find((row) => row.code === article.type_code);
   const contents = useMemo(() => headings(shown?.body_html ?? ''), [shown?.body_html]);
   const dateFormat = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' });
