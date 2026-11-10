@@ -172,6 +172,13 @@ async def test_roles_lifecycle_with_etags(world: World) -> None:
         "site_admin",
         "report_viewer",
         "problem_manager",  # WP-044c D14 (Appendix A), grants from work_items' defaults
+        # D-152, D-153: the split and the new built-in roles
+        "team_lead",
+        "asset_manager",
+        "change_manager",
+        "release_manager",
+        "purchase_manager",
+        "department_viewer",
     }
 
     created = await world.create_role(
