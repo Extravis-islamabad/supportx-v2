@@ -184,6 +184,11 @@ export const en = {
   'automation.why.routing_rule': 'Routed by the rule “{{name}}”.',
   'automation.why.rule': 'By the business rule “{{name}}”.',
   'automation.why.sla_escalation': 'By SLA escalation: {{target}}, level {{level}}',
+  'automation.why.unavailable.away': '{{name}} is Away, so it went to the group with nobody on it',
+  'automation.why.unavailable.inactive':
+    '{{name}} is no longer active, so it went to the group with nobody on it',
+  'automation.why.unavailable.not_in_group':
+    '{{name}} is not in that group any more, so it went to the group with nobody on it',
   'automation_outcome.applied': 'Done',
   'automation_outcome.chain_depth': 'Stopped: chain too long',
   'automation_outcome.failed': 'Failed',

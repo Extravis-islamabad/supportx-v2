@@ -2,10 +2,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CatalogItem } from '@supportx/api-client';
-import { fakeIncident } from '@supportx/api-client/testing';
+import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
+import { actionItem, clickAction } from '../../test/actions';
 
 // WP-030 s1: service requests in the console: the list, raising one from the catalog, one record.
 
@@ -146,6 +147,31 @@ describe('console: service requests', () => {
     expect(within(row as HTMLElement).getAllByText('Awaiting approval')).toHaveLength(2);
   });
 
+  it('Haider 2026-11-10: the list is the list template; a resized column is kept under its own settings', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = api({
+      'GET /api/v1/service-requests/list-settings/all': {
+        body: { view_key: 'all', columns: [], sort: null, page_size: 50, version: null },
+      },
+      'PUT /api/v1/service-requests/list-settings/all': (call: { body: unknown }) => ({
+        body: { view_key: 'all', version: 1, ...(call.body as object) },
+        headers: { ETag: '"1"' },
+      }),
+    });
+    render(<App />);
+    expect(await screen.findByTestId('sr-filterbar')).toBeDefined(); // the one toolbar
+    const [id] = await screen.findAllByRole('separator', { name: /ID/ });
+    if (id === undefined) throw new Error('no resize handle on the ID');
+    fireEvent.keyDown(id, { key: 'ArrowRight' });
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/service-requests/list-settings/all')).toHaveLength(1);
+    });
+    const [saved] = fake.find('PUT', '/api/v1/service-requests/list-settings/all');
+    const columns = (saved?.body as { columns: { key: string; width: number | null }[] }).columns;
+    expect(columns.find((c) => c.key === 'id')?.width).toBe(166);
+    expect(fake.find('PUT', '/api/v1/incidents/list-settings/all')).toHaveLength(0);
+  });
+
   it('narrows the list to an approval view, with its count', async () => {
     window.history.pushState({}, '', '/requests');
     const fake = api();
@@ -157,6 +183,40 @@ describe('console: service requests', () => {
       const asked = fake.find('GET', '/api/v1/service-requests');
       expect(asked.some((r) => r.url.searchParams.get('view') === 'pending_approval')).toBe(true);
     });
+  });
+
+  it('QA10V-05: the approval filter and the search go to the server as the filter DSL', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('sr-row-SR-1');
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Approval' }));
+    fireEvent.click(await screen.findByTitle('Approved'));
+    fireEvent.change(
+      screen.getByTestId('sr-search').querySelector('input') ?? screen.getByTestId('sr-search'),
+      {
+        target: { value: 'laptop' },
+      },
+    );
+    await waitFor(() => {
+      const filters = fake
+        .find('GET', '/api/v1/service-requests')
+        .map((r) => r.url.searchParams.get('filter'))
+        .filter((f): f is string => f !== null)
+        .map((f) => JSON.parse(f) as unknown);
+      expect(filters).toContainEqual({
+        and: [
+          { field: 'approval_status', op: 'eq', value: 'approved' },
+          { field: 'subject', op: 'contains', value: 'laptop' },
+        ],
+      });
+    });
+    // Never the old parameter the route does not read.
+    expect(
+      fake
+        .find('GET', '/api/v1/service-requests')
+        .some((r) => r.url.searchParams.has('approval_status')),
+    ).toBe(false);
   });
 
   it('raises one from the catalog with the form’s answers, once', async () => {
@@ -182,12 +242,67 @@ describe('console: service requests', () => {
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
+  it('Haider 2026-11-10 (F): the item form is template B, its context first; Raise says what is missing', async () => {
+    window.history.pushState({}, '', `/requests/new?item=${ITEM_ID}`);
+    api({
+      [`GET /api/v1/catalog/items/${ITEM_ID}`]: {
+        body: {
+          ...laptop,
+          plan: [
+            { title: { en: 'Order the laptop' }, internal: false, required: true },
+            { title: { en: 'Image it' }, internal: true, required: true },
+          ],
+          expected_delivery: { amount: 3, unit: 'business_days', around_the_clock: false },
+        },
+      },
+    });
+    render(<App />);
+    const context = await screen.findByTestId('sr-context');
+    expect(within(context).getByTestId('sr-context-approval').textContent).toContain(
+      "The requester's manager approves this first",
+    );
+    // F2: how long it usually takes, from the SLA that would apply.
+    expect(within(context).getByTestId('sr-context-delivery').textContent).toBe(
+      'Usually delivered within 3 working days',
+    );
+    // What's included: what a requester may see, never the internal steps.
+    const included = within(context).getByTestId('sr-context-included').textContent;
+    expect(included).toContain('Order the laptop');
+    expect(included).not.toContain('Image it');
+    // One footer, Cancel before Raise; Raise off only with the reason beside it.
+    const footer = screen.getByTestId('sr-new-footer');
+    const buttons = [...footer.querySelectorAll('button')].map((b) =>
+      b.getAttribute('data-testid'),
+    );
+    expect(buttons).toEqual(['sr-cancel', 'sr-send']);
+    expect(screen.getByTestId<HTMLButtonElement>('sr-send').disabled).toBe(true);
+    expect(screen.getByTestId('sr-send-why').textContent).toBe(
+      'Give the request a subject to raise it.',
+    );
+    fireEvent.change(screen.getByTestId('sr-subject'), { target: { value: 'Laptop' } });
+    expect(screen.getByTestId('sr-send-why').textContent).toBe(
+      'Answer the questions marked as required.',
+    );
+    fireEvent.click(screen.getByRole('radio', { name: 'air' }));
+    expect(screen.queryByTestId('sr-send-why')).toBeNull();
+    expect(screen.getByTestId<HTMLButtonElement>('sr-send').disabled).toBe(false);
+    // Raised for yourself by default, and the field says so.
+    expect(screen.getByTestId('sr-section-request').textContent).toContain('For yourself');
+  });
+
   it('QA10-P1-11: the catalog is a library: a tab per category, each item with its description', async () => {
     window.history.pushState({}, '', '/requests/new');
     const CAT = '01a1a2b3-0000-7000-8000-00000000ca01';
     api({
       'GET /api/v1/catalog/items': {
-        body: [{ ...laptop, category_id: CAT, descriptions: { en: 'A work laptop' } }],
+        // Rich text, as the catalogue editor saves it (QA10V-01: never shown as markup).
+        body: [
+          {
+            ...laptop,
+            category_id: CAT,
+            descriptions: { en: '<p>A <strong>work</strong> laptop</p>' },
+          },
+        ],
       },
       'GET /api/v1/catalog/categories': {
         body: [
@@ -207,6 +322,8 @@ describe('console: service requests', () => {
     render(<App />);
     expect(await screen.findByRole('tab', { name: /Hardware/ })).toBeDefined();
     expect(await screen.findByText('A work laptop')).toBeDefined();
+    expect(document.body.textContent).not.toContain('<p>');
+    expect(document.body.textContent).not.toContain('<strong>');
     expect(screen.getByTestId(`sr-item-${ITEM_ID}`)).toBeDefined();
   });
 
@@ -243,12 +360,146 @@ describe('console: service requests', () => {
     expect(await screen.findByText('No requests in this category yet.')).toBeDefined();
   });
 
+  it('D-154 E1: every task done with nobody on it, the request says it is ready to fulfil', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const done = {
+      id: 't-1',
+      work_item_id: SR_ID,
+      title: 'Order the laptop',
+      description: null,
+      owner_id: null,
+      group_id: null,
+      status: 'done',
+      priority: 'normal',
+      due_at: null,
+      done_at: '2026-11-10T09:00:00Z',
+      done_by: null,
+      position: 0,
+      from_plan: true,
+      required: true,
+      internal: false,
+      version: 2,
+      created_at: '2026-11-10T08:00:00Z',
+      updated_at: '2026-11-10T09:00:00Z',
+    };
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: {
+        body: { ...request, status: 'in_progress', status_category: 'open', technician_id: null },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/tasks`]: {
+        body: { items: [done], done: 1, total: 1 },
+      },
+    });
+    render(<App />);
+    expect((await screen.findByTestId('sr-ready-to-fulfil')).textContent).toContain(
+      'Ready to fulfil',
+    );
+  });
+
+  it('Haider E3: the panel shows the service level and who decided each approval', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: {
+        body: { ...request, approval_status: 'approved', status: 'in_progress' },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              ...pendingApproval,
+              state: 'approved',
+              decided_at: '2026-11-04T09:00:00Z',
+              decided_by: MANAGER,
+            },
+          ],
+          people: approvalsBody.people,
+        },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/sla`]: {
+        body: {
+          policy_id: '01a1a2b3-0000-7000-8000-00000000d001',
+          policy_name: 'Requests',
+          reason: 'created',
+          applied_at: '2026-11-04T08:00:00Z',
+          may_set_due_dates: true,
+          targets: [],
+        },
+      },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('sr-sla-card');
+    await waitFor(() => {
+      expect(card.textContent).toContain('Requests');
+    });
+    // Read-only on a request: due dates by hand are incidents' own (no change button).
+    expect(card.querySelector('[data-testid$="-change"]')).toBeNull();
+    const summary = await screen.findByTestId('sr-approvals-summary');
+    expect(summary.textContent).toContain('Approved');
+    expect(summary.textContent).toContain('Omar Manager');
+    expect(summary.textContent).not.toContain('{{'); // every value given
+  });
+
+  it('Haider E2: a request has the incident actions, and a move goes through its own route', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const working = {
+      ...request,
+      status: 'assigned',
+      status_category: 'open',
+      technician_id: '01900000-0000-7000-8000-000000000101',
+      group_id: 'g-a',
+      approval_status: 'approved',
+      actions: request.actions.map((a) =>
+        a.action === 'start_work' ? { ...a, allowed: true, reason: null } : a,
+      ),
+      operations: [
+        { action: 'assign', allowed: true, reason: null },
+        { action: 'take', allowed: false, reason: 'already_yours' },
+      ],
+    };
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: { body: working },
+      'GET /api/v1/service-requests/settings': { body: fakeIncidentCatalogue() },
+      [`POST /api/v1/service-requests/${SR_ID}/actions/start_work`]: {
+        body: { ...working, status: 'in_progress', version: working.version + 1 },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('sr-actions-more');
+    // E4: the Conversation tab counts what it lists, as on incidents (the description too).
+    expect(screen.getByTestId('sr-tab-conversation').textContent).toBe(
+      `Conversation (${String(working.conversation_count + 1)})`,
+    );
+    // A button when the bar has room, else in More actions: either way it is offered.
+    const assign =
+      screen.queryByTestId('sr-op-assign') ?? (await actionItem('sr-op-assign', 'sr-actions'));
+    expect(assign).toBeDefined();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    const slaPath = `/api/v1/service-requests/${SR_ID}/sla`;
+    await waitFor(() => {
+      expect(fake.find('GET', slaPath).length).toBeGreaterThan(0);
+    });
+    const slaBefore = fake.find('GET', slaPath).length;
+    await clickAction('inc-action-start_work', 'sr-actions');
+    await waitFor(() => {
+      expect(
+        fake.find('POST', `/api/v1/service-requests/${SR_ID}/actions/start_work`),
+      ).toHaveLength(1);
+    });
+    expect(fake.find('POST', `/api/v1/incidents/${SR_ID}/actions/start_work`)).toHaveLength(0);
+    // The SLA panel follows a save (lane B, #346: it sits under the request's detail key).
+    await waitFor(() => {
+      expect(fake.find('GET', slaPath).length).toBeGreaterThan(slaBefore);
+    });
+  });
+
   it('shows one request with its item details and approval status', async () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     api();
     render(<App />);
     // One status chip; the pending approval is not said twice (UI pass 3, Haider).
     expect((await screen.findByTestId('sr-status')).textContent).toBe('Awaiting approval');
+    // QA10V-13: the dot chip of the other record headers.
+    expect(screen.getByTestId('sr-status').querySelector('.ant-badge')).not.toBeNull();
     expect(screen.queryByTestId('sr-approval')).toBeNull();
     fireEvent.click(await screen.findByTestId('sr-tab-details'));
     const answers = await screen.findByTestId('sr-answers');

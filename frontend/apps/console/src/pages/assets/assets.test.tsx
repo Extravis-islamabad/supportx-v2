@@ -453,7 +453,11 @@ describe('console: assets', () => {
     });
     restore = fake.restore;
     render(<App />);
-    fireEvent.click(await screen.findByTestId('asset-dispose-open'));
+    // Dispose is destructive: it lives in "More actions" (D-155), never beside the buttons.
+    await screen.findByTestId('asset-move-open');
+    expect(screen.queryByTestId('asset-dispose-open')).toBeNull();
+    fireEvent.click(screen.getByTestId('asset-actions-more'));
+    fireEvent.click(await screen.findByTestId('asset-dispose-open-menu'));
     const dialog = await screen.findByTestId('asset-dispose-dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Dispose' }));
     expect((await within(dialog).findAllByText('This field is required.')).length).toBe(2);
@@ -528,6 +532,9 @@ describe('console: assets', () => {
     expect(within(card).queryByText('returned_to_vendor')).toBeNull();
     expect(await within(card).findByText('wipe-certificate.pdf')).toBeTruthy();
     expect(screen.queryByTestId('asset-dispose-open')).toBeNull();
+    fireEvent.click(screen.getByTestId('asset-actions-more'));
+    expect(await screen.findByTestId('asset-trash-menu')).toBeTruthy();
+    expect(screen.queryByTestId('asset-dispose-open-menu')).toBeNull();
   });
 
   it('Holder and links: the holder by name, who held it, links from both ends, give with If-Match', async () => {
@@ -675,5 +682,97 @@ describe('console: assets', () => {
       outcome: 'in_repair',
       comment: 'Hinge broken',
     });
+  });
+  it('D-155: selecting rows swaps the toolbar for the selection bar, and clearing brings it back', async () => {
+    window.history.pushState({}, '', '/assets');
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    await screen.findByTestId(`asset-row-${asset.id}`);
+    expect(screen.getByTestId('assets-filterbar')).toBeTruthy();
+    expect(screen.getByTestId('assets-search')).toBeTruthy();
+    expect(screen.queryByTestId('assets-selection')).toBeNull();
+    const box = screen.getAllByRole('checkbox').at(1);
+    if (box === undefined) throw new Error('the row has a checkbox');
+    fireEvent.click(box);
+    // One control row: the selection bar takes the toolbar's place while rows are selected.
+    const bar = await screen.findByTestId('assets-filterbar-selection');
+    expect(within(bar).getByTestId('assets-selection').textContent).toContain('1 selected');
+    expect(within(bar).getByTestId('assets-bulk-move-open')).toBeTruthy();
+    expect(within(bar).getByTestId('assets-make-loanable')).toBeTruthy();
+    expect(screen.queryByTestId('assets-filterbar')).toBeNull();
+    expect(screen.queryByTestId('assets-search')).toBeNull();
+    fireEvent.click(within(bar).getByTestId('assets-selection-clear'));
+    expect(await screen.findByTestId('assets-search')).toBeTruthy();
+    expect(screen.queryByTestId('assets-selection')).toBeNull();
+  });
+
+  it('D-155: the record header shows the tag, the chips, the facts and the actions on one row', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi({
+      [`GET /api/v1/assets/${asset.id}`]: {
+        body: { ...asset, loanable: true },
+        headers: { ETag: '"3"' },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const page = await screen.findByTestId('asset-page');
+    expect(within(page).getByTestId('asset-display-tag').textContent).toContain('AST-7');
+    expect(within(page).getByTestId('asset-heading').textContent).toBe('Finance laptop');
+    expect(within(page).getByTestId('record-kind-tile').getAttribute('data-kind')).toBe('asset');
+    const chips = within(page).getByTestId('record-chips');
+    expect((await within(chips).findByTestId('asset-state')).textContent).toBe('In stock');
+    expect(within(chips).getByTestId('asset-loanable').textContent).toBe('Loanable');
+    // Type and location live in the panel only (lane C's #344 review); the facts say created.
+    const facts = (await within(page).findByTestId('record-facts')).textContent;
+    expect(facts).not.toContain('Laptop');
+    expect(within(page).getByTestId('asset-panel').textContent).toContain('Laptop');
+    const actions = within(page).getByTestId('asset-actions');
+    for (const id of ['asset-move-open', 'asset-edit', 'asset-copy-open', 'asset-actions-more']) {
+      expect(within(actions).getByTestId(id)).toBeTruthy();
+    }
+    // Delete is destructive: only in "More actions", and it asks first.
+    expect(within(actions).queryByTestId('asset-trash')).toBeNull();
+    fireEvent.click(within(actions).getByTestId('asset-actions-more'));
+    fireEvent.click(await screen.findByTestId('asset-trash-menu'));
+    expect((await screen.findAllByText('Move this asset to the trash?')).length).toBeGreaterThan(0);
+    expect(fake.find('DELETE', `/api/v1/assets/${asset.id}`)).toHaveLength(0);
+  });
+
+  it('D-155: the properties show filled fields only, the empty ones behind "Add details"', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}`);
+    const fake = assetsApi();
+    restore = fake.restore;
+    render(<App />);
+    const props = await screen.findByTestId('asset-props');
+    expect(await within(props).findByText('CN0X7Q')).toBeTruthy();
+    // Barcode, location, acquired and warranty are empty: not shown until asked for.
+    expect(within(props).queryByText('Barcode or QR value')).toBeNull();
+    const add = within(props).getByTestId('asset-props-add');
+    expect(add.textContent).toBe('Add details (4)');
+    fireEvent.click(add);
+    const empty = within(props).getByTestId('asset-props-empty');
+    expect(within(empty).getByText('Barcode or QR value')).toBeTruthy();
+    expect(within(empty).getByText('Location')).toBeTruthy();
+    // An empty value opens the edit form.
+    fireEvent.click(within(empty).getByRole('button', { name: 'Edit Location' }));
+    expect(await screen.findByTestId('asset-edit-form')).toBeTruthy();
+  });
+
+  it('D-155: a disabled confirm button says why', async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=relations`);
+    const fake = assetsApi({
+      [`GET /api/v1/assets/${asset.id}/holdings`]: { body: [] },
+      [`GET /api/v1/assets/${asset.id}/links`]: { body: [] },
+    });
+    restore = fake.restore;
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('asset-holder-open'));
+    const dialog = await screen.findByTestId('asset-holder-dialog');
+    const give = within(dialog).getByRole('button', { name: 'Give to…' });
+    expect(give.hasAttribute('disabled')).toBe(true);
+    fireEvent.mouseOver(within(dialog).getByTestId('disabled-why'));
+    expect(await screen.findByText('Choose who or what gets it first')).toBeTruthy();
   });
 });

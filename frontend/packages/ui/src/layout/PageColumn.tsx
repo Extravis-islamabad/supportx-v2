@@ -25,14 +25,40 @@ export function PageColumn({
   testId?: string;
 }) {
   const wide = Grid.useBreakpoint().lg !== false;
+  const side = aside !== undefined && wide;
   if (kind === 'list') {
+    // A full-width page keeps its aside too (lane A, #351: it was dropped silently, and the new
+    // incident's suggestions vanished): beside the content when wide, below it when narrow.
     return (
-      <div style={{ width: '100%', minWidth: 0 }} data-testid={testId} data-page-column="list">
-        {children}
+      <div
+        style={{
+          width: '100%',
+          minWidth: 0,
+          ...(aside === undefined
+            ? {}
+            : {
+                display: 'grid',
+                gridTemplateColumns: side
+                  ? `minmax(0, 1fr) ${String(ASIDE_WIDTH)}px`
+                  : 'minmax(0, 1fr)',
+                gap: 24,
+                alignItems: 'start',
+              }),
+        }}
+        data-testid={testId}
+        data-page-column="list"
+      >
+        {aside === undefined ? (
+          children
+        ) : (
+          <>
+            <div style={{ minWidth: 0 }}>{children}</div>
+            <aside style={{ minWidth: 0 }}>{aside}</aside>
+          </>
+        )}
       </div>
     );
   }
-  const side = aside !== undefined && wide;
   return (
     <div
       data-testid={testId}

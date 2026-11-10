@@ -12,7 +12,7 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import {
   allOf,
@@ -28,7 +28,7 @@ import {
 import { refreshList, refreshRecord, useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
-  EmptyText,
+  loadedEmpty,
   FilterBar,
   ListPage,
   NoAccess,
@@ -232,16 +232,15 @@ export function AnnouncementsPage() {
           pagination={false}
           locale={{
             // What the empty list means (QA10-P4-10): nothing matches, an empty trash, or none yet.
-            emptyText: (
-              <EmptyText>
-                {t(
-                  search.trim() !== '' || status !== undefined || severity !== undefined
-                    ? 'announcements.empty'
-                    : trash
-                      ? 'announcements.trash_empty'
-                      : 'announcements.none_yet',
-                )}
-              </EmptyText>
+            emptyText: loadedEmpty(
+              list.isPending,
+              t(
+                search.trim() !== '' || status !== undefined || severity !== undefined
+                  ? 'announcements.empty'
+                  : trash
+                    ? 'announcements.trash_empty'
+                    : 'announcements.none_yet',
+              ),
             ),
           }}
           onRow={(row) =>
@@ -258,7 +257,24 @@ export function AnnouncementsPage() {
               key: 'id',
               title: t('announcements.col.id'),
               width: 1,
-              render: (_, row) => <bdi style={{ whiteSpace: 'nowrap' }}>{row.display_id}</bdi>,
+              // A link (QA10V-29): the row's click alone left it unreachable by keyboard, and the
+              // phone-width scroll box with nothing focusable in it (axe scrollable-region-focusable).
+              render: (_, row) => {
+                const id = <bdi style={{ whiteSpace: 'nowrap' }}>{row.display_id}</bdi>;
+                return trash ? (
+                  id
+                ) : (
+                  <Link
+                    to={`/announcements/${row.id}`}
+                    onClick={(event) => {
+                      event.stopPropagation(); // the row's own click would navigate again
+                    }}
+                    data-testid={`ann-link-${row.display_id}`}
+                  >
+                    {id}
+                  </Link>
+                );
+              },
             },
             {
               key: 'title',

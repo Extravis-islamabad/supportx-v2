@@ -99,7 +99,7 @@ test('writing help drafts a reply that is inserted only after review', async ({ 
   try {
     await page.goto(`/incidents/${item.id}`);
     await page.getByRole('tab', { name: /Conversation/ }).click();
-    await page.getByTestId('conv-reply').locator('button').first().click();
+    await page.getByTestId('inc-op-reply').locator('button').first().click(); // the header's one Reply (D-155)
     await page.getByTestId('writing-help-open').first().click();
     const drawer = page.getByTestId('writing-help');
     await drawer.getByTestId('writing-help-instruction').fill('Say we are checking the printer');

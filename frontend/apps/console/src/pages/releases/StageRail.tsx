@@ -24,21 +24,38 @@ export function StageRail({ rail }: { rail: RailStage[] }) {
     <Steps
       size="small"
       current={current < 0 ? 0 : current}
+      // Labels under each stage, wrapping between words: "Acceptance testing" is never cut
+      // mid-word (D-155; the coordinator's check of #338's shots).
+      labelPlacement="vertical"
       responsive
       data-testid="release-rail"
+      // The current stage, for tests and tools (the header's stage chip is gone, D2).
+      data-current={rail[current]?.stage}
       items={rail.map((stage) => {
         const last = stage.entries.at(-1);
         return {
-          title: <span data-testid={`rail-${stage.stage}`}>{stageName(t, stage.stage)}</span>,
+          title: (
+            <span
+              data-testid={`rail-${stage.stage}`}
+              title={stageName(t, stage.stage)}
+              style={{ whiteSpace: 'normal', overflowWrap: 'normal', wordBreak: 'normal' }}
+            >
+              {stageName(t, stage.stage)}
+            </span>
+          ),
           status: STATUS[stage.state],
           subTitle: stage.optional ? <Tag>{t('releases.rail.optional')}</Tag> : undefined,
           description: (
             <span data-testid={`rail-${stage.stage}-state`}>
-              {stage.state === 'skipped'
-                ? t('rail_state.skipped')
-                : last !== undefined
-                  ? format(last.entered_at)
-                  : t(`rail_state.${stage.state}`)}
+              {stage.state === 'skipped' ? (
+                t('rail_state.skipped')
+              ) : last !== undefined ? (
+                // One line (QA10V-19: "10 Nov 2026," / "19:16"); a step is wide enough, and
+                // the rail stacks on a phone.
+                <span style={{ whiteSpace: 'nowrap' }}>{format(last.entered_at)}</span>
+              ) : (
+                t(`rail_state.${stage.state}`)
+              )}
               {stage.entries.length > 1 &&
                 ` · ${t('releases.rail.rounds', { count: stage.entries.length })}`}
             </span>

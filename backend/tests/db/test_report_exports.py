@@ -7,6 +7,7 @@ identity_access.subject_for, as in the consumers worker (lane B, #82).
 
 import csv
 import io
+import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
@@ -474,6 +475,36 @@ async def test_records_export_takes_chosen_columns_and_sort_for_list_exports(
     assert records[0][0] == "Aardvark first"  # sorted by subject
     visible = await test_reports_api.listed(world, a, a.tech_a, None)
     assert len(records) == len(visible)  # the requester's scope, nothing more
+
+
+async def test_d155_csv_dates_are_iso_with_the_zone_in_the_header(
+    exporting: tuple[World, MemoryStorage], migrated_db: ThrowawayDatabase
+) -> None:
+    """D-155: whatever the person reads on screen, a CSV date is ISO 8601 in the export's zone,
+    and its column header names that zone ("Created (Asia/Karachi)")."""
+    world, storage = exporting
+    a = world.a
+    await test_reports_api.seed(world)
+    requested = await _request(
+        world,
+        a,
+        a.tech_a,
+        format="csv",
+        content="records",
+        definition={"entity": "incident", "columns": ["subject", "created_at"]},
+    )
+    assert requested.status_code == 202, requested.text
+    await _build(migrated_db, storage, a, requested.json()["id"])
+    data = (
+        await world.call("GET", f"/reports/exports/{requested.json()['id']}/file", a, a.tech_a)
+    ).content
+    rows = list(csv.reader(io.StringIO(data.decode("utf-8-sig"))))
+    header_at = next(i for i, r in enumerate(rows) if r[:1] == ["Subject"])
+    header = rows[header_at][1]
+    assert re.fullmatch(r"Created \([A-Za-z_]+(/[A-Za-z_+-]+)*\)", header), header
+    values = [r[1] for r in rows[header_at + 1 :] if len(r) > 1 and r[1]]
+    assert values
+    assert all(re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", v) for v in values), values
 
 
 @pytest.mark.parametrize(

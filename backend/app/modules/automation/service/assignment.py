@@ -31,10 +31,17 @@ from app.modules.automation.infra.models import (
     AssignmentSettings,
     AssignmentTurn,
     AutomationRun,
+    AutomationTrigger,
+    BusinessRule,
     TechnicianAvailability,
 )
 from app.modules.automation.service.business_rules import _invalid
-from app.modules.organization import active_unit_ids, memberships, unit_heads
+from app.modules.organization import (
+    GroupActor,
+    active_unit_ids,
+    may_manage_group,
+    memberships,
+)
 from app.shared.events import record_event
 from app.shared.history import (
     Change,
@@ -171,6 +178,46 @@ async def _named(session: AsyncSession, user_ids: Sequence[uuid.UUID]) -> dict[u
     return names
 
 
+async def step_owner(session: AsyncSession, ref: Mapping[str, Any]) -> uuid.UUID | None:
+    """Who owns the business rule or trigger a history ref names, if anyone.
+
+    D-154 rules: the owner hears when the person a step assigns could not be. None for other
+    steps (an SLA level has no owner).
+    """
+    found: uuid.UUID | None = None
+    try:
+        if ref.get("kind") == "business_rule" and ref.get("rule_id"):
+            found = await session.scalar(
+                select(BusinessRule.owner_id).where(
+                    BusinessRule.id == uuid.UUID(str(ref["rule_id"]))
+                )
+            )
+        elif ref.get("kind") == "trigger" and ref.get("trigger_id"):
+            found = await session.scalar(
+                select(AutomationTrigger.owner_id).where(
+                    AutomationTrigger.id == uuid.UUID(str(ref["trigger_id"]))
+                )
+            )
+    except ValueError:  # a ref from before ids were stored: nobody to name
+        return None
+    return found
+
+
+async def away_user_ids(
+    session: AsyncSession, user_ids: Sequence[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """Which of `user_ids` set themselves Away (D-154 rules: a rule never assigns them)."""
+    if not user_ids:
+        return frozenset()
+    rows = await session.scalars(
+        select(TechnicianAvailability.user_id).where(
+            TechnicianAvailability.user_id.in_(list(user_ids)),
+            TechnicianAvailability.state == Availability.AWAY.value,
+        )
+    )
+    return frozenset(rows.all())
+
+
 async def availability_states(
     session: AsyncSession, user_ids: Sequence[uuid.UUID]
 ) -> dict[uuid.UUID, AvailabilityState]:
@@ -200,14 +247,18 @@ async def availability_states(
 
 
 async def may_set_availability(
-    session: AsyncSession, setter: uuid.UUID, user_id: uuid.UUID, *, manages_people: bool
+    session: AsyncSession, setter: GroupActor, user_id: uuid.UUID, *, manages_people: bool
 ) -> bool:
-    """Yourself; anyone with `users.manage`; or the lead of a group the person is in."""
-    if setter == user_id or manages_people:
+    """Yourself; anyone with `users.manage`; or a team lead of a group the person is in.
+
+    D-152: leading the group is not enough on its own; the lead holds `groups.manage_own`
+    (the Team lead role), or `groups.manage` for every group.
+    """
+    if setter.user_id == user_id or manages_people:
         return True
-    for group_id in (await memberships(session, user_id)).group_ids:
-        lead, _ = await unit_heads(session, group_id, None)
-        if lead == setter:
+    groups = (await memberships(session, user_id)).group_ids
+    for group_id in groups:
+        if await may_manage_group(session, setter, group_id):
             return True
     return False
 

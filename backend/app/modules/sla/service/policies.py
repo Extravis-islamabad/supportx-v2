@@ -8,7 +8,7 @@ policies are ordered; the first enabled one whose conditions match applies.
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -93,6 +93,10 @@ FIELD_PROBLEMS = frozenset(
         "recipient_shape",
         "note_too_long",
         "unknown_reference",
+        # D-154: a person reassigned with one of their groups.
+        "reassign_group_required",
+        "person_not_in_group",
+        "person_in_no_group",
     }
 )
 
@@ -321,6 +325,59 @@ async def existing_policy_ids(
     return frozenset(rows)
 
 
+@dataclass(frozen=True)
+class DeliveryTarget:
+    """How long a record usually takes to resolve, shown before it is raised.
+
+    `amount` `unit` (minutes, hours or business days), in working time unless
+    `around_the_clock` (Haider, 2026-11-10: "Usually delivered within N working days").
+    """
+
+    amount: int
+    unit: str
+    around_the_clock: bool
+
+
+async def delivery_target(
+    session: AsyncSession, record_type: str, policy_id: uuid.UUID | None, priority: str | None
+) -> DeliveryTarget | None:
+    """The resolution target a new record would usually get, for showing before it is raised.
+
+    The given policy, or the type's fallback when none is given; its row for `priority`, else
+    its row for every priority. None when no live policy or no resolution target applies (the
+    catalogue then says nothing about delivery).
+    """
+    query = select(SlaPolicy.id).where(
+        SlaPolicy.record_type == record_type,
+        SlaPolicy.deleted_at.is_(None),
+        SlaPolicy.enabled.is_(True),
+    )
+    query = (
+        query.where(SlaPolicy.id == policy_id)
+        if policy_id is not None
+        else query.where(SlaPolicy.fallback.is_(True))
+    )
+    found = await session.scalar(query.limit(1))
+    if found is None:
+        return None
+    rows = list(
+        await session.scalars(
+            select(SlaPolicyTarget).where(
+                SlaPolicyTarget.policy_id == found,
+                SlaPolicyTarget.kind == TargetKind.RESOLUTION.value,
+                SlaPolicyTarget.amount.is_not(None),
+            )
+        )
+    )
+    chosen = next((r for r in rows if r.priority == priority), None) or next(
+        (r for r in rows if r.priority is None), None
+    )
+    if chosen is None or chosen.amount is None:
+        return None
+    around = chosen.source == CalendarSource.AROUND_THE_CLOCK.value
+    return DeliveryTarget(chosen.amount, chosen.unit, around)
+
+
 async def list_policies(session: AsyncSession, subject: Subject, code: str) -> list[PolicyView]:
     """A record type's policies in order, each with its targets and a "never matches" flag."""
     require(subject, VIEW)
@@ -458,6 +515,7 @@ async def _levels(
                         ActionKind(a["kind"]),
                         str(a["target_id"]) if a.get("target_id") is not None else None,
                         (a.get("text") or "").strip() or None,
+                        str(a["group_id"]) if a.get("group_id") is not None else None,
                     )
                     for a in item.get("actions") or ()
                 ),
@@ -467,7 +525,43 @@ async def _levels(
     for name, code, params in level_problems(levels):
         errors.append(_field(name, code, **params))
     await _level_references(session, levels, errors)
-    return levels
+    return await _reassign_groups(session, levels, errors)
+
+
+async def _reassign_groups(
+    session: AsyncSession, levels: list[Level], errors: list[FieldError]
+) -> list[Level]:
+    """Each person reassign names one of the person's groups (D-154, Haider 2026-11-10).
+
+    One group: it is filled in. Several: the editor must choose (`reassign_group_required`),
+    never guessed at run time. A chosen group the person is not in, or a person in no group,
+    is refused.
+    """
+    out: list[Level] = []
+    for level in levels:
+        actions: list[Action] = []
+        for action in level.actions:
+            if action.kind is not ActionKind.REASSIGN_PERSON or action.target_id is None:
+                actions.append(action)
+                continue
+            try:
+                person = uuid.UUID(action.target_id)
+            except ValueError:
+                actions.append(action)  # already refused as an unknown reference
+                continue
+            groups = {str(g) for g in (await organization.memberships(session, person)).group_ids}
+            chosen = action.group_id
+            if chosen is None and len(groups) == 1:
+                chosen = next(iter(groups))
+            if not groups:
+                errors.append(_field("levels", "person_in_no_group"))
+            elif chosen is None:
+                errors.append(_field("levels", "reassign_group_required"))
+            elif chosen not in groups:
+                errors.append(_field("levels", "person_not_in_group"))
+            actions.append(replace(action, group_id=chosen))
+        out.append(replace(level, actions=tuple(actions)))
+    return out
 
 
 def _references(levels: Sequence[Level]) -> tuple[set[str], set[str]]:

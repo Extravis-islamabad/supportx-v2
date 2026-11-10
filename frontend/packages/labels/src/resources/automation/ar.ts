@@ -191,6 +191,12 @@ export const ar: LabelResource = {
   'automation.why.routing_rule': 'وُجّه بالقاعدة «{{name}}».',
   'automation.why.rule': 'بقاعدة العمل «{{name}}».',
   'automation.why.sla_escalation': 'بتصعيد اتفاقية مستوى الخدمة: {{target}}، المستوى {{level}}',
+  'automation.why.unavailable.away':
+    '{{name}} في حالة «غائب»، فانتقل إلى المجموعة دون أن يُسند إلى أحد',
+  'automation.why.unavailable.inactive':
+    '{{name}} لم يعد نشطًا، فانتقل إلى المجموعة دون أن يُسند إلى أحد',
+  'automation.why.unavailable.not_in_group':
+    '{{name}} لم يعد في تلك المجموعة، فانتقل إليها دون أن يُسند إلى أحد',
   'automation_outcome.applied': 'تم',
   'automation_outcome.chain_depth': 'أُوقف: سلسلة طويلة جدًا',
   'automation_outcome.failed': 'فشل',

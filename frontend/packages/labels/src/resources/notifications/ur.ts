@@ -2,6 +2,9 @@ import type { LabelResource } from '../en';
 
 // notifications labels (see ../README.md).
 export const ur: LabelResource = {
+  'assignee_unavailable.away': 'غیر حاضر پر ہیں',
+  'assignee_unavailable.inactive': 'اب فعال نہیں',
+  'assignee_unavailable.not_in_group': 'اب اس گروپ میں نہیں',
   'delivery_reason.authentication_failed': 'میل سرور نے SupportX کا سائن اِن رد کر دیا',
   'delivery_reason.email_channel_not_configured': 'ای میل چینل ترتیب نہیں دیا گیا',
   'delivery_reason.gave_up': 'ہر کوشش کے بعد بھی ناکام',
@@ -59,6 +62,7 @@ export const ur: LabelResource = {
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
+  'notification_event.incident.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'notification_event.incident.canceled': 'واقعہ منسوخ ہوا',
   'notification_event.incident.closed': 'واقعہ بند ہوا',
   'notification_event.incident.created': 'نیا واقعہ: وصولی کی تصدیق',
@@ -100,6 +104,7 @@ export const ur: LabelResource = {
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
   'notification_event.service_request.fulfilled': 'درخواست مکمل',
+  'notification_event.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
@@ -141,6 +146,7 @@ export const ur: LabelResource = {
   'notification_recipient.owner': 'مضمون کا مالک',
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
   'notification_recipient.requester': 'درخواست گزار',
+  'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
   'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
   'notification_rules.any_priority': 'کوئی بھی ترجیح',
@@ -211,6 +217,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} {{ assignee.name }} کو تفویض ہوا: {{ record.title }}',
   'notification_template.incident.assigned.subject':
     '{{ assignee.name }} کو تفویض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.assignee_unavailable.body':
+    'السلام علیکم {{ recipient.name }}،\n\nایک قاعدے یا ایسکلیشن کو {{ record.display_id }} "{{ record.title }}" کو {{ unavailable.person }} کے سپرد کرنا تھا، جو {{ unavailable.reason }}۔ یہ کسی کو تفویض کیے بغیر گروپ میں چلا گیا۔ براہ کرم کسی کو تفویض کریں یا قاعدہ بدلیں۔',
+  'notification_template.incident.assignee_unavailable.in_app':
+    '{{ record.display_id }} کسی کو تفویض کیے بغیر اپنے گروپ میں چلا گیا: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.incident.assignee_unavailable.subject':
+    'کسی کو تفویض نہیں: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" منسوخ کر دیا گیا۔',
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} منسوخ ہو گیا',
@@ -442,6 +454,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} مکمل ہو گئی: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'مکمل: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.ready_to_fulfil.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کے سب کام ہو گئے، مگر یہ کسی کو تفویض نہیں۔ اپنے گروپ کے کسی فرد کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
+  'notification_template.service_request.ready_to_fulfil.in_app':
+    '{{ record.display_id }} تکمیل کے لیے تیار ہے: کسی کو تفویض کریں',
+  'notification_template.service_request.ready_to_fulfil.subject':
+    'تکمیل کے لیے تیار: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.received.body':
     'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست «{{ record.title }}» موصول ہوئی اور اسے {{ record.display_id }} کے طور پر درج کر لیا گیا۔ ہم آپ کو باخبر رکھیں گے۔',
   'notification_template.service_request.received.in_app':
@@ -490,6 +508,8 @@ export const ur: LabelResource = {
   'notification_variable.rule.name': 'اصول',
   'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
+  'notification_variable.unavailable.person': 'غیر تفویض › فرد',
+  'notification_variable.unavailable.reason': 'غیر تفویض › وجہ',
   'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',
   'notifications.banner.no_mail_one':
     '{{count}} ای میل انتظار میں ہے کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میل بھیج دی جائے گی۔',

@@ -14,6 +14,7 @@ import {
 import { lengthLimit, reportError, useAppearance, useLabel } from '@supportx/ui';
 
 import { nameOf } from '../admin/assets/shared';
+import { okFooter } from './dialogOk';
 
 const REASON_MAX = 500;
 
@@ -281,13 +282,16 @@ export function BulkMoveDialog({
     <Modal
       open={open}
       title={t('assets.bulk_move.title', { count: assets.length })}
-      okText={results === undefined ? t('assets.move.ok') : t('actions.close')}
       cancelText={t('actions.cancel')}
-      cancelButtonProps={{ style: results === undefined ? undefined : { display: 'none' } }}
-      okButtonProps={{ disabled: results === undefined && target === undefined }}
-      onOk={submit}
       onCancel={close}
-      confirmLoading={bulkMove.isPending}
+      footer={okFooter({
+        okText: results === undefined ? t('assets.move.ok') : t('actions.close'),
+        onOk: submit,
+        loading: bulkMove.isPending,
+        cancel: results === undefined,
+        whyDisabled:
+          results === undefined && target === undefined ? t('assets.move.pick') : undefined,
+      })}
       destroyOnHidden
       data-testid="asset-bulk-move-dialog"
     >

@@ -146,7 +146,7 @@ describe('One incident', () => {
     expect(screen.queryByTestId('inc-op-delete')).toBeNull();
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
     expect(tabs).toEqual([
-      'Conversation (0)',
+      'Conversation (1)', // the description, and no replies or notes yet
       'Details',
       'Tasks',
       'Worklogs',
@@ -180,7 +180,10 @@ describe('One incident', () => {
     // Three buttons and More actions (at most four controls, UI pass 2): Reply first and primary,
     // then the best-ranked moves (resolve, start work); close and the waits stay in the menu.
     expect(buttons).toEqual(['inc-action-start_work', 'inc-action-resolve']);
-    expect(screen.getByTestId('inc-op-reply').className).toContain('ant-btn-primary');
+    // D-155: Reply is a split button (reply to all, forward in its dropdown); its main part is primary.
+    expect(screen.getByTestId('inc-op-reply').querySelector('button')?.className).toContain(
+      'ant-btn-primary',
+    );
     expect(screen.getByTestId('inc-action-resolve').className).not.toContain('ant-btn-primary');
   });
 
@@ -458,6 +461,14 @@ describe('New incident', () => {
       .getAllByRole('button')
       .map((b) => b.getAttribute('data-testid'));
     expect(ids.indexOf('inc-new-cancel')).toBeLessThan(ids.indexOf('inc-save'));
+    // QA10V-07: template B, the fields in section cards, the bar outside the form.
+    for (const section of ['request', 'classification', 'details']) {
+      expect(screen.getByTestId(`inc-section-${section}`)).toBeDefined();
+    }
+    expect(
+      within(screen.getByTestId('inc-section-request')).getByTestId('inc-subject'),
+    ).toBeDefined();
+    expect(screen.getByTestId('inc-form').contains(footer)).toBe(false);
     fireEvent.click(await screen.findByTestId('inc-save'));
     expect((await screen.findByTestId('error-subject')).textContent).toBe(
       'This field is required.',

@@ -137,7 +137,7 @@ describe('QA10-P1-19: a change with no words of its own reads as one line', () =
     });
     render(<App />);
     const text = (await screen.findByTestId('inc-history-entry')).textContent;
-    expect(text).toContain('SLA policy changed');
+    expect(text).toContain('Yusra Requester changed SLA policy'); // a sentence (Haider 11-10)
     expect(text).not.toContain('changed → changed');
   });
 });

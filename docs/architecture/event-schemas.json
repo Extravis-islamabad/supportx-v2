@@ -195,6 +195,19 @@
             "title": "Dashboard Id",
             "type": "string"
           },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Id"
+          },
           "owner_id": {
             "format": "uuid",
             "title": "Owner Id",
@@ -234,6 +247,19 @@
             "title": "Dashboard Id",
             "type": "string"
           },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Id"
+          },
           "owner_id": {
             "format": "uuid",
             "title": "Owner Id",
@@ -241,6 +267,11 @@
           },
           "shared": {
             "title": "Shared",
+            "type": "boolean"
+          },
+          "was_group": {
+            "default": false,
+            "title": "Was Group",
             "type": "boolean"
           },
           "was_shared": {
@@ -4916,6 +4947,56 @@
         "type": "object"
       }
     },
+    "work_items.service_request.ready_to_fulfil": {
+      "1": {
+        "description": "A request's last required task is done and nobody is on it (D-154, \"E1 follows d\").\n\nIt is not fulfilled by itself; its group is told once, in the app, to assign someone.",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "group_id"
+        ],
+        "title": "ServiceRequestReadyToFulfil",
+        "type": "object"
+      }
+    },
     "work_items.settings.changed": {
       "1": {
         "description": "A type's configuration changed (prefix, default priority, categories ...).",
@@ -5090,6 +5171,72 @@
           "audience_before"
         ],
         "title": "WorkItemAssigned",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.assignee_unavailable": {
+      "1": {
+        "description": "A rule or escalation could not put the person it names on the record (D-154 \"rules\").\n\nThe record went to the step's group with nobody on it; the step's owner (or, with none,\nthe administrators) is told once, in the app. `reason`: inactive, away or not_in_group.",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Owner Id"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "person_id",
+          "reason",
+          "step"
+        ],
+        "title": "WorkItemAssigneeUnavailable",
         "type": "object"
       }
     },

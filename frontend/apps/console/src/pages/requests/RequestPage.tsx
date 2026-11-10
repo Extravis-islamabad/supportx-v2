@@ -1,42 +1,55 @@
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Descriptions, Flex, Result, Skeleton, Tabs, Typography } from 'antd';
+import { Alert, Descriptions, Flex, Result, Skeleton, Tabs, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import {
   serviceRequestKeys,
   useCatalogItem,
+  useApprovals,
+  useServiceRequestAction,
+  useServiceRequestCatalogue,
+  useTakeServiceRequest,
+  useRequestTasks,
   useServiceRequest,
   useSession,
   useStructure,
   useUnits,
   useWithdrawRequest,
   type ServiceRequest,
+  type ReplyMode,
 } from '@supportx/api-client';
 import { useRecordChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   ActionBar,
   PropertiesPanel,
   PropertyRow,
   RecordHeader,
   RecordPage,
   reportError,
-  ToneTag,
   useAccess,
   useAnswerWords,
   useAppearance,
   useDateTime,
   useLabel,
   useLicence,
+  useMinWidth,
   usePageCrumbs,
+  type RecordAction,
 } from '@supportx/ui';
 
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
 import { labelled, personName } from '../incidents/labels';
-import { PriorityTag, SlaTag } from '../incidents/tags';
+import { PriorityTag, SlaTag, StatusTag } from '../incidents/tags';
 import { ApprovalsPanel, WithdrawButton } from './Approvals';
 import { RequestTasks } from './RequestTasks';
+import { useActionReason } from '../incidents/actionReason';
+import { AssignDialog } from '../incidents/assign';
+import { useStatusActions } from '../incidents/StatusActions';
+import { useTakeAction } from '../incidents/take';
+import { IncidentSla } from '../incidents/IncidentSla';
 import { itemName } from './items';
 
 const NO_TYPING: Typing = {};
@@ -69,6 +82,35 @@ export function RequestPage() {
   return <RequestRecord r={record.data} />;
 }
 
+/** Who decided each approval, and when (Haider E3); the tab keeps the full list and buttons. */
+function ApprovalsSummary({ recordId }: { recordId: string }) {
+  const t = useLabel();
+  const { format } = useDateTime();
+  const approvals = useApprovals(recordId);
+  const people = approvals.data?.people ?? {};
+  const decided = (approvals.data?.items ?? []).filter((a) => a.decided_at != null);
+  if (approvals.isPending) return null; // never "none decided" before they load (lane C, #346)
+  if (decided.length === 0) {
+    return <EmptyText>{t('requests.approvals_none_decided')}</EmptyText>;
+  }
+  return (
+    <Flex vertical gap={4} data-testid="sr-approvals-summary">
+      {decided.map((a) => (
+        <Typography.Text key={a.id} data-testid={`sr-approval-summary-${a.id}`}>
+          {t(`approval_state.${a.state}`)} ·{' '}
+          {t('requests.decided_summary', {
+            name:
+              a.decided_by == null
+                ? t('requests.approval_admins')
+                : (people[a.decided_by]?.display_name ?? ''),
+            when: format(a.decided_at ?? ''),
+          })}
+        </Typography.Text>
+      ))}
+    </Flex>
+  );
+}
+
 function RequestRecord({ r }: { r: ServiceRequest }) {
   const t = useLabel();
   const answerWords = useAnswerWords();
@@ -79,6 +121,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const withdraw = useWithdrawRequest();
   const { can } = useAccess();
   const [replyRequest, setReplyRequest] = useState(0);
+  const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   const questions = item.data?.questions ?? [];
   const sites = useUnits('sites');
   const siteName = sites.data?.find((u) => u.id === r.site_id)?.name;
@@ -88,23 +131,73 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
     [r.requester_id, r.on_behalf_of_id].includes(me);
   const reply = r.conversation_actions.find((a) => a.action === 'reply');
   const hasApprovals = r.approval_status != null && r.approval_status !== 'not_needed';
+  // Haider E2: the incident's actions here too (Reply, Assign, Take, the moves, Fulfil in
+  // them, the rest under More), through the requests' own routes.
+  const queryClient = useQueryClient();
+  const wide = useMinWidth(576);
+  const reload = () => queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(r.id) });
+  const catalogue = useServiceRequestCatalogue();
+  const act = useServiceRequestAction(r.id);
+  const status = useStatusActions(r, catalogue.data, act);
+  const takeRequest = useTakeServiceRequest(r.id);
+  const op = (name: string) => r.operations.find((o) => o.action === name);
+  const take = useTakeAction(r, op('take'), takeRequest);
+  const reasonText = useActionReason();
+  const [assigning, setAssigning] = useState(false);
+  const assignState = op('assign');
+  const assignAction: RecordAction | null =
+    assignState === undefined
+      ? null
+      : {
+          key: 'assign',
+          label: t('work_item_operation.assign'),
+          allowed: assignState.allowed,
+          whyNot:
+            !assignState.allowed && assignState.reason != null
+              ? reasonText(assignState)
+              : undefined,
+          testId: 'sr-op-assign',
+          onClick: () => {
+            setAssigning(true);
+          },
+        };
+  // D-154 "E1 follows d": every required task done but nobody on it, so it is not fulfilled
+  // by itself; the record says so until someone takes it.
+  const tasks = useRequestTasks(r.id);
+  const required = (tasks.data?.items ?? []).filter((task) => task.from_plan && task.required);
+  const readyToFulfil =
+    r.status_category === 'open' &&
+    r.technician_id === null &&
+    required.length > 0 &&
+    required.every((task) => task.status === 'done');
   return (
     <>
       <RequestCrumbs item={r} />
       <RecordPage
         testId="sr-record"
+        alerts={
+          readyToFulfil ? (
+            <Alert
+              type="warning"
+              showIcon
+              role="status"
+              message={t('requests.ready_to_fulfil')}
+              data-testid="sr-ready-to-fulfil"
+            />
+          ) : undefined
+        }
         header={
           <RecordHeader
             icon={<ShoppingCartOutlined />}
+            kind="service_request"
             typeLabel={t('requests.record_type')}
             displayId={r.display_id}
             title={r.subject}
             testIds={{ id: 'sr-display-id', title: 'sr-heading' }}
             tags={
               <>
-                <ToneTag tone="info" testId="sr-status">
-                  {t(`work_item_status.${r.status}`)}
-                </ToneTag>
+                {/* The dot chip of the incident and problem headers (QA10V-13). */}
+                <StatusTag status={r.status} catalogue={catalogue.data} testId="sr-status" />
                 <PriorityTag priority={r.priority} source={r.priority_source} />
                 <SlaTag
                   policyId={r.sla_policy_id}
@@ -128,7 +221,9 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
         actions={
           <ActionBar
             testId="sr-actions"
-            max={3}
+            // Two buttons on a phone: the third wrapped "More actions" onto a second line
+            // (the visual matrix at 390 px).
+            max={wide ? 3 : 2}
             lead={
               mayWithdraw ? (
                 <WithdrawButton
@@ -142,7 +237,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                 />
               ) : undefined
             }
-            actions={
+            actions={([] as RecordAction[]).concat(
               reply === undefined
                 ? []
                 : [
@@ -153,12 +248,25 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                       primary: true,
                       rank: 0,
                       onClick: () => {
+                        setReplyMode('reply');
                         setReplyRequest((n) => n + 1);
                       },
                       testId: 'sr-reply',
+                      // D-155: the record's one Reply, as on incidents.
+                      variants: (['reply_all', 'forward'] as const).map((mode) => ({
+                        key: mode,
+                        label: t(`reply_mode.${mode}`),
+                        testId: `sr-${mode}`,
+                        onClick: () => {
+                          setReplyMode(mode);
+                          setReplyRequest((n) => n + 1);
+                        },
+                      })),
                     },
-                  ]
-            }
+                  ],
+              [assignAction, take.action].filter((a): a is RecordAction => a !== null),
+              status.actions,
+            )}
           />
         }
         panel={
@@ -226,6 +334,27 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   </div>
                 ),
               },
+              // Haider E3: the Service level card, as on incidents (read-only here).
+              {
+                key: 'sla',
+                title: t('incidents.panel.sla'),
+                testId: 'sr-panel-sla',
+                children: (
+                  <div data-testid="sr-sla-card">
+                    <IncidentSla item={r} base="service-requests" />
+                  </div>
+                ),
+              },
+              ...(hasApprovals
+                ? [
+                    {
+                      key: 'approvals',
+                      title: t('requests.approvals'),
+                      testId: 'sr-panel-approvals',
+                      children: <ApprovalsSummary recordId={r.id} />,
+                    },
+                  ]
+                : []),
             ]}
           />
         }
@@ -239,13 +368,18 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
             {
               key: 'conversation',
               label: (
-                <span data-testid="sr-tab-conversation">{t('requests.tab.conversation')}</span>
+                // The incident's rule (Haider E4, C4): the count of what the tab lists, the
+                // description with the replies and notes.
+                <span data-testid="sr-tab-conversation">
+                  {t('incidents.tab.conversation', { count: r.conversation_count + 1 })}
+                </span>
               ),
               children: (
                 <IncidentConversation
                   item={r}
                   typing={NO_TYPING}
                   replyRequest={replyRequest}
+                  replyMode={replyMode}
                   base="service-requests"
                 />
               ),
@@ -284,6 +418,17 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
           ]}
         />
       </RecordPage>
+      {status.dialogs}
+      {take.dialogs}
+      <AssignDialog
+        item={r}
+        open={assigning}
+        base="service-requests"
+        onClose={() => {
+          setAssigning(false);
+        }}
+        refresh={reload}
+      />
     </>
   );
 }

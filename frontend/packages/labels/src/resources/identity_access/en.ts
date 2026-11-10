@@ -442,6 +442,9 @@ export const en = {
   'permission.groups.manage': 'Manage support groups',
   'permission.groups.manage.description':
     'Create and rename support groups and change their members.',
+  'permission.groups.manage_own': 'Manage the groups you lead',
+  'permission.groups.manage_own.description':
+    'Members’ availability, assignment, reply templates, saved views and dashboards of the groups you lead; not other groups or tenant settings.',
   'permission.groups.view': 'View support groups',
   'permission.groups.view.description': 'See the support groups and their members.',
   // WP-039 identity: sign-in settings and single sign-on
@@ -781,36 +784,69 @@ export const en = {
   'readiness_check.realtime_fanout': 'Live updates',
   'readiness_status.not_ready': 'Not ready',
   'readiness_status.ready': 'Ready',
+  'role.asset_manager': 'Asset manager',
+  'role.asset_manager.description':
+    'Manages assets, the CMDB, software licences and discovery results for the whole organisation.',
+  'role.asset_manager.scope': 'Every asset',
   'role.auditor': 'Auditor',
   'role.auditor.description':
     'Reads, searches, exports and verifies the audit log and reads access settings; changes nothing.',
+  'role.auditor.scope': 'The audit log, read-only',
+  'role.change_manager': 'Change manager',
+  'role.change_manager.description':
+    'Runs changes from request to review and schedules the change advisory board.',
+  'role.change_manager.scope': 'Every change',
+  'role.department_viewer': 'Department viewer',
+  'role.department_viewer.description':
+    'Sees their own department’s requests in the portal, read-only and without technician details.',
+  'role.department_viewer.scope': 'Their own department',
   'role.knowledge_manager': 'Knowledge manager',
   'role.knowledge_manager.description':
     'Writes, reviews and publishes knowledge articles for the whole organisation.',
+  'role.knowledge_manager.scope': 'All knowledge articles',
   'role.problem_manager': 'Problem manager',
   'role.problem_manager.description':
     'Runs problem management: sees, works, assigns, approves and closes every problem, including its root cause and known errors, and reads the incidents they are about.',
+  'role.problem_manager.scope': 'Every problem',
+  'role.purchase_manager': 'Purchase and contract manager',
+  'role.purchase_manager.description': 'Looks after purchases, vendors and contracts.',
+  'role.purchase_manager.scope': 'Every purchase and contract',
+  'role.release_manager': 'Release manager',
+  'role.release_manager.description':
+    'Runs releases through their stages and assigns the stage roles.',
+  'role.release_manager.scope': 'Every release',
   'role.report_viewer': 'Report viewer',
   'role.report_viewer.description':
     'Reads every incident and request and their reports, without changing anything.',
+  'role.report_viewer.scope': 'Every incident and request, read-only',
   'role.requester': 'Requester',
   'role.requester.description':
     'Raises and follows their own requests and reads the knowledge base.',
+  'role.requester.scope': 'Their own requests',
   'role.security_admin': 'Security administrator',
   'role.security_admin.description':
     'Sign-in and security: single sign-on, passwords, MFA, sessions and invitations; no access to records.',
+  'role.security_admin.scope': 'Sign-in and security settings',
   'role.service_desk_manager': 'Service desk manager',
   'role.service_desk_manager.description':
     'Runs the service desk: every incident and request, the desk’s SLAs, automation, reports and announcements.',
+  'role.service_desk_manager.scope': 'Every desk record',
   'role.site_admin': 'Site administrator',
   'role.site_admin.description':
     'Looks after one site: its incidents and requests, people, assets and announcements.',
+  'role.site_admin.scope': 'One site',
+  'role.team_lead': 'Team lead',
+  'role.team_lead.description':
+    'Works the incidents, requests and problems of their groups and manages only the groups they lead; views changes, assets and the CMDB.',
+  'role.team_lead.scope': 'The groups they lead',
   'role.technician': 'Technician',
   'role.technician.description':
     'Works requests, problems, changes and assets; reads the knowledge base.',
+  'role.technician.scope': 'Their groups and their own records',
   'role.tenant_admin': 'Tenant administrator',
   'role.tenant_admin.description':
     'Full access to everything in the plan, including users, roles and settings.',
+  'role.tenant_admin.scope': 'Everything',
   'roles.col.name': 'Role',
   'roles.col.type': 'Type',
   'roles.col.users': 'Users',
@@ -823,7 +859,9 @@ export const en = {
   'roles.compare_same': 'These roles grant the same permissions.',
   'roles.compare_second': 'Second role',
   'roles.copy': 'Copy',
+  'roles.copy_customise': 'Copy and customise',
   'roles.copy_name': 'Copy of {{name}}',
+  'roles.default_scope': 'Reaches: {{scope}}',
   'roles.delete': 'Delete role',
   'roles.delete_confirm': 'Nobody has this role. It will be deleted.',
   'roles.delete_in_use_one':
@@ -833,7 +871,6 @@ export const en = {
   'roles.delete_title': 'Delete {{name}}?',
   'roles.deleted': 'The role was deleted.',
   'roles.description': 'Description',
-  'roles.duplicate': 'Duplicate as a custom role',
   'roles.editor.copy': 'New role from “{{name}}”',
   'roles.editor.edit': 'Role: {{name}}',
   'roles.editor.new': 'New role',

@@ -9,7 +9,7 @@ import {
   useCustomFields,
   useVendors,
 } from '@supportx/api-client';
-import { lengthLimit, useAppearance, useLabel } from '@supportx/ui';
+import { lengthLimit, pickerFormat, useAppearance, useLabel } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
 import { CustomFieldControl } from '../customFields/fields';
@@ -33,7 +33,7 @@ export function AssetFields({
   creating: boolean;
 }) {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { locale, dates } = useAppearance();
   const types = useAssetProductTypes();
   // Searching picker: the server finds products by name, manufacturer or part number, a page
   // at a time (scrolling loads more); the current one is fetched on its own if not loaded.
@@ -115,6 +115,7 @@ export function AssetFields({
       <DatePicker
         id={`asset-${field}`}
         value={draft[field] === null ? null : dayjs(draft[field])}
+        format={pickerFormat(dates, false)}
         onChange={(value: Dayjs | null) => {
           // Cleared: antd passes null although its types say otherwise.
           set({ [field]: value?.format('YYYY-MM-DD') ?? null });

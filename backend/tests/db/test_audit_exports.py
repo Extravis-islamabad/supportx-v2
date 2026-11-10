@@ -218,9 +218,13 @@ async def test_csv_and_filtered_exports(world: World, storage: S3Storage, tmp_pa
     a = world.a
     await _prepare(world, a)
     csv_export = await _export(world, a, storage, format="csv")
-    assert verify(str(await _download(world, a, csv_export, tmp_path / "c.zip"))).startswith(
-        "verified"
-    )
+    bundle = await _download(world, a, csv_export, tmp_path / "c.zip")
+    # D-155: the date column names its zone, and the published verifier still passes on the
+    # very same bundle (it reads the hashes and entries, never that header).
+    with zipfile.ZipFile(bundle) as archive:
+        header = archive.read("audit.csv").decode().splitlines()[0].split(",")
+    assert header[1] == "occurred_at (UTC)"
+    assert verify(str(bundle)).startswith("verified")
     filtered = await _export(world, a, storage, filters={"action": "role.created"})
     summary = verify(str(await _download(world, a, filtered, tmp_path / "f.zip")))
     assert "(filtered)" in summary

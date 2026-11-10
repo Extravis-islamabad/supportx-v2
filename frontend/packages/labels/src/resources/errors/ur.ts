@@ -334,8 +334,11 @@ export const ur: LabelResource = {
   'errors.field.fixed_calendar_unused': 'کیلنڈر صرف تب منتخب ہوتا ہے جب ماخذ مقررہ کیلنڈر ہو۔',
   'errors.field.flow_not_available': 'اس قسم کے ریکارڈ کی درج بمقابلہ حل شدہ رپورٹ دستیاب نہیں۔',
   'errors.field.flow_without_groupings': 'درج بمقابلہ حل شدہ رپورٹ میں گروپ بندی نہیں ہوتی۔',
+  'errors.field.fulfiller_required': 'پہلے یہ درخواست کسی کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
   'errors.field.full_sla_off':
     'مسائل کے لیے صرف ہدف کی تاریخیں ہیں۔ جواب کے اہداف شامل کرنے کے لیے مسائل پر مکمل SLA آن کریں۔',
+  'errors.field.group_dashboard_shared':
+    'گروپ کا ڈیش بورڈ سب کے ساتھ شیئر نہیں ہو سکتا۔ پہلے اسے گروپ سے نکالیں۔',
   'errors.field.group_not_found': 'یہ گروپ موجود نہیں۔',
   'errors.field.group_not_yours': 'آپ اس گروپ کے رکن نہیں۔',
   'errors.field.group_required': 'چنیں کہ آپ کا کون سا گروپ اسے لے گا۔',
@@ -441,6 +444,9 @@ export const ur: LabelResource = {
   'errors.field.period_weekday_invalid': 'ہفتے کا کوئی دن منتخب کریں۔',
   'errors.field.periods_overlap':
     'کام کے دورانیے ایک دوسرے پر آ رہے ہیں۔ رات کا دورانیہ بھی اگلی صبح کے دورانیے سے پہلے ختم ہونا چاہیے۔',
+  'errors.field.person_in_no_group':
+    'یہ فرد کسی سپورٹ گروپ میں نہیں، اس لیے انہیں کچھ تفویض نہیں ہو سکتا۔',
+  'errors.field.person_not_in_group': 'یہ فرد منتخب گروپ کے رکن نہیں۔',
   'errors.field.phone_not_valid': 'فون نمبر درج کریں: ہندسے، خالی جگہ، +، - اور قوسین۔',
   'errors.field.plain_connection_refused':
     'بغیر انکرپشن کنکشن رد کیا جاتا ہے جب تک آپ اجازت نہ دیں۔',
@@ -451,6 +457,8 @@ export const ur: LabelResource = {
   'errors.field.read_only': 'یہ فیلڈ یہاں تبدیل نہیں ہو سکتی۔',
   'errors.field.read_only_in_stage': 'موجودہ مرحلے میں یہ فیلڈ بدلی نہیں جا سکتی۔',
   'errors.field.reason_required': 'وجہ بتائیں۔',
+  'errors.field.reassign_group_required':
+    'یہ فرد کئی گروپوں میں ہیں: وہ گروپ چنیں جس میں ریکارڈ جائے گا۔',
   'errors.field.recipient_shape': 'اس وصول کنندہ کے لیے شخص یا گروپ منتخب کریں۔',
   'errors.field.recipients_required': 'کم از کم ایک شخص یا گروپ منتخب کریں۔',
   'errors.field.record_not_found': 'آپ کے دیکھنے کے قابل کسی ریکارڈ کی یہ شناخت نہیں۔',
@@ -615,6 +623,7 @@ export const ur: LabelResource = {
   'errors.files_not_configured': 'فائلیں محفوظ نہیں ہو سکتیں: انکرپشن کیز ترتیب نہیں دی گئیں۔',
   'errors.follower_not_found': 'یہ شخص اسے فالو نہیں کر رہا۔',
   'errors.group_not_found': 'سپورٹ گروپ نہیں ملا۔',
+  'errors.group_not_led': 'آپ صرف ان گروپس کا انتظام کر سکتے ہیں جن کی آپ قیادت کرتے ہیں۔',
   'errors.holiday_list_not_found': 'تعطیلات کی یہ فہرست موجود نہیں یا حذف ہو چکی ہے۔',
   'errors.holiday_not_found': 'یہ تعطیل موجود نہیں یا حذف ہو چکی ہے۔',
   'errors.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
@@ -877,6 +886,8 @@ export const ur: LabelResource = {
   'errors.system_calendar_required':
     'ہر ادارہ یہ کیلنڈر رکھتا ہے، اس لیے اسے حذف نہیں کیا جا سکتا۔',
   'errors.system_role_immutable': 'پہلے سے موجود کردار تبدیل یا حذف نہیں کیے جا سکتے۔',
+  'errors.system_role_not_deletable':
+    'بلٹ ان رولز حذف نہیں کیے جا سکتے۔ اپنا ورژن بنانے کے لیے رول کی نقل بنائیں۔',
   'errors.technician_limit_reached':
     'آپ کے ادارے کے پلان میں ٹیکنیشن کی تمام نشستیں استعمال میں ہیں۔ نشست خالی کرنے یا مزید شامل کرنے کے لیے اپنے منتظم سے کہیں۔',
   'errors.technicians_only': 'صرف ٹیکنیشن دوسرے صارفین کو دیکھ سکتا ہے۔',

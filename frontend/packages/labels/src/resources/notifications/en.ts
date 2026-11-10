@@ -1,5 +1,8 @@
 // notifications labels (see ../README.md). English is the reference.
 export const en = {
+  'assignee_unavailable.away': 'is set to Away',
+  'assignee_unavailable.inactive': 'is no longer active',
+  'assignee_unavailable.not_in_group': 'is not in that group any more',
   'delivery_reason.authentication_failed': "the mail server refused SupportX's sign-in",
   'delivery_reason.email_channel_not_configured': 'email channel not configured',
   'delivery_reason.gave_up': 'still failing after every retry',
@@ -57,6 +60,7 @@ export const en = {
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.incident.assigned': 'Incident assigned',
+  'notification_event.incident.assignee_unavailable': 'Rule could not assign its person',
   'notification_event.incident.canceled': 'Incident canceled',
   'notification_event.incident.closed': 'Incident closed',
   'notification_event.incident.created': 'New incident: acknowledgement',
@@ -97,6 +101,7 @@ export const en = {
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
   'notification_event.service_request.fulfilled': 'Request fulfilled',
+  'notification_event.service_request.ready_to_fulfil': 'Request ready to fulfil',
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
@@ -138,6 +143,7 @@ export const en = {
   'notification_recipient.owner': 'Article owner',
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
+  'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.topic_owner': 'Topic owner',
   'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
@@ -208,6 +214,12 @@ export const en = {
     '{{ record.display_id }} is assigned to {{ assignee.name }}: {{ record.title }}',
   'notification_template.incident.assigned.subject':
     'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.assignee_unavailable.body':
+    'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
+  'notification_template.incident.assignee_unavailable.in_app':
+    '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.incident.assignee_unavailable.subject':
+    'Nobody assigned: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was canceled.',
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} was canceled',
@@ -439,6 +451,12 @@ export const en = {
     '{{ record.display_id }} is done: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'Done: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.ready_to_fulfil.body':
+    'Hello {{ recipient.name }},\n\nEvery task of {{ record.display_id }} "{{ record.title }}" is done, but nobody is on it. Assign someone of your group to fulfil it.',
+  'notification_template.service_request.ready_to_fulfil.in_app':
+    '{{ record.display_id }} is ready to fulfil: assign someone',
+  'notification_template.service_request.ready_to_fulfil.subject':
+    'Ready to fulfil: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.received.body':
     'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" and logged it as {{ record.display_id }}. We will keep you updated.',
   'notification_template.service_request.received.in_app':
@@ -487,6 +505,8 @@ export const en = {
   'notification_variable.rule.name': 'Rule',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
+  'notification_variable.unavailable.person': 'Unassigned › Person',
+  'notification_variable.unavailable.reason': 'Unassigned › Why',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',
   'notifications.banner.no_mail_one':
     '{{count}} e-mail waits because outgoing mail is not set up. In-app notifications still go out; the e-mail is sent once mail works.',

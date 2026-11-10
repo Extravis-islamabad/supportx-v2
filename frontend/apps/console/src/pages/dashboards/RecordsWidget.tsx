@@ -65,9 +65,13 @@ export function RecordsWidget({
             <Typography.Text type="secondary" style={{ flex: 'none' }}>
               {item.display_id}
             </Typography.Text>
-            <Typography.Link ellipsis style={{ flex: 1, minWidth: 0 }}>
-              {item.subject}
-            </Typography.Link>
+            <Typography.Text
+              // The whole subject when it is cut (QA10V-27); Link has no tooltip ellipsis.
+              ellipsis={{ tooltip: item.subject }}
+              style={{ flex: 1, minWidth: 0 }}
+            >
+              <Typography.Link>{item.subject}</Typography.Link>
+            </Typography.Text>
             <PriorityTag priority={item.priority} source={item.priority_source} />
           </Flex>
         </List.Item>

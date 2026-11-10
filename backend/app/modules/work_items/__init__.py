@@ -46,6 +46,7 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     ai_sources,
+    audit_subtype,
     bulk,
     inbound_mail,
     notifications,
@@ -139,6 +140,8 @@ request_notifications.register()
 problem_notifications.register()  # WP-044c D15
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
+# Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
+audit_subtype.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
 # Who may reach work item files: at import too, since mail attachments upload in the worker.

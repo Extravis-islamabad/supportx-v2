@@ -24,6 +24,7 @@ from app.modules.analytics.domain.tables import (
     Value,
     safe_text,
 )
+from app.shared.export_dates import CSV_DATETIME, EXCEL_DATETIME_FORMAT
 
 if TYPE_CHECKING:
     from openpyxl.worksheet._write_only import WriteOnlyWorksheet
@@ -34,7 +35,7 @@ _HOURS = 3600.0
 _FORMATS = {
     CellKind.PERCENT: "0.0%",
     CellKind.HOURS: "0.00",
-    CellKind.DATETIME: "yyyy-mm-dd hh:mm",
+    CellKind.DATETIME: EXCEL_DATETIME_FORMAT,  # a real date cell (D-155)
     CellKind.NUMBER: "#,##0.##",
 }
 
@@ -59,7 +60,7 @@ def _csv_text(kind: CellKind, value: Value) -> str:
     if plain is None:
         return ""
     if isinstance(plain, datetime):
-        return plain.strftime("%Y-%m-%d %H:%M")
+        return plain.strftime(CSV_DATETIME)  # ISO 8601, already the export zone's (D-155)
     if kind == CellKind.PERCENT and isinstance(plain, float):
         return f"{plain * 100:.1f}%"
     return str(plain)

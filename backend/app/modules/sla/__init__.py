@@ -37,8 +37,8 @@ from app.modules.sla.service.calendars import (
     calendar_for_maths,
     system_calendar_id,
 )
-from app.modules.sla.service.clock import SlaStamp, on_change, set_due_by_hand
-from app.modules.sla.service.policies import existing_policy_ids
+from app.modules.sla.service.clock import SlaStamp, on_change, rebase, set_due_by_hand
+from app.modules.sla.service.policies import DeliveryTarget, delivery_target, existing_policy_ids
 from app.modules.sla.service.realtime import ROUTES
 from app.modules.sla.service.records import (
     SlaRecordView,
@@ -46,7 +46,12 @@ from app.modules.sla.service.records import (
     record_calendar,
     record_sla,
 )
-from app.modules.sla.service.registry import Fired, SlaRecordType, register_record_type
+from app.modules.sla.service.registry import (
+    Fired,
+    RecordState,
+    SlaRecordType,
+    register_record_type,
+)
 from app.modules.sla.service.scheduler import SCHEDULER
 from app.modules.sla.service.timers import escalation_run, fire, next_wake, safety_net
 from app.shared.schedules import ScheduleSpec
@@ -82,10 +87,12 @@ __all__ = [
     "ActionKind",
     "Calendar",
     "CalendarError",
+    "DeliveryTarget",
     "Fired",
     "Level",
     "Recipient",
     "RecipientKind",
+    "RecordState",
     "SlaBreached",
     "SlaEscalated",
     "SlaRecordType",
@@ -95,12 +102,14 @@ __all__ = [
     "SlaWarning",
     "SystemCalendar",
     "calendar_for_maths",
+    "delivery_target",
     "escalation_run",
     "existing_policy_ids",
     "fire",
     "module",
     "next_wake",
     "on_change",
+    "rebase",
     "record_calendar",
     "record_sla",
     "register_record_type",

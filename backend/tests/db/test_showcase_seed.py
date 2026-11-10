@@ -7,7 +7,7 @@ import uuid
 from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import asyncpg
@@ -19,8 +19,10 @@ from app.core.database import Database
 from app.core.tenancy import TenantContext
 from app.modules.audit.infra.signing import LocalSigner, new_key_config, trusted_keys
 from app.modules.audit.service.integrity import seal, verify
+from app.shared.events.outbox import OUTBOX_TABLE
 from conftest import create_tenant, make_settings
 from tooling import db_testing
+from tooling import showcase_assets as assets
 from tooling import showcase_lane_a as lane_a
 from tooling import showcase_seed as seed
 
@@ -209,6 +211,133 @@ async def _by_hand(database: db_testing.ThrowawayDatabase) -> str:
     return str(record["id"])
 
 
+@dataclass(frozen=True)
+class SeedAssets:
+    """The seed's assets as the database has them (lane B's section, tooling/showcase_assets)."""
+
+    holders: dict[str, str | None]  # tag -> "user <email>", "department <name>", "asset <tag>"
+    versions: dict[str, int]
+    trashed: set[str]
+    loans: dict[str, str]  # tag of an asset out on an open loan -> the borrower's e-mail
+    groups: dict[str, set[str]]  # static group name -> its members' tags
+    products: set[str]
+
+
+async def _seed_assets(url: str) -> SeedAssets:
+    conn = await asyncpg.connect(url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            rows = await conn.fetch(
+                "SELECT a.tag, a.version, a.deleted_at IS NOT NULL AS trashed, u.email,"
+                " d.name AS department, p.tag AS parent FROM assets a"
+                " LEFT JOIN users u ON u.id = a.owner_user_id"
+                " LEFT JOIN departments d ON d.id = a.department_id"
+                " LEFT JOIN assets p ON p.id = a.parent_asset_id"
+                " WHERE a.tag LIKE 'SX-%'"
+            )
+            loans = await conn.fetch(
+                "SELECT a.tag, u.email FROM asset_loans l"
+                " JOIN asset_loan_items i ON i.loan_id = l.id AND i.returned_at IS NULL"
+                " JOIN assets a ON a.id = i.asset_id JOIN users u ON u.id = l.borrower_id"
+                " WHERE l.closed_at IS NULL"
+            )
+            members = await conn.fetch(
+                "SELECT g.name, a.tag FROM asset_groups g"
+                " JOIN asset_group_members m ON m.group_id = g.id"
+                " JOIN assets a ON a.id = m.asset_id"
+                " WHERE g.kind = 'static' AND g.deleted_at IS NULL"
+            )
+            products = await conn.fetch("SELECT name FROM asset_products WHERE deleted_at IS NULL")
+    finally:
+        await conn.close()
+
+    def holder(r: asyncpg.Record) -> str | None:
+        if r["email"]:
+            return f"user {r['email']}"
+        if r["department"]:
+            return f"department {r['department']}"
+        return f"asset {r['parent']}" if r["parent"] else None
+
+    groups: dict[str, set[str]] = {}
+    for m in members:
+        groups.setdefault(m["name"], set()).add(m["tag"])
+    return SeedAssets(
+        holders={r["tag"]: holder(r) for r in rows if not r["trashed"]},
+        versions={r["tag"]: r["version"] for r in rows},
+        trashed={r["tag"] for r in rows if r["trashed"]},
+        loans={r["tag"]: r["email"] for r in loans},
+        groups=groups,
+        products={r["name"] for r in products},
+    )
+
+
+async def _first_assets(first: seed.Report, url: str) -> SeedAssets:
+    """Lane B: assets to show (the visual matrix's asset screen), as the first run made them."""
+    # The products, the assets, three holders (a person, a department, the monitor's desktop),
+    # the loanable mark, the loan, the group and its three members.
+    assert first.assets == len(assets.PRODUCTS) + len(assets.ASSETS) + 3 + 1 + 1 + 1 + 3 == 22
+    found = await _seed_assets(url)
+    assert found.products == {p.name for p in assets.PRODUCTS}
+    assert found.holders == {
+        "SX-LAP-001": f"user {seed.REQUESTER.email}",
+        "SX-DSK-001": f"department {assets.DEPARTMENT}",
+        "SX-MON-001": "asset SX-DSK-001",  # the component
+        "SX-LAP-002": f"user {seed.NEW_STARTER.email}",  # the loan gives it to the borrower
+        "SX-LAP-003": None,
+        "SX-PHN-001": None,
+        "SX-PRN-001": None,
+        "SX-MON-002": None,
+    }
+    assert found.loans == {"SX-LAP-002": seed.NEW_STARTER.email}
+    assert found.groups == {assets.GROUP: set(assets.GROUP_MEMBERS)}
+    assert found.trashed == set()
+    assert found.versions["SX-PRN-001"] == assets.CREATED  # the seed's own, never saved again
+    return found
+
+
+async def _assets_by_hand(database: db_testing.ThrowawayDatabase) -> None:
+    """The showcase admin at the console changes three of the seed's assets.
+
+    Takes the person's laptop back (held by no one now), takes the loaned laptop back early (the
+    loan closes; the asset is unheld and still loanable) and puts the printer in the trash: each
+    a state the seed's own steps would act on, were it still as the seed left it.
+    """
+    conn = await asyncpg.connect(database.migrator_url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            admin: uuid.UUID = await conn.fetchval(
+                "SELECT id FROM users WHERE email = $1", seed.ADMIN.email
+            )
+    finally:
+        await conn.close()
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    contexts = {admin: TenantContext(seed.TENANT_ID, admin, roles=frozenset(seed.ADMIN.roles))}
+    async with seed.console_api(settings, contexts) as client:
+        person = seed.Api(client, admin)  # its own helper: nothing it does is the seed's
+        tags = {a["tag"]: a for a in await person.all_pages("/api/v1/assets")}
+        laptop = tags["SX-LAP-001"]
+        await person.call(
+            "DELETE", f"/api/v1/assets/{laptop['id']}/holder", version=laptop["version"]
+        )
+        loaner = tags["SX-LAP-002"]
+        loan = next(
+            loan
+            for loan in await person.call("GET", "/api/v1/assets/loans")
+            if any(a["id"] == loaner["id"] for a in loan["assets"])
+        )
+        await person.call(
+            "POST",
+            f"/api/v1/assets/loans/{loan['id']}/returns",
+            json={"asset_ids": [loaner["id"]]},
+        )
+        printer = tags["SX-PRN-001"]
+        await person.call("DELETE", f"/api/v1/assets/{printer['id']}", version=printer["version"])
+
+
 async def _times_of(url: str, record_id: str) -> tuple[Any, ...]:
     """The incident's own times and every history row's time, to compare after a run."""
     conn = await asyncpg.connect(url)
@@ -377,6 +506,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     # QA6-DATA-01: knowledge and releases to show, not empty modules.
     assert first.articles == len(seed.KB_ARTICLES) == 5
     assert first.releases == len(seed.RELEASES) == 2
+    found = asyncio.run(_first_assets(first, database.migrator_url))
     assert first.backdated == 75  # spread over the past 30 days (choice (b)); not releases
     assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
@@ -429,6 +559,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.catalog_published,
         second.articles,
         second.releases,
+        second.assets,
         second.service_requests,
         second.problems,
         second.managers,
@@ -436,8 +567,9 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.featured,
         second.sla_policies,
         second.sla_from_creation,
-    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     assert second.backdated == 0  # nothing made now, so nothing moved
+    assert asyncio.run(_seed_assets(database.migrator_url)) == found
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
     # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
     # database refuses the change outright).
@@ -449,6 +581,24 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     }
     assert asyncio.run(_counts(database.migrator_url, bystander)) == before
     assert keycloak.passwords[imported] == "Changed-By-Hand-1!"
+
+
+def test_seed_assets_changed_by_hand_stay_as_the_person_left_them(
+    seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak],
+) -> None:
+    """Rule 3 (lanes A and C): never given back, lent again or remade after a person's change."""
+    database, keycloak = seeded_copy
+    asyncio.run(_assets_by_hand(database))
+    by_hand = asyncio.run(_seed_assets(database.migrator_url))
+    # Each is now in a state the seed's steps would act on, were it still as the seed left it.
+    assert by_hand.holders["SX-LAP-001"] is None
+    assert by_hand.holders["SX-LAP-002"] is None
+    assert by_hand.loans == {}
+    assert by_hand.trashed == {"SX-PRN-001"}
+
+    again = asyncio.run(_run(database, keycloak))
+    assert again.assets == 0
+    assert asyncio.run(_seed_assets(database.migrator_url)) == by_hand
 
 
 # --- step 6: SLAs from creation for incidents made before any SLA (Haider, 2026-11-09) --------
@@ -643,3 +793,196 @@ async def _history_sources(url: str, record_id: uuid.UUID) -> set[str]:
     finally:
         await conn.close()
     return {r["source"] for r in rows}
+
+
+# --- step 7: fresh dates (Haider, 2026-11-10) ------------------------------------------------
+
+
+async def _seed_open_latest(url: str) -> list[Any]:
+    """The latest time of each open seed incident (made by the seed's admin)."""
+    conn = await asyncpg.connect(url)
+    try:
+        # The migrator is held to RLS like the app (business tables force it): say the tenant.
+        await conn.execute("SELECT set_config('app.tenant_id', $1, false)", str(seed.TENANT_ID))
+        rows = await conn.fetch(
+            "SELECT greatest(w.created_at, w.updated_at) AS latest FROM work_items w"
+            " JOIN users u ON u.id = w.created_by"
+            " WHERE w.tenant_id = $1 AND w.type = 'incident' AND u.email = $2"
+            " AND w.status_category NOT IN ('resolved', 'closed', 'canceled')",
+            seed.TENANT_ID,
+            seed.ADMIN.email,
+        )
+    finally:
+        await conn.close()
+    return [r["latest"] for r in rows]
+
+
+async def _target_states(url: str) -> dict[tuple[Any, str], str]:
+    conn = await asyncpg.connect(url)
+    try:
+        rows = await conn.fetch(
+            "SELECT record_id, kind, state FROM sla_targets WHERE tenant_id = $1", seed.TENANT_ID
+        )
+    finally:
+        await conn.close()
+    return {(r["record_id"], r["kind"]): r["state"] for r in rows}
+
+
+async def _breach_all_running(url: str) -> None:
+    conn = await asyncpg.connect(url)
+    try:
+        await conn.execute(
+            "UPDATE sla_targets SET state = 'breached', breached_at = due_at"
+            " WHERE tenant_id = $1 AND state = 'running' AND due_at IS NOT NULL",
+            seed.TENANT_ID,
+        )
+    finally:
+        await conn.close()
+
+
+async def _outbox(url: str) -> int:
+    conn = await asyncpg.connect(url)
+    try:
+        return int(
+            await conn.fetchval(
+                f"SELECT count(*) FROM {OUTBOX_TABLE} WHERE tenant_id = $1",  # noqa: S608 - fixed name
+                seed.TENANT_ID,
+            )
+        )
+    finally:
+        await conn.close()
+
+
+def test_step7_brings_the_seeds_own_records_to_today_silently_and_once(
+    seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak],
+) -> None:
+    database, _ = seeded_copy
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    hand_made = asyncio.run(_by_hand(database))  # a person's incident, edited: never moved
+    hand_before = asyncio.run(_times_of(database.migrator_url, hand_made))
+    # As on a stack whose waker ran on the old dates: every running target already breached.
+    asyncio.run(_breach_all_running(database.admin_url))
+    audit_before = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
+    outbox_before = asyncio.run(_outbox(database.admin_url))
+    states_before = asyncio.run(_target_states(database.admin_url))
+    now = datetime.now(UTC)
+
+    moved = asyncio.run(seed.freshen(settings, seed.TENANT_ID, now=now))
+    assert moved > 0
+    # Open seed incidents read as of today: their latest time within the last three days.
+    latest = asyncio.run(_seed_open_latest(database.migrator_url))
+    assert latest
+    assert all(now - timedelta(hours=21) <= t <= now for t in latest)
+    assert asyncio.run(_times_of(database.migrator_url, hand_made)) == hand_before
+    # Clocks set right from now: a target breached on the old dates runs again when its due
+    # moment is now ahead (lane C's case), silently: no event, no audit entry.
+    states_after = asyncio.run(_target_states(database.admin_url))
+    moves = Counter(
+        (states_before[key], state) for key, state in states_after.items() if key in states_before
+    )
+    # Most run again from today; only a few with the shortest targets are still past due.
+    assert moves[("breached", "running")] > moves[("breached", "breached")], moves
+    assert asyncio.run(_outbox(database.admin_url)) == outbox_before
+    assert asyncio.run(_audit(database.admin_url, seed.TENANT_ID)) == audit_before
+    assert asyncio.run(_audit_chain(database.app_url)) == "passed"
+    # Once: the same day again moves nothing; another tenant is refused. A clock left wrong
+    # (as if an earlier rebase had failed after its move) is still set right by the re-run.
+    asyncio.run(_breach_all_running(database.admin_url))
+    assert asyncio.run(seed.freshen(settings, seed.TENANT_ID, now=now)) == 0
+    healed = asyncio.run(_target_states(database.admin_url))
+    assert Counter(healed.values()) == Counter(states_after.values())
+    with pytest.raises(seed.SeedError, match="showcase tenant"):
+        asyncio.run(seed.freshen(settings, uuid.uuid4(), now=now))
+
+
+# --- E1 repair (Haider, 2026-11-10): requests fulfilled with nobody on them --------------------
+
+
+async def _updates_of(url: str, record: uuid.UUID) -> list[Any]:
+    """The changed fields of each `work_item.updated` event of the record in the outbox."""
+    conn = await asyncpg.connect(url)
+    try:
+        rows = await conn.fetch(
+            f"SELECT envelope->'payload'->'changed_fields' AS fields FROM {OUTBOX_TABLE}"  # noqa: S608 - fixed name
+            " WHERE event_type = 'work_items.work_item.updated'"
+            " AND envelope->'payload'->>'work_item_id' = $1 ORDER BY id",
+            str(record),
+        )
+    finally:
+        await conn.close()
+    return [json.loads(r["fields"]) for r in rows]
+
+
+async def _orphan_one_fulfilled_request(url: str) -> uuid.UUID:
+    """As SR-11 on the shared stack: a fulfilled request whose technician is empty."""
+    conn = await asyncpg.connect(url)
+    try:
+        record: uuid.UUID = await conn.fetchval(
+            "UPDATE work_items SET technician_id = NULL WHERE id = ("
+            "  SELECT id FROM work_items WHERE tenant_id = $1 AND type = 'service_request'"
+            "  AND status_category = 'resolved' ORDER BY display_number LIMIT 1"
+            ") RETURNING id",
+            seed.TENANT_ID,
+        )
+    finally:
+        await conn.close()
+    return record
+
+
+def test_e1_repair_gives_a_fulfilled_request_its_fulfiller_once_and_audits_it(
+    seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak],
+) -> None:
+    from tooling import repair_showcase_fulfillers as repair  # noqa: PLC0415 - the tool under test
+
+    database, _ = seeded_copy
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    orphan = asyncio.run(_orphan_one_fulfilled_request(database.admin_url))
+    assert orphan is not None
+    audit_before = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
+    planned = asyncio.run(repair.run(settings, write=False))
+    assert [p.record_id for p in planned] == [orphan], [p.line() for p in planned]
+    assert asyncio.run(_audit(database.admin_url, seed.TENANT_ID)) == audit_before  # dry run
+    asyncio.run(repair.run(settings, write=True))
+
+    async def after() -> tuple[Any, Any]:
+        conn = await asyncpg.connect(database.admin_url)
+        try:
+            row = await conn.fetchrow(
+                "SELECT w.technician_id, w.group_id,"
+                " EXISTS (SELECT 1 FROM group_members m WHERE m.group_id = w.group_id"
+                "         AND m.user_id = w.technician_id) AS in_group"
+                " FROM work_items w WHERE w.id = $1",
+                orphan,
+            )
+            history = await conn.fetchval(
+                "SELECT count(*) FROM field_changes WHERE record_id = $1"
+                " AND field = 'technician_id' AND new_value IS NOT NULL",
+                orphan,
+            )
+        finally:
+            await conn.close()
+        return row, history
+
+    row, history = asyncio.run(after())
+    assert row["technician_id"] is not None
+    assert row["group_id"] is None or row["in_group"]  # D-154a: someone of its own group
+    assert history >= 1
+    added = [
+        e
+        for e in asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
+        if e not in set(audit_before)
+    ]
+    # The repair's own entry; with WP-064 (#340) the save's lifecycle entry joins it.
+    actions = [e[1] for e in added]
+    assert actions.count("service_request.fulfiller_repaired") == 1, actions
+    assert all(a.startswith("service_request.") for a in actions), actions
+    # Its update event too, so open screens and search follow (rule 5b, lane B).
+    events = asyncio.run(_updates_of(database.admin_url, orphan))
+    assert events == [["technician_id"]]
+    assert asyncio.run(_audit_chain(database.app_url)) == "passed"
+    assert asyncio.run(repair.run(settings, write=False)) == []  # once
+    assert repair.refuse("other", settings) is not None

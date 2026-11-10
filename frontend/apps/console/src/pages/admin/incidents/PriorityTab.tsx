@@ -116,6 +116,7 @@ function MatrixCard({ catalogue }: { catalogue: IncidentCatalogue }) {
           type="primary"
           loading={pending}
           disabled={!dirty || changed === 0}
+          whyDisabled={t('why.nothing_changed')}
           onClick={() => {
             save(
               {

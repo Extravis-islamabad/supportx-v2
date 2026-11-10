@@ -28,7 +28,9 @@ import {
   type AssetRecord,
 } from '@supportx/api-client';
 import {
+  EmptyText,
   lengthLimit,
+  pickerFormat,
   reportError,
   useAppearance,
   useDateTime,
@@ -86,6 +88,7 @@ export function DisposeAssetDialog({
   onClose: () => void;
 }) {
   const t = useLabel();
+  const { dates } = useAppearance();
   const { dispose } = useAssetActions();
   const [when, setWhen] = useState<Dayjs | null>(dayjs());
   const [method, setMethod] = useState<AssetDisposalInput['method']>();
@@ -155,6 +158,7 @@ export function DisposeAssetDialog({
           <DatePicker
             value={when}
             onChange={setWhen}
+            format={pickerFormat(dates, false)}
             disabledDate={(day) => day.isAfter(dayjs(), 'day')}
             data-testid="asset-dispose-on"
           />
@@ -276,7 +280,7 @@ export function DisposalCard({ asset, canManage }: { asset: AssetRecord; canMana
       <List
         size="small"
         dataSource={certificates}
-        locale={{ emptyText: t('assets.dispose.no_certificate') }}
+        locale={{ emptyText: <EmptyText>{t('assets.dispose.no_certificate')}</EmptyText> }}
         renderItem={(file) => (
           <List.Item key={file.id}>
             <Button

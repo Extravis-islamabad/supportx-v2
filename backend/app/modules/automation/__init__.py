@@ -40,6 +40,8 @@ from app.modules.automation.service.assignment import (
     AssignmentResult,
     Member,
     auto_assign,
+    away_user_ids,
+    step_owner,
 )
 from app.modules.automation.service.business_rules import (
     RulesRun,
@@ -177,6 +179,7 @@ __all__ = [
     "TransitionAudience",
     "TriggerEvent",
     "auto_assign",
+    "away_user_ids",
     "command_finished",
     "log_trace",
     "module",
@@ -188,6 +191,7 @@ __all__ = [
     "register_record_type",
     "route_record",
     "run_business_rules",
+    "step_owner",
     "transition_audience",
     "transition_refusal",
     "transition_settings",

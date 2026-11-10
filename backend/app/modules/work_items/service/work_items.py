@@ -38,6 +38,7 @@ from app.modules.automation import (
     RuleEvent,
     log_trace,
     record_runs,
+    step_owner,
     transition_audience,
     transition_refusal,
     transition_settings,
@@ -118,6 +119,7 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.events import (
     Audience,
     WorkItemAssigned,
+    WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemDeleted,
     WorkItemPartChangedV2,
@@ -1888,7 +1890,31 @@ async def _record_automation(
             source="rule",
             automation_ref=ref,
         )
+        await tell_unavailable(session, record, ref)
     await log_trace(session, record.type, record.id, automated.trace)
+
+
+async def tell_unavailable(session: AsyncSession, record: WorkItem, ref: Mapping[str, Any]) -> None:
+    """A step that left its person out (D-154 "rules") tells its owner: one event per save."""
+    reason = ref.get("unavailable")
+    if not reason or not ref.get("person_id"):
+        return
+    await record_event(
+        session,
+        WorkItemAssigneeUnavailable(
+            work_item_id=record.id,
+            type=record.type,
+            display_id=record.display_id,
+            status=record.status,
+            status_category=record.status_category,
+            person_id=uuid.UUID(str(ref["person_id"])),
+            reason=str(reason),
+            step=str(ref.get("kind") or ""),
+            owner_id=await step_owner(session, ref),
+        ),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
 
 
 async def _place(session: AsyncSession, cleaned: dict[str, Any]) -> None:
@@ -4866,8 +4892,8 @@ async def sla_fired(
     """
     del now
     record = await session.scalar(select(WorkItem).where(WorkItem.id == record_id))
-    if record is None:
-        return
+    if record is None or record.deleted_at is not None:
+        return  # gone or in the trash: sla's `record_state` normally keeps it from here
     changed = {k: v for k, v in columns.items() if getattr(record, k) != v}
     lines = sla_glue.fired_changes(record, changed, list(fired))
     if not lines:
@@ -5123,6 +5149,7 @@ async def automated_update(  # noqa: PLR0913 - the record, the values and who ma
             source=source,
             automation_ref=dict(ref),
         )
+        await tell_unavailable(session, updated, ref)
     await _record_automation(session, updated, automated)
     await record_event(
         session,

@@ -230,6 +230,54 @@ describe('QA findings on one incident', () => {
     expect(fake.find('PATCH', PATH)).toHaveLength(1);
   });
 
+  it('Haider 2026-11-10 (C2): history reads as sentences with who did it, never raw diffs', async () => {
+    api({
+      routes: {
+        ...COMMON,
+        [`GET ${PATH}`]: { body: TAKEN },
+        [`GET ${PATH}/history`]: {
+          body: {
+            items: [
+              {
+                change_id: 'c-3',
+                version: 3,
+                kind: 'updated',
+                occurred_at: '2026-10-24T09:10:00Z',
+                actor_type: 'user',
+                actor_id: TECH,
+                actor_name: 'Omar Farooq',
+                source: 'ui',
+                reason: null,
+                automation: null,
+                changes: [
+                  {
+                    field: 'worklog',
+                    old: null,
+                    new: { owner_id: TECH, worklog_type: 'fix', minutes: 30 },
+                  },
+                  { field: 'status', old: 'new', new: 'assigned' },
+                  { field: 'task', old: null, new: 'Swap the toner' },
+                ],
+              },
+            ],
+            next_cursor: null,
+            people: { [TECH]: { display_name: 'Omar Farooq', email: 'omar@demo.test' } },
+          },
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: /History/ }));
+    const lines = within(await screen.findByTestId('inc-history-entry'))
+      .getAllByRole('listitem')
+      .map((li) => li.textContent);
+    expect(lines).toEqual([
+      'Omar Farooq logged 30 min (Fix)',
+      'Omar Farooq changed Status from New to Assigned',
+      'Omar Farooq added the task “Swap the toner”',
+    ]);
+  });
+
   it('BUG-03: history names the technician instead of "changed"', async () => {
     api({
       routes: {
@@ -265,10 +313,11 @@ describe('QA findings on one incident', () => {
     render(<App />);
     fireEvent.click(await screen.findByRole('tab', { name: /History/ }));
     const entry = await screen.findByTestId('inc-history-entry');
-    expect(entry.textContent).toContain('Technician: (empty) → Tariq Technician');
-    expect(entry.textContent).not.toContain('changed');
+    // A sentence with who did it (Haider, 2026-11-10), naming the technician, never an ID.
+    expect(entry.textContent).toContain('Tariq Technician set Technician to Tariq Technician');
+    expect(entry.textContent).not.toContain('(empty)');
     // A flag that was never set reads "No", not "(empty)" (UX-09).
-    expect(entry.textContent).toContain('No → Yes');
+    expect(entry.textContent).toContain('from No to Yes');
   });
 
   it('BUG-05: Start work says why when the user may not take the incident; with several groups it asks which', async () => {
@@ -527,6 +576,44 @@ describe('QA findings on one incident', () => {
     const dialog = await screen.findByRole('dialog');
     expect(dialog.textContent).toContain('Details (optional)');
     expect(dialog.textContent).not.toContain('Other');
+  });
+
+  it('QA 2026-11-10 (bug 3): a refused reason clears once a reason is picked', async () => {
+    const fake = api({
+      routes: {
+        ...COMMON,
+        [`GET ${PATH}`]: { body: TAKEN },
+        [`POST ${PATH}/assign`]: {
+          status: 422,
+          body: problem(422, 'validation_failed', {
+            errors: [
+              {
+                field: 'body.reason_code',
+                code: 'required',
+                message_key: 'errors.field.required',
+                params: {},
+              },
+            ],
+          }),
+        },
+      },
+    });
+    render(<App />);
+    await clickAction('inc-op-assign');
+    fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-group')));
+    fireEvent.click(await screen.findByTitle('Network'));
+    fireEvent.click(screen.getByTestId('inc-assign-confirm'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/assign`)).toHaveLength(1);
+    });
+    expect((await screen.findByTestId('inc-assign-error')).textContent).toBe(
+      'This field is required.',
+    );
+    fireEvent.mouseDown(selectorOf(screen.getByTestId('inc-assign-reason')));
+    fireEvent.click(await screen.findByTitle('Wrong group'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('inc-assign-error')).toBeNull();
+    });
   });
 });
 

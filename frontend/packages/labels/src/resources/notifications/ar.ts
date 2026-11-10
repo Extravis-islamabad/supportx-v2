@@ -2,6 +2,9 @@ import type { LabelResource } from '../en';
 
 // notifications labels (see ../README.md).
 export const ar: LabelResource = {
+  'assignee_unavailable.away': 'حالته «غائب»',
+  'assignee_unavailable.inactive': 'لم يعد نشطًا',
+  'assignee_unavailable.not_in_group': 'لم يعد في تلك المجموعة',
   'delivery_reason.authentication_failed': 'رفض خادم البريد تسجيل دخول SupportX',
   'delivery_reason.email_channel_not_configured': 'قناة البريد الإلكتروني غير مُعدّة',
   'delivery_reason.gave_up': 'استمر الفشل بعد كل محاولة',
@@ -59,6 +62,7 @@ export const ar: LabelResource = {
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.incident.assigned': 'أُسند حادث',
+  'notification_event.incident.assignee_unavailable': 'تعذّر على القاعدة إسناد الشخص المحدد',
   'notification_event.incident.canceled': 'أُلغي الحادث',
   'notification_event.incident.closed': 'أُغلق الحادث',
   'notification_event.incident.created': 'حادث جديد: إشعار بالاستلام',
@@ -100,6 +104,7 @@ export const ar: LabelResource = {
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
   'notification_event.service_request.fulfilled': 'تنفيذ الطلب',
+  'notification_event.service_request.ready_to_fulfil': 'طلب جاهز للتنفيذ',
   'notification_event.service_request.received': 'استلام الطلب: إشعار',
   'notification_event.service_request.rejected': 'رفض الطلب',
   'notification_event.service_request.withdrawn': 'سحب الطلب',
@@ -140,6 +145,7 @@ export const ar: LabelResource = {
   'notification_recipient.owner': 'مالك المقالة',
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
+  'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
   'notification_recipient.topic_owner': 'مالك الموضوع',
   'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
   'notification_rules.any_priority': 'أي أولوية',
@@ -210,6 +216,12 @@ export const ar: LabelResource = {
     'أُسند {{ record.display_id }} إلى {{ assignee.name }}: {{ record.title }}',
   'notification_template.incident.assigned.subject':
     'أُسند إلى {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.assignee_unavailable.body':
+    'مرحبًا {{ recipient.name }}،\n\nكان على قاعدة أو تصعيد إسناد {{ record.display_id }} "{{ record.title }}" إلى {{ unavailable.person }}، الذي {{ unavailable.reason }}. انتقل إلى المجموعة دون أن يُسند إلى أحد. يُرجى إسناده إلى شخص ما أو تعديل القاعدة.',
+  'notification_template.incident.assignee_unavailable.in_app':
+    'انتقل {{ record.display_id }} إلى مجموعته دون أن يُسند إلى أحد: {{ unavailable.person }} {{ unavailable.reason }}',
+  'notification_template.incident.assignee_unavailable.subject':
+    'لم يُسند إلى أحد: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
     'مرحبًا {{ recipient.name }}،\n\nأُلغي {{ record.display_id }} «{{ record.title }}».',
   'notification_template.incident.canceled.in_app': 'أُلغي {{ record.display_id }}',
@@ -441,6 +453,12 @@ export const ar: LabelResource = {
     'نُفّذ {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'تم التنفيذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.ready_to_fulfil.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُنجزت كل مهام {{ record.display_id }} «{{ record.title }}» لكن لا أحد مسند إليه. أسنده إلى أحد أعضاء مجموعتك لتنفيذه.',
+  'notification_template.service_request.ready_to_fulfil.in_app':
+    '{{ record.display_id }} جاهز للتنفيذ: أسنده إلى أحد',
+  'notification_template.service_request.ready_to_fulfil.subject':
+    'جاهز للتنفيذ: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.received.body':
     'مرحبًا {{ recipient.name }}،\n\nاستلمنا طلبك «{{ record.title }}» وسجّلناه برقم {{ record.display_id }}. سنبقيك على اطلاع.',
   'notification_template.service_request.received.in_app':
@@ -489,6 +507,8 @@ export const ar: LabelResource = {
   'notification_variable.rule.name': 'القاعدة',
   'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
+  'notification_variable.unavailable.person': 'غير مُسند › الشخص',
+  'notification_variable.unavailable.reason': 'غير مُسند › السبب',
   'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',
   'notifications.banner.no_mail_few':
     'تنتظر {{count}} رسائل لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسائل عند تشغيل البريد.',

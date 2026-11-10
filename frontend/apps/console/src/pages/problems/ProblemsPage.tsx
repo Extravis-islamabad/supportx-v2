@@ -1,6 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Flex, Input, Select, Space, Table } from 'antd';
+import { Button, Input, Select, Space, Table } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -13,7 +13,9 @@ import {
 import { useListChannel } from '@supportx/realtime';
 import {
   CellText,
-  EmptyText,
+  FilterBar,
+  ListPage,
+  loadedEmpty,
   PageHeader,
   reportError,
   useAccess,
@@ -47,7 +49,14 @@ export function ProblemsPage() {
   const [search, setSearch] = useState('');
   const text = useDebounced(search.trim(), SEARCH_DELAY_MS);
   const views = useProblemViews();
-  const list = useProblems({ view, filter: searchOf(text) });
+  // The list asks for the view the selector shows (QA 2026-11-10: "All open (7)" listed 8,
+  // the closed one too, as no view meant every problem). Not before the views load; if they
+  // fail or there are none, the whole list (lane C, #346: never a spinner for ever).
+  const shown = view ?? views.data?.[0]?.view;
+  const list = useProblems(
+    { view: shown, filter: searchOf(text) },
+    shown !== undefined || !views.isPending,
+  );
   const catalogue = useProblemCatalogue();
   // Each person's column widths, per view (Haider, 2026-11-10): drag or arrow keys on a header.
   const titles: Record<string, string> = {
@@ -60,7 +69,9 @@ export function ProblemsPage() {
   };
   const widths = useColumnWidths({
     kind: 'problems',
-    viewKey: view ?? views.data?.[0]?.view ?? 'all',
+    viewKey: shown ?? 'all',
+    // Not before the views load: a resize then would land on another view's settings.
+    enabled: view !== undefined || views.data !== undefined,
     keys: Object.keys(titles),
     defaults: OWN_WIDTHS,
     minWidths: { subject: SUBJECT_MIN },
@@ -75,75 +86,91 @@ export function ProblemsPage() {
   const rows = list.data?.items ?? [];
   const people = list.data?.people ?? {};
   return (
-    <Flex vertical gap={16} style={{ width: '100%' }}>
-      <PageHeader
-        title={t('nav.problems')}
-        extra={
-          <Space wrap>
-            <Button onClick={() => void navigate('/problems/known-errors')} data-testid="prb-kedb">
-              {t('problems.known_error.database')}
-            </Button>
-            {create && (
+    // The list template (D-124, Haider 2026-11-10): ListPage spaces it; one FilterBar.
+    <ListPage
+      testId="prb-page"
+      header={
+        <PageHeader
+          title={t('nav.problems')}
+          extra={
+            <Space wrap>
               <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => void navigate('/problems/new')}
-                data-testid="prb-new"
+                onClick={() => void navigate('/problems/known-errors')}
+                data-testid="prb-kedb"
               >
-                {t('problems.new')}
+                {t('problems.known_error.database')}
               </Button>
-            )}
-          </Space>
-        }
-      />
-      <RepeatedIncidents enabled={create} />
-      <Flex gap={8} wrap>
-        <Select
-          style={{ minWidth: 260 }}
-          prefix={`${t('incidents.view')}:`}
-          aria-label={t('incidents.view')}
-          value={view ?? views.data?.[0]?.view}
-          onChange={setView}
-          loading={views.isLoading}
-          options={(views.data ?? []).map((v) => ({
-            value: v.view,
-            label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
-          }))}
-          data-testid="prb-view"
+              {create && (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => void navigate('/problems/new')}
+                  data-testid="prb-new"
+                >
+                  {t('problems.new')}
+                </Button>
+              )}
+            </Space>
+          }
         />
-        <Input.Search
-          allowClear
-          style={{ flex: '1 1 260px', maxWidth: 420 }}
-          placeholder={t('problems.search')}
-          aria-label={t('problems.search')}
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-          }}
-          data-testid="prb-search"
+      }
+      kpis={<RepeatedIncidents enabled={create} />}
+      filters={
+        <FilterBar
+          testId="prb-filterbar"
+          view={
+            <Select
+              style={{ minWidth: 260 }}
+              prefix={`${t('incidents.view')}:`}
+              aria-label={t('incidents.view')}
+              value={shown}
+              onChange={setView}
+              loading={views.isLoading}
+              options={(views.data ?? []).map((v) => ({
+                value: v.view,
+                label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+              }))}
+              data-testid="prb-view"
+            />
+          }
+          search={
+            <Input.Search
+              allowClear
+              placeholder={t('problems.search')}
+              aria-label={t('problems.search')}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              data-testid="prb-search"
+            />
+          }
+          extra={
+            widths.changed ? (
+              <Button onClick={widths.reset} data-testid="prb-reset-widths">
+                {t('layout.reset_widths')}
+              </Button>
+            ) : undefined
+          }
         />
-        {widths.changed && (
-          <Button onClick={widths.reset} data-testid="prb-reset-widths">
-            {t('layout.reset_widths')}
-          </Button>
-        )}
-      </Flex>
+      }
+    >
       <Table
         rowKey="id"
-        loading={list.isLoading}
+        loading={list.isPending}
         scroll={{ x: 960 }}
         dataSource={rows}
         pagination={false}
         data-testid="prb-list"
         components={widths.components}
         locale={{
-          emptyText: list.isLoading ? (
-            <span />
-          ) : (
-            // The same plain empty text as incidents and releases (QA6-PRB-04).
+          // The same plain empty text as incidents and releases (QA6-PRB-04), never while the
+          // first load runs (lane C's loadedEmpty, #345).
+          emptyText: loadedEmpty(
+            list.isPending,
             <span data-testid="prb-empty">
-              <EmptyText>{t(text === '' ? 'problems.empty' : 'problems.no_match')}</EmptyText>
-            </span>
+              {t(text === '' ? 'problems.empty' : 'problems.no_match')}
+            </span>,
           ),
         }}
         columns={[
@@ -206,6 +233,6 @@ export function ProblemsPage() {
           },
         ]}
       />
-    </Flex>
+    </ListPage>
   );
 }

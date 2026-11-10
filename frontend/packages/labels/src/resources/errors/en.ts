@@ -331,8 +331,11 @@ export const en = {
     'A calendar is only chosen when the source is a fixed calendar.',
   'errors.field.flow_not_available': 'This kind of record has no created-vs-resolved report.',
   'errors.field.flow_without_groupings': 'A created-vs-resolved report has no groupings.',
+  'errors.field.fulfiller_required': 'Assign someone to fulfil this request first.',
   'errors.field.full_sla_off':
     'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
+  'errors.field.group_dashboard_shared':
+    "A group's dashboard can't also be shared with everyone. Take it out of the group first.",
   'errors.field.group_not_found': 'This group does not exist.',
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
@@ -435,6 +438,9 @@ export const en = {
   'errors.field.period_weekday_invalid': 'Choose a day of the week.',
   'errors.field.periods_overlap':
     "Working periods overlap. A night period must also end before the next morning's period starts.",
+  'errors.field.person_in_no_group':
+    'This person is in no support group, so nothing can be assigned to them.',
+  'errors.field.person_not_in_group': 'This person is not a member of the chosen group.',
   'errors.field.phone_not_valid': 'Enter a phone number: digits, spaces, +, - and brackets.',
   'errors.field.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
@@ -445,6 +451,8 @@ export const en = {
   'errors.field.read_only': 'This field cannot be changed here.',
   'errors.field.read_only_in_stage': 'This field cannot be changed in the current stage.',
   'errors.field.reason_required': 'Give a reason.',
+  'errors.field.reassign_group_required':
+    'This person is in several groups: choose the one the record moves to.',
   'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
   'errors.field.recipients_required': 'Choose at least one person or group.',
   'errors.field.record_not_found': 'No record you can see has this ID.',
@@ -607,6 +615,7 @@ export const en = {
   'errors.files_not_configured': 'Files cannot be stored: file encryption keys are not configured.',
   'errors.follower_not_found': 'This person is not following it.',
   'errors.group_not_found': 'The support group was not found.',
+  'errors.group_not_led': 'You can only manage the groups you lead.',
   'errors.holiday_list_not_found': 'This holiday list does not exist or was deleted.',
   'errors.holiday_not_found': 'This holiday does not exist or was deleted.',
   'errors.ical_too_large': 'The file is larger than 1 MB.',
@@ -872,6 +881,8 @@ export const en = {
   'errors.system_calendar_required':
     'Every organisation keeps this calendar, so it cannot be deleted.',
   'errors.system_role_immutable': 'Built-in roles cannot be changed or deleted.',
+  'errors.system_role_not_deletable':
+    "Built-in roles can't be deleted. Copy the role to make your own version.",
   'errors.technician_limit_reached':
     'All technician seats in your organisation’s plan are in use. Ask your administrator to free a seat or add more.',
   'errors.technicians_only': 'Only technicians can see other users.',

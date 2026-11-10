@@ -26,6 +26,7 @@ from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import conversations
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.rule_assignment import Placement, place_person
 
 _ORDER = [p.value for p in Priority]  # highest first
 
@@ -38,16 +39,30 @@ def raised(priority: str | None) -> str | None:
     return _ORDER[at - 1] if at > 0 else None
 
 
-def _values(action: sla.Action, record: WorkItem) -> dict[str, Any] | None:
-    """The fields an action sets; None for a note, {} when there is nothing to change."""
+async def _values(
+    session: AsyncSession, action: sla.Action, record: WorkItem
+) -> tuple[dict[str, Any] | None, Placement | None]:
+    """The fields an action sets (None for a note, {} for nothing), and a person's placement.
+
+    A person moves the record with them to the level's group for them (D-154 "rules"); one who
+    is inactive, Away or out of that group leaves it with the group only (`rule_assignment`).
+    """
     if action.kind is sla.ActionKind.REASSIGN_GROUP:
-        return {"group_id": action.target_id, "technician_id": None}
+        return {"group_id": action.target_id, "technician_id": None}, None
     if action.kind is sla.ActionKind.REASSIGN_PERSON:
-        return {"technician_id": action.target_id}
+        if action.target_id is None:
+            return {}, None
+        placement = await place_person(
+            session,
+            uuid.UUID(action.target_id),
+            uuid.UUID(action.group_id) if action.group_id else None,
+            record_group_id=record.group_id,
+        )
+        return placement.values, placement
     if action.kind is sla.ActionKind.RAISE_PRIORITY:
         up = raised(record.priority)
-        return {"priority": up} if up else {}
-    return None
+        return ({"priority": up} if up else {}), None
+    return None, None
 
 
 async def run_actions(
@@ -55,7 +70,11 @@ async def run_actions(
 ) -> list[dict[str, object]]:
     """Run a level's actions in order; one outcome per action ({kind, ok, code})."""
     del now
-    ref = {"kind": "sla_escalation", "target": level.kind.value, "level": level.position}
+    ref: dict[str, object] = {
+        "kind": "sla_escalation",
+        "target": level.kind.value,
+        "level": level.position,
+    }
     cause = uuid.uuid5(record_id, level.key)  # stable per level: the loop guard sees one chain
     outcomes: list[dict[str, object]] = []
     for action in level.actions:
@@ -66,7 +85,14 @@ async def run_actions(
         wtype = TYPES[WorkItemTypeCode(record.type)]
         try:
             async with session.begin_nested():
-                values = _values(action, record)
+                values, placement = await _values(session, action, record)
+                step = ref
+                if placement is not None and placement.unavailable is not None:
+                    # History says why nobody was put on it (D-154 "rules"); the owner hears.
+                    step = ref | {
+                        "unavailable": placement.unavailable.value,
+                        "person_id": action.target_id,
+                    }
                 if values is None:
                     await conversations.automated_note(
                         session,
@@ -81,7 +107,13 @@ async def run_actions(
                 elif values:
                     changed = bool(
                         await items.automated_update(
-                            session, wtype, record_id, values, ref=ref, cause_id=cause, source="sla"
+                            session,
+                            wtype,
+                            record_id,
+                            values,
+                            ref=step,
+                            cause_id=cause,
+                            source="sla",
                         )
                     )
                 else:

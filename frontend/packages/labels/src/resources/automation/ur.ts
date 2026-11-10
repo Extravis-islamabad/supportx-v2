@@ -187,6 +187,12 @@ export const ur: LabelResource = {
   'automation.why.routing_rule': 'قاعدے «{{name}}» نے روٹ کیا۔',
   'automation.why.rule': 'کاروباری قاعدے «{{name}}» کے ذریعے۔',
   'automation.why.sla_escalation': 'ایس ایل اے ایسکلیشن سے: {{target}}، درجہ {{level}}',
+  'automation.why.unavailable.away':
+    '{{name}} غیر حاضر ہیں، اس لیے یہ کسی کو تفویض کیے بغیر گروپ میں گیا',
+  'automation.why.unavailable.inactive':
+    '{{name}} اب فعال نہیں، اس لیے یہ کسی کو تفویض کیے بغیر گروپ میں گیا',
+  'automation.why.unavailable.not_in_group':
+    '{{name}} اب اس گروپ میں نہیں، اس لیے یہ کسی کو تفویض کیے بغیر گروپ میں گیا',
   'automation_outcome.applied': 'ہو گیا',
   'automation_outcome.chain_depth': 'روکا گیا: سلسلہ بہت لمبا',
   'automation_outcome.failed': 'ناکام',

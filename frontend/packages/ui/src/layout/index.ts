@@ -21,6 +21,7 @@ export {
   PropertiesPanel,
   PropertyRow,
   RecordHeader,
+  type RecordKind,
   RecordPage,
   type PanelSection,
   type RecordHeaderProps,

@@ -267,23 +267,26 @@ async def test_saves_keep_history_events_audit_and_reach_screens(world: World) -
     assert len(effects.publications) > 1  # the list hears of it too
 
 
-async def test_technicians_manage_assets_in_their_reach_only(world: World) -> None:
+async def asset_manager(world: World, org: Org, user: uuid.UUID) -> None:
+    """Give `user` the built-in asset manager role (D-153: full asset management is theirs)."""
+    roles = {r["key"]: r["id"] for r in (await world.call("GET", "/roles", org, org.admin)).json()}
+    given = await world.call("PUT", f"/users/{user}/roles/{roles['asset_manager']}", org, org.admin)
+    assert given.status_code in {200, 204}, given.text
+
+
+async def test_a_technician_views_assets_and_the_asset_manager_changes_them(world: World) -> None:
+    """D-153: a technician only views assets (it would update those linked to its own tickets,
+    which records cannot link yet); the asset manager adds and changes them anywhere."""
     a = world.a
     laptop = await _product(world, a, "laptop", "Chromebook")
-    mine = await _add(world, a, {"name": "No site", "product_id": laptop}, a.tech_a)
-    assert mine.status_code == 201, mine.text
-    renamed = await world.call(
-        "PATCH",
-        f"{BASE}/{mine.json()['id']}",
-        a,
-        a.tech_a,
-        json={"name": "Still no site"},
-        headers=_match(1),
+    assert (
+        problem(await _add(world, a, {"name": "No site", "product_id": laptop}, a.tech_a))[0] == 403
     )
-    assert renamed.status_code == 200, renamed.text
     elsewhere = (
         await _add(world, a, {"name": "Other site", "product_id": laptop, "site_id": str(a.s2)})
     ).json()
+    seen = await world.call("GET", f"{BASE}/{elsewhere['id']}", a, a.tech_a)
+    assert seen.status_code == 200, seen.text  # view: all
     refused = await world.call(
         "PATCH",
         f"{BASE}/{elsewhere['id']}",
@@ -292,7 +295,20 @@ async def test_technicians_manage_assets_in_their_reach_only(world: World) -> No
         json={"name": "Mine now"},
         headers=_match(elsewhere["version"]),
     )
-    assert problem(refused)[0] == 403  # it may see it (view: all), not change it
+    assert problem(refused)[0] == 403
+    await asset_manager(world, a, a.tech_b)
+    renamed = await world.call(
+        "PATCH",
+        f"{BASE}/{elsewhere['id']}",
+        a,
+        a.tech_b,
+        json={"name": "Renamed by the asset manager"},
+        headers=_match(elsewhere["version"]),
+    )
+    assert renamed.status_code == 200, renamed.text
+    assert (
+        await _add(world, a, {"name": "Theirs", "product_id": laptop}, a.tech_b)
+    ).status_code == 201
 
 
 async def test_assets_are_isolated_by_rls(world: World) -> None:

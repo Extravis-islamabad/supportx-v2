@@ -714,6 +714,76 @@ async def on_change(  # noqa: PLR0913 - the save, explicit
     return stamp_of(applied, current)
 
 
+async def rebase(
+    session: AsyncSession, code: str, record_id: uuid.UUID, *, now: datetime
+) -> SlaStamp:
+    """Set a record's open clocks right after its times were moved as a whole (dev tooling).
+
+    The showcase seed's "freshen" step (Haider, 2026-11-10) shifts a demo record and every row
+    of it, its SLA targets' start times included. Each running or breached clock then gets its
+    due moment again from its start on its own calendar, and its state from `now`: due ahead,
+    running (a breach stamp from the old dates is cleared); due passed, breached at the due
+    moment. The warning point is computed again too. Paused, met and stopped clocks keep what
+    they hold. Silent by design: no warning, breach or escalation event or notification (demo
+    data is not news), and timers are not fired here; the waker reads the new moments
+    (`next_wake`) and only its sweep ever fires. Returns the columns to stamp on the record.
+    """
+    settings = await settings_of(session, code)
+    application, current = await current_clocks(session, record_id, lock=True)
+    for entry in current.values():
+        clock = entry.clock
+        if (
+            entry.row is None
+            or clock.state not in {TargetState.RUNNING, TargetState.BREACHED}
+            or clock.running_since is None
+        ):
+            continue
+        calendar = await calendar_for_maths(session, entry.calendar_id)
+        due = clock.manual_due_at or calendar.add(
+            clock.running_since, max(clock.target - clock.used, 0)
+        )
+        fresh = replace(clock, state=TargetState.RUNNING, breached_at=None, due_at=due)
+        reason = None
+        if due <= now:
+            fresh = clocks.breach(fresh, due)
+            reason = "time_passed"
+        warning_at = warning_moment(fresh, calendar, settings.warning_percent)
+        # Past its warning point already (no moment ahead): warned from when it started.
+        past_point = fresh.manual_due_at is None and (
+            fresh.target * settings.warning_percent // 100 <= fresh.used
+        )
+        warned = None
+        if fresh.state is TargetState.RUNNING:
+            if warning_at is not None and warning_at <= now:
+                warned = warning_at
+            elif warning_at is None and past_point:
+                warned = fresh.running_since
+        entry.clock, entry.warned_at, entry.breach_reason = fresh, warned, reason
+        await session.execute(
+            update(SlaTarget)
+            .where(SlaTarget.id == entry.row.id)
+            .values(**_columns(fresh, warning_at), warned_at=warned, breach_reason=reason)
+        )
+        # Its escalation runs move with the clock; one whose moment has already passed is
+        # cancelled, never fired late for demo data (lane C: the seed sends no notifications).
+        await schedule_levels(
+            session, entry, calendar, levels_in(application), settings.warning_percent
+        )
+        await session.flush()
+        await session.execute(
+            update(SlaEscalationRun)
+            .where(
+                SlaEscalationRun.target_id == entry.row.id,
+                SlaEscalationRun.state == RunState.WAITING.value,
+                SlaEscalationRun.due_at <= now,
+            )
+            .values(
+                state=RunState.CANCELLED.value, due_at=None, version=SlaEscalationRun.version + 1
+            )
+        )
+    return stamp_of(application, current)
+
+
 async def set_due_by_hand(  # noqa: PLR0913 - the change and who makes it, explicit
     session: AsyncSession,
     code: str,
