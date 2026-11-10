@@ -16,6 +16,7 @@ import {
   Select,
   Space,
   Typography,
+  theme,
 } from 'antd';
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useNavigate } from 'react-router';
@@ -170,6 +171,7 @@ function startOf(
  */
 export function NewIncidentPage() {
   const t = useLabel();
+  const { token } = theme.useToken();
   usePageCrumbs([{ label: t('nav.incidents'), path: '/incidents' }, { label: t('incidents.new') }]);
   const listFormat = useListFormat();
   const { locale } = useAppearance();
@@ -803,6 +805,7 @@ export function NewIncidentPage() {
                       onChange={(next: string | undefined) => {
                         field.onChange(next ?? null);
                       }}
+                      placeholder={t('incidents.level_placeholder')}
                       options={(catalogue.data?.levels ?? [])
                         .filter((v) => !v.disabled)
                         .map((v) => ({
@@ -1044,7 +1047,23 @@ export function NewIncidentPage() {
               ))}
             </Row>
             <FormProblem problem={problem} />
-            <Space wrap>
+            {/* A sticky footer, Cancel before the primary (D-147 template B, QA10-P1-16). */}
+            <Space
+              wrap
+              data-testid="inc-new-footer"
+              style={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 1,
+                width: '100%',
+                paddingBlock: 12,
+                background: token.colorBgContainer,
+                borderTop: `1px solid ${token.colorSplit}`,
+              }}
+            >
+              <Button onClick={() => void navigate('/incidents')} data-testid="inc-new-cancel">
+                {t('actions.cancel')}
+              </Button>
               <WriteButton
                 type="primary"
                 loading={create.isPending}
@@ -1056,7 +1075,6 @@ export function NewIncidentPage() {
               >
                 {t('incidents.save')}
               </WriteButton>
-              <Button onClick={() => void navigate('/incidents')}>{t('actions.cancel')}</Button>
               <Checkbox
                 checked={another}
                 onChange={(event) => {

@@ -210,6 +210,39 @@ describe('console: service requests', () => {
     expect(screen.getByTestId(`sr-item-${ITEM_ID}`)).toBeDefined();
   });
 
+  it('an item in two categories is listed once; an empty category says so', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const HW = '01a1a2b3-0000-7000-8000-00000000ca01';
+    const OFFICE = '01a1a2b3-0000-7000-8000-00000000ca02';
+    const EMPTY = '01a1a2b3-0000-7000-8000-00000000ca03';
+    const category = (id: string, name: string, order: number) => ({
+      id,
+      names: { en: name },
+      descriptions: {},
+      enabled: true,
+      icon: null,
+      parent_id: null,
+      sort_order: order,
+      version: 1,
+    });
+    api({
+      'GET /api/v1/catalog/items': {
+        body: [{ ...laptop, category_id: HW, extra_category_ids: [OFFICE] }],
+      },
+      'GET /api/v1/catalog/categories': {
+        body: [
+          category(HW, 'Hardware', 1),
+          category(OFFICE, 'Office', 2),
+          category(EMPTY, 'Moves', 3),
+        ],
+      },
+    });
+    render(<App />);
+    expect(await screen.findAllByTestId(`sr-item-${ITEM_ID}`)).toHaveLength(1);
+    fireEvent.click(screen.getByRole('tab', { name: /Moves/ }));
+    expect(await screen.findByText('No requests in this category yet.')).toBeDefined();
+  });
+
   it('shows one request with its item details and approval status', async () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     api();

@@ -78,7 +78,7 @@ describe('Admin › Incidents › Closing', () => {
       return found;
     });
     fireEvent.click(option);
-    fireEvent.click(screen.getByTestId('settings-closing-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PATCH', '/api/v1/incidents/settings/closure')).toHaveLength(1);
     });
@@ -141,11 +141,11 @@ describe('Admin › Incidents › Closing', () => {
     const input = days instanceof HTMLInputElement ? days : days.querySelector('input');
     if (input === null) throw new Error('no number input');
     fireEvent.change(input, { target: { value: '31' } });
-    fireEvent.click(screen.getByTestId('settings-closing-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     expect(await screen.findByText('Maximum is 30.')).toBeDefined();
     expect(fake.find('PATCH', '/api/v1/incidents/settings/closure')).toHaveLength(0);
     fireEvent.change(input, { target: { value: '5' } });
-    fireEvent.click(screen.getByTestId('settings-closing-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PATCH', '/api/v1/incidents/settings/closure')).toHaveLength(1);
     });
@@ -178,7 +178,7 @@ describe('Admin › Incidents › Closing', () => {
     });
     open('/admin/incidents/closing');
     fireEvent.click(await screen.findByTestId('settings-auto-close'));
-    fireEvent.click(screen.getByTestId('settings-closing-save'));
+    fireEvent.click(screen.getByTestId('settings-save'));
     expect(
       await screen.findByText(
         'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',

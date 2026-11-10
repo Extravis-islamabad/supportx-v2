@@ -239,5 +239,16 @@ export function useHistoryWords(
     return t('history.changed');
   };
 
-  return { history, entries, people, fieldText, valueText, whyText };
+  /** One change in words: "field: old → new", or "field changed" when neither side has words
+   * of its own (QA10-P1-19: never "SLA policy: changed → changed"). */
+  const changeText = (change: Change): string => {
+    const old = valueText(change, change.old);
+    const now = valueText(change, change.new);
+    const vague = t('history.changed');
+    if (old === vague && now === vague) {
+      return t('history.field_changed', { field: fieldText(change.field) });
+    }
+    return t('history.change', { field: fieldText(change.field), old, new: now });
+  };
+  return { history, entries, people, fieldText, valueText, changeText, whyText };
 }

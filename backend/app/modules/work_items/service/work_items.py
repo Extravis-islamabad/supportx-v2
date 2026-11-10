@@ -2176,9 +2176,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         technician_id,
     )
     channel_given = channel
-    channel = (
-        channel or cleaned.get("channel") or (Channel.PHONE if source == "ui" else Channel.API)
-    )
+    # Raised in the portal reads as the portal, never "API" (QA10-P4-40).
+    by_source = {"ui": Channel.PHONE, "portal": Channel.PORTAL}
+    channel = channel or cleaned.get("channel") or by_source.get(source, Channel.API)
     # Automation in the documented order (REQ-RUL-006): business rules, the matrix, routing and
     # auto-assignment. What the person entered stays their history; each automated change is
     # its own entry naming the rule, the routing reason or the assignment method.
