@@ -7,7 +7,7 @@ import uuid
 from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import asyncpg
@@ -19,6 +19,7 @@ from app.core.database import Database
 from app.core.tenancy import TenantContext
 from app.modules.audit.infra.signing import LocalSigner, new_key_config, trusted_keys
 from app.modules.audit.service.integrity import seal, verify
+from app.shared.events.outbox import OUTBOX_TABLE
 from conftest import create_tenant, make_settings
 from tooling import db_testing
 from tooling import showcase_lane_a as lane_a
@@ -643,3 +644,101 @@ async def _history_sources(url: str, record_id: uuid.UUID) -> set[str]:
     finally:
         await conn.close()
     return {r["source"] for r in rows}
+
+
+# --- step 7: fresh dates (Haider, 2026-11-10) ------------------------------------------------
+
+
+async def _seed_open_latest(url: str) -> list[Any]:
+    """The latest time of each open seed incident (made by the seed's admin)."""
+    conn = await asyncpg.connect(url)
+    try:
+        # The migrator is held to RLS like the app (business tables force it): say the tenant.
+        await conn.execute("SELECT set_config('app.tenant_id', $1, false)", str(seed.TENANT_ID))
+        rows = await conn.fetch(
+            "SELECT greatest(w.created_at, w.updated_at) AS latest FROM work_items w"
+            " JOIN users u ON u.id = w.created_by"
+            " WHERE w.tenant_id = $1 AND w.type = 'incident' AND u.email = $2"
+            " AND w.status_category NOT IN ('resolved', 'closed', 'canceled')",
+            seed.TENANT_ID,
+            seed.ADMIN.email,
+        )
+    finally:
+        await conn.close()
+    return [r["latest"] for r in rows]
+
+
+async def _target_states(url: str) -> dict[tuple[Any, str], str]:
+    conn = await asyncpg.connect(url)
+    try:
+        rows = await conn.fetch(
+            "SELECT record_id, kind, state FROM sla_targets WHERE tenant_id = $1", seed.TENANT_ID
+        )
+    finally:
+        await conn.close()
+    return {(r["record_id"], r["kind"]): r["state"] for r in rows}
+
+
+async def _breach_all_running(url: str) -> None:
+    conn = await asyncpg.connect(url)
+    try:
+        await conn.execute(
+            "UPDATE sla_targets SET state = 'breached', breached_at = due_at"
+            " WHERE tenant_id = $1 AND state = 'running' AND due_at IS NOT NULL",
+            seed.TENANT_ID,
+        )
+    finally:
+        await conn.close()
+
+
+async def _outbox(url: str) -> int:
+    conn = await asyncpg.connect(url)
+    try:
+        return int(
+            await conn.fetchval(
+                f"SELECT count(*) FROM {OUTBOX_TABLE} WHERE tenant_id = $1",  # noqa: S608 - fixed name
+                seed.TENANT_ID,
+            )
+        )
+    finally:
+        await conn.close()
+
+
+def test_step7_brings_the_seeds_own_records_to_today_silently_and_once(
+    seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak],
+) -> None:
+    database, _ = seeded_copy
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    hand_made = asyncio.run(_by_hand(database))  # a person's incident, edited: never moved
+    hand_before = asyncio.run(_times_of(database.migrator_url, hand_made))
+    # As on a stack whose waker ran on the old dates: every running target already breached.
+    asyncio.run(_breach_all_running(database.admin_url))
+    audit_before = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
+    outbox_before = asyncio.run(_outbox(database.admin_url))
+    states_before = asyncio.run(_target_states(database.admin_url))
+    now = datetime.now(UTC)
+
+    moved = asyncio.run(seed.freshen(settings, seed.TENANT_ID, now=now))
+    assert moved > 0
+    # Open seed incidents read as of today: their latest time within the last three days.
+    latest = asyncio.run(_seed_open_latest(database.migrator_url))
+    assert latest
+    assert all(now - timedelta(hours=21) <= t <= now for t in latest)
+    assert asyncio.run(_times_of(database.migrator_url, hand_made)) == hand_before
+    # Clocks set right from now: a target breached on the old dates runs again when its due
+    # moment is now ahead (lane C's case), silently: no event, no audit entry.
+    states_after = asyncio.run(_target_states(database.admin_url))
+    moves = Counter(
+        (states_before[key], state) for key, state in states_after.items() if key in states_before
+    )
+    # Most run again from today; only a few with the shortest targets are still past due.
+    assert moves[("breached", "running")] > moves[("breached", "breached")], moves
+    assert asyncio.run(_outbox(database.admin_url)) == outbox_before
+    assert asyncio.run(_audit(database.admin_url, seed.TENANT_ID)) == audit_before
+    assert asyncio.run(_audit_chain(database.app_url)) == "passed"
+    # Once: the same day again moves nothing; another tenant is refused.
+    assert asyncio.run(seed.freshen(settings, seed.TENANT_ID, now=now)) == 0
+    with pytest.raises(seed.SeedError, match="showcase tenant"):
+        asyncio.run(seed.freshen(settings, uuid.uuid4(), now=now))

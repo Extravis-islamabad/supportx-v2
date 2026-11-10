@@ -37,7 +37,7 @@ from app.modules.sla.service.calendars import (
     calendar_for_maths,
     system_calendar_id,
 )
-from app.modules.sla.service.clock import SlaStamp, on_change, set_due_by_hand
+from app.modules.sla.service.clock import SlaStamp, on_change, rebase, set_due_by_hand
 from app.modules.sla.service.policies import DeliveryTarget, delivery_target, existing_policy_ids
 from app.modules.sla.service.realtime import ROUTES
 from app.modules.sla.service.records import (
@@ -103,6 +103,7 @@ __all__ = [
     "module",
     "next_wake",
     "on_change",
+    "rebase",
     "record_calendar",
     "record_sla",
     "register_record_type",
