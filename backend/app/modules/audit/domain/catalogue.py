@@ -300,6 +300,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.approval_decided", AuditCategory.RECORDS, "work_items"),
     # changes (WP-045a): the same actions, by the type's own code
     ("change.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.board_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-045b S2
+    ("change.approval_rerouted", AuditCategory.RECORDS, "work_items"),  # WP-045b S3
+    ("change.sent_back_for_approval", AuditCategory.RECORDS, "work_items"),  # WP-045b S4
+    ("change.emergency_override", AuditCategory.SECURITY, "work_items"),  # D-144
     ("change.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("change.category_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("change.template_created", AuditCategory.CONFIGURATION, "work_items"),
@@ -330,6 +334,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.subject_erased", AuditCategory.DATA, "audit"),
     # One-off showcase repair (QA 2026-11-09): dates the old seed step moved, put back.
     ("work_item.dates_restored", AuditCategory.DATA, "work_items"),
+    ("work_item.settings_topped_up", AuditCategory.CONFIGURATION, "work_items"),
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.entries_archived", AuditCategory.DATA, "audit"),

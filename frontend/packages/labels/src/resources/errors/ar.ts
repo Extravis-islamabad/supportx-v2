@@ -136,6 +136,8 @@ export const ar: LabelResource = {
     'يمكن لمالكها فقط تغيير لوحة المعلومات هذه. انسخها لإنشاء نسختك.',
   'errors.dashboard_not_found': 'لوحة المعلومات هذه غير موجودة أو غير مشتركة معك.',
   'errors.database_not_configured': 'لم تكتمل تهيئة الخدمة بعد. يرجى التواصل مع المسؤول.',
+  'errors.default_board_kept':
+    'لا يمكن إزالة المجلس الاستشاري الافتراضي للتغييرات، فهو يراجع التغييرات التي لا يراجعها مجلس آخر.',
   'errors.default_site_required':
     'لا يمكن إزالة الموقع الافتراضي. اجعل موقعًا آخر افتراضيًا أولًا.',
   'errors.delivery_not_failed': 'لم يفشل هذا الرد، فلا شيء لإعادة إرساله.',
@@ -167,6 +169,7 @@ export const ar: LabelResource = {
     'معلومات الترخيص غير متاحة مؤقتًا. يرجى المحاولة مرة أخرى بعد قليل.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.already_linked': 'هذان السجلان مرتبطان بالفعل.',
+  'errors.field.announcement_message_required': 'اكتب الرسالة التي سيراها الناس.',
   'errors.field.api_key_allowlist_invalid': 'أدخل حتى 20 عنوانًا أو شبكة صالحة، مثل 10.0.0.0/8.',
   'errors.field.api_key_expiry_past': 'يجب أن يكون تاريخ الانتهاء في المستقبل.',
   'errors.field.api_key_expiry_required': 'اختر تاريخ انتهاء: لا تسمح مؤسستك بمفاتيح لا تنتهي.',
@@ -209,6 +212,7 @@ export const ar: LabelResource = {
   'errors.field.before_publish': 'يجب أن يأتي الإيقاف بعد النشر.',
   'errors.field.before_start': 'لا يمكن أن تسبق النهاية البداية.',
   'errors.field.below_minimum': 'الحد الأدنى هو {{min}}.',
+  'errors.field.board_not_found': 'هذا المجلس الاستشاري غير موجود.',
   'errors.field.brand_image_svg':
     'صور SVG غير مقبولة لأنها قد تحتوي على نصوص برمجية. استخدم ملف PNG أو JPEG أو WebP أو ICO.',
   'errors.field.brand_image_too_large': 'هذه الصورة كبيرة جدًا: 5 ميغابايت و25 ميغابكسل كحد أقصى.',
@@ -267,6 +271,7 @@ export const ar: LabelResource = {
   'errors.field.duplicate_name': 'هذا الاسم مستخدم بالفعل.',
   'errors.field.duplicate_permission': 'هذه الصلاحية مذكورة مرتين.',
   'errors.field.duplicate_sort_field': 'يمكن استخدام كل حقل مرة واحدة فقط في الترتيب.',
+  'errors.field.duplicate_value': 'هذا مدرج أكثر من مرة.',
   'errors.field.duration_mismatch': 'المدة لا تطابق وقتي البدء والانتهاء.',
   'errors.field.email_invalid': 'أدخل عنوان بريد مثل name@example.com.',
   'errors.field.email_not_valid': 'أدخل عنوان بريد إلكتروني، مثل name@example.com.',
@@ -675,6 +680,7 @@ export const ar: LabelResource = {
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
   'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
+  'errors.nothing_to_override': 'هذا التغيير لا ينتظر الموافقة مجددًا، فلا يوجد ما يُتجاوز.',
   'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
   'errors.notification_not_found': 'هذا الإشعار غير موجود أو ليس لك.',
   'errors.notification_record_not_found': 'هذا السجل غير موجود أو غير متاح لك.',

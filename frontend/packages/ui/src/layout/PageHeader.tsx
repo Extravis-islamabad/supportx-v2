@@ -32,7 +32,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   const { direction } = useAppearance();
   return (
-    <header style={{ marginBottom: SPACE.sm }} data-testid={testId}>
+    <header className="sx-page-header" style={{ marginBottom: SPACE.sm }} data-testid={testId}>
       <Flex justify="space-between" align="center" wrap gap={SPACE.sm}>
         <Flex align="center" gap={SPACE.xs} style={{ minWidth: 0 }}>
           {back !== undefined && (

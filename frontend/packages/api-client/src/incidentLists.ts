@@ -84,16 +84,25 @@ export function useSavedViewChange() {
   });
 }
 
+/** The work-item lists that keep per-user, per-view settings (each type's `/list-settings`). */
+export type ListKind = 'incidents' | 'service-requests' | 'problems' | 'changes' | 'releases';
+
+// Every type serves the same list-settings contract under its own path (work_items'
+// add_list_routes), so the incidents path's types stand for all of them.
+const settingsPath = (kind: ListKind) =>
+  `/api/v1/${kind}/list-settings/{view_key}` as '/api/v1/incidents/list-settings/{view_key}';
+
+/** The cache key of one list's settings for one view. */
+export const listSettingKey = (kind: ListKind, viewKey: string) =>
+  kind === 'incidents'
+    ? queryKeys.incidents.listSetting(viewKey)
+    : ([kind, 'list-settings', viewKey] as const);
+
 /** Your columns, sort and page size for one view (`version` null: the defaults). */
-export function useListSetting(viewKey: string, enabled = true) {
+export function useListSetting(viewKey: string, enabled = true, kind: ListKind = 'incidents') {
   return useQuery({
-    queryKey: queryKeys.incidents.listSetting(viewKey),
-    queryFn: () =>
-      call(
-        api.GET('/api/v1/incidents/list-settings/{view_key}', {
-          params: { path: { view_key: viewKey } },
-        }),
-      ),
+    queryKey: listSettingKey(kind, viewKey),
+    queryFn: () => call(api.GET(settingsPath(kind), { params: { path: { view_key: viewKey } } })),
     enabled,
   });
 }
@@ -117,17 +126,15 @@ const chains = new WeakMap<QueryClient, Map<string, SaveChain>>();
  */
 export interface SaveListSettingArgs {
   viewKey: string;
-  /** Kept for callers; the version in the cache (the last save's) is what is sent. */
-  version?: number | null;
   setting: ListSettingInput;
 }
 
-export function useSaveListSetting() {
+export function useSaveListSetting(kind: ListKind = 'incidents') {
   const queryClient = useQueryClient();
-  const keyOf = (viewKey: string) => queryKeys.incidents.listSetting(viewKey);
+  const keyOf = (viewKey: string) => listSettingKey(kind, viewKey);
   const put = (viewKey: string, version: number | null, setting: ListSettingInput) =>
     call(
-      api.PUT('/api/v1/incidents/list-settings/{view_key}', {
+      api.PUT(settingsPath(kind), {
         params: {
           path: { view_key: viewKey },
           header: version === null ? {} : ifMatch(version),
@@ -144,9 +151,7 @@ export function useSaveListSetting() {
       // Another tab of yours saved first: take its version and save what you see now, your
       // latest action (lane A's review), so the other tab's change loses only to a newer one.
       const fresh = await call(
-        api.GET('/api/v1/incidents/list-settings/{view_key}', {
-          params: { path: { view_key: viewKey } },
-        }),
+        api.GET(settingsPath(kind), { params: { path: { view_key: viewKey } } }),
       );
       const shown = queryClient.getQueryData<ListSetting>(keyOf(viewKey));
       const latest: ListSettingInput =
@@ -165,8 +170,9 @@ export function useSaveListSetting() {
     mutationFn: ({ viewKey, setting }: SaveListSettingArgs): Promise<ListSetting | null> => {
       const mine = chains.get(queryClient) ?? new Map<string, SaveChain>();
       chains.set(queryClient, mine);
-      const chain = mine.get(viewKey) ?? { running: Promise.resolve(), latest: 0 };
-      mine.set(viewKey, chain);
+      const chainKey = `${kind}|${viewKey}`; // one chain per list and view
+      const chain = mine.get(chainKey) ?? { running: Promise.resolve(), latest: 0 };
+      mine.set(chainKey, chain);
       const ticket = ++chain.latest;
       const run = chain.running
         .catch(() => undefined)

@@ -29,16 +29,44 @@ describe('console: service request settings', () => {
     });
     restore = fake.restore;
     render(<App />);
-    const save = await screen.findByTestId('sr-settings-save');
-    expect(save.closest('button')?.disabled).toBe(true); // nothing changed yet
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Requesters may raise for' }));
+    // One save bar (template E): none until something changes.
+    const scope = await screen.findByRole('combobox', { name: 'Requesters may raise for' });
+    expect(screen.queryByTestId('sr-settings-save-bar')).toBeNull();
+    fireEvent.mouseDown(scope);
     fireEvent.click(await screen.findByTitle('Any requester'));
-    fireEvent.click(save);
+    expect((await screen.findByTestId('sr-settings-save-bar')).textContent).toContain(
+      '1 unsaved change',
+    );
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PATCH', '/api/v1/service-requests/settings')).toHaveLength(1);
     });
     const [sent] = fake.find('PATCH', '/api/v1/service-requests/settings');
     expect(sent?.body).toEqual({ on_behalf_scope: 'all_requesters' });
     expect(sent?.headers.get('If-Match')).toBe('"4"');
+  });
+
+  it('D-154c: the first-task switch is on by default and saves through the bar', async () => {
+    window.history.pushState({}, '', '/admin/requests');
+    const fake = consoleApi({
+      me: fakeSession({ roles: ['tenant_admin'] }),
+      routes: {
+        'GET /api/v1/service-requests/settings': { body: saved },
+        'PATCH /api/v1/service-requests/settings': {
+          body: { ...saved, first_task_starts_work: false, version: 5 },
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const starts = await screen.findByTestId('sr-first-task-starts');
+    expect(starts.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(starts);
+    fireEvent.click(await screen.findByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/service-requests/settings')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', '/api/v1/service-requests/settings');
+    expect(sent?.body).toEqual({ first_task_starts_work: false });
   });
 });

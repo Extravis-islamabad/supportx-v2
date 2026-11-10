@@ -141,6 +141,8 @@ export const ar: LabelResource = {
   'layout.alerts_count_other': '{{count}} تنبيه',
   'layout.alerts_count_two': 'تنبيهان',
   'layout.alerts_count_zero': 'لا توجد تنبيهات',
+  'layout.also_above': 'موجود أعلاه أيضًا',
+  'layout.dismiss': 'إخفاء هذا السطر',
   'layout.done': 'تم',
   'layout.edit_field': 'تعديل {{field}}',
   'layout.favourites': 'المفضلة',
@@ -167,6 +169,8 @@ export const ar: LabelResource = {
   'layout.properties': 'الخصائص',
   'layout.properties_add': 'إضافة تفاصيل ({{n}})',
   'layout.properties_fewer': 'إخفاء الحقول الفارغة',
+  'layout.reset_widths': 'إعادة ضبط العرض',
+  'layout.resize_column': 'عرض {{column}}: استخدم مفاتيح الأسهم',
   'layout.star': 'إضافة إلى المفضلة',
   'layout.unstar': 'إزالة من المفضلة',
   'layout.view': 'عرض',
@@ -569,6 +573,9 @@ export const ar: LabelResource = {
   'setup.page.users.keywords':
     'أشخاص، مستخدمون، فنيون، مقدمو الطلبات، استيراد، موظفون، حسابات، تعطيل',
   'setup.palette_group': 'الإعداد',
+  'setup.read_only': 'يمكنك عرض هذه الصفحة دون تغييرها.',
+  'setup.read_only_reason':
+    'يتيح لك دورك رؤية هذه الإعدادات. يتطلب تغييرها صلاحية إدارة؛ اطلبها من المسؤول إن احتجت إليها.',
   'setup.search': 'البحث في الإعداد',
   'setup.search_placeholder': 'مثل كلمة المرور، العطلات، الشعار',
   'setup.title': 'الإعداد',

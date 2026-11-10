@@ -1,5 +1,6 @@
 import { App as AntApp, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
+import updateLocale from 'dayjs/plugin/updateLocale';
 import 'dayjs/locale/ar';
 import 'dayjs/locale/ur';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -10,7 +11,9 @@ import { ANT_LOCALES } from './antdLocales';
 import { fontFaces, type UrduScript } from './fonts/fonts';
 import {
   AppearanceContext,
+  DEFAULT_DATES,
   intlLocaleFor,
+  type DatePreferences,
   type Appearance,
   type Digits,
   type BrandingSource,
@@ -69,6 +72,24 @@ function useFavicon(brand: Branding): void {
 // A table wider than the screen scrolls inside its own box, never the page (QA BUG-03, 390 px).
 const PAGE_CSS =
   'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
+  // Messages hold text only: clicks pass through to the page header under them, and resting
+  // the pointer there no longer keeps them open (QA10-P4-19). Notifications keep their close.
+  '.ant-message .ant-message-notice-content { pointer-events: none; } ' +
+  // In a list page the page's own gaps space the header (16 px, Haider 2026-11-10); the
+  // header's margin elsewhere is inline, hence the !important here.
+  '.sx-list-page > .sx-page-header { margin-bottom: 0 !important; } ' +
+  // Chips (Haider, 2026-11-10): the dot keeps a clear gap before its words, the dot and words
+  // sit on one line, and two chips side by side never touch.
+  '.ant-tag { display: inline-flex; align-items: center; } ' +
+  '.ant-tag > .ant-badge { margin-inline-end: 6px !important; line-height: 1; } ' +
+  '.ant-tag + .ant-tag { margin-inline-start: 6px; } ' +
+  // In a table cell a long chip stays inside its column, never over the next one.
+  '.ant-table-cell .ant-tag { max-width: 100%; overflow: hidden; white-space: nowrap; } ' +
+  // A list cell's text: cut at its own end, in its own direction, aligned as the column is.
+  // An inline block: it sits at the column's start whatever its own direction, and cuts at its
+  // own end once it is wider than the cell.
+  '.sx-cell-text { display: inline-block; max-width: 100%; vertical-align: top; ' +
+  'overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } ' +
   // Text for screen readers only (a name where the screen shows initials or an icon).
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
@@ -135,6 +156,10 @@ export function AppearanceProvider({
   // The top bar's height at this text size, plus a gap: where toasts start.
   const belowHeader = Math.round((56 * textScale) / 100) + 8;
   const [digits, setDigits] = useState<Digits>('western');
+  const [dates, setDatesState] = useState<DatePreferences>(DEFAULT_DATES);
+  const setDates = useCallback((next: Partial<DatePreferences>) => {
+    setDatesState((current) => ({ ...current, ...next }));
+  }, []);
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
   useEffect(() => {
@@ -144,10 +169,13 @@ export function AppearanceProvider({
     document.documentElement.dataset.textScale = String(textScale);
   }, [direction, locale, mode, textScale]);
 
-  // Ant Design's pickers take month and weekday names from dayjs's global locale.
+  // Ant Design's pickers take month and weekday names from dayjs's global locale, and the first
+  // day of the week from it too: the person's (else the organisation's) week start (P3-14).
   useEffect(() => {
+    dayjs.extend(updateLocale);
+    dayjs.updateLocale(locale, { weekStart: WEEK_START_DAY[dates.weekStart] });
     dayjs.locale(locale);
-  }, [locale]);
+  }, [locale, dates.weekStart]);
 
   const [sources, setSources] = useState<Partial<Record<BrandingSource, Partial<Branding>>>>({});
   // The tenant's brand wins over the address's, both over the prop (tests) and the default.
@@ -184,12 +212,14 @@ export function AppearanceProvider({
       setBranding,
       urduScript,
       setUrduScript,
+      dates,
+      setDates,
       setLocale: (next) => {
         setLocaleState(next);
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand, setBranding, urduScript, textScale, digits],
+    [mode, direction, locale, brand, setBranding, urduScript, textScale, digits, dates, setDates],
   );
   const themeConfig = useMemo(
     () => buildTheme(mode, brand, locale, density, textScale, urduScript),
@@ -216,3 +246,10 @@ export function AppearanceProvider({
     </AppearanceContext.Provider>
   );
 }
+
+// dayjs counts days from Sunday (0).
+const WEEK_START_DAY: Record<DatePreferences['weekStart'], number> = {
+  sunday: 0,
+  monday: 1,
+  saturday: 6,
+};

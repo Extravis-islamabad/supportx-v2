@@ -86,7 +86,7 @@ describe('Incidents list', () => {
     const notice = await screen.findByTestId('inc-view-notice');
     expect(notice.textContent).toContain('View “All open”: 3 shown.');
     expect(notice.textContent).toContain('5 other incidents you can see are not in this view.');
-    expect(notice.getAttribute('data-hidden')).toBe('5');
+    expect(notice.querySelector('[data-hidden]')?.getAttribute('data-hidden')).toBe('5');
     expect(screen.getByTestId('inc-show-all')).toBeDefined();
   });
 
@@ -241,6 +241,69 @@ describe('One incident', () => {
     expect(sent?.headers.get('If-Match')).toBe('"1"');
   });
 
+  it('D-154a: someone outside the group is assigned by moving the incident to their group', async () => {
+    const mine = { ...ITEM, group_id: 'g-a' };
+    const fake = api({
+      routes: {
+        ...COMMON,
+        'GET /api/v1/organization/groups': {
+          body: [
+            { id: 'g-a', name: 'Service Desk', member_ids: [] },
+            { id: 'g-b', name: 'Network', member_ids: [] },
+            { id: 'g-c', name: 'Business apps', member_ids: [] },
+          ],
+        },
+        [`GET ${PATH}`]: { body: mine, headers: { ETag: '"1"' } },
+        'GET /api/v1/incidents/assignees': {
+          body: [
+            {
+              id: 'u-hamza',
+              display_name: 'Hamza Ali',
+              email: 'hamza@demo.test',
+              open_count: 2,
+              group_ids: ['g-b', 'g-c'],
+            },
+            {
+              // In no group: nowhere to move the incident to, so never offered (lane C).
+              id: 'u-nogroup',
+              display_name: 'Nadia Groupless',
+              email: 'nadia@demo.test',
+              open_count: 0,
+              group_ids: [],
+            },
+          ],
+        },
+        [`POST ${PATH}/assign`]: { body: { ...mine, group_id: 'g-b', version: 2 } },
+      },
+    });
+    render(<App />);
+    await clickAction('inc-op-assign');
+    fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-technician')));
+    const hamza = await screen.findByText('Hamza Ali');
+    expect(screen.queryByText('Nadia Groupless')).toBeNull(); // listed, she would show here
+    fireEvent.click(hamza);
+    const notice = await screen.findByTestId('inc-assign-outside');
+    expect(notice.textContent).toContain("Hamza Ali isn't in Service Desk");
+    // In two groups: the group is picked first; until then the action waits and the notice asks.
+    const ok = screen.getByTestId('inc-assign-confirm');
+    expect(ok.textContent).toContain('Assign');
+    expect(ok.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('inc-assign-move-to')).toBeDefined();
+    fireEvent.mouseDown(selectorOf(screen.getByTestId('inc-assign-move-to')));
+    fireEvent.click(await screen.findByTitle('Network'));
+    await waitFor(() => {
+      expect(screen.getByTestId('inc-assign-confirm').textContent).toContain(
+        'Move to Network and assign to Hamza Ali',
+      );
+    });
+    fireEvent.click(screen.getByTestId('inc-assign-confirm'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/assign`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('POST', `${PATH}/assign`);
+    expect(sent?.body).toMatchObject({ group_id: 'g-b', technician_id: 'u-hamza' });
+  });
+
   it('D-053/D-068: a hand-over warns first; unticking "keep following" gives up access', async () => {
     const handed = {
       ...ITEM,
@@ -388,6 +451,13 @@ describe('New incident', () => {
       },
     });
     render(<App />);
+    // QA10-P1-16: a sticky footer, Cancel before Save.
+    const footer = await screen.findByTestId('inc-new-footer');
+    expect(footer.style.position).toBe('sticky');
+    const ids = within(footer)
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('data-testid'));
+    expect(ids.indexOf('inc-new-cancel')).toBeLessThan(ids.indexOf('inc-save'));
     fireEvent.click(await screen.findByTestId('inc-save'));
     expect((await screen.findByTestId('error-subject')).textContent).toBe(
       'This field is required.',

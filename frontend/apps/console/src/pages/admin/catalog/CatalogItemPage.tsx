@@ -42,6 +42,7 @@ import {
   reportError,
   textIn,
   useAccess,
+  pickerFormat,
   useAppearance,
   useLabel,
   useLicence,
@@ -214,10 +215,12 @@ function ItemEditor({ id }: { id: string | undefined }) {
     if (shown.length > 0) {
       setProblems(shown);
       // Seen at once, wherever the person had scrolled to.
+      // Guarded: browsers without it (jsdom in tests) simply don't scroll.
       requestAnimationFrame(() => {
-        document
-          .querySelector('[data-testid="cat-item-problems"]')
-          ?.scrollIntoView({ block: 'nearest' });
+        const box = document.querySelector('[data-testid="cat-item-problems"]');
+        if (box !== null && typeof box.scrollIntoView === 'function') {
+          box.scrollIntoView({ block: 'nearest' });
+        }
       });
     } else reportError(error);
   };
@@ -940,6 +943,9 @@ function LifeTab({
   onStatus: (status: CatalogItem['status']) => void;
 }) {
   const t = useLabel();
+  // The person's date and time format (lane C's QA10-P3-14), as the shared date fields show it.
+  const { dates } = useAppearance();
+  const timeFormat = dates.timeFormat === '12h' ? 'hh:mm A' : 'HH:mm';
   const status = item?.status ?? 'draft';
   return (
     <Form layout="vertical" component="div">
@@ -975,7 +981,8 @@ function LifeTab({
             help={t('catalog_admin.publish_at_help')}
           >
             <DatePicker
-              showTime={{ format: 'HH:mm' }}
+              showTime={{ format: timeFormat }}
+              format={pickerFormat(dates, true)}
               value={draft.publish_at ? dayjs(draft.publish_at) : null}
               onChange={(value: dayjs.Dayjs | null) => {
                 set({ publish_at: value ? value.toISOString() : null });
@@ -988,7 +995,8 @@ function LifeTab({
         {status !== 'retired' && (
           <Form.Item label={t('catalog_admin.retire_at')}>
             <DatePicker
-              showTime={{ format: 'HH:mm' }}
+              showTime={{ format: timeFormat }}
+              format={pickerFormat(dates, true)}
               value={draft.retire_at ? dayjs(draft.retire_at) : null}
               onChange={(value: dayjs.Dayjs | null) => {
                 set({ retire_at: value ? value.toISOString() : null });

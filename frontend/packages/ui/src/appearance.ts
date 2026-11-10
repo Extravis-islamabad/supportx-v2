@@ -8,6 +8,24 @@ import type { Branding, ThemeMode } from './theme';
 export type Direction = 'ltr' | 'rtl';
 /** Digits on screen (D-135). */
 export type Digits = 'western' | 'arabic_indic';
+/** How dates and times read (REQ-ADM-049/058): the person's choice, else the organisation's. */
+/**
+ * How dates are written. `medium` ("10 Nov 2026") is the default and the only form anything
+ * shared uses; a numeric one shows only on the screens of a person who picked it (D-155).
+ */
+export type DateFormat = 'medium' | 'dd/mm/yyyy' | 'mm/dd/yyyy' | 'yyyy-mm-dd' | 'dd.mm.yyyy';
+export type TimeFormat = '24h' | '12h';
+export type WeekStart = 'monday' | 'sunday' | 'saturday';
+export interface DatePreferences {
+  dateFormat: DateFormat;
+  timeFormat: TimeFormat;
+  weekStart: WeekStart;
+}
+export const DEFAULT_DATES: DatePreferences = {
+  dateFormat: 'medium',
+  timeFormat: '24h',
+  weekStart: 'monday',
+};
 
 /** `locale` with its numbering system: Western (`latn`) unless Arabic-Indic was chosen. */
 export function intlLocaleFor(locale: string, digits: Digits): string {
@@ -43,6 +61,9 @@ export interface Appearance {
   /** How Urdu is set (D-137): Naskh by default, Nastaliq when the person chose it. */
   urduScript: UrduScript;
   setUrduScript: (script: UrduScript) => void;
+  /** Date and time format and the first day of the week (QA10-P3-14): every date follows them. */
+  dates: DatePreferences;
+  setDates: (dates: Partial<DatePreferences>) => void;
 }
 
 export type BrandingSource = 'address' | 'tenant';

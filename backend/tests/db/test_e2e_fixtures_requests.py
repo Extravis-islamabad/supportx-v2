@@ -14,12 +14,15 @@ from sqlalchemy import select
 from app.core.tenancy import TenantContext
 from app.modules.work_items.infra.models import WorkItemApproval
 from app.modules.work_items.service.approvals import issue_links
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import MANAGER, manager_of
-from tests.db.test_incidents_api import CONSOLE, Org, World, world
+from tests.db.test_incidents_api import CONSOLE, Org, World
 from tests.db.test_service_requests_api import an_item, raise_request
 from tooling import e2e_fixtures
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def _category(world: World, org: Org, name: str) -> str:

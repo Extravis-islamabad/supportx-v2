@@ -55,6 +55,32 @@ describe('ActionBar', () => {
     expect(screen.getByTestId('a-assign').className).not.toContain('ant-btn-primary');
   });
 
+  it('QA10-P4-24: menu items that are also buttons say so, in the fixed order', async () => {
+    renderUi(
+      <ActionBar
+        testId="bar"
+        max={1}
+        actions={[
+          action('assign', { rank: 2 }),
+          action('resolve', { rank: 1 }),
+          action('note', { primary: false }),
+        ]}
+      />,
+    );
+    const items = within(await menu()).getAllByRole('menuitem');
+    expect(items.map((i) => i.getAttribute('data-testid'))).toEqual([
+      'a-assign-menu',
+      'a-resolve-menu',
+      'a-note-menu',
+    ]);
+    const marked = (testId: string) =>
+      screen.getByTestId(testId).querySelector('[data-also-above]') !== null;
+    expect(marked('a-resolve-menu')).toBe(true);
+    expect(screen.getByTestId('a-resolve-menu').textContent).toContain('Also above');
+    expect(marked('a-assign-menu')).toBe(false);
+    expect(marked('a-note-menu')).toBe(false);
+  });
+
   it('lists every action in the menu, unavailable ones disabled with the reason, destructive last', async () => {
     renderUi(
       <ActionBar
@@ -209,6 +235,40 @@ describe('NoticeStack', () => {
       </NoticeStack>,
     );
     expect(screen.getByTestId('notices').hidden).toBe(false); // a new notice brings it back
+  });
+
+  it('QA10-P3-10: a dismissed notice that goes and comes back, or a remount, keeps it hidden', () => {
+    window.sessionStorage.clear();
+    const view = renderUi(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+      </NoticeStack>,
+    );
+    fireEvent.click(screen.getByTestId('notices-dismiss'));
+    // Another page: the MFA reminder is not shown there, then is again.
+    view.rerender(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').hidden).toBe(true);
+    view.rerender(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+        <Notice text="MFA due" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').hidden).toBe(true);
+    // The strip mounted again (the layout re-rendered from scratch): still hidden.
+    view.unmount();
+    renderUi(
+      <NoticeStack testId="notices">
+        <Notice text="Scanner down" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').hidden).toBe(true);
+    window.sessionStorage.clear();
   });
 
   it('an empty box never takes the visible place; a critical notice does (announcements.spec)', () => {

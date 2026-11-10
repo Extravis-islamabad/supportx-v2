@@ -1,11 +1,10 @@
 """The shared API conventions are visible in the published OpenAPI document (WP-008)."""
 
-from app.main import create_app
-from conftest import make_settings
+from typing import Any
 
 
-def test_the_filter_dsl_schema_is_published() -> None:
-    document = create_app(make_settings()).openapi()
+def test_the_filter_dsl_schema_is_published(openapi_contract: dict[str, Any]) -> None:
+    document = openapi_contract
     schemas = document["components"]["schemas"]
     assert {"FilterExpression", "FilterCondition", "FilterAnd", "FilterOr"} <= set(schemas)
     ops = schemas["FilterCondition"]["properties"]["op"]

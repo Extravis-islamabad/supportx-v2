@@ -1,4 +1,13 @@
-export { useAppearance, useLabel, type Appearance, type Direction } from './appearance';
+export {
+  useAppearance,
+  useLabel,
+  type Appearance,
+  type DateFormat,
+  type DatePreferences,
+  type Direction,
+  type TimeFormat,
+  type WeekStart,
+} from './appearance';
 export { useAccess, type Access } from './access';
 export * from './announcements';
 export * from './brand';

@@ -17,11 +17,14 @@ from app.modules.work_items.service.realtime import CHANNELS, PORTAL_KIND, ROUTE
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import LabelRef
 from app.shared.realtime import Channel, ChannelRequest
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import events_of, say
 from tests.db.test_incident_settings_api import admin_write
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 PORTAL = "/portal/incidents"
 STAFF_ONLY = {"group_id", "technician_id", "priority", "status", "channel", "tags", "level"}
@@ -387,8 +390,9 @@ async def test_requester_side_messages_name_the_portal_status_only(
     a = world.a
     item = await world.create(a, a.admin, group_id=str(a.ga))
     current = await world.fresh(a, item)
+    # Tech A works it: start work takes it, and D-154a keeps it within the group's people.
     for action, reason in (("start_work", None), ("wait_third_party", "vendor")):
-        moved = await world.act(a, a.admin, current, action, reason_code=reason)
+        moved = await world.act(a, a.tech_a, current, action, reason_code=reason)
         assert moved.status_code == 200, (action, moved.text)
         current = moved.json()
     event = next(

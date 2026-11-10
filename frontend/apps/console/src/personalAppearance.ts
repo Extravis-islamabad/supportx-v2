@@ -6,7 +6,16 @@ import {
   type MeResponse,
   type PersonalPreferenceChange,
 } from '@supportx/api-client';
-import { reportError, storedMode, systemMode, useAppearance, type ThemeMode } from '@supportx/ui';
+import {
+  reportError,
+  storedMode,
+  systemMode,
+  useAppearance,
+  type DateFormat,
+  type ThemeMode,
+} from '@supportx/ui';
+
+const DATE_FORMATS = new Set<string>(['dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd', 'dd.mm.yyyy']);
 
 const PERSONAL = [
   'theme_mode',
@@ -31,7 +40,7 @@ const PERSONAL = [
 export function usePersonalAppearance(
   user: MeResponse['user'] | undefined,
 ): (mode: ThemeMode) => void {
-  const { setMode, setTextScale, setDigits, setUrduScript } = useAppearance();
+  const { setMode, setTextScale, setDigits, setUrduScript, setDates } = useAppearance();
   const save = useSetPreference(user?.id ?? '');
   const copied = useRef(false);
   // The first theme read from the server since this tab opened. A value, not a "done" flag:
@@ -42,6 +51,10 @@ export function usePersonalAppearance(
   const themeMode = user?.theme_mode;
   const textScale = user?.text_scale;
   const digits = user?.digits;
+  const dateFormat = user?.date_format;
+  const ownDateFormat = user?.chosen?.includes('date_format') ?? false;
+  const timeFormat = user?.time_format;
+  const weekStart = user?.week_start;
   const urduScript = user?.urdu_script;
 
   // Choices made just before a reload whose save had not finished: sent again (as the layout).
@@ -84,6 +97,21 @@ export function usePersonalAppearance(
   useEffect(() => {
     setDigits(digits ?? 'western');
   }, [digits, setDigits]);
+
+  // QA10-P3-14: every date and picker follows the person's format, else the organisation's (the
+  // session carries the one that applies); unknown values keep the defaults.
+  useEffect(() => {
+    // D-155: a numeric date only for someone who picked it themselves; the organisation's
+    // default and everyone else see the written-out form ("10 Nov 2026").
+    setDates({
+      dateFormat:
+        ownDateFormat && DATE_FORMATS.has(dateFormat ?? '') ? (dateFormat as DateFormat) : 'medium',
+      ...(timeFormat === '12h' || timeFormat === '24h' ? { timeFormat } : {}),
+      ...(weekStart === 'monday' || weekStart === 'sunday' || weekStart === 'saturday'
+        ? { weekStart }
+        : {}),
+    });
+  }, [dateFormat, ownDateFormat, timeFormat, weekStart, setDates]);
 
   // D-137: Urdu in Naskh unless the person chose Nastaliq.
   useEffect(() => {

@@ -9,9 +9,12 @@ using pytest-xdist inside (product owner, 2026-10-27: the backend CI job under 1
   least time so far, using the seconds in `tests/shard_weights.json`. A file not listed there
   weighs DEFAULT_SECONDS. The assignment depends only on the collected file names and the
   weights, so every shard computes the same split without talking to the others.
-- Tests that use the private Keycloak (`private_keycloak`, tests/integration) share one
-  xdist group, so with `--dist loadgroup` one worker per shard starts one Keycloak (about 1 GB
-  and 20 seconds), never one per worker.
+- Each shard runs `pytest -n 4 --dist loadfile`: a file's tests stay on one worker, so its
+  module fixtures (a private Keycloak, about 1 GB and 20-120 s; a seeded stack) are built once
+  per file, never once per worker. `--dist loadgroup` with xdist 3.8 and pytest 9 did not group
+  at all (a bare probe spread one group over four workers), so a file's Keycloak tests started
+  up to four Keycloaks at once (2026-11-10). The `keycloak` xdist group below is kept for the
+  split's chain arithmetic only.
 - `SUPPORTX_TEST_TIMINGS=<path>` writes how long each file took (call phases plus fixtures) as
   JSON. CI keeps each shard's as an artifact. The nightly combines them (`backend-shard-weights`)
   and every later CI run balances on the newest nightly's (`SUPPORTX_TEST_WEIGHTS`), so the split
@@ -26,7 +29,6 @@ variables. Never imported by the app.
 
 import json
 import os
-import statistics
 from collections import defaultdict
 from pathlib import Path
 
@@ -34,8 +36,11 @@ import pytest
 
 WEIGHTS = Path(__file__).resolve().parents[1] / "tests" / "shard_weights.json"
 DEFAULT_SECONDS = 5.0  # only when there are no weights at all
-# Above this share of unweighted files the split is mostly guesswork: CI warns to refresh them.
-UNWEIGHTED_WARN_SHARE = 0.10
+# How far up the measured files an unweighted one counts (coordinator, 2026-11-10): new files
+# without a weight overloaded one shard three times (#216, #262, #307), counted as the median.
+UNWEIGHTED_PERCENTILE = 0.9
+# The longest list of unweighted files the warning names (the rest as a count).
+UNWEIGHTED_LISTED = 40
 
 
 def _weights() -> dict[str, float]:
@@ -70,13 +75,26 @@ def _file(nodeid: str) -> str:
     return nodeid.split("::", 1)[0]
 
 
-def fallback_seconds(weights: dict[str, float]) -> float:
-    """What a file without a weight counts: the median measured file, not a fixed guess.
+def fallback_seconds(weights: dict[str, float], name: str | None = None) -> float:
+    """What a file without a weight counts: a pessimistic measured file, never a light guess.
 
-    New test files are mostly ordinary database tests; 5 s made a shard of them look light
-    until it ran past the job's limit (2026-11-04, 97 of 234 files unweighted).
+    The 90th percentile of the measured files of its kind (database tests against database
+    tests, the rest against the rest), so a new file is planned as a heavy one. 5 s, then the
+    median (4.7 s), made a shard of new database tests look light until it ran past the job's
+    limit (2026-11-04: 97 of 234 files; 2026-11-10: #307's asset tests, about 500 s).
     """
-    return statistics.median(weights.values()) if weights else DEFAULT_SECONDS
+    if not weights:
+        return DEFAULT_SECONDS
+    kind = _is_db(name) if name is not None else None
+    alike = [v for k, v in weights.items() if kind is None or _is_db(k) == kind] or list(
+        weights.values()
+    )
+    ordered = sorted(alike)
+    return ordered[min(len(ordered) - 1, int(UNWEIGHTED_PERCENTILE * len(ordered)))]
+
+
+def _is_db(name: str) -> bool:
+    return "/db/" in f"/{name}"
 
 
 def unweighted(files: list[str], weights: dict[str, float]) -> list[str]:
@@ -100,7 +118,6 @@ def assign(
     the shards (each starts its own Keycloak, about 20 s) keeps that chain from setting the
     slowest shard's time (2026-11-05: 830 s of Keycloak tests on one worker).
     """
-    default = fallback_seconds(weights)
     total = [0.0] * count
     chain = [0.0] * count
 
@@ -108,15 +125,37 @@ def assign(
         serial_time = chain[shard] + (seconds if name in serial else 0.0)
         return max(serial_time, (total[shard] + seconds) / workers)
 
-    placed: dict[str, int] = {}
-    ordered = sorted(files, key=lambda name: (-weights.get(name, default), name))
-    for name in ordered:
-        seconds = weights.get(name, default)
-        best = min(range(count), key=lambda shard: (finish(shard, name, seconds), shard))
-        total[best] += seconds
+    def put(name: str, shard: int, seconds: float) -> None:
+        total[shard] += seconds
         if name in serial:
-            chain[best] += seconds
-        placed[name] = best + 1
+            chain[shard] += seconds
+        placed[name] = shard + 1
+
+    placed: dict[str, int] = {}
+
+    def estimate(name: str) -> float:
+        return weights[name] if name in weights else fallback_seconds(weights, name)
+
+    # Measured files, and every serial (private Keycloak) file, weighted or not: heaviest first,
+    # where the shard would finish soonest, its Keycloak chain included. Dealing Keycloak files
+    # round-robin put several Keycloak containers on one runner at once, and they failed to
+    # start (#321's first queue run).
+    planned = sorted(
+        (n for n in files if n in weights or n in serial), key=lambda n: (-estimate(n), n)
+    )
+    for name in planned:
+        seconds = estimate(name)
+        put(
+            name,
+            min(range(count), key=lambda shard: (finish(shard, name, seconds), shard)),
+            seconds,
+        )
+    # Other unweighted files last, dealt out round-robin from the lightest shard: a guess is
+    # never packed onto one shard, however light the guess makes it look.
+    rotation = sorted(range(count), key=lambda shard: (finish(shard, "", 0.0), shard))
+    rest = sorted(n for n in files if n not in weights and n not in serial)
+    for i, name in enumerate(rest):
+        put(name, rotation[i % count], fallback_seconds(weights, name))
     return placed
 
 
@@ -146,8 +185,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         workers=workers if isinstance(workers, int) and workers > 0 else 1,
     )
     missing = unweighted(files, weights)
-    if files and len(missing) / len(files) > UNWEIGHTED_WARN_SHARE:
-        config.stash[_UNWEIGHTED] = (len(missing), len(files))
+    if missing:
+        config.stash[_UNWEIGHTED] = (missing, len(files))
     kept = [item for item in items if placed[_file(item.nodeid)] == index]
     dropped = [item for item in items if placed[_file(item.nodeid)] != index]
     if dropped:
@@ -155,20 +194,24 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     items[:] = kept
 
 
-_UNWEIGHTED = pytest.StashKey[tuple[int, int]]()
+_UNWEIGHTED = pytest.StashKey[tuple[list[str], int]]()
 
 
 def pytest_terminal_summary(
     terminalreporter: pytest.TerminalReporter, config: pytest.Config
 ) -> None:
-    """Warn when the shard weights are stale (more than UNWEIGHTED_WARN_SHARE unknown files)."""
+    """Name every test file without a shard weight, so the weights get added."""
     found = config.stash.get(_UNWEIGHTED, None)
     if found is None:
         return
     missing, total = found
+    listed = ", ".join(missing[:UNWEIGHTED_LISTED])
+    more = (
+        f" and {len(missing) - UNWEIGHTED_LISTED} more" if len(missing) > UNWEIGHTED_LISTED else ""
+    )
     note = (
-        f"{missing} of {total} test files have no shard weight: refresh tests/shard_weights.json "
-        "(make backend-shard-weights, from the nightly's backend-shard-weights artifact)"
+        f"{len(missing)} of {total} test files have no shard weight ({listed}{more}): add them to "
+        "tests/shard_weights.json (make backend-shard-weights, from the nightly's artifact)"
     )
     terminalreporter.write_line(f"WARNING: {note}", yellow=True)
     if os.environ.get("GITHUB_ACTIONS") == "true":

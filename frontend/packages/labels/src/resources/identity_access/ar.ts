@@ -364,8 +364,6 @@ export const ar: LabelResource = {
   'permission.changes.approve.description': 'اعتماد طلبات التغيير أو رفضها.',
   'permission.changes.assign': 'إسناد التغييرات',
   'permission.changes.assign.description': 'اختيار مجموعة التغييرات ومالكها.',
-  'permission.changes.assign_outside_group': 'إسناد التغييرات خارج المجموعة',
-  'permission.changes.assign_outside_group.description': 'إسناد تغيير إلى شخص ليس في مجموعتها.',
   'permission.changes.cancel': 'إلغاء التغييرات',
   'permission.changes.cancel.description': 'إلغاء التغييرات مع ذكر السبب والتراجع عن الإلغاء.',
   'permission.changes.change_priority': 'تغيير أولوية التغيير يدويًا',
@@ -381,6 +379,12 @@ export const ar: LabelResource = {
   'permission.changes.edit_due_dates': 'تعيين المواعيد المستهدفة للمشكلات يدويًا',
   'permission.changes.edit_due_dates.description':
     'تغيير الموعد المستهدف للتغيير بدلًا من سياستها.',
+  'permission.changes.emergency_override': 'تجاوز موافقة تغيير في حالة طارئة',
+  'permission.changes.emergency_override.description':
+    'مواصلة تغيير أُعيد للموافقة، مع ذكر السبب. يُسجَّل في سجل التدقيق، ويحتاج التغيير بعدها إلى مراجعته قبل الإغلاق.',
+  'permission.changes.manage_boards': 'إدارة مجالس استشارات التغيير',
+  'permission.changes.manage_boards.description':
+    'إضافة المجالس التي تراجع التغييرات وتعديلها وإزالتها، وتحديد أعضائها.',
   'permission.changes.manage_followers': 'إدارة متابعي التغييرات',
   'permission.changes.manage_followers.description': 'إضافة وإزالة من يتابعون تغيير.',
   'permission.changes.reopen': 'إعادة فتح التغييرات',
@@ -440,9 +444,6 @@ export const ar: LabelResource = {
   'permission.incidents.add_note.description': 'كتابة ملاحظات للموظفين فقط على الحوادث.',
   'permission.incidents.assign': 'إسناد الحوادث',
   'permission.incidents.assign.description': 'اختيار مجموعة الحوادث وفنيها.',
-  'permission.incidents.assign_outside_group': 'الإسناد خارج المجموعة',
-  'permission.incidents.assign_outside_group.description':
-    'إسناد فني ليس عضوًا في المجموعة المختارة.',
   'permission.incidents.cancel': 'إلغاء الحوادث',
   'permission.incidents.cancel.description': 'إلغاء الحوادث مع ذكر السبب والتراجع عن الإلغاء.',
   'permission.incidents.change_priority': 'تغيير الأولوية يدويًا',
@@ -524,8 +525,6 @@ export const ar: LabelResource = {
     'البت في موافقات المشكلات المسمّى لها، مثل قبول خطأ معروف دون إصلاح.',
   'permission.problems.assign': 'إسناد المشكلات',
   'permission.problems.assign.description': 'اختيار مجموعة المشكلات ومالكها.',
-  'permission.problems.assign_outside_group': 'إسناد المشكلات خارج المجموعة',
-  'permission.problems.assign_outside_group.description': 'إسناد مشكلة إلى شخص ليس في مجموعتها.',
   'permission.problems.cancel': 'إلغاء المشكلات',
   'permission.problems.cancel.description': 'إلغاء المشكلات مع ذكر السبب والتراجع عن الإلغاء.',
   'permission.problems.change_priority': 'تغيير أولوية المشكلة يدويًا',
@@ -571,9 +570,6 @@ export const ar: LabelResource = {
   'permission.releases.approve.description': 'البت في موافقات مراحل الإصدار المسمّى لها.',
   'permission.releases.assign': 'إسناد الإصدارات',
   'permission.releases.assign.description': 'إسناد الإصدارات إلى الأشخاص والمجموعات.',
-  'permission.releases.assign_outside_group': 'إسناد الإصدارات خارج المجموعة',
-  'permission.releases.assign_outside_group.description':
-    'إسناد إصدار إلى شخص ليس عضوًا في المجموعة المختارة.',
   'permission.releases.cancel': 'إلغاء الإصدارات',
   'permission.releases.cancel.description': 'إلغاء الإصدارات قبل الإغلاق، مع ذكر السبب.',
   'permission.releases.change_priority': 'تغيير أولوية الإصدار يدويًا',
@@ -626,9 +622,6 @@ export const ar: LabelResource = {
   'permission.requests.approve.description': 'البت في موافقات طلبات الخدمة المسمّى لها.',
   'permission.requests.assign': 'إسناد طلبات الخدمة',
   'permission.requests.assign.description': 'إسناد طلبات الخدمة إلى الفنيين والمجموعات.',
-  'permission.requests.assign_outside_group': 'إسناد الطلبات خارج المجموعة',
-  'permission.requests.assign_outside_group.description':
-    'إسناد فني ليس عضوًا في المجموعة المختارة إلى طلب خدمة.',
   'permission.requests.cancel': 'إلغاء طلبات الخدمة',
   'permission.requests.cancel.description': 'إلغاء طلبات الخدمة مع ذكر السبب والتراجع عن الإلغاء.',
   'permission.requests.change_priority': 'تغيير أولوية الطلب يدويًا',
@@ -758,6 +751,7 @@ export const ar: LabelResource = {
   'profile.time_zone': 'المنطقة الزمنية',
   'profile.time_zone_help': 'تُستخدم لعرض التواريخ والأوقات، مثل Asia/Dubai.',
   'profile.title': 'ملفي الشخصي',
+  'profile.who': 'أنت',
   'readiness_check.event_consumers': 'معالجة الأحداث',
   'readiness_check.malware_signatures': 'تواقيع الفيروسات',
   'readiness_check.nats': 'ناقل الرسائل',

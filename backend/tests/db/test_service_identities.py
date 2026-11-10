@@ -16,14 +16,15 @@ from app.modules.identity_access import worker_policy
 from app.modules.identity_access.service.users import count_technicians
 from app.modules.integrations.service import fetching, identities
 from app.modules.integrations.service.connections import key_ring
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_connector_catalogue import _role_with
-from tests.db.test_incidents_api import World, world
+from tests.db.test_incidents_api import World
 from tests.db.test_mail_inbound import FakeReader
 from tests.db.test_mailboxes_api import BASE, add, with_key_ring
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 
 async def _identity(world: World, mailbox_id: str) -> dict[str, object]:

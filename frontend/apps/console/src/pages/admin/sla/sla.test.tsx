@@ -16,7 +16,13 @@ function typeDate(scope: HTMLElement, testId: string, day: string) {
   if (input === null) throw new Error(`no date input in ${testId}`);
   fireEvent.mouseDown(input);
   fireEvent.focus(input);
-  fireEvent.change(input, { target: { value: day } });
+  // Typed as the picker shows a day: the default written out, "3 Nov 2026" (D-155).
+  const [year, month, date] = day.split('-');
+  // dayjs's English month names ("Sep", where en-GB's Intl writes "Sept").
+  const name = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')[Number(month) - 1];
+  fireEvent.change(input, {
+    target: { value: `${String(Number(date))} ${name ?? ''} ${year ?? ''}` },
+  });
   fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
   fireEvent.blur(input);
 }

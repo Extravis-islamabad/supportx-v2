@@ -20,12 +20,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.tenancy import TenantContext
+from app.modules.audit import WORKER as AUDIT_WORKER
+from app.modules.audit import record as record_audit
 from app.modules.organization import default_desk_id
 from app.modules.work_items.domain import changes as change_rules
 from app.modules.work_items.domain.classification import (
@@ -78,11 +80,21 @@ from app.modules.work_items.infra.models import (
     WorkItemTypeSettings,
 )
 from app.shared.db.display_ids import last_number
+from app.shared.history import FieldChange
 from app.shared.ids import new_id
 
 # 1: WP-020 (life cycle, scales, matrix, reasons, categories); 2: WP-020c (levels, closure
 # codes, the standard template).
-SEED_VERSION = 3  # 3: the closure code "confirmed by requester" (D-107)
+# The settings' history record type (settings.SETTINGS_RECORD_TYPE; that module imports this one).
+SETTINGS_RECORD_TYPE = "work_item_settings"
+
+
+def settings_record_id(code: str) -> uuid.UUID:
+    """The id a type's settings history is kept under (one place, not one per writer)."""
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{code}")
+
+
+SEED_VERSION = 4  # 3: the closure code "confirmed by requester" (D-107); 4: staged roles, approvals
 STANDARD_TEMPLATE = "standard"
 MAJOR_PROBLEM_TEMPLATE = "major_problem"  # REQ-PRB-017, Appendix A: the guided life cycle
 
@@ -153,8 +165,12 @@ class Catalogue:
     on_behalf_scope: str  # WP-030, REQ-SR-011
     approvals_hidden_from_requesters: bool  # WP-030 s2, REQ-SR-024 AC3
     approvals_require_sign_in: bool  # D-132: e-mailed approval links need a signed-in approver
+    first_task_starts_work: bool  # D-154c: the first ticked task moves a request on
     portal_show_due_time: bool  # WP-028 D5: requesters see the expected resolution time
     review_required_priorities: tuple[str, ...]  # WP-044b s4: problems needing a review
+    segregation_strict: bool  # WP-045b S3: changes, implementing groups barred too
+    cab_every_match: bool  # WP-045b S3: changes go to every matching board
+    reapproval: Mapping[str, Any] | None  # WP-045b S4: the stored policy (None: shipped)
     lifecycle: Lifecycle  # the standard one; a record follows `lifecycle_of(record.lifecycle)`
     lifecycles: Mapping[str, Lifecycle]  # every transition set by code (WP-044a s4)
     statuses: list[StatusInfo]
@@ -536,6 +552,86 @@ async def _top_up(
         await session.flush()
     await _seed_v3(session, wtype, tenant)
     await session.flush()
+    if existing < 4:  # noqa: PLR2004 - the seed version that tops up a staged type's roles
+        await _seed_v4(session, wtype, tenant)
+        await session.flush()
+
+
+async def _seed_v4(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
+    """A staged type seeded before its roles and stage approvals existed gets them (QA10-P4-29).
+
+    Such a tenant had no role definitions (an empty Roles tab) and no stage approvals, so a
+    release waiting for its plan approval had nobody to approve it and no move out. Only ever
+    adds what is missing, once (the seed version moves under its row lock first), and never
+    when an administrator has changed this type's stages or roles: their settings history shows
+    it, and their choice (an approval removed on purpose) is kept. Each top-up is audited.
+    """
+    if wtype.stages is None:
+        return
+    settings_id = settings_record_id(wtype.code)
+    edited = await session.scalar(
+        select(FieldChange.id)
+        .where(
+            FieldChange.record_type == SETTINGS_RECORD_TYPE,
+            FieldChange.record_id == settings_id,
+            or_(FieldChange.field.startswith("stages."), FieldChange.field.startswith("roles.")),
+        )
+        .limit(1)
+    )
+    if edited is not None:
+        return
+    held = set(
+        (
+            await session.scalars(
+                # The tenant as well as RLS (lane A's review): never another tenant's roles.
+                select(WorkItemRoleDef.code).where(
+                    WorkItemRoleDef.tenant_id == tenant, WorkItemRoleDef.type == wtype.code
+                )
+            )
+        ).all()
+    )
+    roles_added = [code for code in wtype.roles if code not in held]
+    for code in roles_added:
+        await session.execute(
+            insert(WorkItemRoleDef)
+            .values(
+                tenant_id=tenant,
+                type=wtype.code,
+                code=code,
+                sort_order=wtype.roles.index(code),
+                system=True,
+            )
+            .on_conflict_do_nothing()
+        )
+    any_approvals = await session.scalar(
+        select(WorkItemStage.code)
+        .where(WorkItemStage.type == wtype.code, WorkItemStage.approvals.is_not(None))
+        .limit(1)
+    )
+    stages_added: list[str] = []
+    if not held and any_approvals is None:  # that older seed: no roles, no approvals at all
+        for stage, defaults in wtype.stage_approvals.items():
+            filled = await session.scalar(
+                update(WorkItemStage)
+                .where(
+                    WorkItemStage.type == wtype.code,
+                    WorkItemStage.code == stage,
+                    WorkItemStage.approvals.is_(None),
+                )
+                .values(approvals=dict(defaults))
+                .returning(WorkItemStage.code)
+            )
+            if filled is not None:
+                stages_added.append(stage)
+    if roles_added or stages_added:
+        await record_audit(
+            session,
+            action_code="work_item.settings_topped_up",
+            facts=AUDIT_WORKER,
+            object_type="work_item_settings",
+            object_id=settings_id,
+            details={"type": wtype.code, "roles": roles_added, "stage_approvals": stages_added},
+        )
 
 
 async def _seed_v3(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
@@ -620,8 +716,12 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         on_behalf_scope=settings.on_behalf_scope,
         approvals_hidden_from_requesters=settings.approvals_hidden_from_requesters,
         approvals_require_sign_in=settings.approvals_require_sign_in,
+        first_task_starts_work=settings.first_task_starts_work,
         portal_show_due_time=settings.portal_show_due_time,
         review_required_priorities=tuple(settings.review_required_priorities),
+        segregation_strict=settings.segregation_strict,
+        cab_every_match=settings.cab_every_match,
+        reapproval=settings.reapproval,
         first_response_on=tuple(settings.first_response_on),
         settings_version=settings.version,
         default_impact=settings.default_impact,

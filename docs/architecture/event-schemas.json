@@ -4185,6 +4185,83 @@
         "type": "object"
       }
     },
+    "work_items.change.approval_notice": {
+      "1": {
+        "description": "Someone must hear about a change's approval (WP-045b; REQ-CHG-040, -053; D-144).\n\n`notice`: `sent_back` (an approved change needs approval again: the implementer, the owner\nand the board are told), `overridden` (the emergency override was used) or\n`board_has_no_members` (the change manager is told). Recorded now; the change\nnotifications (WP-056) send it. IDs only: recipients are worked out when it is sent.",
+        "properties": {
+          "board_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board Id"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "notice": {
+            "title": "Notice",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "notice",
+          "stage",
+          "fields",
+          "board_id"
+        ],
+        "title": "ChangeApprovalNotice",
+        "type": "object"
+      }
+    },
+    "work_items.change_board.changed": {
+      "1": {
+        "description": "A change advisory board was added, changed or removed (WP-045b S2; settings reload).",
+        "properties": {
+          "board_id": {
+            "format": "uuid",
+            "title": "Board Id",
+            "type": "string"
+          },
+          "change": {
+            "title": "Change",
+            "type": "string"
+          }
+        },
+        "required": [
+          "board_id",
+          "change"
+        ],
+        "title": "ChangeBoardChanged",
+        "type": "object"
+      }
+    },
     "work_items.conversation.added": {
       "1": {
         "description": "A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.\n\n`mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`\nis true when this entry stamped the record's first response (REQ-INC-065).",

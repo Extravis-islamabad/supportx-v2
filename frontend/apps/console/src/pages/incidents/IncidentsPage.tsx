@@ -48,9 +48,11 @@ import {
   WriteButton,
   FilterBar,
   FiltersDrawer,
+  ListNotice,
   ListPage,
   HeaderActions,
   PageHeader,
+  ResizableHeader,
   useMinWidth,
 } from '@supportx/ui';
 
@@ -62,7 +64,7 @@ import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
 import { MyExportsButton } from '../reports/exports';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
-import { ColumnChooser, ResizableHeader, SelectPageBox } from './list/ColumnChooser';
+import { ColumnChooser, SelectPageBox } from './list/ColumnChooser';
 import {
   chosenColumns,
   columnCatalogue,
@@ -83,7 +85,7 @@ import {
   type ViewDraft,
 } from './list/model';
 import { SearchChips } from './list/SearchChips';
-import { TimeRange } from './list/TimeRange';
+import { ActiveRange, TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { searchOf } from './searchOf';
@@ -221,13 +223,14 @@ export function IncidentsPage() {
           : (c.width ?? columnSpecs.get(c.key)?.width ?? 0)),
       0,
     );
+  // A column being dragged shows its new width at once; the save follows on release.
+  const [dragged, setDragged] = useState<{ key: string; width: number } | null>(null);
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
   const pageSize = stored?.page_size ?? 50;
   const saveSettings = (change: { columns?: ListColumn[]; sort?: string; page_size?: number }) => {
     saveSetting.mutate(
       {
         viewKey: settingKey,
-        version: stored?.version ?? null,
         setting: {
           columns: change.columns ?? columns,
           sort: change.sort ?? sort,
@@ -313,12 +316,66 @@ export function IncidentsPage() {
   const bulkAllowed = (action: BulkAction) =>
     can(action === 'resolve' || action === 'close' ? 'incidents.edit' : `incidents.${action}`);
 
+  // Rows selected: the selection bar takes the toolbar's place (Haider, 2026-11-10), so the
+  // list keeps one control row; it goes once nothing is selected.
+  const selected = !trash && (selection.all || selection.ids.length > 0);
+  const bulkBar = selected ? (
+    <BulkBar
+      selection={selection}
+      onSelection={setSelection}
+      pageCount={rows.length}
+      total={total}
+      capped={total !== null && total >= 1000 && list.hasNextPage}
+      onAction={setBulkAction}
+      canEdit={bulkAllowed}
+      extra={
+        // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
+        // form starts from them. Chosen rows only, as their IDs travel in the address.
+        has('problem') && can('problems.create') ? (
+          <Tooltip
+            title={
+              selection.all || selection.ids.length === 0
+                ? t('incidents.bulk.select_first')
+                : selection.ids.length > PROBLEM_FROM_MAX
+                  ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
+                  : undefined
+            }
+          >
+            <span>
+              <Button
+                disabled={
+                  selection.all ||
+                  selection.ids.length === 0 ||
+                  selection.ids.length > PROBLEM_FROM_MAX
+                }
+                onClick={() => void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)}
+                data-testid="inc-bulk-create-problem"
+              >
+                {t('problems.create_from_incident')}
+              </Button>
+            </span>
+          </Tooltip>
+        ) : undefined
+      }
+    />
+  ) : undefined;
   return (
     <ListPage
       testId="inc-list"
       header={
         <PageHeader
           title={t(trash ? 'incidents.trash' : 'incidents.title')}
+          // The way back from the trash is right there, not only in "More" (QA10-P1-18).
+          back={
+            trash
+              ? {
+                  label: t('incidents.title'),
+                  onClick: () => {
+                    setMode('current');
+                  },
+                }
+              : undefined
+          }
           extra={
             // D-147 template C: at most three header buttons, the rest in "More". The current
             // and trash switch moved to the toolbar row.
@@ -382,7 +439,8 @@ export function IncidentsPage() {
                     ]),
               ]}
               primary={
-                can('incidents.create') ? (
+                // Nothing is made in the trash (QA10-P1-18).
+                can('incidents.create') && !trash ? (
                   <WriteButton
                     type="primary"
                     onClick={() => void navigate('/incidents/new')}
@@ -423,6 +481,7 @@ export function IncidentsPage() {
       )}
       <FilterBar
         testId="inc-filterbar"
+        selection={bulkBar}
         view={
           <>
             {!trash && (
@@ -518,6 +577,12 @@ export function IncidentsPage() {
               fields={fields}
               words={words}
             />
+            <ActiveRange
+              value={range}
+              onChange={setRange}
+              words={words}
+              testId="inc-time-active-list"
+            />
           </>
         }
         quick={
@@ -546,16 +611,19 @@ export function IncidentsPage() {
           setFiltersOpen(true);
         }}
         extra={
-          <>
-            <ColumnChooser
-              columns={columns}
-              catalogue={columnSpecs}
-              context={context}
-              onChange={(next) => {
-                saveSettings({ columns: next });
-              }}
-            />
-          </>
+          // The trash shows its fixed columns; choosing columns there would change the list's.
+          trash ? undefined : (
+            <>
+              <ColumnChooser
+                columns={columns}
+                catalogue={columnSpecs}
+                context={context}
+                onChange={(next) => {
+                  saveSettings({ columns: next });
+                }}
+              />
+            </>
+          )
         }
       />
       <FiltersDrawer
@@ -692,48 +760,6 @@ export function IncidentsPage() {
           }}
         />
       )}
-      {!trash && (
-        <BulkBar
-          selection={selection}
-          onSelection={setSelection}
-          pageCount={rows.length}
-          total={total}
-          capped={total !== null && total >= 1000 && list.hasNextPage}
-          onAction={setBulkAction}
-          canEdit={bulkAllowed}
-          extra={
-            // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
-            // form starts from them. Chosen rows only, as their IDs travel in the address.
-            has('problem') && can('problems.create') ? (
-              <Tooltip
-                title={
-                  selection.all || selection.ids.length === 0
-                    ? t('incidents.bulk.select_first')
-                    : selection.ids.length > PROBLEM_FROM_MAX
-                      ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
-                      : undefined
-                }
-              >
-                <span>
-                  <Button
-                    disabled={
-                      selection.all ||
-                      selection.ids.length === 0 ||
-                      selection.ids.length > PROBLEM_FROM_MAX
-                    }
-                    onClick={() =>
-                      void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)
-                    }
-                    data-testid="inc-bulk-create-problem"
-                  >
-                    {t('problems.create_from_incident')}
-                  </Button>
-                </span>
-              </Tooltip>
-            ) : undefined
-          }
-        />
-      )}
       <Table<IncidentListItem>
         rowKey="id"
         data-testid="inc-table"
@@ -805,13 +831,14 @@ export function IncidentsPage() {
           ...columns.flatMap((column) => {
             const spec = columnSpecs.get(column.key);
             if (spec === undefined) return [];
-            const width = column.width ?? spec.width;
+            const own = column.width ?? spec.width;
+            const width = dragged?.key === column.key ? dragged.width : own;
             return [
               {
                 key: spec.key,
                 title: spec.title(context),
                 // The subject takes what is left over; the others keep their width.
-                width: spec.key === 'subject' ? undefined : width,
+                width: spec.key === 'subject' && dragged?.key !== 'subject' ? undefined : width,
                 // Text that does not fit ends in an ellipsis; the cell's own tooltip holds it all.
                 ellipsis: ELLIPSIS.has(spec.key) ? { showTitle: spec.key !== 'subject' } : false,
                 fixed: STICKY.has(spec.key) ? ('left' as const) : undefined,
@@ -826,8 +853,14 @@ export function IncidentsPage() {
                 render: (_: unknown, row: IncidentListItem) => spec.render(row, context),
                 onHeaderCell: () =>
                   ({
-                    width,
+                    width: own,
+                    defaultWidth: spec.width,
+                    // The subject never gets too narrow to read (Haider, 2026-11-10).
+                    minWidth: spec.key === 'subject' ? SUBJECT_MIN : undefined,
                     resizeLabel: t('incidents.columns.resize', { column: spec.title(context) }),
+                    onPreview: (next: number | null) => {
+                      setDragged(next === null ? null : { key: column.key, width: next });
+                    },
                     onResize: (next: number) => {
                       saveSettings({
                         columns: columns.map((c) =>
@@ -942,22 +975,27 @@ function ViewNotice({
       }),
     );
   }
+  // One small line under the toolbar, closable for the session (Haider, 2026-11-10).
   return (
-    <Alert
-      type="info"
-      showIcon
-      role="status"
-      data-testid="inc-view-notice"
-      data-hidden={hidden}
-      message={parts.join(' ')}
+    <ListNotice
+      testId="inc-view-notice"
+      dismissKey={`incidents.view.${view}`}
       action={
         view !== 'all' && hidden > 0 ? (
-          <Button size="small" onClick={onShowAll} data-testid="inc-show-all">
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, height: 'auto' }}
+            onClick={onShowAll}
+            data-testid="inc-show-all"
+          >
             {t('incidents.show_all')}
           </Button>
         ) : undefined
       }
-    />
+    >
+      <span data-hidden={hidden}>{parts.join(' ')}</span>
+    </ListNotice>
   );
 }
 

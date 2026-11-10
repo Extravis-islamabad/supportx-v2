@@ -24,6 +24,7 @@ from app.modules.audit import record as record_audit
 from app.modules.identity_access import Subject, user_contacts
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.domain import approvals as rules
+from app.modules.work_items.domain.change_boards import BoardChoice
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.service import approvals as service
 from app.modules.work_items.service import bulk_approvals
@@ -85,6 +86,15 @@ class ApprovalOut(BaseModel):
     route_reason: rules.RouteReason | None = Field(
         description="Why it went to the backup or the administrators."
     )
+    board_id: uuid.UUID | None = Field(
+        description="Changes: the advisory board this approval came from (WP-045b)."
+    )
+    board_reason: BoardChoice | None = Field(
+        description="Why that board: its mapping matched, or it is the default board."
+    )
+    advisory: bool = Field(
+        description="An optional board member's vote: shown, never counted (WP-045b)."
+    )
     state: rules.ApprovalState
     decided_at: datetime | None
     decided_by: uuid.UUID | None
@@ -109,6 +119,9 @@ class ApprovalOut(BaseModel):
             approver_id=row.approver_id,
             origin=rules.ApproverOrigin(row.origin),
             route_reason=rules.RouteReason(row.route_reason) if row.route_reason else None,
+            board_id=row.board_id,
+            board_reason=BoardChoice(row.board_reason) if row.board_reason else None,
+            advisory=row.advisory,
             state=rules.ApprovalState(row.state),
             decided_at=row.decided_at,
             decided_by=row.decided_by,

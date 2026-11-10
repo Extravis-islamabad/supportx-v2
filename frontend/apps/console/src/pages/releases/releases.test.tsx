@@ -156,6 +156,13 @@ function api() {
           release_engineer_id: null,
         },
       },
+      'GET /api/v1/releases/list-settings/open': {
+        body: { view_key: 'open', columns: [], sort: null, page_size: 50, version: null },
+      },
+      'PUT /api/v1/releases/list-settings/open': (call: { body: unknown }) => ({
+        body: { view_key: 'open', version: 1, ...(call.body as object) },
+        headers: { ETag: '"1"' },
+      }),
       'GET /api/v1/releases/settings': {
         body: {
           closure_codes: [],
@@ -189,6 +196,96 @@ describe('console: releases', () => {
     expect(within(row).getByText('In progress')).toBeTruthy();
     expect(screen.getByTestId('release-emergency-REL-1').textContent).toContain('Emergency');
     expect(screen.getByTestId('new-release')).toBeTruthy();
+  });
+
+  it('template C: the count, quick views and search go to the API, in one filter bar', async () => {
+    window.history.pushState({}, '', '/releases');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('release-row-REL-1');
+    const bar = screen.getByTestId('releases-filters');
+    expect(within(bar).getByTestId('releases-view')).toBeTruthy();
+    expect(within(bar).getByTestId('releases-search')).toBeTruthy();
+    const first = fake.find('GET', '/api/v1/releases')[0];
+    expect(first?.url.searchParams.get('view')).toBe('open');
+    expect(first?.url.searchParams.get('include_total')).toBe('true');
+    fireEvent.click(within(bar).getByText('All'));
+    fireEvent.change(within(bar).getByRole('searchbox'), { target: { value: 'rel-1' } });
+    await waitFor(() => {
+      const last = fake.find('GET', '/api/v1/releases').at(-1);
+      expect(last?.url.searchParams.get('view')).toBeNull();
+      expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toEqual({
+        or: [
+          { field: 'subject', op: 'contains', value: 'rel-1' },
+          { field: 'display_id', op: 'eq', value: 'REL-1' },
+        ],
+      });
+    });
+  });
+
+  it('Haider 2026-11-10: a column resized by keyboard is kept per view; Reset widths clears it', async () => {
+    window.history.pushState({}, '', '/releases');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('release-row-REL-1');
+    expect(screen.queryByTestId('releases-reset-widths')).toBeNull(); // nothing to reset yet
+    const [subject] = screen.getAllByRole('separator', { name: /Subject/ });
+    if (subject === undefined) throw new Error('no resize handle on the subject');
+    expect(subject.getAttribute('aria-valuemin')).toBe('180');
+    fireEvent.keyDown(subject, { key: 'ArrowRight' });
+    const last = () =>
+      fake.find('PUT', '/api/v1/releases/list-settings/open').at(-1)?.body as {
+        columns: { key: string; width: number | null }[];
+      };
+    await waitFor(() => {
+      expect(last().columns.find((c) => c.key === 'subject')?.width).toBeGreaterThanOrEqual(180);
+    });
+    expect(last().columns.map((c) => c.key)).toEqual([
+      'id',
+      'subject',
+      'stage',
+      'status',
+      'updated',
+    ]);
+    fireEvent.click(await screen.findByTestId('releases-reset-widths'));
+    await waitFor(() => {
+      expect(last().columns.every((c) => c.width === null)).toBe(true);
+    });
+  });
+
+  it('template B: a new release is one section card with Cancel before Create in the footer', async () => {
+    window.history.pushState({}, '', '/releases/new');
+    const routed = consoleApi({
+      me: fakeSession(),
+      routes: {
+        'GET /api/v1/releases/templates': {
+          body: [
+            {
+              id: 'tpl-1',
+              code: 'standard',
+              labels: { en: 'Standard release' },
+              is_default: true,
+              disabled: false,
+              stage_path: null,
+            },
+          ],
+        },
+      },
+    });
+    restore = routed.restore;
+    render(<App />);
+    const footer = await screen.findByTestId('new-release-footer');
+    const buttons = [...footer.querySelectorAll('button')].map((b) =>
+      b.getAttribute('data-testid'),
+    );
+    expect(buttons).toEqual(['release-cancel', 'release-save']);
+    // QA10-P4-16: a template with no path of its own still names the path it takes.
+    expect((await screen.findByTestId('release-path')).textContent).toBe(
+      'This template takes the Standard path.',
+    );
+    expect(
+      screen.getByTestId('release-section').querySelector('button[data-testid="release-save"]'),
+    ).toBeNull();
   });
 
   it('shows the rail, says why a move is not possible, and asks for the reason a move needs', async () => {

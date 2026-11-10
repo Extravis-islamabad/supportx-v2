@@ -102,8 +102,8 @@ export const en = {
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
   'notification_preferences.help':
-    'Choose what you hear about, and where. Some notifications are required by your organization.',
-  'notification_preferences.locked': 'Required by your organization: it cannot be switched off.',
+    'Choose what you hear about, and where. Some notifications are required by your organisation.',
+  'notification_preferences.locked': 'Required by your organisation: it cannot be switched off.',
   'notification_preferences.saved': 'Preferences saved.',
   'notification_preferences.title': 'Notifications',
   'notification_reason.do_not_disturb': 'Do not disturb was on',

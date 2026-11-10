@@ -55,6 +55,7 @@ import {
 } from './checks';
 import { DomainsCard } from './DomainsCard';
 import { FieldProblem } from './FieldProblem';
+import { LeaveGuard } from '../useLeaveGuard';
 
 const LOCALES: Locale[] = ['en', 'ar', 'ur'];
 const TEXT_FIELDS = ['product_name', 'portal_name', 'welcome_text'] as const;
@@ -758,6 +759,8 @@ export function BrandingPage() {
           </div>
         </Col>
       </Row>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
       <StickySaveBar
         changes={changes}
         saving={save.isPending || check.isFetching}

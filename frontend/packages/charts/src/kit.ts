@@ -124,7 +124,23 @@ export function kitOption(input: KitInput): EChartsCoreOption {
     xAxis: {
       type: 'category',
       data: input.categories,
-      axisLabel: { hideOverlap: true, formatter: shortLabel },
+      // Bars name every bar (QA10-P4-20, P1-12: every second label was dropped at narrow
+      // widths): all shown, slanted and shortened when crowded. Dates on a line keep thinning,
+      // and their first and last labels stay inside the card (P4-37).
+      axisLabel: line
+        ? {
+            hideOverlap: true,
+            formatter: shortLabel,
+            alignMinLabel: 'left',
+            alignMaxLabel: 'right',
+          }
+        : {
+            interval: 0,
+            formatter: shortLabel,
+            rotate: input.categories.length > 4 ? 30 : 0,
+            width: 96,
+            overflow: 'truncate',
+          },
     },
     yAxis: { type: 'value', axisLabel: format ? { formatter: format } : undefined },
     series: input.series.map((s) => ({

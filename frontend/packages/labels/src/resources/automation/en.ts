@@ -49,6 +49,7 @@ export const en = {
   'automation.field_state.help': 'Drafts are saved but never run.',
   'automation.field_stop_after': 'Stop after this rule',
   'automation.field_stop_after.help': 'When this rule matches, the rules after it do not run.',
+  'automation.group_gone': 'A removed group',
   'automation.loop.banner_one': 'Automation stopped {{count}} loop in the last day.',
   'automation.loop.banner_other': 'Automation stopped {{count}} loops in the last day.',
   'automation.loop.chain_depth':
@@ -121,6 +122,7 @@ export const en = {
   'automation.rules.explain':
     "Business rules run while a record is saved, top to bottom. Each one that matches sets fields or refuses the save, and the record's history says which rule changed what.",
   'automation.rules.none': 'No business rules yet.',
+  'automation.site_gone': 'A removed site',
   'automation.someone': 'Someone',
   'automation.stop_marker': 'Stops here',
   'automation.transitions.after': 'After the change',
@@ -167,6 +169,7 @@ export const en = {
   'automation.why.assignment_move': 'Moved automatically when it was assigned.',
   'automation.why.auto_closed':
     'Closed automatically: the requester was told of the resolution and did not answer in time.',
+  'automation.why.first_task_started': 'Started when the first fulfilment task was ticked done.',
   'automation.why.fulfilled': 'Fulfilled: every required task is done',
   'automation.why.matrix': 'From the priority matrix (impact and urgency).',
   'automation.why.requester_confirmed': 'The requester confirmed the fix, so it was closed.',

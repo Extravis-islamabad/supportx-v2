@@ -368,9 +368,6 @@ export const en = {
   'permission.changes.approve.description': 'Approve or reject change requests.',
   'permission.changes.assign': 'Assign changes',
   'permission.changes.assign.description': 'Choose the group and owner of changes.',
-  'permission.changes.assign_outside_group': 'Assign changes outside the group',
-  'permission.changes.assign_outside_group.description':
-    'Give a change to someone who is not in its group.',
   'permission.changes.cancel': 'Cancel changes',
   'permission.changes.cancel.description': 'Cancel changes with a reason, and undo it.',
   'permission.changes.change_priority': "Change a change's priority by hand",
@@ -387,6 +384,12 @@ export const en = {
   'permission.changes.edit_due_dates': 'Set change target dates by hand',
   'permission.changes.edit_due_dates.description':
     "Set or clear a change's due time by hand, with a reason.",
+  'permission.changes.emergency_override': 'Override the approval of a change in an emergency',
+  'permission.changes.emergency_override.description':
+    'Keep a change going that was sent back for approval, with a reason. It is audited, and the change then needs its review before closing.',
+  'permission.changes.manage_boards': 'Manage change advisory boards',
+  'permission.changes.manage_boards.description':
+    'Add, change and remove the boards that review changes, and who sits on them.',
   'permission.changes.manage_followers': 'Manage followers of changes',
   'permission.changes.manage_followers.description':
     'Add and remove the people who follow a change.',
@@ -450,9 +453,6 @@ export const en = {
   'permission.incidents.add_note.description': 'Write staff-only notes on incidents.',
   'permission.incidents.assign': 'Assign incidents',
   'permission.incidents.assign.description': 'Choose the group and technician of incidents.',
-  'permission.incidents.assign_outside_group': 'Assign outside the group',
-  'permission.incidents.assign_outside_group.description':
-    'Assign a technician who is not a member of the chosen group.',
   'permission.incidents.cancel': 'Cancel incidents',
   'permission.incidents.cancel.description':
     'Cancel incidents with a reason, and undo a cancellation.',
@@ -538,9 +538,6 @@ export const en = {
     'Decide the problem approvals you are named for, such as accepting a known error without a fix.',
   'permission.problems.assign': 'Assign problems',
   'permission.problems.assign.description': 'Choose the group and owner of problems.',
-  'permission.problems.assign_outside_group': 'Assign problems outside the group',
-  'permission.problems.assign_outside_group.description':
-    'Give a problem to someone who is not in its group.',
   'permission.problems.cancel': 'Cancel problems',
   'permission.problems.cancel.description': 'Cancel problems with a reason, and undo it.',
   'permission.problems.change_priority': "Change a problem's priority by hand",
@@ -592,9 +589,6 @@ export const en = {
     'Decide the release stage approvals you are named for.',
   'permission.releases.assign': 'Assign releases',
   'permission.releases.assign.description': 'Assign releases to people and groups.',
-  'permission.releases.assign_outside_group': 'Assign releases outside the group',
-  'permission.releases.assign_outside_group.description':
-    'Assign a person who is not a member of the chosen group to a release.',
   'permission.releases.cancel': 'Cancel releases',
   'permission.releases.cancel.description': 'Cancel releases before closure, with a reason.',
   'permission.releases.change_priority': "Change a release's priority by hand",
@@ -647,9 +641,6 @@ export const en = {
     'Decide the service request approvals you are named for.',
   'permission.requests.assign': 'Assign service requests',
   'permission.requests.assign.description': 'Assign service requests to technicians and groups.',
-  'permission.requests.assign_outside_group': 'Assign requests outside the group',
-  'permission.requests.assign_outside_group.description':
-    'Assign a technician who is not a member of the chosen group to a service request.',
   'permission.requests.cancel': 'Cancel service requests',
   'permission.requests.cancel.description':
     'Cancel service requests with a reason, and undo a cancellation.',
@@ -782,6 +773,7 @@ export const en = {
   'profile.time_zone': 'Time zone',
   'profile.time_zone_help': 'Used to show dates and times, e.g. Asia/Dubai.',
   'profile.title': 'My profile',
+  'profile.who': 'You',
   'readiness_check.event_consumers': 'Event processing',
   'readiness_check.malware_signatures': 'Virus signatures',
   'readiness_check.nats': 'Message bus',

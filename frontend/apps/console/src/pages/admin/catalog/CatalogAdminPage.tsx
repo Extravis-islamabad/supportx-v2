@@ -58,6 +58,7 @@ import {
   useLicence,
   type Tone,
   WriteButton,
+  EmptyText,
 } from '@supportx/ui';
 
 import { CategoryDialog } from './CategoryDialog';
@@ -399,7 +400,7 @@ function ItemsTable({
       loading={loading}
       dataSource={rows}
       pagination={false}
-      locale={{ emptyText: t('catalog_admin.no_items') }}
+      locale={{ emptyText: <EmptyText>{t('catalog_admin.no_items')}</EmptyText> }}
       data-testid="cat-items"
       columns={[
         {

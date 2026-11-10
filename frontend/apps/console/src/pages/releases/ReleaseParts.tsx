@@ -290,6 +290,7 @@ export function RolesPart({ id }: { id: string }) {
   return (
     <List
       data-testid="release-roles"
+      locale={{ emptyText: <EmptyText>{t('releases.roles.none')}</EmptyText> }}
       dataSource={view.roles.filter((r) => !r.disabled || r.user_ids.length > 0)}
       renderItem={(r) => (
         <List.Item key={r.code} data-testid={`release-role-${r.code}`}>

@@ -3,14 +3,12 @@ import {
   Alert,
   App,
   Button,
-  Card,
   Flex,
   Input,
   Modal,
   Popconfirm,
   Result,
   Skeleton,
-  Space,
   Tabs,
   Tooltip,
   Typography,
@@ -25,15 +23,22 @@ import {
   useAnnouncementAction,
   useDeleteAnnouncement,
   useSession,
+  useUnits,
   useUpdateAnnouncement,
   type Announcement,
   type AnnouncementAction,
 } from '@supportx/api-client';
 import { applyServerErrors, useForm, zodResolver } from '@supportx/forms';
+import { useListFormat } from '@supportx/labels';
 import { useRecordChannel, useTenantChannel, type PresenceMember } from '@supportx/realtime';
 import {
   useConflictRetry,
   ConflictDialog,
+  FormFooter,
+  PropertiesPanel,
+  PropertyList,
+  RecordHeader,
+  RecordPage,
   describeError,
   FormProblem,
   PresenceAvatars,
@@ -41,10 +46,10 @@ import {
   useConflict,
   useFormProblem,
   useLabel,
+  useAccess,
   useRefetchAfter,
   WriteButton,
   lengthLimit,
-  SPACE,
 } from '@supportx/ui';
 
 import { AnnouncementFields } from './AnnouncementForm';
@@ -156,113 +161,177 @@ function AnnouncementDetail({
   const canEdit = item.can_manage;
   const me = useSession().data?.user.id;
 
+  // Template A (D-147): the header and every action in one card, the live notice, the tabs, and
+  // the audience and publishing window in the properties panel.
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 960 }}>
-      <Flex justify="space-between" align="start" wrap gap={12}>
-        <Space direction="vertical" size={4}>
-          <Typography.Text type="secondary">{item.display_id}</Typography.Text>
-          <Typography.Title level={1} style={{ margin: 0 }} data-testid="ann-heading">
-            {item.title}
-          </Typography.Title>
-          <Space size={4} wrap>
-            <StatusTag status={item.status} />
-            {item.status === 'published' && <VisibilityTag visibility={item.visibility} />}
-            <SeverityTag severity={item.severity} />
-          </Space>
-        </Space>
-        <PresenceAvatars viewers={viewers} selfUserId={me ?? null} />
-      </Flex>
-      <ConflictDialog
-        {...removeConflict.dialog}
-        fieldLabel={(field) => t(`announcement.field.${field}`)}
-      />
-      {changedBy !== null && (
-        <Alert
-          type="warning"
-          showIcon
-          role="status"
-          data-testid="live-change-notice"
-          message={t('live.changed_by', { name: changedBy })}
-          action={
-            <Button
-              size="small"
-              data-testid="live-change-reload"
-              onClick={() => {
-                setChangedBy(null);
-                setEditing(false);
-                void reload();
-              }}
-            >
-              {t('live.reload')}
-            </Button>
-          }
-        />
-      )}
-      <StatusActions item={item} />
-      <Tabs
-        items={[
-          {
-            key: 'details',
-            label: t('announcements.tab.details'),
-            children: editing ? (
-              <EditForm
-                item={item}
-                reload={reload}
-                onDone={() => {
-                  setEditing(false);
-                  setChangedBy(null);
+    <>
+      <RecordPage
+        testId="ann-record"
+        header={
+          <RecordHeader
+            typeLabel={t('announcements.one')}
+            displayId={item.display_id}
+            title={item.title}
+            testIds={{ title: 'ann-heading' }}
+            tags={
+              <>
+                <StatusTag status={item.status} />
+                {item.status === 'published' && <VisibilityTag visibility={item.visibility} />}
+                <SeverityTag severity={item.severity} />
+              </>
+            }
+            extra={<PresenceAvatars viewers={viewers} selfUserId={me ?? null} />}
+          />
+        }
+        actions={
+          <Flex gap={8} wrap justify="end">
+            <StatusActions item={item} />
+            {canEdit && !editing && (
+              <WriteButton
+                onClick={() => {
+                  setEditing(true);
                 }}
-              />
-            ) : (
-              <Card>
+                data-testid="ann-edit"
+              >
+                {t('actions.edit')}
+              </WriteButton>
+            )}
+            {canEdit && (
+              <Popconfirm
+                title={t('announcements.delete_confirm')}
+                okText={t('announcements.delete')}
+                cancelText={t('actions.cancel')}
+                onConfirm={() => {
+                  removeIt(item.version);
+                }}
+              >
+                <WriteButton danger loading={remove.isPending} data-testid="ann-delete">
+                  {t('announcements.delete')}
+                </WriteButton>
+              </Popconfirm>
+            )}
+          </Flex>
+        }
+        alerts={
+          changedBy !== null && (
+            <Alert
+              type="warning"
+              showIcon
+              role="status"
+              data-testid="live-change-notice"
+              message={t('live.changed_by', { name: changedBy })}
+              action={
+                <Button
+                  size="small"
+                  data-testid="live-change-reload"
+                  onClick={() => {
+                    setChangedBy(null);
+                    setEditing(false);
+                    void reload();
+                  }}
+                >
+                  {t('live.reload')}
+                </Button>
+              }
+            />
+          )
+        }
+        panel={
+          <PropertiesPanel
+            testId="ann-panel"
+            sections={[
+              {
+                key: 'properties',
+                title: t('layout.properties'),
+                children: (
+                  <PropertyList
+                    items={[
+                      {
+                        key: 'audience',
+                        label: t('announcement.field.audience'),
+                        content: <Audience item={item} />,
+                        filled: true,
+                      },
+                      {
+                        key: 'banner',
+                        label: t('announcement.field.show_as_banner'),
+                        content: t(item.show_as_banner ? 'history.yes' : 'history.no'),
+                        filled: true,
+                      },
+                      {
+                        key: 'window',
+                        label: t('announcements.window'),
+                        content: <Window item={item} />,
+                        filled: item.publish_from !== null || item.publish_until !== null,
+                      },
+                    ]}
+                  />
+                ),
+              },
+            ]}
+          />
+        }
+      >
+        <Tabs
+          items={[
+            {
+              key: 'details',
+              label: t('announcements.tab.details'),
+              children: editing ? (
+                <EditForm
+                  item={item}
+                  reload={reload}
+                  onDone={() => {
+                    setEditing(false);
+                    setChangedBy(null);
+                  }}
+                />
+              ) : (
                 <Typography.Paragraph
-                  style={{ whiteSpace: 'pre-line' }}
+                  // The message reads in its own direction (QA10-P4-36: an English message in
+                  // the Arabic screen kept its full stop at the end).
+                  dir="auto"
+                  style={{ whiteSpace: 'pre-line', padding: '8px 4px' }}
                   data-testid="ann-body-view"
                 >
                   {item.body}
                 </Typography.Paragraph>
-                <Typography.Text type="secondary">
-                  {t(`announcement_audience.${item.audience}`)}
-                  {item.show_as_banner ? ` · ${t('announcement.field.show_as_banner')}` : ''}
-                </Typography.Text>
-                <Window item={item} />
-                <Flex gap={8} style={{ marginTop: 16 }}>
-                  {canEdit && (
-                    <WriteButton
-                      onClick={() => {
-                        setEditing(true);
-                      }}
-                      data-testid="ann-edit"
-                    >
-                      {t('actions.edit')}
-                    </WriteButton>
-                  )}
-                  {canEdit && (
-                    <Popconfirm
-                      title={t('announcements.delete_confirm')}
-                      okText={t('announcements.delete')}
-                      cancelText={t('actions.cancel')}
-                      onConfirm={() => {
-                        removeIt(item.version);
-                      }}
-                    >
-                      <WriteButton danger loading={remove.isPending} data-testid="ann-delete">
-                        {t('announcements.delete')}
-                      </WriteButton>
-                    </Popconfirm>
-                  )}
-                </Flex>
-              </Card>
-            ),
-          },
-          {
-            key: 'history',
-            label: t('announcements.tab.history', { count: item.history_count }),
-            children: <AnnouncementHistory id={item.id} />,
-          },
-        ]}
+              ),
+            },
+            {
+              key: 'history',
+              label: t('announcements.tab.history', { count: item.history_count }),
+              children: <AnnouncementHistory id={item.id} />,
+            },
+          ]}
+        />
+      </RecordPage>
+      <ConflictDialog
+        {...removeConflict.dialog}
+        fieldLabel={(field) => t(`announcement.field.${field}`)}
       />
-    </Space>
+    </>
+  );
+}
+
+/** The audience, naming the chosen sites or groups (QA10-P4-13: "Selected support groups" alone). */
+function Audience({ item }: { item: Announcement }) {
+  const t = useLabel();
+  const list = useListFormat();
+  const { can } = useAccess();
+  const kind = item.audience === 'sites' ? 'sites' : 'groups';
+  const ids = item.audience === 'sites' ? item.site_ids : item.group_ids;
+  const units = useUnits(
+    kind,
+    (item.audience === 'sites' || item.audience === 'groups') && can(`${kind}.view`),
+  );
+  const named = new Map((units.data ?? []).map((unit) => [unit.id, unit.name]));
+  const names = ids.map((id) => named.get(id)).filter((name) => name !== undefined);
+  return (
+    <span data-testid="ann-audience">
+      {t(`announcement_audience.${item.audience}`)}
+      {names.length > 0 && `: ${list(names, 'conjunction')}`}
+    </span>
   );
 }
 
@@ -271,11 +340,7 @@ function Window({ item }: { item: Announcement }) {
   if (item.publish_from === null && item.publish_until === null) return null;
   const format = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   return (
-    <Typography.Paragraph
-      type="secondary"
-      style={{ marginTop: 8, marginBottom: 0 }}
-      data-testid="ann-window"
-    >
+    <Typography.Paragraph type="secondary" style={{ margin: 0 }} data-testid="ann-window">
       {item.publish_from !== null &&
         t('announcements.from', { time: format.format(new Date(item.publish_from)) })}{' '}
       {item.publish_until !== null &&
@@ -337,32 +402,36 @@ function StatusActions({ item }: { item: Announcement }) {
   };
   return (
     <Flex gap={8} wrap data-testid="ann-actions">
-      {item.actions.map((state) => {
-        const button = (
-          <WriteButton
-            key={state.action}
-            type={state.action === 'publish' ? 'primary' : 'default'}
-            disabled={!state.allowed}
-            loading={act.isPending && act.variables.action === state.action}
-            data-testid={`ann-action-${state.action}`}
-            onClick={() => {
-              if (REASON_ACTIONS.has(state.action)) setAsking(state.action);
-              else run(state.action);
-            }}
-          >
-            {t(`announcement_action.${state.action}`)}
-          </WriteButton>
-        );
-        return state.allowed || state.reason == null ? (
-          button
-        ) : (
-          <Tooltip key={state.action} title={t(`action_reason.${state.reason}`)}>
-            <span data-testid={`ann-action-${state.action}-reason`} data-reason={state.reason}>
-              {button}
-            </span>
-          </Tooltip>
-        );
-      })}
+      {/* Only the moves its status allows (template A); a greyed one says why, such as who
+          may publish (QA10-P4-13). */}
+      {item.actions
+        .filter((state) => state.allowed || state.reason !== 'not_from_status')
+        .map((state) => {
+          const button = (
+            <WriteButton
+              key={state.action}
+              type={state.action === 'publish' ? 'primary' : 'default'}
+              disabled={!state.allowed}
+              loading={act.isPending && act.variables.action === state.action}
+              data-testid={`ann-action-${state.action}`}
+              onClick={() => {
+                if (REASON_ACTIONS.has(state.action)) setAsking(state.action);
+                else run(state.action);
+              }}
+            >
+              {t(`announcement_action.${state.action}`)}
+            </WriteButton>
+          );
+          return state.allowed || state.reason == null ? (
+            button
+          ) : (
+            <Tooltip key={state.action} title={t(`action_reason.${state.reason}`)}>
+              <span data-testid={`ann-action-${state.action}-reason`} data-reason={state.reason}>
+                {button}
+              </span>
+            </Tooltip>
+          );
+        })}
       <Modal
         open={asking !== null}
         title={asking === null ? '' : t(`announcement_action.${asking}`)}
@@ -387,6 +456,8 @@ function StatusActions({ item }: { item: Announcement }) {
           id="ann-reason"
           rows={3}
           count={lengthLimit(REASON_MAX, true)}
+          // Room for the "0 / 500" counter under the box, above the dialog's buttons (QA10-P4-18).
+          style={{ marginBottom: 24 }}
           value={reason}
           onChange={(event) => {
             setReason(event.target.value);
@@ -457,26 +528,28 @@ function EditForm({
     <div>
       <AnnouncementFields
         form={form}
-        // Template B's bar (D-147): the refusal, then Cancel before Save, at the end side.
+        // Template B's sticky footer (D-147, QA10-P4-14): the refusal, then Cancel before Save,
+        // always in view while the form is longer than the window.
         footer={
-          <Flex align="center" gap={SPACE.sm} wrap>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <FormProblem problem={problem} />
-            </div>
-            <Button onClick={onDone}>{t('actions.cancel')}</Button>
-            <WriteButton
-              type="primary"
-              loading={update.isPending}
-              data-testid="ann-save"
-              onClick={() =>
-                void form.handleSubmit((values) => {
-                  save(values, baseVersion, dirty());
-                })()
-              }
-            >
-              {t('actions.save')}
-            </WriteButton>
-          </Flex>
+          <FormFooter
+            testId="ann-edit-footer"
+            notice={<FormProblem problem={problem} />}
+            cancel={<Button onClick={onDone}>{t('actions.cancel')}</Button>}
+            primary={
+              <WriteButton
+                type="primary"
+                loading={update.isPending}
+                data-testid="ann-save"
+                onClick={() =>
+                  void form.handleSubmit((values) => {
+                    save(values, baseVersion, dirty());
+                  })()
+                }
+              >
+                {t('actions.save')}
+              </WriteButton>
+            }
+          />
         }
       />
       <ConflictDialog
