@@ -191,6 +191,56 @@ async def create_workflow(
     return await idempotency.run(body, operation)
 
 
+INSTANCE_FIELDS = ResourceFields(
+    name="workflow_instances",
+    fields={
+        "workflow_id": FilterField(WorkflowInstance.workflow_id, FieldType.UUID),
+        "status": FilterField(
+            WorkflowInstance.status,
+            FieldType.ENUM,
+            values=frozenset(s.value for s in InstanceStatus),
+        ),
+        "record_type": FilterField(WorkflowInstance.record_type, FieldType.STRING),
+        "started_at": FilterField(
+            WorkflowInstance.started_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
+        # "Waiting longer than": the last time it moved (REQ-WF-025 AC3).
+        "updated_at": FilterField(
+            WorkflowInstance.updated_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
+    },
+    id_column=WorkflowInstance.id,
+    default_sort=("-started_at",),
+)
+InstancesQuery = Annotated[
+    ListQuery, Depends(list_query(INSTANCE_FIELDS, extra_parameters=frozenset({"node"})))
+]
+
+
+@router.get("/instances", summary="Every workflow run: the overview")
+async def overview(
+    session: TenantSession,
+    query: InstancesQuery,
+    subject: Manage,
+    node: Annotated[str | None, Query(min_length=1, max_length=40)] = None,
+) -> Page[InstanceOut]:
+    """Runs by workflow, state and age, failed ones with their node and error (REQ-WF-025).
+
+    `node=` keeps the runs that have a step there now (a waiting or failed token).
+    """
+    del subject
+    statement = select(WorkflowInstance)
+    if node is not None:
+        statement = statement.where(WorkflowInstance.state["tokens"].contains([{"node": node}]))
+    page = await paginate(session, statement, query)
+    return Page[InstanceOut](
+        items=[_instance(row) for row in page.rows],
+        next_cursor=page.next_cursor,
+        has_more=page.has_more,
+        estimated_total=page.estimated_total,
+    )
+
+
 @router.get("/{workflow_id}", summary="One workflow, with its draft's problems")
 async def get_workflow(
     workflow_id: uuid.UUID, response: Response, session: TenantSession, subject: Manage
@@ -433,55 +483,6 @@ async def retry_instance(
 
 
 # --- the overview and bulk jobs (WP-048b S3b; REQ-WF-025) -------------------------------------
-
-INSTANCE_FIELDS = ResourceFields(
-    name="workflow_instances",
-    fields={
-        "workflow_id": FilterField(WorkflowInstance.workflow_id, FieldType.UUID),
-        "status": FilterField(
-            WorkflowInstance.status,
-            FieldType.ENUM,
-            values=frozenset(s.value for s in InstanceStatus),
-        ),
-        "record_type": FilterField(WorkflowInstance.record_type, FieldType.STRING),
-        "started_at": FilterField(
-            WorkflowInstance.started_at, FieldType.DATETIME, sortable=True, simple=False
-        ),
-        # "Waiting longer than": the last time it moved (REQ-WF-025 AC3).
-        "updated_at": FilterField(
-            WorkflowInstance.updated_at, FieldType.DATETIME, sortable=True, simple=False
-        ),
-    },
-    id_column=WorkflowInstance.id,
-    default_sort=("-started_at",),
-)
-InstancesQuery = Annotated[
-    ListQuery, Depends(list_query(INSTANCE_FIELDS, extra_parameters=frozenset({"node"})))
-]
-
-
-@router.get("/instances", summary="Every workflow run: the overview")
-async def overview(
-    session: TenantSession,
-    query: InstancesQuery,
-    subject: Manage,
-    node: Annotated[str | None, Query(min_length=1, max_length=40)] = None,
-) -> Page[InstanceOut]:
-    """Runs by workflow, state and age, failed ones with their node and error (REQ-WF-025).
-
-    `node=` keeps the runs that have a step there now (a waiting or failed token).
-    """
-    del subject
-    statement = select(WorkflowInstance)
-    if node is not None:
-        statement = statement.where(WorkflowInstance.state["tokens"].contains([{"node": node}]))
-    page = await paginate(session, statement, query)
-    return Page[InstanceOut](
-        items=[_instance(row) for row in page.rows],
-        next_cursor=page.next_cursor,
-        has_more=page.has_more,
-        estimated_total=page.estimated_total,
-    )
 
 
 class JobIn(BaseModel):

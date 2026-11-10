@@ -77,6 +77,7 @@ async def create(
             code="instances_not_in_workflow", params={"count": len(chosen) - int(theirs or 0)}
         )
     job = WorkflowJob(
+        tenant_id=workflow.tenant_id,
         workflow_id=workflow_id,
         kind=kind.value,
         instance_ids=chosen,
