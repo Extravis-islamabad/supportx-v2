@@ -36,6 +36,7 @@ import {
   type Incident,
   type IncidentActionState,
   type CustomField,
+  type ReplyMode,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
@@ -183,6 +184,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const justMade = (useLocation().state as { justMade?: boolean } | null)?.justMade === true;
   const [tab, setTab] = useState<string>(() => (justMade ? DEFAULT_TAB : lastTab(me)));
   const [replyRequest, setReplyRequest] = useState(0);
+  const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   // Tasks, worklogs and links follow the record's edit permission (WP-020e).
   const canEditParts = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const canEditSubject = canEditParts;
@@ -347,12 +349,25 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       rank: 0,
       testId: 'inc-op-reply',
       onClick: () => {
-        setTab('conversation');
-        rememberTab(me, 'conversation');
-        setReplyRequest((n) => n + 1);
+        answer('reply');
       },
+      // D-155: the record's one Reply; reply to all and forward in its dropdown.
+      variants: (['reply_all', 'forward'] as const).map((mode) => ({
+        key: mode,
+        label: t(`reply_mode.${mode}`),
+        testId: `inc-op-${mode}`,
+        onClick: () => {
+          answer(mode);
+        },
+      })),
     };
   };
+  function answer(mode: ReplyMode) {
+    setTab('conversation');
+    rememberTab(me, 'conversation');
+    setReplyMode(mode);
+    setReplyRequest((n) => n + 1);
+  }
   // Every action in its one fixed order (REQ-WI-010, D-124): assign, take, the status moves,
   // then delete apart from the rest.
   const actions = [
@@ -649,7 +664,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               key: 'conversation',
               label: t('incidents.tab.conversation', { count: item.conversation_count }),
               children: (
-                <IncidentConversation item={item} typing={typing} replyRequest={replyRequest} />
+                <IncidentConversation
+                  item={item}
+                  typing={typing}
+                  replyRequest={replyRequest}
+                  replyMode={replyMode}
+                />
               ),
             },
             {
