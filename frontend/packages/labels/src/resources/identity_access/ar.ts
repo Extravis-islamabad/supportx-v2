@@ -966,6 +966,7 @@ export const ar: LabelResource = {
   'security.password.digits': 'رقم',
   'security.password.expiry': 'تنتهي صلاحية كلمات المرور بعد',
   'security.password.expiry_hint': '0: لا تنتهي صلاحية كلمات المرور (مستحسن).',
+  'security.password.fix_first': 'صحّح القيم المُشار إليها أعلاه أولًا.',
   'security.password.history': 'رفض آخر كلمات المرور المستخدمة',
   'security.password.history_hint':
     'عدد كلمات المرور السابقة التي لا يمكن استخدامها مجددًا. 0 يسمح بأي منها.',

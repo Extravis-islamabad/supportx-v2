@@ -86,6 +86,12 @@ async def asset_refs(
     return found
 
 
+async def email_includes_assets(session: AsyncSession) -> bool:
+    """Whether an e-mailed incident gets its requester's assets (the tenant's setting, AC2)."""
+    settings = await session.get(AssetSettings, _tenant(session))
+    return settings is not None and settings.email_include_assets
+
+
 async def assets_of(session: AsyncSession, user_id: uuid.UUID) -> list[AssetRef]:
     """What a person holds now, by name (for an emailed incident, REQ-AST-025 AC2)."""
     rows = await session.scalars(

@@ -89,6 +89,7 @@ import { ActiveRange, TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { searchOf } from './searchOf';
+import { restoredStanding } from './slaWords';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
@@ -1002,6 +1003,7 @@ function ViewNotice({
 
 function RestoreButton({ row }: { row: IncidentListItem }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { message } = App.useApp();
   const restore = useRestoreIncident();
   // Changed by someone after the list showed it (409): the shared dialog (QA WP-029 BUG-05).
@@ -1011,7 +1013,17 @@ function RestoreButton({ row }: { row: IncidentListItem }) {
     restore.mutate(
       { id: row.id, version },
       {
-        onSuccess: () => void message.success(t('incidents.restored')),
+        onSuccess: (saved) => {
+          // The clock kept running in the trash (Haider, 2026-11-10): say where it stands.
+          const standing = restoredStanding(t, saved, Date.now());
+          if (standing.length === 0) {
+            void message.success(t('incidents.restored'));
+          } else {
+            void message.warning(
+              t('incidents.restored_sla_warning', { states: listFormat(standing, 'unit') }),
+            );
+          }
+        },
         onError: (error) => {
           if (!conflict.take(error, run)) reportError(error);
         },

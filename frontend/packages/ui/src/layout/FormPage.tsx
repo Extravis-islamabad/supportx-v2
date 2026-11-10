@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { SPACE, TYPE } from '../density';
 
 import { PageColumn } from './PageColumn';
+import { useMinWidth } from './useMinWidth';
 import { PageHeader, type PageHeaderProps } from './PageHeader';
 
 export interface FormPageProps {
@@ -79,6 +80,7 @@ export function FormFooter({
   testId?: string;
 }) {
   const { token } = theme.useToken();
+  const wide = useMinWidth(576);
   return (
     <div
       data-testid={testId}
@@ -94,11 +96,23 @@ export function FormFooter({
         boxShadow: token.boxShadowTertiary,
       }}
     >
-      <Flex align="center" gap={SPACE.sm} wrap>
-        <div style={{ flex: 1, minWidth: 0 }}>{notice}</div>
-        {cancel}
-        {primary}
-      </Flex>
+      {wide ? (
+        <Flex align="center" gap={SPACE.sm} wrap>
+          <div style={{ flex: 1, minWidth: 0 }}>{notice}</div>
+          {cancel}
+          {primary}
+        </Flex>
+      ) : (
+        // A phone: the notice on its own line above the buttons (lane A, #351's 390 px shots:
+        // beside them it wrapped one word per line).
+        <Flex vertical gap={SPACE.xs}>
+          {notice !== undefined && <div style={{ minWidth: 0 }}>{notice}</div>}
+          <Flex gap={SPACE.sm} justify="flex-end" wrap>
+            {cancel}
+            {primary}
+          </Flex>
+        </Flex>
+      )}
     </div>
   );
 }

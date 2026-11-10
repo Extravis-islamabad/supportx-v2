@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderUi } from '../test/render';
 import { ActionBar } from './ActionBar';
 import { EditableValue, PropertyList } from './PropertyList';
+import { sectionsBeforeProperties } from './panelOrder';
 import { RecordHeader } from './RecordPage';
 
 // D-147 template A: the record page's properties, in-place editing, title and actions row.
@@ -100,5 +101,19 @@ describe('template A (record page)', () => {
     const buttons = [...bar.querySelectorAll('button')].map((b) => b.textContent);
     expect(buttons[0]).toBe('Follow');
     expect(buttons[1]).toBe('Reply');
+  });
+});
+
+describe('panel order (V-13)', () => {
+  const card = (key: string, bare = false) => ({ key, title: key, children: null, bare });
+  it('names a carded section that comes before Properties; a bare summary may lead', () => {
+    expect(
+      sectionsBeforeProperties([card('summary', true), card('properties'), card('sla')]),
+    ).toEqual([]);
+    expect(sectionsBeforeProperties([card('requester'), card('properties')])).toEqual([
+      'requester',
+    ]);
+    // A panel without Properties (a release's own cards) has no such rule.
+    expect(sectionsBeforeProperties([card('release'), card('schedule')])).toEqual([]);
   });
 });

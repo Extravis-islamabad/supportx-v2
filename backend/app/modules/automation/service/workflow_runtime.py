@@ -25,11 +25,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict, NotFound
+from app.core.errors import AppError, Conflict, NotFound
 from app.modules.automation.domain.interpreter import (
     Clock,
     Command,
     CommandDone,
+    CommandKind,
     Event,
     Failure,
     Group,
@@ -41,7 +42,11 @@ from app.modules.automation.domain.interpreter import (
 )
 from app.modules.automation.domain.rules import JsonValue
 from app.modules.automation.domain.workflows import Definition, TimeBasis, parse
-from app.modules.automation.events import WorkflowInstanceChanged
+from app.modules.automation.events import (
+    WorkflowFunctionRequested,
+    WorkflowInstanceChanged,
+    WorkflowWebhookRequested,
+)
 from app.modules.automation.infra.models import (
     Workflow,
     WorkflowInstance,
@@ -70,6 +75,8 @@ def _token_json(token: Token) -> dict[str, Any]:
         "rounds": token.rounds,
         "wake_at": token.wake_at.isoformat() if token.wake_at else None,
         "command": token.command,
+        "attempts": token.attempts,
+        "retrying": token.retrying,
     }
 
 
@@ -96,6 +103,8 @@ def load(raw: Mapping[str, Any], status: str, failure: Mapping[str, Any] | None)
             rounds={str(k): int(v) for k, v in dict(t.get("rounds", {})).items()},
             wake_at=datetime.fromisoformat(t["wake_at"]) if t.get("wake_at") else None,
             command=t.get("command"),
+            attempts=int(t.get("attempts", 0)),
+            retrying=bool(t.get("retrying", False)),
         )
         for t in raw.get("tokens", [])
     ]
@@ -145,8 +154,14 @@ async def start(  # noqa: PLR0913 - the workflow, the record and how it started,
     record_id: uuid.UUID,
     how: str,
     now: datetime | None = None,
+    parent: tuple[uuid.UUID, str] | None = None,
 ) -> WorkflowInstance:
-    """A new instance on the record, run as far as it goes (REQ-WF-010)."""
+    """A new instance on the record, run as far as it goes (REQ-WF-010).
+
+    `parent` is the instance and command of the sub-flow node that starts this one (REQ-WF-017):
+    if the child ends at once, the parent's own run reads that from the returned instance; if it
+    ends later, its run tells the parent.
+    """
     workflow = await session.get(Workflow, workflow_id)
     if workflow is None or workflow.deleted_at is not None:
         raise NotFound(code="workflow_not_found")
@@ -182,6 +197,8 @@ async def start(  # noqa: PLR0913 - the workflow, the record and how it started,
         state=dump(State.start(definition)),
         started_how=how,
         started_at=moment,
+        parent_instance_id=parent[0] if parent else None,
+        parent_command=parent[1] if parent else None,
     )
     session.add(instance)
     try:
@@ -189,7 +206,7 @@ async def start(  # noqa: PLR0913 - the workflow, the record and how it started,
             await session.flush()
     except IntegrityError as error:  # a start racing this one won (the partial unique index)
         raise Conflict(code="workflow_already_running") from error
-    await run(session, instance.id, None, now=moment)
+    await run(session, instance.id, None, now=moment, tell_parent=parent is None)
     return instance
 
 
@@ -207,8 +224,13 @@ async def run(
     event: Event | None,
     *,
     now: datetime | None = None,
+    tell_parent: bool = True,
 ) -> WorkflowInstance | None:
-    """Apply `event` and carry the instance as far as it goes; None: no such live instance."""
+    """Apply `event` and carry the instance as far as it goes; None: no such live instance.
+
+    A sub-flow child that ends (or fails) here continues its parent with the result, unless the
+    parent is the one starting it right now (`tell_parent=False`).
+    """
     instance = await session.get(WorkflowInstance, instance_id, with_for_update=True)
     if instance is None or instance.status not in LIVE:
         return None
@@ -243,21 +265,120 @@ async def run(
             if done >= COMMANDS_PER_RUN:
                 break
             done += 1
-            outcome = await _carry_out(
-                session,
-                kind,
-                subject=subject,
-                record_id=instance.record_id,
-                command=command,
-                ref=ref,
-            )
-            queue.append(
-                CommandDone(command.id, outcome.ok, error=outcome.error, outputs=outcome.outputs)
-            )
+            found = await _result_of(session, instance, kind, subject, command, ref, moment)
+            if found is not None:  # None: a sub-flow's child runs on; its end continues this
+                queue.append(found)
         if result.commands and kind is not None and kind.facts is not None:
             facts = await kind.facts(session, instance.record_id) or facts  # the changes made
     await _save(session, instance, state, steps=steps, wake=wake, now=moment)
+    if tell_parent:
+        await _tell_parent(session, instance, moment)
     return instance
+
+
+# Commands whose result comes later, naming the command (an approval decided, tasks done).
+_LATER = frozenset({CommandKind.OPEN_APPROVAL, CommandKind.OPEN_TASKS})
+
+
+async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs with
+    session: AsyncSession,
+    instance: WorkflowInstance,
+    kind: Any,  # noqa: ANN401 - the registry's RecordType (or None)
+    subject: Subject | None,
+    command: Command,
+    ref: Mapping[str, Any],
+    now: datetime,
+) -> CommandDone | None:
+    if command.kind == CommandKind.START_SUB_FLOW:
+        return await _start_child(session, instance, command, now)
+    if command.kind == CommandKind.CALL_WEBHOOK:
+        # Never from this request: the worker sends it through the guarded client.
+        await record_event(
+            session,
+            WorkflowWebhookRequested(
+                instance_id=instance.id,
+                command=command.id,
+                record_type=instance.record_type,
+                record_id=instance.record_id,
+                url=str(command.payload.get("url")),
+                method=str(command.payload.get("method", "POST")),
+                headers={
+                    str(k): str(v) for k, v in dict(command.payload.get("headers", {})).items()
+                },
+                fields=[str(f) for f in command.payload.get("fields", [])],
+                status_variable=command.payload.get("status_variable"),
+            ),
+            aggregate_id=instance.id,
+        )
+        return None
+    if command.kind == CommandKind.RUN_FUNCTION:
+        # Never in this process (§6.7): the worker runs it and reports back to the node.
+        await record_event(
+            session,
+            WorkflowFunctionRequested(
+                instance_id=instance.id,
+                command=command.id,
+                record_type=instance.record_type,
+                record_id=instance.record_id,
+                function=str(command.payload.get("function")),
+                inputs=dict(command.payload.get("inputs", {})),
+                assign={str(k): str(v) for k, v in dict(command.payload.get("assign", {})).items()},
+                timeout_seconds=int(command.payload.get("timeout_seconds", 10)),
+            ),
+            aggregate_id=instance.id,
+        )
+        return None
+    outcome = await _carry_out(
+        session,
+        kind,
+        subject=subject,
+        record_id=instance.record_id,
+        command=command,
+        # A result that comes later (an approval's decision) names its command; the history's
+        # automation_ref of every other command stays as it was.
+        ref={**ref, "command": command.id} if command.kind in _LATER else ref,
+    )
+    if outcome.ok and outcome.pending:
+        return None  # waits, as a sub-flow does, until the owning module's event continues it
+    return CommandDone(command.id, outcome.ok, error=outcome.error, outputs=outcome.outputs)
+
+
+def _child_result(child: WorkflowInstance, command: str) -> CommandDone | None:
+    """The parent's command result from its child's status; None while the child runs."""
+    if child.status == InstanceStatus.FINISHED.value:
+        return CommandDone(command, ok=True)
+    if child.status in {InstanceStatus.FAILED.value, InstanceStatus.CANCELLED.value}:
+        return CommandDone(command, ok=False, error="sub_flow_failed")
+    return None
+
+
+async def _start_child(
+    session: AsyncSession, parent: WorkflowInstance, command: Command, now: datetime
+) -> CommandDone | None:
+    """Start a sub-flow's child on the same record (REQ-WF-017); a refusal is the result."""
+    try:
+        async with session.begin_nested():
+            child = await start(
+                session,
+                workflow_id=uuid.UUID(str(command.payload.get("workflow_id"))),
+                record_type=parent.record_type,
+                record_id=parent.record_id,
+                how="sub_flow",
+                now=now,
+                parent=(parent.id, command.id),
+            )
+    except AppError as refused:  # gone, switched off, already running ...: the node decides
+        return CommandDone(command.id, ok=False, error=refused.instance_code)
+    return _child_result(child, command.id)
+
+
+async def _tell_parent(session: AsyncSession, child: WorkflowInstance, now: datetime) -> None:
+    """A child that ended continues its parent's sub-flow node with the result."""
+    if child.parent_instance_id is None or child.parent_command is None:
+        return
+    result = _child_result(child, child.parent_command)
+    if result is not None:
+        await run(session, child.parent_instance_id, result, now=now)
 
 
 async def _carry_out(  # noqa: PLR0913 - the command and everything it runs with, explicit

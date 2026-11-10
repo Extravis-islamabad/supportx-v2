@@ -20,6 +20,7 @@ import html
 import uuid
 from collections.abc import Mapping
 from datetime import datetime
+from typing import Any
 
 import nh3
 from sqlalchemy import select
@@ -47,6 +48,7 @@ from app.modules.work_items.events import (
     WorkItemCreated,
     WorkItemFollowerAdded,
     WorkItemStatusChanged,
+    WorkItemWorkflowNotice,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemConversation, WorkItemFollower
 from app.modules.work_items.service import catalogue, escalations
@@ -72,6 +74,10 @@ from app.shared.notifications.ports import (
 IN_APP = (NotificationChannel.IN_APP,)
 BOTH = (NotificationChannel.IN_APP, NotificationChannel.EMAIL)
 EXCERPT = 500  # characters of a reply or note shown in a notification
+
+# A workflow's notice (WP-048b S2): its audience is the node's, resolved at send time.
+WORKFLOW_AUDIENCE = "workflow_audience"
+NOTICE = "incident.workflow_notice"
 
 _STATUS_EVENTS: Mapping[str, str] = {
     WorkItemAction.RESOLVE: "incident.resolved",
@@ -101,7 +107,8 @@ ESCALATION_RECIPIENTS = "escalation_recipients"
 # owner, an inactive one, or an SLA level) whoever manages that kind of step.
 STEP_OWNER = "step_owner"
 UNAVAILABLE = "incident.assignee_unavailable"
-_STEP_MANAGERS = {"sla_escalation": "sla.manage"}  # rules and triggers: automation.manage
+# Rules and triggers: automation.manage.
+_STEP_MANAGERS = {"sla_escalation": "sla.manage", "workflow": "workflows.manage"}
 _MANAGER_LIMIT = 200  # administrators told of one record
 _SLA_EVENTS: Mapping[str, str] = {
     sla.SlaWarning.event_type: "incident.sla_warning",
@@ -203,6 +210,17 @@ EVENTS: tuple[NotificationEvent, ...] = (
         EventDefault(enabled=True, recipients=("assignee", "group_head")),
         variables=_SLA,
     ),
+    # REQ-WF-022: a workflow's notify node; its own words, to the audience it chose (lane A).
+    NotificationEvent(
+        NOTICE,
+        NotificationCategory.WORKFLOW,
+        EventDefault(enabled=True, recipients=(WORKFLOW_AUDIENCE,)),
+        public=True,  # the message is the author's own text, the same for everyone
+        variables=(
+            Variable("notice.subject", "notification_variable.notice.subject"),
+            Variable("notice.body", "notification_variable.notice.body"),
+        ),
+    ),
     NotificationEvent(
         "incident.sla_escalated",
         NotificationCategory.STATUS,
@@ -219,6 +237,7 @@ EVENTS: tuple[NotificationEvent, ...] = (
 )
 
 RECIPIENT_KINDS = (
+    WORKFLOW_AUDIENCE,
     "requester",
     "on_behalf_of",
     "assignee",
@@ -281,7 +300,8 @@ def _public_status(
     return found
 
 
-def _excerpt(body: str) -> str:
+def reply_excerpt(body: str) -> str:
+    """A conversation entry's words for a notice: plain text, cut to the excerpt length."""
     text = html.unescape(nh3.clean(body.replace("</p>", "</p>\n"), tags=set())).strip()
     return text if len(text) <= EXCERPT else text[: EXCERPT - 1].rstrip() + "…"
 
@@ -304,6 +324,26 @@ RESOLUTION_NOTICE = "incident.resolved"
 REQUESTER_SIDE = frozenset({"requester", "on_behalf_of"})
 
 
+async def _workflow_audience(
+    session: AsyncSession,
+    relatives: Mapping[str, frozenset[uuid.UUID]],
+    payload: Mapping[str, Any],
+) -> frozenset[uuid.UUID]:
+    """A notify node's audience now: relatives through the record, named people, group members.
+
+    The engine still checks each one's access to the record at send time (REQ-NTF-010).
+    """
+    audience = payload.get("audience") or {}
+    people: set[uuid.UUID] = set()
+    for kind in audience.get("relatives", []):
+        people |= relatives.get(str(kind), frozenset())
+    people |= {uuid.UUID(str(u)) for u in audience.get("user_ids", [])}
+    groups = frozenset(uuid.UUID(str(g)) for g in audience.get("group_ids", []))
+    if groups:
+        people |= set(await session.scalars(users_in_groups(groups)))
+    return frozenset(people)
+
+
 async def _step_owner(session: AsyncSession, payload: Mapping[str, object]) -> frozenset[uuid.UUID]:
     """The step's owner while active, else the managers of that kind of step (D-154 rules)."""
     owner = _uuid(payload.get("owner_id"))
@@ -313,6 +353,22 @@ async def _step_owner(session: AsyncSession, payload: Mapping[str, object]) -> f
     permission = _STEP_MANAGERS.get(str(payload.get("step")), "automation.manage")
     held = await worker_policy().holders(session, tenant, permission, limit=_MANAGER_LIMIT)
     return frozenset(user for user, _name in held)
+
+
+async def _named_people(
+    session: AsyncSession,
+    relatives: Mapping[str, frozenset[uuid.UUID]],
+    event_code: str,
+    payload: Mapping[str, Any],
+) -> dict[str, frozenset[uuid.UUID]]:
+    """The people an event names itself: the mentioned, a notify node's audience, a step owner."""
+    if event_code == NOTICE:
+        return {WORKFLOW_AUDIENCE: await _workflow_audience(session, relatives, payload)}
+    if event_code == "incident.mentioned":
+        return {"mentioned": frozenset(uuid.UUID(str(u)) for u in payload["mentioned_ids"])}
+    if event_code == UNAVAILABLE:
+        return {STEP_OWNER: await _step_owner(session, payload)}
+    return {}
 
 
 async def _relatives(
@@ -346,10 +402,7 @@ async def _relatives(
             relatives["previous_assignee"] = frozenset({before})
     if envelope.event_type == WorkItemFollowerAdded.event_type:
         relatives["new_follower"] = frozenset({uuid.UUID(str(payload["user_id"]))})
-    if event_code == "incident.mentioned":
-        relatives["mentioned"] = frozenset(uuid.UUID(str(u)) for u in payload["mentioned_ids"])
-    if event_code == UNAVAILABLE:
-        relatives[STEP_OWNER] = await _step_owner(session, payload)
+    relatives.update(await _named_people(session, relatives, event_code, payload))
     if event_code == "incident.sla_escalated":
         found = await sla.escalation_run(session, uuid.UUID(str(payload["run_id"])))
         if found is None:
@@ -358,6 +411,65 @@ async def _relatives(
             session, record, found[1]
         )
     return relatives
+
+
+# Events that are one notification each, of their own code.
+_ONE_NOTICE = {
+    WorkItemWorkflowNotice.event_type: NOTICE,
+    WorkItemAssigneeUnavailable.event_type: UNAVAILABLE,
+}
+
+
+async def move_reply_delivery(  # noqa: PLR0913 - the port's fields, explicit
+    session: AsyncSession,
+    *,
+    record_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    state: str,
+    reason: str | None,
+    at: datetime,
+) -> None:
+    """Move a reply's delivery state (REQ-INC-059), in order and never back from sent.
+
+    Only replies move (notes have no delivery state, and a reply the requester sent by mail
+    is theirs, not ours to deliver). Each applied change bumps the entry's version, so a
+    resend from a stale screen is refused, and the timeline hears of it live. Shared by every
+    record type's source (incidents, requests, changes, releases).
+    """
+    entry = await session.scalar(
+        select(WorkItemConversation)
+        .where(
+            WorkItemConversation.id == entry_id,
+            WorkItemConversation.work_item_id == record_id,
+            WorkItemConversation.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if entry is None or entry.delivery_state not in MOVABLE:
+        return
+    if entry.delivery_updated_at is not None and at <= entry.delivery_updated_at:
+        return  # an older report arriving late
+    new_state, new_reason = DeliveryState(state), DeliveryReason(reason) if reason else None
+    if (entry.delivery_state, entry.delivery_reason) == (new_state.value, reason):
+        entry.delivery_updated_at = at
+        return
+    entry.delivery_state = new_state.value
+    entry.delivery_reason = new_reason.value if new_reason else None
+    entry.delivery_updated_at = at
+    entry.version += 1
+    await record_event(
+        session,
+        WorkItemConversationDeliveryChanged(
+            work_item_id=record_id,
+            entry_id=entry.id,
+            kind=entry.kind,
+            visibility=entry.visibility,
+            delivery_state=entry.delivery_state,
+            delivery_reason=entry.delivery_reason,
+        ),
+        aggregate_id=entry.id,
+        aggregate_version=entry.version,
+    )
 
 
 class IncidentNotifications:
@@ -375,6 +487,7 @@ class IncidentNotifications:
         WorkItemConversationAdded.event_type,
         WorkItemStatusChanged.event_type,
         WorkItemFollowerAdded.event_type,
+        WorkItemWorkflowNotice.event_type,
         WorkItemAssigneeUnavailable.event_type,
         *_SLA_EVENTS,
     )
@@ -391,6 +504,8 @@ class IncidentNotifications:
             return (_SLA_EVENTS[kind],)
         if kind in _TYPED and payload.get("type") != INCIDENT.code.value:
             return ()
+        if kind in _ONE_NOTICE:  # a workflow's notice, an assignee left out (incidents only)
+            return (_ONE_NOTICE[kind],) if payload.get("type") == INCIDENT.code.value else ()
         if kind == WorkItemCreated.event_type:
             # Created already assigned: the technician hears it like any assignment.
             assigned = ("incident.assigned",) if payload.get("technician_id") else ()
@@ -405,8 +520,6 @@ class IncidentNotifications:
         # `context` returns None for a record of another type.
         if kind == WorkItemFollowerAdded.event_type:
             return ("incident.follower_added",)
-        if kind == WorkItemAssigneeUnavailable.event_type:
-            return (UNAVAILABLE,) if payload.get("type") == INCIDENT.code.value else ()
         return _conversation_events(payload)
 
     async def context(  # noqa: C901 - one block per event family, flat
@@ -456,6 +569,9 @@ class IncidentNotifications:
             shared["change.from_status"] = status_value(payload.get("from_status"))
         if envelope.event_type in _SLA_EVENTS:
             shared["sla.target"] = LabelRef(f"sla_target_kind.{payload['kind']}")
+        if event_code == NOTICE:  # the node's own words, in each recipient's language
+            shared["notice.subject"] = Localised(dict(payload.get("subject") or {}))
+            shared["notice.body"] = Localised(dict(payload.get("body") or {}))
         if envelope.event_type == WorkItemAssigneeUnavailable.event_type:
             person = str(payload["person_id"])
             shared["unavailable.person"] = (await user_names(session, [person])).get(person)
@@ -473,7 +589,7 @@ class IncidentNotifications:
             if entry is None:
                 return None
             full["conversation.author"] = shared["actor.name"]
-            full["conversation.excerpt"] = _excerpt(entry.body)
+            full["conversation.excerpt"] = reply_excerpt(entry.body)
             if entry.visibility == Visibility.PUBLIC.value:
                 public["conversation.author"] = shared["actor.name"]
                 public["conversation.excerpt"] = full["conversation.excerpt"]
@@ -506,45 +622,9 @@ class IncidentNotifications:
         reason: str | None,
         at: datetime,
     ) -> None:
-        """Move a reply's delivery state (REQ-INC-059), in order and never back from sent.
-
-        Only replies move (notes have no delivery state, and a reply the requester sent by mail
-        is theirs, not ours to deliver). Each applied change bumps the entry's version, so a
-        resend from a stale screen is refused, and the timeline hears of it live.
-        """
-        entry = await session.scalar(
-            select(WorkItemConversation)
-            .where(
-                WorkItemConversation.id == entry_id,
-                WorkItemConversation.work_item_id == record_id,
-                WorkItemConversation.deleted_at.is_(None),
-            )
-            .with_for_update()
-        )
-        if entry is None or entry.delivery_state not in MOVABLE:
-            return
-        if entry.delivery_updated_at is not None and at <= entry.delivery_updated_at:
-            return  # an older report arriving late
-        new_state, new_reason = DeliveryState(state), DeliveryReason(reason) if reason else None
-        if (entry.delivery_state, entry.delivery_reason) == (new_state.value, reason):
-            entry.delivery_updated_at = at
-            return
-        entry.delivery_state = new_state.value
-        entry.delivery_reason = new_reason.value if new_reason else None
-        entry.delivery_updated_at = at
-        entry.version += 1
-        await record_event(
-            session,
-            WorkItemConversationDeliveryChanged(
-                work_item_id=record_id,
-                entry_id=entry.id,
-                kind=entry.kind,
-                visibility=entry.visibility,
-                delivery_state=entry.delivery_state,
-                delivery_reason=entry.delivery_reason,
-            ),
-            aggregate_id=entry.id,
-            aggregate_version=entry.version,
+        """Move a reply's delivery state (REQ-INC-059); the same for every type's replies."""
+        await move_reply_delivery(
+            session, record_id=record_id, entry_id=entry_id, state=state, reason=reason, at=at
         )
 
     async def access(
