@@ -5,6 +5,7 @@ import {
   BoldOutlined,
   ClearOutlined,
   CodeOutlined,
+  EllipsisOutlined,
   ConsoleSqlOutlined,
   FontColorsOutlined,
   FullscreenExitOutlined,
@@ -292,6 +293,72 @@ function Tool({
 
 const Gap = () => <Divider type="vertical" style={{ marginInline: 2, height: 20 }} />;
 
+const COMPACT_BELOW = 900;
+const NARROW_BELOW = 560;
+
+interface ToolSpec {
+  title: string;
+  icon: ReactNode;
+  active?: boolean;
+  onClick: () => void;
+  testId: string;
+}
+
+/** A group of tools: buttons on a wide toolbar, one menu on a compact one (QA10V-21). */
+function ToolGroup({
+  compact,
+  tools,
+  label,
+  icon,
+  testId,
+}: {
+  compact: boolean;
+  tools: ToolSpec[];
+  label: string;
+  icon: ReactNode;
+  testId: string;
+}) {
+  if (!compact) {
+    return (
+      <>
+        {tools.map((tool) => (
+          <Tool key={tool.testId} {...tool} />
+        ))}
+      </>
+    );
+  }
+  return (
+    <Dropdown
+      trigger={['click']}
+      menu={{
+        selectable: true,
+        selectedKeys: tools.filter((tool) => tool.active === true).map((tool) => tool.testId),
+        items: tools.map((tool) => ({
+          key: tool.testId,
+          icon: tool.icon,
+          label: <span data-testid={tool.testId}>{tool.title}</span>,
+        })),
+        onClick: ({ key }) => {
+          tools.find((tool) => tool.testId === key)?.onClick();
+        },
+      }}
+    >
+      <Tooltip title={label}>
+        <Button
+          size="small"
+          type="text"
+          aria-label={label}
+          icon={icon}
+          onMouseDown={(event) => {
+            event.preventDefault(); // keep the selection in the editor
+          }}
+          data-testid={testId}
+        />
+      </Tooltip>
+    </Dropdown>
+  );
+}
+
 function Swatch({ kind, code }: { kind: 'text' | 'highlight'; code: string | null }) {
   return (
     <span
@@ -326,6 +393,22 @@ function Toolbar({
   const { direction } = useAppearance();
   const [linking, setLinking] = useState(false);
   const [href, setHref] = useState('');
+  // The toolbar's own width (0 before layout and in tests: the full toolbar).
+  const bar = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const element = bar.current;
+    if (element === null || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      setWidth(element.clientWidth);
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  const compact = width > 0 && width < COMPACT_BELOW;
+  const narrow = width > 0 && width < NARROW_BELOW;
   // Re-render the toolbar when the selection or the content changes (active states).
   const state = useEditorState({
     editor,
@@ -366,11 +449,93 @@ function Toolbar({
       .setAlignment(state.align === value ? null : value)
       .run();
   };
+  // Below about 900 px the toolbar no longer fits one row (QA10V-21): alignment and indent, and
+  // the block tools, fold into a menu each; below 560 px it also scrolls sideways in one row.
+  const aligning: ToolSpec[] = [
+    {
+      title: t('richtext.align.start'),
+      icon: startIcon,
+      active: state.align === 'start',
+      onClick: () => {
+        align('start');
+      },
+      testId: 'rt-align-start',
+    },
+    {
+      title: t('richtext.align.center'),
+      icon: <AlignCenterOutlined />,
+      active: state.align === 'center',
+      onClick: () => {
+        align('center');
+      },
+      testId: 'rt-align-center',
+    },
+    {
+      title: t('richtext.align.end'),
+      icon: endIcon,
+      active: state.align === 'end',
+      onClick: () => {
+        align('end');
+      },
+      testId: 'rt-align-end',
+    },
+    {
+      title: t('richtext.align.justify'),
+      icon: <MenuOutlined />,
+      active: state.align === 'justify',
+      onClick: () => {
+        align('justify');
+      },
+      testId: 'rt-align-justify',
+    },
+    {
+      title: t('richtext.outdent'),
+      icon: outdentIcon,
+      onClick: () => chain().outdent().run(),
+      testId: 'rt-outdent',
+    },
+    {
+      title: t('richtext.indent'),
+      icon: indentIcon,
+      onClick: () => chain().indent().run(),
+      testId: 'rt-indent',
+    },
+  ];
+  const blocks: ToolSpec[] = [
+    {
+      title: t('richtext.quote'),
+      icon: <MessageOutlined />,
+      active: state.quote,
+      onClick: () => chain().toggleBlockquote().run(),
+      testId: 'rt-quote',
+    },
+    {
+      title: t('richtext.code_block'),
+      icon: <ConsoleSqlOutlined />,
+      active: state.codeBlock,
+      onClick: () => chain().toggleCodeBlock().run(),
+      testId: 'rt-code-block',
+    },
+    {
+      title: t('richtext.horizontal_line'),
+      icon: <LineOutlined />,
+      onClick: () => chain().setHorizontalRule().run(),
+      testId: 'rt-hr',
+    },
+    {
+      title: t('richtext.table'),
+      icon: <TableOutlined />,
+      onClick: () => chain().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run(),
+      testId: 'rt-table',
+    },
+  ];
   return (
     <Flex
+      ref={bar}
       gap={2}
-      wrap
+      wrap={!narrow}
       align="center"
+      style={narrow ? { overflowX: 'auto', scrollbarWidth: 'thin' } : undefined}
       className="sx-richtext-toolbar"
       role="toolbar"
       aria-label={t('richtext.toolbar')}
@@ -510,53 +675,22 @@ function Toolbar({
         />
       </Dropdown>
       <Gap />
-      <Tool
-        title={t('richtext.align.start')}
-        icon={startIcon}
-        active={state.align === 'start'}
-        onClick={() => {
-          align('start');
-        }}
-        testId="rt-align-start"
-      />
-      <Tool
-        title={t('richtext.align.center')}
-        icon={<AlignCenterOutlined />}
-        active={state.align === 'center'}
-        onClick={() => {
-          align('center');
-        }}
-        testId="rt-align-center"
-      />
-      <Tool
-        title={t('richtext.align.end')}
-        icon={endIcon}
-        active={state.align === 'end'}
-        onClick={() => {
-          align('end');
-        }}
-        testId="rt-align-end"
-      />
-      <Tool
-        title={t('richtext.align.justify')}
-        icon={<MenuOutlined />}
-        active={state.align === 'justify'}
-        onClick={() => {
-          align('justify');
-        }}
-        testId="rt-align-justify"
-      />
-      <Tool
-        title={t('richtext.outdent')}
-        icon={outdentIcon}
-        onClick={() => chain().outdent().run()}
-        testId="rt-outdent"
-      />
-      <Tool
-        title={t('richtext.indent')}
-        icon={indentIcon}
-        onClick={() => chain().indent().run()}
-        testId="rt-indent"
+      <ToolGroup
+        compact={compact}
+        tools={aligning}
+        label={t('richtext.align_menu')}
+        icon={
+          state.align === 'end' ? (
+            endIcon
+          ) : state.align === 'center' ? (
+            <AlignCenterOutlined />
+          ) : state.align === 'justify' ? (
+            <MenuOutlined />
+          ) : (
+            startIcon
+          )
+        }
+        testId="rt-align-menu"
       />
       <Gap />
       <Tool
@@ -574,26 +708,6 @@ function Toolbar({
         testId="rt-numbers"
       />
       <Tool
-        title={t('richtext.quote')}
-        icon={<MessageOutlined />}
-        active={state.quote}
-        onClick={() => chain().toggleBlockquote().run()}
-        testId="rt-quote"
-      />
-      <Tool
-        title={t('richtext.code_block')}
-        icon={<ConsoleSqlOutlined />}
-        active={state.codeBlock}
-        onClick={() => chain().toggleCodeBlock().run()}
-        testId="rt-code-block"
-      />
-      <Tool
-        title={t('richtext.horizontal_line')}
-        icon={<LineOutlined />}
-        onClick={() => chain().setHorizontalRule().run()}
-        testId="rt-hr"
-      />
-      <Tool
         title={t('richtext.link')}
         icon={<LinkOutlined />}
         active={state.link}
@@ -603,11 +717,12 @@ function Toolbar({
         }}
         testId="rt-link"
       />
-      <Tool
-        title={t('richtext.table')}
-        icon={<TableOutlined />}
-        onClick={() => chain().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run()}
-        testId="rt-table"
+      <ToolGroup
+        compact={compact}
+        tools={blocks}
+        label={t('richtext.more_tools')}
+        icon={<EllipsisOutlined />}
+        testId="rt-more-menu"
       />
       <Gap />
       <Tool
