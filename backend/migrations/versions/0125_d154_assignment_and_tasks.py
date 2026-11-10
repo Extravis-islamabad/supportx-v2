@@ -14,7 +14,7 @@ The downgrade drops the two columns. The dropped grants are not restored: there 
 customers yet (the coordinator agreed, 2026-11-10), and the permission no longer exists.
 
 Revision ID: 0125
-Revises: 0124
+Revises: 0118
 Created: 2026-11-10
 """
 
@@ -24,7 +24,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0125"
-down_revision: str | None = "0124"
+down_revision: str | None = "0118"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
