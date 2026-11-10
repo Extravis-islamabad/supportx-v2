@@ -36,6 +36,7 @@ from app.modules.analytics.service import capabilities, exports, library, schedu
 from app.modules.analytics.service.compiler import available_measures, compile_report
 from app.modules.analytics.service.dashboards import for_viewer
 from app.modules.analytics.service.jobs import storage_or_none
+from app.modules.analytics.service.naming import Namer
 from app.modules.analytics.service.runner import (
     ReportResult,
     TenantSlots,
@@ -51,7 +52,7 @@ from app.shared.api.listing import request_zone
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 from app.shared.mail import mail_configured
-from app.shared.reporting import ReportingSource, registered_entities
+from app.shared.reporting import DimensionKind, ReportingSource, registered_entities
 from app.shared.storage import ObjectStorage
 
 REPORTING_DB_STATE = "reporting_db"
@@ -120,6 +121,13 @@ class ReportResultOut(BaseModel):
     totals: list[float | int | None]
     truncated: bool
     drill_all: Any = Field(description="Filter DSL behind the totals.")
+    names: dict[str, dict[str, str]] = Field(
+        default_factory=dict,
+        description=(
+            "Per grouping field, the names of other modules' records it groups by, in the "
+            "requested language (the console names people, groups, sites and the like itself)."
+        ),
+    )
 
     @classmethod
     def of(cls, result: ReportResult) -> "ReportResultOut":
@@ -158,6 +166,8 @@ class ReportRunIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     definition: ReportDefinition
+    # The reader's language for the names of other modules' records (asset states, vendors ...).
+    language: Literal["en", "ar", "ur"] = "en"
 
 
 class ReportFieldOut(BaseModel):
@@ -347,7 +357,28 @@ async def run(
         week_start=limits.week_start,
         slots=slots,
     )
-    return ReportResultOut.of(result)
+    out = ReportResultOut.of(result)
+    out.names = await _server_names(session, result, body.language)
+    return out
+
+
+# References the console names itself (from lists it already holds); the others are named here
+# by the resolvers their modules register (asset states, product types, products, vendors).
+_CONSOLE_NAMED = frozenset({"user", "group", "site", "department", "desk", "category"})
+
+
+async def _server_names(
+    session: AsyncSession, result: ReportResult, language: str
+) -> dict[str, dict[str, str]]:
+    namer = Namer(session, result.entity, language)
+    names: dict[str, dict[str, str]] = {}
+    for index, group in enumerate(result.groups):
+        dimension = group.dimension
+        if dimension.kind != DimensionKind.REFERENCE or dimension.reference in _CONSOLE_NAMED:
+            continue
+        await namer.prepare(group.field, dimension, [row.keys[index] for row in result.rows])
+        names[group.field] = dict(namer.names_of(group.field, dimension))
+    return names
 
 
 @router.get("/entities/{entity}", summary="What a report on an entity can use")
