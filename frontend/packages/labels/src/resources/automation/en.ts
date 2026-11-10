@@ -284,6 +284,11 @@ export const en = {
   'workflow_problem.node_not_for_type': 'This kind of step is not offered for this record type.',
   'workflow_problem.node_unreachable': 'No path from the start reaches this step.',
   'workflow_problem.note_text_invalid': "Enter the note's text, up to {{max}} characters.",
+  'workflow_problem.notify_not_offered': 'This kind of record cannot send a workflow message yet.',
+  'workflow_problem.notify_text_invalid':
+    'Write a subject (up to {{subject}} characters) and a message (up to {{body}}).',
+  'workflow_problem.notify_without_audience':
+    'Choose who hears it: the record’s people, named people or groups.',
   'workflow_problem.one_start_needed': 'A workflow needs exactly one start.',
   'workflow_problem.output_not_linked': "Connect this step's way out.",
   'workflow_problem.retries_invalid': 'Enter how often to try again, from 0 to {{max}}.',

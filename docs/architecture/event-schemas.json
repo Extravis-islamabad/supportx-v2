@@ -5524,6 +5524,61 @@
         "title": "WorkItemUpdated",
         "type": "object"
       }
+    },
+    "work_items.workflow.notice": {
+      "1": {
+        "description": "A workflow's notify node tells people about the record (WP-048b S2, REQ-WF-022).\n\nThe one notification engine sends it (work_items' record source maps it to\n`<type>.workflow_notice`): access checked at send time, personal preferences, the delivery\nlog. The audience is resolved then; the texts are the node's own, per language.",
+        "properties": {
+          "audience": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Audience",
+            "type": "object"
+          },
+          "body": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Body",
+            "type": "object"
+          },
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "subject": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Subject",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "type",
+          "instance_id",
+          "audience",
+          "subject",
+          "body"
+        ],
+        "title": "WorkItemWorkflowNotice",
+        "type": "object"
+      }
     }
   },
   "format": 1

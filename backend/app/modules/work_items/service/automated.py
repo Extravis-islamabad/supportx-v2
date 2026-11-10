@@ -141,6 +141,7 @@ def register_triggers() -> None:
                 approval_roles=(
                     wtype.roles if wtype.code in workflow_approvals.APPROVAL_TYPES else None
                 ),
+                notices=wtype.code.value in workflow_commands.NOTICE_TYPES,
             )
         )
     automation.register_event_reader((*_RECORD_EVENTS, _CONVERSATION), read_event)

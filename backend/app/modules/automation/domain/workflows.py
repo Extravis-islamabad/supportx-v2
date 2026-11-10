@@ -88,6 +88,7 @@ class NodeType(StrEnum):
     TASKS = "tasks"  # people: a checklist of tasks on the record; all done continues it
     FUNCTION = "function"  # actions: a custom function, run outside the API (§6.7, the port)
     WEBHOOK = "webhook"  # actions: one call through the guarded client, from the worker
+    NOTIFY = "notify"  # people: a message through the one notification engine
 
 
 class WaitEvent(StrEnum):
@@ -117,6 +118,11 @@ MAX_DUE_DAYS = 365  # a task node's due date: working days on the record's calen
 FUNCTION_TIMEOUT_MAX = 30  # seconds a function node may run (the runner enforces it)
 MAX_FUNCTION_IO = 20  # inputs, and outputs kept as variables
 _FUNCTION_NAME = re.compile(r"^[a-z][a-z0-9_]{0,59}$")
+NOTICE_SUBJECT_MAX, NOTICE_BODY_MAX = 200, 2000
+# The record's people a notice may name (the work item source's relative recipients).
+NOTICE_RELATIVES = frozenset(
+    {"requester", "on_behalf_of", "assignee", "group", "group_head", "followers"}
+)
 WEBHOOK_URL_MAX = 2000
 WEBHOOK_METHODS = frozenset({"POST", "PUT", "PATCH"})
 MAX_WEBHOOK_HEADERS = 20
@@ -222,6 +228,7 @@ class TypeFacts:
     roles: frozenset[str] = frozenset()  # the record's roles an approval may name (ADR-041)
     approvals: bool = False  # the type opens approvals on the WP-030 engine
     functions: bool = False  # SANDBOX and CUSTOM_FUNCTIONS licensed, and a runner configured
+    notices: bool = False  # its notification source sends a workflow's notice
 
 
 @dataclass(frozen=True)
@@ -574,6 +581,40 @@ def _check_function(
     return [problem] if problem is not None else _retries(config)
 
 
+def _texts_ok(texts: Any, limit: int) -> bool:  # noqa: ANN401 - untrusted JSON
+    return (
+        isinstance(texts, dict)
+        and bool(texts)
+        and all(isinstance(v, str) and 0 < len(v.strip()) <= limit for v in texts.values())
+    )
+
+
+def _check_notify(
+    config: Mapping[str, Any], facts: TypeFacts
+) -> list[tuple[str, dict[str, JsonValue]]]:
+    """A notice (REQ-WF-022): to whom (the record's people, named people, groups) and what."""
+    audience = config.get("audience")
+    problem: tuple[str, dict[str, JsonValue]] | None = None
+    if not facts.notices:
+        problem = ("notify_not_offered", {"record_type": facts.record_type})
+    elif not isinstance(audience, dict) or not any(
+        audience.get(k) for k in ("relatives", "user_ids", "group_ids")
+    ):
+        problem = ("notify_without_audience", {})
+    elif (
+        not isinstance(audience.get("relatives", []), list)
+        or any(r not in NOTICE_RELATIVES for r in audience.get("relatives", []))
+        or not _uuid_list(audience.get("user_ids", []))
+        or not _uuid_list(audience.get("group_ids", []))
+    ):
+        problem = ("invalid_value", {"field": "audience"})
+    elif not _texts_ok(config.get("subject"), NOTICE_SUBJECT_MAX) or not _texts_ok(
+        config.get("body"), NOTICE_BODY_MAX
+    ):
+        problem = ("notify_text_invalid", {"subject": NOTICE_SUBJECT_MAX, "body": NOTICE_BODY_MAX})
+    return [problem] if problem is not None else _retries(config)
+
+
 def _headers_ok(headers: Any) -> bool:  # noqa: ANN401 - untrusted JSON
     """The node's own headers: a few, plain names, none the platform or transport sets."""
     return (
@@ -708,6 +749,13 @@ REGISTRY: Mapping[NodeType, NodeSpec] = {
         _check_tasks,
     ),
     # A 2xx continues it; a refusal or a failed call retries, then takes "error" (REQ-WF-024).
+    NodeType.NOTIFY: NodeSpec(
+        NodeType.NOTIFY,
+        Category.PEOPLE,
+        _fixed("next", "error"),
+        lambda _c: frozenset({"error"}),
+        _check_notify,
+    ),
     NodeType.WEBHOOK: NodeSpec(
         NodeType.WEBHOOK,
         Category.ACTIONS,

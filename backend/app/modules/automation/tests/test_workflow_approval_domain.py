@@ -179,3 +179,27 @@ def test_req_wf_021_a_function_node_is_offered_only_when_licensed_and_names_what
     assert found({**good, "timeout_seconds": 60}) == {("node:f", "function_timeout_invalid")}
     assert found({**good, "assign": {"out": "nope"}}) == {("node:f", "variable_unknown")}
     assert found({**good, "inputs": {"x": {"field": "nope"}}}) == {("node:f", "unknown_field")}
+
+
+# --- the notify node (REQ-WF-022) ---------------------------------------------------------------
+
+
+def test_req_wf_022_a_notify_node_names_its_audience_and_its_words() -> None:
+    def found(config: dict[str, object], *, offered: bool = True) -> set[tuple[str, str]]:
+        facts = replace(FACTS, notices=offered)
+        nodes = [raw_node("s", "start"), raw_node("n", "notify", **config), raw_node("e", "end")]
+        links = [link("s", "next", "n"), link("n", "next", "e")]
+        parsed = parse({"format": 1, "nodes": nodes, "links": links, "variables": []})
+        assert parsed.definition is not None, parsed.problems
+        return {(where, code) for where, code, _ in validate(parsed.definition, facts)}
+
+    good: dict[str, object] = {
+        "audience": {"relatives": ["requester"], "user_ids": [PERSON]},
+        "subject": {"en": "Ready"},
+        "body": {"en": "Collect it."},
+    }
+    assert found(good) == set()
+    assert found(good, offered=False) == {("node:n", "notify_not_offered")}
+    assert found({**good, "audience": {}}) == {("node:n", "notify_without_audience")}
+    assert found({**good, "audience": {"relatives": ["mayor"]}}) == {("node:n", "invalid_value")}
+    assert found({**good, "body": {"en": " "}}) == {("node:n", "notify_text_invalid")}

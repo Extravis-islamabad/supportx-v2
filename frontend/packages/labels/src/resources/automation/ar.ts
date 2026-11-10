@@ -289,6 +289,11 @@ export const ar: LabelResource = {
   'workflow_problem.node_not_for_type': 'هذا النوع من الخطوات غير متاح لنوع السجل هذا.',
   'workflow_problem.node_unreachable': 'لا يوجد مسار من البداية يصل إلى هذه الخطوة.',
   'workflow_problem.note_text_invalid': 'أدخل نص الملاحظة، حتى {{max}} حرف.',
+  'workflow_problem.notify_not_offered': 'لا يمكن لهذا النوع من السجلات إرسال رسالة سير عمل بعد.',
+  'workflow_problem.notify_text_invalid':
+    'اكتب موضوعًا (حتى {{subject}} حرفًا) ورسالة (حتى {{body}}).',
+  'workflow_problem.notify_without_audience':
+    'اختر من يتلقاها: أشخاص السجل أو أشخاصًا بأسمائهم أو مجموعات.',
   'workflow_problem.one_start_needed': 'يحتاج سير العمل إلى بداية واحدة فقط.',
   'workflow_problem.output_not_linked': 'اربط مخرج هذه الخطوة.',
   'workflow_problem.retries_invalid': 'أدخل عدد مرات إعادة المحاولة، من 0 إلى {{max}}.',
@@ -317,7 +322,7 @@ export const ar: LabelResource = {
   'workflow_problem.webhook_headers_invalid':
     'حتى {{max}} ترويسة بأسماء بسيطة؛ تضبط المنصة Content-Type وIdempotency-Key بنفسها.',
   'workflow_problem.webhook_url_invalid':
-    'أدخل العنوان المطلوب استدعاؤه، ويبدأ بـ https://‏ (حتى {{max}} حرفًا).',
+    'أدخل العنوان المطلوب استدعاؤه، ويبدأ بـ https:// (حتى {{max}} حرفًا).',
   'workflow_problem.workflow_not_found': 'اختر سير عمل موجودًا.',
   'workflow_problem.workflow_wrong_record_type': 'سير العمل هذا لنوع آخر من السجلات.',
 };

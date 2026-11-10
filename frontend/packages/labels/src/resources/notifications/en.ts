@@ -42,6 +42,7 @@ export const en = {
   'notification_category.following': 'Following',
   'notification_category.mention': 'Mentions',
   'notification_category.status': 'Status changes',
+  'notification_category.workflow': 'Workflow messages',
   'notification_channel.email': 'E-mail',
   'notification_channel.in_app': 'In the app',
   'notification_condition_operator.in': 'is one of',
@@ -72,6 +73,7 @@ export const en = {
   'notification_event.incident.sla_escalated': 'SLA escalation',
   'notification_event.incident.sla_warning': 'SLA warning point reached',
   'notification_event.incident.status_changed': 'Status changed',
+  'notification_event.incident.workflow_notice': 'A workflow’s message',
   'notification_event.kb_article.approved': 'Article approved',
   'notification_event.kb_article.rejected': 'Article sent back',
   'notification_event.kb_article.review_due': 'Article review due',
@@ -297,6 +299,9 @@ export const en = {
     '{{ record.display_id }} is now {{ record.status }}',
   'notification_template.incident.status_changed.subject':
     '{{ record.display_id }} is now {{ record.status }}: {{ record.title }}',
+  'notification_template.incident.workflow_notice.body': '{{ notice.body }}',
+  'notification_template.incident.workflow_notice.in_app': '{{ notice.subject }}',
+  'notification_template.incident.workflow_notice.subject': '{{ notice.subject }}',
   'notification_template.kb_article.approved.body':
     'Hello {{ recipient.name }},\n\n{{ actor.name }} approved the article {{ record.display_id }} "{{ record.title }}". Its readers see it now.',
   'notification_template.kb_article.approved.in_app':
@@ -469,6 +474,8 @@ export const en = {
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',
+  'notification_variable.notice.body': 'Message › Text',
+  'notification_variable.notice.subject': 'Message › Subject',
   'notification_variable.recipient.name': 'Recipient › Name',
   'notification_variable.record.display_id': 'Record › ID',
   'notification_variable.record.link': 'Record › Link',

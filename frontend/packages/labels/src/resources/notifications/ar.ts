@@ -44,6 +44,7 @@ export const ar: LabelResource = {
   'notification_category.following': 'المتابعة',
   'notification_category.mention': 'الإشارات',
   'notification_category.status': 'تغييرات الحالة',
+  'notification_category.workflow': 'رسائل سير العمل',
   'notification_channel.email': 'البريد الإلكتروني',
   'notification_channel.in_app': 'داخل التطبيق',
   'notification_condition_operator.in': 'أحد',
@@ -74,6 +75,7 @@ export const ar: LabelResource = {
   'notification_event.incident.sla_escalated': 'تصعيد اتفاقية مستوى الخدمة',
   'notification_event.incident.sla_warning': 'بلوغ نقطة تحذير اتفاقية مستوى الخدمة',
   'notification_event.incident.status_changed': 'تغيّرت الحالة',
+  'notification_event.incident.workflow_notice': 'رسالة من سير عمل',
   'notification_event.kb_article.approved': 'اعتُمدت المقالة',
   'notification_event.kb_article.rejected': 'أُعيدت المقالة',
   'notification_event.kb_article.review_due': 'حان موعد مراجعة المقالة',
@@ -299,6 +301,9 @@ export const ar: LabelResource = {
     'أصبح {{ record.display_id }} الآن {{ record.status }}',
   'notification_template.incident.status_changed.subject':
     'أصبح {{ record.display_id }} الآن {{ record.status }}: {{ record.title }}',
+  'notification_template.incident.workflow_notice.body': '{{ notice.body }}',
+  'notification_template.incident.workflow_notice.in_app': '{{ notice.subject }}',
+  'notification_template.incident.workflow_notice.subject': '{{ notice.subject }}',
   'notification_template.kb_article.approved.body':
     'مرحباً {{ recipient.name }}،\n\nاعتمد {{ actor.name }} المقالة {{ record.display_id }} "{{ record.title }}". يراها قرّاؤها الآن.',
   'notification_template.kb_article.approved.in_app':
@@ -471,6 +476,8 @@ export const ar: LabelResource = {
   'notification_variable.mailbox.address': 'صندوق البريد › العنوان',
   'notification_variable.mailbox.expires_at': 'صندوق البريد › تنتهي بيانات الاعتماد',
   'notification_variable.mailbox.reason': 'صندوق البريد › السبب',
+  'notification_variable.notice.body': 'الرسالة › النص',
+  'notification_variable.notice.subject': 'الرسالة › الموضوع',
   'notification_variable.recipient.name': 'المستلم › الاسم',
   'notification_variable.record.display_id': 'السجل › المعرّف',
   'notification_variable.record.link': 'السجل › الرابط',

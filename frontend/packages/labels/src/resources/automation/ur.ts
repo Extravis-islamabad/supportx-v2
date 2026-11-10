@@ -288,6 +288,10 @@ export const ur: LabelResource = {
   'workflow_problem.node_not_for_type': 'اس قسم کا مرحلہ اس ریکارڈ کی قسم کے لیے دستیاب نہیں۔',
   'workflow_problem.node_unreachable': 'آغاز سے کوئی راستہ اس مرحلے تک نہیں پہنچتا۔',
   'workflow_problem.note_text_invalid': 'نوٹ کا متن درج کریں، زیادہ سے زیادہ {{max}} حروف۔',
+  'workflow_problem.notify_not_offered': 'اس قسم کا ریکارڈ ابھی ورک فلو پیغام نہیں بھیج سکتا۔',
+  'workflow_problem.notify_text_invalid':
+    'موضوع (زیادہ سے زیادہ {{subject}} حروف) اور پیغام (زیادہ سے زیادہ {{body}}) لکھیں۔',
+  'workflow_problem.notify_without_audience': 'چنیں کون سنے: ریکارڈ کے لوگ، نامزد افراد یا گروپ۔',
   'workflow_problem.one_start_needed': 'ورک فلو کو بالکل ایک آغاز درکار ہے۔',
   'workflow_problem.output_not_linked': 'اس مرحلے کا راستہ جوڑیں۔',
   'workflow_problem.retries_invalid': 'دوبارہ کوشش کتنی بار، 0 سے {{max}} تک درج کریں۔',

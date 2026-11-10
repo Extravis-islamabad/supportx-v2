@@ -66,6 +66,7 @@ async def type_facts(session: AsyncSession, record_type: str) -> TypeFacts:
             name for name, spec in fields.items() if spec.kind == FieldKind.DATETIME
         ),
         approvals=kind.approval_roles is not None,
+        notices=kind.notices,
         functions=await functions.offered(session.info[SESSION_TENANT_KEY].tenant_id),
         roles=frozenset(kind.approval_roles or ()),
     )

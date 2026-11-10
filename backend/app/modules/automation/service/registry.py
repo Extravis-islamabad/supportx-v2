@@ -43,6 +43,7 @@ class RecordType:
     # The approval node (REQ-WF-014): None when the type's approvals cannot be decided; else
     # the record roles an approval may name (empty: people and groups only).
     approval_roles: tuple[str, ...] | None = None
+    notices: bool = False  # its notification source sends a workflow's notice (REQ-WF-022)
 
 
 @dataclass(frozen=True)

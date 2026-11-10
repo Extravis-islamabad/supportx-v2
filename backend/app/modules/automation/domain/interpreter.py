@@ -80,6 +80,7 @@ class CommandKind(StrEnum):
     OPEN_TASKS = "open_tasks"  # opened now, done later: all done is its result
     RUN_FUNCTION = "run_function"  # run by a worker through the runner port (§6.7)
     CALL_WEBHOOK = "call_webhook"  # sent by a worker through the guarded client (ADR-043 §8)
+    NOTIFY = "notify"  # through the owning module's record, to the one notification engine
 
 
 @dataclass(frozen=True)
@@ -393,6 +394,17 @@ def _run_node(run: _Run, token: Token) -> None:  # noqa: C901, PLR0912 - one bra
                     "owner_user_id": config.get("owner_user_id"),
                     "owner_group_id": config.get("owner_group_id"),
                     "due_days": config.get("due_days"),
+                },
+            )
+        case NodeType.NOTIFY:
+            _command(
+                run,
+                token,
+                CommandKind.NOTIFY,
+                {
+                    "audience": dict(config.get("audience", {})),
+                    "subject": dict(config.get("subject", {})),
+                    "body": dict(config.get("body", {})),
                 },
             )
         case NodeType.WEBHOOK:
