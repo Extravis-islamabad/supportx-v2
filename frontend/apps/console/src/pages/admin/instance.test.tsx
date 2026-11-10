@@ -85,4 +85,26 @@ describe('Admin › Instance settings', () => {
     });
     expect(fake.find('PATCH', '/api/v1/organization/settings')).toHaveLength(0);
   });
+
+  it('QA10-P3-13: leaving with unsaved changes asks first, and Stay keeps them', async () => {
+    window.history.pushState({}, '', '/admin/instance');
+    api();
+    render(<App />);
+    const email = await screen.findByTestId('instance-contact-email');
+    fireEvent.change(email, { target: { value: 'desk@example.com' } });
+    await screen.findByTestId('settings-save');
+    fireEvent.click(await screen.findByTestId('admin-sections-button'));
+    fireEvent.click(await screen.findByTestId('admin-sections-home'));
+    await waitFor(() => {
+      expect(screen.getAllByText('Leave without saving?').length).toBeGreaterThan(0);
+    });
+    expect(document.querySelectorAll('.ant-modal-confirm')).toHaveLength(1); // asked once
+    fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/admin/instance');
+    });
+    expect(screen.getByTestId<HTMLInputElement>('instance-contact-email').value).toBe(
+      'desk@example.com',
+    );
+  });
 });

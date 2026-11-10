@@ -19,6 +19,7 @@ import {
 } from '@supportx/ui';
 
 import { showFieldErrors } from '../knowledge/formErrors';
+import { LeaveGuard } from './useLeaveGuard';
 
 // WP-042 (REQ-ADM-049, 050, 052): Admin › Instance settings. The defaults for people and sites,
 // the base currency (chosen once; a change asks first) and the languages offered (English
@@ -263,6 +264,8 @@ export function InstanceSettingsPage() {
           </Form.Item>
         </SettingsCard>
       </Form>
+      {/* Leaving with unsaved changes asks first (QA10-P3-13). */}
+      <LeaveGuard dirty={changes > 0} />
       <StickySaveBar
         changes={changes}
         saving={save.isPending}
