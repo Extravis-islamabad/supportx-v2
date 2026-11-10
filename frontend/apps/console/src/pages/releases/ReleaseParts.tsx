@@ -38,6 +38,7 @@ import {
   useFormProblem,
   useLabel,
   lengthLimit,
+  FormFooter,
   TimeZoneNote,
 } from '@supportx/ui';
 
@@ -112,6 +113,7 @@ export function DetailsPart({ id }: { id: string }) {
             onChange={(v: string | undefined) => {
               set('release_type', v ?? null);
             }}
+            placeholder={t('form.choose')}
             data-testid="release-type"
             options={types.map((v) => ({
               value: v.code,
@@ -131,6 +133,7 @@ export function DetailsPart({ id }: { id: string }) {
             onChange={(v: string | undefined) => {
               set('risk', v ?? null);
             }}
+            placeholder={t('form.choose')}
             data-testid="release-risk"
             options={RISKS.map((r) => ({ value: r, label: t(`release_risk.${r}`) }))}
           />
@@ -183,6 +186,7 @@ export function DetailsPart({ id }: { id: string }) {
             onChange={(v: string | undefined) => {
               set('release_reason', v ?? null);
             }}
+            placeholder={t('form.choose')}
             data-testid="release-reason"
             options={reasons.map((v) => ({
               value: v.code,
@@ -201,10 +205,15 @@ export function DetailsPart({ id }: { id: string }) {
                 set(k, v);
               }}
               testId={`release-${k}`}
+              hideZone
             />
           </Form.Item>
         ))}
       </Flex>
+      {/* Once for the pair (D-155), not under each field. */}
+      <div style={{ marginTop: -12, marginBottom: 16 }}>
+        <TimeZoneNote />
+      </div>
       <Form.Item label={t('work_item.field.release_notes')}>
         <RichTextField
           label={t('work_item.field.release_notes')}
@@ -216,17 +225,37 @@ export function DetailsPart({ id }: { id: string }) {
         />
       </Form.Item>
       <FormProblem problem={problem} />
-      {/* Primary only with changes to save: the header's move is the page's one primary action
-          otherwise (visual QA, lane A's review of #219). */}
-      <WriteButton
-        type={dirty ? 'primary' : 'default'}
-        disabled={!dirty || (riskChanged && riskReason.trim() === '')}
-        loading={save.isPending}
-        onClick={submit}
-        data-testid="release-details-save"
-      >
-        {t('actions.save')}
-      </WriteButton>
+      {/* Template B (D-147, D-155): once something changed, a sticky footer with Cancel then
+          Save, and Save says what is missing; nothing to save, no footer and no dead button. */}
+      {dirty && (
+        <FormFooter
+          testId="release-details-footer"
+          cancel={
+            <Button
+              onClick={() => {
+                setDraft({});
+                setRiskReason('');
+                problem.clear();
+              }}
+              data-testid="release-details-cancel"
+            >
+              {t('actions.cancel')}
+            </Button>
+          }
+          primary={
+            <WriteButton
+              type="primary"
+              disabled={riskChanged && riskReason.trim() === ''}
+              whyDisabled={t('releases.risk_reason_needed')}
+              loading={save.isPending}
+              onClick={submit}
+              data-testid="release-details-save"
+            >
+              {t('actions.save')}
+            </WriteButton>
+          }
+        />
+      )}
     </Form>
   );
 }

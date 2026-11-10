@@ -125,6 +125,7 @@ export const ar: LabelResource = {
   'filter_op.this_week': 'هذا الأسبوع',
   'filter_op.today': 'اليوم',
   'filter_op.yesterday': 'أمس',
+  'form.choose': 'اختر…',
   'forms.draft_restored': 'استُعيد ما أدخلته ولم يُحفظ.',
   'forms.start_empty': 'البدء من جديد',
   'home.plan': 'الخطة',
