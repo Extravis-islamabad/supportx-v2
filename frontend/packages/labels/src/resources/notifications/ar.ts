@@ -29,6 +29,7 @@ export const ar: LabelResource = {
   'event_delivery_state.stalled': 'متوقف',
   'notification.open_record': 'فتح {{id}}',
   'notification_area.announcement': 'الإعلانات',
+  'notification_area.asset': 'الأصول',
   'notification_area.connector': 'الموصلات',
   'notification_area.incident': 'الحوادث',
   'notification_area.kb_article': 'المعرفة',
@@ -49,6 +50,11 @@ export const ar: LabelResource = {
   'notification_condition_operator.not_in': 'ليس أحد',
   'notification_event.announcement.ended': 'انتهاء إعلان تتابعه',
   'notification_event.announcement.updated': 'تحديث إعلان تتابعه',
+  'notification_event.asset.ack_disputed': 'اعترض حامل الأصل عليه',
+  'notification_event.asset.ack_requested': 'أصل سُلّم إليك: يرجى الإقرار به',
+  'notification_event.asset.loan_due': 'موعد إرجاع الإعارة غدًا',
+  'notification_event.asset.loan_overdue': 'الإعارة متأخرة',
+  'notification_event.asset.warranty_expiring': 'الضمان ينتهي قريبًا',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.incident.assigned': 'أُسند حادث',
@@ -111,14 +117,19 @@ export const ar: LabelResource = {
   'notification_recipient.approval_administrators': 'مسؤولو الموافقات',
   'notification_recipient.approver': 'المعتمِد',
   'notification_recipient.approvers': 'المعتمِدون',
+  'notification_recipient.asset_managers': 'مديرو الأصول',
+  'notification_recipient.assigned_by': 'الشخص الذي سلّمه',
   'notification_recipient.assignee': 'الفني المُسند',
   'notification_recipient.author': 'المؤلف',
+  'notification_recipient.borrower': 'المستعير',
   'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
   'notification_recipient.escalation_recipients': 'مستلمو مستوى التصعيد',
   'notification_recipient.followers': 'المتابعون',
   'notification_recipient.group': 'أعضاء المجموعة',
   'notification_recipient.group_head': 'قائد المجموعة ورئيس القسم',
+  'notification_recipient.holder': 'الشخص الذي يحمله',
   'notification_recipient.linked_incident_technicians': 'فنيو الحوادث المرتبطة',
+  'notification_recipient.loan_creator': 'من أنشأ الإعارة',
   'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
   'notification_recipient.mentioned': 'الأشخاص المُشار إليهم',
   'notification_recipient.new_follower': 'المتابع الجديد',
@@ -155,6 +166,32 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nتم تحديث الإعلان "{{ record.title }}" الذي تتابعه.',
   'notification_template.announcement.updated.in_app': 'تم التحديث: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'تم التحديث: {{ record.title }}',
+  'notification_template.asset.ack_disputed.body':
+    'مرحبًا {{ recipient.name }}،\n\nاعترض {{ holder.name }} على {{ record.display_id }} "{{ record.title }}": {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.in_app':
+    'اعترض {{ holder.name }} على {{ record.display_id }}: {{ acknowledgement.comment }}',
+  'notification_template.asset.ack_disputed.subject':
+    'اعتراض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.ack_requested.body':
+    'مرحبًا {{ recipient.name }}،\n\nسُلّم إليك {{ record.display_id }} "{{ record.title }}". افتح أصولي لقبوله أو لذكر ما فيه من خطأ.',
+  'notification_template.asset.ack_requested.in_app':
+    'يرجى الإقرار بـ {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.ack_requested.subject':
+    'يرجى الإقرار بـ {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.loan_due.body':
+    'مرحبًا {{ recipient.name }}،\n\nموعد إرجاع الأصول المعارة إلى {{ holder.name }} غدًا.',
+  'notification_template.asset.loan_due.in_app': 'موعد إرجاع إعارة {{ holder.name }} غدًا',
+  'notification_template.asset.loan_due.subject': 'موعد إرجاع الأصول المعارة غدًا',
+  'notification_template.asset.loan_overdue.body':
+    'مرحبًا {{ recipient.name }}،\n\nحان موعد إرجاع الأصول المعارة إلى {{ holder.name }} ولم تُرجع بعد.',
+  'notification_template.asset.loan_overdue.in_app': 'إعارة {{ holder.name }} متأخرة',
+  'notification_template.asset.loan_overdue.subject': 'الأصول المعارة متأخرة',
+  'notification_template.asset.warranty_expiring.body':
+    'مرحبًا {{ recipient.name }}،\n\nينتهي ضمان {{ record.display_id }} "{{ record.title }}" في {{ warranty.ends_on }}.',
+  'notification_template.asset.warranty_expiring.in_app':
+    'ينتهي ضمان {{ record.display_id }} في {{ warranty.ends_on }}',
+  'notification_template.asset.warranty_expiring.subject':
+    'الضمان ينتهي: {{ record.display_id }} {{ record.title }}',
   'notification_template.connector.failing.body':
     'مرحبًا {{ recipient.name }}،\n\nتوقف {{ record.title }} عن العمل: {{ connector.reason }}.\n\nستُبلَّغ مرة واحدة لا عند كل محاولة، ومرة أخرى عندما يعود إلى العمل. افتح الإدارة › التكاملات لرؤيته.',
   'notification_template.connector.failing.in_app':
@@ -416,6 +453,7 @@ export const ar: LabelResource = {
     'سُحب {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'تم السحب: {{ record.display_id }} {{ record.title }}',
+  'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
   'notification_variable.approval.comment': 'تعليق الموافِق',
   'notification_variable.approval_link': 'الموافقة › الرابط',
@@ -428,6 +466,7 @@ export const ar: LabelResource = {
   'notification_variable.connector.reason': 'الموصل › السبب',
   'notification_variable.conversation.author': 'الرد أو الملاحظة › الكاتب',
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
+  'notification_variable.holder.name': 'الحامل › الاسم',
   'notification_variable.incident.count': 'عدد الحوادث',
   'notification_variable.mailbox.address': 'صندوق البريد › العنوان',
   'notification_variable.mailbox.expires_at': 'صندوق البريد › تنتهي بيانات الاعتماد',
@@ -442,6 +481,7 @@ export const ar: LabelResource = {
   'notification_variable.rule.name': 'القاعدة',
   'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
+  'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',
   'notifications.banner.no_mail_few':
     'تنتظر {{count}} رسائل لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسائل عند تشغيل البريد.',
   'notifications.banner.no_mail_many':

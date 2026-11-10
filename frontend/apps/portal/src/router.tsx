@@ -19,6 +19,12 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/HomePage')).HomePage }),
       },
       {
+        // WP-049a s4 (REQ-AST-023, 024): what I hold, and acknowledging it.
+        path: 'my-assets',
+        handle: { titleKey: 'my_assets.title' },
+        lazy: async () => ({ Component: (await import('./pages/MyAssetsPage')).MyAssetsPage }),
+      },
+      {
         path: 'account',
         handle: { titleKey: 'nav.profile' },
         lazy: async () => ({ Component: (await import('./pages/AccountPage')).AccountPage }),

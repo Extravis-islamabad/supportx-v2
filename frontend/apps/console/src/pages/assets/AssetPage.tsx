@@ -47,6 +47,7 @@ import { nameOf } from '../admin/assets/shared';
 import { CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
+import { AssetRelations } from './AssetRelations';
 import { ageBetween, basisDay } from './age';
 import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
@@ -54,7 +55,7 @@ import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
 
 // The record's tabs, always in this order (REQ-AST-001 AC3): later sessions add theirs here.
-const TABS = ['details', 'history'] as const;
+const TABS = ['details', 'relations', 'history'] as const;
 type TabKey = (typeof TABS)[number];
 const HISTORY_FIELDS = new Set([
   'name',
@@ -142,15 +143,17 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const ageText =
     age === null
       ? t('assets.age.unknown')
-      : age.years === 0 && age.months === 0
-        ? t('assets.age.days', { count: age.days })
-        : ageListFormat(
-            [
-              age.years > 0 ? t('assets.age.years', { count: age.years }) : null,
-              age.months > 0 ? t('assets.age.months', { count: age.months }) : null,
-              age.days > 0 ? t('assets.age.days', { count: age.days }) : null,
-            ].filter((part): part is string => part !== null),
-          );
+      : age.years === 0 && age.months === 0 && age.days === 0
+        ? t('assets.age.today')
+        : age.years === 0 && age.months === 0
+          ? t('assets.age.days', { count: age.days })
+          : ageListFormat(
+              [
+                age.years > 0 ? t('assets.age.years', { count: age.years }) : null,
+                age.months > 0 ? t('assets.age.months', { count: age.months }) : null,
+                age.days > 0 ? t('assets.age.days', { count: age.days }) : null,
+              ].filter((part): part is string => part !== null),
+            );
   const customFields = (custom.data ?? [])
     .filter((f) => !f.removed)
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -407,6 +410,11 @@ function AssetView({ asset }: { asset: AssetRecord }) {
                 )}
               </Flex>
             ),
+          },
+          {
+            key: 'relations',
+            label: t('assets.record.relations'),
+            children: <AssetRelations asset={asset} manage={manage} />,
           },
           {
             key: 'history',
