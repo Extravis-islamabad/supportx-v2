@@ -26,6 +26,8 @@ import {
 import { usePersonalChannel } from '@supportx/realtime';
 import { reportError, useDateTime, useLabel } from '@supportx/ui';
 
+const LIVE_TOAST = 'notification-live';
+
 /**
  * The notification centre (WP-023, REQ-INC-131): a bell with the unread count in the header and
  * a drawer with your entries grouped by day, newest first. Opening one opens its record and
@@ -67,7 +69,9 @@ export function NotificationBell() {
     const first = seen.current === undefined;
     if (!first && newest !== seen.current && !quiet && !open) {
       const entry = items[0];
-      if (entry && !entry.read) void message.info(entry.title);
+      // One at a time (QA10V-15: three SLA notices stacked over the page's banner and title);
+      // the newest replaces the last, and the drawer keeps them all.
+      if (entry && !entry.read) void message.info({ content: entry.title, key: LIVE_TOAST });
     }
     seen.current = newest;
   }, [newest, items, quiet, open, message]);
