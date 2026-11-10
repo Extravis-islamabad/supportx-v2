@@ -211,7 +211,7 @@ async def _seed_defined(session: AsyncSession) -> Any:  # noqa: ANN401 - a predi
         )
     ).all()
     people = {r.email: str(r.id) for r in rows}
-    requests = {subject for subject, _ in lane_a.REQUESTS}
+    requests = {subject for subject, *_ in lane_a.REQUESTS} | lane_a.FIRST_SUBJECTS
     problems = {p[0] for p in lane_a.PROBLEMS}
 
     def defined(kind: str, subject: str, requester: str | None) -> bool:

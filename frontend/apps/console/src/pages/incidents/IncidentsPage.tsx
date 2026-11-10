@@ -83,7 +83,7 @@ import {
   type ViewDraft,
 } from './list/model';
 import { SearchChips } from './list/SearchChips';
-import { TimeRange } from './list/TimeRange';
+import { ActiveRange, TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { searchOf } from './searchOf';
@@ -319,6 +319,17 @@ export function IncidentsPage() {
       header={
         <PageHeader
           title={t(trash ? 'incidents.trash' : 'incidents.title')}
+          // The way back from the trash is right there, not only in "More" (QA10-P1-18).
+          back={
+            trash
+              ? {
+                  label: t('incidents.title'),
+                  onClick: () => {
+                    setMode('current');
+                  },
+                }
+              : undefined
+          }
           extra={
             // D-147 template C: at most three header buttons, the rest in "More". The current
             // and trash switch moved to the toolbar row.
@@ -382,7 +393,8 @@ export function IncidentsPage() {
                     ]),
               ]}
               primary={
-                can('incidents.create') ? (
+                // Nothing is made in the trash (QA10-P1-18).
+                can('incidents.create') && !trash ? (
                   <WriteButton
                     type="primary"
                     onClick={() => void navigate('/incidents/new')}
@@ -518,6 +530,12 @@ export function IncidentsPage() {
               fields={fields}
               words={words}
             />
+            <ActiveRange
+              value={range}
+              onChange={setRange}
+              words={words}
+              testId="inc-time-active-list"
+            />
           </>
         }
         quick={
@@ -546,16 +564,19 @@ export function IncidentsPage() {
           setFiltersOpen(true);
         }}
         extra={
-          <>
-            <ColumnChooser
-              columns={columns}
-              catalogue={columnSpecs}
-              context={context}
-              onChange={(next) => {
-                saveSettings({ columns: next });
-              }}
-            />
-          </>
+          // The trash shows its fixed columns; choosing columns there would change the list's.
+          trash ? undefined : (
+            <>
+              <ColumnChooser
+                columns={columns}
+                catalogue={columnSpecs}
+                context={context}
+                onChange={(next) => {
+                  saveSettings({ columns: next });
+                }}
+              />
+            </>
+          )
         }
       />
       <FiltersDrawer

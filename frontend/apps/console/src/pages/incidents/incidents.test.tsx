@@ -388,6 +388,13 @@ describe('New incident', () => {
       },
     });
     render(<App />);
+    // QA10-P1-16: a sticky footer, Cancel before Save.
+    const footer = await screen.findByTestId('inc-new-footer');
+    expect(footer.style.position).toBe('sticky');
+    const ids = within(footer)
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('data-testid'));
+    expect(ids.indexOf('inc-new-cancel')).toBeLessThan(ids.indexOf('inc-save'));
     fireEvent.click(await screen.findByTestId('inc-save'));
     expect((await screen.findByTestId('error-subject')).textContent).toBe(
       'This field is required.',
