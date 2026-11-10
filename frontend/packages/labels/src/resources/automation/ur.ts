@@ -51,6 +51,7 @@ export const ur: LabelResource = {
   'automation.field_state.help': 'مسودے محفوظ ہوتے ہیں مگر کبھی نہیں چلتے۔',
   'automation.field_stop_after': 'اس اصول کے بعد رک جائیں',
   'automation.field_stop_after.help': 'جب یہ اصول لاگو ہو تو اس کے بعد والے اصول نہیں چلتے۔',
+  'automation.group_gone': 'ہٹایا گیا گروپ',
   'automation.loop.banner_one': 'پچھلے ایک دن میں آٹومیشن نے {{count}} لوپ روکا۔',
   'automation.loop.banner_other': 'پچھلے ایک دن میں آٹومیشن نے {{count}} لوپ روکے۔',
   'automation.loop.chain_depth':
@@ -124,6 +125,7 @@ export const ur: LabelResource = {
   'automation.rules.explain':
     'کاروباری اصول ریکارڈ محفوظ ہوتے وقت اوپر سے نیچے چلتے ہیں۔ ہر لاگو اصول فیلڈز سیٹ کرتا ہے یا محفوظ کرنے سے انکار کرتا ہے، اور ریکارڈ کی تاریخ بتاتی ہے کہ کس اصول نے کیا بدلا۔',
   'automation.rules.none': 'ابھی کوئی کاروباری اصول نہیں۔',
+  'automation.site_gone': 'ہٹائی گئی سائٹ',
   'automation.someone': 'کوئی',
   'automation.stop_marker': 'یہاں رکتا ہے',
   'automation.transitions.after': 'تبدیلی کے بعد',

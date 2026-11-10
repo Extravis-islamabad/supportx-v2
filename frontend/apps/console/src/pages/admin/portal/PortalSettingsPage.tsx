@@ -1,7 +1,18 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-import { Button, Checkbox, Flex, List, Select, Skeleton, Switch, Tag, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Flex,
+  List,
+  Select,
+  Skeleton,
+  Switch,
+  Tag,
+  Typography,
+} from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import {
   useCatalogSettings,
@@ -18,12 +29,13 @@ import {
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
 import {
+  FormProblem,
   PageHeader,
-  reportError,
   SettingsCard,
   StickySaveBar,
   useLabel,
   useLicence,
+  useFormProblem,
   useSettingsDraft,
 } from '@supportx/ui';
 
@@ -100,6 +112,15 @@ export function PortalSettingsPage() {
     [portal.data, requests.data, catalog.data, incidents.data],
   );
   const { draft, set, changes, changed, discard } = useSettingsDraft(saved);
+  // A refused save shows above the bar, not as a toast (lane C's #318 note), and a save that
+  // stopped after some owners took theirs says so: the bar then counts only what is left.
+  const problem = useFormProblem();
+  const [partly, setPartly] = useState(false);
+  const drop = () => {
+    problem.clear();
+    setPartly(false);
+    discard();
+  };
   const saving =
     portalChange.isPending ||
     requestChange.isPending ||
@@ -111,17 +132,22 @@ export function PortalSettingsPage() {
   const cat = catalog.data;
   // Each setting is saved where it lives, only what changed, with that owner's If-Match.
   const save = async () => {
+    problem.clear();
+    setPartly(false);
+    let done = 0;
     try {
       if (changed.hideDefault !== undefined) {
         await catalogChange.mutateAsync({
           body: { hide_default_incident_template: changed.hideDefault },
           version: cat.version,
         });
+        done += 1;
       }
       if (changed.incidentDue !== undefined) {
         await incidentChange.mutateAsync({
           change: { kind: 'settings', body: { portal_show_due_time: changed.incidentDue } },
         });
+        done += 1;
       }
       const forRequests = {
         ...(changed.requestDue === undefined ? {} : { portal_show_due_time: changed.requestDue }),
@@ -135,6 +161,7 @@ export function PortalSettingsPage() {
       };
       if (Object.keys(forRequests).length > 0) {
         await requestChange.mutateAsync({ body: forRequests, version: sr.version });
+        done += 1;
       }
       const forPortal = {
         ...(changed.sources === undefined ? {} : { search_sources: changed.sources }),
@@ -147,7 +174,8 @@ export function PortalSettingsPage() {
         await portalChange.mutateAsync({ body: forPortal, version: p.version });
       }
     } catch (error) {
-      reportError(error);
+      setPartly(done > 0);
+      problem.show(error);
     }
   };
   const sources = draft.sources;
@@ -371,11 +399,21 @@ export function PortalSettingsPage() {
           ))}
         </Flex>
       </SettingsCard>
+      {partly && (
+        <Alert
+          type="warning"
+          showIcon
+          role="status"
+          message={t('portal_settings.saved_partly')}
+          data-testid="portal-settings-partly"
+        />
+      )}
+      <FormProblem problem={problem} />
       {writable && (
         <StickySaveBar
           changes={changes}
           saving={saving}
-          onDiscard={discard}
+          onDiscard={drop}
           onSave={() => void save()}
           testId="portal-settings-save-bar"
         />
