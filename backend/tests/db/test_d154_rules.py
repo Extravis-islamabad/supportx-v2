@@ -8,9 +8,11 @@ and its history says why. One test per case (the plan's list).
 Cast (tests/db/test_incidents_api.py): tech_a in GA, tech_b in GB, tech_c in both.
 """
 
+import importlib.util
 import json
 import uuid
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -31,6 +33,19 @@ from tests.db.test_sla_clock import POLICIES, _p1, _targets
 from tests.db.test_sla_timers import _fire_all
 
 pytestmark = [pytest.mark.db, pytest.mark.valkey]
+
+
+def _migration_fill() -> str:
+    """Migration 0126's data step, run as is (its file is not a package module)."""
+    path = Path(__file__).parents[2] / "migrations" / "versions" / "0126_d154_escalation_groups.py"
+    spec = importlib.util.spec_from_file_location("migration_0126", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return str(module.FILL)
+
+
 world = test_incidents_api.world  # the incident world fixture, reused
 
 
@@ -298,3 +313,48 @@ async def test_a_trigger_moves_the_record_with_the_technician_it_sets(world: Wor
     await drain(world, a)
     moved = await world.fresh(a, item)
     assert (moved["group_id"], moved["technician_id"]) == (str(a.gb), str(a.tech_b))
+
+
+async def test_migration_0126_fills_the_only_group_and_leaves_several_for_a_choice(
+    world: World,
+) -> None:
+    a, b = world.a, world.b
+    for org in (a, b):
+        saved = await _save_levels(
+            world,
+            org,
+            [
+                {"kind": "reassign_person", "target_id": str(org.tech_b), "group_id": str(org.gb)},
+                {"kind": "add_note", "text": "Escalated"},
+            ],
+        )
+        assert saved.status_code == 200, saved.text
+    several = await _save_levels(
+        world,
+        a,
+        [{"kind": "reassign_person", "target_id": str(a.tech_c), "group_id": str(a.ga)}],
+    )
+    assert several.status_code == 200, several.text
+    # As saved before D-154: no group on the person's action (both tenants, explicitly).
+    await world.sql(
+        "UPDATE sla_escalation_levels SET actions = ("
+        "  SELECT jsonb_agg(x.a - 'group_id' ORDER BY x.n)"
+        "    FROM jsonb_array_elements(actions) WITH ORDINALITY AS x(a, n))"
+        " WHERE tenant_id = ANY($1::uuid[])",
+        [a.tenant, b.tenant],
+    )
+    await world.sql(_migration_fill())
+    rows = await world.sql(
+        "SELECT tenant_id, actions FROM sla_escalation_levels WHERE tenant_id = ANY($1::uuid[])",
+        [a.tenant, b.tenant],
+    )
+    by_tenant: dict[uuid.UUID, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_tenant.setdefault(row["tenant_id"], []).extend(json.loads(row["actions"]))
+    # Org A's policy now holds tech_c's level only (the later save replaced it): left alone.
+    assert [x.get("group_id") for x in by_tenant[a.tenant]] == [None]
+    filled = [x for x in by_tenant[b.tenant] if x["kind"] == "reassign_person"]
+    assert [x["group_id"] for x in filled] == [str(b.gb)]  # tech_b's only group
+    notes = [x for x in by_tenant[b.tenant] if x["kind"] == "add_note"]
+    assert [x["text"] for x in notes] == ["Escalated"]  # other actions untouched
+    assert all("group_id" not in x for x in notes)
