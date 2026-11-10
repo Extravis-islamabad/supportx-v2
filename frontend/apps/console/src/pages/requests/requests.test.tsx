@@ -316,6 +316,42 @@ describe('console: service requests', () => {
     expect(await screen.findByText('No requests in this category yet.')).toBeDefined();
   });
 
+  it('D-154 E1: every task done with nobody on it, the request says it is ready to fulfil', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const done = {
+      id: 't-1',
+      work_item_id: SR_ID,
+      title: 'Order the laptop',
+      description: null,
+      owner_id: null,
+      group_id: null,
+      status: 'done',
+      priority: 'normal',
+      due_at: null,
+      done_at: '2026-11-10T09:00:00Z',
+      done_by: null,
+      position: 0,
+      from_plan: true,
+      required: true,
+      internal: false,
+      version: 2,
+      created_at: '2026-11-10T08:00:00Z',
+      updated_at: '2026-11-10T09:00:00Z',
+    };
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: {
+        body: { ...request, status: 'in_progress', status_category: 'open', technician_id: null },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/tasks`]: {
+        body: { items: [done], done: 1, total: 1 },
+      },
+    });
+    render(<App />);
+    expect((await screen.findByTestId('sr-ready-to-fulfil')).textContent).toContain(
+      'Ready to fulfil',
+    );
+  });
+
   it('shows one request with its item details and approval status', async () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     api();

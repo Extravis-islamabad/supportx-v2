@@ -1655,7 +1655,8 @@ async def freshen(settings: Settings, tenant_id: uuid.UUID, *, now: datetime) ->
                         "UPDATE work_items SET first_response_due_at = :frd,"
                         " resolution_due_at = :rd, first_response_sla_state = :frs,"
                         " resolution_sla_state = :rs, first_response_breached = :frb,"
-                        " resolution_breached = :rb WHERE tenant_id = :t AND id = :id"
+                        " resolution_breached = :rb, updated_at = :now"
+                        " WHERE tenant_id = :t AND id = :id"
                     ),
                     {
                         "frd": stamp.first_response_due_at,
@@ -1664,6 +1665,7 @@ async def freshen(settings: Settings, tenant_id: uuid.UUID, *, now: datetime) ->
                         "rs": stamp.resolution_sla_state,
                         "frb": stamp.first_response_breached,
                         "rb": stamp.resolution_breached,
+                        "now": now,  # stamped again now (QA WP-029 BUG-05: every write)
                         "t": TENANT_ID,
                         "id": record_id,
                     },

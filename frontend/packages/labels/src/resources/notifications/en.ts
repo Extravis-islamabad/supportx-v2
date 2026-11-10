@@ -89,6 +89,7 @@ export const en = {
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
   'notification_event.service_request.fulfilled': 'Request fulfilled',
+  'notification_event.service_request.ready_to_fulfil': 'Request ready to fulfil',
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
@@ -396,6 +397,12 @@ export const en = {
     '{{ record.display_id }} is done: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'Done: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.ready_to_fulfil.body':
+    'Hello {{ recipient.name }},\n\nEvery task of {{ record.display_id }} "{{ record.title }}" is done, but nobody is on it. Assign someone of your group to fulfil it.',
+  'notification_template.service_request.ready_to_fulfil.in_app':
+    '{{ record.display_id }} is ready to fulfil: assign someone',
+  'notification_template.service_request.ready_to_fulfil.subject':
+    'Ready to fulfil: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.received.body':
     'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" and logged it as {{ record.display_id }}. We will keep you updated.',
   'notification_template.service_request.received.in_app':

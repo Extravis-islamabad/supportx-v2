@@ -742,3 +742,73 @@ def test_step7_brings_the_seeds_own_records_to_today_silently_and_once(
     assert asyncio.run(seed.freshen(settings, seed.TENANT_ID, now=now)) == 0
     with pytest.raises(seed.SeedError, match="showcase tenant"):
         asyncio.run(seed.freshen(settings, uuid.uuid4(), now=now))
+
+
+# --- E1 repair (Haider, 2026-11-10): requests fulfilled with nobody on them --------------------
+
+
+async def _orphan_one_fulfilled_request(url: str) -> uuid.UUID:
+    """As SR-11 on the shared stack: a fulfilled request whose technician is empty."""
+    conn = await asyncpg.connect(url)
+    try:
+        record: uuid.UUID = await conn.fetchval(
+            "UPDATE work_items SET technician_id = NULL WHERE id = ("
+            "  SELECT id FROM work_items WHERE tenant_id = $1 AND type = 'service_request'"
+            "  AND status_category = 'resolved' ORDER BY display_number LIMIT 1"
+            ") RETURNING id",
+            seed.TENANT_ID,
+        )
+    finally:
+        await conn.close()
+    return record
+
+
+def test_e1_repair_gives_a_fulfilled_request_its_fulfiller_once_and_audits_it(
+    seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak],
+) -> None:
+    from tooling import repair_showcase_fulfillers as repair  # noqa: PLC0415 - the tool under test
+
+    database, _ = seeded_copy
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    orphan = asyncio.run(_orphan_one_fulfilled_request(database.admin_url))
+    assert orphan is not None
+    audit_before = asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
+    planned = asyncio.run(repair.run(settings, write=False))
+    assert [p.record_id for p in planned] == [orphan], [p.line() for p in planned]
+    assert asyncio.run(_audit(database.admin_url, seed.TENANT_ID)) == audit_before  # dry run
+    asyncio.run(repair.run(settings, write=True))
+
+    async def after() -> tuple[Any, Any]:
+        conn = await asyncpg.connect(database.admin_url)
+        try:
+            row = await conn.fetchrow(
+                "SELECT w.technician_id, w.group_id,"
+                " EXISTS (SELECT 1 FROM group_members m WHERE m.group_id = w.group_id"
+                "         AND m.user_id = w.technician_id) AS in_group"
+                " FROM work_items w WHERE w.id = $1",
+                orphan,
+            )
+            history = await conn.fetchval(
+                "SELECT count(*) FROM field_changes WHERE record_id = $1"
+                " AND field = 'technician_id' AND new_value IS NOT NULL",
+                orphan,
+            )
+        finally:
+            await conn.close()
+        return row, history
+
+    row, history = asyncio.run(after())
+    assert row["technician_id"] is not None
+    assert row["group_id"] is None or row["in_group"]  # D-154a: someone of its own group
+    assert history >= 1
+    added = [
+        e
+        for e in asyncio.run(_audit(database.admin_url, seed.TENANT_ID))
+        if e not in set(audit_before)
+    ]
+    assert [e[1] for e in added] == ["service_request.fulfiller_repaired"]
+    assert asyncio.run(_audit_chain(database.app_url)) == "passed"
+    assert asyncio.run(repair.run(settings, write=False)) == []  # once
+    assert repair.refuse("other", settings) is not None

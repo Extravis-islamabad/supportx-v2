@@ -1392,6 +1392,7 @@ export const en = {
   'requests.open_to_decide': 'Open it to approve or reject',
   'requests.private_comment': 'Private: not shown to the requester',
   'requests.properties': 'Properties',
+  'requests.ready_to_fulfil': 'Ready to fulfil: every task is done. Assign someone to fulfil it.',
   'requests.record_type': 'Service request',
   'requests.reject': 'Reject',
   'requests.reject_needs_reason': 'A rejection needs a reason.',

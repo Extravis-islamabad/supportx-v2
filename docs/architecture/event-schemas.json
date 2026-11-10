@@ -4555,6 +4555,56 @@
         "type": "object"
       }
     },
+    "work_items.service_request.ready_to_fulfil": {
+      "1": {
+        "description": "A request's last required task is done and nobody is on it (D-154, \"E1 follows d\").\n\nIt is not fulfilled by itself; its group is told once, in the app, to assign someone.",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "group_id"
+        ],
+        "title": "ServiceRequestReadyToFulfil",
+        "type": "object"
+      }
+    },
     "work_items.settings.changed": {
       "1": {
         "description": "A type's configuration changed (prefix, default priority, categories ...).",

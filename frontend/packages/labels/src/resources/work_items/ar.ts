@@ -1536,6 +1536,7 @@ export const ar: LabelResource = {
   'requests.open_to_decide': 'افتحه للموافقة أو الرفض',
   'requests.private_comment': 'خاص: لا يظهر لمقدم الطلب',
   'requests.properties': 'الخصائص',
+  'requests.ready_to_fulfil': 'جاهز للتنفيذ: أُنجزت كل المهام. أسنده إلى أحد لتنفيذه.',
   'requests.record_type': 'طلب خدمة',
   'requests.reject': 'رفض',
   'requests.reject_needs_reason': 'يحتاج الرفض إلى سبب.',

@@ -1397,6 +1397,8 @@ export const ur: LabelResource = {
   'requests.open_to_decide': 'منظور یا مسترد کرنے کے لیے اسے کھولیں',
   'requests.private_comment': 'نجی: درخواست گزار کو نہیں دکھایا جاتا',
   'requests.properties': 'خصوصیات',
+  'requests.ready_to_fulfil':
+    'تکمیل کے لیے تیار: سب کام ہو گئے۔ کسی کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
   'requests.record_type': 'سروس کی درخواست',
   'requests.reject': 'مسترد کریں',
   'requests.reject_needs_reason': 'مسترد کرنے کے لیے وجہ ضروری ہے۔',

@@ -306,6 +306,7 @@ export const en = {
     'A calendar is only chosen when the source is a fixed calendar.',
   'errors.field.flow_not_available': 'This kind of record has no created-vs-resolved report.',
   'errors.field.flow_without_groupings': 'A created-vs-resolved report has no groupings.',
+  'errors.field.fulfiller_required': 'Assign someone to fulfil this request first.',
   'errors.field.full_sla_off':
     'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
   'errors.field.group_not_found': 'This group does not exist.',
