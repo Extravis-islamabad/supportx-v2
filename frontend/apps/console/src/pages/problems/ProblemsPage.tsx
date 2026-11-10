@@ -13,9 +13,9 @@ import {
 import { useListChannel } from '@supportx/realtime';
 import {
   CellText,
-  EmptyText,
   FilterBar,
   ListPage,
+  loadedEmpty,
   PageHeader,
   reportError,
   useAccess,
@@ -164,13 +164,13 @@ export function ProblemsPage() {
         data-testid="prb-list"
         components={widths.components}
         locale={{
-          emptyText: list.isPending ? (
-            <span />
-          ) : (
-            // The same plain empty text as incidents and releases (QA6-PRB-04).
+          // The same plain empty text as incidents and releases (QA6-PRB-04), never while the
+          // first load runs (lane C's loadedEmpty, #345).
+          emptyText: loadedEmpty(
+            list.isPending,
             <span data-testid="prb-empty">
-              <EmptyText>{t(text === '' ? 'problems.empty' : 'problems.no_match')}</EmptyText>
-            </span>
+              {t(text === '' ? 'problems.empty' : 'problems.no_match')}
+            </span>,
           ),
         }}
         columns={[
