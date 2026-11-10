@@ -13,11 +13,13 @@ Validation reads the record type through automation's registry (its fields, sett
 life-cycle actions), never the owning module's tables (rule e).
 """
 
+import copy
 import uuid
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
@@ -34,7 +36,7 @@ from app.modules.automation.domain.workflows import (
     validate,
 )
 from app.modules.automation.events import WorkflowChanged
-from app.modules.automation.infra.models import Workflow, WorkflowVersion
+from app.modules.automation.infra.models import Workflow, WorkflowInstance, WorkflowVersion
 from app.modules.automation.service import functions
 from app.modules.automation.service.business_rules import person_group_problems
 from app.modules.automation.service.registry import record_type as registered
@@ -275,6 +277,7 @@ async def set_start_templates(
     """The templates whose new records start this workflow (REQ-WF-010 AC1)."""
     workflow = await _get(session, workflow_id)
     _stale(workflow, expected_version)
+    await _check_templates(session, workflow.record_type, template_ids)
     workflow.start_templates = sorted(set(template_ids))
     workflow.version += 1
     await session.flush()
@@ -299,4 +302,152 @@ async def set_enabled(
         await set_service_identity_active(session, workflow.service_identity_id, active=enabled)
     await session.flush()
     await _changed(session, workflow, "enabled" if enabled else "disabled")
+    return workflow
+
+
+# --- copy, export, import, delete (WP-048b S3d; REQ-WF-027) --------------------------------------
+
+EXPORT_FORMAT = "supportx.workflow"  # the file's own tag, so another kind of file is refused
+EXPORT_VERSION = 1
+
+
+async def _free_name(session: AsyncSession, record_type: str, wanted: str) -> str:
+    """`wanted`, or `wanted (2)`, `(3)` … when a workflow of the type has it (case-blind)."""
+    base = wanted[: NAME_MAX - 6]
+    candidate, number = wanted[:NAME_MAX], 2
+    while await session.scalar(
+        select(Workflow.id).where(
+            Workflow.record_type == record_type,
+            Workflow.deleted_at.is_(None),
+            Workflow.name.ilike(candidate),
+        )
+    ):
+        candidate, number = f"{base} ({number})", number + 1
+    return candidate
+
+
+async def _check_templates(
+    session: AsyncSession, record_type: str, template_ids: list[uuid.UUID]
+) -> None:
+    """Start templates are live templates of the workflow's own type, here (rule a, D-027)."""
+    kind = registered(record_type)
+    if not template_ids:
+        return
+    known = (
+        await kind.known_templates(session, template_ids)
+        if kind and kind.known_templates
+        else set()
+    )
+    unknown = [t for t in template_ids if t not in known]
+    if unknown:
+        raise ValidationFailed(code="templates_not_found", params={"count": len(unknown)})
+
+
+async def copy_workflow(session: AsyncSession, workflow_id: uuid.UUID, *, name: str) -> Workflow:
+    """An independent draft: the same draft and start templates, disabled, never published.
+
+    `name` comes from the screen, in the admin's language ("Major incident (copy)", REQ-WF-027
+    AC1), as a template's copy does; a name already taken gets a number.
+    """
+    source = await _get(session, workflow_id)
+    shown = name.strip()
+    if not 0 < len(shown) <= NAME_MAX:
+        raise ValidationFailed(code="name_invalid", params={"max": NAME_MAX})
+    name = await _free_name(session, source.record_type, shown)
+    copied = Workflow(
+        tenant_id=source.tenant_id,
+        record_type=source.record_type,
+        name=name,
+        description=source.description,
+        draft=copy.deepcopy(source.draft),
+        start_templates=list(source.start_templates),
+    )
+    session.add(copied)
+    await session.flush()
+    copied.draft_problems = len(
+        await problems_of(session, copied.record_type, copied.draft, copied.id)
+    )
+    await _changed(session, copied, "created")
+    return copied
+
+
+async def export_workflow(session: AsyncSession, workflow_id: uuid.UUID) -> dict[str, Any]:
+    """The workflow as a file: its draft and start templates, tagged with its tenant."""
+    workflow = await _get(session, workflow_id)
+    return {
+        "format": EXPORT_FORMAT,
+        "format_version": EXPORT_VERSION,
+        "tenant_id": str(workflow.tenant_id),
+        "record_type": workflow.record_type,
+        "name": workflow.name,
+        "description": workflow.description,
+        "definition": copy.deepcopy(workflow.draft),
+        "start_templates": [str(t) for t in workflow.start_templates],
+    }
+
+
+async def import_workflow(  # noqa: PLR0913 - the file's parts, explicit
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    record_type: str,
+    name: str,
+    description: str | None,
+    definition: dict[str, Any],
+    start_templates: list[uuid.UUID],
+) -> tuple[Workflow, list[Problem]]:
+    """A file exported here becomes a new draft, its problems shown (REQ-WF-027 AC2).
+
+    Same tenant only (the coordinator, 2026-11-11): a file from another tenant is refused, as
+    the people, groups and templates it names would not be these. Cross-tenant import would
+    need an ID-mapping step (later).
+    """
+    here = session.info[SESSION_TENANT_KEY].tenant_id
+    if tenant_id != here:
+        raise ValidationFailed(code="workflow_file_other_tenant")
+    await type_facts(session, record_type)  # a known record type
+    await _check_templates(session, record_type, start_templates)
+    shown = name.strip()
+    if not 0 < len(shown) <= NAME_MAX:
+        raise ValidationFailed(code="name_invalid", params={"max": NAME_MAX})
+    imported = Workflow(
+        tenant_id=here,
+        record_type=record_type,
+        name=await _free_name(session, record_type, shown),
+        description=description,
+        draft=definition,
+        start_templates=sorted(set(start_templates)),
+    )
+    session.add(imported)
+    await session.flush()
+    problems = await problems_of(session, record_type, definition, imported.id)
+    imported.draft_problems = len(problems)
+    await _changed(session, imported, "created")
+    return imported, problems
+
+
+async def delete_workflow(
+    session: AsyncSession, workflow_id: uuid.UUID, *, expected_version: int
+) -> Workflow:
+    """To the trash; refused while it has live runs: disable it instead (REQ-WF-027 AC3)."""
+    workflow = await _get(session, workflow_id)
+    _stale(workflow, expected_version)
+    live = await session.scalar(
+        select(func.count())
+        .select_from(WorkflowInstance)
+        .where(
+            WorkflowInstance.workflow_id == workflow_id,
+            WorkflowInstance.status.in_(("running", "waiting")),
+        )
+    )
+    if live:
+        raise Conflict(code="workflow_has_running_instances", params={"count": int(live)})
+    was_enabled = workflow.enabled
+    workflow.deleted_at = datetime.now(UTC)
+    workflow.enabled = False
+    workflow.version += 1
+    if was_enabled and workflow.service_identity_id is not None:  # as switching it off does
+        await set_service_identity_active(session, workflow.service_identity_id, active=False)
+    await session.flush()
+    await _changed(session, workflow, "deleted")
     return workflow

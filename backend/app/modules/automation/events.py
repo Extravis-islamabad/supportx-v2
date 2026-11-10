@@ -120,7 +120,7 @@ class WorkflowChanged(DomainEvent):
 
     workflow_id: uuid.UUID
     record_type: str
-    change: Literal["created", "draft_saved", "published", "enabled", "disabled"]
+    change: Literal["created", "draft_saved", "published", "enabled", "disabled", "deleted"]
     version: int
 
 

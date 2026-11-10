@@ -205,9 +205,15 @@ export const ur: LabelResource = {
   'errors.not_a_service_identity': 'یہاں صرف ورک فلو یا کنیکٹر کی اپنی شناخت بدلی جا سکتی ہے۔',
   'errors.service_identity_role_not_allowed':
     'ورک فلو یا کنیکٹر یہ کردار نہیں رکھ سکتا: اس سے وہ بدل سکے گا کہ کون کیا کر سکتا ہے۔',
+  'errors.templates_not_found': 'کچھ ٹیمپلیٹس یہاں اس قسم کے ریکارڈ کے ٹیمپلیٹس نہیں ({{count}})۔',
   'errors.workflow_already_running': 'یہ ورک فلو اس ریکارڈ پر پہلے سے چل رہا ہے۔',
   'errors.workflow_disabled': 'یہ ورک فلو بند ہے، اس لیے شروع نہیں ہو سکتا۔',
+  'errors.workflow_file_other_tenant':
+    'یہ فائل کسی اور ادارے کی ہے، اس لیے اس میں نامزد افراد، گروپس اور ٹیمپلیٹس آپ کے نہیں۔ اسے وہیں امپورٹ کریں جہاں سے ایکسپورٹ کیا گیا تھا۔',
+  'errors.workflow_file_too_large': 'یہ فائل بہت بڑی ہے (حد {{max}} بائٹس ہے)۔',
   'errors.workflow_has_problems': 'شائع کرنے سے پہلے ورک فلو کے مسائل درست کریں۔',
+  'errors.workflow_has_running_instances':
+    'اس ورک فلو کے ابھی رنز چل رہے ہیں ({{count}})۔ اس کے بجائے اسے غیر فعال کریں، یا پہلے انہیں روکیں۔',
   'errors.workflow_move_without_action':
     'یہ ورک فلو قدم ریکارڈ منتقل کرتا ہے مگر کوئی حالت کی منتقلی نہیں بتاتا۔ ورک فلو میں ایک منتخب کریں۔',
   'errors.workflow_name_taken': 'اس ریکارڈ کی قسم کے لیے اس نام کا ورک فلو پہلے سے موجود ہے۔',

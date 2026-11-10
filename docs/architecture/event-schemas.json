@@ -1547,7 +1547,8 @@
               "draft_saved",
               "published",
               "enabled",
-              "disabled"
+              "disabled",
+              "deleted"
             ],
             "title": "Change",
             "type": "string"

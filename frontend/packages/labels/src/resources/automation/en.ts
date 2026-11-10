@@ -202,9 +202,16 @@ export const en = {
     'Only a workflow’s or connector’s own identity can be changed here.',
   'errors.service_identity_role_not_allowed':
     'A workflow or connector cannot hold this role: it would let it change who may do what.',
+  'errors.templates_not_found':
+    'Some of the templates are not templates of this record type here ({{count}}).',
   'errors.workflow_already_running': 'This workflow is already running on this record.',
   'errors.workflow_disabled': 'This workflow is switched off, so it cannot start.',
+  'errors.workflow_file_other_tenant':
+    'This file comes from another organisation, so the people, groups and templates it names are not yours. Import it where it was exported.',
+  'errors.workflow_file_too_large': 'This file is too large (the limit is {{max}} bytes).',
   'errors.workflow_has_problems': 'Fix the workflow’s problems before publishing it.',
+  'errors.workflow_has_running_instances':
+    'This workflow still has live runs ({{count}}). Disable it instead, or stop them first.',
   'errors.workflow_move_without_action':
     'This workflow step moves the record but names no status move. Choose one in the workflow.',
   'errors.workflow_name_taken': 'A workflow with this name already exists for this record type.',

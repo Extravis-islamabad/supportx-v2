@@ -26,6 +26,8 @@ ValueChecker = Callable[[AsyncSession, Mapping[str, JsonValue]], Awaitable[Mappi
 RecordEditCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
 # The record and the stopped instance.
 WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
+# The IDs among these that are live templates of the type, in the session's tenant.
+TemplateCheck = Callable[[AsyncSession, Sequence[uuid.UUID]], Awaitable[set[uuid.UUID]]]
 # The record, the workflow's history ref, and the version it left and the one it is on now.
 MigrationRecorder = Callable[
     [AsyncSession, uuid.UUID, Mapping[str, Any], int, int], Awaitable[None]
@@ -61,6 +63,8 @@ class RecordType:
     close_workflow: "WorkflowCloser | None" = None
     # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).
     record_migration: "MigrationRecorder | None" = None
+    # Which of these IDs are the type's templates, here (a workflow's start templates).
+    known_templates: "TemplateCheck | None" = None
 
 
 @dataclass(frozen=True)

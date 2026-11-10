@@ -7,7 +7,7 @@ events. Automation never reads work item tables itself (CLAUDE.md rule e).
 
 import dataclasses
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from sqlalchemy import select
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules import automation
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.types import TYPES, WorkItemType
-from app.modules.work_items.infra.models import WorkItem
+from app.modules.work_items.infra.models import WorkItem, WorkItemTemplate
 from app.modules.work_items.service import conversations, workflow_approvals, workflow_commands
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.rule_assignment import place_person
@@ -183,6 +183,22 @@ async def _record_migration(
     )
 
 
+def _known_templates(wtype: WorkItemType) -> automation.TemplateCheck:
+    async def check(session: AsyncSession, ids: Sequence[uuid.UUID]) -> set[uuid.UUID]:
+        if not ids:
+            return set()
+        found = await session.scalars(
+            select(WorkItemTemplate.id).where(
+                WorkItemTemplate.id.in_(list(ids)),
+                WorkItemTemplate.type == wtype.code.value,
+                WorkItemTemplate.deleted_at.is_(None),
+            )
+        )
+        return set(found)
+
+    return check
+
+
 def _may_edit(wtype: WorkItemType) -> automation.RecordEditCheck:
     async def check(session: AsyncSession, subject: Subject, record_id: uuid.UUID) -> bool:
         return await items.may_edit(session, subject, wtype, record_id)
@@ -211,6 +227,7 @@ def register_triggers() -> None:
                 may_edit=_may_edit(wtype),  # ADR-043 §10: run, stop, restart on the record
                 close_workflow=workflow_approvals.close_for_instance,  # REQ-WF-026
                 record_migration=_record_migration,  # REQ-WF-021 AC2
+                known_templates=_known_templates(wtype),  # REQ-WF-010, -027
             )
         )
     automation.register_event_reader((*_RECORD_EVENTS, _CONVERSATION), read_event)

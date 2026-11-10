@@ -5,12 +5,13 @@
 Drafts answer with their problems, each naming the node or link it is about (REQ-WF-019 AC2).
 """
 
+import json
 import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query, Response, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 
 from app.core.authorization import require_permission
@@ -69,6 +70,7 @@ class WorkflowOut(BaseModel):
     start_templates: list[uuid.UUID] = Field(
         default_factory=list, description="Templates whose new records start it (REQ-WF-010)."
     )
+    running: int = Field(default=0, description="Live runs (REQ-WF-027: the list shows it).")
     version: int
 
 
@@ -168,12 +170,25 @@ async def list_workflows(
 ) -> list[WorkflowOut]:
     """Drafts, disabled and enabled ones, by name."""
     del subject
-    rows = await session.scalars(
-        select(Workflow)
-        .where(Workflow.record_type == record_type, Workflow.deleted_at.is_(None))
-        .order_by(Workflow.name)
+    rows = list(
+        await session.scalars(
+            select(Workflow)
+            .where(Workflow.record_type == record_type, Workflow.deleted_at.is_(None))
+            .order_by(Workflow.name)
+        )
     )
-    return [_out(w) for w in rows]
+    grouped = await session.execute(
+        select(WorkflowInstance.workflow_id, func.count())
+        .where(
+            WorkflowInstance.workflow_id.in_([w.id for w in rows]),
+            WorkflowInstance.status.in_(
+                (InstanceStatus.RUNNING.value, InstanceStatus.WAITING.value)
+            ),
+        )
+        .group_by(WorkflowInstance.workflow_id)
+    )
+    running = {flow: int(count) for flow, count in grouped.all()}
+    return [_out(w).model_copy(update={"running": running.get(w.id, 0)}) for w in rows]
 
 
 @router.post("", summary="Add a workflow", status_code=status.HTTP_201_CREATED)
@@ -188,6 +203,57 @@ async def create_workflow(
             session, record_type=body.record_type, name=body.name, description=body.description
         )
         return Created(_out(made), {"ETag": f'"{made.version}"'})
+
+    return await idempotency.run(body, operation)
+
+
+IMPORT_MAX_BYTES = 1_000_000  # a workflow file's ceiling (the parser's size cap)
+
+
+class WorkflowFileIn(BaseModel):
+    """A workflow file exported here (REQ-WF-027 AC2): checked before anything is read."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: Literal["supportx.workflow"]
+    format_version: Literal[1]
+    tenant_id: uuid.UUID
+    record_type: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=1, max_length=workflow_admin.NAME_MAX)
+    description: str | None = Field(default=None, max_length=2000)
+    definition: dict[str, Any]
+    start_templates: list[uuid.UUID] = Field(default_factory=list, max_length=200)
+
+
+@router.post(
+    "/import",
+    summary="Import a workflow file as a new draft",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[audited("automation.workflow_imported", object_type="workflow")],
+)
+async def import_workflow(
+    request: Request,
+    body: WorkflowFileIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+) -> Response:
+    """Same tenant only; it arrives disabled, with its problems to fix (REQ-WF-019)."""
+    del subject
+    if len(await request.body()) > IMPORT_MAX_BYTES:
+        raise ValidationFailed(code="workflow_file_too_large", params={"max": IMPORT_MAX_BYTES})
+
+    async def operation() -> Created:
+        made, problems = await workflow_admin.import_workflow(
+            session,
+            tenant_id=body.tenant_id,
+            record_type=body.record_type,
+            name=body.name,
+            description=body.description,
+            definition=body.definition,
+            start_templates=body.start_templates,
+        )
+        return Created(_out(made, problems), {"ETag": f'"{made.version}"'})
 
     return await idempotency.run(body, operation)
 
@@ -640,3 +706,71 @@ async def version_occupancy(
     """Live runs at each node of the version (REQ-WF-021: the per-node preview)."""
     del subject
     return await workflow_runtime.occupancy(session, workflow_id, number)
+
+
+class CopyIn(BaseModel):
+    """The copy's name, as the screen words it in the admin's language (REQ-WF-027 AC1)."""
+
+    name: str = Field(min_length=1, max_length=workflow_admin.NAME_MAX)
+
+
+@router.post(
+    "/{workflow_id}/copy",
+    summary="Copy a workflow as a new draft",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        audited("automation.workflow_copied", object_type="workflow", object_param="workflow_id")
+    ],
+)
+async def copy_workflow(
+    workflow_id: uuid.UUID,
+    body: CopyIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+) -> Response:
+    """Independent of the original: its own draft, disabled, never published."""
+    del subject
+
+    async def operation() -> Created:
+        made = await workflow_admin.copy_workflow(session, workflow_id, name=body.name)
+        return Created(_out(made), {"ETag": f'"{made.version}"'})
+
+    return await idempotency.run(body, operation)
+
+
+@router.get(
+    "/{workflow_id}/export",
+    summary="A workflow as a file",
+    dependencies=[
+        audited("automation.workflow_exported", object_type="workflow", object_param="workflow_id")
+    ],
+)
+async def export_workflow(
+    workflow_id: uuid.UUID, session: TenantSession, subject: Manage
+) -> Response:
+    """Its draft and start templates, to import here again (REQ-WF-027 AC2)."""
+    del subject
+    content = await workflow_admin.export_workflow(session, workflow_id)
+    return Response(
+        content=json.dumps(content, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="workflow-{workflow_id}.json"'},
+    )
+
+
+@router.delete(
+    "/{workflow_id}",
+    summary="Delete a workflow",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited("automation.workflow_deleted", object_type="workflow", object_param="workflow_id")
+    ],
+)
+async def delete_workflow(
+    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
+) -> Response:
+    """409 workflow_has_running_instances while runs are live: disable it instead (AC3)."""
+    del subject
+    await workflow_admin.delete_workflow(session, workflow_id, expected_version=version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

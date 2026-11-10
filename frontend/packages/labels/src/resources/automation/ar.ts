@@ -209,9 +209,15 @@ export const ar: LabelResource = {
   'errors.not_a_service_identity': 'يمكن تغيير هوية سير العمل أو الموصل فقط هنا.',
   'errors.service_identity_role_not_allowed':
     'لا يمكن لسير عمل أو موصل حمل هذا الدور: سيتيح له تغيير من يحق له ماذا.',
+  'errors.templates_not_found': 'بعض القوالب ليست قوالب لهذا النوع من السجلات هنا ({{count}}).',
   'errors.workflow_already_running': 'سير العمل هذا قيد التشغيل بالفعل على هذا السجل.',
   'errors.workflow_disabled': 'سير العمل هذا متوقف، لذا لا يمكن بدؤه.',
+  'errors.workflow_file_other_tenant':
+    'هذا الملف من مؤسسة أخرى، فالأشخاص والمجموعات والقوالب التي يذكرها ليست لكم. استورده حيث صُدّر.',
+  'errors.workflow_file_too_large': 'هذا الملف كبير جدًا (الحد {{max}} بايت).',
   'errors.workflow_has_problems': 'صحّح مشكلات سير العمل قبل نشره.',
+  'errors.workflow_has_running_instances':
+    'لسير العمل هذا عمليات تشغيل جارية ({{count}}). عطّله بدلًا من ذلك، أو أوقفها أولًا.',
   'errors.workflow_move_without_action':
     'خطوة سير العمل هذه تنقل السجل دون تحديد انتقال حالة. اختر واحدًا في سير العمل.',
   'errors.workflow_name_taken': 'يوجد سير عمل بهذا الاسم لهذا النوع من السجلات.',
