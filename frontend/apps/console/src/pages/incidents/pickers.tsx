@@ -251,7 +251,7 @@ export function TechnicianPicker({
 }: PickerProps & {
   groupId: string | null;
   /** The record type's prefix: who may be given a problem differs from an incident. */
-  base?: 'incidents' | 'problems';
+  base?: 'incidents' | 'problems' | 'service-requests';
   /**
    * Anyone who can work the type, the group's members first (D-154a): someone of another group
    * is then assigned by moving the record to their group, never past it.

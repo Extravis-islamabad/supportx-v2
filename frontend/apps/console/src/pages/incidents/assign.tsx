@@ -6,6 +6,8 @@ import {
   ApiError,
   useAssignIncident,
   useAssignProblem,
+  useAssignServiceRequest,
+  useServiceRequestCatalogue,
   useIncidentCatalogue,
   useProblemCatalogue,
   useUnits,
@@ -52,7 +54,7 @@ export function AssignDialog({
   /** Re-read the record (the dialog opens on the latest assignment). */
   refresh: () => Promise<unknown>;
   /** The record type's prefix (WP-044c: a problem's group and owner, the same dialog). */
-  base?: 'incidents' | 'problems';
+  base?: 'incidents' | 'problems' | 'service-requests';
 }) {
   if (!open) return null;
   return <AssignBody item={item} onClose={onClose} refresh={refresh} base={base} />;
@@ -72,7 +74,7 @@ function AssignBody({
   item: Incident;
   onClose: () => void;
   refresh: () => Promise<unknown>;
-  base: 'incidents' | 'problems';
+  base: 'incidents' | 'problems' | 'service-requests';
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -81,11 +83,23 @@ function AssignBody({
   // Both types' hooks are called (hooks never depend on a condition); the type's own is used.
   const incidentCatalogue = useIncidentCatalogue(base === 'incidents');
   const problemCatalogue = useProblemCatalogue(base === 'problems');
-  const catalogue = base === 'problems' ? problemCatalogue : incidentCatalogue;
+  const requestCatalogue = useServiceRequestCatalogue(base === 'service-requests');
+  const catalogue =
+    base === 'problems'
+      ? problemCatalogue
+      : base === 'service-requests'
+        ? requestCatalogue
+        : incidentCatalogue;
   const groups = useUnits('groups');
   const assignIncident = useAssignIncident(item.id);
   const assignProblem = useAssignProblem(item.id);
-  const assign = base === 'problems' ? assignProblem : assignIncident;
+  const assignRequest = useAssignServiceRequest(item.id);
+  const assign =
+    base === 'problems'
+      ? assignProblem
+      : base === 'service-requests'
+        ? assignRequest
+        : assignIncident;
   const [groupChoice, setGroupChoice] = useState<Choice>({ touched: false, value: null });
   const [techChoice, setTechChoice] = useState<Choice>({ touched: false, value: null });
   const [reasonCode, setReasonCode] = useState<string>();
@@ -189,7 +203,8 @@ function AssignBody({
             void message.success(
               t('incidents.handed_over', { id: item.display_id, group: groupName }),
             );
-            void navigate(`/${base}`);
+            // The console lists requests at /requests (its API is /service-requests).
+            void navigate(base === 'service-requests' ? '/requests' : `/${base}`);
           }
         },
         onError: (error) => {

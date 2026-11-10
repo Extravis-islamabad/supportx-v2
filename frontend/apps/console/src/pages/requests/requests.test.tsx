@@ -2,10 +2,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CatalogItem } from '@supportx/api-client';
-import { fakeIncident } from '@supportx/api-client/testing';
+import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
+import { actionItem, clickAction } from '../../test/actions';
 
 // WP-030 s1: service requests in the console: the list, raising one from the catalog, one record.
 
@@ -393,6 +394,46 @@ describe('console: service requests', () => {
     expect(summary.textContent).toContain('Approved');
     expect(summary.textContent).toContain('Omar Manager');
     expect(summary.textContent).not.toContain('{{'); // every value given
+  });
+
+  it('Haider E2: a request has the incident actions, and a move goes through its own route', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const working = {
+      ...request,
+      status: 'assigned',
+      status_category: 'open',
+      technician_id: '01900000-0000-7000-8000-000000000101',
+      group_id: 'g-a',
+      approval_status: 'approved',
+      actions: request.actions.map((a) =>
+        a.action === 'start_work' ? { ...a, allowed: true, reason: null } : a,
+      ),
+      operations: [
+        { action: 'assign', allowed: true, reason: null },
+        { action: 'take', allowed: false, reason: 'already_yours' },
+      ],
+    };
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: { body: working },
+      'GET /api/v1/service-requests/settings': { body: fakeIncidentCatalogue() },
+      [`POST /api/v1/service-requests/${SR_ID}/actions/start_work`]: {
+        body: { ...working, status: 'in_progress', version: working.version + 1 },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('sr-actions-more');
+    // A button when the bar has room, else in More actions: either way it is offered.
+    const assign =
+      screen.queryByTestId('sr-op-assign') ?? (await actionItem('sr-op-assign', 'sr-actions'));
+    expect(assign).toBeDefined();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    await clickAction('inc-action-start_work', 'sr-actions');
+    await waitFor(() => {
+      expect(
+        fake.find('POST', `/api/v1/service-requests/${SR_ID}/actions/start_work`),
+      ).toHaveLength(1);
+    });
+    expect(fake.find('POST', `/api/v1/incidents/${SR_ID}/actions/start_work`)).toHaveLength(0);
   });
 
   it('shows one request with its item details and approval status', async () => {

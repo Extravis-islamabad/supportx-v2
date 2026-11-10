@@ -8,6 +8,9 @@ import {
   serviceRequestKeys,
   useCatalogItem,
   useApprovals,
+  useServiceRequestAction,
+  useServiceRequestCatalogue,
+  useTakeServiceRequest,
   useRequestTasks,
   useServiceRequest,
   useSession,
@@ -34,6 +37,7 @@ import {
   useLabel,
   useLicence,
   usePageCrumbs,
+  type RecordAction,
 } from '@supportx/ui';
 
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
@@ -41,6 +45,10 @@ import { labelled, personName } from '../incidents/labels';
 import { PriorityTag, SlaTag } from '../incidents/tags';
 import { ApprovalsPanel, WithdrawButton } from './Approvals';
 import { RequestTasks } from './RequestTasks';
+import { useActionReason } from '../incidents/actionReason';
+import { AssignDialog } from '../incidents/assign';
+import { useStatusActions } from '../incidents/StatusActions';
+import { useTakeAction } from '../incidents/take';
 import { IncidentSla } from '../incidents/IncidentSla';
 import { itemName } from './items';
 
@@ -122,6 +130,35 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
     [r.requester_id, r.on_behalf_of_id].includes(me);
   const reply = r.conversation_actions.find((a) => a.action === 'reply');
   const hasApprovals = r.approval_status != null && r.approval_status !== 'not_needed';
+  // Haider E2: the incident's actions here too (Reply, Assign, Take, the moves, Fulfil in
+  // them, the rest under More), through the requests' own routes.
+  const queryClient = useQueryClient();
+  const reload = () => queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(r.id) });
+  const catalogue = useServiceRequestCatalogue();
+  const act = useServiceRequestAction(r.id);
+  const status = useStatusActions(r, catalogue.data, act);
+  const takeRequest = useTakeServiceRequest(r.id);
+  const op = (name: string) => r.operations.find((o) => o.action === name);
+  const take = useTakeAction(r, op('take'), takeRequest);
+  const reasonText = useActionReason();
+  const [assigning, setAssigning] = useState(false);
+  const assignState = op('assign');
+  const assignAction: RecordAction | null =
+    assignState === undefined
+      ? null
+      : {
+          key: 'assign',
+          label: t('work_item_operation.assign'),
+          allowed: assignState.allowed,
+          whyNot:
+            !assignState.allowed && assignState.reason != null
+              ? reasonText(assignState)
+              : undefined,
+          testId: 'sr-op-assign',
+          onClick: () => {
+            setAssigning(true);
+          },
+        };
   // D-154 "E1 follows d": every required task done but nobody on it, so it is not fulfilled
   // by itself; the record says so until someone takes it.
   const tasks = useRequestTasks(r.id);
@@ -197,7 +234,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                 />
               ) : undefined
             }
-            actions={
+            actions={([] as RecordAction[]).concat(
               reply === undefined
                 ? []
                 : [
@@ -223,8 +260,10 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                         },
                       })),
                     },
-                  ]
-            }
+                  ],
+              [assignAction, take.action].filter((a): a is RecordAction => a !== null),
+              status.actions,
+            )}
           />
         }
         panel={
@@ -372,6 +411,17 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
           ]}
         />
       </RecordPage>
+      {status.dialogs}
+      {take.dialogs}
+      <AssignDialog
+        item={r}
+        open={assigning}
+        base="service-requests"
+        onClose={() => {
+          setAssigning(false);
+        }}
+        refresh={reload}
+      />
     </>
   );
 }

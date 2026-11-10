@@ -117,7 +117,7 @@ export function useIncidentHistory(
   id: string,
   actors: 'all' | 'people' | 'automation',
   enabled = true,
-  base: 'incidents' | 'problems' = 'incidents',
+  base: 'incidents' | 'problems' | 'service-requests' = 'incidents',
 ) {
   return useInfiniteQuery({
     queryKey: queryKeys.incidents.history(id, actors),
@@ -212,7 +212,7 @@ export function useIncidentAssignees(
   groupId: string | null,
   search: string,
   enabled = true,
-  base: 'incidents' | 'problems' = 'incidents',
+  base: 'incidents' | 'problems' | 'service-requests' = 'incidents',
 ) {
   return useQuery({
     queryKey: [...queryKeys.incidents.assignees(groupId, search), base],
