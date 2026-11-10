@@ -72,6 +72,7 @@ export const ur: LabelResource = {
   'sla.levels.minutes': 'کاروباری منٹ',
   'sla.levels.notify': 'لوگوں کو بتائیں',
   'sla.levels.offset': 'نقطۂ آغاز سے کتنا دور',
+  'sla.levels.person_group': 'ان کے کس گروپ میں ریکارڈ جائے',
   'sla.levels.recipients': 'کسے بتانا ہے',
   'sla.levels.remove': 'یہ درجہ ہٹائیں',
   'sla.policies.add': 'پالیسی شامل کریں',

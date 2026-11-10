@@ -71,6 +71,7 @@ export const en = {
   'sla.levels.minutes': 'business minutes',
   'sla.levels.notify': 'Tell people',
   'sla.levels.offset': 'How far from the starting point',
+  'sla.levels.person_group': 'Which of their groups the record moves to',
   'sla.levels.recipients': 'Who to tell',
   'sla.levels.remove': 'Remove this level',
   'sla.policies.add': 'Add policy',

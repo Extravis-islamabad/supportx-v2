@@ -4,6 +4,7 @@ import { Button, Card, Flex, Input, InputNumber, Select, Space, Switch, Typograp
 import { useUnits, type SlaLevel } from '@supportx/api-client';
 import { lengthLimit, useLabel } from '@supportx/ui';
 
+import { UserPicker } from '../../incidents/pickers';
 import { levelWhen } from './levels';
 
 type Kind = SlaLevel['kind'];
@@ -50,6 +51,10 @@ export function LevelsEditor({
 }) {
   const t = useLabel();
   const groups = useUnits('groups');
+  // The support groups a person is in (D-154 rules: the record moves there with them).
+  const groupsOf = (person: string): string[] =>
+    (groups.data ?? []).filter((g) => g.member_ids.includes(person)).map((g) => g.id);
+  const groupName = (id: string) => (groups.data ?? []).find((g) => g.id === id)?.name ?? '';
   const groupOptions = (groups.data ?? []).map((g) => ({ value: `group:${g.id}`, label: g.name }));
   const whoOptions = [
     ...RELATIVES.map((kind) => ({ value: kind, label: t(`sla_recipient_kind.${kind}`) })),
@@ -82,6 +87,8 @@ export function LevelsEditor({
               const minutes = Math.round(Math.abs(level.offset_seconds) / 60);
               const before = level.offset_seconds < 0;
               const reassign = action(level, 'reassign_group');
+              const person = action(level, 'reassign_person');
+              const theirs = person?.target_id ? groupsOf(person.target_id) : [];
               const note = action(level, 'add_note');
               return (
                 <Card
@@ -203,6 +210,50 @@ export function LevelsEditor({
                         );
                       }}
                     />
+                    {/* D-154 rules: a person comes with the group the record moves to with them,
+                        chosen here when they are in several, filled in when in one. */}
+                    <UserPicker
+                      value={person?.target_id ?? null}
+                      disabled={disabled}
+                      ariaLabel={t('sla_action_kind.reassign_person')}
+                      testId={`sla-level-person-${String(index)}`}
+                      onChange={(value) => {
+                        const groupsOfThem = value === null ? [] : groupsOf(value);
+                        setAction(
+                          index,
+                          'reassign_person',
+                          value === null
+                            ? null
+                            : {
+                                kind: 'reassign_person',
+                                target_id: value,
+                                group_id: groupsOfThem.length === 1 ? groupsOfThem[0] : null,
+                              },
+                        );
+                      }}
+                    />
+                    {person?.target_id && theirs.length > 1 && (
+                      <Select
+                        value={person.group_id ?? undefined}
+                        disabled={disabled}
+                        status={person.group_id ? undefined : 'error'}
+                        placeholder={t('sla.levels.person_group')}
+                        aria-label={t('sla.levels.person_group')}
+                        options={theirs.map((id) => ({
+                          value: id,
+                          label: groupName(id),
+                        }))}
+                        onChange={(value: string) => {
+                          setAction(index, 'reassign_person', { ...person, group_id: value });
+                        }}
+                        data-testid={`sla-level-person-group-${String(index)}`}
+                      />
+                    )}
+                    {person?.target_id && theirs.length === 0 && groups.data !== undefined && (
+                      <Typography.Text type="danger" role="alert">
+                        {t('errors.field.person_in_no_group')}
+                      </Typography.Text>
+                    )}
                     <Flex gap={8} align="center">
                       <Switch
                         checked={action(level, 'raise_priority') !== undefined}
