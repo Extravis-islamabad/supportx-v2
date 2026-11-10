@@ -343,7 +343,33 @@ async def test_migration_0126_fills_the_only_group_and_leaves_several_for_a_choi
         " WHERE tenant_id = ANY($1::uuid[])",
         [a.tenant, b.tenant],
     )
+    (held_b,) = (await world.call("GET", POLICIES, b, b.admin)).json()
+    (held_a,) = (await world.call("GET", POLICIES, a, a.admin)).json()
     await world.sql(_migration_fill())
+    # Rule 5g: the policy whose levels changed has a new version; an editor still open on the
+    # old one gets a 409 instead of saving the group away. Org A's (nothing filled) keeps its.
+    (now_b,) = (await world.call("GET", POLICIES, b, b.admin)).json()
+    (now_a,) = (await world.call("GET", POLICIES, a, a.admin)).json()
+    assert now_b["version"] == held_b["version"] + 1
+    assert now_a["version"] == held_a["version"]
+    stale = await world.call(
+        "PATCH",
+        f"/sla/policies/{held_b['id']}",
+        b,
+        b.admin,
+        json={
+            "levels": [
+                {
+                    "kind": "resolution",
+                    "notify": False,
+                    "offset_seconds": 60,  # a real change, made on the old version
+                    "actions": held_b["levels"][0]["actions"],
+                }
+            ]
+        },
+        headers={"If-Match": f'"{held_b["version"]}"'},
+    )
+    assert stale.status_code == 409, stale.text
     rows = await world.sql(
         "SELECT tenant_id, actions FROM sla_escalation_levels WHERE tenant_id = ANY($1::uuid[])",
         [a.tenant, b.tenant],

@@ -7,7 +7,8 @@ levels saved before, where the person is in exactly one group; the others are le
 admin to choose (at run time they fall back to the record's own group, or to the group only).
 
 Config rows only (`sla_escalation_levels`): never records, their SLA snapshots or the audit
-log. Per tenant with app.tenant_id set, as these tables force RLS (see 0023, 0125). Each
+log. Each policy whose levels change gets a new version (rule 5g: an editor open on the old one
+gets a 409). Per tenant with app.tenant_id set, as these tables force RLS (see 0023, 0125). Each
 tenant's counts (filled, left for a choice) are logged as a NOTICE.
 
 Downgrade: nothing to undo. Code before this ignores `group_id`, and taking it out again would
@@ -32,6 +33,7 @@ DO $$
 DECLARE
     t uuid;
     filled integer;
+    policies integer;
     waiting integer;
 BEGIN
     FOR t IN SELECT id FROM tenants LOOP
@@ -43,7 +45,8 @@ BEGIN
              WHERE m.tenant_id = t AND g.deleted_at IS NULL
              GROUP BY m.user_id
             HAVING count(*) = 1
-        )
+        ),
+        changed AS (
         UPDATE sla_escalation_levels l
            SET actions = (
                SELECT jsonb_agg(
@@ -60,15 +63,25 @@ BEGIN
                SELECT 1 FROM jsonb_array_elements(l.actions) AS x(a)
                  JOIN single s ON s.person = x.a->>'target_id'
                 WHERE x.a->>'kind' = 'reassign_person' AND x.a->>'group_id' IS NULL
-           );
-        GET DIAGNOSTICS filled = ROW_COUNT;
+           )
+        RETURNING l.policy_id
+        ),
+        -- Rule 5g: an editor still holding the policy's old version gets a 409, never saves
+        -- the actions without the group back over this.
+        bumped AS (
+            UPDATE sla_policies p SET version = p.version + 1, updated_at = now()
+             WHERE p.tenant_id = t AND p.id IN (SELECT policy_id FROM changed)
+            RETURNING p.id
+        )
+        SELECT (SELECT count(*) FROM changed), (SELECT count(*) FROM bumped)
+          INTO filled, policies;
         SELECT count(*) INTO waiting
           FROM sla_escalation_levels l, jsonb_array_elements(l.actions) AS x(a)
          WHERE l.tenant_id = t
            AND x.a->>'kind' = 'reassign_person' AND x.a->>'group_id' IS NULL;
         IF filled > 0 OR waiting > 0 THEN
-            RAISE NOTICE '0126: tenant % filled % level(s), % action(s) left for a choice',
-                t, filled, waiting;
+            RAISE NOTICE '0126: tenant % filled % level(s) of % policy(ies), % action(s) left for a choice',
+                t, filled, policies, waiting;
         END IF;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
