@@ -9,12 +9,13 @@ from sqlalchemy import text
 from app.core.tenancy import TenantContext
 from app.modules.integrations.domain.connector_health import RunCounts
 from app.modules.integrations.service import runs
-from tests.db.test_incidents_api import World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World
 from tests.db.test_mailboxes_api import add, with_key_ring
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 
 async def _run(world: World, instance: uuid.UUID, error: str | None = None) -> None:

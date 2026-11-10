@@ -4,12 +4,11 @@ Real PostgreSQL, the incidents test world. Each test names the requirement and c
 """
 
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-import pytest_asyncio
 
 from app.core.database import Database
 from app.core.errors import NotFound
@@ -19,17 +18,12 @@ from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import closing, conversations, parts, resolution
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import say, timeline
-from tests.db.test_incidents_api import BASE, Org, World, field_codes, incidents_world, problem
-from tooling.db_testing import ThrowawayDatabase
+from tests.db.test_incidents_api import BASE, Org, World, field_codes, problem
 
-pytestmark = [pytest.mark.db, pytest.mark.valkey]
-
-
-@pytest_asyncio.fixture
-async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
-    async with incidents_world(migrated_db) as built:
-        yield built
+pytestmark = [pytest.mark.db, pytest.mark.valkey, MODULE_LOOP]
+__all__ = ["module_world", "shared_world"]  # the fixtures, used by name
 
 
 async def settings(world: World, org: Org) -> dict[str, Any]:

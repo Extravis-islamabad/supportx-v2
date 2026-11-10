@@ -11,11 +11,14 @@ Real PostgreSQL with RLS, the real policy layer and lane B's preview endpoint:
 import uuid
 from typing import Any
 
-from tests.db.test_incidents_api import Org, World, role, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import Org, World, role
 from tests.db.test_release_parts_api import patch_role_def, put_role
 from tests.db.test_releases_api import a_release
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 NEEDED = "releases.delete"  # a permission the release manager role is set to require
 

@@ -964,6 +964,11 @@ class WorkItemAssigneeOut(BaseModel):
     display_name: str
     email: str = Field(description="Second line in pickers: two people may share a name.")
     open_count: int
+    group_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="Their groups: someone outside the record's group is assigned by moving "
+        "the record to one of these in the same request (D-154a).",
+    )
 
 
 class WorkItemStatusOut(BaseModel):
@@ -1121,6 +1126,11 @@ class WorkItemCatalogueOut(BaseModel):
     portal_show_due_time: bool = Field(
         default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
     )
+    first_task_starts_work: bool = Field(
+        default=True,
+        description="Requests: ticking the first fulfilment task moves a New or Assigned request "
+        "to In progress, when ticked by its technician or group (D-154c).",
+    )
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
@@ -1177,6 +1187,7 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
+            first_task_starts_work=cat.first_task_starts_work,
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
             cab_every_match=cat.cab_every_match,
@@ -1308,6 +1319,7 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
+    first_task_starts_work: bool | None = None
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
     cab_every_match: bool | None = Field(default=None, description="Changes only.")
@@ -2112,7 +2124,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             limit=limit,
         )
         return [
-            WorkItemAssigneeOut(id=u, display_name=n, email=e, open_count=c) for u, n, e, c in found
+            WorkItemAssigneeOut(
+                id=u, display_name=n, email=e, open_count=c, group_ids=sorted(g, key=str)
+            )
+            for u, n, e, c, g in found
         ]
 
     @router.get("/search", summary=f"Search {wtype.path}")

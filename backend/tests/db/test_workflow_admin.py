@@ -16,9 +16,12 @@ from app.core.errors import Conflict, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.automation.infra.models import Workflow, WorkflowVersion
 from app.modules.automation.service import workflow_admin
-from tests.db.test_incidents_api import World, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def _create(world: World) -> uuid.UUID:

@@ -21,11 +21,12 @@ from app.modules.integrations.service import connections, directories, directory
 from app.modules.integrations.tests.fake_directory import FakeDirectory, graph_id
 from app.modules.integrations.tests.fake_providers import endpoint_settings
 from app.shared.files.keyring import KeyRing
-from tests.db.test_incidents_api import World, unit, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import World, unit
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 DIRECTORY = {
     "name": "Alpha Entra",

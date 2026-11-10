@@ -12,12 +12,13 @@ import pytest
 from pydantic import SecretStr
 
 from app.shared.files.keyring import KeyRing
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_files_api import audit_actions
-from tests.db.test_incidents_api import World, field_codes, problem, world
+from tests.db.test_incidents_api import World, field_codes, problem
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 BASE = "/integrations/mailboxes"
 BOX: dict[str, Any] = {

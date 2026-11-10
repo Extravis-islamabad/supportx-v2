@@ -13,15 +13,16 @@ from typing import Any
 import asyncpg
 import pytest
 
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_changes_api import a_change
-from tests.db.test_incidents_api import CONSOLE, Org, World, world
+from tests.db.test_incidents_api import CONSOLE, Org, World
 from tests.db.test_release_approvals_api import approvals, current, decide
 from tests.db.test_release_parts_api import put_role, settings_version
 from tests.db.test_releases_api import REL, a_release, moved
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def _moved_with(

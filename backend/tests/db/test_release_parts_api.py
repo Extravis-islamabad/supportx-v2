@@ -25,13 +25,16 @@ from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
 from app.shared.events import EventEnvelope
-from tests.db.test_incidents_api import CONSOLE, Org, World, role, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World, role
 from tests.db.test_release_guards_api import release_workers, set_access
 from tests.db.test_release_templates_api import field_codes
 from tests.db.test_releases_api import REL, a_release, move, moved
 from tests.db.test_reports_api import ran
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def settings_version(world: World, org: Org) -> int:
