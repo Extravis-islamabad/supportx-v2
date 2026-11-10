@@ -32,6 +32,7 @@ from app.modules.automation.events import (
     EVENTS,
     WorkflowCommandFinished,
     WorkflowFunctionRequested,
+    WorkflowWebhookRequested,
 )
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
 from app.modules.automation.service import workflow_events, workflow_scheduler
@@ -122,6 +123,12 @@ module = ModuleSpec(
             name="automation__workflow_events",
             event_types=TRIGGER_EVENT_TYPES,
             handler=workflow_events.on_record_event,
+        ),
+        # A webhook node's call, sent by the worker through the guarded client (ADR-043 §8).
+        ConsumerSpec(
+            name="automation__workflow_webhooks",
+            event_types=(WorkflowWebhookRequested.event_type,),
+            handler=workflow_events.on_webhook_requested,
         ),
         # A function node's request, run by the worker through the runner port (§6.7).
         ConsumerSpec(

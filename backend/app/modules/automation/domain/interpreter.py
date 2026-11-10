@@ -79,6 +79,7 @@ class CommandKind(StrEnum):
     OPEN_APPROVAL = "open_approval"  # opened now, decided later: its result names the output
     OPEN_TASKS = "open_tasks"  # opened now, done later: all done is its result
     RUN_FUNCTION = "run_function"  # run by a worker through the runner port (§6.7)
+    CALL_WEBHOOK = "call_webhook"  # sent by a worker through the guarded client (ADR-043 §8)
 
 
 @dataclass(frozen=True)
@@ -392,6 +393,19 @@ def _run_node(run: _Run, token: Token) -> None:  # noqa: C901, PLR0912 - one bra
                     "owner_user_id": config.get("owner_user_id"),
                     "owner_group_id": config.get("owner_group_id"),
                     "due_days": config.get("due_days"),
+                },
+            )
+        case NodeType.WEBHOOK:
+            _command(
+                run,
+                token,
+                CommandKind.CALL_WEBHOOK,
+                {
+                    "url": config.get("url"),
+                    "method": str(config.get("method", "POST")),
+                    "headers": dict(config.get("headers", {})),
+                    "fields": list(config.get("fields", [])),
+                    "status_variable": config.get("status_variable"),
                 },
             )
         case NodeType.FUNCTION:

@@ -314,6 +314,10 @@ export const ar: LabelResource = {
   'workflow_problem.variables_invalid': 'تحتاج المتغيرات إلى أسماء مختلفة ونوع؛ {{max}} كحد أقصى.',
   'workflow_problem.wait_events_invalid': 'اختر ما تنتظره هذه الخطوة.',
   'workflow_problem.wait_never_finishes': 'لا شيء يُنهي هذا الانتظار. أضف شرطًا أو حدًا زمنيًا.',
+  'workflow_problem.webhook_headers_invalid':
+    'حتى {{max}} ترويسة بأسماء بسيطة؛ تضبط المنصة Content-Type وIdempotency-Key بنفسها.',
+  'workflow_problem.webhook_url_invalid':
+    'أدخل العنوان المطلوب استدعاؤه، ويبدأ بـ https://‏ (حتى {{max}} حرفًا).',
   'workflow_problem.workflow_not_found': 'اختر سير عمل موجودًا.',
   'workflow_problem.workflow_wrong_record_type': 'سير العمل هذا لنوع آخر من السجلات.',
 };

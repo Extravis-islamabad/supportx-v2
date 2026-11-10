@@ -9,6 +9,7 @@
   new (ADR-043 §5).
 """
 
+import json
 import uuid
 from collections.abc import Mapping
 
@@ -16,7 +17,7 @@ import structlog
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict
 from app.core.tenancy import TenantContext
@@ -29,11 +30,16 @@ from app.modules.automation.domain.interpreter import (
 from app.modules.automation.domain.rules import JsonValue
 from app.modules.automation.domain.triggers import TriggerEvent
 from app.modules.automation.domain.workflows import WaitEvent
-from app.modules.automation.events import WorkflowCommandFinished, WorkflowFunctionRequested
+from app.modules.automation.events import (
+    WorkflowCommandFinished,
+    WorkflowFunctionRequested,
+    WorkflowWebhookRequested,
+)
 from app.modules.automation.infra.models import Workflow, WorkflowInstance
 from app.modules.automation.service import functions, workflow_runtime
 from app.modules.automation.service.registry import event_reader
 from app.modules.automation.service.registry import record_type as registered
+from app.shared import egress
 from app.shared.clock import system_clock
 from app.shared.events import EventEnvelope, record_event
 
@@ -119,6 +125,56 @@ async def on_command_finished(envelope: EventEnvelope, session: AsyncSession | N
         session,
         done.instance_id,
         CommandDone(done.command, done.ok, error=done.error, outputs=done.outputs, port=done.port),
+    )
+
+
+async def on_webhook_requested(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer (a worker): make the node's one guarded call and report how it went.
+
+    At least once, like every consumer: the call carries `Idempotency-Key: <instance>:<command>`
+    so a receiver that sees it twice can tell. The record's fields are read now, as the call goes.
+    """
+    if session is None:  # transactional consumer: the registry always gives one
+        msg = "workflow webhooks need the consumer's session"
+        raise RuntimeError(msg)
+    asked = WorkflowWebhookRequested.model_validate(envelope.payload)
+    tenant_id = session.info[SESSION_TENANT_KEY].tenant_id
+    kind = registered(asked.record_type)
+    facts = await kind.facts(session, asked.record_id) if kind and kind.facts else None
+    body = {
+        "record": {"type": asked.record_type, "id": str(asked.record_id)},
+        "fields": {name: (facts or {}).get(name) for name in asked.fields},
+        "workflow": {"instance_id": str(asked.instance_id)},
+    }
+    request = egress.OutboundRequest(
+        method=asked.method,
+        url=asked.url,
+        headers={
+            **asked.headers,
+            "Content-Type": "application/json",
+            "Idempotency-Key": f"{asked.instance_id}:{asked.command}",
+        },
+        body=json.dumps(body, default=str, separators=(",", ":")).encode(),
+    )
+    try:
+        response = await egress.send(
+            request,
+            allowance=egress.installation_allowance(get_settings()),
+            module="automation",
+            tenant_id=tenant_id,
+        )
+    except egress.EgressError as refused:  # a stable code, never a secret or a body
+        await command_finished(
+            session,
+            instance_id=asked.instance_id,
+            command=asked.command,
+            ok=False,
+            error=f"webhook_{refused.code}",
+        )
+        return
+    kept = {asked.status_variable: response.status} if asked.status_variable else {}
+    await command_finished(
+        session, instance_id=asked.instance_id, command=asked.command, ok=True, outputs=kept
     )
 
 

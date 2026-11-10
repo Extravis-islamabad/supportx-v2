@@ -42,7 +42,11 @@ from app.modules.automation.domain.interpreter import (
 )
 from app.modules.automation.domain.rules import JsonValue
 from app.modules.automation.domain.workflows import Definition, TimeBasis, parse
-from app.modules.automation.events import WorkflowFunctionRequested, WorkflowInstanceChanged
+from app.modules.automation.events import (
+    WorkflowFunctionRequested,
+    WorkflowInstanceChanged,
+    WorkflowWebhookRequested,
+)
 from app.modules.automation.infra.models import (
     Workflow,
     WorkflowInstance,
@@ -287,6 +291,26 @@ async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs w
 ) -> CommandDone | None:
     if command.kind == CommandKind.START_SUB_FLOW:
         return await _start_child(session, instance, command, now)
+    if command.kind == CommandKind.CALL_WEBHOOK:
+        # Never from this request: the worker sends it through the guarded client.
+        await record_event(
+            session,
+            WorkflowWebhookRequested(
+                instance_id=instance.id,
+                command=command.id,
+                record_type=instance.record_type,
+                record_id=instance.record_id,
+                url=str(command.payload.get("url")),
+                method=str(command.payload.get("method", "POST")),
+                headers={
+                    str(k): str(v) for k, v in dict(command.payload.get("headers", {})).items()
+                },
+                fields=[str(f) for f in command.payload.get("fields", [])],
+                status_variable=command.payload.get("status_variable"),
+            ),
+            aggregate_id=instance.id,
+        )
+        return None
     if command.kind == CommandKind.RUN_FUNCTION:
         # Never in this process (§6.7): the worker runs it and reports back to the node.
         await record_event(

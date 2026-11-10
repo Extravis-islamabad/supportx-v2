@@ -317,6 +317,10 @@ export const ur: LabelResource = {
   'workflow_problem.wait_events_invalid': 'چنیں کہ یہ مرحلہ کس کا انتظار کرے۔',
   'workflow_problem.wait_never_finishes':
     'اس انتظار کو ختم کرنے والا کچھ نہیں۔ کوئی شرط یا وقت کی حد شامل کریں۔',
+  'workflow_problem.webhook_headers_invalid':
+    'سادہ ناموں کے ساتھ زیادہ سے زیادہ {{max}} ہیڈرز؛ Content-Type اور Idempotency-Key پلیٹ فارم خود لگاتا ہے۔',
+  'workflow_problem.webhook_url_invalid':
+    'کال کرنے کا پتہ دیں، جو https:// سے شروع ہو (زیادہ سے زیادہ {{max}} حروف)۔',
   'workflow_problem.workflow_not_found': 'ایسا ورک فلو چنیں جو موجود ہو۔',
   'workflow_problem.workflow_wrong_record_type': 'یہ ورک فلو کسی اور قسم کے ریکارڈ کے لیے ہے۔',
 };

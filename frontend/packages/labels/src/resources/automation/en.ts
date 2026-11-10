@@ -313,6 +313,10 @@ export const en = {
   'workflow_problem.wait_events_invalid': 'Choose what this step waits for.',
   'workflow_problem.wait_never_finishes':
     'This wait has nothing to finish it. Add a condition or a time limit.',
+  'workflow_problem.webhook_headers_invalid':
+    'Up to {{max}} headers with plain names; the platform sets Content-Type and Idempotency-Key itself.',
+  'workflow_problem.webhook_url_invalid':
+    'Give the address to call, starting with https:// (at most {{max}} characters).',
   'workflow_problem.workflow_not_found': 'Choose a workflow that exists.',
   'workflow_problem.workflow_wrong_record_type': 'This workflow is for another kind of record.',
 } as const;

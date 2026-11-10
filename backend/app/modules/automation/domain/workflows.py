@@ -87,6 +87,7 @@ class NodeType(StrEnum):
     APPROVAL = "approval"  # people: an approval on the record, its decision picks the output
     TASKS = "tasks"  # people: a checklist of tasks on the record; all done continues it
     FUNCTION = "function"  # actions: a custom function, run outside the API (§6.7, the port)
+    WEBHOOK = "webhook"  # actions: one call through the guarded client, from the worker
 
 
 class WaitEvent(StrEnum):
@@ -116,6 +117,16 @@ MAX_DUE_DAYS = 365  # a task node's due date: working days on the record's calen
 FUNCTION_TIMEOUT_MAX = 30  # seconds a function node may run (the runner enforces it)
 MAX_FUNCTION_IO = 20  # inputs, and outputs kept as variables
 _FUNCTION_NAME = re.compile(r"^[a-z][a-z0-9_]{0,59}$")
+WEBHOOK_URL_MAX = 2000
+WEBHOOK_METHODS = frozenset({"POST", "PUT", "PATCH"})
+MAX_WEBHOOK_HEADERS = 20
+WEBHOOK_HEADER_MAX = 1000
+MAX_WEBHOOK_FIELDS = 50
+_HEADER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,63}$")
+# Set by the platform (the payload's type, the idempotency key) or by the transport itself.
+_RESERVED_HEADERS = frozenset(
+    {"host", "content-length", "content-type", "idempotency-key", "connection", "transfer-encoding"}
+)
 
 
 class JoinMode(StrEnum):
@@ -563,6 +574,56 @@ def _check_function(
     return [problem] if problem is not None else _retries(config)
 
 
+def _headers_ok(headers: Any) -> bool:  # noqa: ANN401 - untrusted JSON
+    """The node's own headers: a few, plain names, none the platform or transport sets."""
+    return (
+        isinstance(headers, dict)
+        and len(headers) <= MAX_WEBHOOK_HEADERS
+        and all(
+            isinstance(k, str)
+            and _HEADER_NAME.match(k) is not None
+            and k.lower() not in _RESERVED_HEADERS
+            and isinstance(v, str)
+            and len(v) <= WEBHOOK_HEADER_MAX
+            for k, v in headers.items()
+        )
+    )
+
+
+def _webhook_problem(config: Mapping[str, Any], facts: TypeFacts) -> Problem | None:
+    """What is wrong with a webhook node's address, method, headers or fields, or None."""
+    url, headers = config.get("url"), config.get("headers", {})
+    fields, keep = config.get("fields", []), config.get("status_variable")
+    known = isinstance(fields, list) and len(fields) <= MAX_WEBHOOK_FIELDS
+    unknown = [str(f) for f in fields if f not in facts.fields] if known else []
+    problem: Problem | None = None
+    if (
+        not isinstance(url, str)
+        or len(url) > WEBHOOK_URL_MAX
+        or not url.lower().startswith(("https://", "http://"))
+    ):
+        problem = ("", "webhook_url_invalid", {"max": WEBHOOK_URL_MAX})
+    elif config.get("method", "POST") not in WEBHOOK_METHODS:
+        problem = ("", "invalid_value", {"field": "method"})
+    elif not _headers_ok(headers):
+        problem = ("", "webhook_headers_invalid", {"max": MAX_WEBHOOK_HEADERS})
+    elif not known:
+        problem = ("", "invalid_value", {"field": "fields"})
+    elif unknown:
+        problem = ("", "unknown_field", {"field": unknown[0]})
+    elif keep is not None and f"{VAR_PREFIX}{keep}" not in facts.fields:
+        problem = ("", "variable_unknown", {"variable": str(keep)})
+    return problem
+
+
+def _check_webhook(
+    config: Mapping[str, Any], facts: TypeFacts
+) -> list[tuple[str, dict[str, JsonValue]]]:
+    """One outside call (REQ-WF-020): where, how, which of the record's fields it carries."""
+    problem = _webhook_problem(config, facts)
+    return [(problem[1], problem[2])] if problem is not None else _retries(config)
+
+
 def _split_ports(config: Mapping[str, Any]) -> tuple[str, ...]:
     branches = config.get("branches")
     return tuple(str(b) for b in branches) if isinstance(branches, list) else ()
@@ -645,6 +706,14 @@ REGISTRY: Mapping[NodeType, NodeSpec] = {
         _fixed("next", "error"),
         lambda _c: frozenset({"error"}),
         _check_tasks,
+    ),
+    # A 2xx continues it; a refusal or a failed call retries, then takes "error" (REQ-WF-024).
+    NodeType.WEBHOOK: NodeSpec(
+        NodeType.WEBHOOK,
+        Category.ACTIONS,
+        _fixed("next", "error"),
+        lambda _c: frozenset({"error"}),
+        _check_webhook,
     ),
     NodeType.FUNCTION: NodeSpec(
         NodeType.FUNCTION,

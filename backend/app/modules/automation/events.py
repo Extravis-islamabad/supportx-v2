@@ -149,8 +149,32 @@ class WorkflowFunctionRequested(DomainEvent):
     timeout_seconds: int
 
 
+class WorkflowWebhookRequested(DomainEvent):
+    """A webhook node asks the worker to make one guarded call (WP-048b S2; ADR-043 §8).
+
+    Never sent from a request: the worker's consumer sends it through the shared egress client
+    and reports back as `WorkflowCommandFinished`. The record's fields are read by the worker,
+    so the outbox holds only their names.
+    """
+
+    event_type: ClassVar[str] = "automation.workflow.webhook_requested"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "workflow_instance"
+
+    instance_id: uuid.UUID
+    command: str
+    record_type: str
+    record_id: uuid.UUID
+    url: str
+    method: str
+    headers: dict[str, str]
+    fields: list[str]
+    status_variable: str | None = None
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkflowChanged,
+    WorkflowWebhookRequested,
     WorkflowFunctionRequested,
     WorkflowCommandFinished,
     WorkflowInstanceChanged,

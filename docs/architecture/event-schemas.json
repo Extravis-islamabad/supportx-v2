@@ -1658,6 +1658,77 @@
         "type": "object"
       }
     },
+    "automation.workflow.webhook_requested": {
+      "1": {
+        "description": "A webhook node asks the worker to make one guarded call (WP-048b S2; ADR-043 §8).\n\nNever sent from a request: the worker's consumer sends it through the shared egress client\nand reports back as `WorkflowCommandFinished`. The record's fields are read by the worker,\nso the outbox holds only their names.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Headers",
+            "type": "object"
+          },
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "status_variable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status Variable"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "command",
+          "record_type",
+          "record_id",
+          "url",
+          "method",
+          "headers",
+          "fields"
+        ],
+        "title": "WorkflowWebhookRequested",
+        "type": "object"
+      }
+    },
     "automation.workflow_instance.changed": {
       "1": {
         "description": "A workflow instance moved on, waited, failed or ended (WP-048b, REQ-WF-023, -025).\n\nThe record's execution view and the overview refresh; IDs and codes only.",
