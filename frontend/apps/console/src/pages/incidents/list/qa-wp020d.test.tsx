@@ -108,6 +108,18 @@ describe('BUG-01: every view count follows the changes that move it', () => {
   });
 });
 
+describe('QA10-P1-15: the view editor', () => {
+  it('QA10-P1-15: Cancel comes before Save, in a footer that stays in view', async () => {
+    await openList();
+    fireEvent.click(screen.getByTestId('inc-view-new'));
+    const footer = await screen.findByTestId('inc-view-footer');
+    expect(footer.style.position).toBe('sticky');
+    const buttons = within(footer).getAllByRole('button');
+    const order = buttons.map((b) => b.getAttribute('data-testid'));
+    expect(order.indexOf('inc-view-cancel')).toBeLessThan(order.indexOf('inc-view-save'));
+  });
+});
+
 describe('BUG-02: the toolbar keeps its place when chips are added', () => {
   it('BUG-02: one filter bar that fits, and chips stack under a fixed-width search', async () => {
     await openList();
