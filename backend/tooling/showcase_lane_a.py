@@ -100,15 +100,25 @@ def _answers(item: Mapping[str, Any]) -> dict[str, Any]:
     return found
 
 
-# (subject, state): every state a request can be in.
+# (subject, state, the starter item it is for): every state a request can be in, each subject
+# matching its item (QA10-P4-41).
 REQUESTS = (
-    ("New laptop for the finance team", "awaiting_approval"),
-    ("Access to the reporting tool", "awaiting_approval"),
-    ("Second monitor for the help desk", "in_progress"),
-    ("VPN access for a new starter", "fulfilled"),
-    ("Mobile phone for the field engineer", "closed"),
-    ("Admin rights on a shared laptop", "rejected"),
-    ("Parking pass for the visitor", "withdrawn"),
+    ("New laptop for the finance team", "awaiting_approval", "New laptop"),
+    ("Access to the reporting tool", "awaiting_approval", "Access to an application"),
+    ("Design software for the help desk", "in_progress", "Install software"),
+    ("VPN access for a new starter", "fulfilled", "VPN / remote access"),
+    ("Mobile phone for the field engineer", "closed", "Mobile phone"),
+    ("Account for the new analyst", "rejected", "New user account"),
+    ("Building access card for the visitor", "withdrawn", "Building access card"),
+)
+# The subjects of the first seeds: a tenant that has them was seeded already and keeps its
+# records as they are (rule 5h); the renamed ones are for new tenants.
+FIRST_SUBJECTS = frozenset(
+    {
+        "Second monitor for the help desk",
+        "Admin rights on a shared laptop",
+        "Parking pass for the visitor",
+    }
 )
 
 
@@ -182,11 +192,15 @@ async def ensure_service_requests(  # noqa: PLR0913 - the seed's sign-ins and lo
     if not needing:
         return 0
     existing = {r["subject"] for r in await admin.all_pages(SR)}
+    seeded_before = bool(existing & FIRST_SUBJECTS)
     made = 0
-    for n, (subject, state) in enumerate(REQUESTS):
-        if subject in existing:
+    for n, (subject, state, item_name) in enumerate(REQUESTS):
+        if subject in existing or seeded_before:
             continue
-        item = needing[n % len(needing)]
+        item = next(
+            (i for i in needing if (i.get("names") or {}).get("en") == item_name),
+            needing[n % len(needing)],
+        )
         requester = admin_id if state == "withdrawn" else requesters[(n * 3) % len(requesters)]
         record = await admin.call(
             "POST",
