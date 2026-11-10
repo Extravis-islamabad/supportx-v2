@@ -8,12 +8,22 @@ and its history says why. One test per case (the plan's list).
 Cast (tests/db/test_incidents_api.py): tech_a in GA, tech_b in GB, tech_c in both.
 """
 
+import json
 import uuid
 from datetime import timedelta
 from typing import Any
 
 import pytest
 
+from app.core.tenancy import TenantContext
+from app.modules.work_items.events import WorkItemAssigneeUnavailable
+from app.modules.work_items.service.notifications import (
+    STEP_OWNER,
+    UNAVAILABLE,
+    IncidentNotifications,
+)
+from app.shared.events import EventEnvelope
+from app.shared.notifications.ports import LabelRef
 from tests.db import test_incidents_api
 from tests.db.test_incidents_api import Org, World
 from tests.db.test_sla_clock import POLICIES, _p1, _targets
@@ -106,6 +116,27 @@ async def test_someone_away_leaves_the_record_with_the_group_only_and_history_sa
     moved = await world.fresh(a, item)
     assert (moved["group_id"], moved["technician_id"]) == (str(a.gb), None)
     assert _why(await world.history(a, item)) == ["away"]
+    # Never skipped silently: one notice, to the SLA's managers (an SLA level has no owner).
+    (envelope,) = await _unavailable_events(world, item)
+    assert envelope.payload["reason"] == "away"
+    assert envelope.payload["owner_id"] is None
+    source = IncidentNotifications()
+    assert source.events_for(envelope) == (UNAVAILABLE,)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        context = await source.context(session, UNAVAILABLE, envelope)
+    assert context is not None
+    assert a.admin in context.relatives[STEP_OWNER]
+    assert a.tech_b not in context.relatives[STEP_OWNER]
+    assert context.variables["unavailable.reason"] == LabelRef("assignee_unavailable.away")
+
+
+async def _unavailable_events(world: World, item: dict[str, Any]) -> list[EventEnvelope]:
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE aggregate_id = $1 AND event_type = $2",
+        item["id"],
+        WorkItemAssigneeUnavailable.event_type,
+    )
+    return [EventEnvelope.model_validate(json.loads(r["envelope"])) for r in rows]
 
 
 async def test_someone_who_left_the_group_leaves_the_record_with_the_group_only(
@@ -189,3 +220,10 @@ async def test_a_business_rule_naming_someone_away_assigns_the_group_only(world:
     assert (item["group_id"], item["technician_id"]) == (str(a.gb), None)
     reasons = [(h["automation"] or {}).get("unavailable") for h in await world.history(a, item)]
     assert "away" in reasons
+    # The rule's owner hears it (the admin made the rule).
+    (envelope,) = await _unavailable_events(world, item)
+    assert envelope.payload["step"] == "business_rule"
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        context = await IncidentNotifications().context(session, UNAVAILABLE, envelope)
+    assert context is not None
+    assert context.relatives[STEP_OWNER] == frozenset({a.admin})

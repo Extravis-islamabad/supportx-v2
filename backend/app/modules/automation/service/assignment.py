@@ -31,6 +31,8 @@ from app.modules.automation.infra.models import (
     AssignmentSettings,
     AssignmentTurn,
     AutomationRun,
+    AutomationTrigger,
+    BusinessRule,
     TechnicianAvailability,
 )
 from app.modules.automation.service.business_rules import _invalid
@@ -169,6 +171,31 @@ async def _named(session: AsyncSession, user_ids: Sequence[uuid.UUID]) -> dict[u
         if found:
             names[user_id] = found[0]
     return names
+
+
+async def step_owner(session: AsyncSession, ref: Mapping[str, Any]) -> uuid.UUID | None:
+    """Who owns the business rule or trigger a history ref names, if anyone.
+
+    D-154 rules: the owner hears when the person a step assigns could not be. None for other
+    steps (an SLA level has no owner).
+    """
+    found: uuid.UUID | None = None
+    try:
+        if ref.get("kind") == "business_rule" and ref.get("rule_id"):
+            found = await session.scalar(
+                select(BusinessRule.owner_id).where(
+                    BusinessRule.id == uuid.UUID(str(ref["rule_id"]))
+                )
+            )
+        elif ref.get("kind") == "trigger" and ref.get("trigger_id"):
+            found = await session.scalar(
+                select(AutomationTrigger.owner_id).where(
+                    AutomationTrigger.id == uuid.UUID(str(ref["trigger_id"]))
+                )
+            )
+    except ValueError:  # a ref from before ids were stored: nobody to name
+        return None
+    return found
 
 
 async def away_user_ids(
