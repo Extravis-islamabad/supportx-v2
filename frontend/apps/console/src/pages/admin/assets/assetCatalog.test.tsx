@@ -172,6 +172,16 @@ describe('console: asset catalogue', () => {
     expect(sent?.headers.get('If-Match')).toBe('"3"');
   });
 
+  it('?tab=products opens the Products tab (the asset form links there when there are none)', async () => {
+    window.history.pushState({}, '', '/admin/assets?tab=products');
+    const fake = catalogueApi();
+    restore = fake.restore;
+    render(<App />);
+    const tab = await screen.findByRole('tab', { name: 'Products' });
+    expect(tab.getAttribute('aria-selected')).toBe('true');
+    expect(await screen.findByTestId('asset-products')).toBeTruthy();
+  });
+
   // While the plan loads the licence context assumes nothing is missing (its rule), so this
   // checks what the page says once the plan is known; the server refuses the calls anyway.
   it('says the catalogue is not in the plan', async () => {

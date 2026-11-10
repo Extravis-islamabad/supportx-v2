@@ -72,10 +72,15 @@ test('asset loan: loanable in bulk, lent, due in the portal, taken back, all liv
     const dialog = admin.page.getByTestId('asset-loan-new');
     await dialog.getByTestId('asset-loan-borrower').click();
     await admin.page.keyboard.type(USERS.limited.first);
-    await admin.page.getByRole('option').filter({ hasText: USERS.limited.email }).first().click();
+    // The visible item: Ant Design's role="option" copy is hidden and holds the id as its text
+    // (the person's name and email are its aria-label), so a text filter never matched it.
+    await admin.page
+      .locator('.ant-select-item-option', { hasText: USERS.limited.email })
+      .first()
+      .click();
     await dialog.getByTestId('asset-loan-assets').click();
     await admin.page.keyboard.type(name);
-    await admin.page.getByRole('option').filter({ hasText: name }).click();
+    await admin.page.locator('.ant-select-item-option', { hasText: name }).first().click();
     await admin.page.keyboard.press('Escape');
     await expectAccessible(admin.page, 'new loan');
     await dialog.getByRole('button', { name: 'Lend' }).click();
