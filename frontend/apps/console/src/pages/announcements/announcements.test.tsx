@@ -83,7 +83,7 @@ describe('One announcement', () => {
     restore();
   });
 
-  it('shows every action in a fixed order; disabled ones say why', async () => {
+  it('shows only the moves its status allows; a greyed one says why (QA10-P4-13)', async () => {
     api({
       routes: {
         [`GET ${PATH}`]: {
@@ -103,14 +103,9 @@ describe('One announcement', () => {
     render(<App />);
     const actions = await screen.findByTestId('ann-actions');
     const buttons = within(actions).getAllByRole('button');
-    expect(buttons.map((b) => b.textContent)).toEqual([
-      'Publish',
-      'Unpublish',
-      'Archive',
-      'Reopen',
-    ]);
+    expect(buttons.map((b) => b.textContent)).toEqual(['Publish', 'Archive']);
     expect((buttons[0] as HTMLButtonElement).disabled).toBe(true);
-    expect((buttons[2] as HTMLButtonElement).disabled).toBe(false);
+    expect((buttons[1] as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByTestId('ann-action-publish-reason').getAttribute('data-reason')).toBe(
       'four_eyes',
     );
@@ -118,6 +113,26 @@ describe('One announcement', () => {
     expect(
       await screen.findByText('Someone other than the author or owner must publish it.'),
     ).toBeDefined();
+  });
+
+  it('names the chosen support groups in the properties (QA10-P4-13)', async () => {
+    const group = '01900000-0000-7000-8000-0000000000a1';
+    api({
+      me: ADMIN,
+      routes: {
+        [`GET ${PATH}`]: {
+          body: fakeAnnouncement({ audience: 'groups', group_ids: [group] }),
+          headers: { ETag: '"1"' },
+        },
+        [`GET ${PATH}/history`]: { body: { items: [], next_cursor: null } },
+        'GET /api/v1/organization/groups': { body: [{ id: group, name: 'Network team' }] },
+      },
+    });
+    render(<App />);
+    const audience = await screen.findByTestId('ann-audience');
+    await waitFor(() => {
+      expect(audience.textContent).toContain('Network team');
+    });
   });
 
   it('archive asks for an optional reason and sends it with If-Match', async () => {

@@ -126,7 +126,15 @@ export function ExportButton({
         }}
       >
         <Form layout="vertical">
-          <Form.Item label={t('reports.export_format')}>
+          <Form.Item
+            label={t('reports.export_format')}
+            // Say why PDF is missing rather than leave it out unexplained (QA10-P4-25).
+            extra={
+              offered.data !== undefined && !offered.data.includes('pdf')
+                ? t('errors.pdf_not_available')
+                : undefined
+            }
+          >
             <Radio.Group
               value={format}
               onChange={(event) => {
