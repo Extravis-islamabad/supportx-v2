@@ -92,6 +92,7 @@ export function PickListEditor({
                   icon={<ArrowUpOutlined />}
                   aria-label={t('settings.move_up', { name: name(value) })}
                   disabled={index === 0 || pending}
+                  whyDisabled={pending ? undefined : t('why.already_first')}
                   onClick={() => {
                     move(index, -1);
                   }}
@@ -103,6 +104,7 @@ export function PickListEditor({
                   icon={<ArrowDownOutlined />}
                   aria-label={t('settings.move_down', { name: name(value) })}
                   disabled={index === values.length - 1 || pending}
+                  whyDisabled={pending ? undefined : t('why.already_last')}
                   onClick={() => {
                     move(index, 1);
                   }}

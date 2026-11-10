@@ -146,6 +146,31 @@ describe('console: service requests', () => {
     expect(within(row as HTMLElement).getAllByText('Awaiting approval')).toHaveLength(2);
   });
 
+  it('Haider 2026-11-10: the list is the list template; a resized column is kept under its own settings', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = api({
+      'GET /api/v1/service-requests/list-settings/all': {
+        body: { view_key: 'all', columns: [], sort: null, page_size: 50, version: null },
+      },
+      'PUT /api/v1/service-requests/list-settings/all': (call: { body: unknown }) => ({
+        body: { view_key: 'all', version: 1, ...(call.body as object) },
+        headers: { ETag: '"1"' },
+      }),
+    });
+    render(<App />);
+    expect(await screen.findByTestId('sr-filterbar')).toBeDefined(); // the one toolbar
+    const [id] = await screen.findAllByRole('separator', { name: /ID/ });
+    if (id === undefined) throw new Error('no resize handle on the ID');
+    fireEvent.keyDown(id, { key: 'ArrowRight' });
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/service-requests/list-settings/all')).toHaveLength(1);
+    });
+    const [saved] = fake.find('PUT', '/api/v1/service-requests/list-settings/all');
+    const columns = (saved?.body as { columns: { key: string; width: number | null }[] }).columns;
+    expect(columns.find((c) => c.key === 'id')?.width).toBe(166);
+    expect(fake.find('PUT', '/api/v1/incidents/list-settings/all')).toHaveLength(0);
+  });
+
   it('narrows the list to an approval view, with its count', async () => {
     window.history.pushState({}, '', '/requests');
     const fake = api();

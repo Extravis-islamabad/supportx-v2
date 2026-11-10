@@ -83,6 +83,20 @@ describe('Incident parts (WP-020e)', () => {
     });
   });
 
+  it('Haider 2026-11-10 (A8): a disabled Add task says why, reachable by keyboard', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'tasks');
+    api({});
+    render(<App />);
+    const add = await screen.findByTestId('inc-task-add');
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+    const wrapper = add.closest('[data-testid="disabled-why"]');
+    if (wrapper === null) throw new Error('no reason around the disabled button');
+    expect(wrapper.getAttribute('tabindex')).toBe('0'); // a keyboard reaches the reason
+    fireEvent.mouseEnter(wrapper);
+    expect(await screen.findByText('Give the task a title first.')).toBeDefined();
+  });
+
   it('REQ-INC-072: what is typed while a task saves is kept (found by the e2e in CI)', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'tasks');

@@ -262,6 +262,7 @@ function DueDateDialog({
             <WriteButton
               key="clear"
               disabled={blank}
+              whyDisabled={t('why.give_reason')}
               loading={save.isPending}
               onClick={() => {
                 run(true);
@@ -275,6 +276,7 @@ function DueDateDialog({
             key="save"
             type="primary"
             disabled={blank || dueAt === null}
+            whyDisabled={t('why.give_reason_and_date')}
             loading={save.isPending}
             onClick={() => {
               run(false);

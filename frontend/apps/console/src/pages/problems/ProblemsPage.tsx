@@ -1,6 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Flex, Input, Select, Space, Table } from 'antd';
+import { Button, Input, Select, Space, Table } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -14,6 +14,8 @@ import { useListChannel } from '@supportx/realtime';
 import {
   CellText,
   EmptyText,
+  FilterBar,
+  ListPage,
   PageHeader,
   reportError,
   useAccess,
@@ -75,59 +77,75 @@ export function ProblemsPage() {
   const rows = list.data?.items ?? [];
   const people = list.data?.people ?? {};
   return (
-    <Flex vertical gap={16} style={{ width: '100%' }}>
-      <PageHeader
-        title={t('nav.problems')}
-        extra={
-          <Space wrap>
-            <Button onClick={() => void navigate('/problems/known-errors')} data-testid="prb-kedb">
-              {t('problems.known_error.database')}
-            </Button>
-            {create && (
+    // The list template (D-124, Haider 2026-11-10): ListPage spaces it; one FilterBar.
+    <ListPage
+      testId="prb-page"
+      header={
+        <PageHeader
+          title={t('nav.problems')}
+          extra={
+            <Space wrap>
               <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => void navigate('/problems/new')}
-                data-testid="prb-new"
+                onClick={() => void navigate('/problems/known-errors')}
+                data-testid="prb-kedb"
               >
-                {t('problems.new')}
+                {t('problems.known_error.database')}
               </Button>
-            )}
-          </Space>
-        }
-      />
-      <RepeatedIncidents enabled={create} />
-      <Flex gap={8} wrap>
-        <Select
-          style={{ minWidth: 260 }}
-          prefix={`${t('incidents.view')}:`}
-          aria-label={t('incidents.view')}
-          value={view ?? views.data?.[0]?.view}
-          onChange={setView}
-          loading={views.isLoading}
-          options={(views.data ?? []).map((v) => ({
-            value: v.view,
-            label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
-          }))}
-          data-testid="prb-view"
+              {create && (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => void navigate('/problems/new')}
+                  data-testid="prb-new"
+                >
+                  {t('problems.new')}
+                </Button>
+              )}
+            </Space>
+          }
         />
-        <Input.Search
-          allowClear
-          style={{ flex: '1 1 260px', maxWidth: 420 }}
-          placeholder={t('problems.search')}
-          aria-label={t('problems.search')}
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-          }}
-          data-testid="prb-search"
+      }
+      kpis={<RepeatedIncidents enabled={create} />}
+      filters={
+        <FilterBar
+          testId="prb-filterbar"
+          view={
+            <Select
+              style={{ minWidth: 260 }}
+              prefix={`${t('incidents.view')}:`}
+              aria-label={t('incidents.view')}
+              value={view ?? views.data?.[0]?.view}
+              onChange={setView}
+              loading={views.isLoading}
+              options={(views.data ?? []).map((v) => ({
+                value: v.view,
+                label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+              }))}
+              data-testid="prb-view"
+            />
+          }
+          search={
+            <Input.Search
+              allowClear
+              placeholder={t('problems.search')}
+              aria-label={t('problems.search')}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              data-testid="prb-search"
+            />
+          }
+          extra={
+            widths.changed ? (
+              <Button onClick={widths.reset} data-testid="prb-reset-widths">
+                {t('layout.reset_widths')}
+              </Button>
+            ) : undefined
+          }
         />
-        {widths.changed && (
-          <Button onClick={widths.reset} data-testid="prb-reset-widths">
-            {t('layout.reset_widths')}
-          </Button>
-        )}
-      </Flex>
+      }
+    >
       <Table
         rowKey="id"
         loading={list.isLoading}
@@ -206,6 +224,6 @@ export function ProblemsPage() {
           },
         ]}
       />
-    </Flex>
+    </ListPage>
   );
 }

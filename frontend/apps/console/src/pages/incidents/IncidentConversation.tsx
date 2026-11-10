@@ -366,6 +366,7 @@ function ComposeButtons({
       <Tooltip title={why(note)}>
         <WriteButton
           disabled={disabled || note?.allowed !== true}
+          whyDisabled={t('why.no_note')}
           onClick={() => {
             onCompose({ kind: 'note' });
           }}
@@ -890,6 +891,7 @@ function Composer({
           type="primary"
           loading={add.isPending}
           disabled={body === ''}
+          whyDisabled={t('why.write_first')}
           onClick={() => {
             send();
           }}

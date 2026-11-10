@@ -280,6 +280,7 @@ export function IncidentTasks({
           <WriteButton
             type="primary"
             disabled={title.trim() === ''}
+            whyDisabled={t('why.task_title')}
             loading={change.isPending}
             onClick={add}
             data-testid="inc-task-add"
@@ -579,6 +580,7 @@ export function IncidentWorklogs({
               <WriteButton
                 type="primary"
                 disabled={!ready}
+                whyDisabled={why ?? undefined}
                 loading={change.isPending}
                 onClick={add}
                 aria-describedby={why === null ? undefined : 'inc-worklog-why'}
@@ -724,6 +726,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
           <WriteButton
             type="primary"
             disabled={other === null}
+            whyDisabled={t('why.choose_record')}
             loading={change.isPending}
             onClick={() => {
               if (other === null) return;
