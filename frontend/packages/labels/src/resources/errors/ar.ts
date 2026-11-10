@@ -152,6 +152,7 @@ export const ar: LabelResource = {
     'معلومات الترخيص غير متاحة مؤقتًا. يرجى المحاولة مرة أخرى بعد قليل.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.already_linked': 'هذان السجلان مرتبطان بالفعل.',
+  'errors.field.announcement_message_required': 'اكتب الرسالة التي سيراها الناس.',
   'errors.field.api_key_allowlist_invalid': 'أدخل حتى 20 عنوانًا أو شبكة صالحة، مثل 10.0.0.0/8.',
   'errors.field.api_key_expiry_past': 'يجب أن يكون تاريخ الانتهاء في المستقبل.',
   'errors.field.api_key_expiry_required': 'اختر تاريخ انتهاء: لا تسمح مؤسستك بمفاتيح لا تنتهي.',

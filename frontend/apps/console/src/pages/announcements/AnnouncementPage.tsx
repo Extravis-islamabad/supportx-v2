@@ -428,6 +428,8 @@ function StatusActions({ item }: { item: Announcement }) {
           id="ann-reason"
           rows={3}
           count={lengthLimit(REASON_MAX, true)}
+          // Room for the "0 / 500" counter under the box, above the dialog's buttons (QA10-P4-18).
+          style={{ marginBottom: 24 }}
           value={reason}
           onChange={(event) => {
             setReason(event.target.value);

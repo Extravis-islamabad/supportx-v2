@@ -90,6 +90,7 @@ export function AnnouncementFields({
             control={form.control}
             name="title"
             labelKey="announcement.field.title"
+            required
             render={(field) => (
               <Input {...field} count={lengthLimit(TITLE_MAX)} data-testid="ann-title" />
             )}
@@ -98,6 +99,7 @@ export function AnnouncementFields({
             control={form.control}
             name="body"
             labelKey="announcement.field.body"
+            required
             helpKey="announcement.body_help"
             render={(field) => (
               <Input.TextArea
