@@ -50,6 +50,18 @@ describe('WP-036 QA: the header at 390 px', () => {
     ).toBeDefined();
   });
 
+  it('QA10-P3-11: on a phone the open user menu names the person and their role first', async () => {
+    const session = fakeSession();
+    render(
+      <AppearanceProvider>
+        <AppHeader appName="app.console.name" session={session} onLogout={() => undefined} />
+      </AppearanceProvider>,
+    );
+    fireEvent.click(screen.getByTestId('user-menu'));
+    const who = await screen.findByTestId('user-menu-who');
+    expect(who.textContent).toContain(session.user.display_name);
+  });
+
   // BUG-06's band (overflow inside its own box) is for wider screens now: below the phone
   // breakpoint every layout gives way to a drawer behind a menu button (QA 2026-11-05 V2).
   it.each(['side', 'side_compact', 'top'] as const)(
