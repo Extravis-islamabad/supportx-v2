@@ -22,6 +22,12 @@ FieldsProvider = Callable[[AsyncSession], Awaitable[Mapping[str, RuleField]]]
 ValueChecker = Callable[[AsyncSession, Mapping[str, JsonValue]], Awaitable[Mapping[str, str]]]
 
 
+# The owning module's own access check, as the person (one policy layer, §11.2).
+RecordEditCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
+# The record and the stopped instance.
+WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
+
+
 @dataclass(frozen=True)
 class RecordType:
     """What automation needs to know about one record type."""
@@ -44,6 +50,11 @@ class RecordType:
     # the record roles an approval may name (empty: people and groups only).
     approval_roles: tuple[str, ...] | None = None
     notices: bool = False  # its notification source sends a workflow's notice (REQ-WF-022)
+    # Whether a person may edit one record (ADR-043 §10): running, stopping or restarting a
+    # workflow on it needs workflows.run and this. None: nobody may (the type has no workflows).
+    may_edit: "RecordEditCheck | None" = None
+    # A stopped workflow's open parts on the record (its pending approvals) close (REQ-WF-026).
+    close_workflow: "WorkflowCloser | None" = None
 
 
 @dataclass(frozen=True)

@@ -45,6 +45,8 @@ from app.shared.events import EventEnvelope, record_event
 
 log = structlog.get_logger(__name__)
 
+RECORD_CANCEL = "cancel"  # the life-cycle action that cancels a record (work items' own code)
+
 # The record events a wait node can listen for, from what the owning modules' readers say.
 # Approval decisions, task completions and worklogs join with session 2's people nodes.
 _WAITS = {
@@ -68,6 +70,11 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
         return
     if happened.event == TriggerEvent.CREATED:
         await _start_from_template(session, happened.record_type, happened.record_id)
+    if happened.event == TriggerEvent.STATUS_CHANGED and happened.action == RECORD_CANCEL:
+        # A cancelled record's workflows stop with it, their logs kept (REQ-WF-026 AC3); undoing
+        # the cancel offers to run them again (the record's workflow panel, S4).
+        await workflow_runtime.stop_for_record(session, happened.record_type, happened.record_id)
+        return
     kind = _WAITS.get(happened.event)
     if kind is None:
         return

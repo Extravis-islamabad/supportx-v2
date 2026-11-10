@@ -15,10 +15,12 @@ from sqlalchemy import select
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import NotFound
+from app.core.errors import NotFound, PermissionDenied
+from app.modules.audit import audited
 from app.modules.automation.domain.workflows import Problem
 from app.modules.automation.infra.models import Workflow, WorkflowInstance, WorkflowStep
 from app.modules.automation.service import workflow_admin, workflow_runtime
+from app.modules.automation.service.registry import record_type as registered
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -85,6 +87,18 @@ class StartIn(BaseModel):
     record_id: uuid.UUID
 
 
+class StopIn(BaseModel):
+    """Stop a workflow on a record: always with a reason (REQ-WF-026 AC1)."""
+
+    reason: str = Field(min_length=1, max_length=workflow_runtime.STOP_REASON_MAX)
+
+
+class RestartIn(BaseModel):
+    """Run it again: from the start, or from a chosen node (REQ-WF-026 AC2)."""
+
+    node: str | None = Field(default=None, min_length=1, max_length=40)
+
+
 class InstanceOut(BaseModel):
     """One run: where it is, and why it stopped if it did (REQ-WF-023, -024)."""
 
@@ -99,6 +113,7 @@ class InstanceOut(BaseModel):
     started_how: str
     started_at: datetime
     finished_at: datetime | None
+    stopped_reason: str | None = None  # why it was stopped: the person's words, or a code
     version: int
 
 
@@ -256,11 +271,14 @@ async def start(
     subject: Run,
     idempotency: Idempotency,
 ) -> Response:
-    """409 workflow_already_running while one runs on the record (REQ-WF-010 AC2)."""
-    del subject
+    """409 workflow_already_running while one runs on the record (REQ-WF-010 AC2).
+
+    The person must be able to edit the record too (ADR-043 §10).
+    """
     workflow = await session.get(Workflow, workflow_id)
     if workflow is None or workflow.deleted_at is not None:
         raise NotFound(code="workflow_not_found")
+    await _editable(session, subject, workflow.record_type, body.record_id)
 
     async def operation() -> Created:
         made = await workflow_runtime.start(
@@ -300,3 +318,107 @@ async def steps(instance_id: uuid.UUID, session: TenantSession, subject: Run) ->
         .order_by(WorkflowStep.seq)
     )
     return [StepOut.model_validate(r, from_attributes=True) for r in rows]
+
+
+async def _editable(
+    session: TenantSession, subject: Subject, record_type: str, record_id: uuid.UUID
+) -> None:
+    """Running, stopping or restarting a workflow on a record needs the right to edit it too."""
+    kind = registered(record_type)
+    if (
+        kind is None
+        or kind.may_edit is None
+        or not await kind.may_edit(session, subject, record_id)
+    ):
+        raise PermissionDenied(code="record_not_editable")
+
+
+async def _instance_to_act_on(
+    session: TenantSession, subject: Subject, instance_id: uuid.UUID
+) -> WorkflowInstance:
+    instance = await session.get(WorkflowInstance, instance_id)
+    if instance is None:
+        raise NotFound(code="workflow_instance_not_found")
+    await _editable(session, subject, instance.record_type, instance.record_id)
+    return instance
+
+
+@router.post(
+    "/instances/{instance_id}/stop",
+    summary="Stop a workflow on a record, with a reason",
+    dependencies=[
+        audited(
+            "automation.workflow_stopped",
+            object_type="workflow_instance",
+            object_param="instance_id",
+        )
+    ],
+)
+async def stop_instance(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    instance_id: uuid.UUID,
+    body: StopIn,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Run,
+) -> InstanceOut:
+    """Its log stays readable; the record goes on through its life cycle (REQ-WF-026)."""
+    await _instance_to_act_on(session, subject, instance_id)
+    stopped = await workflow_runtime.stop(
+        session, instance_id, reason=body.reason.strip(), expected_version=version
+    )
+    set_etag(response, stopped.version)
+    return _instance(stopped)
+
+
+@router.post(
+    "/instances/{instance_id}/restart",
+    summary="Run a workflow on a record again, from the start or a chosen node",
+    dependencies=[
+        audited(
+            "automation.workflow_restarted",
+            object_type="workflow_instance",
+            object_param="instance_id",
+        )
+    ],
+)
+async def restart_instance(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    instance_id: uuid.UUID,
+    body: RestartIn,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Run,
+) -> InstanceOut:
+    """A stopped, failed or finished run, on its own version; history records it."""
+    await _instance_to_act_on(session, subject, instance_id)
+    again = await workflow_runtime.restart(
+        session, instance_id, node=body.node, expected_version=version
+    )
+    set_etag(response, again.version)
+    return _instance(again)
+
+
+@router.post(
+    "/instances/{instance_id}/retry",
+    summary="Run a failed workflow's failed step again",
+    dependencies=[
+        audited(
+            "automation.workflow_retried",
+            object_type="workflow_instance",
+            object_param="instance_id",
+        )
+    ],
+)
+async def retry_instance(
+    instance_id: uuid.UUID,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Run,
+) -> InstanceOut:
+    """REQ-WF-025 AC2, one at a time (the overview's bulk retry is a background job)."""
+    await _instance_to_act_on(session, subject, instance_id)
+    again = await workflow_runtime.retry(session, instance_id, expected_version=version)
+    set_etag(response, again.version)
+    return _instance(again)

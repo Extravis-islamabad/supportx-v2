@@ -637,6 +637,9 @@ export const en = {
     'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
     "The article's images are too large to insert together: at most {{limit_mb}} MB.",
+  'errors.instance_not_failed': 'Only a failed workflow can be retried.',
+  'errors.instance_not_running': 'This workflow is not running, so it cannot be stopped.',
+  'errors.instance_running': 'Stop this workflow before running it again.',
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
@@ -747,6 +750,7 @@ export const en = {
     'SupportX cannot be reached right now. Check your connection; we will keep trying.',
   'errors.no_organization':
     'Your account is not linked to any organisation yet. Please contact your administrator.',
+  'errors.node_not_found': 'That step is not in this version of the workflow.',
   'errors.not_a_member': 'You are not a member of that organisation.',
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.not_an_approver': 'You are not an approver of this request.',
@@ -756,6 +760,7 @@ export const en = {
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
   'errors.nothing_to_override':
     'This change is not waiting for approval again, so there is nothing to override.',
+  'errors.nothing_to_retry': 'There is no failed step to run again.',
   'errors.notification_event_not_found': 'This notification event does not exist.',
   'errors.notification_not_found': 'This notification does not exist or is not yours.',
   'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
@@ -805,6 +810,7 @@ export const en = {
   'errors.recipient_deferred': "The recipient's mail server asked to try later.",
   'errors.recipient_refused': 'The mail server refused the recipient.',
   'errors.record_closed': 'Closed and canceled records cannot be changed.',
+  'errors.record_not_editable': 'You need to be able to edit the record to do this.',
   'errors.reference_copied': 'Reference copied',
   'errors.reference_is': 'Reference: {{reference}}',
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
@@ -825,6 +831,7 @@ export const en = {
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
   'errors.required': 'This field is required.',
+  'errors.restart_at_end': 'Choose a step to run from, not an end.',
   'errors.role_in_use':
     'This role is still assigned to users. Choose a role to move them to first.',
   'errors.role_not_found': 'This role was not found.',
@@ -921,6 +928,9 @@ export const en = {
   'errors.work_item_view_not_found':
     'This saved view no longer exists, or it is not shared with you.',
   'errors.work_item_worklog_not_found': 'This worklog no longer exists.',
+  'errors.workflow_instance_changed':
+    'This workflow changed since you opened it. Reload and try again.',
+  'errors.workflow_instance_not_found': 'This workflow run was not found.',
   'errors.would_lose_access':
     'After this change you will no longer see {{display_id}}. Confirm to hand it over.',
 } as const;

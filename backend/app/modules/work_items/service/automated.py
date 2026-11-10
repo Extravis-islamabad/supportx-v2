@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import automation
+from app.modules.identity_access import Subject
 from app.modules.work_items.domain.types import TYPES, WorkItemType
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import conversations, workflow_approvals, workflow_commands
@@ -157,6 +158,13 @@ def _note(wtype: WorkItemType) -> automation.Noter:
     return note
 
 
+def _may_edit(wtype: WorkItemType) -> automation.RecordEditCheck:
+    async def check(session: AsyncSession, subject: Subject, record_id: uuid.UUID) -> bool:
+        return await items.may_edit(session, subject, wtype, record_id)
+
+    return check
+
+
 def register_triggers() -> None:
     """Give every registered work item type its trigger hooks (module import, after types)."""
     for wtype in TYPES.values():
@@ -175,6 +183,8 @@ def register_triggers() -> None:
                     wtype.roles if wtype.code in workflow_approvals.APPROVAL_TYPES else None
                 ),
                 notices=wtype.code.value in workflow_commands.NOTICE_TYPES,
+                may_edit=_may_edit(wtype),  # ADR-043 §10: run, stop, restart on the record
+                close_workflow=workflow_approvals.close_for_instance,  # REQ-WF-026
             )
         )
     automation.register_event_reader((*_RECORD_EVENTS, _CONVERSATION), read_event)

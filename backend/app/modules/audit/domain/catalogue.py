@@ -116,6 +116,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("automation.trigger_deleted", AuditCategory.CONFIGURATION, "automation"),
     ("automation.triggers_reordered", AuditCategory.CONFIGURATION, "automation"),
     ("automation.transition_saved", AuditCategory.CONFIGURATION, "automation"),
+    # workflows on a record (WP-048b S3a; REQ-WF-026)
+    ("automation.workflow_stopped", AuditCategory.RECORDS, "automation"),
+    ("automation.workflow_restarted", AuditCategory.RECORDS, "automation"),
+    ("automation.workflow_retried", AuditCategory.RECORDS, "automation"),
     ("automation.transition_reset", AuditCategory.CONFIGURATION, "automation"),
     ("automation.routing_created", AuditCategory.CONFIGURATION, "automation"),
     ("automation.routing_changed", AuditCategory.CONFIGURATION, "automation"),

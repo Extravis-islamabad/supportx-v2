@@ -333,6 +333,17 @@ async def _may(
     return await _reason_for(session, subject, wtype, action, record_id) is None
 
 
+async def may_edit(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may edit the record (its type's edit permission, in scope).
+
+    For other modules that act on a record for a person: running, stopping or restarting a
+    workflow on it (ADR-043 §10).
+    """
+    return await _may(session, subject, wtype, "edit", record_id)
+
+
 async def _reason_for(  # noqa: PLR0913 - the check and its optional stage rule, explicit
     session: AsyncSession,
     subject: Subject,
