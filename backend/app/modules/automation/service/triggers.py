@@ -48,7 +48,12 @@ from app.modules.automation.infra.models import (
     WorkflowInstance,
 )
 from app.modules.automation.service import workflow_runtime
-from app.modules.automation.service.business_rules import DESCRIPTION_MAX, _invalid, _text
+from app.modules.automation.service.business_rules import (
+    DESCRIPTION_MAX,
+    _invalid,
+    _text,
+    person_group_problems,
+)
 from app.modules.automation.service.registry import (
     AutomatedChange,
     RecordEvent,
@@ -101,7 +106,9 @@ async def check(
     actions = values.get("actions") or []
     if not problems:
         settable = {a["field"]: a.get("value") for a in actions if a.get("kind") == "set"}
-        for field, code in (await kind.check_values(session, settable)).items():
+        found = dict(await kind.check_values(session, settable))
+        found = await person_group_problems(session, settable) | found
+        for field, code in found.items():
             index = next(i for i, a in enumerate(actions) if a.get("field") == field)
             problems.append((f"actions.{index}.value", code, {"field": field}))
     state = values.get("state", RuleState.DRAFT.value)

@@ -846,6 +846,11 @@ class SlaActionIn(BaseModel):
         default=None, description="The group or person to reassign to."
     )
     text: str | None = Field(default=None, max_length=2000, description="A private note.")
+    group_id: uuid.UUID | None = Field(
+        default=None,
+        description="Reassign to a person: one of their groups, which the record moves to with "
+        "them (D-154). Required when they are in several groups; filled in when in one.",
+    )
 
 
 class SlaLevelIn(BaseModel):
@@ -895,6 +900,7 @@ class SlaLevelOut(SlaLevelIn):
                     kind=a.kind,
                     target_id=uuid.UUID(a.target_id) if a.target_id else None,
                     text=a.text,
+                    group_id=uuid.UUID(a.group_id) if a.group_id else None,
                 )
                 for a in level.actions
             ],

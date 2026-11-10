@@ -443,6 +443,9 @@ export const ur: LabelResource = {
   'errors.field.period_weekday_invalid': 'ہفتے کا کوئی دن منتخب کریں۔',
   'errors.field.periods_overlap':
     'کام کے دورانیے ایک دوسرے پر آ رہے ہیں۔ رات کا دورانیہ بھی اگلی صبح کے دورانیے سے پہلے ختم ہونا چاہیے۔',
+  'errors.field.person_in_no_group':
+    'یہ فرد کسی سپورٹ گروپ میں نہیں، اس لیے انہیں کچھ تفویض نہیں ہو سکتا۔',
+  'errors.field.person_not_in_group': 'یہ فرد منتخب گروپ کے رکن نہیں۔',
   'errors.field.phone_not_valid': 'فون نمبر درج کریں: ہندسے، خالی جگہ، +، - اور قوسین۔',
   'errors.field.plain_connection_refused':
     'بغیر انکرپشن کنکشن رد کیا جاتا ہے جب تک آپ اجازت نہ دیں۔',
@@ -453,6 +456,8 @@ export const ur: LabelResource = {
   'errors.field.read_only': 'یہ فیلڈ یہاں تبدیل نہیں ہو سکتی۔',
   'errors.field.read_only_in_stage': 'موجودہ مرحلے میں یہ فیلڈ بدلی نہیں جا سکتی۔',
   'errors.field.reason_required': 'وجہ بتائیں۔',
+  'errors.field.reassign_group_required':
+    'یہ فرد کئی گروپوں میں ہیں: وہ گروپ چنیں جس میں ریکارڈ جائے گا۔',
   'errors.field.recipient_shape': 'اس وصول کنندہ کے لیے شخص یا گروپ منتخب کریں۔',
   'errors.field.recipients_required': 'کم از کم ایک شخص یا گروپ منتخب کریں۔',
   'errors.field.record_not_found': 'آپ کے دیکھنے کے قابل کسی ریکارڈ کی یہ شناخت نہیں۔',

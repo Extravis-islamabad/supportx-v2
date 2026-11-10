@@ -319,10 +319,11 @@ test('WP-044c in Arabic: the causing problem on an incident, the repeat rules, t
   });
   expect([200, 201]).toContain(linked.status());
   await admin.page.goto('/');
-  await admin.page.getByTestId('appearance-menu').click();
+  // Appearance is an item of the user menu since UI pass 3 (D-147).
+  await openAppearance(admin.page);
   await admin.page.getByTestId('language-select').click();
   await admin.page.locator('.ant-select-item-option[title="العربية"]').click();
-  await admin.page.getByTestId('appearance-menu').click();
+  await closeAppearance(admin.page);
   await expect(admin.page.locator('html')).toHaveAttribute('dir', 'rtl', LIVE);
 
   // The incident tells what causes it, never the root cause (D14, REQ-PRB-071).

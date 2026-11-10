@@ -199,7 +199,7 @@ async def test_e1_nobody_on_it_waits_ready_tells_its_group_once_and_fulfil_is_re
     """D-154 "E1 follows d": its last task done with nobody on it, a request is not fulfilled
     by itself; its group gets one in-app notice; a Fulfil without a technician is refused."""
     a = world.a
-    item = await an_item(world, a, plan=PLAN[:1])
+    item = await an_item(world, a, plan=[PLAN[0], PLAN[2]])  # one required, one optional
     record = (
         await raise_request(
             world,
@@ -210,8 +210,11 @@ async def test_e1_nobody_on_it_waits_ready_tells_its_group_once_and_fulfil_is_re
             group_id=str(a.ga),
         )
     ).json()
-    [only] = await tasks(world, a, record)
+    only, optional = await tasks(world, a, record)
+    assert (only["required"], optional["required"]) == (True, False)
     await done(world, a, record, only)  # the admin ticks it: not its group, so it stays New
+    # Lane B (#339): an optional task ticked after that tells nobody again.
+    await done(world, a, record, optional)
     now = await fresh(world, a, record)
     assert (now["status"], now["technician_id"]) == ("new", None)
     ready = [
