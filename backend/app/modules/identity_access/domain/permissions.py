@@ -73,13 +73,11 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
 RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
-    # requests.* (service requests), problems.* (WP-044a) and releases.* (WP-058a) moved to
-    # work_items' ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the
-    # engine's actions), and assets.* to the assets module (WP-049a); the system-role grants
-    # below still name requests.* and assets.*, unchanged.
-    PermissionSpec("changes.view", "change", ALL),
-    PermissionSpec("changes.create", "change"),
-    PermissionSpec("changes.approve", "change", NOT_OWN),
+    # requests.* (service requests), problems.* (WP-044a), releases.* (WP-058a) and changes.*
+    # (WP-045a: the same key names, so saved grants need no mapping) moved to work_items'
+    # ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the engine's
+    # actions), and assets.* to the assets module (WP-049a); the system-role grants below still
+    # name them, unchanged.
     PermissionSpec("cmdb.view", "cmdb", NOT_OWN),
     PermissionSpec("cmdb.manage", "cmdb"),
 )

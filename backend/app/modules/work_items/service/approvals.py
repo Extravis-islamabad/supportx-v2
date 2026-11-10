@@ -250,6 +250,10 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
         self_approval=row.self_approval,
     ):
         raise PermissionDenied(code="approval_segregation")
+    if row.record_stage is not None and subject.user_id in await stage_approvals.segregated(
+        session, record
+    ):  # REQ-CHG-039: an implementer named before they became one is refused too
+        raise PermissionDenied(code="approval_segregation", params={"reason": "segregated_role"})
     if row.version != expected_version:
         raise Conflict(code="approval_changed", params={"version": row.version})
     if problems := rules.decision_problems(

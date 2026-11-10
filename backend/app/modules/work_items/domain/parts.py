@@ -58,6 +58,8 @@ class LinkKind(StrEnum):
     CAUSED_BY_RELEASE = "caused_by_release"  # an incident, request or problem the release caused
     STARTED_RELEASE = "started_release"  # a record that started the release
     SUB_RELEASE_OF = "sub_release_of"  # a sub-release of a parent release
+    # A change raised for an incident, request, problem or release (WP-045a, REQ-CHG-002; 0115).
+    CHANGE_FOR = "change_for"
 
 
 class WorklogProblem(StrEnum):
