@@ -391,3 +391,24 @@ async def test_req_sla_010_ac3_the_admin_sees_how_many_open_records_a_calendar_r
     # Another tenant's calendar ID is not found there.
     other = await world.call("GET", path, world.b, world.b.admin)
     assert other.status_code == 404, other.text
+
+
+async def test_a_priority_change_moving_the_due_date_is_no_due_date_edit_in_the_audit_log(
+    world: World,
+) -> None:
+    """WP-064 (lane A): the SLA engine's due rewrite in the same request is not a person's edit."""
+    a = world.a
+    item = await _p1(world, a)
+    changed = await world.patch(a, a.tech_a, item, priority="p2", priority_reason="Narrower")
+    assert changed.status_code == 200, changed.text
+    sla_saves = [e for e in await world.history(a, item) if e["source"] == "sla"]
+    assert any(c["field"] == "resolution_due_at" for e in sla_saves for c in e["changes"])
+    rows = await world.sql(
+        "SELECT events FROM audit_entries WHERE tenant_id = $1 AND object_id = $2"
+        " AND events IS NOT NULL ORDER BY occurred_at, id",
+        a.tenant,
+        item["id"],
+    )
+    last = list(rows[-1]["events"])
+    assert "incident.priority_changed" in last
+    assert "incident.due_date_changed" not in last

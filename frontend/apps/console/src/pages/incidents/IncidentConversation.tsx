@@ -172,7 +172,11 @@ function ConversationBody({
   const [seenRequest, setSeenRequest] = useState(0);
   if (replyRequest !== seenRequest) {
     setSeenRequest(replyRequest);
-    if (replyRequest > 0 && draft === null) setDraft({ kind: 'reply', mode: replyMode });
+    // A reply already open takes the mode just chosen (Forward after Reply), so the header's
+    // choice always shows (lane A's #338 review); a note being written is left alone.
+    if (replyRequest > 0 && (draft === null || draft.kind === 'reply')) {
+      setDraft({ kind: 'reply', mode: replyMode });
+    }
   }
   const conversation = useIncidentConversation(item.id, true, base);
   // The record type's own files and history: never an incident path for another type (a 404).
