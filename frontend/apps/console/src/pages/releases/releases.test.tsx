@@ -436,6 +436,8 @@ describe('console: releases', () => {
     // No stage chip: the stage bar always shows the stage (QA fix-round D2).
     expect(screen.queryByTestId('release-stage')).toBeNull();
     expect(screen.queryByTestId('release-status')).toBeNull();
+    // Worded as every record's menu (QA10V-10: "⋮ More").
+    expect(screen.getByTestId('release-more').textContent).toContain('More actions');
     expect(screen.getByTestId('release-people').textContent).toMatch(/^Requested by /);
     expect(screen.getByTestId('record-kind-tile').getAttribute('data-kind')).toBe('release');
   });
