@@ -35,7 +35,8 @@ async def main(stop: asyncio.Event) -> None:
             application_name="supportx-workflow-timers",
             pool_size=settings.db_pool_size,
             max_overflow=settings.db_max_overflow,
-        )
+        ),
+        settings,  # its own settings on each session (is outgoing mail set up?)
     )
     client = await connect(settings.temporal_address, settings.temporal_namespace)
     activities = WorkflowActivities(database)

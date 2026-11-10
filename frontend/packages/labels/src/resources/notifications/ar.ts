@@ -33,12 +33,14 @@ export const ar: LabelResource = {
   'notification.open_record': 'فتح {{id}}',
   'notification_area.announcement': 'الإعلانات',
   'notification_area.asset': 'الأصول',
+  'notification_area.change': 'التغييرات',
   'notification_area.connector': 'الموصلات',
   'notification_area.incident': 'الحوادث',
   'notification_area.kb_article': 'المعرفة',
   'notification_area.mailbox': 'البريد',
   'notification_area.problem': 'المشكلات',
   'notification_area.problem_repeat': 'المشكلات',
+  'notification_area.release': 'الإصدارات',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
@@ -58,6 +60,7 @@ export const ar: LabelResource = {
   'notification_event.asset.loan_due': 'موعد إرجاع الإعارة غدًا',
   'notification_event.asset.loan_overdue': 'الإعارة متأخرة',
   'notification_event.asset.warranty_expiring': 'الضمان ينتهي قريبًا',
+  'notification_event.change.public_reply': 'رد على مقدم الطلب',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.incident.assigned': 'أُسند حادث',
@@ -98,10 +101,12 @@ export const ar: LabelResource = {
   'notification_event.problem.target_breached': 'تجاوزت مشكلة موعدها المستهدف',
   'notification_event.problem.target_warning': 'اقترب الموعد المستهدف لمشكلة',
   'notification_event.problem_repeat.detected': 'وُجدت حوادث متكررة',
+  'notification_event.release.public_reply': 'رد على مقدم الطلب',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
   'notification_event.service_request.fulfilled': 'تنفيذ الطلب',
+  'notification_event.service_request.public_reply': 'رد على مقدم الطلب',
   'notification_event.service_request.ready_to_fulfil': 'طلب جاهز للتنفيذ',
   'notification_event.service_request.received': 'استلام الطلب: إشعار',
   'notification_event.service_request.rejected': 'رفض الطلب',
@@ -198,6 +203,12 @@ export const ar: LabelResource = {
     'ينتهي ضمان {{ record.display_id }} في {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'الضمان ينتهي: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.public_reply.body':
+    'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.change.public_reply.in_app':
+    'ردّ {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.change.public_reply.subject':
+    'رد جديد على {{ record.display_id }}: {{ record.title }}',
   'notification_template.connector.failing.body':
     'مرحبًا {{ recipient.name }}،\n\nتوقف {{ record.title }} عن العمل: {{ connector.reason }}.\n\nستُبلَّغ مرة واحدة لا عند كل محاولة، ومرة أخرى عندما يعود إلى العمل. افتح الإدارة › التكاملات لرؤيته.',
   'notification_template.connector.failing.in_app':
@@ -423,6 +434,12 @@ export const ar: LabelResource = {
     '{{ incident.count }} حوادث متشابهة: {{ rule.name }}',
   'notification_template.problem_repeat.detected.subject':
     '{{ incident.count }} حوادث متشابهة: {{ rule.name }}',
+  'notification_template.release.public_reply.body':
+    'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.release.public_reply.in_app':
+    'ردّ {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.release.public_reply.subject':
+    'رد جديد على {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -447,6 +464,12 @@ export const ar: LabelResource = {
     'نُفّذ {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.fulfilled.subject':
     'تم التنفيذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.public_reply.body':
+    'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.service_request.public_reply.in_app':
+    'ردّ {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.service_request.public_reply.subject':
+    'رد جديد على {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.ready_to_fulfil.body':
     'مرحبًا {{ recipient.name }}،\n\nأُنجزت كل مهام {{ record.display_id }} «{{ record.title }}» لكن لا أحد مسند إليه. أسنده إلى أحد أعضاء مجموعتك لتنفيذه.',
   'notification_template.service_request.ready_to_fulfil.in_app':

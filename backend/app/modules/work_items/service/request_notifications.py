@@ -20,6 +20,7 @@ it themself: it is their acknowledgement.
 
 import uuid
 from collections.abc import Mapping
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,20 +30,23 @@ from app.core.errors import NotFound
 from app.modules.identity_access import subject_for, user_names, worker_policy
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
+from app.modules.work_items.domain.conversation import EntryKind
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.events import (
     ServiceRequestReadyToFulfil,
     WorkItemApprovalChanged,
+    WorkItemConversationAdded,
     WorkItemCreated,
     WorkItemStatusChanged,
 )
-from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
+from app.modules.work_items.infra.models import WorkItem, WorkItemApproval, WorkItemConversation
 from app.modules.work_items.service import approvals
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import APPROVE_ANY
 from app.modules.work_items.service.file_access import sees_private
+from app.modules.work_items.service.notifications import move_reply_delivery, reply_excerpt
 from app.modules.work_items.service.realtime import RECORD_KIND
 from app.shared.action_links import LinkRequest
 from app.shared.events import EventEnvelope
@@ -65,6 +69,7 @@ APPROVED = "service_request.approved"
 REJECTED = "service_request.rejected"
 WITHDRAWN = "service_request.withdrawn"
 FULFILLED = "service_request.fulfilled"
+REPLY = "service_request.public_reply"  # a reply to the requester, by e-mail (lane B's #359)
 READY = "service_request.ready_to_fulfil"  # D-154 "E1 follows d": to its group, in the app
 GROUP = "group"  # the request's group
 REQUESTER = "requester"  # the requester and the person it is for
@@ -111,6 +116,17 @@ EVENTS: tuple[NotificationEvent, ...] = (
     NotificationEvent(
         FULFILLED, NotificationCategory.STATUS, EventDefault(enabled=True, recipients=(REQUESTER,))
     ),
+    # A technician's reply reaches the requester, as on incidents; its e-mail carries the reply,
+    # so the reply's delivery state follows it (it never stays queued).
+    NotificationEvent(
+        REPLY,
+        NotificationCategory.CONVERSATION,
+        EventDefault(enabled=True, recipients=(REQUESTER,)),
+        variables=(
+            Variable("conversation.author", "notification_variable.conversation.author"),
+            Variable("conversation.excerpt", "notification_variable.conversation.excerpt"),
+        ),
+    ),
     NotificationEvent(
         READY,
         NotificationCategory.ASSIGNMENT,
@@ -149,11 +165,16 @@ class ServiceRequestNotifications:
         WorkItemCreated.event_type,
         WorkItemStatusChanged.event_type,
         ServiceRequestReadyToFulfil.event_type,
+        WorkItemConversationAdded.event_type,
     )
 
-    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
+    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:  # noqa: PLR0911 - one return per event family, flat
         """An approval opened (its approver or the administrators), or the requester's news."""
         payload = envelope.payload
+        if envelope.event_type == WorkItemConversationAdded.event_type:
+            # No type on the event: `context` answers only for a request's outbound reply.
+            automatic = payload.get("automatic")
+            return () if automatic or payload.get("kind") != EntryKind.REPLY else (REPLY,)
         if envelope.event_type == WorkItemApprovalChanged.event_type:
             if not _opened(envelope):
                 return ()
@@ -174,6 +195,8 @@ class ServiceRequestNotifications:
             return await _requester_context(session, event_code, envelope)
         if event_code == READY:
             return await _ready_context(session, envelope)
+        if event_code == REPLY:
+            return await _reply_context(session, envelope)
         payload = envelope.payload
         row = await session.get(WorkItemApproval, uuid.UUID(str(payload["approval_id"])))
         record = await session.get(WorkItem, uuid.UUID(str(payload["work_item_id"])))
@@ -235,6 +258,21 @@ class ServiceRequestNotifications:
             )
             return RecordAccess.PUBLIC if holds is not None else RecordAccess.NONE
         return RecordAccess.FULL if sees_private(subject, SERVICE_REQUEST) else RecordAccess.PUBLIC
+
+    async def delivery_changed(  # noqa: PLR0913 - the port's fields, explicit
+        self,
+        session: AsyncSession,
+        *,
+        record_id: uuid.UUID,
+        entry_id: uuid.UUID,
+        state: str,
+        reason: str | None,
+        at: datetime,
+    ) -> None:
+        """A request's reply follows its e-mail, as an incident's does (lane B's #359)."""
+        await move_reply_delivery(
+            session, record_id=record_id, entry_id=entry_id, state=state, reason=reason, at=at
+        )
 
     async def recipient_links(
         self,
@@ -336,6 +374,46 @@ async def _requester_context(
         relatives={REQUESTER: people},
         conditions={"priority": record.priority},
         event_code=event_code,
+    )
+
+
+async def _reply_context(session: AsyncSession, envelope: EventEnvelope) -> RecordContext | None:
+    """A reply on a request, for its requester (and the person it is for).
+
+    Not a request (incidents have their own source), not a reply, or the requester's own:
+    nothing to send.
+    """
+    payload = envelope.payload
+    record = await session.get(WorkItem, uuid.UUID(str(payload["work_item_id"])))
+    if record is None or record.deleted_at is not None or record.type != SERVICE_REQUEST.code.value:
+        return None
+    entry = await session.get(WorkItemConversation, uuid.UUID(str(payload["entry_id"])))
+    if entry is None or entry.deleted_at is not None or entry.kind != EntryKind.REPLY:
+        return None
+    people = frozenset(p for p in (record.requester_id, record.on_behalf_of_id) if p is not None)
+    if entry.created_by in people:
+        return None  # the requester's own reply tells the desk, not themselves
+    author = str(entry.created_by) if entry.created_by else None
+    names = await user_names(session, [str(record.requester_id), *([author] if author else [])])
+    variables: dict[str, VariableValue] = {
+        "record.display_id": record.display_id,
+        "record.title": record.subject,
+        "record.link": f"/requests/{record.id}",
+        "requester.name": names.get(str(record.requester_id)),
+        "conversation.author": names.get(author) if author else None,
+        "conversation.excerpt": reply_excerpt(entry.body),
+    }
+    return RecordContext(
+        record_id=record.id,
+        display_id=record.display_id,
+        link=f"/requests/{record.id}",
+        public_link=f"/service-requests/{record.id}",
+        variables=variables,
+        public_variables=variables,
+        relatives={REQUESTER: people},
+        conditions={"priority": record.priority},
+        event_code=REPLY,
+        entry_id=entry.id,
     )
 
 
