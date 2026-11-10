@@ -501,6 +501,11 @@ describe('console: service requests', () => {
     // QA10V-13: the dot chip of the other record headers.
     expect(screen.getByTestId('sr-status').querySelector('.ant-badge')).not.toBeNull();
     expect(screen.queryByTestId('sr-approval')).toBeNull();
+    // QA10V-13: the requester is a row of the one Properties card, as on incidents.
+    expect(within(screen.getByTestId('sr-details')).getByTestId('sr-requester').textContent).toBe(
+      'Rana Requester',
+    );
+    expect(screen.getByTestId('sr-panel').textContent).not.toContain('rana@demo.test');
     fireEvent.click(await screen.findByTestId('sr-tab-details'));
     const answers = await screen.findByTestId('sr-answers');
     await waitFor(() => {
