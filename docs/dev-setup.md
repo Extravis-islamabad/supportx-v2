@@ -171,7 +171,7 @@ button per Showcase Company persona, so a browser-driving QA run signs in with o
 | Team lead | lead@showcase.test (service desk manager, lead of Service desk) | Console |
 | Approver | approver@showcase.test (head of Finance) | Portal |
 | Requester | requester@showcase.test (Finance; the approver is their manager) | Portal |
-| New starter | newstarter@showcase.test: **sets up two-step sign-in** the normal way | Portal |
+| New starter | newstarter@showcase.test: **sets up two-step sign-in**. The button e-mails Keycloak's own set-up link; open it in Mailpit within 15 minutes | Portal |
 
 1. Set `SHOWCASE_PASSWORD` in `deploy/compose/.env` (see Showcase Company above).
 2. `make dev-quick-sign-in`. This puts a random `SHOWCASE_TOTP_KEY` in `deploy/compose/.env` (only
