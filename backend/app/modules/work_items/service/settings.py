@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.modules import metadata
 from app.modules.organization import existing_unit_ids
+from app.modules.work_items.domain import reapproval as reapproval_rules
 from app.modules.work_items.domain.classification import Impact, Priority, Urgency
 from app.modules.work_items.domain.closure import (
     AUTO_CLOSE_MAX,
@@ -29,7 +30,7 @@ from app.modules.work_items.domain.closure import (
 )
 from app.modules.work_items.domain.conversation import FirstResponseAction
 from app.modules.work_items.domain.service_requests import OnBehalfScope
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTypeSettings
 from app.modules.work_items.service import catalogue as config
@@ -84,13 +85,17 @@ async def stale_settings(
         row,
         expected_version=expected_version,
         record_type=SETTINGS_RECORD_TYPE,
-        record_id=uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}"),
+        record_id=config.settings_record_id(wtype.code),
     )
 
 
 async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
     """The tenant's configuration (statuses, actions, scales, matrix, reasons, prefix)."""
     return await config.load(session, wtype)
+
+
+# Settings only changes have (WP-045b S3); audited with the type's settings_changed.
+CHANGE_ONLY = ("segregation_strict", "cab_every_match")
 
 
 async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
@@ -144,11 +149,29 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         )
     if "portal_show_due_time" in values:
         changes["portal_show_due_time"] = bool(values["portal_show_due_time"])
+    if "first_task_starts_work" in values:
+        changes["first_task_starts_work"] = bool(values["first_task_starts_work"])
     if "review_required_priorities" in values:
         wanted = list(values["review_required_priorities"] or [])
         if any(code not in set(Priority) for code in wanted):
             problem("review_required_priorities", "invalid_choice")
         changes["review_required_priorities"] = [p for p in Priority if p in wanted]
+    if "reapproval" in values:  # WP-045b S4: what edits to an approved change do
+        if wtype.code is not WorkItemTypeCode.CHANGE:
+            problem("reapproval", "not_allowed")
+        elif values["reapproval"] is None:
+            changes["reapproval"] = None
+        else:
+            for field, code in reapproval_rules.policy_problems(values["reapproval"]):
+                problem(field, code)
+            changes["reapproval"] = reapproval_rules.policy_json(
+                reapproval_rules.policy_from(values["reapproval"])
+            )
+    for name in CHANGE_ONLY:  # WP-045b S3: changes' approval settings
+        if name in values:
+            if wtype.code is not WorkItemTypeCode.CHANGE:
+                problem(name, "not_allowed")
+            changes[name] = bool(values[name])
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):
@@ -171,7 +194,11 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "approvals_hidden_from_requesters": current.approvals_hidden_from_requesters,
         "approvals_require_sign_in": current.approvals_require_sign_in,
         "portal_show_due_time": current.portal_show_due_time,
+        "first_task_starts_work": current.first_task_starts_work,
         "review_required_priorities": list(current.review_required_priorities),
+        "segregation_strict": current.segregation_strict,
+        "cab_every_match": current.cab_every_match,
+        "reapproval": current.reapproval,
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,
         "default_urgency": current.default_urgency,
@@ -200,7 +227,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
             updated_by=user_id,
         )
     )
-    settings_id = uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}")
+    settings_id = config.settings_record_id(wtype.code)
     await record_changes(
         session,
         record_type=SETTINGS_RECORD_TYPE,
@@ -312,7 +339,7 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         .where(WorkItemTypeSettings.type == wtype.code)
         .values(**changes, version=WorkItemTypeSettings.version + 1, updated_by=user_id)
     )
-    settings_id = uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}")
+    settings_id = config.settings_record_id(wtype.code)
     await record_changes(
         session,
         record_type=SETTINGS_RECORD_TYPE,

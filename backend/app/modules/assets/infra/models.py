@@ -218,6 +218,8 @@ class AssetSettings(TenantKeyed, Base):
     site_follows_owner: Mapped[bool] = mapped_column(Boolean, server_default="false")
     portal_own_assets_only: Mapped[bool] = mapped_column(Boolean, server_default="true")
     email_include_assets: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Days before a warranty ends that its managers hear of it (0114; Appendix A: 30).
+    warranty_notice_days: Mapped[int] = mapped_column(Integer, server_default="30")
     scan_retention_months: Mapped[int] = mapped_column(Integer, server_default="6")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
@@ -278,6 +280,20 @@ class Asset(TenantEntity):
         Index("ix_assets_state", "tenant_id", "state_id"),
         Index("ix_assets_vendor", "tenant_id", "vendor_id"),
         Index("ix_assets_site", "tenant_id", "site_id"),
+        # Its holder (0111): a person, a department, or the asset it is fitted to.
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_assets_owner_user",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "parent_asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_assets_parent_asset",
+        ),
+        Index("ix_assets_owner_user", "tenant_id", "owner_user_id"),
+        Index("ix_assets_department", "tenant_id", "department_id"),
+        Index("ix_assets_parent", "tenant_id", "parent_asset_id"),
         Index("ix_assets_search_vector", "search_vector", postgresql_using="gin"),
         Index(
             "ix_assets_search_text",
@@ -298,6 +314,11 @@ class Asset(TenantEntity):
     barcode: Mapped[str | None] = mapped_column(String(120))
     vendor_id: Mapped[uuid.UUID | None] = mapped_column()
     site_id: Mapped[uuid.UUID | None] = mapped_column()
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column()
+    department_id: Mapped[uuid.UUID | None] = mapped_column()
+    parent_asset_id: Mapped[uuid.UUID | None] = mapped_column()
+    loanable: Mapped[bool] = mapped_column(Boolean, server_default="false")  # 0114
+    warranty_noticed_on: Mapped[date | None] = mapped_column(Date)  # the date last noticed
     location: Mapped[str | None] = mapped_column(String(200))
     purchase_order_id: Mapped[uuid.UUID | None] = mapped_column()  # WP-054
     # D-141: price and tax apart; the total is worked out. Currency of both.
@@ -347,3 +368,211 @@ class AssetDisposal(TenantEntity):
     cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     currency: Mapped[str | None] = mapped_column(String(3))
     approved_by: Mapped[uuid.UUID | None]
+
+
+class AssetAssignment(TenantEntity):
+    """One holding of an asset (migration 0111; REQ-AST-019): by whom, from when to when.
+
+    Never rewritten: a new holder ends the current row and starts another. At most one current
+    row per asset (a partial unique index). A disputed acknowledgement leaves it as it is.
+    """
+
+    __tablename__ = "asset_assignments"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_assignments_asset",
+        ),
+        Index("ix_asset_assignments_asset", "tenant_id", "asset_id", "started_at"),
+        Index("ix_asset_assignments_holder", "tenant_id", "holder_kind", "holder_id", "started_at"),
+        Index(
+            "uq_asset_assignments_current",
+            "tenant_id",
+            "asset_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL AND deleted_at IS NULL"),
+        ),
+    )
+
+    asset_id: Mapped[uuid.UUID]
+    holder_kind: Mapped[str] = mapped_column(String(20))
+    holder_id: Mapped[uuid.UUID]
+    started_at: Mapped[datetime]
+    ended_at: Mapped[datetime | None]
+    source: Mapped[str] = mapped_column(String(20))
+
+
+class AssetRelationship(TenantEntity):
+    """A typed link between two assets (migration 0111; REQ-AST-027), shown from both ends."""
+
+    __tablename__ = "asset_relationships"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "from_asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_relationships_from",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "to_asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_relationships_to",
+        ),
+        Index(
+            "uq_asset_relationships_link",
+            "tenant_id",
+            "from_asset_id",
+            "to_asset_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_asset_relationships_to", "tenant_id", "to_asset_id"),
+    )
+
+    from_asset_id: Mapped[uuid.UUID]
+    to_asset_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(30))
+
+
+class AssetAcknowledgement(TenantEntity):
+    """A person acknowledges an asset given to them (migration 0112; REQ-AST-023).
+
+    One per holding. A dispute keeps the holding and its history exactly as they are.
+    """
+
+    __tablename__ = "asset_acknowledgements"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_acknowledgements_asset",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_asset_acknowledgements_user",
+        ),
+        Index("uq_asset_acknowledgements_assignment", "tenant_id", "assignment_id", unique=True),
+        Index("ix_asset_acknowledgements_user", "tenant_id", "user_id", "status"),
+    )
+
+    asset_id: Mapped[uuid.UUID]
+    assignment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("asset_assignments.id"))
+    user_id: Mapped[uuid.UUID]
+    status: Mapped[str] = mapped_column(String(20), server_default="pending")
+    comment: Mapped[str | None] = mapped_column(Text)
+    channel: Mapped[str | None] = mapped_column(String(20))
+    answered_at: Mapped[datetime | None]
+
+
+class AssetGroup(TenantEntity):
+    """A named group of assets (migration 0113; REQ-AST-028): static, or a saved filter."""
+
+    __tablename__ = "asset_groups"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_groups_tenant_id_id"),
+        Index(
+            "uq_asset_groups_name",
+            "tenant_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(20))
+    # Any: a shared filter DSL tree (app/shared/api/filters.py), checked when saved.
+    filter: Mapped[Any | None] = mapped_column(
+        JSONB(none_as_null=True)
+    )  # None is SQL NULL (the kind check)
+
+
+class AssetGroupMember(TenantKeyed, Base):
+    """A static group's member (migration 0113)."""
+
+    __tablename__ = "asset_group_members"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "group_id"],
+            ["asset_groups.tenant_id", "asset_groups.id"],
+            name="fk_asset_group_members_group",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_group_members_asset",
+        ),
+        Index("ix_asset_group_members_asset", "tenant_id", "asset_id"),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    asset_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_by: Mapped[uuid.UUID | None]
+
+
+class AssetLoan(TenantEntity):
+    """A loan of one or more assets to a person (migration 0114; REQ-AST-030)."""
+
+    __tablename__ = "asset_loans"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_asset_loans_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "borrower_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_asset_loans_borrower",
+        ),
+        Index(
+            "ix_asset_loans_open_due",
+            "tenant_id",
+            "due_at",
+            postgresql_where=text("closed_at IS NULL AND deleted_at IS NULL"),
+        ),
+        Index("ix_asset_loans_borrower", "tenant_id", "borrower_id"),
+    )
+
+    borrower_id: Mapped[uuid.UUID]
+    starts_at: Mapped[datetime]
+    due_at: Mapped[datetime]
+    closed_at: Mapped[datetime | None]
+    comment: Mapped[str | None] = mapped_column(Text)
+    due_noticed_at: Mapped[datetime | None]
+    overdue_noticed_at: Mapped[datetime | None]
+
+
+class AssetLoanItem(TenantEntity):
+    """One asset of a loan, and how it came back (migration 0114; REQ-AST-031).
+
+    At most one unreturned item per asset: the database refuses a second open loan.
+    """
+
+    __tablename__ = "asset_loan_items"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "loan_id"],
+            ["asset_loans.tenant_id", "asset_loans.id"],
+            name="fk_asset_loan_items_loan",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_loan_items_asset",
+        ),
+        Index(
+            "uq_asset_loan_items_out",
+            "tenant_id",
+            "asset_id",
+            unique=True,
+            postgresql_where=text("returned_at IS NULL AND deleted_at IS NULL"),
+        ),
+        Index("ix_asset_loan_items_loan", "tenant_id", "loan_id"),
+    )
+
+    loan_id: Mapped[uuid.UUID]
+    asset_id: Mapped[uuid.UUID]
+    returned_at: Mapped[datetime | None]
+    outcome: Mapped[str | None] = mapped_column(String(20))
+    return_comment: Mapped[str | None] = mapped_column(Text)

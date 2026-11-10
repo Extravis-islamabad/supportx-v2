@@ -50,6 +50,8 @@ export const queryKeys = {
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,
     mfa: ['identity', 'mfa'] as const,
     accountSecurity: ['identity', 'account-security'] as const,
+    mySessions: ['identity', 'sessions', 'mine'] as const,
+    personSessions: (userId: string) => ['identity', 'sessions', userId] as const,
     test: (id: string, testId: string) => ['identity', 'sso', id, 'test', testId] as const,
   },
   branding: {
@@ -73,6 +75,14 @@ export const queryKeys = {
     history: (id: string) => ['assets', 'history', id] as const,
     moves: (id: string) => ['assets', 'moves', id] as const,
     disposal: (id: string) => ['assets', 'disposal', id] as const,
+    holdings: (id: string) => ['assets', 'holdings', id] as const,
+    links: (id: string) => ['assets', 'links', id] as const,
+    components: (id: string) => ['assets', 'components', id] as const,
+    groups: ['assets', 'groups'] as const,
+    groupAssets: (id: string) => ['assets', 'groups', id] as const,
+    mine: ['assets', 'mine'] as const,
+    loans: ['assets', 'loans'] as const,
+    loanable: (q: string) => ['assets', 'loanable', q] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here

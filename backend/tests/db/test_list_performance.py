@@ -1,4 +1,4 @@
-"""Filtered list query on 100,000 users in a throwaway database (WP-008 performance report).
+"""Filtered list query on 100,000 users (nightly; 1,000 in PRs) in a throwaway database (WP-008).
 
 The rows belong to a fresh tenant of the session's throwaway database, so they are invisible to
 every other test (RLS) and dropped with the database. Timings are printed; set
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 pytestmark = pytest.mark.db
-ROWS = 100_000
+ROWS = timing.volume(100_000, 1_000)  # all of them nightly (perf.yml), a smoke run in PRs
 RUNS = 20
 
 SEED = """

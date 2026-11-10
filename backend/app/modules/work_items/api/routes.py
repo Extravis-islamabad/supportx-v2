@@ -18,7 +18,8 @@ from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
 from app.modules.ai import GATEWAY_STATE, Gateway
-from app.modules.audit import AuditNote, audited, entries_for_changes
+from app.modules.audit import AuditNote, RequestFacts, audited, entries_for_changes
+from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.conversation_routes import (
@@ -30,6 +31,11 @@ from app.modules.work_items.api.parts_routes import add_parts_collection_routes,
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
+from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import reapproval as reapproval_rules
+from app.modules.work_items.domain.approvals import RouteReason
+from app.modules.work_items.domain.change_risk import RiskLevel
+from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -47,6 +53,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.reapproval import OnChange, Watched
 from app.modules.work_items.domain.releases import (
     BUILD_REF_MAX,
     DETAIL_FIELDS,
@@ -69,9 +76,12 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
+from app.modules.work_items.service import change_boards as board_service
+from app.modules.work_items.service import change_links, release_links, resolution, stage_approvals
+from app.modules.work_items.service import change_risk as risk_service
 from app.modules.work_items.service import duplicates as duplicates_service
 from app.modules.work_items.service import problems as problem_service
-from app.modules.work_items.service import release_links, resolution
+from app.modules.work_items.service import reapproval as reapproval_service
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
@@ -168,6 +178,28 @@ class WorkItemIn(BaseModel):
     )
     review_actions: str | None = Field(
         default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
+    )
+    change_type: str | None = Field(
+        default=None, max_length=40, description="Changes only: a change type code (REQ-CHG-005)."
+    )
+    retrospective: bool | None = Field(
+        default=None,
+        description=(
+            "Changes only: work already done (REQ-CHG-004); needs actual_start and actual_end, "
+            "both past; it enters at the review."
+        ),
+    )
+    actual_start: datetime | None = Field(default=None, description="Changes only, retrospective.")
+    actual_end: datetime | None = Field(default=None, description="Changes only, retrospective.")
+    from_record_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Changes only: the incident, request, problem or release it is made from; linked "
+            "as change_for on both (REQ-CHG-002)."
+        ),
+    )
+    change_reason: str | None = Field(
+        default=None, max_length=40, description="Changes only: a reason for change code."
     )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
@@ -932,6 +964,11 @@ class WorkItemAssigneeOut(BaseModel):
     display_name: str
     email: str = Field(description="Second line in pickers: two people may share a name.")
     open_count: int
+    group_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="Their groups: someone outside the record's group is assigned by moving "
+        "the record to one of these in the same request (D-154a).",
+    )
 
 
 class WorkItemStatusOut(BaseModel):
@@ -1050,6 +1087,19 @@ def _value(v: ReasonInfo) -> WorkItemListValueOut:
     )
 
 
+class ReapprovalPolicyIO(BaseModel):
+    """What an edit to an approved change does, per watched value (REQ-CHG-053)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    on_change: dict[Watched, OnChange] = Field(
+        default_factory=dict, description="window, risk, plans: restart, notify or ignore."
+    )
+    tolerance_minutes: int = Field(
+        default=60, ge=0, le=10_080, description="A window moved by more than this restarts."
+    )
+
+
 class WorkItemCatalogueOut(BaseModel):
     """The tenant's configuration of this type (for forms, filters and labels)."""
 
@@ -1076,12 +1126,29 @@ class WorkItemCatalogueOut(BaseModel):
     portal_show_due_time: bool = Field(
         default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
     )
+    first_task_starts_work: bool = Field(
+        default=True,
+        description="Requests: ticking the first fulfilment task moves a New or Assigned request "
+        "to In progress, when ticked by its technician or group (D-154c).",
+    )
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
     )
     review_required_priorities: list[Priority] = Field(
         default_factory=list,
         description="Problems: priorities that need a review before closing (major ones always).",
+    )
+    segregation_strict: bool = Field(
+        default=False,
+        description="Changes: implementing groups' members may not approve either (REQ-CHG-039).",
+    )
+    cab_every_match: bool = Field(
+        default=False,
+        description="Changes: every board the mapping matches reviews, not only the first.",
+    )
+    reapproval: ReapprovalPolicyIO | None = Field(
+        default=None,
+        description="Changes: edits to an approved change (REQ-CHG-053); null: shipped.",
     )
     version: int
     statuses: list[WorkItemStatusOut]
@@ -1120,7 +1187,15 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
+            first_task_starts_work=cat.first_task_starts_work,
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
+            segregation_strict=cat.segregation_strict,
+            cab_every_match=cat.cab_every_match,
+            reapproval=ReapprovalPolicyIO.model_validate(
+                reapproval_rules.policy_json(reapproval_rules.policy_from(cat.reapproval))
+            )
+            if cat.reapproval is not None
+            else None,
             first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
@@ -1244,7 +1319,13 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
+    first_task_starts_work: bool | None = None
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
+    segregation_strict: bool | None = Field(default=None, description="Changes only.")
+    cab_every_match: bool | None = Field(default=None, description="Changes only.")
+    reapproval: ReapprovalPolicyIO | None = Field(
+        default=None, description="Changes only. Null: the shipped policy."
+    )
     first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 
@@ -1461,6 +1542,193 @@ class ReleaseDetailsOut(BaseModel):
         )
 
 
+class ChangeCopyIn(BaseModel):
+    """What a copy of a change brings besides its fields (REQ-CHG-003)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parts: list[Literal["plans", "roles"]] = Field(default_factory=list, max_length=2)
+
+
+class ChangePrefillOut(BaseModel):
+    """A new change's starting values from another record (REQ-CHG-002)."""
+
+    subject: str
+    description: str | None
+    requester_id: uuid.UUID
+    impact: str | None
+    urgency: str | None
+    site_id: uuid.UUID | None
+    from_record_id: uuid.UUID = Field(description="Send back on create to link the two.")
+
+
+class ChangeDetailsIn(BaseModel):
+    """A change's own fields to change (send only those you change; null clears one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    change_type: str | None = Field(default=None, max_length=40, description="A change type code.")
+    change_reason: str | None = Field(
+        default=None, max_length=40, description="A reason for change code."
+    )
+    risk_chosen: RiskLevel | None = Field(
+        default=None,
+        description="Override the calculated risk (REQ-CHG-060): needs risk_reason. Null: none.",
+    )
+    risk_reason: str | None = Field(default=None, max_length=500)
+
+
+class ChangeRiskAssessmentIn(BaseModel):
+    """The questionnaire's answers, one per question (REQ-CHG-057)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answers: dict[str, str] = Field(max_length=50)
+
+
+class ChangeRiskAnswerOut(BaseModel):
+    """One answer and its weight."""
+
+    code: str
+    score: int
+
+
+class ChangeRiskQuestionOut(BaseModel):
+    """One question with its weighted answers (labels: risk_question.<code> and its answers)."""
+
+    code: str
+    answers: list[ChangeRiskAnswerOut]
+
+
+class ChangeRiskBandOut(BaseModel):
+    """Scores from `low` map to `level`."""
+
+    low: int
+    level: RiskLevel
+
+
+class ChangeRiskQuestionnaireOut(BaseModel):
+    """The questionnaire this change is assessed with (its template's, else Appendix A's)."""
+
+    version: int
+    questions: list[ChangeRiskQuestionOut]
+    bands: list[ChangeRiskBandOut]
+
+
+def _plain(value: object) -> str | int | None:
+    """A watched value as JSON: times as ISO text, levels by their code, versions as numbers."""
+    if value is None or isinstance(value, int):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+class ApprovalFieldChangeOut(BaseModel):
+    """One watched value that changed since approval."""
+
+    field: str = Field(description="window_start, window_end, risk or plans.<section>.")
+    before: str | int | None
+    after: str | int | None
+    effect: OnChange
+
+
+class StageChangesOut(BaseModel):
+    """What changed since one stage of the change was approved (REQ-CHG-053 AC3)."""
+
+    stage: str
+    changes: list[ApprovalFieldChangeOut]
+
+    @classmethod
+    def of(cls, found: "reapproval_service.StageChanges") -> "StageChangesOut":
+        """From the service's comparison."""
+        return cls(
+            stage=found.stage,
+            changes=[
+                ApprovalFieldChangeOut(
+                    field=c.field, before=_plain(c.before), after=_plain(c.after), effect=c.effect
+                )
+                for c in found.changes
+            ],
+        )
+
+
+class EmergencyOverrideIn(BaseModel):
+    """Why the change must go on without its approval (D-144)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class ReapprovalPreviewIn(BaseModel):
+    """What a person is about to save; leave out what stays."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+    risk: RiskLevel | None = None
+
+
+class ChangeApprovalBarredOut(BaseModel):
+    """Someone the level would name who may not approve, and why."""
+
+    user_id: uuid.UUID
+    reason: RouteReason
+
+
+class ChangeApprovalPreviewOut(BaseModel):
+    """The stage's first level as it would open now (REQ-CHG-039: never a silent skip)."""
+
+    stage: str
+    approver_ids: list[uuid.UUID]
+    barred: list[ChangeApprovalBarredOut]
+    fallback_reason: RouteReason | None = Field(
+        description="Set: the approval administrators decide as well, for this reason."
+    )
+
+    @classmethod
+    def of(cls, found: "board_service.Preview") -> "ChangeApprovalPreviewOut":
+        """From the service's preview."""
+        return cls(
+            stage=found.stage,
+            approver_ids=list(found.named),
+            barred=[
+                ChangeApprovalBarredOut(user_id=u, reason=RouteReason(r)) for u, r in found.barred
+            ],
+            fallback_reason=RouteReason(found.fallback_reason) if found.fallback_reason else None,
+        )
+
+
+class ChangeDetailsOut(BaseModel):
+    """A change's own fields (REQ-CHG-005, -011), with the change's version for If-Match."""
+
+    work_item_id: uuid.UUID
+    version: int = Field(description="The change's version: send it back as If-Match.")
+    change_type: str | None
+    change_reason: str | None
+    retrospective: bool = Field(description="Logged after the fact (REQ-CHG-004).")
+    risk: RiskLevel | None = Field(default=None, description="Calculated (REQ-CHG-057).")
+    risk_score: int | None = None
+    risk_answers: dict[str, str] | None = None
+    risk_version: int | None = None
+    risk_chosen: RiskLevel | None = Field(default=None, description="The override, if any.")
+    risk_reason: str | None = None
+
+    @classmethod
+    def of(cls, view: service.DetailsView) -> "ChangeDetailsOut":
+        """From the service view (all empty before any field is set)."""
+        row = view.details
+        return cls(
+            work_item_id=view.record.id,
+            version=view.record.version,
+            **{n: (getattr(row, n) if row is not None else None) for n in CHANGE_DETAIL_FIELDS},
+            retrospective=bool(getattr(row, "retrospective", False)),  # a change's row only
+            **{n: getattr(row, n, None) for n in risk_rules.RISK_FIELDS},
+        )
+
+
 class RoleHoldingOut(BaseModel):
     """One role of the record and who holds it."""
 
@@ -1533,6 +1801,13 @@ class PlanSectionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: str | None = Field(default=None, max_length=RESOLUTION_MAX)
+    convert_to_normal: bool | None = Field(
+        default=None,
+        description=(
+            "A standard change's plan is locked (409 standard_change_locked): true confirms "
+            "making it a normal change, which goes through normal approval (REQ-CHG-006)."
+        ),
+    )
 
 
 class StageScheduleOut(BaseModel):
@@ -1547,6 +1822,10 @@ class StageScheduleOut(BaseModel):
     outcome_notes: str | None
     issues: str | None
     version: int = Field(description="This stage row's version for If-Match (0: none yet).")
+    overdue: bool = Field(
+        default=False,
+        description="Its scheduled end has passed and it has not ended (REQ-CHG-017).",
+    )
 
 
 class StageScheduleIn(BaseModel):
@@ -1733,6 +2012,23 @@ class StagePanelOut(BaseModel):
         )
 
 
+async def _audit_reapproval(
+    session: AsyncSession, request: Request, wtype: WorkItemType, record_id: uuid.UUID
+) -> None:
+    """A change sent back for approval by this save is audited (REQ-CHG-053, Haider)."""
+    if wtype.code is not WorkItemTypeCode.CHANGE:
+        return
+    for entry in await reapproval_service.sent_back_in_this_save(session, record_id):
+        await record_audit(
+            session,
+            action_code="change.sent_back_for_approval",
+            facts=RequestFacts.of(request),
+            object_type="change",
+            object_id=record_id,
+            details={"stage": entry.stage, "entry_id": str(entry.id)},
+        )
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -1828,7 +2124,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             limit=limit,
         )
         return [
-            WorkItemAssigneeOut(id=u, display_name=n, email=e, open_count=c) for u, n, e, c in found
+            WorkItemAssigneeOut(
+                id=u, display_name=n, email=e, open_count=c, group_ids=sorted(g, key=str)
+            )
+            for u, n, e, c, g in found
         ]
 
     @router.get("/search", summary=f"Search {wtype.path}")
@@ -2071,10 +2370,24 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
-    elif wtype.code in {WorkItemTypeCode.RELEASE, WorkItemTypeCode.PROBLEM}:
-        # Release stage approvals (WP-058a s5) and problem approvals asked ad hoc (WP-044b s4):
-        # neither has a requester's withdrawal.
+    elif wtype.code in {
+        WorkItemTypeCode.RELEASE,
+        WorkItemTypeCode.PROBLEM,
+        WorkItemTypeCode.CHANGE,
+    }:
+        # Release and change stage approvals (WP-058a s5, WP-045a) and problem approvals asked
+        # ad hoc (WP-044b s4): none has a requester's withdrawal (a change is canceled instead).
         add_approval_routes(router, wtype, withdraw=False)
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        # WP-045a D6 (REQ-CHG-002): before the /{record_id} routes.
+
+        @router.get("/prefill", summary="A new change's values from another record")
+        async def change_prefill(
+            record_id: uuid.UUID, session: TenantSession, subject: Create
+        ) -> ChangePrefillOut:
+            """From an incident, request, problem or release you see; every value is editable."""
+            return ChangePrefillOut(**await change_links.prefill(session, subject, record_id))
+
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
@@ -2100,14 +2413,22 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         """A new record. Send an Idempotency-Key: a retried request returns the same 201."""
 
         async def run() -> Created:
+            values = body.model_dump(exclude_unset=True)
+            from_record = values.pop("from_record_id", None)
+            if from_record is not None and wtype.code is not WorkItemTypeCode.CHANGE:
+                raise service.field_errors([("from_record_id", "not_allowed")])
             view = await service.create(
                 session,
                 subject,
                 wtype,
-                body.model_dump(exclude_unset=True),
+                values,
                 source=source_of(request),
                 holders=policy,
             )
+            if from_record is not None:  # REQ-CHG-002: linked to its source, on both records
+                await change_links.link_new(
+                    session, subject, view.record, from_record, source=source_of(request)
+                )
             out = WorkItemOut.of(view)
             return Created(
                 body=out, headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'}
@@ -2208,6 +2529,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                     stage=stage,
                     **{n: getattr(row, n) if row else None for n in service.SCHEDULE_FIELDS},
                     version=row.version if row else 0,
+                    overdue=service.schedule_overdue(row),
                 )
                 for stage, row in rows
             ]
@@ -2240,6 +2562,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 reason=body.reason,
                 source=source_of(request),
             )
+            await _audit_reapproval(session, request, wtype, record_id)
             set_etag(response, row.version)
             return StageScheduleOut(
                 stage=stage,
@@ -2373,6 +2696,24 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 ),
                 fields=body.fields,
             )
+            if wtype.code is WorkItemTypeCode.CHANGE:  # REQ-CHG-039: a fallback is audited
+                facts = RequestFacts.of(request)
+                for row in await stage_approvals.rerouted_in_this_save(session, record_id):
+                    await record_audit(
+                        session,
+                        action_code="change.approval_rerouted",
+                        facts=facts,
+                        object_type="change",
+                        object_id=record_id,
+                        details={
+                            "approval_id": str(row.id),
+                            "stage": row.record_stage,
+                            "level": row.stage,
+                            "reason": row.route_reason,
+                            "to": "approval_administrators",
+                            "board_id": str(row.board_id) if row.board_id else None,
+                        },
+                    )
             set_etag(response, view.record.version)
             return WorkItemOut.of(view)
 
@@ -2418,7 +2759,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 content=body.content,
                 expected_version=version,
                 source=source_of(request),
+                convert_to_normal=body.convert_to_normal is True,
             )
+            await _audit_reapproval(session, request, wtype, record_id)
             set_etag(response, row.version)
             return PlanSectionOut(
                 section=section,
@@ -2575,6 +2918,204 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             )
             set_etag(response, view.record.version)
             return ReleaseDetailsOut.of(view)
+
+    if wtype.code is WorkItemTypeCode.CHANGE:  # REQ-CHG-005, -011: a change's own fields
+
+        @router.post(
+            "/{record_id}/copy",
+            summary="Copy the change into a new one",
+            status_code=status.HTTP_201_CREATED,
+            response_model=WorkItemOut,
+        )
+        async def copy_change(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ChangeCopyIn,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+        ) -> Response:
+            """A new change from this one's fields, and the plans or roles chosen (REQ-CHG-003).
+
+            Never its approvals, history or schedule. Send an Idempotency-Key: a retry returns
+            the same 201.
+            """
+
+            async def run() -> Created:
+                made = await change_links.copy_change(
+                    session,
+                    subject,
+                    record_id,
+                    parts_chosen=frozenset(body.parts),
+                    source=source_of(request),
+                    holders=policy,
+                )
+                view = await service.get(session, subject, wtype, made.id)
+                out = WorkItemOut.of(view)
+                return Created(
+                    body=out,
+                    headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'},
+                )
+
+            return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
+
+        @router.get("/{record_id}/details", summary="The change's own fields")
+        async def get_change_details(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> ChangeDetailsOut:
+            """The change type and the reason for change."""
+            found = await service.details(session, subject, wtype, record_id)
+            set_etag(response, found.record.version)
+            return ChangeDetailsOut.of(found)
+
+        @router.get(
+            "/{record_id}/approvals/changes-since",
+            summary="What changed since the change's stages were approved",
+        )
+        async def approval_changes_since(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[StageChangesOut]:
+            """Per approved stage, field by field, with what each change does (REQ-CHG-053)."""
+            found = await reapproval_service.changes_since(session, subject, record_id)
+            return [StageChangesOut.of(s) for s in found]
+
+        @router.post(
+            "/{record_id}/emergency-override",
+            summary="Keep a change going that was sent back for approval",
+            responses=CONFLICT,
+        )
+        async def emergency_override(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: EmergencyOverrideIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: View,
+            response: Response,
+            request: Request,
+            note: Annotated[
+                AuditNote,
+                # The dependency also logs a refused attempt (lane B's #327 review).
+                audited(
+                    "change.emergency_override", object_type="change", object_param="record_id"
+                ),
+            ],
+        ) -> WorkItemOut:
+            """Needs changes.emergency_override, a reason and If-Match (D-144).
+
+            The re-approval is withdrawn, the change returns where it was, and its review
+            becomes mandatory. Audited with the reason, refused attempts too.
+            """
+            note.reason = body.reason
+            updated = await reapproval_service.emergency_override(
+                session,
+                subject,
+                record_id,
+                reason=body.reason,
+                expected_version=version,
+                source=source_of(request),
+            )
+            note.details = {"stage": updated.stage, "status": updated.status}
+            view = await service.get(session, subject, wtype, record_id)
+            set_etag(response, view.record.version)
+            return WorkItemOut.of(view)
+
+        @router.post(
+            "/{record_id}/approvals/reapproval-preview",
+            summary="Would this save send the change back for approval?",
+        )
+        async def reapproval_preview(
+            record_id: uuid.UUID, body: ReapprovalPreviewIn, session: TenantSession, subject: View
+        ) -> list[StageChangesOut]:
+            """The approved stages the proposed window or risk would send the change back to.
+
+            Empty: the save keeps every approval. Changes nothing (REQ-CHG-053, Haider).
+            """
+            found = await reapproval_service.preview(
+                session,
+                subject,
+                record_id,
+                reapproval_service.Proposed(body.window_start, body.window_end, body.risk),
+            )
+            return [StageChangesOut.of(s) for s in found]
+
+        @router.get(
+            "/{record_id}/approvals/preview", summary="Who would approve the change's stage"
+        )
+        async def approvals_preview(
+            record_id: uuid.UUID,
+            session: TenantSession,
+            subject: View,
+            stage: Annotated[str | None, Query(max_length=40)] = None,
+        ) -> ChangeApprovalPreviewOut | None:
+            """Before a submit: who would approve, who is left out and why (REQ-CHG-039).
+
+            Also whether the approval administrators decide too. Null: the stage needs no
+            approval. Changes nothing.
+            """
+            found = await board_service.preview(session, subject, record_id, stage)
+            return ChangeApprovalPreviewOut.of(found) if found else None
+
+        @router.get("/{record_id}/risk/questionnaire", summary="The change's risk questionnaire")
+        async def risk_questionnaire(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> ChangeRiskQuestionnaireOut:
+            """Its template's own, else Appendix A's (REQ-CHG-057)."""
+            asked = await risk_service.questionnaire(session, subject, record_id)
+            return ChangeRiskQuestionnaireOut.model_validate(risk_rules.questionnaire_json(asked))
+
+        @router.put(
+            "/{record_id}/risk/assessment",
+            summary="Answer the risk questionnaire",
+            responses=CONFLICT,
+        )
+        async def assess_risk(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ChangeRiskAssessmentIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> ChangeDetailsOut:
+            """Scores the answers and sets the calculated risk (If-Match: the change's version)."""
+            view = await risk_service.assess(
+                session,
+                subject,
+                record_id,
+                answers=body.answers,
+                expected_version=version,
+                source=source_of(request),
+            )
+            await _audit_reapproval(session, request, wtype, record_id)
+            set_etag(response, view.record.version)
+            return ChangeDetailsOut.of(view)
+
+        @router.patch(
+            "/{record_id}/details", summary="Change the change's own fields", responses=CONFLICT
+        )
+        async def patch_change_details(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ChangeDetailsIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> ChangeDetailsOut:
+            """Needs If-Match (the change's version). Send only what you change; null clears."""
+            view = await service.update_details(
+                session,
+                subject,
+                wtype,
+                record_id,
+                expected_version=version,
+                values=body.model_dump(include=body.model_fields_set),
+                source=source_of(request),
+            )
+            await _audit_reapproval(session, request, wtype, record_id)
+            set_etag(response, view.record.version)
+            return ChangeDetailsOut.of(view)
 
     @router.post(
         "/{record_id}/resolution/confirm",

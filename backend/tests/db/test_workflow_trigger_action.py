@@ -14,11 +14,12 @@ import pytest
 
 from app.core.tenancy import TenantContext
 from app.modules.automation.infra.models import Workflow, WorkflowVersion
-from tests.db.test_automation_triggers_api import add_trigger, drain, note, runs, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_automation_triggers_api import add_trigger, drain, note, runs
 from tests.db.test_incidents_api import Org, World
 
-__all__ = ["world"]  # the fixture, re-used
-pytestmark = [pytest.mark.db, pytest.mark.valkey]
+__all__ = ["module_world", "shared_world"]  # the fixtures, re-used
+pytestmark = [pytest.mark.db, pytest.mark.valkey, MODULE_LOOP]
 
 
 def _node(node_id: str, kind: str, **config: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON

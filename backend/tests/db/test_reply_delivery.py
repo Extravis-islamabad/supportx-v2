@@ -21,13 +21,14 @@ from app.modules.notifications.service.engine import expire_waiting, send_waitin
 from app.shared.events import EventEnvelope
 from app.shared.mail.infra import smtp
 from app.shared.mail.service.outgoing import deliver
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import say
-from tests.db.test_incidents_api import Org, World, world
+from tests.db.test_incidents_api import Org, World
 from tests.db.test_notifications_api import MAIL, NO_MAIL, run_engine
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["module_world", "shared_world"]  # fixture, re-used
 
-pytestmark = [pytest.mark.db]
+pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 
 class FakeSmtp:

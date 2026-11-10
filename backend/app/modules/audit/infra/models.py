@@ -27,7 +27,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.models import Base, TenantKeyed, TenantScoped, UuidPrimaryKey, utc_now
@@ -73,6 +73,8 @@ class AuditEntry(TenantKeyed, Base):
             "occurred_at",
             postgresql_where=text("outcome <> 'done'"),
         ),
+        # "action is X or X is among a save's events" (WP-064, migration 0122)
+        Index("ix_audit_entries_events", "events", postgresql_using="gin"),
         CheckConstraint(f"outcome IN {OUTCOMES}", name="outcome_code"),
         CheckConstraint(f"actor_type IN {ACTOR_TYPES}", name="actor_type_code"),
         CheckConstraint(f"client IN {CLIENTS}", name="client_code"),
@@ -100,6 +102,9 @@ class AuditEntry(TenantKeyed, Base):
     personal_commitments: Mapped[dict[str, str]] = mapped_column(
         JSONB, server_default=text("'{}'::jsonb")
     )
+    # The lifecycle events of a save's entry, most significant first (WP-064, ADR-045); codes
+    # only, inside the hash. NULL for every other entry.
+    events: Mapped[list[str] | None] = mapped_column(ARRAY(String(80)))
     entry_hash: Mapped[bytes] = mapped_column(LargeBinary)
 
 

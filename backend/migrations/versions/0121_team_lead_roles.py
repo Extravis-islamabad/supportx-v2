@@ -28,7 +28,7 @@ D-153's standing rule: after the first customer install, any change that reduces
 needs a release-note announcement and a mapping that removes nothing silently.
 
 Revision ID: 0121
-Revises: 0110
+Revises: 0122
 Created: 2026-11-10
 """
 
@@ -37,7 +37,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0121"
-down_revision: str | None = "0110"
+down_revision: str | None = "0122"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

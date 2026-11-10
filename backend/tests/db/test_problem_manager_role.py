@@ -4,10 +4,13 @@ import uuid
 
 import asyncpg
 
-from tests.db.test_incidents_api import CONSOLE, World, problem, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, World, problem
 from tests.db.test_problems_api import PRB, new_problem
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 ROOT_CAUSE = "<p>The relay's queue fills at nine.</p>"
 

@@ -238,6 +238,7 @@ function ProblemView({
     key: 'follow_up',
     label: t('problems.follow_up.title'),
     allowed: canEdit,
+    testId: 'prb-op-follow-up',
     onClick: () => {
       setFollowing(true);
     },
@@ -296,6 +297,7 @@ function ProblemView({
         header={
           <RecordHeader
             icon={<BugOutlined />}
+            kind="problem"
             typeLabel={t('problems.record_type')}
             displayId={item.display_id}
             title={item.subject}

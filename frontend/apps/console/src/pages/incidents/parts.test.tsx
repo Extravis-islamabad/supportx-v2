@@ -83,6 +83,51 @@ describe('Incident parts (WP-020e)', () => {
     });
   });
 
+  it('Haider 2026-11-10 (A8): a disabled Add task says why, reachable by keyboard', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'tasks');
+    api({});
+    render(<App />);
+    const add = await screen.findByTestId('inc-task-add');
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+    const wrapper = add.closest('[data-testid="disabled-why"]');
+    if (wrapper === null) throw new Error('no reason around the disabled button');
+    expect(wrapper.getAttribute('tabindex')).toBe('0'); // a keyboard reaches the reason
+    fireEvent.mouseEnter(wrapper);
+    expect(await screen.findByText('Give the task a title first.')).toBeDefined();
+  });
+
+  it('D-154d: a done task says who did it', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'tasks');
+    const by = '01900000-0000-7000-8000-0000000003c1';
+    api({
+      [`GET ${PATH}/tasks`]: {
+        body: {
+          items: [
+            { ...task('Check cable', 'done', 0), done_by: by },
+            task('Swap printer', 'open', 1),
+          ],
+          done: 1,
+          total: 2,
+        },
+      },
+      'GET /api/v1/users': {
+        body: {
+          items: [{ id: by, display_name: 'Omar Farooq', email: 'omar@demo.test' }],
+          has_more: false,
+          next_cursor: null,
+        },
+      },
+    });
+    render(<App />);
+    const doneBy = await screen.findByTestId('inc-task-done-by-0');
+    await waitFor(() => {
+      expect(doneBy.textContent).toBe('Done by Omar Farooq');
+    });
+    expect(screen.queryByTestId('inc-task-done-by-1')).toBeNull(); // open: nobody did it yet
+  });
+
   it('REQ-INC-072: what is typed while a task saves is kept (found by the e2e in CI)', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'tasks');
@@ -119,8 +164,34 @@ describe('Incident parts (WP-020e)', () => {
     rememberTab(SESSION_USER, 'worklogs');
     api({});
     render(<App />);
+    fireEvent.click(await screen.findByTestId('inc-worklog-open'));
     const form = await screen.findByTestId('inc-worklog-form');
     expect(within(form).getByTestId<HTMLButtonElement>('inc-worklog-add').disabled).toBe(true);
+    // Disabled only with the reason beside it (Haider, 2026-11-10).
+    expect(within(form).getByTestId('inc-worklog-why').textContent).not.toBe('');
+  });
+
+  it('Haider 2026-11-10: the worklog footer is Cancel then Log time; Cancel clears and closes', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'worklogs');
+    api({});
+    render(<App />);
+    expect(screen.queryByTestId('inc-worklog-form')).toBeNull(); // closed until asked for
+    fireEvent.click(await screen.findByTestId('inc-worklog-open'));
+    const form = await screen.findByTestId('inc-worklog-form');
+    const buttons = [...form.querySelectorAll('button')].map((b) => b.getAttribute('data-testid'));
+    expect(buttons.slice(-2)).toEqual(['inc-worklog-cancel', 'inc-worklog-add']);
+    expect(form.querySelectorAll('[data-testid="time-zone-note"]')).toHaveLength(1); // one note
+    fireEvent.change(within(form).getByRole('textbox', { name: 'What was done' }), {
+      target: { value: 'Swapped the toner' },
+    });
+    fireEvent.click(within(form).getByTestId('inc-worklog-cancel'));
+    expect(screen.queryByTestId('inc-worklog-form')).toBeNull();
+    fireEvent.click(screen.getByTestId('inc-worklog-open'));
+    const reopened = await screen.findByTestId('inc-worklog-form');
+    expect(
+      within(reopened).getByRole<HTMLTextAreaElement>('textbox', { name: 'What was done' }).value,
+    ).toBe(''); // cleared, not kept
   });
 
   it('REQ-INC-084 AC3: a link to a record you cannot see shows without its ID or subject', async () => {
@@ -162,5 +233,42 @@ describe('Incident parts (WP-020e)', () => {
     expect(shown.textContent).toContain('Followed by');
     expect(shown.textContent).toContain('INC-9 · Printer again');
     expect(shown.textContent).toContain('Same printer');
+  });
+
+  it('QA10-P1-03: a cause has no delete (it is unlinked in its own place); a related link has one', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'links');
+    api({
+      [`GET ${PATH}/links`]: {
+        body: [
+          {
+            id: 'l3',
+            kind: 'caused_by',
+            relation: 'caused_by',
+            other_id: '01900000-0000-7000-8000-0000000009f4',
+            other_display_id: 'PRB-4',
+            other_subject: 'VPN drops',
+            comment: null,
+            version: 1,
+            created_at: '2026-10-28T10:00:00Z',
+          },
+          {
+            id: 'l4',
+            kind: 'related',
+            relation: 'related',
+            other_id: '01900000-0000-7000-8000-0000000009f8',
+            other_display_id: 'INC-8',
+            other_subject: 'Printer',
+            comment: null,
+            version: 1,
+            created_at: '2026-10-28T10:00:00Z',
+          },
+        ],
+      },
+    });
+    render(<App />);
+    expect(await screen.findByTestId('inc-link-PRB-4')).toBeDefined();
+    expect(screen.queryByTestId('inc-link-delete-PRB-4')).toBeNull();
+    expect(screen.getByTestId('inc-link-delete-INC-8')).toBeDefined();
   });
 });

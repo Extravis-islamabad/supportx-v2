@@ -1064,6 +1064,39 @@ it with no reload (rule c). Not built yet.
     - Problem-specific closure codes (REQ-PRB-056) use the shared closure code list for now.
     - The tenant defaults for the follow-up (notify, copy as a note) beyond Q1's resolve.
 
+### [~] WP-045b — Changes: risk, advisory boards, approvals, re-approval (lane A, 2026-11-10; 4 sessions; backend; PR after #299)
+- **Plan:** ~/Desktop/wp-045-plan.md D8-D11, approved by the coordinator. Migrations 0116-0118.
+  Haider's decisions of 2026-11-10 (SoD default, optional members, sending back) and D-144.
+- **S1 risk (0116):** levels low to very high; a scored questionnaire per template (Appendix A by
+  default, versioned); rules may raise it; a person's override always needs a reason.
+- **S2 advisory boards (0117):** `/api/v1/change-boards`, with two seeded boards per tenant
+  (default, emergency) and no members. An admin's board needs at least one member, and the
+  default board can't be removed. Each board has a mapping (types, risk levels, sites,
+  templates), an order and a rule (any, all, majority, majority with the chair). Tenant
+  isolation is tested for both tables.
+- **S3 approvals:**
+  - a level may name the mapped board or a specific one; the rows record which board and why;
+  - a board with no members goes to the approval administrators (`board_has_no_members`);
+  - strict segregation of duties is a tenant setting (audited);
+  - a submit-time preview names who is left out;
+  - every fallback is audited (`change.approval_rerouted`);
+  - admin guide: docs/guides/change-approvals.md.
+- **S4 re-approval (0118):**
+  - each approved stage's window, risk and plans are kept; `changes-since` lists, field by
+    field, what changed since approval;
+  - the tenant policy (restart, notify or ignore, with a tolerance) decides;
+  - a restart sends the change back to the stage's raising status by an audited system move,
+    with a warning preview first;
+  - optional members' votes are advisory and never counted;
+  - the emergency override (D-144) needs a permission and a reason, is audited, and makes the
+    review mandatory;
+  - notices are recorded in the outbox for WP-056.
+- **Not yet:**
+  - sending the notices (WP-056);
+  - the chair's tie-break (lane C's WP-048b S2 wires `chair=`);
+  - CIs and services in the snapshot (with the CMDB);
+  - the screens (UI pass 3 templates).
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
@@ -1339,13 +1372,56 @@ it with no reload (rule c). Not built yet.
 - **Two PRs (coordinator, 2026-11-06):** #216 holds sessions 1-3 (it passed 14k lines); sessions
   4-5 go on a new PR from main after #216 merges. Session 4 has migrations 0111 (ownership,
   assignments, relationships), 0112 (acknowledgements) and 0113 (asset groups).
-- [ ] Session 4: ownership, acknowledgement, components, groups, relationships (REQ-AST-018,
-  019, 020 for assets, 023, 024, 026, 027, 028). Deferred: 021/022 with discovery (WP-050),
-  020's consumables and licences with WP-052; 025 is lane A's forms on the assets picker API
-  (`GET /assets/picker`, `can_see`, `asset_refs`, `assets_of`, agreed 2026-11-06).
-- [ ] Session 5: loans, warranty, notifications, e2e.
+- [x] Session 4: ownership, acknowledgement, components, groups, relationships (migrations
+  0111-0113; REQ-AST-018, 019, 020 for assets, 023, 024, 025's interfaces, 026, 027, 028).
+  - Holders (a person, a department or a parent asset) with the holding history; never fitted
+    inside itself; assets follow their owner's site (a consumer of identity's user.updated,
+    idempotent); held-by lookups within scope.
+  - Acknowledgements (pending, accepted, disputed with a comment; a dispute never touches the
+    holding) with an `asset` notification source; My assets in the portal, live.
+  - Components (fitted assets; disposing asks to detach or dispose them) and typed links shown
+    from both ends with history on both.
+  - Static and dynamic groups (the shared filter DSL), counts matching their lists, live.
+  - The picker and `can_see` / `asset_refs` / `assets_of` for lane A's work-item forms.
+  - Console: "Holder and links" tab, groups page, add-to-group from the list's selection.
+  - **Deferred:** 021/022 (auto-assign, workstation mapping) with discovery (WP-050); 020's
+    consumables and licences with WP-052; 024 AC2 "report a problem" and 025's forms are lane
+    A's, on the picker.
+- [x] Session 5: loans, warranty, notifications, e2e (migration 0114; REQ-AST-029, 030, 031,
+  059; the PR with session 4 opens from main after #216 merges).
+  - Loanable assets (bulk from the list); loans of loanable, in-stock assets to a person until a
+    due time, moving them in use and to the borrower; one open loan per asset is a unique
+    partial index, so two loans racing for one asset never both win (race test).
+  - Returns of some or all assets, to stock or to repair (a comment needed); the last return
+    closes the loan; an asset on loan is not disposed of (the disposal guard port).
+  - Due and overdue notices to the borrower and the loan's creator, and warranty-ending notices
+    to the asset managers within the tenant's notice days (Appendix A: 30, a setting), each
+    claimed once by one UPDATE ... RETURNING (two-worker test), from a scheduled sweep.
+  - Console loan register (/assets/loans) with New loan and Take back; the portal's My assets
+    shows when a loaned asset is due back, red once overdue; all live (loans_changed, and the
+    borrower's own channel). Shared page parts only, ready for the UI pass 3 list template.
+  - e2e: tests/asset-loans.spec.ts (loanable in bulk, lent, due in the portal, taken back).
+  - **Open:** REQ-AST-017 AC4 (a disposal certificate file) waits for the file link of WP-022's
+    record attachments on assets; REQ-AST-030's display ID, department borrower, site and
+    filters, and REQ-AST-032 (booking ahead), go to WP-049b.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
+
+### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045; session 1 of 4 built 2026-11-10)
+
+- [x] S1: the audit sink port in `app/shared/history.record_changes` and the audit module's sink;
+  one entry per save listing all its events (route's code first, merged with the route's entry
+  in the same transaction); `events` inside the entry hash only when set (migration 0122, GIN;
+  older entries hash as before); the action filter, saved searches and exports match events;
+  event tables for assets and the five work-item types (lane A reviewed the field lists;
+  statuses by category through work_items' annotator, never stored in history); the subtype
+  resolver; catalogue and en/ar/ur labels; tests (unit, DB, the history guard).
+- [ ] S2: change-set fingerprints in the verifier, per-subject salts (0119), history erasure,
+  "erased on request".
+- [ ] S3: per-category retention and legal hold (0120), sealing to about 2,000/s, the 10M run,
+  the save-latency check.
+- [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
+  file events in a record's list), e2e, docs.
 
 ### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 done, #233)
 

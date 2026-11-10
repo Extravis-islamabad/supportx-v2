@@ -10,7 +10,6 @@ import {
   Button,
   Card,
   Descriptions,
-  Empty,
   Flex,
   Form,
   Input,
@@ -119,7 +118,7 @@ export function IncidentTasks({
   const [owner, setOwner] = useState<string | null>(null);
   const [due, setDue] = useState<string | null>(null);
   const rows = found.data?.items ?? [];
-  const people = usePeople(rows.map((r) => r.owner_id));
+  const people = usePeople(rows.flatMap((r) => [r.owner_id, r.done_by ?? null]));
   const add = () => {
     change.mutate(
       {
@@ -245,6 +244,14 @@ export function IncidentTasks({
                   {people.get(task.owner_id) ?? t('incidents.unknown_value')}
                 </Typography.Text>
               )}
+              {task.status === 'done' && task.done_by != null && (
+                // D-154d: who did it, never a guess from the history.
+                <Typography.Text type="secondary" data-testid={`inc-task-done-by-${String(index)}`}>
+                  {t('incidents.tasks.done_by', {
+                    name: people.get(task.done_by) ?? t('incidents.unknown_value'),
+                  })}
+                </Typography.Text>
+              )}
               {task.due_at !== null && (
                 <Tag>{t('incidents.tasks.due', { at: dates.format(task.due_at) })}</Tag>
               )}
@@ -280,6 +287,7 @@ export function IncidentTasks({
           <WriteButton
             type="primary"
             disabled={title.trim() === ''}
+            whyDisabled={t('why.task_title')}
             loading={change.isPending}
             onClick={add}
             data-testid="inc-task-add"
@@ -315,6 +323,17 @@ export function IncidentWorklogs({
   const [end, setEnd] = useState<string | null>(null);
   const [minutes, setMinutes] = useState<number | null>(null);
   const [description, setDescription] = useState('');
+  // The form opens on "Log time" and Cancel clears and closes it (template B, Haider 11-10).
+  const [open, setOpen] = useState(false);
+  const cancel = () => {
+    setType('fix');
+    setOwner(null);
+    setStart(null);
+    setEnd(null);
+    setMinutes(null);
+    setDescription('');
+    setOpen(false);
+  };
   const rows = found.data?.items ?? [];
   const people = usePeople([...rows.map((r) => r.owner_id), owner]);
   // The other way round (AC2): start + duration shows the end, start + end shows the duration.
@@ -436,9 +455,22 @@ export function IncidentWorklogs({
           </List.Item>
         )}
       />
-      {canEdit && (
+      {canEdit && !open && (
+        <Flex>
+          <WriteButton
+            onClick={() => {
+              setOpen(true);
+            }}
+            data-testid="inc-worklog-open"
+          >
+            {t('incidents.worklogs.add')}
+          </WriteButton>
+        </Flex>
+      )}
+      {canEdit && open && (
         // Template B's form in a card (D-147): labels above the fields, the three time fields in
-        // one row with one time-zone note, and the reason "Log time" is off said beside it.
+        // one row with one time-zone note, and the reason "Log time" is off said beside it; the
+        // footer is Cancel, then the primary action.
         <Card size="small" data-testid="inc-worklog-form">
           <Form layout="vertical" component="div" requiredMark={false}>
             <div style={WORKLOG_GRID}>
@@ -549,9 +581,13 @@ export function IncidentWorklogs({
                   {why}
                 </Typography.Text>
               )}
+              <Button onClick={cancel} data-testid="inc-worklog-cancel">
+                {t('actions.cancel')}
+              </Button>
               <WriteButton
                 type="primary"
                 disabled={!ready}
+                whyDisabled={why ?? undefined}
                 loading={change.isPending}
                 onClick={add}
                 aria-describedby={why === null ? undefined : 'inc-worklog-why'}
@@ -576,6 +612,8 @@ const WORKLOG_GRID = {
 
 // --- links ----------------------------------------------------------------------------------------
 
+const OWN_ROUTE = new Set(['caused_by', 'causes', 'merged_into', 'merged_from']);
+
 export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
   const t = useLabel();
   const found = useIncidentLinks(item.id);
@@ -594,7 +632,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       {rows.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('incidents.links.none')} />
+        <EmptyText>{t('incidents.links.none')}</EmptyText>
       ) : (
         <List
           dataSource={rows}
@@ -603,7 +641,9 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
             <List.Item
               data-testid={`inc-link-${link.other_display_id ?? 'hidden'}`}
               actions={
-                canEdit
+                // A cause or a merge is undone in its own place (unlink, undo the merge): the
+                // generic delete would be refused (QA10-P1-03), so it is not offered.
+                canEdit && !OWN_ROUTE.has(link.relation)
                   ? [
                       <Popconfirm
                         key="delete"
@@ -693,6 +733,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
           <WriteButton
             type="primary"
             disabled={other === null}
+            whyDisabled={t('why.choose_record')}
             loading={change.isPending}
             onClick={() => {
               if (other === null) return;

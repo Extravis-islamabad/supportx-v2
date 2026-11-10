@@ -53,12 +53,13 @@ import uuid
 from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import asyncpg
 import httpx
 from fastapi import FastAPI, Request
+from sqlalchemy import text, update
 
 from app.core.config import Settings
 from app.core.database import Database, create_engine
@@ -69,8 +70,10 @@ from app.modules import sla
 from app.modules.audit import RequestFacts
 from app.modules.audit import record as record_audit
 from app.modules.audit.domain.catalogue import AuditClient
+from app.modules.identity_access.domain import mfa as mfa_rules
 from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import Identity
+from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service.users import provision_user
 from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
@@ -403,30 +406,47 @@ async def backdate(migrator_url: str, made: Sequence[uuid.UUID]) -> int:
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
             await conn.execute(_BACKDATE_DELTAS, TENANT_ID, BACKDATE_DAYS, list(made))
             await conn.execute("DELETE FROM showcase_shift WHERE delta = interval '0'")
-            moved: int = await conn.fetchval("SELECT count(*) FROM showcase_shift")
-            if moved == 0:
-                return 0
-            for table, link in _BACKDATE_TARGETS:
-                columns = [
-                    row["column_name"]
-                    for row in await conn.fetch(
-                        "SELECT column_name FROM information_schema.columns"
-                        " WHERE table_schema = 'public' AND table_name = $1"
-                        " AND data_type = 'timestamp with time zone' ORDER BY column_name",
-                        table,
-                    )
-                ]
-                if not columns:
-                    continue
-                shift = ", ".join(f"{c} = t.{c} + s.delta" for c in columns)
-                await conn.execute(
-                    f"UPDATE {table} t SET {shift} FROM showcase_shift s"  # noqa: S608 - names from the fixed list above and the catalogue
-                    f" WHERE t.tenant_id = $1 AND {link}",
-                    TENANT_ID,
-                )
-            return moved
+            return await _shift(conn)
     finally:
         await conn.close()
+
+
+async def _shift(conn: asyncpg.Connection, cap: datetime | None = None) -> int:
+    """Move each record in `showcase_shift` by its delta: every timestamp of it and of its rows.
+
+    One delta per record keeps the order of its own times; append-only tables (audit, outbox,
+    events) are never in the list. With `cap` (step 7), a time that would land after it lands
+    at it instead, so nothing reads as in the future (an empty time stays empty). Returns how
+    many records moved.
+    """
+    moved: int = await conn.fetchval("SELECT count(*) FROM showcase_shift")
+    if moved == 0:
+        return 0
+    for table, link in _BACKDATE_TARGETS:
+        columns = [
+            row["column_name"]
+            for row in await conn.fetch(
+                "SELECT column_name FROM information_schema.columns"
+                " WHERE table_schema = 'public' AND table_name = $1"
+                " AND data_type = 'timestamp with time zone' ORDER BY column_name",
+                table,
+            )
+        ]
+        if not columns:
+            continue
+        # LEAST skips a NULL, so an empty time is kept empty by hand.
+        moved_to = (
+            "CASE WHEN t.{c} IS NULL THEN NULL ELSE least(t.{c} + s.delta, $2::timestamptz) END"
+            if cap
+            else "t.{c} + s.delta"
+        )
+        shift = ", ".join(f"{c} = " + moved_to.format(c=c) for c in columns)
+        await conn.execute(
+            f"UPDATE {table} t SET {shift} FROM showcase_shift s"  # noqa: S608 - names from the fixed list above and the catalogue
+            f" WHERE t.tenant_id = $1 AND {link}",
+            *((TENANT_ID, cap) if cap else (TENANT_ID,)),
+        )
+    return moved
 
 
 async def ensure_tenant(migrator_url: str) -> list[str]:
@@ -497,6 +517,11 @@ class KeycloakResult:
 
     subjects: dict[str, str]
     made: list[str]
+    # One line per persona about its authenticator (D-151): "enrolled", "already enrolled",
+    # "sets it up in QA" or why none was made. Never the secret.
+    enrolment: list[str] = field(default_factory=list)
+    # The personas holding the dev authenticator now: SupportX records them as enrolled.
+    pre_enrolled: list[str] = field(default_factory=list)
 
 
 async def _ensure_user(  # noqa: PLR0913, PLR0917 - the realm call context and the person, explicit
@@ -624,22 +649,62 @@ async def ensure_keycloak(client: httpx.AsyncClient, target: KeycloakTarget) -> 
         made.append("organization")
 
     subjects: dict[str, str] = {}
+    enrolment: list[str] = []
+    pre_enrolled: list[str] = []
     for person in SIGN_INS:
         user_id, done = await _ensure_user(
             client, realm, headers, org_id, person, target.sign_in_password
         )
         made += done
-        if target.totp_key and await _ensure_totp(
-            client, realm, headers, user_id, person, target.totp_key
-        ):
+        persona = quick.persona_by_email(person.email)
+        if persona is None:
+            pass  # not a quick sign-in persona: no line
+        elif not persona.enrolled:
+            enrolment.append(f"{person.email}: not enrolled (sets it up the normal way)")
+        elif not target.totp_key:
+            enrolment.append(f"{person.email}: NOT enrolled, no {TOTP_KEY_ENV}")
+        elif await _ensure_totp(client, realm, headers, user_id, person, target.totp_key):
             # Keycloak's partial import replaced the user (same ID) without its password, roles
             # and membership: put them back the same way as above.
             _, done = await _ensure_user(
                 client, realm, headers, org_id, person, target.sign_in_password
             )
             made += [f"authenticator {person.email}"]
+            enrolment.append(
+                f"{person.email}: enrolled" + await _clear_enrol(client, realm, headers, user_id)
+            )
+            pre_enrolled.append(person.email)
+        else:
+            enrolment.append(
+                f"{person.email}: already enrolled"
+                + await _clear_enrol(client, realm, headers, user_id)
+            )
+            pre_enrolled.append(person.email)
         subjects[person.email] = user_id
-    return KeycloakResult(subjects, made)
+    return KeycloakResult(subjects, made, enrolment, pre_enrolled)
+
+
+async def _clear_enrol(
+    client: httpx.AsyncClient, realm: str, headers: dict[str, str], user_id: str
+) -> str:
+    """Drop a pending two-step set-up from a persona that holds its authenticator (D-151).
+
+    SupportX adds Keycloak's enrol actions once a tenant's grace period ends to everyone it has
+    not seen enrol, and Keycloak then refuses the persona's password grant ("not fully set up").
+    The persona is enrolled, so the actions go; SupportX records it as enrolled (step 3).
+    """
+    found = await client.get(f"{realm}/users/{user_id}", headers=headers)
+    found.raise_for_status()
+    user = found.json()
+    pending = [a for a in user.get("requiredActions") or [] if a in mfa_rules.ENROL_ACTIONS]
+    if not pending:
+        return ""
+    kept = [a for a in user["requiredActions"] if a not in mfa_rules.ENROL_ACTIONS]
+    put = await client.put(
+        f"{realm}/users/{user_id}", headers=headers, json={**user, "requiredActions": kept}
+    )
+    put.raise_for_status()
+    return " (cleared a pending two-step set-up)"
 
 
 async def _ensure_totp(  # noqa: PLR0913, PLR0917 - the realm call context and the person, explicit
@@ -694,8 +759,14 @@ async def _ensure_totp(  # noqa: PLR0913, PLR0917 - the realm call context and t
 # --- 3. First sign-in ------------------------------------------------------------------------
 
 
-async def sign_in_once(database: Database, subjects: Mapping[str, str]) -> dict[str, uuid.UUID]:
-    """Each sign-in's SupportX person, made or linked as a first login would."""
+async def sign_in_once(
+    database: Database, subjects: Mapping[str, str], pre_enrolled: Sequence[str] = ()
+) -> dict[str, uuid.UUID]:
+    """Each sign-in's SupportX person, made or linked as a first login would.
+
+    The personas holding the dev authenticator are recorded as enrolled, as a sign-in would
+    after Keycloak reported their credential, so the schedule never asks them to set it up.
+    """
     users: dict[str, uuid.UUID] = {}
     for person in SIGN_INS:
         identity = Identity(
@@ -711,6 +782,14 @@ async def sign_in_once(database: Database, subjects: Mapping[str, str]) -> dict[
             database, TENANT_ID, identity, datetime.now(UTC), client="console", reason="login"
         )
         users[person.email] = provisioned.user_id
+    enrolled = [users[email] for email in pre_enrolled if email in users]
+    if enrolled:
+        async with database.tenant_session(TenantContext(TENANT_ID)) as session:
+            await session.execute(
+                update(User)
+                .where(User.id.in_(enrolled), User.mfa_enrolled_at.is_(None))
+                .values(mfa_enrolled_at=datetime.now(UTC))
+            )
     return users
 
 
@@ -1282,6 +1361,7 @@ async def fill_lane_a(
     incidents = await admin.all_pages("/api/v1/incidents")
     report.problems = await lane_a.ensure_problems(admin, sana, incidents)
     report.rules = await lane_a.ensure_rules(admin, groups)
+    report.featured = await lane_a.ensure_featured(admin)
 
 
 @dataclass
@@ -1290,12 +1370,14 @@ class Report:
 
     tenant: list[str] = field(default_factory=list)
     keycloak: list[str] = field(default_factory=list)
+    enrolment: list[str] = field(default_factory=list)  # D-151: one line per persona
     placed: list[str] = field(default_factory=list)  # D-151: departments, places, lead, roles
     incidents: int = 0
     managers: int = 0
     service_requests: int = 0
     problems: int = 0
     rules: int = 0
+    featured: int = 0  # catalog items featured on the portal's home now
     sla_policies: int = 0
     sla_from_creation: int = 0
     dashboard: bool = False
@@ -1303,6 +1385,7 @@ class Report:
     articles: int = 0
     releases: int = 0
     backdated: int = 0
+    freshened: int = 0  # step 7: seed records moved to read as of today
     # Between the steps only: step 6's candidates and who acts.
     without_sla: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
     admin_id: uuid.UUID | None = field(default=None, repr=False, compare=False)
@@ -1310,7 +1393,12 @@ class Report:
     made: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
 
 
-async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) -> None:
+async def fill(
+    settings: Settings,
+    subjects: Mapping[str, str],
+    report: Report,
+    pre_enrolled: Sequence[str] = (),
+) -> None:
     """Steps 3 and 4, inside the running app (sign-in needs its entitlements service)."""
     contexts: dict[uuid.UUID, TenantContext] = {}
     async with console_api(settings, contexts) as client:
@@ -1319,7 +1407,7 @@ async def fill(settings: Settings, subjects: Mapping[str, str], report: Report) 
             msg = "SUPPORTX_DATABASE_URL is not set"
             raise SeedError(msg)
         try:
-            signed_in = await sign_in_once(database, subjects)
+            signed_in = await sign_in_once(database, subjects, pre_enrolled)
         finally:
             await database.dispose()
         for person in SIGN_INS:
@@ -1382,11 +1470,13 @@ async def run(settings: Settings, keycloak: KeycloakTarget) -> Report:
     async with httpx.AsyncClient(base_url=keycloak.base_url, timeout=20) as client:
         found = await ensure_keycloak(client, keycloak)
     report.keycloak = found.made
-    await fill(settings, found.subjects, report)
+    report.enrolment = found.enrolment
+    await fill(settings, found.subjects, report, found.pre_enrolled)
     report.backdated = await backdate(migrator.get_secret_value(), report.made)
     report.sla_from_creation = await sla_from_creation(
         settings, TENANT_ID, report.admin_id, report.without_sla
     )
+    report.freshened = await freshen(settings, TENANT_ID, now=datetime.now(UTC))
     return report
 
 
@@ -1440,6 +1530,161 @@ async def sla_from_creation(
     return changed
 
 
+# --- 7. Fresh dates (Haider, 2026-11-10) ------------------------------------------------------
+
+# A move shorter than this is no move: a re-run the same day changes nothing.
+FRESHEN_MIN = timedelta(hours=12)
+DONE_CATEGORIES = ("resolved", "closed", "canceled")
+
+
+def freshened_created(display_number: int, status_category: str, now: datetime) -> datetime:
+    """Where a seed record's creation lands: open ones recent, done ones spread out.
+
+    Open and paused records: 30 minutes to 20 hours ago, so most are running or at risk and
+    only those with the shortest targets are past due. Resolved, closed and canceled: 3 to 30
+    days ago. By display number, so each record lands in the same place on every re-seed.
+    """
+    if status_category in DONE_CATEGORIES:
+        return now - timedelta(days=3 + (display_number * 5) % 27, hours=display_number % 9)
+    return now - timedelta(minutes=30 + (display_number * 47) % 1170)
+
+
+async def _seed_owned(conn: asyncpg.Connection) -> list[asyncpg.Record]:
+    """The seed's own records, untouched by anyone else (lane C's rule for step 7).
+
+    Defined by the seed (`is_seed_incident`; lane A's request and problem subjects), made by
+    one of its sign-ins, and with no history written by any other person. Never a release.
+    """
+    people = {
+        r["email"]: str(r["id"])
+        for r in await conn.fetch(
+            "SELECT email, id FROM users WHERE tenant_id = $1 AND email = ANY($2::text[])",
+            TENANT_ID,
+            [p.email for p in PEOPLE],
+        )
+    }
+    sign_ins = [
+        r["id"]
+        for r in await conn.fetch(
+            "SELECT id FROM users WHERE tenant_id = $1 AND email = ANY($2::text[])",
+            TENANT_ID,
+            [s.email for s in SIGN_INS],
+        )
+    ]
+    requests = {s for s, *_ in (*lane_a.REQUESTS, *lane_a.LOCAL_REQUESTS)} | lane_a.FIRST_SUBJECTS
+    problems = {p[0] for p in lane_a.PROBLEMS}
+    rows = await conn.fetch(
+        "SELECT w.id, w.type, w.subject, w.requester_id, w.display_number, w.status_category,"
+        "       w.created_at"
+        "  FROM work_items w"
+        " WHERE w.tenant_id = $1 AND w.type <> 'release' AND w.deleted_at IS NULL"
+        "   AND w.created_by = ANY($2::uuid[])"
+        "   AND NOT EXISTS (SELECT 1 FROM field_changes f"
+        "                    WHERE f.tenant_id = $1 AND f.record_type = 'work_item'"
+        "                      AND f.record_id = w.id AND f.actor_id IS NOT NULL"
+        # field_changes.actor_id is text (a person, or a service's id): compared as text.
+        "                      AND NOT (f.actor_id = ANY($2::uuid[]::text[])))",
+        TENANT_ID,
+        sign_ins,
+    )
+
+    def defined(row: asyncpg.Record) -> bool:
+        if row["type"] == "incident":
+            return len(people) == len(PEOPLE) and is_seed_incident(
+                {"subject": row["subject"], "requester_id": str(row["requester_id"])}, people
+            )
+        if row["type"] == "service_request":
+            return row["subject"] in requests
+        if row["type"] == "problem":
+            return row["subject"] in problems
+        return False
+
+    return [row for row in rows if defined(row)]
+
+
+async def freshen(settings: Settings, tenant_id: uuid.UUID, *, now: datetime) -> int:
+    """Step 7: the seed's own records move so the demo reads as of today; how many moved.
+
+    Each record moves as a whole by one delta (step 5's shift: every timestamp of it and of
+    its rows), its creation landing where `freshened_created` says; a later time (the seed's
+    own SLA stamps of today) is held at now, never moved into the future. Then its SLA clocks are
+    set right through the sla module (`rebase`: due moments from their start on their
+    calendars, the state from now, silently) and stamped on the record. The showcase tenant
+    only, in its own RLS context; audit, outbox and events are never touched.
+    """
+    if tenant_id != TENANT_ID:  # the showcase tenant only, whatever a caller passes
+        msg = f"fresh dates are only for the showcase tenant, not {tenant_id}"
+        raise SeedError(msg)
+    migrator = settings.migration_database_url
+    if migrator is None:
+        msg = "SUPPORTX_MIGRATION_DATABASE_URL is not set"
+        raise SeedError(msg)
+    moves: list[tuple[uuid.UUID, str, timedelta]] = []
+    owned: list[tuple[uuid.UUID, str]] = []
+    moved = 0
+    conn = await asyncpg.connect(migrator.get_secret_value())
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
+            for row in await _seed_owned(conn):
+                owned.append((row["id"], row["type"]))
+                land = freshened_created(row["display_number"], row["status_category"], now)
+                delta = land - row["created_at"]
+                if abs(delta) >= FRESHEN_MIN:
+                    moves.append((row["id"], row["type"], delta))
+        if moves:
+            async with conn.transaction():
+                await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(TENANT_ID))
+                await conn.execute(
+                    "CREATE TEMP TABLE showcase_shift (id uuid PRIMARY KEY, delta interval)"
+                    " ON COMMIT DROP"
+                )
+                await conn.executemany(
+                    "INSERT INTO showcase_shift (id, delta) VALUES ($1, $2)",
+                    [(record_id, delta) for record_id, _, delta in moves],
+                )
+                moved = await _shift(conn, cap=now)
+    finally:
+        await conn.close()
+    database = Database.from_settings(settings)
+    if database is None:
+        msg = "SUPPORTX_DATABASE_URL is not set"
+        raise SeedError(msg)
+    try:
+        async with database.tenant_session(TenantContext(TENANT_ID)) as session:
+            # Every seed record, moved now or not (lanes B and C): a rebase that failed after
+            # an earlier move is finished by the next run; on clocks already right it changes
+            # nothing.
+            for record_id, code in owned:
+                stamp = await sla.rebase(session, code, record_id, now=now)
+                await session.execute(
+                    text(
+                        "UPDATE work_items SET first_response_due_at = :frd,"
+                        " resolution_due_at = :rd, first_response_sla_state = :frs,"
+                        " resolution_sla_state = :rs, first_response_breached = :frb,"
+                        " resolution_breached = :rb, updated_at = :now, version = version + 1"
+                        " WHERE tenant_id = :t AND id = :id"
+                        " AND (first_response_due_at, resolution_due_at, first_response_sla_state,"
+                        "      resolution_sla_state, first_response_breached, resolution_breached)"
+                        "     IS DISTINCT FROM (:frd, :rd, :frs, :rs, :frb, :rb)"
+                    ),
+                    {
+                        "frd": stamp.first_response_due_at,
+                        "rd": stamp.resolution_due_at,
+                        "frs": stamp.first_response_sla_state,
+                        "rs": stamp.resolution_sla_state,
+                        "frb": stamp.first_response_breached,
+                        "rb": stamp.resolution_breached,
+                        "now": now,  # stamped again now (QA WP-029 BUG-05: every write)
+                        "t": TENANT_ID,
+                        "id": record_id,
+                    },
+                )
+    finally:
+        await database.dispose()
+    return moved
+
+
 def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the tested steps
     """`python -m tooling.showcase_seed showcase`."""
     settings = Settings.load(service_name="supportx-showcase-seed")
@@ -1460,7 +1705,10 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         password=env["SUPPORTX_KEYCLOAK_ADMIN_PASSWORD"],
         sign_in_password=password,
         realm=env.get("SUPPORTX_KEYCLOAK_REALM", "supportx"),
-        totp_key=env.get(TOTP_KEY_ENV) or None,
+        # The make target passes deploy/compose/.env's key; the API's own setting (backend/.env)
+        # is the same key, so either one enrols (they must match, or sign-in codes are refused).
+        totp_key=env.get(TOTP_KEY_ENV)
+        or (settings.showcase_totp_key.get_secret_value() if settings.showcase_totp_key else None),
     )
     try:
         report = asyncio.run(run(settings, target))
@@ -1474,10 +1722,12 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
         f"  service requests made now: {report.service_requests}; problems made now:"
         f" {report.problems}; rules made now: {report.rules}; managers set now:"
-        f" {report.managers}\n"
+        f" {report.managers}; catalog items featured now: {report.featured}\n"
         f"  incidents moved into the past 30 days now: {report.backdated}\n"
         f"  sign in as {ADMIN.email} or {TECHNICIAN.email} with ${PASSWORD_ENV}\n"
     )
+    for line in report.enrolment:
+        sys.stdout.write(f"  quick sign-in authenticator: {line}\n")
     return 0
 
 

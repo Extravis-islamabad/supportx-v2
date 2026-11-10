@@ -94,31 +94,13 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
 RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
-    # requests.* (service requests), problems.* (WP-044a) and releases.* (WP-058a) moved to
-    # work_items' ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the
-    # engine's actions), and assets.* to the assets module (WP-049a); the system-role grants
-    # below still name requests.* and assets.*, unchanged.
-    PermissionSpec("changes.view", "change", ALL),
-    PermissionSpec("changes.create", "change"),
-    PermissionSpec("changes.approve", "change", NOT_OWN),
+    # requests.* (service requests), problems.* (WP-044a), releases.* (WP-058a) and changes.*
+    # (WP-045a: the same key names, so saved grants need no mapping) moved to work_items'
+    # ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the engine's
+    # actions), and assets.* to the assets module (WP-049a); the system-role grants below still
+    # name them, unchanged.
     PermissionSpec("cmdb.view", "cmdb", NOT_OWN),
     PermissionSpec("cmdb.manage", "cmdb"),
-)
-
-# Permissions that make the console's Admin area visible (any one of them).
-ADMIN_PERMISSIONS = frozenset(
-    {
-        "users.manage",
-        "roles.view",
-        "roles.manage",
-        "sites.manage",
-        "groups.manage",
-        "settings.manage",
-        "licence.manage",
-        "audit.view",
-        "identity.manage",
-        "api_keys.manage",
-    }
 )
 
 # The technician and requester system roles, as (permission, scope), for the permissions of this
@@ -140,7 +122,9 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("changes.create", "all"),
             ("releases.view", "all"),
             ("assets.view", "all"),
-            ("assets.manage", "group"),
+            # D-153: a technician updates only the assets linked to its own tickets. Records
+            # can't link assets yet (REQ-AST-025, the asset picker on incident and request
+            # forms), so for now it only views them; full management is the asset manager's.
             ("cmdb.view", "all"),
         ),
         REQUESTER: (
@@ -214,6 +198,10 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("changes.view", "all"),
             ("changes.create", "all"),
             ("changes.approve", "all"),
+            # #327 (Haider, 2026-11-10): the change advisory boards and the emergency override
+            # (D-144) are the change manager's and the administrators' only.
+            ("changes.manage_boards", "all"),
+            ("changes.emergency_override", "all"),
             ("cmdb.view", "all"),
         ),
         RELEASE_MANAGER: (
@@ -245,7 +233,8 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
 # technician works, but only its groups' records (the tenant's "technicians see all" answer never
 # widens it), and views assets and changes without changing them. Then its own grants apply.
 _INHERITS: Mapping[str, tuple[str, frozenset[str]]] = MappingProxyType(
-    {TEAM_LEAD: (TECHNICIAN, frozenset({"assets.manage", "changes.create"}))}
+    # Raising a change stays anywhere, like a technician (option a; lane A's #342 review).
+    {TEAM_LEAD: (TECHNICIAN, frozenset({"assets.manage"}))}
 )
 # The desk's record families a team lead works only in its groups (D-152): an inherited `all`
 # becomes `group`. Creating stays anywhere (a new record lands in a group by its own rules), and

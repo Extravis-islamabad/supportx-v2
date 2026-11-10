@@ -57,6 +57,8 @@ import {
   useLabel,
   useLicence,
   type Tone,
+  WriteButton,
+  EmptyText,
 } from '@supportx/ui';
 
 import { CategoryDialog } from './CategoryDialog';
@@ -398,7 +400,7 @@ function ItemsTable({
       loading={loading}
       dataSource={rows}
       pagination={false}
-      locale={{ emptyText: t('catalog_admin.no_items') }}
+      locale={{ emptyText: <EmptyText>{t('catalog_admin.no_items')}</EmptyText> }}
       data-testid="cat-items"
       columns={[
         {
@@ -469,7 +471,7 @@ function ItemsTable({
                 </>
               )}
               <Tooltip title={t('catalog_admin.copy')}>
-                <Button
+                <WriteButton
                   type="text"
                   size="small"
                   icon={<CopyOutlined />}
@@ -508,7 +510,7 @@ function ItemsTable({
                     });
                 }}
               >
-                <Button
+                <WriteButton
                   type="text"
                   size="small"
                   danger
@@ -557,9 +559,10 @@ function StarterBanner() {
                 .map((g) => ({ value: g.id, label: g.name }))}
               data-testid="cat-starter-group"
             />
-            <Button
+            <WriteButton
               type="primary"
               disabled={group === undefined}
+              whyDisabled={t('why.choose_group')}
               loading={publish.isPending}
               data-testid="cat-starter-publish"
               onClick={() => {
@@ -578,7 +581,7 @@ function StarterBanner() {
               }}
             >
               {t('catalog_admin.starter.publish')}
-            </Button>
+            </WriteButton>
           </Flex>
         </Flex>
       }

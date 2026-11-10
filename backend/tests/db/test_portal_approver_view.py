@@ -1,0 +1,69 @@
+"""An approver opens what they are asked to approve, read-only, in the portal (QA10-P2-06).
+
+Real PostgreSQL. A requester-only person named as the request's approver (their manager) sees
+it in the portal with its answers and requester, the requester's fields only, never technician
+fields; it cannot confirm, reject or read the conversation, and a decided approval keeps
+the read (open or decided). Anyone else without reach gets 404; the approver cannot confirm or
+reject its delivery.
+"""
+
+import uuid
+
+from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
+from app.modules.work_items.domain.types import SERVICE_REQUEST
+from app.modules.work_items.service import portal
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_approvals_api import manager_of, waiting
+from tests.db.test_incidents_api import CONSOLE, World
+
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
+
+PORTAL = "/portal/service-requests"
+
+
+async def test_qa10_p2_06_the_approver_opens_the_request_read_only(world: World) -> None:
+    a = world.a
+    await manager_of(world, a.requester, a.requester2)  # a requester-only manager approves
+    record = await waiting(world, a)
+    shown = await world.call("GET", f"{PORTAL}/{record['id']}", a, a.requester2)
+    assert shown.status_code == 200, shown.text
+    body = shown.json()
+    assert body["reach"] == "approver"
+    assert body["answers"] == {"model": "air"}
+    assert body["requester_id"] == str(a.requester)
+    assert "technician_id" not in body
+    assert "group_id" not in body
+    # Read-only: the delivery is the requester's to confirm.
+    confirm = await world.call(
+        "POST",
+        f"{PORTAL}/{record['id']}/resolution/confirm",
+        a,
+        a.requester2,
+        headers={"If-Match": f'"{body["version"]}"', **CONSOLE},
+    )
+    assert (confirm.status_code, confirm.json()["code"]) == (403, "permission_denied")
+    not_done = await world.call(
+        "POST",
+        f"{PORTAL}/{record['id']}/resolution/reject",
+        a,
+        a.requester2,
+        json={"comment": "Not mine"},
+        headers={"If-Match": f'"{body["version"]}"', **CONSOLE},
+    )
+    assert not_done.status_code == 403, not_done.text
+    # No conversation: what is asked, not the requester's talk with the desk.
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        approver = await subject_for(session, a.tenant, a.requester2)
+        entries = await portal.conversation(
+            session, approver, uuid.UUID(record["id"]), SERVICE_REQUEST
+        )
+    assert entries == []
+    # Not named on it, no reach: 404. A request whose approver is someone else.
+    await manager_of(world, a.requester, a.tech_a)
+    theirs = await waiting(world, a)
+    assert (await world.call("GET", f"{PORTAL}/{theirs['id']}", a, a.requester2)).status_code == 404
+    other = await world.call("GET", f"{PORTAL}/{record['id']}", world.b, world.b.requester)
+    assert other.status_code == 404

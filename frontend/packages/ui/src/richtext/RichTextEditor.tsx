@@ -171,7 +171,9 @@ export default function RichTextEditor({
     if ((value ?? '') !== current) editor.commands.setContent(value ?? '', { emitUpdate: false });
   }, [editor, value]);
   useEffect(() => {
-    editor.setEditable(!disabled);
+    // No update event: Tiptap sends one by default, which reached onChange as a change on
+    // every mount, so drafts autosaved and forms showed "unsaved" untouched (QA10-P4-05, P4-09).
+    editor.setEditable(!disabled, false);
   }, [editor, disabled]);
   // Escape leaves full screen wherever the focus is (QA BUG-05).
   useEffect(() => {

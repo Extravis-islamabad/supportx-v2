@@ -5,7 +5,7 @@ import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testin
 
 import { App } from '../../App';
 import { clickAction } from '../../test/actions';
-import { consoleApi } from '../../test/api';
+import { consoleApi, problem } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
 // similar problems), and the record with the guided steps and investigators. WP-044b s1: the
@@ -84,6 +84,7 @@ function api(routes: Record<string, unknown> = {}) {
       },
       'GET /api/v1/problems/templates': { body: [template] },
       'GET /api/v1/problems/similar': { body: [] },
+      'POST /api/v1/problems/from-incidents/preview': { body: { already_caused: [] } },
       [`GET /api/v1/problems/${PRB_ID}`]: { body: record },
       [`GET /api/v1/problems/${PRB_ID}/links`]: { body: [] },
       [`GET /api/v1/problems/${PRB_ID}/investigators`]: {
@@ -180,6 +181,37 @@ describe('console: problems', () => {
     expect(screen.getByTestId('prb-new')).toBeDefined();
   });
 
+  it('Haider 2026-11-10: the list is the list template; a column resized by keyboard is kept for this view', async () => {
+    window.history.pushState({}, '', '/problems');
+    const fake = api({
+      'GET /api/v1/problems/list-settings/all_open': {
+        body: { view_key: 'all_open', columns: [], sort: null, page_size: 50, version: null },
+      },
+      'PUT /api/v1/problems/list-settings/all_open': (call: { body: unknown }) => ({
+        body: { view_key: 'all_open', version: 1, ...(call.body as object) },
+        headers: { ETag: '"1"' },
+      }),
+    });
+    render(<App />);
+    await screen.findByTestId('prb-row-PRB-7');
+    expect(screen.getByTestId('prb-filterbar')).toBeDefined(); // the one toolbar
+    const [subject] = screen.getAllByRole('separator', { name: /Subject/ });
+    if (subject === undefined) throw new Error('no resize handle on the subject');
+    // Each step saves once; the next starts from what was saved.
+    for (let i = 1; i <= 3; i += 1) {
+      fireEvent.keyDown(subject, { key: 'ArrowLeft', shiftKey: true });
+      await waitFor(() => {
+        expect(fake.find('PUT', '/api/v1/problems/list-settings/all_open')).toHaveLength(i);
+      });
+    }
+    const last = fake.find('PUT', '/api/v1/problems/list-settings/all_open').at(-1)?.body as {
+      columns: { key: string; width: number | null }[];
+    };
+    // Never narrower than the subject's minimum; saved under this list's own settings.
+    expect(last.columns.find((c) => c.key === 'subject')?.width).toBe(180);
+    expect(fake.find('PUT', '/api/v1/incidents/list-settings/all_open')).toHaveLength(0);
+  });
+
   it('creates one from an incident: prefilled, similar problems shown, linked on save', async () => {
     window.history.pushState({}, '', `/problems/new?incident=${INC_ID}`);
     const fake = api({
@@ -238,6 +270,43 @@ describe('console: problems', () => {
     await screen.findByTestId('prb-record');
   });
 
+  it('QA10-P1-02: from one incident another problem causes, the move is offered and sent', async () => {
+    window.history.pushState({}, '', `/problems/new?incident=${INC_ID}`);
+    const fake = api({
+      'GET /api/v1/problems/prefill': {
+        body: {
+          subject: 'Mail is down',
+          description: null,
+          impact: null,
+          urgency: null,
+          site_id: null,
+          category_id: null,
+          requester_id: TECH,
+          problem_type: 'reactive',
+          source_incident_id: INC_ID,
+        },
+      },
+      'POST /api/v1/problems/from-incidents/preview': {
+        body: { already_caused: [{ incident_id: INC_ID, problem_display_id: 'PRB-4' }] },
+      },
+      'POST /api/v1/problems/from-incidents': {
+        status: 201,
+        body: { problem: record, bulk_jobs: [] },
+      },
+    });
+    render(<App />);
+    const caused = await screen.findByTestId('prb-already-caused');
+    fireEvent.click(within(caused).getByRole('checkbox'));
+    fireEvent.click(screen.getByTestId('prb-create'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(1);
+    });
+    const sent = fake.find('POST', '/api/v1/problems/from-incidents')[0]?.body as {
+      move_incident_ids: string[];
+    };
+    expect(sent.move_incident_ids).toEqual([INC_ID]);
+  });
+
   it("WP-044c S1: a problem gets its group and owner in the incident's assign dialog", async () => {
     window.history.pushState({}, '', `/problems/${PRB_ID}`);
     const fake = api({
@@ -267,6 +336,29 @@ describe('console: problems', () => {
     await screen.findByTestId('prb-record');
     await clickAction('prb-print', 'prb-actions');
     expect(print).toHaveBeenCalledTimes(1);
+  });
+
+  it('QA10-P1-04: a move refused for an empty field names the field, never a vague toast', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    api({
+      [`POST /api/v1/problems/${PRB_ID}/actions/analyse`]: {
+        status: 422,
+        body: problem(422, 'closure_rules', {
+          errors: [
+            {
+              field: 'body.root_cause',
+              code: 'required_to_resolve',
+              message_key: 'errors.field.required_to_resolve',
+              params: {},
+            },
+          ],
+        }),
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start the why-analysis' }));
+    expect(await screen.findByText('Fill these on the record first: Root cause.')).toBeDefined();
+    expect(screen.queryByText('Some things are needed before this can be done.')).toBeNull();
   });
 
   it('shows the guided steps, the next move and the investigators', async () => {

@@ -1,9 +1,8 @@
+import { ReadOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Button,
-  Card,
-  Descriptions,
   Flex,
   List,
   Result,
@@ -28,12 +27,16 @@ import {
   type KbArticle,
   type KbLanguage,
 } from '@supportx/api-client';
-import { useJoinParts } from '@supportx/labels';
+import { useJoinParts, useListFormat } from '@supportx/labels';
 import { useRecordChannel } from '@supportx/realtime';
 import {
   EmptyText,
   NoAccess,
   PresenceAvatars,
+  PropertiesPanel,
+  PropertyList,
+  RecordHeader,
+  RecordPage,
   RichTextView,
   useAccess,
   useAppearance,
@@ -49,6 +52,7 @@ import {
   articleLanguage,
   headings,
   historyField,
+  historyValue,
   LANGUAGES,
   shownLanguage,
   topicPath,
@@ -114,7 +118,9 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
     void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.votes(article.id) });
   });
 
-  const path = topicPath(topics.data ?? [], article.topic_id, language);
+  // The path is part of the screen, so it reads in the screen's language (QA10-P4-35), as the
+  // topic tree does, whatever language the article itself is shown in.
+  const path = topicPath(topics.data ?? [], article.topic_id, articleLanguage(locale));
   const type = (types.data ?? []).find((row) => row.code === article.type_code);
   const contents = useMemo(() => headings(shown?.body_html ?? ''), [shown?.body_html]);
   const dateFormat = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' });
@@ -124,109 +130,194 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
     body.current?.querySelectorAll('h2, h3, h4')[index]?.scrollIntoView({ block: 'start' });
   };
 
+  const dir = language === 'ar' ? 'rtl' : 'ltr';
+  // Template A (D-147): the header and actions in one card, the alerts, then the article and its
+  // tabs on the start side and its properties in the panel on the end side.
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="start" wrap gap={12}>
-        <Space direction="vertical" size={4} style={{ minWidth: 0 }}>
-          <Typography.Text type="secondary" data-testid="kb-path">
-            {joinParts([t('knowledge.title'), ...path], ' › ')}
-          </Typography.Text>
-          <Typography.Text type="secondary">{article.display_id}</Typography.Text>
-          <Typography.Title
-            level={1}
-            style={{ margin: 0 }}
-            dir={language === 'ar' ? 'rtl' : 'ltr'}
-            data-testid="kb-heading"
-          >
-            {shown?.title}
-          </Typography.Title>
-          <Space size={4} wrap>
-            {shown !== undefined && <VersionStatusTag status={shown.status} />}
-            {draft !== undefined && article.published[language] !== undefined && (
-              <VersionStatusTag status={draft.status} />
+    <>
+      <RecordPage
+        testId="kb-article"
+        header={
+          <RecordHeader
+            icon={<ReadOutlined />}
+            kind="article"
+            typeLabel={t('knowledge.article')}
+            displayId={article.display_id}
+            title={shown?.title ?? ''}
+            testIds={{ title: 'kb-heading' }}
+            renderTitle={(title) => (
+              <span dir={dir} lang={language}>
+                {title}
+              </span>
             )}
-            <ArticleFlags flags={article} />
-          </Space>
-        </Space>
-        <Space direction="vertical" align="end">
-          <PresenceAvatars viewers={viewers} selfUserId={me} />
-          <Segmented<KbLanguage>
-            value={language}
-            onChange={setWanted}
-            options={LANGUAGES.map((value) => ({
-              value,
-              label: t(`knowledge.language.${value}`),
-              disabled:
-                article.published[value] === undefined && article.drafts[value] === undefined,
-            }))}
-            data-testid="kb-language"
+            tags={
+              <>
+                {shown !== undefined && <VersionStatusTag status={shown.status} />}
+                {draft !== undefined && article.published[language] !== undefined && (
+                  <VersionStatusTag status={draft.status} />
+                )}
+                <ArticleFlags flags={article} />
+              </>
+            }
+            meta={[
+              <span key="path" data-testid="kb-path">
+                {joinParts([t('knowledge.title'), ...path], ' › ')}
+              </span>,
+            ]}
+            extra={
+              <Flex gap={8} align="center" wrap>
+                <PresenceAvatars viewers={viewers} selfUserId={me} />
+                <Segmented<KbLanguage>
+                  value={language}
+                  onChange={setWanted}
+                  options={LANGUAGES.map((value) => ({
+                    value,
+                    label: t(`knowledge.language.${value}`),
+                    disabled:
+                      article.published[value] === undefined && article.drafts[value] === undefined,
+                  }))}
+                  data-testid="kb-language"
+                />
+              </Flex>
+            }
           />
-        </Space>
-      </Flex>
-      {language !== wanted && (
-        <Alert
-          type="info"
-          showIcon
-          message={t('knowledge.no_translation')}
-          data-testid="kb-fallback"
-        />
-      )}
-      {article.withdrawn && (
-        <Alert
-          type="warning"
-          showIcon
-          data-testid="kb-withdrawn"
-          message={t('knowledge.withdrawn_notice')}
-          description={
-            article.withdrawn_reason === null
-              ? undefined
-              : t('history.reason', { reason: article.withdrawn_reason })
-          }
-        />
-      )}
-      {draft !== undefined && draft.reject_reason !== null && draft.status === 'draft' && (
-        <Alert
-          type="warning"
-          showIcon
-          data-testid="kb-reject-reason"
-          message={t('knowledge.sent_back')}
-          description={t('history.reason', { reason: draft.reject_reason })}
-        />
-      )}
-      {work && (
-        <Space wrap>
-          <ArticleActions
-            article={article}
-            language={language}
-            onEdit={() => {
-              void navigate(`/knowledge/articles/${article.id}/edit/${language}`);
-            }}
+        }
+        actions={
+          work ? (
+            <Space wrap>
+              <ArticleActions
+                article={article}
+                language={language}
+                onEdit={() => {
+                  void navigate(`/knowledge/articles/${article.id}/edit/${language}`);
+                }}
+              />
+              {article.can_edit && (
+                <Button
+                  onClick={() => {
+                    setSettings(true);
+                  }}
+                  data-testid="kb-settings"
+                >
+                  {t('knowledge.article_settings')}
+                </Button>
+              )}
+            </Space>
+          ) : undefined
+        }
+        alerts={
+          <>
+            {language !== wanted && (
+              <Alert
+                type="info"
+                showIcon
+                message={t('knowledge.no_translation')}
+                data-testid="kb-fallback"
+              />
+            )}
+            {article.withdrawn && (
+              <Alert
+                type="warning"
+                showIcon
+                data-testid="kb-withdrawn"
+                message={t('knowledge.withdrawn_notice')}
+                description={
+                  article.withdrawn_reason === null
+                    ? undefined
+                    : t('history.reason', { reason: article.withdrawn_reason })
+                }
+              />
+            )}
+            {draft !== undefined && draft.reject_reason !== null && draft.status === 'draft' && (
+              <Alert
+                type="warning"
+                showIcon
+                data-testid="kb-reject-reason"
+                message={t('knowledge.sent_back')}
+                description={t('history.reason', { reason: draft.reject_reason })}
+              />
+            )}
+          </>
+        }
+        panel={
+          <PropertiesPanel
+            testId="kb-panel"
+            sections={[
+              {
+                key: 'properties',
+                title: t('layout.properties'),
+                children: (
+                  <PropertyList
+                    items={[
+                      {
+                        key: 'owner',
+                        label: t('knowledge.field.owner_id'),
+                        content: article.owner_name ?? t('knowledge.someone'),
+                        filled: true,
+                      },
+                      {
+                        key: 'type',
+                        label: t('knowledge.field.type_code'),
+                        content: typeName(type, article.type_code, language, t),
+                        filled: true,
+                      },
+                      {
+                        key: 'review',
+                        label: t('knowledge.field.review_on'),
+                        content:
+                          article.review_on === null
+                            ? t('knowledge.never')
+                            : dateFormat.format(new Date(article.review_on)),
+                        filled: true,
+                      },
+                      {
+                        key: 'expires',
+                        label: t('knowledge.field.expires_on'),
+                        content:
+                          article.expires_on === null
+                            ? t('knowledge.never')
+                            : dateFormat.format(new Date(article.expires_on)),
+                        filled: true,
+                      },
+                      {
+                        key: 'audience',
+                        label: t('knowledge.field.audience'),
+                        content: (
+                          <AudienceSummary audience={article.audience} testId="kb-audience" />
+                        ),
+                        filled: true,
+                      },
+                      {
+                        key: 'translations',
+                        label: t('knowledge.field.translations'),
+                        // Never an empty value (QA10-P4-03): "Not set" until a language is out.
+                        content: LANGUAGES.some(
+                          (value) => article.published[value] !== undefined,
+                        ) ? (
+                          <Space size={4} wrap>
+                            {LANGUAGES.filter(
+                              (value) => article.published[value] !== undefined,
+                            ).map((value) => (
+                              <span key={value}>{t(`knowledge.language.${value}`)}</span>
+                            ))}
+                          </Space>
+                        ) : (
+                          t('reports.not_set')
+                        ),
+                        filled: true,
+                      },
+                    ]}
+                  />
+                ),
+              },
+            ]}
           />
-          {article.can_edit && (
-            <Button
-              onClick={() => {
-                setSettings(true);
-              }}
-              data-testid="kb-settings"
-            >
-              {t('knowledge.article_settings')}
-            </Button>
-          )}
-        </Space>
-      )}
-      {settings && (
-        <ArticleSettings
-          article={article}
-          language={language}
-          onClose={() => {
-            setSettings(false);
-          }}
-        />
-      )}
-      <Flex gap={16} wrap align="start">
-        <Space direction="vertical" size="middle" style={{ flex: '3 1 480px', minWidth: 0 }}>
+        }
+      >
+        <Flex vertical gap={16} style={{ padding: '16px 8px' }}>
           {contents.length > 1 && (
-            <Card size="small" title={t('knowledge.contents')} data-testid="kb-toc">
+            <nav aria-label={t('knowledge.contents')} data-testid="kb-toc">
+              <Typography.Text strong>{t('knowledge.contents')}</Typography.Text>
               <List
                 size="small"
                 dataSource={contents}
@@ -244,14 +335,11 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
                   </List.Item>
                 )}
               />
-            </Card>
+            </nav>
           )}
-          {/* The article on a white card, not the grey page (QA6-KB-05). */}
-          <Card size="small">
-            <div ref={body} dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
-              <RichTextView html={shown?.body_html ?? null} testId="kb-body" />
-            </div>
-          </Card>
+          <div ref={body} dir={dir} lang={language}>
+            <RichTextView html={shown?.body_html ?? null} testId="kb-body" />
+          </div>
           {shown?.status === 'published' && <HelpfulPrompt article={article} version={shown} />}
           <Tabs
             data-testid="kb-tabs"
@@ -287,61 +375,18 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
               },
             ]}
           />
-        </Space>
-        <Card size="small" style={{ flex: '1 1 260px', minWidth: 0 }} data-testid="kb-panel">
-          <Descriptions
-            column={1}
-            size="small"
-            items={[
-              {
-                key: 'owner',
-                label: t('knowledge.field.owner_id'),
-                children: article.owner_name ?? t('knowledge.someone'),
-              },
-              {
-                key: 'type',
-                label: t('knowledge.field.type_code'),
-                children: typeName(type, article.type_code, language, t),
-              },
-              {
-                key: 'review',
-                label: t('knowledge.field.review_on'),
-                children:
-                  article.review_on === null
-                    ? t('knowledge.never')
-                    : dateFormat.format(new Date(article.review_on)),
-              },
-              {
-                key: 'expires',
-                label: t('knowledge.field.expires_on'),
-                children:
-                  article.expires_on === null
-                    ? t('knowledge.never')
-                    : dateFormat.format(new Date(article.expires_on)),
-              },
-              {
-                key: 'audience',
-                label: t('knowledge.field.audience'),
-                children: <AudienceSummary audience={article.audience} testId="kb-audience" />,
-              },
-              {
-                key: 'translations',
-                label: t('knowledge.field.translations'),
-                children: (
-                  <Space size={4} wrap>
-                    {LANGUAGES.filter((value) => article.published[value] !== undefined).map(
-                      (value) => (
-                        <span key={value}>{t(`knowledge.language.${value}`)}</span>
-                      ),
-                    )}
-                  </Space>
-                ),
-              },
-            ]}
-          />
-        </Card>
-      </Flex>
-    </Space>
+        </Flex>
+      </RecordPage>
+      {settings && (
+        <ArticleSettings
+          article={article}
+          language={language}
+          onClose={() => {
+            setSettings(false);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -384,6 +429,9 @@ function History({ id }: { id: string }) {
   const { intlLocale } = useAppearance();
   const history = useKbHistory(id);
   const format = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' });
+  const days = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeZone: 'UTC' });
+  const listFormat = useListFormat();
+  const list = (items: string[]) => listFormat(items, 'conjunction');
   const entries = history.data?.pages.flatMap((page) => page.items) ?? [];
   if (entries.length === 0) return <EmptyText>{t('knowledge.no_history')}</EmptyText>;
   return (
@@ -394,17 +442,30 @@ function History({ id }: { id: string }) {
           key: String(index),
           children: (
             <Space direction="vertical" size={0}>
+              <Typography.Text strong>{t(`change_kind.${entry.kind}`)}</Typography.Text>
               <Typography.Text>
                 {t('knowledge.history.by', {
                   name: entry.actor_name ?? t(`change_source.${entry.source}`),
                   when: format.format(new Date(entry.occurred_at)),
                 })}
               </Typography.Text>
-              {entry.changes.map((change) => (
-                <Typography.Text key={change.field} type="secondary">
-                  {historyField(change.field, t)}
-                </Typography.Text>
-              ))}
+              {entry.changes.map((change) => {
+                // Created: what it started with; later saves: from → to (QA10-P4-04).
+                const field = historyField(change.field, t);
+                const before = historyValue(change.field, change.old, t, days, list);
+                const after = historyValue(change.field, change.new, t, days, list);
+                let text = field;
+                if (after !== null && (entry.kind === 'created' || change.old == null)) {
+                  text = t('knowledge.history.set', { field, value: after });
+                } else if (after !== null && before !== null) {
+                  text = t('history.change', { field, old: before, new: after });
+                }
+                return (
+                  <Typography.Text key={change.field} type="secondary" dir="auto">
+                    {text}
+                  </Typography.Text>
+                );
+              })}
               {entry.reason !== null && (
                 <Typography.Text type="secondary" dir="auto">
                   {t('history.reason', { reason: entry.reason })}

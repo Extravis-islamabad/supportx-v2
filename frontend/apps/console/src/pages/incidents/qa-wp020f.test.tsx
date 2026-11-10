@@ -109,6 +109,39 @@ describe('BUG-03: the requester acts as a person, not as automation', () => {
   });
 });
 
+describe('QA10-P1-19: a change with no words of its own reads as one line', () => {
+  it('QA10-P1-19: "SLA policy changed", never "changed → changed"', async () => {
+    rememberTab(SESSION_USER, 'history');
+    api({
+      routes: {
+        ...COMMON,
+        ...record(fakeIncident()),
+        [`GET ${PATH}/history`]: {
+          body: {
+            items: [
+              entry({
+                changes: [
+                  {
+                    field: 'sla_policy_id',
+                    old: '01a1a2b3-0000-7000-8000-00000000ab01',
+                    new: '01a1a2b3-0000-7000-8000-00000000ab02',
+                  },
+                ],
+              }),
+            ],
+            next_cursor: null,
+            people: {},
+          },
+        },
+      },
+    });
+    render(<App />);
+    const text = (await screen.findByTestId('inc-history-entry')).textContent;
+    expect(text).toContain('Yusra Requester changed SLA policy'); // a sentence (Haider 11-10)
+    expect(text).not.toContain('changed → changed');
+  });
+});
+
 describe('BUG-01: the requester’s own words are received, not unsent', () => {
   it('BUG-01: a received reply says so and has no "Not sent" warning', async () => {
     rememberTab(SESSION_USER, 'conversation');

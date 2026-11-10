@@ -6,7 +6,7 @@
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
@@ -91,6 +91,15 @@ showcase-seed: $(DEV_ENV) ## Fill Showcase Company (slug showcase) for demos; id
 
 dev-quick-sign-in: $(DEV_ENV) ## DEV ONLY: one-click sign-in per showcase persona at /dev/sign-in (D-151; never production)
 	@bash $(DEV_DIR)/scripts/dev-quick-sign-in.sh
+	@$(MAKE) --no-print-directory keycloak-dev-sync
+
+keycloak-dev-sync: $(DEV_ENV) ## DEV ONLY: give an existing local dev realm the quick sign-in's settings, keeping its data (idempotent)
+	@env_value() { grep "^$$1=" $(CURDIR)/$(DEV_ENV) | cut -d= -f2-; }; \
+	cd backend && SUPPORTX_KEYCLOAK_URL="http://localhost:$$(env_value KEYCLOAK_PORT || echo 28080)" \
+	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
+	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
+	SUPPORTX_DEV_QUICK_SIGN_IN="$$(env_value DEV_QUICK_SIGN_IN)" \
+	uv run python -m tooling.keycloak_dev_sync
 	@$(MAKE) --no-print-directory showcase-seed
 	@echo "Restart the API (make backend-dev), then open http://localhost:5173/dev/sign-in"
 
@@ -230,7 +239,7 @@ backend-test: generated-backend
 	$(BACKEND) uv run pytest
 
 backend-test-timings: ## Time every backend test file, to refresh the CI shard weights (tests/shard_weights.json)
-	$(BACKEND) SUPPORTX_TEST_TIMINGS=tests/shard_weights.json uv run pytest -n 4 --dist loadgroup --no-cov
+	$(BACKEND) SUPPORTX_TEST_TIMINGS=tests/shard_weights.json uv run pytest -n 4 --dist loadfile --no-cov
 
 # CI's own file timings are the ones to balance on (a laptop is several times faster than CI's
 # runners, and not evenly so). RUN defaults to the latest successful CI run on main.

@@ -48,6 +48,9 @@ USER_SETTING = "app.user_id"
 SESSION_TENANT_KEY = "supportx.tenant"
 SESSION_PLATFORM_KEY = "supportx.platform"
 AFTER_COMMIT_KEY = "supportx.after_commit"
+# The HTTP request a request-scoped session serves, so code that writes in its transaction
+# without a Request parameter (the audit entry of a save, WP-064) can still name its client.
+SESSION_REQUEST_KEY = "supportx.request"
 # Report transactions (WP-035, ADR-033): the statement time limit in milliseconds.
 SESSION_REPORT_KEY = "supportx.report_timeout_ms"
 REPORT_ROLE = "supportx_report"
@@ -268,6 +271,7 @@ async def tenant_unit_of_work(
     """
     async with database.tenant_session(tenant) as session:
         setattr(request.state, REQUEST_SESSION_STATE, session)
+        session.info[SESSION_REQUEST_KEY] = request
         try:
             yield session
         finally:

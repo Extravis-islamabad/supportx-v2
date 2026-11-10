@@ -252,8 +252,10 @@ describe('dashboards on screen', () => {
       }),
     });
     render(<App />);
+    // The group renders before its list fills (the library loads, then names it): wait for the
+    // row itself, never assume it came with its group.
     const builtin = await screen.findByTestId('dashboards-group-builtin');
-    expect(within(builtin).getByText('My work')).toBeDefined();
+    expect(await within(builtin).findByText('My work')).toBeDefined();
     expect(
       within(screen.getByTestId('dashboards-group-mine')).getByText('Team board'),
     ).toBeDefined();

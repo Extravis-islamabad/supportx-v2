@@ -5,6 +5,7 @@ import type { IncidentCategory, IncidentTemplate } from '@supportx/api-client';
 import {
   fakeIncident,
   fakeIncidentCatalogue,
+  fakeEntitlements,
   fakeIncidentTemplate,
   fakeSession,
 } from '@supportx/api-client/testing';
@@ -415,6 +416,45 @@ describe('Admin › Incidents', () => {
     expect(screen.getByTestId('tpl-rule-tags-requester_can_see').getAttribute('aria-checked')).toBe(
       'true',
     );
+  });
+
+  it('with a read-only licence nothing on the statuses tab saves (§17 item 3)', async () => {
+    api({
+      me: ADMIN,
+      routes: {
+        ...COMMON,
+        'GET /api/v1/incidents/settings': {
+          body: {
+            ...fakeIncidentCatalogue(),
+            transitions: [
+              {
+                action: 'pause',
+                from_status: 'in_progress',
+                lifecycle: 'incident',
+                reason_list: null,
+                reason_mode: 'required',
+                to_status: 'on_hold',
+              },
+            ],
+          },
+        },
+        'GET /api/v1/entitlements': {
+          body: fakeEntitlements({ state: 'read_only', state_reason: 'expired', writable: false }),
+        },
+      },
+    });
+    window.history.pushState({}, '', '/admin/incidents/statuses');
+    render(<App />);
+    const table = await screen.findByTestId('settings-statuses');
+    await waitFor(() => {
+      expect(within(table).getAllByTestId('read-only-action').length).toBeGreaterThan(0);
+    });
+    for (const control of within(table).getAllByRole('switch')) {
+      expect(control.hasAttribute('disabled')).toBe(true);
+    }
+    const prompts = screen.getByTestId('settings-reason-prompts');
+    expect(prompts.querySelectorAll('.ant-select-disabled').length).toBeGreaterThan(0);
+    expect(prompts.querySelectorAll('.ant-select:not(.ant-select-disabled)')).toHaveLength(0);
   });
 
   it('settings changed by another admin reach open screens live', async () => {

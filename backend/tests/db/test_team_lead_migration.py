@@ -17,7 +17,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0110"
+BEFORE = "0122"  # 0121's parent: the step under test, alone
 
 
 @pytest.fixture

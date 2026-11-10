@@ -16,6 +16,7 @@ from typing import Any, Protocol
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import Conflict
 from app.modules.identity_access import AccessRule
 from app.modules.work_items.domain.lifecycle import ReasonList, ReasonMode, StatusCategory
 from app.modules.work_items.domain.stages import (
@@ -274,11 +275,13 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
     left: str | None = None,
     reason_code: str | None = None,
     reason_text: str | None = None,
+    path: str | None = None,
 ) -> list[WorkItemStageEntry]:
     """Close the open entry and add one per stage entered, in order (never rewritten, §6).
 
     Passing through a stage on an automatic advance gives it an entry that is left at once, so
-    the rail shows it done.
+    the rail shows it done. `path`: the path the new entries are on, when `restart` changes it
+    (default: the record's).
     """
     if not stages:
         return []
@@ -294,7 +297,7 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
             tenant_id=catalogue.tenant_of(session),
             work_item_id=record.id,
             stage=stage,
-            path=str(record.stage_path),
+            path=path or str(record.stage_path),
             entered_at=now,
             left_at=now if index < len(stages) - 1 else None,
             reason_code=reason_code if index == 0 else None,
@@ -309,6 +312,79 @@ async def enter(  # noqa: PLR0913 - the record, the stages and the move's reason
         for entry in entries:
             await guard.on_entered(session, record, entry)
     return entries
+
+
+async def restart(  # noqa: PLR0913 - the record, its new path and why, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    path: str,
+    now: datetime,
+    reason_code: str,
+) -> dict[str, Any]:
+    """Put a record on another path, back in its first stage as a new round (the system only).
+
+    A standard change converted to normal (REQ-CHG-006 AC2): the open entry is closed and the
+    first stage of `path` entered, its entry carrying `reason_code`; the stage left ends in the
+    schedule, and the guard supersedes the earlier approvals as on going back. Earlier rounds
+    stay entries of their stages (the rail shows those on the new path). Returns the columns
+    the caller saves with the record (same lifecycle version), in its transaction. The guard's
+    on_entered sees the record before those columns are saved (its old stage and stage_path):
+    a guard that reads them must not take them for the new ones (lane C's review).
+    """
+    if path not in await enabled_paths(session, wtype):
+        raise Conflict(code="stage_path_disabled", params={"path": path})
+    model = await load_model(session, wtype, record.lifecycle_version)
+    first = model.path(path).stages[0]
+    await enter(
+        session,
+        record,
+        [first],
+        now=now,
+        left=None if record.stage is None else str(record.stage),
+        reason_code=reason_code,
+        path=path,
+    )
+    status = model.first_status(first)
+    return {
+        "stage_path": path,
+        "stage": first,
+        "status": status.code,
+        "status_category": status.category,
+    }
+
+
+async def send_back(  # noqa: PLR0913 - the record, where it goes back to and why, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    stage: str,
+    status: str,
+    now: datetime,
+    reason_code: str,
+) -> dict[str, Any]:
+    """Send a record back to `stage` at `status` on its own path, a new round (the system only).
+
+    A change whose approved window or risk changed beyond its policy goes back to that stage's
+    raising status (REQ-CHG-053, Haider 2026-11-10). As in `restart`: the open entry closes, the
+    stage is entered again with `reason_code`, and the caller saves the returned columns.
+    """
+    model = await load_model(session, wtype, record.lifecycle_version)
+    target = next((s for s in model.statuses_of(stage) if s.code == status), None)
+    if target is None:
+        raise Conflict(code="stage_move_not_allowed", params={"to_status": status})
+    await enter(
+        session,
+        record,
+        [stage],
+        now=now,
+        left=None if record.stage is None else str(record.stage),
+        reason_code=reason_code,
+        path=str(record.stage_path),
+    )
+    return {"stage": stage, "status": target.code, "status_category": target.category}
 
 
 async def _stamp_actual(

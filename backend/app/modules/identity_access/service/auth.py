@@ -14,7 +14,7 @@ import hmac
 import secrets
 import uuid
 from dataclasses import dataclass, replace
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlencode, urlsplit
 
@@ -58,7 +58,7 @@ from app.modules.identity_access.infra.oidc import (
     TokenRejectedError,
     TokenSet,
 )
-from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.infra.store import SessionStore, public_id
 from app.modules.identity_access.service import api_keys, sso_test
 from app.modules.identity_access.service import mfa as mfa_service
 from app.modules.identity_access.service.users import (
@@ -88,6 +88,34 @@ MAX_SESSION = timedelta(seconds=max(limit["max_absolute"] for limit in SESSION_L
 
 def _client_app(session: Session) -> AppName:
     return "portal" if session.client == "portal" else "console"
+
+
+_EPOCH = datetime.fromtimestamp(0, UTC)
+
+
+def _moment(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value:
+        return datetime.fromisoformat(value)
+    return None
+
+
+# On the person's own channel when their session list changed (ADR-044 item 5).
+SESSIONS_CHANGED = "identity_access.sessions_changed"
+
+
+@dataclass(frozen=True, slots=True)
+class ListedSession:
+    """One of a person's sessions, as My account and admins see it (never its secret id)."""
+
+    id: str
+    client: str
+    platform: str | None
+    app_version: str | None
+    started_at: datetime | None
+    last_used_at: datetime | None
+    current: bool
 
 
 def user_key(tenant_id: str, user_id: str) -> str:
@@ -181,6 +209,9 @@ class AuthService:
         self.identity_admin: IdentityAdmin | None = None
         # Set by the module startup: closes a person's live connections in a tenant (WP-039).
         self.end_realtime: Callable[[uuid.UUID, uuid.UUID], Awaitable[None]] | None = None
+        # Set by the module startup: tells the person's open screens their session list changed
+        # (ADR-044 item 5), best effort.
+        self.sessions_changed: Callable[[uuid.UUID, uuid.UUID], Awaitable[None]] | None = None
 
     # --- clients and origins -------------------------------------------------------------------
 
@@ -496,7 +527,12 @@ class AuthService:
     async def _save_new(self, session: Session) -> str:
         session_id = secrets.token_urlsafe(32)
         await self._save(session_id, session)
+        await self._sessions_changed(session.tenant_uuid, session.user_uuid)
         return session_id
+
+    async def _sessions_changed(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        if self.sessions_changed is not None:
+            await self.sessions_changed(tenant_id, user_id)
 
     async def _save(self, session_id: str, session: Session) -> None:
         ttl = session.ttl(self.clock.now(), idle=self.idle, absolute=self.absolute)
@@ -530,6 +566,41 @@ class AuthService:
             session = session.touched(now)
             await self._save(session_id, session)
         return session_id, session
+
+    async def listed_sessions(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, *, current: str | None = None
+    ) -> list["ListedSession"]:
+        """A person's live sessions, newest use first (ADR-044 item 5); `current`: this one."""
+        mine = public_id(current) if current else None
+        rows = await self.store.user_sessions(user_key(str(tenant_id), str(user_id)))
+        found = [
+            ListedSession(
+                id=sid,
+                client=str(meta.get("client") or ""),
+                platform=meta.get("platform"),
+                app_version=meta.get("app_version"),
+                started_at=_moment(meta.get("created_at")),
+                last_used_at=_moment(meta.get("last_seen_at")),
+                current=sid == mine,
+            )
+            for sid, meta in rows
+        ]
+        return sorted(found, key=lambda s: s.last_used_at or s.started_at or _EPOCH, reverse=True)
+
+    async def end_listed_session(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, session: str
+    ) -> bool:
+        """End one of a person's sessions by its listed id; its next call answers 401.
+
+        Their live connections in the tenant are cut too, so the ended one can't keep listening;
+        the others reconnect with their own sessions (as after a sign-out).
+        """
+        ended = await self.store.end_listed_session(user_key(str(tenant_id), str(user_id)), session)
+        if ended:
+            await self._sessions_changed(tenant_id, user_id)
+            if self.end_realtime is not None:
+                await self.end_realtime(tenant_id, user_id)
+        return ended
 
     async def end_sessions(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """End every session of a person in a tenant, now (REQ-SEC-031).
@@ -625,6 +696,7 @@ class AuthService:
     async def logout(self, session_id: str, session: Session) -> None:
         """End the local session and the Keycloak SSO session (back channel)."""
         await self.store.delete_session(session_id)
+        await self._sessions_changed(session.tenant_uuid, session.user_uuid)
         client = self.client(_client_app(session))
         try:
             await self._end_keycloak_session(client, session.refresh_token)
@@ -646,6 +718,7 @@ class AuthService:
         For a console session that may not exist (D-129): the person keeps their portal sign-in.
         """
         await self.store.delete_session(session_id)
+        await self._sessions_changed(session.tenant_uuid, session.user_uuid)
         if self.database is not None:
             try:
                 await record_logout(

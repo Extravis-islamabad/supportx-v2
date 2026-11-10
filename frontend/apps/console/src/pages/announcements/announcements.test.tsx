@@ -83,7 +83,7 @@ describe('One announcement', () => {
     restore();
   });
 
-  it('shows every action in a fixed order; disabled ones say why', async () => {
+  it('shows only the moves its status allows; a greyed one says why (QA10-P4-13)', async () => {
     api({
       routes: {
         [`GET ${PATH}`]: {
@@ -103,14 +103,9 @@ describe('One announcement', () => {
     render(<App />);
     const actions = await screen.findByTestId('ann-actions');
     const buttons = within(actions).getAllByRole('button');
-    expect(buttons.map((b) => b.textContent)).toEqual([
-      'Publish',
-      'Unpublish',
-      'Archive',
-      'Reopen',
-    ]);
+    expect(buttons.map((b) => b.textContent)).toEqual(['Publish', 'Archive']);
     expect((buttons[0] as HTMLButtonElement).disabled).toBe(true);
-    expect((buttons[2] as HTMLButtonElement).disabled).toBe(false);
+    expect((buttons[1] as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByTestId('ann-action-publish-reason').getAttribute('data-reason')).toBe(
       'four_eyes',
     );
@@ -118,6 +113,26 @@ describe('One announcement', () => {
     expect(
       await screen.findByText('Someone other than the author or owner must publish it.'),
     ).toBeDefined();
+  });
+
+  it('names the chosen support groups in the properties (QA10-P4-13)', async () => {
+    const group = '01900000-0000-7000-8000-0000000000a1';
+    api({
+      me: ADMIN,
+      routes: {
+        [`GET ${PATH}`]: {
+          body: fakeAnnouncement({ audience: 'groups', group_ids: [group] }),
+          headers: { ETag: '"1"' },
+        },
+        [`GET ${PATH}/history`]: { body: { items: [], next_cursor: null } },
+        'GET /api/v1/organization/groups': { body: [{ id: group, name: 'Network team' }] },
+      },
+    });
+    render(<App />);
+    const audience = await screen.findByTestId('ann-audience');
+    await waitFor(() => {
+      expect(audience.textContent).toContain('Network team');
+    });
   });
 
   it('archive asks for an optional reason and sends it with If-Match', async () => {
@@ -169,6 +184,10 @@ describe('One announcement', () => {
     render(<App />);
     fireEvent.click(await screen.findByTestId('ann-edit'));
     fireEvent.change(await screen.findByTestId('ann-title'), { target: { value: 'New title' } });
+    // QA10-P4-14: Edit's Cancel and Save sit in template B's sticky footer, Cancel first.
+    const footer = screen.getByTestId('ann-edit-footer');
+    expect(footer.style.position).toBe('sticky');
+    expect(footer.contains(screen.getByTestId('ann-save'))).toBe(true);
     fireEvent.click(screen.getByTestId('ann-save'));
     const who = await screen.findByTestId('conflict-who');
     expect(who.textContent).toContain('Aisha Tech saved it at');
@@ -253,6 +272,20 @@ describe('New announcement', () => {
     const body = fake.find('POST', '/api/v1/announcements')[0]?.body as Record<string, unknown>;
     expect(body.owner_id).toBe(COMMS);
     expect(body.publish_from).toBeNull();
+  });
+
+  it("Haider's recheck: before the owner's name arrives the field says Loading, never the ID", async () => {
+    const me = ADMIN.user.id;
+    api({
+      me: ADMIN,
+      routes: { 'GET /api/v1/announcements/owner-candidates': { body: [] } },
+    });
+    render(<App />);
+    const picker = await screen.findByTestId('ann-owner');
+    await waitFor(() => {
+      expect(picker.textContent).toContain('Loading…');
+    });
+    expect(document.body.textContent).not.toContain(me);
   });
 
   it('an owner the API refuses is explained under the field', async () => {

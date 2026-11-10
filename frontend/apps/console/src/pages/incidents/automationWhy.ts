@@ -100,6 +100,8 @@ function autoMove(t: ReturnType<typeof useLabel>, rule: string, action: string):
       return t('automation.why.assignment_move');
     case 'fulfilment': // WP-030 s3: the last required fulfilment task was done
       return t('automation.why.fulfilled');
+    case 'first_task': // D-154c: its own people ticked the first fulfilment task
+      return t('automation.why.first_task_started');
     default:
       return '';
   }

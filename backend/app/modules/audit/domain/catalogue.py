@@ -8,6 +8,8 @@ with `audited(...)` (an architecture test fails otherwise).
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.modules.audit.domain.lifecycle import RECORD_TYPES
+
 
 class AuditCategory(StrEnum):
     """Groups of actions, used in filters and for the read-logging switches."""
@@ -87,6 +89,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("session.quick_sign_in", AuditCategory.SESSION, "identity_access"),  # dev only (D-151)
     ("session.signed_out", AuditCategory.SESSION, "identity_access"),
     ("session.tenant_switched", AuditCategory.SESSION, "identity_access"),
+    ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list
     # roles and access
     ("role.created", AuditCategory.ACCESS, "identity_access"),
     ("role.updated", AuditCategory.ACCESS, "identity_access"),
@@ -297,6 +300,26 @@ ACTIONS: dict[str, Action] = _actions(
     ("release.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("release.due_date_changed", AuditCategory.RECORDS, "work_items"),
     ("release.approval_decided", AuditCategory.RECORDS, "work_items"),
+    # changes (WP-045a): the same actions, by the type's own code
+    ("change.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.board_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-045b S2
+    ("change.approval_rerouted", AuditCategory.RECORDS, "work_items"),  # WP-045b S3
+    ("change.sent_back_for_approval", AuditCategory.RECORDS, "work_items"),  # WP-045b S4
+    ("change.emergency_override", AuditCategory.SECURITY, "work_items"),  # D-144
+    ("change.category_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
+    ("change.deleted", AuditCategory.RECORDS, "work_items"),
+    ("change.restored", AuditCategory.RECORDS, "work_items"),
+    ("change.bulk_started", AuditCategory.RECORDS, "work_items"),
+    ("change.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
+    ("change.closed_record_edited", AuditCategory.RECORDS, "work_items"),
+    ("change.due_date_changed", AuditCategory.RECORDS, "work_items"),
+    ("change.approval_decided", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
     # Files (WP-022): names are personal data and never in details.
     ("file.uploaded", AuditCategory.RECORDS, "system"),
@@ -313,6 +336,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.subject_erased", AuditCategory.DATA, "audit"),
     # One-off showcase repair (QA 2026-11-09): dates the old seed step moved, put back.
     ("work_item.dates_restored", AuditCategory.DATA, "work_items"),
+    ("service_request.fulfiller_repaired", AuditCategory.DATA, "work_items"),  # D-154 E1
+    ("work_item.settings_topped_up", AuditCategory.CONFIGURATION, "work_items"),
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
@@ -341,7 +366,22 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset.restored", AuditCategory.RECORDS, "assets"),
     ("asset.moved", AuditCategory.RECORDS, "assets"),
     ("asset.disposed", AuditCategory.RECORDS, "assets"),
+    ("asset.assigned", AuditCategory.RECORDS, "assets"),
+    ("asset.unassigned", AuditCategory.RECORDS, "assets"),
+    ("asset.linked", AuditCategory.RECORDS, "assets"),
+    ("asset.unlinked", AuditCategory.RECORDS, "assets"),
+    ("asset.loanable_set", AuditCategory.RECORDS, "assets"),
+    ("asset_loan.created", AuditCategory.RECORDS, "assets"),
+    ("asset_loan.returned", AuditCategory.RECORDS, "assets"),
+    ("asset_group.created", AuditCategory.RECORDS, "assets"),
+    ("asset_group.updated", AuditCategory.RECORDS, "assets"),
+    ("asset_group.deleted", AuditCategory.RECORDS, "assets"),
+    ("asset_group.members_added", AuditCategory.RECORDS, "assets"),
+    ("asset_group.member_removed", AuditCategory.RECORDS, "assets"),
     ("asset.copied", AuditCategory.RECORDS, "assets"),
+    # a save's lifecycle events that no route names (WP-064, domain/lifecycle.py)
+    ("asset.relocated", AuditCategory.RECORDS, "assets"),
+    ("asset.product_changed", AuditCategory.RECORDS, "assets"),
     # Vendors (REQ-PUR-001, WP-049a s2).
     ("vendor.created", AuditCategory.CONFIGURATION, "procurement"),
     ("vendor.updated", AuditCategory.CONFIGURATION, "procurement"),
@@ -370,6 +410,12 @@ ACTIONS: dict[str, Action] = _actions(
     ("read.secrets", AuditCategory.READS, "integrations"),
     ("read.exports", AuditCategory.READS, "audit"),
 )
+
+# A save's lifecycle events (WP-064, domain/lifecycle.py): every code the event table can produce
+# is a records action of the table's module. Codes written by hand above keep their entries.
+for _spec in RECORD_TYPES.values():
+    for _code in sorted(_spec.events()):
+        ACTIONS.setdefault(_code, Action(_code, AuditCategory.RECORDS, _spec.module))
 
 
 def action(code: str) -> Action:

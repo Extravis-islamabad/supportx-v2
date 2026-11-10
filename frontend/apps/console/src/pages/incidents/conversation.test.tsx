@@ -63,7 +63,8 @@ const COMMON = {
 
 async function openConversation() {
   render(<App />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Conversation (3)' }));
+  // The description and the three entries (Haider, 2026-11-10: what the tab lists).
+  fireEvent.click(await screen.findByRole('tab', { name: 'Conversation (4)' }));
   return screen.findByTestId('conv-timeline');
 }
 
@@ -223,7 +224,7 @@ describe('Conversation', () => {
   it('QA6-INC-01: no mail warning in the reply composer while outgoing mail is set up', async () => {
     api({ routes: COMMON });
     await openConversation();
-    fireEvent.click(screen.getByTestId('conv-reply').querySelector('button') as HTMLElement);
+    fireEvent.click(screen.getByTestId('inc-op-reply').querySelector('button') as HTMLElement);
     const composer = await screen.findByTestId('conv-composer');
     expect(within(composer).queryByTestId('conv-mail-not-set-up')).toBeNull();
   });
@@ -242,7 +243,7 @@ describe('Conversation', () => {
       },
     });
     await openConversation();
-    fireEvent.click(screen.getByTestId('conv-reply').querySelector('button') as HTMLElement);
+    fireEvent.click(screen.getByTestId('inc-op-reply').querySelector('button') as HTMLElement);
     const warned = await screen.findByTestId('conv-mail-not-set-up');
     expect(warned.textContent).toContain("Outgoing e-mail isn't set up yet");
     expect(warned.textContent).toContain('Aisha Admin can set it up.');
@@ -263,8 +264,13 @@ describe('Conversation', () => {
       },
     });
     await openConversation();
-    const reply = screen.getByTestId('conv-reply').querySelector('button');
-    expect(reply?.disabled).toBe(true);
+    // D-155: Reply is the header's; not possible now, it waits in "More" with its reason
+    // (REQ-WI-010), and the conversation offers no Reply of its own.
+    expect(screen.queryByTestId('inc-op-reply')).toBeNull();
+    expect(screen.queryByTestId('conv-reply')).toBeNull();
+    fireEvent.click(screen.getByTestId('inc-operations-more'));
+    const item = await screen.findByTestId('inc-op-reply-menu');
+    expect(item.closest('li')?.getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByTestId<HTMLButtonElement>('conv-add-note').disabled).toBe(false);
   });
 });

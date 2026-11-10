@@ -151,6 +151,21 @@ export function AppHeader({
   }, [appearanceIsOpen]);
   const tenantItems: MenuProps['items'] = narrow
     ? [
+        // Who is signed in (QA10-P3-11): the narrow button shows only the initials, so the menu
+        // names the person and their role first.
+        {
+          key: 'who',
+          type: 'group',
+          label: (
+            <Flex vertical style={{ lineHeight: 1.3 }} data-testid="user-menu-who">
+              <Typography.Text strong>{session.user.display_name}</Typography.Text>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {headerRole(t, session.user)}
+              </Typography.Text>
+            </Flex>
+          ),
+        },
+        { type: 'divider' },
         {
           key: 'tenant',
           type: 'group',

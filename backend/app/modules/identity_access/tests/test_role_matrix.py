@@ -18,6 +18,8 @@ import pytest
 
 from app.core.modules import discover_modules
 from app.modules.identity_access.domain.permissions import (
+    CHANGE_MANAGER,
+    SERVICE_DESK_MANAGER,
     SYSTEM_ROLES,
     TEAM_LEAD,
     TENANT_ADMIN,
@@ -78,3 +80,83 @@ def test_a_team_lead_works_only_its_groups_and_changes_no_settings() -> None:
             {"groups.manage", "settings.manage", "users.manage", "roles.manage", "assets.manage"}
         )
         assert {"changes.view", "assets.view", "cmdb.view"} <= keys
+
+
+# Haider (D-153, 2026-11-10): the service desk manager configures the desk, never the tenant.
+DESK_CONFIGURATION = frozenset(
+    {
+        "config.service_desk",  # incident and request setup: categories, templates, statuses
+        "sla.manage",  # SLAs
+        "automation.manage",  # business rules and routing
+        "config.announcements",  # the desk's portal content and announcements
+        "announcements.manage",
+        "dashboards.create",  # desk views and dashboards
+        "dashboards.share",
+    }
+)
+TENANT_WIDE = frozenset(
+    {
+        "settings.manage",
+        "identity.manage",  # sign-in and security
+        "api_keys.manage",
+        "integrations.manage_email",  # integrations
+        "integrations.manage_identity",
+        "mailboxes.manage",
+        "users.manage",  # people and their import
+        "roles.manage",
+        "licence.manage",
+        "branding.manage",
+        "config.organisation",
+        "audit.manage",
+        "changes.manage_boards",  # change boards: the change manager and admins only (#327)
+        "changes.emergency_override",
+    }
+)
+
+
+def test_the_service_desk_manager_configures_the_desk_and_nothing_tenant_wide() -> None:
+    catalogue = _catalogue()
+    assert set(catalogue.permissions) >= TENANT_WIDE  # every refused right still exists
+    for technician_scope in ("group", "all"):
+        keys = {
+            k
+            for k, _ in catalogue.system_grants(
+                SERVICE_DESK_MANAGER, technician_scope=technician_scope
+            )
+        }
+        assert keys >= DESK_CONFIGURATION, sorted(DESK_CONFIGURATION - keys)
+        assert keys.isdisjoint(TENANT_WIDE), sorted(keys & TENANT_WIDE)
+
+
+def test_change_boards_and_the_override_belong_to_the_change_manager() -> None:
+    grants = dict(_catalogue().system_grants(CHANGE_MANAGER))
+    assert grants.get("changes.manage_boards") == "all"
+    assert grants.get("changes.emergency_override") == "all"
+
+
+def test_no_role_assigns_outside_a_records_group() -> None:
+    """D-154a: the right is gone for every type, so no built-in role can hold it."""
+    catalogue = _catalogue()
+    assert not [k for k in catalogue.permissions if k.endswith(".assign_outside_group")]
+
+
+def test_a_team_lead_works_its_groups_changes_and_views_the_others() -> None:
+    """D-153 (Haider, option a): a technician's change work, in its groups only; no boards."""
+    catalogue = _catalogue()
+    for technician_scope in ("group", "all"):
+        grants = dict(catalogue.system_grants(TEAM_LEAD, technician_scope=technician_scope))
+        assert grants.get("changes.view") == "all"
+        assert grants.get("changes.create") == "all"  # raises one anywhere, like a technician
+        for action in ("edit", "assign", "close"):
+            assert grants.get(f"changes.{action}") == "group", action
+        working = {
+            k: s
+            for k, s in grants.items()
+            if k.startswith("changes.") and k not in {"changes.view", "changes.create"}
+        }
+        assert working, "a team lead works changes"
+        assert set(working.values()) <= {"group", "own"}, working
+        assert grants.keys().isdisjoint(
+            {"changes.manage_boards", "changes.emergency_override", "changes.approve"}
+        )
+        assert grants.keys().isdisjoint(TENANT_WIDE)

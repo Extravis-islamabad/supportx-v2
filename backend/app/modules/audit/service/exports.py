@@ -40,6 +40,7 @@ from app.modules.audit.infra.signing import AnchorSigner
 from app.modules.audit.service.integrity import archived_through, entries_of, verify
 from app.shared.clock import Clock, system_clock
 from app.shared.events import record_event
+from app.shared.export_dates import zoned_header
 from app.shared.ids import new_id
 from app.shared.storage import ObjectStorage, StorageNotConfigured, StorageUnavailable
 
@@ -147,6 +148,13 @@ def _hex(value: bytes) -> str:
     return bytes(value).hex()
 
 
+def _matches(content: Mapping[str, Any], name: str, value: str) -> bool:
+    """One export filter. An action also matches a save's entry listing it (WP-064, ADR-045)."""
+    if str(content.get(name)) == value:
+        return True
+    return name == "action" and value in (content.get("events") or ())
+
+
 async def chain_records(
     session: AsyncSession,
     links_query: Select[AuditChainLink],
@@ -184,7 +192,7 @@ async def chain_records(
                 content: dict[str, Any] = {"id": str(link.entry_id), "missing": True}
             else:
                 content = entry_content(entry)
-            if any(str(content.get(k)) != v for k, v in filters.items()):
+            if not all(_matches(content, k, v) for k, v in filters.items()):
                 continue
             found.append(
                 {
@@ -220,7 +228,9 @@ def _data_file(fmt: str, items: list[dict[str, Any]]) -> tuple[str, bytes]:
     writer.writerow(
         [
             "seq",
-            "occurred_at",
+            # D-155: a date column names its zone; the value stays the entry's own ISO timestamp
+            # with seconds (this file is for verification), always UTC.
+            zoned_header("occurred_at", "UTC"),
             "action",
             "outcome",
             "actor_id",

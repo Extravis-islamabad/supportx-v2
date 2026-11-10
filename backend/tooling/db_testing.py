@@ -160,6 +160,38 @@ def create(config: DbTestConfig, *, migrate_to: str | None = "head") -> Throwawa
     return database
 
 
+def clone(config: DbTestConfig, source: ThrowawayDatabase) -> ThrowawayDatabase:
+    """A fresh throwaway copy of `source` (data included), for tests that share costly set-up.
+
+    PostgreSQL copies a database only while nobody is connected to it, so the source's
+    remaining sessions (PgBouncer keeps server connections) are ended first. Only throwaway
+    databases are ever a source. Database-level grants are not part of a copy: the bootstrap
+    adds them again, as for any new throwaway database.
+    """
+    if not source.name.startswith(TEST_DATABASE_PREFIX) or not source.name.isidentifier():
+        msg = f"refusing to copy {source.name!r}: only throwaway databases"
+        raise ValueError(msg)
+    name = f"{TEST_DATABASE_PREFIX}{secrets.token_hex(6)}"
+
+    async def _copy() -> None:
+        conn = await asyncpg.connect(config.admin_url)
+        try:
+            await conn.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
+                " WHERE datname = $1 AND pid <> pg_backend_pid()",
+                source.name,
+            )
+            await conn.execute(
+                f'CREATE DATABASE "{name}" OWNER supportx_migrator TEMPLATE "{source.name}"'
+            )
+        finally:
+            await conn.close()
+        await bootstrap(config.admin_url, name, config.passwords)
+
+    asyncio.run(_copy())
+    return describe(config, name)
+
+
 def destroy(config: DbTestConfig, database: ThrowawayDatabase) -> None:
     """Drop a throwaway database created by `create`."""
 

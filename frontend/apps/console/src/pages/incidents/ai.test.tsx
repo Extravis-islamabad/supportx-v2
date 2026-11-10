@@ -82,6 +82,8 @@ describe('the conversation summary card', () => {
     });
     render(<App />);
     expect((await screen.findByTestId('ai-summary-empty')).textContent).toContain('No summary yet');
+    // D-155: nothing summarised yet is one quiet line, not an empty card.
+    expect(screen.getByTestId('ai-summary').getAttribute('data-collapsed')).toBe('true');
     fireEvent.click(screen.getByTestId('ai-summary-refresh'));
     await waitFor(() => {
       expect(screen.getByTestId('ai-summary-text').textContent).toContain('Outlook asks');

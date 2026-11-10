@@ -41,24 +41,31 @@ _WIDE: tuple[Scope, ...] = ("all", "group")
 
 # D-108 (7): technicians read their groups' knowledge, write, edit their own and submit;
 # requesters read what is published for them; approving, withdrawing and the rest are for
-# administrators (and the knowledge manager role) by default.
+# administrators and the knowledge manager role by default, which writes, reviews and publishes
+# for the whole organisation (coverage 2026-11-09 §17 item 4: it held none of them before).
+_KM = "knowledge_manager"
 PERMISSIONS = (
     PermissionSpec(
         VIEW,
         FEATURE,
         _READ,
-        defaults=(("technician", "group"), ("requester", "own"), ("service_desk_manager", "all")),
+        defaults=(
+            ("technician", "group"),
+            ("requester", "own"),
+            ("service_desk_manager", "all"),
+            (_KM, "all"),
+        ),
     ),
-    PermissionSpec(CREATE, FEATURE, _WIDE, defaults=(("technician", "group"),)),
-    PermissionSpec(EDIT_OWN, FEATURE, ("own",), defaults=(("technician", "own"),)),
-    PermissionSpec(EDIT_ANY, FEATURE, _WIDE),
-    PermissionSpec(DELETE, FEATURE, _WIDE),
-    PermissionSpec(SUBMIT, FEATURE, ("own",), defaults=(("technician", "own"),)),
-    PermissionSpec(APPROVE, FEATURE, _WIDE),
-    PermissionSpec(WITHDRAW, FEATURE, _WIDE),
-    PermissionSpec(MANAGE_TOPICS, FEATURE, ("all",)),
-    PermissionSpec(MANAGE_TYPES, FEATURE, ("all",)),
-    PermissionSpec(MANAGE_SETTINGS, FEATURE, ("all",)),
+    PermissionSpec(CREATE, FEATURE, _WIDE, defaults=(("technician", "group"), (_KM, "all"))),
+    PermissionSpec(EDIT_OWN, FEATURE, ("own",), defaults=(("technician", "own"), (_KM, "own"))),
+    PermissionSpec(EDIT_ANY, FEATURE, _WIDE, defaults=((_KM, "all"),)),
+    PermissionSpec(DELETE, FEATURE, _WIDE, defaults=((_KM, "all"),)),
+    PermissionSpec(SUBMIT, FEATURE, ("own",), defaults=(("technician", "own"), (_KM, "own"))),
+    PermissionSpec(APPROVE, FEATURE, _WIDE, defaults=((_KM, "all"),)),
+    PermissionSpec(WITHDRAW, FEATURE, _WIDE, defaults=((_KM, "all"),)),
+    PermissionSpec(MANAGE_TOPICS, FEATURE, ("all",), defaults=((_KM, "all"),)),
+    PermissionSpec(MANAGE_TYPES, FEATURE, ("all",), defaults=((_KM, "all"),)),
+    PermissionSpec(MANAGE_SETTINGS, FEATURE, ("all",), defaults=((_KM, "all"),)),
 )
 
 

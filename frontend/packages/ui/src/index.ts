@@ -1,5 +1,14 @@
-export { useAppearance, useLabel, type Appearance, type Direction } from './appearance';
-export { ADMIN_PERMISSIONS, useAccess, type Access } from './access';
+export {
+  useAppearance,
+  useLabel,
+  type Appearance,
+  type DateFormat,
+  type DatePreferences,
+  type Direction,
+  type TimeFormat,
+  type WeekStart,
+} from './appearance';
+export { useAccess, type Access } from './access';
 export * from './announcements';
 export * from './brand';
 export * from './dates';
@@ -16,12 +25,13 @@ export * from './files';
 export * from './licence';
 export * from './richtext';
 export { AccountSecurityCard } from './AccountSecurityCard';
+export { PersonSessions, SESSIONS_CHANGED, SignedInSessionsCard } from './SignedInSessionsCard';
 export { ContactDetailsCard } from './ContactDetailsCard';
 export { MfaReminder } from './MfaReminder';
 export { PASSWORD_RESET_PATH, PasswordResetPage } from './PasswordResetPage';
 export { DevSignInPage } from './DevSignInPage';
 export { isDevSignIn } from './devSignIn';
-export { SessionGate, type SessionGateProps } from './SessionGate';
+export { FROM_CONSOLE, SessionGate, type SessionGateProps } from './SessionGate';
 export * from './shell';
 export {
   buildTheme,
@@ -47,6 +57,6 @@ export {
   TYPE,
   type Density,
 } from './density';
-export { ChannelIcon, type ChannelIconProps } from './workItems/ChannelIcon';
+export { ChannelIcon, ChannelTag, type ChannelIconProps } from './workItems/ChannelIcon';
 export { CHANNEL_LOOKS } from './workItems/channelLooks';
 export * from './catalog';

@@ -16,11 +16,14 @@ from typing import Any
 import httpx
 
 from conftest import assign_system_role
-from tests.db.test_incidents_api import CONSOLE, Org, World, role, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import CONSOLE, Org, World, role
 from tests.db.test_release_parts_api import put_role, settings_version
 from tests.db.test_releases_api import REL, a_release, moved, new_release
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 APPROVER = [("releases.view", "all"), ("releases.approve", "all")]
 

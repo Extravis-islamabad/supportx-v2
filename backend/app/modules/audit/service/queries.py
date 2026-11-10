@@ -42,7 +42,13 @@ ENTRY_FIELDS = ResourceFields(
         "occurred_at": FilterField(
             AuditEntry.occurred_at, FieldType.DATETIME, sortable=True, simple=False
         ),
-        "action": FilterField(AuditEntry.action, FieldType.ENUM, values=frozenset(ACTIONS)),
+        # A route's code also finds the save entries led by another code that list it (WP-064).
+        "action": FilterField(
+            AuditEntry.action,
+            FieldType.ENUM,
+            values=frozenset(ACTIONS),
+            also_in=AuditEntry.events,
+        ),
         "category": FilterField(
             AuditEntry.category, FieldType.ENUM, values=frozenset(c.value for c in AuditCategory)
         ),

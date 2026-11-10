@@ -1,18 +1,20 @@
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Descriptions, Flex, Result, Skeleton, Tabs, Typography } from 'antd';
+import { Alert, Descriptions, Flex, Result, Skeleton, Tabs, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import {
   serviceRequestKeys,
   useCatalogItem,
+  useRequestTasks,
   useServiceRequest,
   useSession,
   useStructure,
   useUnits,
   useWithdrawRequest,
   type ServiceRequest,
+  type ReplyMode,
 } from '@supportx/api-client';
 import { useRecordChannel } from '@supportx/realtime';
 import {
@@ -79,6 +81,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const withdraw = useWithdrawRequest();
   const { can } = useAccess();
   const [replyRequest, setReplyRequest] = useState(0);
+  const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   const questions = item.data?.questions ?? [];
   const sites = useUnits('sites');
   const siteName = sites.data?.find((u) => u.id === r.site_id)?.name;
@@ -88,14 +91,35 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
     [r.requester_id, r.on_behalf_of_id].includes(me);
   const reply = r.conversation_actions.find((a) => a.action === 'reply');
   const hasApprovals = r.approval_status != null && r.approval_status !== 'not_needed';
+  // D-154 "E1 follows d": every required task done but nobody on it, so it is not fulfilled
+  // by itself; the record says so until someone takes it.
+  const tasks = useRequestTasks(r.id);
+  const required = (tasks.data?.items ?? []).filter((task) => task.from_plan && task.required);
+  const readyToFulfil =
+    r.status_category === 'open' &&
+    r.technician_id === null &&
+    required.length > 0 &&
+    required.every((task) => task.status === 'done');
   return (
     <>
       <RequestCrumbs item={r} />
       <RecordPage
         testId="sr-record"
+        alerts={
+          readyToFulfil ? (
+            <Alert
+              type="warning"
+              showIcon
+              role="status"
+              message={t('requests.ready_to_fulfil')}
+              data-testid="sr-ready-to-fulfil"
+            />
+          ) : undefined
+        }
         header={
           <RecordHeader
             icon={<ShoppingCartOutlined />}
+            kind="service_request"
             typeLabel={t('requests.record_type')}
             displayId={r.display_id}
             title={r.subject}
@@ -153,9 +177,20 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                       primary: true,
                       rank: 0,
                       onClick: () => {
+                        setReplyMode('reply');
                         setReplyRequest((n) => n + 1);
                       },
                       testId: 'sr-reply',
+                      // D-155: the record's one Reply, as on incidents.
+                      variants: (['reply_all', 'forward'] as const).map((mode) => ({
+                        key: mode,
+                        label: t(`reply_mode.${mode}`),
+                        testId: `sr-${mode}`,
+                        onClick: () => {
+                          setReplyMode(mode);
+                          setReplyRequest((n) => n + 1);
+                        },
+                      })),
                     },
                   ]
             }
@@ -246,6 +281,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   item={r}
                   typing={NO_TYPING}
                   replyRequest={replyRequest}
+                  replyMode={replyMode}
                   base="service-requests"
                 />
               ),

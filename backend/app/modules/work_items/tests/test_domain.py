@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from app.modules.work_items.domain.change_boards import FIELD_PROBLEMS as BOARD_PROBLEMS
+from app.modules.work_items.domain.changes import CHANGE_MODEL
 from app.modules.work_items.domain.classification import (
     DEFAULT_MATRIX,
     SCALE_CODES,
@@ -290,14 +292,18 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         "awaiting_fulfilment",  # the service request view codes (work_items.SR_VIEW_CODES)
     }
     found -= {s.code for s in RELEASE_MODEL.statuses}  # releases' seeded moves (from, to)
+    found -= {s.code for s in CHANGE_MODEL.statuses}  # changes' seeded moves (WP-045a)
     # A release's own field names: (start, end) pairs and (name, limit) checks, not problems.
-    found -= set(DETAIL_FIELDS)
+    found -= set(DETAIL_FIELDS) | {"change_reason", "risk_chosen"}  # change field-name pairs too
     found -= {"stage_rules"}  # a template's stage settings, ("stage_path", "stage_rules")
     # S4: date pairs and a role event's holder lists, ("starts_at", "ends_at") and the like.
     found -= {"ends_at", "users_after", "groups_after"}
     # WP-044c: a repeat rule's match and outcome codes, and a notification's condition fields.
     found -= {"category_site", "dismissed", "status_category"}
-    assert found <= FIELD_PROBLEMS, sorted(found - FIELD_PROBLEMS)
+    # WP-045b: a board mapping's (key, unit kind) pairs and the change-only settings' names.
+    found -= {"template", "cab_every_match"}
+    known = FIELD_PROBLEMS | BOARD_PROBLEMS  # the boards' codes are labelled from their own set
+    assert found <= known, sorted(found - known)
 
 
 def test_status_def_codes_are_unique() -> None:

@@ -177,7 +177,12 @@ export function useReportWords(result?: ReportResult): ReportWords {
     if (group.kind === 'boolean') return t(value === true ? 'filter.yes' : 'filter.no');
     if (group.kind === 'number') return number.format(Number(value));
     if (group.kind === 'reference')
-      return reference(group.reference, text) ?? t('reports.unknown_value');
+      return (
+        reference(group.reference, text) ??
+        // Other modules' records (asset states, products, vendors ...): named by the server.
+        result?.names?.[group.field]?.[text] ??
+        t('reports.unknown_value')
+      );
     // Admin-defined codes: statuses, levels and custom choices carry their own labels.
     if (group.field === 'status') return statusLabel(t, catalogue.data, text, locale);
     if (group.field === 'level') return levelLabel(t, catalogue.data, text, locale);

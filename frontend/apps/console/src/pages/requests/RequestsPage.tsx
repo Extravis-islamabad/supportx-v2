@@ -7,7 +7,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Flex, Form, Select, Skeleton, Table, theme } from 'antd';
+import { Button, Empty, Select, Skeleton, Table, theme } from 'antd';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -21,12 +21,16 @@ import {
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import {
+  CellText,
   ChannelIcon,
+  FilterBar,
+  ListPage,
   PageHeader,
   ToneTag,
   reportError,
   useAccess,
   useAppearance,
+  useColumnWidths,
   useDateTime,
   useLabel,
   type Tone,
@@ -145,6 +149,8 @@ function ViewTiles({ active, onPick }: { active?: string; onPick: (view?: string
  * approval, live through the list channel. While it loads it shows a loading state, never the
  * empty one; an empty view says so and offers to raise a request.
  */
+const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
+
 export function RequestsPage() {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -164,63 +170,104 @@ export function RequestsPage() {
   if (list.error) reportError(list.error);
   const rows = list.data?.items ?? [];
   const create = can('requests.create');
+  // Each person's column widths, per view (Haider, 2026-11-10): drag or arrow keys on a header.
+  // Service requests keep their own settings, apart from incidents' (lane A).
+  const titles: Record<string, string> = {
+    id: t('incidents.col.id'),
+    subject: t('work_item.field.subject'),
+    item: t('requests.item'),
+    status: t('work_item.field.status'),
+    approval: t('requests.approval'),
+    updated: t('incidents.col.updated'),
+  };
+  const widths = useColumnWidths({
+    kind: 'service-requests',
+    viewKey: view ?? 'all',
+    keys: Object.keys(titles),
+    defaults: { id: 150 },
+    minWidths: { subject: SUBJECT_MIN },
+    label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
+  });
   return (
-    <Flex vertical gap={16} style={{ width: '100%' }}>
-      <PageHeader
-        title={t('nav.requests')}
-        extra={
-          create && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => void navigate('/requests/new')}
-              data-testid="sr-new"
-            >
-              {t('requests.new')}
-            </Button>
-          )
-        }
-      />
-      <ViewTiles active={view} onPick={setView} />
-      <Form layout="inline" component="div" style={{ rowGap: 8 }}>
-        <Form.Item label={t('requests.view_filter')} htmlFor="sr-view-filter">
-          <Select
-            id="sr-view-filter"
-            allowClear
-            value={view}
-            onChange={(value: string | undefined) => {
-              setView(value);
-            }}
-            placeholder={t('requests.any_view')}
-            style={{ minWidth: 260 }}
-            options={(views.data ?? []).map((v) => ({
-              value: v.view,
-              label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
-            }))}
-            data-testid="sr-view-filter"
-          />
-        </Form.Item>
-        <Form.Item label={t('requests.approval_filter')} htmlFor="sr-approval-filter">
-          <Select
-            id="sr-approval-filter"
-            allowClear
-            value={approval}
-            onChange={(value: ApprovalStatus | undefined) => {
-              setApproval(value);
-            }}
-            placeholder={t('requests.any_approval')}
-            style={{ minWidth: 220 }}
-            options={APPROVAL.map((code) => ({ value: code, label: t(`approval_status.${code}`) }))}
-            data-testid="sr-approval-filter"
-          />
-        </Form.Item>
-      </Form>
+    // The list template (D-124, Haider 2026-11-10): ListPage spaces it; one FilterBar.
+    <ListPage
+      testId="sr-page"
+      header={
+        <PageHeader
+          title={t('nav.requests')}
+          extra={
+            create && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => void navigate('/requests/new')}
+                data-testid="sr-new"
+              >
+                {t('requests.new')}
+              </Button>
+            )
+          }
+        />
+      }
+      kpis={<ViewTiles active={view} onPick={setView} />}
+      filters={
+        <FilterBar
+          testId="sr-filterbar"
+          view={
+            <Select
+              id="sr-view-filter"
+              allowClear
+              prefix={`${t('requests.view_filter')}:`}
+              aria-label={t('requests.view_filter')}
+              value={view}
+              onChange={(value: string | undefined) => {
+                setView(value);
+              }}
+              placeholder={t('requests.any_view')}
+              style={{ minWidth: 260 }}
+              options={(views.data ?? []).map((v) => ({
+                value: v.view,
+                label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+              }))}
+              data-testid="sr-view-filter"
+            />
+          }
+          quick={
+            <Select
+              id="sr-approval-filter"
+              allowClear
+              prefix={`${t('requests.approval_filter')}:`}
+              aria-label={t('requests.approval_filter')}
+              value={approval}
+              onChange={(value: ApprovalStatus | undefined) => {
+                setApproval(value);
+              }}
+              placeholder={t('requests.any_approval')}
+              style={{ minWidth: 220 }}
+              options={APPROVAL.map((code) => ({
+                value: code,
+                label: t(`approval_status.${code}`),
+              }))}
+              data-testid="sr-approval-filter"
+            />
+          }
+          extra={
+            widths.changed ? (
+              <Button onClick={widths.reset} data-testid="sr-reset-widths">
+                {t('layout.reset_widths')}
+              </Button>
+            ) : undefined
+          }
+        />
+      }
+    >
       <Table
         rowKey="id"
         loading={list.isLoading}
         dataSource={rows}
         pagination={false}
         data-testid="sr-list"
+        components={widths.components}
         locale={{
           // An empty state only once the answer is in (QA 2026-11-04 #5 on incidents, same here).
           emptyText: list.isLoading ? (
@@ -246,7 +293,8 @@ export function RequestsPage() {
           {
             key: 'id',
             title: t('incidents.col.id'),
-            width: 150,
+            width: widths.width('id'),
+            onHeaderCell: () => widths.header('id'),
             render: (_, row) => (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <ChannelIcon channel={row.channel} />
@@ -256,15 +304,26 @@ export function RequestsPage() {
               </span>
             ),
           },
-          { key: 'subject', title: t('incidents.col.subject'), dataIndex: 'subject' },
+          {
+            key: 'subject',
+            title: t('work_item.field.subject'),
+            width: widths.width('subject'),
+            onHeaderCell: () => widths.header('subject'),
+            ellipsis: true,
+            render: (_, row) => <CellText title={row.subject}>{row.subject}</CellText>,
+          },
           {
             key: 'item',
             title: t('requests.item'),
+            width: widths.width('item'),
+            onHeaderCell: () => widths.header('item'),
             render: (_, row) => itemName(byId.get(row.catalog_item_id ?? ''), locale),
           },
           {
             key: 'status',
-            title: t('incidents.col.status'),
+            title: t('work_item.field.status'),
+            width: widths.width('status'),
+            onHeaderCell: () => widths.header('status'),
             render: (_, row) => (
               <ToneTag tone={STATUS_TONES[row.status_category] ?? 'default'}>
                 {t(`work_item_status.${row.status}`)}
@@ -274,6 +333,8 @@ export function RequestsPage() {
           {
             key: 'approval',
             title: t('requests.approval'),
+            width: widths.width('approval'),
+            onHeaderCell: () => widths.header('approval'),
             render: (_, row) =>
               row.approval_status == null || row.approval_status === 'not_needed'
                 ? ''
@@ -282,10 +343,12 @@ export function RequestsPage() {
           {
             key: 'updated',
             title: t('incidents.col.updated'),
+            width: widths.width('updated'),
+            onHeaderCell: () => widths.header('updated'),
             render: (_, row) => format(row.updated_at),
           },
         ]}
       />
-    </Flex>
+    </ListPage>
   );
 }

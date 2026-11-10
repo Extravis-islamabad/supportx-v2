@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AiSettings } from '@supportx/api-client';
-import { fakeSession, type FakeRoute } from '@supportx/api-client/testing';
+import { fakeEntitlements, fakeSession, type FakeRoute } from '@supportx/api-client/testing';
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
 import { scriptedRealtime } from '@supportx/realtime/testing';
 
@@ -78,7 +78,10 @@ describe('Admin › AI', () => {
       },
     });
     render(<App />);
+    // Template E (D-147): a switch changes the draft; the one save bar saves (and asks first).
     fireEvent.click(await screen.findByTestId('ai-feature-conversation_summary'));
+    expect(fake.find('PATCH', '/api/v1/ai/settings')).toHaveLength(0);
+    fireEvent.click(await screen.findByTestId('settings-save'));
     const dialog = await screen.findByRole('dialog', {
       name: /Switch off “Conversation summary”\?/,
     });
@@ -117,5 +120,39 @@ describe('Admin › AI', () => {
     api({}, fakeSession());
     render(<App />);
     expect(await screen.findByText(/You do not have permission to do this\./)).toBeDefined();
+  });
+
+  it('coverage §17 item 3: a read-only licence shows the switches but changes nothing', async () => {
+    window.history.pushState({}, '', '/admin/ai');
+    api({
+      'GET /api/v1/entitlements': {
+        body: fakeEntitlements({ state: 'read_only', state_reason: 'expired', writable: false }),
+      },
+    });
+    render(<App />);
+    const master = await screen.findByTestId<HTMLButtonElement>('ai-master');
+    expect(master.disabled).toBe(true);
+    expect(screen.getByTestId<HTMLButtonElement>('ai-mask-local').disabled).toBe(true);
+  });
+
+  it('template E: every change waits for the one save bar and goes in one save', async () => {
+    window.history.pushState({}, '', '/admin/ai');
+    const fake = api({
+      'PATCH /api/v1/ai/settings': { body: { ...SETTINGS, log_retention_days: 60, version: 5 } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('ai-mask-local'));
+    fireEvent.change(screen.getByTestId('ai-retention'), { target: { value: '60' } });
+    // Nothing applied on its own, and no Save inside a card.
+    expect(fake.find('PATCH', '/api/v1/ai/settings')).toHaveLength(0);
+    expect(screen.queryByTestId('ai-retention-save')).toBeNull();
+    expect(screen.getByTestId('settings-save-bar').textContent).toMatch(/2/);
+    fireEvent.click(screen.getByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/ai/settings')).toHaveLength(1);
+    });
+    const [call] = fake.find('PATCH', '/api/v1/ai/settings');
+    expect(call?.body).toEqual({ mask_local: !SETTINGS.mask_local, log_retention_days: 60 });
+    expect(call?.headers.get('If-Match')).toBe('"4"');
   });
 });

@@ -264,3 +264,17 @@ async def vendor_names(session: AsyncSession, vendor_ids: Sequence[uuid.UUID]) -
         select(Vendor.id, Vendor.name).where(Vendor.id.in_(set(vendor_ids)))
     )
     return {str(row.id): row.name for row in found}
+
+
+async def vendor_report_names(
+    session: AsyncSession, values: Sequence[str], language: str, field: str
+) -> Mapping[str, str]:
+    """Vendor names for report files (the reporting port's resolver; one name per vendor)."""
+    del language, field
+    ids: list[uuid.UUID] = []
+    for value in values:
+        try:
+            ids.append(uuid.UUID(value))
+        except ValueError:
+            continue
+    return await vendor_names(session, ids)

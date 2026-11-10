@@ -12,7 +12,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import {
@@ -294,6 +294,15 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
   const [editing, setEditing] = useState(
     () => new URLSearchParams(window.location.search).get('edit') === '1',
   );
+  // ?edit=1 opens a new dashboard in edit mode once; a reload or a shared link then opens it to
+  // view (QA10-P4-23).
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('edit')) {
+      url.searchParams.delete('edit');
+      window.history.replaceState(window.history.state, '', url);
+    }
+  }, []);
   const [pending, setPending] = useState<DashboardBody>();
   const dashboard = found.data;
   // The version an edit started from (QA WP-036 BUG-01): someone else's save while I edit must
@@ -405,7 +414,8 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
             label: t(isHome ? 'dashboards.is_home' : 'dashboards.set_home'),
             allowed: !isHome,
             whyNot: t('dashboards.is_home'),
-            primary: true,
+            // While editing, Done is the page's main action (QA10-P4-21).
+            primary: !editing,
             rank: 2,
             icon: <HomeOutlined />,
             onClick: () => {

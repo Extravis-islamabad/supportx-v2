@@ -32,6 +32,11 @@ export interface RecordAction {
   icon?: ReactNode;
   loading?: boolean;
   testId?: string;
+  /**
+   * Other ways to run it (Reply: reply to all, forward), in a dropdown on its button, so the
+   * header holds the record's one Reply (D-155). In "More" they follow the action.
+   */
+  variants?: { key: string; label: string; onClick: () => void; testId?: string }[];
 }
 
 export interface ActionBarProps {
@@ -100,8 +105,15 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
     icon: action.icon,
     'data-testid': action.testId === undefined ? undefined : `${action.testId}-menu`,
     label: (
-      <span>
+      <span data-also-above={chosen.has(action.key) ? 'true' : undefined}>
         {action.label}
+        {/* Also a button on the bar: the menu keeps REQ-WI-010's full fixed order, so the
+            repeat is marked rather than dropped (QA10-P4-24, P1-20; coordinator option c). */}
+        {chosen.has(action.key) && (
+          <Typography.Text type="secondary" style={{ fontSize: TYPE.meta, marginInlineStart: 8 }}>
+            {t('layout.also_above')}
+          </Typography.Text>
+        )}
         {!action.allowed && action.whyNot !== undefined && (
           <Typography.Text
             type="secondary"
@@ -142,8 +154,17 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
       ),
     })),
   }));
+  const withVariants = (action: RecordAction): MenuItem[] => [
+    item(action),
+    ...(action.variants ?? []).map((v) => ({
+      key: `${action.key}:${v.key}`,
+      label: (
+        <span data-testid={v.testId === undefined ? undefined : `${v.testId}-menu`}>{v.label}</span>
+      ),
+    })),
+  ];
   const items: MenuItem[] = [
-    ...available.map(item),
+    ...available.flatMap(withVariants),
     ...(available.length > 0 && unavailable.length > 0 ? [{ type: 'divider' as const }] : []),
     ...unavailable,
     ...(destructive.length > 0 && everyday.length > 0 ? [{ type: 'divider' as const }] : []),
@@ -153,28 +174,70 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
   return (
     <Flex gap={SPACE.xs} wrap align="center" data-testid={testId} style={{ marginBlock: SPACE.xs }}>
       {lead}
-      {buttons.map((action) => (
-        <Button
-          key={action.key}
-          type={action.key === main ? 'primary' : 'default'}
-          icon={action.icon}
-          loading={action.loading}
-          onClick={() => {
-            run(action);
-          }}
-          data-testid={action.testId}
-        >
-          {action.label}
-        </Button>
-      ))}
+      {buttons.map((action) =>
+        action.variants !== undefined && action.variants.length > 0 ? (
+          <Dropdown.Button
+            key={action.key}
+            // Ant Design's split button is a full-width block: in a wrapping row it took a line
+            // of its own and broke the header's one row of actions (D-155, the after shots).
+            style={{ width: 'auto' }}
+            type={action.key === main ? 'primary' : 'default'}
+            loading={action.loading}
+            trigger={['click']}
+            icon={<DownOutlined aria-hidden />}
+            onClick={() => {
+              run(action);
+            }}
+            menu={{
+              items: action.variants.map((v) => ({
+                key: v.key,
+                label: <span data-testid={v.testId}>{v.label}</span>,
+              })),
+              onClick: ({ key }) => {
+                action.variants?.find((v) => v.key === key)?.onClick();
+              },
+            }}
+            buttonsRender={([left, right]) => [
+              <span key="main" data-testid={action.testId}>
+                {left}
+              </span>,
+              <span
+                key="more"
+                data-testid={action.testId === undefined ? undefined : `${action.testId}-more`}
+              >
+                {right}
+              </span>,
+            ]}
+          >
+            {action.icon}
+            {action.label}
+          </Dropdown.Button>
+        ) : (
+          <Button
+            key={action.key}
+            type={action.key === main ? 'primary' : 'default'}
+            icon={action.icon}
+            loading={action.loading}
+            onClick={() => {
+              run(action);
+            }}
+            data-testid={action.testId}
+          >
+            {action.label}
+          </Button>
+        ),
+      )}
       {actions.length > 0 && (
         <Dropdown
           trigger={['click']}
           menu={{
             items,
             onClick: ({ key }) => {
-              const action = actions.find((a) => a.key === key);
-              if (action !== undefined) run(action);
+              const [base, variant] = key.split(':');
+              const action = actions.find((a) => a.key === base);
+              if (action === undefined) return;
+              if (variant === undefined) run(action);
+              else action.variants?.find((v) => v.key === variant)?.onClick();
             },
           }}
         >

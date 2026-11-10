@@ -10,6 +10,7 @@ import {
   type IncidentActionState,
   type IncidentCatalogue,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
   FormProblem,
@@ -94,6 +95,7 @@ export function useStatusActions(
   // (QA WP-029 BUG-05); "Keep my changes" runs the move again on the saved version.
   const conflict = useConflict();
   const fieldName = useIncidentFieldName();
+  const listFormat = useListFormat();
   const [tried, setTried] = useState<{ pending: Pending; groupId?: string; opened: Incident }>();
   const run = (pending: Pending, groupId?: string, version = item.version) => {
     problem.clear();
@@ -142,6 +144,24 @@ export function useStatusActions(
           }
           if (asking !== null || choosing !== null) {
             problem.show(error);
+            return;
+          }
+          // A move without a dialog refused for empty fields names them (QA10-P1-04), never
+          // the bare "Some things are needed".
+          if (
+            error instanceof ApiError &&
+            error.code === 'closure_rules' &&
+            error.fieldErrors.length > 0
+          ) {
+            markHandled(error);
+            void message.error(
+              t('incidents.closing.missing', {
+                fields: listFormat(
+                  error.fieldErrors.map((e) => fieldName(e.field.replace(/^body\./, ''))),
+                  'conjunction',
+                ),
+              }),
+            );
             return;
           }
           reportError(error);

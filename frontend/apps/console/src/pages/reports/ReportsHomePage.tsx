@@ -64,7 +64,7 @@ const MODULE_OF_ENTITY: Record<string, string> = {
   asset: 'assets',
 };
 /** Modules whose reporting data has not arrived yet: their tab says so. */
-const COMING = new Set(['changes', 'assets']);
+const COMING = new Set(['changes']);
 
 /**
  * The reports home on template D (REQ-RPT-045, D-147): search and favourites on top, then one

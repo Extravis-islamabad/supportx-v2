@@ -54,11 +54,21 @@ ASSETS = (
 )
 # releases.* moved to work_items too (WP-058a); identity's technician grant still names view.
 RELEASES = (PermissionSpec("releases.view", "release", _ALL),)
+# changes.* likewise (WP-045a): identity's technician grants still name view and create.
+CHANGES = (
+    PermissionSpec("changes.view", "change", _ALL),
+    PermissionSpec("changes.create", "change"),
+    PermissionSpec("changes.approve", "change", ("all", "site", "group")),
+    # #327 (lane A's work_items, same scopes): boards and the emergency override (D-144).
+    PermissionSpec("changes.manage_boards", "change", ("all",)),
+    PermissionSpec("changes.emergency_override", "change", ("all", "site", "group")),
+)
 FEATURES = frozenset(
     {"incident", "service_request", "problem", "change", "release", "assets", "cmdb", "knowledge"}
 )
 CATALOGUE = Catalogue.build(
-    [*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *REQUESTS, *RELEASES, *ASSETS, *ORG], FEATURES
+    [*IDENTITY_PERMISSIONS, *RESERVED_PERMISSIONS, *REQUESTS, *RELEASES, *CHANGES, *ASSETS, *ORG],
+    FEATURES,
 )
 TENANT, ME, OTHER = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
 SITE, GROUP = uuid.uuid4(), uuid.uuid4()
@@ -93,7 +103,9 @@ MATRIX = {
     "requests.create": (True, True, True),
     "requests.assign": (True, True, False),
     "changes.approve": (True, False, False),
-    "assets.manage": (True, True, False),  # problems.* moved to work_items (WP-044a)
+    # D-153: a technician only views assets until records link them (problems.*: work_items).
+    "assets.manage": (True, False, False),
+    "assets.view": (True, True, False),
     # knowledge.* moved to the knowledge module with its own defaults (D-108 (7), WP-033)
 }
 
@@ -109,7 +121,8 @@ def test_system_role_matrix(permission: str) -> None:
 
 def test_scopes_of_system_roles() -> None:
     assert subject_for("tenant_admin").broadest_scope("requests.view") == "all"
-    assert subject_for("technician").broadest_scope("assets.manage") == "group"
+    assert subject_for("technician").broadest_scope("assets.view") == "all"
+    assert subject_for("technician").broadest_scope("assets.manage") is None  # D-153
     assert subject_for("requester").broadest_scope("requests.view") == "own"
     assert subject_for("requester").broadest_scope("users.view") is None
 

@@ -11,10 +11,13 @@ from typing import Any
 
 import httpx
 
-from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, problem, world
+from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, problem
 from tests.db.test_releases_api import REL, a_release, details, move, moved, panel, rail
 
-__all__ = ["world"]  # the fixture, re-used
+pytestmark = MODULE_LOOP
+
+__all__ = ["module_world", "shared_world"]  # the fixture, re-used
 
 
 async def templates(world: World, org: Org) -> dict[str, dict[str, Any]]:

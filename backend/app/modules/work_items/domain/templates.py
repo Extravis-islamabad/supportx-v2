@@ -48,6 +48,9 @@ class PickList(StrEnum):
     RELEASE_TYPE = "release_type"
     RELEASE_REASON = "release_reason"
     DOWNTIME_KIND = "downtime_kind"  # WP-058a s4 (REQ-REL-027)
+    # Changes (WP-045a; REQ-CHG-005, -011): their own lists, never shared with releases.
+    CHANGE_TYPE = "change_type"
+    CHANGE_REASON = "change_reason"
 
 
 # The settings a list's values may carry (0093, `work_item_reasons.attributes`).

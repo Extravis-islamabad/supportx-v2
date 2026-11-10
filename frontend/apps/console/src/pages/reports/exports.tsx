@@ -33,6 +33,7 @@ import {
 import { useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   ConflictDialog,
   FormProblem,
   ToneTag,
@@ -125,7 +126,15 @@ export function ExportButton({
         }}
       >
         <Form layout="vertical">
-          <Form.Item label={t('reports.export_format')}>
+          <Form.Item
+            label={t('reports.export_format')}
+            // Say why PDF is missing rather than leave it out unexplained (QA10-P4-25).
+            extra={
+              offered.data !== undefined && !offered.data.includes('pdf')
+                ? t('errors.pdf_not_available')
+                : undefined
+            }
+          >
             <Radio.Group
               value={format}
               onChange={(event) => {
@@ -204,7 +213,7 @@ export function MyExportsButton({
         <List
           loading={exports.isPending}
           dataSource={exports.data ?? []}
-          locale={{ emptyText: t('reports.no_exports') }}
+          locale={{ emptyText: <EmptyText>{t('reports.no_exports')}</EmptyText> }}
           renderItem={(item) => (
             <List.Item
               actions={

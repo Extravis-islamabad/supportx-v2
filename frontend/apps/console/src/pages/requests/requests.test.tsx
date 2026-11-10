@@ -146,6 +146,31 @@ describe('console: service requests', () => {
     expect(within(row as HTMLElement).getAllByText('Awaiting approval')).toHaveLength(2);
   });
 
+  it('Haider 2026-11-10: the list is the list template; a resized column is kept under its own settings', async () => {
+    window.history.pushState({}, '', '/requests');
+    const fake = api({
+      'GET /api/v1/service-requests/list-settings/all': {
+        body: { view_key: 'all', columns: [], sort: null, page_size: 50, version: null },
+      },
+      'PUT /api/v1/service-requests/list-settings/all': (call: { body: unknown }) => ({
+        body: { view_key: 'all', version: 1, ...(call.body as object) },
+        headers: { ETag: '"1"' },
+      }),
+    });
+    render(<App />);
+    expect(await screen.findByTestId('sr-filterbar')).toBeDefined(); // the one toolbar
+    const [id] = await screen.findAllByRole('separator', { name: /ID/ });
+    if (id === undefined) throw new Error('no resize handle on the ID');
+    fireEvent.keyDown(id, { key: 'ArrowRight' });
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/service-requests/list-settings/all')).toHaveLength(1);
+    });
+    const [saved] = fake.find('PUT', '/api/v1/service-requests/list-settings/all');
+    const columns = (saved?.body as { columns: { key: string; width: number | null }[] }).columns;
+    expect(columns.find((c) => c.key === 'id')?.width).toBe(166);
+    expect(fake.find('PUT', '/api/v1/incidents/list-settings/all')).toHaveLength(0);
+  });
+
   it('narrows the list to an approval view, with its count', async () => {
     window.history.pushState({}, '', '/requests');
     const fake = api();
@@ -180,6 +205,151 @@ describe('console: service requests', () => {
       answers: { model: 'air' },
     });
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
+  });
+
+  it('Haider 2026-11-10 (F): the item form is template B, its context first; Raise says what is missing', async () => {
+    window.history.pushState({}, '', `/requests/new?item=${ITEM_ID}`);
+    api({
+      [`GET /api/v1/catalog/items/${ITEM_ID}`]: {
+        body: {
+          ...laptop,
+          plan: [
+            { title: { en: 'Order the laptop' }, internal: false, required: true },
+            { title: { en: 'Image it' }, internal: true, required: true },
+          ],
+          expected_delivery: { amount: 3, unit: 'business_days', around_the_clock: false },
+        },
+      },
+    });
+    render(<App />);
+    const context = await screen.findByTestId('sr-context');
+    expect(within(context).getByTestId('sr-context-approval').textContent).toContain(
+      "The requester's manager approves this first",
+    );
+    // F2: how long it usually takes, from the SLA that would apply.
+    expect(within(context).getByTestId('sr-context-delivery').textContent).toBe(
+      'Usually delivered within 3 working days',
+    );
+    // What's included: what a requester may see, never the internal steps.
+    const included = within(context).getByTestId('sr-context-included').textContent;
+    expect(included).toContain('Order the laptop');
+    expect(included).not.toContain('Image it');
+    // One footer, Cancel before Raise; Raise off only with the reason beside it.
+    const footer = screen.getByTestId('sr-new-footer');
+    const buttons = [...footer.querySelectorAll('button')].map((b) =>
+      b.getAttribute('data-testid'),
+    );
+    expect(buttons).toEqual(['sr-cancel', 'sr-send']);
+    expect(screen.getByTestId<HTMLButtonElement>('sr-send').disabled).toBe(true);
+    expect(screen.getByTestId('sr-send-why').textContent).toBe(
+      'Give the request a subject to raise it.',
+    );
+    fireEvent.change(screen.getByTestId('sr-subject'), { target: { value: 'Laptop' } });
+    expect(screen.getByTestId('sr-send-why').textContent).toBe(
+      'Answer the questions marked as required.',
+    );
+    fireEvent.click(screen.getByRole('radio', { name: 'air' }));
+    expect(screen.queryByTestId('sr-send-why')).toBeNull();
+    expect(screen.getByTestId<HTMLButtonElement>('sr-send').disabled).toBe(false);
+    // Raised for yourself by default, and the field says so.
+    expect(screen.getByTestId('sr-section-request').textContent).toContain('For yourself');
+  });
+
+  it('QA10-P1-11: the catalog is a library: a tab per category, each item with its description', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const CAT = '01a1a2b3-0000-7000-8000-00000000ca01';
+    api({
+      'GET /api/v1/catalog/items': {
+        body: [{ ...laptop, category_id: CAT, descriptions: { en: 'A work laptop' } }],
+      },
+      'GET /api/v1/catalog/categories': {
+        body: [
+          {
+            id: CAT,
+            names: { en: 'Hardware' },
+            descriptions: {},
+            enabled: true,
+            icon: null,
+            parent_id: null,
+            sort_order: 1,
+            version: 1,
+          },
+        ],
+      },
+    });
+    render(<App />);
+    expect(await screen.findByRole('tab', { name: /Hardware/ })).toBeDefined();
+    expect(await screen.findByText('A work laptop')).toBeDefined();
+    expect(screen.getByTestId(`sr-item-${ITEM_ID}`)).toBeDefined();
+  });
+
+  it('an item in two categories is listed once; an empty category says so', async () => {
+    window.history.pushState({}, '', '/requests/new');
+    const HW = '01a1a2b3-0000-7000-8000-00000000ca01';
+    const OFFICE = '01a1a2b3-0000-7000-8000-00000000ca02';
+    const EMPTY = '01a1a2b3-0000-7000-8000-00000000ca03';
+    const category = (id: string, name: string, order: number) => ({
+      id,
+      names: { en: name },
+      descriptions: {},
+      enabled: true,
+      icon: null,
+      parent_id: null,
+      sort_order: order,
+      version: 1,
+    });
+    api({
+      'GET /api/v1/catalog/items': {
+        body: [{ ...laptop, category_id: HW, extra_category_ids: [OFFICE] }],
+      },
+      'GET /api/v1/catalog/categories': {
+        body: [
+          category(HW, 'Hardware', 1),
+          category(OFFICE, 'Office', 2),
+          category(EMPTY, 'Moves', 3),
+        ],
+      },
+    });
+    render(<App />);
+    expect(await screen.findAllByTestId(`sr-item-${ITEM_ID}`)).toHaveLength(1);
+    fireEvent.click(screen.getByRole('tab', { name: /Moves/ }));
+    expect(await screen.findByText('No requests in this category yet.')).toBeDefined();
+  });
+
+  it('D-154 E1: every task done with nobody on it, the request says it is ready to fulfil', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const done = {
+      id: 't-1',
+      work_item_id: SR_ID,
+      title: 'Order the laptop',
+      description: null,
+      owner_id: null,
+      group_id: null,
+      status: 'done',
+      priority: 'normal',
+      due_at: null,
+      done_at: '2026-11-10T09:00:00Z',
+      done_by: null,
+      position: 0,
+      from_plan: true,
+      required: true,
+      internal: false,
+      version: 2,
+      created_at: '2026-11-10T08:00:00Z',
+      updated_at: '2026-11-10T09:00:00Z',
+    };
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: {
+        body: { ...request, status: 'in_progress', status_category: 'open', technician_id: null },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/tasks`]: {
+        body: { items: [done], done: 1, total: 1 },
+      },
+    });
+    render(<App />);
+    expect((await screen.findByTestId('sr-ready-to-fulfil')).textContent).toContain(
+      'Ready to fulfil',
+    );
   });
 
   it('shows one request with its item details and approval status', async () => {
@@ -266,6 +436,36 @@ describe('console: service requests', () => {
     fireEvent.click(opener);
     const row = await screen.findByTestId('my-approval-SR-1');
     expect(within(row).getByText('For Omar Manager', { exact: false })).toBeDefined();
+  });
+
+  it('QA10-P1-08: a problem approval waiting for me counts in the badge and opens its problem', async () => {
+    window.history.pushState({}, '', '/requests');
+    api({
+      'GET /api/v1/problems/my-approvals': {
+        body: {
+          items: [
+            {
+              approval_id: APPROVAL_ID,
+              approval_version: 1,
+              record_id: SR_ID,
+              display_id: 'PRB-6',
+              subject: 'VPN drops',
+              requester_id: MANAGER,
+              on_behalf_of_id: null,
+              catalog_item_id: null,
+              comments_required: false,
+              created_at: '2026-11-04T08:00:00Z',
+            },
+          ],
+          people: {},
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: '1 approval waiting for you' }));
+    const row = await screen.findByTestId('my-approval-PRB-6');
+    expect(within(row).getByRole('link').getAttribute('href')).toBe(`/problems/${SR_ID}`);
+    expect(within(row).getByText('Open it to approve or reject', { exact: false })).toBeDefined();
   });
 
   it('ticks a fulfilment task done with If-Match', async () => {
