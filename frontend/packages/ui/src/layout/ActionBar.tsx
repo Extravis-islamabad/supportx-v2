@@ -1,6 +1,6 @@
 import { DownOutlined } from '@ant-design/icons';
 import { App, Button, Dropdown, Flex, Typography, type MenuProps } from 'antd';
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, type ReactNode } from 'react';
 
 import { useLabel } from '../appearance';
 import { useLicence } from '../licence/context';
@@ -209,7 +209,12 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
                 key="more"
                 data-testid={action.testId === undefined ? undefined : `${action.testId}-more`}
               >
-                {right}
+                {/* The chevron has only an icon: it needs its own name (QA10V-03, axe button-name). */}
+                {isValidElement<{ 'aria-label'?: string }>(right)
+                  ? cloneElement(right, {
+                      'aria-label': t('layout.more_options_for', { action: action.label }),
+                    })
+                  : right}
               </span>,
             ]}
           >

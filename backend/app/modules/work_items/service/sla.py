@@ -97,6 +97,7 @@ def register_sla() -> None:
                 lock_record=lock_record,
                 on_fired=_on_fired,
                 run_actions=_run_actions,
+                record_state=record_state,
                 preferred_policy=_item_policy,
                 default_targets=PROBLEM_TARGETS if code is WorkItemTypeCode.PROBLEM else None,
                 target_dates_only=code is WorkItemTypeCode.PROBLEM,
@@ -108,6 +109,19 @@ def _item_policy(values: Mapping[str, Any]) -> uuid.UUID | None:
     """The catalog item's own SLA policy, kept on the request (REQ-SR-006)."""
     found = values.get("item_sla_policy_id")
     return found if isinstance(found, uuid.UUID) else None
+
+
+async def record_state(session: AsyncSession, record_id: uuid.UUID) -> sla.RecordState:
+    """Whether the record's clocks may fire (sla's `RecordStateHook`).
+
+    In the trash: nothing fires until it is restored, exactly as it was. Not there at all
+    (erased): its clocks stop for good. Lane B found one such record failing every run.
+    """
+    deleted = await session.execute(select(WorkItem.deleted_at).where(WorkItem.id == record_id))
+    row = deleted.first()
+    if row is None:
+        return sla.RecordState.GONE
+    return sla.RecordState.LIVE if row.deleted_at is None else sla.RecordState.TRASHED
 
 
 async def lock_record(session: AsyncSession, record_id: uuid.UUID) -> None:

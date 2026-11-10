@@ -326,6 +326,8 @@ interface Shot {
   url: string;
   warnings: string[];
   axe: string[];
+  /** Each serious violation's first node (selector and markup, cut): enough to find it. */
+  axe_nodes?: string[];
   error?: string;
 }
 
@@ -387,7 +389,12 @@ function checks(): string[] {
       out.push(`clipped:${name(el)}`);
     }
   }
-  const primary = [...document.querySelectorAll('main .ant-btn-primary')].filter(shown).length;
+  // A split button (Reply and its chevron) is one primary action drawn as two buttons.
+  const primary = new Set(
+    [...document.querySelectorAll('main .ant-btn-primary')]
+      .filter(shown)
+      .map((el) => el.closest('.ant-dropdown-button') ?? el),
+  ).size;
   if (primary > 1) out.push(`primary_buttons:${String(primary)}`);
   for (const bar of document.querySelectorAll('[data-testid$="actions"], [role="toolbar"]')) {
     if (!shown(bar)) continue;
@@ -484,9 +491,16 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
-      shot.axe = results.violations
-        .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-        .map((v) => `${v.id} (${String(v.nodes.length)})`);
+      const serious = results.violations.filter(
+        (v) => v.impact === 'serious' || v.impact === 'critical',
+      );
+      shot.axe = serious.map((v) => `${v.id} (${String(v.nodes.length)})`);
+      // The first node of each (QA10V-30: without it, a one-node finding needed another run).
+      shot.axe_nodes = serious.flatMap((v) => {
+        const node = v.nodes[0];
+        if (node === undefined) return [];
+        return [`${v.id}: ${node.target.join(' ')} ${node.html.slice(0, 200)}`];
+      });
     }
   } catch (error) {
     // A screen that breaks is a finding, not a crash of the run.

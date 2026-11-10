@@ -4866,8 +4866,8 @@ async def sla_fired(
     """
     del now
     record = await session.scalar(select(WorkItem).where(WorkItem.id == record_id))
-    if record is None:
-        return
+    if record is None or record.deleted_at is not None:
+        return  # gone or in the trash: sla's `record_state` normally keeps it from here
     changed = {k: v for k, v in columns.items() if getattr(record, k) != v}
     lines = sla_glue.fired_changes(record, changed, list(fired))
     if not lines:
