@@ -39,6 +39,7 @@ import {
   useFormProblem,
   useLabel,
   WriteButton,
+  useAccess,
 } from '@supportx/ui';
 
 import { LdapDirectories } from './LdapDirectories';
@@ -474,6 +475,8 @@ function DirectoryEditor({
  * every finished run show without a reload (`integrations.directories_changed`).
  */
 export function DirectoriesPage() {
+  // Viewers (integrations.view) see the list; only managers get its actions (lane C's P3 note).
+  const manage = useAccess().can('integrations.manage_identity');
   const t = useLabel();
   const dates = useDateTime();
   const { message, modal } = App.useApp();
@@ -503,15 +506,17 @@ export function DirectoriesPage() {
         <Typography.Title level={2} style={{ margin: 0 }}>
           {t('directories.title')}
         </Typography.Title>
-        <WriteButton
-          type="primary"
-          onClick={() => {
-            setEditing(null);
-          }}
-          data-testid="directory-add"
-        >
-          {t('directories.add')}
-        </WriteButton>
+        {manage && (
+          <WriteButton
+            type="primary"
+            onClick={() => {
+              setEditing(null);
+            }}
+            data-testid="directory-add"
+          >
+            {t('directories.add')}
+          </WriteButton>
+        )}
       </Flex>
       <Typography.Paragraph type="secondary">{t('directories.intro')}</Typography.Paragraph>
       <Table<Directory>
@@ -571,43 +576,49 @@ export function DirectoriesPage() {
               </Tag>
             ),
           },
-          {
-            title: <span className="sx-visually-hidden">{t('directories.actions')}</span>,
-            render: (_, d) => (
-              <Flex gap={4} wrap>
-                <WriteButton
-                  disabled={!d.enabled}
-                  loading={sync.isPending && sync.variables.id === d.id}
-                  onClick={() => {
-                    sync.mutate(
-                      { id: d.id },
-                      { onSuccess: () => void message.success(t('directories.sync_started')) },
-                    );
-                  }}
-                  data-testid={`directory-sync-${d.id}`}
-                >
-                  {t('directories.sync_now')}
-                </WriteButton>
-                <Button
-                  onClick={() => {
-                    setEditing(d);
-                  }}
-                  data-testid={`directory-edit-${d.id}`}
-                >
-                  {t('actions.edit')}
-                </Button>
-                <WriteButton
-                  danger
-                  onClick={() => {
-                    removeIt(d);
-                  }}
-                  data-testid={`directory-remove-${d.id}`}
-                >
-                  {t('actions.delete')}
-                </WriteButton>
-              </Flex>
-            ),
-          },
+          ...(manage
+            ? [
+                {
+                  title: <span className="sx-visually-hidden">{t('directories.actions')}</span>,
+                  render: (_: unknown, d: Directory) => (
+                    <Flex gap={4} wrap>
+                      <WriteButton
+                        disabled={!d.enabled}
+                        loading={sync.isPending && sync.variables.id === d.id}
+                        onClick={() => {
+                          sync.mutate(
+                            { id: d.id },
+                            {
+                              onSuccess: () => void message.success(t('directories.sync_started')),
+                            },
+                          );
+                        }}
+                        data-testid={`directory-sync-${d.id}`}
+                      >
+                        {t('directories.sync_now')}
+                      </WriteButton>
+                      <Button
+                        onClick={() => {
+                          setEditing(d);
+                        }}
+                        data-testid={`directory-edit-${d.id}`}
+                      >
+                        {t('actions.edit')}
+                      </Button>
+                      <WriteButton
+                        danger
+                        onClick={() => {
+                          removeIt(d);
+                        }}
+                        data-testid={`directory-remove-${d.id}`}
+                      >
+                        {t('actions.delete')}
+                      </WriteButton>
+                    </Flex>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
       <LdapDirectories />
