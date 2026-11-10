@@ -1684,6 +1684,9 @@
   "changes.close": [
    "group"
   ],
+  "changes.create": [
+   "all"
+  ],
   "changes.edit": [
    "group"
   ],
@@ -1943,6 +1946,9 @@
   ],
   "changes.close": [
    "group"
+  ],
+  "changes.create": [
+   "all"
   ],
   "changes.edit": [
    "group"

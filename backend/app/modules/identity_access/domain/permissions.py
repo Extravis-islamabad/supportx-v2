@@ -233,7 +233,8 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
 # technician works, but only its groups' records (the tenant's "technicians see all" answer never
 # widens it), and views assets and changes without changing them. Then its own grants apply.
 _INHERITS: Mapping[str, tuple[str, frozenset[str]]] = MappingProxyType(
-    {TEAM_LEAD: (TECHNICIAN, frozenset({"assets.manage", "changes.create"}))}
+    # Raising a change stays anywhere, like a technician (option a; lane A's #342 review).
+    {TEAM_LEAD: (TECHNICIAN, frozenset({"assets.manage"}))}
 )
 # The desk's record families a team lead works only in its groups (D-152): an inherited `all`
 # becomes `group`. Creating stays anywhere (a new record lands in a group by its own rules), and

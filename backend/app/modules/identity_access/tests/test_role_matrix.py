@@ -146,10 +146,13 @@ def test_a_team_lead_works_its_groups_changes_and_views_the_others() -> None:
     for technician_scope in ("group", "all"):
         grants = dict(catalogue.system_grants(TEAM_LEAD, technician_scope=technician_scope))
         assert grants.get("changes.view") == "all"
+        assert grants.get("changes.create") == "all"  # raises one anywhere, like a technician
         for action in ("edit", "assign", "close"):
             assert grants.get(f"changes.{action}") == "group", action
         working = {
-            k: s for k, s in grants.items() if k.startswith("changes.") and k != "changes.view"
+            k: s
+            for k, s in grants.items()
+            if k.startswith("changes.") and k not in {"changes.view", "changes.create"}
         }
         assert working, "a team lead works changes"
         assert set(working.values()) <= {"group", "own"}, working
