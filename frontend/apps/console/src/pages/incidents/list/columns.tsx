@@ -85,13 +85,13 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'requester_id',
-    width: 144, // about 16 characters of a name (Haider, 2026-11-10)
+    width: 124, // about 16 characters of a name at 13 px (Haider, 2026-11-10)
     title: field('requester_id'),
     render: (row, c) => <CellText>{personName(c.people, row.requester_id)}</CellText>,
   },
   {
     key: 'status',
-    width: 150, // a long status keeps clear of the priority chip
+    width: 140, // a long status keeps clear of the priority chip
     title: field('status'),
     render: (row, c) => <StatusTag status={row.status} catalogue={c.catalogue} />,
   },
@@ -104,7 +104,7 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'group_id',
-    width: 144, // about 16 characters of a group's name
+    width: 124, // about 16 characters of a group's name
     title: field('group_id'),
     render: (row, c) => (
       <CellText>{row.group_id === null ? '' : (c.groupNames.get(row.group_id) ?? '')}</CellText>
@@ -112,7 +112,7 @@ const OWN: ColumnSpec[] = [
   },
   {
     key: 'technician_id',
-    width: 144, // about 16 characters of a name
+    width: 124, // about 16 characters of a name
     title: field('technician_id'),
     render: (row, c) => <CellText>{personName(c.people, row.technician_id)}</CellText>,
   },

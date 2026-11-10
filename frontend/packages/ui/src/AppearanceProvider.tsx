@@ -86,8 +86,10 @@ const PAGE_CSS =
   // In a table cell a long chip stays inside its column, never over the next one.
   '.ant-table-cell .ant-tag { max-width: 100%; overflow: hidden; white-space: nowrap; } ' +
   // A list cell's text: cut at its own end, in its own direction, aligned as the column is.
-  '.sx-cell-text { display: block; overflow: hidden; text-overflow: ellipsis; ' +
-  'white-space: nowrap; text-align: match-parent; } ' +
+  // An inline block: it sits at the column's start whatever its own direction, and cuts at its
+  // own end once it is wider than the cell.
+  '.sx-cell-text { display: inline-block; max-width: 100%; vertical-align: top; ' +
+  'overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } ' +
   // Text for screen readers only (a name where the screen shows initials or an icon).
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
