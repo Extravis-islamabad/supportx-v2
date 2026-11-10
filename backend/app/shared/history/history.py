@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any, Literal, Protocol, cast
 
 from fastapi import Request
-from sqlalchemy import BigInteger, CheckConstraint, Index, String, Text, func, select
+from sqlalchemy import BigInteger, CheckConstraint, Index, String, Text, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -448,19 +448,61 @@ async def explain_conflict(
     return Conflict(code="version_conflict", params=params, headers=conflict.headers)
 
 
-async def history_page(
+@dataclass(frozen=True)
+class HistoryFilter:
+    """Narrows a history page (REQ-AST-049); every condition given must hold.
+
+    Only saves that changed one of `fields` (a name ending in "." stands for every field it
+    starts), from one of `sources`, by `actor_id`, at or after `since` and before `until`. With
+    `fields`, each save lists only those fields' changes.
+    """
+
+    fields: frozenset[str] = frozenset()
+    sources: frozenset[str] = frozenset()
+    actor_id: str | None = None
+    since: datetime | None = None
+    until: datetime | None = None
+
+    def conditions(self) -> list[Any]:  # Any: SQLAlchemy boolean clauses
+        """The WHERE clauses on `field_changes`."""
+        found: list[Any] = []
+        if self.fields:
+            exact = sorted(f for f in self.fields if not f.endswith("."))
+            prefixes = sorted(f for f in self.fields if f.endswith("."))
+            found.append(
+                or_(
+                    FieldChange.field.in_(exact),
+                    *(FieldChange.field.startswith(p, autoescape=True) for p in prefixes),
+                )
+            )
+        if self.sources:
+            found.append(FieldChange.source.in_(sorted(self.sources)))
+        if self.actor_id is not None:
+            found.append(FieldChange.actor_id == self.actor_id)
+        if self.since is not None:
+            found.append(FieldChange.occurred_at >= self.since)
+        if self.until is not None:
+            found.append(FieldChange.occurred_at < self.until)
+        return found
+
+
+async def history_page(  # noqa: PLR0913 - the record, the page and the filter, explicit
     session: AsyncSession,
     record_type: str,
     record_id: uuid.UUID,
     *,
     before_version: int | None = None,
     limit: int = 25,
+    where: HistoryFilter | None = None,
 ) -> tuple[list[HistoryEntry], int | None]:
     """Saves of one record, newest first, `limit` saves per page; plus the next cursor."""
     limit = max(1, min(limit, MAX_PAGE))
+    narrowed = [] if where is None else where.conditions()
     versions_query = (
         select(FieldChange.record_version)
-        .where(FieldChange.record_type == record_type, FieldChange.record_id == record_id)
+        .where(
+            FieldChange.record_type == record_type, FieldChange.record_id == record_id, *narrowed
+        )
         .group_by(FieldChange.record_version)
         .order_by(FieldChange.record_version.desc())
         .limit(limit + 1)
@@ -479,6 +521,7 @@ async def history_page(
                 FieldChange.record_type == record_type,
                 FieldChange.record_id == record_id,
                 FieldChange.record_version.in_(versions),
+                *narrowed,
             )
             .order_by(FieldChange.record_version.desc(), FieldChange.id)
         )

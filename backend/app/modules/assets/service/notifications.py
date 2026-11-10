@@ -6,6 +6,8 @@
   the asset's tag and name, and a link to their own "My assets".
 - `asset.ack_disputed`: they disputed it; the technician who gave it hears of it, with the
   comment (AC3). Staff only.
+- `asset.mentioned` (WP-049b s2, REQ-AST-050 after REQ-INC-063): a person mentioned in a note
+  on an asset they may see; with the author's name, a link to the asset's notes. Staff only.
 """
 
 import uuid
@@ -19,6 +21,7 @@ from app.core.errors import NotFound, PermissionDenied
 from app.modules.assets.events import (
     AcknowledgementChanged,
     AssetLoanChanged,
+    AssetNoteChanged,
     StockLow,
     WarrantyEnding,
 )
@@ -28,6 +31,7 @@ from app.modules.assets.infra.models import (
     AssetConsumable,
     AssetConsumableStock,
     AssetLoan,
+    AssetNote,
     AssetProduct,
     AssetStockRule,
 )
@@ -77,6 +81,13 @@ EVENTS: tuple[NotificationEvent, ...] = (
         ),
     ),
     NotificationEvent(
+        "asset.mentioned",
+        NotificationCategory.MENTION,
+        EventDefault(enabled=True, recipients=("mentioned",)),
+        public=False,
+        variables=(Variable("conversation.author", "notification_variable.conversation.author"),),
+    ),
+    NotificationEvent(
         "asset.ack_requested",
         NotificationCategory.ASSIGNMENT,
         EventDefault(enabled=True, recipients=("holder",)),
@@ -98,6 +109,7 @@ RECIPIENT_KINDS = (
     "loan_creator",
     "asset_managers",
     "stock_watchers",
+    "mentioned",
 )
 MANAGERS_LIMIT = 500
 VARIABLES = (
@@ -124,14 +136,19 @@ class AssetNotifications:
         AssetLoanChanged.event_type,
         WarrantyEnding.event_type,
         StockLow.event_type,
+        AssetNoteChanged.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
         """Asked for: the holder hears of it; disputed: the person who gave it."""
-        if envelope.event_type == WarrantyEnding.event_type:
-            return ("asset.warranty_expiring",)
-        if envelope.event_type == StockLow.event_type:
-            return ("asset.stock_low",)
+        fixed = {
+            WarrantyEnding.event_type: ("asset.warranty_expiring",),
+            StockLow.event_type: ("asset.stock_low",),
+        }
+        if envelope.event_type in fixed:
+            return fixed[envelope.event_type]
+        if envelope.event_type == AssetNoteChanged.event_type:
+            return ("asset.mentioned",) if envelope.payload.get("mentioned") else ()
         if envelope.event_type == AssetLoanChanged.event_type:
             change = envelope.payload.get("change")
             return {"due": ("asset.loan_due",), "overdue": ("asset.loan_overdue",)}.get(
@@ -155,6 +172,8 @@ class AssetNotifications:
             return await self._warranty_context(session, event_code, payload)
         if envelope.event_type == StockLow.event_type:
             return await self._stock_context(session, event_code, payload)
+        if envelope.event_type == AssetNoteChanged.event_type:
+            return await self._note_context(session, event_code, payload)
         ack = await session.get(AssetAcknowledgement, uuid.UUID(str(payload["acknowledgement_id"])))
         asset = await session.scalar(
             select(Asset).where(
@@ -277,6 +296,40 @@ class AssetNotifications:
             variables=shown,
             public_variables={},
             relatives={"stock_watchers": watchers},
+            conditions={},
+            event_code=event_code,
+        )
+
+    async def _note_context(
+        self, session: AsyncSession, event_code: str, payload: Mapping[str, object]
+    ) -> RecordContext | None:
+        """A mention in a note: the asset, the note's author; the people mentioned."""
+        note = await session.get(AssetNote, uuid.UUID(str(payload["note_id"])))
+        asset = await session.scalar(
+            select(Asset).where(
+                Asset.id == uuid.UUID(str(payload["asset_id"])), Asset.deleted_at.is_(None)
+            )
+        )
+        if note is None or note.deleted_at is not None or asset is None:
+            return None  # deleted meanwhile: nothing to tell
+        author = str(note.updated_by or note.created_by or "")
+        names = await user_names(session, [author] if author else [])
+        link = f"/assets/{asset.id}?tab=notes"
+        shown: dict[str, VariableValue] = {
+            "record.display_id": asset.tag or asset.name,
+            "record.title": asset.name,
+            "record.link": link,
+            "conversation.author": names.get(author),
+        }
+        mentioned = payload.get("mentioned")
+        people = mentioned if isinstance(mentioned, list) else []
+        return RecordContext(
+            record_id=asset.id,
+            display_id=asset.tag or asset.name,
+            link=link,
+            variables=shown,
+            public_variables={},
+            relatives={"mentioned": frozenset(uuid.UUID(str(p)) for p in people)},
             conditions={},
             event_code=event_code,
         )

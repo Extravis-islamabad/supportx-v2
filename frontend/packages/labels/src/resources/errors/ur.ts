@@ -56,6 +56,7 @@ export const ur: LabelResource = {
     'اسٹاک میں ابھی {{quantity}} باقی ہیں۔ پہلے انہیں جاری یا صفر تک درست کریں۔',
   'errors.asset_consumable_not_found': 'یہ قابلِ صرف شے اب موجود نہیں۔',
   'errors.asset_copy_limit': 'ایک بار میں 1 سے {{max}} تک نقول بنائیں۔',
+  'errors.asset_cost_not_found': 'لاگت کی یہ سطر اب موجود نہیں۔',
   'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
   'errors.asset_disposed_read_only':
     'یہ اثاثہ تلف ہو چکا ہے، اس لیے صرف پڑھا جا سکتا ہے۔ اسے بدلنے کے لیے تلف شدہ اثاثے بدلنے کی اجازت درکار ہے۔',
@@ -86,6 +87,7 @@ export const ur: LabelResource = {
   'errors.asset_not_loanable':
     '{{asset}} ادھار نہیں دیا جا سکتا: یہ ادھار کے قابل نہیں یا اسٹاک میں نہیں۔',
   'errors.asset_not_on_this_loan': 'یہ اثاثہ اس ادھار میں نہیں۔',
+  'errors.asset_note_not_found': 'یہ نوٹ اب موجود نہیں۔',
   'errors.asset_on_loan': '{{asset}} پہلے ہی ادھار پر ہے۔',
   'errors.asset_portal_booking_off': 'آپ کا ادارہ پورٹل سے بکنگ نہیں لیتا۔',
   'errors.asset_product_not_found': 'یہ پروڈکٹ موجود نہیں۔',
@@ -249,6 +251,7 @@ export const ur: LabelResource = {
   'errors.field.asset_product_type_not_found': 'فہرست سے پروڈکٹ کی قسم منتخب کریں۔',
   'errors.field.asset_product_type_too_deep': 'درخت زیادہ سے زیادہ {{max}} درجے گہرا ہو سکتا ہے۔',
   'errors.field.asset_quantity_positive': 'صفر سے زیادہ مقدار درج کریں۔',
+  'errors.field.asset_salvage_above_cost': 'باقی قدر اثاثے کی لاگت سے زیادہ نہیں ہو سکتی۔',
   'errors.field.asset_serial_number_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ سیریل نمبر ہے۔',
   'errors.field.asset_state_code_taken': 'کوئی اور حالت یہ کوڈ رکھتی ہے۔',
   'errors.field.asset_state_default_needed':

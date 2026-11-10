@@ -59,6 +59,7 @@ export const ur: LabelResource = {
   'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
   'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
   'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
+  'notification_event.asset.mentioned': 'اثاثے کے نوٹ میں ذکر',
   'notification_event.asset.stock_low': 'اسٹاک کم از کم پر',
   'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
   'notification_event.change.public_reply': 'درخواست گزار کو جواب',
@@ -200,6 +201,12 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} کو ادھار دیے گئے اثاثوں کی واپسی کا وقت گزر گیا اور وہ ابھی واپس نہیں آئے۔',
   'notification_template.asset.loan_overdue.in_app': '{{ holder.name }} کے ادھار کی مدت گزر گئی',
   'notification_template.asset.loan_overdue.subject': 'ادھار اثاثوں کی مدت گزر گئی',
+  'notification_template.asset.mentioned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" کے ایک نوٹ میں آپ کا ذکر کیا۔',
+  'notification_template.asset.mentioned.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر آپ کا ذکر کیا',
+  'notification_template.asset.mentioned.subject':
+    '{{ record.display_id }} پر آپ کا ذکر ہوا: {{ record.title }}',
   'notification_template.asset.stock_low.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} کا اسٹاک {{ stock.quantity }} تک گر گیا ہے، جو اس کی کم از کم حد {{ stock.minimum }} کے برابر یا اس سے کم ہے۔',
   'notification_template.asset.stock_low.in_app':

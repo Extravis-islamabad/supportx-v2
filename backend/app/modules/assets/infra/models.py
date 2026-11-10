@@ -21,10 +21,11 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
 from app.shared.db.models import Base, TenantEntity, TenantKeyed, utc_now
@@ -304,6 +305,7 @@ class Asset(TenantEntity):
             postgresql_ops={"search_text": "gin_trgm_ops"},
         ),
         Index("ix_assets_custom", "custom", postgresql_using="gin"),
+        Index("ix_assets_cost_centre", "tenant_id", "cost_centre"),  # 0131: reports group by it
     )
 
     name: Mapped[str] = mapped_column(String(200))
@@ -331,6 +333,14 @@ class Asset(TenantEntity):
     warranty_expires_on: Mapped[date | None] = mapped_column(Date)
     expires_on: Mapped[date | None] = mapped_column(Date)
     description: Mapped[str | None] = mapped_column(Text)
+    # 0131 (REQ-AST-038): free text until WP-054 brings real cost centres; the GL code
+    # defaults from the product.
+    cost_centre: Mapped[str | None] = mapped_column(String(60))
+    gl_code: Mapped[str | None] = mapped_column(String(40))
+    # 0131 (REQ-AST-037): the asset's own depreciation (a method or "none"); NULL: the product's.
+    depreciation_method: Mapped[str | None] = mapped_column(String(30))
+    useful_life_years: Mapped[int | None] = mapped_column(Integer)
+    salvage_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     custom: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     custom_text: Mapped[str | None] = mapped_column(Text)  # custom values as words, for search
     search_vector: Unmapped[Any] = unmapped_column(
@@ -830,3 +840,77 @@ class AssetBooking(TenantEntity):
     loan_id: Mapped[uuid.UUID | None]
     channel: Mapped[str] = mapped_column(String(20), server_default="console")
     comment: Mapped[str | None] = mapped_column(Text)
+
+
+class AssetCost(TenantEntity):
+    """One cost line of an asset (migration 0131; REQ-AST-036), in the tenant's base currency."""
+
+    __tablename__ = "asset_costs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_costs_asset",
+        ),
+        Index(
+            "ix_asset_costs_asset",
+            "tenant_id",
+            "asset_id",
+            "incurred_on",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    asset_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(20))
+    incurred_on: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    description: Mapped[str | None] = mapped_column(String(500))
+
+
+class AssetNote(TenantEntity):
+    """A note on an asset (migration 0131; REQ-AST-050): sanitised rich text, staff only."""
+
+    __tablename__ = "asset_notes"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_notes_asset",
+        ),
+        Index("ix_asset_notes_asset", "tenant_id", "asset_id", "created_at", "id"),
+    )
+
+    asset_id: Mapped[uuid.UUID]
+    body: Mapped[str] = mapped_column(Text)
+    mentioned_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid), server_default="{}")
+    edited_at: Mapped[datetime | None]
+    deleted_by: Mapped[uuid.UUID | None]
+
+
+class AssetValuation(TenantKeyed, Base):
+    """An asset's book value today and its total cost of ownership (0131; REQ-AST-038 AC2).
+
+    Derived from the asset, its product and its cost lines: refreshed when they change and once
+    a day (book values move with time). What reports group by cost centre; the record page
+    always works its figures out afresh.
+    """
+
+    __tablename__ = "asset_valuations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "asset_id"],
+            ["assets.tenant_id", "assets.id"],
+            name="fk_asset_valuations_asset",
+        ),
+        Index("ix_asset_valuations_valued_on", "tenant_id", "valued_on"),
+    )
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    book_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))  # None: no cost known
+    total_cost: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    valued_on: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+    created_by: Mapped[uuid.UUID | None] = mapped_column()
+    updated_by: Mapped[uuid.UUID | None] = mapped_column()

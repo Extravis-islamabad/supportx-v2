@@ -59,6 +59,7 @@ export const ar: LabelResource = {
   'notification_event.asset.ack_requested': 'أصل سُلّم إليك: يرجى الإقرار به',
   'notification_event.asset.loan_due': 'موعد إرجاع الإعارة غدًا',
   'notification_event.asset.loan_overdue': 'الإعارة متأخرة',
+  'notification_event.asset.mentioned': 'إشارة في ملاحظة أصل',
   'notification_event.asset.stock_low': 'المخزون عند حده الأدنى',
   'notification_event.asset.warranty_expiring': 'الضمان ينتهي قريبًا',
   'notification_event.change.public_reply': 'رد على مقدم الطلب',
@@ -199,6 +200,12 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nحان موعد إرجاع الأصول المعارة إلى {{ holder.name }} ولم تُرجع بعد.',
   'notification_template.asset.loan_overdue.in_app': 'إعارة {{ holder.name }} متأخرة',
   'notification_template.asset.loan_overdue.subject': 'الأصول المعارة متأخرة',
+  'notification_template.asset.mentioned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأشار إليك {{ conversation.author }} في ملاحظة على {{ record.display_id }} "{{ record.title }}".',
+  'notification_template.asset.mentioned.in_app':
+    'أشار إليك {{ conversation.author }} في {{ record.display_id }}',
+  'notification_template.asset.mentioned.subject':
+    'أُشير إليك في {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.stock_low.body':
     'مرحبًا {{ recipient.name }}،\n\nانخفض مخزون {{ record.title }} إلى {{ stock.quantity }}، عند حده الأدنى {{ stock.minimum }} أو دونه.',
   'notification_template.asset.stock_low.in_app':

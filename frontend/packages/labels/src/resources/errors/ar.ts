@@ -52,6 +52,7 @@ export const ar: LabelResource = {
     'لا يزال {{quantity}} في المخزون. اصرفها أو عدّلها إلى الصفر أولًا.',
   'errors.asset_consumable_not_found': 'لم يعد هذا المستهلك موجودًا.',
   'errors.asset_copy_limit': 'أنشئ ما بين 1 و{{max}} نسخة في المرة الواحدة.',
+  'errors.asset_cost_not_found': 'لم يعد بند التكلفة هذا موجودًا.',
   'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
   'errors.asset_disposed_read_only':
     'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
@@ -80,6 +81,7 @@ export const ar: LabelResource = {
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
   'errors.asset_not_loanable': 'لا يمكن إعارة {{asset}}: ليس قابلًا للإعارة أو ليس في المخزون.',
   'errors.asset_not_on_this_loan': 'هذا الأصل ليس ضمن هذه الإعارة.',
+  'errors.asset_note_not_found': 'لم تعد هذه الملاحظة موجودة.',
   'errors.asset_on_loan': '{{asset}} معار بالفعل.',
   'errors.asset_portal_booking_off': 'لا تقبل مؤسستك الحجوزات من البوابة.',
   'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
@@ -227,6 +229,7 @@ export const ar: LabelResource = {
   'errors.field.asset_product_type_not_found': 'اختر نوع منتج من القائمة.',
   'errors.field.asset_product_type_too_deep': 'يمكن أن تصل الشجرة إلى {{max}} مستويات كحد أقصى.',
   'errors.field.asset_quantity_positive': 'أدخل كمية أكبر من الصفر.',
+  'errors.field.asset_salvage_above_cost': 'لا يمكن أن تزيد قيمة الخردة عن تكلفة الأصل.',
   'errors.field.asset_serial_number_taken': 'الأصل {{asset}} يحمل هذا الرقم التسلسلي بالفعل.',
   'errors.field.asset_state_code_taken': 'حالة أخرى تستخدم هذا الرمز.',
   'errors.field.asset_state_default_needed':

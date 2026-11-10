@@ -1,7 +1,10 @@
-"""Who may see and attach a disposal certificate (WP-049a s3; files port, ADR-028 item 5).
+"""Who may see and attach an asset's files (files port, ADR-028 item 5).
 
-The files service never reads asset tables: it asks here. Whoever may see the asset sees its
-disposal certificate; attaching and removing are for those who may manage it.
+The files service never reads asset tables: it asks here. Two owners: a disposal certificate
+(WP-049a s3) and, since WP-049b s2 (REQ-AST-050), the asset's own attachments (invoices,
+photos). Whoever may see the asset sees both; attaching and removing are for those who may
+manage it. Scanning and refusing infected files is the files service's, as on incidents
+(REQ-INC-079).
 """
 
 import uuid
@@ -28,9 +31,9 @@ def _subject(actor: Actor) -> Subject:
 
 
 class DisposalFileAccess:
-    """`FileOwnerAccess` for disposal records."""
+    """`FileOwnerAccess` for disposal records and assets."""
 
-    owner_types = frozenset({OwnerType.ASSET_DISPOSAL})
+    owner_types = frozenset({OwnerType.ASSET_DISPOSAL, OwnerType.ASSET})
     record_types = frozenset({RECORD_TYPE})
     channel_kind: str | None = RECORD_KIND
 
@@ -43,9 +46,17 @@ class DisposalFileAccess:
         action: Action,
     ) -> Owner:
         """The record, if `actor` may see its asset (view) or manage it (attach, remove)."""
-        if owner_type != OwnerType.ASSET_DISPOSAL:
+        if owner_type not in self.owner_types:
             raise _not_found()
         subject = _subject(actor)
+        if owner_type == OwnerType.ASSET:
+            try:
+                await _visible(session, subject, owner_id)
+            except (NotFound, PermissionDenied):
+                raise _not_found() from None
+            if action != Action.VIEW:
+                await _visible(session, subject, owner_id, permission=MANAGE)
+            return Owner(OwnerType.ASSET, owner_id, RECORD_TYPE, owner_id)
         record = await session.get(AssetDisposal, owner_id)
         if record is None or record.deleted_at is not None:
             raise _not_found()
@@ -60,7 +71,7 @@ class DisposalFileAccess:
     async def visible_owners(
         self, session: AsyncSession, actor: Actor, record_type: str, record_id: uuid.UUID
     ) -> set[tuple[OwnerType, uuid.UUID]]:
-        """The asset's disposal certificate, for those who may see the asset."""
+        """The asset's attachments and its disposal certificate, for those who may see it."""
         if record_type != RECORD_TYPE:
             raise _not_found()
         try:
@@ -72,7 +83,8 @@ class DisposalFileAccess:
                 AssetDisposal.asset_id == record_id, AssetDisposal.deleted_at.is_(None)
             )
         )
-        return set() if found is None else {(OwnerType.ASSET_DISPOSAL, found)}
+        owners = {(OwnerType.ASSET, record_id)}
+        return owners if found is None else owners | {(OwnerType.ASSET_DISPOSAL, found)}
 
 
 FILE_ACCESS = DisposalFileAccess()

@@ -55,6 +55,7 @@ export const en = {
     'There are still {{quantity}} in stock. Allocate or adjust them to zero first.',
   'errors.asset_consumable_not_found': 'This consumable no longer exists.',
   'errors.asset_copy_limit': 'Make between 1 and {{max}} copies at once.',
+  'errors.asset_cost_not_found': 'This cost line no longer exists.',
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
     'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
@@ -84,6 +85,7 @@ export const en = {
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
   'errors.asset_not_loanable': "{{asset}} can't be loaned: it isn't loanable, or isn't in stock.",
   'errors.asset_not_on_this_loan': "That asset isn't out on this loan.",
+  'errors.asset_note_not_found': 'This note no longer exists.',
   'errors.asset_on_loan': '{{asset}} is already out on a loan.',
   'errors.asset_portal_booking_off': 'Your organisation does not take bookings in the portal.',
   'errors.asset_product_not_found': 'This product does not exist.',
@@ -251,6 +253,8 @@ export const en = {
   'errors.field.asset_product_type_not_found': 'Choose a product type from the list.',
   'errors.field.asset_product_type_too_deep': 'The tree can be at most {{max}} levels deep.',
   'errors.field.asset_quantity_positive': 'Enter a quantity above zero.',
+  'errors.field.asset_salvage_above_cost':
+    "The salvage value can't be more than what the asset cost.",
   'errors.field.asset_serial_number_taken': 'Asset {{asset}} already has this serial number.',
   'errors.field.asset_state_code_taken': 'Another state has this code.',
   'errors.field.asset_state_default_needed':

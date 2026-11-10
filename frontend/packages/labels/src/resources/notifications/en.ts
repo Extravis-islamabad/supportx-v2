@@ -57,6 +57,7 @@ export const en = {
   'notification_event.asset.ack_requested': 'Asset given to you: please acknowledge',
   'notification_event.asset.loan_due': 'Loan due tomorrow',
   'notification_event.asset.loan_overdue': 'Loan overdue',
+  'notification_event.asset.mentioned': 'Mentioned in an asset note',
   'notification_event.asset.stock_low': 'Stock at its minimum',
   'notification_event.asset.warranty_expiring': 'Warranty ending soon',
   'notification_event.change.public_reply': 'Reply to the requester',
@@ -197,6 +198,12 @@ export const en = {
     'Hello {{ recipient.name }},\n\nThe assets loaned to {{ holder.name }} were due back and are not yet returned.',
   'notification_template.asset.loan_overdue.in_app': 'Loan to {{ holder.name }} is overdue',
   'notification_template.asset.loan_overdue.subject': 'Loaned assets are overdue',
+  'notification_template.asset.mentioned.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} mentioned you in a note on {{ record.display_id }} "{{ record.title }}".',
+  'notification_template.asset.mentioned.in_app':
+    '{{ conversation.author }} mentioned you on {{ record.display_id }}',
+  'notification_template.asset.mentioned.subject':
+    'You were mentioned on {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.stock_low.body':
     'Hello {{ recipient.name }},\n\nStock of {{ record.title }} has fallen to {{ stock.quantity }}, at or below its minimum of {{ stock.minimum }}.',
   'notification_template.asset.stock_low.in_app':

@@ -6,6 +6,9 @@
   "assets.view": [
    "all"
   ],
+  "assets.view_financials": [
+   "all"
+  ],
   "cmdb.manage": [
    "all"
   ],
@@ -30,6 +33,9 @@
    "all"
   ],
   "assets.view": [
+   "all"
+  ],
+  "assets.view_financials": [
    "all"
   ],
   "cmdb.manage": [
