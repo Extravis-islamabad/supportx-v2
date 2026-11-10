@@ -180,7 +180,10 @@ describe('One incident', () => {
     // Three buttons and More actions (at most four controls, UI pass 2): Reply first and primary,
     // then the best-ranked moves (resolve, start work); close and the waits stay in the menu.
     expect(buttons).toEqual(['inc-action-start_work', 'inc-action-resolve']);
-    expect(screen.getByTestId('inc-op-reply').className).toContain('ant-btn-primary');
+    // D-155: Reply is a split button (reply to all, forward in its dropdown); its main part is primary.
+    expect(screen.getByTestId('inc-op-reply').querySelector('button')?.className).toContain(
+      'ant-btn-primary',
+    );
     expect(screen.getByTestId('inc-action-resolve').className).not.toContain('ant-btn-primary');
   });
 
