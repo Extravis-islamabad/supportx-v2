@@ -13,7 +13,7 @@ The downgrade refuses while any tenant has an assignment, a relationship or an a
 holder (rule 5h).
 
 Revision ID: 0111
-Revises: 0124
+Revises: 0125
 Created: 2026-11-06
 """
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 revision: str = "0111"
-down_revision: str | None = "0124"
+down_revision: str | None = "0125"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
