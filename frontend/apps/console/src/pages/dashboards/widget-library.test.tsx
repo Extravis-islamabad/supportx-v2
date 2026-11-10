@@ -63,6 +63,8 @@ const BOARD = {
   description: null,
   owner_id: ME,
   shared: false,
+  group_id: null,
+  group_removed: false,
   copied_from: null,
   body: { widgets: [MINE_LIST, FLOW], filters: {} },
   version: 2,

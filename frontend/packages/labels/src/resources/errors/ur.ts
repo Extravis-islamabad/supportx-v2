@@ -336,6 +336,8 @@ export const ur: LabelResource = {
   'errors.field.fulfiller_required': 'پہلے یہ درخواست کسی کو تفویض کریں تاکہ وہ اسے مکمل کرے۔',
   'errors.field.full_sla_off':
     'مسائل کے لیے صرف ہدف کی تاریخیں ہیں۔ جواب کے اہداف شامل کرنے کے لیے مسائل پر مکمل SLA آن کریں۔',
+  'errors.field.group_dashboard_shared':
+    'گروپ کا ڈیش بورڈ سب کے ساتھ شیئر نہیں ہو سکتا۔ پہلے اسے گروپ سے نکالیں۔',
   'errors.field.group_not_found': 'یہ گروپ موجود نہیں۔',
   'errors.field.group_not_yours': 'آپ اس گروپ کے رکن نہیں۔',
   'errors.field.group_required': 'چنیں کہ آپ کا کون سا گروپ اسے لے گا۔',

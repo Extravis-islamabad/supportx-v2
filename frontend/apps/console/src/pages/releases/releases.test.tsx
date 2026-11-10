@@ -403,7 +403,7 @@ describe('console: releases', () => {
     expect(visible.length).toBeLessThanOrEqual(3); // beside More: the 4-action rule
   });
 
-  it("D-155: one primary, the next stage's move; the stage chip and key facts; no empty schedule card", async () => {
+  it("D-155: one primary, the next stage's move; the key facts, no chip repeating the stage bar; no empty schedule card", async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     api();
     render(<App />);
@@ -414,7 +414,8 @@ describe('console: releases', () => {
     expect(buttons.map((b) => b.getAttribute('data-testid'))).toEqual(['move-testing_in_progress']);
     expect(buttons[0]?.textContent).toBe('Move to Testing');
     // A1 on every record: the stage chip and the key facts; never the status twice.
-    expect(screen.getByTestId('release-stage').textContent).toBe('Build');
+    // No stage chip: the stage bar always shows the stage (QA fix-round D2).
+    expect(screen.queryByTestId('release-stage')).toBeNull();
     expect(screen.queryByTestId('release-status')).toBeNull();
     expect(screen.getByTestId('release-people').textContent).toMatch(/^Requested by /);
     expect(screen.getByTestId('record-kind-tile').getAttribute('data-kind')).toBe('release');

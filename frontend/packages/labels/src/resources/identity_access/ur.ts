@@ -856,7 +856,9 @@ export const ur: LabelResource = {
   'roles.compare_same': 'یہ کردار ایک جیسی اجازتیں دیتے ہیں۔',
   'roles.compare_second': 'دوسرا کردار',
   'roles.copy': 'کاپی کریں',
+  'roles.copy_customise': 'نقل بنائیں اور اپنی مرضی کے مطابق کریں',
   'roles.copy_name': '{{name}} کی کاپی',
+  'roles.default_scope': 'دائرہ: {{scope}}',
   'roles.delete': 'کردار حذف کریں',
   'roles.delete_confirm': 'یہ کردار کسی کے پاس نہیں۔ اسے حذف کر دیا جائے گا۔',
   'roles.delete_in_use_one':
@@ -866,7 +868,6 @@ export const ur: LabelResource = {
   'roles.delete_title': '{{name}} حذف کریں؟',
   'roles.deleted': 'کردار حذف ہو گیا۔',
   'roles.description': 'تفصیل',
-  'roles.duplicate': 'اپنے کردار کے طور پر نقل بنائیں',
   'roles.editor.copy': '“{{name}}” سے نیا کردار',
   'roles.editor.edit': 'کردار: {{name}}',
   'roles.editor.new': 'نیا کردار',

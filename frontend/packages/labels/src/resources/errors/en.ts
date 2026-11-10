@@ -333,6 +333,8 @@ export const en = {
   'errors.field.fulfiller_required': 'Assign someone to fulfil this request first.',
   'errors.field.full_sla_off':
     'Problems have target dates only. Switch on full SLAs for problems to add response targets.',
+  'errors.field.group_dashboard_shared':
+    "A group's dashboard can't also be shared with everyone. Take it out of the group first.",
   'errors.field.group_not_found': 'This group does not exist.',
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',

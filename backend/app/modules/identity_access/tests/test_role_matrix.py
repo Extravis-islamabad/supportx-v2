@@ -138,6 +138,16 @@ def test_no_role_assigns_outside_a_records_group() -> None:
     """D-154a: the right is gone for every type, so no built-in role can hold it."""
     catalogue = _catalogue()
     assert not [k for k in catalogue.permissions if k.endswith(".assign_outside_group")]
+    # The checked-in snapshot too (#347: a pre-merge snapshot re-added it for the release
+    # manager), so a stale matrix cannot carry it unnoticed.
+    snapshot: dict[str, dict[str, list[str]]] = json.loads(MATRIX.read_text())
+    held = [
+        (role, key)
+        for role, grants in snapshot.items()
+        for key in grants
+        if key.endswith(".assign_outside_group")
+    ]
+    assert held == []
 
 
 def test_a_team_lead_works_its_groups_changes_and_views_the_others() -> None:

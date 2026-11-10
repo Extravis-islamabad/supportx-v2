@@ -76,7 +76,7 @@ describe('Conversation', () => {
     restore();
   });
 
-  it('UI pass 2: automation and status events read as quiet lines among the messages', async () => {
+  it('UI pass 2: automation and status events read as quiet lines, under System', async () => {
     api({
       routes: {
         ...COMMON,
@@ -104,6 +104,16 @@ describe('Conversation', () => {
       },
     });
     const timeline = await openConversation();
+    // By default the tab shows what its count says: the description and the three entries,
+    // no system lines (QA fix round 2026-11-10, C4: "Conversation (0)" over system lines).
+    await within(timeline).findAllByTestId('conv-entry');
+    expect(within(timeline).getAllByTestId('conv-entry')).toHaveLength(3);
+    expect(within(timeline).getByTestId('conv-description')).toBeDefined();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(within(timeline).queryByTestId('conv-event')).toBeNull();
+    fireEvent.click(within(screen.getByTestId('conv-filter')).getByText('System'));
     const event = await within(timeline).findByTestId('conv-event');
     expect(event.textContent).toContain('Priority');
     expect(event.textContent).not.toMatch(/p2\b|priority\b/); // labels, never codes

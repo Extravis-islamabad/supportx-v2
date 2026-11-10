@@ -577,6 +577,44 @@ describe('QA findings on one incident', () => {
     expect(dialog.textContent).toContain('Details (optional)');
     expect(dialog.textContent).not.toContain('Other');
   });
+
+  it('QA 2026-11-10 (bug 3): a refused reason clears once a reason is picked', async () => {
+    const fake = api({
+      routes: {
+        ...COMMON,
+        [`GET ${PATH}`]: { body: TAKEN },
+        [`POST ${PATH}/assign`]: {
+          status: 422,
+          body: problem(422, 'validation_failed', {
+            errors: [
+              {
+                field: 'body.reason_code',
+                code: 'required',
+                message_key: 'errors.field.required',
+                params: {},
+              },
+            ],
+          }),
+        },
+      },
+    });
+    render(<App />);
+    await clickAction('inc-op-assign');
+    fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-group')));
+    fireEvent.click(await screen.findByTitle('Network'));
+    fireEvent.click(screen.getByTestId('inc-assign-confirm'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/assign`)).toHaveLength(1);
+    });
+    expect((await screen.findByTestId('inc-assign-error')).textContent).toBe(
+      'This field is required.',
+    );
+    fireEvent.mouseDown(selectorOf(screen.getByTestId('inc-assign-reason')));
+    fireEvent.click(await screen.findByTitle('Wrong group'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('inc-assign-error')).toBeNull();
+    });
+  });
 });
 
 describe('QA findings on the list and the form', () => {

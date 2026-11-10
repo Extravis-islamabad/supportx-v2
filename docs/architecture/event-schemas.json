@@ -195,6 +195,19 @@
             "title": "Dashboard Id",
             "type": "string"
           },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Id"
+          },
           "owner_id": {
             "format": "uuid",
             "title": "Owner Id",
@@ -234,6 +247,19 @@
             "title": "Dashboard Id",
             "type": "string"
           },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Id"
+          },
           "owner_id": {
             "format": "uuid",
             "title": "Owner Id",
@@ -241,6 +267,11 @@
           },
           "shared": {
             "title": "Shared",
+            "type": "boolean"
+          },
+          "was_group": {
+            "default": false,
+            "title": "Was Group",
             "type": "boolean"
           },
           "was_shared": {

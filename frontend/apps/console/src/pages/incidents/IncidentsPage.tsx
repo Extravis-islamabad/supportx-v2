@@ -37,7 +37,7 @@ import {
 import {
   ConflictDialog,
   useConflictRetry,
-  EmptyText,
+  loadedEmpty,
   NoAccess,
   reportError,
   useAccess,
@@ -802,8 +802,9 @@ export function IncidentsPage() {
               }
         }
         locale={{
-          emptyText: (
-            <EmptyText>{t(trash ? 'incidents.trash_empty' : 'incidents.empty')}</EmptyText>
+          emptyText: loadedEmpty(
+            list.isPending,
+            t(trash ? 'incidents.trash_empty' : 'incidents.empty'),
           ),
         }}
         onChange={(_pagination, _filters, sorter) => {

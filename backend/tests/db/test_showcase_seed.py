@@ -22,6 +22,7 @@ from app.modules.audit.service.integrity import seal, verify
 from app.shared.events.outbox import OUTBOX_TABLE
 from conftest import create_tenant, make_settings
 from tooling import db_testing
+from tooling import showcase_assets as assets
 from tooling import showcase_lane_a as lane_a
 from tooling import showcase_seed as seed
 
@@ -210,6 +211,133 @@ async def _by_hand(database: db_testing.ThrowawayDatabase) -> str:
     return str(record["id"])
 
 
+@dataclass(frozen=True)
+class SeedAssets:
+    """The seed's assets as the database has them (lane B's section, tooling/showcase_assets)."""
+
+    holders: dict[str, str | None]  # tag -> "user <email>", "department <name>", "asset <tag>"
+    versions: dict[str, int]
+    trashed: set[str]
+    loans: dict[str, str]  # tag of an asset out on an open loan -> the borrower's e-mail
+    groups: dict[str, set[str]]  # static group name -> its members' tags
+    products: set[str]
+
+
+async def _seed_assets(url: str) -> SeedAssets:
+    conn = await asyncpg.connect(url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            rows = await conn.fetch(
+                "SELECT a.tag, a.version, a.deleted_at IS NOT NULL AS trashed, u.email,"
+                " d.name AS department, p.tag AS parent FROM assets a"
+                " LEFT JOIN users u ON u.id = a.owner_user_id"
+                " LEFT JOIN departments d ON d.id = a.department_id"
+                " LEFT JOIN assets p ON p.id = a.parent_asset_id"
+                " WHERE a.tag LIKE 'SX-%'"
+            )
+            loans = await conn.fetch(
+                "SELECT a.tag, u.email FROM asset_loans l"
+                " JOIN asset_loan_items i ON i.loan_id = l.id AND i.returned_at IS NULL"
+                " JOIN assets a ON a.id = i.asset_id JOIN users u ON u.id = l.borrower_id"
+                " WHERE l.closed_at IS NULL"
+            )
+            members = await conn.fetch(
+                "SELECT g.name, a.tag FROM asset_groups g"
+                " JOIN asset_group_members m ON m.group_id = g.id"
+                " JOIN assets a ON a.id = m.asset_id"
+                " WHERE g.kind = 'static' AND g.deleted_at IS NULL"
+            )
+            products = await conn.fetch("SELECT name FROM asset_products WHERE deleted_at IS NULL")
+    finally:
+        await conn.close()
+
+    def holder(r: asyncpg.Record) -> str | None:
+        if r["email"]:
+            return f"user {r['email']}"
+        if r["department"]:
+            return f"department {r['department']}"
+        return f"asset {r['parent']}" if r["parent"] else None
+
+    groups: dict[str, set[str]] = {}
+    for m in members:
+        groups.setdefault(m["name"], set()).add(m["tag"])
+    return SeedAssets(
+        holders={r["tag"]: holder(r) for r in rows if not r["trashed"]},
+        versions={r["tag"]: r["version"] for r in rows},
+        trashed={r["tag"] for r in rows if r["trashed"]},
+        loans={r["tag"]: r["email"] for r in loans},
+        groups=groups,
+        products={r["name"] for r in products},
+    )
+
+
+async def _first_assets(first: seed.Report, url: str) -> SeedAssets:
+    """Lane B: assets to show (the visual matrix's asset screen), as the first run made them."""
+    # The products, the assets, three holders (a person, a department, the monitor's desktop),
+    # the loanable mark, the loan, the group and its three members.
+    assert first.assets == len(assets.PRODUCTS) + len(assets.ASSETS) + 3 + 1 + 1 + 1 + 3 == 22
+    found = await _seed_assets(url)
+    assert found.products == {p.name for p in assets.PRODUCTS}
+    assert found.holders == {
+        "SX-LAP-001": f"user {seed.REQUESTER.email}",
+        "SX-DSK-001": f"department {assets.DEPARTMENT}",
+        "SX-MON-001": "asset SX-DSK-001",  # the component
+        "SX-LAP-002": f"user {seed.NEW_STARTER.email}",  # the loan gives it to the borrower
+        "SX-LAP-003": None,
+        "SX-PHN-001": None,
+        "SX-PRN-001": None,
+        "SX-MON-002": None,
+    }
+    assert found.loans == {"SX-LAP-002": seed.NEW_STARTER.email}
+    assert found.groups == {assets.GROUP: set(assets.GROUP_MEMBERS)}
+    assert found.trashed == set()
+    assert found.versions["SX-PRN-001"] == assets.CREATED  # the seed's own, never saved again
+    return found
+
+
+async def _assets_by_hand(database: db_testing.ThrowawayDatabase) -> None:
+    """The showcase admin at the console changes three of the seed's assets.
+
+    Takes the person's laptop back (held by no one now), takes the loaned laptop back early (the
+    loan closes; the asset is unheld and still loanable) and puts the printer in the trash: each
+    a state the seed's own steps would act on, were it still as the seed left it.
+    """
+    conn = await asyncpg.connect(database.migrator_url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            admin: uuid.UUID = await conn.fetchval(
+                "SELECT id FROM users WHERE email = $1", seed.ADMIN.email
+            )
+    finally:
+        await conn.close()
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    contexts = {admin: TenantContext(seed.TENANT_ID, admin, roles=frozenset(seed.ADMIN.roles))}
+    async with seed.console_api(settings, contexts) as client:
+        person = seed.Api(client, admin)  # its own helper: nothing it does is the seed's
+        tags = {a["tag"]: a for a in await person.all_pages("/api/v1/assets")}
+        laptop = tags["SX-LAP-001"]
+        await person.call(
+            "DELETE", f"/api/v1/assets/{laptop['id']}/holder", version=laptop["version"]
+        )
+        loaner = tags["SX-LAP-002"]
+        loan = next(
+            loan
+            for loan in await person.call("GET", "/api/v1/assets/loans")
+            if any(a["id"] == loaner["id"] for a in loan["assets"])
+        )
+        await person.call(
+            "POST",
+            f"/api/v1/assets/loans/{loan['id']}/returns",
+            json={"asset_ids": [loaner["id"]]},
+        )
+        printer = tags["SX-PRN-001"]
+        await person.call("DELETE", f"/api/v1/assets/{printer['id']}", version=printer["version"])
+
+
 async def _times_of(url: str, record_id: str) -> tuple[Any, ...]:
     """The incident's own times and every history row's time, to compare after a run."""
     conn = await asyncpg.connect(url)
@@ -378,6 +506,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     # QA6-DATA-01: knowledge and releases to show, not empty modules.
     assert first.articles == len(seed.KB_ARTICLES) == 5
     assert first.releases == len(seed.RELEASES) == 2
+    found = asyncio.run(_first_assets(first, database.migrator_url))
     assert first.backdated == 75  # spread over the past 30 days (choice (b)); not releases
     assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
@@ -430,6 +559,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.catalog_published,
         second.articles,
         second.releases,
+        second.assets,
         second.service_requests,
         second.problems,
         second.managers,
@@ -437,8 +567,9 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.featured,
         second.sla_policies,
         second.sla_from_creation,
-    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     assert second.backdated == 0  # nothing made now, so nothing moved
+    assert asyncio.run(_seed_assets(database.migrator_url)) == found
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
     # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
     # database refuses the change outright).
@@ -450,6 +581,24 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     }
     assert asyncio.run(_counts(database.migrator_url, bystander)) == before
     assert keycloak.passwords[imported] == "Changed-By-Hand-1!"
+
+
+def test_seed_assets_changed_by_hand_stay_as_the_person_left_them(
+    seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak],
+) -> None:
+    """Rule 3 (lanes A and C): never given back, lent again or remade after a person's change."""
+    database, keycloak = seeded_copy
+    asyncio.run(_assets_by_hand(database))
+    by_hand = asyncio.run(_seed_assets(database.migrator_url))
+    # Each is now in a state the seed's steps would act on, were it still as the seed left it.
+    assert by_hand.holders["SX-LAP-001"] is None
+    assert by_hand.holders["SX-LAP-002"] is None
+    assert by_hand.loans == {}
+    assert by_hand.trashed == {"SX-PRN-001"}
+
+    again = asyncio.run(_run(database, keycloak))
+    assert again.assets == 0
+    assert asyncio.run(_seed_assets(database.migrator_url)) == by_hand
 
 
 # --- step 6: SLAs from creation for incidents made before any SLA (Haider, 2026-11-09) --------

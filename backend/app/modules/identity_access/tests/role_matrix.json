@@ -451,6 +451,48 @@
   "profile.edit": [
    "own"
   ],
+  "releases.add_note": [
+   "all"
+  ],
+  "releases.approve": [
+   "all"
+  ],
+  "releases.assign": [
+   "all"
+  ],
+  "releases.cancel": [
+   "all"
+  ],
+  "releases.change_priority": [
+   "all"
+  ],
+  "releases.close": [
+   "all"
+  ],
+  "releases.create": [
+   "all"
+  ],
+  "releases.edit": [
+   "all"
+  ],
+  "releases.edit_due_dates": [
+   "all"
+  ],
+  "releases.manage_followers": [
+   "all"
+  ],
+  "releases.reopen": [
+   "all"
+  ],
+  "releases.reply": [
+   "all"
+  ],
+  "releases.resolve": [
+   "all"
+  ],
+  "releases.take": [
+   "all"
+  ],
   "releases.view": [
    "all"
   ],
@@ -467,6 +509,48 @@
   ],
   "profile.edit": [
    "own"
+  ],
+  "releases.add_note": [
+   "all"
+  ],
+  "releases.approve": [
+   "all"
+  ],
+  "releases.assign": [
+   "all"
+  ],
+  "releases.cancel": [
+   "all"
+  ],
+  "releases.change_priority": [
+   "all"
+  ],
+  "releases.close": [
+   "all"
+  ],
+  "releases.create": [
+   "all"
+  ],
+  "releases.edit": [
+   "all"
+  ],
+  "releases.edit_due_dates": [
+   "all"
+  ],
+  "releases.manage_followers": [
+   "all"
+  ],
+  "releases.reopen": [
+   "all"
+  ],
+  "releases.reply": [
+   "all"
+  ],
+  "releases.resolve": [
+   "all"
+  ],
+  "releases.take": [
+   "all"
   ],
   "releases.view": [
    "all"

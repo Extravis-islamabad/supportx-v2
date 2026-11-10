@@ -80,6 +80,8 @@ export function NewReleasePage() {
         <WriteButton
           type="primary"
           disabled={subject.trim() === '' || chosen === undefined}
+          // What is still missing (D-155 A8; the QA fix-round's "Create release").
+          whyDisabled={t(chosen === undefined ? 'releases.why.template' : 'releases.why.subject')}
           loading={create.isPending}
           onClick={submit}
           data-testid="release-save"
