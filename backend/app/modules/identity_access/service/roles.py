@@ -441,8 +441,11 @@ async def delete_role(  # noqa: PLR0913 - keyword-only options
 ) -> int:
     """Delete a custom role; its holders move to `reassign_to` (required if it has any).
 
-    Returns how many users were moved. 409 `role_in_use` (params: users) without a replacement.
+    Returns how many users were moved. 409 `role_in_use` (params: users) without a replacement;
+    409 `system_role_not_deletable` for a built-in role (D-153: copy it instead).
     """
+    if (await RoleRepository(session).get(role_id)).is_system:
+        raise Conflict(code="system_role_not_deletable")
     role = await _custom_role(session, role_id)
     detail = await _detail(session, policy.catalogue, role)
     _validate_grants(detail.grants, subject=subject, policy=policy, resources=resources)

@@ -569,6 +569,7 @@ export const ar: LabelResource = {
   'errors.files_not_configured': 'لا يمكن تخزين الملفات: مفاتيح التشفير غير مُعدّة.',
   'errors.follower_not_found': 'هذا الشخص لا يتابعه.',
   'errors.group_not_found': 'مجموعة الدعم غير موجودة.',
+  'errors.group_not_led': 'يمكنك إدارة المجموعات التي تقودها فقط.',
   'errors.holiday_list_not_found': 'قائمة العطلات هذه غير موجودة أو حُذفت.',
   'errors.holiday_not_found': 'هذه العطلة غير موجودة أو حُذفت.',
   'errors.ical_too_large': 'حجم الملف أكبر من 1 ميغابايت.',
@@ -801,6 +802,8 @@ export const ar: LabelResource = {
   'errors.storage_unavailable': 'تعذّر الوصول إلى تخزين الملفات. حاول لاحقًا أو تواصل مع المسؤول.',
   'errors.system_calendar_required': 'تحتفظ كل مؤسسة بهذا التقويم، لذا لا يمكن حذفه.',
   'errors.system_role_immutable': 'لا يمكن تغيير الأدوار المضمّنة أو حذفها.',
+  'errors.system_role_not_deletable':
+    'لا يمكن حذف الأدوار المضمّنة. انسخ الدور لإنشاء نسختك الخاصة.',
   'errors.technician_limit_reached':
     'جميع مقاعد الفنيين في خطة مؤسستك مستخدمة. اطلب من المسؤول تحرير مقعد أو إضافة المزيد.',
   'errors.technicians_only': 'يمكن للفنيين فقط رؤية المستخدمين الآخرين.',

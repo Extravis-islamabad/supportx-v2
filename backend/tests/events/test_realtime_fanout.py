@@ -7,7 +7,7 @@ the relay, routed by the module routes and flushed by the fan-out runner.
 
 import uuid
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import text
@@ -18,7 +18,7 @@ from app.core.modules import discover_modules
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.events import UserRoleChanged, UserUpdated
 from app.modules.licensing.events import EntitlementChanged
-from app.shared.events import Actor, record_event
+from app.shared.events import Actor, EventEnvelope, record_event
 from app.shared.realtime import CentrifugoError, Disconnect, Publish, RealtimeRegistry
 from app.shared.realtime.centrifugo import Command
 from tests.db.test_users_api import seed_users
@@ -144,19 +144,6 @@ async def test_a_burst_of_profile_edits_becomes_one_list_message(
     client = RecordingCentrifugo()
     runner = runner_for(event_bus, bus_settings, app_db, client)
     await runner.ensure()
-    # Count the windows the burst was taken in (coordinator, 2026-11-09: #288's shard 3 saw two
-    # list messages). How NATS hands 60 waiting events over, in one pull or several, depends on
-    # the runner's speed; what the fan-out guarantees is one list message per window. So the
-    # test asserts exactly that, against the windows it saw, never against wall time.
-    windows: list[int] = []
-    process = runner.process_window
-
-    async def counted(messages: list[Any]) -> None:  # Any: nats-py's Msg, as the runner takes
-        if messages:
-            windows.append(len(messages))
-        await process(messages)
-
-    runner.process_window = counted  # type: ignore[method-assign]  # an instance hook, this test only
     async with app_db.tenant_session(TenantContext(tenant)) as session:
         for user in edited:
             for version in (2, 3):
@@ -168,30 +155,41 @@ async def test_a_burst_of_profile_edits_becomes_one_list_message(
                 )
     relay = make_relay()
     await relay.connect()
-    list_channel = f"t:{tenant}:queue:users"
 
-    # All 60 events are in the stream before the fan-out reads any (waiting on the stream, not
-    # on wall time), so no window holds half a record's two versions.
     async def all_events_waiting() -> bool:
         info = await event_bus.js.consumer_info(event_bus.names.events_stream, runner.name)
         pending: int = info.num_pending  # nats-py types it loosely
         return pending >= len(edited) * 2
 
     await run_until([relay.run], all_events_waiting)
-
-    async def all_records_out() -> bool:
-        records = [c for c in client.channels() if c.startswith(f"t:{tenant}:users:")]
-        return len(records) == len(edited)
-
-    await run_until([runner.run], all_records_out)
-    messages = client.channels()[list_channel]
-    assert len(messages) == len(windows)  # one list message per window, however many it took
-    assert len(windows) < len(edited)  # coalesced: a handful of windows for 60 events
-    assert sorted({i for m in messages for i in m["ids"]}) == sorted(str(u) for u in edited)  # type: ignore[attr-defined]
-    record = client.channels()[f"t:{tenant}:users:{edited[0]}"]
-    assert record == [
-        {"type": "users.changed", "ids": [str(edited[0])], "fields": ["signature"], "version": 3}
-    ]
+    # The test drives the windows itself (coordinator, 2026-11-10: #339's shard 6 saw one list
+    # message for two counted windows). It takes this tenant's 60 events from the runner's own
+    # consumer, then hands the fan-out exactly two windows, each with both versions of its
+    # users. Nothing then depends on the runner's speed, the production window or other tests'
+    # events on the shared stream: one list message per window, by construction.
+    subscription = await event_bus.js.pull_subscribe_bind(
+        durable=runner.spec.name, stream=event_bus.names.events_stream
+    )
+    mine: dict[str, list[Any]] = {}  # Any: nats-py's Msg; per user, in stream order
+    while sum(len(m) for m in mine.values()) < len(edited) * 2:
+        for message in await subscription.fetch(100, timeout=10):
+            envelope = EventEnvelope.from_json(message.data)
+            if envelope.tenant_id == tenant:
+                mine.setdefault(envelope.aggregate_id, []).append(message)
+            else:
+                await message.ack()  # another test's event on the shared stream: not ours
+    first, second = edited[:15], edited[15:]
+    for half in (first, second):
+        await runner.process_window([m for user in half for m in mine[str(user)]])
+    messages = client.channels()[f"t:{tenant}:queue:users"]
+    assert [sorted(cast("list[str]", m["ids"])) for m in messages] == [
+        sorted(str(u) for u in first),
+        sorted(str(u) for u in second),
+    ]  # one list message per window, each naming that window's records
+    for user in edited:  # both versions in one window: one record message, the newest
+        assert client.channels()[f"t:{tenant}:users:{user}"] == [
+            {"type": "users.changed", "ids": [str(user)], "fields": ["signature"], "version": 3}
+        ]
     assert runner.fanout.metrics.coalesced_total >= 60
     assert client.disconnected() == []  # a signature edit changes no access
 
