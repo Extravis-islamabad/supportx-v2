@@ -26,6 +26,7 @@ from app.modules.automation.domain.rules import FieldKind
 from app.modules.automation.domain.workflows import (
     FORMAT,
     Definition,
+    NodeType,
     Problem,
     TypeFacts,
     parse,
@@ -35,6 +36,7 @@ from app.modules.automation.domain.workflows import (
 from app.modules.automation.events import WorkflowChanged
 from app.modules.automation.infra.models import Workflow, WorkflowVersion
 from app.modules.automation.service import functions
+from app.modules.automation.service.business_rules import person_group_problems
 from app.modules.automation.service.registry import record_type as registered
 from app.modules.identity_access import create_service_identity, set_service_identity_active
 from app.shared.events import record_event
@@ -83,7 +85,24 @@ async def problems_of(
     if parsed.definition is None:
         return parsed.problems
     found = parsed.problems + validate(parsed.definition, await type_facts(session, record_type))
-    return found + await _sub_flow_problems(session, record_type, parsed.definition, workflow_id)
+    found += await _sub_flow_problems(session, record_type, parsed.definition, workflow_id)
+    return found + await _person_problems(session, parsed.definition)
+
+
+async def _person_problems(session: AsyncSession, definition: Definition) -> list[Problem]:
+    """A field step that sets a technician names the group too, as trigger saves (D-154).
+
+    In several groups the step sets which one; the one it sets must be theirs; in none, nothing
+    can be given to them. At run time a person who left falls back to the group only.
+    """
+    problems: list[Problem] = []
+    for node in definition.nodes:
+        values = node.config.get("values") if node.type is NodeType.FIELD_UPDATE else None
+        if not isinstance(values, dict):
+            continue
+        for field, code in (await person_group_problems(session, values)).items():
+            problems.append((f"node:{node.id}", code, {"field": field}))
+    return problems
 
 
 MAX_SUB_FLOW_DEPTH = 10  # sub-flows of sub-flows, at most this deep

@@ -37,12 +37,14 @@ from app.modules.work_items.events import WorkItemWorkflowNotice
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import conversations, parts, workflow_approvals
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.rule_assignment import place_person
 from app.shared.events import record_event
 from app.shared.history import Source, automated
 
 SOURCE: Source = "workflow"
 # The interpreter's command kinds (automation.CommandKind values).
 MOVE, UPDATE_FIELDS, ADD_NOTE = "move", "update_fields", "add_note"
+ASSIGNMENT_FIELDS = ("group_id", "technician_id")  # set through the assignment path
 OPEN_APPROVAL = "open_approval"  # decided later: the result comes with the decision
 OPEN_TASKS = "open_tasks"  # done later: the result comes when every task is done
 NOTIFY = "notify"  # through the one notification engine (an outbox event), done at once
@@ -60,6 +62,31 @@ def _note_body(text: Mapping[str, Any]) -> str:
     """The note's English text, else the first language given; plain text, escaped."""
     chosen = text.get("en") or next(iter(text.values()), "")
     return f"<p>{html.escape(str(chosen))}</p>"
+
+
+async def _with_group(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    payload: Mapping[str, Any],
+    ref: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    """A field step that sets a technician moves the record with them (D-154 "rules", as triggers).
+
+    The step's own group for them when it sets one, else theirs; someone inactive, Away or out of
+    that group leaves the record with the group only, and the history ref says why.
+    """
+    values = dict(payload.get("values", {}))
+    person = _id(values.get("technician_id"))
+    if person is None:
+        return payload, ref
+    current = await session.scalar(select(WorkItem.group_id).where(WorkItem.id == record_id))
+    placement = await place_person(
+        session, person, _id(values.get("group_id")), record_group_id=current
+    )
+    placed = {**payload, "values": {**values, **placement.values}}
+    if placement.unavailable is None:
+        return placed, ref
+    return placed, {**ref, "unavailable": placement.unavailable.value, "person_id": str(person)}
 
 
 def runner(wtype: WorkItemType) -> automation.CommandRunner:
@@ -81,6 +108,8 @@ def runner(wtype: WorkItemType) -> automation.CommandRunner:
                 session, wtype, record_id, kind=kind, payload=payload, ref=ref
             )
         policy = worker_policy()
+        if kind == UPDATE_FIELDS:
+            payload, ref = await _with_group(session, record_id, payload, ref)
         try:
             with automated(session, ref):
                 handled = await _carry_out(
@@ -90,6 +119,7 @@ def runner(wtype: WorkItemType) -> automation.CommandRunner:
                     record_id,
                     kind=kind,
                     payload=payload,
+                    ref=ref,
                     version=version,
                     policy=policy,
                 )
@@ -224,6 +254,7 @@ async def _carry_out(  # noqa: PLR0913 - the command and its context, explicit
     *,
     kind: str,
     payload: Mapping[str, Any],
+    ref: Mapping[str, Any],
     version: int,
     policy: Any,  # noqa: ANN401 - identity's worker policy (holders and subjects)
 ) -> bool:
@@ -261,15 +292,32 @@ async def _carry_out(  # noqa: PLR0913 - the command and its context, explicit
                 source=SOURCE,
             )
     elif kind == UPDATE_FIELDS:
-        await items.update(
-            session,
-            subject,
-            wtype,
-            record_id,
-            expected_version=version,
-            values=dict(payload.get("values", {})),
-            source=SOURCE,
-        )
+        values = dict(payload.get("values", {}))
+        # The group and technician go through the assignment path, as a trigger's do (D-154
+        # "rules"): `update` edits fields only and never assignment, so a workflow setting a
+        # technician changed nothing before. History names the workflow, and a person left out
+        # tells the workflow's owner.
+        assignment = {k: values.pop(k) for k in ASSIGNMENT_FIELDS if k in values}
+        if values:
+            await items.update(
+                session,
+                subject,
+                wtype,
+                record_id,
+                expected_version=version,
+                values=values,
+                source=SOURCE,
+            )
+        if assignment:
+            await items.automated_update(
+                session,
+                wtype,
+                record_id,
+                assignment,
+                ref=ref,
+                cause_id=uuid.UUID(str(ref["instance_id"])),
+                source=SOURCE,
+            )
     elif kind == ADD_NOTE:
         await conversations.add_entry(
             session,
