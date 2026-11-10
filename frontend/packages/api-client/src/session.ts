@@ -17,7 +17,6 @@ export async function fetchMe(): Promise<MeResponse> {
   return me;
 }
 
-/** The current session. A 401 resolves to `null` (not logged in) rather than an error. */
 // Why the last /me had no session, when the server said (QA10: "console_requester_only" sends a
 // requester to the portal, not to a password page).
 let refusal: string | null = null;
@@ -27,6 +26,7 @@ export function sessionRefusalCode(): string | null {
   return refusal;
 }
 
+/** The current session. A 401 resolves to `null` (not logged in) rather than an error. */
 export function useSession() {
   return useQuery({
     queryKey: queryKeys.session,

@@ -1447,6 +1447,7 @@ export const ar: LabelResource = {
   'requests.approvals': 'الموافقات',
   'requests.approve': 'موافقة',
   'requests.back_to_catalog': 'العودة إلى الكتالوج',
+  'requests.catalog_empty_category': 'لا توجد طلبات في هذه الفئة بعد.',
   'requests.catalog_other': 'عناصر أخرى',
   'requests.decided_by': '{{name}} · {{when}} · {{channel}}',
   'requests.decision_comment': 'تعليق',

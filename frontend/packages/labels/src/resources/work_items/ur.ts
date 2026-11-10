@@ -1324,6 +1324,7 @@ export const ur: LabelResource = {
   'requests.approvals': 'منظوریاں',
   'requests.approve': 'منظور کریں',
   'requests.back_to_catalog': 'کیٹلاگ پر واپس',
+  'requests.catalog_empty_category': 'اس زمرے میں ابھی کوئی درخواست نہیں۔',
   'requests.catalog_other': 'دیگر آئٹمز',
   'requests.decided_by': '{{name}} · {{when}} · {{channel}}',
   'requests.decision_comment': 'تبصرہ',
