@@ -79,6 +79,7 @@ from app.modules.licensing import Edition, SubscriptionPlan, apply_subscription
 from app.modules.service_catalog.service.starter import seed_empty_catalog
 from app.modules.work_items.service.work_items import apply_sla_from_creation
 from app.shared.api.idempotency import REPLAYED_HEADER
+from tooling import showcase_assets as assets
 from tooling import showcase_lane_a as lane_a
 from tooling.keycloak_theme import admin_token
 
@@ -1384,6 +1385,7 @@ class Report:
     catalog_published: int = 0
     articles: int = 0
     releases: int = 0
+    assets: int = 0  # products, assets, holders, a loan and a group (showcase_assets)
     backdated: int = 0
     freshened: int = 0  # step 7: seed records moved to read as of today
     # Between the steps only: step 6's candidates and who acts.
@@ -1426,6 +1428,9 @@ async def fill(
         author = admin.as_user(signed_in[TECHNICIAN.email])
         report.articles = await ensure_knowledge(admin, author)
         report.releases = await ensure_releases(admin, str(signed_in[ADMIN.email]))
+        report.assets = await assets.ensure_assets(
+            admin, key, sites, signed_in[REQUESTER.email], signed_in[NEW_STARTER.email]
+        )
         report.admin_id = signed_in[ADMIN.email]
         # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
         # checks each was made by the seed's admin.
@@ -1720,6 +1725,7 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  made now: {', '.join(report.tenant + report.keycloak) or 'nothing (all present)'}\n"
         f"  incidents made now: {report.incidents}; dashboard made now: {report.dashboard}\n"
         f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
+        f"  assets made now (products, assets, holders, a loan, a group): {report.assets}\n"
         f"  service requests made now: {report.service_requests}; problems made now:"
         f" {report.problems}; rules made now: {report.rules}; managers set now:"
         f" {report.managers}; catalog items featured now: {report.featured}\n"
