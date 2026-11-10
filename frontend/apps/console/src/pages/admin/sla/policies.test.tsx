@@ -206,12 +206,16 @@ describe('Admin › SLA › Settings', () => {
     render(<App />);
     const warning = await screen.findByTestId('sla-settings-warning');
     fireEvent.change(warning, { target: { value: '80' } });
-    fireEvent.click(screen.getByTestId('sla-settings-save'));
+    // One save bar (template E): the count, then only the change is sent.
+    expect((await screen.findByTestId('sla-settings-save-bar')).textContent).toContain(
+      '1 unsaved change',
+    );
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PATCH', SETTINGS)).toHaveLength(1);
     });
     const sent = fake.find('PATCH', SETTINGS)[0];
-    expect(sent?.body).toMatchObject({ warning_percent: 80 });
+    expect(sent?.body).toEqual({ warning_percent: 80 });
     expect(sent?.headers.get('If-Match')).toBe('"3"');
   });
 });
