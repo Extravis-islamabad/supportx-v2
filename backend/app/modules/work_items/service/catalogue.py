@@ -81,7 +81,7 @@ from app.shared.ids import new_id
 
 # 1: WP-020 (life cycle, scales, matrix, reasons, categories); 2: WP-020c (levels, closure
 # codes, the standard template).
-SEED_VERSION = 3  # 3: the closure code "confirmed by requester" (D-107)
+SEED_VERSION = 4  # 3: the closure code "confirmed by requester" (D-107); 4: staged roles, approvals
 STANDARD_TEMPLATE = "standard"
 MAJOR_PROBLEM_TEMPLATE = "major_problem"  # REQ-PRB-017, Appendix A: the guided life cycle
 
@@ -492,6 +492,52 @@ async def _top_up(
         await session.flush()
     await _seed_v3(session, wtype, tenant)
     await session.flush()
+    if existing < 4:  # noqa: PLR2004 - the seed version that tops up a staged type's roles
+        await _seed_v4(session, wtype, tenant)
+        await session.flush()
+
+
+async def _seed_v4(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
+    """A staged type seeded before its roles and stage approvals existed gets them (QA10-P4-29).
+
+    Such a tenant had no role definitions (an empty Roles tab) and no stage approvals, so a
+    release waiting for its plan approval had nobody to approve it and no move out. Missing role
+    definitions are added. Stage approvals are filled only when the type has none at all and had
+    no roles: the sign of that older seed, never an administrator's choice to clear them.
+    """
+    if wtype.stages is None:
+        return
+    held = set(
+        (
+            await session.scalars(
+                select(WorkItemRoleDef.code).where(WorkItemRoleDef.type == wtype.code)
+            )
+        ).all()
+    )
+    had_none = not held
+    for index, code in enumerate(wtype.roles):
+        if code not in held:
+            await session.execute(
+                insert(WorkItemRoleDef)
+                .values(tenant_id=tenant, type=wtype.code, code=code, sort_order=index, system=True)
+                .on_conflict_do_nothing()
+            )
+    any_approvals = await session.scalar(
+        select(WorkItemStage.code)
+        .where(WorkItemStage.type == wtype.code, WorkItemStage.approvals.is_not(None))
+        .limit(1)
+    )
+    if had_none and any_approvals is None:
+        for stage, settings in wtype.stage_approvals.items():
+            await session.execute(
+                update(WorkItemStage)
+                .where(
+                    WorkItemStage.type == wtype.code,
+                    WorkItemStage.code == stage,
+                    WorkItemStage.approvals.is_(None),
+                )
+                .values(approvals=dict(settings))
+            )
 
 
 async def _seed_v3(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
