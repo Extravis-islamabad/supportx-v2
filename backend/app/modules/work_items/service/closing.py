@@ -159,6 +159,14 @@ async def before_move(
     if action not in DONE_MOVES:
         return step
     if (
+        action == RESOLVE
+        and record.type == WorkItemTypeCode.SERVICE_REQUEST
+        and record.technician_id is None
+    ):
+        # D-154 "E1 follows d" (Haider, 2026-11-10): a request is fulfilled only by someone.
+        # Nobody is assigned for it; the automatic fulfilment waits too ("Ready to fulfil").
+        raise _refused([("technician_id", "fulfiller_required", {})])
+    if (
         action == CLOSE
         and record.type == WorkItemTypeCode.PROBLEM
         and record.approval_status == "pending"

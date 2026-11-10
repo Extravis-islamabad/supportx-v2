@@ -181,6 +181,37 @@ describe('console: problems', () => {
     expect(screen.getByTestId('prb-new')).toBeDefined();
   });
 
+  it('Haider 2026-11-10: the list is the list template; a column resized by keyboard is kept for this view', async () => {
+    window.history.pushState({}, '', '/problems');
+    const fake = api({
+      'GET /api/v1/problems/list-settings/all_open': {
+        body: { view_key: 'all_open', columns: [], sort: null, page_size: 50, version: null },
+      },
+      'PUT /api/v1/problems/list-settings/all_open': (call: { body: unknown }) => ({
+        body: { view_key: 'all_open', version: 1, ...(call.body as object) },
+        headers: { ETag: '"1"' },
+      }),
+    });
+    render(<App />);
+    await screen.findByTestId('prb-row-PRB-7');
+    expect(screen.getByTestId('prb-filterbar')).toBeDefined(); // the one toolbar
+    const [subject] = screen.getAllByRole('separator', { name: /Subject/ });
+    if (subject === undefined) throw new Error('no resize handle on the subject');
+    // Each step saves once; the next starts from what was saved.
+    for (let i = 1; i <= 3; i += 1) {
+      fireEvent.keyDown(subject, { key: 'ArrowLeft', shiftKey: true });
+      await waitFor(() => {
+        expect(fake.find('PUT', '/api/v1/problems/list-settings/all_open')).toHaveLength(i);
+      });
+    }
+    const last = fake.find('PUT', '/api/v1/problems/list-settings/all_open').at(-1)?.body as {
+      columns: { key: string; width: number | null }[];
+    };
+    // Never narrower than the subject's minimum; saved under this list's own settings.
+    expect(last.columns.find((c) => c.key === 'subject')?.width).toBe(180);
+    expect(fake.find('PUT', '/api/v1/incidents/list-settings/all_open')).toHaveLength(0);
+  });
+
   it('creates one from an incident: prefilled, similar problems shown, linked on save', async () => {
     window.history.pushState({}, '', `/problems/new?incident=${INC_ID}`);
     const fake = api({

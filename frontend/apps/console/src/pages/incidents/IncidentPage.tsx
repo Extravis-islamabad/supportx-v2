@@ -662,7 +662,9 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           items={[
             {
               key: 'conversation',
-              label: t('incidents.tab.conversation', { count: item.conversation_count }),
+              // What the tab lists (Haider, 2026-11-10): the description, then the replies and
+              // notes. System lines are history, counted on their own tab.
+              label: t('incidents.tab.conversation', { count: item.conversation_count + 1 }),
               children: (
                 <IncidentConversation
                   item={item}

@@ -7,7 +7,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Flex, Form, Select, Skeleton, Table, theme } from 'antd';
+import { Button, Empty, Select, Skeleton, Table, theme } from 'antd';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -23,6 +23,8 @@ import { useListChannel } from '@supportx/realtime';
 import {
   CellText,
   ChannelIcon,
+  FilterBar,
+  ListPage,
   PageHeader,
   ToneTag,
   reportError,
@@ -187,63 +189,78 @@ export function RequestsPage() {
     label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
   });
   return (
-    <Flex vertical gap={16} style={{ width: '100%' }}>
-      <PageHeader
-        title={t('nav.requests')}
-        extra={
-          create && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => void navigate('/requests/new')}
-              data-testid="sr-new"
-            >
-              {t('requests.new')}
-            </Button>
-          )
-        }
-      />
-      <ViewTiles active={view} onPick={setView} />
-      <Form layout="inline" component="div" style={{ rowGap: 8 }}>
-        <Form.Item label={t('requests.view_filter')} htmlFor="sr-view-filter">
-          <Select
-            id="sr-view-filter"
-            allowClear
-            value={view}
-            onChange={(value: string | undefined) => {
-              setView(value);
-            }}
-            placeholder={t('requests.any_view')}
-            style={{ minWidth: 260 }}
-            options={(views.data ?? []).map((v) => ({
-              value: v.view,
-              label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
-            }))}
-            data-testid="sr-view-filter"
-          />
-        </Form.Item>
-        <Form.Item label={t('requests.approval_filter')} htmlFor="sr-approval-filter">
-          <Select
-            id="sr-approval-filter"
-            allowClear
-            value={approval}
-            onChange={(value: ApprovalStatus | undefined) => {
-              setApproval(value);
-            }}
-            placeholder={t('requests.any_approval')}
-            style={{ minWidth: 220 }}
-            options={APPROVAL.map((code) => ({ value: code, label: t(`approval_status.${code}`) }))}
-            data-testid="sr-approval-filter"
-          />
-        </Form.Item>
-        {widths.changed && (
-          <Form.Item>
-            <Button onClick={widths.reset} data-testid="sr-reset-widths">
-              {t('layout.reset_widths')}
-            </Button>
-          </Form.Item>
-        )}
-      </Form>
+    // The list template (D-124, Haider 2026-11-10): ListPage spaces it; one FilterBar.
+    <ListPage
+      testId="sr-page"
+      header={
+        <PageHeader
+          title={t('nav.requests')}
+          extra={
+            create && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => void navigate('/requests/new')}
+                data-testid="sr-new"
+              >
+                {t('requests.new')}
+              </Button>
+            )
+          }
+        />
+      }
+      kpis={<ViewTiles active={view} onPick={setView} />}
+      filters={
+        <FilterBar
+          testId="sr-filterbar"
+          view={
+            <Select
+              id="sr-view-filter"
+              allowClear
+              prefix={`${t('requests.view_filter')}:`}
+              aria-label={t('requests.view_filter')}
+              value={view}
+              onChange={(value: string | undefined) => {
+                setView(value);
+              }}
+              placeholder={t('requests.any_view')}
+              style={{ minWidth: 260 }}
+              options={(views.data ?? []).map((v) => ({
+                value: v.view,
+                label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+              }))}
+              data-testid="sr-view-filter"
+            />
+          }
+          quick={
+            <Select
+              id="sr-approval-filter"
+              allowClear
+              prefix={`${t('requests.approval_filter')}:`}
+              aria-label={t('requests.approval_filter')}
+              value={approval}
+              onChange={(value: ApprovalStatus | undefined) => {
+                setApproval(value);
+              }}
+              placeholder={t('requests.any_approval')}
+              style={{ minWidth: 220 }}
+              options={APPROVAL.map((code) => ({
+                value: code,
+                label: t(`approval_status.${code}`),
+              }))}
+              data-testid="sr-approval-filter"
+            />
+          }
+          extra={
+            widths.changed ? (
+              <Button onClick={widths.reset} data-testid="sr-reset-widths">
+                {t('layout.reset_widths')}
+              </Button>
+            ) : undefined
+          }
+        />
+      }
+    >
       <Table
         rowKey="id"
         loading={list.isLoading}
@@ -332,6 +349,6 @@ export function RequestsPage() {
           },
         ]}
       />
-    </Flex>
+    </ListPage>
   );
 }

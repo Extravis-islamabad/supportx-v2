@@ -182,6 +182,45 @@ describe('portal catalog', () => {
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
+  it('Haider 2026-11-10 (F): the item says what is included and who approves; Cancel then Send, Send says why it is off', async () => {
+    window.history.pushState({}, '', `/catalog/items/${ITEM}`);
+    api({
+      [`GET /api/v1/catalog/items/${ITEM}`]: {
+        body: {
+          ...reset,
+          approval: {
+            approvers: [{ kind: 'requested_for_manager', person_id: null }],
+            comments_required: false,
+            self_approval: false,
+          },
+          plan: [
+            { title: { en: 'Check who you are' }, internal: false, required: true },
+            { title: { en: 'Unlock in the directory' }, internal: true, required: true },
+          ],
+          expected_delivery: { amount: 4, unit: 'hours', around_the_clock: false },
+        },
+      },
+    });
+    render(<App />);
+    const included = (await screen.findByTestId('portal-cat-included')).textContent;
+    expect(included).toContain('Check who you are');
+    expect(included).not.toContain('Unlock in the directory'); // internal
+    expect(screen.getByTestId('portal-cat-approval').textContent).toContain(
+      'Your manager approves this first',
+    );
+    expect(screen.getByTestId('portal-cat-delivery').textContent).toBe(
+      'Usually delivered within 4 working hours',
+    );
+    const footer = screen.getByTestId('portal-cat-footer');
+    const buttons = [...footer.querySelectorAll('button')].map((b) =>
+      b.getAttribute('data-testid'),
+    );
+    expect(buttons).toEqual(['portal-cat-cancel', 'portal-cat-send']);
+    expect(screen.getByTestId('portal-cat-why').textContent).toBe(
+      'Answer the questions marked as required.',
+    );
+  });
+
   it('QA6-PRT-01: category tiles show their icon and item count; items show their icon', async () => {
     window.history.pushState({}, '', '/catalog');
     api();

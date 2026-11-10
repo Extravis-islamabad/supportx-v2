@@ -562,6 +562,7 @@ function StarterBanner() {
             <WriteButton
               type="primary"
               disabled={group === undefined}
+              whyDisabled={t('why.choose_group')}
               loading={publish.isPending}
               data-testid="cat-starter-publish"
               onClick={() => {

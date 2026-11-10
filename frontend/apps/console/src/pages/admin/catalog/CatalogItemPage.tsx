@@ -278,6 +278,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
           type="primary"
           loading={busy}
           disabled={!dirty}
+          whyDisabled={t('why.nothing_changed')}
           onClick={() => {
             save();
           }}
@@ -761,6 +762,7 @@ function ApprovalTab({ draft, set }: TabProps) {
                 size="small"
                 style={{ alignSelf: 'flex-start' }}
                 disabled={approvers.length >= 10}
+                whyDisabled={t('why.max_approvers', { max: 10 })}
                 onClick={() => {
                   put({ approvers: [...approvers, { kind: 'person', person_id: null }] });
                 }}
