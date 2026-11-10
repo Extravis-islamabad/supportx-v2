@@ -149,6 +149,7 @@ export const en = {
   'layout.library_empty': 'Nothing here yet.',
   'layout.library_no_match': 'Nothing matches your search.',
   'layout.more_actions': 'More actions',
+  'layout.more_options_for': 'More options: {{action}}',
   'layout.not_available_now': 'Not available now',
   'layout.notices_count_one': '{{count}} notice',
   'layout.notices_count_other': '{{count}} notices',

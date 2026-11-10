@@ -40,6 +40,15 @@ afterEach(() => {
 });
 
 describe('ResizableHeader', () => {
+  it('QA10V-04: the separator has a value even for a column with no stored width', () => {
+    const { handle } = header({ width: undefined, defaultWidth: undefined });
+    expect(handle.getAttribute('aria-valuenow')).not.toBeNull();
+    expect(Number(handle.getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(
+      Number(handle.getAttribute('aria-valuemin')),
+    );
+    expect(handle.getAttribute('aria-valuemax')).not.toBeNull();
+  });
+
   it('drags to a width, previews it live and saves once on release', () => {
     const { onResize, onPreview, handle } = header();
     fireEvent.mouseDown(handle, { clientX: 100 });

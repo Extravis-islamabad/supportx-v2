@@ -150,6 +150,7 @@ export const ur: LabelResource = {
   'layout.library_empty': 'یہاں ابھی کچھ نہیں۔',
   'layout.library_no_match': 'آپ کی تلاش سے کچھ نہیں ملا۔',
   'layout.more_actions': 'مزید اقدامات',
+  'layout.more_options_for': 'مزید اختیارات: {{action}}',
   'layout.not_available_now': 'ابھی دستیاب نہیں',
   'layout.notices_count_one': '{{count}} اطلاع',
   'layout.notices_count_other': '{{count}} اطلاعات',

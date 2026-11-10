@@ -55,6 +55,16 @@ describe('ActionBar', () => {
     expect(screen.getByTestId('a-assign').className).not.toContain('ant-btn-primary');
   });
 
+  it("QA10V-03: a split button's chevron is named after its action", () => {
+    const reply = action('reply', {
+      label: 'Reply',
+      variants: [{ key: 'reply_all', label: 'Reply all', onClick: vi.fn() }],
+    });
+    renderUi(<ActionBar testId="bar" actions={[reply]} />);
+    const chevron = within(screen.getByTestId('a-reply-more')).getByRole('button');
+    expect(chevron.getAttribute('aria-label')).toBe('More options: Reply');
+  });
+
   it('QA10-P4-24: menu items that are also buttons say so, in the fixed order', async () => {
     renderUi(
       <ActionBar
