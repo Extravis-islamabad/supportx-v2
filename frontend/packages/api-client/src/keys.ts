@@ -1,4 +1,5 @@
 import type { AnnouncementsQuery } from './announcements';
+import type { AssetProductsQuery, AssetRecordsQuery } from './assets';
 import type { AuditEntriesQuery } from './audit';
 import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
@@ -39,6 +40,7 @@ export const queryKeys = {
     list: ['api-keys', 'list'] as const,
     rules: ['api-keys', 'rules'] as const,
     scopes: ['api-keys', 'scopes'] as const,
+    owners: ['api-keys', 'owners'] as const,
   },
   identity: {
     all: ['identity'] as const,
@@ -48,6 +50,8 @@ export const queryKeys = {
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,
     mfa: ['identity', 'mfa'] as const,
     accountSecurity: ['identity', 'account-security'] as const,
+    mySessions: ['identity', 'sessions', 'mine'] as const,
+    personSessions: (userId: string) => ['identity', 'sessions', userId] as const,
     test: (id: string, testId: string) => ['identity', 'sso', id, 'test', testId] as const,
   },
   branding: {
@@ -58,6 +62,23 @@ export const queryKeys = {
     domains: ['branding', 'domains'] as const,
     check: (primary: string | null, gradient: readonly [string, string] | null) =>
       ['branding', 'check', primary, gradient] as const,
+  },
+  assets: {
+    all: ['assets'] as const, // one live `assets.catalogue_changed` refetches everything here
+    settings: ['assets', 'settings'] as const,
+    states: ['assets', 'states'] as const,
+    lifeCycles: ['assets', 'life-cycles'] as const,
+    productTypes: ['assets', 'product-types'] as const,
+    products: (query: AssetProductsQuery) => ['assets', 'products', query] as const,
+    records: (query: AssetRecordsQuery) => ['assets', 'records', query] as const,
+    record: (id: string) => ['assets', 'record', id] as const,
+    history: (id: string) => ['assets', 'history', id] as const,
+    moves: (id: string) => ['assets', 'moves', id] as const,
+    disposal: (id: string) => ['assets', 'disposal', id] as const,
+  },
+  vendors: {
+    all: ['vendors'] as const, // procurement.vendors_changed refetches everything here
+    list: (activeOnly: boolean) => ['vendors', 'list', activeOnly] as const,
   },
   announcements: {
     all: ['announcements'] as const,
@@ -189,6 +210,7 @@ export const queryKeys = {
     preferences: ['notifications', 'preferences'] as const,
     rules: ['notifications', 'rules'] as const,
     status: ['notifications', 'status'] as const,
+    mailStatus: ['notifications', 'mail-status'] as const, // the reply composer (REQ-INC-060)
     deliveries: (recordType: string, recordId: string) =>
       ['notifications', 'deliveries', recordType, recordId] as const,
   },

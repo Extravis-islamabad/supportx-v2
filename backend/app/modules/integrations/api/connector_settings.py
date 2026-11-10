@@ -1,8 +1,8 @@
 """Connector defaults HTTP API under /api/v1/integrations/connector-settings (WP-040, D-041).
 
-Read and saved with `integrations.manage` (every connector category's defaults). Saving takes
-If-Match with the version read (0 before the first save), sends only the fields to change, and
-is audited with each changed field before and after. No business logic here.
+Read and saved with `integrations.manage_email` (MANAGE; every connector category's defaults).
+Saving takes If-Match with the version read (0 before the first save), sends only the fields to
+change, and is audited with each changed field before and after. No business logic here.
 """
 
 from dataclasses import replace

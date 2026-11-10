@@ -219,7 +219,7 @@ describe('WP-026 QA findings', () => {
     const size = screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Largest file (MB)' });
     fireEvent.change(size, { target: { value: '40' } });
     // Someone else saved meanwhile: this save is refused (409), never applied over theirs.
-    fireEvent.click(screen.getByTestId('files-save'));
+    fireEvent.click(await screen.findByTestId('settings-save')); // template E's save bar
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/files/settings/rules')).toHaveLength(1);
     });
@@ -306,7 +306,7 @@ describe('WP-026 QA findings', () => {
     fireEvent.change(size, { target: { value: '500' } });
     fireEvent.blur(size);
     expect(size.value).toBe('500');
-    fireEvent.click(screen.getByTestId('files-save'));
+    fireEvent.click(await screen.findByTestId('settings-save')); // template E's save bar
     expect(await screen.findByText('Maximum is 100.')).toBeDefined();
   });
 
@@ -365,11 +365,21 @@ describe('WP-026 QA findings', () => {
     expect((await screen.findByTestId('cf-error-labels')).textContent).toBe(
       'An English name is required.',
     );
+    // QA6S-SVC-02: on the English name, which is outlined, not under the Urdu one.
+    const english = screen.getByTestId('cf-label-en').closest('.ant-form-item');
+    expect(english?.textContent).toContain('An English name is required.');
+    expect(english?.className).toContain('ant-form-item-has-error');
+    expect(screen.getByTestId('cf-label-ur').closest('.ant-form-item')?.textContent).not.toContain(
+      'An English name is required.',
+    );
     const max = screen.getByTestId('cf-max');
     expect(max.closest('.ant-form-item')?.textContent).toContain('This value is not valid');
     expect(screen.queryByTestId('cf-editor-problems')).toBeNull(); // nothing left at the top
     fireEvent.change(screen.getByTestId('cf-label-en'), { target: { value: 'Cost' } });
-    expect(screen.queryByTestId('cf-error-labels')).toBeNull();
+    // The field's help fades out (Ant Design's motion), then is gone.
+    await waitFor(() => {
+      expect(screen.queryByTestId('cf-error-labels')).toBeNull();
+    });
   });
 
   it('BUG-07: the "Indexed" tag uses a readable tone tag', async () => {

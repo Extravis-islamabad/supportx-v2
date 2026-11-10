@@ -5,6 +5,7 @@ import type { PermissionInfo, RoleDetail, RoleSummary } from '@supportx/api-clie
 
 import { App } from '../../App';
 import { consoleApi, fakeSession, fakeUser, problem } from '../../test/api';
+import { fakeEntitlements } from '@supportx/api-client/testing';
 
 let restore: () => void = () => undefined;
 function api(...args: Parameters<typeof consoleApi>) {
@@ -138,12 +139,59 @@ describe('Admin › Roles', () => {
     expect(fake.find('POST', '/api/v1/roles')[0]?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
+  it('PEO-07: Save is never disabled without a reason; an empty name says so and sends nothing', async () => {
+    const fake = adminRoutes({ routes: {} });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('new-role'));
+    const save = await screen.findByTestId('save-role');
+    expect(save.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(save);
+    expect(await screen.findByText('This field is required.')).toBeDefined();
+    expect(document.activeElement?.id).toBe('role-name');
+    expect(fake.find('POST', '/api/v1/roles')).toHaveLength(0);
+  });
+
+  it('with a read-only licence a custom role cannot be deleted (§17 item 3)', async () => {
+    adminRoutes({
+      routes: {
+        'GET /api/v1/roles/r-hr': { body: { ...HR, permissions: [] }, headers: { ETag: '"4"' } },
+        'GET /api/v1/entitlements': {
+          body: fakeEntitlements({ state: 'read_only', state_reason: 'expired', writable: false }),
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('role-row-custom_abc'));
+    const remove = await screen.findByTestId('delete-role');
+    await waitFor(() => {
+      expect(remove.hasAttribute('disabled')).toBe(true);
+    });
+  });
+
   it('opens built-in roles read-only', async () => {
     adminRoutes();
     render(<App />);
     fireEvent.click(await screen.findByTestId('role-row-technician'));
     expect(await screen.findByText(/Built-in roles cannot be changed/)).toBeDefined();
     expect(screen.queryByTestId('save-role')).toBeNull();
+  });
+
+  it('PEO-06: a built-in role opens on what it grants, scopes as text, with a search', async () => {
+    adminRoutes();
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('role-row-technician'));
+    // Granted only by default: requests.view is held, users.view is not, so it is hidden.
+    const held = await screen.findByTestId('scope-requests.view');
+    expect(held.tagName).not.toBe('INPUT');
+    expect(held.textContent).toBe('All records');
+    expect(screen.queryByTestId('scope-users.view')).toBeNull();
+    fireEvent.click(screen.getByTestId('role-granted-only'));
+    expect(await screen.findByTestId('scope-users.view')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('role-permission-search'), {
+      target: { value: 'zzz-nothing' },
+    });
+    expect(await screen.findByText('No permission matches')).toBeTruthy();
+    expect(screen.getByTestId('copy-role').textContent).toBe('Duplicate as a custom role');
   });
 
   it('REQ-ADM-017: a built-in role is copied into a new custom role with the same grants', async () => {

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ApiKey, ApiKeyRules } from '@supportx/api-client';
-import { fakeSession } from '@supportx/api-client/testing';
+import { fakeEntitlements, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
@@ -61,7 +61,7 @@ function api(routes: Record<string, unknown>, me = ADMIN) {
       'GET /api/v1/api-keys/scopes': { body: SCOPES },
       'GET /api/v1/api-keys': { body: [KEY] },
       'GET /api/v1/identity/settings': { body: IDENTITY },
-      'GET /api/v1/users': { body: { items: [], next_cursor: null, has_more: false } },
+      'GET /api/v1/api-keys/owners': { body: [] },
       ...routes,
     },
   });
@@ -94,6 +94,23 @@ describe('Admin › API keys', () => {
     expect(await screen.findByTestId('api-key-rules')).toBeDefined();
   });
 
+  it('with a read-only licence the rules are shown but not changeable (§17 item 3)', async () => {
+    window.history.pushState({}, '', '/admin/api-keys');
+    api({
+      'GET /api/v1/entitlements': {
+        body: fakeEntitlements({ state: 'read_only', state_reason: 'expired', writable: false }),
+      },
+    });
+    render(<App />);
+    const rules = await screen.findByTestId('api-key-rules');
+    await waitFor(() => {
+      for (const field of ['people_may_create_keys', 'allow_non_expiring_keys']) {
+        const toggle = within(rules).getByTestId(`api-key-rule-${field}`);
+        expect(toggle.hasAttribute('disabled')).toBe(true);
+      }
+    });
+  });
+
   it('makes a key with the chosen scopes and shows its text once', async () => {
     window.history.pushState({}, '', '/admin/api-keys');
     const text = `sxk_${'0'.repeat(26)}_${'1'.repeat(26)}_${'a'.repeat(43)}`;
@@ -122,6 +139,25 @@ describe('Admin › API keys', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('api-key-text')).toBeNull();
     });
+  });
+
+  it('offers the service identities as owners, from their own list (PEO-14)', async () => {
+    window.history.pushState({}, '', '/admin/api-keys');
+    const fake = api({
+      'GET /api/v1/api-keys/owners': {
+        body: [{ id: '01900000-0000-7000-8000-00000000b001', display_name: 'Jira connector' }],
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('api-key-new-open'));
+    const dialog = await screen.findByTestId('api-key-new');
+    const owner = within(dialog).getByTestId('api-key-owner');
+    const opener = owner.querySelector('.ant-select-selector') ?? owner;
+    fireEvent.mouseDown(opener);
+    expect(await screen.findByText('Jira connector')).toBeTruthy();
+    expect(fake.find('GET', '/api/v1/api-keys/owners').length).toBeGreaterThan(0);
+    // Never through the people list, which refuses service identities (they are not people).
+    expect(fake.find('GET', '/api/v1/users')).toHaveLength(0);
   });
 
   it('refuses to send a key with no scope', async () => {

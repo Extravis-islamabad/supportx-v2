@@ -6,7 +6,7 @@ import {
   FolderAddOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
-import { Badge, Button, Card, Flex, Input, Select, Space, Table, Tree } from 'antd';
+import { Badge, Button, Card, Flex, Select, Space, Table, Tree } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
@@ -23,6 +23,7 @@ import {
   type KbView,
 } from '@supportx/api-client';
 import {
+  LibraryPage,
   PageHeader,
   EmptyText,
   NoAccess,
@@ -148,154 +149,224 @@ export function KnowledgePage() {
   const articleCount = (topic: KbTopic) =>
     (list.data ?? []).filter((row) => row.topic_id === topic.id).length;
 
-  return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <PageHeader
-        title={t('knowledge.title')}
-        testId="kb-header"
+  const header = (
+    <PageHeader
+      title={t('knowledge.title')}
+      testId="kb-header"
+      extra={
+        <Space wrap>
+          {can('knowledge.approve') && (
+            <Link to="/knowledge/approvals" data-testid="kb-open-inbox">
+              <Badge count={awaiting} size="small" offset={[8, 0]}>
+                {t('knowledge.inbox.title')}
+              </Badge>
+            </Link>
+          )}
+          {can('knowledge.create') && (
+            <WriteButton
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() =>
+                void navigate(`/knowledge/articles/new${topicId ? `?topic=${topicId}` : ''}`)
+              }
+              data-testid="kb-new-article"
+            >
+              {t('knowledge.new_article')}
+            </WriteButton>
+          )}
+        </Space>
+      }
+    />
+  );
+  const body = (
+    <Flex gap={16} wrap align="start">
+      <Card
+        size="small"
+        title={t('knowledge.topics')}
+        style={{ flex: '1 1 240px', maxWidth: 360, minWidth: 0 }}
         extra={
-          <Space wrap>
-            {can('knowledge.approve') && (
-              <Link to="/knowledge/approvals" data-testid="kb-open-inbox">
-                <Badge count={awaiting} size="small" offset={[8, 0]}>
-                  {t('knowledge.inbox.title')}
-                </Badge>
-              </Link>
-            )}
-            {can('knowledge.create') && (
-              <WriteButton
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() =>
-                  void navigate(`/knowledge/articles/new${topicId ? `?topic=${topicId}` : ''}`)
-                }
-                data-testid="kb-new-article"
-              >
-                {t('knowledge.new_article')}
-              </WriteButton>
-            )}
-          </Space>
+          manageTopics && (
+            <WriteButton
+              size="small"
+              icon={<FolderAddOutlined />}
+              onClick={() => {
+                setEditing({ topic: null, parentId: topicId ?? null });
+              }}
+              data-testid="kb-new-topic"
+            >
+              {t('knowledge.new_topic')}
+            </WriteButton>
+          )
         }
-      />
-      <Flex gap={16} wrap align="start">
-        <Card
-          size="small"
-          title={t('knowledge.topics')}
-          style={{ flex: '1 1 240px', maxWidth: 360, minWidth: 0 }}
-          extra={
-            manageTopics && (
-              <WriteButton
-                size="small"
-                icon={<FolderAddOutlined />}
-                onClick={() => {
-                  setEditing({ topic: null, parentId: topicId ?? null });
-                }}
-                data-testid="kb-new-topic"
-              >
-                {t('knowledge.new_topic')}
-              </WriteButton>
-            )
-          }
+      >
+        <Button
+          type={topicId === undefined ? 'link' : 'text'}
+          onClick={() => {
+            setParam('topic', undefined);
+          }}
+          data-testid="kb-all-topics"
+          style={{ paddingInline: 0 }}
         >
-          <Button
-            type={topicId === undefined ? 'link' : 'text'}
-            onClick={() => {
-              setParam('topic', undefined);
-            }}
-            data-testid="kb-all-topics"
-            style={{ paddingInline: 0 }}
-          >
-            {t('knowledge.all_topics')}
-          </Button>
-          {tree.length === 0 ? (
+          {t('knowledge.all_topics')}
+        </Button>
+        {tree.length === 0 ? (
+          // Its own line under "All topics" (QA6-KB-04: the two ran together).
+          <div style={{ marginTop: 4 }}>
             <EmptyText>{t('knowledge.no_topics')}</EmptyText>
-          ) : (
-            <Tree
-              blockNode
-              defaultExpandAll
-              selectedKeys={topicId === undefined ? [] : [topicId]}
-              treeData={tree}
-              onSelect={(keys) => {
-                const [key] = keys;
-                setParam('topic', key === undefined ? undefined : String(key));
+          </div>
+        ) : (
+          <Tree
+            blockNode
+            defaultExpandAll
+            selectedKeys={topicId === undefined ? [] : [topicId]}
+            treeData={tree}
+            onSelect={(keys) => {
+              const [key] = keys;
+              setParam('topic', key === undefined ? undefined : String(key));
+            }}
+            data-testid="kb-tree"
+          />
+        )}
+        {manageTopics && selected !== undefined && (
+          <Space wrap style={{ marginTop: 8 }}>
+            <WriteButton
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setEditing({ topic: selected, parentId: selected.parent_id });
               }}
-              data-testid="kb-tree"
-            />
-          )}
-          {manageTopics && selected !== undefined && (
-            <Space wrap style={{ marginTop: 8 }}>
-              <WriteButton
-                size="small"
-                icon={<EditOutlined />}
-                onClick={() => {
-                  setEditing({ topic: selected, parentId: selected.parent_id });
-                }}
-                data-testid="kb-edit-topic"
-              >
-                {t('knowledge.edit_topic')}
-              </WriteButton>
-              <WriteButton
-                size="small"
-                icon={<ArrowUpOutlined />}
-                disabled={siblings(selected)[0]?.id === selected.id}
-                loading={reorder.isPending}
-                onClick={() => {
-                  move(selected, -1);
-                }}
-                data-testid="kb-topic-up"
-              >
-                {t('knowledge.move_up')}
-              </WriteButton>
-              <WriteButton
-                size="small"
-                icon={<ArrowDownOutlined />}
-                disabled={siblings(selected).at(-1)?.id === selected.id}
-                loading={reorder.isPending}
-                onClick={() => {
-                  move(selected, 1);
-                }}
-                data-testid="kb-topic-down"
-              >
-                {t('knowledge.move_down')}
-              </WriteButton>
-              <WriteButton
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => {
-                  setDeleting(selected);
-                }}
-                data-testid="kb-delete-topic"
-              >
-                {t('knowledge.delete_topic')}
-              </WriteButton>
-            </Space>
-          )}
-        </Card>
-        <Space direction="vertical" size="small" style={{ flex: '3 1 480px', minWidth: 0 }}>
-          <Flex gap={12} wrap>
-            <Select<KbView>
-              aria-label={t('knowledge.view')}
-              prefix={`${t('knowledge.view')}:`}
-              value={view}
-              onChange={(value) => {
-                setParam('view', value === 'published' ? undefined : value);
+              data-testid="kb-edit-topic"
+            >
+              {t('knowledge.edit_topic')}
+            </WriteButton>
+            <WriteButton
+              size="small"
+              icon={<ArrowUpOutlined />}
+              disabled={siblings(selected)[0]?.id === selected.id}
+              loading={reorder.isPending}
+              onClick={() => {
+                move(selected, -1);
               }}
-              options={viewOptions}
-              style={{ minWidth: 240 }}
-              data-testid="kb-view"
-            />
-            <Input.Search
-              allowClear
-              aria-label={t('knowledge.search')}
-              placeholder={t('knowledge.search')}
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
+              data-testid="kb-topic-up"
+            >
+              {t('knowledge.move_up')}
+            </WriteButton>
+            <WriteButton
+              size="small"
+              icon={<ArrowDownOutlined />}
+              disabled={siblings(selected).at(-1)?.id === selected.id}
+              loading={reorder.isPending}
+              onClick={() => {
+                move(selected, 1);
               }}
-              style={{ maxWidth: 320 }}
-              data-testid="kb-search"
-            />
+              data-testid="kb-topic-down"
+            >
+              {t('knowledge.move_down')}
+            </WriteButton>
+            <WriteButton
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => {
+                setDeleting(selected);
+              }}
+              data-testid="kb-delete-topic"
+            >
+              {t('knowledge.delete_topic')}
+            </WriteButton>
+          </Space>
+        )}
+      </Card>
+      <Space direction="vertical" size="small" style={{ flex: '3 1 480px', minWidth: 0 }}>
+        <Table<KbArticleRow>
+          rowKey="id"
+          data-testid="kb-table"
+          loading={list.isPending && list.fetchStatus === 'fetching'}
+          dataSource={list.data ?? []}
+          pagination={false}
+          scroll={{ x: 'max-content' }}
+          locale={{
+            // A search or filter that finds nothing says so, not that the view is empty (QA10-P4-02).
+            emptyText: (
+              <EmptyText>
+                {t(
+                  text !== '' || typeCode !== undefined || onlyLanguage !== undefined || topicId
+                    ? 'knowledge.no_match'
+                    : `knowledge.empty.${view}`,
+                )}
+              </EmptyText>
+            ),
+          }}
+          columns={[
+            {
+              key: 'display_id',
+              title: t('knowledge.field.display_id'),
+              dataIndex: 'display_id',
+              width: 110,
+            },
+            {
+              key: 'title',
+              title: t('knowledge.field.title'),
+              render: (_, row) => (
+                <Space direction="vertical" size={2}>
+                  <Link
+                    to={`/knowledge/articles/${row.id}`}
+                    data-testid="kb-row-link"
+                    dir={row.language === 'ar' ? 'rtl' : undefined}
+                  >
+                    {row.title}
+                  </Link>
+                  <ArticleFlags flags={row} />
+                </Space>
+              ),
+            },
+            {
+              key: 'topic',
+              title: t('knowledge.field.topic_id'),
+              render: (_, row) => {
+                const topic = topicById.get(row.topic_id);
+                return topic === undefined ? null : topicName(topic, language);
+              },
+            },
+            {
+              key: 'type',
+              title: t('knowledge.field.type_code'),
+              render: (_, row) =>
+                typeName(typeByCode.get(row.type_code), row.type_code, language, t),
+            },
+            {
+              key: 'status',
+              title: t('knowledge.field.status'),
+              render: (_, row) => <VersionStatusTag status={row.status} />,
+            },
+            {
+              key: 'review_on',
+              title: t('knowledge.field.review_on'),
+              render: (_, row) =>
+                row.review_on === null ? null : dateFormat.format(new Date(row.review_on)),
+            },
+          ]}
+        />
+      </Space>
+    </Flex>
+  );
+
+  return (
+    <>
+      <LibraryPage
+        testId="kb"
+        header={header}
+        search={search}
+        onSearch={setSearch}
+        searchLabel={t('knowledge.search')}
+        searchOnServer
+        withAll={false}
+        tab={view}
+        onTab={(value) => {
+          setParam('view', value === 'published' ? undefined : value);
+        }}
+        extra={
+          <>
             <Select
               aria-label={t('knowledge.field.type_code')}
               prefix={`${t('knowledge.field.type_code')}:`}
@@ -332,67 +403,16 @@ export function KnowledgePage() {
               style={{ minWidth: 160 }}
               data-testid="kb-filter-language"
             />
-          </Flex>
-          <Table<KbArticleRow>
-            rowKey="id"
-            data-testid="kb-table"
-            loading={list.isPending && list.fetchStatus === 'fetching'}
-            dataSource={list.data ?? []}
-            pagination={false}
-            scroll={{ x: 'max-content' }}
-            locale={{ emptyText: <EmptyText>{t(`knowledge.empty.${view}`)}</EmptyText> }}
-            columns={[
-              {
-                key: 'display_id',
-                title: t('knowledge.field.display_id'),
-                dataIndex: 'display_id',
-                width: 110,
-              },
-              {
-                key: 'title',
-                title: t('knowledge.field.title'),
-                render: (_, row) => (
-                  <Space direction="vertical" size={2}>
-                    <Link
-                      to={`/knowledge/articles/${row.id}`}
-                      data-testid="kb-row-link"
-                      dir={row.language === 'ar' ? 'rtl' : undefined}
-                    >
-                      {row.title}
-                    </Link>
-                    <ArticleFlags flags={row} />
-                  </Space>
-                ),
-              },
-              {
-                key: 'topic',
-                title: t('knowledge.field.topic_id'),
-                render: (_, row) => {
-                  const topic = topicById.get(row.topic_id);
-                  return topic === undefined ? null : topicName(topic, language);
-                },
-              },
-              {
-                key: 'type',
-                title: t('knowledge.field.type_code'),
-                render: (_, row) =>
-                  typeName(typeByCode.get(row.type_code), row.type_code, language, t),
-              },
-              {
-                key: 'status',
-                title: t('knowledge.field.status'),
-                render: (_, row) => <VersionStatusTag status={row.status} />,
-              },
-              {
-                key: 'review_on',
-                title: t('knowledge.field.review_on'),
-                render: (_, row) =>
-                  row.review_on === null ? null : dateFormat.format(new Date(row.review_on)),
-              },
-            ]}
-          />
-        </Space>
-      </Flex>
+          </>
+        }
+        groups={viewOptions.map((option) => ({
+          key: option.value,
+          label: <span aria-label={option['aria-label']}>{option.label}</span>,
+          items: [],
+          count: null,
+          content: option.value === view ? body : null,
+        }))}
+      />
       {editing !== undefined && (
         <TopicDialog
           open
@@ -414,6 +434,6 @@ export function KnowledgePage() {
           setDeleting(null);
         }}
       />
-    </Space>
+    </>
   );
 }

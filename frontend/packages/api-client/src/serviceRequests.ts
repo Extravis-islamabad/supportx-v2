@@ -172,6 +172,25 @@ export function useMyApprovals() {
   });
 }
 
+/**
+ * Problem and release approvals waiting for you (QA10-P1-08): the header drawer lists them with
+ * the service requests'. Optional: a plan without the type answers with an error, and the drawer
+ * then simply has none of them, never a toast.
+ */
+export function useMyTypeApprovals(type: 'problems' | 'releases') {
+  return useQuery({
+    queryKey: [type, 'my-approvals'] as const,
+    meta: { silent: true },
+    retry: false,
+    queryFn: () =>
+      call(
+        type === 'problems'
+          ? api.GET('/api/v1/problems/my-approvals')
+          : api.GET('/api/v1/releases/my-approvals'),
+      ),
+  });
+}
+
 /** The approvals you decided in the last 30 days, newest first (WP-032 D6). */
 export function useMyDecidedApprovals() {
   return useQuery({
@@ -302,12 +321,19 @@ export function useRequestTaskStatus(recordId: string) {
   });
 }
 
-/** An e-mailed link without sign-in (D-132): what it would do; never acts. */
-export function usePublicPeekActionLink(token: string | undefined) {
+/**
+ * An e-mailed link without sign-in (D-132): what it would do; never acts. `tenant` is the
+ * link's `?t=` slug, for addresses that name no tenant.
+ */
+export function usePublicPeekActionLink(token: string | undefined, tenant?: string | null) {
   return useQuery({
-    queryKey: ['action-links', 'public-peek', token ?? ''],
+    queryKey: ['action-links', 'public-peek', token ?? '', tenant ?? ''],
     queryFn: () =>
-      call(api.POST('/api/v1/public/action-links/peek', { body: { token: token ?? '' } })),
+      call(
+        api.POST('/api/v1/public/action-links/peek', {
+          body: { token: token ?? '', tenant: tenant ?? null },
+        }),
+      ),
     enabled: token !== undefined && token !== '',
     retry: false,
     staleTime: Infinity,
@@ -319,7 +345,19 @@ export function usePublicPeekActionLink(token: string | undefined) {
 export function usePublicActionLink() {
   return useMutation({
     meta: { silent: true },
-    mutationFn: ({ token, body }: { token: string; body: Record<string, unknown> }) =>
-      call(api.POST('/api/v1/public/action-links/use', { body: { token, body } })),
+    mutationFn: ({
+      token,
+      tenant,
+      body,
+    }: {
+      token: string;
+      tenant?: string | null;
+      body: Record<string, unknown>;
+    }) =>
+      call(
+        api.POST('/api/v1/public/action-links/use', {
+          body: { token, tenant: tenant ?? null, body },
+        }),
+      ),
   });
 }

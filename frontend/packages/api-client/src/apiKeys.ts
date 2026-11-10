@@ -12,6 +12,7 @@ export type ApiKeyCreated = components['schemas']['ApiKeyCreatedOut'];
 export type ApiKeyInput = components['schemas']['ApiKeyIn'];
 export type ApiKeyScope = components['schemas']['ScopeOut'];
 export type ApiKeyRules = components['schemas']['KeyRulesOut'];
+export type ApiKeyOwner = components['schemas']['KeyOwnerOut'];
 
 /** Every key for key managers; your own keys for everyone else (the server decides). */
 export function useApiKeys(enabled = true) {
@@ -27,6 +28,20 @@ export function useApiKeyRules() {
   return useQuery({
     queryKey: queryKeys.apiKeys.rules,
     queryFn: () => call(api.GET('/api/v1/api-keys/rules')),
+  });
+}
+
+/**
+ * Service identities a key manager may make keys for (PEO-14). Not the people list: service
+ * identities are never people (WP-040 s2). Fetched each time the dialog opens.
+ */
+export function useApiKeyOwners(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.apiKeys.owners,
+    queryFn: () => call(api.GET('/api/v1/api-keys/owners')),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    enabled,
   });
 }
 

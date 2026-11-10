@@ -34,6 +34,34 @@ export const ar: LabelResource = {
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
   'errors.approval_pending': '{{display_id}} ينتظر موافقة بالفعل.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
+  'errors.asset_already_disposed': 'لهذا الأصل سجل تخلّص بالفعل.',
+  'errors.asset_bulk_empty': 'اختر أصلًا واحدًا على الأقل.',
+  'errors.asset_bulk_too_many': 'اختر {{max}} أصلًا على الأكثر في المرة الواحدة.',
+  'errors.asset_copy_limit': 'أنشئ ما بين 1 و{{max}} نسخة في المرة الواحدة.',
+  'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
+  'errors.asset_disposed_read_only':
+    'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
+  'errors.asset_life_cycle_in_use':
+    'لا تزال أنواع منتجات تستخدم دورة الحياة هذه ({{used}}). انقلها إلى دورة أخرى أولًا.',
+  'errors.asset_life_cycle_not_found': 'دورة الحياة هذه غير موجودة.',
+  'errors.asset_life_cycle_protected':
+    'لا يمكن حذف دورة الحياة الافتراضية. اجعل دورة أخرى افتراضية أولًا.',
+  'errors.asset_limit_reached':
+    'جميع خانات أصول تقنية المعلومات في خطة مؤسستك مستخدمة. تخلّص من أصل أو اطلب من المسؤول إضافة المزيد.',
+  'errors.asset_move_not_allowed': 'لا يمكن نقل هذا الأصل إلى تلك الحالة من حالته الحالية.',
+  'errors.asset_no_disposed_state':
+    'لا توجد حالة تخلّص لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
+  'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
+  'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
+  'errors.asset_product_type_has_children':
+    'توجد أنواع منتجات أخرى تحت هذا النوع ({{used}}). انقلها أو احذفها أولًا.',
+  'errors.asset_product_type_in_use': 'لا تزال منتجات تستخدم نوع المنتج هذا ({{used}}).',
+  'errors.asset_product_type_not_found': 'نوع المنتج هذا غير موجود.',
+  'errors.asset_state_in_use':
+    'لا تزال انتقالات في دورات الحياة تستخدم هذه الحالة ({{used}}). أزلها أولًا.',
+  'errors.asset_state_not_found': 'حالة الأصل هذه غير موجودة.',
+  'errors.asset_state_protected':
+    'تُستخدم هذه الحالة في الإعارة أو التخلص أو كحالة افتراضية لفئتها، لذا لا يمكن حذفها.',
   'errors.audit_archive_missing': 'لم يعد ملف الأرشيف موجودًا في التخزين.',
   'errors.audit_archive_not_found': 'هذا الأرشيف غير موجود.',
   'errors.audit_archive_not_ready': 'لا يمكن استعادة إلا أرشيف مُتحقق منه.',
@@ -70,6 +98,7 @@ export const ar: LabelResource = {
   'errors.certificate_not_valid_now': 'انتهت صلاحية الشهادة أو لم تصبح صالحة بعد.',
   'errors.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
+  'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.conflict': 'قام شخص آخر بتعديل هذا العنصر. أعد التحميل لعرض أحدث إصدار.',
@@ -123,6 +152,7 @@ export const ar: LabelResource = {
     'معلومات الترخيص غير متاحة مؤقتًا. يرجى المحاولة مرة أخرى بعد قليل.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
   'errors.field.already_linked': 'هذان السجلان مرتبطان بالفعل.',
+  'errors.field.announcement_message_required': 'اكتب الرسالة التي سيراها الناس.',
   'errors.field.api_key_allowlist_invalid': 'أدخل حتى 20 عنوانًا أو شبكة صالحة، مثل 10.0.0.0/8.',
   'errors.field.api_key_expiry_past': 'يجب أن يكون تاريخ الانتهاء في المستقبل.',
   'errors.field.api_key_expiry_required': 'اختر تاريخ انتهاء: لا تسمح مؤسستك بمفاتيح لا تنتهي.',
@@ -131,8 +161,31 @@ export const ar: LabelResource = {
   'errors.field.api_key_owner_not_service': 'مفاتيح الآخرين لا تكون إلا لهوية خدمة.',
   'errors.field.api_key_scope_unknown': 'اختر نطاقًا واحدًا على الأقل من النطاقات المعروضة.',
   'errors.field.approver_is_requester': 'لا يمكنك الموافقة على طلبك؛ سمِّ شخصًا آخر.',
+  'errors.field.approver_not_active': 'اختر شخصًا نشطًا.',
   'errors.field.approver_not_eligible':
     'أحد المسمَّين لا يمكنه الموافقة على هذه المشكلة (غير نشط، أو بلا صلاحية).',
+  'errors.field.asset_api_name_taken': 'نوع منتج آخر يستخدم اسم الواجهة هذا.',
+  'errors.field.asset_identifier_invalid': 'استخدم الحروف والأرقام و- . / : # فقط، دون مسافات.',
+  'errors.field.asset_life_cycle_code_taken': 'دورة حياة أخرى تستخدم هذا الرمز.',
+  'errors.field.asset_life_cycle_default_needed':
+    'يجب وجود دورة حياة افتراضية. اجعل دورة أخرى افتراضية بدلًا من ذلك.',
+  'errors.field.asset_life_cycle_not_found': 'اختر دورة حياة من القائمة.',
+  'errors.field.asset_move_duplicate':
+    'هذا الانتقال موجود في القائمة بالفعل، أو يؤدي إلى الحالة نفسها.',
+  'errors.field.asset_product_not_found': 'لم يعد هذا المنتج موجودًا.',
+  'errors.field.asset_product_type_cycle':
+    'لا يمكن وضع نوع منتج تحت نفسه أو تحت أحد أنواعه الفرعية.',
+  'errors.field.asset_product_type_inherited': 'تأتي هذه القيمة من النوع الأصل. غيّرها هناك.',
+  'errors.field.asset_product_type_not_found': 'اختر نوع منتج من القائمة.',
+  'errors.field.asset_product_type_too_deep': 'يمكن أن تصل الشجرة إلى {{max}} مستويات كحد أقصى.',
+  'errors.field.asset_serial_number_taken': 'الأصل {{asset}} يحمل هذا الرقم التسلسلي بالفعل.',
+  'errors.field.asset_state_code_taken': 'حالة أخرى تستخدم هذا الرمز.',
+  'errors.field.asset_state_default_needed':
+    'تحتاج كل فئة إلى حالة افتراضية. اجعل حالة أخرى افتراضية بدلًا من ذلك.',
+  'errors.field.asset_state_not_found': 'اختر الحالات من القائمة.',
+  'errors.field.asset_state_system': 'تعتمد الإعارة والتخلص على هذه الحالة، لذا تبقى فئتها كما هي.',
+  'errors.field.asset_tag_pattern_invalid': 'استخدم العدّاد {n} مرة واحدة مع نص حوله، مثل AST-{n}.',
+  'errors.field.asset_tag_taken': 'الأصل {{asset}} يحمل هذا الوسم بالفعل.',
   'errors.field.auto_close_needs_notifications':
     'يحتاج الإغلاق التلقائي إلى إشعارات مقدّمي الطلبات: لا توجد بعد قناة تُبلغ مقدّمي الطلبات بالحل.',
   'errors.field.before_publish': 'يجب أن يأتي الإيقاف بعد النشر.',
@@ -173,9 +226,12 @@ export const ar: LabelResource = {
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
   'errors.field.date_format_unknown': 'اختر تنسيق تاريخ من القائمة.',
+  'errors.field.date_in_future': 'اختر تاريخ اليوم أو تاريخًا سابقًا.',
   'errors.field.default_cannot_be_disabled':
     'لا يمكن إيقاف القالب الافتراضي. عيّن قالبًا آخر كافتراضي أولًا.',
   'errors.field.default_cannot_be_inactive': 'لا يمكن جعل الافتراضي غير نشط.',
+  'errors.field.default_cannot_be_removed':
+    'لا يمكن إزالة القاعدة الافتراضية. أوقفها بدلًا من ذلك.',
   'errors.field.default_language_not_offered': 'يجب أن تكون اللغة الافتراضية إحدى اللغات المتاحة.',
   'errors.field.default_required':
     'يوجد دائمًا قالب افتراضي. عيّن قالبًا آخر كافتراضي بدلًا من ذلك.',
@@ -252,12 +308,14 @@ export const ar: LabelResource = {
   'errors.field.invalid_node': 'هذا الجزء من عامل التصفية ليس شرطًا ولا مجموعة.',
   'errors.field.invalid_number': 'أدخل رقمًا.',
   'errors.field.invalid_pattern': 'هذا النمط ليس تعبيرًا نمطيًا صالحًا.',
+  'errors.field.invalid_phone': 'أدخل رقم هاتف: أرقام ومسافات و+ و- وأقواس.',
   'errors.field.invalid_prefix': 'استخدم من 2 إلى 6 أحرف لاتينية كبيرة.',
   'errors.field.invalid_range': 'بداية النطاق بعد نهايته.',
   'errors.field.invalid_sort': 'اختر من حقل إلى ثلاثة حقول للترتيب.',
   'errors.field.invalid_tag': 'يمكن أن تحتوي الوسوم على حروف وأرقام ومسافات ونقاط وشرطات (حتى 40).',
   'errors.field.invalid_text': 'أدخل نصًا.',
   'errors.field.invalid_value': 'هذه القيمة غير صالحة لهذا الحقل.',
+  'errors.field.invalid_website': 'أدخل عنوان ويب يبدأ بـ http:// أو https://.',
   'errors.field.invitation_days_out_of_range': 'استخدم بين {{min}} و{{max}} يومًا.',
   'errors.field.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',
   'errors.field.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
@@ -271,6 +329,8 @@ export const ar: LabelResource = {
   'errors.field.level_too_many_recipients': 'يُسمح بـ {{max}} مستلمًا على الأكثر لكل مستوى.',
   'errors.field.levels_same_moment':
     'مستويان يعملان في اللحظة نفسها. حدّد لكل منهما وقتًا خاصًا به.',
+  'errors.field.limited_template_for_requesters':
+    'القالب المخصص لمقدمي الطلبات متاح للجميع: لا يمكن قصره على مجموعات.',
   'errors.field.list_too_long': 'هذه القائمة تحتوي على قيم كثيرة جدًا.',
   'errors.field.logo_required': 'حمّل شعارًا أولًا.',
   'errors.field.mailbox_address_invalid': 'أدخل عنوان البريد الإلكتروني لصندوق البريد.',
@@ -298,6 +358,7 @@ export const ar: LabelResource = {
   'errors.field.not_eligible': 'لا يمكن لهذا الشخص أو هذه المجموعة شغل هذا الدور.',
   'errors.field.not_for_this_status': 'هذا الإعداد للحالات التي تنتظر شخصًا ما فقط.',
   'errors.field.not_found': 'لم يعد هذا موجودًا.',
+  'errors.field.not_in_past': 'يجب أن يكون هذا الوقت في الماضي.',
   'errors.field.note_too_long': 'يمكن أن تحتوي الملاحظة على {{max}} حرفًا على الأكثر.',
   'errors.field.number_already_used': 'هذا الرقم مستخدم بالفعل. اختر {{minimum}} أو أعلى.',
   'errors.field.oauth_certificate_invalid': 'الصق الشهادة ومفتاحها الخاص RSA، كلاهما بصيغة PEM.',
@@ -340,6 +401,7 @@ export const ar: LabelResource = {
   'errors.field.requester_only': 'لا يعيّن هذا الرمز إلا تأكيد مقدم الطلب.',
   'errors.field.required': 'هذا الحقل مطلوب.',
   'errors.field.required_for_known_error': 'اكتب حلًا مؤقتًا أو سببًا جذريًا قبل تحديد خطأ معروف.',
+  'errors.field.required_for_move': 'املأ هذا الحقل قبل النقل.',
   'errors.field.required_to_close': 'مطلوب قبل الإغلاق.',
   'errors.field.required_to_confirm_cause': 'اكتب السبب الجذري قبل تأكيده.',
   'errors.field.required_to_leave_stage': 'املأ هذا الحقل قبل مغادرة هذه المرحلة.',
@@ -395,6 +457,7 @@ export const ar: LabelResource = {
   'errors.field.technician_not_in_group': 'هذا الفني ليس عضوًا في المجموعة المختارة.',
   'errors.field.template_disabled': 'تم إيقاف هذا القالب. اختر قالبًا آخر.',
   'errors.field.template_not_found': 'هذا القالب لم يعد موجودًا. اختر قالبًا آخر.',
+  'errors.field.template_not_offered': 'هذا القالب غير متاح لك. اختر قالبًا آخر.',
   'errors.field.time_format_unknown': 'اختر نظام 24 ساعة أو 12 ساعة.',
   'errors.field.time_zone_unknown': 'اختر منطقة زمنية من القائمة.',
   'errors.field.timezone_required': 'أضف المنطقة الزمنية.',
@@ -405,6 +468,7 @@ export const ar: LabelResource = {
   'errors.field.too_many_approvers': 'يمكن أن تضم المرحلة 10 موافقين على الأكثر.',
   'errors.field.too_many_categories': 'يمكن أن يظهر العنصر في خمس فئات أخرى كحد أقصى.',
   'errors.field.too_many_conditions': 'يحتوي عامل التصفية على شروط كثيرة جدًا.',
+  'errors.field.too_many_decimals': 'استخدم {{max}} منازل عشرية كحد أقصى.',
   'errors.field.too_many_items': 'عدد الإدخالات كبير جدًا.',
   'errors.field.too_many_keywords': 'استخدم 20 كلمة مفتاحية كحد أقصى لكل لغة.',
   'errors.field.too_many_levels': 'يُسمح بـ {{max}} مستويات تصعيد على الأكثر لكل هدف.',
@@ -449,6 +513,9 @@ export const ar: LabelResource = {
   'errors.field.value_too_long': 'هذه القيمة طويلة جدًا.',
   'errors.field.value_too_long_max': 'استخدم {{max_length}} حرفًا كحد أقصى.',
   'errors.field.value_too_short': 'استخدم {{min}} أحرف على الأقل.',
+  'errors.field.vendor_inactive': 'هذا المورد غير نشط ولا يمكن اختياره.',
+  'errors.field.vendor_name_taken': 'يوجد مورد آخر بهذا الاسم.',
+  'errors.field.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
   'errors.field.week_empty': 'أضف فترة عمل واحدة على الأقل.',
   'errors.field.week_start_unknown': 'اختر يوم بداية الأسبوع.',
   'errors.field.week_too_many_periods': 'يمكن أن يحتوي الأسبوع على 28 فترة عمل على الأكثر.',
@@ -618,6 +685,11 @@ export const ar: LabelResource = {
   'errors.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
   'errors.privilege_escalation': 'لا يمكنك منح صلاحيات لا تملكها بنفسك.',
   'errors.problem_closed': '{{display_id}} مغلقة، لذا لا يمكن دمجها.',
+  'errors.quick_sign_in_not_configured':
+    'تسجيل الدخول السريع غير مُعدّ على هذه البيئة: شغّل make dev-quick-sign-in.',
+  'errors.quick_sign_in_refused': 'رفض Keycloak تسجيل الدخول السريع هذا.',
+  'errors.quick_sign_in_wait':
+    'سجّلت هذه الشخصية الدخول مرتين خلال آخر 30 ثانية. حاول مجددًا بعد {{seconds}} ثانية.',
   'errors.range_not_satisfiable': 'هذا الجزء من الملف غير موجود.',
   'errors.rate_limited': 'طلبات كثيرة جدًا. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.',
   // Entitlements (WP-009)
@@ -632,6 +704,8 @@ export const ar: LabelResource = {
   'errors.record_closed': 'لا يمكن تغيير السجلات المغلقة أو الملغاة.',
   'errors.reference_copied': 'تم نسخ المرجع',
   'errors.reference_is': 'المرجع: {{reference}}',
+  'errors.repeat_hit_not_found': 'لم تعد مجموعة الحوادث المتكررة هذه موجودة.',
+  'errors.repeat_rule_not_found': 'لم تعد قاعدة الحوادث المتكررة هذه موجودة.',
   'errors.reply_template_not_found': 'لم يعد قالب الرد هذا موجودًا.',
   'errors.report_entity_not_found': 'لا يوجد شيء من هذا النوع لإعداد تقرير عنه.',
   'errors.report_export_not_found': 'هذا التصدير غير موجود أو ليس لك.',
@@ -662,6 +736,7 @@ export const ar: LabelResource = {
   'errors.service_identity_managed': 'هذه هوية خاصة بموصّل. غيّرها من الإدارة › التكاملات.',
   'errors.service_unavailable': 'الخدمة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.',
   'errors.session_expired': 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.',
+  'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
@@ -686,7 +761,10 @@ export const ar: LabelResource = {
     'هذا الانتقال غير مسموح به من الحالة الحالية. أعد التحميل لرؤية أحدث نسخة.',
   'errors.stage_move_refused': 'يجب إنجاز أمر ما قبل هذا الانتقال. راجع الأسباب في السجل.',
   'errors.stage_not_found': 'هذه المرحلة غير موجودة.',
+  'errors.stage_path_disabled': 'هذا المسار معطّل للسجلات الجديدة.',
   'errors.stage_status_system_only': 'لا يضبط هذه الحالة إلا قرار موافقة.',
+  'errors.standard_change_locked':
+    'يحتفظ التغيير القياسي بخطته كما اعتُمدت. تعديلها يجعله تغييرًا عاديًا يحتاج إلى موافقة عادية.',
   'errors.status_not_found': 'هذه الحالة لم تعد موجودة.',
   'errors.storage_not_configured': 'لم يُعدّ تخزين الملفات لهذا التثبيت.',
   'errors.storage_quota_exceeded':
@@ -714,6 +792,8 @@ export const ar: LabelResource = {
   'errors.user_email_conflict': 'يستخدم حساب آخر في مؤسستك عنوان البريد الإلكتروني هذا بالفعل.',
   'errors.user_not_found': 'المستخدم غير موجود.',
   'errors.validation_failed': 'بعض الحقول تحتاج إلى مراجعتك.',
+  'errors.vendor_in_use': 'لا تزال سجلات تذكر هذا المورد ({{used}}). اجعله غير نشط بدلًا من ذلك.',
+  'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
   'errors.version_conflict':
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
   'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',

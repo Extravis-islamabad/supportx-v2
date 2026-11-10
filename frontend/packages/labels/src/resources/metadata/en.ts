@@ -2,6 +2,8 @@
 export const en = {
   'custom_field_display.list': 'Drop-down list',
   'custom_field_display.radio': 'Buttons',
+  'custom_field_entity.asset': 'Assets',
+  'custom_field_entity.change': 'Changes',
   'custom_field_entity.incident': 'Incidents',
   'custom_field_entity.problem': 'Problems',
   'custom_field_entity.release': 'Releases',
@@ -108,6 +110,8 @@ export const en = {
   'custom_fields.yes': 'Yes',
   'list.separator': ', ',
   'pick_list.cancel': 'Cancel reasons',
+  'pick_list.change_reason': 'Reasons for change',
+  'pick_list.change_type': 'Change types',
   'pick_list.closure_code': 'Closure codes',
   'pick_list.downtime_kind': 'Downtime kinds',
   'pick_list.level': 'Levels',

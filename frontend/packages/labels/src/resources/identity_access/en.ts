@@ -35,6 +35,7 @@ export const en = {
     'Required for your roles: after your password, you enter a code from an authenticator app.',
   'account.mfa.reminder':
     'Your organisation requires two-step sign-in. Set it up by {{date}}; after that you will be asked to before anything else.',
+  'account.mfa.reminder_close': 'Hide this reminder until you next sign in',
   'account.mfa.reminder_short': 'Two-step sign-in due {{date}}',
   'account.mfa.set_up': 'Set up two-step sign-in',
   'account.mfa.set_up_short': 'Set up',
@@ -46,6 +47,18 @@ export const en = {
   'account.recovery.missing':
     'You have no recovery codes: without your phone you could not sign in. Get them now and keep them safe.',
   'account.recovery.new': 'New recovery codes',
+  'account.sessions.app_on': 'SupportX app on {{platform}}',
+  'account.sessions.end': 'Sign out',
+  'account.sessions.end_body': 'It is signed out at once and has to sign in again to continue.',
+  'account.sessions.end_title': 'Sign out of this device?',
+  'account.sessions.ended': 'Signed out of that device',
+  'account.sessions.help':
+    'Wherever you are signed in to this organisation. Sign out of any you don’t recognise or no longer use, such as a lost phone.',
+  'account.sessions.none': 'No other sessions',
+  'account.sessions.this_device': 'This device',
+  'account.sessions.title': 'Signed-in browsers and devices',
+  'account.sessions.version': 'version {{version}}',
+  'account.sessions.when': 'Signed in {{started}} · last used {{used}}',
   'account.sso_only':
     "You sign in through your organisation's single sign-on, so there is no password here.",
   'account.title': 'Sign-in and security',
@@ -125,6 +138,33 @@ export const en = {
   'availability.no_members': 'No technicians in this group.',
   'availability.set_available_by': 'Set Available by {{name}} at {{time}}',
   'availability.set_away_by': 'Set Away by {{name}} at {{time}}',
+  'dev_persona.admin': 'Administrator',
+  'dev_persona.approver': 'Approver',
+  'dev_persona.lead': 'Team lead',
+  'dev_persona.new_starter': 'New starter',
+  'dev_persona.requester': 'Requester',
+  'dev_persona.technician': 'Technician',
+  'dev_sign_in.app_console': 'Console',
+  'dev_sign_in.app_portal': 'Portal',
+  'dev_sign_in.as': 'Sign in as {{persona}}',
+  'dev_sign_in.reason.account_locked':
+    'Keycloak has locked this account for a few minutes after failed attempts.',
+  'dev_sign_in.reason.credentials_refused':
+    'The password or authenticator key in the dev .env doesn’t match the seed: run make showcase-seed.',
+  'dev_sign_in.reason.grant_not_allowed':
+    'Keycloak doesn’t allow this sign-in here: the realm isn’t the dev realm.',
+  'dev_sign_in.reason.keycloak_refused': 'Keycloak refused for another reason: see its log.',
+  'dev_sign_in.reason.mfa_setup_required':
+    'This persona must set up two-step sign-in first: run make showcase-seed to pre-enrol it.',
+  'dev_sign_in.reason.not_showcase': 'This persona isn’t a member of Showcase Company.',
+  'dev_sign_in.sets_up_mfa': 'sets up two-step sign-in',
+  'dev_sign_in.setup_link_sent':
+    'We e-mailed {{email}} a link to set up two-step sign-in. Open it in the local mail catcher (Mailpit) within 15 minutes.',
+  'dev_sign_in.title': 'Quick sign-in (dev only)',
+  'dev_sign_in.unavailable':
+    'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
+  'dev_sign_in.warning':
+    'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'form_density.title': 'Form layout',
@@ -154,6 +194,8 @@ export const en = {
   'password_policy_state.applying': 'Being applied',
   'password_policy_state.default': 'Installation default',
   'password_policy_state.failed': 'Not applied',
+  'people.account.help': 'These apply at once, without Save.',
+  'people.account.title': 'Account',
   'people.add': 'Add person',
   'people.added': '{{name}} added',
   'people.changed_elsewhere':
@@ -239,6 +281,7 @@ export const en = {
   'people.sign_in': 'Sign-in',
   'people.tab.access': 'Access',
   'people.tab.details': 'Details',
+  'people.tab.sessions': 'Devices',
   'people.title': 'People',
   'people.title_person': '{{name}}',
   'people.total_one': '{{count}} person',
@@ -287,8 +330,13 @@ export const en = {
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',
+  'permission.assets.edit_disposed': 'Change disposed assets',
+  'permission.assets.edit_disposed.description':
+    'Change an asset after it is disposed of, giving a reason each time.',
   'permission.assets.manage': 'Manage assets',
   'permission.assets.manage.description': 'Add and change assets.',
+  'permission.assets.reinstate': 'Bring retired assets back',
+  'permission.assets.reinstate.description': 'Move a retired asset back into stock.',
   'permission.assets.view': 'View assets',
   'permission.assets.view.description': 'See hardware and software assets.',
   'permission.audit.export': 'Export the audit log',
@@ -314,10 +362,44 @@ export const en = {
   'permission.catalog_items.manage': 'Manage the service catalog',
   'permission.catalog_items.manage.description':
     'Add and change catalog categories and items: their forms, approval and fulfilment.',
+  'permission.changes.add_note': 'Add private notes on changes',
+  'permission.changes.add_note.description': 'Write staff-only notes on changes.',
   'permission.changes.approve': 'Approve changes',
   'permission.changes.approve.description': 'Approve or reject change requests.',
+  'permission.changes.assign': 'Assign changes',
+  'permission.changes.assign.description': 'Choose the group and owner of changes.',
+  'permission.changes.assign_outside_group': 'Assign changes outside the group',
+  'permission.changes.assign_outside_group.description':
+    'Give a change to someone who is not in its group.',
+  'permission.changes.cancel': 'Cancel changes',
+  'permission.changes.cancel.description': 'Cancel changes with a reason, and undo it.',
+  'permission.changes.change_priority': "Change a change's priority by hand",
+  'permission.changes.change_priority.description': 'Set the priority instead of the matrix.',
+  'permission.changes.close': 'Close changes',
+  'permission.changes.close.description': 'Move changes through their life cycle and close them.',
   'permission.changes.create': 'Create changes',
   'permission.changes.create.description': 'Raise new change requests.',
+  'permission.changes.delete': 'Delete changes',
+  'permission.changes.delete.description': 'Move changes to the trash and restore them.',
+  'permission.changes.edit': 'Work on changes',
+  'permission.changes.edit.description':
+    'Change the details of changes, their analysis and their tasks.',
+  'permission.changes.edit_due_dates': 'Set change target dates by hand',
+  'permission.changes.edit_due_dates.description':
+    "Set or clear a change's due time by hand, with a reason.",
+  'permission.changes.manage_followers': 'Manage followers of changes',
+  'permission.changes.manage_followers.description':
+    'Add and remove the people who follow a change.',
+  'permission.changes.reopen': 'Reopen changes',
+  'permission.changes.reopen.description':
+    'Take a resolved or closed change back into investigation.',
+  'permission.changes.reply': 'Add public notes on changes',
+  'permission.changes.reply.description':
+    'Reply to requesters on changes and add notes they can see.',
+  'permission.changes.resolve': 'Resolve changes',
+  'permission.changes.resolve.description': 'Mark changes as resolved with their resolution.',
+  'permission.changes.take': 'Take changes',
+  'permission.changes.take.description': 'Take a change nobody owns yet.',
   'permission.changes.view': 'View changes',
   'permission.changes.view.description': 'See change requests.',
   'permission.cmdb.manage': 'Manage CMDB',
@@ -327,6 +409,9 @@ export const en = {
   'permission.config.announcements': 'Configure announcements',
   'permission.config.announcements.description':
     'Who may publish, and whether a second person must approve.',
+  'permission.config.assets': 'Configure assets',
+  'permission.config.assets.description':
+    'Change product types, products, asset states, life cycles and asset settings.',
   'permission.config.organisation': 'Configure the organisation',
   'permission.config.organisation.description': 'Desks and the organisation’s structure settings.',
   'permission.config.reports': 'Configure reports',
@@ -618,6 +703,12 @@ export const en = {
   // Authorization (WP-016)
   'permission.users.view': 'View users',
   'permission.users.view.description': 'See the people in the organisation and their details.',
+  'permission.vendors.create': 'Add vendors',
+  'permission.vendors.create.description': 'Add a vendor, also from another form.',
+  'permission.vendors.manage': 'Manage vendors',
+  'permission.vendors.manage.description': 'Change, deactivate and delete vendors.',
+  'permission.vendors.view': 'See vendors',
+  'permission.vendors.view.description': 'See vendors and their details, and pick them on records.',
   'permission.work_items.approve_any': 'Decide fallback approvals',
   'permission.work_items.approve_any.description':
     'Decide approvals that have no active approver (approval administrators).',
@@ -663,6 +754,7 @@ export const en = {
   'permission_module.sites': 'Sites',
   'permission_module.sla': 'SLA',
   'permission_module.users': 'Users',
+  'permission_module.vendors': 'Vendors',
   'permission_module.work_items': 'All requests (incidents and service requests)',
   'permission_module.workflows': 'Workflows',
   'preferences.date_format': 'Date format',
@@ -683,12 +775,14 @@ export const en = {
   'presence.you_elsewhere': 'You (another window)',
   'profile.form_density_help': 'Compact shows two columns with labels on the left.',
   'profile.identity': 'Name, email and language come from your sign-in account.',
+  'profile.replies_card': 'Replies and time zone',
   'profile.saved': 'Your preferences were saved.',
   'profile.signature': 'Reply signature',
   'profile.signature_help': 'Added to the replies you send.',
   'profile.time_zone': 'Time zone',
   'profile.time_zone_help': 'Used to show dates and times, e.g. Asia/Dubai.',
   'profile.title': 'My profile',
+  'profile.who': 'You',
   'readiness_check.event_consumers': 'Event processing',
   'readiness_check.malware_signatures': 'Virus signatures',
   'readiness_check.nats': 'Message bus',
@@ -702,6 +796,9 @@ export const en = {
   'role.knowledge_manager': 'Knowledge manager',
   'role.knowledge_manager.description':
     'Writes, reviews and publishes knowledge articles for the whole organisation.',
+  'role.problem_manager': 'Problem manager',
+  'role.problem_manager.description':
+    'Runs problem management: sees, works, assigns, approves and closes every problem, including its root cause and known errors, and reads the incidents they are about.',
   'role.report_viewer': 'Report viewer',
   'role.report_viewer.description':
     'Reads every incident and request and their reports, without changing anything.',
@@ -745,9 +842,11 @@ export const en = {
   'roles.delete_title': 'Delete {{name}}?',
   'roles.deleted': 'The role was deleted.',
   'roles.description': 'Description',
+  'roles.duplicate': 'Duplicate as a custom role',
   'roles.editor.copy': 'New role from “{{name}}”',
   'roles.editor.edit': 'Role: {{name}}',
   'roles.editor.new': 'New role',
+  'roles.granted_only': 'Granted only',
   'roles.groups': 'Support groups',
   'roles.groups_add': 'Add a group',
   'roles.groups_help':
@@ -756,10 +855,12 @@ export const en = {
   'roles.has_rule': 'Limited by a rule',
   'roles.name': 'Name',
   'roles.new': 'New role',
+  'roles.no_permission_found': 'No permission matches',
   'roles.permissions': 'Permissions',
   'roles.reassign_to': 'Move users to',
   'roles.saved': 'The role was saved.',
   'roles.scope_of': 'Scope for {{permission}}',
+  'roles.search': 'Find a permission',
   'roles.system_read_only':
     'Built-in roles cannot be changed. Create a custom role to grant a different set of permissions.',
   'roles.title': 'Roles',
@@ -803,6 +904,20 @@ export const en = {
   'security.invitations.status': 'Status',
   'security.invitations.title': 'Invitations',
   'security.invitations.valid_days': 'Invitation links work for',
+  'security.mfa.confirm_off_one':
+    '1 person holds this role. Sign-in stops asking for a second step, even if they set one up.',
+  'security.mfa.confirm_off_other':
+    '{{count}} people hold this role. Sign-in stops asking for a second step, even if they set one up.',
+  'security.mfa.confirm_ok': 'Change it',
+  'security.mfa.confirm_optional_one':
+    '1 person holds this role. They may set it up, but sign-in no longer asks for it.',
+  'security.mfa.confirm_optional_other':
+    '{{count}} people hold this role. They may set it up, but sign-in no longer asks for it.',
+  'security.mfa.confirm_required_one':
+    '1 person holds this role; {{missing}} of them still has to set it up. People without it get the grace period, then can only set it up.',
+  'security.mfa.confirm_required_other':
+    '{{count}} people hold this role; {{missing}} of them still have to set it up. People without it get the grace period, then can only set it up.',
+  'security.mfa.confirm_title': 'Set two-step sign-in to {{mode}} for {{role}}?',
   'security.mfa.count': '{{enrolled}} of {{holders}}',
   'security.mfa.enrolled': 'Set up',
   'security.mfa.grace': 'Days to set it up once required',
@@ -937,6 +1052,11 @@ export const en = {
   'session.idle.sign_out': 'Sign out now',
   'session.idle.stay': 'Stay signed in',
   'session.idle.title': 'Are you still there?',
+  'session_client.console': 'Console in a browser',
+  'session_client.mobile': 'SupportX app',
+  'session_client.portal': 'Portal in a browser',
+  'session_platform.android': 'Android',
+  'session_platform.ios': 'iPhone or iPad',
   'sign_in_method.password': 'Password',
   'sign_in_method.single_sign_on': 'Single sign-on',
   'sign_in_outcome.failed': 'Failed',

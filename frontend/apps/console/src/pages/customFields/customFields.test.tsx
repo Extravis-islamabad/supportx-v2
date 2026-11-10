@@ -296,9 +296,13 @@ describe('Custom fields on incidents', () => {
     open('/incidents/new');
     // Shown by its label and help; the hidden one is named as hidden; retired choices are not offered.
     expect(await screen.findByText('Affected floor')).toBeDefined();
-    expect(screen.getByText('Where the problem is')).toBeDefined();
+    // The help and the hidden-fields note can render a moment after the label (the template's
+    // rules arrive separately): wait on each element, never on time (CI flake, #292).
+    expect(await screen.findByText('Where the problem is')).toBeDefined();
     expect(screen.queryByTestId('inc-custom-urgent_call')).toBeNull();
-    expect(screen.getByTestId('inc-hidden-fields').textContent).toContain('Urgent call');
+    await waitFor(() => {
+      expect(screen.getByTestId('inc-hidden-fields').textContent).toContain('Urgent call');
+    });
     fireEvent.change(screen.getByTestId('inc-subject'), { target: { value: 'Lights out' } });
     fireEvent.mouseDown(selectorOf(screen.getByTestId('inc-requester')));
     fireEvent.click(await screen.findByText('rana@demo.test'));

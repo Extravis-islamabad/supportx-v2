@@ -191,6 +191,62 @@ describe('console: releases', () => {
     expect(screen.getByTestId('new-release')).toBeTruthy();
   });
 
+  it('template C: the count, quick views and search go to the API, in one filter bar', async () => {
+    window.history.pushState({}, '', '/releases');
+    const fake = api();
+    render(<App />);
+    await screen.findByTestId('release-row-REL-1');
+    const bar = screen.getByTestId('releases-filters');
+    expect(within(bar).getByTestId('releases-view')).toBeTruthy();
+    expect(within(bar).getByTestId('releases-search')).toBeTruthy();
+    const first = fake.find('GET', '/api/v1/releases')[0];
+    expect(first?.url.searchParams.get('view')).toBe('open');
+    expect(first?.url.searchParams.get('include_total')).toBe('true');
+    fireEvent.click(within(bar).getByText('All'));
+    fireEvent.change(within(bar).getByRole('searchbox'), { target: { value: 'rel-1' } });
+    await waitFor(() => {
+      const last = fake.find('GET', '/api/v1/releases').at(-1);
+      expect(last?.url.searchParams.get('view')).toBeNull();
+      expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toEqual({
+        or: [
+          { field: 'subject', op: 'contains', value: 'rel-1' },
+          { field: 'display_id', op: 'eq', value: 'REL-1' },
+        ],
+      });
+    });
+  });
+
+  it('template B: a new release is one section card with Cancel before Create in the footer', async () => {
+    window.history.pushState({}, '', '/releases/new');
+    const routed = consoleApi({
+      me: fakeSession(),
+      routes: {
+        'GET /api/v1/releases/templates': {
+          body: [
+            {
+              id: 'tpl-1',
+              code: 'standard',
+              labels: { en: 'Standard release' },
+              is_default: true,
+              disabled: false,
+              stage_path: null,
+            },
+          ],
+        },
+      },
+    });
+    restore = routed.restore;
+    render(<App />);
+    const footer = await screen.findByTestId('new-release-footer');
+    const buttons = [...footer.querySelectorAll('button')].map((b) =>
+      b.getAttribute('data-testid'),
+    );
+    expect(buttons).toEqual(['release-cancel', 'release-save']);
+    expect(
+      screen.getByTestId('release-section').querySelector('button[data-testid="release-save"]'),
+    ).toBeNull();
+  });
+
   it('shows the rail, says why a move is not possible, and asks for the reason a move needs', async () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();
@@ -295,5 +351,16 @@ describe('console: releases', () => {
     expect(await screen.findByTestId('release-awaiting-approval')).toBeTruthy();
     const visible = screen.getByTestId('release-moves').querySelectorAll('[data-testid^="move-"]');
     expect(visible.length).toBeLessThanOrEqual(3); // beside More: the 4-action rule
+  });
+
+  it('QA6-REL-04: the tab and the top bar say which release this is', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    await screen.findByTestId('release-page');
+    await waitFor(() => {
+      expect(document.title).toContain('REL-1');
+    });
+    expect(document.title).toContain('Releases');
   });
 });

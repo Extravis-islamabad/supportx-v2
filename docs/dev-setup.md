@@ -155,6 +155,54 @@ them. It is idempotent: a second run adds only what is missing and changes nothi
 
 Records carry the date the seed ran: the API never backdates.
 
+### Quick sign-in for QA (DEV ONLY, D-151)
+
+> **Warning: for the local dev stack only.** Never switch this on for a shared, staging or
+> production installation. The API refuses to start with it under any profile but `dev`, and the
+> Helm chart refuses to render it, but those are guards, not reasons to try.
+
+`/dev/sign-in` on the console (<http://localhost:5173/dev/sign-in>) and the portal shows one
+button per Showcase Company persona, so a browser-driving QA run signs in with one click:
+
+| Persona | Signs in as | App |
+|---|---|---|
+| Administrator | admin@showcase.test (tenant admin) | Console |
+| Technician | tech@showcase.test (Service desk, Network and access; not Business applications) | Console |
+| Team lead | lead@showcase.test (service desk manager, lead of Service desk) | Console |
+| Approver | approver@showcase.test (head of Finance) | Portal |
+| Requester | requester@showcase.test (Finance; the approver is their manager) | Portal |
+| New starter | newstarter@showcase.test: **sets up two-step sign-in**. The button e-mails Keycloak's own set-up link; open it in Mailpit within 15 minutes | Portal |
+
+1. Set `SHOWCASE_PASSWORD` in `deploy/compose/.env` (see Showcase Company above).
+2. `make dev-quick-sign-in`. This puts a random `SHOWCASE_TOTP_KEY` in `deploy/compose/.env` (only
+   if it has none; it is never shown), switches the quick sign-in on in `backend/.env`, and runs
+   `make keycloak-dev-sync` (below).
+3. `make showcase-seed`: adds the personas and enrols their authenticators.
+4. Restart the API (`make backend-dev`) and open `/dev/sign-in`.
+
+How it works:
+- Each button signs the persona in through Keycloak (the password grant, on in the dev realm
+  only) and then the normal session path, so the session, MFA policy, revocation and logout are
+  the real ones.
+- The second step's code comes from the persona's authenticator secret, derived from
+  `SHOWCASE_TOTP_KEY`.
+- Every quick sign-in is in the audit log ("Signed in with the dev quick sign-in").
+- It works only from `localhost` and only for the showcase tenant.
+
+**A dev stack made before D-151** has a realm without the quick sign-in's settings: Keycloak
+imports the realm file only when the realm does not exist yet, so a button says Keycloak doesn't
+allow this sign-in here. `make keycloak-dev-sync` (run by `make dev-quick-sign-in`) fixes it in
+place, with no reset and no data lost. Through the admin API it sets only:
+- the password grant on the console and portal clients;
+- remember-me, and SSO idle and max lifespans of at least 7 days.
+It never touches users or data and prints no secret. It refuses unless Keycloak is on this machine,
+the quick sign-in is switched on, and both clients redirect only to localhost. Running it again
+changes nothing.
+
+If a button says the password or key doesn't match, run `make showcase-seed` again; a changed key
+re-enrols the personas. A persona Keycloak locked after failed attempts unlocks after a few
+minutes. To switch it off, set `SUPPORTX_DEV_QUICK_SIGN_IN=false` in `backend/.env`.
+
 ### Plans and licence limits (WP-009)
 
 `make db-seed` also gives each dev tenant a subscription (only if it has none; it never changes an
@@ -305,7 +353,9 @@ password (two steps). These **test users** are imported with the realm (dev only
 Keycloak admin console: <http://localhost:28080> (`admin` / `KEYCLOAK_ADMIN_PASSWORD`). Five wrong
 passwords lock a user for a while (brute-force protection is on even in dev). The realm is imported
 only when it does not exist yet: after changing `deploy/helm/supportx/files/keycloak/dev/supportx-realm.json`,
-delete the `supportx` realm in the admin console (or `make dev-reset`) and restart Keycloak.
+delete the `supportx` realm in the admin console (or `make dev-reset`) and restart Keycloak. Both
+wipe the realm's users. For the quick sign-in's settings alone, `make keycloak-dev-sync` is enough
+and keeps everything.
 
 The API's tenant comes from the login session. For scripts and quick `curl` tests you can still let
 the API trust an `X-Tenant-ID` header, but only by opting in: add `SUPPORTX_DEV_TENANT_HEADER=true`
@@ -315,6 +365,24 @@ to `backend/.env` (dev profile only; production always ignores the header). How 
 `make db-downgrade` rolls back one migration and asks you to type `yes` first, because it can drop
 tables and their data. Backend tests never touch the `supportx` database: they create throwaway
 `supportx_test_*` databases and drop them afterwards.
+
+### Incoming e-mail on dev (QA6-NTF-01)
+
+Mailpit only catches **outgoing** mail, so the dev stack has no mailbox to fetch from. To test
+"an e-mail creates an incident" or "a reply by e-mail lands on its record", feed a message into
+the real inbound pipeline (the same claim, routing, create or reply, and held queue as fetched
+mail):
+
+```sh
+make mail-inbound-test ARGS="--create"            # first time: a dev mailbox, then one mail
+make mail-inbound-test ARGS="--from rana@demo.test --subject 'Printer jam' --body 'It jams.'"
+make mail-inbound-test ARGS="--in-reply-to '<message-id@...>'"   # a reply on its record
+make mail-inbound-test ARGS="--eml ~/Downloads/message.eml"      # a real message as it is
+```
+
+`--create` adds `dev-inbound@<tenant>.test` with an unreachable IMAP host, so its scheduled fetch
+shows that it can't connect: expected. Sending the same `.eml` twice is skipped the second time
+(one Message-ID, once), as for fetched mail.
 
 ## 5. Resetting safely
 

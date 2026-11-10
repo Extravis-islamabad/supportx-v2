@@ -57,8 +57,40 @@ export function conditionAt(problems: readonly EditorProblem[], index: number): 
   return problems.some((p) => CONDITION.exec(p.path)?.[1] === String(index));
 }
 
+/**
+ * What an editor can tell before sending (QA6S-AUT-01, AUT-03): an empty name, no group, a "set"
+ * action without its field. Each at its field, in words, so the server's codes never have to.
+ */
+export function missingProblems(
+  t: Translate,
+  body: {
+    name?: string;
+    group_id?: string | null;
+    actions?: readonly { kind: string; field?: string | null }[];
+  },
+): EditorProblem[] {
+  const found: EditorProblem[] = [];
+  const add = (path: string, message: string) => {
+    found.push({ path, where: whereOf(t, path), message });
+  };
+  if (body.name?.trim() === '') {
+    add('name', t('errors.field.required'));
+  }
+  if ('group_id' in body && (body.group_id ?? '') === '') {
+    add('group_id', t('automation.choose_group'));
+  }
+  (body.actions ?? []).forEach((action, index) => {
+    if (action.kind === 'set' && (action.field ?? '') === '') {
+      add(`actions.${String(index)}.field`, t('automation.choose_field'));
+    }
+  });
+  return found;
+}
+
 export interface EditorProblems {
   problems: EditorProblem[];
+  /** Show problems found before sending; true when there were any (nothing is sent then). */
+  check: (found: EditorProblem[]) => boolean;
   /** Take the problems of a failed save; true when there were any (shown here). */
   take: (error: unknown) => boolean;
   clear: () => void;
@@ -80,13 +112,18 @@ export function useEditorProblems(): EditorProblems {
   const clear = useCallback(() => {
     setProblems([]);
   }, []);
+  const check = useCallback((found: EditorProblem[]) => {
+    setProblems(found);
+    return found.length > 0;
+  }, []);
   return useMemo(
     () => ({
       problems,
+      check,
       take,
       clear,
       status: (prefix: string) => (isAt(problems, prefix) ? 'error' : undefined),
     }),
-    [problems, take, clear],
+    [problems, check, take, clear],
   );
 }

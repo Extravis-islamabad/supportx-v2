@@ -124,14 +124,15 @@ describe('One incident', () => {
     api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: ITEM, headers: { ETag: '"1"' } } } });
     render(<App />);
     expect((await screen.findByTestId('inc-heading')).textContent).toBe('Mail is down');
-    // Every move in "More actions", in one fixed order (D-124); unavailable ones say why.
+    // Every move in "More actions": the available ones first, then the unavailable ones under
+    // their reason, each part in the fixed order (D-124; QA6-INC-02); destructive last.
     const order = (await actionOrder()).filter((id) => id.startsWith('inc-action-'));
     expect(order).toEqual([
       'inc-action-start_work',
+      'inc-action-resolve',
       'inc-action-wait_requester',
       'inc-action-wait_third_party',
       'inc-action-resume',
-      'inc-action-resolve',
       'inc-action-close',
       'inc-action-reopen',
       'inc-action-undo_cancel',
@@ -387,6 +388,13 @@ describe('New incident', () => {
       },
     });
     render(<App />);
+    // QA10-P1-16: a sticky footer, Cancel before Save.
+    const footer = await screen.findByTestId('inc-new-footer');
+    expect(footer.style.position).toBe('sticky');
+    const ids = within(footer)
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('data-testid'));
+    expect(ids.indexOf('inc-new-cancel')).toBeLessThan(ids.indexOf('inc-save'));
     fireEvent.click(await screen.findByTestId('inc-save'));
     expect((await screen.findByTestId('error-subject')).textContent).toBe(
       'This field is required.',

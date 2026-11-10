@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import metadata
 from app.modules.identity_access import Subject
-from app.modules.work_items.domain.types import TYPES, WorkItemType
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
+from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.access import FIELDS
 from app.modules.work_items.service.work_items import staff_rows
-from app.shared.api.filters import FieldType, ResourceFields
+from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.reporting import (
     Dimension,
     DimensionKind,
@@ -54,6 +55,24 @@ DIMENSIONS: Mapping[str, Dimension] = {
 }
 
 
+# Problems' own figures (WP-044c D15, the report source lane C's WP-063 screens use): what kind,
+# the root cause category (never the root cause text, D-140 Q7), whether it is a known error, and
+# when it was accepted without a fix. Only the problem source has them, so incident filters and
+# reports never offer them.
+PROBLEM_FIELDS: Mapping[str, FilterField] = {
+    "problem_type": FilterField(WorkItem.problem_type, FieldType.STRING),
+    "root_cause_category": FilterField(WorkItem.root_cause_category, FieldType.STRING),
+    "known_error_at": FilterField(WorkItem.known_error_at, FieldType.DATETIME),
+    "accepted_at": FilterField(WorkItem.accepted_at, FieldType.DATETIME),
+}
+PROBLEM_DIMENSIONS: Mapping[str, Dimension] = {
+    "problem_type": Dimension(_D.ADMIN_CODE),
+    "root_cause_category": Dimension(_D.ADMIN_CODE),
+    "known_error_at": Dimension(_D.DATETIME),
+    "accepted_at": Dimension(_D.DATETIME),
+}
+
+
 class WorkItemSource:
     """The reporting provider of one work item type."""
 
@@ -81,6 +100,10 @@ class WorkItemSource:
             raise TypeError(subject)
         custom = await metadata.filter_fields(session, self.entity, "work_items")
         dimensions = dict(DIMENSIONS)
+        own: Mapping[str, FilterField] = {}
+        if self._wtype.code is WorkItemTypeCode.PROBLEM:
+            own = PROBLEM_FIELDS
+            dimensions.update(PROBLEM_DIMENSIONS)
         for name, spec in custom.items():
             # Single choices group by their admin label; multi-choice is not groupable (MVP).
             if spec.type == FieldType.ENUM and not spec.array:
@@ -88,7 +111,9 @@ class WorkItemSource:
         return ReportingSource(
             entity=self.entity,
             rows=staff_rows(subject, self._wtype),
-            fields=ResourceFields(FIELDS.name, {**FIELDS.fields, **custom}, FIELDS.id_column),
+            fields=ResourceFields(
+                FIELDS.name, {**FIELDS.fields, **own, **custom}, FIELDS.id_column
+            ),
             dimensions=dimensions,
             list_path=self._wtype.path,
         )

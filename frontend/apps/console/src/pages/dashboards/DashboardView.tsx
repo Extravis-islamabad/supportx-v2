@@ -304,7 +304,10 @@ export function DashboardView({
         />
       )}
       {body.widgets.length === 0 && (
-        <Typography.Paragraph type="secondary">{t('dashboards.empty')}</Typography.Paragraph>
+        // Already editing: point at Add widget, not at Edit (QA10-P4-21).
+        <Typography.Paragraph type="secondary">
+          {t(editing ? 'dashboards.empty_editing' : 'dashboards.empty')}
+        </Typography.Paragraph>
       )}
       {editing && !narrow ? (
         // Edit mode: free-form drag and resize, loaded only now (D-110); the keyboard buttons

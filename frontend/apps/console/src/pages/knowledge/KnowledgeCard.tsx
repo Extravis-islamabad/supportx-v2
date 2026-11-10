@@ -1,7 +1,6 @@
 import {
   App,
   Alert,
-  Button,
   Card,
   Form,
   List,
@@ -161,7 +160,7 @@ export function KnowledgeCard({
               actions={
                 item.article.can_edit
                   ? [
-                      <Button
+                      <WriteButton
                         key="unlink"
                         size="small"
                         type="link"
@@ -179,7 +178,7 @@ export function KnowledgeCard({
                         data-testid={`kb-card-unlink-${item.article.display_id}`}
                       >
                         {t('knowledge.card.unlink')}
-                      </Button>,
+                      </WriteButton>,
                     ]
                   : []
               }
@@ -325,7 +324,7 @@ function SaveAsKnowledge({
         >
           <Form.Item
             name="topic_id"
-            label={t('knowledge.field.topic')}
+            label={t('knowledge.field.topic_id')}
             rules={[{ required: true, message: t('errors.field.required') }]}
           >
             <TreeSelect
@@ -335,7 +334,7 @@ function SaveAsKnowledge({
               data-testid="kb-save-topic"
             />
           </Form.Item>
-          <Form.Item name="type_code" label={t('knowledge.field.type')}>
+          <Form.Item name="type_code" label={t('knowledge.field.type_code')}>
             <Select
               data-testid="kb-save-type"
               options={(types.data ?? [])

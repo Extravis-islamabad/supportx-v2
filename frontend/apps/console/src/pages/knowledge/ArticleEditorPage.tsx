@@ -30,8 +30,9 @@ import {
   type KbVersion,
 } from '@supportx/api-client';
 import {
-  PageHeader,
   ConflictDialog,
+  FormPage,
+  FormSection,
   inlineImageIds,
   lengthLimit,
   NoAccess,
@@ -158,94 +159,103 @@ export function NewArticlePage() {
     );
   };
 
+  // Template B (D-147): the article in one section card, Cancel before Save draft in the footer.
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 960 }}>
-      <PageHeader title={t('knowledge.new_article')} testId="kb-new-header" />
-      <Form<NewArticleForm>
-        form={form}
-        layout="vertical"
-        initialValues={{
-          topic_id: params.get('topic') ?? undefined,
-          type_code: 'how_to',
-          language,
-          body_html: '',
-          keywords: [],
-        }}
-        onValuesChange={() => {
-          setDirty(true);
-        }}
-        onFinish={save}
-      >
-        <Form.Item
-          label={t('knowledge.field.title')}
-          name="title"
-          rules={[{ required: true, whitespace: true, message: t('errors.field.title_required') }]}
+    <FormPage
+      testId="kb-new"
+      title={t('knowledge.new_article')}
+      cancel={<Button onClick={() => void navigate(-1)}>{t('actions.cancel')}</Button>}
+      primary={
+        <WriteButton
+          type="primary"
+          loading={create.isPending}
+          onClick={() => {
+            form.submit();
+          }}
+          data-testid="kb-create"
         >
-          <Input count={lengthLimit(250)} dir="auto" data-testid="kb-title" />
-        </Form.Item>
-        <Flex gap={12} wrap>
+          {t('knowledge.save_draft')}
+        </WriteButton>
+      }
+    >
+      <FormSection title={t('knowledge.section.article')} testId="kb-new-section">
+        <Form<NewArticleForm>
+          form={form}
+          layout="vertical"
+          initialValues={{
+            topic_id: params.get('topic') ?? undefined,
+            type_code: 'how_to',
+            language,
+            body_html: '',
+            keywords: [],
+          }}
+          onValuesChange={() => {
+            setDirty(true);
+          }}
+          onFinish={save}
+        >
           <Form.Item
-            label={t('knowledge.field.topic_id')}
-            name="topic_id"
-            rules={[{ required: true, message: t('knowledge.choose_topic') }]}
-            style={{ flex: '1 1 240px' }}
+            label={t('knowledge.field.title')}
+            name="title"
+            rules={[
+              { required: true, whitespace: true, message: t('errors.field.title_required') },
+            ]}
           >
-            <TreeSelect treeDefaultExpandAll treeData={tree} data-testid="kb-topic" />
+            <Input count={lengthLimit(250)} dir="auto" data-testid="kb-title" />
           </Form.Item>
-          <Form.Item
-            label={t('knowledge.field.type_code')}
-            name="type_code"
-            style={{ flex: '1 1 200px' }}
-          >
-            <Select
-              options={(types.data ?? [])
-                .filter((type) => !type.retired)
-                .map((type) => ({
-                  value: type.code,
-                  label: typeName(type, type.code, language, t),
+          <Flex gap={12} wrap>
+            <Form.Item
+              label={t('knowledge.field.topic_id')}
+              name="topic_id"
+              rules={[{ required: true, message: t('knowledge.choose_topic') }]}
+              style={{ flex: '1 1 240px' }}
+            >
+              <TreeSelect treeDefaultExpandAll treeData={tree} data-testid="kb-topic" />
+            </Form.Item>
+            <Form.Item
+              label={t('knowledge.field.type_code')}
+              name="type_code"
+              style={{ flex: '1 1 200px' }}
+            >
+              <Select
+                options={(types.data ?? [])
+                  .filter((type) => !type.retired)
+                  .map((type) => ({
+                    value: type.code,
+                    label: typeName(type, type.code, language, t),
+                  }))}
+                data-testid="kb-type"
+              />
+            </Form.Item>
+            <Form.Item
+              label={t('knowledge.field.language')}
+              name="language"
+              style={{ flex: '1 1 160px' }}
+            >
+              <Select
+                options={(['en', 'ar'] as const).map((value) => ({
+                  value,
+                  label: t(`knowledge.language.${value}`),
                 }))}
-              data-testid="kb-type"
+                data-testid="kb-new-language"
+              />
+            </Form.Item>
+          </Flex>
+          <Form.Item label={t('knowledge.field.body_html')} name="body_html">
+            <RichTextField
+              label={t('knowledge.field.body_html')}
+              callouts
+              imageOwnerId={me}
+              minHeight={320}
+              testId="kb-body-editor"
             />
           </Form.Item>
-          <Form.Item
-            label={t('knowledge.field.language')}
-            name="language"
-            style={{ flex: '1 1 160px' }}
-          >
-            <Select
-              options={(['en', 'ar'] as const).map((value) => ({
-                value,
-                label: t(`knowledge.language.${value}`),
-              }))}
-              data-testid="kb-new-language"
-            />
+          <Form.Item label={t('knowledge.field.keywords')} name="keywords">
+            <Select mode="tags" tokenSeparators={[',']} open={false} data-testid="kb-keywords" />
           </Form.Item>
-        </Flex>
-        <Form.Item label={t('knowledge.field.body_html')} name="body_html">
-          <RichTextField
-            label={t('knowledge.field.body_html')}
-            callouts
-            imageOwnerId={me}
-            minHeight={320}
-            testId="kb-body-editor"
-          />
-        </Form.Item>
-        <Form.Item label={t('knowledge.field.keywords')} name="keywords">
-          <Select mode="tags" tokenSeparators={[',']} open={false} data-testid="kb-keywords" />
-        </Form.Item>
-        <Space>
-          <WriteButton
-            type="primary"
-            htmlType="submit"
-            loading={create.isPending}
-            data-testid="kb-create"
-          >
-            {t('knowledge.save_draft')}
-          </WriteButton>
-          <Button onClick={() => void navigate(-1)}>{t('actions.cancel')}</Button>
-        </Space>
-      </Form>
-    </Space>
+        </Form>
+      </FormSection>
+    </FormPage>
   );
 }
 

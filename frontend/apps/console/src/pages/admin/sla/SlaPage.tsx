@@ -654,6 +654,22 @@ function SpecialHoursEditor({
   const save = () => {
     setProblems({});
     problem.clear();
+    // What is missing is said at its field before sending (QA6S-AUT-02).
+    const missing = Object.fromEntries(
+      (
+        [
+          ['name', name.trim() === ''],
+          ['starts_on', startsOn === null],
+          ['ends_on', endsOn === null && startsOn === null],
+        ] as const
+      )
+        .filter(([, empty]) => empty)
+        .map(([field]) => [field, t('errors.field.required')]),
+    );
+    if (Object.keys(missing).length > 0) {
+      setProblems(missing);
+      return;
+    }
     const body = { name, starts_on: startsOn ?? '', ends_on: endsOn ?? startsOn ?? '', week };
     if (row === undefined) {
       create.mutate({ body, key }, { onSuccess: done, onError: failed });
@@ -1252,13 +1268,21 @@ function HolidayEditor({
             message={t('sla.holiday.needs_review')}
           />
         )}
-        <Form.Item name="name" label={t('sla.holiday.field.name')} required {...help('name')}>
+        {/* Checked here before sending (QA6S-AUT-02): an empty date never reaches the server. */}
+        <Form.Item
+          name="name"
+          label={t('sla.holiday.field.name')}
+          required
+          rules={[{ required: true, whitespace: true, message: t('errors.field.required') }]}
+          {...help('name')}
+        >
           <Input count={lengthLimit(200)} data-testid="sla-holiday-name" />
         </Form.Item>
         <Form.Item
           name="starts_on"
           label={t('sla.holiday.field.starts_on')}
           required
+          rules={[{ required: true, message: t('errors.field.required') }]}
           {...help('starts_on')}
         >
           <DateFormField testId="sla-holiday-starts" />

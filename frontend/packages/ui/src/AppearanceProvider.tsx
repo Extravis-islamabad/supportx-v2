@@ -1,5 +1,6 @@
 import { App as AntApp, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
+import updateLocale from 'dayjs/plugin/updateLocale';
 import 'dayjs/locale/ar';
 import 'dayjs/locale/ur';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -10,7 +11,9 @@ import { ANT_LOCALES } from './antdLocales';
 import { fontFaces, type UrduScript } from './fonts/fonts';
 import {
   AppearanceContext,
+  DEFAULT_DATES,
   intlLocaleFor,
+  type DatePreferences,
   type Appearance,
   type Digits,
   type BrandingSource,
@@ -72,7 +75,19 @@ const PAGE_CSS =
   // Text for screen readers only (a name where the screen shows initials or an icon).
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
+  // An in-place edit button (template A): out of sight until it has keyboard focus.
+  '.sx-edit-trigger { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
+  'clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0; background: none; } ' +
+  '.sx-edit-trigger:focus-visible { position: static; width: auto; height: auto; overflow: visible; ' +
+  'clip: auto; margin-inline-start: 6px; cursor: pointer; color: inherit; } ' +
+  // No space before a label's colon (en typography; D-147 polish).
+  '.ant-descriptions-item-label::after { margin-inline-start: 0 !important; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
+  // Printing a record (WP-044c S1): the page's content only, without the navigation, the
+  // header, the actions and anything marked not for print.
+  '@media print { .ant-layout-sider, .ant-layout-header, [data-sx-no-print], ' +
+  '.ant-btn, .ant-dropdown, .ant-float-btn { display: none !important; } ' +
+  'body, .ant-layout { background: #fff !important; } } ' +
   // A table wider than its box shows that it scrolls: a real scrollbar, never an overlay one
   // that appears only while scrolling (QA 2026-11-05 V1: columns cut off with no cue).
   '.ant-table-content { scrollbar-width: thin; scrollbar-color: rgba(127, 127, 127, 0.55) transparent; } ' +
@@ -87,13 +102,18 @@ const PAGE_CSS =
   // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
   // virtual, so CSS cannot size them by content); they never pass the screen.
   '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +
+  // Multi-select tags show their whole text: no clipped descenders, readable Arabic and Urdu
+  // (QA6S-SHELL-08: the single-line padding rule below no longer reaches them).
+  '.ant-select-multiple .ant-select-selection-item { height: auto; min-height: 24px; ' +
+  'line-height: 1.6; padding-block: 1px; } ' +
+  '.ant-select-multiple .ant-select-selection-item-content { line-height: 1.6; } ' +
   // Option text wraps only between words ("Stacked bar", never "Sta / cked"); a single word
   // too long for the list ends in an ellipsis, its full text in the option's tooltip (title).
   // Room for the dots below Arabic-script letters wherever one line of user text is cut off
   // (QA 2026-11-04: "في" read as "فى"), whatever the UI language: the clip box (the padding
   // box) grows, and the equal negative margin keeps the layout exactly as it was. Two-line
   // clamps take the script's line height instead (clampLineHeight).
-  '.ant-typography-ellipsis-single-line, .ant-card-head-title, .ant-select-selection-item, ' +
+  '.ant-typography-ellipsis-single-line, .ant-card-head-title, .ant-select-single .ant-select-selection-item, ' +
   '.ant-select-item-option-content, .ant-menu-title-content ' +
   '{ padding-block: 0.25em; margin-block: -0.25em; } ' +
   '.ant-select-dropdown .ant-select-item-option .ant-select-item-option-content ' +
@@ -118,6 +138,10 @@ export function AppearanceProvider({
   // The top bar's height at this text size, plus a gap: where toasts start.
   const belowHeader = Math.round((56 * textScale) / 100) + 8;
   const [digits, setDigits] = useState<Digits>('western');
+  const [dates, setDatesState] = useState<DatePreferences>(DEFAULT_DATES);
+  const setDates = useCallback((next: Partial<DatePreferences>) => {
+    setDatesState((current) => ({ ...current, ...next }));
+  }, []);
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
   useEffect(() => {
@@ -127,10 +151,13 @@ export function AppearanceProvider({
     document.documentElement.dataset.textScale = String(textScale);
   }, [direction, locale, mode, textScale]);
 
-  // Ant Design's pickers take month and weekday names from dayjs's global locale.
+  // Ant Design's pickers take month and weekday names from dayjs's global locale, and the first
+  // day of the week from it too: the person's (else the organisation's) week start (P3-14).
   useEffect(() => {
+    dayjs.extend(updateLocale);
+    dayjs.updateLocale(locale, { weekStart: WEEK_START_DAY[dates.weekStart] });
     dayjs.locale(locale);
-  }, [locale]);
+  }, [locale, dates.weekStart]);
 
   const [sources, setSources] = useState<Partial<Record<BrandingSource, Partial<Branding>>>>({});
   // The tenant's brand wins over the address's, both over the prop (tests) and the default.
@@ -167,12 +194,14 @@ export function AppearanceProvider({
       setBranding,
       urduScript,
       setUrduScript,
+      dates,
+      setDates,
       setLocale: (next) => {
         setLocaleState(next);
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand, setBranding, urduScript, textScale, digits],
+    [mode, direction, locale, brand, setBranding, urduScript, textScale, digits, dates, setDates],
   );
   const themeConfig = useMemo(
     () => buildTheme(mode, brand, locale, density, textScale, urduScript),
@@ -199,3 +228,10 @@ export function AppearanceProvider({
     </AppearanceContext.Provider>
   );
 }
+
+// dayjs counts days from Sunday (0).
+const WEEK_START_DAY: Record<DatePreferences['weekStart'], number> = {
+  sunday: 0,
+  monday: 1,
+  saturday: 6,
+};

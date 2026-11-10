@@ -213,7 +213,7 @@ describe('portal: approvals', () => {
   });
 
   it('without sign-in: a confirmation page first, the decision only on a click (D-132)', async () => {
-    window.history.pushState({}, '', `/approve#${TOKEN}`);
+    window.history.pushState({}, '', `/approve?t=acme#${TOKEN}`);
     const fake = fakeApi({
       'POST /api/v1/public/action-links/peek': {
         body: {
@@ -230,6 +230,12 @@ describe('portal: approvals', () => {
     render(<App />);
     expect((await screen.findByTestId('public-approval-summary')).textContent).toContain('SR-9');
     expect(window.location.hash).toBe('');
+    expect(window.location.search).toBe('?t=acme'); // the tenant's slug is no secret
+    expect(document.querySelector('meta[name="referrer"]')?.getAttribute('content')).toBe(
+      'no-referrer',
+    );
+    const [peeked] = fake.find('POST', '/api/v1/public/action-links/peek');
+    expect(peeked?.body).toEqual({ token: TOKEN, tenant: 'acme' });
     expect(fake.find('GET', '/api/v1/auth/me')).toHaveLength(0); // no session asked for
     expect(fake.find('POST', '/api/v1/public/action-links/use')).toHaveLength(0);
     fireEvent.click(screen.getByTestId('public-approval-approve'));
@@ -237,6 +243,7 @@ describe('portal: approvals', () => {
     const [used] = fake.find('POST', '/api/v1/public/action-links/use');
     expect(used?.body).toEqual({
       token: TOKEN,
+      tenant: 'acme',
       body: { decision: 'approve', comment: null, private: false },
     });
   });

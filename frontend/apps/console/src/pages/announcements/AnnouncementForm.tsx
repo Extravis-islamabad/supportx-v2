@@ -1,9 +1,19 @@
-import { Form, Input, Radio, Select, Space, Spin, Switch } from 'antd';
+import { Flex, Form, Input, Radio, Select, Spin, Switch } from 'antd';
 import { useDeferredValue, useState, type ReactNode } from 'react';
 
 import { useAnnouncementOwnerCandidates, useUnits } from '@supportx/api-client';
 import { FormField, type UseFormReturn } from '@supportx/forms';
-import { DateTimeField, useAccess, useLabel, lengthLimit } from '@supportx/ui';
+import {
+  DateTimeField,
+  FIELD_WIDTH,
+  FieldRow,
+  FormSection,
+  SPACE,
+  TimeZoneNote,
+  useAccess,
+  useLabel,
+  lengthLimit,
+} from '@supportx/ui';
 
 import { AUDIENCES, BODY_MAX, SEVERITIES, TITLE_MAX, type Values } from './form';
 
@@ -49,18 +59,22 @@ function OwnerPicker({
         label: user.display_name,
       }))}
       data-testid="ann-owner"
-      style={{ minWidth: 260 }}
+      style={{ width: FIELD_WIDTH.medium, maxWidth: '100%' }}
     />
   );
 }
 
-/** The fields of an announcement (create and edit share it). */
+/**
+ * The fields of an announcement (create and edit share it), in template B's sections (D-147):
+ * the message, who sees it, and when and whose. `footer` is the edit page's own bar; the new
+ * page puts its actions in FormPage's sticky footer instead.
+ */
 export function AnnouncementFields({
   form,
   footer,
 }: {
   form: UseFormReturn<Values>;
-  footer: ReactNode;
+  footer?: ReactNode;
 }) {
   const t = useLabel();
   const { can } = useAccess();
@@ -70,122 +84,151 @@ export function AnnouncementFields({
   const units = audience === 'sites' ? sites : groups;
   return (
     <Form layout="vertical" component="div">
-      <FormField
-        control={form.control}
-        name="title"
-        labelKey="announcement.field.title"
-        render={(field) => (
-          <Input {...field} count={lengthLimit(TITLE_MAX)} data-testid="ann-title" />
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="body"
-        labelKey="announcement.field.body"
-        helpKey="announcement.body_help"
-        render={(field) => (
-          <Input.TextArea
-            {...field}
-            rows={6}
-            count={lengthLimit(BODY_MAX)}
-            data-testid="ann-body"
+      <Flex vertical gap={SPACE.md}>
+        <FormSection title={t('announcement.section.message')} testId="ann-section-message">
+          <FormField
+            control={form.control}
+            name="title"
+            labelKey="announcement.field.title"
+            required
+            render={(field) => (
+              <Input {...field} count={lengthLimit(TITLE_MAX)} data-testid="ann-title" />
+            )}
           />
-        )}
-      />
-      <Space size="large" wrap align="start">
-        <FormField
-          control={form.control}
-          name="severity"
-          labelKey="announcement.field.severity"
-          render={(field) => (
-            <Select
-              {...field}
-              data-testid="ann-severity"
-              style={{ minWidth: 160 }}
-              options={SEVERITIES.map((value) => ({
-                value,
-                label: t(`announcement_severity.${value}`),
-              }))}
+          <FormField
+            control={form.control}
+            name="body"
+            labelKey="announcement.field.body"
+            required
+            helpKey="announcement.body_help"
+            render={(field) => (
+              <Input.TextArea
+                {...field}
+                rows={6}
+                count={lengthLimit(BODY_MAX)}
+                data-testid="ann-body"
+              />
+            )}
+          />
+          <FieldRow>
+            <FormField
+              control={form.control}
+              name="severity"
+              labelKey="announcement.field.severity"
+              render={(field) => (
+                <Select
+                  {...field}
+                  data-testid="ann-severity"
+                  style={{ width: FIELD_WIDTH.short, maxWidth: '100%' }}
+                  options={SEVERITIES.map((value) => ({
+                    value,
+                    label: t(`announcement_severity.${value}`),
+                  }))}
+                />
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="show_as_banner"
+              labelKey="announcement.field.show_as_banner"
+              render={({ value, onChange, id }) => (
+                <Switch id={id} checked={value} onChange={onChange} data-testid="ann-banner" />
+              )}
+            />
+          </FieldRow>
+        </FormSection>
+        <FormSection title={t('announcement.section.audience')} testId="ann-section-audience">
+          <FormField
+            control={form.control}
+            name="audience"
+            labelKey="announcement.field.audience"
+            render={({ value, onChange, id }) => (
+              <Radio.Group
+                id={id}
+                value={value}
+                onChange={(event) => {
+                  onChange(event.target.value);
+                }}
+                data-testid="ann-audience"
+                options={AUDIENCES.map((option) => ({
+                  value: option,
+                  label: t(`announcement_audience.${option}`),
+                }))}
+              />
+            )}
+          />
+          {(audience === 'sites' || audience === 'groups') && (
+            <FormField
+              control={form.control}
+              name={audience === 'sites' ? 'site_ids' : 'group_ids'}
+              labelKey={
+                audience === 'sites'
+                  ? 'announcement.field.site_ids'
+                  : 'announcement.field.group_ids'
+              }
+              render={(field) => (
+                <Select
+                  {...field}
+                  mode="multiple"
+                  loading={units.isPending && units.fetchStatus === 'fetching'}
+                  data-testid="ann-units"
+                  optionFilterProp="label"
+                  options={(units.data ?? []).map((unit) => ({ value: unit.id, label: unit.name }))}
+                />
+              )}
             />
           )}
-        />
-        <FormField
-          control={form.control}
-          name="show_as_banner"
-          labelKey="announcement.field.show_as_banner"
-          render={({ value, onChange, id }) => (
-            <Switch id={id} checked={value} onChange={onChange} data-testid="ann-banner" />
-          )}
-        />
-      </Space>
-      <FormField
-        control={form.control}
-        name="audience"
-        labelKey="announcement.field.audience"
-        render={({ value, onChange, id }) => (
-          <Radio.Group
-            id={id}
-            value={value}
-            onChange={(event) => {
-              onChange(event.target.value);
-            }}
-            data-testid="ann-audience"
-            options={AUDIENCES.map((option) => ({
-              value: option,
-              label: t(`announcement_audience.${option}`),
-            }))}
+        </FormSection>
+        <FormSection title={t('announcement.section.schedule')} testId="ann-section-schedule">
+          <FormField
+            control={form.control}
+            name="owner_id"
+            labelKey="announcement.field.owner_id"
+            helpKey="announcement.owner_help"
+            render={({ value, onChange, id }) => (
+              <OwnerPicker value={value} onChange={onChange} id={id} />
+            )}
           />
-        )}
-      />
-      {(audience === 'sites' || audience === 'groups') && (
-        <FormField
-          control={form.control}
-          name={audience === 'sites' ? 'site_ids' : 'group_ids'}
-          labelKey={
-            audience === 'sites' ? 'announcement.field.site_ids' : 'announcement.field.group_ids'
-          }
-          render={(field) => (
-            <Select
-              {...field}
-              mode="multiple"
-              loading={units.isPending && units.fetchStatus === 'fetching'}
-              data-testid="ann-units"
-              optionFilterProp="label"
-              options={(units.data ?? []).map((unit) => ({ value: unit.id, label: unit.name }))}
+          <FieldRow>
+            <FormField
+              control={form.control}
+              name="publish_from"
+              labelKey="announcement.field.publish_from"
+              helpKey="announcement.publish_from_help"
+              render={({ value, onChange, id }) => (
+                <DateTimeField
+                  value={value}
+                  onChange={onChange}
+                  id={id}
+                  testId="ann-from"
+                  hideZone
+                />
+              )}
             />
-          )}
-        />
-      )}
-      <FormField
-        control={form.control}
-        name="owner_id"
-        labelKey="announcement.field.owner_id"
-        helpKey="announcement.owner_help"
-        render={({ value, onChange, id }) => (
-          <OwnerPicker value={value} onChange={onChange} id={id} />
-        )}
-      />
-      <Space size="large" wrap align="start">
-        <FormField
-          control={form.control}
-          name="publish_from"
-          labelKey="announcement.field.publish_from"
-          helpKey="announcement.publish_from_help"
-          render={({ value, onChange, id }) => (
-            <DateTimeField value={value} onChange={onChange} id={id} testId="ann-from" />
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="publish_until"
-          labelKey="announcement.field.publish_until"
-          helpKey="announcement.publish_until_help"
-          render={({ value, onChange, id }) => (
-            <DateTimeField value={value} onChange={onChange} id={id} testId="ann-until" />
-          )}
-        />
-      </Space>
-      {footer}
+            <FormField
+              control={form.control}
+              name="publish_until"
+              labelKey="announcement.field.publish_until"
+              helpKey="announcement.publish_until_help"
+              render={({ value, onChange, id }) => (
+                <DateTimeField
+                  value={value}
+                  onChange={onChange}
+                  id={id}
+                  testId="ann-until"
+                  hideZone
+                />
+              )}
+            />
+          </FieldRow>
+          {/* One time-zone note for both times (D-147), not one under each field. It sits below
+              the fields' own help, never pulled up over it (QA10-P4-12). */}
+          <div style={{ marginBottom: SPACE.sm }}>
+            <TimeZoneNote />
+          </div>
+        </FormSection>
+        {footer}
+      </Flex>
     </Form>
   );
 }

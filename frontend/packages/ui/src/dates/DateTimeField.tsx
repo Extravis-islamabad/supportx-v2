@@ -1,12 +1,18 @@
 import { DatePicker, Space, Typography } from 'antd';
 import dayjs from 'dayjs';
 
-import { useLabel } from '../appearance';
+import { useAppearance, useLabel } from '../appearance';
 
+import { pickerFormat } from './format';
 import { fromPicker, toPicker, useTimeZone } from './time';
 
-const FORMAT = 'YYYY-MM-DD HH:mm';
-const TIME = { format: 'HH:mm' } as const;
+/**
+ * "Times are in <zone>", said once under a group of date fields (a range, a row of start, end
+ * and duration) that hide their own notes (D-147: one note, not one per field).
+ */
+export function TimeZoneNote() {
+  return <ZoneNote zone={useTimeZone()} />;
+}
 
 function ZoneNote({ zone }: { zone: string }) {
   const t = useLabel();
@@ -43,13 +49,14 @@ export function DateTimeField({
   hideZone,
 }: DateTimeFieldProps) {
   const zone = useTimeZone();
+  const { dates } = useAppearance();
   return (
     <Space direction="vertical" size={2}>
       <DatePicker
         id={id}
-        showTime={TIME}
+        showTime={{ format: dates.timeFormat === '12h' ? 'hh:mm A' : 'HH:mm' }}
         showNow={false}
-        format={FORMAT}
+        format={pickerFormat(dates, true)}
         allowClear
         disabled={disabled}
         value={toPicker(value, zone)}
@@ -76,10 +83,11 @@ export interface DateFieldProps {
 
 /** A calendar day (custom date fields, WP-026): the same day for everyone, in every zone. */
 export function DateField({ value, onChange, id, testId, disabled, ariaLabel }: DateFieldProps) {
+  const { dates } = useAppearance();
   return (
     <DatePicker
       id={id}
-      format="YYYY-MM-DD"
+      format={pickerFormat(dates, false)}
       allowClear
       disabled={disabled}
       aria-label={ariaLabel}
@@ -113,12 +121,13 @@ export function DateTimeRangeField({
   disabled,
 }: DateTimeRangeFieldProps) {
   const zone = useTimeZone();
+  const { dates } = useAppearance();
   return (
     <Space direction="vertical" size={2}>
       <DatePicker.RangePicker
         id={id}
-        showTime={TIME}
-        format={FORMAT}
+        showTime={{ format: dates.timeFormat === '12h' ? 'hh:mm A' : 'HH:mm' }}
+        format={pickerFormat(dates, true)}
         allowEmpty={[true, true]}
         allowClear
         disabled={disabled}

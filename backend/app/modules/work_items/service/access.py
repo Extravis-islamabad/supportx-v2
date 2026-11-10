@@ -26,6 +26,7 @@ from sqlalchemy import ColumnElement, and_, false, or_, select
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import (
+    PROBLEM_MANAGER,
     REPORT_VIEWER,
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
@@ -277,11 +278,20 @@ def _type_defaults(
         # widened for technicians or requesters).
         return () if action in IDENTITY_GRANTED else defaults
     if wtype.code is WorkItemTypeCode.PROBLEM:
-        return _PROBLEM_TECH.get(action, _PROBLEM_GROUP)
+        # The problem manager (WP-044c D14, Appendix A) holds every problem permission.
+        return (*_PROBLEM_TECH.get(action, _PROBLEM_GROUP), (PROBLEM_MANAGER, "all"))
+    if wtype.code is WorkItemTypeCode.INCIDENT and action == "view":
+        # ... and reads the incidents problems are about (linking, evidence, impact).
+        return (*defaults, (PROBLEM_MANAGER, "all"))
     if wtype.code is WorkItemTypeCode.RELEASE:
         # Releases (WP-058a): technicians keep only identity's releases.view grant; the type
         # adds no technician defaults, so nothing is widened (lane B review).
         return ()
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        # Changes (WP-045a): technicians keep identity's changes.view and changes.create (all);
+        # the engine adds working their groups' changes, never delete or due dates by hand.
+        kept = {"view", "create", "delete", "edit_due_dates", "assign_outside_group"}
+        return () if action in kept else (("technician", "group"),)
     return defaults
 
 
@@ -306,6 +316,7 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
         + (APPROVE_SPECS if is_sr else ())
         + (PROBLEM_SPECS if wtype.code is WorkItemTypeCode.PROBLEM else ())
         + (RELEASE_APPROVE_SPECS if is_release else ())
+        + (CHANGE_APPROVE_SPECS if wtype.code is WorkItemTypeCode.CHANGE else ())
     )
 
 
@@ -324,7 +335,7 @@ PROBLEM_SPECS: tuple[PermissionSpec, ...] = (
             f"problems.{action}",
             "problem",
             ALL_SCOPES,
-            defaults=(("technician", "group"), *_role_defaults(action)),
+            defaults=(("technician", "group"), (PROBLEM_MANAGER, "all"), *_role_defaults(action)),
         )
         for action in (EDIT_ANALYSIS, VIEW_ROOT_CAUSE, EDIT_SOLUTION, MARK_KNOWN_ERROR)
     ),
@@ -334,7 +345,11 @@ PROBLEM_SPECS: tuple[PermissionSpec, ...] = (
         "problems.approve",
         "problem",
         ("all",),
-        defaults=(("technician", "all"), (SERVICE_DESK_MANAGER, "all")),
+        defaults=(
+            ("technician", "all"),
+            (SERVICE_DESK_MANAGER, "all"),
+            (PROBLEM_MANAGER, "all"),
+        ),
     ),
 )
 
@@ -348,6 +363,12 @@ APPROVE = "approve"
 # admin roles hold it by default; an approver without it is routed to approve_any, never stuck.
 RELEASE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec("releases.approve", "release", ("all",), defaults=_role_defaults("approve")),
+)
+# changes.approve keeps identity's scopes (not own) and grants (WP-045a).
+CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
+    PermissionSpec(
+        "changes.approve", "change", ("all", "site", "group"), defaults=_role_defaults("approve")
+    ),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

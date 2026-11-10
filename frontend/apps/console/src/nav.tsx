@@ -14,7 +14,9 @@ import {
   SwapOutlined,
 } from '@ant-design/icons';
 
-import { ADMIN_PERMISSIONS, type NavItem } from '@supportx/ui';
+import { type NavItem } from '@supportx/ui';
+
+import { SETUP_PERMISSIONS } from './pages/admin/setupMap';
 
 /**
  * Console sections. `permissions` decide who sees a section (WP-016); `feature` ties it to the
@@ -113,13 +115,15 @@ export const NAV: readonly NavItem[] = [
     path: '/admin',
     labelKey: 'nav.admin',
     icon: <SettingOutlined />,
-    permissions: ADMIN_PERMISSIONS,
+    // The setup menu decides: Admin shows when any setup page would (one source).
+    permissions: SETUP_PERMISSIONS,
   },
 ];
 
 /** Sections that only show "coming soon" until their module exists. */
-// Sections still shown as a placeholder (problems since WP-044a, releases since WP-058a).
-export const SECTION_KEYS = ['changes', 'assets', 'cmdb'] as const;
+// Sections still shown as a placeholder (problems since WP-044a, releases since WP-058a, assets
+// since WP-049a).
+export const SECTION_KEYS = ['changes', 'cmdb'] as const;
 
 export function navItem(key: string): NavItem | undefined {
   return NAV.find((item) => item.key === key);

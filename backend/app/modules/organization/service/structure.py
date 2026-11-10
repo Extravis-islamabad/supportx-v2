@@ -297,7 +297,19 @@ async def default_site(session: AsyncSession) -> Site:
         oldest.is_default = True
         await session.flush()
         return oldest
-    return await SiteRepository(session).add(Site(name=DEFAULT_SITE_NAME, is_default=True))
+    try:
+        async with session.begin_nested():
+            return await SiteRepository(session).add(Site(name=DEFAULT_SITE_NAME, is_default=True))
+    except IntegrityError:
+        # Two first reads at once (e2e, 2026-11-09: a 500 on GET /sites): the other request
+        # created it a moment before; its row is the default site. The savepoint kept this
+        # request's transaction usable.
+        found = await session.scalar(
+            select(Site).where(Site.is_default.is_(True), Site.deleted_at.is_(None))
+        )
+        if found is None:
+            raise
+        return found
 
 
 async def list_sites(session: AsyncSession) -> list[Site]:
@@ -353,6 +365,33 @@ async def site_members(session: AsyncSession) -> dict[uuid.UUID, list[uuid.UUID]
     ).all():
         members.setdefault(site_id, []).append(user_id)
     return {k: sorted(v) for k, v in members.items()}
+
+
+# How many people have each site as their own (PEO-01). People live in identity_access, which
+# this module never reads, so identity_access registers the counter at start-up.
+SitePeopleCounter = Callable[[AsyncSession], Awaitable[dict[uuid.UUID, int]]]
+_SITE_PEOPLE: list[SitePeopleCounter] = []
+
+
+def register_site_people_counter(counter: SitePeopleCounter) -> None:
+    """At start-up: counts the people whose site is each site."""
+    if counter not in _SITE_PEOPLE:
+        _SITE_PEOPLE.append(counter)
+
+
+def unregister_site_people_counter(counter: SitePeopleCounter) -> None:
+    """At shutdown."""
+    if counter in _SITE_PEOPLE:
+        _SITE_PEOPLE.remove(counter)
+
+
+async def site_people(session: AsyncSession) -> dict[uuid.UUID, int]:
+    """People by their own site (none registered: nobody counted)."""
+    found: dict[uuid.UUID, int] = {}
+    for counter in _SITE_PEOPLE:
+        for site_id, count in (await counter(session)).items():
+            found[site_id] = found.get(site_id, 0) + count
+    return found
 
 
 async def find_site(session: AsyncSession, value: str) -> uuid.UUID | None:

@@ -22,12 +22,13 @@ export const schema = z
     title: z
       .string()
       .trim()
-      .min(1, 'errors.field.required')
+      // The field's own words, as knowledge says them (QA10-P4-11).
+      .min(1, 'errors.field.title_required')
       .max(TITLE_MAX, 'errors.field.value_too_long'),
     body: z
       .string()
       .trim()
-      .min(1, 'errors.field.required')
+      .min(1, 'errors.field.announcement_message_required')
       .max(BODY_MAX, 'errors.field.value_too_long'),
     severity: z.enum(['info', 'warning', 'critical']),
     audience: z.enum(['everyone', 'requesters', 'technicians', 'sites', 'groups']),

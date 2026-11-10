@@ -43,7 +43,7 @@ import type { Drill } from '../reports/DrillDrawer';
 import { ExportButton } from '../reports/exports';
 import { useReportWords, type ReportWords } from '../reports/names';
 import { Results } from '../reports/ReportPage';
-import { kpiPeriod, previousPeriod, sparkline, trend } from './kpi';
+import { kpiPeriod, previousPeriod, sparkline, trend, visibleTrend } from './kpi';
 import { ROW_PX, widgetTitle } from './layout';
 
 const CHART_ICONS: Record<ChartType, typeof BarChartOutlined> = {
@@ -321,11 +321,12 @@ function KpiTile({
   const measure = result.measures[0];
   const value = result.totals[0];
   if (measure === undefined) return null;
-  const moved = trend(
+  const raw = trend(
     typeof value === 'number' ? value : null,
     previous.data?.totals[0] ?? null,
     measure.better,
   );
+  const moved = visibleTrend(raw, (n) => words.value(measure, n));
   const points = spark.data?.rows.map((r) => r.values[0] ?? null) ?? [];
   // The target's tile (UI pass 2): the measure on top, a 30 px number with its sparkline beside
   // it, and the change against the previous period below.

@@ -42,6 +42,7 @@ const TECHNICIAN: Grant[] = [
   ['releases.view', 'all'],
   ['assets.view', 'all'],
   ['assets.manage', 'group'],
+  ['vendors.view', 'all'], // WP-049a s2: the technician default
   ['cmdb.view', 'all'],
   ['knowledge.view', 'group'],
   ['knowledge.create', 'group'],
@@ -68,6 +69,14 @@ const TECHNICIAN: Grant[] = [
   ['incidents.cancel', 'group'],
 ];
 const ADMIN_EXTRA: Grant[] = [
+  // Setup pages' own rights (the admin role holds every permission on the backend), so the
+  // setup layout's access gate opens them as for a real admin (coverage 2026-11-09 §17).
+  ['branding.manage', 'all'],
+  ['config.service_desk', 'all'],
+  ['config.organisation', 'all'],
+  ['config.assets', 'all'], // WP-049a: the asset catalogue
+  ['vendors.create', 'all'],
+  ['vendors.manage', 'all'],
   ['catalog_items.manage', 'all'], // WP-031: the catalog's administration
   ['knowledge.view', 'all'],
   ['knowledge.edit_any', 'all'],
@@ -116,6 +125,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
   ['integrations.manage_email', 'all'],
+  ['integrations.manage_identity', 'all'], // directories (an admin holds every permission)
   ['ai.manage', 'all'],
   ['api_keys.manage', 'all'],
 ];

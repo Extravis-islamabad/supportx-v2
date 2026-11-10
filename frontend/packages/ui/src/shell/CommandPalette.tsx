@@ -1,5 +1,5 @@
-import { Input, Modal, Spin, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { Input, Modal, Spin, Typography, type InputRef } from 'antd';
+import { useMemo, useRef, useState } from 'react';
 
 import { useLabel } from '../appearance';
 import { EmptyText } from '../EmptyText';
@@ -88,6 +88,7 @@ export function CommandPalette({
   }, [commands, query, records, searching, t]);
   const rows = groups.flatMap((group) => group.items);
 
+  const input = useRef<InputRef>(null);
   const close = () => {
     onOpenChange(false);
     setQuery('');
@@ -108,8 +109,15 @@ export function CommandPalette({
       closable={false}
       title={t('palette.title')}
       destroyOnHidden
+      // The modal moves focus to itself as it opens, after autoFocus: give it back to the input
+      // once it is open, so typing goes there (QA10-P4-33). Never taller than a small screen.
+      afterOpenChange={(opened) => {
+        if (opened) input.current?.focus();
+      }}
+      styles={{ body: { maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' } }}
     >
       <Input
+        ref={input}
         autoFocus
         role="combobox"
         aria-expanded={rows.length > 0}

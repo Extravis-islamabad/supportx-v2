@@ -28,6 +28,7 @@ import {
   useAppearance,
   useDateTime,
   useLabel,
+  usePageCrumbs,
   type RecordAction,
 } from '@supportx/ui';
 
@@ -35,6 +36,8 @@ import { labelled, personName } from '../incidents/labels';
 import { useStatusActions } from '../incidents/StatusActions';
 import { PriorityTag, StatusTag } from '../incidents/tags';
 import { useDebounced } from '../../useDebounced';
+import { IncidentHistory } from '../incidents/IncidentHistory';
+import { IncidentTasks, IncidentWorklogs } from '../incidents/IncidentParts';
 import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
 import { KnownErrorTag } from './KnownErrors';
 import { CausedIncidents, MergeDialog, MergedBanner, RelatedProblems } from './ProblemLinks';
@@ -42,6 +45,8 @@ import { useKnownErrorAction } from './useKnownErrorAction';
 import { FollowUpDialog } from './FollowUp';
 import { MessageRequestersDialog } from './MessageRequesters';
 import { ProblemApprovals, RequestApprovalDialog } from './ProblemApprovals';
+import { useActionReason } from '../incidents/actionReason';
+import { AssignDialog } from '../incidents/assign';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
 const GUIDED = [
@@ -199,6 +204,26 @@ function ProblemView({
   const canEdit = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const me = useSession().data?.user.id ?? '';
   const knownError = useKnownErrorAction(item);
+  const reasonText = useActionReason();
+  // The group and owner, the incident's dialog with the problems' rules (WP-044c S1).
+  const [assigning, setAssigning] = useState(false);
+  const assignState = item.operations.find((o) => o.action === 'assign');
+  const assignAction: RecordAction | null =
+    assignState === undefined
+      ? null
+      : {
+          key: 'assign',
+          label: t('work_item_operation.assign'),
+          allowed: assignState.allowed,
+          whyNot:
+            !assignState.allowed && assignState.reason != null
+              ? reasonText(assignState)
+              : undefined,
+          testId: 'prb-op-assign',
+          onClick: () => {
+            setAssigning(true);
+          },
+        };
   const [asking, setAsking] = useState(false);
   const askAction: RecordAction = {
     key: 'ask_approval',
@@ -213,6 +238,7 @@ function ProblemView({
     key: 'follow_up',
     label: t('problems.follow_up.title'),
     allowed: canEdit,
+    testId: 'prb-op-follow-up',
     onClick: () => {
       setFollowing(true);
     },
@@ -249,11 +275,23 @@ function ProblemView({
       );
     },
   };
+  // The record as a document (WP-044c S1): the browser's print, with the navigation, the
+  // actions and the editors left out by the page's print rules (AppearanceProvider).
+  const printAction: RecordAction = {
+    key: 'print',
+    label: t('problems.print'),
+    allowed: true,
+    testId: 'prb-print',
+    onClick: () => {
+      window.print();
+    },
+  };
   const problemType = (catalogue.data?.problem_types ?? []).find(
     (v) => v.code === item.problem_type,
   );
   return (
     <>
+      <ProblemCrumbs displayId={item.display_id} />
       <RecordPage
         testId="prb-record"
         header={
@@ -283,12 +321,14 @@ function ProblemView({
         actions={
           <ActionBar
             actions={[
+              ...(assignAction === null ? [] : [assignAction]),
               ...status.actions,
               knownError.action,
               askAction,
               messageAction,
               followUpAction,
               copyAction,
+              printAction,
               mergeAction,
             ]}
             max={3}
@@ -373,6 +413,25 @@ function ProblemView({
                 children: <ProblemAnalysis item={item} reload={reload} />,
               },
               {
+                key: 'tasks',
+                label: <span data-testid="prb-tab-tasks">{t('incidents.tab.tasks')}</span>,
+                children: <IncidentTasks item={item} canEdit={canEdit} base="problems" />,
+              },
+              {
+                key: 'worklogs',
+                label: <span data-testid="prb-tab-worklogs">{t('incidents.tab.worklogs')}</span>,
+                children: <IncidentWorklogs item={item} canEdit={canEdit} base="problems" />,
+              },
+              {
+                key: 'history',
+                label: (
+                  <span data-testid="prb-tab-history">
+                    {t('incidents.tab.history', { count: item.history_count })}
+                  </span>
+                ),
+                children: <IncidentHistory id={item.id} base="problems" />,
+              },
+              {
                 key: 'evidence',
                 label: <span data-testid="prb-tab-evidence">{t('problems.tab.evidence')}</span>,
                 children: <ProblemEvidence id={item.id} />,
@@ -411,6 +470,22 @@ function ProblemView({
           setMerging(false);
         }}
       />
+      <AssignDialog
+        item={item}
+        open={assigning}
+        base="problems"
+        onClose={() => {
+          setAssigning(false);
+        }}
+        refresh={reload}
+      />
     </>
   );
+}
+
+/** Where the user is: "Problems › PRB-7", in the header and the browser tab (QA6-PRB-02). */
+function ProblemCrumbs({ displayId }: { displayId: string }) {
+  const t = useLabel();
+  usePageCrumbs([{ label: t('nav.problems'), path: '/problems' }, { label: displayId }]);
+  return null;
 }

@@ -909,6 +909,43 @@ it with no reload (rule c). Not built yet.
       URL form works now).
 - WP-044a is complete once #211's full-ci is green; it then leaves draft.
 
+### [ ] WP-044c — Problems: lists, views, permissions, notifications, detection (lane A, 2026-11-06; 3 sessions; #240)
+- **Paused** for the product owner's full QA stop (2026-11-06). The resume point is in
+  docs/lanes/A.md.
+- [ ] S1 (in progress):
+  - done: the views "known errors" and "accepted, due for review"; Tasks, Worklogs and History
+    tabs on the problem page (the parts and history hooks take the type's prefix); the list's
+    views with counts, one search for words or a PRB number, ellipsis and sticky ID/subject;
+    print a problem; assign its group and owner (the incident's dialog with the problems'
+    rules and assignees); "Create problem" from the chosen incidents in the bulk bar;
+  - next: REQ-PRB-021 templates limited to groups (one migration, number asked); REQ-PRB-022
+    the problem admin area and designer hints, on lane C's shared settings layout (#258) once
+    it lands.
+- [x] S2 (D14, D15), on #240:
+  - the causing problem on an incident, narrowly, for every technician (REQ-PRB-071):
+    `GET /incidents/{id}/causing-problem` and the "Caused by a problem" card, never the root cause;
+  - the built-in `problem_manager` role (Appendix A; lane C's review), made per tenant on demand
+    (no data migration);
+  - problem notifications on the engine (lane B's review): assigned, investigator added, known
+    error and solved (to the linked incidents' technicians), target date, mentions; no event is
+    public;
+  - requesters told "known and being worked on" or "fixed" on their portal incident
+    (REQ-PRB-075), never the problem;
+  - the problem report source's own fields and names; measures and widgets are lane C's WP-063;
+  - not yet: the requester-facing workaround (REQ-PRB-040, waits for lane C's WP-034 portal
+    knowledge).
+- [x] S3 (D16, D17), on #240:
+  - repeat incident rules without AI (REQ-PRB-068, migration 0110): the 15-minute evaluator
+    (one open set per rule and key, members capped, a handled set returns only for new
+    incidents), the problem module's (not in Essentials), the group told once, the problems
+    list's "Repeated incidents" card, Admin › Incidents › Repeated incidents (locked through
+    the shared featureState for licence managers outside the plan);
+  - D17: every problem operation in the public API (a contract test); the mobile app itself
+    stays a cross-lane question;
+  - en/ar/ur for every new screen; Arabic e2e with axe for the causing problem, the rules and
+    the list at 390 px;
+  - not yet: the rules screen and REQ-PRB-022's admin area on lane C's settings layout (#258).
+
 ### [x] WP-044b — Problems: analysis, links, known errors, tasks, closure (lane A, 2026-11-05; 5 sessions; #222)
 - **Plan:** ~/Desktop/wp-044-plan.md (D8..D12). The branch starts from #211's head; main is
   merged in once #211 lands. Migration 0078 (already allotted in the WP-044 numbers).
@@ -1252,6 +1289,63 @@ it with no reload (rule c). Not built yet.
   (REQ-INC-147 AC4) to WP-032; knowledge suggestions while typing (REQ-INC-028) to WP-034, the
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
+
+### [~] WP-049a — Assets: foundations, products, the asset record, life cycle, ownership, components, loans (lane B; D-141; 5 sessions; session 1 built 2026-11-05, draft #216)
+
+- **Scope:** parity 07 §1-7, REQ-AST-001..031, plus 058 (permissions by action), 059
+  (notifications) and 062 (warranty), folded in by the approved plan. Licence feature `assets`.
+  Migrations 0080-0088 are lane B's.
+- [x] **Session 1, module and catalogue:**
+  - The `assets` module: ModuleSpec, import-linter contract, outbox events, tenant broadcast
+    `assets.catalogue_changed` (no IDs).
+  - `assets.view` and `assets.manage` moved from the reserved list into the module; added
+    `assets.reinstate` and `config.assets`.
+  - Migration 0080: life cycles, states, moves, product types, products, settings. RLS FORCE and
+    an RLS test on all six tables.
+  - Appendix A seeded per tenant on first use: 35 product types, 7 states, 21 moves, the
+    standard life cycle. Names are en/ar/ur data (D-041); every row has a stable lowercase code
+    that is never shown.
+  - D-141: IT or non-IT and the kind are set on top-level types and inherited below. Price and
+    tax are stored apart, the total is worked out, and costs include tax by default.
+  - The admin page `/admin/assets` (new "Assets" setup group) with tabs for types, products,
+    states, life cycles and settings. Live through the broadcast; If-Match and Idempotency-Key.
+- [x] **Session 2, the asset record and vendors:**
+  - Minimal `procurement` module (migration 0081): vendors with their own list and API, active
+    flag (an inactive vendor stays on old records only), and deletion refused while records name
+    a vendor.
+  - Migration 0082, assets:
+    - tag and serial unique per tenant ignoring case, trash included;
+    - tags from the nearest type pattern, else the tenant's, never reused;
+    - search over the name, every identifier and the custom text;
+    - history, outbox, audit, a live list and record channels, trash and restore.
+  - Migration 0083: `asset` custom fields (live-check pattern).
+  - D-141 counter: only IT assets of kind asset that aren't disposed take a slot (reserve on
+    create, restore, product change).
+  - Console: /assets list, /assets/:id (Details, History) and /assets/vendors.
+  - Downgrades of 0080-0083 refuse while tenants have data (rule 5h).
+  - Region and the hardware tab come with discovery (WP-050).
+- [x] Session 3: life cycle in use (#216; migration 0108; REQ-AST-010, 011, 012, 013, 017).
+  - Moves along the type's life cycle with reasons, required fields and move permissions
+    (assets.reinstate); copy up to the tenant's limit; bulk moves with per-asset results.
+  - Dispose with a record (date, method, reason, cost, approver) and a certificate file (owner
+    type asset_disposal); a disposed asset is read-only without assets.edit_disposed (admins
+    only by default), and every change to it asks for a reason.
+  - A guard port for what still holds an asset: loans (session 5) and licence allocations
+    (WP-052) register theirs.
+  - Console: change state, copy, bulk moves, dispose, the disposal record; a searching product
+    picker; custom fields in the form and on the record; the asset's age.
+  - **Open:** AC4 of REQ-AST-017 (the disposal cost in the cost table and TCO) comes with the
+    cost table (session 4/5).
+- **Two PRs (coordinator, 2026-11-06):** #216 holds sessions 1-3 (it passed 14k lines); sessions
+  4-5 go on a new PR from main after #216 merges. Session 4 has migrations 0111 (ownership,
+  assignments, relationships), 0112 (acknowledgements) and 0113 (asset groups).
+- [ ] Session 4: ownership, acknowledgement, components, groups, relationships (REQ-AST-018,
+  019, 020 for assets, 023, 024, 026, 027, 028). Deferred: 021/022 with discovery (WP-050),
+  020's consumables and licences with WP-052; 025 is lane A's forms on the assets picker API
+  (`GET /assets/picker`, `can_see`, `asset_refs`, `assets_of`, agreed 2026-11-06).
+- [ ] Session 5: loans, warranty, notifications, e2e.
+- **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
+  preview UI follows lane C's release lookup.
 
 ### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 done, #233)
 

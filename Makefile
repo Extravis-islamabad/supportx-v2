@@ -2,11 +2,11 @@
 .DEFAULT_GOAL := help
 .PHONY: ai-dev-model ai-demo-model ai-model-stop ai-model-status ai-eval help decisions progress-log api-errors setup lint typecheck test format check build precommit audit audit-backend audit-frontend licence-check labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env generated generated-backend generated-frontend openapi openapi-check openapi-diff \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed catalog-starter db-guard custom-field-indexes dev-subscription e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed dev-quick-sign-in catalog-starter db-guard custom-field-indexes dev-subscription mail-inbound-test e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla worker-workflows events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check labels-sort keycloak-realm keycloak-theme keycloak-identity keycloak-dev-sync brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
@@ -86,7 +86,22 @@ showcase-seed: $(DEV_ENV) ## Fill Showcase Company (slug showcase) for demos; id
 	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
 	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
 	SUPPORTX_SHOWCASE_PASSWORD="$$(env_value SHOWCASE_PASSWORD)" \
+	SUPPORTX_SHOWCASE_TOTP_KEY="$$(env_value SHOWCASE_TOTP_KEY)" \
 	uv run python -m tooling.showcase_seed showcase
+
+dev-quick-sign-in: $(DEV_ENV) ## DEV ONLY: one-click sign-in per showcase persona at /dev/sign-in (D-151; never production)
+	@bash $(DEV_DIR)/scripts/dev-quick-sign-in.sh
+	@$(MAKE) --no-print-directory keycloak-dev-sync
+
+keycloak-dev-sync: $(DEV_ENV) ## DEV ONLY: give an existing local dev realm the quick sign-in's settings, keeping its data (idempotent)
+	@env_value() { grep "^$$1=" $(CURDIR)/$(DEV_ENV) | cut -d= -f2-; }; \
+	cd backend && SUPPORTX_KEYCLOAK_URL="http://localhost:$$(env_value KEYCLOAK_PORT || echo 28080)" \
+	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
+	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
+	SUPPORTX_DEV_QUICK_SIGN_IN="$$(env_value DEV_QUICK_SIGN_IN)" \
+	uv run python -m tooling.keycloak_dev_sync
+	@$(MAKE) --no-print-directory showcase-seed
+	@echo "Restart the API (make backend-dev), then open http://localhost:5173/dev/sign-in"
 
 custom-field-indexes: ## One index pass now, as the index worker does (CONCURRENTLY; D-088)
 	$(BACKEND) uv run python -m tooling.custom_field_indexes
@@ -96,6 +111,9 @@ db-guard: ## Check every table's tenant isolation (RLS) in the dev database
 
 dev-subscription: ## Show or change a dev tenant's plan: TENANT=demo|other|<uuid> ARGS="--technicians 1"
 	$(BACKEND) uv run python -m tooling.dev_subscription --tenant $(or $(TENANT),demo) $(ARGS)
+
+mail-inbound-test: ## Feed one e-mail into a dev tenant's inbound pipeline (QA6-NTF-01): TENANT=demo ARGS="--create"
+	$(BACKEND) uv run python -m tooling.mail_inbound --tenant $(or $(TENANT),demo) $(ARGS)
 
 # --- Event bus (WP-007, docs/architecture/events.md). Workers read backend/.env (make backend-env).
 
@@ -327,10 +345,8 @@ keycloak-identity: $(DEV_ENV) ## Set up the service account SupportX manages SSO
 brand-assets: ## Regenerate logos, favicons and the Keycloak theme from docs/brand (branding.md)
 	$(BACKEND) uv run python -m tooling.brand_assets
 
-chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Chart.lock
-	helm repo add nats https://nats-io.github.io/k8s/helm/charts/ --force-update >/dev/null
-	helm repo add valkey https://valkey.io/valkey-helm/ --force-update >/dev/null
-	helm dependency build $(CHART)
+chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Chart.lock; kept ones reused, retried
+	@bash deploy/scripts/chart-deps.sh
 
 chart-lint: chart-deps ## Lint and render the chart for every profile (kubeconform too, if installed)
 	@bash deploy/scripts/chart-lint.sh

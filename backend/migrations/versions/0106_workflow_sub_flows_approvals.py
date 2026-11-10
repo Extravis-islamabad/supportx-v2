@@ -20,7 +20,7 @@ The downgrade drops all of it, and refuses while any tenant has a chair or a wor
 (rule 5h).
 
 Revision ID: 0106
-Revises: 0105
+Revises: 0124
 Created: 2026-11-06
 """
 
@@ -32,7 +32,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0106"
-down_revision: str | None = "0105"
+down_revision: str | None = "0124"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

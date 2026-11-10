@@ -192,6 +192,8 @@ export function ServiceRequestPage() {
       )}
       {r.approval_status === 'pending' && mine && (
         <Button
+          // Its own width, not the column's (QA6-SR-04).
+          style={{ alignSelf: 'flex-start' }}
           onClick={() => {
             setAsking(true);
           }}
@@ -224,19 +226,18 @@ export function ServiceRequestPage() {
       >
         {t('requests.withdraw_confirm')}
       </Modal>
-      <Descriptions
-        title={t('requests.item_details')}
-        bordered
-        size="small"
-        column={1}
-        data-testid="portal-service-request-answers"
-      >
-        {questions.map((q) => (
-          <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
-            {answerWords(q, r.answers?.[q.key])}
-          </Descriptions.Item>
-        ))}
-      </Descriptions>
+      {/* On a white card, labels beside their answers, no grey label cells (QA6-SR-04). */}
+      <Card title={t('requests.item_details')} data-testid="portal-service-request-details">
+        <Descriptions size="small" column={1} data-testid="portal-service-request-answers">
+          {questions.map((q) => (
+            <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
+              {answerWords(q, r.answers?.[q.key]) || (
+                <Typography.Text type="secondary">{t('catalog.answer.not_given')}</Typography.Text>
+              )}
+            </Descriptions.Item>
+          ))}
+        </Descriptions>
+      </Card>
       {decided.length > 0 && (
         <List
           header={<Typography.Text strong>{t('requests.approvals')}</Typography.Text>}

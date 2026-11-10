@@ -4,6 +4,7 @@ import {
   App,
   Button,
   Checkbox,
+  Divider,
   Drawer,
   Flex,
   Form,
@@ -50,6 +51,7 @@ import {
   useConflict,
   useFormProblem,
   useLabel,
+  PersonSessions,
 } from '@supportx/ui';
 
 import { MemberAvailability } from '../../../MemberAvailability';
@@ -133,6 +135,7 @@ export interface PersonDrawerProps {
  */
 export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) {
   const t = useLabel();
+  const { can } = useAccess();
   const creating = userId === 'new';
   const record = useUser(userId === undefined || creating ? undefined : userId);
   const user = creating ? undefined : record.data;
@@ -176,8 +179,11 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
               label: t('people.tab.details'),
               children: (
                 <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  <PersonStatus user={user} own={own} />
+                  <PersonTags user={user} />
                   <PersonForm key={user.id} user={user} own={own} />
+                  {/* Actions that apply at once sit apart from the form that needs Save, after
+                      it, the destructive one last (QA6S-PEO-03). */}
+                  <PersonStatus user={user} own={own} />
                 </Space>
               ),
             },
@@ -186,6 +192,16 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
               label: t('people.tab.access'),
               children: <UserAccessPanel user={user} />,
             },
+            // A lost phone (ADR-044 item 5): people admins see and end the person's sessions.
+            ...(can('users.manage') && user.user_type !== 'service'
+              ? [
+                  {
+                    key: 'sessions',
+                    label: t('people.tab.sessions'),
+                    children: <PersonSessions userId={user.id} />,
+                  },
+                ]
+              : []),
           ]}
         />
       )}
@@ -213,6 +229,8 @@ function PersonForm({
   // A refusal with no field to point at (a rule, a limit) is shown above Save (QA WP-029 BUG-02).
   const problem = useFormProblem();
   const [form] = Form.useForm<Values>();
+  const watchedSignIn = Form.useWatch('can_sign_in', form);
+  const signsIn = user === undefined ? (watchedSignIn ?? true) : user.can_sign_in;
   const [dirty, setDirty] = useState(false);
   // The record moved on (adjusted while rendering, as for useDraft): with no unsaved edits the
   // form simply shows the latest; this drawer's own saves never count as someone else's.
@@ -242,14 +260,19 @@ function PersonForm({
       return false;
     }
     markHandled(error);
-    setProblems(
-      Object.fromEntries(
-        error.fieldErrors.map((f) => [
-          f.field.replace(/^body\./, ''),
-          t(f.message_key, f.params ?? {}),
-        ]),
-      ),
+    const found = Object.fromEntries(
+      error.fieldErrors.map((f) => [
+        f.field.replace(/^body\./, ''),
+        t(f.message_key, f.params ?? {}),
+      ]),
     );
+    setProblems(found);
+    // The first refused field comes into view and takes the focus (QA6S-PEO-02): the drawer is
+    // long, and its Save sits at the end.
+    const first = Object.keys(found)[0];
+    if (first !== undefined) {
+      form.scrollToField(first, { block: 'center', focus: true });
+    }
     return true;
   };
 
@@ -376,7 +399,13 @@ function PersonForm({
           >
             <Input count={lengthLimit(LENGTHS.display_name ?? 200)} />
           </Form.Item>
-          <Form.Item name="email" label={t('people.field.email')} {...help('email')}>
+          <Form.Item
+            name="email"
+            label={t('people.field.email')}
+            // Required whenever the person can sign in (QA6S-PEO-02): said before a save fails.
+            required={signsIn}
+            {...help('email')}
+          >
             <Input
               type="email"
               count={lengthLimit(LENGTHS.email ?? 254)}
@@ -625,6 +654,25 @@ function PlacementFields({
 }
 
 /** Type, sign-in and active/deactivated, each its own audited action. */
+/** What the person is at a glance, above the form: deactivated, contact only, VIP, not yet in. */
+function PersonTags({ user }: { user: UserDetail }) {
+  const t = useLabel();
+  return (
+    <Flex gap={8} wrap align="center" data-testid="person-tags">
+      {user.status === 'disabled' && (
+        <ToneTag tone="warning" testId="person-deactivated">
+          {t('user_status.disabled')}
+        </ToneTag>
+      )}
+      {!user.can_sign_in && <ToneTag tone="default">{t('people.contact')}</ToneTag>}
+      {user.vip && <ToneTag tone="purple">{t('people.vip')}</ToneTag>}
+      {user.can_sign_in && !user.signed_in_before && (
+        <ToneTag tone="info">{t('people.not_signed_in_yet')}</ToneTag>
+      )}
+    </Flex>
+  );
+}
+
 function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
   const t = useLabel();
   const { can } = useAccess();
@@ -679,18 +727,11 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
   const busy = setType.isPending || setSignIn.isPending || deactivate.isPending;
   return (
     <Flex vertical gap={12} data-testid="person-status">
-      <Flex gap={8} wrap align="center">
-        {user.status === 'disabled' && (
-          <ToneTag tone="warning" testId="person-deactivated">
-            {t('user_status.disabled')}
-          </ToneTag>
-        )}
-        {!user.can_sign_in && <ToneTag tone="default">{t('people.contact')}</ToneTag>}
-        {user.vip && <ToneTag tone="purple">{t('people.vip')}</ToneTag>}
-        {user.can_sign_in && !user.signed_in_before && (
-          <ToneTag tone="info">{t('people.not_signed_in_yet')}</ToneTag>
-        )}
-      </Flex>
+      <Divider style={{ margin: 0 }} />
+      <Typography.Title level={5} style={{ margin: 0 }}>
+        {t('people.account.title')}
+      </Typography.Title>
+      <Typography.Text type="secondary">{t('people.account.help')}</Typography.Text>
       <Flex gap={16} wrap align="center">
         <Typography.Text>{t('people.field.user_type')}</Typography.Text>
         <Segmented<PersonType>
@@ -741,31 +782,34 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
         </Flex>
       )}
       <PersonSignInActions user={user} />
-      {user.status === 'active' ? (
-        <Popconfirm
-          title={t('people.deactivate.confirm', { name: user.display_name })}
-          description={t('people.deactivate.explain')}
-          okText={t('people.deactivate')}
-          cancelText={t('actions.cancel')}
-          onConfirm={() => {
-            deactivateNow();
-          }}
-        >
-          <Button danger loading={deactivate.isPending} data-testid="person-deactivate">
-            {t('people.deactivate')}
+      <Divider style={{ margin: 0 }} />
+      <Flex justify="start">
+        {user.status === 'active' ? (
+          <Popconfirm
+            title={t('people.deactivate.confirm', { name: user.display_name })}
+            description={t('people.deactivate.explain')}
+            okText={t('people.deactivate')}
+            cancelText={t('actions.cancel')}
+            onConfirm={() => {
+              deactivateNow();
+            }}
+          >
+            <Button danger loading={deactivate.isPending} data-testid="person-deactivate">
+              {t('people.deactivate')}
+            </Button>
+          </Popconfirm>
+        ) : (
+          <Button
+            type="primary"
+            onClick={() => {
+              setReactivating(true);
+            }}
+            data-testid="person-reactivate"
+          >
+            {t('people.reactivate')}
           </Button>
-        </Popconfirm>
-      ) : (
-        <Button
-          type="primary"
-          onClick={() => {
-            setReactivating(true);
-          }}
-          data-testid="person-reactivate"
-        >
-          {t('people.reactivate')}
-        </Button>
-      )}
+        )}
+      </Flex>
       <ReactivateDialog
         user={user}
         own={own}

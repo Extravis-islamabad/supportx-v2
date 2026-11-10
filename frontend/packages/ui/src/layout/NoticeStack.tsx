@@ -1,4 +1,5 @@
-import { Button, Flex, Typography } from 'antd';
+import { CloseOutlined } from '@ant-design/icons';
+import { Button, Flex, Tooltip } from 'antd';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useLabel } from '../appearance';
@@ -9,9 +10,10 @@ const EXTRA = 'data-notice-extra';
 const CRITICAL = '[data-notice-critical="true"]';
 
 /**
- * The shell's notices (D-124): the banners decide for themselves whether to show, in order of
- * importance. With two or more showing, only the first stays and a line says how many more,
- * with "View" to see them all in place; a page never starts below a wall of banners.
+ * The shell's notices (D-124, D-147): the banners decide for themselves whether to show, in order
+ * of importance. One compact strip: the most important notice, and on the same line "N more"
+ * to see the others in place, and a dismiss button that hides the strip until a notice is
+ * added (never while a critical one shows). A page never starts below a wall of banners.
  *
  * "Showing" means having text: a banner with nothing to say may still render an empty box, which
  * never counts and never takes the visible place. A critical announcement takes that place
@@ -22,6 +24,13 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
   const ref = useRef<HTMLDivElement>(null);
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const [critical, setCritical] = useState(false);
+  const [ownClose, setOwnClose] = useState(false);
+  // The notices showing when the strip was dismissed, by their text (QA10-P3-10): the strip stays
+  // hidden while only those show, through navigation and a notice that comes and goes, and comes
+  // back when a new one appears. Kept for the tab's session (a reload keeps it too).
+  const [texts, setTexts] = useState<string[]>([]);
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(readDismissed);
 
   useLayoutEffect(() => {
     const element = ref.current;
@@ -39,6 +48,9 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
         else child.removeAttribute(EXTRA);
       }
       setCount(showing.length);
+      setTexts(showing.map((child) => child.textContent.trim()));
+      setCritical(showing.some((child) => child.querySelector(CRITICAL) !== null));
+      setOwnClose(first?.querySelector('.ant-alert-close-icon') != null);
     };
     update();
     const observer = new MutationObserver(update);
@@ -49,24 +61,22 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
   }, []);
 
   const collapsed = count > 1 && !open;
+  // Dismissed until a notice is added: hiding the strip never hides news (D-147 global fix 3).
+  // One × per line: a notice with its own close (an announcement's dismissal is stored for the
+  // person) keeps it, and the strip's dismiss shows only for notices without one.
+  const hidden =
+    count > 0 && !critical && texts.every((text) => dismissed.has(text)) && dismissed.size > 0;
   return (
-    <div data-testid={testId}>
-      {/* Hidden notices stay mounted, so their own live state (and focus order) is kept. */}
-      <style>{`[${COLLAPSED}="true"] > [${EXTRA}="true"] { display: none; }`}</style>
-      <div ref={ref} {...{ [COLLAPSED]: String(collapsed) }}>
-        {children}
-      </div>
-      {count > 1 && (
-        <Flex
-          align="center"
-          gap={SPACE.xs}
-          style={{ padding: `${String(SPACE.xxs)}px ${String(SPACE.md)}px` }}
-        >
-          <Typography.Text type="secondary" style={{ fontSize: TYPE.meta }}>
-            {open
-              ? t('layout.notices_count', { count })
-              : t('layout.notices_more', { count: count - 1 })}
-          </Typography.Text>
+    <div data-testid={testId} data-notice-strip="true" hidden={hidden || undefined}>
+      {/* Hidden notices stay mounted, so their own live state (and focus order) is kept. A
+          compact strip: the banners lose their tall padding. */}
+      <style>{`[${COLLAPSED}="true"] > [${EXTRA}="true"] { display: none; }
+[data-notice-strip] .ant-alert-banner { padding-block: 4px; }`}</style>
+      <Flex align="center" style={{ minWidth: 0 }}>
+        <div ref={ref} style={{ flex: 1, minWidth: 0 }} {...{ [COLLAPSED]: String(collapsed) }}>
+          {children}
+        </div>
+        {count > 1 && (
           <Button
             type="link"
             size="small"
@@ -75,11 +85,52 @@ export function NoticeStack({ children, testId }: { children: ReactNode; testId?
               setOpen(!open);
             }}
             data-testid={testId === undefined ? undefined : `${testId}-toggle`}
+            style={{ flex: 'none', fontSize: TYPE.meta }}
           >
-            {t(open ? 'layout.hide' : 'layout.view')}
+            {open ? t('layout.hide') : t('layout.notices_more', { count: count - 1 })}
           </Button>
-        </Flex>
-      )}
+        )}
+        {count > 0 && !critical && !ownClose && (
+          <Tooltip title={t('layout.notices_dismiss')}>
+            <Button
+              type="text"
+              size="small"
+              icon={<CloseOutlined />}
+              aria-label={t('layout.notices_dismiss')}
+              onClick={() => {
+                const next = new Set([...dismissed, ...texts]);
+                setDismissed(next);
+                writeDismissed(next);
+                setOpen(false);
+              }}
+              data-testid={testId === undefined ? undefined : `${testId}-dismiss`}
+              style={{ flex: 'none', marginInline: SPACE.xs }}
+            />
+          </Tooltip>
+        )}
+      </Flex>
     </div>
   );
+}
+
+const DISMISSED_KEY = 'supportx.notices.dismissed';
+
+// Per tab and best effort: storage can be missing or refuse (private windows); the strip then
+// simply shows again after a reload.
+function readDismissed(): ReadonlySet<string> {
+  try {
+    const raw = window.sessionStorage.getItem(DISMISSED_KEY);
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.filter((v) => typeof v === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissed(texts: ReadonlySet<string>): void {
+  try {
+    window.sessionStorage.setItem(DISMISSED_KEY, JSON.stringify([...texts].slice(-50)));
+  } catch {
+    // Not stored: shown again after a reload, never an error.
+  }
 }

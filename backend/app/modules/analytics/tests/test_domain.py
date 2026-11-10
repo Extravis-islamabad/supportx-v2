@@ -19,6 +19,7 @@ from app.modules.analytics.domain.measures import MEASURES, measure_problems
 from app.modules.analytics.service.compiler import (
     available_measures,
     compile_report,
+    drill_all,
     drill_filter,
 )
 from app.modules.analytics.service.runner import age_bounds, bucket_bounds
@@ -95,10 +96,19 @@ def test_every_measure_declaration_is_complete() -> None:
             assert measure_problems(spec) == [], spec.code
 
 
-def test_req_rpt_015_every_builtin_report_compiles_against_the_full_source() -> None:
-    # A source with every field the incident provider will offer (lane A's WP-029 adapter).
+def test_req_rpt_015_every_builtin_report_is_filed_under_its_module() -> None:
+    # One folder per reportable module, so the library's module tabs (D-147 template D) hold
+    # each module's own reports; the database test runs every one against the real sources.
+    folders = {
+        "incident": "incidents",
+        "service_request": "service_requests",
+        "problem": "problems",
+        "release": "releases",
+        "asset": "assets",
+    }
     for report in BUILTIN_REPORTS:
-        assert report.definition.entity == "incident"
+        assert folders[report.definition.entity] == report.folder, report.code
+    assert {r.folder for r in BUILTIN_REPORTS} == set(folders.values())
     assert len(BUILTIN) == len(BUILTIN_REPORTS)  # codes are unique
 
 
@@ -225,3 +235,20 @@ def test_req_rpt_037_drill_filter_is_the_report_filter_and_the_row() -> None:
     ) == {"field": "priority", "op": "is_null"}
     # The drill filter is valid for the same source (the list accepts it).
     compile_report(_definition(filter=drill), _source(), now=NOW, zone="UTC")
+
+
+def test_qa10_p4_22_a_counted_measure_s_condition_is_in_the_drill() -> None:
+    # "Open incidents" counts open ones only: its drill-down lists exactly those, never all.
+    kpi = _definition(measures=["open_count"], chart="kpi")
+    assert drill_all(kpi) == {"field": "status_category", "op": "in", "value": ["open", "paused"]}
+    filtered = _definition(
+        measures=["open_count"], filter={"field": "priority", "op": "eq", "value": "p1"}
+    )
+    assert drill_all(filtered) == {
+        "and": [
+            {"field": "priority", "op": "eq", "value": "p1"},
+            {"field": "status_category", "op": "in", "value": ["open", "paused"]},
+        ]
+    }
+    # A plain count adds nothing.
+    assert drill_all(_definition(measures=["count"])) is None

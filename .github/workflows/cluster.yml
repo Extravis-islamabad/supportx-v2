@@ -13,7 +13,8 @@ on:
   # each job decides whether this PR touches the deployment; if not, the job finishes at once.
   # labeled: adding the full-ci label runs the heavy jobs on this PR (speed mode, D-122).
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    # ready_for_review: a draft runs only the fast set (below); marking it ready runs everything.
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
   schedule:
     - cron: "17 3 * * *" # nightly 03:17 UTC
   workflow_dispatch:
@@ -134,6 +135,12 @@ jobs:
         if: ${{ steps.changes.outputs.run != 'false' }}
         with:
           version: v4.3.1
+      - name: Helm chart dependencies (cached by Chart.lock)
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deploy/helm/supportx/charts/*.tgz
+          key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
       # The images, the cluster and the e2e browsers fill the runner's disk: k3s then evicts
       # pods for low ephemeral storage (Valkey, 2026-11-04). Unused toolchains go first.
       - &free-disk
@@ -191,7 +198,7 @@ jobs:
     # Valkey (the changes step below decides; other PRs finish at once), never in the merge
     # queue. Not tied to the full-ci label (coordinator, 2026-11-05): a migration PR needs the
     # core profile and e2e, not the HA cluster.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
@@ -216,6 +223,12 @@ jobs:
         if: ${{ steps.changes.outputs.run != 'false' }}
         with:
           version: v4.3.1
+      - name: Helm chart dependencies (cached by Chart.lock)
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deploy/helm/supportx/charts/*.tgz
+          key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
       # Four k3d nodes each hold their own copy of the images: the runner's disk ran out
       # (evictions at "low on resource: ephemeral-storage"). Toolchains this job never uses go.
       - *free-disk
@@ -268,6 +281,11 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.3.1
+      - name: Helm chart dependencies (cached by Chart.lock)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deploy/helm/supportx/charts/*.tgz
+          key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
       - *install-k3d
       - uses: ./.github/actions/setup-backend
       - uses: ./.github/actions/setup-frontend

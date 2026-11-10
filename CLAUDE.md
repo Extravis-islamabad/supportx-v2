@@ -140,6 +140,17 @@ through an httpcore network backend.
 **Approved additions (D-134):** PostgreSQL's pg_trgm extension (trigram similarity; created by
 migration 0020).
 
+**Approved additions (mobile app, Haider 2026-11-06, #236; ADR-044):** the Extravis React Native
+app in `mobile/`, its own pnpm project: `react-native` (0.88.x) with `react` 19.x (the web apps stay
+on React 18), `expo` (58.x) and the Expo modules `expo-router`, `expo-web-browser` (sign-in in the
+system browser only), `expo-secure-store` (the session ID, Keychain/Keystore), `expo-crypto`,
+`expo-linking`, `expo-localization`, `expo-constants`, `expo-status-bar`, `expo-dev-client`,
+`@expo/vector-icons`, `react-native-safe-area-context`, `react-native-screens`; the stack's
+TanStack Query, Zustand, i18next/react-i18next, `centrifuge` and `openapi-fetch`; tests with Jest,
+`jest-expo`, `@react-native/jest-preset`, `@testing-library/react-native`, `test-renderer`.
+Subject to the licence check (`make licence-check`). **Condition: no Expo cloud**: no EAS cloud
+builds, no over-the-air updates through Expo's servers, no Expo push service, Expo telemetry off.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

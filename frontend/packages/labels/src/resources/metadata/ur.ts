@@ -4,6 +4,8 @@ import type { LabelResource } from '../en';
 export const ur: LabelResource = {
   'custom_field_display.list': 'ڈراپ ڈاؤن فہرست',
   'custom_field_display.radio': 'بٹن',
+  'custom_field_entity.asset': 'اثاثے',
+  'custom_field_entity.change': 'تبدیلیاں',
   'custom_field_entity.incident': 'واقعات',
   'custom_field_entity.problem': 'مسائل',
   'custom_field_entity.release': 'ریلیزز',
@@ -110,6 +112,8 @@ export const ur: LabelResource = {
   'custom_fields.yes': 'ہاں',
   'list.separator': '، ',
   'pick_list.cancel': 'منسوخی کی وجوہات',
+  'pick_list.change_reason': 'تبدیلی کی وجوہات',
+  'pick_list.change_type': 'تبدیلی کی اقسام',
   'pick_list.closure_code': 'بندش کے کوڈ',
   'pick_list.downtime_kind': 'بندش کی اقسام',
   'pick_list.level': 'سطحیں',

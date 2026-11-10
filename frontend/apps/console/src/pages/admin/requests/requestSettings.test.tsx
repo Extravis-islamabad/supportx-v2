@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import { fakeIncidentCatalogue, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
 import { consoleApi } from '../../../test/api';
@@ -19,6 +19,7 @@ describe('console: service request settings', () => {
   it('saves the on-behalf scope with If-Match on the version shown', async () => {
     window.history.pushState({}, '', '/admin/requests');
     const fake = consoleApi({
+      me: fakeSession({ roles: ['tenant_admin'] }),
       routes: {
         'GET /api/v1/service-requests/settings': { body: saved },
         'PATCH /api/v1/service-requests/settings': {
@@ -28,11 +29,15 @@ describe('console: service request settings', () => {
     });
     restore = fake.restore;
     render(<App />);
-    const save = await screen.findByTestId('sr-settings-save');
-    expect(save.closest('button')?.disabled).toBe(true); // nothing changed yet
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Requesters may raise for' }));
+    // One save bar (template E): none until something changes.
+    const scope = await screen.findByRole('combobox', { name: 'Requesters may raise for' });
+    expect(screen.queryByTestId('sr-settings-save-bar')).toBeNull();
+    fireEvent.mouseDown(scope);
     fireEvent.click(await screen.findByTitle('Any requester'));
-    fireEvent.click(save);
+    expect((await screen.findByTestId('sr-settings-save-bar')).textContent).toContain(
+      '1 unsaved change',
+    );
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PATCH', '/api/v1/service-requests/settings')).toHaveLength(1);
     });

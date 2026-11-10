@@ -1,20 +1,7 @@
 import { CopyOutlined, HomeOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Button,
-  Card,
-  Flex,
-  Input,
-  List,
-  Modal,
-  Result,
-  Space,
-  Switch,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
-import { useMemo, useState } from 'react';
+import { Button, Input, Modal, Result, Space, Switch, Tag, Tooltip, Typography } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import {
@@ -33,9 +20,10 @@ import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/rea
 import {
   ActionBar,
   ConflictDialog,
-  FilterBar,
-  ListPage,
   FormProblem,
+  LibraryPage,
+  type LibraryGroup,
+  type LibraryItem,
   PageHeader,
   SPACE,
   type RecordAction,
@@ -76,6 +64,8 @@ export function DashboardsPage() {
   return ref ? <DashboardPage dashboardRef={decodeURIComponent(ref)} /> : <Picker />;
 }
 
+/** The dashboards list on template D (D-147): search and favourites on top, then a tab each for
+ * the ready-made, shared and personal dashboards (REQ-DSH-005). */
 function Picker() {
   const t = useLabels();
   const { locale } = useAppearance();
@@ -85,32 +75,49 @@ function Picker() {
   const star = useStarDashboard();
   const [search, setSearch] = useState('');
   const data = list.data;
-  const groups = useMemo(() => {
+  const groups = useMemo<LibraryGroup[]>(() => {
     const items = data?.items ?? [];
-    const needle = search.trim().toLocaleLowerCase(locale);
-    const shown = items.filter(
-      (d) => !needle || dashboardName(d, t, locale).toLocaleLowerCase(locale).includes(needle),
-    );
-    const favourites = new Set(data?.favourites ?? []);
+    const item = (d: (typeof items)[number]): LibraryItem => {
+      const name = dashboardName(d, t, locale);
+      const description = d.builtin ? t(`dashboard.${d.builtin}.description`) : d.description;
+      return {
+        key: d.ref,
+        searchText: name,
+        title: (
+          <Link
+            to={`/dashboards/${encodeURIComponent(d.ref)}`}
+            data-testid={`dashboards-open-${d.ref}`}
+          >
+            {name}
+          </Link>
+        ),
+        description: description === null || description === '' ? undefined : description,
+        tags: (
+          <>
+            <Tag>{t(d.shared ? 'dashboards.shared' : 'dashboards.private')}</Tag>
+            {data?.home === d.ref && <Tag icon={<HomeOutlined />}>{t('dashboards.your_home')}</Tag>}
+          </>
+        ),
+        testId: `dashboards-item-${d.ref}`,
+      };
+    };
     return [
-      { key: 'favourites', items: shown.filter((d) => favourites.has(d.ref)) },
-      { key: 'builtin', items: shown.filter((d) => d.builtin && !favourites.has(d.ref)) },
-      {
-        key: 'shared',
-        items: shown.filter((d) => !d.builtin && d.shared && !favourites.has(d.ref)),
-      },
-      {
-        key: 'mine',
-        items: shown.filter((d) => !d.builtin && !d.shared && !favourites.has(d.ref)),
-      },
-    ].filter((g) => g.items.length > 0);
+      { key: 'builtin', items: items.filter((d) => d.builtin) },
+      { key: 'shared', items: items.filter((d) => !d.builtin && d.shared) },
+      { key: 'mine', items: items.filter((d) => !d.builtin && !d.shared) },
+    ].map((g) => ({
+      key: g.key,
+      label: t(`dashboards.group_${g.key}`),
+      items: g.items.map(item),
+      empty: t(`dashboards.group_${g.key}_empty`),
+    }));
     // `t` changes identity per render; the locale and data decide the result.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-  }, [data, search, locale]);
+  }, [data, locale]);
 
   return (
-    <ListPage
-      testId="dashboards-list"
+    <LibraryPage
+      testId="dashboards"
       header={
         <PageHeader
           title={t('nav.dashboards')}
@@ -118,83 +125,16 @@ function Picker() {
           extra={can('dashboards.create') ? <NewDashboard /> : undefined}
         />
       }
-      filters={
-        <FilterBar
-          search={
-            <Input.Search
-              allowClear
-              placeholder={t('dashboards.search')}
-              aria-label={t('dashboards.search')}
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-              }}
-              data-testid="dashboards-search"
-            />
-          }
-        />
-      }
-    >
-      <Flex vertical gap={SPACE.sm}>
-        {groups.map((group) => (
-          <Card
-            key={group.key}
-            size="small"
-            title={t(`dashboards.group_${group.key}`)}
-            data-testid={`dashboards-group-${group.key}`}
-          >
-            <List
-              dataSource={group.items}
-              renderItem={(d) => {
-                const starred = data?.favourites.includes(d.ref) ?? false;
-                return (
-                  <List.Item
-                    actions={[
-                      <Tooltip
-                        key="star"
-                        title={t(starred ? 'dashboards.unstar' : 'dashboards.star')}
-                      >
-                        <Button
-                          type="text"
-                          aria-label={t(starred ? 'dashboards.unstar' : 'dashboards.star')}
-                          aria-pressed={starred}
-                          icon={starred ? <StarFilled /> : <StarOutlined />}
-                          onClick={() => {
-                            star.mutate({ ref: d.ref, starred: !starred });
-                          }}
-                          data-testid={`dashboards-star-${d.ref}`}
-                        />
-                      </Tooltip>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      title={
-                        <Space wrap>
-                          <Link
-                            to={`/dashboards/${encodeURIComponent(d.ref)}`}
-                            data-testid={`dashboards-open-${d.ref}`}
-                          >
-                            {dashboardName(d, t, locale)}
-                          </Link>
-                          <Tag>{t(d.shared ? 'dashboards.shared' : 'dashboards.private')}</Tag>
-                          {data?.home === d.ref && (
-                            <Tag icon={<HomeOutlined />}>{t('dashboards.your_home')}</Tag>
-                          )}
-                        </Space>
-                      }
-                      description={
-                        d.builtin ? t(`dashboard.${d.builtin}.description`) : d.description
-                      }
-                    />
-                  </List.Item>
-                );
-              }}
-            />
-          </Card>
-        ))}
-        {list.isSuccess && groups.length === 0 && (
-          <Typography.Text type="secondary">{t('dashboards.no_match')}</Typography.Text>
-        )}
+      groups={groups}
+      search={search}
+      onSearch={setSearch}
+      searchLabel={t('dashboards.search')}
+      favourites={new Set(data?.favourites ?? [])}
+      onStar={(ref, starred) => {
+        star.mutate({ ref, starred });
+      }}
+      loading={!list.isSuccess}
+      extra={
         <Button
           type="link"
           onClick={() => {
@@ -203,8 +143,8 @@ function Picker() {
         >
           {t('dashboards.back_home')}
         </Button>
-      </Flex>
-    </ListPage>
+      }
+    />
   );
 }
 
@@ -291,6 +231,15 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
   const [editing, setEditing] = useState(
     () => new URLSearchParams(window.location.search).get('edit') === '1',
   );
+  // ?edit=1 opens a new dashboard in edit mode once; a reload or a shared link then opens it to
+  // view (QA10-P4-23).
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('edit')) {
+      url.searchParams.delete('edit');
+      window.history.replaceState(window.history.state, '', url);
+    }
+  }, []);
   const [pending, setPending] = useState<DashboardBody>();
   const dashboard = found.data;
   // The version an edit started from (QA WP-036 BUG-01): someone else's save while I edit must
@@ -402,7 +351,8 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
             label: t(isHome ? 'dashboards.is_home' : 'dashboards.set_home'),
             allowed: !isHome,
             whyNot: t('dashboards.is_home'),
-            primary: true,
+            // While editing, Done is the page's main action (QA10-P4-21).
+            primary: !editing,
             rank: 2,
             icon: <HomeOutlined />,
             onClick: () => {

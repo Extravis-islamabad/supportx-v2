@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Segmented, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Flex, Select, Space, Table, Tooltip } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { stripIsolates, useListFormat } from '@supportx/labels';
+import { useListFormat } from '@supportx/labels';
 
 import {
   allOf,
@@ -41,6 +41,7 @@ import {
   NoAccess,
   reportError,
   useAccess,
+  useLicence,
   useAppearance,
   useDateTime,
   useLabel,
@@ -48,7 +49,9 @@ import {
   FilterBar,
   FiltersDrawer,
   ListPage,
+  HeaderActions,
   PageHeader,
+  useMinWidth,
 } from '@supportx/ui';
 
 import { choiceName, fieldName } from '../customFields/values';
@@ -57,9 +60,16 @@ import { useIncidentFieldName } from './conflict';
 import { scaleLabel } from './labels';
 import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
+import { MyExportsButton } from '../reports/exports';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
 import { ColumnChooser, ResizableHeader, SelectPageBox } from './list/ColumnChooser';
-import { chosenColumns, columnCatalogue, sortOf, type ColumnContext } from './list/columns';
+import {
+  chosenColumns,
+  columnCatalogue,
+  GROUP_DEFAULT_MIN_WIDTH,
+  sortOf,
+  type ColumnContext,
+} from './list/columns';
 import { ListExport } from './list/ListExport';
 import {
   chipsFilter,
@@ -73,9 +83,10 @@ import {
   type ViewDraft,
 } from './list/model';
 import { SearchChips } from './list/SearchChips';
-import { TimeRange } from './list/TimeRange';
+import { ActiveRange, TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
+import { searchOf } from './searchOf';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
@@ -87,26 +98,16 @@ const LISTS_CHANGED = 'work_items.lists_changed';
 // sideways (QA 2026-11-05 V1). Tags (status, priority, due) never shrink below their width.
 const ELLIPSIS = new Set(['subject', 'requester_id', 'technician_id', 'group_id']);
 const STICKY = new Set(['display_id', 'subject']);
-const SELECT_WIDTH = 48;
+const SELECT_WIDTH = 40;
+const SUBJECT_MIN = 180;
+// A problem from at most this many chosen incidents (their IDs go in the new form's address).
+const PROBLEM_FROM_MAX = 100;
 const VIEWS_CHANGED = 'work_items.views_changed';
 const SETTINGS_CHANGED = 'work_items.list_settings_changed';
 // On my own channel, what changes only my counts (WP-020d QA BUG-01): a follow or a reply by
 // someone else, a direct report gained or lost, a group joined or left. Someone who sees every
 // incident follows only the shared list channel, which never hears about these.
 const MY_COUNTS_CHANGED = new Set([LISTS_CHANGED, 'users.reports_changed', 'access.changed']);
-const ID_PATTERN = /^([A-Za-z]{2,6}-)?\d{1,18}$/;
-
-/** Subject words, or a display ID ("INC-12", "12"), in one search box. */
-function searchOf(typed: string): FilterExpression | undefined {
-  // A pasted ID or subject may carry directional marks from a screen (isolation rule).
-  const text = stripIsolates(typed).trim();
-  if (text === '') return undefined;
-  const subject: FilterExpression = { field: 'subject', op: 'contains', value: text };
-  if (!ID_PATTERN.test(text)) return subject;
-  const number = Number(text.replace(/^[A-Za-z]+-/, ''));
-  return { or: [subject, { field: 'display_number', op: 'eq', value: number }] };
-}
-
 /**
  * Incidents (REQ-INC-104 to 110, 119, 120): built-in and saved views with live counts, chosen
  * columns per view, a time range, search with chips, a page size, sorting across pages, selection
@@ -118,8 +119,11 @@ export function IncidentsPage() {
   const navigate = useNavigate();
   const dates = useDateTime();
   const { can } = useAccess();
+  const { has } = useLicence();
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
+  const [panel, setPanel] = useState<'exports' | 'bulk' | null>(null);
+  const wideWindow = useMinWidth(GROUP_DEFAULT_MIN_WIDTH);
   // A built-in view code, or `custom:<saved view id>`.
   const [view, setView] = useState<string>(DEFAULT_VIEW);
   // A filter tried without saving (REQ-INC-106 AC2): this screen only.
@@ -195,20 +199,34 @@ export function IncidentsPage() {
   const fields = useMemo(() => listFields.data ?? [], [listFields.data]);
   const columnSpecs = useMemo(() => columnCatalogue(fields), [fields]);
   const stored = setting.data;
+  // Yours once saved, or once changed here before the first save has answered (QA10-P1-10:
+  // the cache holds your change at once, still without a version).
+  const yours = stored !== undefined && (stored.version != null || stored.columns.length > 0);
   const columns = chosenColumns(
-    stored?.version != null ? stored.columns : (saved?.columns ?? []),
+    yours ? stored.columns : (saved?.columns ?? []),
     columnSpecs,
+    wideWindow,
   );
+  // The table's least width: every column at its width, but the subject at its minimum, since it
+  // takes whatever room is left (D-147 template C). The table fits its card at 1280 and 1440, and
+  // scrolls sideways only below that, or when someone chooses many or wide columns.
   const tableWidth =
     SELECT_WIDTH +
-    columns.reduce((sum, c) => sum + (c.width ?? columnSpecs.get(c.key)?.width ?? 0), 0);
+    columns.reduce(
+      (sum, c) =>
+        sum +
+        (c.key === 'subject'
+          ? // A subject someone widened keeps its width; otherwise only its minimum counts.
+            Math.max(SUBJECT_MIN, c.width ?? 0)
+          : (c.width ?? columnSpecs.get(c.key)?.width ?? 0)),
+      0,
+    );
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
   const pageSize = stored?.page_size ?? 50;
   const saveSettings = (change: { columns?: ListColumn[]; sort?: string; page_size?: number }) => {
     saveSetting.mutate(
       {
         viewKey: settingKey,
-        version: stored?.version ?? null,
         setting: {
           columns: change.columns ?? columns,
           sort: change.sort ?? sort,
@@ -299,43 +317,112 @@ export function IncidentsPage() {
       testId="inc-list"
       header={
         <PageHeader
-          title={t('incidents.title')}
+          title={t(trash ? 'incidents.trash' : 'incidents.title')}
+          // The way back from the trash is right there, not only in "More" (QA10-P1-18).
+          back={
+            trash
+              ? {
+                  label: t('incidents.title'),
+                  onClick: () => {
+                    setMode('current');
+                  },
+                }
+              : undefined
+          }
           extra={
-            <>
-              {!trash && (
-                <ListExport
-                  title={viewName}
-                  filter={exported}
-                  columns={columns.map((c) => c.key)}
-                  sort={sort}
-                />
-              )}
-              {!trash && <BulkJobsButton onOpen={setJobId} />}
-              {can('incidents.delete') && (
-                <Segmented<'current' | 'trash'>
-                  value={mode}
-                  onChange={setMode}
-                  options={[
-                    { value: 'current', label: t('incidents.current') },
-                    { value: 'trash', label: t('incidents.trash') },
-                  ]}
-                  data-testid="inc-mode"
-                />
-              )}
-              {can('incidents.create') && (
-                <WriteButton
-                  type="primary"
-                  onClick={() => void navigate('/incidents/new')}
-                  data-testid="inc-new"
-                >
-                  {t('incidents.new')}
-                </WriteButton>
-              )}
-            </>
+            // D-147 template C: at most three header buttons, the rest in "More". The current
+            // and trash switch moved to the toolbar row.
+            <HeaderActions
+              testId="inc-header-actions"
+              buttons={
+                trash
+                  ? []
+                  : [
+                      {
+                        key: 'export',
+                        node: (
+                          <ListExport
+                            title={viewName}
+                            filter={exported}
+                            columns={columns.map((c) => c.key)}
+                            sort={sort}
+                            myExports={false}
+                          />
+                        ),
+                      },
+                    ]
+              }
+              more={[
+                // Current or trash (D-147: one toolbar row; the switch lives in "More").
+                ...(can('incidents.delete')
+                  ? [
+                      {
+                        key: 'mode',
+                        label: t(trash ? 'incidents.current' : 'incidents.trash'),
+                        onClick: () => {
+                          setMode(trash ? 'current' : 'trash');
+                        },
+                        testId: 'inc-mode',
+                      },
+                    ]
+                  : []),
+                ...(trash
+                  ? []
+                  : [
+                      ...(can('reports.export')
+                        ? [
+                            {
+                              key: 'my-exports',
+                              label: t('reports.my_exports'),
+                              onClick: () => {
+                                setPanel('exports');
+                              },
+                              testId: 'report-my-exports',
+                            },
+                          ]
+                        : []),
+                      {
+                        key: 'bulk-jobs',
+                        label: t('incidents.bulk.recent'),
+                        onClick: () => {
+                          setPanel('bulk');
+                        },
+                        testId: 'inc-bulk-jobs',
+                      },
+                    ]),
+              ]}
+              primary={
+                // Nothing is made in the trash (QA10-P1-18).
+                can('incidents.create') && !trash ? (
+                  <WriteButton
+                    type="primary"
+                    onClick={() => void navigate('/incidents/new')}
+                    data-testid="inc-new"
+                  >
+                    {t('incidents.new')}
+                  </WriteButton>
+                ) : undefined
+              }
+            />
           }
         />
       }
     >
+      <MyExportsButton
+        button={false}
+        open={panel === 'exports'}
+        onOpenChange={(open) => {
+          if (!open) setPanel(null);
+        }}
+      />
+      <BulkJobsButton
+        onOpen={setJobId}
+        button={false}
+        open={panel === 'bulk'}
+        onOpenChange={(open) => {
+          if (!open) setPanel(null);
+        }}
+      />
       {!trash && (
         <PersonalCounters
           active={view}
@@ -407,7 +494,7 @@ export function IncidentsPage() {
                         ]
                       : []),
                   ]}
-                  style={{ width: 'min(260px, 100%)' }}
+                  style={{ width: 'min(240px, 100%)' }}
                   data-testid="inc-view"
                 />
                 {saved?.mine === true && (
@@ -442,6 +529,12 @@ export function IncidentsPage() {
               fields={fields}
               words={words}
             />
+            <ActiveRange
+              value={range}
+              onChange={setRange}
+              words={words}
+              testId="inc-time-active-list"
+            />
           </>
         }
         quick={
@@ -460,7 +553,7 @@ export function IncidentsPage() {
                   label: scaleLabel(t, catalogue.data, 'priority', p, locale),
                 })),
               ]}
-              style={{ minWidth: 'min(200px, 100%)' }}
+              style={{ minWidth: 'min(160px, 100%)' }}
               data-testid="inc-filter-priority"
             />
           </>
@@ -470,16 +563,19 @@ export function IncidentsPage() {
           setFiltersOpen(true);
         }}
         extra={
-          <>
-            <ColumnChooser
-              columns={columns}
-              catalogue={columnSpecs}
-              context={context}
-              onChange={(next) => {
-                saveSettings({ columns: next });
-              }}
-            />
-          </>
+          // The trash shows its fixed columns; choosing columns there would change the list's.
+          trash ? undefined : (
+            <>
+              <ColumnChooser
+                columns={columns}
+                catalogue={columnSpecs}
+                context={context}
+                onChange={(next) => {
+                  saveSettings({ columns: next });
+                }}
+              />
+            </>
+          )
         }
       />
       <FiltersDrawer
@@ -625,6 +721,37 @@ export function IncidentsPage() {
           capped={total !== null && total >= 1000 && list.hasNextPage}
           onAction={setBulkAction}
           canEdit={bulkAllowed}
+          extra={
+            // One problem from the chosen incidents (REQ-PRB-011 AC1, WP-044c S1): the new-problem
+            // form starts from them. Chosen rows only, as their IDs travel in the address.
+            has('problem') && can('problems.create') ? (
+              <Tooltip
+                title={
+                  selection.all || selection.ids.length === 0
+                    ? t('incidents.bulk.select_first')
+                    : selection.ids.length > PROBLEM_FROM_MAX
+                      ? t('incidents.bulk.too_many', { max: PROBLEM_FROM_MAX })
+                      : undefined
+                }
+              >
+                <span>
+                  <Button
+                    disabled={
+                      selection.all ||
+                      selection.ids.length === 0 ||
+                      selection.ids.length > PROBLEM_FROM_MAX
+                    }
+                    onClick={() =>
+                      void navigate(`/problems/new?incidents=${selection.ids.join(',')}`)
+                    }
+                    data-testid="inc-bulk-create-problem"
+                  >
+                    {t('problems.create_from_incident')}
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : undefined
+          }
         />
       )}
       <Table<IncidentListItem>
@@ -642,6 +769,7 @@ export function IncidentsPage() {
             ? undefined
             : {
                 fixed: true, // stays with the ID and subject when the table scrolls sideways
+                columnWidth: SELECT_WIDTH, // the width the table's least width counts
                 selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
                 columnTitle: (
                   <SelectPageBox

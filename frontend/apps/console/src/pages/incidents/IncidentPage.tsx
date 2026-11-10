@@ -15,11 +15,12 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 
 import {
   ApiError,
   queryKeys,
+  useCausingProblem,
   useDeleteIncident,
   useIncident,
   useIncidentTasks,
@@ -44,12 +45,14 @@ import {
   ChannelIcon,
   ConflictDialog,
   describeError,
+  EditableValue,
   FormProblem,
   inlineImageIds,
   lengthLimit,
   markHandled,
   PresenceAvatars,
   PropertiesPanel,
+  PropertyList,
   PropertyRow,
   type RecordAction,
   RecordHeader,
@@ -78,7 +81,7 @@ import { useIncidentFieldName } from './conflict';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
 import { rememberIncident } from './recent';
-import { lastTab, rememberTab } from './tabs';
+import { DEFAULT_TAB, lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { KnowledgeCard } from '../knowledge/KnowledgeCard';
@@ -108,6 +111,7 @@ import { IMPACT_DETAILS_MAX, SUBJECT_MAX } from './form';
 import { useStatusActions } from './StatusActions';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
 import { TagsInput } from './TagsInput';
+import { CausingProblemCard } from './CausingProblemCard';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -168,10 +172,20 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
-  const [tab, setTab] = useState<string>(() => lastTab(me));
+  // The causing problem, narrowly (WP-044c D14); live on its channel for who may open it.
+  const cause = useCausingProblem(item.id);
+  useRecordChannel('wi', cause.data?.may_open ? cause.data.id : undefined, () => {
+    void queryClient.invalidateQueries({
+      queryKey: [...queryKeys.incidents.links(item.id), 'cause'],
+    });
+  });
+  // A record just made opens on Conversation, whatever tab was used last (QA6-INC-04).
+  const justMade = (useLocation().state as { justMade?: boolean } | null)?.justMade === true;
+  const [tab, setTab] = useState<string>(() => (justMade ? DEFAULT_TAB : lastTab(me)));
   const [replyRequest, setReplyRequest] = useState(0);
   // Tasks, worklogs and links follow the record's edit permission (WP-020e).
   const canEditParts = item.operations.find((o) => o.action === 'edit')?.allowed === true;
+  const canEditSubject = canEditParts;
   // Offered first in quick search and record pickers (REQ-INC-085).
   useEffect(() => {
     rememberIncident(me, item.id);
@@ -429,6 +443,23 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             displayId={item.display_id}
             title={item.subject}
             testIds={{ id: 'inc-display-id', title: 'inc-heading' }}
+            // The subject is edited here, in place (D-147: no second Subject in Properties).
+            renderTitle={(shown) =>
+              canEditSubject ? (
+                <InlineEdit
+                  item={item}
+                  field="subject"
+                  label={t('work_item.field.subject')}
+                  spec={{ kind: 'text', value: item.subject }}
+                  reload={reload}
+                  onEditing={onEditing}
+                >
+                  {shown}
+                </InlineEdit>
+              ) : (
+                shown
+              )
+            }
             tags={
               <>
                 <StatusTag status={item.status} catalogue={catalogue.data} />
@@ -437,6 +468,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   policyId={item.sla_policy_id}
                   dueAt={item.resolution_due_at}
                   state={item.resolution_sla_state}
+                  resolvedAt={item.resolved_at}
                   format={dates.format}
                 />
               </>
@@ -451,7 +483,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               </span>,
               ...(statusReason === null ? [] : [statusReason]),
             ]}
-            extra={
+          />
+        }
+        // One row (D-147 template A): who else is here, Follow, then at most three buttons and
+        // More actions (UI pass 2).
+        actions={
+          <ActionBar
+            actions={actions}
+            max={3}
+            testId="inc-operations"
+            lead={
               <>
                 <PresenceAvatars viewers={viewers} selfUserId={me} />
                 <FollowButton item={item} me={me} />
@@ -459,8 +500,6 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             }
           />
         }
-        // At most four controls in the header: three buttons and More actions (UI pass 2).
-        actions={<ActionBar actions={actions} max={3} testId="inc-operations" />}
         alerts={
           <>
             <AlertStrip
@@ -525,6 +564,17 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   </div>
                 ),
               },
+              // The causing problem, narrowly, for every technician (WP-044c D14).
+              ...(cause.data
+                ? [
+                    {
+                      key: 'cause',
+                      title: t('incidents.causing_problem.title'),
+                      testId: 'inc-panel-cause',
+                      children: <CausingProblemCard cause={cause.data} />,
+                    },
+                  ]
+                : []),
               {
                 key: 'assignment',
                 title: t('incidents.panel.assignment'),
@@ -725,13 +775,15 @@ function Details({
     id === null
       ? null
       : { id, name: item.people[id]?.display_name ?? '', email: item.people[id]?.email ?? '' };
-  const rows: { key: string; label: string; view: ReactNode; edit?: EditorSpec }[] = [
-    {
-      key: 'subject',
-      label: t('work_item.field.subject'),
-      view: <bdi dir="auto">{item.subject}</bdi>,
-      edit: { kind: 'text', value: item.subject },
-    },
+  // The subject is the header's title (edited there) and the creation time is in its key facts:
+  // neither repeats here (D-147: no duplicate Subject). `filled` decides what shows at once.
+  const rows: {
+    key: string;
+    label: string;
+    view: ReactNode;
+    edit?: EditorSpec;
+    filled: boolean;
+  }[] = [
     {
       key: 'requester_id',
       label: t('work_item.field.requester_id'),
@@ -742,24 +794,28 @@ function Details({
         current: person(item.requester_id),
         required: true,
       },
+      filled: true,
     },
     {
       key: 'on_behalf_of_id',
       label: t('work_item.field.on_behalf_of_id'),
       view: <Person item={item} id={item.on_behalf_of_id} />,
       edit: { kind: 'user', value: item.on_behalf_of_id, current: person(item.on_behalf_of_id) },
+      filled: item.on_behalf_of_id !== null,
     },
     {
       key: 'site_id',
       label: t('work_item.field.site_id'),
       view: sites.data?.find((s) => s.id === item.site_id)?.name ?? '',
       edit: { kind: 'site', value: item.site_id },
+      filled: item.site_id !== null,
     },
     {
       key: 'department_id',
       label: t('work_item.field.department_id'),
       view: departments.data?.find((d) => d.id === item.department_id)?.name ?? '',
       edit: { kind: 'department', value: item.department_id },
+      filled: item.department_id !== null,
     },
     {
       key: 'category_id',
@@ -769,6 +825,7 @@ function Details({
         categories.data?.find((n) => n.id === item.category_id)?.disabled === true,
       ),
       edit: { kind: 'category', value: item.category_id },
+      filled: item.category_id !== null,
     },
     {
       key: 'level',
@@ -778,6 +835,7 @@ function Details({
         catalogue.data?.levels.find((v) => v.code === item.level)?.disabled === true,
       ),
       edit: { kind: 'choice', value: item.level, options: levelOptions },
+      filled: item.level !== null,
     },
     {
       key: 'impact',
@@ -788,6 +846,7 @@ function Details({
         value: item.impact,
         options: IMPACTS.map((v) => ({ value: v, label: scale('impact', v) })),
       },
+      filled: item.impact !== null,
     },
     {
       key: 'impact_details',
@@ -798,6 +857,7 @@ function Details({
         </bdi>
       ),
       edit: { kind: 'longtext', value: item.impact_details ?? '' },
+      filled: (item.impact_details ?? '') !== '',
     },
     {
       key: 'urgency',
@@ -808,23 +868,27 @@ function Details({
         value: item.urgency,
         options: URGENCIES.map((v) => ({ value: v, label: scale('urgency', v) })),
       },
+      filled: item.urgency !== null,
     },
     {
       key: 'priority',
       label: t('work_item.field.priority'),
       view: <PriorityTag priority={item.priority} source={item.priority_source} />,
       edit: canPriority ? { kind: 'priority', value: item.priority } : undefined,
+      filled: true,
     },
     {
       key: 'channel',
       label: t('work_item.field.channel'),
       view: t(`work_item_channel.${item.channel}`),
+      filled: true,
     },
     {
       key: 'tags',
       label: t('work_item.field.tags'),
       view: listFormat(item.tags),
       edit: { kind: 'tags', value: item.tags },
+      filled: item.tags.length > 0,
     },
     // Custom fields (WP-026): the ones the template shows, and any other holding a value
     // (retired ones read-only, marked).
@@ -845,6 +909,7 @@ function Details({
           edit: f.retired
             ? undefined
             : ({ kind: 'custom', value, field: f, current } satisfies EditorSpec),
+          filled: value !== null && value !== '' && !(Array.isArray(value) && value.length === 0),
         };
       }),
     {
@@ -859,16 +924,13 @@ function Details({
             {template.disabled && <> ({t('templates.disabled')})</>}
           </>
         ),
-    },
-    {
-      key: 'created_at',
-      label: t('incidents.created_at'),
-      view: dates.format(item.created_at),
+      filled: item.template_id !== null,
     },
     {
       key: 'resolved_at',
       label: t('work_item.field.resolved_at'),
       view: dates.format(item.resolved_at),
+      filled: item.resolved_at !== null,
     },
     // Only once closed; reopening clears it, and history keeps the time (WP-020f QA BUG-06).
     ...(item.closed_at === null
@@ -878,12 +940,14 @@ function Details({
             key: 'closed_at',
             label: t('work_item.field.closed_at'),
             view: dates.format(item.closed_at),
+            filled: true,
           },
         ]),
     {
       key: 'reopen_count',
       label: t('work_item.field.reopen_count'),
       view: String(item.reopen_count),
+      filled: item.reopen_count > 0,
     },
     // A requester's late reply started this record (REQ-INC-098, D7).
     ...(item.follows_id === null
@@ -893,31 +957,40 @@ function Details({
             key: 'follows_id',
             label: t('work_item.field.follows_id'),
             view: <FollowsLink id={item.follows_id} />,
+            filled: true,
           },
         ]),
   ];
   if (part === 'properties') {
+    // Filled fields first; the empty ones you may fill wait behind "Add details" (D-147).
+    // An empty field nobody here may edit is left out: there is nothing to do with it.
     return (
-      <div data-testid="inc-properties">
-        {rows.map((row) => (
-          <PropertyRow key={row.key} label={row.label}>
-            {row.edit !== undefined && canEdit ? (
-              <InlineEdit
-                item={item}
-                field={row.key}
-                label={row.label}
-                spec={row.edit}
-                reload={reload}
-                onEditing={onEditing}
-              >
-                {row.view}
-              </InlineEdit>
-            ) : (
-              <span data-testid={`inc-prop-${row.key}`}>{row.view}</span>
-            )}
-          </PropertyRow>
-        ))}
-      </div>
+      <PropertyList
+        testId="inc-properties"
+        items={rows
+          .filter((row) => row.filled || (row.edit !== undefined && canEdit))
+          .map((row) => ({
+            key: row.key,
+            label: row.label,
+            filled: row.filled,
+            content:
+              row.edit !== undefined && canEdit ? (
+                <InlineEdit
+                  item={item}
+                  field={row.key}
+                  label={row.label}
+                  spec={row.edit}
+                  reload={reload}
+                  onEditing={onEditing}
+                  empty={!row.filled}
+                >
+                  {row.view}
+                </InlineEdit>
+              ) : (
+                <span data-testid={`inc-prop-${row.key}`}>{row.view}</span>
+              ),
+          }))}
+      />
     );
   }
   return (
@@ -993,6 +1066,7 @@ function InlineEdit({
   spec,
   reload,
   onEditing,
+  empty = false,
   children,
 }: {
   item: Incident;
@@ -1001,6 +1075,8 @@ function InlineEdit({
   spec: EditorSpec;
   reload: () => Promise<unknown>;
   onEditing: (delta: number) => void;
+  /** Nothing saved yet: reads "Add". */
+  empty?: boolean;
   children: ReactNode;
 }) {
   const t = useLabel();
@@ -1059,25 +1135,21 @@ function InlineEdit({
     );
   };
   if (!open) {
+    // The value itself is the control (D-147 template A): a click edits, no pencil per row.
     return (
-      <Flex gap={4} align="center" style={{ width: '100%' }}>
-        <span data-testid={`inc-prop-${field}`} style={{ flex: 1 }}>
-          {children}
-        </span>
-        <Button
-          size="small"
-          type="text"
-          icon={<EditOutlined />}
-          aria-label={t('incidents.edit_field', { field: label })}
-          data-testid={`inc-edit-${field}`}
-          onClick={() => {
-            setValue(spec.kind === 'priority' ? spec.value : spec.value);
-            setReason('');
-            setOpen(true);
-            onEditing(1);
-          }}
-        />
-      </Flex>
+      <EditableValue
+        label={label}
+        empty={empty}
+        testId={`inc-edit-${field}`}
+        onEdit={() => {
+          setValue(spec.value);
+          setReason('');
+          setOpen(true);
+          onEditing(1);
+        }}
+      >
+        <span data-testid={`inc-prop-${field}`}>{children}</span>
+      </EditableValue>
     );
   }
   const control = (() => {

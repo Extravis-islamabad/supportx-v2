@@ -28,7 +28,7 @@ from app.modules.identity_access import active_user_ids
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.stages import Move, SetBy
-from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemApproval,
@@ -101,6 +101,36 @@ async def _candidates(
     return list(dict.fromkeys(people)), unheld
 
 
+async def segregated(
+    session: AsyncSession, record: WorkItem, *, strict: bool = False
+) -> set[uuid.UUID]:
+    """People who may not approve this record: holders of its type's segregated roles.
+
+    The requester is kept out by the self-approval rule; these are the others (REQ-CHG-039,
+    Haider's decision): by default the people assigned (a change's implementer) and the record's
+    owner (its technician). `strict` bars every member of an implementing group as well; the
+    per-tenant setting for it comes with WP-045b.
+    """
+    wtype = TYPES.get(WorkItemTypeCode(record.type))
+    if wtype is None or not wtype.segregated_roles:
+        return set()
+    held = (
+        await session.execute(
+            select(WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id).where(
+                WorkItemRoleHolder.work_item_id == record.id,
+                WorkItemRoleHolder.role.in_(wtype.segregated_roles),
+            )
+        )
+    ).all()
+    people = {r.user_id for r in held if r.user_id}
+    if record.technician_id is not None:
+        people.add(record.technician_id)  # the change owner
+    groups = frozenset(r.group_id for r in held if r.group_id)
+    if strict and groups:
+        people |= set(await session.scalars(users_in_groups(groups)))
+    return people
+
+
 async def open_level(
     session: AsyncSession,
     record: WorkItem,
@@ -113,6 +143,7 @@ async def open_level(
     level = settings.levels[index]
     people, unheld = await _candidates(session, record, level)
     active = await active_user_ids(session, people)
+    barred = await segregated(session, record)
     named: list[uuid.UUID] = []
     reason: rules.RouteReason | None = rules.RouteReason.NO_HOLDER if unheld else None
     for person in people:
@@ -121,6 +152,9 @@ async def open_level(
             continue
         if not settings.self_approval and person == record.requester_id:
             reason = reason or rules.RouteReason.SELF_APPROVAL_BLOCKED
+            continue
+        if person in barred:
+            reason = reason or rules.RouteReason.SEGREGATION_OF_DUTIES
             continue
         named.append(person)  # named: decides by being named, no extra permission needed
     if not people and reason is None:
@@ -272,15 +306,45 @@ class StagedApprovalGuard:
         await _close(session, record, others)
 
     async def on_moved(self, session: AsyncSession, record: WorkItem, move: Move) -> None:
-        """Reaching the raising status opens level 1 (once: not while it is open)."""
-        settings = await settings_of(session, self.wtype, record, record.stage)
-        if settings is None or record.status != settings.raised_by:
-            return
-        stage = str(record.stage)
-        if any(r.state == rules.ApprovalState.PENDING for r in await _rows(session, record, stage)):
-            return
-        await open_level(session, record, settings, stage=stage, index=0)
+        """Reaching the raising status opens level 1, or moves on when nobody can approve."""
         del move
+        await raise_or_move_on(session, self.wtype, record)
+
+
+async def raise_or_move_on(session: AsyncSession, wtype: WorkItemType, record: WorkItem) -> None:
+    """The record's stage asks for its approvals now, if it is at the raising status.
+
+    Level 1 opens (once: not while it is open). A stage whose approvals were removed moves on by
+    itself instead (QA10-P4-29): its outcome statuses are set by approvals only, so a record at
+    the status that used to raise them would wait for a decision nobody can make. Every path that
+    may raise a stage's approvals calls this (a move's guard, a send-back for re-approval), so all
+    of them behave the same (lane A's review).
+    """
+    settings = await settings_of(session, wtype, record, record.stage)
+    if settings is None:
+        await _move_on_without_approvers(session, wtype, record)
+        return
+    if record.status != settings.raised_by:
+        return
+    stage = str(record.stage)
+    if any(r.state == rules.ApprovalState.PENDING for r in await _rows(session, record, stage)):
+        return
+    await open_level(session, record, settings, stage=stage, index=0)
+
+
+async def _move_on_without_approvers(
+    session: AsyncSession, wtype: WorkItemType, record: WorkItem
+) -> None:
+    """With nothing to approve, take the approved outcome at once, recorded as the system's."""
+    default = wtype.stage_approvals.get(str(record.stage))
+    if default is None or record.status != default.get("raised_by"):
+        return
+    # Imported here: the work item service imports the stage guard registered below.
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - see above
+
+    await items.system_stage_move(
+        session, wtype, record, target=str(default["approved"]), source="system"
+    )
 
 
 def register(types: Sequence[WorkItemType]) -> None:

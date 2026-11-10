@@ -276,12 +276,60 @@ describe('Admin › Incidents › Routing (WP-029)', () => {
       return found[0];
     });
     if (option !== undefined) fireEvent.click(option);
+    // One save bar for the tab (template E): the choice is a draft until Save.
+    expect(fake.find('PUT', '/api/v1/automation/routing-settings')).toHaveLength(0);
+    expect((await screen.findByTestId('routing-save-bar')).textContent).toContain(
+      '1 unsaved change',
+    );
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/automation/routing-settings')).toHaveLength(1);
     });
     const sent = fake.find('PUT', '/api/v1/automation/routing-settings')[0];
     expect(sent?.body).toEqual({ fallback_group_id: 'g-1' });
     expect(sent?.headers.get('If-Match')).toBe('"0"');
+  });
+});
+
+describe('Admin › Routing: auto-assignment on the one save bar (template E)', () => {
+  it("a group's assignment is a draft until Save, then saved for that group", async () => {
+    const assignment = {
+      group_id: 'g-1',
+      version: 2,
+      enabled: false,
+      method: 'round_robin',
+      load_cap: null,
+      on_create: true,
+      on_move: true,
+      unassigned_only: true,
+      count_paused: false,
+      record_types: ['incident'],
+    };
+    const fake = routes({
+      'GET /api/v1/automation/groups/g-1/assignment': { body: assignment },
+      'PUT /api/v1/automation/groups/g-1/assignment': {
+        body: { ...assignment, enabled: true, version: 3 },
+      },
+    });
+    open('/admin/automation/routing');
+    const group = await screen.findByTestId('assign-group');
+    fireEvent.mouseDown(group.querySelector('.ant-select-selector') ?? group);
+    const option = await waitFor(() => {
+      const found = screen
+        .getAllByText('Service desk')
+        .filter((n) => n.closest('.ant-select-item-option') !== null);
+      if (found.length === 0) throw new Error('no option');
+      return found[0];
+    });
+    if (option !== undefined) fireEvent.click(option);
+    fireEvent.click(await screen.findByTestId('assign-enabled'));
+    expect(fake.find('PUT', '/api/v1/automation/groups/g-1/assignment')).toHaveLength(0);
+    fireEvent.click(await screen.findByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/automation/groups/g-1/assignment')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PUT', '/api/v1/automation/groups/g-1/assignment');
+    expect(sent?.body).toMatchObject({ enabled: true, method: 'round_robin' });
   });
 });
 
@@ -372,5 +420,38 @@ describe('Availability switch (WP-029, REQ-ASG-006)', () => {
       fake.find('PUT', '/api/v1/automation/availability/01900000-0000-7000-8000-000000000101')[0]
         ?.body,
     ).toEqual({ state: 'away' });
+  });
+});
+
+describe('Settings review 2026-11-06: editors say what is missing before sending', () => {
+  beforeEach(() => {
+    setDefaultClientFactory(inertClientFactory);
+  });
+
+  it('QA6S-AUT-01: an empty routing rule names Name and Group, never a raw code', async () => {
+    const fake = routes();
+    open('/admin/automation/routing');
+    fireEvent.click(await screen.findByTestId('routing-add'));
+    fireEvent.click(await screen.findByTestId('routing-save'));
+    const list = await screen.findByTestId('routing-problems');
+    expect(list.textContent).toContain('Name');
+    expect(list.textContent).toContain('This field is required.');
+    expect(list.textContent).toContain('Choose a group.');
+    expect(list.textContent).not.toMatch(/Uuid|Parsing/);
+    expect(fake.find('POST', '/api/v1/automation/routing')).toHaveLength(0);
+  });
+
+  it('QA6S-AUT-03: an action without a field asks to choose one', async () => {
+    const fake = routes();
+    open('/admin/automation/business-rules');
+    fireEvent.click(await screen.findByTestId('rule-add'));
+    fireEvent.change(await screen.findByTestId('rule-name'), { target: { value: 'New' } });
+    fireEvent.click(screen.getByTestId('action-add'));
+    fireEvent.click(screen.getByTestId('rule-save'));
+    const list = await screen.findByTestId('rule-problems');
+    expect(list.textContent).toContain('Action 1');
+    expect(list.textContent).toContain('Choose a field.');
+    expect(list.textContent).not.toContain('A rule cannot set this field.');
+    expect(fake.find('POST', '/api/v1/automation/rules')).toHaveLength(0);
   });
 });

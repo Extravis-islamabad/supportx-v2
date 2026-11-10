@@ -37,6 +37,7 @@ export const ur: LabelResource = {
     'آپ کے رولز کے لیے لازمی: پاس ورڈ کے بعد آپ تصدیقی ایپ کا کوڈ درج کرتے ہیں۔',
   'account.mfa.reminder':
     'آپ کی تنظیم دو مرحلہ سائن اِن لازمی کرتی ہے۔ اسے {{date}} تک سیٹ اپ کریں؛ اس کے بعد کچھ اور کرنے سے پہلے آپ سے کہا جائے گا۔',
+  'account.mfa.reminder_close': 'اگلے سائن اِن تک یہ یاد دہانی چھپائیں',
   'account.mfa.reminder_short': 'دو مرحلہ سائن اِن {{date}} تک درکار',
   'account.mfa.set_up': 'دو مرحلہ سائن اِن سیٹ اپ کریں',
   'account.mfa.set_up_short': 'سیٹ اپ کریں',
@@ -48,6 +49,19 @@ export const ur: LabelResource = {
   'account.recovery.missing':
     'آپ کے پاس ریکوری کوڈ نہیں: فون کے بغیر آپ سائن اِن نہیں کر سکیں گے۔ ابھی حاصل کریں اور محفوظ رکھیں۔',
   'account.recovery.new': 'نئے ریکوری کوڈ',
+  'account.sessions.app_on': '{{platform}} پر SupportX ایپ',
+  'account.sessions.end': 'سائن آؤٹ',
+  'account.sessions.end_body':
+    'یہ فوراً سائن آؤٹ ہو جاتا ہے اور جاری رکھنے کے لیے دوبارہ سائن اِن کرنا ہوگا۔',
+  'account.sessions.end_title': 'اس آلے سے سائن آؤٹ کریں؟',
+  'account.sessions.ended': 'اس آلے سے سائن آؤٹ ہو گیا',
+  'account.sessions.help':
+    'جہاں جہاں آپ اس تنظیم میں سائن اِن ہیں۔ جسے آپ نہیں پہچانتے یا اب استعمال نہیں کرتے، جیسے گمشدہ فون، اس سے سائن آؤٹ کریں۔',
+  'account.sessions.none': 'کوئی اور سیشن نہیں',
+  'account.sessions.this_device': 'یہ آلہ',
+  'account.sessions.title': 'سائن اِن براؤزر اور آلات',
+  'account.sessions.version': 'ورژن {{version}}',
+  'account.sessions.when': 'سائن اِن {{started}} · آخری استعمال {{used}}',
   'account.sso_only':
     'آپ اپنی تنظیم کے سنگل سائن آن سے سائن اِن کرتے ہیں، اس لیے یہاں کوئی پاس ورڈ نہیں۔',
   'account.title': 'سائن اِن اور سکیورٹی',
@@ -128,6 +142,33 @@ export const ur: LabelResource = {
   'availability.no_members': 'اس گروپ میں کوئی ٹیکنیشن نہیں۔',
   'availability.set_available_by': '{{name}} نے {{time}} پر دستیاب کیا',
   'availability.set_away_by': '{{name}} نے {{time}} پر غیر حاضر کیا',
+  'dev_persona.admin': 'منتظم',
+  'dev_persona.approver': 'منظوری دینے والا',
+  'dev_persona.lead': 'ٹیم لیڈ',
+  'dev_persona.new_starter': 'نیا ملازم',
+  'dev_persona.requester': 'درخواست گزار',
+  'dev_persona.technician': 'ٹیکنیشن',
+  'dev_sign_in.app_console': 'کنسول',
+  'dev_sign_in.app_portal': 'پورٹل',
+  'dev_sign_in.as': '{{persona}} کے طور پر سائن اِن کریں',
+  'dev_sign_in.reason.account_locked':
+    'ناکام کوششوں کے بعد Keycloak نے یہ اکاؤنٹ چند منٹ کے لیے مقفل کر دیا ہے۔',
+  'dev_sign_in.reason.credentials_refused':
+    'ڈیولپمنٹ .env میں پاس ورڈ یا تصدیقی کلید سیڈ سے میل نہیں کھاتی: make showcase-seed چلائیں۔',
+  'dev_sign_in.reason.grant_not_allowed':
+    'Keycloak یہاں یہ سائن اِن نہیں ہونے دیتا: یہ ڈیولپمنٹ ریلم نہیں۔',
+  'dev_sign_in.reason.keycloak_refused': 'Keycloak نے کسی اور وجہ سے انکار کیا: اس کا لاگ دیکھیں۔',
+  'dev_sign_in.reason.mfa_setup_required':
+    'اس کردار کو پہلے دو مرحلہ سائن اِن سیٹ اپ کرنا ہوگا: پہلے سے اندراج کے لیے make showcase-seed چلائیں۔',
+  'dev_sign_in.reason.not_showcase': 'یہ کردار Showcase Company کا رکن نہیں۔',
+  'dev_sign_in.sets_up_mfa': 'دو مرحلہ سائن اِن سیٹ اپ کرتا ہے',
+  'dev_sign_in.setup_link_sent':
+    'ہم نے {{email}} کو دو مرحلہ سائن اِن سیٹ اپ کرنے کا لنک ای میل کیا ہے۔ اسے 15 منٹ کے اندر مقامی میل کیچر (Mailpit) میں کھولیں۔',
+  'dev_sign_in.title': 'فوری سائن اِن (صرف ڈیولپمنٹ)',
+  'dev_sign_in.unavailable':
+    'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
+  'dev_sign_in.warning':
+    'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'form_density.title': 'فارم کی ترتیب',
@@ -157,6 +198,8 @@ export const ur: LabelResource = {
   'password_policy_state.applying': 'لاگو ہو رہی ہے',
   'password_policy_state.default': 'انسٹالیشن کا ڈیفالٹ',
   'password_policy_state.failed': 'لاگو نہیں ہوئی',
+  'people.account.help': 'یہ محفوظ کیے بغیر فوراً لاگو ہوتے ہیں۔',
+  'people.account.title': 'اکاؤنٹ',
   'people.add': 'فرد شامل کریں',
   'people.added': '{{name}} شامل کر دیا گیا',
   'people.changed_elsewhere':
@@ -243,6 +286,7 @@ export const ur: LabelResource = {
   'people.sign_in': 'سائن اِن',
   'people.tab.access': 'رسائی',
   'people.tab.details': 'تفصیلات',
+  'people.tab.sessions': 'آلات',
   'people.title': 'افراد',
   'people.title_person': '{{name}}',
   'people.total_one': '{{count}} فرد',
@@ -292,8 +336,12 @@ export const ur: LabelResource = {
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',
+  'permission.assets.edit_disposed': 'تلف شدہ اثاثے بدلیں',
+  'permission.assets.edit_disposed.description': 'تلف ہونے کے بعد اثاثہ بدلیں، ہر بار وجہ بتا کر۔',
   'permission.assets.manage': 'اثاثوں کا انتظام کریں',
   'permission.assets.manage.description': 'اثاثے شامل اور تبدیل کریں۔',
+  'permission.assets.reinstate': 'ریٹائرڈ اثاثے واپس لائیں',
+  'permission.assets.reinstate.description': 'ریٹائرڈ اثاثہ واپس اسٹاک میں لائیں۔',
   'permission.assets.view': 'اثاثے دیکھیں',
   'permission.assets.view.description': 'ہارڈ ویئر اور سافٹ ویئر اثاثے دیکھیں۔',
   'permission.audit.export': 'آڈٹ لاگ برآمد کریں',
@@ -319,10 +367,41 @@ export const ur: LabelResource = {
   'permission.catalog_items.manage': 'سروس کیٹلاگ کا انتظام',
   'permission.catalog_items.manage.description':
     'کیٹلاگ کی کیٹیگریز اور آئٹمز شامل اور تبدیل کریں: ان کے فارم، منظوری اور تکمیل۔',
+  'permission.changes.add_note': 'تبدیلیاں پر نجی نوٹس شامل کریں',
+  'permission.changes.add_note.description': 'تبدیلیاں پر صرف عملے کے لیے نوٹس لکھیں۔',
   'permission.changes.approve': 'تبدیلیوں کی منظوری دیں',
   'permission.changes.approve.description': 'تبدیلی کی درخواستیں منظور یا مسترد کریں۔',
+  'permission.changes.assign': 'تبدیلیاں تفویض کریں',
+  'permission.changes.assign.description': 'تبدیلیاں کا گروپ اور مالک منتخب کریں۔',
+  'permission.changes.assign_outside_group': 'تبدیلیاں گروپ سے باہر تفویض کریں',
+  'permission.changes.assign_outside_group.description':
+    'تبدیلی کسی ایسے فرد کو دیں جو اس کے گروپ میں نہ ہو۔',
+  'permission.changes.cancel': 'تبدیلیاں منسوخ کریں',
+  'permission.changes.cancel.description': 'تبدیلیاں وجہ کے ساتھ منسوخ کریں، اور منسوخی واپس لیں۔',
+  'permission.changes.change_priority': 'تبدیلی کی ترجیح ہاتھ سے بدلیں',
+  'permission.changes.change_priority.description': 'میٹرکس کے بجائے ترجیح خود مقرر کریں۔',
+  'permission.changes.close': 'تبدیلیاں بند کریں',
+  'permission.changes.close.description': 'تبدیلیاں کو ان کے مراحل سے گزار کر بند کریں۔',
   'permission.changes.create': 'تبدیلیاں بنائیں',
   'permission.changes.create.description': 'تبدیلی کی نئی درخواستیں درج کریں۔',
+  'permission.changes.delete': 'تبدیلیاں حذف کریں',
+  'permission.changes.delete.description': 'تبدیلیاں کوڑے دان میں ڈالیں اور واپس لائیں۔',
+  'permission.changes.edit': 'تبدیلیاں پر کام کریں',
+  'permission.changes.edit.description': 'تبدیلیاں کی تفصیلات، ان کا تجزیہ اور ان کے کام بدلیں۔',
+  'permission.changes.edit_due_dates': 'تبدیلیاں کی ہدف تاریخ ہاتھ سے مقرر کریں',
+  'permission.changes.edit_due_dates.description': 'تبدیلی کی ہدف تاریخ پالیسی کے بجائے خود بدلیں۔',
+  'permission.changes.manage_followers': 'تبدیلیاں کے فالوورز کا انتظام',
+  'permission.changes.manage_followers.description':
+    'تبدیلی کو فالو کرنے والے لوگ شامل کریں اور ہٹائیں۔',
+  'permission.changes.reopen': 'تبدیلیاں دوبارہ کھولیں',
+  'permission.changes.reopen.description': 'حل شدہ یا بند تبدیلی دوبارہ تحقیق میں لائیں۔',
+  'permission.changes.reply': 'تبدیلیاں پر عوامی نوٹس شامل کریں',
+  'permission.changes.reply.description':
+    'ایسے نوٹس لکھیں جو تبدیلی کے فالوورز اور وصول کنندگان دیکھیں۔',
+  'permission.changes.resolve': 'تبدیلیاں حل کریں',
+  'permission.changes.resolve.description': 'تبدیلیاں کو ان کے حل کے ساتھ حل شدہ نشان زد کریں۔',
+  'permission.changes.take': 'تبدیلیاں خود لیں',
+  'permission.changes.take.description': 'ایسا تبدیلی خود لیں جس کا ابھی کوئی مالک نہیں۔',
   'permission.changes.view': 'تبدیلیاں دیکھیں',
   'permission.changes.view.description': 'تبدیلی کی درخواستیں دیکھیں۔',
   'permission.cmdb.manage': 'CMDB کا انتظام کریں',
@@ -332,6 +411,9 @@ export const ur: LabelResource = {
   'permission.config.announcements': 'اعلانات ترتیب دیں',
   'permission.config.announcements.description':
     'کون شائع کر سکتا ہے، اور کیا دوسرے شخص کی منظوری ضروری ہے۔',
+  'permission.config.assets': 'اثاثوں کی ترتیب',
+  'permission.config.assets.description':
+    'پروڈکٹ کی اقسام، پروڈکٹس، اثاثوں کی حالتیں، لائف سائیکل اور اثاثوں کی ترتیبات تبدیل کریں۔',
   'permission.config.organisation': 'ادارہ ترتیب دیں',
   'permission.config.organisation.description': 'ڈیسک اور ادارے کے ڈھانچے کی ترتیبات۔',
   'permission.config.reports': 'رپورٹس ترتیب دیں',
@@ -616,6 +698,13 @@ export const ur: LabelResource = {
   'permission.users.manage.description': 'صارفین کو کردار، سائٹس اور گروپس تفویض کریں۔',
   'permission.users.view': 'صارفین دیکھیں',
   'permission.users.view.description': 'ادارے کے لوگ اور ان کی تفصیلات دیکھیں۔',
+  'permission.vendors.create': 'وینڈرز شامل کریں',
+  'permission.vendors.create.description': 'وینڈر شامل کریں، کسی دوسرے فارم سے بھی۔',
+  'permission.vendors.manage': 'وینڈرز کا انتظام کریں',
+  'permission.vendors.manage.description': 'وینڈرز میں تبدیلی، غیر فعال اور حذف کریں۔',
+  'permission.vendors.view': 'وینڈرز دیکھیں',
+  'permission.vendors.view.description':
+    'وینڈرز اور ان کی تفصیلات دیکھیں، اور ریکارڈز پر انہیں منتخب کریں۔',
   'permission.work_items.approve_any': 'متبادل منظوریوں کا فیصلہ کریں',
   'permission.work_items.approve_any.description':
     'ان منظوریوں کا فیصلہ کریں جن کا کوئی فعال منظوری دہندہ نہیں (منظوری کے منتظمین)۔',
@@ -662,6 +751,7 @@ export const ur: LabelResource = {
   'permission_module.sites': 'سائٹس',
   'permission_module.sla': 'ایس ایل اے',
   'permission_module.users': 'صارفین',
+  'permission_module.vendors': 'وینڈرز',
   'permission_module.work_items': 'تمام درخواستیں (واقعات اور سروس درخواستیں)',
   'permission_module.workflows': 'ورک فلو',
   'preferences.date_format': 'تاریخ کا فارمیٹ',
@@ -682,12 +772,14 @@ export const ur: LabelResource = {
   'presence.you_elsewhere': 'آپ (دوسری ونڈو میں)',
   'profile.form_density_help': 'مختصر ترتیب میں دو کالم اور ایک طرف لیبل ہوتے ہیں۔',
   'profile.identity': 'نام، ای میل اور زبان آپ کے سائن اِن اکاؤنٹ سے آتے ہیں۔',
+  'profile.replies_card': 'جوابات اور ٹائم زون',
   'profile.saved': 'آپ کی ترجیحات محفوظ ہو گئیں۔',
   'profile.signature': 'جوابی دستخط',
   'profile.signature_help': 'آپ کے بھیجے گئے جوابات میں شامل کیا جاتا ہے۔',
   'profile.time_zone': 'ٹائم زون',
   'profile.time_zone_help': 'تاریخیں اور اوقات دکھانے کے لیے استعمال ہوتا ہے، مثلاً Asia/Dubai۔',
   'profile.title': 'میری پروفائل',
+  'profile.who': 'آپ',
   'readiness_check.event_consumers': 'واقعات کی پروسیسنگ',
   'readiness_check.malware_signatures': 'وائرس کی شناختی فہرست',
   'readiness_check.nats': 'میسج بس',
@@ -701,6 +793,9 @@ export const ur: LabelResource = {
   'role.knowledge_manager': 'نالج مینیجر',
   'role.knowledge_manager.description':
     'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
+  'role.problem_manager': 'مسائل کا منتظم',
+  'role.problem_manager.description':
+    'مسائل کا انتظام چلاتا ہے: ہر مسئلہ دیکھتا، اس پر کام کرتا، تفویض کرتا، منظور اور بند کرتا ہے، بشمول بنیادی وجہ اور معلوم خرابیاں، اور متعلقہ واقعات پڑھتا ہے۔',
   'role.report_viewer': 'رپورٹ دیکھنے والا',
   'role.report_viewer.description':
     'ہر واقعہ اور درخواست اور ان کی رپورٹس پڑھتا ہے، بغیر کچھ بدلے۔',
@@ -744,9 +839,11 @@ export const ur: LabelResource = {
   'roles.delete_title': '{{name}} حذف کریں؟',
   'roles.deleted': 'کردار حذف ہو گیا۔',
   'roles.description': 'تفصیل',
+  'roles.duplicate': 'اپنے کردار کے طور پر نقل بنائیں',
   'roles.editor.copy': '“{{name}}” سے نیا کردار',
   'roles.editor.edit': 'کردار: {{name}}',
   'roles.editor.new': 'نیا کردار',
+  'roles.granted_only': 'صرف دی گئی',
   'roles.groups': 'سپورٹ گروپس',
   'roles.groups_add': 'گروپ شامل کریں',
   'roles.groups_help':
@@ -755,10 +852,12 @@ export const ur: LabelResource = {
   'roles.has_rule': 'ایک قاعدے سے محدود',
   'roles.name': 'نام',
   'roles.new': 'نیا کردار',
+  'roles.no_permission_found': 'کوئی اجازت نہیں ملی',
   'roles.permissions': 'اجازتیں',
   'roles.reassign_to': 'صارفین کو منتقل کریں',
   'roles.saved': 'کردار محفوظ ہو گیا۔',
   'roles.scope_of': '{{permission}} کا دائرہ',
+  'roles.search': 'اجازت تلاش کریں',
   'roles.system_read_only':
     'پہلے سے موجود کردار تبدیل نہیں ہو سکتے۔ مختلف اجازتیں دینے کے لیے حسب ضرورت کردار بنائیں۔',
   'roles.title': 'کردار',
@@ -803,6 +902,20 @@ export const ur: LabelResource = {
   'security.invitations.status': 'حالت',
   'security.invitations.title': 'دعوت نامے',
   'security.invitations.valid_days': 'دعوت کے لنک کام کرتے ہیں',
+  'security.mfa.confirm_off_one':
+    'یہ کردار 1 فرد کے پاس ہے۔ سائن اِن دوسرا مرحلہ نہیں مانگے گا، چاہے اس نے سیٹ کیا ہو۔',
+  'security.mfa.confirm_off_other':
+    'یہ کردار {{count}} افراد کے پاس ہے۔ سائن اِن دوسرا مرحلہ نہیں مانگے گا، چاہے انہوں نے سیٹ کیا ہو۔',
+  'security.mfa.confirm_ok': 'بدلیں',
+  'security.mfa.confirm_optional_one':
+    'یہ کردار 1 فرد کے پاس ہے۔ وہ اسے سیٹ کر سکتا ہے، مگر سائن اِن اب اس کا تقاضا نہیں کرے گا۔',
+  'security.mfa.confirm_optional_other':
+    'یہ کردار {{count}} افراد کے پاس ہے۔ وہ اسے سیٹ کر سکتے ہیں، مگر سائن اِن اب اس کا تقاضا نہیں کرے گا۔',
+  'security.mfa.confirm_required_one':
+    'یہ کردار 1 فرد کے پاس ہے؛ ان میں سے {{missing}} نے ابھی اسے سیٹ کرنا ہے۔ جن کے پاس نہیں انہیں مہلت ملتی ہے، پھر وہ صرف اسے سیٹ کر سکتے ہیں۔',
+  'security.mfa.confirm_required_other':
+    'یہ کردار {{count}} افراد کے پاس ہے؛ ان میں سے {{missing}} نے ابھی اسے سیٹ کرنا ہے۔ جن کے پاس نہیں انہیں مہلت ملتی ہے، پھر وہ صرف اسے سیٹ کر سکتے ہیں۔',
+  'security.mfa.confirm_title': '{{role}} کے لیے دو مرحلہ سائن اِن {{mode}} کریں؟',
   'security.mfa.count': '{{holders}} میں سے {{enrolled}}',
   'security.mfa.enrolled': 'سیٹ اپ',
   'security.mfa.grace': 'لازمی ہونے کے بعد سیٹ اپ کے دن',
@@ -937,6 +1050,11 @@ export const ur: LabelResource = {
   'session.idle.sign_out': 'ابھی سائن آؤٹ کریں',
   'session.idle.stay': 'سائن اِن رہیں',
   'session.idle.title': 'کیا آپ ابھی موجود ہیں؟',
+  'session_client.console': 'براؤزر میں کنسول',
+  'session_client.mobile': 'SupportX ایپ',
+  'session_client.portal': 'براؤزر میں پورٹل',
+  'session_platform.android': 'Android',
+  'session_platform.ios': 'iPhone یا iPad',
   'sign_in_method.password': 'پاس ورڈ',
   'sign_in_method.single_sign_on': 'سنگل سائن آن',
   'sign_in_outcome.failed': 'ناکام',

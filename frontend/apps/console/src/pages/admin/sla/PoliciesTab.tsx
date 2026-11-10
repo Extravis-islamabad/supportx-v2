@@ -46,11 +46,14 @@ import {
   reportError,
   useFormProblem,
   useLabel,
+  SettingsCard,
+  StickySaveBar,
 } from '@supportx/ui';
 
 import { builderFields } from '../../incidents/list/model';
 import { useReportWords } from '../../reports/names';
 import { LevelsEditor } from './LevelsEditor';
+import { calendarNameOf, policyName } from './names';
 
 type Translate = ReturnType<typeof useLabel>;
 type Kind = SlaTargetRow['kind'];
@@ -155,7 +158,7 @@ export function PoliciesTab({ editable }: { editable: boolean }) {
             title: t('sla.policy.field.name'),
             render: (_, row) => (
               <Flex gap={6} wrap align="center">
-                <bdi>{row.name}</bdi>
+                <bdi>{policyName(t, row.name)}</bdi>
                 {row.fallback && <ToneTag tone="info">{t('sla.policies.default')}</ToneTag>}
                 {!row.enabled && <ToneTag tone="default">{t('sla.policies.off')}</ToneTag>}
                 {row.never_matches && (
@@ -552,7 +555,7 @@ function PolicyEditor({
                             }}
                             options={(calendars.data ?? []).map((c) => ({
                               value: c.id,
-                              label: c.name,
+                              label: calendarNameOf(t, c.name),
                             }))}
                             placeholder={t('sla.policy.field.calendar')}
                             style={{ minWidth: 200 }}
@@ -591,6 +594,10 @@ function PolicyEditor({
 // --- settings ------------------------------------------------------------------------------------
 
 /** Admin › SLA › Settings: the warning point and what priority changes and reopens do. */
+const SETTING_FIELDS = ['warning_percent', 'priority_rule', 'reopen_rule'] as const;
+type SlaSettingsValues = Pick<SlaSettings, (typeof SETTING_FIELDS)[number]>;
+
+/** The SLA settings (template E, D-147): one card, one save bar sending only what changed. */
 export function SettingsTab({ editable }: { editable: boolean }) {
   const t = useLabel();
   const { message } = App.useApp();
@@ -598,14 +605,17 @@ export function SettingsTab({ editable }: { editable: boolean }) {
   const change = useSlaSettingsChange(RECORD_TYPE);
   const problem = useFormProblem();
   const [problems, setProblems] = useState<Record<string, string>>({});
-  const [form] = Form.useForm<Omit<SlaSettings, 'record_type' | 'version'>>();
+  const [form] = Form.useForm<SlaSettingsValues>();
+  const watched = Form.useWatch([], form) as Partial<SlaSettingsValues> | undefined;
   const current = settings.data;
   if (current === undefined) return null;
+  const changed = SETTING_FIELDS.filter(
+    (name) => watched?.[name] !== undefined && watched[name] !== current[name],
+  );
   return (
     <Form
       form={form}
       layout="vertical"
-      style={{ maxWidth: 560 }}
       disabled={!editable}
       key={current.version} // a save made elsewhere arrives live: show it
       initialValues={current}
@@ -613,8 +623,11 @@ export function SettingsTab({ editable }: { editable: boolean }) {
       onFinish={(values) => {
         setProblems({});
         problem.clear();
+        const body = Object.fromEntries(
+          changed.map((name) => [name, values[name]]),
+        ) as Partial<SlaSettingsValues>;
         change.mutate(
-          { version: current.version, body: values },
+          { version: current.version, body },
           {
             onSuccess: () => void message.success(t('common.saved')),
             onError: (error) => {
@@ -630,41 +643,49 @@ export function SettingsTab({ editable }: { editable: boolean }) {
       }}
     >
       <FormProblem problem={problem} />
-      <Form.Item
-        name="warning_percent"
-        label={t('sla.settings.warning_percent')}
-        extra={t('sla.settings.warning_percent_help')}
-        {...(problems.warning_percent === undefined
-          ? {}
-          : { validateStatus: 'error' as const, help: problems.warning_percent })}
-      >
-        <InputNumber min={1} max={99} suffix="%" data-testid="sla-settings-warning" />
-      </Form.Item>
-      <Form.Item name="priority_rule" label={t('sla.settings.priority_rule')}>
-        <Select
-          options={(['recalculate', 'restart'] as const).map((v) => ({
-            value: v,
-            label: t(`sla_priority_rule.${v}`),
-          }))}
-        />
-      </Form.Item>
-      <Form.Item name="reopen_rule" label={t('sla.settings.reopen_rule')}>
-        <Select
-          options={(['resume', 'restart'] as const).map((v) => ({
-            value: v,
-            label: t(`sla_reopen_rule.${v}`),
-          }))}
-        />
-      </Form.Item>
+      <SettingsCard title={t('sla.settings.title')} testId="sla-settings-card">
+        <div style={{ maxWidth: 560 }}>
+          <Form.Item
+            name="warning_percent"
+            label={t('sla.settings.warning_percent')}
+            extra={t('sla.settings.warning_percent_help')}
+            {...(problems.warning_percent === undefined
+              ? {}
+              : { validateStatus: 'error' as const, help: problems.warning_percent })}
+          >
+            <InputNumber min={1} max={99} suffix="%" data-testid="sla-settings-warning" />
+          </Form.Item>
+          <Form.Item name="priority_rule" label={t('sla.settings.priority_rule')}>
+            <Select
+              options={(['recalculate', 'restart'] as const).map((v) => ({
+                value: v,
+                label: t(`sla_priority_rule.${v}`),
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="reopen_rule" label={t('sla.settings.reopen_rule')}>
+            <Select
+              options={(['resume', 'restart'] as const).map((v) => ({
+                value: v,
+                label: t(`sla_reopen_rule.${v}`),
+              }))}
+            />
+          </Form.Item>
+        </div>
+      </SettingsCard>
       {editable && (
-        <Button
-          type="primary"
-          htmlType="submit"
-          loading={change.isPending}
-          data-testid="sla-settings-save"
-        >
-          {t('actions.save')}
-        </Button>
+        <StickySaveBar
+          changes={changed.length}
+          saving={change.isPending}
+          onDiscard={() => {
+            form.resetFields();
+            setProblems({});
+          }}
+          onSave={() => {
+            form.submit();
+          }}
+          testId="sla-settings-save-bar"
+        />
       )}
     </Form>
   );

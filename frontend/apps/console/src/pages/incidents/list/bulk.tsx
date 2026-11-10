@@ -14,7 +14,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import {
   useBulkJob,
@@ -33,9 +33,10 @@ import {
   useDateTime,
   useLabel,
   WriteButton,
+  EmptyText,
 } from '@supportx/ui';
 
-import { BULK_ACTIONS, BULK_MAX, skipReason, type Selection } from './model';
+import { BULK_ACTIONS, BULK_MAX, skipReason, useBulkLive, type Selection } from './model';
 
 import { CategoryCascade } from '../CategoryCascade';
 import { closureCodeChoices, listValueLabel, scaleLabel } from '../labels';
@@ -57,6 +58,7 @@ export function BulkBar({
   capped,
   onAction,
   canEdit,
+  extra,
 }: {
   selection: Selection;
   onSelection: (selection: Selection) => void;
@@ -65,6 +67,8 @@ export function BulkBar({
   capped: boolean;
   onAction: (action: BulkAction) => void;
   canEdit: (action: BulkAction) => boolean;
+  /** Actions on the selection that are not background jobs (a problem from these incidents). */
+  extra?: ReactNode;
 }) {
   const t = useLabel();
   const count = selection.all ? (total ?? 0) : selection.ids.length;
@@ -129,6 +133,7 @@ export function BulkBar({
             </Tooltip>
           );
         })}
+        {extra}
       </Space>
     </Flex>
   );
@@ -444,6 +449,8 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
   const t = useLabel();
   const dates = useDateTime();
   const job = useBulkJob(jobId ?? undefined);
+  // Live wherever it is shown (QA10-P1-09: a problem's follow-up stayed at 0% off the list).
+  useBulkLive();
   const data = job.data;
   const skipped = (data?.results ?? []).filter((r) => r.outcome === 'skipped');
   const running = data?.status === 'queued' || data?.status === 'running';
@@ -504,21 +511,39 @@ export function BulkProgress({ jobId, onClose }: { jobId: string | null; onClose
 }
 
 /** Your recent bulk changes, so a result is findable after leaving the page (AC3). */
-export function BulkJobsButton({ onOpen }: { onOpen: (id: string) => void }) {
+/** The recent bulk changes: a button and its drawer, or the drawer alone opened from "More". */
+export function BulkJobsButton({
+  onOpen,
+  open: controlled,
+  onOpenChange,
+  button = true,
+}: {
+  onOpen: (id: string) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  button?: boolean;
+}) {
   const t = useLabel();
   const dates = useDateTime();
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = controlled ?? own;
+  const setOpen = (next: boolean) => {
+    setOwn(next);
+    onOpenChange?.(next);
+  };
   const jobs = useBulkJobs(open);
   return (
     <>
-      <Button
-        onClick={() => {
-          setOpen(true);
-        }}
-        data-testid="inc-bulk-jobs"
-      >
-        {t('incidents.bulk.recent')}
-      </Button>
+      {button && (
+        <Button
+          onClick={() => {
+            setOpen(true);
+          }}
+          data-testid="inc-bulk-jobs"
+        >
+          {t('incidents.bulk.recent')}
+        </Button>
+      )}
       <Drawer
         open={open}
         onClose={() => {
@@ -529,7 +554,7 @@ export function BulkJobsButton({ onOpen }: { onOpen: (id: string) => void }) {
       >
         <List
           dataSource={jobs.data ?? []}
-          locale={{ emptyText: t('incidents.bulk.none') }}
+          locale={{ emptyText: <EmptyText>{t('incidents.bulk.none')}</EmptyText> }}
           renderItem={(job) => (
             <List.Item
               actions={[

@@ -57,6 +57,8 @@ class RouteReason(StrEnum):
     SELF_APPROVAL_BLOCKED = "self_approval_blocked"
     # WP-058a s5 (staged types; lane B's review): never a stage stuck silently.
     NO_HOLDER = "no_holder"  # a role named as approver has nobody holding it
+    # WP-045a (REQ-CHG-039): a holder of a role that may not approve (a change's implementer).
+    SEGREGATION_OF_DUTIES = "segregation_of_duties"
 
 
 class DecisionChannel(StrEnum):

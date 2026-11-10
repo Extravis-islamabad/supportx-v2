@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { expectAccessible, signInAs } from './helpers';
+import { expectAccessible, openAppearance, signInAs } from './helpers';
 
 /**
  * WP-042 session 1: the setup home groups what the admin may change and finds a page by a
@@ -29,7 +29,7 @@ test('setup home, search, menu and licence page: labelled and accessible', async
   await expectAccessible(page, 'licence page');
 
   // Dark and Arabic.
-  await page.getByTestId('appearance-menu').click();
+  await openAppearance(page);
   await page.getByText('Dark', { exact: true }).click();
   await page.getByTestId('language-select').click();
   await page.locator('.ant-select-item-option[title="العربية"]').click();
@@ -40,8 +40,9 @@ test('setup home, search, menu and licence page: labelled and accessible', async
   await expect(page.getByTestId('setup-home')).toBeVisible();
   await expectAccessible(page, 'setup home (Arabic, dark)');
 
-  // A phone width: the menu sits above the page.
+  // A phone width: the sections open from a button, in a drawer (QA6S-SHELL-04).
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId('admin-sections-button').click();
   await expect(page.getByTestId('admin-sections')).toBeVisible();
   await expectAccessible(page, 'setup home (390 px)');
 });

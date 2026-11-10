@@ -39,17 +39,24 @@ export interface ActionBarProps {
   actions: RecordAction[];
   /** At most this many buttons (D-124: 4). */
   max?: number;
-  /** Content on the end side of the bar (presence, follow). */
+  /** Content on the end side of the bar. */
   extra?: ReactNode;
+  /**
+   * Content before the buttons, on the same row and aligned with them (template A: presence and
+   * Follow sit with the actions, D-147).
+   */
+  lead?: ReactNode;
   testId?: string;
 }
 
 /**
  * The record's actions (D-124, updating REQ-WI-010): buttons for the everyday actions available
- * now (at most four), and "More actions" listing every action in one fixed order, unavailable
- * ones disabled with their reason, so nothing moves there; destructive ones last, confirmed.
+ * now (at most four), and "More actions": the available ones first, then the unavailable ones
+ * grouped under their reason (said once), destructive ones last, confirmed.
  */
-export function ActionBar({ actions: given, max = 4, extra, testId }: ActionBarProps) {
+type MenuItem = NonNullable<MenuProps['items']>[number];
+
+export function ActionBar({ actions: given, max = 4, extra, lead, testId }: ActionBarProps) {
   const t = useLabel();
   const { modal } = App.useApp();
   const { writable } = useLicence();
@@ -86,7 +93,7 @@ export function ActionBar({ actions: given, max = 4, extra, testId }: ActionBarP
     action.onClick();
   };
 
-  const item = (action: RecordAction): NonNullable<MenuProps['items']>[number] => ({
+  const item = (action: RecordAction): MenuItem => ({
     key: action.key,
     danger: action.danger,
     disabled: !action.allowed,
@@ -108,14 +115,44 @@ export function ActionBar({ actions: given, max = 4, extra, testId }: ActionBarP
   });
   const everyday = actions.filter((a) => a.danger !== true);
   const destructive = actions.filter((a) => a.danger === true);
-  const items: MenuProps['items'] = [
-    ...everyday.map(item),
+  // Unavailable everyday actions, grouped under their reason, said once (QA6-INC-02: ten items
+  // each repeating "Not possible in the current status" made the menu a wall). They stay in the
+  // menu, in their fixed order within each group, so REQ-WI-010 still says why.
+  const available = everyday.filter((a) => a.allowed);
+  const reasons = new Map<string, RecordAction[]>();
+  for (const action of everyday.filter((a) => !a.allowed)) {
+    const why = action.whyNot ?? '';
+    reasons.set(why, [...(reasons.get(why) ?? []), action]);
+  }
+  const unavailable: MenuItem[] = [...reasons].map(([why, group], index) => ({
+    type: 'group' as const,
+    key: `unavailable-${String(index)}`,
+    label: why === '' ? t('layout.not_available_now') : why,
+    children: group.map((action) => ({
+      key: action.key,
+      disabled: true,
+      icon: action.icon,
+      'data-testid': action.testId === undefined ? undefined : `${action.testId}-menu`,
+      // The reason is the group's heading on screen; a screen reader hears it with each item.
+      label: (
+        <span>
+          {action.label}
+          {why !== '' && <span className="sx-visually-hidden">{`: ${why}`}</span>}
+        </span>
+      ),
+    })),
+  }));
+  const items: MenuItem[] = [
+    ...available.map(item),
+    ...(available.length > 0 && unavailable.length > 0 ? [{ type: 'divider' as const }] : []),
+    ...unavailable,
     ...(destructive.length > 0 && everyday.length > 0 ? [{ type: 'divider' as const }] : []),
     ...destructive.map(item),
   ];
 
   return (
     <Flex gap={SPACE.xs} wrap align="center" data-testid={testId} style={{ marginBlock: SPACE.xs }}>
+      {lead}
       {buttons.map((action) => (
         <Button
           key={action.key}

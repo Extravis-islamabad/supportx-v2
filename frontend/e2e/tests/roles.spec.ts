@@ -1,7 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { CONSOLE_URL, PORTAL_URL } from '../stack';
-import { deleteE2eRoles, expectAccessible, mainNav, navItems, signInAs } from './helpers';
+import {
+  deleteE2eRoles,
+  expectAccessible,
+  mainNav,
+  navItems,
+  openAppearance,
+  signInAs,
+} from './helpers';
 
 /** The sections the user's navigation offers, read live (no reload: WP-011 pushes changes). */
 async function menu(page: Page): Promise<string[]> {
@@ -84,7 +91,9 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   await drawer.getByLabel(roleName).click();
   await expect(drawer.getByLabel(roleName)).not.toBeChecked();
   await user.goto(`${CONSOLE_URL}/problems`);
-  await expect(user).toHaveURL(new RegExp(`^${PORTAL_URL}`), LIVE);
+  // The long way, and correct: the open tab ends the console session live, so this load signs in
+  // again through Keycloak (SSO) and the requester-only refusal sends them on to the portal.
+  await expect(user).toHaveURL(new RegExp(`^${PORTAL_URL}`), { timeout: 15_000 });
 
   // Clean up: delete the suite's role (nobody holds it any more).
   // Close the drawer with its button: Escape only reaches it while focus is inside, and the
@@ -107,7 +116,7 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
 test('roles page in Arabic and dark mode is accessible', async ({ page }) => {
   await signInAs(page, 'admin', '/admin/roles');
   await expect(page.getByTestId('roles-table')).toBeVisible();
-  await page.getByTestId('appearance-menu').click();
+  await openAppearance(page);
   await page.getByText('Dark', { exact: true }).click();
   await page.getByTestId('language-select').click();
   await page.locator('.ant-select-item-option[title="العربية"]').click();

@@ -14,6 +14,7 @@ nothing secret is printed. Exit 0 once /api/v1/auth/me answers 200 with those co
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -26,6 +27,11 @@ LOGIN_FORM = re.compile(
 )
 ACTION = re.compile(r'action="([^"]+)"')
 MAX_HOPS = 20
+
+
+# How long the stack may take to answer again after an earlier step's failover.
+READY_SECONDS = 180
+UNAVAILABLE = 503  # the API's answer while a dependency reconnects
 
 
 def _keep(cookies: dict[str, str], response: httpx.Response) -> None:
@@ -62,8 +68,23 @@ def main(public_url: str, user: str, out: Path) -> int:
     password = os.environ["HA_LOGIN_PASSWORD"]
     cookies: dict[str, str] = {}
     with httpx.Client(follow_redirects=False, timeout=30) as client:
-        start = client.get(f"{public_url}/api/v1/auth/login?app=console&returnTo=/")
-        page = _follow(client, cookies, start)
+        # Right after an earlier HA step (a Valkey or PostgreSQL failover) a dependency may still
+        # be reconnecting: the API then answers 503 with Retry-After (app/core/errors.py), the
+        # recovery the steps prove. Only that is tried again until the deadline. A bare 500 is a
+        # product bug a user would see, so it fails at once (2026-11-06: one hid a missing retry).
+        deadline = time.monotonic() + READY_SECONDS
+        while True:
+            cookies.clear()
+            start = client.get(f"{public_url}/api/v1/auth/login?app=console&returnTo=/")
+            page = _follow(client, cookies, start)
+            if page.status_code != UNAVAILABLE or time.monotonic() >= deadline:
+                break
+            sys.stdout.write("sign-in page answered 503; trying again\n")
+            time.sleep(5)
+        if page.status_code >= 500:  # noqa: PLR2004 - any 5xx left is a failure
+            failed_at = page.request.url.copy_with(query=None)
+            sys.stdout.write(f"sign-in failed: {page.status_code} at {failed_at}\n")
+            return 1
         # Keycloak may ask in steps (with organizations: the e-mail first, then the password):
         # answer each sign-in form it shows, until the flow leaves Keycloak.
         ended = page

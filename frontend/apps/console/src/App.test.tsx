@@ -214,6 +214,26 @@ describe('console shell', () => {
     expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
   });
 
+  it('QA10: the server refusing a requester on the console sends them to the portal, not to a password page', async () => {
+    api({
+      routes: {
+        'GET /api/v1/auth/me': {
+          status: 401,
+          body: problem(401, 'console_requester_only'),
+        },
+      },
+    });
+    const navigate = vi.fn();
+    at('/incidents');
+    render(<App navigate={navigate} />);
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith(
+        '/api/v1/auth/login?app=portal&returnTo=%2F%3Ffrom%3Dconsole',
+      );
+    });
+    expect(navigate).not.toHaveBeenCalledWith(expect.stringContaining('app=console'));
+  });
+
   it('staff open the requester portal from the user menu (D-129)', async () => {
     api();
     const opened = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -256,6 +276,7 @@ describe('console shell', () => {
   it('switches theme and direction from the appearance menu', async () => {
     api();
     render(<App />);
+    fireEvent.click(await screen.findByTestId('user-menu'));
     fireEvent.click(await screen.findByTestId('appearance-menu'));
     fireEvent.click(await screen.findByText('High contrast'));
     expect(document.documentElement.dataset.theme).toBe('high_contrast');

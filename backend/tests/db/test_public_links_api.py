@@ -218,3 +218,151 @@ async def test_refused_uses_are_capped_and_never_log_the_token(addressed: World)
     assert len(refusals) == MAX_FAILED_USES + 1
     assert not any(token in str(r["details"]) for r in refusals)
     assert not any(token in str(entry) for entry in logs)
+
+
+# --- the tenant in the link (?t=), for addresses that name none (nightly 11-07, on-prem) -----
+
+
+async def _peek(world: World, host: str, token: str, tenant: str | None) -> Any:  # noqa: ANN401 - a response
+    return await world.client.post(
+        f"{PUBLIC}/peek", json={"token": token, "tenant": tenant}, headers={"Host": host}
+    )
+
+
+async def test_without_tenant_subdomains_the_link_names_its_tenant(world: World) -> None:
+    """k3d and on-prem: one shared address and no base domain; `?t=` says where to look."""
+    a, b = world.a, world.b
+    assert world.app.state.settings.tenant_base_domain is None
+    await manager_of(world, a.requester, a.tech_a)
+    record = await waiting(world, a)
+    token = await token_for(world, a, record)
+    shared = "supportx.localhost:8080"
+    seen = await _peek(world, shared, token, await slug_of(world, a))
+    assert seen.status_code == 200, seen.text
+    wrong_token = await _peek(world, shared, "B" * 43, await slug_of(world, a))
+    # Not found, the same answer whatever is wrong: no tenant, an unknown or badly formed slug,
+    # another tenant's slug, or a wrong token (lane B: nothing tells which slugs exist).
+    for tenant in (None, "nobody-here", "Not A Slug!", await slug_of(world, b)):
+        refused = await _peek(world, shared, token, tenant)
+        assert problem(refused) == (404, "action_link_not_found"), tenant
+        per_request = ("instance", "request_id")
+        assert {k: v for k, v in refused.json().items() if k not in per_request} == {
+            k: v for k, v in wrong_token.json().items() if k not in per_request
+        }
+    used = await world.client.post(
+        f"{PUBLIC}/use",
+        json={"token": token, "tenant": await slug_of(world, a), "body": {"decision": "approve"}},
+        headers={"Host": shared},
+    )
+    assert used.status_code == 200, used.text
+    assert (await fresh(world, a, record))["approval_status"] == "approved"
+    # An unknown tenant's refused use writes no audit entry anywhere and counts on no link.
+    nowhere = await world.client.post(
+        f"{PUBLIC}/use",
+        json={"token": token, "tenant": "nobody-here", "body": {"decision": "approve"}},
+        headers={"Host": shared},
+    )
+    assert problem(nowhere) == (404, "action_link_not_found")
+
+
+async def test_the_address_wins_and_another_slug_is_refused(addressed: World) -> None:
+    world = addressed
+    a, b = world.a, world.b
+    await manager_of(world, a.requester, a.tech_a)
+    record = await waiting(world, a)
+    token = await token_for(world, a, record)
+    own = f"{await slug_of(world, a)}.{BASE}"
+    assert (await _peek(world, own, token, await slug_of(world, a))).status_code == 200
+    assert (await _peek(world, own, token, None)).status_code == 200  # links from before ?t=
+    mismatch = await _peek(world, own, token, await slug_of(world, b))
+    assert problem(mismatch) == (404, "action_link_not_found")
+    # Nor does B's address with A's slug find A's token.
+    other = f"{await slug_of(world, b)}.{BASE}"
+    assert problem(await _peek(world, other, token, await slug_of(world, a))) == (
+        404,
+        "action_link_not_found",
+    )
+
+
+async def test_a_verified_domain_wins_over_a_different_slug(world: World) -> None:
+    a, b = world.a, world.b
+    host = f"help-{uuid.uuid4().hex[:8]}.example.test"
+    await world.sql(
+        "INSERT INTO tenant_domains (id, tenant_id, host, status, verify_token, verified_at)"
+        " VALUES ($1, $2, $3, 'verified', 'x', now())",
+        uuid.uuid4(),
+        a.tenant,
+        host,
+    )
+    await manager_of(world, a.requester, a.tech_a)
+    record = await waiting(world, a)
+    token = await token_for(world, a, record)
+    assert (await _peek(world, host, token, await slug_of(world, a))).status_code == 200
+    refused = await _peek(world, host, token, await slug_of(world, b))
+    assert problem(refused) == (404, "action_link_not_found")
+
+
+class CountingValkey:
+    """The limiter's one script: both counters up by one, their counts back (no expiry needed)."""
+
+    def __init__(self) -> None:
+        self.counts: dict[str, int] = {}
+
+    async def eval(self, script: str, keys: int, *args: Any) -> list[int]:  # noqa: ANN401 - keys and a TTL
+        del script
+        found = []
+        for key in args[:keys]:
+            self.counts[key] = self.counts.get(key, 0) + 1
+            found.append(self.counts[key])
+        return found
+
+
+async def test_one_client_spending_its_budget_never_blocks_another_tenants_links(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane B's major: no shared bucket across tenants (a cross-tenant denial of service)."""
+    from app.shared.api.ratelimit import (  # noqa: PLC0415 - this test only
+        RATE_LIMITER_STATE,
+        RateLimiter,
+        SettingsPolicyProvider,
+    )
+
+    a, b = world.a, world.b
+    settings = world.app.state.settings.model_copy(
+        update={"rate_limits": {"action_links_public": {"user": 3, "tenant": 5}}}
+    )
+    limiter = RateLimiter(CountingValkey(), prefix="t:", provider=SettingsPolicyProvider(settings))
+    set_state(monkeypatch, world.app.state, RATE_LIMITER_STATE, limiter)
+    await manager_of(world, b.requester, b.tech_b)
+    record = await waiting(world, b)
+    token = await token_for(world, b, record)
+    shared, slug_a, slug_b = (
+        "supportx.localhost:8080",
+        await slug_of(world, a),
+        await slug_of(world, b),
+    )
+
+    async def peek(address: str, tenant: str, link: str) -> int:
+        return int((await peeked(address, tenant, link)).status_code)
+
+    async def peeked(address: str, tenant: str, link: str) -> Any:  # noqa: ANN401 - a response
+        transport = world.client._transport  # noqa: SLF001 - the ASGI transport's client address
+        monkeypatch.setattr(transport, "client", (address, 1234))
+        return await _peek(world, shared, link, tenant)
+
+    # The headers are the client address's alone: an unknown slug and a real one answer alike,
+    # and a link that works shows the address's own count, never its tenant's.
+    unknown = await peeked("10.0.0.9", "nobody-here", "B" * 43)
+    real = await peeked("10.0.0.8", slug_a, "B" * 43)
+    limit = "RateLimit-Remaining"
+    assert unknown.headers.get(limit) == real.headers.get(limit)
+    await peeked("10.0.0.7", "nobody-here", "B" * 43)  # the same client, an unknown slug first
+    assert (await peeked("10.0.0.7", slug_b, token)).headers[limit] == "1"  # both counted
+
+    # One client sweeps tenant A, then unknown slugs, until refused.
+    spent = [await peek("10.0.0.1", slug_a, "B" * 43) for _ in range(4)]
+    assert spent[-1] == 429
+    assert await peek("10.0.0.1", "nobody-here", "B" * 43) == 429  # its own budget, any slug
+    # Other clients on other tenants are untouched, and so is a fresh client on tenant A.
+    assert await peek("10.0.0.2", slug_b, token) == 200
+    assert await peek("10.0.0.3", slug_a, "B" * 43) == 404

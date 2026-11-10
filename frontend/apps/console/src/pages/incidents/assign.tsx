@@ -5,7 +5,9 @@ import { useNavigate } from 'react-router';
 import {
   ApiError,
   useAssignIncident,
+  useAssignProblem,
   useIncidentCatalogue,
+  useProblemCatalogue,
   useUnits,
   type Incident,
 } from '@supportx/api-client';
@@ -42,15 +44,18 @@ export function AssignDialog({
   open,
   onClose,
   refresh,
+  base = 'incidents',
 }: {
   item: Incident;
   open: boolean;
   onClose: () => void;
-  /** Re-read the incident (the dialog opens on the latest assignment). */
+  /** Re-read the record (the dialog opens on the latest assignment). */
   refresh: () => Promise<unknown>;
+  /** The record type's prefix (WP-044c: a problem's group and owner, the same dialog). */
+  base?: 'incidents' | 'problems';
 }) {
   if (!open) return null;
-  return <AssignBody item={item} onClose={onClose} refresh={refresh} />;
+  return <AssignBody item={item} onClose={onClose} refresh={refresh} base={base} />;
 }
 
 interface Choice {
@@ -62,18 +67,25 @@ function AssignBody({
   item,
   onClose,
   refresh,
+  base,
 }: {
   item: Incident;
   onClose: () => void;
   refresh: () => Promise<unknown>;
+  base: 'incidents' | 'problems';
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const navigate = useNavigate();
   const { message } = App.useApp();
-  const catalogue = useIncidentCatalogue();
+  // Both types' hooks are called (hooks never depend on a condition); the type's own is used.
+  const incidentCatalogue = useIncidentCatalogue(base === 'incidents');
+  const problemCatalogue = useProblemCatalogue(base === 'problems');
+  const catalogue = base === 'problems' ? problemCatalogue : incidentCatalogue;
   const groups = useUnits('groups');
-  const assign = useAssignIncident(item.id);
+  const assignIncident = useAssignIncident(item.id);
+  const assignProblem = useAssignProblem(item.id);
+  const assign = base === 'problems' ? assignProblem : assignIncident;
   const [groupChoice, setGroupChoice] = useState<Choice>({ touched: false, value: null });
   const [techChoice, setTechChoice] = useState<Choice>({ touched: false, value: null });
   const [reasonCode, setReasonCode] = useState<string>();
@@ -153,7 +165,7 @@ function AssignBody({
             void message.success(
               t('incidents.handed_over', { id: item.display_id, group: groupName }),
             );
-            void navigate('/incidents');
+            void navigate(`/${base}`);
           }
         },
         onError: (error) => {
@@ -220,6 +232,7 @@ function AssignBody({
               setTechChoice({ touched: true, value: next });
             }}
             testId="inc-assign-technician"
+            base={base}
             ariaLabel={t('work_item.field.technician_id')}
           />
           {movingGroups && (

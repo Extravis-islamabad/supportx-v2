@@ -242,3 +242,23 @@ async def test_requests_have_approval_views_incidents_do_not(world: World) -> No
     assert (found["pending_approval"], found["awaiting_fulfilment"]) == (1, 1)
     incident_views = (await world.call("GET", f"{BASE}/views", a, a.admin)).json()
     assert not {"pending_approval", "awaiting_fulfilment"} & {c["view"] for c in incident_views}
+
+
+async def test_qa10_p4_40_a_request_raised_in_the_portal_reads_as_the_portal(world: World) -> None:
+    a = world.a
+    item = await an_item(world, a)
+    made = await world.call(
+        "POST",
+        SR,
+        a,
+        a.requester,
+        json={
+            "subject": "Laptop",
+            "requester_id": str(a.requester),
+            "catalog_item_id": item["id"],
+            "answers": {"model": "air"},
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4()), "X-SupportX-Client": "portal"},
+    )
+    assert made.status_code == 201, made.text
+    assert made.json()["channel"] == "portal"

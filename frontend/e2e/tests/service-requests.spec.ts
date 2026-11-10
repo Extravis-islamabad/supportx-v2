@@ -2,7 +2,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 
 import { mailTo, mailUnavailable, privateWindow } from '../mail';
 import { PORTAL_URL, USERS } from '../stack';
-import { expectAccessible, resetLanguage, signInAs } from './helpers';
+import { expectAccessible, openAppearance, resetLanguage, signInAs } from './helpers';
 
 /**
  * WP-030: service requests from the catalog, end to end.
@@ -213,7 +213,7 @@ test('an approver approves from the e-mailed link without signing in (D-132)', a
 
     // The e-mail carries this approver's own link: the token only after '#'.
     const mail = await mailTo(USERS.limited.email, sentAt);
-    const link = /(https?:\/\/[^"\s<]*)\/(approve#[A-Za-z0-9_-]{43})/.exec(mail.html);
+    const link = /(https?:\/\/[^"\s<]*)\/(approve\?t=[a-z0-9-]+#[A-Za-z0-9_-]{43})/.exec(mail.html);
     expect(link, 'the e-mail has the approval link').not.toBeNull();
     // Deployed, the portal is served on the tenant's origin under /portal/, which is where the
     // link points; the dev stack serves the portal on a port of its own (lane B fixes
@@ -266,7 +266,7 @@ test('the portal service request pages in Arabic are right to left and accessibl
     const record = await raise(requester.page, chair.id, `E2E chair ${tag}`);
     made.push(record.id);
     const page = requester.page;
-    await page.getByTestId('appearance-menu').click();
+    await openAppearance(page);
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();
     await page.keyboard.press('Escape');

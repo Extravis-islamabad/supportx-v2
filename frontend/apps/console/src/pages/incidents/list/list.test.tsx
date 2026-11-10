@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
@@ -200,6 +200,29 @@ describe('Incident list (WP-020d)', () => {
     restore();
   });
 
+  it('WP-044c S1: a problem from the chosen incidents, from the bulk bar', async () => {
+    api({ routes: routes() });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    const create = screen.getByTestId('inc-bulk-create-problem');
+    expect((create as HTMLButtonElement).disabled).toBe(true); // nothing chosen yet
+    const table = screen.getByTestId('inc-table');
+    const all = within(table).getAllByRole('checkbox')[0];
+    if (all === undefined) throw new Error('no select-all checkbox');
+    fireEvent.click(all);
+    fireEvent.click(screen.getByTestId('inc-bulk-create-problem'));
+    // The new form loads lazily; give a busy machine time.
+    await waitFor(
+      () => {
+        expect(window.location.pathname).toBe('/problems/new');
+      },
+      { timeout: 5000 },
+    );
+    expect(new URLSearchParams(window.location.search).get('incidents')?.split(',')).toHaveLength(
+      2,
+    );
+  });
+
   it('REQ-INC-119 AC2: bulk actions are disabled until something is selected, then "all N"', async () => {
     const fake = api({
       routes: routes({
@@ -274,6 +297,105 @@ describe('Incident list (WP-020d)', () => {
     expect(fake.find('PUT', '/api/v1/incidents/list-settings/my_open')).toHaveLength(0);
   });
 
+  it('QA10-P1-10: three quick column moves save one final order, with no conflict', async () => {
+    // The server checks If-Match like the real one: a save with an old version is a 409.
+    let version = 0;
+    let stored: unknown = null;
+    const fake = api({
+      routes: routes({
+        'PUT /api/v1/incidents/list-settings/open': async (call: {
+          body: unknown;
+          headers: Headers;
+        }) => {
+          // Slower than the clicks, as on a real network: every move is sent before any answer.
+          await new Promise((resolve) => setTimeout(resolve, 40));
+          const sent = call.headers.get('If-Match');
+          if (version > 0 && sent !== `"${String(version)}"`) {
+            return { status: 409, body: { code: 'version_conflict', status: 409 } };
+          }
+          version += 1;
+          stored = call.body;
+          return {
+            body: { view_key: 'open', version, ...(call.body as object) },
+            headers: { ETag: `"${String(version)}"` },
+          };
+        },
+      }),
+    });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    fireEvent.click(screen.getByTestId('inc-columns'));
+    const shown = await screen.findByTestId('inc-columns-shown');
+    const keys = () =>
+      [...shown.querySelectorAll('[data-testid^="inc-column-"]')]
+        .map((row) => row.getAttribute('data-testid') ?? '')
+        .filter((id) => !id.startsWith('inc-column-remove-'))
+        .map((id) => id.replace('inc-column-', ''));
+    const before = keys();
+    const last = before.at(-1) ?? '';
+    // Three clicks in a row (a person's pace: the screen redraws), none waiting for a save.
+    for (let i = 0; i < 3; i += 1) {
+      const row = screen.getByTestId(`inc-column-${last}`);
+      const up = row.querySelector<HTMLButtonElement>('button[aria-label$="earlier"]');
+      if (up !== null) fireEvent.click(up);
+      await act(() => new Promise((resolve) => setTimeout(resolve, 5)));
+    }
+    const expected = [...before];
+    expected.splice(expected.length - 1, 1);
+    expected.splice(expected.length - 3, 0, last);
+    await waitFor(() => {
+      expect((stored as { columns: { key: string }[] } | null)?.columns.map((c) => c.key)).toEqual(
+        expected,
+      );
+    });
+    expect(keys()).toEqual(expected);
+    expect(document.body.textContent).not.toMatch(/Someone else saved/);
+    // Overtaken saves were skipped: never more requests than moves, none refused.
+    expect(fake.find('PUT', '/api/v1/incidents/list-settings/open').length).toBeLessThanOrEqual(3);
+  });
+
+  it('QA10-P1-10: a save beaten by another tab of yours is redone on its version, with yours', async () => {
+    let refused = false;
+    let otherTabSaved = false;
+    const fake = api({
+      routes: routes({
+        'GET /api/v1/incidents/list-settings/open': () => ({
+          body: otherTabSaved
+            ? { view_key: 'open', columns: [], sort: null, page_size: 25, version: 7 }
+            : { view_key: 'open', columns: [], sort: null, page_size: 50, version: null },
+        }),
+        // Another tab saved version 7 meanwhile: this tab's first save (no version) is refused.
+        'PUT /api/v1/incidents/list-settings/open': (call: { body: unknown; headers: Headers }) => {
+          if (call.headers.get('If-Match') !== '"7"') {
+            refused = true;
+            return { status: 409, body: { code: 'version_conflict', status: 409 } };
+          }
+          return {
+            body: { view_key: 'open', version: 8, ...(call.body as object) },
+            headers: { ETag: '"8"' },
+          };
+        },
+      }),
+    });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    // From now on the server answers the other tab's version.
+    otherTabSaved = true;
+    fireEvent.click(screen.getByTestId('inc-columns'));
+    fireEvent.click(await screen.findByTestId('inc-column-remove-priority'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/incidents/list-settings/open')).toHaveLength(2);
+    });
+    expect(refused).toBe(true);
+    const retry = fake.find('PUT', '/api/v1/incidents/list-settings/open')[1];
+    expect(retry?.headers.get('If-Match')).toBe('"7"');
+    // What this person sees now (priority removed), not the other tab's or an old payload.
+    const keys = (retry?.body as { columns: { key: string }[] }).columns.map((c) => c.key);
+    expect(keys).not.toContain('priority');
+    expect(keys.length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toMatch(/Someone else saved/);
+  });
+
   it("export: the file gets the view as a filter, the list's columns and its sort", async () => {
     const fake = api({
       routes: routes({
@@ -320,6 +442,8 @@ describe('Incident list (WP-020d)', () => {
       });
     });
     expect(screen.getByTestId('inc-time-active').textContent).toBe('Created: This week'); // AC2
+    // QA10-P1-17: the list shows it too, with the drawer closed.
+    expect(screen.getByTestId('inc-time-active-list').textContent).toBe('Created: This week');
   });
 });
 

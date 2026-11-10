@@ -249,6 +249,10 @@ class Settings(BaseSettings):
     ai_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     # JSON file of recorded answers for the fake provider ({"<feature>:<sha256>": "text"}).
     ai_recordings_path: str | None = None
+    # The fake's own answer for a prompt it has no recording of: an echo of the prompt, for tests
+    # and CI only (SUPPORTX_AI_FAKE_ECHO=true). Off, an installation without a model says "AI
+    # isn't set up on this server" and never shows the echo (QA6-AI-01).
+    ai_fake_echo: bool = False
 
     # API conventions (WP-008, docs/architecture/api-conventions.md).
     # Key for signing list cursors. None = derived from SUPPORTX_SESSION_SECRET; with neither
@@ -354,6 +358,40 @@ class Settings(BaseSettings):
     metrics_exporter: MetricsExporter = "none"
     metrics_host: str = "127.0.0.1"
     metrics_port: int = Field(default=9464, ge=1, le=65535)
+
+    # Dev-only quick sign-in (D-151): one button per showcase persona on /dev/sign-in, so a
+    # browser-driving QA run needs no typed password. Only the local Compose stack sets it; any
+    # profile but dev refuses to start with it (below), and the chart refuses to render it. The
+    # persona password is the showcase seed's (SUPPORTX_SHOWCASE_PASSWORD, deploy/compose/.env).
+    dev_quick_sign_in: bool = False
+    showcase_password: SecretStr | None = None
+    # The dev-only key the personas' authenticator secrets are derived from (D-151): in the dev
+    # .env only, never committed, never logged or shown.
+    showcase_totp_key: SecretStr | None = None
+
+    @model_validator(mode="after")
+    def _dev_quick_sign_in_is_dev_only(self) -> Self:
+        if self.dev_quick_sign_in and self.profile != "dev":
+            msg = (
+                "SUPPORTX_DEV_QUICK_SIGN_IN is for the local dev stack only: it cannot be on with "
+                f"the {self.profile} profile (D-151)"
+            )
+            raise ValueError(msg)
+        if self.profile != "dev" and (self.showcase_totp_key or self.showcase_password):
+            msg = (
+                "SUPPORTX_SHOWCASE_PASSWORD and SUPPORTX_SHOWCASE_TOTP_KEY are for the local dev "
+                f"stack only: not with the {self.profile} profile (D-151)"
+            )
+            raise ValueError(msg)
+        if self.dev_quick_sign_in and (
+            self.showcase_password is None or self.showcase_totp_key is None
+        ):
+            msg = (
+                "SUPPORTX_DEV_QUICK_SIGN_IN needs SUPPORTX_SHOWCASE_PASSWORD and "
+                "SUPPORTX_SHOWCASE_TOTP_KEY (make dev-quick-sign-in)"
+            )
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode="after")
     def _egress_allow_is_narrow(self) -> Self:

@@ -36,7 +36,7 @@ import {
 import {
   ConflictDialog,
   NoAccess,
-  PageHeader,
+  FormPage,
   RichTextField,
   lengthLimit,
   reportError,
@@ -45,6 +45,7 @@ import {
   useAppearance,
   useLabel,
   useLicence,
+  WriteButton,
 } from '@supportx/ui';
 
 import { UserPicker } from '../../incidents/pickers';
@@ -61,6 +62,14 @@ const LANGUAGES = ['en', 'ar', 'ur'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
 const TABS = ['details', 'form', 'approval', 'assignment', 'fulfilment', 'life'] as const;
 type Tab = (typeof TABS)[number];
+// The fields publishing needs, by their name on the form and the tab they are on: a refusal
+// names the field and opens its tab, never a bare "This field is required." (QA10-P3-08).
+const FIELD_PLACES: Record<string, { label: string; tab: Tab }> = {
+  names: { label: 'catalog_admin.names', tab: 'details' },
+  category_id: { label: 'catalog_admin.category', tab: 'details' },
+  template_id: { label: 'catalog_admin.template', tab: 'details' },
+  group_id: { label: 'catalog_admin.group', tab: 'assignment' },
+};
 
 /** What the form edits: the input fields, starting from the item (or empty for a new one). */
 type Draft = CatalogItemInput & { names: Labels };
@@ -187,9 +196,32 @@ function ItemEditor({ id }: { id: string | undefined }) {
       setConflict(error);
       return;
     }
-    const shown = refusalMessages(t, error, fieldMessages(t, error));
-    if (shown.length > 0) setProblems(shown);
-    else reportError(error);
+    const placed =
+      error instanceof ApiError && error.status === 422
+        ? error.fieldErrors.map((f) => {
+            const place = FIELD_PLACES[f.field.replace(/^body\./, '').split('.')[0] ?? ''];
+            const words = t(f.message_key, f.params ?? {});
+            return { place, words: place === undefined ? words : `${t(place.label)}: ${words}` };
+          })
+        : [];
+    const shown = refusalMessages(
+      t,
+      error,
+      placed.length > 0 ? placed.map((p) => p.words) : fieldMessages(t, error),
+    );
+    const first = placed.find((p) => p.place !== undefined)?.place;
+    if (first !== undefined) setTab(first.tab);
+    if (shown.length > 0) {
+      setProblems(shown);
+      // Seen at once, wherever the person had scrolled to.
+      // Guarded: browsers without it (jsdom in tests) simply don't scroll.
+      requestAnimationFrame(() => {
+        const box = document.querySelector('[data-testid="cat-item-problems"]');
+        if (box !== null && typeof box.scrollIntoView === 'function') {
+          box.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    } else reportError(error);
   };
 
   const save = (extra: CatalogItemInput = {}) => {
@@ -227,57 +259,67 @@ function ItemEditor({ id }: { id: string | undefined }) {
   if (id !== undefined && loaded.isLoading) return null;
   const busy = create.isPending || update.isPending;
   const missing = item?.missing_translations ?? [];
+  // Template B's frame (D-147): Save in the sticky footer with Cancel before it, never in the
+  // header or the middle of the form; Preview and the item's state stay in the header.
   return (
-    <>
-      <PageHeader
-        title={textIn(draft.names, locale) || t('catalog_admin.new_item')}
-        back={{ label: t('nav.admin_catalog'), onClick: () => void navigate('/admin/catalog') }}
-        extra={
-          <Space wrap>
-            {item !== undefined && <StatusTag item={item} />}
-            {missing.length > 0 && (
-              <Popover
-                content={
-                  <ul style={{ margin: 0, paddingInlineStart: 18 }} data-testid="cat-missing-list">
-                    {missing.map((m) => (
-                      <li key={`${m.field}-${m.language}`}>
-                        {t('catalog_admin.missing_item', {
-                          field: fieldWords(t, m.field),
-                          language: t(`catalog_admin.lang.${m.language}`),
-                        })}
-                      </li>
-                    ))}
-                  </ul>
-                }
-              >
-                <Button size="small" data-testid="cat-missing">
-                  {t('catalog_admin.missing', { count: missing.length })}
-                </Button>
-              </Popover>
-            )}
-            <Button
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setPreview(true);
-              }}
-              data-testid="cat-preview"
+    <FormPage
+      testId="cat-item"
+      width="full"
+      title={textIn(draft.names, locale) || t('catalog_admin.new_item')}
+      back={{ label: t('nav.admin_catalog'), onClick: () => void navigate('/admin/catalog') }}
+      cancel={
+        <Button onClick={() => void navigate('/admin/catalog')} data-testid="cat-cancel">
+          {t('actions.cancel')}
+        </Button>
+      }
+      primary={
+        <WriteButton
+          type="primary"
+          loading={busy}
+          disabled={!dirty}
+          onClick={() => {
+            save();
+          }}
+          data-testid="cat-save"
+        >
+          {t('actions.save')}
+        </WriteButton>
+      }
+      extra={
+        <Space wrap>
+          {item !== undefined && <StatusTag item={item} />}
+          {missing.length > 0 && (
+            <Popover
+              content={
+                <ul style={{ margin: 0, paddingInlineStart: 18 }} data-testid="cat-missing-list">
+                  {missing.map((m) => (
+                    <li key={`${m.field}-${m.language}`}>
+                      {t('catalog_admin.missing_item', {
+                        field: fieldWords(t, m.field),
+                        language: t(`catalog_admin.lang.${m.language}`),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              }
             >
-              {t('catalog_admin.preview')}
-            </Button>
-            <Button
-              type="primary"
-              loading={busy}
-              disabled={!dirty}
-              onClick={() => {
-                save();
-              }}
-              data-testid="cat-save"
-            >
-              {t('actions.save')}
-            </Button>
-          </Space>
-        }
-      />
+              <Button size="small" data-testid="cat-missing">
+                {t('catalog_admin.missing', { count: missing.length })}
+              </Button>
+            </Popover>
+          )}
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setPreview(true);
+            }}
+            data-testid="cat-preview"
+          >
+            {t('catalog_admin.preview')}
+          </Button>
+        </Space>
+      }
+    >
       <Problems problems={problems} testId="cat-item-problems" />
       <Tabs
         activeKey={tab}
@@ -389,7 +431,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
           });
         }}
       />
-    </>
+    </FormPage>
   );
 }
 
@@ -714,7 +756,7 @@ function ApprovalTab({ draft, set }: TabProps) {
                   />
                 </Flex>
               ))}
-              <Button
+              <WriteButton
                 size="small"
                 style={{ alignSelf: 'flex-start' }}
                 disabled={approvers.length >= 10}
@@ -724,7 +766,7 @@ function ApprovalTab({ draft, set }: TabProps) {
                 data-testid="cat-approver-add"
               >
                 {t('catalog_admin.approval.add_person')}
-              </Button>
+              </WriteButton>
             </Flex>
           </Form.Item>
           <Form.Item label={t('catalog_admin.approval.backup')} style={{ maxWidth: 360 }}>
@@ -905,7 +947,7 @@ function LifeTab({
     <Form layout="vertical" component="div">
       <Flex gap={8} wrap style={{ marginBottom: 16 }}>
         {status !== 'published' && (
-          <Button
+          <WriteButton
             type="primary"
             loading={busy}
             onClick={() => {
@@ -914,10 +956,10 @@ function LifeTab({
             data-testid="cat-publish"
           >
             {t(status === 'retired' ? 'catalog_admin.publish_again' : 'catalog_admin.publish')}
-          </Button>
+          </WriteButton>
         )}
         {status === 'published' && (
-          <Button
+          <WriteButton
             loading={busy}
             onClick={() => {
               onStatus('retired');
@@ -925,7 +967,7 @@ function LifeTab({
             data-testid="cat-retire"
           >
             {t('catalog_admin.retire')}
-          </Button>
+          </WriteButton>
         )}
       </Flex>
       <Flex gap={16} wrap>

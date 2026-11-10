@@ -67,3 +67,12 @@ describe('QA WP-035', () => {
     expect(new Set(shown).size).toBe(2);
   });
 });
+
+describe('QA 11-09: a doughnut in Arabic gets no axis', () => {
+  it('mirroring never adds an axis a chart does not have (the stray line through the ring)', () => {
+    const doughnut = { series: [{ type: 'pie', data: [] }], legend: { bottom: 0 } };
+    const mirrored = mirrorForRtl(doughnut, true) as Record<string, unknown>;
+    expect(mirrored.xAxis).toBeUndefined();
+    expect(mirrored.yAxis).toBeUndefined();
+  });
+});

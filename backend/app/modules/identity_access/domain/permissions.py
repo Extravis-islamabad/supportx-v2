@@ -37,6 +37,9 @@ KNOWLEDGE_MANAGER = "knowledge_manager"
 SERVICE_DESK_MANAGER = "service_desk_manager"
 SITE_ADMIN = "site_admin"
 REPORT_VIEWER = "report_viewer"
+# WP-044c D14 (Appendix A), agreed with lane C: runs problem management. Its problems.* grants
+# come from work_items' PermissionSpec defaults; identity gives the key and people's lookups.
+PROBLEM_MANAGER = "problem_manager"
 SYSTEM_ROLES = (
     TENANT_ADMIN,
     TECHNICIAN,
@@ -47,6 +50,7 @@ SYSTEM_ROLES = (
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
     REPORT_VIEWER,
+    PROBLEM_MANAGER,
 )
 
 ALL = ALL_SCOPES
@@ -69,32 +73,13 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
 RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
-    # requests.* (service requests), problems.* (WP-044a) and releases.* (WP-058a) moved to
-    # work_items' ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the
-    # engine's actions); the system-role grants below still name requests.*, unchanged.
-    PermissionSpec("changes.view", "change", ALL),
-    PermissionSpec("changes.create", "change"),
-    PermissionSpec("changes.approve", "change", NOT_OWN),
-    PermissionSpec("assets.view", "assets", ALL),
-    PermissionSpec("assets.manage", "assets", NOT_OWN),
+    # requests.* (service requests), problems.* (WP-044a), releases.* (WP-058a) and changes.*
+    # (WP-045a: the same key names, so saved grants need no mapping) moved to work_items'
+    # ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the engine's
+    # actions), and assets.* to the assets module (WP-049a); the system-role grants below still
+    # name them, unchanged.
     PermissionSpec("cmdb.view", "cmdb", NOT_OWN),
     PermissionSpec("cmdb.manage", "cmdb"),
-)
-
-# Permissions that make the console's Admin area visible (any one of them).
-ADMIN_PERMISSIONS = frozenset(
-    {
-        "users.manage",
-        "roles.view",
-        "roles.manage",
-        "sites.manage",
-        "groups.manage",
-        "settings.manage",
-        "licence.manage",
-        "audit.view",
-        "identity.manage",
-        "api_keys.manage",
-    }
 )
 
 # The technician and requester system roles, as (permission, scope), for the permissions of this
@@ -170,6 +155,13 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
         # Reads incidents, requests and their reports, read-only (lane B: reports apply the
         # viewer's own scope, so without view rights they would be empty).
         REPORT_VIEWER: (("profile.edit", "own"), ("requests.view", "all")),
+        # Problem management (WP-044c D14): finds the people and groups problems go to.
+        PROBLEM_MANAGER: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("sites.view", "all"),
+            ("groups.view", "all"),
+        ),
     }
 )
 

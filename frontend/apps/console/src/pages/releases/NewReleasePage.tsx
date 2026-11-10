@@ -1,11 +1,13 @@
-import { Flex, Form, Input, Select, Typography } from 'antd';
+import { Button, Form, Input, Select, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { useCreateRelease, useReleaseTemplates, useSession } from '@supportx/api-client';
 import {
+  FormPage,
   FormProblem,
-  PageHeader,
+  FormSection,
+  usePageCrumbs,
   WriteButton,
   useAppearance,
   useFormProblem,
@@ -55,50 +57,26 @@ export function NewReleasePage() {
       },
     );
   };
+  // The path in the top bar and the tab's title (QA6-REL-04).
+  usePageCrumbs([{ label: t('nav.releases'), path: '/releases' }, { label: t('releases.new') }]);
+  // Template B (D-147): the form in a section card, Cancel before Create in the sticky footer.
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 720, width: '100%' }}>
-      <PageHeader
-        title={t('releases.new')}
-        back={{ label: t('nav.releases'), onClick: () => void navigate('/releases') }}
-        testId="new-release-header"
-      />
-      <Form layout="vertical" data-testid="release-form">
-        <Form.Item label={t('releases.template')} required htmlFor="release-template">
-          <Select
-            id="release-template"
-            value={chosen?.id}
-            onChange={setTemplateId}
-            loading={templates.isPending}
-            data-testid="release-template"
-            options={offered.map((x) => ({ value: x.id, label: templateName(t, locale, x) }))}
-          />
-        </Form.Item>
-        {chosen?.stage_path && (
-          <Typography.Paragraph type="secondary" data-testid="release-path">
-            {t('releases.path_of_template', { path: t(`stage_path.${chosen.stage_path}`) })}
-          </Typography.Paragraph>
-        )}
-        <Form.Item label={t('work_item.field.subject')} required htmlFor="release-subject">
-          <Input
-            id="release-subject"
-            value={subject}
-            count={lengthLimit(250)}
-            onChange={(e) => {
-              setSubject(e.target.value);
-            }}
-            data-testid="release-subject"
-          />
-        </Form.Item>
-        <Form.Item label={t('work_item.field.requester_id')} htmlFor="release-requester">
-          <UserPicker
-            id="release-requester"
-            value={requester ?? me}
-            onChange={setRequester}
-            testId="release-requester"
-            ariaLabel={t('work_item.field.requester_id')}
-          />
-        </Form.Item>
-        <FormProblem problem={problem} />
+    <FormPage
+      testId="new-release"
+      title={t('releases.new')}
+      description={t('releases.new_help')}
+      back={{ label: t('nav.releases'), onClick: () => void navigate('/releases') }}
+      notice={
+        <Typography.Text type="secondary">
+          {t('releases.starts_in', { stage: stageName(t, 'submission') })}
+        </Typography.Text>
+      }
+      cancel={
+        <Button onClick={() => void navigate('/releases')} data-testid="release-cancel">
+          {t('actions.cancel')}
+        </Button>
+      }
+      primary={
         <WriteButton
           type="primary"
           disabled={subject.trim() === '' || chosen === undefined}
@@ -108,10 +86,48 @@ export function NewReleasePage() {
         >
           {t('releases.create')}
         </WriteButton>
-        <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>
-          {t('releases.starts_in', { stage: stageName(t, 'submission') })}
-        </Typography.Paragraph>
-      </Form>
-    </Flex>
+      }
+    >
+      <FormSection title={t('releases.section.release')} testId="release-section">
+        <Form layout="vertical" data-testid="release-form" component="div">
+          <Form.Item label={t('releases.template')} required htmlFor="release-template">
+            <Select
+              id="release-template"
+              value={chosen?.id}
+              onChange={setTemplateId}
+              loading={templates.isPending}
+              data-testid="release-template"
+              options={offered.map((x) => ({ value: x.id, label: templateName(t, locale, x) }))}
+            />
+          </Form.Item>
+          {chosen?.stage_path && (
+            <Typography.Paragraph type="secondary" data-testid="release-path">
+              {t('releases.path_of_template', { path: t(`stage_path.${chosen.stage_path}`) })}
+            </Typography.Paragraph>
+          )}
+          <Form.Item label={t('work_item.field.subject')} required htmlFor="release-subject">
+            <Input
+              id="release-subject"
+              value={subject}
+              count={lengthLimit(250)}
+              onChange={(e) => {
+                setSubject(e.target.value);
+              }}
+              data-testid="release-subject"
+            />
+          </Form.Item>
+          <Form.Item label={t('work_item.field.requester_id')} htmlFor="release-requester">
+            <UserPicker
+              id="release-requester"
+              value={requester ?? me}
+              onChange={setRequester}
+              testId="release-requester"
+              ariaLabel={t('work_item.field.requester_id')}
+            />
+          </Form.Item>
+          <FormProblem problem={problem} />
+        </Form>
+      </FormSection>
+    </FormPage>
   );
 }

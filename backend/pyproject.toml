@@ -178,6 +178,18 @@ containers = ["app.modules.knowledge"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]
+name = "assets layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.assets"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "procurement layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.procurement"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
 name = "sla layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.sla"]

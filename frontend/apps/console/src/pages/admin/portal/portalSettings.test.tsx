@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import { fakeIncidentCatalogue, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
-import { consoleApi } from '../../../test/api';
+import { consoleApi, problem } from '../../../test/api';
 
 // WP-032 D8 (REQ-PRT-031): every portal setting on one page, each saved where it lives.
 
@@ -20,8 +20,9 @@ afterEach(() => {
   restore();
 });
 
-function api() {
+function api(extra: NonNullable<NonNullable<Parameters<typeof consoleApi>[0]>['routes']> = {}) {
   const fake = consoleApi({
+    me: fakeSession({ roles: ['tenant_admin'] }),
     routes: {
       'GET /api/v1/portal/settings': { body: SETTINGS },
       'PATCH /api/v1/portal/settings': {
@@ -32,6 +33,7 @@ function api() {
       'GET /api/v1/catalog/settings': {
         body: { hide_default_incident_template: false, version: 2 },
       },
+      ...extra,
     },
   });
   restore = fake.restore;
@@ -54,11 +56,46 @@ describe('console: portal settings', () => {
     }
     expect(screen.getByTestId('ps-later-guest_requests')).toBeDefined(); // shown as later
     fireEvent.click(within(screen.getByTestId('ps-profile-editing')).getByRole('switch'));
+    // One save bar (template E): a switch changes the draft; Save sends it.
+    expect(fake.find('PATCH', '/api/v1/portal/settings')).toHaveLength(0);
+    expect((await screen.findByTestId('portal-settings-save-bar')).textContent).toContain(
+      '1 unsaved change',
+    );
+    fireEvent.click(screen.getByTestId('settings-save'));
     await waitFor(() => {
       expect(fake.find('PATCH', '/api/v1/portal/settings')).toHaveLength(1);
     });
     const [sent] = fake.find('PATCH', '/api/v1/portal/settings');
     expect(sent?.body).toEqual({ profile_editing: false });
     expect(sent?.headers.get('If-Match')).toBe('"4"');
+  });
+
+  it('a save refused after another owner took its part says so above the bar', async () => {
+    window.history.pushState({}, '', '/admin/portal');
+    const fake = api({
+      'PATCH /api/v1/catalog/settings': {
+        body: { hide_default_incident_template: true, version: 3 },
+      },
+      'PATCH /api/v1/portal/settings': {
+        status: 422,
+        body: problem(422, 'validation_failed'),
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('portal-settings');
+    fireEvent.click(within(screen.getByTestId('ps-hide-default-form')).getByRole('switch'));
+    fireEvent.click(within(screen.getByTestId('ps-profile-editing')).getByRole('switch'));
+    fireEvent.click(screen.getByTestId('settings-save'));
+    expect(await screen.findByTestId('portal-settings-partly')).toBeDefined();
+    expect(fake.find('PATCH', '/api/v1/catalog/settings')).toHaveLength(1);
+    // The refusal is shown on the page (not a toast), and the portal's change is still to save.
+    expect(screen.getByRole('alert')).toBeDefined();
+    expect(screen.getByTestId('portal-settings-save-bar').textContent).toContain(
+      '1 unsaved change',
+    );
+    fireEvent.click(screen.getByTestId('settings-discard'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('portal-settings-partly')).toBeNull();
+    });
   });
 });

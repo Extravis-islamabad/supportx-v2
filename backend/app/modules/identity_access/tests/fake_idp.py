@@ -53,6 +53,10 @@ class FakeIdp:
     ended_sessions: list[str] = field(default_factory=list)
     token_overrides: dict[str, Any] = field(default_factory=dict)
     now: Callable[[], float] = time.time  # point at a FrozenClock to keep token times in step
+    # The password grant (dev-only quick sign-in, D-151): email -> (user, password, TOTP value or
+    # None), and each grant's form as received.
+    passwords: dict[str, tuple[FakeUser, str, str | None]] = field(default_factory=dict)
+    password_grants: list[dict[str, str]] = field(default_factory=list)
 
     # --- token minting -------------------------------------------------------------------------
 
@@ -112,6 +116,20 @@ class FakeIdp:
             "expires_in": self.access_lifetime,
         }
 
+    def _password_grant(self, form: dict[str, str]) -> httpx.Response:
+        from app.modules.identity_access.domain.quick_sign_in import totp  # noqa: PLC0415 - test only
+
+        found = self.passwords.get(form.get("username", ""))
+        refused = {"error": "invalid_grant", "error_description": "Invalid user credentials"}
+        if found is None or form.get("password") != found[1]:
+            return httpx.Response(401, json=refused)
+        user, _password, value = found
+        if value is not None:
+            step = int(self.now()) // 30
+            if form.get("totp") not in {totp(value, step), totp(value, step + 1)}:
+                return httpx.Response(401, json=refused)
+        return httpx.Response(200, json=self._tokens(user, form["client_id"], None))
+
     # --- HTTP ----------------------------------------------------------------------------------
 
     def handler(self, request: httpx.Request) -> httpx.Response:  # noqa: PLR0911 - one return per endpoint
@@ -149,6 +167,9 @@ class FakeIdp:
                     return httpx.Response(400, json={"error": "invalid_grant"})
                 user, nonce, client_id = entry
                 return httpx.Response(200, json=self._tokens(user, client_id, nonce))
+            if form["grant_type"] == "password":
+                self.password_grants.append(form)
+                return self._password_grant(form)
             entry2 = self.refresh_tokens.get(form["refresh_token"])
             if entry2 is None or not self.refresh_ok:
                 return httpx.Response(400, json={"error": "invalid_grant"})
@@ -172,6 +193,7 @@ class MemoryKeyValue:
 
     def __init__(self) -> None:
         self.data: dict[str, bytes] = {}
+        self.hashes: dict[str, dict[str, bytes]] = {}
 
     async def get(self, key: str) -> bytes | None:
         return self.data.get(key)
@@ -194,3 +216,19 @@ class MemoryKeyValue:
         value = int(self.data.get(key, b"0")) + 1
         self.data[key] = str(value).encode()
         return value
+
+    async def hset(self, key: str, field: str, value: bytes, *, px: int) -> None:
+        assert px > 0
+        self.hashes.setdefault(key, {})[field] = value
+
+    async def hgetall(self, key: str) -> dict[str, bytes]:
+        return dict(self.hashes.get(key, {}))
+
+    async def hdel(self, key: str, field: str) -> int:
+        return 1 if self.hashes.get(key, {}).pop(field, None) is not None else 0
+
+    async def delete_if(self, key: str, value: bytes) -> bool:
+        if self.data.get(key) != value:
+            return False
+        del self.data[key]
+        return True

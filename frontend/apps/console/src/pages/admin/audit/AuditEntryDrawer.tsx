@@ -5,7 +5,14 @@ import { useAuditEntry, useRoles, type AuditEntryDetail } from '@supportx/api-cl
 import { useListFormat } from '@supportx/labels';
 import { useDateTime, useLabel } from '@supportx/ui';
 
-import { actorLabel, grantLabel, objectLabel, OUTCOME_COLOURS } from './present';
+import {
+  actionLabel,
+  actorLabel,
+  deviceLabel,
+  grantLabel,
+  objectLabel,
+  OUTCOME_COLOURS,
+} from './present';
 import { StateTag } from './StateTag';
 
 // Settings that audit entries describe by name (old → new values are numbers or lists).
@@ -16,8 +23,9 @@ const NUMBER_DETAILS = new Set([
   'first_broken_seq',
   'unsealed_overdue',
   'personal_rows_removed',
-  'status',
 ]);
+// `status` (the HTTP status of a refused call) is never shown: the outcome line already says why
+// in words (AUD-01).
 
 /**
  * One audit entry in plain words (REQ-AUD-003): when to the second, who (and how they acted),
@@ -32,9 +40,7 @@ export function AuditEntryDrawer({ id, onClose }: { id: string | undefined; onCl
       open={id !== undefined}
       onClose={onClose}
       width={560}
-      title={
-        entry.data === undefined ? t('audit.ui.entry') : t(`audit.action.${entry.data.action}`)
-      }
+      title={entry.data === undefined ? t('audit.ui.entry') : actionLabel(t, entry.data)}
       destroyOnHidden
       data-testid="audit-entry-drawer"
     >
@@ -75,7 +81,7 @@ function Details({ e }: { e: AuditEntryDetail }) {
           </Descriptions.Item>
         )}
         <Descriptions.Item label={t('audit.ui.col.action')}>
-          {t(`audit.action.${e.action}`)} · {t(`audit_category.${e.category}`)}
+          {actionLabel(t, e)} · {t(`audit_category.${e.category}`)}
         </Descriptions.Item>
         {e.object_type !== null && (
           <Descriptions.Item label={t('audit.ui.col.object')}>
@@ -94,7 +100,7 @@ function Details({ e }: { e: AuditEntryDetail }) {
         )}
         {actorPersonal?.user_agent != null && (
           <Descriptions.Item label={t('audit.ui.user_agent')}>
-            {actorPersonal.user_agent}
+            {deviceLabel(t, actorPersonal.user_agent)}
           </Descriptions.Item>
         )}
         {statedWhy != null && (
@@ -150,6 +156,24 @@ function Details({ e }: { e: AuditEntryDetail }) {
               </Descriptions>
             ),
           },
+          // The browser's own string, for an investigation; the summary above is for reading.
+          ...(actorPersonal?.user_agent != null
+            ? [
+                {
+                  key: 'technical',
+                  label: t('audit.ui.technical'),
+                  children: (
+                    <Descriptions column={1} size="small">
+                      <Descriptions.Item label={t('audit.ui.user_agent_full')}>
+                        <Typography.Text code copyable style={{ wordBreak: 'break-all' }}>
+                          {actorPersonal.user_agent}
+                        </Typography.Text>
+                      </Descriptions.Item>
+                    </Descriptions>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
     </>
