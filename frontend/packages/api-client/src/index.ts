@@ -284,6 +284,11 @@ export {
 export {
   accountActionUrl,
   useAccountSecurity,
+  useEndMySession,
+  useEndPersonSession,
+  useMySessions,
+  usePersonSessions,
+  type ListedSession,
   useApplyPasswordPolicy,
   useMfaPolicy,
   useResetMfa,
