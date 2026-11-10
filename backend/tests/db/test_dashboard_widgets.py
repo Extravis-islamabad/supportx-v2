@@ -242,7 +242,8 @@ async def test_d114_every_catalogue_widget_runs_in_the_viewers_scope(reports: Wo
         else:
             definition = BUILTIN[widget["report_ref"].removeprefix("builtin:")].definition
             definition = definition.model_dump(mode="json", by_alias=True)
-        result = await run(world, a, a.tech_a, **{**definition, "entity": "incident"})
+        # Each widget on its own entity (incidents, requests, problems, releases, assets ...).
+        result = await run(world, a, a.tech_a, **definition)
         assert result.status_code == 200, (entry["code"], result.text)
 
 
