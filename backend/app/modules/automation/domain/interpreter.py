@@ -76,6 +76,7 @@ class CommandKind(StrEnum):
     UPDATE_FIELDS = "update_fields"
     ADD_NOTE = "add_note"
     START_SUB_FLOW = "start_sub_flow"  # carried out by the runtime, not an owning module
+    OPEN_APPROVAL = "open_approval"  # opened now, decided later: its result names the output
 
 
 @dataclass(frozen=True)
@@ -151,6 +152,7 @@ class CommandDone:
     ok: bool
     error: str | None = None
     outputs: Mapping[str, JsonValue] = field(default_factory=dict)
+    port: str | None = None  # the output a successful result leaves by ("next" when None)
 
 
 Event = RecordChanged | TimerFired | CommandDone
@@ -289,7 +291,7 @@ def _command_done(run: _Run, event: CommandDone) -> None:
     config = run.definition.node(token.node).config
     if event.ok:
         run.state.variables.update(event.outputs)
-        run.follow(token, "next")
+        run.follow(token, event.port or "next")
     elif token.attempts < int(config.get("retries", 0)):
         token.attempts += 1
         token.state, token.command, token.retrying = TokenState.WAITING, None, True
@@ -377,6 +379,16 @@ def _run_node(run: _Run, token: Token) -> None:  # noqa: C901, PLR0912 - one bra
         case NodeType.SUB_FLOW:
             _command(
                 run, token, CommandKind.START_SUB_FLOW, {"workflow_id": config.get("workflow_id")}
+            )
+        case NodeType.APPROVAL:
+            _command(
+                run,
+                token,
+                CommandKind.OPEN_APPROVAL,
+                {
+                    "approvers": dict(config.get("approvers", {})),
+                    "rule": str(config.get("rule", "any")),
+                },
             )
 
 

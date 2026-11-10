@@ -83,6 +83,7 @@ class NodeType(StrEnum):
     JOIN = "join"
     SET_VARIABLE = "set_variable"
     SUB_FLOW = "sub_flow"
+    APPROVAL = "approval"  # people: an approval on the record, its decision picks the output
 
 
 class WaitEvent(StrEnum):
@@ -95,6 +96,17 @@ class WaitEvent(StrEnum):
     APPROVAL_DECIDED = "approval_decided"
     TASK_COMPLETED = "task_completed"
     WORKLOG_ADDED = "worklog_added"
+
+
+class ApprovalRule(StrEnum):
+    """How an approval node's approvers decide (REQ-WF-014): the WP-030 engine's level rules."""
+
+    ANY = "any"
+    ALL = "all"
+    MAJORITY = "majority"
+
+
+MAX_APPROVERS = 50  # people, groups and roles named by one approval node
 
 
 class JoinMode(StrEnum):
@@ -187,6 +199,8 @@ class TypeFacts:
     actions: frozenset[str]  # status moves by action code a workflow may run
     system_actions: frozenset[str] = frozenset()  # system-only: refused at design time
     date_fields: frozenset[str] = frozenset()  # what a timer may count to
+    roles: frozenset[str] = frozenset()  # the record's roles an approval may name (ADR-041)
+    approvals: bool = False  # the type opens approvals on the WP-030 engine
 
 
 @dataclass(frozen=True)
@@ -435,6 +449,49 @@ def _check_sub_flow(
     return _retries(config)
 
 
+def _uuid_list(value: Any) -> bool:  # noqa: ANN401 - untrusted JSON
+    if not isinstance(value, list):
+        return False
+    try:
+        for item in value:
+            uuid.UUID(str(item))
+    except ValueError:
+        return False
+    return True
+
+
+def _approvers_problem(approvers: Any, roles_known: frozenset[str]) -> Problem | None:  # noqa: ANN401 - untrusted JSON
+    """What is wrong with an approval node's approvers, or None."""
+    if not isinstance(approvers, dict):
+        return ("", "approval_without_approvers", {})
+    users, groups, roles = (approvers.get(k, []) for k in ("user_ids", "group_ids", "roles"))
+    if not _uuid_list(users) or not _uuid_list(groups) or not isinstance(roles, list):
+        problem: Problem = ("", "invalid_value", {"field": "approvers"})
+    elif not users and not groups and not roles:
+        problem = ("", "approval_without_approvers", {})
+    elif len(users) + len(groups) + len(roles) > MAX_APPROVERS:
+        problem = ("", "too_many_values", {"max": MAX_APPROVERS})
+    elif unknown := [str(r) for r in roles if r not in roles_known]:
+        problem = ("", "approval_role_unknown", {"role": unknown[0]})
+    else:
+        return None
+    return problem
+
+
+def _check_approval(
+    config: Mapping[str, Any], facts: TypeFacts
+) -> list[tuple[str, dict[str, JsonValue]]]:
+    """Who decides and how (REQ-WF-014): named people, groups or the record's roles."""
+    if not facts.approvals:
+        return [("approval_not_offered", {"record_type": facts.record_type})]
+    problem = _approvers_problem(config.get("approvers"), facts.roles)
+    if problem is not None:
+        return [(problem[1], problem[2])]
+    if config.get("rule", ApprovalRule.ANY.value) not in {r.value for r in ApprovalRule}:
+        return [("invalid_value", {"field": "rule"})]
+    return []
+
+
 def _split_ports(config: Mapping[str, Any]) -> tuple[str, ...]:
     branches = config.get("branches")
     return tuple(str(b) for b in branches) if isinstance(branches, list) else ()
@@ -506,6 +563,15 @@ REGISTRY: Mapping[NodeType, NodeSpec] = {
         _fixed("next", "error"),
         lambda _c: frozenset({"error"}),
         _check_sub_flow,
+    ),
+    # The decision picks the output; "error" when it cannot open (no approver could be named,
+    # the record type refuses), else the instance stops there (REQ-WF-014, -024).
+    NodeType.APPROVAL: NodeSpec(
+        NodeType.APPROVAL,
+        Category.PEOPLE,
+        _fixed("approved", "rejected", "error"),
+        lambda _c: frozenset({"error"}),
+        _check_approval,
     ),
 }
 

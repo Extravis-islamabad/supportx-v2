@@ -256,6 +256,9 @@ export const ur: LabelResource = {
   'workflow_instance_status.finished': 'مکمل',
   'workflow_instance_status.running': 'چل رہا ہے',
   'workflow_instance_status.waiting': 'منتظر',
+  'workflow_problem.approval_not_offered': 'اس قسم کے ریکارڈ میں منظوریاں نہیں ہوتیں۔',
+  'workflow_problem.approval_role_unknown': 'اس ریکارڈ میں {{role}} کا کردار نہیں ہے۔',
+  'workflow_problem.approval_without_approvers': 'منظوری دینے والے چنیں: افراد، گروپ یا کردار۔',
   'workflow_problem.definition_format_invalid':
     'یہ ورک فلو ایسی شکل میں محفوظ ہے جو یہ ورژن نہیں پڑھ سکتا۔',
   'workflow_problem.definition_shape_invalid':

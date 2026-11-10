@@ -254,6 +254,9 @@ export const en = {
   'workflow_instance_status.finished': 'Finished',
   'workflow_instance_status.running': 'Running',
   'workflow_instance_status.waiting': 'Waiting',
+  'workflow_problem.approval_not_offered': 'This kind of record has no approvals.',
+  'workflow_problem.approval_role_unknown': 'This record has no role {{role}}.',
+  'workflow_problem.approval_without_approvers': 'Choose who approves: people, groups or roles.',
   'workflow_problem.definition_format_invalid':
     'This workflow was saved in a format this version cannot read.',
   'workflow_problem.definition_shape_invalid':

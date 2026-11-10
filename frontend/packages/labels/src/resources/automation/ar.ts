@@ -260,6 +260,9 @@ export const ar: LabelResource = {
   'workflow_instance_status.finished': 'انتهى',
   'workflow_instance_status.running': 'قيد التشغيل',
   'workflow_instance_status.waiting': 'بانتظار',
+  'workflow_problem.approval_not_offered': 'لا توجد موافقات لهذا النوع من السجلات.',
+  'workflow_problem.approval_role_unknown': 'لا يحتوي هذا السجل على الدور {{role}}.',
+  'workflow_problem.approval_without_approvers': 'اختر من يوافق: أشخاص أو مجموعات أو أدوار.',
   'workflow_problem.definition_format_invalid': 'حُفظ سير العمل هذا بصيغة لا يقرؤها هذا الإصدار.',
   'workflow_problem.definition_shape_invalid':
     'تعذّرت قراءة سير العمل. أعد تحميل المصمم وحاول مجددًا.',
