@@ -1,6 +1,11 @@
 import { Centrifuge, UnauthorizedError, type Subscription } from 'centrifuge';
 
-import { ApiError, fetchConnectionToken, fetchSubscriptionToken } from '@supportx/api-client';
+import {
+  ApiError,
+  currentApiOrigin,
+  fetchConnectionToken,
+  fetchSubscriptionToken,
+} from '@supportx/api-client';
 
 import type { ConnectionStatus, PresenceMember, RealtimeMessage } from './types';
 
@@ -33,7 +38,9 @@ export type ClientFactory = (getToken: () => Promise<string>) => Centrifuge;
 
 /** WebSocket first; HTTP streaming, then SSE when a proxy blocks WebSockets (§8.3). */
 export const defaultClientFactory: ClientFactory = (getToken) => {
-  const origin = window.location.origin;
+  // The mobile app talks to a server chosen at run time (D-154); the web to its own page.
+  const { location } = globalThis as { location?: { origin?: string } };
+  const origin = currentApiOrigin() ?? location?.origin ?? '';
   const ws = origin.replace(/^http/, 'ws');
   return new Centrifuge(
     [
@@ -360,8 +367,11 @@ export class RealtimeConnection {
     if (status === this.status) return;
     this.status = status;
     // Visible to tests and to anyone diagnosing a proxy: which state, over which transport.
-    document.documentElement.dataset.realtimeStatus = status;
-    document.documentElement.dataset.realtimeTransport = this.transport ?? '';
+    // React Native has no document.
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.realtimeStatus = status;
+      document.documentElement.dataset.realtimeTransport = this.transport ?? '';
+    }
     for (const listener of this.statusListeners) listener(status);
   }
 

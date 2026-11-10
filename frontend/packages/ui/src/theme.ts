@@ -5,6 +5,16 @@ import type { Locale } from '@supportx/labels';
 import { SUPPORTX_COLOURS, SUPPORTX_LOGOS, type BrandLogos } from './brand';
 import { densityTheme, type Density } from './density';
 import { fontFor, type UrduScript } from './fonts/fonts';
+import {
+  darken,
+  LIGHT_SURFACE,
+  lighten,
+  PRIMARY_ACTIVE_DARKEN,
+  PRIMARY_HOVER_DARKEN,
+  RADIUS,
+} from './tokens';
+
+export { darken, lighten } from './tokens';
 
 export const THEME_MODES = ['light', 'dark', 'high_contrast'] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
@@ -42,10 +52,6 @@ export const DEFAULT_BRANDING: Branding = {
   logos: SUPPORTX_LOGOS,
 };
 
-/** Same amounts as tooling/brand_assets.py (the Keycloak login page uses its hover shade too). */
-const PRIMARY_HOVER_DARKEN = 0.12;
-const PRIMARY_ACTIVE_DARKEN = 0.2;
-
 /**
  * The console's frame (UI pass 2, docs/design/target): a dark indigo navigation in every theme
  * mode, beside or above a white top bar. Measured: menu text #C9C4DB on #16122B 10.7:1, white on
@@ -61,17 +67,17 @@ export const SHELL = {
 
 /** The target's light surfaces: a cool grey page, white cards with 1px borders. */
 const LIGHT_SURFACES = {
-  colorText: '#14161B',
-  colorBgLayout: '#F4F5F7',
-  colorBorder: '#D5D8DF',
-  colorBorderSecondary: '#E3E5EA',
-  colorFillAlter: '#F8F9FB',
-  colorSplit: '#EEF0F3',
+  colorText: LIGHT_SURFACE.text,
+  colorBgLayout: LIGHT_SURFACE.layout,
+  colorBorder: LIGHT_SURFACE.border,
+  colorBorderSecondary: LIGHT_SURFACE.borderSecondary,
+  colorFillAlter: LIGHT_SURFACE.fillAlter,
+  colorSplit: LIGHT_SURFACE.split,
 } as const;
 
 // The font tokens live in ./fonts (D-137): bundled faces, switched by language and Urdu style.
 function shared(locale: Locale, urduScript: UrduScript): ThemeConfig['token'] {
-  return { borderRadius: 8, ...fontFor(locale, urduScript) };
+  return { borderRadius: RADIUS, ...fontFor(locale, urduScript) };
 }
 
 /**
@@ -310,24 +316,4 @@ function modeTheme(
       Tabs: { itemSelectedColor: primaryText, itemActiveColor: primaryText },
     },
   };
-}
-
-/** Darken a #rrggbb colour by `amount` (0..1) toward black. */
-export function darken(hex: string, amount: number): string {
-  return mix(hex, amount, 0);
-}
-
-/** Lighten a #rrggbb colour by `amount` (0..1) toward white. */
-export function lighten(hex: string, amount: number): string {
-  return mix(hex, amount, 255);
-}
-
-function mix(hex: string, amount: number, target: number): string {
-  const match = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (match?.[1] === undefined) return hex;
-  const value = Number.parseInt(match[1], 16);
-  const channels = [value >> 16, (value >> 8) & 0xff, value & 0xff].map((channel) =>
-    Math.round(channel + (target - channel) * amount),
-  );
-  return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
 }
