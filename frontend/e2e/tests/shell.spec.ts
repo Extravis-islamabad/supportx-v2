@@ -11,8 +11,9 @@ import {
   signInAs,
 } from './helpers';
 
-// Problems (WP-044a) and releases (WP-058a) have their screens; the rest are still coming.
-const SECTIONS = ['Changes', 'Assets', 'CMDB'];
+// Problems (WP-044a), releases (WP-058a) and assets (#216) have their screens; the rest are
+// still coming.
+const SECTIONS = ['Changes', 'CMDB'];
 
 test('navigation: every section opens a translated coming-soon page; palette and 404 work', async ({
   page,
