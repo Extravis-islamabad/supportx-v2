@@ -182,6 +182,49 @@ describe('console: service requests', () => {
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
   });
 
+  it('Haider 2026-11-10 (F): the item form is template B, its context first; Raise says what is missing', async () => {
+    window.history.pushState({}, '', `/requests/new?item=${ITEM_ID}`);
+    api({
+      [`GET /api/v1/catalog/items/${ITEM_ID}`]: {
+        body: {
+          ...laptop,
+          plan: [
+            { title: { en: 'Order the laptop' }, internal: false, required: true },
+            { title: { en: 'Image it' }, internal: true, required: true },
+          ],
+        },
+      },
+    });
+    render(<App />);
+    const context = await screen.findByTestId('sr-context');
+    expect(within(context).getByTestId('sr-context-approval').textContent).toContain(
+      "The requester's manager approves this first",
+    );
+    // What's included: what a requester may see, never the internal steps.
+    const included = within(context).getByTestId('sr-context-included').textContent;
+    expect(included).toContain('Order the laptop');
+    expect(included).not.toContain('Image it');
+    // One footer, Cancel before Raise; Raise off only with the reason beside it.
+    const footer = screen.getByTestId('sr-new-footer');
+    const buttons = [...footer.querySelectorAll('button')].map((b) =>
+      b.getAttribute('data-testid'),
+    );
+    expect(buttons).toEqual(['sr-cancel', 'sr-send']);
+    expect(screen.getByTestId<HTMLButtonElement>('sr-send').disabled).toBe(true);
+    expect(screen.getByTestId('sr-send-why').textContent).toBe(
+      'Give the request a subject to raise it.',
+    );
+    fireEvent.change(screen.getByTestId('sr-subject'), { target: { value: 'Laptop' } });
+    expect(screen.getByTestId('sr-send-why').textContent).toBe(
+      'Answer the questions marked as required.',
+    );
+    fireEvent.click(screen.getByRole('radio', { name: 'air' }));
+    expect(screen.queryByTestId('sr-send-why')).toBeNull();
+    expect(screen.getByTestId<HTMLButtonElement>('sr-send').disabled).toBe(false);
+    // Raised for yourself by default, and the field says so.
+    expect(screen.getByTestId('sr-section-request').textContent).toContain('For yourself');
+  });
+
   it('QA10-P1-11: the catalog is a library: a tab per category, each item with its description', async () => {
     window.history.pushState({}, '', '/requests/new');
     const CAT = '01a1a2b3-0000-7000-8000-00000000ca01';
