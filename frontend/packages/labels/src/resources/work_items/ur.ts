@@ -631,6 +631,7 @@ export const ur: LabelResource = {
   'incidents.history.people': 'لوگ',
   'incidents.impact_details_help': 'کون اور کیا متاثر ہے، اپنے الفاظ میں۔',
   'incidents.keep_requester': 'درخواست گزار برقرار رکھیں',
+  'incidents.level_placeholder': 'سطح منتخب کریں',
   'incidents.links.add': 'منسلک کریں',
   'incidents.links.comment': 'تبصرہ (اختیاری)',
   'incidents.links.delete': 'ربط ہٹائیں',

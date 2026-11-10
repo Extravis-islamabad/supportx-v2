@@ -690,6 +690,7 @@ export const ar: LabelResource = {
   'incidents.history.people': 'الأشخاص',
   'incidents.impact_details_help': 'من وما المتأثر، بكلماتك.',
   'incidents.keep_requester': 'الإبقاء على مقدم الطلب',
+  'incidents.level_placeholder': 'اختر مستوى',
   'incidents.links.add': 'ربط',
   'incidents.links.comment': 'تعليق (اختياري)',
   'incidents.links.delete': 'إزالة الرابط',

@@ -623,6 +623,7 @@ export const en = {
   'incidents.history.people': 'People',
   'incidents.impact_details_help': 'Who and what is affected, in your own words.',
   'incidents.keep_requester': 'Keep the requester',
+  'incidents.level_placeholder': 'Choose a level',
   'incidents.links.add': 'Link',
   'incidents.links.comment': 'Comment (optional)',
   'incidents.links.delete': 'Remove link',
