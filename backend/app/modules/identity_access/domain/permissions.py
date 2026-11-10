@@ -196,6 +196,10 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("changes.view", "all"),
             ("changes.create", "all"),
             ("changes.approve", "all"),
+            # #327 (Haider, 2026-11-10): the change advisory boards and the emergency override
+            # (D-144) are the change manager's and the administrators' only.
+            ("changes.manage_boards", "all"),
+            ("changes.emergency_override", "all"),
             ("cmdb.view", "all"),
         ),
         RELEASE_MANAGER: (

@@ -110,6 +110,12 @@
   "changes.create": [
    "all"
   ],
+  "changes.emergency_override": [
+   "all"
+  ],
+  "changes.manage_boards": [
+   "all"
+  ],
   "changes.view": [
    "all"
   ],
@@ -134,6 +140,12 @@
    "all"
   ],
   "changes.create": [
+   "all"
+  ],
+  "changes.emergency_override": [
+   "all"
+  ],
+  "changes.manage_boards": [
    "all"
   ],
   "changes.view": [
@@ -172,11 +184,77 @@
   ]
  },
  "knowledge_manager@all": {
+  "knowledge.approve": [
+   "all"
+  ],
+  "knowledge.create": [
+   "all"
+  ],
+  "knowledge.delete": [
+   "all"
+  ],
+  "knowledge.edit_any": [
+   "all"
+  ],
+  "knowledge.edit_own": [
+   "own"
+  ],
+  "knowledge.manage_settings": [
+   "all"
+  ],
+  "knowledge.manage_topics": [
+   "all"
+  ],
+  "knowledge.manage_types": [
+   "all"
+  ],
+  "knowledge.submit": [
+   "own"
+  ],
+  "knowledge.view": [
+   "all"
+  ],
+  "knowledge.withdraw": [
+   "all"
+  ],
   "profile.edit": [
    "own"
   ]
  },
  "knowledge_manager@group": {
+  "knowledge.approve": [
+   "all"
+  ],
+  "knowledge.create": [
+   "all"
+  ],
+  "knowledge.delete": [
+   "all"
+  ],
+  "knowledge.edit_any": [
+   "all"
+  ],
+  "knowledge.edit_own": [
+   "own"
+  ],
+  "knowledge.manage_settings": [
+   "all"
+  ],
+  "knowledge.manage_topics": [
+   "all"
+  ],
+  "knowledge.manage_types": [
+   "all"
+  ],
+  "knowledge.submit": [
+   "own"
+  ],
+  "knowledge.view": [
+   "all"
+  ],
+  "knowledge.withdraw": [
+   "all"
+  ],
   "profile.edit": [
    "own"
   ]
@@ -195,9 +273,6 @@
    "all"
   ],
   "problems.assign": [
-   "all"
-  ],
-  "problems.assign_outside_group": [
    "all"
   ],
   "problems.cancel": [
@@ -275,9 +350,6 @@
    "all"
   ],
   "problems.assign": [
-   "all"
-  ],
-  "problems.assign_outside_group": [
    "all"
   ],
   "problems.cancel": [
@@ -404,6 +476,9 @@
   ]
  },
  "report_viewer@all": {
+  "changes.view": [
+   "all"
+  ],
   "incidents.view": [
    "all"
   ],
@@ -427,6 +502,9 @@
   ]
  },
  "report_viewer@group": {
+  "changes.view": [
+   "all"
+  ],
   "incidents.view": [
    "all"
   ],
@@ -539,6 +617,54 @@
   "automation.view": [
    "all"
   ],
+  "changes.add_note": [
+   "all"
+  ],
+  "changes.approve": [
+   "all"
+  ],
+  "changes.assign": [
+   "all"
+  ],
+  "changes.cancel": [
+   "all"
+  ],
+  "changes.change_priority": [
+   "all"
+  ],
+  "changes.close": [
+   "all"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.delete": [
+   "all"
+  ],
+  "changes.edit": [
+   "all"
+  ],
+  "changes.edit_due_dates": [
+   "all"
+  ],
+  "changes.manage_followers": [
+   "all"
+  ],
+  "changes.reopen": [
+   "all"
+  ],
+  "changes.reply": [
+   "all"
+  ],
+  "changes.resolve": [
+   "all"
+  ],
+  "changes.take": [
+   "all"
+  ],
+  "changes.view": [
+   "all"
+  ],
   "config.announcements": [
    "all"
   ],
@@ -561,9 +687,6 @@
    "all"
   ],
   "incidents.assign": [
-   "all"
-  ],
-  "incidents.assign_outside_group": [
    "all"
   ],
   "incidents.cancel": [
@@ -618,9 +741,6 @@
    "all"
   ],
   "problems.assign": [
-   "all"
-  ],
-  "problems.assign_outside_group": [
    "all"
   ],
   "problems.cancel": [
@@ -686,9 +806,6 @@
   "releases.assign": [
    "all"
   ],
-  "releases.assign_outside_group": [
-   "all"
-  ],
   "releases.cancel": [
    "all"
   ],
@@ -744,9 +861,6 @@
    "all"
   ],
   "requests.assign": [
-   "all"
-  ],
-  "requests.assign_outside_group": [
    "all"
   ],
   "requests.cancel": [
@@ -823,6 +937,54 @@
   "automation.view": [
    "all"
   ],
+  "changes.add_note": [
+   "all"
+  ],
+  "changes.approve": [
+   "all"
+  ],
+  "changes.assign": [
+   "all"
+  ],
+  "changes.cancel": [
+   "all"
+  ],
+  "changes.change_priority": [
+   "all"
+  ],
+  "changes.close": [
+   "all"
+  ],
+  "changes.create": [
+   "all"
+  ],
+  "changes.delete": [
+   "all"
+  ],
+  "changes.edit": [
+   "all"
+  ],
+  "changes.edit_due_dates": [
+   "all"
+  ],
+  "changes.manage_followers": [
+   "all"
+  ],
+  "changes.reopen": [
+   "all"
+  ],
+  "changes.reply": [
+   "all"
+  ],
+  "changes.resolve": [
+   "all"
+  ],
+  "changes.take": [
+   "all"
+  ],
+  "changes.view": [
+   "all"
+  ],
   "config.announcements": [
    "all"
   ],
@@ -845,9 +1007,6 @@
    "all"
   ],
   "incidents.assign": [
-   "all"
-  ],
-  "incidents.assign_outside_group": [
    "all"
   ],
   "incidents.cancel": [
@@ -902,9 +1061,6 @@
    "all"
   ],
   "problems.assign": [
-   "all"
-  ],
-  "problems.assign_outside_group": [
    "all"
   ],
   "problems.cancel": [
@@ -970,9 +1126,6 @@
   "releases.assign": [
    "all"
   ],
-  "releases.assign_outside_group": [
-   "all"
-  ],
   "releases.cancel": [
    "all"
   ],
@@ -1028,9 +1181,6 @@
    "all"
   ],
   "requests.assign": [
-   "all"
-  ],
-  "requests.assign_outside_group": [
    "all"
   ],
   "requests.cancel": [
@@ -1102,6 +1252,42 @@
    "site"
   ],
   "assets.view": [
+   "site"
+  ],
+  "changes.add_note": [
+   "site"
+  ],
+  "changes.assign": [
+   "site"
+  ],
+  "changes.cancel": [
+   "site"
+  ],
+  "changes.change_priority": [
+   "site"
+  ],
+  "changes.close": [
+   "site"
+  ],
+  "changes.edit": [
+   "site"
+  ],
+  "changes.manage_followers": [
+   "site"
+  ],
+  "changes.reopen": [
+   "site"
+  ],
+  "changes.reply": [
+   "site"
+  ],
+  "changes.resolve": [
+   "site"
+  ],
+  "changes.take": [
+   "site"
+  ],
+  "changes.view": [
    "site"
   ],
   "departments.view": [
@@ -1277,6 +1463,42 @@
   "assets.view": [
    "site"
   ],
+  "changes.add_note": [
+   "site"
+  ],
+  "changes.assign": [
+   "site"
+  ],
+  "changes.cancel": [
+   "site"
+  ],
+  "changes.change_priority": [
+   "site"
+  ],
+  "changes.close": [
+   "site"
+  ],
+  "changes.edit": [
+   "site"
+  ],
+  "changes.manage_followers": [
+   "site"
+  ],
+  "changes.reopen": [
+   "site"
+  ],
+  "changes.reply": [
+   "site"
+  ],
+  "changes.resolve": [
+   "site"
+  ],
+  "changes.take": [
+   "site"
+  ],
+  "changes.view": [
+   "site"
+  ],
   "departments.view": [
    "all"
   ],
@@ -1446,6 +1668,39 @@
   ],
   "assets.view": [
    "all"
+  ],
+  "changes.add_note": [
+   "group"
+  ],
+  "changes.assign": [
+   "group"
+  ],
+  "changes.cancel": [
+   "group"
+  ],
+  "changes.change_priority": [
+   "group"
+  ],
+  "changes.close": [
+   "group"
+  ],
+  "changes.edit": [
+   "group"
+  ],
+  "changes.manage_followers": [
+   "group"
+  ],
+  "changes.reopen": [
+   "group"
+  ],
+  "changes.reply": [
+   "group"
+  ],
+  "changes.resolve": [
+   "group"
+  ],
+  "changes.take": [
+   "group"
   ],
   "changes.view": [
    "all"
@@ -1673,6 +1928,39 @@
   ],
   "assets.view": [
    "all"
+  ],
+  "changes.add_note": [
+   "group"
+  ],
+  "changes.assign": [
+   "group"
+  ],
+  "changes.cancel": [
+   "group"
+  ],
+  "changes.change_priority": [
+   "group"
+  ],
+  "changes.close": [
+   "group"
+  ],
+  "changes.edit": [
+   "group"
+  ],
+  "changes.manage_followers": [
+   "group"
+  ],
+  "changes.reopen": [
+   "group"
+  ],
+  "changes.reply": [
+   "group"
+  ],
+  "changes.resolve": [
+   "group"
+  ],
+  "changes.take": [
+   "group"
   ],
   "changes.view": [
    "all"
@@ -1904,7 +2192,40 @@
   "assets.view": [
    "all"
   ],
+  "changes.add_note": [
+   "all"
+  ],
+  "changes.assign": [
+   "all"
+  ],
+  "changes.cancel": [
+   "all"
+  ],
+  "changes.change_priority": [
+   "all"
+  ],
+  "changes.close": [
+   "all"
+  ],
   "changes.create": [
+   "all"
+  ],
+  "changes.edit": [
+   "all"
+  ],
+  "changes.manage_followers": [
+   "all"
+  ],
+  "changes.reopen": [
+   "all"
+  ],
+  "changes.reply": [
+   "all"
+  ],
+  "changes.resolve": [
+   "all"
+  ],
+  "changes.take": [
    "all"
   ],
   "changes.view": [
@@ -2134,8 +2455,41 @@
   "assets.view": [
    "all"
   ],
+  "changes.add_note": [
+   "group"
+  ],
+  "changes.assign": [
+   "group"
+  ],
+  "changes.cancel": [
+   "group"
+  ],
+  "changes.change_priority": [
+   "group"
+  ],
+  "changes.close": [
+   "group"
+  ],
   "changes.create": [
    "all"
+  ],
+  "changes.edit": [
+   "group"
+  ],
+  "changes.manage_followers": [
+   "group"
+  ],
+  "changes.reopen": [
+   "group"
+  ],
+  "changes.reply": [
+   "group"
+  ],
+  "changes.resolve": [
+   "group"
+  ],
+  "changes.take": [
+   "group"
   ],
   "changes.view": [
    "all"
