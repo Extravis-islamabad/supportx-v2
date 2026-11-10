@@ -1100,6 +1100,8 @@ export const ar: LabelResource = {
     'يمكن لمقدمي الطلبات تغيير اسمهم وهاتفهم ولغتهم في البوابة.',
   'portal_settings.reminders': 'تذكيرات لمقدمي الطلبات',
   'portal_settings.reminders_hint': 'يُذكَّر مقدمو الطلبات بما ينتظرهم، مثل إصلاح بحاجة إلى تأكيد.',
+  'portal_settings.saved_partly':
+    'حُفظ بعض التغييرات. أما التغييرات التي لا يزال الشريط يعدّها فلم تُحفظ؛ راجعها واحفظ مرة أخرى.',
   'portal_settings.search_sources': 'ما يبحث فيه مربع البحث',
   'portal_settings.search_sources_hint': 'حدّد ما يُبحث فيه، ورتّب المجموعات كما تظهر النتائج.',
   'portal_state.closed': 'مغلق',

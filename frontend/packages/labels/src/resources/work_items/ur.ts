@@ -1015,6 +1015,8 @@ export const ur: LabelResource = {
   'portal_settings.reminders': 'درخواست گزاروں کے لیے یاد دہانیاں',
   'portal_settings.reminders_hint':
     'درخواست گزاروں کو یاد دلایا جاتا ہے کہ کیا ان کا منتظر ہے، جیسے تصدیق طلب حل۔',
+  'portal_settings.saved_partly':
+    'کچھ تبدیلیاں محفوظ ہو گئیں۔ جو تبدیلیاں ابھی بار پر گنی جا رہی ہیں وہ محفوظ نہیں ہوئیں؛ انہیں دیکھیں اور دوبارہ محفوظ کریں۔',
   'portal_settings.search_sources': 'تلاش کا خانہ کہاں تلاش کرے',
   'portal_settings.search_sources_hint':
     'منتخب کریں کہ کیا تلاش ہو، اور گروپوں کی ترتیب نتائج کے مطابق رکھیں۔',
