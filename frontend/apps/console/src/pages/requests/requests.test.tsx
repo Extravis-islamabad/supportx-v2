@@ -498,6 +498,8 @@ describe('console: service requests', () => {
     render(<App />);
     // One status chip; the pending approval is not said twice (UI pass 3, Haider).
     expect((await screen.findByTestId('sr-status')).textContent).toBe('Awaiting approval');
+    // QA10V-13: the dot chip of the other record headers.
+    expect(screen.getByTestId('sr-status').querySelector('.ant-badge')).not.toBeNull();
     expect(screen.queryByTestId('sr-approval')).toBeNull();
     fireEvent.click(await screen.findByTestId('sr-tab-details'));
     const answers = await screen.findByTestId('sr-answers');

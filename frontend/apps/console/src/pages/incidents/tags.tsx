@@ -14,15 +14,17 @@ import { PRIORITY_COLOURS } from './priorityColours';
 export function StatusTag({
   status,
   catalogue,
+  testId = 'inc-status',
 }: {
   status: string;
   catalogue: IncidentCatalogue | undefined;
+  testId?: string;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const colour = catalogue?.statuses.find((s) => s.code === status)?.colour;
   return (
-    <Tag data-testid="inc-status" data-status={status}>
+    <Tag data-testid={testId} data-status={status}>
       <Badge color={colour ?? '#8c8c8c'} style={{ marginInlineEnd: 6 }} />
       {statusLabel(t, catalogue, status, locale)}
     </Tag>
