@@ -1407,6 +1407,22 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
+### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045; session 1 of 4 built 2026-11-10)
+
+- [x] S1: the audit sink port in `app/shared/history.record_changes` and the audit module's sink;
+  one entry per save listing all its events (route's code first, merged with the route's entry
+  in the same transaction); `events` inside the entry hash only when set (migration 0122, GIN;
+  older entries hash as before); the action filter, saved searches and exports match events;
+  event tables for assets and the five work-item types (lane A reviewed the field lists;
+  statuses by category through work_items' annotator, never stored in history); the subtype
+  resolver; catalogue and en/ar/ur labels; tests (unit, DB, the history guard).
+- [ ] S2: change-set fingerprints in the verifier, per-subject salts (0119), history erasure,
+  "erased on request".
+- [ ] S3: per-category retention and legal hold (0120), sealing to about 2,000/s, the 10M run,
+  the save-latency check.
+- [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
+  file events in a record's list), e2e, docs.
+
 ### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; session 1 of 5 done, #233)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.

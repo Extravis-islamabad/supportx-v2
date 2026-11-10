@@ -24,12 +24,23 @@ export function StageRail({ rail }: { rail: RailStage[] }) {
     <Steps
       size="small"
       current={current < 0 ? 0 : current}
+      // Labels under each stage, wrapping between words: "Acceptance testing" is never cut
+      // mid-word (D-155; the coordinator's check of #338's shots).
+      labelPlacement="vertical"
       responsive
       data-testid="release-rail"
       items={rail.map((stage) => {
         const last = stage.entries.at(-1);
         return {
-          title: <span data-testid={`rail-${stage.stage}`}>{stageName(t, stage.stage)}</span>,
+          title: (
+            <span
+              data-testid={`rail-${stage.stage}`}
+              title={stageName(t, stage.stage)}
+              style={{ whiteSpace: 'normal', overflowWrap: 'normal', wordBreak: 'normal' }}
+            >
+              {stageName(t, stage.stage)}
+            </span>
+          ),
           status: STATUS[stage.state],
           subTitle: stage.optional ? <Tag>{t('releases.rail.optional')}</Tag> : undefined,
           description: (

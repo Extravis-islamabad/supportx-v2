@@ -140,7 +140,7 @@ export const SCREENS: Screen[] = [
     key: 'incident',
     path: incident,
     app: 'console',
-    state: { name: 'composer', open: click('conv-reply') },
+    state: { name: 'composer', open: click('inc-op-reply') }, // the header's one Reply (D-155)
   },
   {
     key: 'incident',

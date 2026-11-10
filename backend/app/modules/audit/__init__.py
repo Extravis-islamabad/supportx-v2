@@ -48,6 +48,7 @@ from app.modules.audit.service.realtime import CHANNELS, ROUTES
 from app.modules.audit.service.recording import (
     WORKER,
     AuditNote,
+    LifecycleSink,
     RequestFacts,
     audit_read,
     audited,
@@ -56,9 +57,14 @@ from app.modules.audit.service.recording import (
     record_alone,
 )
 from app.shared.events import ConsumerSpec
+from app.shared.history import register_audit_sink
 from app.shared.schedules import ScheduleSpec
 
 AUDITOR = "auditor"
+
+# Every save of a lifecycle record type gets its audit entry (WP-064). Set on import, like the
+# identity module's people names, so the API and every worker that loads the modules have it.
+register_audit_sink(LifecycleSink())
 
 # Separation of duties (D-076): auditors read, search, export and verify, and change nothing;
 # settings stay with tenant administrators. Nobody can change or delete an entry.
