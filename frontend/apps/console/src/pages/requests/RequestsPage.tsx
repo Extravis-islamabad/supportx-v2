@@ -288,7 +288,7 @@ export function RequestsPage() {
     >
       <Table
         rowKey="id"
-        loading={list.isLoading}
+        loading={list.isPending}
         dataSource={rows}
         pagination={false}
         scroll={{ x: 960 }}
@@ -301,8 +301,10 @@ export function RequestsPage() {
         components={widths.components}
         locale={{
           // An empty state only once the answer is in (QA 2026-11-04 #5 on incidents, same here).
-          emptyText: list.isLoading ? (
-            <span />
+          // Never while the first load runs (as lane C's loadedEmpty); the empty state here also
+          // offers to raise a request, so it keeps its own shape.
+          emptyText: list.isPending ? (
+            <span data-testid="empty-loading" />
           ) : (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
