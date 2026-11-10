@@ -291,6 +291,7 @@ export function ConsumablesPage() {
                 value={site}
                 onChange={setSite}
                 ariaLabel={t('assets.stock.site')}
+                placeholder={t('assets.stock.all_sites')}
                 testId="consumables-site"
               />
             </div>

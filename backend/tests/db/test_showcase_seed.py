@@ -278,7 +278,9 @@ async def _first_assets(first: seed.Report, url: str) -> SeedAssets:
     # the loanable mark, the loan, the group and its three members.
     assert first.assets == len(assets.PRODUCTS) + len(assets.ASSETS) + 3 + 1 + 1 + 1 + 3 == 22
     found = await _seed_assets(url)
-    assert found.products == {p.name for p in assets.PRODUCTS}
+    assert found.products == {p.name for p in assets.PRODUCTS} | {
+        c.product.name for c in assets.CONSUMABLES
+    }
     assert found.holders == {
         "SX-LAP-001": f"user {seed.REQUESTER.email}",
         "SX-DSK-001": f"department {assets.DEPARTMENT}",
@@ -293,6 +295,137 @@ async def _first_assets(first: seed.Report, url: str) -> SeedAssets:
     assert found.groups == {assets.GROUP: set(assets.GROUP_MEMBERS)}
     assert found.trashed == set()
     assert found.versions["SX-PRN-001"] == assets.CREATED  # the seed's own, never saved again
+    return found
+
+
+@dataclass(frozen=True)
+class SeedStock:
+    """The seed's consumables as the database has them (WP-049b s1, tooling/showcase_assets)."""
+
+    consumables: dict[str, bool]  # product name -> batch tracked
+    stocks: dict[tuple[str, str], str]  # (product, site) -> quantity
+    lots: dict[str, tuple[str, int]]  # product -> (lot number, days from today to expiry)
+    movements: dict[tuple[str, str], int]  # (product, kind) -> how many
+    rules: dict[str, tuple[str, str]]  # product -> (site, minimum)
+    bookings: dict[str, tuple[str, str, int]]  # asset tag -> (borrower, status, days ahead)
+
+
+def _qty(value: Any) -> str:  # noqa: ANN401 - asyncpg's Decimal
+    return f"{value.normalize():f}"
+
+
+async def _seed_stock(url: str) -> SeedStock:
+    conn = await asyncpg.connect(url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            consumables = await conn.fetch(
+                "SELECT p.name, c.batch_tracked FROM asset_consumables c"
+                " JOIN asset_products p ON p.id = c.product_id"
+                " WHERE c.tenant_id = $1 AND c.deleted_at IS NULL",
+                seed.TENANT_ID,
+            )
+            stocks = await conn.fetch(
+                "SELECT p.name, s2.name AS site, s.quantity FROM asset_consumable_stocks s"
+                " JOIN asset_consumables c ON c.id = s.consumable_id"
+                " JOIN asset_products p ON p.id = c.product_id"
+                " JOIN sites s2 ON s2.id = s.site_id"
+                " WHERE c.tenant_id = $1 AND c.deleted_at IS NULL",
+                seed.TENANT_ID,
+            )
+            lots = await conn.fetch(
+                "SELECT p.name, b.lot_number, b.expires_on - current_date AS days"
+                " FROM asset_consumable_batches b"
+                " JOIN asset_consumables c ON c.id = b.consumable_id"
+                " JOIN asset_products p ON p.id = c.product_id"
+                " WHERE c.tenant_id = $1 AND c.deleted_at IS NULL",
+                seed.TENANT_ID,
+            )
+            movements = await conn.fetch(
+                "SELECT p.name, m.kind, count(*) AS n FROM asset_consumable_movements m"
+                " JOIN asset_consumables c ON c.id = m.consumable_id"
+                " JOIN asset_products p ON p.id = c.product_id"
+                " WHERE c.tenant_id = $1 AND c.deleted_at IS NULL"
+                " GROUP BY p.name, m.kind",
+                seed.TENANT_ID,
+            )
+            rules = await conn.fetch(
+                "SELECT p.name, s.name AS site, r.min_quantity FROM asset_stock_rules r"
+                " JOIN asset_products p ON p.id = r.product_id JOIN sites s ON s.id = r.site_id"
+                " WHERE r.tenant_id = $1 AND r.deleted_at IS NULL",
+                seed.TENANT_ID,
+            )
+            bookings = await conn.fetch(
+                "SELECT a.tag, u.email, b.status,"
+                " extract(day FROM b.starts_at - now())::int AS days FROM asset_bookings b"
+                " JOIN assets a ON a.id = b.asset_id JOIN users u ON u.id = b.borrower_id"
+                " WHERE b.tenant_id = $1 AND b.deleted_at IS NULL",
+                seed.TENANT_ID,
+            )
+    finally:
+        await conn.close()
+    return SeedStock(
+        consumables={r["name"]: r["batch_tracked"] for r in consumables},
+        stocks={(r["name"], r["site"]): _qty(r["quantity"]) for r in stocks},
+        lots={r["name"]: (r["lot_number"], r["days"]) for r in lots},
+        movements={(r["name"], r["kind"]): r["n"] for r in movements},
+        rules={r["name"]: (r["site"], _qty(r["min_quantity"])) for r in rules},
+        bookings={r["tag"]: (r["email"], r["status"], r["days"]) for r in bookings},
+    )
+
+
+async def _consumables_listed(database: db_testing.ThrowawayDatabase) -> list[dict[str, Any]]:
+    """The consumables list as the console (and the visual matrix's lookup) gets it."""
+    conn = await asyncpg.connect(database.migrator_url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            admin: uuid.UUID = await conn.fetchval(
+                "SELECT id FROM users WHERE email = $1", seed.ADMIN.email
+            )
+    finally:
+        await conn.close()
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    contexts = {admin: TenantContext(seed.TENANT_ID, admin, roles=frozenset(seed.ADMIN.roles))}
+    async with seed.console_api(settings, contexts) as client:
+        listed: list[dict[str, Any]] = await seed.Api(client, admin).call(
+            "GET", "/api/v1/assets/consumables"
+        )
+        return listed
+
+
+async def _first_stock(first: seed.Report, database: db_testing.ThrowawayDatabase) -> SeedStock:
+    """WP-049b s1: consumables to show (the visual matrix's consumable screen), as made first."""
+    # Three products, three consumables, seven movements, the minimum and the booking.
+    assert first.stock == 3 + 3 + 7 + 1 + 1 == 15
+    found = await _seed_stock(database.migrator_url)
+    toner, paper, keys = (c.product.name for c in assets.CONSUMABLES)
+    hq, dubai = assets.HQ, assets.DUBAI
+    assert found.consumables == {toner: True, paper: False, keys: False}
+    assert found.stocks == {
+        (toner, hq): "4",
+        (paper, hq): "35",
+        (paper, dubai): "25",
+        (keys, hq): "9",
+    }
+    assert found.lots == {toner: ("CF259A-LOT-01", 300)}  # relative to today
+    assert found.movements == {
+        (toner, "receive"): 1, (toner, "allocate"): 1,
+        (paper, "receive"): 2, (paper, "allocate"): 1,
+        (keys, "receive"): 1, (keys, "allocate"): 1,
+    }  # fmt: skip
+    assert found.rules == {toner: (hq, "5")}
+    borrower, status, days = found.bookings[assets.BOOKED]
+    assert (borrower, status) == (seed.REQUESTER.email, "booked")
+    assert assets.LOAN_DAYS < days <= assets.BOOKING_IN_DAYS  # after the loan, from now
+    assert len(found.bookings) == 1
+    # The visual matrix's `consumable` lookup: the first of this list, with the "low" state.
+    listed = await _consumables_listed(database)
+    assert {c["product_name"] for c in listed} == {toner, paper, keys}
+    low = {(c["product_name"], s["low"]) for c in listed for s in c["stocks"] if s["low"]}
+    assert low == {(toner, True)}
     return found
 
 
@@ -507,6 +640,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     assert first.articles == len(seed.KB_ARTICLES) == 5
     assert first.releases == len(seed.RELEASES) == 2
     found = asyncio.run(_first_assets(first, database.migrator_url))
+    stock = asyncio.run(_first_stock(first, database))
     assert first.backdated == 75  # spread over the past 30 days (choice (b)); not releases
     assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
@@ -560,6 +694,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.articles,
         second.releases,
         second.assets,
+        second.stock,
         second.service_requests,
         second.problems,
         second.managers,
@@ -567,9 +702,10 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.featured,
         second.sla_policies,
         second.sla_from_creation,
-    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     assert second.backdated == 0  # nothing made now, so nothing moved
     assert asyncio.run(_seed_assets(database.migrator_url)) == found
+    assert asyncio.run(_seed_stock(database.migrator_url)) == stock
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
     # The check has teeth: an audit entry shifted as step 5 must never do is caught (or the
     # database refuses the change outright).
@@ -596,9 +732,12 @@ def test_seed_assets_changed_by_hand_stay_as_the_person_left_them(
     assert by_hand.loans == {}
     assert by_hand.trashed == {"SX-PRN-001"}
 
+    stock = asyncio.run(_seed_stock(database.migrator_url))
+
     again = asyncio.run(_run(database, keycloak))
-    assert again.assets == 0
+    assert (again.assets, again.stock) == (0, 0)
     assert asyncio.run(_seed_assets(database.migrator_url)) == by_hand
+    assert asyncio.run(_seed_stock(database.migrator_url)) == stock  # the booking stays too
 
 
 # --- step 6: SLAs from creation for incidents made before any SLA (Haider, 2026-11-09) --------

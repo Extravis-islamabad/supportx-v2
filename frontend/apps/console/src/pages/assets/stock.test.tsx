@@ -128,6 +128,10 @@ describe('console: consumables', () => {
     expect(screen.getByTestId(`consumable-total-${consumable.id}`).textContent).toBe('6');
     expect(screen.getByTestId('consumable-low-st-1').textContent).toBe('At minimum');
     expect(screen.getByText('Batches')).toBeTruthy();
+    // The site filter reads as a filter, not as a row's "No site".
+    const filter = screen.getByTestId('consumables-site');
+    expect(within(filter).getByText('All sites')).toBeTruthy();
+    expect(within(filter).queryByText('No site')).toBeNull();
   });
 
   it('shows stock, an expired batch flagged, and the ledger', async () => {

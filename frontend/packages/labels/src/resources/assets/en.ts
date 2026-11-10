@@ -405,6 +405,7 @@ export const en = {
   'assets.stock.adjust': 'Adjust',
   'assets.stock.adjust_title': 'Adjust the stock',
   'assets.stock.all_out': 'None left at any site.',
+  'assets.stock.all_sites': 'All sites',
   'assets.stock.allocate': 'Allocate',
   'assets.stock.allocate_title': 'Allocate stock',
   'assets.stock.allocate_to': 'Allocate to',

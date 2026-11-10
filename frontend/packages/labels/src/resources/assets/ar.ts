@@ -444,6 +444,7 @@ export const ar: LabelResource = {
   'assets.stock.adjust': 'تعديل',
   'assets.stock.adjust_title': 'تعديل المخزون',
   'assets.stock.all_out': 'لم يتبقَّ شيء في أي موقع.',
+  'assets.stock.all_sites': 'كل المواقع',
   'assets.stock.allocate': 'صرف',
   'assets.stock.allocate_title': 'صرف من المخزون',
   'assets.stock.allocate_to': 'صرف إلى',

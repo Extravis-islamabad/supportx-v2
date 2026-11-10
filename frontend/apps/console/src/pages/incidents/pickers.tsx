@@ -172,7 +172,11 @@ export function SitePicker({
   disabled,
   testId,
   ariaLabel,
-}: Omit<PickerProps, 'current'>) {
+  placeholder,
+}: Omit<PickerProps, 'current'> & {
+  /** Shown while no site is chosen; a filter says "All sites" (default: "No site"). */
+  placeholder?: string;
+}) {
   const t = useLabel();
   const sites = useUnits('sites');
   return (
@@ -184,7 +188,7 @@ export function SitePicker({
       value={value}
       disabled={disabled}
       aria-label={ariaLabel}
-      placeholder={t('incidents.no_site')}
+      placeholder={placeholder ?? t('incidents.no_site')}
       onChange={(next: string | undefined) => {
         onChange(next ?? null);
       }}

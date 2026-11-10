@@ -409,6 +409,7 @@ export const ur: LabelResource = {
   'assets.stock.adjust': 'درست کریں',
   'assets.stock.adjust_title': 'اسٹاک درست کریں',
   'assets.stock.all_out': 'کسی سائٹ پر کچھ باقی نہیں۔',
+  'assets.stock.all_sites': 'تمام سائٹس',
   'assets.stock.allocate': 'جاری کریں',
   'assets.stock.allocate_title': 'اسٹاک جاری کریں',
   'assets.stock.allocate_to': 'کسے جاری کریں',
