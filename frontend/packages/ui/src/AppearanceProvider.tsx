@@ -75,6 +75,13 @@ const PAGE_CSS =
   // In a list page the page's own gaps space the header (16 px, Haider 2026-11-10); the
   // header's margin elsewhere is inline, hence the !important here.
   '.sx-list-page > .sx-page-header { margin-bottom: 0 !important; } ' +
+  // Chips (Haider, 2026-11-10): the dot keeps a clear gap before its words, the dot and words
+  // sit on one line, and two chips side by side never touch.
+  '.ant-tag { display: inline-flex; align-items: center; } ' +
+  '.ant-tag > .ant-badge { margin-inline-end: 6px !important; line-height: 1; } ' +
+  '.ant-tag + .ant-tag { margin-inline-start: 6px; } ' +
+  // In a table cell a long chip stays inside its column, never over the next one.
+  '.ant-table-cell .ant-tag { max-width: 100%; overflow: hidden; white-space: nowrap; } ' +
   // A list cell's text: cut at its own end, in its own direction, aligned as the column is.
   '.sx-cell-text { display: block; overflow: hidden; text-overflow: ellipsis; ' +
   'white-space: nowrap; text-align: match-parent; } ' +

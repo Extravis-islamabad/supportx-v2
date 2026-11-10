@@ -259,6 +259,20 @@ describe('New announcement', () => {
     expect(body.publish_from).toBeNull();
   });
 
+  it("Haider's recheck: before the owner's name arrives the field says Loading, never the ID", async () => {
+    const me = ADMIN.user.id;
+    api({
+      me: ADMIN,
+      routes: { 'GET /api/v1/announcements/owner-candidates': { body: [] } },
+    });
+    render(<App />);
+    const picker = await screen.findByTestId('ann-owner');
+    await waitFor(() => {
+      expect(picker.textContent).toContain('Loading…');
+    });
+    expect(document.body.textContent).not.toContain(me);
+  });
+
   it('an owner the API refuses is explained under the field', async () => {
     api({
       me: ADMIN,

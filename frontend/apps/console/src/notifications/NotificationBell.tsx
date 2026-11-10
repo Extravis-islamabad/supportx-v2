@@ -95,7 +95,8 @@ export function NotificationBell() {
     <>
       {/* Every icon button says what it does on hover (D-147 global fix 2). */}
       <Tooltip title={t('notifications.open', { count: unread })}>
-        <Badge count={unread} size="small" overflowCount={99}>
+        {/* Readable at a glance (Haider, 2026-11-10): full-size badge, clear of the icon. */}
+        <Badge count={unread} overflowCount={99} offset={[-2, 2]}>
           <Button
             type="text"
             icon={<BellOutlined />}
