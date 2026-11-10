@@ -56,3 +56,10 @@ for (const proto of [Range.prototype, Element.prototype, Text.prototype] as obje
     getBoundingClientRect: () => new DOMRect(0, 0, 0, 0),
   });
 }
+
+// jsdom has no scrolling: a page that scrolls a field into view (a refused save naming it,
+// QA10-P3-08) threw "scrollIntoView is not a function" as an unhandled error, failing every
+// frontend run on main although the tests passed. A no-op is enough in tests.
+if (typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = () => undefined;
+}
