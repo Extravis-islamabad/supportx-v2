@@ -1200,6 +1200,8 @@ export const ur: LabelResource = {
   'problems.review.required': 'بند کرنے سے پہلے اس مسئلے کے جائزے کا خلاصہ ضروری ہے۔',
   'problems.review.title': 'مسئلے کا جائزہ',
   'problems.search': 'مسائل اور معلوم خرابیوں میں تلاش کریں: الفاظ یا PRB-7',
+  'problems.section.classification': 'درجہ بندی اور گروپ',
+  'problems.section.problem': 'مسئلہ',
   'problems.similar.link_instead': 'اس کے بجائے واقعات کو اس مسئلے سے جوڑیں',
   'problems.similar.title': 'ملتے جلتے کھلے مسائل',
   'problems.tab.analysis': 'تجزیہ',

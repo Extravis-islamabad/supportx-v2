@@ -1195,6 +1195,8 @@ export const en = {
   'problems.review.required': 'This problem needs its review summary before it can be closed.',
   'problems.review.title': 'Problem review',
   'problems.search': 'Search problems and known errors: words or PRB-7',
+  'problems.section.classification': 'Classification and group',
+  'problems.section.problem': 'Problem',
   'problems.similar.link_instead': 'Link the incidents to this one instead',
   'problems.similar.title': 'Open problems that look similar',
   'problems.tab.analysis': 'Analysis',

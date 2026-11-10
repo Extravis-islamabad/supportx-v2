@@ -668,15 +668,25 @@ describe('console: problems', () => {
     expect(screen.getByTestId('prb-evidence-left-out')).toBeDefined();
   });
 
-  it('QA6-PRB-01: the new-problem form sits on a card, two fields a row, at full width', async () => {
+  it('QA10V-12: the new-problem form is template B: section cards, Cancel then Create', async () => {
     window.history.pushState({}, '', '/problems/new');
     api();
     render(<App />);
-    const card = await screen.findByTestId('prb-form-card');
-    expect(card.className).toContain('ant-card');
-    const group = within(card).getByTestId('prb-group');
-    expect(group.closest('.ant-col-md-12')).not.toBeNull();
-    expect(within(card).getByTestId('prb-impact').closest('.ant-col-md-12')).not.toBeNull();
+    const problem = await screen.findByTestId('prb-section-problem');
+    expect(within(problem).getByTestId('prb-subject')).toBeDefined();
+    const classification = screen.getByTestId('prb-section-classification');
+    // Two fields a row from md up (QA6-PRB-01 kept), each blank select saying what to do.
+    expect(
+      within(classification).getByTestId('prb-group').closest('.ant-col-md-12'),
+    ).not.toBeNull();
+    for (const id of ['prb-impact', 'prb-urgency', 'prb-type']) {
+      expect(within(classification).getByTestId(id).textContent).toContain('Choose…');
+    }
+    // The footer: Cancel first, then the primary, outside the cards.
+    const cancel = screen.getByTestId('prb-cancel');
+    const create = screen.getByTestId('prb-create');
+    expect(cancel.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(problem.contains(create)).toBe(false);
   });
 
   it('QA6-PRB-02: a problem has the breadcrumb Problems / PRB-n and says so in the tab', async () => {
