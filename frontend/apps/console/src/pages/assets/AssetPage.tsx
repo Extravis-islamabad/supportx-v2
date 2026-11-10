@@ -1,12 +1,25 @@
 import { CopyOutlined, EditOutlined, LaptopOutlined, SwapOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Card, Flex, Skeleton, Tabs, Timeline, Typography } from 'antd';
-import dayjs from 'dayjs';
+import {
+  Alert,
+  Button,
+  Card,
+  DatePicker,
+  Flex,
+  Segmented,
+  Select,
+  Skeleton,
+  Tabs,
+  Timeline,
+  Typography,
+} from 'antd';
+import dayjs, { type Dayjs } from 'dayjs';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   queryKeys,
+  useAssetFinancials,
   useAssetHistory,
   useAssetProductTypes,
   useAssetRecord,
@@ -16,6 +29,8 @@ import {
   useAssetRecordChange,
   useAssetStates,
   useSession,
+  type AssetHistoryFilters,
+  type AssetHistorySource,
   type AssetRecord,
   type AssetState,
 } from '@supportx/api-client';
@@ -28,6 +43,7 @@ import {
   NoAccess,
   PresenceAvatars,
   PropertiesPanel,
+  pickerFormat,
   PropertyList,
   RecordHeader,
   RecordPage,
@@ -49,17 +65,23 @@ import { Problems } from '../admin/incidents/shared';
 import { nameOf } from '../admin/assets/shared';
 import { CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
+import { UserPicker } from '../incidents/pickers';
 import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
 import { AssetRelations } from './AssetRelations';
 import { AssetBookings } from './Bookings';
 import { ageBetween, basisDay } from './age';
 import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
+import { AssetFinancialsTab } from './Financials';
+import { useMoney } from './money';
+import { AssetNotes } from './Notes';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
 
-// The record's tabs, always in this order (REQ-AST-001 AC3): later sessions add theirs here.
-const TABS = ['details', 'relations', 'bookings', 'history'] as const;
+// The record's tabs, always in this order (REQ-AST-001 AC3, REQ-AST-048): later sessions add
+// theirs here (hardware, software and scan history with discovery; contracts with WP-054).
+// Financials only for people who may see money (assets.view_financials).
+const TABS = ['details', 'relations', 'bookings', 'financials', 'notes', 'history'] as const;
 type TabKey = (typeof TABS)[number];
 // The state chip's tone by the state's category (D-155: what needs attention stands out).
 const STATE_TONES: Record<AssetState['category'], Tone> = {
@@ -69,8 +91,43 @@ const STATE_TONES: Record<AssetState['category'], Tone> = {
   retired: 'default',
   disposed: 'default',
 };
+// REQ-AST-049: what the history can be narrowed to (each a field the asset's history records).
+const FILTER_FIELDS = [
+  'name',
+  'state_id',
+  'owner_user_id',
+  'site_id',
+  'location',
+  'product_id',
+  'purchase_price',
+  'cost_centre',
+  'depreciation_method',
+  'cost',
+  'note',
+] as const;
+const SOURCES: AssetHistorySource[] = [
+  'ui',
+  'api',
+  'rule',
+  'workflow',
+  'import',
+  'integration',
+  'system',
+];
 const HISTORY_FIELDS = new Set([
   'name',
+  'owner_user_id',
+  'department_id',
+  'parent_asset_id',
+  'loanable',
+  'relationship',
+  'cost_centre',
+  'gl_code',
+  'depreciation_method',
+  'useful_life_years',
+  'salvage_value',
+  'cost',
+  'note',
   'product_id',
   'product_type_id',
   'state_id',
@@ -125,9 +182,11 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const queryClient = useQueryClient();
   const me = useSession().data?.user.id;
   const [params, setParams] = useSearchParams();
-  const tab: TabKey = TABS.includes(params.get('tab') as TabKey)
-    ? (params.get('tab') as TabKey)
-    : 'details';
+  // Money (REQ-AST-036..038) only for people with assets.view_financials: no tab, no figures.
+  const seesMoney = access.can('assets.view_financials');
+  const asked = params.get('tab') as TabKey;
+  const tab: TabKey =
+    TABS.includes(asked) && (asked !== 'financials' || seesMoney) ? asked : 'details';
   const types = useAssetProductTypes();
   const states = useAssetStates();
   const change = useAssetRecordChange();
@@ -136,8 +195,25 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   const [changedElsewhere, setChangedElsewhere] = useState(false);
   const [dialog, setDialog] = useState<'move' | 'copy' | 'dispose'>();
   const viewers = useRecordChannel('asset', asset.id, (event) => {
+    // The asset's files (REQ-AST-050), its notes and cost lines (parts, no version of the asset).
+    if (event.type === 'files.changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.files.record('asset', asset.id) });
+      return;
+    }
+    const parts = event.fields ?? [];
+    if (parts.includes('notes') || parts.includes('costs')) {
+      if (parts.includes('notes')) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.notes(asset.id) });
+      }
+      if (parts.includes('costs')) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.financials(asset.id) });
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
+      return;
+    }
     if (event.version !== undefined && event.version <= asset.version) return; // our own save
     void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.financials(asset.id) });
     if (editing === undefined) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.assets.record(asset.id) });
     } else {
@@ -230,6 +306,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
       value
     ),
   });
+  const ledgerAccount = asset.gl_code;
   const shown = (items: PropertyItem[]) =>
     manage ? items : items.filter((i) => i.filled || i.always === true);
   const properties = shown([
@@ -256,6 +333,19 @@ function AssetView({ asset }: { asset: AssetRecord }) {
       t('assets.record.location'),
       <bdi dir="auto">{asset.location}</bdi>,
       asset.location !== null,
+    ),
+    property(
+      'cost-centre',
+      t('assets.record.cost_centre'),
+      <bdi dir="auto">{asset.cost_centre}</bdi>,
+      asset.cost_centre !== null,
+    ),
+    property(
+      'gl-code',
+      t('assets.record.gl_code'),
+      // A GL code is typed by a person (free text, REQ-AST-038), not a code of ours.
+      <bdi dir="ltr">{ledgerAccount}</bdi>,
+      asset.gl_code !== null,
     ),
     property(
       'acquired',
@@ -306,6 +396,32 @@ function AssetView({ asset }: { asset: AssetRecord }) {
       filled: asset.purchase_total !== null,
     },
   ]);
+  // The side panel's value (REQ-AST-048): book value and total cost, for those who see money.
+  const figures = useAssetFinancials(asset.id, seesMoney);
+  const inBase = useMoney(figures.data?.currency);
+  const value: PropertyItem[] =
+    figures.data === undefined
+      ? []
+      : [
+          {
+            key: 'book-value',
+            label: t('assets.financials.book_value'),
+            content: (
+              <span data-testid="asset-panel-book-value">
+                {inBase(figures.data.book_value) ?? t('assets.financials.not_known')}
+              </span>
+            ),
+            filled: true,
+          },
+          {
+            key: 'tco',
+            label: t('assets.financials.total_cost'),
+            content: (
+              <span data-testid="asset-panel-total-cost">{inBase(figures.data.total_cost)}</span>
+            ),
+            filled: true,
+          },
+        ];
   const panelSections: PanelSection[] = [
     {
       key: 'properties',
@@ -319,6 +435,15 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             key: 'purchase',
             title: t('assets.record.purchase'),
             children: <PropertyList items={purchase} testId="asset-purchase" />,
+          },
+        ]
+      : []),
+    ...(value.length > 0
+      ? [
+          {
+            key: 'value',
+            title: t('assets.financials.value'),
+            children: <PropertyList items={value} testId="asset-value" />,
           },
         ]
       : []),
@@ -544,6 +669,22 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             label: t('assets.bookings.title'),
             children: <AssetBookings asset={asset} manage={manage} />,
           },
+          // WP-049b s2 (REQ-AST-036..038): money, for those who may see it.
+          ...(seesMoney
+            ? [
+                {
+                  key: 'financials',
+                  label: t('assets.financials.title'),
+                  children: <AssetFinancialsTab asset={asset} manage={manage} />,
+                },
+              ]
+            : []),
+          {
+            // WP-049b s2 (REQ-AST-050): notes and attachments.
+            key: 'notes',
+            label: t('assets.notes.tab'),
+            children: <AssetNotes asset={asset} manage={manage} />,
+          },
           {
             key: 'history',
             label: t('assets.record.history'),
@@ -556,10 +697,17 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   );
 }
 
+/**
+ * The asset's history (REQ-AST-049): every change newest first, with sub-views for state and
+ * assignment (owner changes and loans), and filters by field, source, person and days. Live:
+ * any change of the asset refetches it.
+ */
 function AssetHistory({ id }: { id: string }) {
   const t = useLabel();
   const dates = useDateTime();
-  const history = useAssetHistory(id);
+  const { dates: formats } = useAppearance();
+  const [filters, setFilters] = useState<AssetHistoryFilters>({});
+  const history = useAssetHistory(id, filters);
   const list = useListFormat();
   const entries = history.data?.pages.flatMap((p) => p.items) ?? [];
   // Field codes never show (§5d): each known one by its label, a custom field as such.
@@ -569,17 +717,110 @@ function AssetHistory({ id }: { id: string }) {
       : HISTORY_FIELDS.has(name)
         ? t(`assets.record.${name}`)
         : t('assets.record.other_field');
+  const set = (patch: Partial<AssetHistoryFilters>) => {
+    setFilters({ ...filters, ...patch });
+  };
+  const filtered = Object.values(filters).some((v) => v !== undefined && v !== 'all');
+  const range: [Dayjs | null, Dayjs | null] | null =
+    filters.since === undefined && filters.until === undefined
+      ? null
+      : [
+          filters.since === undefined ? null : dayjs(filters.since),
+          filters.until === undefined ? null : dayjs(filters.until),
+        ];
   return (
     <Card>
+      <Flex
+        gap={8}
+        wrap
+        align="center"
+        style={{ marginBottom: 16 }}
+        data-testid="asset-history-filters"
+      >
+        <Segmented<NonNullable<AssetHistoryFilters['view']>>
+          value={filters.view ?? 'all'}
+          onChange={(view) => {
+            set({ view: view === 'all' ? undefined : view });
+          }}
+          options={(['all', 'state', 'assignment'] as const).map((v) => ({
+            value: v,
+            label: t(`assets.history.view_${v}`),
+          }))}
+          data-testid="asset-history-view"
+        />
+        <Select<string>
+          allowClear
+          aria-label={t('assets.history.field')}
+          placeholder={t('assets.history.field')}
+          value={filters.field}
+          onChange={(value: string | undefined) => {
+            set({ field: value });
+          }}
+          options={FILTER_FIELDS.map((f) => ({ value: f, label: field(f) }))}
+          style={{ minWidth: 160 }}
+          data-testid="asset-history-field"
+        />
+        <Select<AssetHistorySource>
+          allowClear
+          aria-label={t('assets.history.source')}
+          placeholder={t('assets.history.source')}
+          value={filters.source}
+          onChange={(value: AssetHistorySource | undefined) => {
+            set({ source: value });
+          }}
+          options={SOURCES.map((s) => ({ value: s, label: t(`change_source.${s}`) }))}
+          style={{ minWidth: 160 }}
+          data-testid="asset-history-source"
+        />
+        <div style={{ minWidth: 200 }}>
+          <UserPicker
+            value={filters.actorId ?? null}
+            onChange={(person) => {
+              set({ actorId: person ?? undefined });
+            }}
+            testId="asset-history-person"
+            ariaLabel={t('assets.history.person')}
+          />
+        </div>
+        <DatePicker.RangePicker
+          allowEmpty={[true, true]}
+          aria-label={t('assets.history.days')}
+          format={pickerFormat(formats, false)}
+          value={range}
+          onChange={(days) => {
+            set({
+              since: days?.[0]?.format('YYYY-MM-DD') ?? undefined,
+              until: days?.[1]?.format('YYYY-MM-DD') ?? undefined,
+            });
+          }}
+          data-testid="asset-history-days"
+        />
+        {filtered && (
+          <Button
+            type="link"
+            onClick={() => {
+              setFilters({});
+            }}
+            data-testid="asset-history-clear"
+          >
+            {t('assets.history.clear')}
+          </Button>
+        )}
+      </Flex>
+      {entries.length === 0 && !history.isPending && (
+        <EmptyText>{t(filtered ? 'assets.history.none_match' : 'assets.history.none')}</EmptyText>
+      )}
       <Timeline
         items={entries.map((entry) => ({
-          key: entry.version,
+          key: `${String(entry.version)}-${entry.occurred_at}`,
           children: (
             <Flex vertical gap={2} data-testid={`asset-history-${String(entry.version)}`}>
               <Typography.Text type="secondary">
                 {dates.format(entry.occurred_at)}
                 {' · '}
                 <bdi dir="auto">{entry.actor_name ?? t('assets.record.someone')}</bdi>
+                {' · '}
+                {t(`change_source.${entry.source}`)}
               </Typography.Text>
               <span>
                 {entry.kind === 'created'
