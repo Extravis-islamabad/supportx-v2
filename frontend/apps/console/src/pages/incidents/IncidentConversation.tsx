@@ -1014,16 +1014,11 @@ function EventLine({
   changes: IncidentHistoryEntry['changes'];
   words: ReturnType<typeof useHistoryWords>;
 }) {
-  const t = useLabel();
   const listFormat = useListFormat();
   const dates = useDateTime();
   const { token } = theme.useToken();
-  const who = entry.actor_name ?? t(`actor_type.${entry.actor_type}`);
-  // Joined the language's way (Arabic and Urdu use their own conjunction), not with "; ".
-  const what = listFormat(
-    changes.map((c) => words.changeText(c)),
-    'unit',
-  );
+  // Each change a sentence with who did it (Haider, 2026-11-10), joined the language's way.
+  const what = listFormat(words.sentences(entry, changes), 'unit');
   return (
     <Flex gap={12} align="flex-start" data-testid="conv-event">
       <span
@@ -1049,9 +1044,6 @@ function EventLine({
         style={{ flex: 1, minWidth: 0, paddingTop: 7, fontSize: 13 }}
       >
         <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-          <Typography.Text strong style={{ fontSize: 13 }}>
-            <bdi dir="auto">{who}</bdi>
-          </Typography.Text>{' '}
           {what}
         </Typography.Text>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
