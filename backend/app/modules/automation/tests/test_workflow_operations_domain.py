@@ -9,7 +9,13 @@ from app.modules.automation.domain.interpreter import (
     State,
     TokenState,
 )
-from app.modules.automation.domain.operations import OperationRefused, restart, retry, stop
+from app.modules.automation.domain.operations import (
+    OperationRefused,
+    migrate,
+    restart,
+    retry,
+    stop,
+)
 from app.modules.automation.tests.test_interpreter_domain import NOW, flow, node, step
 
 P1 = {"field": "priority", "op": "eq", "value": "p1"}
@@ -106,3 +112,56 @@ def test_retry_runs_the_failed_node_again() -> None:
     with pytest.raises(OperationRefused) as refused:
         retry(FLOW, _waiting(), at=NOW)
     assert refused.value.code == "instance_not_failed"
+
+
+# Version 2: the wait is renamed and a note step comes after it.
+V2 = flow(
+    [
+        node("s", "start"),
+        node("hold", "wait", event="record_changed", condition=P1),
+        node("note", "note", text={"en": "Waiting over"}),
+        node("set", "field_update", values={"impact": "high"}),
+        node("e", "end"),
+    ],
+    [
+        ("s", "next", "hold"),
+        ("hold", "next", "note"),
+        ("note", "next", "set"),
+        ("set", "next", "e"),
+    ],
+)
+
+
+def test_req_wf_021_a_mapped_wait_keeps_its_place_on_the_new_version() -> None:
+    waiting = _waiting()
+    moved = migrate(FLOW, V2, waiting, {"wait": "hold"}, at=NOW)
+    [token] = moved.state.tokens
+    assert (token.node, token.state) == ("hold", TokenState.WAITING)  # still waiting there
+    assert [(s.node, s.result, s.detail) for s in moved.steps] == [
+        ("hold", "migrated", {"node": "wait"})
+    ]
+    assert waiting.tokens[0].node == "wait"  # the caller's state is untouched
+
+
+def test_req_wf_021_a_node_with_no_place_in_the_new_version_is_refused() -> None:
+    with pytest.raises(OperationRefused) as refused:
+        migrate(FLOW, V2, _waiting(), {}, at=NOW)  # "wait" has no node of that id in v2
+    assert (refused.value.code, refused.value.params) == ("node_not_mapped", {"node": "wait"})
+    with pytest.raises(OperationRefused) as at_end:
+        migrate(FLOW, V2, _waiting(), {"wait": "e"}, at=NOW)
+    assert at_end.value.code == "restart_at_end"
+
+
+def test_a_token_mapped_to_another_type_of_node_runs_it_afresh() -> None:
+    moved = migrate(FLOW, V2, _waiting(), {"wait": "note"}, at=NOW)
+    [token] = moved.state.tokens
+    assert (token.node, token.state) == ("note", TokenState.READY)
+
+
+def test_a_command_in_flight_never_lands_on_another_type_of_node() -> None:
+    asking = step(DIRECT, State.start(DIRECT)).state  # the field step's command is out
+    with pytest.raises(OperationRefused) as refused:
+        migrate(DIRECT, V2, asking, {"set": "note"}, at=NOW)
+    assert refused.value.code == "command_in_flight"
+    kept = migrate(DIRECT, V2, asking, {}, at=NOW)  # "set" is a field step in both: it stays
+    assert [(t.node, t.state) for t in kept.state.tokens] == [("set", TokenState.COMMAND)]

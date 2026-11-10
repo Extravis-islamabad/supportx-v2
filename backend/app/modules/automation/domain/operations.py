@@ -1,4 +1,4 @@
-"""What an admin does to a running instance: stop, restart, retry (REQ-WF-026, -025; ADR-043 §9).
+"""What an admin does to an instance: stop, restart, retry, migrate (REQ-WF-021, -025, -026).
 
 Pure functions on the interpreter's `State`: each returns a new state and the log lines to
 store. The runtime saves them and runs the instance on (`advance` with no event). The log is
@@ -6,6 +6,7 @@ never cleared (REQ-WF-026: ServiceDesk Plus's revoke erases it; ours keeps every
 """
 
 import copy
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -98,3 +99,44 @@ def retry(definition: Definition, state: State, *, at: datetime) -> Operated:
     token.attempts, token.retrying = 0, False
     retried.status, retried.failure = InstanceStatus.RUNNING, None
     return Operated(retried, [_line(definition, token, "retried", at, code=failed.code)])
+
+
+def migrate(
+    old: Definition,
+    new: Definition,
+    state: State,
+    mapping: Mapping[str, str],
+    *,
+    at: datetime,
+) -> Operated:
+    """Move a running or waiting instance onto a new version (REQ-WF-021).
+
+    Each token goes to `mapping[node]`, or to the node of the same ID when the new version has
+    one. A token keeps its place when the node is of the same type; one mapped to another type
+    of node runs that node afresh. Refused, so the instance stays on its version and is listed:
+    a node with no place in the new version, a command in flight that would land on another
+    type of node, and a run inside parallel branches (its join counts belong to the old graph).
+    """
+    if state.status not in LIVE:
+        raise OperationRefused(code="instance_not_running", status=state.status.value)
+    if state.joins or any(t.groups for t in state.tokens):
+        raise OperationRefused(code="parallel_in_progress")
+    new_ids = {n.id: n for n in new.nodes}
+    moved = copy.deepcopy(state)
+    steps: list[Step] = []
+    for token in moved.tokens:
+        before = old.node(token.node)
+        target = mapping.get(token.node) or (token.node if token.node in new_ids else None)
+        if target is None or target not in new_ids:
+            raise OperationRefused(code="node_not_mapped", node=token.node)
+        after = new_ids[target]
+        if after.type is NodeType.END:
+            raise OperationRefused(code="restart_at_end", node=target)
+        if before.type is not after.type:
+            if token.state is TokenState.COMMAND:  # its result would land on another node
+                raise OperationRefused(code="command_in_flight", node=token.node)
+            token.state, token.wake_at, token.command = TokenState.READY, None, None
+            token.attempts, token.retrying = 0, False
+        token.node = target
+        steps.append(_line(new, token, "migrated", at, node=before.id))
+    return Operated(moved, steps)
