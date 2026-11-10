@@ -370,6 +370,7 @@ export const en = {
   'audit.object.trigger': 'Automation trigger',
   'audit.object.user': 'Person',
   'audit.object.vendor': 'Vendor',
+  'audit.object.work_item_settings': 'Record type settings',
   'audit.pending_seal': 'Pending seal',
   'audit.problem.anchor_beyond_chain': 'The newest entries were removed.',
   'audit.problem.anchor_mismatch': 'A signed checkpoint no longer matches the chain.',

@@ -370,6 +370,7 @@ export const ur: LabelResource = {
   'audit.object.trigger': 'خودکار عمل کا محرک',
   'audit.object.user': 'فرد',
   'audit.object.vendor': 'فروشندہ',
+  'audit.object.work_item_settings': 'ریکارڈ کی قسم کی ترتیبات',
   'audit.pending_seal': 'مہر بندی زیر التوا',
   'audit.problem.anchor_beyond_chain': 'تازہ ترین اندراجات ہٹا دیے گئے۔',
   'audit.problem.anchor_mismatch': 'ایک دستخط شدہ چیک پوائنٹ اب زنجیر سے مطابقت نہیں رکھتا۔',

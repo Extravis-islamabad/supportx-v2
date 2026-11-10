@@ -368,6 +368,7 @@ export const ar: LabelResource = {
   'audit.object.trigger': 'مشغّل أتمتة',
   'audit.object.user': 'شخص',
   'audit.object.vendor': 'مورّد',
+  'audit.object.work_item_settings': 'إعدادات نوع السجل',
   'audit.pending_seal': 'بانتظار الختم',
   'audit.problem.anchor_beyond_chain': 'تمت إزالة أحدث الإدخالات.',
   'audit.problem.anchor_mismatch': 'نقطة تحقق موقّعة لم تعد تطابق السلسلة.',
