@@ -15,6 +15,7 @@ interface only (CLAUDE.md rule f).
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Self
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -156,6 +157,12 @@ class Settings(BaseSettings):
     # the UI's own base path.
     console_url: str = "http://localhost:5173"
     portal_url: str = "http://localhost:5174"
+    # The mobile app's sign-in return address (ADR-044 item 3): the browser is sent here with a
+    # one-time hand-off code instead of a cookie. A verified link on the SupportX host (Universal
+    # Link / App Link: the host's .well-known files name the trusted app builds), never a custom
+    # scheme any app can claim. Fixed per installation (the chart: publicUrl + mobile.returnPath),
+    # never taken from a request. Plain http only for the local dev stack and tests.
+    mobile_redirect_uri: str = "http://localhost:5173/mobile/auth"
     # Tenant addresses (WP-017): each tenant is also reached on `<slug>.<tenant_base_domain>`
     # (e.g. acme.support.example.com). None = no subdomains (on-prem single installation domain);
     # verified custom domains still resolve. The address only pre-selects where to sign in.
@@ -382,6 +389,21 @@ class Settings(BaseSettings):
             msg = (
                 "SUPPORTX_DEV_QUICK_SIGN_IN needs SUPPORTX_SHOWCASE_PASSWORD and "
                 "SUPPORTX_SHOWCASE_TOTP_KEY (make dev-quick-sign-in)"
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _mobile_return_is_a_verified_link(self) -> Self:
+        # see ADR-044 item 3: never a custom scheme (supportx://), which any app can claim. https
+        # in every installation: the chart builds it from publicUrl, which is https there; http
+        # stays possible for the local dev stack and tests, as for console_url.
+        parts = urlsplit(self.mobile_redirect_uri)
+        if parts.scheme not in {"https", "http"} or not parts.netloc or not parts.path.strip("/"):
+            msg = (
+                "SUPPORTX_MOBILE_REDIRECT_URI must be an https address on the SupportX host with "
+                f"a path, e.g. https://support.example.com/mobile/auth (ADR-044), not "
+                f"{self.mobile_redirect_uri!r}"
             )
             raise ValueError(msg)
         return self
