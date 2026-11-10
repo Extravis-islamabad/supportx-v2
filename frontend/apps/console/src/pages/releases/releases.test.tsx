@@ -242,6 +242,10 @@ describe('console: releases', () => {
       b.getAttribute('data-testid'),
     );
     expect(buttons).toEqual(['release-cancel', 'release-save']);
+    // QA10-P4-16: a template with no path of its own still names the path it takes.
+    expect((await screen.findByTestId('release-path')).textContent).toBe(
+      'This template takes the Standard path.',
+    );
     expect(
       screen.getByTestId('release-section').querySelector('button[data-testid="release-save"]'),
     ).toBeNull();
