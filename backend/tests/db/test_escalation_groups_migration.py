@@ -12,7 +12,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0122"  # 0126's down revision
+BEFORE = "0121"  # 0126's down revision
 
 
 @pytest.fixture

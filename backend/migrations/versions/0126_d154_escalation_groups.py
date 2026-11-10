@@ -14,7 +14,7 @@ Downgrade: nothing to undo. Code before this ignores `group_id`, and taking it o
 also drop the groups admins chose since.
 
 Revision ID: 0126
-Revises: 0122
+Revises: 0121
 Created: 2026-11-10
 """
 
@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0126"
-down_revision: str | None = "0122"
+down_revision: str | None = "0121"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
