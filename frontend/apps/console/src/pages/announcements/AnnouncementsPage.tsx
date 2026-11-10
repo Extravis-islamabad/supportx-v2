@@ -28,7 +28,7 @@ import {
 import { refreshList, refreshRecord, useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
-  EmptyText,
+  loadedEmpty,
   FilterBar,
   ListPage,
   NoAccess,
@@ -232,16 +232,15 @@ export function AnnouncementsPage() {
           pagination={false}
           locale={{
             // What the empty list means (QA10-P4-10): nothing matches, an empty trash, or none yet.
-            emptyText: (
-              <EmptyText>
-                {t(
-                  search.trim() !== '' || status !== undefined || severity !== undefined
-                    ? 'announcements.empty'
-                    : trash
-                      ? 'announcements.trash_empty'
-                      : 'announcements.none_yet',
-                )}
-              </EmptyText>
+            emptyText: loadedEmpty(
+              list.isPending,
+              t(
+                search.trim() !== '' || status !== undefined || severity !== undefined
+                  ? 'announcements.empty'
+                  : trash
+                    ? 'announcements.trash_empty'
+                    : 'announcements.none_yet',
+              ),
             ),
           }}
           onRow={(row) =>

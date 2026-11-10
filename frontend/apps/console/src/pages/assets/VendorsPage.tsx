@@ -1,15 +1,18 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Checkbox, Flex, Form, Input, Modal, Popconfirm, Table, Tag } from 'antd';
+import { Button, Checkbox, Flex, Form, Input, Modal, Popconfirm, Table } from 'antd';
 import { useState } from 'react';
 
 import { queryKeys, useVendorChange, useVendors, type Vendor } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
 import {
+  CellText,
   EmptyText,
+  ListPage,
   NoAccess,
   PageHeader,
   lengthLimit,
   reportError,
+  ToneTag,
   useAccess,
   useLabel,
   WriteButton,
@@ -105,24 +108,34 @@ export function VendorsPage() {
       { onSuccess: close, onError: show },
     );
   };
+  // The server's count when it gives one, else the rows when they are all loaded.
+  const total =
+    vendors.data === undefined
+      ? undefined
+      : (vendors.data.pages[0]?.estimated_total ?? (vendors.hasNextPage ? undefined : rows.length));
   return (
-    <Flex vertical gap={16}>
-      <PageHeader
-        title={t('assets.record.vendors')}
-        extra={
-          canAdd && (
-            <WriteButton
-              type="primary"
-              onClick={() => {
-                open(null);
-              }}
-              data-testid="vendor-add"
-            >
-              {t('actions.add')}
-            </WriteButton>
-          )
-        }
-      />
+    <ListPage
+      testId="vendors-page"
+      header={
+        <PageHeader
+          title={t('assets.record.vendors')}
+          count={total === undefined ? undefined : String(total)}
+          extra={
+            canAdd && (
+              <WriteButton
+                type="primary"
+                onClick={() => {
+                  open(null);
+                }}
+                data-testid="vendor-add"
+              >
+                {t('actions.add')}
+              </WriteButton>
+            )
+          }
+        />
+      }
+    >
       <Table<Vendor>
         size="small"
         rowKey="id"
@@ -137,10 +150,12 @@ export function VendorsPage() {
             title: t('settings.name'),
             render: (_: unknown, vendor: Vendor) => (
               <Flex gap={8} align="center">
-                <bdi dir="auto" data-testid={`vendor-name-${vendor.id}`}>
-                  {vendor.name}
-                </bdi>
-                {!vendor.is_active && <Tag>{t('assets.record.inactive')}</Tag>}
+                <span data-testid={`vendor-name-${vendor.id}`}>
+                  <CellText title={vendor.name}>{vendor.name}</CellText>
+                </span>
+                {!vendor.is_active && (
+                  <ToneTag tone="default">{t('assets.record.inactive')}</ToneTag>
+                )}
               </Flex>
             ),
           },
@@ -148,7 +163,7 @@ export function VendorsPage() {
             key: 'contact',
             title: t('assets.record.contact_person'),
             render: (_: unknown, vendor: Vendor) => (
-              <bdi dir="auto">{vendor.contact_person ?? ''}</bdi>
+              <CellText>{vendor.contact_person ?? ''}</CellText>
             ),
           },
           {
@@ -275,6 +290,6 @@ export function VendorsPage() {
           </Form>
         )}
       </Modal>
-    </Flex>
+    </ListPage>
   );
 }
