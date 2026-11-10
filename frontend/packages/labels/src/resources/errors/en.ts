@@ -437,6 +437,9 @@ export const en = {
   'errors.field.period_weekday_invalid': 'Choose a day of the week.',
   'errors.field.periods_overlap':
     "Working periods overlap. A night period must also end before the next morning's period starts.",
+  'errors.field.person_in_no_group':
+    'This person is in no support group, so nothing can be assigned to them.',
+  'errors.field.person_not_in_group': 'This person is not a member of the chosen group.',
   'errors.field.phone_not_valid': 'Enter a phone number: digits, spaces, +, - and brackets.',
   'errors.field.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
@@ -447,6 +450,8 @@ export const en = {
   'errors.field.read_only': 'This field cannot be changed here.',
   'errors.field.read_only_in_stage': 'This field cannot be changed in the current stage.',
   'errors.field.reason_required': 'Give a reason.',
+  'errors.field.reassign_group_required':
+    'This person is in several groups: choose the one the record moves to.',
   'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
   'errors.field.recipients_required': 'Choose at least one person or group.',
   'errors.field.record_not_found': 'No record you can see has this ID.',

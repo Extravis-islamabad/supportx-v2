@@ -2,7 +2,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 
 import { mailTo, mailUnavailable, privateWindow } from '../mail';
 import { PORTAL_URL, USERS } from '../stack';
-import { expectAccessible, openAppearance, resetLanguage, signInAs } from './helpers';
+import { clickAction, expectAccessible, openAppearance, resetLanguage, signInAs } from './helpers';
 
 /**
  * WP-030: service requests from the catalog, end to end.
@@ -19,6 +19,7 @@ import { expectAccessible, openAppearance, resetLanguage, signInAs } from './hel
  * requests go to the trash and the items are retired at the end.
  */
 
+const UNASSIGNED = 'Not taken yet'; // incidents.unassigned, the panel's technician row
 const LIVE = { timeout: 5_000 };
 
 interface Made {
@@ -166,8 +167,11 @@ test('raise, approve from the drawer, fulfil and confirm receipt, all live', asy
       .click();
     await expect(entry).toBeHidden(LIVE);
 
-    // The plan became a task on the request; ticking it fulfils the request.
+    // The plan became a task on the request. A request is fulfilled only with someone on it
+    // (D-154 "E1 follows d"): the technician takes it, then ticking the task fulfils it.
     await tech.page.goto(`/requests/${record.id}`);
+    await clickAction(tech.page, 'inc-op-take', 'sr-actions');
+    await expect(tech.page.getByTestId('sr-details')).not.toContainText(UNASSIGNED, LIVE);
     const task = tech.page.getByRole('checkbox', { name: `E2E laptop ${tag}: hand it over` });
     // The box follows the saved task (a controlled checkbox): click, then wait for the save.
     await task.click();

@@ -400,8 +400,25 @@ class ProblemRepeatChanged(DomainEvent):
     id: uuid.UUID
 
 
+class WorkItemAssigneeUnavailable(_WorkItemEvent):
+    """A rule or escalation could not put the person it names on the record (D-154 "rules").
+
+    The record went to the step's group with nobody on it; the step's owner (or, with none,
+    the administrators) is told once, in the app. `reason`: inactive, away or not_in_group.
+    """
+
+    event_type: ClassVar[str] = "work_items.work_item.assignee_unavailable"
+    schema_version: ClassVar[int] = 1
+
+    person_id: uuid.UUID
+    reason: str
+    step: str  # the history ref's kind: business_rule, trigger or sla_escalation
+    owner_id: uuid.UUID | None = None
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     ServiceRequestReadyToFulfil,
+    WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemUpdated,
     WorkItemStatusChanged,

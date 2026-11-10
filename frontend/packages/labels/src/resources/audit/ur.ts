@@ -881,6 +881,7 @@ export const ur: LabelResource = {
   'event_type.work_items.settings.changed': 'ریکارڈ کی ترتیبات بدلیں',
   'event_type.work_items.view.changed': 'محفوظ ویو تبدیل ہوا',
   'event_type.work_items.work_item.assigned': 'ریکارڈ تفویض ہوا',
+  'event_type.work_items.work_item.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
   'event_type.work_items.work_item.created': 'ریکارڈ بنایا گیا',
   'event_type.work_items.work_item.deleted': 'ریکارڈ ردی کی ٹوکری میں گیا',
   'event_type.work_items.work_item.restored': 'ریکارڈ بحال ہوا',
