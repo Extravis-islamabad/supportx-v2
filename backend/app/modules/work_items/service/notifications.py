@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound
 from app.modules import sla
-from app.modules.identity_access import active_user_ids, subject_for, user_names, worker_policy
+from app.modules.identity_access import subject_for, user_names
 from app.modules.organization import unit_heads, users_in_groups
 from app.modules.work_items.domain.conversation import (
     DeliveryReason,
@@ -42,7 +42,6 @@ from app.modules.work_items.domain.portal import portal_status
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.events import (
     WorkItemAssigned,
-    WorkItemAssigneeUnavailable,
     WorkItemConversationAdded,
     WorkItemConversationDeliveryChanged,
     WorkItemCreated,
@@ -97,19 +96,8 @@ _CONVERSATION = (
 )
 _STATUS_CHANGE = (Variable("change.from_status", "notification_variable.change.from_status"),)
 _SLA = (Variable("sla.target", "notification_variable.sla.target"),)
-_UNAVAILABLE = (
-    Variable("unavailable.person", "notification_variable.unavailable.person"),
-    Variable("unavailable.reason", "notification_variable.unavailable.reason"),
-)
 # The people an escalation level names (its own recipients, or its fallback list).
 ESCALATION_RECIPIENTS = "escalation_recipients"
-# D-154 "rules": the owner of the rule or trigger that could not assign its person, else (no
-# owner, an inactive one, or an SLA level) whoever manages that kind of step.
-STEP_OWNER = "step_owner"
-UNAVAILABLE = "incident.assignee_unavailable"
-# Rules and triggers: automation.manage.
-_STEP_MANAGERS = {"sla_escalation": "sla.manage", "workflow": "workflows.manage"}
-_MANAGER_LIMIT = 200  # administrators told of one record
 _SLA_EVENTS: Mapping[str, str] = {
     sla.SlaWarning.event_type: "incident.sla_warning",
     sla.SlaBreached.event_type: "incident.sla_breached",
@@ -227,13 +215,6 @@ EVENTS: tuple[NotificationEvent, ...] = (
         EventDefault(enabled=True, recipients=(ESCALATION_RECIPIENTS,)),
         variables=_SLA,
     ),
-    # D-154 "rules": never skipped silently; one notice in the app.
-    NotificationEvent(
-        UNAVAILABLE,
-        NotificationCategory.ASSIGNMENT,
-        EventDefault(enabled=True, recipients=(STEP_OWNER,), channels=IN_APP),
-        variables=_UNAVAILABLE,
-    ),
 )
 
 RECIPIENT_KINDS = (
@@ -248,7 +229,6 @@ RECIPIENT_KINDS = (
     "mentioned",
     "new_follower",
     ESCALATION_RECIPIENTS,
-    STEP_OWNER,
 )
 
 VARIABLES = (
@@ -344,30 +324,17 @@ async def _workflow_audience(
     return frozenset(people)
 
 
-async def _step_owner(session: AsyncSession, payload: Mapping[str, object]) -> frozenset[uuid.UUID]:
-    """The step's owner while active, else the managers of that kind of step (D-154 rules)."""
-    owner = _uuid(payload.get("owner_id"))
-    if owner is not None and owner in await active_user_ids(session, [owner]):
-        return frozenset({owner})
-    tenant = session.info[SESSION_TENANT_KEY].tenant_id
-    permission = _STEP_MANAGERS.get(str(payload.get("step")), "automation.manage")
-    held = await worker_policy().holders(session, tenant, permission, limit=_MANAGER_LIMIT)
-    return frozenset(user for user, _name in held)
-
-
 async def _named_people(
     session: AsyncSession,
     relatives: Mapping[str, frozenset[uuid.UUID]],
     event_code: str,
     payload: Mapping[str, Any],
 ) -> dict[str, frozenset[uuid.UUID]]:
-    """The people an event names itself: the mentioned, a notify node's audience, a step owner."""
+    """The people an event names itself: the mentioned, a notify node's audience."""
     if event_code == NOTICE:
         return {WORKFLOW_AUDIENCE: await _workflow_audience(session, relatives, payload)}
     if event_code == "incident.mentioned":
         return {"mentioned": frozenset(uuid.UUID(str(u)) for u in payload["mentioned_ids"])}
-    if event_code == UNAVAILABLE:
-        return {STEP_OWNER: await _step_owner(session, payload)}
     return {}
 
 
@@ -416,7 +383,6 @@ async def _relatives(
 # Events that are one notification each, of their own code.
 _ONE_NOTICE = {
     WorkItemWorkflowNotice.event_type: NOTICE,
-    WorkItemAssigneeUnavailable.event_type: UNAVAILABLE,
 }
 
 
@@ -488,7 +454,6 @@ class IncidentNotifications:
         WorkItemStatusChanged.event_type,
         WorkItemFollowerAdded.event_type,
         WorkItemWorkflowNotice.event_type,
-        WorkItemAssigneeUnavailable.event_type,
         *_SLA_EVENTS,
     )
 
@@ -572,10 +537,6 @@ class IncidentNotifications:
         if event_code == NOTICE:  # the node's own words, in each recipient's language
             shared["notice.subject"] = Localised(dict(payload.get("subject") or {}))
             shared["notice.body"] = Localised(dict(payload.get("body") or {}))
-        if envelope.event_type == WorkItemAssigneeUnavailable.event_type:
-            person = str(payload["person_id"])
-            shared["unavailable.person"] = (await user_names(session, [person])).get(person)
-            shared["unavailable.reason"] = LabelRef(f"assignee_unavailable.{payload['reason']}")
         full = dict(shared)
         public = dict(shared)
         public.update(_public_status(envelope, record, cat))

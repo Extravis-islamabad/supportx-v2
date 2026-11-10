@@ -192,6 +192,66 @@ describe('Admin › SLA › Policies › escalation levels', () => {
   });
 });
 
+describe('Admin › SLA › Policies › reassign to a person (D-154 rules)', () => {
+  afterEach(() => {
+    restore();
+  });
+
+  it('a person in several groups needs the group, which is sent with the action', async () => {
+    window.history.pushState({}, '', '/admin/sla/policies');
+    const SARA = '01900000-0000-7000-8000-0000000003c9';
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...ROUTES,
+        'GET /api/v1/organization/groups': {
+          body: [
+            { id: 'g-desk', name: 'Service desk', kind: 'group', member_ids: [SARA] },
+            { id: 'g-net', name: 'Network', kind: 'group', member_ids: [SARA] },
+          ],
+        },
+        'GET /api/v1/users': {
+          body: {
+            items: [{ id: SARA, display_name: 'Sara Shah', email: 'sara@demo.test' }],
+            has_more: false,
+            next_cursor: null,
+          },
+        },
+        [`POST ${POLICIES}`]: { status: 201, body: VIP },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sla-policy-add'));
+    fireEvent.change(await screen.findByTestId('sla-policy-name'), {
+      target: { value: 'Key requesters' },
+    });
+    fireEvent.click(screen.getByTestId('sla-level-add-resolution'));
+    const picker = await screen.findByTestId('sla-level-person-0');
+    const selector = picker.querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    fireEvent.click(await screen.findByText('sara@demo.test'));
+    // In two groups: the group is asked for, marked until chosen.
+    const group = await screen.findByTestId('sla-level-person-group-0');
+    expect(group.className).toContain('ant-select-status-error');
+    // The reason is said under it, not only in red (lane C, #369).
+    const reason = 'This person is in several groups: choose the one the record moves to.';
+    expect(screen.getByText(reason)).toBeDefined();
+    const groupSelector = group.querySelector('.ant-select-selector');
+    if (groupSelector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(groupSelector);
+    fireEvent.click(await screen.findByTitle('Network'));
+    expect(screen.queryByText(reason)).toBeNull();
+    fireEvent.click(screen.getByTestId('sla-policy-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', POLICIES)).toHaveLength(1);
+    });
+    expect(fake.find('POST', POLICIES)[0]?.body).toMatchObject({
+      levels: [{ actions: [{ kind: 'reassign_person', target_id: SARA, group_id: 'g-net' }] }],
+    });
+  });
+});
+
 describe('Admin › SLA › Settings', () => {
   afterEach(() => {
     restore();
