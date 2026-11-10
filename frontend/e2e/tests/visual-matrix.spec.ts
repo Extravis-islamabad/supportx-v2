@@ -51,6 +51,7 @@ type Records = Partial<
     | 'release'
     | 'announcement'
     | 'asset'
+    | 'consumable'
     | 'catalogItem',
     string
   >
@@ -225,6 +226,13 @@ export const SCREENS: Screen[] = [
   { key: 'asset-vendors', path: '/assets/vendors', app: 'console' },
   { key: 'asset-loans', path: '/assets/loans', app: 'console' },
   { key: 'asset-groups', path: '/assets/groups', app: 'console' },
+  // WP-049b s1 (lane B): consumables, one consumable (stock, lots, ledger).
+  { key: 'consumables', path: '/assets/consumables', app: 'console' },
+  {
+    key: 'consumable',
+    path: (r) => (r.consumable ? `/assets/consumables/${r.consumable}` : undefined),
+    app: 'console',
+  },
   { key: 'releases', path: '/releases', app: 'console' },
   { key: 'release-new', path: '/releases/new', app: 'console' },
   {
@@ -449,6 +457,7 @@ async function findRecords(page: Page): Promise<Records> {
     release: await first('/api/v1/releases?limit=1', firstItem),
     announcement: await first('/api/v1/announcements?limit=1', firstItem),
     asset: await first('/api/v1/assets?limit=1', firstItem),
+    consumable: await first('/api/v1/assets/consumables', firstOfList),
     catalogItem: await first('/api/v1/catalog/items', firstOfList),
   };
 }

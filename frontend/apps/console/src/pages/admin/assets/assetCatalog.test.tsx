@@ -29,6 +29,7 @@ const settings: AssetSettings = {
   portal_own_assets_only: true,
   email_include_assets: false,
   scan_retention_months: 12,
+  portal_booking: false,
   version: 3,
 };
 const states: AssetState[] = [

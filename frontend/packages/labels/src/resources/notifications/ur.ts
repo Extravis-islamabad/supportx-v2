@@ -57,6 +57,7 @@ export const ur: LabelResource = {
   'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
   'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
   'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
+  'notification_event.asset.stock_low': 'اسٹاک کم از کم پر',
   'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
@@ -145,6 +146,7 @@ export const ur: LabelResource = {
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
   'notification_recipient.requester': 'درخواست گزار',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
+  'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
   'notification_rules.any_priority': 'کوئی بھی ترجیح',
   'notification_rules.changed': '{{when}} کو تبدیل ہوا',
@@ -193,6 +195,11 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} کو ادھار دیے گئے اثاثوں کی واپسی کا وقت گزر گیا اور وہ ابھی واپس نہیں آئے۔',
   'notification_template.asset.loan_overdue.in_app': '{{ holder.name }} کے ادھار کی مدت گزر گئی',
   'notification_template.asset.loan_overdue.subject': 'ادھار اثاثوں کی مدت گزر گئی',
+  'notification_template.asset.stock_low.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} کا اسٹاک {{ stock.quantity }} تک گر گیا ہے، جو اس کی کم از کم حد {{ stock.minimum }} کے برابر یا اس سے کم ہے۔',
+  'notification_template.asset.stock_low.in_app':
+    '{{ record.title }} {{ stock.quantity }} تک رہ گیا (کم از کم {{ stock.minimum }})',
+  'notification_template.asset.stock_low.subject': '{{ record.title }} کم از کم اسٹاک پر ہے',
   'notification_template.asset.warranty_expiring.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی وارنٹی {{ warranty.ends_on }} کو ختم ہو رہی ہے۔',
   'notification_template.asset.warranty_expiring.in_app':
@@ -500,6 +507,8 @@ export const ur: LabelResource = {
   'notification_variable.rule.name': 'اصول',
   'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
+  'notification_variable.stock.minimum': 'اسٹاک › کم از کم',
+  'notification_variable.stock.quantity': 'اسٹاک › مقدار',
   'notification_variable.unavailable.person': 'غیر تفویض › فرد',
   'notification_variable.unavailable.reason': 'غیر تفویض › وجہ',
   'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',

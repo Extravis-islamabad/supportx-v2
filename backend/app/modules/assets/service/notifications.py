@@ -16,8 +16,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound, PermissionDenied
-from app.modules.assets.events import AcknowledgementChanged, AssetLoanChanged, WarrantyEnding
-from app.modules.assets.infra.models import Asset, AssetAcknowledgement, AssetLoan
+from app.modules.assets.events import (
+    AcknowledgementChanged,
+    AssetLoanChanged,
+    StockLow,
+    WarrantyEnding,
+)
+from app.modules.assets.infra.models import (
+    Asset,
+    AssetAcknowledgement,
+    AssetConsumable,
+    AssetConsumableStock,
+    AssetLoan,
+    AssetProduct,
+    AssetStockRule,
+)
 from app.modules.assets.service.assets import MANAGE, RECORD_TYPE, VIEW, _visible
 from app.modules.assets.service.realtime import RECORD_KIND
 from app.modules.identity_access import subject_for, user_names, worker_policy
@@ -52,6 +65,17 @@ EVENTS: tuple[NotificationEvent, ...] = (
         EventDefault(enabled=True, recipients=("asset_managers",)),
         public=False,
     ),
+    # REQ-AST-035 AC1: stock at or below its minimum, once, to the rule's people.
+    NotificationEvent(
+        "asset.stock_low",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("stock_watchers",)),
+        public=False,
+        variables=(
+            Variable("stock.quantity", "notification_variable.stock.quantity"),
+            Variable("stock.minimum", "notification_variable.stock.minimum"),
+        ),
+    ),
     NotificationEvent(
         "asset.ack_requested",
         NotificationCategory.ASSIGNMENT,
@@ -67,7 +91,14 @@ EVENTS: tuple[NotificationEvent, ...] = (
         ),
     ),
 )
-RECIPIENT_KINDS = ("holder", "assigned_by", "borrower", "loan_creator", "asset_managers")
+RECIPIENT_KINDS = (
+    "holder",
+    "assigned_by",
+    "borrower",
+    "loan_creator",
+    "asset_managers",
+    "stock_watchers",
+)
 MANAGERS_LIMIT = 500
 VARIABLES = (
     Variable("warranty.ends_on", "notification_variable.warranty.ends_on"),
@@ -92,12 +123,15 @@ class AssetNotifications:
         AcknowledgementChanged.event_type,
         AssetLoanChanged.event_type,
         WarrantyEnding.event_type,
+        StockLow.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
         """Asked for: the holder hears of it; disputed: the person who gave it."""
         if envelope.event_type == WarrantyEnding.event_type:
             return ("asset.warranty_expiring",)
+        if envelope.event_type == StockLow.event_type:
+            return ("asset.stock_low",)
         if envelope.event_type == AssetLoanChanged.event_type:
             change = envelope.payload.get("change")
             return {"due": ("asset.loan_due",), "overdue": ("asset.loan_overdue",)}.get(
@@ -119,6 +153,8 @@ class AssetNotifications:
             return await self._loan_context(session, event_code, payload)
         if envelope.event_type == WarrantyEnding.event_type:
             return await self._warranty_context(session, event_code, payload)
+        if envelope.event_type == StockLow.event_type:
+            return await self._stock_context(session, event_code, payload)
         ack = await session.get(AssetAcknowledgement, uuid.UUID(str(payload["acknowledgement_id"])))
         asset = await session.scalar(
             select(Asset).where(
@@ -211,12 +247,48 @@ class AssetNotifications:
             event_code=event_code,
         )
 
+    async def _stock_context(
+        self, session: AsyncSession, event_code: str, payload: Mapping[str, object]
+    ) -> RecordContext | None:
+        """A low stock: the consumable (by product name), its quantity and minimum now."""
+        stock = await session.get(AssetConsumableStock, uuid.UUID(str(payload["stock_id"])))
+        rule = await session.get(AssetStockRule, uuid.UUID(str(payload["rule_id"])))
+        consumable = await session.get(AssetConsumable, uuid.UUID(str(payload["consumable_id"])))
+        if stock is None or rule is None or consumable is None or consumable.deleted_at:
+            return None
+        if stock.low_alerted_at is None:
+            return None  # risen above the minimum meanwhile: nothing to tell
+        name = await session.scalar(
+            select(AssetProduct.name).where(AssetProduct.id == consumable.product_id)
+        )
+        link = f"/assets/consumables/{consumable.id}"
+        shown: dict[str, VariableValue] = {
+            "record.display_id": name,
+            "record.title": name,
+            "record.link": link,
+            "stock.quantity": format(stock.quantity.normalize(), "f"),
+            "stock.minimum": format(rule.min_quantity.normalize(), "f"),
+        }
+        watchers = frozenset(uuid.UUID(str(p)) for p in rule.notify_user_ids)
+        return RecordContext(
+            record_id=stock.id,
+            display_id=name or "",
+            link=link,
+            variables=shown,
+            public_variables={},
+            relatives={"stock_watchers": watchers},
+            conditions={},
+            event_code=event_code,
+        )
+
     async def access(
         self, session: AsyncSession, user_id: uuid.UUID, record_id: uuid.UUID
     ) -> RecordAccess:
         """FULL for staff who may see the asset; PUBLIC for the person who holds it."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
         subject = await subject_for(session, tenant, user_id)
+        if await session.get(AssetConsumableStock, record_id) is not None:  # a low stock
+            return RecordAccess.FULL if subject.holds(VIEW) else RecordAccess.NONE
         loan = await session.get(AssetLoan, record_id)
         if loan is not None:  # a loan: staff see it in full, the borrower their own side
             if subject.holds(VIEW):

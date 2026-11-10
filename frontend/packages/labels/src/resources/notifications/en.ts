@@ -55,6 +55,7 @@ export const en = {
   'notification_event.asset.ack_requested': 'Asset given to you: please acknowledge',
   'notification_event.asset.loan_due': 'Loan due tomorrow',
   'notification_event.asset.loan_overdue': 'Loan overdue',
+  'notification_event.asset.stock_low': 'Stock at its minimum',
   'notification_event.asset.warranty_expiring': 'Warranty ending soon',
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
@@ -142,6 +143,7 @@ export const en = {
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
+  'notification_recipient.stock_watchers': "The minimum's people",
   'notification_recipient.topic_owner': 'Topic owner',
   'notification_rules.any_priority': 'Any priority',
   'notification_rules.changed': 'Changed {{when}}',
@@ -190,6 +192,11 @@ export const en = {
     'Hello {{ recipient.name }},\n\nThe assets loaned to {{ holder.name }} were due back and are not yet returned.',
   'notification_template.asset.loan_overdue.in_app': 'Loan to {{ holder.name }} is overdue',
   'notification_template.asset.loan_overdue.subject': 'Loaned assets are overdue',
+  'notification_template.asset.stock_low.body':
+    'Hello {{ recipient.name }},\n\nStock of {{ record.title }} has fallen to {{ stock.quantity }}, at or below its minimum of {{ stock.minimum }}.',
+  'notification_template.asset.stock_low.in_app':
+    '{{ record.title }} is down to {{ stock.quantity }} (minimum {{ stock.minimum }})',
+  'notification_template.asset.stock_low.subject': '{{ record.title }} is at its minimum stock',
   'notification_template.asset.warranty_expiring.body':
     'Hello {{ recipient.name }},\n\nThe warranty of {{ record.display_id }} "{{ record.title }}" ends on {{ warranty.ends_on }}.',
   'notification_template.asset.warranty_expiring.in_app':
@@ -497,6 +504,8 @@ export const en = {
   'notification_variable.rule.name': 'Rule',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
+  'notification_variable.stock.minimum': 'Stock › Minimum',
+  'notification_variable.stock.quantity': 'Stock › Quantity',
   'notification_variable.unavailable.person': 'Unassigned › Person',
   'notification_variable.unavailable.reason': 'Unassigned › Why',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',

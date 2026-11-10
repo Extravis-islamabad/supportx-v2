@@ -7,6 +7,9 @@
   search, history, live lists, the trash. Only IT assets that are not disposed count toward the
   plan's asset limit (D-141).
 - Sessions 3-5 add the life cycle in use, ownership and loans.
+- WP-049b session 1: consumable stock with batches, allocations and the ledger, minimum-stock
+  rules, bookings ahead (handed over as loans, from the portal when allowed), and the loan's
+  display ID, department, site and register filters.
 
 Licensed with the `assets` feature. Public interface for other modules: `can_see`, `asset_refs`
 and `assets_of` (REQ-AST-025, for work items), and the disposal guard port.
@@ -18,6 +21,7 @@ from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.core.modules import ModuleSpec
 from app.modules.assets.api.records import router as records_router
 from app.modules.assets.api.routes import router
+from app.modules.assets.api.stock import router as stock_router
 from app.modules.assets.events import EVENTS
 from app.modules.assets.service import notifications, reporting
 from app.modules.assets.service.assets import (
@@ -26,6 +30,11 @@ from app.modules.assets.service.assets import (
     count_managed_assets,
 )
 from app.modules.assets.service.catalogue import CONFIGURE, MANAGE, REINSTATE, VIEW
+from app.modules.assets.service.consumables import (
+    DraftPurchaseRequests,
+    register_draft_purchase_requests,
+    unregister_draft_purchase_requests,
+)
 from app.modules.assets.service.disposals import register_disposal_guard, unregister_disposal_guard
 from app.modules.assets.service.file_access import FILE_ACCESS
 from app.modules.assets.service.loans import loan_sweep, on_loan_guard
@@ -78,7 +87,8 @@ async def _shutdown(app: FastAPI) -> None:
 module = ModuleSpec(
     name="assets",
     # The catalogue first: its fixed paths (/assets/states ...) must match before /assets/{id}.
-    routers=[router, records_router],
+    # Stock and bookings (WP-049b) before the record too: /assets/consumables is not an ID.
+    routers=[router, stock_router, records_router],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
@@ -104,11 +114,14 @@ notifications.register()
 
 __all__ = [
     "AssetRef",
+    "DraftPurchaseRequests",
     "asset_refs",
     "assets_of",
     "can_see",
     "email_includes_assets",
     "module",
     "register_disposal_guard",
+    "register_draft_purchase_requests",
     "unregister_disposal_guard",
+    "unregister_draft_purchase_requests",
 ]

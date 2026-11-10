@@ -12,6 +12,8 @@ import {
 import { usePersonalChannel } from '@supportx/realtime';
 import { EmptyText, lengthLimit, reportError, ToneTag, useDateTime, useLabel } from '@supportx/ui';
 
+import { MyBookings } from './MyBookings';
+
 // Sent on the person's own channel when what they hold, or an acknowledgement, changes.
 const MINE_CHANGED = 'assets.mine_changed';
 const COMMENT_MAX = 2000;
@@ -182,6 +184,8 @@ export function MyAssetsPage() {
           }}
         />
       </Card>
+      {/* WP-049b s1 (REQ-AST-032 AC3): booking ahead, only while the organisation allows it. */}
+      <MyBookings />
       <DisputeDialog
         row={disputing}
         onClose={() => {

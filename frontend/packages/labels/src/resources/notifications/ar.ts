@@ -57,6 +57,7 @@ export const ar: LabelResource = {
   'notification_event.asset.ack_requested': 'أصل سُلّم إليك: يرجى الإقرار به',
   'notification_event.asset.loan_due': 'موعد إرجاع الإعارة غدًا',
   'notification_event.asset.loan_overdue': 'الإعارة متأخرة',
+  'notification_event.asset.stock_low': 'المخزون عند حده الأدنى',
   'notification_event.asset.warranty_expiring': 'الضمان ينتهي قريبًا',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
@@ -144,6 +145,7 @@ export const ar: LabelResource = {
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
   'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
+  'notification_recipient.stock_watchers': 'الأشخاص المحددون للحد الأدنى',
   'notification_recipient.topic_owner': 'مالك الموضوع',
   'notification_rules.any_priority': 'أي أولوية',
   'notification_rules.changed': 'غُيّر {{when}}',
@@ -192,6 +194,11 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nحان موعد إرجاع الأصول المعارة إلى {{ holder.name }} ولم تُرجع بعد.',
   'notification_template.asset.loan_overdue.in_app': 'إعارة {{ holder.name }} متأخرة',
   'notification_template.asset.loan_overdue.subject': 'الأصول المعارة متأخرة',
+  'notification_template.asset.stock_low.body':
+    'مرحبًا {{ recipient.name }}،\n\nانخفض مخزون {{ record.title }} إلى {{ stock.quantity }}، عند حده الأدنى {{ stock.minimum }} أو دونه.',
+  'notification_template.asset.stock_low.in_app':
+    'انخفض {{ record.title }} إلى {{ stock.quantity }} (الحد الأدنى {{ stock.minimum }})',
+  'notification_template.asset.stock_low.subject': '{{ record.title }} عند الحد الأدنى للمخزون',
   'notification_template.asset.warranty_expiring.body':
     'مرحبًا {{ recipient.name }}،\n\nينتهي ضمان {{ record.display_id }} "{{ record.title }}" في {{ warranty.ends_on }}.',
   'notification_template.asset.warranty_expiring.in_app':
@@ -499,6 +506,8 @@ export const ar: LabelResource = {
   'notification_variable.rule.name': 'القاعدة',
   'notification_variable.site.name': 'الموقع',
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
+  'notification_variable.stock.minimum': 'المخزون › الحد الأدنى',
+  'notification_variable.stock.quantity': 'المخزون › الكمية',
   'notification_variable.unavailable.person': 'غير مُسند › الشخص',
   'notification_variable.unavailable.reason': 'غير مُسند › السبب',
   'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',

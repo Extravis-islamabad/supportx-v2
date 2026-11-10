@@ -51,6 +51,7 @@ import { CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
 import { AssetRelations } from './AssetRelations';
+import { AssetBookings } from './Bookings';
 import { ageBetween, basisDay } from './age';
 import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
@@ -58,7 +59,7 @@ import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
 
 // The record's tabs, always in this order (REQ-AST-001 AC3): later sessions add theirs here.
-const TABS = ['details', 'relations', 'history'] as const;
+const TABS = ['details', 'relations', 'bookings', 'history'] as const;
 type TabKey = (typeof TABS)[number];
 // The state chip's tone by the state's category (D-155: what needs attention stands out).
 const STATE_TONES: Record<AssetState['category'], Tone> = {
@@ -536,6 +537,12 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             key: 'relations',
             label: t('assets.record.relations'),
             children: <AssetRelations asset={asset} manage={manage} />,
+          },
+          {
+            // WP-049b s1 (REQ-AST-032): bookings ahead, handed over as loans.
+            key: 'bookings',
+            label: t('assets.bookings.title'),
+            children: <AssetBookings asset={asset} manage={manage} />,
           },
           {
             key: 'history',

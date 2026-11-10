@@ -13,6 +13,11 @@
   managers, once per warranty date. Each notice is claimed by one UPDATE ... RETURNING, so two
   workers never send it twice.
 - An asset on loan cannot be disposed of (REQ-AST-017 AC1): the disposal guard.
+- **WP-049b s1 (030's leftovers):** each new loan gets its display ID (LN-1, the tenant's own
+  counter); a loan can be to a department, which then holds the assets, collected by the
+  borrower (who hears the notices); it can name its site; the register filters by status and
+  site. A loan never overlaps a booking of the same asset (REQ-AST-032) unless it is that
+  booking's handover: both lock the asset row first, so the check and the write are one step.
 """
 
 import uuid
@@ -31,9 +36,11 @@ from app.core.errors import Conflict, NotFound
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.assets.domain.catalogue import AssetStateCategory, Problem
+from app.modules.assets.domain.loans import Period
 from app.modules.assets.events import AssetLoanChanged, LoanChange, WarrantyEnding
 from app.modules.assets.infra.models import (
     Asset,
+    AssetBooking,
     AssetLoan,
     AssetLoanItem,
     AssetSettings,
@@ -52,7 +59,9 @@ from app.modules.assets.service.moves import move_asset
 from app.modules.assets.service.ownership import Holder, set_holder
 from app.modules.assets.service.refs import ASSET_SEARCH
 from app.modules.identity_access import Subject, active_user_ids
+from app.modules.organization import existing_departments, existing_unit_ids
 from app.shared.clock import system_clock
+from app.shared.db.display_ids import next_display_id
 from app.shared.events import record_event
 from app.shared.history import Change, Source
 from app.shared.ids import new_id
@@ -129,10 +138,63 @@ async def _loan_event(session: AsyncSession, loan: AssetLoan, change: LoanChange
             borrower_id=loan.borrower_id,
             created_by=loan.created_by,
             change=change,
+            department_id=loan.department_id,
+            site_id=loan.site_id,
         ),
         aggregate_id=loan.id,
         aggregate_version=loan.version,
     )
+
+
+LOAN_PREFIX = "LN"  # Appendix A: loans `LN`, the tenant's own counter
+
+
+async def booked_over(
+    session: AsyncSession,
+    asset_id: uuid.UUID,
+    period: Period,
+    *,
+    other_than: uuid.UUID | None = None,
+) -> AssetBooking | None:
+    """A live booking of the asset that shares a moment with `period` (REQ-AST-032)."""
+    query = select(AssetBooking).where(
+        AssetBooking.asset_id == asset_id,
+        AssetBooking.status == "booked",
+        AssetBooking.deleted_at.is_(None),
+        AssetBooking.starts_at < period.due_at,
+        period.starts_at < AssetBooking.ends_at,
+    )
+    if other_than is not None:
+        query = query.where(AssetBooking.id != other_than)
+    return await session.scalar(query.order_by(AssetBooking.starts_at).limit(1))
+
+
+async def _loan_problems(  # noqa: PLR0913 - every part of a new loan that can be wrong
+    session: AsyncSession,
+    *,
+    unique: Sequence[uuid.UUID],
+    borrower_id: uuid.UUID,
+    department_id: uuid.UUID | None,
+    site_id: uuid.UUID | None,
+    due_at: datetime,
+    text_: str | None,
+) -> list[Problem]:
+    problems: list[Problem] = []
+    if not unique or len(unique) > ITEMS_MAX:
+        problems.append(Problem("asset_ids", "asset_bulk_too_many", (("max", ITEMS_MAX),)))
+    if due_at <= system_clock.now():
+        problems.append(Problem("due_at", "date_in_past"))
+    if text_ is not None and len(text_) > COMMENT_MAX:
+        problems.append(Problem("comment", "value_too_long", (("max", COMMENT_MAX),)))
+    if borrower_id not in await active_user_ids(session, [borrower_id]):
+        problems.append(Problem("borrower_id", "asset_holder_not_found"))
+    if department_id is not None and department_id not in await existing_departments(
+        session, [department_id]
+    ):
+        problems.append(Problem("department_id", "asset_holder_not_found"))
+    if site_id is not None and site_id not in await existing_unit_ids(session, "site", [site_id]):
+        problems.append(Problem("site_id", "site_not_found"))
+    return problems
 
 
 async def create_loan(  # noqa: PLR0913 - who, what, until when, why, by whom, from where
@@ -144,22 +206,26 @@ async def create_loan(  # noqa: PLR0913 - who, what, until when, why, by whom, f
     due_at: datetime,
     comment: str | None,
     source: Source,
+    department_id: uuid.UUID | None = None,
+    site_id: uuid.UUID | None = None,
+    starts_at: datetime | None = None,
+    booking_id: uuid.UUID | None = None,
 ) -> AssetLoan:
-    """Loan loanable, in-stock assets to a person until `due_at` (REQ-AST-030)."""
+    """Loan loanable, in-stock assets to a person (or a department) until `due_at` (030).
+
+    `starts_at` and `booking_id`: a booking handed over keeps its own dates (032 AC2).
+    """
     _require(subject, MANAGE)
     now = system_clock.now()
     unique = list(dict.fromkeys(asset_ids))
-    problems: list[Problem] = []
-    if not unique or len(unique) > ITEMS_MAX:
-        problems.append(Problem("asset_ids", "asset_bulk_too_many", (("max", ITEMS_MAX),)))
-    if due_at <= now:
-        problems.append(Problem("due_at", "date_in_past"))
     text_ = (comment or "").strip() or None
-    if text_ is not None and len(text_) > COMMENT_MAX:
-        problems.append(Problem("comment", "value_too_long", (("max", COMMENT_MAX),)))
-    if borrower_id not in await active_user_ids(session, [borrower_id]):
-        problems.append(Problem("borrower_id", "asset_holder_not_found"))
-    _refuse(problems)
+    _refuse(
+        await _loan_problems(
+            session, unique=unique, borrower_id=borrower_id, department_id=department_id,
+            site_id=site_id, due_at=due_at, text_=text_,
+        )
+    )  # fmt: skip
+    period = Period(starts_at or now, due_at)
     in_use = await _default_state(session, AssetStateCategory.IN_USE)
     rows: list[Asset] = []
     for asset_id in unique:
@@ -169,13 +235,19 @@ async def create_loan(  # noqa: PLR0913 - who, what, until when, why, by whom, f
             raise Conflict(code="asset_not_loanable", params={"asset": row.tag or row.name})
         if await _on_loan(session, row.id):
             raise Conflict(code="asset_on_loan", params={"asset": row.tag or row.name})
+        if await booked_over(session, row.id, period, other_than=booking_id) is not None:
+            raise Conflict(code="asset_booked", params={"asset": row.tag or row.name})
         rows.append(row)
     loan = AssetLoan(
         id=new_id(),
         tenant_id=rows[0].tenant_id,
         created_by=subject.user_id,
         borrower_id=borrower_id,
-        starts_at=now,
+        department_id=department_id,
+        site_id=site_id,
+        booking_id=booking_id,
+        display_id=await next_display_id(session, LOAN_PREFIX),
+        starts_at=period.starts_at,
         due_at=due_at,
         comment=text_,
     )
@@ -196,10 +268,14 @@ async def create_loan(  # noqa: PLR0913 - who, what, until when, why, by whom, f
             session, subject, row.id, to_state_id=in_use.id, reason=text_,
             expected_version=row.version, source=source,
         )  # fmt: skip
+        holder = (
+            Holder("user", borrower_id)
+            if department_id is None
+            else Holder("department", department_id)
+        )
         await set_holder(
-            session, subject, row.id, Holder("user", borrower_id),
-            expected_version=moved.version, source=source,
-        )  # fmt: skip
+            session, subject, row.id, holder, expected_version=moved.version, source=source
+        )
     await _loan_event(session, loan, "created")
     return loan
 
@@ -374,17 +450,33 @@ async def outstanding_assets(session: AsyncSession, loan_id: uuid.UUID) -> list[
 
 
 async def open_loans(
-    session: AsyncSession, subject: Subject, *, limit: int = 200
+    session: AsyncSession,
+    subject: Subject,
+    *,
+    status: Literal["open", "overdue", "closed"] | None = None,
+    site_id: uuid.UUID | None = None,
+    limit: int = 200,
 ) -> list[AssetLoan]:
-    """Every open loan, the earliest due first (overdue ones lead)."""
+    """The register (REQ-AST-030): open and overdue loans by due time, or one status.
+
+    Overdue ones lead; closed ones come most recently closed first. `site_id`: that site's only.
+    """
     _require(subject, VIEW)
-    rows = await session.scalars(
-        select(AssetLoan)
-        .where(AssetLoan.closed_at.is_(None), AssetLoan.deleted_at.is_(None))
-        .order_by(AssetLoan.due_at, AssetLoan.id)
-        .limit(limit)
-    )
-    return list(rows)
+    now = system_clock.now()
+    query = select(AssetLoan).where(AssetLoan.deleted_at.is_(None))
+    if status == "closed":
+        query = query.where(AssetLoan.closed_at.is_not(None)).order_by(
+            AssetLoan.closed_at.desc(), AssetLoan.id
+        )
+    else:
+        query = query.where(AssetLoan.closed_at.is_(None)).order_by(AssetLoan.due_at, AssetLoan.id)
+        if status == "open":
+            query = query.where(AssetLoan.due_at > now)
+        elif status == "overdue":
+            query = query.where(AssetLoan.due_at <= now)
+    if site_id is not None:
+        query = query.where(AssetLoan.site_id == site_id)
+    return list(await session.scalars(query.limit(limit)))
 
 
 @dataclass(frozen=True, slots=True)

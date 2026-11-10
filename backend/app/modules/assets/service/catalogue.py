@@ -304,6 +304,7 @@ SETTINGS_FIELDS = (
     "email_include_assets",
     "scan_retention_months",
     "warranty_notice_days",
+    "portal_booking",  # 0130; REQ-AST-032 AC3
 )
 
 

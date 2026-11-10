@@ -9,12 +9,17 @@ import { useCatalogueSave } from './shared';
 
 const AGE_BASES: AssetAgeBasis[] = ['acquisition_date', 'created_date'];
 type Toggle =
-  'cost_includes_tax' | 'site_follows_owner' | 'portal_own_assets_only' | 'email_include_assets';
+  | 'cost_includes_tax'
+  | 'site_follows_owner'
+  | 'portal_own_assets_only'
+  | 'email_include_assets'
+  | 'portal_booking';
 const TOGGLES: Toggle[] = [
   'cost_includes_tax',
   'site_follows_owner',
   'portal_own_assets_only',
   'email_include_assets',
+  'portal_booking', // WP-049b s1, REQ-AST-032 AC3: off by default
 ];
 
 /**
