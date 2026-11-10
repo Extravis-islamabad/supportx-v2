@@ -30,6 +30,7 @@ from app.modules.work_items.api.parts_routes import add_parts_collection_routes,
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.problem_routes import add_problem_routes
 from app.modules.work_items.api.settings_routes import add_settings_routes
+from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -69,9 +70,9 @@ from app.modules.work_items.domain.types import (
     WorkItemTypeCode,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, WorkItemDowntime
+from app.modules.work_items.service import change_links, release_links, resolution
 from app.modules.work_items.service import duplicates as duplicates_service
 from app.modules.work_items.service import problems as problem_service
-from app.modules.work_items.service import release_links, resolution
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
@@ -168,6 +169,28 @@ class WorkItemIn(BaseModel):
     )
     review_actions: str | None = Field(
         default=None, max_length=DESCRIPTION_MAX * 2, description="Problems: follow-up actions."
+    )
+    change_type: str | None = Field(
+        default=None, max_length=40, description="Changes only: a change type code (REQ-CHG-005)."
+    )
+    retrospective: bool | None = Field(
+        default=None,
+        description=(
+            "Changes only: work already done (REQ-CHG-004); needs actual_start and actual_end, "
+            "both past; it enters at the review."
+        ),
+    )
+    actual_start: datetime | None = Field(default=None, description="Changes only, retrospective.")
+    actual_end: datetime | None = Field(default=None, description="Changes only, retrospective.")
+    from_record_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Changes only: the incident, request, problem or release it is made from; linked "
+            "as change_for on both (REQ-CHG-002)."
+        ),
+    )
+    change_reason: str | None = Field(
+        default=None, max_length=40, description="Changes only: a reason for change code."
     )
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
@@ -1461,6 +1484,58 @@ class ReleaseDetailsOut(BaseModel):
         )
 
 
+class ChangeCopyIn(BaseModel):
+    """What a copy of a change brings besides its fields (REQ-CHG-003)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parts: list[Literal["plans", "roles"]] = Field(default_factory=list, max_length=2)
+
+
+class ChangePrefillOut(BaseModel):
+    """A new change's starting values from another record (REQ-CHG-002)."""
+
+    subject: str
+    description: str | None
+    requester_id: uuid.UUID
+    impact: str | None
+    urgency: str | None
+    site_id: uuid.UUID | None
+    from_record_id: uuid.UUID = Field(description="Send back on create to link the two.")
+
+
+class ChangeDetailsIn(BaseModel):
+    """A change's own fields to change (send only those you change; null clears one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    change_type: str | None = Field(default=None, max_length=40, description="A change type code.")
+    change_reason: str | None = Field(
+        default=None, max_length=40, description="A reason for change code."
+    )
+
+
+class ChangeDetailsOut(BaseModel):
+    """A change's own fields (REQ-CHG-005, -011), with the change's version for If-Match."""
+
+    work_item_id: uuid.UUID
+    version: int = Field(description="The change's version: send it back as If-Match.")
+    change_type: str | None
+    change_reason: str | None
+    retrospective: bool = Field(description="Logged after the fact (REQ-CHG-004).")
+
+    @classmethod
+    def of(cls, view: service.DetailsView) -> "ChangeDetailsOut":
+        """From the service view (all empty before any field is set)."""
+        row = view.details
+        return cls(
+            work_item_id=view.record.id,
+            version=view.record.version,
+            **{n: (getattr(row, n) if row is not None else None) for n in CHANGE_DETAIL_FIELDS},
+            retrospective=bool(getattr(row, "retrospective", False)),  # a change's row only
+        )
+
+
 class RoleHoldingOut(BaseModel):
     """One role of the record and who holds it."""
 
@@ -1533,6 +1608,13 @@ class PlanSectionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: str | None = Field(default=None, max_length=RESOLUTION_MAX)
+    convert_to_normal: bool | None = Field(
+        default=None,
+        description=(
+            "A standard change's plan is locked (409 standard_change_locked): true confirms "
+            "making it a normal change, which goes through normal approval (REQ-CHG-006)."
+        ),
+    )
 
 
 class StageScheduleOut(BaseModel):
@@ -1547,6 +1629,10 @@ class StageScheduleOut(BaseModel):
     outcome_notes: str | None
     issues: str | None
     version: int = Field(description="This stage row's version for If-Match (0: none yet).")
+    overdue: bool = Field(
+        default=False,
+        description="Its scheduled end has passed and it has not ended (REQ-CHG-017).",
+    )
 
 
 class StageScheduleIn(BaseModel):
@@ -2071,10 +2157,24 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
-    elif wtype.code in {WorkItemTypeCode.RELEASE, WorkItemTypeCode.PROBLEM}:
-        # Release stage approvals (WP-058a s5) and problem approvals asked ad hoc (WP-044b s4):
-        # neither has a requester's withdrawal.
+    elif wtype.code in {
+        WorkItemTypeCode.RELEASE,
+        WorkItemTypeCode.PROBLEM,
+        WorkItemTypeCode.CHANGE,
+    }:
+        # Release and change stage approvals (WP-058a s5, WP-045a) and problem approvals asked
+        # ad hoc (WP-044b s4): none has a requester's withdrawal (a change is canceled instead).
         add_approval_routes(router, wtype, withdraw=False)
+    if wtype.code is WorkItemTypeCode.CHANGE:
+        # WP-045a D6 (REQ-CHG-002): before the /{record_id} routes.
+
+        @router.get("/prefill", summary="A new change's values from another record")
+        async def change_prefill(
+            record_id: uuid.UUID, session: TenantSession, subject: Create
+        ) -> ChangePrefillOut:
+            """From an incident, request, problem or release you see; every value is editable."""
+            return ChangePrefillOut(**await change_links.prefill(session, subject, record_id))
+
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
@@ -2100,14 +2200,22 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         """A new record. Send an Idempotency-Key: a retried request returns the same 201."""
 
         async def run() -> Created:
+            values = body.model_dump(exclude_unset=True)
+            from_record = values.pop("from_record_id", None)
+            if from_record is not None and wtype.code is not WorkItemTypeCode.CHANGE:
+                raise service.field_errors([("from_record_id", "not_allowed")])
             view = await service.create(
                 session,
                 subject,
                 wtype,
-                body.model_dump(exclude_unset=True),
+                values,
                 source=source_of(request),
                 holders=policy,
             )
+            if from_record is not None:  # REQ-CHG-002: linked to its source, on both records
+                await change_links.link_new(
+                    session, subject, view.record, from_record, source=source_of(request)
+                )
             out = WorkItemOut.of(view)
             return Created(
                 body=out, headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'}
@@ -2208,6 +2316,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                     stage=stage,
                     **{n: getattr(row, n) if row else None for n in service.SCHEDULE_FIELDS},
                     version=row.version if row else 0,
+                    overdue=service.schedule_overdue(row),
                 )
                 for stage, row in rows
             ]
@@ -2418,6 +2527,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 content=body.content,
                 expected_version=version,
                 source=source_of(request),
+                convert_to_normal=body.convert_to_normal is True,
             )
             set_etag(response, row.version)
             return PlanSectionOut(
@@ -2575,6 +2685,81 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             )
             set_etag(response, view.record.version)
             return ReleaseDetailsOut.of(view)
+
+    if wtype.code is WorkItemTypeCode.CHANGE:  # REQ-CHG-005, -011: a change's own fields
+
+        @router.post(
+            "/{record_id}/copy",
+            summary="Copy the change into a new one",
+            status_code=status.HTTP_201_CREATED,
+            response_model=WorkItemOut,
+        )
+        async def copy_change(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ChangeCopyIn,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+        ) -> Response:
+            """A new change from this one's fields, and the plans or roles chosen (REQ-CHG-003).
+
+            Never its approvals, history or schedule. Send an Idempotency-Key: a retry returns
+            the same 201.
+            """
+
+            async def run() -> Created:
+                made = await change_links.copy_change(
+                    session,
+                    subject,
+                    record_id,
+                    parts_chosen=frozenset(body.parts),
+                    source=source_of(request),
+                    holders=policy,
+                )
+                view = await service.get(session, subject, wtype, made.id)
+                out = WorkItemOut.of(view)
+                return Created(
+                    body=out,
+                    headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'},
+                )
+
+            return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
+
+        @router.get("/{record_id}/details", summary="The change's own fields")
+        async def get_change_details(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> ChangeDetailsOut:
+            """The change type and the reason for change."""
+            found = await service.details(session, subject, wtype, record_id)
+            set_etag(response, found.record.version)
+            return ChangeDetailsOut.of(found)
+
+        @router.patch(
+            "/{record_id}/details", summary="Change the change's own fields", responses=CONFLICT
+        )
+        async def patch_change_details(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ChangeDetailsIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> ChangeDetailsOut:
+            """Needs If-Match (the change's version). Send only what you change; null clears."""
+            view = await service.update_details(
+                session,
+                subject,
+                wtype,
+                record_id,
+                expected_version=version,
+                values=body.model_dump(include=body.model_fields_set),
+                source=source_of(request),
+            )
+            set_etag(response, view.record.version)
+            return ChangeDetailsOut.of(view)
 
     @router.post(
         "/{record_id}/resolution/confirm",
