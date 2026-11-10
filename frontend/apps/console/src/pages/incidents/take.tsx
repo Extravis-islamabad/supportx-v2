@@ -26,11 +26,14 @@ import { GroupPicker } from './pickers';
 export function useTakeAction(
   item: Incident,
   state: IncidentActionState | undefined,
+  /** Another type's take (a service request, Haider E2); the incident's by default. */
+  override?: ReturnType<typeof useTakeIncident>,
 ): { action: RecordAction | null; dialogs: ReactNode } {
   const t = useLabel();
   const reasonText = useActionReason();
   const { message } = App.useApp();
-  const take = useTakeIncident(item.id);
+  const incidentTake = useTakeIncident(item.id);
+  const take = override ?? incidentTake;
   const [choosing, setChoosing] = useState(false);
   const [group, setGroup] = useState<string | null>(null);
   const problem = useFormProblem();

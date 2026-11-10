@@ -158,7 +158,7 @@ export const ar: LabelResource = {
   'sla_action_kind.reassign_group': 'إعادة الإسناد إلى مجموعة',
   'sla_action_kind.reassign_person': 'إعادة الإسناد إلى شخص',
   'sla_applied_reason.condition_changed': 'بعد تغيير حقل يعتمد عليه',
-  'sla_applied_reason.created': 'عند إنشاء الحادثة',
+  'sla_applied_reason.created': 'عند إنشائه',
   'sla_applied_reason.priority_changed': 'بعد تغيير الأولوية',
   'sla_calendar.around_the_clock': 'على مدار الساعة',
   'sla_calendar.operating_hours': 'ساعات العمل',
