@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { MoreOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { DownOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Tabs, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -164,8 +164,9 @@ export function ReleasePage() {
             ],
           }}
         >
-          <Button icon={<MoreOutlined />} data-testid="release-more">
-            {t('actions.more')}
+          {/* Worded and drawn as every record's menu (QA10V-10: "⋮ More"). */}
+          <Button data-testid="release-more">
+            {t('layout.more_actions')} <DownOutlined aria-hidden />
           </Button>
         </Dropdown>
       )}
@@ -193,7 +194,8 @@ export function ReleasePage() {
             // D-155 A1, as on every record: where it is, its risk and its planned window, then
             // what needs attention (waiting for approval, the emergency path).
             <Space wrap>
-              {/* No stage chip: the stage bar below always shows it (QA fix-round D2). */}
+              {/* No stage chip: the stage bar below always shows it (QA fix-round D2); the status
+                  stays in Properties only, never twice (A1). */}
               {details?.risk && (
                 <ToneTag
                   tone={

@@ -352,6 +352,7 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
         done = clean["status"] == TaskStatus.DONE
         clean["done_at"] = datetime.now(UTC) if done else None
         clean["done_by"] = subject.user_id if done else None  # D-154d: "Done by <name>"
+    was_done = task.status == TaskStatus.DONE
     before = _snapshot(task)
     updated = await TaskRepository(session).update(
         task.id, expected_version=expected_version, changes=clean
@@ -364,7 +365,14 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
         from app.modules.work_items.service import fulfilment  # noqa: PLC0415 - see above
 
         await fulfilment.after_task_change(
-            session, record.id, source=source, ticked_by=subject.user_id
+            session,
+            record.id,
+            source=source,
+            ticked_by=subject.user_id,
+            # Only this change finishing a required task can make the request ready (lane B).
+            completed_required=updated.required
+            and updated.status == TaskStatus.DONE
+            and not was_done,
         )
     return updated
 

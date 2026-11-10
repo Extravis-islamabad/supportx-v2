@@ -302,6 +302,22 @@ class WorkItemPartChanged(DomainEvent):
     task_status: str | None = None
 
 
+class WorkItemAssetLinkChanged(DomainEvent):
+    """An asset was linked to a record or unlinked (REQ-AST-025). IDs only.
+
+    The record's screens refresh its assets; the assets module may hear it too (an asset's
+    "linked to my tickets" scope, D-153).
+    """
+
+    event_type: ClassVar[str] = "work_items.asset_link.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    asset_id: uuid.UUID
+    change: Literal["added", "removed"]
+
+
 class WorkItemPartChangedV2(DomainEvent):
     """As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.
 
@@ -400,8 +416,26 @@ class ProblemRepeatChanged(DomainEvent):
     id: uuid.UUID
 
 
+class WorkItemAssigneeUnavailable(_WorkItemEvent):
+    """A rule or escalation could not put the person it names on the record (D-154 "rules").
+
+    The record went to the step's group with nobody on it; the step's owner (or, with none,
+    the administrators) is told once, in the app. `reason`: inactive, away or not_in_group.
+    """
+
+    event_type: ClassVar[str] = "work_items.work_item.assignee_unavailable"
+    schema_version: ClassVar[int] = 1
+
+    person_id: uuid.UUID
+    reason: str
+    step: str  # the history ref's kind: business_rule, trigger or sla_escalation
+    owner_id: uuid.UUID | None = None
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     ServiceRequestReadyToFulfil,
+    WorkItemAssetLinkChanged,
+    WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemUpdated,
     WorkItemStatusChanged,

@@ -1,4 +1,4 @@
-import { EditOutlined, WarningOutlined } from '@ant-design/icons';
+import { EditOutlined, InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { Badge, Tag, Tooltip } from 'antd';
 import { useEffect, useState } from 'react';
 
@@ -15,15 +15,17 @@ import { span } from './slaWords';
 export function StatusTag({
   status,
   catalogue,
+  testId = 'inc-status',
 }: {
   status: string;
   catalogue: IncidentCatalogue | undefined;
+  testId?: string;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const colour = catalogue?.statuses.find((s) => s.code === status)?.colour;
   return (
-    <Tag data-testid="inc-status" data-status={status}>
+    <Tag data-testid={testId} data-status={status}>
       <Badge color={colour ?? '#8c8c8c'} style={{ marginInlineEnd: 6 }} />
       {statusLabel(t, catalogue, status, locale)}
     </Tag>
@@ -48,10 +50,15 @@ export function PriorityTag({ priority, source }: { priority: Priority; source: 
         </Tooltip>
       )}
       {source === 'default' && (
+        // An icon with its name, as the manual pencil: a bare "*" read as a stray asterisk
+        // and had no role (QA10V-17).
         <Tooltip title={t('priority_source.default')}>
-          <span aria-label={t('priority_source.default')} style={{ marginInlineStart: 4 }}>
-            *
-          </span>
+          <InfoCircleOutlined
+            role="img"
+            aria-label={t('priority_source.default')}
+            style={{ marginInlineStart: 4 }}
+            data-testid="inc-priority-default"
+          />
         </Tooltip>
       )}
     </Tag>

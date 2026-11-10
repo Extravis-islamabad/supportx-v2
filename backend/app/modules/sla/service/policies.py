@@ -8,7 +8,7 @@ policies are ordered; the first enabled one whose conditions match applies.
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -93,6 +93,10 @@ FIELD_PROBLEMS = frozenset(
         "recipient_shape",
         "note_too_long",
         "unknown_reference",
+        # D-154: a person reassigned with one of their groups.
+        "reassign_group_required",
+        "person_not_in_group",
+        "person_in_no_group",
     }
 )
 
@@ -511,6 +515,7 @@ async def _levels(
                         ActionKind(a["kind"]),
                         str(a["target_id"]) if a.get("target_id") is not None else None,
                         (a.get("text") or "").strip() or None,
+                        str(a["group_id"]) if a.get("group_id") is not None else None,
                     )
                     for a in item.get("actions") or ()
                 ),
@@ -520,7 +525,43 @@ async def _levels(
     for name, code, params in level_problems(levels):
         errors.append(_field(name, code, **params))
     await _level_references(session, levels, errors)
-    return levels
+    return await _reassign_groups(session, levels, errors)
+
+
+async def _reassign_groups(
+    session: AsyncSession, levels: list[Level], errors: list[FieldError]
+) -> list[Level]:
+    """Each person reassign names one of the person's groups (D-154, Haider 2026-11-10).
+
+    One group: it is filled in. Several: the editor must choose (`reassign_group_required`),
+    never guessed at run time. A chosen group the person is not in, or a person in no group,
+    is refused.
+    """
+    out: list[Level] = []
+    for level in levels:
+        actions: list[Action] = []
+        for action in level.actions:
+            if action.kind is not ActionKind.REASSIGN_PERSON or action.target_id is None:
+                actions.append(action)
+                continue
+            try:
+                person = uuid.UUID(action.target_id)
+            except ValueError:
+                actions.append(action)  # already refused as an unknown reference
+                continue
+            groups = {str(g) for g in (await organization.memberships(session, person)).group_ids}
+            chosen = action.group_id
+            if chosen is None and len(groups) == 1:
+                chosen = next(iter(groups))
+            if not groups:
+                errors.append(_field("levels", "person_in_no_group"))
+            elif chosen is None:
+                errors.append(_field("levels", "reassign_group_required"))
+            elif chosen not in groups:
+                errors.append(_field("levels", "person_not_in_group"))
+            actions.append(replace(action, group_id=chosen))
+        out.append(replace(level, actions=tuple(actions)))
+    return out
 
 
 def _references(levels: Sequence[Level]) -> tuple[set[str], set[str]]:

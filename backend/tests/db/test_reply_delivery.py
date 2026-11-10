@@ -14,13 +14,14 @@ from typing import Any
 
 import pytest
 
+from app.core.config import Settings
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from app.modules.notifications.service import resend
 from app.modules.notifications.service.engine import expire_waiting, send_waiting
 from app.shared.events import EventEnvelope
 from app.shared.mail.infra import smtp
-from app.shared.mail.service.outgoing import deliver
+from app.shared.mail.service.outgoing import deliver, due_messages
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_conversation_api import say
 from tests.db.test_incidents_api import Org, World
@@ -291,3 +292,159 @@ async def test_a_reply_the_requester_wrote_never_moves(world: World) -> None:
         ),
     )
     assert (await _entry(world, entry["id"]))["delivery_state"] == "received"
+
+
+async def _deliver_with(
+    world: World,
+    org: Org,
+    mail_id: uuid.UUID,
+    settings: Settings,
+    server: FakeSmtp,
+) -> str:
+    async def work(session: Any) -> str:  # noqa: ANN401 - AsyncSession
+        return await deliver(session, settings, mail_id, send=server)
+
+    return str(await _in_session(world, org, work))
+
+
+async def _delivery_changes(world: World, org: Org, entry_id: str) -> list[tuple[str, Any]]:
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
+        " AND event_type = 'work_items.conversation.delivery_changed' AND aggregate_id = $2"
+        " ORDER BY id",
+        org.tenant,
+        entry_id,
+    )
+    payloads = [json.loads(r["envelope"])["payload"] for r in rows]
+    return [(p["delivery_state"], p["delivery_reason"]) for p in payloads]
+
+
+async def test_qa_no_mail_server_where_it_is_sent_waits_then_goes_once_set_up(
+    world: World,
+) -> None:
+    """QA 2026-11-04 #2: queued, then the sender has no mail server: never "sending" for ever.
+
+    Before, the attempt raised and rolled back, so the message stayed queued with no next
+    attempt (the retry schedule never picks that up) and the reply showed "Sending" for good.
+    """
+    org = world.a
+    _, entry = await _reply(world, org)
+    await run_engine(world, org, settings=MAIL)
+    assert (await _entry(world, entry["id"]))["delivery_state"] == "queued"
+    mail_id = await _requester_mail(world, entry["id"])
+    server = FakeSmtp()
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "queued"
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "queued"  # redelivered
+    (mail,) = await world.sql(
+        "SELECT attempts, failure, next_attempt_at FROM mail_messages WHERE id = $1", mail_id
+    )
+    assert (mail["attempts"], mail["failure"]) == (0, "mail_not_configured")  # nothing tried
+    assert mail["next_attempt_at"] is not None  # due again: the retry schedule finds it
+    await run_engine(world, org, settings=MAIL)
+    waiting = await _entry(world, entry["id"])
+    assert (waiting["delivery_state"], waiting["delivery_reason"]) == (
+        "waiting",
+        "mail_not_configured",
+    )
+    # Mail is set up again: the retry schedule's query finds it and it is sent.
+    due = await _in_session(world, org, due_messages)
+    assert mail_id in due
+    assert await _deliver_with(world, org, mail_id, MAIL, server) == "sent"
+    assert len(server.sent) == 1
+    await run_engine(world, org, settings=MAIL)
+    assert (await _entry(world, entry["id"]))["delivery_state"] == "sent"
+    # Live (rule c), told once each, through the outbox.
+    assert await _delivery_changes(world, org, entry["id"]) == [
+        ("queued", None),
+        ("waiting", "mail_not_configured"),
+        ("sent", None),
+    ]
+
+
+async def test_d116_a_reply_waiting_for_mail_is_never_sent_late(world: World) -> None:
+    """D-116 (coordinator, 2026-11-10): waiting for mail to be set up ends after 7 days.
+
+    Day 6 still waits; day 8 fails as `not_sent_in_time`; setting mail up afterwards sends
+    nothing old. The reply says so, live and in its history.
+    """
+    org = world.a
+    _, entry = await _reply(world, org)
+    await run_engine(world, org, settings=MAIL)
+    mail_id = await _requester_mail(world, entry["id"])
+    server = FakeSmtp()
+
+    async def aged(days: int) -> None:
+        await world.sql(
+            "UPDATE mail_messages SET created_at = now() - make_interval(days => $2) WHERE id = $1",
+            mail_id,
+            days,
+        )
+
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "queued"
+    await aged(6)
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "queued"  # still waits
+    await aged(8)
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "failed"
+    (mail,) = await world.sql(
+        "SELECT state, failure, next_attempt_at FROM mail_messages WHERE id = $1", mail_id
+    )
+    assert (mail["state"], mail["failure"], mail["next_attempt_at"]) == (
+        "failed",
+        "not_sent_in_time",
+        None,
+    )
+    await run_engine(world, org, settings=MAIL)
+    gone = await _entry(world, entry["id"])
+    assert (gone["delivery_state"], gone["delivery_reason"]) == ("failed", "not_sent_in_time")
+    # Mail is set up now: nothing old goes out.
+    assert mail_id not in await _in_session(world, org, due_messages)
+    assert await _deliver_with(world, org, mail_id, MAIL, server) == "failed"
+    assert server.sent == []
+    assert await _delivery_changes(world, org, entry["id"]) == [
+        ("queued", None),
+        ("waiting", "mail_not_configured"),
+        ("failed", "not_sent_in_time"),
+    ]
+
+
+async def test_d116_a_message_that_waited_too_long_is_not_sent_once_mail_is_set_up(
+    world: World,
+) -> None:
+    """D-116: one that waited for mail more than 7 days fails, even if mail works by its turn."""
+    org = world.a
+    _, entry = await _reply(world, org)
+    await run_engine(world, org, settings=MAIL)
+    mail_id = await _requester_mail(world, entry["id"])
+    server = FakeSmtp()
+    assert await _deliver_with(world, org, mail_id, NO_MAIL, server) == "queued"
+    await world.sql(
+        "UPDATE mail_messages SET created_at = now() - interval '8 days' WHERE id = $1", mail_id
+    )
+    assert await _deliver_with(world, org, mail_id, MAIL, server) == "failed"
+    assert server.sent == []
+
+
+@pytest.mark.parametrize("settings", [MAIL, NO_MAIL], ids=["mail", "no_mail"])
+async def test_qa_a_reply_no_requester_email_is_made_for_fails_as_not_notified(
+    world: World,
+    settings: Settings,
+) -> None:
+    """QA 2026-11-04 #2: the rule makes no e-mail for the requester, so none can move the reply."""
+    org = world.a
+    rules = (await world.call("GET", "/notifications/rules", org, org.admin)).json()
+    reply_rule = next(r for r in rules if r["event_code"] == "incident.public_reply")
+    keys = ("recipients", "channels", "user_ids", "group_ids", "conditions", "notify_actor")
+    saved = await world.call(
+        "PUT",
+        "/notifications/rules/incident.public_reply",
+        org,
+        org.admin,
+        json={k: reply_rule[k] for k in keys} | {"enabled": False},
+        headers={"If-Match": '"0"'},
+    )
+    assert saved.status_code == 200, saved.text
+    _, entry = await _reply(world, org)
+    await run_engine(world, org, settings=settings)
+    settled = await _entry(world, entry["id"])
+    assert (settled["delivery_state"], settled["delivery_reason"]) == ("failed", "not_notified")
+    assert (await _delivery_changes(world, org, entry["id"]))[-1] == ("failed", "not_notified")

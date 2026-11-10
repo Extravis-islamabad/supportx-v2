@@ -216,6 +216,7 @@ export const en = {
     'This move is already in the list, or goes to the same state.',
   'errors.field.asset_nested_in_itself':
     "An asset can't be fitted to itself or to one of its own parts.",
+  'errors.field.asset_not_found': 'This asset does not exist or you may not see it.',
   'errors.field.asset_product_not_found': 'This product no longer exists.',
   'errors.field.asset_product_type_cycle':
     "A product type can't sit under itself or one of its own types.",
@@ -437,6 +438,9 @@ export const en = {
   'errors.field.period_weekday_invalid': 'Choose a day of the week.',
   'errors.field.periods_overlap':
     "Working periods overlap. A night period must also end before the next morning's period starts.",
+  'errors.field.person_in_no_group':
+    'This person is in no support group, so nothing can be assigned to them.',
+  'errors.field.person_not_in_group': 'This person is not a member of the chosen group.',
   'errors.field.phone_not_valid': 'Enter a phone number: digits, spaces, +, - and brackets.',
   'errors.field.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
@@ -447,6 +451,8 @@ export const en = {
   'errors.field.read_only': 'This field cannot be changed here.',
   'errors.field.read_only_in_stage': 'This field cannot be changed in the current stage.',
   'errors.field.reason_required': 'Give a reason.',
+  'errors.field.reassign_group_required':
+    'This person is in several groups: choose the one the record moves to.',
   'errors.field.recipient_shape': 'Choose the person or group for this recipient.',
   'errors.field.recipients_required': 'Choose at least one person or group.',
   'errors.field.record_not_found': 'No record you can see has this ID.',
@@ -529,6 +535,7 @@ export const en = {
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.too_many_actions': 'A rule can have at most {{max}} actions.',
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
+  'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
@@ -906,6 +913,7 @@ export const en = {
     'Someone else saved this item after you opened it. Reload to see their changes.',
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
+  'errors.work_item_asset_not_found': 'This asset is no longer linked to the record.',
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',

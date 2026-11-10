@@ -27,6 +27,8 @@ export const CONTROL_HEIGHT = 28;
  * or a picker medium, free text the full width of its section.
  */
 export const FIELD_WIDTH = { short: 200, medium: 360, full: '100%' } as const;
+/** A page title at comfortable density (the portal): one step above the console's. */
+export const COMFORTABLE_PAGE_TITLE = 24;
 /** The record page's permanent properties panel. */
 export const PANEL_WIDTH = 320;
 
@@ -35,7 +37,20 @@ export function densityTheme(
   density: Density,
   algorithm: NonNullable<ThemeConfig['algorithm']>,
 ): Pick<ThemeConfig, 'algorithm' | 'token' | 'components'> {
-  if (density === 'comfortable') return { algorithm };
+  // Comfortable keeps Ant Design's sizes but not its headings (38 px for a page title, QA10V-08:
+  // the portal's titles were out of scale with everything around them): a roomier step of ours.
+  if (density === 'comfortable') {
+    return {
+      algorithm,
+      token: {
+        fontSizeHeading1: COMFORTABLE_PAGE_TITLE,
+        fontSizeHeading2: TYPE.page,
+        fontSizeHeading3: TYPE.section,
+        fontSizeHeading4: TYPE.body,
+        fontSizeHeading5: TYPE.body,
+      },
+    };
+  }
   const base = Array.isArray(algorithm) ? algorithm : [algorithm];
   return {
     algorithm: [...base, antdTheme.compactAlgorithm],

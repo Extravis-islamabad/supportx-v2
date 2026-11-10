@@ -1,11 +1,11 @@
 import {
   Alert,
-  Button,
   Card,
   Flex,
   Form,
   List,
   Modal,
+  Popconfirm,
   Segmented,
   Select,
   Space,
@@ -302,17 +302,23 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
                 {t('assets.holder.give')}
               </WriteButton>
               {holdings.data?.some((h) => h.ended_at === null) === true && (
-                <Button
-                  onClick={() => {
+                // Taking back ends the holding, so it asks first (lane C's #307 review).
+                <Popconfirm
+                  title={t('assets.holder.take_back_confirm')}
+                  okText={t('assets.holder.take_back')}
+                  cancelText={t('actions.cancel')}
+                  okButtonProps={{ 'data-testid': 'asset-holder-clear-confirm' }}
+                  onConfirm={() => {
                     setHolder.mutate(
                       { id: asset.id, version: asset.version, holder: null },
                       { onError: reportError },
                     );
                   }}
-                  data-testid="asset-holder-clear"
                 >
-                  {t('assets.holder.take_back')}
-                </Button>
+                  <WriteButton loading={setHolder.isPending} data-testid="asset-holder-clear">
+                    {t('assets.holder.take_back')}
+                  </WriteButton>
+                </Popconfirm>
               )}
             </Space>
           )
@@ -391,7 +397,7 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
               actions={
                 manage
                   ? [
-                      <Button
+                      <WriteButton
                         key="remove"
                         size="small"
                         onClick={() => {
@@ -403,7 +409,7 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
                         data-testid={`asset-link-remove-${link.id}`}
                       >
                         {t('assets.links.remove')}
-                      </Button>,
+                      </WriteButton>,
                     ]
                   : []
               }

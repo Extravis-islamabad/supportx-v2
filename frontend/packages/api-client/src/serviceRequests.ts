@@ -4,6 +4,7 @@ import { api, call } from './client';
 import { ApiError } from './errors';
 import { useSingleFlight, type ActionRun, type AssignChange } from './incidents';
 import type { components } from './schema';
+import type { FilterExpression } from './users';
 
 // Service requests and the catalog they come from (WP-030). A service request is a work item of
 // its own type; this file covers what the console needs before its full record page: the
@@ -22,8 +23,8 @@ export type ApprovalDecision = components['schemas']['DecisionIn'];
 export type ServiceRequestViewCount = components['schemas']['WorkItemViewCountOut'];
 
 export interface ServiceRequestsQuery {
-  approval_status?: ApprovalStatus;
-  catalog_item_id?: string;
+  /** The shared filter DSL (approval status, a search): the list route has no own params. */
+  filter?: FilterExpression;
   /** A built-in view code from {@link useServiceRequestViews}. */
   view?: string;
   cursor?: string;
@@ -74,7 +75,18 @@ export function useCatalogCategories() {
 export function useServiceRequests(query: ServiceRequestsQuery) {
   return useQuery({
     queryKey: serviceRequestKeys.list(query),
-    queryFn: () => call(api.GET('/api/v1/service-requests', { params: { query } })),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/service-requests', {
+          params: {
+            query: {
+              view: query.view,
+              cursor: query.cursor,
+              filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
+            },
+          },
+        }),
+      ),
     placeholderData: keepPreviousData,
   });
 }

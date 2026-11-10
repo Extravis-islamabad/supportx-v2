@@ -157,9 +157,17 @@ describe('portal: report an issue', () => {
     render(<App />);
     const send = await screen.findByTestId('portal-report-send');
     expect((send as HTMLButtonElement).disabled).toBe(true);
+    // QA10V-08: never a silent dead button; Cancel before Send in the footer bar.
+    expect(screen.getByTestId('portal-report-why').textContent).toBe(
+      'Give the issue a subject to send it.',
+    );
+    expect(send.getAttribute('aria-describedby')).toBe('portal-report-why');
+    const cancel = screen.getByTestId('portal-report-cancel');
+    expect(cancel.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.change(screen.getByTestId('portal-report-subject'), {
       target: { value: '  Laptop will not start ' },
     });
+    expect(screen.queryByTestId('portal-report-why')).toBeNull();
     fireEvent.click(send);
     await waitFor(() => {
       expect(window.location.pathname).toBe(`/requests/${ID}`);

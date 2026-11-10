@@ -837,6 +837,38 @@ class WorkItemConversation(TenantEntity):
     automatic: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
+class WorkItemAsset(TenantEntity):
+    """An asset linked to a work item (REQ-AST-025). Unlinking soft-deletes the row.
+
+    Only the asset's ID: work items never read asset tables (CLAUDE.md rule e) and name an
+    asset through `assets.asset_refs`, so there is no foreign key to it.
+    """
+
+    __tablename__ = "work_item_assets"
+    __table_args__ = (
+        _work_item_fk("fk_work_item_assets_work_item"),
+        Index(
+            "uq_wia_tenant_item_asset",
+            "tenant_id",
+            "work_item_id",
+            "asset_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_wia_tenant_asset",
+            "tenant_id",
+            "asset_id",
+            "work_item_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    asset_id: Mapped[uuid.UUID]
+    source: Mapped[str] = mapped_column(String(20), server_default="ui")
+
+
 class WorkItemFollower(TenantEntity):
     """Someone following a work item (REQ-INC-056/151). Unfollowing soft-deletes the row.
 

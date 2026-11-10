@@ -193,6 +193,7 @@ export const ar: LabelResource = {
   'errors.field.asset_move_duplicate':
     'هذا الانتقال موجود في القائمة بالفعل، أو يؤدي إلى الحالة نفسها.',
   'errors.field.asset_nested_in_itself': 'لا يمكن تركيب أصل على نفسه أو على أحد أجزائه.',
+  'errors.field.asset_not_found': 'هذا الأصل غير موجود أو لا يمكنك رؤيته.',
   'errors.field.asset_product_not_found': 'لم يعد هذا المنتج موجودًا.',
   'errors.field.asset_product_type_cycle':
     'لا يمكن وضع نوع منتج تحت نفسه أو تحت أحد أنواعه الفرعية.',
@@ -407,6 +408,8 @@ export const ar: LabelResource = {
   'errors.field.period_weekday_invalid': 'اختر يومًا من أيام الأسبوع.',
   'errors.field.periods_overlap':
     'تتداخل فترات العمل. يجب أيضًا أن تنتهي الفترة الليلية قبل بدء فترة الصباح التالي.',
+  'errors.field.person_in_no_group': 'هذا الشخص ليس في أي مجموعة دعم، فلا يمكن إسناد شيء إليه.',
+  'errors.field.person_not_in_group': 'هذا الشخص ليس عضوًا في المجموعة المختارة.',
   'errors.field.phone_not_valid': 'أدخل رقم هاتف: أرقام ومسافات و+ و- وأقواس.',
   'errors.field.plain_connection_refused': 'يُرفض الاتصال دون تشفير ما لم تسمح به.',
   'errors.field.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
@@ -415,6 +418,8 @@ export const ar: LabelResource = {
   'errors.field.read_only': 'لا يمكن تغيير هذا الحقل هنا.',
   'errors.field.read_only_in_stage': 'لا يمكن تغيير هذا الحقل في المرحلة الحالية.',
   'errors.field.reason_required': 'اذكر السبب.',
+  'errors.field.reassign_group_required':
+    'هذا الشخص في عدة مجموعات: اختر المجموعة التي ينتقل إليها السجل.',
   'errors.field.recipient_shape': 'اختر الشخص أو المجموعة لهذا المستلم.',
   'errors.field.recipients_required': 'اختر شخصًا أو مجموعة واحدة على الأقل.',
   'errors.field.record_not_found': 'لا يوجد سجل يمكنك رؤيته بهذا المعرّف.',
@@ -492,6 +497,7 @@ export const ar: LabelResource = {
   'errors.field.too_many': 'عدد المستلمين كبير جدًا.',
   'errors.field.too_many_actions': 'يمكن أن تحتوي القاعدة على {{max}} إجراء كحد أقصى.',
   'errors.field.too_many_approvers': 'يمكن أن تضم المرحلة 10 موافقين على الأكثر.',
+  'errors.field.too_many_assets': 'يمكن أن يحتوي السجل على {{max}} أصول على الأكثر.',
   'errors.field.too_many_categories': 'يمكن أن يظهر العنصر في خمس فئات أخرى كحد أقصى.',
   'errors.field.too_many_conditions': 'يحتوي عامل التصفية على شروط كثيرة جدًا.',
   'errors.field.too_many_decimals': 'استخدم {{max}} منازل عشرية كحد أقصى.',
@@ -828,6 +834,7 @@ export const ar: LabelResource = {
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
   'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',
   'errors.withdraw_not_pending': 'لا يمكن سحب إلا طلب بانتظار الموافقة.',
+  'errors.work_item_asset_not_found': 'لم يعد هذا الأصل مرتبطًا بالسجل.',
   'errors.work_item_link_not_found': 'لم يعد هذا الرابط موجودًا.',
   'errors.work_item_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
   'errors.work_item_task_not_found': 'لم تعد هذه المهمة موجودة.',

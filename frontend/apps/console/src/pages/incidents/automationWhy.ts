@@ -16,7 +16,18 @@ export function useAutomationWhy(): (
 ) => string {
   const t = useLabel();
   const listFormat = useListFormat();
+  const UNAVAILABLE = new Set(['inactive', 'away', 'not_in_group']);
   return (automation, people) => {
+    const text = (value: unknown) => (typeof value === 'string' ? value : '');
+    const step = stepWhy(automation, people);
+    // D-154 "rules": the person the step names could not be put on it; say why.
+    const unavailable = text(automation.unavailable);
+    if (!UNAVAILABLE.has(unavailable)) return step;
+    const name = people[text(automation.person_id)]?.display_name ?? t('automation.someone');
+    const why = t(`automation.why.unavailable.${unavailable}`, { name });
+    return step === '' ? why : `${step} · ${why}`;
+  };
+  function stepWhy(automation: Record<string, unknown>, people: People): string {
     const text = (value: unknown) => (typeof value === 'string' ? value : '');
     switch (automation.kind) {
       case 'business_rule':
@@ -55,7 +66,7 @@ export function useAutomationWhy(): (
       default:
         return '';
     }
-  };
+  }
 }
 
 /** What the requester did, from history's `requester_action` change (WP-020f QA BUG-03). */

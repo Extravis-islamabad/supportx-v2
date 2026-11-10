@@ -167,10 +167,13 @@ async def after_task_change(
     *,
     source: Source,
     ticked_by: uuid.UUID | None = None,
+    completed_required: bool = False,
 ) -> WorkItem | None:
     """Start the work on the first ticked task (D-154c); fulfil once the last is done (REQ-SR-058).
 
-    `ticked_by` is who changed the task's status, when it was a person.
+    `ticked_by` is who changed the task's status, when it was a person. `completed_required`:
+    this change finished a required task, the only change that can make the request ready
+    (its group hears once per completion, never again on an optional task's tick; lane B).
     """
     record = await session.get(WorkItem, record_id)
     if (
@@ -187,7 +190,7 @@ async def after_task_change(
     planned = [t for t in tasks if t.from_plan and t.required]
     if not planned or any(t.status != TaskStatus.DONE for t in planned):
         return None
-    if record.technician_id is None:
+    if record.technician_id is None and completed_required:
         await _tell_ready(session, record)
     item = await service_catalog.item_decides(session, item_id)
     if record.technician_id is None or item is None or not item.auto_fulfil:

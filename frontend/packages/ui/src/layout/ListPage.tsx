@@ -168,17 +168,24 @@ export function ListNotice({ children, action, dismissKey, testId }: ListNoticeP
   const [closed, setClosed] = useState(() => key !== undefined && readClosed().has(key));
   if (closed) return null;
   return (
+    // One sentence that wraps as text (QA10V-26: at 390 px the icon, the text and "Show
+    // everything" each took a line of their own): the icon stays beside the first line and the
+    // action follows the text.
     <Flex
-      align="center"
+      align="flex-start"
       gap={SPACE.xs}
-      wrap
       role="status"
       data-testid={testId}
       style={{ fontSize: TYPE.meta, color: token.colorTextSecondary, minHeight: 24 }}
     >
-      <InfoCircleOutlined aria-hidden style={{ color: token.colorInfo }} />
-      <span>{children}</span>
-      {action}
+      <InfoCircleOutlined
+        aria-hidden
+        style={{ color: token.colorInfo, flex: 'none', lineHeight: 1, marginBlockStart: 3 }}
+      />
+      <span style={{ flex: '1 1 auto', minWidth: 0 }}>
+        {children}
+        {action !== undefined && action !== null && action !== false && <> {action}</>}
+      </span>
       {key !== undefined && (
         <Button
           type="text"

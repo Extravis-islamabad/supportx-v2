@@ -55,6 +55,16 @@ describe('ActionBar', () => {
     expect(screen.getByTestId('a-assign').className).not.toContain('ant-btn-primary');
   });
 
+  it("QA10V-03: a split button's chevron is named after its action", () => {
+    const reply = action('reply', {
+      label: 'Reply',
+      variants: [{ key: 'reply_all', label: 'Reply all', onClick: vi.fn() }],
+    });
+    renderUi(<ActionBar testId="bar" actions={[reply]} />);
+    const chevron = within(screen.getByTestId('a-reply-more')).getByRole('button');
+    expect(chevron.getAttribute('aria-label')).toBe('More options: Reply');
+  });
+
   it('QA bug 7: a split button on the bar is not repeated in More, nor are its variants', async () => {
     renderUi(
       <ActionBar
@@ -412,6 +422,16 @@ describe('D-147: page widths', () => {
     expect(screen.getByTestId('form').style.maxWidth).toBe(`${String(FORM_MAX_WIDTH)}px`);
     expect(screen.getByTestId('form').querySelector('aside')?.textContent).toBe('Help');
     expect(screen.getByTestId('list').style.width).toBe('100%');
+  });
+
+  it('a full-width page keeps its aside (lane A, #351: it was dropped silently)', () => {
+    renderUi(
+      <PageColumn kind="list" testId="wide" aside={<p>Suggestions</p>}>
+        <p>Fields</p>
+      </PageColumn>,
+    );
+    expect(screen.getByTestId('wide').style.width).toBe('100%');
+    expect(screen.getByTestId('wide').querySelector('aside')?.textContent).toBe('Suggestions');
   });
 });
 

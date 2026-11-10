@@ -50,6 +50,7 @@ import { BulkMoveDialog } from './AssetActions';
 import { AssetFields } from './AssetForm';
 import { bodyOf, draftOf, type AssetDraft } from './draft';
 import { useAssetSaveProblems } from './problems';
+import { SelectPageBox } from '../incidents/list/ColumnChooser';
 
 /**
  * The asset list (WP-049a s2): search by name or any identifier, one product type, the trash.
@@ -95,7 +96,7 @@ export function AssetsPage() {
   const staticGroups = groups.data?.filter((g) => g.kind === 'static');
   const { addMembers } = useAssetRelations();
   const { setLoanable } = useLoanActions();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const selectedRows = useMemo(
     () => rows.filter((row) => selected.includes(row.id)),
     [rows, selected],
@@ -129,6 +130,25 @@ export function AssetsPage() {
         onError: show,
       },
     );
+  };
+  // Escape or the close button with something typed asks first, like every edit drawer
+  // (EditDrawer's "Discard changes?"; QA10-P4-38); an untouched form just closes.
+  const closeAdding = () => {
+    if (adding === undefined) return;
+    if (Object.keys(bodyOf(adding.draft, draftOf(null))).length === 0) {
+      setAdding(undefined);
+      return;
+    }
+    modal.confirm({
+      title: t('settings.discard_title'),
+      content: t('settings.discard_body'),
+      okText: t('settings.discard'),
+      okButtonProps: { danger: true, 'data-testid': 'asset-add-discard' },
+      cancelText: t('settings.keep_editing'),
+      onOk: () => {
+        setAdding(undefined);
+      },
+    });
   };
   // The server's count when it gives one, else the rows when they are all loaded.
   const total =
@@ -306,9 +326,24 @@ export function AssetsPage() {
           bulkAllowed
             ? {
                 selectedRowKeys: selected,
+                // Labelled boxes; the header one is safe in antd's hidden measure row (axe
+                // label and aria-hidden-focus, found once the showcase had assets).
+                columnTitle: (
+                  <SelectPageBox
+                    checked={rows.length > 0 && selected.length === rows.length}
+                    indeterminate={selected.length > 0 && selected.length < rows.length}
+                    onChange={(checked) => {
+                      setSelected(checked ? rows.map((r) => r.id).slice(0, BULK_MAX) : []);
+                    }}
+                    label={t('assets.bulk_move.select_page')}
+                  />
+                ),
                 onChange: (keys) => {
                   setSelected(keys.map(String).slice(0, BULK_MAX));
                 },
+                getCheckboxProps: (row) => ({
+                  title: t('assets.bulk_move.select_row', { name: row.tag ?? row.name }),
+                }),
               }
             : undefined
         }
@@ -412,9 +447,7 @@ export function AssetsPage() {
         title={t('assets.record.add')}
         width={640}
         destroyOnHidden
-        onClose={() => {
-          setAdding(undefined);
-        }}
+        onClose={closeAdding}
         extra={
           <WriteButton
             type="primary"
