@@ -1,3 +1,4 @@
+import { PlusOutlined } from '@ant-design/icons';
 import { Button, Flex, Form, Input, List, Select, Space, Table, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
@@ -37,6 +38,8 @@ import {
   useFormProblem,
   useLabel,
   lengthLimit,
+  FormFooter,
+  TimeZoneNote,
 } from '@supportx/ui';
 
 import { labelled } from '../incidents/labels';
@@ -110,6 +113,7 @@ export function DetailsPart({ id }: { id: string }) {
             onChange={(v: string | undefined) => {
               set('release_type', v ?? null);
             }}
+            placeholder={t('form.choose')}
             data-testid="release-type"
             options={types.map((v) => ({
               value: v.code,
@@ -129,6 +133,7 @@ export function DetailsPart({ id }: { id: string }) {
             onChange={(v: string | undefined) => {
               set('risk', v ?? null);
             }}
+            placeholder={t('form.choose')}
             data-testid="release-risk"
             options={RISKS.map((r) => ({ value: r, label: t(`release_risk.${r}`) }))}
           />
@@ -181,6 +186,7 @@ export function DetailsPart({ id }: { id: string }) {
             onChange={(v: string | undefined) => {
               set('release_reason', v ?? null);
             }}
+            placeholder={t('form.choose')}
             data-testid="release-reason"
             options={reasons.map((v) => ({
               value: v.code,
@@ -199,10 +205,15 @@ export function DetailsPart({ id }: { id: string }) {
                 set(k, v);
               }}
               testId={`release-${k}`}
+              hideZone
             />
           </Form.Item>
         ))}
       </Flex>
+      {/* Once for the pair (D-155), not under each field. */}
+      <div style={{ marginTop: -12, marginBottom: 16 }}>
+        <TimeZoneNote />
+      </div>
       <Form.Item label={t('work_item.field.release_notes')}>
         <RichTextField
           label={t('work_item.field.release_notes')}
@@ -214,17 +225,37 @@ export function DetailsPart({ id }: { id: string }) {
         />
       </Form.Item>
       <FormProblem problem={problem} />
-      {/* Primary only with changes to save: the header's move is the page's one primary action
-          otherwise (visual QA, lane A's review of #219). */}
-      <WriteButton
-        type={dirty ? 'primary' : 'default'}
-        disabled={!dirty || (riskChanged && riskReason.trim() === '')}
-        loading={save.isPending}
-        onClick={submit}
-        data-testid="release-details-save"
-      >
-        {t('actions.save')}
-      </WriteButton>
+      {/* Template B (D-147, D-155): once something changed, a sticky footer with Cancel then
+          Save, and Save says what is missing; nothing to save, no footer and no dead button. */}
+      {dirty && (
+        <FormFooter
+          testId="release-details-footer"
+          cancel={
+            <Button
+              onClick={() => {
+                setDraft({});
+                setRiskReason('');
+                problem.clear();
+              }}
+              data-testid="release-details-cancel"
+            >
+              {t('actions.cancel')}
+            </Button>
+          }
+          primary={
+            <WriteButton
+              type="primary"
+              disabled={riskChanged && riskReason.trim() === ''}
+              whyDisabled={t('releases.risk_reason_needed')}
+              loading={save.isPending}
+              onClick={submit}
+              data-testid="release-details-save"
+            >
+              {t('actions.save')}
+            </WriteButton>
+          }
+        />
+      )}
     </Form>
   );
 }
@@ -331,17 +362,21 @@ function PlanSectionEditor({
   section,
   content,
   version,
+  startEditing = false,
+  onClose,
 }: {
   id: string;
   section: string;
   content: string | null;
   version: number;
+  startEditing?: boolean;
+  onClose?: () => void;
 }) {
   const t = useLabel();
   const write = useWritePlanSection();
   const problem = useFormProblem();
   const [draft, setDraft] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const label = t(`plan_section.${section}`);
   if (!editing) {
     return (
@@ -385,6 +420,7 @@ function PlanSectionEditor({
                 onSuccess: () => {
                   setEditing(false);
                   setDraft(null);
+                  onClose?.();
                 },
                 onError: (error) => {
                   problem.show(error);
@@ -401,6 +437,7 @@ function PlanSectionEditor({
           onClick={() => {
             setEditing(false);
             setDraft(null);
+            onClose?.();
           }}
         >
           {t('actions.cancel')}
@@ -410,20 +447,70 @@ function PlanSectionEditor({
   );
 }
 
-/** The plan's sections (REQ-REL-025, -030): each with its own version, so editors never clash. */
-export function PlanPart({ id }: { id: string }) {
+// The review's sections are written from the Review stage on (D-155); the plan's from the start.
+const REVIEW_SECTIONS = new Set(['review_findings', 'review_went_well', 'review_went_badly']);
+const REVIEW_FROM = 'review';
+const STAGE_ORDER = [
+  'submission',
+  'planning',
+  'build',
+  'testing',
+  'acceptance_testing',
+  'deployment',
+  'training',
+  'review',
+  'closure',
+];
+
+/**
+ * The plan's sections (REQ-REL-025, -030): each with its own version, so editors never clash.
+ * Only the sections that fit the release's stage; a written one reads with its Edit, the empty
+ * ones are one compact "Add …" list rather than blocks of "Nothing written yet" (D-155).
+ */
+export function PlanPart({ id, stage }: { id: string; stage: string }) {
+  const t = useLabel();
   const sections = usePlanSections(id);
+  const [adding, setAdding] = useState<string | null>(null);
+  const reviewing = STAGE_ORDER.indexOf(stage) >= STAGE_ORDER.indexOf(REVIEW_FROM);
+  const fitting = (sections.data ?? []).filter((s) => reviewing || !REVIEW_SECTIONS.has(s.section));
+  const written = fitting.filter((s) => Boolean(s.content) || s.section === adding);
+  const empty = fitting.filter((s) => !s.content && s.section !== adding);
   return (
     <Flex vertical gap={24} data-testid="release-plan">
-      {(sections.data ?? []).map((s) => (
+      {written.map((s) => (
         <PlanSectionEditor
           key={s.section}
           id={id}
           section={s.section}
           content={s.content}
           version={s.version}
+          startEditing={s.section === adding}
+          onClose={() => {
+            setAdding(null);
+          }}
         />
       ))}
+      {empty.length > 0 && (
+        <Flex vertical gap={4} align="flex-start" data-testid="release-plan-add">
+          {written.length === 0 && (
+            <Typography.Text type="secondary">{t('releases.plan.none_yet')}</Typography.Text>
+          )}
+          {empty.map((s) => (
+            <WriteButton
+              key={s.section}
+              type="link"
+              icon={<PlusOutlined aria-hidden />}
+              style={{ paddingInline: 0 }}
+              onClick={() => {
+                setAdding(s.section);
+              }}
+              data-testid={`plan-${s.section}-add`}
+            >
+              {t(`plan_section_add.${s.section}`)}
+            </WriteButton>
+          ))}
+        </Flex>
+      )}
     </Flex>
   );
 }
@@ -543,40 +630,55 @@ export function DowntimePart({ id }: { id: string }) {
       kinds.find((k) => k.code === code),
       code,
     );
+  const rows = downtimes.data ?? [];
+  // D-155: what is missing, said on the disabled button.
+  const missing =
+    startsAt === null && endsAt === null
+      ? t('releases.downtime.need_both')
+      : startsAt === null
+        ? t('releases.downtime.need_start')
+        : endsAt === null
+          ? t('releases.downtime.need_end')
+          : undefined;
   return (
-    <Flex vertical gap={16} data-testid="release-downtimes">
-      <List
-        dataSource={downtimes.data ?? []}
-        locale={{ emptyText: <EmptyText>{t('releases.downtime.none')}</EmptyText> }}
-        renderItem={(d) => (
-          <List.Item
-            key={d.id}
-            data-testid={`downtime-${d.id}`}
-            actions={[
-              <WriteButton
-                key="remove"
-                size="small"
-                danger
-                onClick={() => {
-                  remove.mutate({ id, downtimeId: d.id, version: d.version });
-                }}
-              >
-                {t('actions.delete')}
-              </WriteButton>,
-            ]}
-          >
-            <Space wrap>
-              <ToneTag tone={d.phase === 'actual' ? 'warning' : 'info'}>
-                {t(`downtime_phase.${d.phase}`)}
-              </ToneTag>
-              {kindName(d.kind) !== '' && <span>{kindName(d.kind)}</span>}
-              <span>{`${format(d.starts_at)} – ${format(d.ends_at)}`}</span>
-            </Space>
-          </List.Item>
-        )}
-      />
-      <Form layout="vertical">
-        <Flex gap={16} wrap align="end">
+    <Flex vertical gap={12} data-testid="release-downtimes">
+      {/* D-155: a compact line when there is none yet, above the form; the list once there is. */}
+      {rows.length === 0 && !downtimes.isPending ? (
+        <EmptyText>{t('releases.downtime.none')}</EmptyText>
+      ) : (
+        <List
+          dataSource={rows}
+          renderItem={(d) => (
+            <List.Item
+              key={d.id}
+              data-testid={`downtime-${d.id}`}
+              actions={[
+                <WriteButton
+                  key="remove"
+                  size="small"
+                  danger
+                  onClick={() => {
+                    remove.mutate({ id, downtimeId: d.id, version: d.version });
+                  }}
+                >
+                  {t('actions.delete')}
+                </WriteButton>,
+              ]}
+            >
+              <Space wrap>
+                <ToneTag tone={d.phase === 'actual' ? 'warning' : 'info'}>
+                  {t(`downtime_phase.${d.phase}`)}
+                </ToneTag>
+                {kindName(d.kind) !== '' && <span>{kindName(d.kind)}</span>}
+                <span>{`${format(d.starts_at)} – ${format(d.ends_at)}`}</span>
+              </Space>
+            </List.Item>
+          )}
+        />
+      )}
+      {/* Template B (D-147, D-155): kind, start and end on one baseline, the zone said once. */}
+      <Form layout="vertical" component="div">
+        <Flex gap={16} wrap align="flex-start">
           <Form.Item
             label={t('releases.downtime.kind')}
             style={{ minWidth: 200 }}
@@ -600,6 +702,7 @@ export function DowntimePart({ id }: { id: string }) {
               value={startsAt}
               onChange={setStartsAt}
               testId="downtime-starts"
+              hideZone
             />
           </Form.Item>
           <Form.Item label={t('releases.downtime.ends')} required htmlFor="downtime-ends">
@@ -608,11 +711,14 @@ export function DowntimePart({ id }: { id: string }) {
               value={endsAt}
               onChange={setEndsAt}
               testId="downtime-ends"
+              hideZone
             />
           </Form.Item>
-          <Form.Item>
+          {/* Its label's height, so the button sits on the fields' baseline. */}
+          <Form.Item label={<span aria-hidden>&nbsp;</span>}>
             <WriteButton
-              disabled={startsAt === null || endsAt === null}
+              disabled={missing !== undefined}
+              whyDisabled={missing}
               loading={save.isPending}
               data-testid="downtime-add"
               onClick={() => {
@@ -635,6 +741,7 @@ export function DowntimePart({ id }: { id: string }) {
             </WriteButton>
           </Form.Item>
         </Flex>
+        <TimeZoneNote />
         <FormProblem problem={problem} />
       </Form>
     </Flex>

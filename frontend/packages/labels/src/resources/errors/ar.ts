@@ -34,6 +34,8 @@ export const ar: LabelResource = {
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
   'errors.approval_pending': '{{display_id}} ينتظر موافقة بالفعل.',
   'errors.approval_segregation': 'لا يمكنك الموافقة على طلبك بنفسك.',
+  'errors.asset_acknowledgement_answered': 'لقد أجبت عن هذا بالفعل.',
+  'errors.asset_acknowledgement_not_found': 'هذا الإقرار ليس لك أو لم يعد موجودًا.',
   'errors.asset_already_disposed': 'لهذا الأصل سجل تخلّص بالفعل.',
   'errors.asset_bulk_empty': 'اختر أصلًا واحدًا على الأقل.',
   'errors.asset_bulk_too_many': 'اختر {{max}} أصلًا على الأكثر في المرة الواحدة.',
@@ -41,6 +43,11 @@ export const ar: LabelResource = {
   'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
   'errors.asset_disposed_read_only':
     'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
+  'errors.asset_group_dynamic':
+    'أعضاء المجموعة الديناميكية يأتون من عامل التصفية؛ غيّره بدلًا من ذلك.',
+  'errors.asset_group_name_taken': 'لمجموعة أخرى هذا الاسم بالفعل.',
+  'errors.asset_group_not_found': 'هذه المجموعة لم تعد موجودة.',
+  'errors.asset_has_components': 'عليه مكوّنات مركّبة ({{count}}): افصلها أو تخلّص منها أيضًا.',
   'errors.asset_life_cycle_in_use':
     'لا تزال أنواع منتجات تستخدم دورة الحياة هذه ({{used}}). انقلها إلى دورة أخرى أولًا.',
   'errors.asset_life_cycle_not_found': 'دورة الحياة هذه غير موجودة.',
@@ -48,10 +55,18 @@ export const ar: LabelResource = {
     'لا يمكن حذف دورة الحياة الافتراضية. اجعل دورة أخرى افتراضية أولًا.',
   'errors.asset_limit_reached':
     'جميع خانات أصول تقنية المعلومات في خطة مؤسستك مستخدمة. تخلّص من أصل أو اطلب من المسؤول إضافة المزيد.',
+  'errors.asset_link_exists': 'هذان الأصلان مرتبطان بهذه الطريقة بالفعل.',
+  'errors.asset_link_not_found': 'هذا الرابط لم يعد موجودًا.',
+  'errors.asset_loan_not_found': 'هذه الإعارة مغلقة أو لم تعد موجودة.',
   'errors.asset_move_not_allowed': 'لا يمكن نقل هذا الأصل إلى تلك الحالة من حالته الحالية.',
+  'errors.asset_no_default_state':
+    'لا توجد حالة افتراضية لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
   'errors.asset_no_disposed_state':
     'لا توجد حالة تخلّص لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
+  'errors.asset_not_loanable': 'لا يمكن إعارة {{asset}}: ليس قابلًا للإعارة أو ليس في المخزون.',
+  'errors.asset_not_on_this_loan': 'هذا الأصل ليس ضمن هذه الإعارة.',
+  'errors.asset_on_loan': '{{asset}} معار بالفعل.',
   'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
   'errors.asset_product_type_has_children':
     'توجد أنواع منتجات أخرى تحت هذا النوع ({{used}}). انقلها أو احذفها أولًا.',
@@ -167,13 +182,17 @@ export const ar: LabelResource = {
   'errors.field.approver_not_eligible':
     'أحد المسمَّين لا يمكنه الموافقة على هذه المشكلة (غير نشط، أو بلا صلاحية).',
   'errors.field.asset_api_name_taken': 'نوع منتج آخر يستخدم اسم الواجهة هذا.',
+  'errors.field.asset_group_static': 'المجموعات الديناميكية فقط لها عامل تصفية.',
+  'errors.field.asset_holder_not_found': 'اختر شخصًا نشطًا أو قسمًا أو أصلًا يمكنك رؤيته.',
   'errors.field.asset_identifier_invalid': 'استخدم الحروف والأرقام و- . / : # فقط، دون مسافات.',
   'errors.field.asset_life_cycle_code_taken': 'دورة حياة أخرى تستخدم هذا الرمز.',
   'errors.field.asset_life_cycle_default_needed':
     'يجب وجود دورة حياة افتراضية. اجعل دورة أخرى افتراضية بدلًا من ذلك.',
   'errors.field.asset_life_cycle_not_found': 'اختر دورة حياة من القائمة.',
+  'errors.field.asset_link_to_itself': 'لا يمكن ربط أصل بنفسه.',
   'errors.field.asset_move_duplicate':
     'هذا الانتقال موجود في القائمة بالفعل، أو يؤدي إلى الحالة نفسها.',
+  'errors.field.asset_nested_in_itself': 'لا يمكن تركيب أصل على نفسه أو على أحد أجزائه.',
   'errors.field.asset_product_not_found': 'لم يعد هذا المنتج موجودًا.',
   'errors.field.asset_product_type_cycle':
     'لا يمكن وضع نوع منتج تحت نفسه أو تحت أحد أنواعه الفرعية.',
@@ -229,6 +248,7 @@ export const ar: LabelResource = {
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
   'errors.field.date_format_unknown': 'اختر تنسيق تاريخ من القائمة.',
   'errors.field.date_in_future': 'اختر تاريخ اليوم أو تاريخًا سابقًا.',
+  'errors.field.date_in_past': 'اختر وقتًا بعد الآن.',
   'errors.field.default_cannot_be_disabled':
     'لا يمكن إيقاف القالب الافتراضي. عيّن قالبًا آخر كافتراضي أولًا.',
   'errors.field.default_cannot_be_inactive': 'لا يمكن جعل الافتراضي غير نشط.',

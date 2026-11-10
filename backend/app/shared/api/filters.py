@@ -107,6 +107,7 @@ OPERATORS: Mapping[FieldType, frozenset[Op]] = {
 }
 _NO_VALUE = {Op.IS_NULL, Op.IS_NOT_NULL} | (_RELATIVE - {Op.LAST_N_DAYS, Op.NEXT_N_DAYS})
 _LIST = {Op.IN, Op.NOT_IN}
+_ALSO_OPS = {Op.EQ, Op.NE, Op.IN, Op.NOT_IN}
 MAX_RELATIVE_DAYS = 3650
 # Public names for the in-memory evaluator (filter_eval.py), which must group operators the same.
 LIST_OPERATORS = frozenset(_LIST)
@@ -165,6 +166,10 @@ class FilterField:
     simple: bool = True  # also usable as `?name=value`
     # A JSONB array of codes (multiple choice): eq / in mean "includes", ne / not_in "excludes".
     array: bool = False
+    # An ENUM field's second home: a text[] column whose codes also count as the field's value
+    # (an audit entry's action and its save's events, WP-064). eq / in match either; ne / not_in
+    # neither. Served by a GIN index on the array (`@>` and `&&`).
+    also_in: Any = None  # an ORM column attribute of type ARRAY(String); Any as `column`
 
 
 @dataclass(frozen=True)
@@ -376,11 +381,27 @@ class _Compiler:
             if type(raw) is not int or not 1 <= raw <= MAX_RELATIVE_DAYS:
                 _fail(path, "invalid_value", expected="days", max=MAX_RELATIVE_DAYS)
             return self._range(spec.column, *relative_range(op, self.now, raw))
+        if spec.also_in is not None and op in _ALSO_OPS:
+            return self._also(spec, op, raw, path)
         if op in _LIST:
             return self._list(spec, op, raw, path)
         if op is Op.BETWEEN:
             return self._between(spec, raw, path)
         return self._compare(spec.column, op, self._coerce(spec, raw, path))
+
+    def _also(self, spec: FilterField, op: Op, raw: Any, path: str) -> ColumnElement[bool]:  # noqa: ANN401 - untrusted JSON
+        if op in _LIST:
+            base = self._list(spec, op, raw, path)
+            codes = [self._coerce(spec, item, f"{path}[{i}]") for i, item in enumerate(raw)]
+            hit = spec.also_in.overlap(array(codes, type_=String))
+        else:
+            value = self._coerce(spec, raw, path)
+            base = self._compare(spec.column, op, value)
+            hit = spec.also_in.contains(array([value], type_=String))
+        if op in {Op.EQ, Op.IN}:
+            return or_(base, hit)
+        # ne / not_in: in neither place (a NULL array holds nothing).
+        return and_(base, not_(func.coalesce(hit, False)))
 
     def _array(self, spec: FilterField, op: Op, raw: Any, path: str) -> ColumnElement[bool]:  # noqa: ANN401 - untrusted JSON
         if op in _LIST:

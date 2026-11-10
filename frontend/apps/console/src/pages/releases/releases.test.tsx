@@ -119,7 +119,13 @@ afterEach(() => {
   restore();
 });
 
-function api() {
+function api(
+  extra: Parameters<typeof consoleApi>[0] extends infer A
+    ? A extends { routes?: infer R }
+      ? R
+      : never
+    : never = {},
+) {
   const fake = consoleApi({
     me: fakeSession(
       { roles: ['tenant_admin'] },
@@ -179,6 +185,7 @@ function api() {
       [`POST /api/v1/releases/${REL_ID}/approvals/${APPROVAL_ID}/decision`]: {
         body: { ...approval, state: 'rejected', version: 3 },
       },
+      ...extra,
     },
   });
   restore = fake.restore;
@@ -321,6 +328,8 @@ describe('console: releases', () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     const fake = api();
     render(<App />);
+    // D-155: the next stage's move is the one button; a move within the stage is under More.
+    fireEvent.click(await screen.findByTestId('release-more'));
     fireEvent.click(await screen.findByTestId('move-build_completed'));
     const field = await screen.findByTestId('move-field-release_version');
     expect(screen.queryByTestId('move-reason')).toBeNull(); // this move asks for no reason
@@ -367,9 +376,9 @@ describe('console: releases', () => {
     window.history.pushState({}, '', `/releases/${REL_ID}`);
     api();
     render(<App />);
-    // The Details tab with nothing changed: its Save is not a second primary action.
-    const save = await screen.findByTestId('release-details-save');
-    expect(save.className).not.toContain('ant-btn-primary');
+    // The Details tab with nothing changed: no footer, so no second primary action (D-155).
+    await screen.findByTestId('release-details');
+    expect(screen.queryByTestId('release-details-save')).toBeNull();
     fireEvent.click(screen.getByTestId('move-testing_in_progress'));
     const dialog = await screen.findByTestId('move-dialog');
     // The custom field reads by its name, never its key (rule d).
@@ -392,6 +401,84 @@ describe('console: releases', () => {
     expect(await screen.findByTestId('release-awaiting-approval')).toBeTruthy();
     const visible = screen.getByTestId('release-moves').querySelectorAll('[data-testid^="move-"]');
     expect(visible.length).toBeLessThanOrEqual(3); // beside More: the 4-action rule
+  });
+
+  it("D-155: one primary, the next stage's move; the stage chip and key facts; no empty schedule card", async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    const moves = await screen.findByTestId('release-moves');
+    const buttons = within(moves)
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('data-testid') !== 'release-more');
+    expect(buttons.map((b) => b.getAttribute('data-testid'))).toEqual(['move-testing_in_progress']);
+    expect(buttons[0]?.textContent).toBe('Move to Testing');
+    // A1 on every record: the stage chip and the key facts; never the status twice.
+    expect(screen.getByTestId('release-stage').textContent).toBe('Build');
+    expect(screen.queryByTestId('release-status')).toBeNull();
+    expect(screen.getByTestId('release-people').textContent).toMatch(/^Requested by /);
+    expect(screen.getByTestId('record-kind-tile').getAttribute('data-kind')).toBe('release');
+  });
+
+  it('D-155: the plan shows the sections of this stage; empty ones are one compact Add list', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    const section = (code: string, content: string | null) => ({
+      section: code,
+      content,
+      version: 1,
+    });
+    api({
+      [`GET /api/v1/releases/${REL_ID}/plan`]: {
+        body: [
+          section('impact', '<p>Mail is down for ten minutes.</p>'),
+          section('rollout', null),
+          section('backout', null),
+          section('review_findings', null),
+          section('review_went_well', null),
+          section('review_went_badly', null),
+        ],
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Plan' }));
+    expect(await screen.findByTestId('plan-impact')).toBeDefined(); // written: shown
+    const adds = within(screen.getByTestId('release-plan-add')).getAllByRole('button');
+    expect(adds.map((b) => b.textContent)).toEqual(['Add rollout plan', 'Add backout plan']);
+    expect(screen.queryByTestId('plan-review_findings-add')).toBeNull(); // the build stage
+    fireEvent.click(screen.getByTestId('plan-rollout-add'));
+    expect(await screen.findByTestId('plan-rollout-editor')).toBeDefined();
+  });
+
+  it('D-155: Details shows its footer only with a change; Save says what is missing; zone once', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api();
+    render(<App />);
+    const details = await screen.findByTestId('release-details');
+    expect(within(details).getAllByText(/^Times are in /)).toHaveLength(1);
+    expect(within(details).getAllByText('Choose…').length).toBeGreaterThanOrEqual(2);
+    fireEvent.change(within(details).getByTestId('release-version'), { target: { value: '5.4' } });
+    const footer = await screen.findByTestId('release-details-footer');
+    const buttons = within(footer)
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    expect(buttons).toEqual(['Cancel', 'Save']);
+    fireEvent.click(within(footer).getByTestId('release-details-cancel'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('release-details-footer')).toBeNull();
+    });
+  });
+
+  it('D-155: downtime on one baseline, the zone said once, and Add says what is missing', async () => {
+    window.history.pushState({}, '', `/releases/${REL_ID}`);
+    api({ [`GET /api/v1/releases/${REL_ID}/downtimes`]: { body: [] } });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Downtime' }));
+    const tab = await screen.findByTestId('release-downtimes');
+    expect(await within(tab).findByText('No downtime planned.')).toBeDefined();
+    expect(within(tab).getAllByText(/^Times are in /)).toHaveLength(1);
+    expect(screen.getByTestId<HTMLButtonElement>('downtime-add').disabled).toBe(true);
+    fireEvent.mouseOver(within(tab).getByTestId('disabled-why'));
+    expect(await screen.findByText('Choose when it starts and when it ends.')).toBeDefined();
   });
 
   it('QA6-REL-04: the tab and the top bar say which release this is', async () => {

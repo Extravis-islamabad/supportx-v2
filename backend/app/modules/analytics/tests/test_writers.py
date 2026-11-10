@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pytest
 from openpyxl import load_workbook
+from openpyxl.cell.cell import Cell
 
 from app.modules.analytics.domain.tables import (
     CellKind,
@@ -77,6 +78,10 @@ def test_xlsx_keeps_types_never_writes_formulas_and_is_rtl_in_arabic() -> None:
     assert data[2] == pytest.approx(0.125)
     assert data[3] == pytest.approx(2.0)
     assert isinstance(data[4], datetime)
+    created = ws.cell(row=5, column=5)
+    assert isinstance(created, Cell)
+    assert created.is_date  # D-155: a real date cell, sortable and filterable, never text
+    assert created.number_format == "yyyy-mm-dd hh:mm"
     assert values[6][:2] == ["Total", 10]
     for row in ws.iter_rows():
         for cell in row:

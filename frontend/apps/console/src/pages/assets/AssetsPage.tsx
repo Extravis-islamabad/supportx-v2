@@ -1,14 +1,29 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Drawer, Flex, Input, Segmented, Table, Tag, TreeSelect, Typography } from 'antd';
+import {
+  App,
+  Button,
+  Drawer,
+  Flex,
+  Input,
+  Segmented,
+  Select,
+  Table,
+  Tag,
+  TreeSelect,
+  Typography,
+} from 'antd';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import {
   queryKeys,
   useAssetProductTypes,
+  useAssetGroups,
   useAssetRecordChange,
+  useAssetRelations,
   useAssetRecords,
   useAssetStates,
+  useLoanActions,
   type AssetRecord,
 } from '@supportx/api-client';
 import { refreshList, useListChannel, useTenantChannel } from '@supportx/realtime';
@@ -72,6 +87,11 @@ export function AssetsPage() {
   const bulkAllowed = view === 'live' && access.can('assets.manage');
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const groups = useAssetGroups(bulkAllowed);
+  const staticGroups = groups.data?.filter((g) => g.kind === 'static');
+  const { addMembers } = useAssetRelations();
+  const { setLoanable } = useLoanActions();
+  const { message } = App.useApp();
   const selectedRows = useMemo(
     () => rows.filter((row) => selected.includes(row.id)),
     [rows, selected],
@@ -114,6 +134,12 @@ export function AssetsPage() {
           <Flex gap={8}>
             <Link to="/assets/vendors" data-testid="assets-vendors-link">
               {t('assets.record.vendors')}
+            </Link>
+            <Link to="/assets/groups" data-testid="assets-groups-link">
+              {t('assets.groups.title')}
+            </Link>
+            <Link to="/assets/loans" data-testid="assets-loans-link">
+              {t('assets.loans.title')}
             </Link>
             {access.can('assets.manage') && (
               <WriteButton
@@ -179,6 +205,46 @@ export function AssetsPage() {
               data-testid="assets-bulk-move-open"
             >
               {t('assets.bulk_move.open')}
+            </WriteButton>
+            {/* REQ-AST-028 AC2: a static group is filled from the selection in one step. */}
+            <Select
+              placeholder={t('assets.groups.add_selected')}
+              aria-label={t('assets.groups.add_selected')}
+              style={{ minWidth: 200 }}
+              value={null}
+              options={(staticGroups ?? []).map((g) => ({ value: g.id, label: g.name }))}
+              onChange={(groupId: string) => {
+                addMembers.mutate(
+                  { groupId, assetIds: selected },
+                  {
+                    onSuccess: (answer) => {
+                      void message.success(t('assets.groups.added', { count: answer.added }));
+                      setSelected([]);
+                    },
+                    onError: reportError,
+                  },
+                );
+              }}
+              data-testid="assets-add-to-group"
+            />
+            {/* REQ-AST-029: the selection goes on loans from now on. */}
+            <WriteButton
+              loading={setLoanable.isPending}
+              onClick={() => {
+                setLoanable.mutate(
+                  { assetIds: selected, loanable: true },
+                  {
+                    onSuccess: () => {
+                      void message.success(t('assets.loanable.done'));
+                      setSelected([]);
+                    },
+                    onError: reportError,
+                  },
+                );
+              }}
+              data-testid="assets-make-loanable"
+            >
+              {t('assets.loanable.make')}
             </WriteButton>
           </Flex>
         )}

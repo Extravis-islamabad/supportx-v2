@@ -1,3 +1,4 @@
+import { ReadOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -138,6 +139,8 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
         testId="kb-article"
         header={
           <RecordHeader
+            icon={<ReadOutlined />}
+            kind="article"
             typeLabel={t('knowledge.article')}
             displayId={article.display_id}
             title={shown?.title ?? ''}

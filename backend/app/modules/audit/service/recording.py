@@ -18,7 +18,7 @@ outside the hash in `audit_personal`, committed to by salted hashes (domain/inte
 
 import os
 import uuid
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -27,7 +27,7 @@ from fastapi import Depends, Request
 from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import SESSION_TENANT_KEY, Database, TenantSession
+from app.core.database import SESSION_REQUEST_KEY, SESSION_TENANT_KEY, Database, TenantSession
 from app.core.logging import get_logger
 from app.core.request_context import current_request_id
 from app.core.tenancy import TenantContext
@@ -41,12 +41,13 @@ from app.modules.audit.domain.catalogue import (
     read_action,
 )
 from app.modules.audit.domain.integrity import SALT_SIZE, commitment, entry_hash, plain
+from app.modules.audit.domain.lifecycle import RECORD_TYPES, FieldDiff, events_of_saves
 from app.modules.audit.events import AuditAlertRaised, AuditEntryRecorded
 from app.modules.audit.infra.models import AuditEntry, AuditPersonal, AuditQueueItem
 from app.modules.audit.service.settings import load_settings
 from app.shared.clock import Clock, system_clock
 from app.shared.events import record_event
-from app.shared.history import CLIENT_HEADER, recorded_change_ids
+from app.shared.history import CLIENT_HEADER, SavedRecord, recorded_change_ids
 from app.shared.ids import new_id
 
 log = get_logger(__name__)
@@ -126,9 +127,19 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
     change_id: uuid.UUID | None = None,
     actor: tuple[AuditActorType, uuid.UUID | None] | None = None,
     clock: Clock = system_clock,
+    events: Sequence[str] | None = None,
 ) -> uuid.UUID:
-    """Write one entry in the session's transaction and queue it for sealing. Returns its ID."""
+    """Write one entry in the session's transaction and queue it for sealing. Returns its ID.
+
+    `events`: a save's lifecycle events (WP-064), each a catalogue code; the first is the action.
+    """
     spec = action(action_code)
+    if events is not None:
+        for code in events:
+            action(code)  # an unknown code fails here, never as an unlabelled entry
+        if not events or events[0] != action_code:
+            msg = "a save's events start with its action"
+            raise ValueError(msg)
     context: TenantContext = session.info[SESSION_TENANT_KEY]
     actor_type, actor_id = actor or _actor(session)
     entry_id = new_id()
@@ -176,6 +187,7 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
         "request_id": facts.request_id,
         "change_id": change_id,
         "personal_commitments": commitments,
+        "events": list(events) if events is not None else None,
     }
     session.add(AuditEntry(**row, entry_hash=entry_hash(row)))
     session.add_all(personal)
@@ -198,6 +210,93 @@ async def record_alone(
     """`record` in a transaction of its own (sign-in, refusals after a rollback, workers)."""
     async with database.tenant_session(context) as session:
         return await record(session, action_code=action_code, facts=facts, **values)
+
+
+# --- record lifecycle (WP-064, D-150, ADR-045) ---------------------------------------------------
+
+# The audited() action of the route serving this session's request, while it runs.
+ROUTE_ACTION_KEY = "supportx.audit.route_action"
+# Saves the route made, written as its entries when it finishes (same transaction).
+PENDING_SAVES_KEY = "supportx.audit.pending_saves"
+
+
+def _session_facts(session: AsyncSession) -> RequestFacts:
+    request = session.info.get(SESSION_REQUEST_KEY)
+    return RequestFacts.of(request) if isinstance(request, Request) else WORKER
+
+
+def _automation(ref: object) -> dict[str, Any]:
+    """The automation that made a save, as codes and IDs only (a rule's name is free text)."""
+    if not isinstance(ref, Mapping):
+        return {}
+    found = {"automation": ref.get("kind"), "automation_id": ref.get("id")}
+    return {key: str(value) for key, value in found.items() if value is not None}
+
+
+async def _write_save(
+    session: AsyncSession,
+    saves: Sequence[SavedRecord],
+    *,
+    facts: RequestFacts,
+    route: str | None,
+    note: AuditNote | None = None,
+) -> uuid.UUID:
+    """One record's entry for its saves in this request: all their events, the first the action.
+
+    Each save's events come from its own kind and source (lane A: the SLA engine's save in the
+    same request is not a person's due-date edit); the last save gives the change ID and
+    version.
+    """
+    last = saves[-1]
+    spec = RECORD_TYPES[last.subtype or last.record_type]
+    events = events_of_saves(
+        spec,
+        [(s.kind, [FieldDiff(c.field, c.old, c.new) for c in s.changes], s.source) for s in saves],
+        route,
+    )
+    sources = list(dict.fromkeys(s.source for s in saves))
+    details: dict[str, Any] = dict(note.details) if note is not None else {}
+    details.update(
+        {"record_version": last.version, "source": sources[0] if len(sources) == 1 else sources},
+        **_automation(next((s.automation_ref for s in saves if s.automation_ref), None)),
+    )
+    reason = (note.reason if note is not None else None) or next(
+        (s.reason for s in saves if s.reason), None
+    )
+    return await record(
+        session,
+        action_code=events[0],
+        facts=facts,
+        object_type=spec.record_type,
+        object_id=last.record_id,
+        details=details,
+        reason=reason,
+        change_id=last.change_id,
+        events=events,
+    )
+
+
+def group_saves(saves: Sequence[SavedRecord]) -> list[list[SavedRecord]]:
+    """A request's saves, grouped by record in first-save order (one user action, one entry)."""
+    groups: dict[tuple[str, str | None, uuid.UUID], list[SavedRecord]] = {}
+    for saved in saves:
+        groups.setdefault((saved.record_type, saved.subtype, saved.record_id), []).append(saved)
+    return list(groups.values())
+
+
+class LifecycleSink:
+    """The audit module's side of app/shared/history's audit sink port."""
+
+    def handles(self, record_type: str, subtype: str | None) -> bool:
+        """Saves of the types in the lifecycle table (a work item by its subtype)."""
+        return (subtype or record_type) in RECORD_TYPES
+
+    async def saved(self, session: AsyncSession, record: SavedRecord) -> None:
+        """Write the save's entry now, or, inside an audited route, when the route finishes."""
+        if session.info.get(ROUTE_ACTION_KEY) is not None:
+            session.info.setdefault(PENDING_SAVES_KEY, []).append(record)
+            return
+        await _write_save(session, [record], facts=_session_facts(session), route=None)
 
 
 # --- route dependencies ------------------------------------------------------------------------
@@ -229,7 +328,29 @@ def audited(
             object_id=request.path_params.get(object_param) if object_param else None,
             details={name: request.path_params.get(name) for name in detail_params},
         )
+        # Saves of audited record types made by this route wait for it (LifecycleSink.saved).
+        session.info[ROUTE_ACTION_KEY] = action_code
         yield note  # an exception here propagates: refusals are logged by the error observer
+        saves: list[SavedRecord] = session.info.pop(PENDING_SAVES_KEY, [])
+        session.info.pop(ROUTE_ACTION_KEY, None)
+        if saves:
+            # One entry per record the route saved (its saves merged), led by the route's action
+            # for the route's own record, with the route's details and reason; the route writes
+            # no second entry (WP-064, ADR-045).
+            facts = RequestFacts.of(request)
+            merged = group_saves(saves)
+            lead = next(
+                (i for i, m in enumerate(merged) if str(m[-1].record_id) == str(note.object_id)), 0
+            )
+            for index, saved in enumerate(merged):
+                await _write_save(
+                    session,
+                    saved,
+                    facts=facts,
+                    route=action_code if index == lead else None,
+                    note=note if index == lead else None,
+                )
+            return
         if note.skip:
             return
         change_ids = recorded_change_ids(session)

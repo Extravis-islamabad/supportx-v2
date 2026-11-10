@@ -21,6 +21,7 @@ afterEach(() => {
 
 const settings: AssetSettings = {
   tag_pattern: 'AST-{n}',
+  warranty_notice_days: 30,
   age_basis: 'acquisition_date',
   cost_includes_tax: true,
   copy_limit: 50,
