@@ -63,6 +63,7 @@ export const ur: LabelResource = {
   'announcements.more': 'مزید دکھائیں',
   'announcements.new': 'نیا اعلان',
   'announcements.none_live': 'اس وقت کوئی اعلان نہیں ہے۔',
+  'announcements.one': 'اعلان',
   'announcements.published_on': '{{time}} کو شائع ہوا',
   'announcements.reason': 'وجہ (اختیاری، تاریخچے میں محفوظ رہے گی)',
   'announcements.restore': 'بحال کریں',
@@ -81,4 +82,5 @@ export const ur: LabelResource = {
   'announcements.trash': 'ردی کی ٹوکری',
   'announcements.until': '{{time}} تک',
   'announcements.view': 'دیکھیں',
+  'announcements.window': 'دکھایا جائے گا',
 };

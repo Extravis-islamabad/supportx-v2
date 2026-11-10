@@ -60,6 +60,7 @@ export const en = {
   'announcements.more': 'Show more',
   'announcements.new': 'New announcement',
   'announcements.none_live': 'There are no announcements right now.',
+  'announcements.one': 'Announcement',
   'announcements.published_on': 'Published {{time}}',
   'announcements.reason': 'Reason (optional, kept in the history)',
   'announcements.restore': 'Restore',
@@ -78,4 +79,5 @@ export const en = {
   'announcements.trash': 'Trash',
   'announcements.until': 'until {{time}}',
   'announcements.view': 'View',
+  'announcements.window': 'Shown',
 } as const;

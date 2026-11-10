@@ -63,6 +63,7 @@ export const ar: LabelResource = {
   'announcements.more': 'عرض المزيد',
   'announcements.new': 'إعلان جديد',
   'announcements.none_live': 'لا توجد إعلانات حاليًا.',
+  'announcements.one': 'إعلان',
   'announcements.published_on': 'نُشر في {{time}}',
   'announcements.reason': 'السبب (اختياري، يُحفظ في السجل)',
   'announcements.restore': 'استعادة',
@@ -81,4 +82,5 @@ export const ar: LabelResource = {
   'announcements.trash': 'سلة المحذوفات',
   'announcements.until': 'حتى {{time}}',
   'announcements.view': 'عرض',
+  'announcements.window': 'يُعرض',
 };
