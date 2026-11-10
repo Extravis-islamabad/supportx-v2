@@ -48,9 +48,10 @@ export const problemKeys = {
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
-export function useProblems(query: ProblemsQuery) {
+export function useProblems(query: ProblemsQuery, enabled = true) {
   return useQuery({
     queryKey: problemKeys.list(query),
+    enabled,
     queryFn: () =>
       call(
         api.GET('/api/v1/problems', {

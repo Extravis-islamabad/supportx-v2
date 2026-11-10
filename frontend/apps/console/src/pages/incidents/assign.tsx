@@ -150,7 +150,14 @@ function AssignBody({
   const touch = () => {
     basedOn.current ??= item.version;
     setOpened((was) => was ?? item);
+    edited();
   };
+  // A refusal is about what was sent: any change clears it (QA 2026-11-10: "This field is
+  // required." stayed after a reason was picked, and pushed the buttons down under the click).
+  function edited() {
+    if (assign.isError) assign.reset();
+    problem.clear();
+  }
   const movingGroups = item.group_id !== null && group !== item.group_id;
   const reasons = (catalogue.data?.reasons ?? [])
     .filter((r) => r.list === 'reassign' && !r.disabled)
@@ -311,6 +318,7 @@ function AssignBody({
                       value={moveTo}
                       onChange={(next: string) => {
                         setTargetGroup(next);
+                        edited();
                       }}
                       options={outsider.groupIds.map((id) => ({
                         value: id,
@@ -333,7 +341,10 @@ function AssignBody({
               <Select
                 id="inc-assign-reason"
                 value={reasonCode}
-                onChange={setReasonCode}
+                onChange={(next: string) => {
+                  setReasonCode(next);
+                  edited();
+                }}
                 options={reasons}
                 style={{ width: '100%' }}
                 data-testid="inc-assign-reason"
@@ -347,6 +358,7 @@ function AssignBody({
                 value={reasonText}
                 onChange={(event) => {
                   setReasonText(event.target.value);
+                  edited();
                 }}
                 data-testid="inc-assign-reason-text"
               />
