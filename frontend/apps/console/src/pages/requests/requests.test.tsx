@@ -352,6 +352,49 @@ describe('console: service requests', () => {
     );
   });
 
+  it('Haider E3: the panel shows the service level and who decided each approval', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: {
+        body: { ...request, approval_status: 'approved', status: 'in_progress' },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              ...pendingApproval,
+              state: 'approved',
+              decided_at: '2026-11-04T09:00:00Z',
+              decided_by: MANAGER,
+            },
+          ],
+          people: approvalsBody.people,
+        },
+      },
+      [`GET /api/v1/service-requests/${SR_ID}/sla`]: {
+        body: {
+          policy_id: '01a1a2b3-0000-7000-8000-00000000d001',
+          policy_name: 'Requests',
+          reason: 'created',
+          applied_at: '2026-11-04T08:00:00Z',
+          may_set_due_dates: true,
+          targets: [],
+        },
+      },
+    });
+    render(<App />);
+    const card = await screen.findByTestId('sr-sla-card');
+    await waitFor(() => {
+      expect(card.textContent).toContain('Requests');
+    });
+    // Read-only on a request: due dates by hand are incidents' own (no change button).
+    expect(card.querySelector('[data-testid$="-change"]')).toBeNull();
+    const summary = await screen.findByTestId('sr-approvals-summary');
+    expect(summary.textContent).toContain('Approved');
+    expect(summary.textContent).toContain('Omar Manager');
+    expect(summary.textContent).not.toContain('{{'); // every value given
+  });
+
   it('shows one request with its item details and approval status', async () => {
     window.history.pushState({}, '', `/requests/${SR_ID}`);
     api();

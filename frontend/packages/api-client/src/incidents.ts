@@ -135,11 +135,20 @@ export function useIncidentHistory(
 }
 
 /** The record's SLA panel: policy, targets, calendars, due dates set by hand (WP-025). */
-export function useIncidentSla(id: string, enabled = true) {
+export function useIncidentSla(
+  id: string,
+  enabled = true,
+  base: 'incidents' | 'service-requests' = 'incidents',
+) {
   return useQuery({
-    queryKey: queryKeys.incidents.sla(id),
+    // A request's SLA has its own key: the same record route shape, another type (Haider E3).
+    queryKey: base === 'incidents' ? queryKeys.incidents.sla(id) : [base, 'sla', id],
     queryFn: () =>
-      call(api.GET('/api/v1/incidents/{record_id}/sla', { params: { path: { record_id: id } } })),
+      call(
+        api.GET(`/api/v1/${base}/{record_id}/sla` as '/api/v1/incidents/{record_id}/sla', {
+          params: { path: { record_id: id } },
+        }),
+      ),
     enabled,
     retry: false,
     // A side panel: the record page already reports a record it cannot load.

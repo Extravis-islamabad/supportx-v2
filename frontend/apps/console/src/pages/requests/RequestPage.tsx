@@ -7,6 +7,7 @@ import { Link, useParams } from 'react-router';
 import {
   serviceRequestKeys,
   useCatalogItem,
+  useApprovals,
   useRequestTasks,
   useServiceRequest,
   useSession,
@@ -18,6 +19,7 @@ import {
 } from '@supportx/api-client';
 import { useRecordChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   ActionBar,
   PropertiesPanel,
   PropertyRow,
@@ -39,6 +41,7 @@ import { labelled, personName } from '../incidents/labels';
 import { PriorityTag, SlaTag } from '../incidents/tags';
 import { ApprovalsPanel, WithdrawButton } from './Approvals';
 import { RequestTasks } from './RequestTasks';
+import { IncidentSla } from '../incidents/IncidentSla';
 import { itemName } from './items';
 
 const NO_TYPING: Typing = {};
@@ -69,6 +72,34 @@ export function RequestPage() {
     );
   }
   return <RequestRecord r={record.data} />;
+}
+
+/** Who decided each approval, and when (Haider E3); the tab keeps the full list and buttons. */
+function ApprovalsSummary({ recordId }: { recordId: string }) {
+  const t = useLabel();
+  const { format } = useDateTime();
+  const approvals = useApprovals(recordId);
+  const people = approvals.data?.people ?? {};
+  const decided = (approvals.data?.items ?? []).filter((a) => a.decided_at != null);
+  if (decided.length === 0) {
+    return <EmptyText>{t('requests.approvals_none_decided')}</EmptyText>;
+  }
+  return (
+    <Flex vertical gap={4} data-testid="sr-approvals-summary">
+      {decided.map((a) => (
+        <Typography.Text key={a.id} data-testid={`sr-approval-summary-${a.id}`}>
+          {t(`approval_state.${a.state}`)} ·{' '}
+          {t('requests.decided_summary', {
+            name:
+              a.decided_by == null
+                ? t('requests.approval_admins')
+                : (people[a.decided_by]?.display_name ?? ''),
+            when: format(a.decided_at ?? ''),
+          })}
+        </Typography.Text>
+      ))}
+    </Flex>
+  );
 }
 
 function RequestRecord({ r }: { r: ServiceRequest }) {
@@ -261,6 +292,27 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   </div>
                 ),
               },
+              // Haider E3: the Service level card, as on incidents (read-only here).
+              {
+                key: 'sla',
+                title: t('incidents.panel.sla'),
+                testId: 'sr-panel-sla',
+                children: (
+                  <div data-testid="sr-sla-card">
+                    <IncidentSla item={r} base="service-requests" />
+                  </div>
+                ),
+              },
+              ...(hasApprovals
+                ? [
+                    {
+                      key: 'approvals',
+                      title: t('requests.approvals'),
+                      testId: 'sr-panel-approvals',
+                      children: <ApprovalsSummary recordId={r.id} />,
+                    },
+                  ]
+                : []),
             ]}
           />
         }
