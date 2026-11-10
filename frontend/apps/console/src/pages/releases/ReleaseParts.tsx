@@ -552,7 +552,7 @@ export function DowntimePart({ id }: { id: string }) {
             key={d.id}
             data-testid={`downtime-${d.id}`}
             actions={[
-              <Button
+              <WriteButton
                 key="remove"
                 size="small"
                 danger
@@ -561,7 +561,7 @@ export function DowntimePart({ id }: { id: string }) {
                 }}
               >
                 {t('actions.delete')}
-              </Button>,
+              </WriteButton>,
             ]}
           >
             <Space wrap>

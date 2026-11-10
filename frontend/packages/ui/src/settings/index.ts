@@ -7,5 +7,7 @@ export {
   type SettingsAction,
   type SettingsPageHeaderProps,
 } from './SettingsPageHeader';
+export { SettingsCard } from './SettingsCard';
+export { useSettingsDraft, type SettingsDraft } from './useSettingsDraft';
 export { StickySaveBar, type StickySaveBarProps } from './StickySaveBar';
 export { TranslatedField, type TranslatedValue } from './TranslatedField';

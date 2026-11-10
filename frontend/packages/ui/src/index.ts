@@ -1,5 +1,5 @@
 export { useAppearance, useLabel, type Appearance, type Direction } from './appearance';
-export { ADMIN_PERMISSIONS, useAccess, type Access } from './access';
+export { useAccess, type Access } from './access';
 export * from './announcements';
 export * from './brand';
 export * from './dates';
@@ -16,6 +16,7 @@ export * from './files';
 export * from './licence';
 export * from './richtext';
 export { AccountSecurityCard } from './AccountSecurityCard';
+export { PersonSessions, SESSIONS_CHANGED, SignedInSessionsCard } from './SignedInSessionsCard';
 export { ContactDetailsCard } from './ContactDetailsCard';
 export { MfaReminder } from './MfaReminder';
 export { PASSWORD_RESET_PATH, PasswordResetPage } from './PasswordResetPage';

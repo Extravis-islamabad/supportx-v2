@@ -310,6 +310,61 @@ export function useResetMfa() {
   });
 }
 
+// --- Signed-in sessions (ADR-044 item 5) ------------------------------------------------------
+
+export type ListedSession = components['schemas']['ListedSessionOut'];
+
+/** Your browsers and devices signed in to this organisation, this one marked `current`. */
+export function useMySessions() {
+  return useQuery({
+    queryKey: queryKeys.identity.mySessions,
+    queryFn: () => call(api.GET('/api/v1/auth/sessions')),
+  });
+}
+
+/** Sign one of your browsers or devices out, now. */
+export function useEndMySession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (id: string) =>
+      call(
+        api.DELETE('/api/v1/auth/sessions/{listed_id}', { params: { path: { listed_id: id } } }),
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.identity.mySessions }),
+  });
+}
+
+/** A person's signed-in browsers and devices (people admins, users.manage). */
+export function usePersonSessions(userId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.identity.personSessions(userId ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/identity/people/{user_id}/sessions', {
+          params: { path: { user_id: userId ?? '' } },
+        }),
+      ),
+    enabled: userId !== undefined,
+  });
+}
+
+/** Sign a person out of one browser or device (a lost phone). */
+export function useEndPersonSession(userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (id: string) =>
+      call(
+        api.DELETE('/api/v1/identity/people/{user_id}/sessions/{listed_id}', {
+          params: { path: { user_id: userId, listed_id: id } },
+        }),
+      ),
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.identity.personSessions(userId) }),
+  });
+}
+
 // --- My account (REQ-SEC-028) -----------------------------------------------------------------
 
 /** How the signed-in person signs in, and their recent sign-ins. */

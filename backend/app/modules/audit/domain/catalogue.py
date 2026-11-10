@@ -87,6 +87,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("session.quick_sign_in", AuditCategory.SESSION, "identity_access"),  # dev only (D-151)
     ("session.signed_out", AuditCategory.SESSION, "identity_access"),
     ("session.tenant_switched", AuditCategory.SESSION, "identity_access"),
+    ("session.ended", AuditCategory.SESSION, "identity_access"),  # one session ended from a list
     # roles and access
     ("role.created", AuditCategory.ACCESS, "identity_access"),
     ("role.updated", AuditCategory.ACCESS, "identity_access"),

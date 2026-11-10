@@ -205,14 +205,14 @@ export function ArticleActions({
         />
       </Modal>
       {article.withdrawn && only === undefined && (
-        <Button
+        <WriteButton
           onClick={() => {
             void navigate(`/knowledge/articles/${article.id}/edit/${language}`);
           }}
           data-testid="kb-republish"
         >
           {t('knowledge.action.republish')}
-        </Button>
+        </WriteButton>
       )}
     </Space>
   );

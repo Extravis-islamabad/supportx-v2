@@ -226,6 +226,7 @@ export const ar: LabelResource = {
   'audit.action.service_request.template_changed': 'غيّر قالب طلبات خدمة',
   'audit.action.service_request.template_created': 'أضاف قالب طلبات خدمة',
   'audit.action.service_request.withdrawn': 'سحب طلب خدمة بانتظار الموافقة',
+  'audit.action.session.ended': 'أنهى جلسة تسجيل دخول',
   'audit.action.session.quick_sign_in': 'سجّل الدخول عبر تسجيل الدخول السريع للتطوير',
   'audit.action.session.signed_in': 'سجّل الدخول',
   'audit.action.session.signed_out': 'سجّل الخروج',

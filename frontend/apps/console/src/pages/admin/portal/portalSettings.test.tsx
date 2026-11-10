@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import { fakeIncidentCatalogue, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
 import { consoleApi } from '../../../test/api';
@@ -22,6 +22,7 @@ afterEach(() => {
 
 function api() {
   const fake = consoleApi({
+    me: fakeSession({ roles: ['tenant_admin'] }),
     routes: {
       'GET /api/v1/portal/settings': { body: SETTINGS },
       'PATCH /api/v1/portal/settings': {

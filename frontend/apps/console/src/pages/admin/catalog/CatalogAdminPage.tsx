@@ -57,6 +57,7 @@ import {
   useLabel,
   useLicence,
   type Tone,
+  WriteButton,
 } from '@supportx/ui';
 
 import { CategoryDialog } from './CategoryDialog';
@@ -469,7 +470,7 @@ function ItemsTable({
                 </>
               )}
               <Tooltip title={t('catalog_admin.copy')}>
-                <Button
+                <WriteButton
                   type="text"
                   size="small"
                   icon={<CopyOutlined />}
@@ -508,7 +509,7 @@ function ItemsTable({
                     });
                 }}
               >
-                <Button
+                <WriteButton
                   type="text"
                   size="small"
                   danger
@@ -557,7 +558,7 @@ function StarterBanner() {
                 .map((g) => ({ value: g.id, label: g.name }))}
               data-testid="cat-starter-group"
             />
-            <Button
+            <WriteButton
               type="primary"
               disabled={group === undefined}
               loading={publish.isPending}
@@ -578,7 +579,7 @@ function StarterBanner() {
               }}
             >
               {t('catalog_admin.starter.publish')}
-            </Button>
+            </WriteButton>
           </Flex>
         </Flex>
       }

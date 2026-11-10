@@ -79,14 +79,22 @@ describe('Setup home and menu', () => {
     expect(within(menu).getByTestId('admin-sections-licence')).toBeDefined();
   });
 
-  it('a technician sees no setup page they may not open', async () => {
+  it('a technician sees no setup page they may not open: setup home says no access', async () => {
+    // Coverage §17 (b): view rights list no setup page; setup home has nothing to show them.
     window.history.pushState({}, '', '/admin');
     api({}, fakeSession());
     render(<App />);
-    fireEvent.click(await screen.findByTestId('admin-sections-button'));
-    await screen.findByTestId('admin-sections');
-    expect(screen.queryByTestId('admin-sections-licence')).toBeNull();
-    expect(screen.queryByTestId('admin-sections-security')).toBeNull();
+    expect(await screen.findByText(/ask your administrator/i)).toBeDefined();
+    expect(screen.queryByTestId('admin-sections-button')).toBeNull();
+    expect(screen.queryByTestId('setup-home')).toBeNull();
+  });
+
+  it('a page this person may not open says no access instead of failing (coverage §17 item 2)', async () => {
+    window.history.pushState({}, '', '/admin/branding');
+    api({}, fakeSession());
+    render(<App />);
+    expect(await screen.findByText(/ask your administrator/i)).toBeDefined();
+    expect(screen.queryByTestId('branding-save')).toBeNull();
   });
 
   it('finds a page by a synonym, and says when nothing matches', async () => {

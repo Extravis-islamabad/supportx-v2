@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import { fakeIncidentCatalogue, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
 import { consoleApi } from '../../../test/api';
@@ -19,6 +19,7 @@ describe('console: service request settings', () => {
   it('saves the on-behalf scope with If-Match on the version shown', async () => {
     window.history.pushState({}, '', '/admin/requests');
     const fake = consoleApi({
+      me: fakeSession({ roles: ['tenant_admin'] }),
       routes: {
         'GET /api/v1/service-requests/settings': { body: saved },
         'PATCH /api/v1/service-requests/settings': {
