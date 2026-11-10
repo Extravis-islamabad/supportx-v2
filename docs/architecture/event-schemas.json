@@ -4166,6 +4166,38 @@
         "type": "object"
       }
     },
+    "work_items.asset_link.changed": {
+      "1": {
+        "description": "An asset was linked to a record or unlinked (REQ-AST-025). IDs only.\n\nThe record's screens refresh its assets; the assets module may hear it too (an asset's\n\"linked to my tickets\" scope, D-153).",
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "added",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "asset_id",
+          "change"
+        ],
+        "title": "WorkItemAssetLinkChanged",
+        "type": "object"
+      }
+    },
     "work_items.bulk_job.progressed": {
       "1": {
         "description": "A bulk job started, finished a batch or ended (REQ-INC-120 AC3; counts only).",

@@ -39,6 +39,7 @@ from app.modules.work_items.domain.templates import (
 )
 from app.modules.work_items.domain.types import DESCRIPTION_MAX, SUBJECT_MAX
 from app.modules.work_items.infra.models import WorkItemTemplate
+from app.modules.work_items.service import asset_links
 from app.modules.work_items.service import portal as service
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, list_query
@@ -147,6 +148,11 @@ class PortalIncidentIn(BaseModel):
     on_behalf_of_id: uuid.UUID | None = Field(
         default=None,
         description="Report it for someone else, within the tenant's scope (REQ-SR-011; 403).",
+    )
+    asset_ids: list[uuid.UUID] | None = Field(
+        default=None,
+        max_length=20,
+        description="Assets it is about: ones you hold (REQ-AST-025; the assets feature).",
     )
 
 
@@ -269,7 +275,7 @@ async def create_portal_incident(  # noqa: PLR0913, PLR0917 - FastAPI dependenci
     """A new incident in your name; the new ID comes back at once (REQ-INC-028 AC1)."""
 
     async def run() -> Created:
-        values = body.model_dump(exclude_unset=True, exclude={"template_id"})
+        values = body.model_dump(exclude_unset=True, exclude={"template_id", "asset_ids"})
         found = await service.create_record(
             session,
             subject,
@@ -278,6 +284,10 @@ async def create_portal_incident(  # noqa: PLR0913, PLR0917 - FastAPI dependenci
             source=source_of(request),
             holders=policy,
         )
+        if body.asset_ids:  # REQ-AST-025 AC1: the picker offered only what they may link
+            await asset_links.link_new(
+                session, subject, found.record, body.asset_ids, source=source_of(request)
+            )
         out = _out(found)
         return Created(
             body=out.model_dump(mode="json", exclude_unset=True),

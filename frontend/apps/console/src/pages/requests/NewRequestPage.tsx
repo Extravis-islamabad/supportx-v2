@@ -28,9 +28,11 @@ import {
   type LibraryGroup,
   type LibraryItem,
   type QuestionValue,
+  useLicence,
 } from '@supportx/ui';
 
 import { UserPicker } from '../incidents/pickers';
+import { AssetPickerField } from '../incidents/RecordAssets';
 import { plainText } from '../incidents/writingText';
 import { deliveryText, itemName } from './items';
 
@@ -55,6 +57,8 @@ export function NewRequestPage() {
   const key = useMemo(() => crypto.randomUUID(), []);
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('');
+  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const hasAssets = useLicence().has('assets');
   const [requester, setRequester] = useState<string | null>(me);
   const [answers, setAnswers] = useState<Record<string, QuestionValue> | null>(null);
 
@@ -184,6 +188,7 @@ export function NewRequestPage() {
           catalog_item_id: chosen.id,
           answers: sentAnswers(shown),
           confirm_lose_access: false,
+          ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
         },
       },
       {
@@ -289,6 +294,18 @@ export function NewRequestPage() {
               ariaLabel={t('requests.requested_for')}
             />
           </Form.Item>
+          {/* REQ-AST-025: the assets it is about, the person's own first. */}
+          {hasAssets && (
+            <Form.Item label={t('work_item.field.asset_ids')} htmlFor="sr-assets">
+              <AssetPickerField
+                id="sr-assets"
+                value={assetIds}
+                onChange={setAssetIds}
+                forUser={requester}
+                testId="sr-assets"
+              />
+            </Form.Item>
+          )}
         </FormSection>
         {questions.length > 0 && (
           <FormSection title={t('requests.section.details')} testId="sr-section-details">
