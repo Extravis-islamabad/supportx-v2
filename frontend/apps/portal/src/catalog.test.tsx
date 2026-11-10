@@ -197,6 +197,7 @@ describe('portal catalog', () => {
             { title: { en: 'Check who you are' }, internal: false, required: true },
             { title: { en: 'Unlock in the directory' }, internal: true, required: true },
           ],
+          expected_delivery: { amount: 4, unit: 'hours', around_the_clock: false },
         },
       },
     });
@@ -206,6 +207,9 @@ describe('portal catalog', () => {
     expect(included).not.toContain('Unlock in the directory'); // internal
     expect(screen.getByTestId('portal-cat-approval').textContent).toContain(
       'Your manager approves this first',
+    );
+    expect(screen.getByTestId('portal-cat-delivery').textContent).toBe(
+      'Usually delivered within 4 working hours',
     );
     const footer = screen.getByTestId('portal-cat-footer');
     const buttons = [...footer.querySelectorAll('button')].map((b) =>

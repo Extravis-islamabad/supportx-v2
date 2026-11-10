@@ -31,7 +31,7 @@ import {
 } from '@supportx/ui';
 
 import { UserPicker } from '../incidents/pickers';
-import { itemName } from './items';
+import { deliveryText, itemName } from './items';
 
 const SUBJECT_MAX = 250;
 
@@ -169,6 +169,7 @@ export function NewRequestPage() {
       : chosen.approval.approvers.some((a) => a.kind === 'requested_for_manager')
         ? t('requests.context.manager_approves')
         : t('requests.context.someone_approves');
+  const delivery = deliveryText(t, chosen.expected_delivery);
   const onBehalf = requester !== null && requester !== me;
   const send = () => {
     if (!ready) return;
@@ -228,7 +229,7 @@ export function NewRequestPage() {
           </Button>
         }
       >
-        {(description !== '' || included.length > 0 || approval !== null) && (
+        {(description !== '' || included.length > 0 || approval !== null || delivery !== null) && (
           <FormSection title={t('requests.context.title')} testId="sr-context">
             {description !== '' && (
               <div data-testid="sr-context-description">
@@ -250,6 +251,11 @@ export function NewRequestPage() {
             {approval !== null && (
               <Typography.Paragraph data-testid="sr-context-approval">
                 {approval}
+              </Typography.Paragraph>
+            )}
+            {delivery !== null && (
+              <Typography.Paragraph data-testid="sr-context-delivery">
+                {delivery}
               </Typography.Paragraph>
             )}
           </FormSection>

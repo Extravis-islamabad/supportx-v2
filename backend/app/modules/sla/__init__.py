@@ -38,7 +38,7 @@ from app.modules.sla.service.calendars import (
     system_calendar_id,
 )
 from app.modules.sla.service.clock import SlaStamp, on_change, set_due_by_hand
-from app.modules.sla.service.policies import existing_policy_ids
+from app.modules.sla.service.policies import DeliveryTarget, delivery_target, existing_policy_ids
 from app.modules.sla.service.realtime import ROUTES
 from app.modules.sla.service.records import (
     SlaRecordView,
@@ -82,6 +82,7 @@ __all__ = [
     "ActionKind",
     "Calendar",
     "CalendarError",
+    "DeliveryTarget",
     "Fired",
     "Level",
     "Recipient",
@@ -95,6 +96,7 @@ __all__ = [
     "SlaWarning",
     "SystemCalendar",
     "calendar_for_maths",
+    "delivery_target",
     "escalation_run",
     "existing_policy_ids",
     "fire",

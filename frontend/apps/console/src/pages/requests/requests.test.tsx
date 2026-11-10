@@ -192,6 +192,7 @@ describe('console: service requests', () => {
             { title: { en: 'Order the laptop' }, internal: false, required: true },
             { title: { en: 'Image it' }, internal: true, required: true },
           ],
+          expected_delivery: { amount: 3, unit: 'business_days', around_the_clock: false },
         },
       },
     });
@@ -199,6 +200,10 @@ describe('console: service requests', () => {
     const context = await screen.findByTestId('sr-context');
     expect(within(context).getByTestId('sr-context-approval').textContent).toContain(
       "The requester's manager approves this first",
+    );
+    // F2: how long it usually takes, from the SLA that would apply.
+    expect(within(context).getByTestId('sr-context-delivery').textContent).toBe(
+      'Usually delivered within 3 working days',
     );
     // What's included: what a requester may see, never the internal steps.
     const included = within(context).getByTestId('sr-context-included').textContent;

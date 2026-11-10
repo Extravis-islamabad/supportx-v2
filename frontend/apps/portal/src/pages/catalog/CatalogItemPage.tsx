@@ -23,6 +23,7 @@ import { AttachFiles } from '../requests/attachFiles';
 import { useFilesToAttach } from '../requests/useFilesToAttach';
 import { ForWhom } from '../requests/ForWhom';
 import { FormCard } from '../FormCard';
+import { deliveryText } from './delivery';
 import { FORM_COLUMN } from '../formColumn';
 
 const SUBJECT_MAX = 250;
@@ -83,6 +84,7 @@ export function CatalogItemPage() {
     .filter((step) => !step.internal)
     .map((step) => textIn(step.title, locale))
     .filter((title) => title !== '');
+  const delivery = deliveryText(t, item.expected_delivery);
   const approval =
     item.approval === null || item.approval.approvers.length === 0
       ? null
@@ -104,7 +106,7 @@ export function CatalogItemPage() {
           <RichTextView html={description} />
         </section>
       )}
-      {(included.length > 0 || approval !== null) && (
+      {(included.length > 0 || approval !== null || delivery !== null) && (
         <FormCard testId="portal-cat-context">
           {included.length > 0 && (
             <div data-testid="portal-cat-included">
@@ -121,6 +123,14 @@ export function CatalogItemPage() {
           {approval !== null && (
             <Typography.Paragraph style={{ margin: 0 }} data-testid="portal-cat-approval">
               {approval}
+            </Typography.Paragraph>
+          )}
+          {delivery !== null && (
+            <Typography.Paragraph
+              style={{ margin: approval === null ? 0 : '8px 0 0' }}
+              data-testid="portal-cat-delivery"
+            >
+              {delivery}
             </Typography.Paragraph>
           )}
         </FormCard>
