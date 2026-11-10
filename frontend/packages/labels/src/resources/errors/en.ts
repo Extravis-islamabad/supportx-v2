@@ -640,7 +640,9 @@ export const en = {
   'errors.instance_not_failed': 'Only a failed workflow can be retried.',
   'errors.instance_not_running': 'This workflow is not running, so it cannot be stopped.',
   'errors.instance_running': 'Stop this workflow before running it again.',
-  'errors.instances_not_in_workflow': '{{count}} of the chosen runs are not runs of this workflow.',
+  'errors.instances_not_in_workflow_one': '1 of the chosen runs is not a run of this workflow.',
+  'errors.instances_not_in_workflow_other':
+    '{{count}} of the chosen runs are not runs of this workflow.',
   'errors.internal_error': 'Something went wrong on our side. Please try again.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',

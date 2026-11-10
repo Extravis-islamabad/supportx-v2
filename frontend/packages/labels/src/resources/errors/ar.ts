@@ -592,7 +592,15 @@ export const ar: LabelResource = {
   'errors.instance_not_failed': 'لا يمكن إعادة محاولة سير عمل إلا إذا فشل.',
   'errors.instance_not_running': 'سير العمل هذا لا يعمل، لذا لا يمكن إيقافه.',
   'errors.instance_running': 'أوقف سير العمل هذا قبل تشغيله مرة أخرى.',
-  'errors.instances_not_in_workflow': '{{count}} من عمليات التشغيل المختارة ليست من سير العمل هذا.',
+  'errors.instances_not_in_workflow_few':
+    '{{count}} عمليات تشغيل من المختارة ليست من سير العمل هذا.',
+  'errors.instances_not_in_workflow_many':
+    '{{count}} عملية تشغيل من المختارة ليست من سير العمل هذا.',
+  'errors.instances_not_in_workflow_one': 'عملية تشغيل واحدة من المختارة ليست من سير العمل هذا.',
+  'errors.instances_not_in_workflow_other':
+    '{{count}} عملية تشغيل من المختارة ليست من سير العمل هذا.',
+  'errors.instances_not_in_workflow_two': 'عمليتا تشغيل من المختارة ليستا من سير العمل هذا.',
+  'errors.instances_not_in_workflow_zero': 'كل عمليات التشغيل المختارة من سير العمل هذا.',
   'errors.internal_error': 'حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى.',
   'errors.invalid_choice': 'هذه القيمة ليست من الخيارات المتاحة.',
   'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
