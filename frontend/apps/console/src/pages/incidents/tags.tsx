@@ -7,6 +7,7 @@ import { useAppearance, useLabel } from '@supportx/ui';
 
 import { scaleLabel, statusLabel } from './labels';
 import { PRIORITY_COLOURS } from './priorityColours';
+import { span } from './slaWords';
 
 // A coloured dot plus normal text: coloured tag fills (gold, white on blue) fail WCAG contrast.
 // The tenant's colours and names win (WP-020c); these are the fallback while they load.
@@ -79,8 +80,6 @@ function useNow(everyMs: number): number {
   return now;
 }
 
-type Translate = ReturnType<typeof useLabel>;
-
 // For screen readers only (the state is already shown by the dot and the words).
 const HIDDEN = {
   position: 'absolute',
@@ -90,16 +89,6 @@ const HIDDEN = {
   clip: 'rect(0 0 0 0)',
   whiteSpace: 'nowrap',
 } as const;
-
-/** A span of wall time in words: "2 d 3 h", "4 h 10 min", "25 min". */
-function span(t: Translate, ms: number): string {
-  const minutes = Math.max(Math.floor(ms / 60_000), 0);
-  const days = Math.floor(minutes / 1440);
-  const hours = Math.floor((minutes % 1440) / 60);
-  if (days > 0) return t('incidents.sla.span_days', { days, hours });
-  if (hours > 0) return t('incidents.sla.span_hours', { hours, minutes: minutes % 60 });
-  return t('incidents.sla.span_minutes', { minutes });
-}
 
 /**
  * The resolution SLA at a glance: time left or overdue, ticking on the client from the due time

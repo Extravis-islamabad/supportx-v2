@@ -27,6 +27,7 @@ import {
   templateLabel,
 } from './labels';
 import { plainText } from './writingText';
+import { slaStanding } from './slaWords';
 
 // The words of an incident's history (REQ-WI-003/004), shared by the History tab and the
 // conversation timeline's quiet event lines (UI pass 2): field names, values as labels, names
@@ -176,6 +177,11 @@ export function useHistoryWords(
     if (change.field === 'template_id' && typeof value === 'string') {
       const found = templates.data?.find((x) => x.id === value);
       return found === undefined ? t('history.changed') : templateLabel(t, found, locale);
+    }
+    // Haider, 2026-11-10: where a target stood when the record was restored ("resolution:overdue:10800").
+    if (change.field === 'sla_on_restore' && typeof value === 'string') {
+      const [kind = '', state = '', seconds = '0'] = value.split(':');
+      return slaStanding(t, kind, state, Number(seconds));
     }
     // WP-025: an escalation level that ran ("resolution:2").
     if (change.field === 'sla_escalation' && typeof value === 'string') {

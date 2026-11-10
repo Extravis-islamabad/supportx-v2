@@ -28,7 +28,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules import metadata, service_catalog
+from app.modules import metadata, service_catalog, sla
 from app.modules.automation import (
     TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
 )
@@ -5031,18 +5031,25 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
         raise _not_found(wtype)
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
+    now = _now()
     record.deleted_at = None
+    record.restored_at = now  # the latest restore; the history keeps each (Haider, 2026-11-10)
     record.version += 1
-    record.updated_at = _now()
+    record.updated_at = now
     record.updated_by = subject.user_id
     await session.flush()
+    # The clock kept running in the trash: the restore says where each target stands, and
+    # whatever fell due meanwhile fires now rather than at the next sweep.
+    standing = await sla.open_clocks(session, record.id, now=now)
     await record_changes(
         session,
         record_type=RECORD_TYPE,
         record_id=record.id,
         version=record.version,
         kind="restored",
-        changes=[],
+        changes=[
+            Change("sla_on_restore", None, f"{c.kind}:{c.state}:{c.seconds}") for c in standing
+        ],
         source=source,
     )
     await record_event(
@@ -5057,6 +5064,9 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    if any(c.state == "overdue" for c in standing):
+        await sla.fire(session, record.id, now=now)
+        await session.refresh(record)
     return await _view(session, subject, wtype, record)
 
 

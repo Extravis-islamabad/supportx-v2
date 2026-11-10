@@ -16,6 +16,7 @@ import { useRecordChannel } from '@supportx/realtime';
 import {
   RecordHeader,
   RecordPage,
+  StageRail,
   ToneTag,
   WriteButton,
   reportError,
@@ -28,7 +29,6 @@ import {
 import { IncidentHistory } from '../incidents/IncidentHistory';
 import { personName } from '../incidents/labels';
 import { stageName, statusName } from '../releases/labels';
-import { StageRail } from '../releases/StageRail';
 import { StagedMoveDialog } from '../staged/MoveDialog';
 import { ChangeProperties } from './ChangeProperties';
 import {
@@ -205,7 +205,7 @@ export function ChangePage() {
       actions={actions}
       alerts={
         <Card size="small" data-testid="change-stages">
-          {panel.data && <StageRail rail={panel.data.rail} />}
+          {panel.data && <StageRail rail={panel.data.rail} testId="change-rail" />}
         </Card>
       }
       panel={<ChangeProperties change={c} />}
