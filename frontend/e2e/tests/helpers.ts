@@ -374,6 +374,16 @@ export async function openSelect(page: Page, testId: string) {
 }
 
 /**
+ * Edit a property in place (template A, D-147): its Edit button shows only when it has the
+ * keyboard's focus, so it is used as a keyboard user does, never clicked by the mouse.
+ */
+export async function editProperty(page: Page, testId: string): Promise<void> {
+  const trigger = page.getByTestId(testId);
+  await trigger.focus();
+  await trigger.press('Enter');
+}
+
+/**
  * Run a record action (D-124): its button when it has one, else its entry in "More actions".
  * `bar`: the action bar's test id.
  */
