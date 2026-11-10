@@ -1053,6 +1053,8 @@ export const ar: LabelResource = {
   'portal.report.subject': 'باختصار، ما المشكلة',
   'portal.report.title': 'الإبلاغ عن مشكلة',
   'portal.report.type_two': 'اكتب حرفين على الأقل',
+  'portal.report.why.description': 'صف المشكلة لإرسالها.',
+  'portal.report.why.subject': 'أضف عنوانًا للمشكلة لإرسالها.',
   'portal.request.back': 'العودة إلى طلباتي',
   'portal.request.description': 'ما أخبرتنا به',
   'portal.request.expected': 'متوقع بحلول {{when}}',

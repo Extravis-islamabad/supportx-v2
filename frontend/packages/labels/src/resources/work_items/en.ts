@@ -961,6 +961,8 @@ export const en = {
   'portal.report.subject': 'In a few words, what is wrong',
   'portal.report.title': 'Report an issue',
   'portal.report.type_two': 'Type at least two letters',
+  'portal.report.why.description': 'Describe the issue to send it.',
+  'portal.report.why.subject': 'Give the issue a subject to send it.',
   'portal.request.back': 'Back to my requests',
   'portal.request.description': 'What you told us',
   'portal.request.expected': 'Expected by {{when}}',

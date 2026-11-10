@@ -970,6 +970,8 @@ export const ur: LabelResource = {
   'portal.report.subject': 'مختصر الفاظ میں، کیا خرابی ہے',
   'portal.report.title': 'مسئلہ بتائیں',
   'portal.report.type_two': 'کم از کم دو حروف لکھیں',
+  'portal.report.why.description': 'بھیجنے کے لیے مسئلہ بیان کریں۔',
+  'portal.report.why.subject': 'بھیجنے کے لیے مسئلے کا عنوان لکھیں۔',
   'portal.request.back': 'میری درخواستوں پر واپس',
   'portal.request.description': 'آپ نے ہمیں کیا بتایا',
   'portal.request.expected': 'متوقع {{when}} تک',

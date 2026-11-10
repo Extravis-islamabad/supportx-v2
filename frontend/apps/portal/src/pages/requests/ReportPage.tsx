@@ -1,28 +1,20 @@
-import { CameraOutlined, CloseOutlined, PaperClipOutlined } from '@ant-design/icons';
-import {
-  App as AntApp,
-  Button,
-  Flex,
-  Form,
-  Input,
-  Select,
-  Skeleton,
-  Space,
-  Typography,
-  Upload,
-} from 'antd';
+import { Button, Flex, Form, Input, Select, Skeleton, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
+import { usePortalTemplates, useReportIssue, type PortalTemplate } from '@supportx/api-client';
 import {
-  uploadFile,
-  usePortalTemplates,
-  useReportIssue,
-  type PortalTemplate,
-} from '@supportx/api-client';
-import { lengthLimit, reportError, RichTextField, useAppearance, useLabel } from '@supportx/ui';
+  FormFooter,
+  lengthLimit,
+  reportError,
+  RichTextField,
+  useAppearance,
+  useLabel,
+} from '@supportx/ui';
 
+import { AttachFiles } from './attachFiles';
 import { ForWhom } from './ForWhom';
+import { useFilesToAttach } from './useFilesToAttach';
 import { FormCard } from '../FormCard';
 import { FORM_COLUMN } from '../formColumn';
 
@@ -58,26 +50,7 @@ export function ReportPage() {
   const [onBehalf, setOnBehalf] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const key = useMemo(() => crypto.randomUUID(), []);
-  const [chosenFiles, setChosenFiles] = useState<File[]>([]);
-  const [attaching, setAttaching] = useState(false);
-  const { message } = AntApp.useApp();
-  // Kept here until the record exists, then sent to it (the server checks type, size, malware).
-  const keep = (file: File) => {
-    setChosenFiles((all) => [...all, file]);
-    return false;
-  };
-  const attach = async (recordId: string) => {
-    if (chosenFiles.length === 0) return;
-    setAttaching(true);
-    const sent = await Promise.allSettled(
-      chosenFiles.map(
-        (file) => uploadFile(file, { ownerType: 'work_item', ownerId: recordId }).done,
-      ),
-    );
-    setAttaching(false);
-    const failed = sent.filter((r) => r.status === 'rejected').length;
-    if (failed > 0) void message.warning(t('portal.report.files_failed', { count: failed }));
-  };
+  const files = useFilesToAttach();
 
   if (templates.isLoading) return <Skeleton active />;
   const offered = templates.data ?? [];
@@ -89,6 +62,13 @@ export function ReportPage() {
     chosen !== undefined &&
     subject.trim() !== '' &&
     !(required.has('description') && empty(description));
+  // What is still missing, said beside the disabled Send (QA10V-08: never a silent button).
+  const why =
+    subject.trim() === ''
+      ? t('portal.report.why.subject')
+      : required.has('description') && empty(description)
+        ? t('portal.report.why.description')
+        : null;
 
   return (
     <Flex vertical gap={16} style={FORM_COLUMN}>
@@ -114,9 +94,9 @@ export function ReportPage() {
               },
               {
                 onSuccess: (made) => {
-                  void attach(made.id).then(() =>
-                    navigate(`/requests/${made.id}`, { replace: true }),
-                  );
+                  void files
+                    .attach(made.id)
+                    .then(() => navigate(`/requests/${made.id}`, { replace: true }));
                 },
                 onError: reportError,
               },
@@ -166,55 +146,50 @@ export function ReportPage() {
             </Form.Item>
           )}
           <Form.Item label={t('portal.report.files')}>
-            <Flex vertical gap={8}>
-              {chosenFiles.map((file, at) => (
-                <Flex key={`${file.name}-${String(at)}`} align="center" gap={8}>
-                  <Typography.Text ellipsis style={{ flex: 1, minWidth: 0 }}>
-                    {file.name}
-                  </Typography.Text>
-                  <Button
-                    type="text"
-                    icon={<CloseOutlined />}
-                    aria-label={t('portal.report.remove_file', { name: file.name })}
-                    onClick={() => {
-                      setChosenFiles((all) => all.filter((_, i) => i !== at));
-                    }}
-                  />
-                </Flex>
-              ))}
-              <Space wrap>
-                <Upload multiple showUploadList={false} beforeUpload={keep}>
-                  <Button
-                    size="large"
-                    icon={<PaperClipOutlined />}
-                    data-testid="portal-report-files"
-                  >
-                    {t('portal.report.add_files')}
-                  </Button>
-                </Upload>
-                <Upload
-                  accept="image/*"
-                  capture="environment"
-                  showUploadList={false}
-                  beforeUpload={keep}
-                >
-                  <Button size="large" icon={<CameraOutlined />} data-testid="portal-report-camera">
-                    {t('files.take_photo')}
-                  </Button>
-                </Upload>
-              </Space>
-            </Flex>
+            <AttachFiles
+              files={files.files}
+              keep={files.keep}
+              remove={files.remove}
+              testId="portal-report"
+            />
           </Form.Item>
-          <Button
-            type="primary"
-            size="large"
-            htmlType="submit"
-            disabled={!ready}
-            loading={report.isPending || attaching}
-            data-testid="portal-report-send"
-          >
-            {t('portal.report.send')}
-          </Button>
+          {/* Template B's footer (D-147; QA10V-08): Cancel, then Send, with why it waits. */}
+          <FormFooter
+            testId="portal-report-footer"
+            notice={
+              why === null ? undefined : (
+                <Typography.Text
+                  type="secondary"
+                  id="portal-report-why"
+                  data-testid="portal-report-why"
+                >
+                  {why}
+                </Typography.Text>
+              )
+            }
+            cancel={
+              <Button
+                size="large"
+                onClick={() => void navigate('/requests')}
+                data-testid="portal-report-cancel"
+              >
+                {t('actions.cancel')}
+              </Button>
+            }
+            primary={
+              <Button
+                type="primary"
+                size="large"
+                htmlType="submit"
+                disabled={!ready}
+                loading={report.isPending || files.sending}
+                aria-describedby={why === null ? undefined : 'portal-report-why'}
+                data-testid="portal-report-send"
+              >
+                {t('portal.report.send')}
+              </Button>
+            }
+          />
         </Form>
       </FormCard>
     </Flex>
