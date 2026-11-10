@@ -376,6 +376,8 @@ function DraftEditor({
   }, [values, state]); // eslint-disable-line react-hooks/exhaustive-deps -- save/conflict are stable mutation helpers
 
   const change = (patch: Partial<typeof values>) => {
+    // A version in review cannot change, so nothing is ever unsaved there (QA10-P4-09).
+    if (locked) return;
     setValues((current) => ({ ...current, ...patch }));
     setState('unsaved');
   };
