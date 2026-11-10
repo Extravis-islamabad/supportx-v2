@@ -510,6 +510,7 @@ export {
 export type { components, paths } from './schema';
 export {
   fetchMe,
+  sessionRefusalCode,
   useLogout,
   useSession,
   useSwitchTenant,

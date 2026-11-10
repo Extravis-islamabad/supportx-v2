@@ -21,7 +21,7 @@ export { MfaReminder } from './MfaReminder';
 export { PASSWORD_RESET_PATH, PasswordResetPage } from './PasswordResetPage';
 export { DevSignInPage } from './DevSignInPage';
 export { isDevSignIn } from './devSignIn';
-export { SessionGate, type SessionGateProps } from './SessionGate';
+export { FROM_CONSOLE, SessionGate, type SessionGateProps } from './SessionGate';
 export * from './shell';
 export {
   buildTheme,

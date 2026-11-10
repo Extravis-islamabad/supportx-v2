@@ -956,6 +956,7 @@ export const ar: LabelResource = {
   'portal.fix.reject_send': 'إرسال وإعادة الفتح',
   'portal.fix.title': 'نعتقد أن المشكلة حُلّت',
   'portal.fix.why': 'ما الذي لا يزال لا يعمل؟',
+  'portal.from_console': 'لوحة التحكم مخصصة لفريق الدعم. يمكنك تقديم طلباتك ومتابعتها من هنا.',
   'portal.home.answer': 'ابحث عن إجابة',
   'portal.home.answer_hint': 'ابحث في مقالات المساعدة والإعلانات وطلباتك.',
   'portal.home.approvals': 'بانتظار موافقتك',

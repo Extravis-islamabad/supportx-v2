@@ -874,6 +874,8 @@ export const ur: LabelResource = {
   'portal.fix.reject_send': 'بھیجیں اور دوبارہ کھولیں',
   'portal.fix.title': 'ہمارے خیال میں یہ ٹھیک ہو گیا ہے',
   'portal.fix.why': 'ابھی بھی کیا خرابی ہے؟',
+  'portal.from_console':
+    'کنسول سروس ڈیسک کے لیے ہے۔ آپ اپنی درخواستیں یہاں درج کر سکتے اور ان کی پیروی کر سکتے ہیں۔',
   'portal.home.answer': 'جواب تلاش کریں',
   'portal.home.answer_hint': 'مدد کے مضامین، اعلانات اور اپنی درخواستیں تلاش کریں۔',
   'portal.home.approvals': 'آپ کی منظوری کی منتظر',

@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from 'react';
 
 import {
   loginUrl,
+  sessionRefusalCode,
   setClientApp,
   setPreferredTimeZone,
   useSession,
@@ -14,6 +15,10 @@ import { label, LOCALES, type Locale } from '@supportx/labels';
 import { useAppearance, useLabel } from './appearance';
 import { BrandedPage, BrandLogo } from './brand';
 import { IdleWatcher } from './IdleWatcher';
+
+const CONSOLE_REQUESTER_ONLY = 'console_requester_only';
+/** The portal home's query when the console sent a requester there (it says why). */
+export const FROM_CONSOLE = 'from=console';
 
 export interface SessionGateProps {
   app: App;
@@ -61,6 +66,12 @@ export function SessionGate({ app, children, navigate = defaultNavigate }: Sessi
 
   useEffect(() => {
     if (session.isSuccess && me === null && loginError === null) {
+      // A requester-only person on the console goes to the portal, which signs them in on
+      // Keycloak's own session and says why (D-129, QA10), never to a password page.
+      if (app === 'console' && sessionRefusalCode() === CONSOLE_REQUESTER_ONLY) {
+        navigate(loginUrl('portal', `/?${FROM_CONSOLE}`));
+        return;
+      }
       const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       navigate(loginUrl(app, here));
     }

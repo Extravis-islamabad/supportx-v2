@@ -865,6 +865,8 @@ export const en = {
   'portal.fix.reject_send': 'Send and reopen',
   'portal.fix.title': 'We think this is fixed',
   'portal.fix.why': 'What is still wrong?',
+  'portal.from_console':
+    'The console is for the service desk. You can raise and follow your requests here.',
   'portal.home.answer': 'Find an answer',
   'portal.home.answer_hint': 'Search help articles, announcements and your requests.',
   'portal.home.approvals': 'Waiting for your approval',
