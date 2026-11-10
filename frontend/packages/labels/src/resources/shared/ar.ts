@@ -141,6 +141,7 @@ export const ar: LabelResource = {
   'layout.alerts_count_other': '{{count}} تنبيه',
   'layout.alerts_count_two': 'تنبيهان',
   'layout.alerts_count_zero': 'لا توجد تنبيهات',
+  'layout.also_above': 'موجود أعلاه أيضًا',
   'layout.done': 'تم',
   'layout.edit_field': 'تعديل {{field}}',
   'layout.favourites': 'المفضلة',

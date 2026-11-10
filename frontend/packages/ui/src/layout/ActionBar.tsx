@@ -100,8 +100,15 @@ export function ActionBar({ actions: given, max = 4, extra, lead, testId }: Acti
     icon: action.icon,
     'data-testid': action.testId === undefined ? undefined : `${action.testId}-menu`,
     label: (
-      <span>
+      <span data-also-above={chosen.has(action.key) ? 'true' : undefined}>
         {action.label}
+        {/* Also a button on the bar: the menu keeps REQ-WI-010's full fixed order, so the
+            repeat is marked rather than dropped (QA10-P4-24, P1-20; coordinator option c). */}
+        {chosen.has(action.key) && (
+          <Typography.Text type="secondary" style={{ fontSize: TYPE.meta, marginInlineStart: 8 }}>
+            {t('layout.also_above')}
+          </Typography.Text>
+        )}
         {!action.allowed && action.whyNot !== undefined && (
           <Typography.Text
             type="secondary"
