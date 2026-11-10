@@ -1153,7 +1153,8 @@ async def test_req_wi_005_ac5_channels_follow_d040_scopes(world: World, app_db: 
 
 # --- performance ----------------------------------------------------------------------------------
 
-ROWS = 100_000
+ROWS = timing.volume(100_000, 1_000)  # all nightly (perf.yml), a smoke run in PRs
+# Subjects to search must exist at both volumes: "000042" is incident 42 in either.
 RUNS = 30
 SEED = """
 INSERT INTO work_items (id, tenant_id, type, display_id, display_number, subject, requester_id,
@@ -1176,7 +1177,7 @@ FROM generate_series(1, $7) AS n
 
 @pytest.mark.timing
 async def test_incidents_list_p95_on_100k_rows(world: World) -> None:
-    """List p95 < 300 ms on 100,000 incidents (architecture §1.3 targets 10M in V1, k6)."""
+    """List p95 < 300 ms on 100,000 incidents nightly, 1,000 in PRs (§1.3 targets 10M in V1, k6)."""
     org = await make_org(world, "Perf")
     first = await world.create(org, org.admin)  # seeds the tenant's configuration
     assert first["display_id"] == "INC-1"
@@ -1199,7 +1200,7 @@ async def test_incidents_list_p95_on_100k_rows(world: World) -> None:
                 httpx.QueryParams(
                     {
                         "filter": json.dumps(
-                            {"field": "subject", "op": "contains", "value": "004242"}
+                            {"field": "subject", "op": "contains", "value": "000042"}
                         )
                     }
                 )
