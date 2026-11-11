@@ -128,8 +128,9 @@ function ScrollButtons() {
         background: token.colorBgContainer,
       }}
     >
-      {/* The arrow points the way the row moves on screen, mirrored in RTL. */}
-      {towardsEnd !== rtl ? <RightOutlined /> : <LeftOutlined />}
+      {/* "Later" points to the end and "earlier" to the start: the icons mirror themselves
+          in RTL (the matrix's Arabic shot showed them flipped twice when this flipped too). */}
+      {towardsEnd ? <RightOutlined /> : <LeftOutlined />}
     </button>
   );
   return (
