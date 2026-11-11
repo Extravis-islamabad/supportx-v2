@@ -74,6 +74,8 @@ class FieldChange(UuidPrimaryKey, TenantScoped, Base):
             "occurred_at",
             "change_id",
         ),
+        # All the rows of one save, by its change ID (migration 0135, built CONCURRENTLY).
+        Index("ix_field_changes_change", "tenant_id", "change_id"),
         # Reports (lane C, WP-035): backlog over time and time in status.
         Index(
             "ix_field_changes_tenant_type_field_time",
