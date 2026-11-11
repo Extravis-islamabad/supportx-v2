@@ -263,7 +263,11 @@ export function WebhookForm({ config, onChange, recordType, variables, readOnly 
   const twice = (name: string) => name !== '' && headers.filter(([k]) => k === name).length > 1;
   return (
     <>
-      <Form.Item label={t('workflows.form.webhook_url')} htmlFor="webhook-url">
+      <Form.Item
+        label={t('workflows.form.webhook_url')}
+        htmlFor="webhook-url"
+        extra={t('workflows.form.webhook_url_help')}
+      >
         <Input
           id="webhook-url"
           dir="ltr"

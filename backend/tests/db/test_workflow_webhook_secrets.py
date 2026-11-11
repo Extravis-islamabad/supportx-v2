@@ -3,6 +3,7 @@
 - Every read of a workflow (the draft, a save's answer, the export file) shows each header's
   value masked; the stored value is what the call sends.
 - A save that sends the mask back keeps the stored value; a new value replaces it.
+- A stored value never follows a changed address: the step needs its values typed again.
 - A file imported here has no values: each masked header is a problem until entered again.
 - The record's panel never shows step settings at all (#379, its own test).
 """
@@ -100,3 +101,33 @@ async def test_an_export_carries_no_header_value_and_its_import_asks_for_them(
     assert imported.status_code == 201, imported.text
     problems = [(p["where"], p["code"]) for p in imported.json()["problems"]]
     assert ("node:call", "webhook_header_value_missing") in problems
+
+
+async def test_a_stored_value_never_follows_a_changed_address(world: World) -> None:
+    a = world.a
+    flow = await _workflow(world, FLOW)
+    got = await world.call("GET", f"{BASE}/{flow}", a, a.admin)
+    sent = copy.deepcopy(got.json()["draft"])
+    step = next(n for n in sent["nodes"] if n["id"] == "call")
+    step["config"]["url"] = "https://elsewhere.example.test/collect"
+    saved = await world.call(
+        "PUT",
+        f"{BASE}/{flow}/draft",
+        a,
+        a.admin,
+        json={"definition": sent},
+        headers={"If-Match": f'"{got.json()["version"]}"'},
+    )
+    assert saved.status_code == 200, saved.text
+    problems = [(p["where"], p["code"]) for p in saved.json()["problems"]]
+    assert ("node:call", "webhook_header_value_missing") in problems
+    assert await _stored(world, flow) == {"Authorization": SECRET_MASK, "X-Team": SECRET_MASK}
+    refused = await world.call(
+        "POST",
+        f"{BASE}/{flow}/publish",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{saved.json()["version"]}"', **CONSOLE},
+    )
+    assert refused.status_code == 422
+    assert refused.json()["code"] == "workflow_has_problems"

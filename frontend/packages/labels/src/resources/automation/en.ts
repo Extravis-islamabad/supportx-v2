@@ -575,6 +575,8 @@ export const en = {
     'Optional: a number variable the next steps can check.',
   'workflows.form.webhook_method': 'Request type',
   'workflows.form.webhook_url': 'Address',
+  'workflows.form.webhook_url_help':
+    'Shown to every workflow admin. Put tokens and passwords in a header, which stays hidden; changing the address asks for them again.',
   'workflows.form.webhook_url_placeholder': 'https://example.com/hook',
   'workflows.import': 'Import',
   'workflows.import_not_json': 'This file is not a workflow file.',

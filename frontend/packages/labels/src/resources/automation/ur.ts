@@ -571,6 +571,8 @@ export const ur: LabelResource = {
   'workflows.form.webhook_keep_status_help': 'اختیاری: ایک عددی متغیر جسے اگلے مراحل جانچ سکیں۔',
   'workflows.form.webhook_method': 'درخواست کی قسم',
   'workflows.form.webhook_url': 'پتا',
+  'workflows.form.webhook_url_help':
+    'ہر ورک فلو منتظم کو دکھائی دیتا ہے۔ ٹوکن اور پاس ورڈ ہیڈر میں رکھیں جو پوشیدہ رہتا ہے؛ پتا بدلنے پر انہیں دوبارہ مانگا جاتا ہے۔',
   'workflows.form.webhook_url_placeholder': 'https://example.com/hook',
   'workflows.import': 'درآمد کریں',
   'workflows.import_not_json': 'یہ فائل ورک فلو فائل نہیں ہے۔',

@@ -568,6 +568,8 @@ export const ar: LabelResource = {
   'workflows.form.webhook_keep_status_help': 'اختياري: متغير رقمي يمكن للخطوات التالية فحصه.',
   'workflows.form.webhook_method': 'نوع الطلب',
   'workflows.form.webhook_url': 'العنوان',
+  'workflows.form.webhook_url_help':
+    'يظهر لكل مسؤولي سير العمل. ضع الرموز وكلمات المرور في ترويسة تبقى مخفية؛ وتغيير العنوان يتطلب إدخالها من جديد.',
   'workflows.form.webhook_url_placeholder': 'https://example.com/hook',
   'workflows.import': 'استيراد',
   'workflows.import_not_json': 'هذا الملف ليس ملف مسار عمل.',

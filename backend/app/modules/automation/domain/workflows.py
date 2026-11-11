@@ -1041,15 +1041,19 @@ def masked(definition: Mapping[str, Any]) -> dict[str, Any]:
 def with_kept_secrets(incoming: Mapping[str, Any], stored: Mapping[str, Any]) -> dict[str, Any]:
     """A saved definition whose masked header values are the stored ones again.
 
-    A value sent back as the mask keeps what is stored for the same step and header; one with
-    nothing stored stays the mask, which validation names (webhook_header_value_missing).
+    A value sent back as the mask keeps what is stored for the same step and header, and only
+    while the step still calls the same address: a stored token never follows a changed URL to
+    another host (lane B's #406 review). Otherwise it stays the mask, which validation names
+    (webhook_header_value_missing), so the workflow cannot be published until it is typed again.
     """
     kept = copy.deepcopy(dict(incoming))
-    before = {str(n.get("id")): n["config"]["headers"] for n in _webhooks(stored)}
+    before = {str(n.get("id")): n["config"] for n in _webhooks(stored)}
     for node in _webhooks(kept):
-        old = before.get(str(node.get("id")), {})
+        old = before.get(str(node.get("id")))
+        same_address = old is not None and old.get("url") == node["config"].get("url")
+        values = old["headers"] if old is not None and same_address else {}
         node["config"]["headers"] = {
-            k: old.get(k, v) if v == SECRET_MASK and old.get(k) != SECRET_MASK else v
+            k: values.get(k, v) if v == SECRET_MASK and values.get(k) != SECRET_MASK else v
             for k, v in node["config"]["headers"].items()
         }
     return kept
