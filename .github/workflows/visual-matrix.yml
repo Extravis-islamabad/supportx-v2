@@ -91,19 +91,32 @@ jobs:
           exit 1
       - name: Chromium system libraries (apt, retried)
         working-directory: frontend
+        # Never the job's whole budget: a hung apt fails here, named (run 43042363216 spent
+        # 31 min retrying a name that did not resolve).
+        timeout-minutes: 12
         run: |
-          # apt's own retries for each download, then three whole attempts waiting 20 s and
-          # 40 s; the last attempt leaves the runner's Azure mirror for archive.ubuntu.com, in
-          # case the mirror's name is what does not resolve.
-          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-supportx-retries >/dev/null
+          # The runner's apt sources read `mirror+file:/etc/apt/apt-mirrors.txt`, which names the
+          # Azure mirror; even security.ubuntu.com downloads go through it. When that name does
+          # not resolve (runs 43036727839 and 43042363216), every download fails however often
+          # it is retried. So: short timeouts, the Azure mirror once, then the public archive
+          # written into the mirror list itself (and into the plain sources, for other images).
+          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "20";' \
+            'Acquire::https::Timeout "20";' |
+            sudo tee /etc/apt/apt.conf.d/80-supportx-retries >/dev/null
+          use_public_archive() {
+            echo "::warning::using archive.ubuntu.com and security.ubuntu.com instead of the Azure mirror"
+            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+              printf 'http://archive.ubuntu.com/ubuntu/\tpriority:1\nhttp://security.ubuntu.com/ubuntu/\tpriority:2\n' |
+                sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+            fi
+            sudo sed -i 's#http://azure\.archive\.ubuntu\.com/#http://archive.ubuntu.com/#g' \
+              /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
+          }
           wait_s=20
           for attempt in 1 2 3; do
-            if (( attempt == 3 )); then
-              echo "::warning::last attempt: using archive.ubuntu.com instead of the Azure mirror"
-              sudo sed -i 's#http://azure\.archive\.ubuntu\.com/#http://archive.ubuntu.com/#g' \
-                /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
-            fi
-            pnpm --filter @supportx/e2e exec playwright install-deps chromium && exit 0
+            if (( attempt == 2 )); then use_public_archive; fi
+            # Each attempt bounded too, so a hang becomes the next attempt.
+            timeout 300 pnpm --filter @supportx/e2e exec playwright install-deps chromium && exit 0
             if (( attempt < 3 )); then
               echo "::warning::Chromium system libraries, attempt $attempt of 3 failed; trying again in ${wait_s}s"
               sleep "$wait_s"
