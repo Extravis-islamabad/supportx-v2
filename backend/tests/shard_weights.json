@@ -3,7 +3,7 @@
   "app/modules/ai/tests/test_providers.py": 0.3,
   "app/modules/analytics/tests/test_domain.py": 0.1,
   "app/modules/analytics/tests/test_export_marks.py": 0.8,
-  "app/modules/analytics/tests/test_pdf.py": 0.0,
+  "app/modules/analytics/tests/test_report_pdf.py": 0.0,
   "app/modules/analytics/tests/test_realtime.py": 0.0,
   "app/modules/analytics/tests/test_schedule.py": 0.0,
   "app/modules/analytics/tests/test_writers.py": 0.1,
