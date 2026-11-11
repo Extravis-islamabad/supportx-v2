@@ -588,12 +588,38 @@ async def steps(instance_id: uuid.UUID, session: TenantSession, subject: Run) ->
     return await _steps_of(session, instance_id)
 
 
+def _diagram(definition: dict[str, Any]) -> dict[str, Any]:
+    """What the record panel draws: steps and links, never their settings (lane B's #379 review).
+
+    A step's settings can hold secrets (a webhook's URL and headers, a function's inputs) that
+    only workflows.manage may read; workflows.run holders see the shape of the run alone.
+    """
+    nodes = definition.get("nodes")
+    links = definition.get("links")
+    return {
+        "format": definition.get("format"),
+        "nodes": [
+            {"id": n.get("id"), "type": n.get("type"), "config": {}, "position": n.get("position")}
+            for n in (nodes if isinstance(nodes, list) else [])
+            if isinstance(n, dict)
+        ],
+        "links": [
+            {"from": li.get("from"), "port": li.get("port"), "to": li.get("to")}
+            for li in (links if isinstance(links, list) else [])
+            if isinstance(li, dict)
+        ],
+        "variables": [],
+    }
+
+
 class RecordWorkflowOut(BaseModel):
     """One workflow run on a record, everything its panel draws (REQ-WF-023, -024)."""
 
     instance: InstanceOut
     workflow_name: str
-    definition: dict[str, Any] = Field(description="The version it runs, to draw its diagram.")
+    definition: dict[str, Any] = Field(
+        description="The version's steps and links to draw, without their settings."
+    )
     current_nodes: list[str] = Field(description="Where it is now (marked on the diagram).")
     steps: list[StepOut] = Field(description=f"Its log, oldest first (the last {STEPS_MAX}).")
 
@@ -638,7 +664,7 @@ async def record_workflows(
             RecordWorkflowOut(
                 instance=_instance(row),
                 workflow_name=flow.name if flow is not None else "",
-                definition=dict(version.definition) if version is not None else {},
+                definition=_diagram(dict(version.definition)) if version is not None else {},
                 current_nodes=_current(row.state),
                 steps=await _steps_of(session, row.id),
             )

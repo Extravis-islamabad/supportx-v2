@@ -55,3 +55,63 @@ async def test_another_tenant_s_record_is_not_found(world: World) -> None:
     await _start(world, await _workflow(world, WAIT_FOR_P1), item["id"])
     theirs = await world.call("GET", f"{BASE}/records/incident/{item['id']}", b, b.admin)
     assert theirs.status_code == 404
+
+
+SECRET = "Bearer s3cr3t-token-value"
+WEBHOOK_WAIT = {
+    "format": 1,
+    "nodes": [
+        {"id": "s", "type": "start", "config": {}, "position": {"x": 0, "y": 0}},
+        {
+            "id": "w",
+            "type": "wait",
+            "config": {
+                "events": ["field_changed"],
+                "condition": {"field": "priority", "op": "eq", "value": "p1"},
+            },
+            "position": {"x": 0, "y": 140},
+        },
+        {
+            "id": "call",
+            "type": "webhook",
+            "config": {
+                "url": "https://hooks.example.test/in?token=abc123",
+                "headers": {"Authorization": SECRET},
+                "fields": ["subject"],
+            },
+            "position": {"x": 0, "y": 280},
+        },
+        {"id": "e", "type": "end", "config": {}, "position": {"x": 0, "y": 420}},
+    ],
+    "links": [
+        {"from": "s", "port": "next", "to": "w"},
+        {"from": "w", "port": "next", "to": "call"},
+        {"from": "w", "port": "overtaken", "to": "call"},
+        {"from": "call", "port": "next", "to": "e"},
+    ],
+    "variables": [],
+}
+
+
+async def test_the_panel_never_shows_a_step_s_settings(world: World) -> None:
+    """workflows.run holders see the run's shape only: a webhook's URL and headers stay with
+    workflows.manage (lane B's #379 review)."""
+    a = world.a
+    item = await world.create(a, a.admin, group_id=str(a.ga))  # tech_a is in GA: may see it
+    await _start(world, await _workflow(world, WEBHOOK_WAIT), item["id"])
+    runner = await role(world, a, "Workflow runner", [("workflows.run", "all")])
+    assigned = await world.call("PUT", f"/users/{a.tech_a}/roles/{runner}", a, a.admin)
+    assert assigned.status_code in {200, 204}, assigned.text
+    got = await world.call("GET", f"{BASE}/records/incident/{item['id']}", a, a.tech_a)
+    assert got.status_code == 200, got.text
+    assert SECRET not in got.text
+    assert "token=abc123" not in got.text
+    assert "hooks.example.test" not in got.text
+    [run] = got.json()
+    assert {n["id"]: n["config"] for n in run["definition"]["nodes"]} == {
+        "s": {},
+        "w": {},
+        "call": {},
+        "e": {},
+    }
+    assert len(run["definition"]["links"]) == 4  # the shape is all there
