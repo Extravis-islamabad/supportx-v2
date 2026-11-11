@@ -32,6 +32,7 @@ export const ur: LabelResource = {
   'asset_booking_status.handed_over': 'حوالے کر دیا',
   'asset_change_origin.asset_audit': 'آڈٹ {{display_id}} سے: {{name}}',
   'asset_change_origin.asset_overdue_rule': 'تاخیر سے اسکین کے اصول کے ذریعے',
+  'asset_change_reason.overdue_scan_rule': 'تاخیر سے اسکین کا اصول: {{days}} دن سے اسکین نہیں ہوا',
   'asset_components_choice.detach': 'انہیں الگ کریں',
   'asset_components_choice.dispose': 'انہیں بھی تلف کریں',
   'asset_cost_kind.contract': 'معاہدہ',

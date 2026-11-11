@@ -86,6 +86,7 @@ from app.shared.ids import new_id
 log = get_logger(__name__)
 SCANS_PAGE_MAX = 100
 RULE_RECORD_TYPE = "asset_overdue_rule"
+OVERDUE_REASON = "overdue_scan_rule"  # label asset_change_reason.overdue_scan_rule {{days}}
 RULE_FIELDS = ("enabled", "days", "product_type_ids", "action", "state_id")
 DELETE_BATCH = 5000
 RUNS_LISTED = 20
@@ -539,7 +540,14 @@ async def run_rule(session: AsyncSession, *, now: datetime | None = None) -> Ass
         return None
     at = now or system_clock.now()
     statement = (await _overdue(session, terms, at)).order_by(Asset.id).limit(RUN_LIST_MAX)
-    ref = {"kind": "asset_overdue_rule", "days": rule.days, "action": rule.action}
+    # The rule is the reason a "reason required" state asks for (accepted by the coordinator):
+    # a labelled code with its parameters in the history's automation_ref, never free text.
+    ref = {
+        "kind": "asset_overdue_rule",
+        "action": rule.action,
+        "reason": OVERDUE_REASON,
+        "params": {"days": rule.days},
+    }
     changed: list[dict[str, str | None]] = []
     for row in list(await session.scalars(statement.with_for_update(of=Asset, skip_locked=True))):
         try:

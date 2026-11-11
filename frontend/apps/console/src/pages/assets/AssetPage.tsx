@@ -922,10 +922,14 @@ function AssetHistory({ id }: { id: string }) {
               {entry.origin != null && (
                 <Typography.Text type="secondary" data-testid="asset-history-origin">
                   <bdi dir="auto">
-                    {t(`asset_change_origin.${entry.origin.kind}`, {
-                      display_id: entry.origin.display_id ?? '',
-                      name: entry.origin.name ?? '',
-                    })}
+                    {entry.origin.reason_code != null
+                      ? t(`asset_change_reason.${entry.origin.reason_code}`, {
+                          ...entry.origin.reason_params,
+                        })
+                      : t(`asset_change_origin.${entry.origin.kind}`, {
+                          display_id: entry.origin.display_id ?? '',
+                          name: entry.origin.name ?? '',
+                        })}
                   </bdi>
                 </Typography.Text>
               )}

@@ -420,6 +420,42 @@ describe('labels, scans and history origin on the asset page', () => {
     expect(within(table).getByText('Probe')).toBeTruthy();
   });
 
+  it("the overdue rule's move shows its labelled reason, with the days", async () => {
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=history`);
+    const fake = assetApi(['tenant_admin'], {
+      [`GET /api/v1/assets/${asset.id}/history`]: {
+        body: {
+          items: [
+            {
+              version: 4,
+              kind: 'updated',
+              actor_id: null,
+              actor_name: null,
+              source: 'rule',
+              reason: null,
+              occurred_at: '2026-11-11T10:00:00Z',
+              changes: [{ field: 'state_id', old: 'a', new: 'b' }],
+              origin: {
+                kind: 'asset_overdue_rule',
+                audit_id: null,
+                display_id: null,
+                name: null,
+                reason_code: 'overdue_scan_rule',
+                reason_params: { days: 60 },
+              },
+            },
+          ],
+          next_cursor: null,
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect((await screen.findByTestId('asset-history-origin')).textContent).toBe(
+      'Overdue scan rule: not scanned for 60 days',
+    );
+  });
+
   it("a fix's history entry names the audit it came from", async () => {
     window.history.pushState({}, '', `/assets/${asset.id}?tab=history`);
     const fake = assetApi(['tenant_admin']);

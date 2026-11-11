@@ -32,6 +32,7 @@ export const ar: LabelResource = {
   'asset_booking_status.handed_over': 'سُلّم',
   'asset_change_origin.asset_audit': 'من التدقيق {{display_id}}: {{name}}',
   'asset_change_origin.asset_overdue_rule': 'بقاعدة المسح المتأخر',
+  'asset_change_reason.overdue_scan_rule': 'قاعدة المسح المتأخر: لم يُمسح منذ {{days}} يومًا',
   'asset_components_choice.detach': 'فصلها',
   'asset_components_choice.dispose': 'التخلّص منها أيضًا',
   'asset_cost_kind.contract': 'عقد',

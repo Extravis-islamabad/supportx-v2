@@ -46,6 +46,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "TermsSource": "asset_terms_source",
     # Labels, audits, scans and the overdue rule (WP-049b s3)
     "AssetChangeOriginOut.kind": "asset_change_origin",
+    "AssetChangeOriginOut.reason_code": "asset_change_reason",
     "AuditFix": "asset_audit_fix",
     "AuditItemKind": "asset_audit_item_kind",
     "AuditItemResult": "asset_audit_result",

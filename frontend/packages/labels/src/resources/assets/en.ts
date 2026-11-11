@@ -30,6 +30,7 @@ export const en = {
   'asset_booking_status.handed_over': 'Handed over',
   'asset_change_origin.asset_audit': 'From audit {{display_id}}: {{name}}',
   'asset_change_origin.asset_overdue_rule': 'By the overdue-scan rule',
+  'asset_change_reason.overdue_scan_rule': 'Overdue scan rule: not scanned for {{days}} days',
   'asset_components_choice.detach': 'Detach them',
   'asset_components_choice.dispose': 'Dispose of them too',
   'asset_cost_kind.contract': 'Contract',

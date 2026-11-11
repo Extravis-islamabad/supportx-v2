@@ -162,8 +162,10 @@ async def test_056_ac1_and_ac2_a_laptop_not_scanned_for_61_days_moves_to_missing
     assert (await _fresh(world, a, never))["state_id"] != states["missing"]
     history = (await world.call("GET", f"/assets/{overdue['id']}/history", a, a.admin)).json()
     latest = history["items"][0]
-    assert (latest["source"], latest["origin"]) == ("rule", {
+    # The rule is the "reason required" state's reason: a labelled code with its days, no text.
+    assert (latest["source"], latest["reason"], latest["origin"]) == ("rule", None, {
         "kind": "asset_overdue_rule", "audit_id": None, "display_id": None, "name": None,
+        "reason_code": "overdue_scan_rule", "reason_params": {"days": 60},
     })  # fmt: skip
     runs = (await world.call("GET", f"{RULE}/runs", a, a.admin)).json()
     assert [(r["changed_count"], r["changed"][0]["asset_id"]) for r in runs] == [(1, overdue["id"])]
@@ -201,7 +203,11 @@ async def test_056_ac3_an_asset_the_rule_moved_to_the_trash_is_restored_with_its
         (c["old"], c["new"]) for e in items[:2] for c in e["changes"] if c["field"] == "deleted"
     ]
     assert trash == [(True, False), (False, True)]  # restored, after the rule's move to the trash
-    assert (items[0]["origin"], items[1]["origin"]["kind"]) == (None, "asset_overdue_rule")
+    assert items[0]["origin"] is None
+    assert (items[1]["origin"]["reason_code"], items[1]["origin"]["reason_params"]) == (
+        "overdue_scan_rule",
+        {"days": 90},
+    )
     assert items[-1]["kind"] == "created"  # all of it kept
 
 

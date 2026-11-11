@@ -231,6 +231,10 @@ class AssetChangeOriginOut(BaseModel):
     audit_id: uuid.UUID | None = None
     display_id: str | None = None
     name: str | None = None
+    reason_code: Literal["overdue_scan_rule"] | None = Field(
+        default=None, description="The change's reason as a code; labelled with its params."
+    )
+    reason_params: dict[str, int] = Field(default_factory=dict)
 
 
 def _origin(ref: object) -> AssetChangeOriginOut | None:
@@ -244,7 +248,14 @@ def _origin(ref: object) -> AssetChangeOriginOut | None:
             name=str(ref.get("name") or ""),
         )
     if ref.get("kind") == "asset_overdue_rule":
-        return AssetChangeOriginOut(kind="asset_overdue_rule")
+        params = ref.get("params")
+        return AssetChangeOriginOut(
+            kind="asset_overdue_rule",
+            reason_code="overdue_scan_rule" if ref.get("reason") == "overdue_scan_rule" else None,
+            reason_params={k: v for k, v in (params or {}).items() if isinstance(v, int)}
+            if isinstance(params, dict)
+            else {},
+        )
     return None
 
 
