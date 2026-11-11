@@ -292,6 +292,8 @@ export const ar: LabelResource = {
   'errors.field.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.field.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
+  'errors.field.change_in_other_release':
+    'هذا التغيير موجود بالفعل في الإصدار المفتوح {{release}}.',
   'errors.field.change_would_loop':
     'لا يمكن أن يكون التغيير جزءًا من نفسه، مباشرة أو عبر تغييرات أخرى.',
   'errors.field.channel_reserved':
@@ -922,6 +924,7 @@ export const ar: LabelResource = {
   'errors.work_item_link_not_found': 'لم يعد هذا الرابط موجودًا.',
   'errors.work_item_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
   'errors.work_item_task_not_found': 'لم تعد هذه المهمة موجودة.',
+  'errors.work_item_type_not_found': 'لا يوجد نوع سجل كهذا.',
   'errors.work_item_view_not_found':
     'طريقة العرض المحفوظة هذه لم تعد موجودة، أو أنها غير مشاركة معك.',
   'errors.work_item_worklog_not_found': 'لم يعد سجل العمل هذا موجودًا.',

@@ -21,7 +21,7 @@ from app.modules.identity_access import Subject
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.stages import Move
-from app.modules.work_items.domain.types import RELEASE, WorkItemType
+from app.modules.work_items.domain.types import CHANGE, RELEASE, WorkItemType
 from app.modules.work_items.infra.models import WorkItem, WorkItemLink
 from app.modules.work_items.service import stages as stage_service
 from app.shared.history import Change, Source
@@ -82,6 +82,35 @@ async def _ancestors(session: AsyncSession, record_id: uuid.UUID) -> list[uuid.U
         if current is not None:
             found.append(current)
     return found
+
+
+# Links whose target holds their source: a sub-release in its parent, a child change or a release
+# in the change it is part of (lane A's 0133), a change in its release (0138).
+CONTAINED_IN = (SUB, LinkKind.PART_OF_CHANGE.value, LinkKind.IN_RELEASE.value)
+CHANGE_WOULD_LOOP = "change_would_loop"  # lane A's code and label (WP-045d)
+
+
+async def _holds(session: AsyncSession, outer: uuid.UUID, inner: uuid.UUID) -> bool:
+    """Whether `outer` already holds `inner`, through any chain of holding links (bounded)."""
+    seen: set[uuid.UUID] = {inner}
+    level = [inner]
+    for _ in range(MAX_DEPTH):
+        if not level:
+            return False
+        ups = set(
+            await session.scalars(
+                select(WorkItemLink.target_id).where(
+                    WorkItemLink.source_id.in_(level),
+                    WorkItemLink.kind.in_(CONTAINED_IN),
+                    WorkItemLink.deleted_at.is_(None),
+                )
+            )
+        )
+        if outer in ups:
+            return True
+        level = list(ups - seen)
+        seen |= ups
+    return False
 
 
 async def sub_releases(
@@ -210,3 +239,184 @@ async def sub_release_refusals(
     if not behind:
         return []
     return [stage_service.Refusal(SUB_RELEASES_NOT_TESTED, {"releases": ", ".join(behind)})]
+
+
+# --- changes in a release (WP-058b S1; REQ-REL-033) ---------------------------------------------
+
+IN_RELEASE = LinkKind.IN_RELEASE.value
+CHANGE_IN_OTHER_RELEASE = "change_in_other_release"  # AC2's refusal code (names the release)
+
+
+@dataclass(frozen=True)
+class ReleaseChange:
+    """A change in a release as the release lists it: details only for those who may see it."""
+
+    id: uuid.UUID
+    link_id: uuid.UUID
+    seen: bool
+    display_id: str | None
+    subject: str | None
+    stage: str | None
+    status: str | None
+    status_category: str | None
+
+
+async def _change_links(session: AsyncSession, release_id: uuid.UUID) -> list[WorkItemLink]:
+    return list(
+        await session.scalars(
+            select(WorkItemLink)
+            .where(
+                WorkItemLink.target_id == release_id,
+                WorkItemLink.kind == IN_RELEASE,
+                WorkItemLink.deleted_at.is_(None),
+            )
+            .order_by(WorkItemLink.created_at)
+        )
+    )
+
+
+async def release_changes(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> list[ReleaseChange]:
+    """The changes in a release you may see (AC3: one you may not see shows only that it is)."""
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - cycle
+
+    if wtype.code is not RELEASE.code:
+        raise NotFound(code="work_item_not_found")
+    await items.visible_record(session, subject, wtype, record_id)
+    shown: list[ReleaseChange] = []
+    for link in await _change_links(session, record_id):
+        change = await session.get(WorkItem, link.source_id)
+        if change is None or change.deleted_at is not None:
+            continue
+        seen = await items.may(session, subject, CHANGE, "view", change.id)
+        shown.append(
+            ReleaseChange(
+                change.id,
+                link.id,
+                seen,
+                change.display_id if seen else None,
+                change.subject if seen else None,
+                change.stage if seen else None,
+                change.status if seen else None,
+                change.status_category if seen else None,
+            )
+        )
+    return shown
+
+
+async def _open_release_of(
+    session: AsyncSession, change_id: uuid.UUID
+) -> tuple[WorkItemLink, WorkItem] | None:
+    """The open release a change is already in (closed or canceled ones do not hold it)."""
+    rows = await session.execute(
+        select(WorkItemLink, WorkItem)
+        .join(WorkItem, WorkItem.id == WorkItemLink.target_id)
+        .where(
+            WorkItemLink.source_id == change_id,
+            WorkItemLink.kind == IN_RELEASE,
+            WorkItemLink.deleted_at.is_(None),
+            WorkItem.deleted_at.is_(None),
+        )
+    )
+    for link, release in rows:
+        if StatusCategory(release.status_category) not in FINAL_CATEGORIES:
+            return link, release
+    return None
+
+
+async def add_change(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    change_id: uuid.UUID,
+    *,
+    source: Source,
+) -> WorkItemLink:
+    """Put a change in the release; one open release per change (AC2), history on both (AC1).
+
+    The change is locked first, so two releases taking it at once cannot both succeed.
+    """
+    from app.modules.work_items.service import parts  # noqa: PLC0415 - cycle
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - cycle
+
+    if wtype.code is not RELEASE.code:
+        raise NotFound(code="work_item_not_found")
+    release = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    try:
+        change = await items.visible_record(session, subject, CHANGE, change_id)
+    except NotFound as error:
+        raise items.field_errors([("change_id", "record_not_found")]) from error
+    await session.get(WorkItem, change.id, with_for_update=True)
+    # The change already holds this release (the release is part of it, directly or through
+    # its parents or child changes): putting the change in the release would loop (lane A).
+    if await _holds(session, change.id, release.id):
+        raise items.field_errors([("change_id", CHANGE_WOULD_LOOP)])
+    held = await _open_release_of(session, change.id)
+    if held is not None:
+        if held[1].id == release.id:
+            return held[0]  # already in this release: nothing to do
+        raise items.field_errors(
+            [("change_id", CHANGE_IN_OTHER_RELEASE)],
+            change_id={"release": held[1].display_id},
+        )
+    link = await parts.LinkRepository(session).add(
+        WorkItemLink(source_id=change.id, target_id=release.id, kind=IN_RELEASE)
+    )
+    await _changed(
+        session, change=change, release=release, link=link, kind="child_added", source=source
+    )
+    return link
+
+
+async def remove_change(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    change_id: uuid.UUID,
+    *,
+    source: Source,
+) -> None:
+    """Take a change out of the release, with history on both."""
+    from app.modules.work_items.service import parts  # noqa: PLC0415 - cycle
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415 - cycle
+
+    if wtype.code is not RELEASE.code:
+        raise NotFound(code="work_item_not_found")
+    release = await items.record_for_action(session, subject, wtype, "edit", record_id)
+    link = next(
+        (li for li in await _change_links(session, release.id) if li.source_id == change_id), None
+    )
+    change = await session.get(WorkItem, change_id)
+    if link is None or change is None:
+        raise NotFound(code="link_not_found")
+    removed = await parts.LinkRepository(session).soft_delete(
+        link.id, expected_version=link.version
+    )
+    await _changed(
+        session, change=change, release=release, link=removed, kind="child_removed", source=source
+    )
+
+
+async def _changed(  # noqa: PLR0913 - both records, the link and what happened, explicit
+    session: AsyncSession,
+    *,
+    change: WorkItem,
+    release: WorkItem,
+    link: WorkItemLink,
+    kind: str,
+    source: Source,
+) -> None:
+    """History and signals on both records, one label pair (REQ-INC-087)."""
+    from app.modules.work_items.service import parts  # noqa: PLC0415 - cycle
+
+    for this, that in ((change, release), (release, change)):
+        value = {"kind": IN_RELEASE, "id": str(that.id), "display_id": that.display_id}
+        changes = (
+            [Change("link", None, value)]
+            if kind == "child_added"
+            else [Change("link", value, None)]
+        )
+        await parts.recorded(session, this, "link", link.id, kind, changes, source)  # type: ignore[arg-type]  # one of the part kinds
