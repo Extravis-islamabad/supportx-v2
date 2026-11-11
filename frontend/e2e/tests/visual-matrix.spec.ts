@@ -54,7 +54,8 @@ type Records = Partial<
     | 'consumable'
     | 'catalogItem'
     | 'workflow'
-    | 'workflowRun',
+    | 'workflowRun'
+    | 'workflowRunFlow',
     string
   >
 >;
@@ -272,6 +273,22 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.catalogItem ? `/admin/catalog/items/${r.catalogItem}` : undefined),
     app: 'console',
     sideOnly: true,
+  },
+  // WP-048b S5: the runs overview (template C) and the designer's versions.
+  { key: 'admin-workflows-runs', path: '/admin/workflows/runs', app: 'console', sideOnly: true },
+  {
+    key: 'admin-workflow-versions',
+    path: (r) => (r.workflowRunFlow ? `/admin/workflows/${r.workflowRunFlow}` : undefined),
+    app: 'console',
+    sideOnly: true,
+    // The move dialog over version 1, whose run is still live after version 2 was published.
+    state: {
+      name: 'move',
+      open: async (page) => {
+        await tab('versions')(page);
+        await click('version-1-move')(page);
+      },
+    },
   },
   // WP-048b S4d: a record's Workflows tab, with a run waiting on it (template A's tabs).
   {
@@ -502,7 +519,9 @@ async function findRecords(page: Page): Promise<Records> {
     (await first('/api/v1/incidents?limit=1', firstItem));
   return {
     incident,
-    workflowRun: await showcaseRun(page, incident),
+    ...(await showcaseRun(page, incident).then((made) =>
+      made === undefined ? {} : { workflowRun: made.incident, workflowRunFlow: made.flow },
+    )),
     request: await first('/api/v1/service-requests?limit=1', firstItem),
     article: await first('/api/v1/knowledge/articles', firstOfList),
     dashboard: await first(
@@ -526,7 +545,10 @@ async function findRecords(page: Page): Promise<Records> {
  * → end, published, switched on and started on the incident, so the tab shows a run waiting.
  * Returns the incident's ID; a stack that refuses any step simply has no such shot.
  */
-async function showcaseRun(page: Page, incident: string | undefined): Promise<string | undefined> {
+async function showcaseRun(
+  page: Page,
+  incident: string | undefined,
+): Promise<{ incident: string; flow: string } | undefined> {
   if (incident === undefined) return undefined;
   const { csrf } = await me(page);
   const write = { 'X-CSRF-Token': csrf };
@@ -573,7 +595,11 @@ async function showcaseRun(page: Page, incident: string | undefined): Promise<st
     data: { record_id: incident },
     headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
   });
-  return started.ok() ? incident : undefined;
+  if (!started.ok()) return undefined;
+  // Version 2 (the same steps): the run stays on version 1, so the Versions tab can move it.
+  if (!(await step('put', '/draft', { definition }))) return { incident, flow: flow.id };
+  await step('post', '/publish');
+  return { incident, flow: flow.id };
 }
 
 /**

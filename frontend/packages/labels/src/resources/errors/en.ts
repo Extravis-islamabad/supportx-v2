@@ -905,6 +905,8 @@ export const en = {
   'errors.sign_in_unknown_person':
     'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
   'errors.site_not_found': 'The site was not found.',
+  'errors.skip_without_next':
+    'This step has no single next step to move on to, so it cannot be skipped; retry it or run the workflow again from a chosen step.',
   'errors.sla_fallback_required':
     'The default policy cannot be deleted: it applies when no other policy does.',
   'errors.sla_policy_not_found': 'This SLA policy does not exist or was deleted.',

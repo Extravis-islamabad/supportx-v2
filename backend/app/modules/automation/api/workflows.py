@@ -7,7 +7,7 @@ Drafts answer with their problems, each naming the node or link it is about (REQ
 
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
@@ -124,6 +124,13 @@ class RestartIn(BaseModel):
     node: str | None = Field(default=None, min_length=1, max_length=40)
 
 
+class RecordLabelOut(BaseModel):
+    """A run's record as people name it; only for a record the viewer may see (WP-048b S5a)."""
+
+    display_id: str
+    subject: str
+
+
 class InstanceOut(BaseModel):
     """One run: where it is, and why it stopped if it did (REQ-WF-023, -024)."""
 
@@ -140,6 +147,12 @@ class InstanceOut(BaseModel):
     finished_at: datetime | None
     stopped_reason: str | None = None  # why it was stopped: the person's words, or a code
     version: int
+    # The runs overview fills these (WP-048b S5a); added as optional, the contract stays.
+    record: RecordLabelOut | None = Field(
+        default=None, description="None: not given here, or the viewer may not see the record."
+    )
+    workflow_name: str | None = None
+    current_nodes: list[str] | None = Field(default=None, description="Where it is now.")
 
 
 class StepOut(BaseModel):
@@ -383,6 +396,8 @@ INSTANCE_FIELDS = ResourceFields(
             values=frozenset(s.value for s in InstanceStatus),
         ),
         "record_type": FilterField(WorkflowInstance.record_type, FieldType.STRING),
+        # The runs still on one version: what a migration moves (WP-048b S5c).
+        "version_number": FilterField(WorkflowInstance.version_number, FieldType.INTEGER),
         "started_at": FilterField(
             WorkflowInstance.started_at, FieldType.DATETIME, sortable=True, simple=False
         ),
@@ -395,8 +410,12 @@ INSTANCE_FIELDS = ResourceFields(
     default_sort=("-started_at",),
 )
 InstancesQuery = Annotated[
-    ListQuery, Depends(list_query(INSTANCE_FIELDS, extra_parameters=frozenset({"node"})))
+    ListQuery,
+    Depends(
+        list_query(INSTANCE_FIELDS, extra_parameters=frozenset({"node", "waiting_over_hours"}))
+    ),
 ]
+WAITING_OVER_MAX = 24 * 366  # a year, in hours
 
 
 @router.get("/instances", summary="Every workflow run: the overview")
@@ -405,22 +424,89 @@ async def overview(
     query: InstancesQuery,
     subject: Manage,
     node: Annotated[str | None, Query(min_length=1, max_length=40)] = None,
+    waiting_over_hours: Annotated[int | None, Query(ge=1, le=WAITING_OVER_MAX)] = None,
 ) -> Page[InstanceOut]:
     """Runs by workflow, state and age, failed ones with their node and error (REQ-WF-025).
 
     `node=` keeps the runs that have a step there now (a waiting or failed token).
+    `waiting_over_hours=` keeps the live runs that have not moved for that long (AC3): their
+    latest step is older. The latest step is read on the steps' primary key (tenant_id,
+    instance_id, seq) backwards, one row per run, so no index is added.
     """
-    del subject
     statement = select(WorkflowInstance)
     if node is not None:
         statement = statement.where(WorkflowInstance.state["tokens"].contains([{"node": node}]))
+    if waiting_over_hours is not None:
+        latest = (
+            select(WorkflowStep.at)
+            .where(
+                WorkflowStep.tenant_id == WorkflowInstance.tenant_id,
+                WorkflowStep.instance_id == WorkflowInstance.id,
+            )
+            .order_by(WorkflowStep.seq.desc())
+            .limit(1)
+            .correlate(WorkflowInstance)
+            .scalar_subquery()
+        )
+        cutoff = datetime.now(UTC) - timedelta(hours=waiting_over_hours)
+        statement = statement.where(
+            WorkflowInstance.status.in_(
+                (InstanceStatus.RUNNING.value, InstanceStatus.WAITING.value)
+            ),
+            latest < cutoff,
+        )
     page = await paginate(session, statement, query)
     return Page[InstanceOut](
-        items=[_instance(row) for row in page.rows],
+        items=await _named(session, subject, list(page.rows)),
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
     )
+
+
+async def _named(
+    session: TenantSession, subject: Subject, rows: list[WorkflowInstance]
+) -> list[InstanceOut]:
+    """Each run with its record's name, only where the viewer may see the record.
+
+    workflows.manage lists every run of the tenant (ADR-043 §10), but a record's ID and subject
+    are the record's own data: they follow the record type's view rule (the coordinator, S5).
+    """
+    visible: dict[str, set[uuid.UUID]] = {}
+    for row in rows:
+        kind = registered(row.record_type)
+        if (
+            kind is not None
+            and kind.may_view is not None
+            and await kind.may_view(session, subject, row.record_id)
+        ):
+            visible.setdefault(row.record_type, set()).add(row.record_id)
+    names: dict[uuid.UUID, tuple[str, str]] = {}
+    for record_type, ids in visible.items():
+        kind = registered(record_type)
+        if kind is not None and kind.labels is not None:
+            names.update(await kind.labels(session, sorted(ids)))
+    flows = {
+        w.id: w.name
+        for w in await session.scalars(
+            select(Workflow).where(Workflow.id.in_({r.workflow_id for r in rows}))
+        )
+    }
+    out = []
+    for row in rows:
+        name = names.get(row.record_id)
+        out.append(
+            _instance(row).model_copy(
+                update={
+                    "workflow_name": flows.get(row.workflow_id, ""),
+                    "current_nodes": _current(row.state),
+                    "record": None
+                    if name is None
+                    else RecordLabelOut(display_id=name[0], subject=name[1]),
+                }
+            )
+        )
+    return out
 
 
 @router.get("/{workflow_id}", summary="One workflow, with its draft's problems")
@@ -460,8 +546,7 @@ async def publish(
     workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
 ) -> WorkflowOut:
     """Refused while the draft has problems (422 workflow_has_problems)."""
-    del subject
-    await workflow_admin.publish(session, workflow_id, expected_version=version)
+    await workflow_admin.publish(session, workflow_id, expected_version=version, by=subject.user_id)
     found = await session.get(Workflow, workflow_id)
     assert found is not None  # just published  # noqa: S101
     return _out(found)
@@ -776,6 +861,38 @@ async def retry_instance(
     return _instance(again)
 
 
+@router.post("/instances/{instance_id}/skip", summary="Skip a failed workflow's failed step")
+async def skip_instance(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    instance_id: uuid.UUID,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Run,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "automation.workflow_skipped",
+            object_type="workflow_instance",
+            object_param="instance_id",
+        ),
+    ],
+) -> InstanceOut:
+    """REQ-WF-024 AC2: on with the failed step's "next" output only.
+
+    Audited with the step and the record; needs the right to edit the record, as retry does.
+    """
+    instance = await _instance_to_act_on(session, subject, instance_id)
+    again, node = await workflow_runtime.skip(session, instance_id, expected_version=version)
+    note.details = {
+        **note.details,
+        "node": node,
+        "record_type": instance.record_type,
+        "record_id": str(instance.record_id),
+    }
+    set_etag(response, again.version)
+    return _instance(again)
+
+
 # --- the overview and bulk jobs (WP-048b S3b; REQ-WF-025) -------------------------------------
 
 
@@ -826,21 +943,34 @@ def _job(row: WorkflowJob) -> JobOut:
     "/{workflow_id}/jobs",
     summary="Retry or cancel many runs, as a background job",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[
-        audited(
-            "automation.workflow_job_queued", object_type="workflow", object_param="workflow_id"
-        )
-    ],
+    response_model=JobOut,
 )
-async def queue_job(
+async def queue_job(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     workflow_id: uuid.UUID,
     body: JobIn,
     session: TenantSession,
     subject: Manage,
     idempotency: Idempotency,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "automation.workflow_job_queued", object_type="workflow", object_param="workflow_id"
+        ),
+    ],
 ) -> Response:
-    """The worker runs it in batches; its progress reaches the overview live."""
+    """The worker runs it in batches; its progress reaches the overview live.
+
+    Audited with what it does to how many runs and, for a cancel, why (the coordinator, S5).
+    """
     del subject
+    note.details = {
+        **note.details,
+        "kind": body.kind,
+        "runs": len(body.instance_ids),
+        "dry_run": body.dry_run,
+        "to_version": body.to_version,
+        "reason": (body.reason or "").strip() or None,
+    }
     if body.kind == "migrate" and body.to_version is None:
         raise ValidationFailed(
             errors=[
@@ -933,6 +1063,37 @@ async def version_occupancy(
     """Live runs at each node of the version (REQ-WF-021: the per-node preview)."""
     del subject
     return await workflow_runtime.occupancy(session, workflow_id, number)
+
+
+class VersionStepOut(BaseModel):
+    """One step of a published version: what a migration can map a run's step onto."""
+
+    id: str
+    type: NodeType
+
+
+@router.get(
+    "/{workflow_id}/versions/{number}/steps",
+    summary="A published version's steps: the migration's targets",
+)
+async def version_steps(
+    workflow_id: uuid.UUID, number: int, session: TenantSession, subject: Manage
+) -> list[VersionStepOut]:
+    """The steps a run can be moved onto (REQ-WF-021): ids and types, in the version's order."""
+    del subject
+    found = await session.scalar(
+        select(WorkflowVersion).where(
+            WorkflowVersion.workflow_id == workflow_id, WorkflowVersion.number == number
+        )
+    )
+    if found is None:
+        raise NotFound(code="workflow_version_not_found")
+    nodes = found.definition.get("nodes") if isinstance(found.definition, dict) else None
+    return [
+        VersionStepOut(id=str(n["id"]), type=NodeType(str(n["type"])))
+        for n in (nodes if isinstance(nodes, list) else [])
+        if isinstance(n, dict) and n.get("type") in {t.value for t in NodeType}
+    ]
 
 
 class CopyIn(BaseModel):

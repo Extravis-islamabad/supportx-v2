@@ -6,6 +6,7 @@ import {
   useRecordWorkflows,
   useRestartInstance,
   useRetryInstance,
+  useSkipInstance,
   useStopInstance,
   type RecordWorkflowOut,
 } from '@supportx/api-client';
@@ -158,9 +159,11 @@ function RunActions({ run }: { run: Run }) {
   const stop = useStopInstance();
   const restart = useRestartInstance();
   const retry = useRetryInstance();
+  const skip = useSkipInstance();
   // The confirm dialog reads the reason when it closes: a ref, not state its callback captured.
   const reason = useRef('');
   const i = run.instance;
+  const failedNode = (i.failure as { node?: string } | null)?.node;
   if (!ACTIVE.has(i.status) && i.status !== 'cancelled' && i.status !== 'finished') return null;
   return (
     <Space wrap>
@@ -175,6 +178,26 @@ function RunActions({ run }: { run: Run }) {
           data-testid={`record-workflow-retry-${i.id}`}
         >
           {t('workflows.record.retry')}
+        </WriteButton>
+      )}
+      {i.status === 'failed' && (
+        // On the failed step's "next" only; the server refuses a step that decides its own path
+        // (REQ-WF-024 AC2) and says why.
+        <WriteButton
+          size="small"
+          loading={skip.isPending}
+          onClick={() => {
+            void modal.confirm({
+              title: t('workflows.record.skip_title', { node: failedNode ?? '' }),
+              content: t('workflows.record.skip_body'),
+              okText: t('workflows.record.skip'),
+              cancelText: t('actions.cancel'),
+              onOk: () => skip.mutateAsync({ id: i.id, version: i.version }).catch(reportError),
+            });
+          }}
+          data-testid={`record-workflow-skip-${i.id}`}
+        >
+          {t('workflows.record.skip')}
         </WriteButton>
       )}
       <WriteButton

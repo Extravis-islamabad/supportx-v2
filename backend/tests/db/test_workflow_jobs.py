@@ -6,6 +6,7 @@
 - Only workflows.manage holders see the overview or queue a job (ADR-043 §10).
 """
 
+import json
 import uuid
 from typing import Any
 
@@ -129,6 +130,18 @@ async def test_bulk_cancel_needs_a_reason_and_stops_each_run(world: World) -> No
         "SELECT status, stopped_reason FROM workflow_instances WHERE id = ANY($1)", waiting
     )
     assert {(r["status"], r["stopped_reason"]) for r in rows} == {("cancelled", "Old process")}
+    # The audit keeps what was done to how many runs, and why (WP-048b S5).
+    rows = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = $2",
+        world.a.tenant,
+        "automation.workflow_job_queued",
+    )
+    found = [
+        r["details"] if isinstance(r["details"], dict) else json.loads(r["details"]) for r in rows
+    ]
+    assert {"kind": "cancel", "runs": 2, "reason": "Old process"}.items() <= next(
+        d for d in found if d.get("reason") == "Old process"
+    ).items()
 
 
 async def test_a_job_takes_only_runs_of_its_own_workflow(world: World) -> None:

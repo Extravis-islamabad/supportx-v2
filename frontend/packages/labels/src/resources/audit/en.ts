@@ -93,6 +93,7 @@ export const en = {
   'audit.action.automation.workflow_job_queued': 'Bulk workflow action queued',
   'audit.action.automation.workflow_restarted': 'Workflow restarted on a record',
   'audit.action.automation.workflow_retried': 'Workflow retried on a record',
+  'audit.action.automation.workflow_skipped': 'Workflow step skipped on a record',
   'audit.action.automation.workflow_stopped': 'Workflow stopped on a record',
   'audit.action.automation.workflow_test_live_call': 'Workflow test made a live call',
   'audit.action.branding.updated': 'Changed the branding',

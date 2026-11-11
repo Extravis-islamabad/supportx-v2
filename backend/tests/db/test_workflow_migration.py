@@ -8,6 +8,7 @@
   counts a version's live runs per node.
 """
 
+import json
 import uuid
 from typing import Any
 
@@ -131,3 +132,62 @@ async def test_a_run_whose_node_has_no_place_stays_and_is_listed(world: World) -
     assert (job["done_count"], job["skipped_count"]) == (0, 3)
     assert {r["code"] for r in job["results"]} == {"node_not_mapped"}
     assert await _versions_of(world, runs) == [1, 1, 1]
+
+
+async def test_a_version_s_steps_and_its_runs_for_the_move_dialog(world: World) -> None:
+    """WP-048b S5c: the dialog reads the target version's steps and lists the runs still on
+    the old version (the overview's version_number filter)."""
+    a = world.a
+    flow, runs, _items = await _three_on_v1(world)
+    steps = await world.call("GET", f"{BASE}/{flow}/versions/2/steps", a, a.admin)
+    assert steps.status_code == 200, steps.text
+    assert [(s["id"], s["type"]) for s in steps.json()] == [
+        ("s", "start"),
+        ("hold", "wait"),
+        ("e", "end"),
+        ("over", "end"),
+    ]
+    missing = await world.call("GET", f"{BASE}/{flow}/versions/9/steps", a, a.admin)
+    assert missing.status_code == 404
+    on_v1 = await world.call(
+        "GET",
+        f"{BASE}/instances",
+        a,
+        a.admin,
+        params={
+            "filter": json.dumps(
+                {
+                    "and": [
+                        {"field": "workflow_id", "op": "eq", "value": str(flow)},
+                        {"field": "version_number", "op": "eq", "value": 1},
+                    ]
+                }
+            )
+        },
+    )
+    assert on_v1.status_code == 200, on_v1.text
+    assert {r["id"] for r in on_v1.json()["items"]} == {str(r) for r in runs}
+
+
+async def test_publishing_records_who_published(world: World) -> None:
+    """The Versions tab names who published each version (REQ-WF-027; the S5 matrix shot)."""
+    a = world.a
+    made = await world.call(
+        "POST",
+        BASE,
+        a,
+        a.admin,
+        json={"record_type": "incident", "name": f"Who {uuid.uuid4().hex[:6]}"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    flow = made.json()
+    published = await world.call(
+        "POST",
+        f"{BASE}/{flow['id']}/publish",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{flow["version"]}"', **CONSOLE},
+    )
+    assert published.status_code == 200, published.text
+    listed = await world.call("GET", f"{BASE}/{flow['id']}/versions", a, a.admin)
+    assert [(v["number"], v["published_by"]) for v in listed.json()] == [(1, str(a.admin))]

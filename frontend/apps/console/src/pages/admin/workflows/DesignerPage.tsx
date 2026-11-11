@@ -63,6 +63,7 @@ import { NodeView } from './NodeView';
 import { DRAG_TYPE, Palette } from './Palette';
 import { LinkDetails, NodeDetails, Outline, type NodeProblem } from './SidePanels';
 import { TestPanel, type TestHighlight } from './TestPanel';
+import { VersionsPanel } from './Versions';
 import { WorkflowState } from './WorkflowsPage';
 
 interface Graph {
@@ -516,6 +517,11 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
       children: (
         <TestPanel workflow={workflow} dirty={dirty} typeOf={typeOf} onHighlight={setHighlight} />
       ),
+    },
+    {
+      key: 'versions',
+      label: t('workflows.versions.tab'),
+      children: <VersionsPanel workflow={workflow} />,
     },
   ];
 
