@@ -22,8 +22,9 @@ export type ReplyTemplate = components['schemas']['ReplyTemplateOut'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
-/** The work-item types whose conversation these hooks serve (UI pass 3: the SR record). */
-export type ConversationBase = 'incidents' | 'service-requests';
+/** The work-item types whose conversation these hooks serve (UI pass 3: the SR record; WP-045d
+ * S2: the change record, REQ-CHG-100). */
+export type ConversationBase = 'incidents' | 'service-requests' | 'changes';
 
 /**
  * The same engine route under another type's prefix. The conversation routes are generated
@@ -36,9 +37,7 @@ function at<P extends string>(base: ConversationBase, path: P): P {
 
 /** The record's own query (its counts and first response change with the conversation). */
 function detailKey(base: ConversationBase, id: string): readonly unknown[] {
-  return base === 'service-requests'
-    ? ['service-requests', 'detail', id]
-    : queryKeys.incidents.detail(id);
+  return base === 'incidents' ? queryKeys.incidents.detail(id) : [base, 'detail', id];
 }
 
 /** Replies and notes of one incident, oldest first (staff see private notes, marked). */

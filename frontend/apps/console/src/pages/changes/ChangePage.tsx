@@ -27,6 +27,8 @@ import {
   SPACE,
 } from '@supportx/ui';
 
+import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
+import { IncidentFiles } from '../incidents/IncidentFiles';
 import { IncidentHistory } from '../incidents/IncidentHistory';
 import { IncidentTasks } from '../incidents/IncidentParts';
 import { personName } from '../incidents/labels';
@@ -46,9 +48,12 @@ import {
 } from './ChangeParts';
 import { EMERGENCY_PATH, riskTone } from './labels';
 
+const NO_TYPING: Typing = {};
+
 const CANCELED = 'closure_canceled';
 const TABS = [
   'details',
+  'conversation',
   'risk',
   'approvals',
   'roles',
@@ -289,7 +294,26 @@ export function ChangePage() {
           setParams(key === 'details' ? {} : { tab: key }, { replace: true });
         }}
         items={[
-          { key: 'details', label: t('staged.tab.details'), children: <DetailsPart id={c.id} /> },
+          {
+            key: 'details',
+            label: t('staged.tab.details'),
+            children: (
+              <>
+                <DetailsPart id={c.id} />
+                <IncidentFiles item={c} canEdit={mayEdit} recordType="change" />
+              </>
+            ),
+          },
+          {
+            // REQ-CHG-100: the change's replies and notes, as on every other record.
+            key: 'conversation',
+            label: (
+              <span data-testid="chg-tab-conversation">
+                {t('incidents.tab.conversation', { count: c.conversation_count + 1 })}
+              </span>
+            ),
+            children: <IncidentConversation item={c} typing={NO_TYPING} base="changes" />,
+          },
           { key: 'risk', label: t('changes.tab.risk'), children: <RiskPart id={c.id} /> },
           {
             key: 'approvals',
