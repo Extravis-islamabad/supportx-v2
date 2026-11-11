@@ -98,6 +98,8 @@ class NodeTypeOffer:
     why_not: str | None
     outputs: tuple[str, ...]
     optional: frozenset[str]
+    # An approval's choice of the record's roles, for its settings form (QA F-05: no JSON).
+    roles: tuple[str, ...] = ()
 
 
 async def node_types(session: AsyncSession, record_type: str) -> list[NodeTypeOffer]:
@@ -116,6 +118,7 @@ async def node_types(session: AsyncSession, record_type: str) -> list[NodeTypeOf
                 why_not=None if available or need is None else need[1],
                 outputs=spec.outputs({}),
                 optional=spec.optional({}),
+                roles=tuple(sorted(facts.roles)) if node_type == NodeType.APPROVAL else (),
             )
         )
     return found

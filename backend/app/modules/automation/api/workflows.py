@@ -198,6 +198,10 @@ class NodeTypeOut(BaseModel):
     why_not: str | None = Field(description="Why not, as a problem code with its label.")
     outputs: list[str] = Field(description="Its outputs with an empty config.")
     optional: list[str] = Field(description="Outputs it may leave unlinked.")
+    roles: list[str] = Field(
+        default_factory=list,
+        description="An approval's choice of the record's roles (empty for other types).",
+    )
 
 
 @router.get("/node-types", summary="The designer's palette for a record type")
@@ -216,6 +220,7 @@ async def node_types(
             why_not=o.why_not,
             outputs=list(o.outputs),
             optional=sorted(o.optional),
+            roles=list(o.roles),
         )
         for o in await workflow_admin.node_types(session, record_type)
     ]

@@ -3,9 +3,11 @@ import { Button, Checkbox, Flex, Form, Input, InputNumber, Radio, Select, Typogr
 import { useState } from 'react';
 
 import { useRuleFields, useUnits, type RuleFieldOut } from '@supportx/api-client';
+import type { WorkflowVariable } from '@supportx/flow';
 import { TranslatedField, lengthLimit, useLabel, type TranslatedValue } from '@supportx/ui';
 
 import { ConditionBuilder } from '../automation/fields';
+import { ApprovalForm, FieldUpdateForm, SetVariableForm, WebhookForm } from './MoreNodeForms';
 import { fieldOptions, fromTree, toTree, useFieldName, type Conditions } from '../automation/rules';
 
 // Settings forms for the node types people use most (WP-048b S4b). Each edits the node's
@@ -18,6 +20,8 @@ export interface FormProps {
   config: Config;
   onChange: (next: Config) => void;
   recordType: string;
+  /** The workflow's own variables, for the steps that fill or read them. */
+  variables: WorkflowVariable[];
   readOnly: boolean;
 }
 
@@ -156,7 +160,11 @@ function DurationInput({
   );
 }
 
-function BasisField({ config, onChange, readOnly }: Omit<FormProps, 'recordType'>) {
+function BasisField({
+  config,
+  onChange,
+  readOnly,
+}: Pick<FormProps, 'config' | 'onChange' | 'readOnly'>) {
   const t = useLabel();
   return (
     <Form.Item label={t('workflows.form.basis')}>
@@ -461,6 +469,10 @@ const FORMS: Record<string, (props: FormProps) => React.JSX.Element> = {
   timer: TimerForm,
   wait: WaitForm,
   set_status: SetStatusForm,
+  approval: ApprovalForm,
+  field_update: FieldUpdateForm,
+  webhook: WebhookForm,
+  set_variable: SetVariableForm,
 };
 
 /** The node type's form, or null when it has none (the "Advanced" editor is its form). */
