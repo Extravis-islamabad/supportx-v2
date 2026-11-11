@@ -545,3 +545,29 @@ export function useRemoveChangeWindow() {
     },
   });
 }
+
+/**
+ * Change the change type's settings with the If-Match the screen showed (D-156: whether
+ * outside-maintenance blocks); the answer replaces the cached settings at once.
+ */
+export function useChangeSettingsChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      body,
+      version,
+    }: {
+      body: Partial<components['schemas']['WorkItemSettingsPatch']>;
+      version: number;
+    }) =>
+      call(
+        api.PATCH('/api/v1/changes/settings', {
+          params: { header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(stagedKeys('changes').settings, settings);
+    },
+  });
+}

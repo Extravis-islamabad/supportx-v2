@@ -1165,6 +1165,7 @@ export {
   calendarKeys,
   useChangeCalendar,
   useChangeConflicts,
+  useChangeSettingsChange,
   useCreateChangeWindow,
   useRemoveChangeWindow,
   useUpdateChangeWindow,
