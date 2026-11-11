@@ -10,8 +10,11 @@ on:
   workflow_dispatch:
     inputs:
       rows:
-        description: Number of audit entries
+        description: Number of audit entries (0 skips the audit volume test)
         default: "10000000"
+      asset_import_rows:
+        description: Rows for the asset import timing (WP-049b S4b; 0 skips it, target 20000)
+        default: "0"
 
 permissions:
   contents: read
@@ -66,13 +69,26 @@ jobs:
       - uses: ./.github/actions/setup-backend
       - uses: ./.github/actions/generated
       - name: Volume test
+        if: ${{ (inputs.rows || '10000000') != '0' }}
         working-directory: backend
         env:
           SUPPORTX_AUDIT_SCALE_REPORT: ${{ runner.temp }}/audit-scale.json
         run: uv run pytest --no-cov -q -s -m scale tests/db/test_audit_scale.py
+      # By hand only (the coordinator, 2026-11-11): a large asset import's dry run and real run on
+      # a CI runner, so its figure is not a loaded laptop's.
+      - name: Asset import timing
+        if: ${{ (inputs.asset_import_rows || '0') != '0' }}
+        working-directory: backend
+        env:
+          SUPPORTX_ASSET_IMPORT_SCALE_ROWS: ${{ inputs.asset_import_rows }}
+          SUPPORTX_ASSET_IMPORT_SCALE_REPORT: ${{ runner.temp }}/asset-import-scale.json
+        run: uv run pytest --no-cov -q -s -m scale tests/db/test_asset_import_scale.py
       - name: Timings (job summary)
         if: ${{ !cancelled() }}
         run: |
           if [ -f "$RUNNER_TEMP/audit-scale.json" ]; then
             { echo '### Audit log at volume'; echo '```json'; cat "$RUNNER_TEMP/audit-scale.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f "$RUNNER_TEMP/asset-import-scale.json" ]; then
+            { echo '### Asset import at volume'; echo '```json'; cat "$RUNNER_TEMP/asset-import-scale.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
