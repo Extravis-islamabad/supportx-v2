@@ -3,7 +3,9 @@ HA Valkey (WP-014b, ADR-038): a StatefulSet of Valkey servers, each with a Senti
 the official image. At start each pod asks the sentinels for the current master and replicates
 from it unless it is that master. A pod starts as master only when every peer answered and
 none holds data (a fresh set); otherwise it waits and says why, never starting empty. So a restarted former master always rejoins as a replica. The app and
-Centrifugo find the master through the sentinels (SUPPORTX_VALKEY_SENTINELS). Passwords come
+Centrifugo find the master through the sentinels (SUPPORTX_VALKEY_SENTINELS). A pod is first
+Ready only once its own sentinel knows it in its role (ready.sh), so a rolling update or a drain
+never stops a master its sentinels cannot yet fail over. Passwords come
 from the installation secret only, written to files in memory, never on a command line.
 */ -}}
 {{- if .Values.valkeyHa.enabled }}
@@ -45,6 +47,9 @@ data:
     # servers then answer pod 0 (offset 0 on a fresh install), so a first start never deadlocks.
     # Why it waits is also in $WAITING, which the readiness probe prints (kubectl describe).
     WAITING=/run/valkey/waiting
+    # /run/valkey outlives a container restart in the same pod: a restarted server must pass
+    # ready.sh's first-readiness gate again, so its mark goes first.
+    rm -f /run/valkey/ready-role
     waiting() {
       echo "valkey: waiting: $1" >&2
       echo "$1" > "$WAITING"
@@ -134,6 +139,72 @@ data:
     } > /run/valkey/valkey.conf
     echo "valkey: starting as $([ "$master" = "$SELF" ] && echo master || echo "replica of $master")"
     exec valkey-server /run/valkey/valkey.conf
+  ready.sh: |
+    # The valkey container's readiness probe. Read-only and cheap: a few local valkey-cli calls.
+    # Sentinel learns a master's replicas only from the master's INFO, every 10 s (fixed in
+    # Valkey). A pod Ready before its sentinel knows it would let a rolling update or a drain stop
+    # the master while the surviving sentinels had no replica to promote
+    # (-failover-abort-no-good-slave until the master returns). So until a pod has passed once in
+    # its current role, it is ready only when this pod's own sentinel knows it in that role:
+    #   - a replica: it is synced (master_link_status up) and the sentinel lists this pod among
+    #     the replicas, healthy;
+    #   - a master: the sentinel lists, healthy, every replica the master reports connected. A
+    #     master with no connected replica (a lone pod) is ready but has not passed: the gate is
+    #     asked again once replicas connect.
+    # Passing writes $MARK (the role). From then on only the server counts ($WAITING, PING): a
+    # sentinel blip must never become a Valkey outage. A promotion or demotion clears the mark and
+    # gates again; valkey.sh clears it at every (re)start.
+    set -u
+    . /scripts/common.sh
+    WAITING=/run/valkey/waiting
+    MARK=/run/valkey/ready-role
+    cli() {
+      REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli --no-auth-warning "$@" 2>/dev/null | tr -d '\r'
+    }
+    if [ -f "$WAITING" ]; then cat "$WAITING"; exit 1; fi
+    [ "$(cli -p 6379 ping)" = PONG ] || { echo "valkey: the server does not answer PING"; exit 1; }
+    info=$(cli -p 6379 info replication)
+    role=$(echo "$info" | sed -n 's/^role://p')
+    case "$role" in
+      master|slave) ;;
+      *) echo "valkey: the server reports no role"; exit 1 ;;
+    esac
+    if [ -f "$MARK" ]; then
+      [ "$(cat "$MARK")" = "$role" ] && exit 0
+      rm -f "$MARK"  # promoted or demoted since it passed: gate again in the new role
+    fi
+    if [ "$role" = slave ]; then
+      # A replica still syncing holds no data yet: Ready then, a rolling update could next stop
+      # the replica that does hold it, leaving only this one to promote.
+      if [ "$(echo "$info" | sed -n 's/^master_link_status://p')" != up ]; then
+        echo "valkey: not synced with its master yet"
+        exit 1
+      fi
+      wanted="$SELF:6379"  # valkey.sh's replica-announce-ip
+    else
+      # connected_slaves lines: slave0:ip=<announced host>,port=6379,state=online,...
+      wanted=$(echo "$info" | sed -n 's/^slave[0-9]*:ip=\([^,]*\),port=\([0-9]*\),.*/\1:\2/p')
+      [ -n "$wanted" ] || exit 0  # no replica connected: ready, the gate is asked again later
+    fi
+    # SENTINEL replicas prints each replica as flat key/value lines (name, ip, port, ..., flags,
+    # ...); "name" starts the next one. A replica counts when it is neither down nor disconnected.
+    known=$(cli -p 26379 SENTINEL replicas supportx | awk '
+      function emit() { if (ip != "" && flags !~ /s_down|o_down|disconnected/) print ip ":" port }
+      prev == "name" { emit(); ip = ""; port = ""; flags = "" }
+      prev == "ip" { ip = $0 }
+      prev == "port" { port = $0 }
+      prev == "flags" { flags = $0 }
+      { prev = $0 }
+      END { emit() }')
+    missing=""
+    for replica in $wanted; do
+      echo "$known" | grep -qxF "$replica" || missing="$missing ${replica%%.*}"
+    done
+    if [ -n "$missing" ]; then
+      echo "valkey: this pod's sentinel does not list these replicas yet:$missing (it reads the master's INFO every 10 s)"
+      exit 1
+    fi
+    echo "$role" > "$MARK"
   sentinel.sh: |
     set -eu
     . /scripts/common.sh
@@ -219,8 +290,13 @@ spec:
             - {name: {{ $role }}, containerPort: {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }}}
           readinessProbe:
             exec:
-              # While the server waits to start, the probe prints why (valkey.sh's $WAITING).
-              command: ["/bin/sh", "-c", "{{ if eq $role "valkey" }}if [ -f /run/valkey/waiting ]; then cat /run/valkey/waiting; exit 1; fi; {{ end }}REDISCLI_AUTH=\"$VALKEY_PASSWORD\" valkey-cli -p {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }} --no-auth-warning ping | grep -q PONG"]
+              {{- if eq $role "valkey" }}
+              # Prints why it waits (valkey.sh's $WAITING) and, until the pod's first readiness
+              # in its role, which replicas its sentinel does not know yet (ready.sh).
+              command: ["/bin/sh", "/scripts/ready.sh"]
+              {{- else }}
+              command: ["/bin/sh", "-c", "REDISCLI_AUTH=\"$VALKEY_PASSWORD\" valkey-cli -p 26379 --no-auth-warning ping | grep -q PONG"]
+              {{- end }}
             periodSeconds: 5
           resources:
             {{- toYaml $.Values.valkeyHa.resources | nindent 12 }}
