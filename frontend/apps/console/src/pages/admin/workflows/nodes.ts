@@ -81,4 +81,12 @@ export const FORM_TYPES = new Set([
   'set_status',
   'note',
   'tasks',
+  'approval',
+  'field_update',
+  'webhook',
+  'set_variable',
+  'split',
+  'join',
+  'sub_flow',
+  'function',
 ]);

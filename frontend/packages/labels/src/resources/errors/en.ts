@@ -168,7 +168,7 @@ export const en = {
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.change_source_not_found': 'The record this change was made for was not found.',
   'errors.change_window_blocked':
-    'A freeze blocks this time. Choose another time, or someone allowed to may let the change go ahead with a reason.',
+    'A freeze blocks this time. Choose another time, or someone allowed to may let it go ahead with a reason.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -334,6 +334,10 @@ export const en = {
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
+  'errors.field.conflict_blocks':
+    'A blocking conflict cannot be acknowledged. Choose another time, or someone allowed to may let it go ahead with a reason.',
+  'errors.field.conflict_not_found':
+    'This conflict is no longer there. The list shows the conflicts now.',
   'errors.field.country_invalid': 'Choose a country from the list.',
   'errors.field.currency_unknown': 'Choose a currency from the list.',
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
@@ -541,6 +545,8 @@ export const en = {
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
+  'errors.field.role_held_by_record':
+    "This role follows the record's own field. Change it in the details panel.",
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',

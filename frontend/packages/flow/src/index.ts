@@ -3,10 +3,14 @@
 export {
   emptyDefinition,
   readDefinition,
+  readVariables,
+  VARIABLE_KINDS,
   type FlowDefinition,
   type FlowLinkDef,
   type FlowNodeDef,
   type FlowPosition,
+  type VariableKind,
+  type WorkflowVariable,
 } from './definition';
 export {
   INPUT,
