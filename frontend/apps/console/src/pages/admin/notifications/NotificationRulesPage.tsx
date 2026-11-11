@@ -164,12 +164,15 @@ export function NotificationRulesPage() {
     {
       key: 'priority',
       title: t('notification_rules.col.priority'),
+      // Its own room, so neither the heading nor "Any priority" is cut (QA V-07).
+      width: 200,
+      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
       render: (_, rule) =>
         rule.condition_fields.includes('priority') ? (
           <Select
             mode="multiple"
             allowClear
-            style={{ minWidth: 160 }}
+            style={{ width: '100%', minWidth: 180 }}
             placeholder={t('notification_rules.any_priority')}
             value={priorityOnly(rule)}
             aria-label={t('notification_rules.col.priority')}

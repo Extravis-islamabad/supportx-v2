@@ -545,6 +545,8 @@ export const en = {
   'errors.field.required_to_resolve': 'Needed before resolving.',
   'errors.field.review_date_past': 'Choose today or a later date.',
   'errors.field.role_disabled': 'This role is retired: it cannot be given to anyone new.',
+  'errors.field.role_held_by_record':
+    "This role follows the record's own field. Change it in the details panel.",
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
@@ -789,6 +791,8 @@ export const en = {
   'errors.link_has_own_route':
     'This link is removed in its own place: unlink the incident, or undo the merge.',
   'errors.link_not_found': 'This link does not exist, or it was removed.',
+  'errors.linked_records_not_available': 'Linked records are not available yet.',
+  'errors.list_not_found': 'This list does not keep settings.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
@@ -920,6 +924,7 @@ export const en = {
   'errors.rule_refused': '{{message}}',
   'errors.saved_search_limit': 'You have reached the limit of saved searches. Delete one first.',
   'errors.saved_search_not_found': 'This saved search does not exist.',
+  'errors.saved_view_not_found': 'This saved view no longer exists, or it is not yours.',
   'errors.scale_value_not_found': 'That value does not exist.',
   'errors.server_busy': 'The mail server was busy.',
   'errors.service_category_in_use':
@@ -927,6 +932,8 @@ export const en = {
   'errors.service_category_not_found': 'This category does not exist.',
   'errors.service_identity_managed':
     'This is a connector’s own identity. Change it from Admin › Integrations.',
+  'errors.service_identity_roles_elsewhere':
+    'A workflow’s or connector’s own identity gets its roles from its own settings, not here.',
   'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',

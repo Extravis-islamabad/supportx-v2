@@ -58,6 +58,14 @@ jobs:
       - name: Changes (docs-only PRs skip the stack)
         id: changes
         uses: ./.github/actions/changes
+      # The journeys run in the official Playwright image (Chromium and its system libraries baked
+      # in), so the job installs nothing with apt: an Ubuntu mirror outage broke the browser
+      # install (2026-11-11). Pulled before the stack starts, so a registry hiccup fails early.
+      - name: Playwright image (version checked, pulled, retried)
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        uses: ./.github/actions/playwright-in-image
+        with:
+          part: pull
       - name: Generate throwaway .env
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
@@ -137,19 +145,41 @@ jobs:
           done
           curl -fsS http://localhost:5173/api/v1/ready
           curl -fsS http://localhost:5174/api/v1/ready
-      - name: Playwright (console and portal journeys, accessibility, in Chromium)
+      - name: This shard's spec files
         if: ${{ steps.changes.outputs.run == 'true' }}
+        id: specs
         working-directory: frontend
-        timeout-minutes: 40
         env:
           SHARD: ${{ matrix.shard }}
-          E2E_GLOBAL_TIMEOUT_MINUTES: "35" # Playwright stops itself first, printing every failure
         run: |
-          pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
-          # This shard's spec files, the same split in every shard (shard-weights.json).
+          # The same split in every shard (shard-weights.json). Paths are relative to
+          # frontend/e2e (tests/…), where the image runs Playwright.
           mapfile -t specs < <(node e2e/shards.ts "$SHARD/3")
           echo "Shard $SHARD/3: ${specs[*]}"
-          pnpm --filter @supportx/e2e e2e "${specs[@]}"
+          (( ${#specs[@]} > 0 )) || { echo "::error::shard $SHARD/3 has no spec files"; exit 1; }
+          {
+            echo "args<<SPECS_EOF"
+            echo test
+            printf '%s\n' "${specs[@]}"
+            echo "SPECS_EOF"
+          } >> "$GITHUB_OUTPUT"
+      # In the Playwright image, on the host's network (.github/actions/playwright-in-image/run.sh
+      # says what is mounted and why). The report (frontend/e2e/playwright-report) and the UI
+      # screenshots (frontend/e2e/ui-screens) land in the mounted workspace for the uploads below.
+      - name: Playwright (console and portal journeys, accessibility, in Chromium)
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        timeout-minutes: 40
+        uses: ./.github/actions/playwright-in-image
+        env:
+          E2E_GLOBAL_TIMEOUT_MINUTES: "35" # Playwright stops itself first, printing every failure
+        with:
+          part: run
+          args: ${{ steps.specs.outputs.args }}
+          # CI (passed by the action), the run limit, and the job's SUPPORTX_AI_FAKE_ECHO for the
+          # backend tools the global setup runs. The URLs are the e2e package's defaults.
+          env: |
+            E2E_GLOBAL_TIMEOUT_MINUTES
+            SUPPORTX_AI_FAKE_ECHO
       - name: Diagnostics on failure
         if: ${{ failure() && steps.changes.outputs.run == 'true' }}
         run: |

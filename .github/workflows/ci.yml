@@ -37,6 +37,7 @@ jobs:
   # only (audit-scale.yml).
   backend-checks:
     name: backend checks
+    needs: [backend-paths]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
@@ -109,6 +110,14 @@ jobs:
       - name: Migrate to head, then check tenant isolation (RLS guard)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make db-migrate db-current db-guard
+      # The quick checks that otherwise run only inside the shards (enum and error labels, label
+      # isolation, CI triggers, tool pins: tests/test_*.py, about 100 s): whenever the shards are
+      # skipped (a draft, or a PR with no backend change) they run here, so a label mistake shows
+      # before "ready" (coordinator, 2026-11-11). A frontend label change can break them.
+      - name: Label and CI guard tests (the shards are skipped on this run)
+        if: ${{ steps.changes.outputs.run == 'true' && ((github.event_name == 'pull_request' && github.event.pull_request.draft) || needs.backend-paths.outputs.tests != 'true') }}
+        working-directory: backend
+        run: uv run pytest tests/test_*.py --no-cov -q -p no:cacheprovider
 
   worker-resilience:
     # Must-fix before the pilot (2026-10-28): PostgreSQL and NATS restart under running workers
@@ -210,6 +219,33 @@ jobs:
           SUPPORTX_HA_TESTS: "1"
         run: uv run pytest tests/ha --no-cov -p no:cacheprovider -v
 
+  backend-paths:
+    # Whether this PR run needs the 8 backend shards (coordinator, 2026-11-11, option A: on 11-10
+    # the shards were 83% of PR runner time and 29 of 117 PR runs changed no backend file). A PR
+    # touching only the frontend, docs or the mobile app skips them at job level, so their
+    # runner slots are actually freed; `backend checks` still runs the label tests there.
+    # The merge queue, nightly, manual runs and the full-ci label ALWAYS run them, so every merge
+    # is still tested in full (tests/test_ci_triggers.py guards it).
+    name: backend paths
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tests: ${{ github.event_name != 'pull_request' && 'true' || contains(github.event.pull_request.labels.*.name, 'full-ci') && 'true' || steps.changes.outputs.run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          persist-credentials: false
+      - name: Changes (does this PR touch what the shards test?)
+        if: ${{ github.event_name == 'pull_request' }}
+        id: changes
+        uses: ./.github/actions/changes
+        with:
+          light: '^(docs/|mobile/|.*\.(md|mdx)$)'
+          # The backend, its deployment, the build and CI itself; frontend/ alone does not.
+          needs: '^(backend/|deploy/|Makefile$|\.github/|\.pre-commit-config\.yaml$)'
+          skipped: "skipped: no backend change (the 8 shards run in the merge queue)"
+
   shard-weights:
     # The newest nightly's file timings (its `backend-shard-weights` artifact), resolved once per
     # run so all shards balance on the same numbers and split the files the same way. The
@@ -220,7 +256,8 @@ jobs:
     # Drafts run the fast set only (coordinator, 2026-11-06: runners were starved by every draft
     # and queue entry fanning out ~15 jobs): lint, type checks, migrations, Vitest, build, secret
     # scan. The DB shards wait for ready_for_review, and the queue always runs them.
-    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) }}
+    needs: [backend-paths]
+    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) && needs.backend-paths.outputs.tests == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -251,8 +288,9 @@ jobs:
 
   backend-tests:
     name: backend tests ${{ matrix.shard }}/8
-    needs: [shard-weights]
-    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) }} # drafts: the fast set only (see shard-weights)
+    needs: [shard-weights, backend-paths]
+    # Drafts: the fast set only (see shard-weights); PRs without a backend change: see backend-paths.
+    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) && needs.backend-paths.outputs.tests == 'true' }}
     runs-on: ubuntu-24.04
     # Eight shards and a 35-minute backstop since 2026-11-10 (Haider, via the coordinator): six
     # shards had grown to 20-25 min on slow runners and cancelled #307 three times. The backstop
@@ -421,7 +459,7 @@ jobs:
   backend:
     name: backend
     # pdf: the PDF tests in the worker image (D-100 D8) gate merges through this required check.
-    needs: [backend-checks, backend-tests, pdf]
+    needs: [backend-checks, backend-tests, pdf, backend-paths]
     # Always runs, so a failed or cancelled shard fails this required check instead of skipping it
     # (a skipped required check would count as passed).
     if: ${{ always() }}
@@ -434,12 +472,15 @@ jobs:
           TESTS: ${{ needs.backend-tests.result }}
           PDF: ${{ needs.pdf.result }}
           DRAFT: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft) }}
+          # "false" only for a PR run whose paths job succeeded and found no backend change.
+          NO_BACKEND: ${{ github.event_name == 'pull_request' && needs.backend-paths.result == 'success' && needs.backend-paths.outputs.tests == 'false' }}
         run: |
-          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF, draft: $DRAFT"
+          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF, draft: $DRAFT, no backend change: $NO_BACKEND"
           # pdf is skipped outside nightly, manual and full-ci runs (speed mode, D-122).
-          # The shards are skipped only on a draft; anywhere else a skipped shard fails here.
+          # The shards are skipped only on a draft or a PR with no backend change; anywhere else
+          # (the merge queue, nightly) a skipped shard fails here.
           [ "$CHECKS" = "success" ] &&
-            { [ "$TESTS" = "success" ] || { [ "$DRAFT" = "true" ] && [ "$TESTS" = "skipped" ]; }; } &&
+            { [ "$TESTS" = "success" ] || { { [ "$DRAFT" = "true" ] || [ "$NO_BACKEND" = "true" ]; } && [ "$TESTS" = "skipped" ]; }; } &&
             { [ "$PDF" = "success" ] || [ "$PDF" = "skipped" ]; }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -457,7 +498,7 @@ jobs:
       # is nothing to check, instead of failing on missing files (coordinator, 2026-11-10).
       - name: Draft (fast set only)
         if: ${{ needs.backend-tests.result == 'skipped' }}
-        run: 'echo "::notice title=backend::skipped: draft (fast set only)"'
+        run: 'echo "::notice title=backend::skipped: draft (fast set only) or no backend change"'
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: ${{ steps.changes.outputs.run == 'true' && needs.backend-tests.result == 'success' }}
         with:

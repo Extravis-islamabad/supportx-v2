@@ -63,5 +63,24 @@ export function withTokenColours(
       textStyle: filled(part.textStyle, { color: colours.text }),
     }));
   }
+  if ('series' in out) {
+    // A donut's slice labels sit outside the slices, on the page: the theme's text with no halo.
+    // ECharts' default outlines them with a contrasting border, a dark halo on dark surfaces that
+    // made "P1 - Critical" unreadable (QA 2026-11-11 V-03).
+    out.series = each(out.series, (part) =>
+      part.type === 'pie'
+        ? {
+            ...part,
+            label: filled(part.label, { color: colours.text, textBorderWidth: 0 }),
+            labelLine: {
+              ...filled(part.labelLine, {}),
+              lineStyle: filled(isPart(part.labelLine) ? part.labelLine.lineStyle : undefined, {
+                color: colours.line,
+              }),
+            },
+          }
+        : part,
+    );
+  }
   return out;
 }

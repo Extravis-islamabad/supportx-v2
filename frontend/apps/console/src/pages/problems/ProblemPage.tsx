@@ -1,6 +1,6 @@
 import { BugOutlined, CloseOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Flex, Result, Select, Skeleton, Steps, Tabs, Typography } from 'antd';
+import { Button, Flex, Result, Select, Skeleton, Steps, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -31,6 +31,7 @@ import {
   usePageCrumbs,
   type RecordAction,
   useAccess,
+  Tabs,
 } from '@supportx/ui';
 
 import { RecordWorkflows } from '../workflows/RecordWorkflows';

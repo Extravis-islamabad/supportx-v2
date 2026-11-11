@@ -17,6 +17,7 @@ import { ApiError, useActionLink, usePeekActionLink } from '@supportx/api-client
 import { describeError, lengthLimit, useLabel } from '@supportx/ui';
 
 import { HANDOVER_KEY } from './handover';
+import { FORM_COLUMN } from '../formColumn';
 
 const COMMENT_MAX = 4000;
 
@@ -109,7 +110,7 @@ export function ApprovalLinkPage() {
     );
   };
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 640 }}>
+    <Flex vertical gap={16} style={FORM_COLUMN}>
       <Typography.Title level={1}>{t('requests.approval_by_link')}</Typography.Title>
       <Card data-testid="approval-link-summary">
         <span dir="ltr">{text(summary.display_id)}</span> · <bdi>{text(summary.subject)}</bdi>

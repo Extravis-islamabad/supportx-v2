@@ -34,13 +34,13 @@ import {
   PageHeader,
   ToneTag,
   useAccess,
+  useColumnWidths,
   useLabel,
   WriteButton,
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
 import { SitePicker } from '../incidents/pickers';
-import { useLocalColumnWidths } from './columnWidths';
 import { okFooter } from './dialogOk';
 import { problemText } from './problemText';
 import { useConsumablesLive, useSiteNames } from './live';
@@ -235,7 +235,12 @@ export function ConsumablesPage() {
     sites: t('assets.stock.by_site'),
     barcode: t('assets.stock.barcode'),
   };
-  const widths = useLocalColumnWidths({
+  // Each person's widths, kept in the shared list-settings store (WP-049b s4a).
+  const widths = useColumnWidths({
+    kind: 'asset_consumables',
+    viewKey: 'all',
+    enabled: allowed,
+    keys: Object.keys(titles),
     minWidths: { product: 180 },
     label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
   });

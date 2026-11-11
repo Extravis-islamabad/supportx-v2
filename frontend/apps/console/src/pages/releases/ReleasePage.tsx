@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { DownOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Tabs, Typography } from 'antd';
+import { Button, Card, Dropdown, Flex, Result, Skeleton, Space, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
@@ -26,6 +26,7 @@ import {
   useAccess,
   usePageCrumbs,
   SPACE,
+  Tabs,
 } from '@supportx/ui';
 
 import { RecordWorkflows, WorkflowFailureBanner } from '../workflows/RecordWorkflows';

@@ -95,7 +95,7 @@ export function MyAssetsPage() {
     }
   });
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 840 }}>
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <Typography.Title level={1}>{t('my_assets.title')}</Typography.Title>
       <Card data-testid="my-assets">
         <List

@@ -9,6 +9,7 @@ import {
   useProblemCatalogue,
   useProblemCategories,
   useProblemTemplates,
+  useStagedSettings,
   useUnits,
   type IncidentHistoryEntry,
 } from '@supportx/api-client';
@@ -16,6 +17,7 @@ import { useListFormat } from '@supportx/labels';
 import { useAccess, useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
 import { fieldName, useCustomValueText } from '../customFields/values';
+import { listValueName, stageName } from '../staged/labels';
 import { useAutomationWhy, useRequesterActionWhy } from './automationWhy';
 import {
   categoryPath,
@@ -48,7 +50,16 @@ const CODED: Record<string, string> = {
   'task.priority': 'task_priority',
   first_response_sla_state: 'sla_target_state', // WP-025
   resolution_sla_state: 'sla_target_state',
+  risk: 'risk_level', // QA-2026-11-11 F-03: a change's risk, as on its header
+  risk_chosen: 'risk_level',
 };
+// A change's own pick lists (admins may add values with their own labels).
+const OWN_LISTS = new Set(['change_type', 'change_reason']);
+// Bookkeeping a person never needs to read (F-03): left out of the history entirely.
+const INTERNAL = new Set(['risk_version', 'resume_stage', 'resume_status']);
+// An ISO timestamp in any field (a change's schedule, an override's time): the reader's own
+// date format and time zone, never UTC text (F-03).
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const TIMES = new Set([
   'resolved_at',
   'closed_at',
@@ -72,6 +83,7 @@ const CHANGED_ONLY = new Set([
   'follows_id',
   'task.position',
   'sla_policy_id', // WP-025: the panel names the policy
+  'risk_answers', // F-03: the Risk tab shows the answers
 ]);
 const PEOPLE = new Set([
   'requester_id',
@@ -81,6 +93,7 @@ const PEOPLE = new Set([
   'follower_access',
   'task.owner_id',
   'task.done_by', // D-154d
+  'freeze_override_by',
 ]);
 // Flags: "not set" reads "No", not "(empty)".
 const FLAGS = new Set(['handed_over_out_of_reach']);
@@ -111,6 +124,7 @@ export function useHistoryWords(
   const incidentTemplates = useIncidentTemplates(!isProblem);
   const problemTemplates = useProblemTemplates(isProblem);
   const templates = isProblem ? problemTemplates : incidentTemplates;
+  const changeSettings = useStagedSettings('changes', base === 'changes' && enabled);
   // Removed fields too: their old values stay in the history (REQ-INC-014 AC4).
   const customFields = useCustomFields(isProblem ? 'problem' : 'incident', true);
   const customText = useCustomValueText();
@@ -193,6 +207,17 @@ export function useHistoryWords(
     }
     const prefix = CODED[change.field];
     if (prefix !== undefined && typeof value === 'string') return t(`${prefix}.${value}`);
+    // A staged record's stage, by its name (QA-2026-11-11 re-check), never its code.
+    if (change.field === 'stage' && typeof value === 'string') return stageName(t, value);
+    // The fields whose change sent it back for approval again: their names, in a list.
+    if (change.field === 'reapproval_restarted' && Array.isArray(value)) {
+      return listFormat(value.map((name) => fieldText(String(name))));
+    }
+    if (OWN_LISTS.has(change.field) && typeof value === 'string') {
+      const list = change.field;
+      const found = changeSettings.data?.own_lists?.[list]?.find((v) => v.code === value);
+      return listValueName(t, locale, list, found, value);
+    }
     if (
       (change.field === 'status_reason_code' || change.field === 'assignment_reason') &&
       typeof value === 'string'
@@ -242,6 +267,7 @@ export function useHistoryWords(
     if (typeof value === 'boolean') return t(value ? 'history.yes' : 'history.no');
     if (Array.isArray(value))
       return value.length === 0 ? t('history.empty') : listFormat(value.map(String));
+    if (typeof value === 'string' && ISO_TIME.test(value)) return dates.format(value);
     if (typeof value === 'string' || typeof value === 'number') return String(value);
     return t('history.changed');
   };
@@ -285,6 +311,13 @@ export function useHistoryWords(
         ? t('work_item.history.logged', { who, duration, type })
         : t('work_item.history.logged_for', { who, duration, type, person: owner });
     }
+    // Sent back for approval again (REQ-CHG-053): one sentence, naming what changed.
+    if (change.field === 'reapproval_restarted') {
+      return t('work_item.history.reapproval_restarted', {
+        who,
+        fields: valueText(change, change.new),
+      });
+    }
     if (change.field === 'link') {
       const kind = valueText(change, change.new ?? change.old);
       return t(change.new == null ? 'work_item.history.unlinked' : 'work_item.history.linked', {
@@ -324,7 +357,7 @@ export function useHistoryWords(
     const named = entry.changes.find((c) => c.field === 'task' && c.old === c.new);
     const task = typeof named?.new === 'string' ? named.new : undefined;
     return changes
-      .filter((c) => c.field !== REQUESTER_ACTION)
+      .filter((c) => c.field !== REQUESTER_ACTION && !INTERNAL.has(c.field))
       .map((c) => sentence(c, who, task))
       .filter((line): line is string => line !== null);
   };

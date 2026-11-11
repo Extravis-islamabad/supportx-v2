@@ -2263,6 +2263,42 @@
         "type": "object"
       }
     },
+    "automation.workflow.run_as_changed": {
+      "1": {
+        "description": "A role was given to, or taken from, a workflow's run-as identity (ADR-043 §6).\n\nIts own event, so `automation.workflow.changed` v1 keeps its contract. The designer's\n\"Runs as\" section refreshes; IDs and codes only, never the role's name.",
+        "properties": {
+          "change": {
+            "enum": [
+              "role_added",
+              "role_removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "record_type",
+          "change",
+          "version"
+        ],
+        "title": "WorkflowRunAsChanged",
+        "type": "object"
+      }
+    },
     "automation.workflow.webhook_requested": {
       "1": {
         "description": "A webhook node asks the worker to make one guarded call (WP-048b S2; ADR-043 §8).\n\nNever sent from a request: the worker's consumer sends it through the shared egress client\nand reports back as `WorkflowCommandFinished`. The record's fields are read by the worker,\nso the outbox holds only their names.",
@@ -4880,6 +4916,38 @@
           "version"
         ],
         "title": "FileSettingsUpdated",
+        "type": "object"
+      }
+    },
+    "system.list_settings.changed": {
+      "1": {
+        "description": "A person's settings or saved view of one list changed: their other windows follow.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "list_key": {
+            "title": "List Key",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "view_key": {
+            "title": "View Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "list_key",
+          "view_key",
+          "change"
+        ],
+        "title": "ListSettingsChanged",
         "type": "object"
       }
     },
