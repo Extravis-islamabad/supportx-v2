@@ -23,6 +23,7 @@ import subprocess
 import time
 import uuid
 from collections.abc import Iterator
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -186,6 +187,31 @@ def replicated(valkeys: Valkeys) -> None:
         _until(lambda i=index: valkeys.cli(i, "get", "session:probe") == "kept", 60)
 
 
+# Sentinel learns a master's replicas only from the master's INFO, which it asks every 10 s
+# (sentinel.c's sentinel_info_period; the chart does not set it). A master lost before its
+# sentinels saw the replicas there leaves them nothing to promote: every attempt aborts with
+# -failover-abort-no-good-slave until the master is back, so no failover budget is enough.
+# Since #284 pod 0 starts only once its peers answer, so the sentinels' first INFO of it often
+# comes before the replicas connected, and a test could stop it inside the next 10 s (CI,
+# 2026-11-10/11: three different tests out of time; neither surviving sentinel logged +slave).
+SENTINEL_INFO_SECONDS = 10
+
+
+def sentinels_know_the_replicas(valkeys: Valkeys) -> None:
+    """The sentinels that must fail over (pods 1 and 2) both list pods 1 and 2 as replicas.
+    One INFO period after the replicas connected, plus the runner margin of failover_seconds()."""
+    wanted = {f"supportx-valkey-{i}.{HEADLESS}" for i in (1, 2)}
+
+    def known(asked: int) -> set[str]:
+        # One flat key, value list per replica: "name", <name>, "ip", <host>, "port", ...
+        out = valkeys.cli(asked, "SENTINEL", "replicas", "supportx", port=26379)
+        fields = [line.strip() for line in out.splitlines()]
+        return {value for key, value in pairwise(fields) if key == "ip"}
+
+    for asked in (1, 2):
+        _until(lambda a=asked: wanted <= known(a), SENTINEL_INFO_SECONDS + 20)
+
+
 @pytest.fixture
 def valkeys(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Valkeys]:
     tmp_path.chmod(0o755)  # the containers' own user reads the scripts
@@ -235,6 +261,7 @@ def test_a_failover_keeps_the_data_and_the_old_master_rejoins_as_a_replica(
     # Both replicas have it before the master is lost (WAIT: replicas that acknowledged).
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
     replicated(valkeys)
+    sentinels_know_the_replicas(valkeys)  # else no failover can happen
 
     valkeys.stop(0)
     _until(
@@ -267,6 +294,7 @@ def test_a_master_back_before_the_sentinels_notice_never_starts_empty(valkeys: V
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
     replicated(valkeys)
+    sentinels_know_the_replicas(valkeys)  # else no failover can happen
 
     valkeys.stop(0)
     valkeys.start(0)  # at once: well inside down-after-milliseconds
@@ -311,6 +339,7 @@ def test_a_master_back_while_its_peers_are_unreachable_waits_and_keeps_the_data(
     assert valkeys.cli(0, "set", "session:probe", "kept") == "OK"
     _until(lambda: valkeys.cli(0, "wait", "2", "1000") == "2", 60)
     replicated(valkeys)
+    sentinels_know_the_replicas(valkeys)  # else no failover can happen
 
     valkeys.cut(1)
     valkeys.cut(2)
