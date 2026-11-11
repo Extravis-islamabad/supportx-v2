@@ -726,6 +726,7 @@ export const ar: LabelResource = {
   'assets.merge.hint':
     'اختر القيمة التي يحتفظ بها كل حقل. تنتقل النسخة المكررة إلى سلة المحذوفات، ويفتح وسمها ورقمها التسلسلي بعد ذلك الأصل الذي تحتفظ به. وتنتقل روابطها وتكاليفها وملاحظاتها أيضًا.',
   'assets.merge.keep': 'احتفظ بـ',
+  'assets.merge.linked': 'مرتبط',
   'assets.merge.open': 'دمج',
   'assets.merge.restore_body':
     'دُمج هذا الأصل في {{asset}}. تعيده الاستعادة وحده، ويبقى ما نُقل إلى {{asset}} هناك.',
@@ -865,6 +866,7 @@ export const ar: LabelResource = {
   'assets.record.products_open': 'فتح تبويب المنتجات',
   'assets.record.properties': 'الخصائص',
   'assets.record.purchase': 'الشراء',
+  'assets.record.purchase_order_id': 'أمر الشراء',
   'assets.record.purchase_price': 'سعر الشراء',
   'assets.record.purchase_tax': 'ضريبة الشراء',
   'assets.record.raised_from': 'أُنشئ {{display_id}} من هذا الأصل',

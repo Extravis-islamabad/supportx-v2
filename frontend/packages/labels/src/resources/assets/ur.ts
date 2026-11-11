@@ -687,6 +687,7 @@ export const ur: LabelResource = {
   'assets.merge.hint':
     'ہر فیلڈ کے لیے چنیں کہ کون سی قدر رہے۔ دہرا اثاثہ ردی میں چلا جائے گا؛ اس کا ٹیگ اور سیریل نمبر پھر رکھے گئے اثاثے کو کھولیں گے۔ اس کے لنک، لاگتیں اور نوٹس بھی منتقل ہوں گے۔',
   'assets.merge.keep': 'رکھیں',
+  'assets.merge.linked': 'منسلک',
   'assets.merge.open': 'ضم کریں',
   'assets.merge.restore_body':
     'یہ اثاثہ {{asset}} میں ضم ہوا تھا۔ بحالی اسے الگ واپس لاتی ہے؛ جو کچھ {{asset}} میں منتقل ہوا وہیں رہے گا۔',
@@ -811,6 +812,7 @@ export const ur: LabelResource = {
   'assets.record.products_open': 'پروڈکٹس کا ٹیب کھولیں',
   'assets.record.properties': 'خصوصیات',
   'assets.record.purchase': 'خریداری',
+  'assets.record.purchase_order_id': 'خریداری کا آرڈر',
   'assets.record.purchase_price': 'خریداری کی قیمت',
   'assets.record.purchase_tax': 'خریداری کا ٹیکس',
   'assets.record.raised_from': '{{display_id}} اس اثاثے سے درج کیا گیا',

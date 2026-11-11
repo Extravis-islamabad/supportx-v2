@@ -681,6 +681,7 @@ export const en = {
   'assets.merge.hint':
     'Choose which value each field keeps. The duplicate goes to the trash; its tag and serial number then open the asset you keep. Its links, costs and notes move too.',
   'assets.merge.keep': 'Keep',
+  'assets.merge.linked': 'Linked',
   'assets.merge.open': 'Merge',
   'assets.merge.restore_body':
     'This asset was merged into {{asset}}. Restoring it brings it back on its own; what moved to {{asset}} stays there.',
@@ -807,6 +808,7 @@ export const en = {
   'assets.record.products_open': 'Open the Products tab',
   'assets.record.properties': 'Properties',
   'assets.record.purchase': 'Purchase',
+  'assets.record.purchase_order_id': 'Purchase order',
   'assets.record.purchase_price': 'Purchase price',
   'assets.record.purchase_tax': 'Purchase tax',
   'assets.record.raised_from': '{{display_id}} raised from this asset',
