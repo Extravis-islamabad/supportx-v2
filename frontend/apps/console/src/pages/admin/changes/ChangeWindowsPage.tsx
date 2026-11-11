@@ -17,6 +17,7 @@ import { useTenantChannel } from '@supportx/realtime';
 import {
   DateTimeField,
   EditDrawer,
+  EmptyText,
   FormProblem,
   RowActions,
   SettingsCard,
@@ -386,6 +387,8 @@ export function ChangeWindowsPage() {
         dataSource={windows.data ?? []}
         data-testid="windows-table"
         scroll={{ x: 820 }}
+        // A written empty state, never the generic picture (QA F-19).
+        locale={{ emptyText: <EmptyText>{t('changes.windows.none')}</EmptyText> }}
         columns={[
           { key: 'name', title: t('changes.windows.name'), render: (_, w) => nameOf(w) },
           {

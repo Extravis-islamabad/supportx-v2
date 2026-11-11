@@ -16,7 +16,12 @@ import { FORM_COLUMN } from './formColumn';
 export function AccountPage() {
   const t = useLabel();
   return (
-    <Space direction="vertical" size="large" style={FORM_COLUMN}>
+    <Space
+      direction="vertical"
+      size="large"
+      // A Space is inline-flex: as a flex box its auto margins centre it (V-06 re-check).
+      style={{ ...FORM_COLUMN, display: 'flex' }}
+    >
       <Typography.Title level={1}>{t('nav.profile')}</Typography.Title>
       <ContactDetailsCard />
       <AccountSecurityCard />
