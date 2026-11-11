@@ -70,6 +70,8 @@ export const ur: LabelResource = {
   'errors.asset_disposal_not_found': 'اس اثاثے کا کوئی تلفی ریکارڈ نہیں۔',
   'errors.asset_disposed_read_only':
     'یہ اثاثہ تلف ہو چکا ہے، اس لیے صرف پڑھا جا سکتا ہے۔ اسے بدلنے کے لیے تلف شدہ اثاثے بدلنے کی اجازت درکار ہے۔',
+  'errors.asset_field_not_allowed':
+    'اپنے ٹکٹ کے ذریعے آپ اس اثاثے کی صرف حالت، مقام، نوٹس اور لگے ہوئے پرزے بدل سکتے ہیں۔ باقی کسی چیز کے لیے اثاثہ مینیجر سے کہیں۔',
   'errors.asset_group_dynamic':
     'متحرک گروپ کے اراکین اس کے فلٹر سے آتے ہیں؛ اس کی بجائے فلٹر بدلیں۔',
   'errors.asset_group_name_taken': 'کسی اور گروپ کا یہی نام ہے۔',
@@ -92,10 +94,14 @@ export const ur: LabelResource = {
   'errors.asset_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.asset_loan_not_found': 'یہ ادھار بند ہو چکا ہے یا اب موجود نہیں۔',
   'errors.asset_move_not_allowed': 'یہ اثاثہ اپنی موجودہ حالت سے اس حالت میں نہیں جا سکتا۔',
+  'errors.asset_move_not_allowed_through_ticket':
+    'اثاثے کو ریٹائر یا تلف کرنا ٹکٹ کے ذریعے نہیں ہوتا۔ اثاثہ مینیجر سے کہیں۔',
   'errors.asset_no_default_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی طے شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
   'errors.asset_no_disposed_state':
     'اثاثے کو منتقل کرنے کے لیے کوئی تلف شدہ حالت نہیں۔ کسی ایڈمن سے اثاثوں کی حالتیں دیکھنے کو کہیں۔',
+  'errors.asset_not_a_component':
+    'اپنے ٹکٹ کے ذریعے صرف وہ پرزہ لگایا جا سکتا ہے جو کسی کے پاس نہ ہو۔ پورا اثاثہ دینے کے لیے اثاثہ مینیجر سے کہیں۔',
   'errors.asset_not_bookable':
     '{{asset}} بُک نہیں ہو سکتا: صرف ادھار کے قابل اثاثے جو ریٹائر یا تلف نہ ہوں۔',
   'errors.asset_not_found': 'یہ اثاثہ اب موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
@@ -1009,6 +1015,7 @@ export const ur: LabelResource = {
   'errors.work_item_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.work_item_not_found': 'یہ ریکارڈ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',
+  'errors.work_item_type_not_found': 'اس قسم کا کوئی ریکارڈ نہیں۔',
   'errors.work_item_view_not_found': 'یہ محفوظ ویو اب موجود نہیں، یا آپ کے ساتھ شیئر نہیں کیا گیا۔',
   'errors.work_item_worklog_not_found': 'یہ ورک لاگ اب موجود نہیں۔',
   'errors.workflow_instance_changed':

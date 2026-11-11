@@ -18,9 +18,10 @@
   service), scan history with its retention clean-up, and the overdue-scan rule.
 
 Licensed with the `assets` feature. Public interface for other modules: `can_see`, `asset_refs`
-and `assets_of` (REQ-AST-025, for work items), the disposal guard port, and `record_scan` with
+and `assets_of` (REQ-AST-025, for work items), the disposal guard port, `record_scan` with
 its codes (`ScanSource`, `ScanType`, `ScanResult`, `ScanFailure`): the port discovery calls for
-each scan (REQ-AST-054).
+each scan (REQ-AST-054), and (D-157) the port work items register "the requesters of my tickets
+that link this asset" with.
 """
 
 from fastapi import FastAPI
@@ -62,6 +63,11 @@ from app.modules.assets.service.refs import (
     email_includes_assets,
 )
 from app.modules.assets.service.scans import overdue_sweep, record_scan, scan_cleanup_sweep
+from app.modules.assets.service.ticket_access import (
+    TicketRequesters,
+    register_ticket_requesters,
+    unregister_ticket_requesters,
+)
 from app.modules.assets.service.valuations import valuation_sweep
 from app.modules.procurement import register_vendor_usage
 from app.shared.events import ConsumerSpec
@@ -159,6 +165,7 @@ __all__ = [
     "ScanResult",
     "ScanSource",
     "ScanType",
+    "TicketRequesters",
     "asset_refs",
     "assets_of",
     "can_see",
@@ -167,6 +174,8 @@ __all__ = [
     "record_scan",
     "register_disposal_guard",
     "register_draft_purchase_requests",
+    "register_ticket_requesters",
     "unregister_disposal_guard",
     "unregister_draft_purchase_requests",
+    "unregister_ticket_requesters",
 ]

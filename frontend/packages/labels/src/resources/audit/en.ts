@@ -908,6 +908,7 @@ export const en = {
   'event_type.licensing.entitlement.changed': 'Plan or licence changed',
   'event_type.metadata.custom_field.changed': 'Custom field changed',
   'event_type.notifications.delivery.recorded': 'Notification delivery recorded',
+  'event_type.notifications.mail.not_sent_summary': 'E-mails given up: mail not set up',
   // WP-023 notifications
   'event_type.notifications.notification.created': 'Notification created',
   'event_type.notifications.notification.read': 'Notifications read',

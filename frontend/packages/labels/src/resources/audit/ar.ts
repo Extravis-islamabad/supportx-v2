@@ -911,6 +911,7 @@ export const ar: LabelResource = {
   'event_type.licensing.entitlement.changed': 'تم تغيير الخطة أو الترخيص',
   'event_type.metadata.custom_field.changed': 'تغيّر حقل مخصص',
   'event_type.notifications.delivery.recorded': 'سُجّل إرسال إشعار',
+  'event_type.notifications.mail.not_sent_summary': 'رسائل بريد تُخلي عنها: البريد غير مُعدّ',
   // WP-023 notifications
   'event_type.notifications.notification.created': 'أُنشئ إشعار',
   'event_type.notifications.notification.read': 'قُرئت الإشعارات',

@@ -276,14 +276,19 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** HA install survives the loss of any one node with the e2e suite passing; a
   restore drill (backup → new cluster → smoke test) passes in CI; alerts fire in a fault test.
 - **Depends on:** WP-014
-- [ ] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
+- [x] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
   master that dies within about 10 s of a fresh start, before its sentinels have seen its
   replicas (Sentinel reads a master's INFO every 10 s), does not fail over until it returns: every
   attempt aborts with `-failover-abort-no-good-slave`. No data is lost, since #284's guard still
   refuses to start empty, but the set is unavailable meanwhile. #388 only made the tests wait for
   the sentinels. Fix: a Valkey pod reports ready only once the sentinels list its replicas (the
   readiness option), with a test that fails over a master stopped right after a fresh start.
-  In Haider's summary as an FYI.
+  In Haider's summary as an FYI. **Done (2026-11-11, branch `feat/valkey-ready-sentinels`):** the
+  valkey container's readiness probe is the chart's `ready.sh` (`templates/valkey-ha.yaml`): until
+  a pod's first readiness in its role, its own sentinel must list it (replica, once synced) or
+  every replica connected to it (master); afterwards only the server counts. Tests in
+  `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
+  [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -1642,6 +1647,25 @@ it with no reload (rule c). Not built yet.
     the API cannot tell beforehand whether a worker can render PDFs (a job without one fails
     with `pdf_not_available`); the label designer (040) and mobile scanning (041) are later;
     discovery calls `record_scan` (WP-050).
+- [x] **D-157 follow-up (lane B, 2026-11-11; migration 0136 after 0137;
+  branch backup/d157):**
+  - A technician changes an asset linked to its own ticket still being worked and held by the
+    ticket's requester or department: state, location, notes and fitted parts only
+    (`asset_field_not_allowed` otherwise); `GET /assets/{id}/access`; work_items'
+    `linked_requester_ids_select` port (additive; lane A reviews).
+  - Price, tax and total behind `assets.view_financials` in responses, history (masked) and
+    writes.
+  - Straight line by default; declining balance with the product type's factor
+    (`depreciation_factor`, default 2); double declining stays 200 %.
+  - One in-app notice per run to the people who set mail up when e-mails are given up after 7
+    days without mail (`outgoing_mail.not_sent`).
+  - Review fixes: the ticket path fits only free components and never retires or disposes;
+    the on-behalf person counts as a holder (lane A); the mail summary is claimed once per run.
+  - 2b: catalogue prices and default depreciation behind `assets.view_financials` (masked in
+    product responses, needed to write them).
+  - The Purchase manager role will need catalogue prices when procurement is built (WP-054);
+    granting it then is Haider's call, not granted now.
+  - **Open:** the e2e journey for the technician's path.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 

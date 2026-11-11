@@ -7,6 +7,8 @@ import {
   DatePicker,
   Flex,
   Form,
+  Input,
+  Modal,
   Segmented,
   Select,
   Skeleton,
@@ -21,6 +23,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   queryKeys,
   useAssetFinancials,
+  useAssetAccess,
   useAssetHistory,
   useAssetProductTypes,
   useAssetRecord,
@@ -43,6 +46,7 @@ import {
   EmptyText,
   FilterBar,
   FiltersDrawer,
+  lengthLimit,
   NoAccess,
   PresenceAvatars,
   PropertiesPanel,
@@ -73,6 +77,7 @@ import { CopyAssetDialog, MoveAssetDialog } from './AssetActions';
 import { AssetRelations } from './AssetRelations';
 import { AssetBookings } from './Bookings';
 import { ageBetween, basisDay } from './age';
+import { okFooter } from './dialogOk';
 import { DisposalCard, DisposeAssetDialog } from './Disposal';
 import { AssetFields } from './AssetForm';
 import { AssetFinancialsTab } from './Financials';
@@ -119,6 +124,14 @@ const FILTER_FIELDS = [
   'cost',
   'note',
 ] as const;
+// D-157: money, read only with assets.view_financials (the API masks these lines for others).
+const MONEY_FIELDS: ReadonlySet<string> = new Set([
+  'purchase_price',
+  'purchase_tax',
+  'depreciation_method',
+  'useful_life_years',
+  'salvage_value',
+]);
 const SOURCES: AssetHistorySource[] = [
   'ui',
   'api',
@@ -243,6 +256,11 @@ function AssetView({ asset }: { asset: AssetRecord }) {
     }
   });
   const manage = access.can('assets.manage');
+  // D-157: without assets.manage, a technician may still change this asset's state, location,
+  // notes and fitted parts while it is linked to their own ticket and held by its requester.
+  const reach = useAssetAccess(manage ? undefined : asset.id);
+  const throughTicket = !manage && reach.data?.through_ticket === true;
+  const [locating, setLocating] = useState<string>();
   // Two buttons on a phone, as on a request: a third wrapped "More actions" to a second line
   // (the visual matrix at 390 px, once the showcase had an asset to show).
   const wide = useMinWidth(576);
@@ -272,7 +290,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
     .filter((f) => !f.removed)
     .sort((a, b) => a.sort_order - b.sort_order);
   // Dispose (REQ-AST-017) only where the life cycle has a way into a disposed state from here.
-  const moves = useAssetMoves(manage ? asset.id : undefined);
+  const moves = useAssetMoves(manage || throughTicket ? asset.id : undefined);
   const disposedIds = new Set(
     (states.data ?? []).filter((x) => x.category === 'disposed').map((x) => x.id),
   );
@@ -472,21 +490,51 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   ];
   // The record's actions on one row (D-155): the state change first, then edit and copy; the
   // destructive ones in "More actions", the delete confirmed.
+  const ticketActions: RecordAction[] = [
+    {
+      key: 'move',
+      label: t('assets.move.open'),
+      allowed: true,
+      primary: true,
+      rank: 1,
+      icon: <SwapOutlined aria-hidden />,
+      onClick: () => {
+        setDialog('move');
+      },
+      testId: 'asset-move-open',
+    },
+    {
+      key: 'location',
+      label: t('assets.record.change_location'),
+      allowed: true,
+      primary: true,
+      rank: 2,
+      icon: <EditOutlined aria-hidden />,
+      onClick: () => {
+        setLocating(asset.location ?? '');
+      },
+      testId: 'asset-location-open',
+    },
+  ];
   // Labels (REQ-AST-039) for everyone who may see the asset: its QR code or barcode.
   const labelAction: RecordAction = {
     key: 'labels',
     label: t('assets.labels.print_action'),
     allowed: true,
-    // A button for those who only view (their one action); in "More actions" for managers.
-    primary: !manage,
+    // A button for those who only view (their one action); in "More actions" for managers and
+    // for a technician working through its ticket (D-157), whose own actions come first.
+    primary: !manage && !throughTicket,
     rank: 4,
     onClick: () => {
       setPrinting(true);
     },
     testId: 'asset-labels-open',
   };
-  const actions: RecordAction[] = manage
-    ? [
+  const actions: RecordAction[] = !manage
+    ? throughTicket
+      ? [...ticketActions, labelAction]
+      : [labelAction]
+    : [
         {
           key: 'move',
           label: t('assets.move.open'),
@@ -557,8 +605,7 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           testId: 'asset-trash',
         },
         labelAction,
-      ]
-    : [labelAction];
+      ];
   const details = editing ? (
     <Flex vertical gap={12} data-testid="asset-edit-form">
       {changedElsewhere && (
@@ -676,6 +723,56 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           setDialog(undefined);
         }}
       />
+      {/* D-157: the location alone, for a technician through its ticket. */}
+      <Modal
+        open={locating !== undefined}
+        title={t('assets.record.change_location')}
+        cancelText={t('actions.cancel')}
+        onCancel={() => {
+          setLocating(undefined);
+          clear();
+        }}
+        footer={okFooter({
+          okText: t('actions.save'),
+          loading: change.isPending,
+          onOk: () => {
+            clear();
+            const location = (locating ?? '').trim();
+            change.mutate(
+              {
+                kind: 'update',
+                id: asset.id,
+                version: asset.version,
+                body: { location: location === '' ? null : location },
+              },
+              {
+                onSuccess: () => {
+                  setLocating(undefined);
+                },
+                onError: show,
+              },
+            );
+          },
+          testId: 'asset-location-save',
+        })}
+        destroyOnHidden
+      >
+        <Form layout="vertical" component="div">
+          <Problems problems={problems} testId="asset-location-problems" />
+          <Form.Item label={t('assets.record.location')} htmlFor="asset-location-only">
+            <Input
+              id="asset-location-only"
+              dir="auto"
+              count={lengthLimit(200)}
+              value={locating}
+              onChange={(event) => {
+                setLocating(event.target.value);
+              }}
+              data-testid="asset-location-only"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
       {printing && (
         <PrintLabelsDialog
           assetIds={[asset.id]}
@@ -696,6 +793,14 @@ function AssetView({ asset }: { asset: AssetRecord }) {
             label: t('assets.record.details'),
             children: (
               <Flex vertical gap={16} style={{ paddingBottom: 16 }}>
+                {throughTicket && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    message={t('assets.record.through_ticket')}
+                    data-testid="asset-through-ticket"
+                  />
+                )}
                 {details}
                 {state?.category === 'disposed' && (
                   <DisposalCard asset={asset} canManage={manage} />
@@ -706,7 +811,9 @@ function AssetView({ asset }: { asset: AssetRecord }) {
           {
             key: 'relations',
             label: t('assets.record.relations'),
-            children: <AssetRelations asset={asset} manage={manage} />,
+            children: (
+              <AssetRelations asset={asset} manage={manage} parts={manage || throughTicket} />
+            ),
           },
           {
             // WP-049b s1 (REQ-AST-032): bookings ahead, handed over as loans.
@@ -766,6 +873,7 @@ function AssetHistory({ id }: { id: string }) {
   const [filters, setFilters] = useState<AssetHistoryFilters>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const history = useAssetHistory(id, filters);
+  const seesMoney = useAccess().can('assets.view_financials');
   const list = useListFormat();
   const entries = history.data?.pages.flatMap((p) => p.items) ?? [];
   // Field codes never show (§5d): each known one by its label, a custom field as such.
@@ -851,7 +959,10 @@ function AssetHistory({ id }: { id: string }) {
               onChange={(value: string | undefined) => {
                 set({ field: value });
               }}
-              options={FILTER_FIELDS.map((f) => ({ value: f, label: field(f) }))}
+              options={FILTER_FIELDS.filter((f) => seesMoney || !MONEY_FIELDS.has(f)).map((f) => ({
+                value: f,
+                label: field(f),
+              }))}
               data-testid="asset-history-field"
             />
           </Form.Item>
