@@ -340,3 +340,54 @@ export function useReapprovalPreview() {
       ),
   });
 }
+
+export type ChangeConflicts = components['schemas']['ConflictsOut'];
+export type ChangeConflict = components['schemas']['ConflictOut'];
+export type ChangeWindow = components['schemas']['WindowOut'];
+
+/** A change's conflicts now (freezes, outside maintenance, overlapping changes), each with why. */
+export function useChangeConflicts(id: string) {
+  return useQuery({
+    queryKey: keys.part(id, 'conflicts'),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/changes/{record_id}/conflicts', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** The freeze and maintenance windows; with a range, only those then (the calendar). */
+export function useChangeWindows(range?: { start: string; end: string }) {
+  return useQuery({
+    queryKey: ['change-windows', range?.start ?? '', range?.end ?? ''],
+    queryFn: () => call(api.GET('/api/v1/change-windows', { params: { query: range ?? {} } })),
+  });
+}
+
+/** Go ahead in these blocking freezes, with a reason (changes.override_freeze; ADR-042). */
+export function useFreezeOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      version,
+      reason,
+      windowIds,
+    }: {
+      id: string;
+      version: number;
+      reason: string;
+      windowIds: string[];
+    }) =>
+      call(
+        api.POST('/api/v1/changes/{record_id}/freeze-override', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { reason, window_ids: windowIds },
+        }),
+      ),
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.detail(id) });
+    },
+  });
+}

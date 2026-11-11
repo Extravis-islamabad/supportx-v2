@@ -33,28 +33,13 @@ import { stageName, statusName } from '../staged/labels';
 import { StagedMoveDialog } from '../staged/MoveDialog';
 import { ApprovalPreview, ApprovalsPart } from './ChangeApprovals';
 import { ChangeProperties } from './ChangeProperties';
+import { ChangeScheduleTab } from './ChangeSchedule';
 import { EmergencyOverrideDialog } from './EmergencyOverride';
-import {
-  DetailsPart,
-  DowntimePart,
-  PlanPart,
-  RiskPart,
-  RolesPart,
-  SchedulePart,
-} from './ChangeParts';
+import { DetailsPart, PlanPart, RiskPart, RolesPart, SchedulePart } from './ChangeParts';
 import { EMERGENCY_PATH, riskTone } from './labels';
 
 const CANCELED = 'closure_canceled';
-const TABS = [
-  'details',
-  'risk',
-  'approvals',
-  'roles',
-  'plan',
-  'schedule',
-  'downtime',
-  'history',
-] as const;
+const TABS = ['details', 'risk', 'approvals', 'roles', 'plan', 'schedule', 'history'] as const;
 // The statuses that raise a stage's approval (acceptance, the plan, the CAB): their move shows
 // who would approve and who is left out first (REQ-CHG-039).
 const RAISING = new Set([
@@ -295,12 +280,7 @@ export function ChangePage() {
           {
             key: 'schedule',
             label: t('staged.tab.schedule'),
-            children: <SchedulePart id={c.id} />,
-          },
-          {
-            key: 'downtime',
-            label: t('staged.tab.downtime'),
-            children: <DowntimePart id={c.id} />,
+            children: <ChangeScheduleTab change={c} stages={<SchedulePart id={c.id} />} />,
           },
           {
             key: 'history',
