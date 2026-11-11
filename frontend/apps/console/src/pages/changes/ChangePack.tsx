@@ -20,6 +20,7 @@ import { useRecordChannel } from '@supportx/realtime';
 import {
   EmptyText,
   RichTextView,
+  TimeZoneNote,
   ToneTag,
   reportError,
   useAppearance,
@@ -109,6 +110,8 @@ export function ChangePack() {
           <Typography.Text type="secondary">
             {t('changes.pack.printed', { at: format(new Date().toISOString()) })}
           </Typography.Text>
+          {/* Read by people in other zones too (lane C's #384 review): the zone, said once. */}
+          <TimeZoneNote />
         </div>
         <Flex gap={8} data-sx-no-print>
           <Link to={`/changes/${c.id}`}>{t('changes.pack.back')}</Link>

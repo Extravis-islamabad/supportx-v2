@@ -47,6 +47,8 @@ const REPEATS = ['none', 'weekly', 'monthly'] as const;
 type Repeat = (typeof REPEATS)[number];
 const WEEKS = [1, 2, 3, 4, 5] as const;
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const; // Monday .. Sunday, as the server counts
+// The list starts on the tenant's first day of the week (lane C's #384 review).
+const FIRST_WEEKDAY = { monday: 0, sunday: 6, saturday: 5 } as const;
 
 interface Draft {
   kind: Kind;
@@ -86,7 +88,7 @@ function WindowEditor({
   onClose: () => void;
 }) {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { locale, dates } = useAppearance();
   const { message } = App.useApp();
   const sites = useUnits('sites');
   const groups = useUnits('groups');
@@ -262,7 +264,10 @@ function WindowEditor({
                   onChange={(repeat_weekday) => {
                     set({ repeat_weekday });
                   }}
-                  options={WEEKDAYS.map((n) => ({
+                  options={[
+                    ...WEEKDAYS.slice(FIRST_WEEKDAY[dates.weekStart]),
+                    ...WEEKDAYS.slice(0, FIRST_WEEKDAY[dates.weekStart]),
+                  ].map((n) => ({
                     value: n,
                     label: t(`window_weekday.${String(n)}`),
                   }))}
