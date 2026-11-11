@@ -407,6 +407,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-048b S5a: every run, the second tab of Admin › Workflows.
+            path: 'workflows/runs',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/RunsPage')).RunsPage,
+            }),
+          },
+          {
             path: 'workflows/:workflowId',
             lazy: async () => ({
               Component: (await import('./pages/admin/workflows/DesignerPage')).DesignerPage,

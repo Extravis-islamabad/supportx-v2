@@ -363,3 +363,77 @@ export function useSkipInstance() {
     onSettled: refresh,
   });
 }
+
+export type OverviewRunOut = components['schemas']['OverviewRunOut'];
+export type WorkflowJobOut = components['schemas']['JobOut'];
+export type WorkflowJobIn = components['schemas']['JobIn'];
+
+export interface RunsQuery {
+  status?: string;
+  workflowId?: string;
+  node?: string;
+  waitingOverHours?: number;
+}
+
+/** The runs overview (REQ-WF-025): newest first; each record named only if you may see it. */
+export function useWorkflowRuns(query: RunsQuery, enabled = true) {
+  const terms = [
+    ...(query.status ? [{ field: 'status', op: 'eq', value: query.status }] : []),
+    ...(query.workflowId ? [{ field: 'workflow_id', op: 'eq', value: query.workflowId }] : []),
+  ];
+  const filter =
+    terms.length === 0 ? undefined : JSON.stringify(terms.length === 1 ? terms[0] : { and: terms });
+  return useQuery({
+    queryKey: queryKeys.workflows.runs(query),
+    queryFn: () =>
+      call(
+        api.GET(`${PATH}/instances`, {
+          params: {
+            query: {
+              filter,
+              node: query.node === '' ? undefined : query.node,
+              waiting_over_hours: query.waitingOverHours,
+              sort: '-started_at',
+              limit: 200,
+              include_total: true,
+            },
+          },
+        }),
+      ),
+    enabled,
+  });
+}
+
+/** Retry, cancel or move many runs of one workflow, as a background job (1,000 at most). */
+export function useQueueJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      workflowId,
+      key,
+      body,
+    }: {
+      workflowId: string;
+      key: string;
+      body: WorkflowJobIn;
+    }) =>
+      call(
+        api.POST(`${PATH}/{workflow_id}/jobs`, {
+          params: { path: { workflow_id: workflowId }, header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSuccess: (job) => {
+      queryClient.setQueryData(queryKeys.workflows.job(job.id), job);
+    },
+  });
+}
+
+/** One job's progress and results (live: the overview refetches it on the queue channel). */
+export function useWorkflowJob(id: string) {
+  return useQuery({
+    queryKey: queryKeys.workflows.job(id),
+    queryFn: () => call(api.GET(`${PATH}/jobs/{job_id}`, { params: { path: { job_id: id } } })),
+    enabled: id !== '',
+  });
+}

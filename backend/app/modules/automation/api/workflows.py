@@ -155,6 +155,8 @@ class OverviewRunOut(InstanceOut):
     record: RecordLabelOut | None = Field(
         default=None, description="None: the viewer may not see the record (no ID, no link)."
     )
+    workflow_name: str = ""
+    current_nodes: list[str] = Field(default_factory=list, description="Where it is now.")
 
 
 class StepOut(BaseModel):
@@ -486,12 +488,20 @@ async def _named(
         kind = registered(record_type)
         if kind is not None and kind.labels is not None:
             names.update(await kind.labels(session, sorted(ids)))
+    flows = {
+        w.id: w.name
+        for w in await session.scalars(
+            select(Workflow).where(Workflow.id.in_({r.workflow_id for r in rows}))
+        )
+    }
     out = []
     for row in rows:
         name = names.get(row.record_id)
         out.append(
             OverviewRunOut(
                 **_instance(row).model_dump(),
+                workflow_name=flows.get(row.workflow_id, ""),
+                current_nodes=_current(row.state),
                 record=None
                 if name is None
                 else RecordLabelOut(display_id=name[0], subject=name[1]),
@@ -935,6 +945,7 @@ def _job(row: WorkflowJob) -> JobOut:
     "/{workflow_id}/jobs",
     summary="Retry or cancel many runs, as a background job",
     status_code=status.HTTP_202_ACCEPTED,
+    response_model=JobOut,
 )
 async def queue_job(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     workflow_id: uuid.UUID,
