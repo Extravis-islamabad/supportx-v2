@@ -8,6 +8,7 @@ import { ValueInput } from '../automation/fields';
 import { fieldOptions, useFieldName } from '../automation/rules';
 import { UserPicker } from '../../incidents/pickers';
 import type { FormProps } from './NodeForms';
+import { RetriesField } from './StructureForms';
 
 // Settings forms for the steps that were JSON only (QA F-05, the coordinator's order: approval,
 // field update, webhook, set variable). Each edits the config exactly as the definition stores
@@ -226,6 +227,7 @@ export function FieldUpdateForm({ config, onChange, recordType, readOnly }: Form
           {t('workflows.form.add_field')}
         </Button>
       </Form.Item>
+      <RetriesField config={config} onChange={onChange} readOnly={readOnly} />
     </>
   );
 }
@@ -363,6 +365,7 @@ export function WebhookForm({ config, onChange, recordType, variables, readOnly 
           data-testid="webhook-status"
         />
       </Form.Item>
+      <RetriesField config={config} onChange={onChange} readOnly={readOnly} />
     </>
   );
 }

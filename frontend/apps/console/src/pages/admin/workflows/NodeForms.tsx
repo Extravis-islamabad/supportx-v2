@@ -8,6 +8,7 @@ import { TranslatedField, lengthLimit, useLabel, type TranslatedValue } from '@s
 
 import { ConditionBuilder } from '../automation/fields';
 import { ApprovalForm, FieldUpdateForm, SetVariableForm, WebhookForm } from './MoreNodeForms';
+import { FunctionForm, JoinForm, SplitForm, SubFlowForm } from './StructureForms';
 import { fieldOptions, fromTree, toTree, useFieldName, type Conditions } from '../automation/rules';
 
 // Settings forms for the node types people use most (WP-048b S4b). Each edits the node's
@@ -473,6 +474,10 @@ const FORMS: Record<string, (props: FormProps) => React.JSX.Element> = {
   field_update: FieldUpdateForm,
   webhook: WebhookForm,
   set_variable: SetVariableForm,
+  split: SplitForm,
+  join: JoinForm,
+  sub_flow: SubFlowForm,
+  function: FunctionForm,
 };
 
 /** The node type's form, or null when it has none (the "Advanced" editor is its form). */

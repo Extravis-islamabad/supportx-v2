@@ -12,6 +12,7 @@ import { consoleApi } from '../../../test/api';
 // config the server receives is the one the definition stores.
 
 const FLOW_ID = '01a1a2b3-0000-7000-8000-0000000f0101';
+const CHILD_ID = '01a1a2b3-0000-7000-8000-0000000f0301';
 const GROUP_ID = '01a1a2b3-0000-7000-8000-0000000f0201';
 
 const node = (id: string, type: string, config: Record<string, unknown> = {}) => ({
@@ -35,6 +36,10 @@ const draft = {
     node('fill', 'field_update'),
     node('call', 'webhook'),
     node('keep', 'set_variable'),
+    node('fork', 'split'),
+    node('meet', 'join'),
+    node('child', 'sub_flow'),
+    node('fn', 'function'),
     node('end', 'end'),
   ],
   links: [],
@@ -91,6 +96,20 @@ function api() {
         ],
       },
       'POST /api/v1/automation/workflows/node-ports': { body: [] },
+      'GET /api/v1/automation/workflows': {
+        body: [
+          {
+            id: CHILD_ID,
+            record_type: 'incident',
+            name: 'Notify the owner',
+            description: null,
+            enabled: true,
+            published_version: 1,
+            running: 0,
+            version: 2,
+          },
+        ],
+      },
       'GET /api/v1/automation/fields': {
         body: [
           { name: 'priority', kind: 'code', derived: false, settable: true, values: ['p1', 'p2'] },
@@ -229,5 +248,70 @@ describe('console: workflow node forms (QA F-05)', () => {
       { name: 'status_code', kind: 'number' },
       { name: 'replies', kind: 'text' },
     ]);
+  });
+  it('split: named branches, two at least', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('fork');
+    fireEvent.change(within(details).getByTestId('split-branch-1-name'), {
+      target: { value: 'tell' },
+    });
+    fireEvent.change(within(details).getByTestId('split-branch-2-name'), {
+      target: { value: 'check' },
+    });
+    expect(await saved(fake, 'fork')).toEqual({ branches: ['tell', 'check'] });
+  });
+
+  it('join: a number of branches asks how many', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('meet');
+    fireEvent.click(within(details).getByLabelText('A number of branches have finished'));
+    fireEvent.change(within(details).getByTestId('join-count'), { target: { value: '3' } });
+    expect(await saved(fake, 'meet')).toEqual({ mode: 'count', count: 3 });
+  });
+
+  it('sub-flow: another workflow by name, and retries', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('child');
+    await choose(details, 'sub-flow', 'Notify the owner');
+    fireEvent.change(within(details).getByTestId('node-retries'), { target: { value: '2' } });
+    fireEvent.change(await within(details).findByTestId('node-retry-seconds'), {
+      target: { value: '120' },
+    });
+    expect(await saved(fake, 'child')).toEqual({
+      workflow_id: CHILD_ID,
+      retries: 2,
+      retry_seconds: 120,
+    });
+  });
+
+  it('function: its name, an input from a field, an output into a variable', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('fn');
+    fireEvent.change(within(details).getByTestId('function-name'), {
+      target: { value: 'score_risk' },
+    });
+    fireEvent.click(within(details).getByTestId('function-input-add'));
+    fireEvent.change(within(details).getByTestId('function-input-1-name'), {
+      target: { value: 'due' },
+    });
+    await choose(details, 'function-input-1-field', 'Priority');
+    fireEvent.click(within(details).getByTestId('function-output-add'));
+    fireEvent.change(within(details).getByTestId('function-output-1-name'), {
+      target: { value: 'code' },
+    });
+    await choose(details, 'function-output-1-variable', 'status_code');
+    expect(await saved(fake, 'fn')).toEqual({
+      function: 'score_risk',
+      inputs: { due: { field: 'priority' } },
+      assign: { code: 'status_code' },
+    });
   });
 });
