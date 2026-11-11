@@ -637,7 +637,7 @@ async def dependencies_of(
         .order_by(WorkItemTaskDependency.created_at, WorkItemTaskDependency.depends_on_id)
     )
     found: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
-    for task_id, depends_on in rows.tuples():
+    for task_id, depends_on in rows:
         found[task_id].append(depends_on)
     return dict(found)
 
