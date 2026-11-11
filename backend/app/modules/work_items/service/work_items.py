@@ -152,6 +152,7 @@ from app.modules.work_items.service import (
     change_types,
     closing,
     followers,
+    record_roles,
     templates,
 )
 from app.modules.work_items.service import catalogue as config
@@ -3600,6 +3601,7 @@ class RoleHolding:
     definition: WorkItemRoleDef
     user_ids: tuple[uuid.UUID, ...]
     group_ids: tuple[uuid.UUID, ...]
+    from_record: bool = False  # the record's own field holds it (F-02): changed there
 
 
 @dataclass(frozen=True)
@@ -3647,9 +3649,14 @@ async def roles_of(
     if not wtype.roles:
         raise _not_found(wtype)
     record = await _visible(session, subject, wtype, record_id)
-    held = await _holders_of(session, record.id)
+    held = await record_roles.role_holders(session, record)
     roles = [
-        RoleHolding(d, tuple(held.get(d.code, ([], []))[0]), tuple(held.get(d.code, ([], []))[1]))
+        RoleHolding(
+            d,
+            tuple(held.get(d.code, ([], []))[0]),
+            tuple(held.get(d.code, ([], []))[1]),
+            from_record=d.code in wtype.record_roles,
+        )
         for d in await _role_defs(session, wtype)
         if d.disabled_at is None or d.code in held
     ]
@@ -3753,6 +3760,8 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     definition = next((d for d in await _role_defs(session, wtype) if d.code == role), None)
     if definition is None:
         raise NotFound(code="role_not_found")
+    if role in wtype.record_roles:  # the record's own field: changed where that field is
+        raise _errors([("role", "role_held_by_record")])
     users, groups = list(dict.fromkeys(user_ids)), list(dict.fromkeys(group_ids))
     held = (await _holders_of(session, record.id)).get(role, ([], []))
     if definition.disabled_at is not None and (users or groups) and (users, groups) != held:

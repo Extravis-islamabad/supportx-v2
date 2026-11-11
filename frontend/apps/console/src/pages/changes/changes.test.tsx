@@ -480,4 +480,116 @@ describe('console: changes', () => {
       expect(fake.find('PATCH', `/api/v1/changes/${CHG_ID}/details`)).toHaveLength(1);
     });
   });
+
+  it('QA-2026-11-11 F-02: the roles tab names the change\'s own requester, not "Nobody yet"', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}?tab=roles`);
+    const SANA = '01a1a2b3-0000-7000-8000-00000000aa01';
+    api({
+      [`GET /api/v1/changes/${CHG_ID}/roles`]: {
+        body: {
+          version: 4,
+          roles: [
+            {
+              code: 'requester',
+              labels: null,
+              single: true,
+              system: true,
+              disabled: false,
+              user_ids: [SANA],
+              group_ids: [],
+              from_record: true,
+            },
+          ],
+          people: { [SANA]: 'Sana Malik' },
+        },
+      },
+    });
+    render(<App />);
+    const holder = await screen.findByTestId('change-role-requester-holder');
+    expect(holder.textContent).toContain('Sana Malik');
+    expect(holder.textContent).toContain('Set in the details panel');
+    expect(screen.getByTestId('change-roles').textContent).not.toContain('Nobody yet');
+  });
+
+  it('QA-2026-11-11 F-03: history shows labels and local times, never codes, UTC or bookkeeping', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}?tab=history`);
+    api({
+      [`GET /api/v1/changes/${CHG_ID}/history`]: {
+        body: {
+          items: [
+            {
+              change_id: 'h-1',
+              version: 2,
+              kind: 'updated',
+              occurred_at: '2026-11-11T14:18:00Z',
+              actor_type: 'user',
+              actor_id: null,
+              actor_name: 'Sana Malik',
+              source: 'ui',
+              reason: null,
+              automation: null,
+              changes: [
+                { field: 'risk', old: null, new: 'very_high' },
+                { field: 'risk_answers', old: null, new: { affected: 'organisation' } },
+                { field: 'risk_version', old: null, new: 1 },
+                { field: 'scheduled_start', old: null, new: '2026-11-17T21:00:00+00:00' },
+                { field: 'change_reason', old: null, new: 'security_fix' },
+              ],
+            },
+          ],
+          next_cursor: null,
+          people: {},
+        },
+      },
+    });
+    render(<App />);
+    const entry = await screen.findByTestId('inc-history-entry');
+    const text = entry.textContent;
+    expect(text).toContain('Very high');
+    expect(text).not.toContain('very_high');
+    expect(text).toContain('Risk assessment answers');
+    expect(text).not.toMatch(/Risk Version|risk_version/);
+    expect(text).not.toContain('2026-11-17T21:00');
+    expect(text).not.toContain('+00:00');
+    expect(text).not.toContain('security_fix');
+  });
+
+  it('QA-2026-11-11 F-01: a form that remounts keeps its Idempotency-Key, so a repeat never duplicates', async () => {
+    window.history.pushState({}, '', '/changes/new');
+    const fake = api({
+      'POST /api/v1/changes': {
+        status: 503,
+        body: {
+          type: 'urn:supportx:problem:service_unavailable',
+          title: 'Service Unavailable',
+          status: 503,
+          code: 'service_unavailable',
+          message_key: 'errors.service_unavailable',
+          params: {},
+          errors: [],
+        },
+      },
+    });
+    const fill = async () => {
+      expect(await screen.findByTestId('change-path')).toBeTruthy();
+      fireEvent.change(screen.getByTestId('change-subject'), {
+        target: { value: 'Core switch firmware 9.3' },
+      });
+      fireEvent.click(screen.getByTestId('change-save'));
+    };
+    const first = render(<App />);
+    await fill();
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(1);
+    });
+    first.unmount(); // the page remounts (a banner, a session refetch)
+    render(<App />);
+    await fill();
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(2);
+    });
+    const [one, two] = fake.find('POST', '/api/v1/changes');
+    expect(one?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(two?.headers.get('Idempotency-Key')).toBe(one?.headers.get('Idempotency-Key'));
+  });
 });

@@ -1,5 +1,5 @@
 import { Button, Col, Form, Input, Row, Select, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
@@ -23,6 +23,7 @@ import {
   lengthLimit,
 } from '@supportx/ui';
 
+import { useFormKey } from '../formKey';
 import { UserPicker } from '../incidents/pickers';
 import { listValueName, stageName } from '../staged/labels';
 import { templateName } from './labels';
@@ -46,7 +47,7 @@ export function NewChangePage() {
   const prefill = useChangePrefill(from);
   const create = useCreateChange();
   const problem = useFormProblem();
-  const key = useMemo(() => crypto.randomUUID(), []);
+  const { key, done } = useFormKey('new-change'); // F-01: kept across a remount
   const offered = (templates.data ?? []).filter((x) => !x.disabled);
   const fallback = offered.find((x) => x.is_default)?.id;
   const [templateId, setTemplateId] = useState<string>();
@@ -62,8 +63,10 @@ export function NewChangePage() {
   const description = typedDescription ?? filledFrom?.description ?? null;
   const requester = pickedRequester ?? filledFrom?.requester_id ?? null;
   const submit = () => {
-    create.mutate(
-      {
+    // The awaited result, not mutate's own callback: that one is dropped if the page remounted
+    // while the request ran, which left a made change behind a blank form (F-01).
+    create
+      .mutateAsync({
         key,
         body: {
           subject: subject.trim(),
@@ -78,14 +81,15 @@ export function NewChangePage() {
           site_id: filledFrom?.site_id ?? null,
           confirm_lose_access: false,
         },
-      },
-      {
-        onSuccess: (made) => void navigate(`/changes/${made.id}?tab=risk`),
-        onError: (error) => {
+      })
+      .then(
+        (made) => {
+          done(`/changes/${made.id}?tab=risk`);
+        },
+        (error: unknown) => {
           problem.show(error);
         },
-      },
-    );
+      );
   };
   usePageCrumbs([{ label: t('nav.changes'), path: '/changes' }, { label: t('changes.new') }]);
   return (
