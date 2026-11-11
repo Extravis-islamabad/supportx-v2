@@ -56,6 +56,7 @@ export const en = {
     'There are still {{quantity}} in stock. Allocate or adjust them to zero first.',
   'errors.asset_consumable_not_found': 'This consumable no longer exists.',
   'errors.asset_copy_limit': 'Make between 1 and {{max}} copies at once.',
+  'errors.asset_cost_not_found': 'This cost line no longer exists.',
   'errors.asset_disposal_not_found': 'This asset has no disposal record.',
   'errors.asset_disposed_read_only':
     'This asset is disposed, so it is read-only. Changing it needs the permission to change disposed assets.',
@@ -85,6 +86,7 @@ export const en = {
   'errors.asset_not_found': "This asset no longer exists, or you can't see it.",
   'errors.asset_not_loanable': "{{asset}} can't be loaned: it isn't loanable, or isn't in stock.",
   'errors.asset_not_on_this_loan': "That asset isn't out on this loan.",
+  'errors.asset_note_not_found': 'This note no longer exists.',
   'errors.asset_on_loan': '{{asset}} is already out on a loan.',
   'errors.asset_portal_booking_off': 'Your organisation does not take bookings in the portal.',
   'errors.asset_product_not_found': 'This product does not exist.',
@@ -145,6 +147,8 @@ export const en = {
   'errors.certificate_unreadable': 'The certificate cannot be read: paste it in PEM format.',
   'errors.certificate_wrong_host': 'The certificate does not name this domain.',
   'errors.change_source_not_found': 'The record this change was made for was not found.',
+  'errors.change_window_blocked':
+    'A freeze blocks this time. Choose another time, or someone allowed to may let the change go ahead with a reason.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -254,6 +258,8 @@ export const en = {
   'errors.field.asset_product_type_not_found': 'Choose a product type from the list.',
   'errors.field.asset_product_type_too_deep': 'The tree can be at most {{max}} levels deep.',
   'errors.field.asset_quantity_positive': 'Enter a quantity above zero.',
+  'errors.field.asset_salvage_above_cost':
+    "The salvage value can't be more than what the asset cost.",
   'errors.field.asset_serial_number_taken': 'Asset {{asset}} already has this serial number.',
   'errors.field.asset_state_code_taken': 'Another state has this code.',
   'errors.field.asset_state_default_needed':
@@ -423,6 +429,7 @@ export const en = {
     'A template for requesters is offered to everyone: it cannot be limited to groups.',
   'errors.field.list_too_long': 'Too many values in this list.',
   'errors.field.logo_required': 'Upload a logo first.',
+  'errors.field.longer_than_a_week': 'A weekly window can last a week at most.',
   'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
   'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
@@ -959,6 +966,7 @@ export const en = {
   'errors.vendor_not_found': 'This vendor no longer exists.',
   'errors.version_conflict':
     'Someone else saved this item after you opened it. Reload to see their changes.',
+  'errors.window_not_found': 'This window does not exist, or it was removed.',
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
   'errors.work_item_asset_not_found': 'This asset is no longer linked to the record.',

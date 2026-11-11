@@ -228,6 +228,23 @@ export const SCREENS: Screen[] = [
   { key: 'asset-vendors', path: '/assets/vendors', app: 'console' },
   { key: 'asset-loans', path: '/assets/loans', app: 'console' },
   { key: 'asset-groups', path: '/assets/groups', app: 'console' },
+  // WP-049b s2 (lane B): the asset record's Financials (costs, depreciation, book value), its
+  // notes and files, and its history with the filters (REQ-AST-036..038, 048..050).
+  {
+    key: 'asset-financials',
+    path: (r) => (r.asset ? `/assets/${r.asset}?tab=financials` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'asset-notes',
+    path: (r) => (r.asset ? `/assets/${r.asset}?tab=notes` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'asset-history',
+    path: (r) => (r.asset ? `/assets/${r.asset}?tab=history` : undefined),
+    app: 'console',
+  },
   // WP-049b s1 (lane B): consumables, one consumable (stock, lots, ledger).
   { key: 'consumables', path: '/assets/consumables', app: 'console' },
   {

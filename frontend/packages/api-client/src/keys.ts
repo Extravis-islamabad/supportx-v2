@@ -1,6 +1,11 @@
 import type { AnnouncementsQuery } from './announcements';
 import type { BookingsQuery, ConsumablesQuery } from './assetStock';
-import type { AssetLoansQuery, AssetProductsQuery, AssetRecordsQuery } from './assets';
+import type {
+  AssetHistoryFilters,
+  AssetLoansQuery,
+  AssetProductsQuery,
+  AssetRecordsQuery,
+} from './assets';
 import type { AuditEntriesQuery } from './audit';
 import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
@@ -96,6 +101,12 @@ export const queryKeys = {
       ['assets', 'availability', query] as const,
     myBookings: ['assets', 'my-bookings'] as const,
     bookable: (q: string) => ['assets', 'bookable', q] as const,
+    // WP-049b s2: money, notes and the filtered history.
+    financials: (id: string) => ['assets', 'financials', id] as const,
+    notes: (id: string) => ['assets', 'notes', id] as const,
+    noteHistory: (id: string) => ['assets', 'note-history', id] as const,
+    historyFiltered: (id: string, filters: AssetHistoryFilters) =>
+      ['assets', 'history', id, filters] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here

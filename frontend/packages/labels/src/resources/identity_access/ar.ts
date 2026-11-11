@@ -337,6 +337,9 @@ export const ar: LabelResource = {
   'permission.assets.reinstate.description': 'إعادة أصل متقاعد إلى المخزون.',
   'permission.assets.view': 'عرض الأصول',
   'permission.assets.view.description': 'رؤية أصول الأجهزة والبرمجيات.',
+  'permission.assets.view_financials': 'عرض تكاليف الأصول وقيمها',
+  'permission.assets.view_financials.description':
+    'الاطلاع على تكاليف الأصل واستهلاكه وقيمته الدفترية، وتغيير بنود تكلفته واستهلاكه حيث يمكنك إدارته.',
   'permission.audit.export': 'تصدير سجل التدقيق',
   'permission.audit.export.description': 'تصدير الإدخالات مع قيم السلسلة للمدققين الخارجيين.',
   'permission.audit.manage': 'إدارة إعدادات التدقيق',
@@ -387,6 +390,12 @@ export const ar: LabelResource = {
     'إضافة المجالس التي تراجع التغييرات وتعديلها وإزالتها، وتحديد أعضائها.',
   'permission.changes.manage_followers': 'إدارة متابعي التغييرات',
   'permission.changes.manage_followers.description': 'إضافة وإزالة من يتابعون تغيير.',
+  'permission.changes.manage_windows': 'إدارة نوافذ التجميد والصيانة',
+  'permission.changes.manage_windows.description':
+    'إضافة نوافذ التجميد والصيانة التي تُفحص التغييرات مقابلها وتعديلها وإزالتها.',
+  'permission.changes.override_freeze': 'السماح بتنفيذ تغيير خلال فترة تجميد',
+  'permission.changes.override_freeze.description':
+    'تجاوز فترات التجميد المانعة لتغيير واحد مع ذكر السبب. يُسجَّل ذلك في سجل التدقيق وفي سجل التغيير.',
   'permission.changes.reopen': 'إعادة فتح التغييرات',
   'permission.changes.reopen.description': 'إعادة تغيير محلولة أو مغلقة إلى التحقيق.',
   'permission.changes.reply': 'إضافة ملاحظات عامة على التغييرات',

@@ -9,6 +9,9 @@ export interface AssetDraft {
   barcode: string;
   vendor_id: string | null;
   location: string;
+  /** REQ-AST-038: free text until real cost centres arrive (WP-054). */
+  cost_centre: string;
+  gl_code: string;
   purchase_price: string | null;
   purchase_tax: string | null;
   currency: string;
@@ -28,6 +31,8 @@ export function draftOf(asset: AssetRecord | null): AssetDraft {
     barcode: asset?.barcode ?? '',
     vendor_id: asset?.vendor_id ?? null,
     location: asset?.location ?? '',
+    cost_centre: asset?.cost_centre ?? '',
+    gl_code: asset?.gl_code ?? '',
     purchase_price: asset?.purchase_price ?? null,
     purchase_tax: asset?.purchase_tax ?? null,
     currency: asset?.currency ?? '',
@@ -49,6 +54,8 @@ export function bodyOf(draft: AssetDraft, before?: AssetDraft): Record<string, u
     barcode: blank(draft.barcode),
     vendor_id: draft.vendor_id,
     location: blank(draft.location),
+    cost_centre: blank(draft.cost_centre),
+    gl_code: blank(draft.gl_code),
     purchase_price: draft.purchase_price,
     purchase_tax: draft.purchase_tax,
     currency: blank(draft.currency.toUpperCase()),

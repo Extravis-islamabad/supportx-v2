@@ -53,6 +53,7 @@ export const ar: LabelResource = {
     'لا يزال {{quantity}} في المخزون. اصرفها أو عدّلها إلى الصفر أولًا.',
   'errors.asset_consumable_not_found': 'لم يعد هذا المستهلك موجودًا.',
   'errors.asset_copy_limit': 'أنشئ ما بين 1 و{{max}} نسخة في المرة الواحدة.',
+  'errors.asset_cost_not_found': 'لم يعد بند التكلفة هذا موجودًا.',
   'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
   'errors.asset_disposed_read_only':
     'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
@@ -81,6 +82,7 @@ export const ar: LabelResource = {
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',
   'errors.asset_not_loanable': 'لا يمكن إعارة {{asset}}: ليس قابلًا للإعارة أو ليس في المخزون.',
   'errors.asset_not_on_this_loan': 'هذا الأصل ليس ضمن هذه الإعارة.',
+  'errors.asset_note_not_found': 'لم تعد هذه الملاحظة موجودة.',
   'errors.asset_on_loan': '{{asset}} معار بالفعل.',
   'errors.asset_portal_booking_off': 'لا تقبل مؤسستك الحجوزات من البوابة.',
   'errors.asset_product_not_found': 'هذا المنتج غير موجود.',
@@ -135,6 +137,8 @@ export const ar: LabelResource = {
   'errors.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.change_source_not_found': 'لم يُعثر على السجل الذي أُنشئ هذا التغيير من أجله.',
+  'errors.change_window_blocked':
+    'فترة تجميد تمنع هذا الوقت. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالتغيير مع ذكر السبب.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.command_in_flight':
@@ -230,6 +234,7 @@ export const ar: LabelResource = {
   'errors.field.asset_product_type_not_found': 'اختر نوع منتج من القائمة.',
   'errors.field.asset_product_type_too_deep': 'يمكن أن تصل الشجرة إلى {{max}} مستويات كحد أقصى.',
   'errors.field.asset_quantity_positive': 'أدخل كمية أكبر من الصفر.',
+  'errors.field.asset_salvage_above_cost': 'لا يمكن أن تزيد قيمة الخردة عن تكلفة الأصل.',
   'errors.field.asset_serial_number_taken': 'الأصل {{asset}} يحمل هذا الرقم التسلسلي بالفعل.',
   'errors.field.asset_state_code_taken': 'حالة أخرى تستخدم هذا الرمز.',
   'errors.field.asset_state_default_needed':
@@ -393,6 +398,7 @@ export const ar: LabelResource = {
     'القالب المخصص لمقدمي الطلبات متاح للجميع: لا يمكن قصره على مجموعات.',
   'errors.field.list_too_long': 'هذه القائمة تحتوي على قيم كثيرة جدًا.',
   'errors.field.logo_required': 'حمّل شعارًا أولًا.',
+  'errors.field.longer_than_a_week': 'لا يمكن أن تتجاوز النافذة الأسبوعية أسبوعًا واحدًا.',
   'errors.field.mailbox_address_invalid': 'أدخل عنوان البريد الإلكتروني لصندوق البريد.',
   'errors.field.mailbox_auth_model_unsupported': 'غير متاح لهذا النوع من صناديق البريد.',
   'errors.field.managed_by_directory': 'يحتفظ الدليل بهذا الحقل. غيّره هناك.',
@@ -879,6 +885,7 @@ export const ar: LabelResource = {
   'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
   'errors.version_conflict':
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
+  'errors.window_not_found': 'هذه النافذة غير موجودة، أو أُزيلت.',
   'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',
   'errors.withdraw_not_pending': 'لا يمكن سحب إلا طلب بانتظار الموافقة.',
   'errors.work_item_asset_not_found': 'لم يعد هذا الأصل مرتبطًا بالسجل.',

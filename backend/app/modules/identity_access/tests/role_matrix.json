@@ -6,6 +6,9 @@
   "assets.view": [
    "all"
   ],
+  "assets.view_financials": [
+   "all"
+  ],
   "cmdb.manage": [
    "all"
   ],
@@ -30,6 +33,9 @@
    "all"
   ],
   "assets.view": [
+   "all"
+  ],
+  "assets.view_financials": [
    "all"
   ],
   "cmdb.manage": [
@@ -116,6 +122,12 @@
   "changes.manage_boards": [
    "all"
   ],
+  "changes.manage_windows": [
+   "all"
+  ],
+  "changes.override_freeze": [
+   "all"
+  ],
   "changes.view": [
    "all"
   ],
@@ -146,6 +158,12 @@
    "all"
   ],
   "changes.manage_boards": [
+   "all"
+  ],
+  "changes.manage_windows": [
+   "all"
+  ],
+  "changes.override_freeze": [
    "all"
   ],
   "changes.view": [

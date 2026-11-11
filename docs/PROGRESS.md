@@ -1135,6 +1135,26 @@ it with no reload (rule c). Not built yet.
   - a "failed" outcome's issues text (the server asks for it; the select has no field for it
     yet).
 
+### [~] WP-045c — Changes: windows, conflicts, calendar (lane A, 2026-11-11; 3 sessions; ADR-042; migration 0132; D-156 held)
+- **S1 (backend, 0132):**
+  - freeze and maintenance windows, `/api/v1/change-windows`, with block/warn, a weekly repeat
+    and a site/group/service/CI scope;
+  - one pure conflict check (freeze, outside maintenance, overlapping changes in the same group
+    or at the same site);
+  - a guard on every save of a change's implementation window or planned downtime
+    (409 `change_window_blocked`);
+  - `GET /changes/{id}/conflicts`;
+  - the freeze override (`POST /changes/{id}/freeze-override`: `changes.override_freeze` at the
+    change's scope, a reason, audited, in history);
+  - `changes.manage_windows` (the change manager and admins);
+  - live via `work_items.change_windows_changed`.
+  - Defaults per D-156 (held): a freeze blocks, a maintenance window warns, weekly repeat only.
+  - Lane B gives the blocking review.
+- **S2:** the record. The schedule and downtime become editable, with a conflicts panel and the
+  override dialog; "announce planned downtime" makes an announcement draft.
+- **S3:** the calendar at /changes/calendar (month, week, day, timeline; layers; drag to
+  reschedule with re-approval and the conflict check), and the windows admin on template E.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
@@ -1445,7 +1465,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; session 1 built 2026-11-11)
+### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-2 built 2026-11-11)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1487,6 +1507,24 @@ it with no reload (rule c). Not built yet.
   - **Open:** the request page's own panel for its allocations (lane A's screen, on the API
     above); a calendar screen of availability by product and site (`GET /assets/availability`
     is there, and the portal's picker uses the same query); AC2 of 035 with WP-054.
+- [x] **Session 2 (migration 0131 after 0130; REQ-AST-036, 037, 038, 048, 049, 050; branch
+  backup/wp-049b-s2, its PR after #367 lands):**
+  - Cost lines (move, service, contract, other) in the base currency, the disposal record's cost
+    as the only disposal cost (counted once), and the total cost
+    of ownership, exact decimals (036 AC1, AC3); depreciation as a pure domain (straight line,
+    declining balance 150 %, double declining, sum of the years' digits, none; prorated by month;
+    golden-value tests) with the asset's own settings or its product's (037 AC1-AC3); book value
+    on any day and the schedule by year; "today" is the tenant's local day (its time zone).
+  - Cost centre and GL code (free text; GL from the product) on assets; `asset_valuations` for
+    reports by cost centre (038 AC2), refreshed on save and by a daily sweep. Dimension codes for
+    lane C: `cost_centre`, `gl_code`; money fields `book_value`, `total_cost`.
+  - New right `assets.view_financials` (asset manager, admins) guarding all money in API and UI.
+  - Notes with mentions, edit history and "note deleted" lines; attachments as the asset's files
+    (050). History sub-views (state, assignment) and filters by field, source, person and days
+    (049). The record page gains Financials and Notes and files tabs and the panel's value (048).
+  - Guide: docs/guides/asset-financials.md.
+  - **Open:** 048's hardware, software, contracts and scan-history tabs (discovery, S3, WP-054);
+    049 AC1's `discovery` source (S3); 036 AC2 and 038 AC1 with WP-054.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 

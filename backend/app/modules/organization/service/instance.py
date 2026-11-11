@@ -59,6 +59,12 @@ async def offered_languages(session: AsyncSession) -> tuple[tuple[str, ...], str
     return tuple(row.languages), row.default_language
 
 
+async def base_currency(session: AsyncSession) -> str:
+    """The tenant's base currency (ISO 4217): asset costs and totals are in it (REQ-AST-036)."""
+    found: str | None = await session.scalar(select(TenantSettings.base_currency))
+    return found or "USD"  # the column's default, before the tenant first saves its settings
+
+
 @dataclass(frozen=True, slots=True)
 class RegionalDefaults:
     """What a person gets for each regional preference they have not set (REQ-ADM-059)."""

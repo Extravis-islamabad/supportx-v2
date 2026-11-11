@@ -1036,6 +1036,39 @@
         "type": "object"
       }
     },
+    "assets.cost.changed": {
+      "1": {
+        "description": "A cost line of an asset was added, changed or removed (REQ-AST-036). No amounts (§8.2).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "cost_id": {
+            "format": "uuid",
+            "title": "Cost Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "cost_id",
+          "action"
+        ],
+        "title": "AssetCostChanged",
+        "type": "object"
+      }
+    },
     "assets.group.changed": {
       "1": {
         "description": "A group was added, changed, removed, or gained or lost members (REQ-AST-028).",
@@ -1161,6 +1194,47 @@
           "change"
         ],
         "title": "AssetLoanChanged",
+        "type": "object"
+      }
+    },
+    "assets.note.changed": {
+      "1": {
+        "description": "A note on an asset was added, edited or deleted (REQ-AST-050). No text (§8.2).\n\n`mentioned`: the people newly mentioned who may see the asset; they are told (REQ-INC-063).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "mentioned": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Mentioned",
+            "type": "array"
+          },
+          "note_id": {
+            "format": "uuid",
+            "title": "Note Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "note_id",
+          "action"
+        ],
+        "title": "AssetNoteChanged",
         "type": "object"
       }
     },
@@ -4859,6 +4933,28 @@
           "change"
         ],
         "title": "ChangeBoardChanged",
+        "type": "object"
+      }
+    },
+    "work_items.change_window.changed": {
+      "1": {
+        "description": "A freeze or maintenance window was added, changed or removed (WP-045c; ADR-042).\n\nOpen calendars and settings pages refetch; IDs only, never the window's text (rule 5c).",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "window_id": {
+            "format": "uuid",
+            "title": "Window Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_id",
+          "change"
+        ],
+        "title": "ChangeWindowChanged",
         "type": "object"
       }
     },

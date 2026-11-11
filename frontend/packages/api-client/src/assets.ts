@@ -3,7 +3,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, call } from './client';
 import { ApiError } from './errors';
 import { queryKeys } from './keys';
-import type { components } from './schema';
+import type { components, operations } from './schema';
 
 // The asset catalogue (WP-049a, D-141): product types in a tree, products, states, life cycles
 // and the asset settings. Every query sits under `queryKeys.assets.all`, so the tenant event
@@ -325,16 +325,41 @@ export function useAssetRecord(id: string | undefined) {
   });
 }
 
-/** An asset's history, newest first. */
-export function useAssetHistory(id: string | undefined) {
+type HistoryQuery = NonNullable<
+  operations['asset_history_api_v1_assets__asset_id__history_get']['parameters']['query']
+>;
+/** Where a change came from (UI, API, rule, import ...), as the history filter takes it. */
+export type AssetHistorySource = NonNullable<HistoryQuery['source']>[number];
+
+/** REQ-AST-049: the history's filters (all optional; days are UTC days, inclusive). */
+export interface AssetHistoryFilters {
+  view?: 'all' | 'state' | 'assignment';
+  field?: string;
+  source?: AssetHistorySource;
+  actorId?: string;
+  since?: string;
+  until?: string;
+}
+
+/** An asset's history, newest first, narrowed by `filters`. */
+export function useAssetHistory(id: string | undefined, filters: AssetHistoryFilters = {}) {
   return useInfiniteQuery({
-    queryKey: queryKeys.assets.history(id ?? ''),
+    queryKey: queryKeys.assets.historyFiltered(id ?? '', filters),
     queryFn: ({ pageParam }) =>
       call(
         api.GET('/api/v1/assets/{asset_id}/history', {
           params: {
             path: { asset_id: id ?? '' },
-            query: { cursor: pageParam === null ? undefined : Number(pageParam), limit: 25 },
+            query: {
+              cursor: pageParam === null ? undefined : Number(pageParam),
+              limit: 25,
+              view: filters.view,
+              field: filters.field === undefined ? undefined : [filters.field],
+              source: filters.source === undefined ? undefined : [filters.source],
+              actor_id: filters.actorId,
+              since: filters.since,
+              until: filters.until,
+            },
           },
         }),
       ),
