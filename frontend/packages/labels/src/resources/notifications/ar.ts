@@ -38,6 +38,7 @@ export const ar: LabelResource = {
   'notification_area.incident': 'الحوادث',
   'notification_area.kb_article': 'المعرفة',
   'notification_area.mailbox': 'البريد',
+  'notification_area.outgoing_mail': 'البريد الصادر',
   'notification_area.problem': 'المشكلات',
   'notification_area.problem_repeat': 'المشكلات',
   'notification_area.release': 'الإصدارات',
@@ -115,6 +116,7 @@ export const ar: LabelResource = {
     'سرّ تطبيق صندوق البريد أو شهادته على وشك الانتهاء',
   'notification_event.mailbox.failing': 'توقف صندوق البريد عن العمل',
   'notification_event.mailbox.mail_held': 'مُرسِل يُغرق صندوق بريد بالرسائل',
+  'notification_event.outgoing_mail.not_sent': 'رسائل بريد لم تُرسل: البريد غير مُعدّ',
   'notification_event.problem.assigned': 'أُسندت مشكلة',
   'notification_event.problem.closed': 'أُغلقت مشكلة',
   'notification_event.problem.created_in_group': 'أُنشئت مشكلة في مجموعتك',
@@ -539,6 +541,12 @@ export const ar: LabelResource = {
     'البريد الوارد إلى {{ record.title }} محتجز للمراجعة: أرسل مُرسِل أكثر من 10 رسائل خلال ساعة',
   'notification_template.mailbox.mail_held.subject':
     'صندوق البريد {{ record.title }}: بريد محتجز للمراجعة',
+  'notification_template.outgoing_mail.not_sent.body':
+    'مرحبًا {{ recipient.name }}،\n\nلم تُرسل {{ mail.count }} من رسائل البريد لأن البريد الصادر لم يُعدّ خلال 7 أيام. أقدمها من {{ mail.oldest_at }}. لن تُرسل متأخرة. افتح الإدارة › البريد لإعداد البريد الصادر.',
+  'notification_template.outgoing_mail.not_sent.in_app':
+    'لم تُرسل {{ mail.count }} من رسائل البريد: لم يُعدّ البريد الصادر خلال 7 أيام (أقدمها من {{ mail.oldest_at }}). أعدّ البريد لتُرسل الرسائل القادمة.',
+  'notification_template.outgoing_mail.not_sent.subject':
+    'لم تُرسل {{ mail.count }} من رسائل البريد',
   'notification_template.problem.assigned.body':
     'مرحبًا {{ recipient.name }}،\n\nأصبحت {{ record.display_id }} "{{ record.title }}" مسندة إلى {{ assignee.name }}.\n\nالأولوية: {{ record.priority }}\nالحالة: {{ record.status }}',
   'notification_template.problem.assigned.in_app':
@@ -685,6 +693,8 @@ export const ar: LabelResource = {
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
   'notification_variable.holder.name': 'الحامل › الاسم',
   'notification_variable.incident.count': 'عدد الحوادث',
+  'notification_variable.mail.count': 'البريد › رسائل لم تُرسل',
+  'notification_variable.mail.oldest_at': 'البريد › الأقدم',
   'notification_variable.mailbox.address': 'صندوق البريد › العنوان',
   'notification_variable.mailbox.expires_at': 'صندوق البريد › تنتهي بيانات الاعتماد',
   'notification_variable.mailbox.reason': 'صندوق البريد › السبب',

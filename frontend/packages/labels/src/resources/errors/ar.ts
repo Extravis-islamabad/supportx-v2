@@ -66,6 +66,8 @@ export const ar: LabelResource = {
   'errors.asset_disposal_not_found': 'لا يوجد سجل تخلّص لهذا الأصل.',
   'errors.asset_disposed_read_only':
     'تم التخلّص من هذا الأصل، لذا فهو للقراءة فقط. يتطلب تغييره صلاحية تغيير الأصول المتخلَّص منها.',
+  'errors.asset_field_not_allowed':
+    'من خلال تذكرتك يمكنك تغيير حالة هذا الأصل وموقعه وملاحظاته والقطع المركّبة فيه فقط. اطلب أي شيء آخر من مدير الأصول.',
   'errors.asset_group_dynamic':
     'أعضاء المجموعة الديناميكية يأتون من عامل التصفية؛ غيّره بدلًا من ذلك.',
   'errors.asset_group_name_taken': 'لمجموعة أخرى هذا الاسم بالفعل.',
@@ -87,10 +89,14 @@ export const ar: LabelResource = {
   'errors.asset_link_not_found': 'هذا الرابط لم يعد موجودًا.',
   'errors.asset_loan_not_found': 'هذه الإعارة مغلقة أو لم تعد موجودة.',
   'errors.asset_move_not_allowed': 'لا يمكن نقل هذا الأصل إلى تلك الحالة من حالته الحالية.',
+  'errors.asset_move_not_allowed_through_ticket':
+    'لا يتم إيقاف الأصل عن الخدمة أو التخلص منه من خلال تذكرة. اطلب ذلك من مدير الأصول.',
   'errors.asset_no_default_state':
     'لا توجد حالة افتراضية لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
   'errors.asset_no_disposed_state':
     'لا توجد حالة تخلّص لنقل الأصل إليها. اطلب من المسؤول مراجعة حالات الأصول.',
+  'errors.asset_not_a_component':
+    'من خلال تذكرتك يمكن تركيب مكوّن لا يحتفظ به أحد فقط. اطلب من مدير الأصول تسليم أصل كامل.',
   'errors.asset_not_bookable':
     'لا يمكن حجز {{asset}}: يُحجز فقط ما يقبل الإعارة ولم يُسحب أو يُتخلَّص منه.',
   'errors.asset_not_found': 'لم يعد هذا الأصل موجودًا، أو لا يمكنك رؤيته.',

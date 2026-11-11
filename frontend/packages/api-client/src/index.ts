@@ -1021,6 +1021,8 @@ export {
   type MyAsset,
   useAssetProduct,
   useAssetMoves,
+  useAssetAccess,
+  type AssetAccess,
   type AssetProduct,
   type AssetProductInput,
   type AssetProductPatch,
