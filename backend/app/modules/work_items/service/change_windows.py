@@ -25,7 +25,7 @@ from app.modules.identity_access import Subject
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain import change_windows as rules
 from app.modules.work_items.domain.changes import IMPLEMENTATION
-from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import ChangeWindowChanged
 from app.modules.work_items.infra.models import (
     ChangeWindow,
@@ -414,32 +414,43 @@ async def override_freeze(  # noqa: PLR0913 - the change, its version and why, e
 
 CALENDAR_LIMIT = 2000  # entries in one range; a month of a busy tenant fits many times over
 
+# The stage whose window a type puts on the calendar (WP-058b S1; ADR-042 addendum): a change's
+# implementation, a release's deployment.
+PLANNED_STAGE: dict[WorkItemTypeCode, str] = {
+    WorkItemTypeCode.CHANGE: IMPLEMENTATION,
+    WorkItemTypeCode.RELEASE: "deployment",
+}
+
 
 @dataclass(frozen=True)
 class CalendarEntry:
-    """A change's planned time on the calendar: its implementation window or a downtime."""
+    """A record's planned time on the calendar: its planned stage's window or a downtime."""
 
     record: WorkItem
-    kind: str  # "window" (the implementation window) or "downtime"
+    kind: str  # "window" (the planned stage's window) or "downtime"
     starts_at: datetime
     ends_at: datetime
     part_id: uuid.UUID | None = None  # the downtime, for a downtime
     version: int = 0  # the window's or downtime's own version (If-Match when moved)
 
 
-async def calendar(
+async def calendar(  # noqa: PLR0913 - the range, the scope and the type, explicit
     session: AsyncSession,
     subject: Subject,
     *,
     start: datetime,
     end: datetime,
     mine: bool = False,
+    wtype: WorkItemType = CHANGE,
 ) -> list[CalendarEntry]:
-    """The changes you may see planned in [start, end): windows and planned downtimes, by start.
+    """The records of `wtype` you may see planned in [start, end), by start.
 
-    `mine`: only those you hold (technician). Windows are listed by `windows(start=, end=)`.
+    Each one's planned stage window (PLANNED_STAGE) and its planned downtimes; scoped by that
+    type's own view permission. `mine`: only those you hold (technician). Change windows are
+    listed by `windows(start=, end=)`.
     """
-    visible = items.staff_rows(subject, CHANGE).with_only_columns(WorkItem.id)
+    planned = PLANNED_STAGE[wtype.code]
+    visible = items.staff_rows(subject, wtype).with_only_columns(WorkItem.id)
     if mine:
         visible = visible.where(WorkItem.technician_id == subject.user_id)
     windows_q = (
@@ -447,7 +458,7 @@ async def calendar(
         .join(WorkItemStageSchedule, WorkItemStageSchedule.work_item_id == WorkItem.id)
         .where(
             WorkItem.id.in_(visible),
-            WorkItemStageSchedule.stage == IMPLEMENTATION,
+            WorkItemStageSchedule.stage == planned,
             WorkItemStageSchedule.scheduled_start < end,
             WorkItemStageSchedule.scheduled_end > start,
         )

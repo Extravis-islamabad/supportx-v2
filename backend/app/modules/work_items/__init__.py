@@ -37,6 +37,9 @@ from app.modules.work_items.api.change_window_routes import (
 from app.modules.work_items.api.change_window_routes import (
     change_router as change_window_change_router,
 )
+from app.modules.work_items.api.change_window_routes import (
+    release_calendar_router,
+)
 from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
@@ -49,6 +52,7 @@ from app.modules.work_items.domain.types import (
     INCIDENT,
     PERMISSION_TYPES,
     PROBLEM,
+    RELEASE,
     SERVICE_REQUEST,
     TYPES,
 )
@@ -58,6 +62,8 @@ from app.modules.work_items.service import (
     asset_links,
     audit_subtype,
     bulk,
+    change_notifications,
+    change_reminders,
     inbound_mail,
     notifications,
     parts,
@@ -152,6 +158,7 @@ request_notifications.register()
 problem_notifications.register()  # WP-044c D15
 rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
+change_notifications.register()  # WP-045d S3: replaces the change reply-only source
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
@@ -178,6 +185,7 @@ module = ModuleSpec(
         change_window_change_router,  # WP-045c: a change's conflicts and freeze override
         change_child_router,  # WP-045d S1: child changes and releases
         change_calendar_router,  # WP-045c S3: the change calendar
+        release_calendar_router,  # WP-058b S1: the release calendar (same query)
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
@@ -191,6 +199,7 @@ module = ModuleSpec(
         CHANGE.feature,  # a change's conflicts and freeze override
         CHANGE.feature,  # child changes and releases
         CHANGE.feature,  # the change calendar
+        RELEASE.feature,  # the release calendar
     ],
     events=EVENTS,
     permissions=(
@@ -217,6 +226,12 @@ module = ModuleSpec(
         ScheduleSpec("work_items__bulk_jobs", 5, bulk.run_bulk_jobs),
         # WP-044c D16 (REQ-PRB-068): repeat incident rules, every 15 minutes, without AI.
         ScheduleSpec("work_items__repeat_incidents", 900, repeat_rules.repeat_schedule),
+        # WP-045d S3 (REQ-CHG-091, -105): change reminders, each raised once.
+        ScheduleSpec(
+            "work_items__change_reminders",
+            change_reminders.EVERY_SECONDS,
+            change_reminders.reminders_schedule,
+        ),
     ],
 )
 

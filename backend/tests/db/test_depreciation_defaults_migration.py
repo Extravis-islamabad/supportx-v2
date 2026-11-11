@@ -16,7 +16,7 @@ from tooling import db_testing
 pytestmark = pytest.mark.db
 
 REVISION = "0136"
-BEFORE = "0137"  # 0136's down revision
+BEFORE = "0138"  # 0136's down revision
 
 
 async def _columns(url: str) -> int:
