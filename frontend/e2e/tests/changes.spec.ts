@@ -34,10 +34,15 @@ async function tab(page: Page, name: string): Promise<void> {
   }).toPass(LIVE);
 }
 
+// A move's dialog is known by its Move button, never by its form: a move that asks nothing
+// (no reason, no fields) has an empty form, which has no size, so "the form is visible" never
+// holds and "the form is hidden" holds at once (k3d proof run 43082299609).
+const moveOk = (page: Page) => page.getByTestId('move-ok');
+
 /** Confirm the open move and wait until its dialog has gone: the move is saved, the page free. */
 async function confirmMove(page: Page): Promise<void> {
-  await page.getByTestId('move-ok').click();
-  await expect(page.getByTestId('move-dialog')).toBeHidden(LIVE);
+  await moveOk(page).click();
+  await expect(moveOk(page)).toBeHidden(LIVE);
 }
 
 /** The primary move, or one under More, then its dialog's confirm. */
@@ -47,7 +52,7 @@ async function moveTo(page: Page, status: string): Promise<void> {
     await page.getByTestId('change-more').click();
   }
   await page.getByTestId(`move-${status}`).first().click();
-  await expect(page.getByTestId('move-dialog')).toBeVisible();
+  await expect(moveOk(page)).toBeVisible(LIVE);
 }
 
 /** The one pending approval, approved from the Approvals tab. */
