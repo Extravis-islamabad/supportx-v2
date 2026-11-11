@@ -271,8 +271,8 @@ export function StagedMoveDialog({
   return (
     <Modal
       open
-      title={t('releases.move.title', { status: statusName(t, move.to_status) })}
-      okText={t('releases.move.confirm')}
+      title={t('staged.move.title', { status: statusName(t, move.to_status) })}
+      okText={t('staged.move.confirm')}
       okButtonProps={{ disabled: !ready, loading: moving.isPending, 'data-testid': 'move-ok' }}
       onOk={submit}
       onCancel={onClose}
@@ -329,7 +329,7 @@ export function StagedMoveDialog({
           </Form.Item>
         )}
         {move.reason_mode !== 'none' && (
-          <Form.Item label={t('releases.move.reason')} required={needsReason} htmlFor="move-reason">
+          <Form.Item label={t('staged.move.reason')} required={needsReason} htmlFor="move-reason">
             <Input.TextArea
               id="move-reason"
               rows={3}

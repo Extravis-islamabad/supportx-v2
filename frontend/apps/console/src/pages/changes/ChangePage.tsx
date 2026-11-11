@@ -122,8 +122,8 @@ export function ChangePage() {
   const mayOverride = details?.sent_back === true && can('changes.emergency_override');
   const moveLabel = (m: StageMove) =>
     m.to_stage !== c.stage
-      ? t('releases.move.to_stage', { stage: stageName(t, m.to_stage) })
-      : t('releases.move.to', { status: statusName(t, m.to_status) });
+      ? t('staged.move.to_stage', { stage: stageName(t, m.to_stage) })
+      : t('staged.move.to', { status: statusName(t, m.to_status) });
   const actions = (
     <Flex
       gap={8}
@@ -177,7 +177,7 @@ export function ChangePage() {
                     {
                       type: 'group' as const,
                       key: 'unavailable',
-                      label: t('releases.move.unavailable'),
+                      label: t('staged.move.unavailable'),
                       children: unavailable.map((m) => ({
                         key: m.to_status,
                         disabled: true,
@@ -225,12 +225,12 @@ export function ChangePage() {
             <Space wrap>
               {details?.risk && (
                 <ToneTag tone={riskTone(details.risk)} testId="change-risk-chip">
-                  {t('releases.risk_chip', { risk: t(`risk_level.${details.risk}`) })}
+                  {t('staged.risk_chip', { risk: t(`risk_level.${details.risk}`) })}
                 </ToneTag>
               )}
               {pending > 0 && (
                 <ToneTag tone="warning" testId="change-awaiting-approval">
-                  {t('releases.awaiting_approval', { count: pending })}
+                  {t('staged.awaiting_approval', { count: pending })}
                 </ToneTag>
               )}
               {c.stage_path === EMERGENCY_PATH && (
@@ -283,23 +283,23 @@ export function ChangePage() {
           setParams(key === 'details' ? {} : { tab: key }, { replace: true });
         }}
         items={[
-          { key: 'details', label: t('releases.tab.details'), children: <DetailsPart id={c.id} /> },
+          { key: 'details', label: t('staged.tab.details'), children: <DetailsPart id={c.id} /> },
           { key: 'risk', label: t('changes.tab.risk'), children: <RiskPart id={c.id} /> },
           {
             key: 'approvals',
-            label: t('releases.tab.approvals'),
+            label: t('staged.tab.approvals'),
             children: <ApprovalsPart id={c.id} />,
           },
-          { key: 'roles', label: t('releases.tab.roles'), children: <RolesPart id={c.id} /> },
+          { key: 'roles', label: t('staged.tab.roles'), children: <RolesPart id={c.id} /> },
           { key: 'plan', label: t('changes.tab.plans'), children: <PlanPart id={c.id} /> },
           {
             key: 'schedule',
-            label: t('releases.tab.schedule'),
+            label: t('staged.tab.schedule'),
             children: <SchedulePart id={c.id} />,
           },
           {
             key: 'downtime',
-            label: t('releases.tab.downtime'),
+            label: t('staged.tab.downtime'),
             children: <DowntimePart id={c.id} />,
           },
           {

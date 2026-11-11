@@ -65,7 +65,7 @@ export function ApprovalsPart({ id }: { id: string }) {
     <Flex vertical gap={16} data-testid="change-approvals">
       <List
         dataSource={rows}
-        locale={{ emptyText: <EmptyText>{t('releases.approvals.none')}</EmptyText> }}
+        locale={{ emptyText: <EmptyText>{t('staged.approvals.none')}</EmptyText> }}
         renderItem={(a) => (
           <List.Item
             key={a.id}
@@ -106,7 +106,7 @@ export function ApprovalsPart({ id }: { id: string }) {
               title={
                 <Space wrap>
                   <span>{stageName(t, a.record_stage)}</span>
-                  <span>{t('releases.approvals.level', { level: a.stage })}</span>
+                  <span>{t('staged.approvals.level', { level: a.stage })}</span>
                   {a.rule && <ToneTag tone="info">{t(`approval_rule.${a.rule}`)}</ToneTag>}
                   {a.board_id && (
                     <span data-testid={`approval-${a.id}-board`}>

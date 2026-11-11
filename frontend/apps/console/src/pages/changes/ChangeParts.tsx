@@ -192,7 +192,7 @@ export function DetailsPart({ id }: { id: string }) {
         </Col>
         {overriding && (
           <Col xs={24} md={12}>
-            <Form.Item label={t('releases.risk_reason')} required htmlFor="change-risk-reason">
+            <Form.Item label={t('staged.risk_reason')} required htmlFor="change-risk-reason">
               <Input
                 id="change-risk-reason"
                 value={reason}
@@ -229,7 +229,7 @@ export function DetailsPart({ id }: { id: string }) {
             <WriteButton
               type="primary"
               disabled={overriding && reason.trim() === ''}
-              whyDisabled={t('releases.risk_reason_needed')}
+              whyDisabled={t('staged.risk_reason_needed')}
               loading={save.isPending}
               onClick={submit}
               data-testid="change-details-save"
@@ -273,7 +273,7 @@ export function RiskPart({ id }: { id: string }) {
         <Typography.Text>{t('changes.risk.score', { score })}</Typography.Text>
         {complete && band && (
           <ToneTag tone={riskTone(band.level)} testId="change-risk-level">
-            {t('releases.risk_chip', { risk: t(`risk_level.${band.level}`) })}
+            {t('staged.risk_chip', { risk: t(`risk_level.${band.level}`) })}
           </ToneTag>
         )}
       </Flex>
@@ -353,7 +353,7 @@ function RolePicker({
         style={{ minWidth: 260 }}
         aria-label={label}
         value={current}
-        placeholder={t('releases.roles.nobody')}
+        placeholder={t('staged.roles.nobody')}
         onOpenChange={setOpen}
         onSearch={setSearch}
         loading={candidates.isFetching}
@@ -386,7 +386,7 @@ export function RolesPart({ id }: { id: string }) {
   return (
     <List
       data-testid="change-roles"
-      locale={{ emptyText: <EmptyText>{t('releases.roles.none')}</EmptyText> }}
+      locale={{ emptyText: <EmptyText>{t('staged.roles.none')}</EmptyText> }}
       dataSource={view.roles.filter((r) => !r.disabled || r.user_ids.length > 0)}
       renderItem={(r) => {
         const name = labelled(r.labels, locale, () => t(`work_item_role.${r.code}`));
@@ -396,7 +396,7 @@ export function RolesPart({ id }: { id: string }) {
               title={name}
               description={
                 r.group_ids.length > 0
-                  ? t('releases.roles.groups', { count: r.group_ids.length })
+                  ? t('staged.roles.groups', { count: r.group_ids.length })
                   : undefined
               }
             />
@@ -415,7 +415,7 @@ export function RolesPart({ id }: { id: string }) {
                       r.user_ids.map((u) => view.people[u] ?? ''),
                       'conjunction',
                     )
-                  : t('releases.roles.nobody')}
+                  : t('staged.roles.nobody')}
               </Typography.Text>
             )}
           </List.Item>
@@ -453,7 +453,7 @@ function PlanSectionEditor({
         {content ? (
           <RichTextView html={content} />
         ) : (
-          <Typography.Text type="secondary">{t('releases.plan.empty')}</Typography.Text>
+          <Typography.Text type="secondary">{t('staged.plan.empty')}</Typography.Text>
         )}
         <Button
           size="small"
@@ -539,7 +539,7 @@ export function PlanPart({ id }: { id: string }) {
       {empty.length > 0 && (
         <Flex vertical gap={4} align="flex-start" data-testid="change-plan-add">
           {written.length === 0 && (
-            <Typography.Text type="secondary">{t('releases.plan.none_yet')}</Typography.Text>
+            <Typography.Text type="secondary">{t('staged.plan.none_yet')}</Typography.Text>
           )}
           {empty.map((s) => (
             <WriteButton
@@ -573,7 +573,7 @@ export function SchedulePart({ id }: { id: string }) {
   return (
     <div
       role="region"
-      aria-label={t('releases.tab.schedule')}
+      aria-label={t('staged.tab.schedule')}
       tabIndex={0}
       style={{ overflowX: 'auto' }}
     >
@@ -591,19 +591,19 @@ export function SchedulePart({ id }: { id: string }) {
           },
           {
             key: 'planned',
-            title: t('releases.schedule.planned'),
+            title: t('staged.schedule.planned'),
             render: (_, r) =>
               [when(r.scheduled_start), when(r.scheduled_end)].filter(Boolean).join(' – '),
           },
           {
             key: 'actual',
-            title: t('releases.schedule.actual'),
+            title: t('staged.schedule.actual'),
             render: (_, r) =>
               [when(r.actual_start), when(r.actual_end)].filter(Boolean).join(' – '),
           },
           {
             key: 'outcome',
-            title: t('releases.schedule.outcome'),
+            title: t('staged.schedule.outcome'),
             render: (_, r) => (r.outcome ? t(`stage_outcome.${r.outcome}`) : ''),
           },
         ]}
@@ -631,7 +631,7 @@ export function DowntimePart({ id }: { id: string }) {
   return (
     <List<Downtime>
       data-testid="change-downtimes"
-      locale={{ emptyText: <EmptyText>{t('releases.downtime.none')}</EmptyText> }}
+      locale={{ emptyText: <EmptyText>{t('staged.downtime.none')}</EmptyText> }}
       dataSource={downtimes.data ?? []}
       renderItem={(d) => (
         <List.Item key={d.id} data-testid={`downtime-${d.id}`}>

@@ -80,7 +80,7 @@ export function ChangesPage() {
     path: t('changes.col.path'),
     stage: t('work_item.field.stage'),
     status: t('work_item.field.status'),
-    updated: t('releases.col.updated'),
+    updated: t('staged.col.updated'),
   };
   const widths = useColumnWidths({
     kind: 'changes',
@@ -145,8 +145,8 @@ export function ChangesPage() {
           search={
             <Input.Search
               allowClear
-              aria-label={t('releases.search')}
-              placeholder={t('releases.search')}
+              aria-label={t('staged.search')}
+              placeholder={t('staged.search')}
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
