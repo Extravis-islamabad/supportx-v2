@@ -1952,7 +1952,10 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
       recipients that S6 brings; no stand-ins (the coordinator, 2026-11-11).
     - REQ-REL-022 AC2 waits for custom menu actions (REQ-RUL-024, WP-048a, lane A). The release
       scoping test is theirs to add, with my review.
-  - **Still to do in S3:** template A stage tabs.
+  - **REQ-REL-048 AC3** (a task from a template is created in the stage): delivered by lane A's
+    task templates (#398, WP-046a S1). Proved on a release by their
+    `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
+  - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
 - [ ] S4: closure and rollback.
   S5: lists, staged board, bulk. S6: notices and the release-reply mail (D-156; lane B blocks).
   S7: DevOps links (after WP-055).
