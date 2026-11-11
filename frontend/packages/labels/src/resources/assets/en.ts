@@ -121,6 +121,7 @@ export const en = {
   'asset_state_category.in_use': 'In use',
   'asset_state_category.retired': 'Retired',
   'asset_terms_source.asset': 'Set on this asset',
+  'asset_terms_source.default': 'Default (straight line)',
   'asset_terms_source.product': 'From the product',
   'asset_type_category.it': 'IT',
   'asset_type_category.non_it': 'Non-IT',
@@ -159,6 +160,9 @@ export const en = {
   'assets.admin.default_life_cycle': 'The default life cycle',
   'assets.admin.delete_confirm': 'Delete {{name}}?',
   'assets.admin.depreciation': 'Depreciation method',
+  'assets.admin.depreciation_factor': 'Declining balance factor',
+  'assets.admin.depreciation_factor_help':
+    'Declining balance writes off this many times the straight-line rate each year (2 is the usual double rate). Straight line is the default method.',
   'assets.admin.description': 'Description',
   'assets.admin.edit_life_cycle': 'Edit life cycle',
   'assets.admin.edit_product': 'Edit product',
@@ -344,7 +348,12 @@ export const en = {
   'assets.bulk_move.selected_other': '{{count}} selected',
   'assets.bulk_move.title_one': 'Change the state of 1 asset',
   'assets.bulk_move.title_other': 'Change the state of {{count}} assets',
+  'assets.components.fit': 'Fit a part',
+  'assets.components.fit_title': 'Fit a part into {{name}}',
   'assets.components.none': 'No components.',
+  'assets.components.part': 'Part',
+  'assets.components.part_needed': 'Choose the part to fit',
+  'assets.components.remove': 'Take out',
   'assets.components.title': 'Components fitted to it',
   'assets.copy.count': 'How many copies',
   'assets.copy.help':
@@ -606,6 +615,7 @@ export const en = {
   'assets.record.address': 'Address',
   'assets.record.all': 'Assets',
   'assets.record.barcode': 'Barcode or QR value',
+  'assets.record.change_location': 'Change location',
   'assets.record.changed_elsewhere':
     "Someone else changed this asset. Saving keeps your edits only if nothing they changed is in them; otherwise you'll be asked to reload.",
   'assets.record.contact_person': 'Contact person',
@@ -668,6 +678,8 @@ export const en = {
   'assets.record.state_id': 'State',
   'assets.record.tag': 'Asset tag',
   'assets.record.tag_auto': 'Given automatically',
+  'assets.record.through_ticket':
+    "Through your ticket you can change this asset's state, location, notes and fitted parts.",
   'assets.record.trash': 'Trash',
   'assets.record.trash_confirm': 'Move this asset to the trash?',
   'assets.record.trash_notice': 'Assets in the trash. Restore one to use it again.',

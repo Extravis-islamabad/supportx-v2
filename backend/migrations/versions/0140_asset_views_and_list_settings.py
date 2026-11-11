@@ -12,7 +12,7 @@ The downgrade refuses while any tenant keeps a list setting, per tenant with app
 (rule 5h); the index holds no data and is dropped.
 
 Revision ID: 0140
-Revises: 0138
+Revises: 0136
 Created: 2026-11-11
 """
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 revision: str = "0140"
-down_revision: str | None = "0138"
+down_revision: str | None = "0136"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -21,10 +21,11 @@
   records port (REQ-AST-044) and the "raised from this asset" history line (045).
 
 Licensed with the `assets` feature. Public interface for other modules: `can_see`, `asset_refs`
-and `assets_of` (REQ-AST-025, for work items), the disposal guard port, and `record_scan` with
+and `assets_of` (REQ-AST-025, for work items), the disposal guard port, `record_scan` with
 its codes (`ScanSource`, `ScanType`, `ScanResult`, `ScanFailure`): the port discovery calls for
-each scan (REQ-AST-054); and `LinkedRecords` with `register_linked_records` (REQ-AST-044), the
-port work items register for the asset's linked records panel (lane A, once their side lands).
+each scan (REQ-AST-054); (D-157) the port work items register "the requesters of my tickets
+that link this asset" with; and `LinkedRecords` with `register_linked_records` (REQ-AST-044),
+the port work items register for the asset's linked records panel.
 """
 
 from fastapi import FastAPI
@@ -73,6 +74,11 @@ from app.modules.assets.service.refs import (
     email_includes_assets,
 )
 from app.modules.assets.service.scans import overdue_sweep, record_scan, scan_cleanup_sweep
+from app.modules.assets.service.ticket_access import (
+    TicketRequesters,
+    register_ticket_requesters,
+    unregister_ticket_requesters,
+)
 from app.modules.assets.service.valuations import valuation_sweep
 from app.modules.assets.service.views import LIST_SPECS
 from app.modules.procurement import register_vendor_usage
@@ -184,6 +190,7 @@ __all__ = [
     "ScanResult",
     "ScanSource",
     "ScanType",
+    "TicketRequesters",
     "asset_refs",
     "assets_of",
     "can_see",
@@ -193,7 +200,9 @@ __all__ = [
     "register_disposal_guard",
     "register_draft_purchase_requests",
     "register_linked_records",
+    "register_ticket_requesters",
     "unregister_disposal_guard",
     "unregister_draft_purchase_requests",
     "unregister_linked_records",
+    "unregister_ticket_requesters",
 ]

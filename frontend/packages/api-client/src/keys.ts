@@ -83,6 +83,8 @@ export const queryKeys = {
     record: (id: string) => ['assets', 'record', id] as const,
     history: (id: string) => ['assets', 'history', id] as const,
     moves: (id: string) => ['assets', 'moves', id] as const,
+    // Under the record's key: a change to the asset refetches what the person may change (D-157).
+    access: (id: string) => ['assets', 'record', id, 'access'] as const,
     disposal: (id: string) => ['assets', 'disposal', id] as const,
     holdings: (id: string) => ['assets', 'holdings', id] as const,
     links: (id: string) => ['assets', 'links', id] as const,

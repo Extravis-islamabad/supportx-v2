@@ -15,7 +15,10 @@ from tooling import db_testing
 from tooling import repair_showcase_dates as repair
 from tooling import showcase_seed as seed
 
-pytestmark = pytest.mark.db
+# The whole showcase is seeded through the API: about 210 s in CI on a quiet runner (setup
+# included), more under load. The shards' 300 s per-test limit (ci.yml) would cut it off, so these
+# files get their own, still finite: a real hang here fails and names itself too.
+pytestmark = [pytest.mark.db, pytest.mark.timeout(900)]
 
 
 async def _sql(url: str, query: str, *args: Any) -> list[asyncpg.Record]:  # noqa: ANN401 - binds

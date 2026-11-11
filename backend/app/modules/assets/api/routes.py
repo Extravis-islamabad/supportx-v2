@@ -476,6 +476,10 @@ class AssetProductTypeOut(BaseModel):
     life_cycle_id: uuid.UUID | None = Field(description="None: the default life cycle.")
     tag_pattern: str | None = Field(description="None: the tenant's pattern.")
     ack_required: bool
+    depreciation_factor: Decimal = Field(
+        default=Decimal(2),
+        description="Declining balance: this factor times the straight-line rate (D-157).",
+    )
     sort: int
     version: int
 
@@ -494,6 +498,7 @@ class AssetProductTypeOut(BaseModel):
             life_cycle_id=row.life_cycle_id,
             tag_pattern=row.tag_pattern,
             ack_required=row.ack_required,
+            depreciation_factor=row.depreciation_factor,
             sort=row.sort,
             version=row.version,
         )
@@ -514,6 +519,14 @@ class AssetProductTypeIn(BaseModel):
     life_cycle_id: uuid.UUID | None = None
     tag_pattern: str | None = Field(default=None, max_length=40)
     ack_required: bool = False
+    depreciation_factor: Decimal | None = Field(
+        default=None,
+        gt=0,
+        le=10,
+        max_digits=4,
+        decimal_places=2,
+        description="Declining balance's factor (D-157); 2 unless sent.",
+    )
 
 
 class AssetProductTypePatch(BaseModel):
@@ -530,6 +543,14 @@ class AssetProductTypePatch(BaseModel):
     life_cycle_id: uuid.UUID | None = None
     tag_pattern: str | None = Field(default=None, max_length=40)
     ack_required: bool | None = None
+    depreciation_factor: Decimal | None = Field(
+        default=None,
+        gt=0,
+        le=10,
+        max_digits=4,
+        decimal_places=2,
+        description="Declining balance's factor (D-157).",
+    )
     sort: int | None = Field(default=None, ge=0, le=10_000)
 
 
@@ -655,27 +676,28 @@ class AssetProductOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, row: AssetProduct) -> "AssetProductOut":
-        """From the row."""
+    def of(cls, row: AssetProduct, subject: Subject) -> "AssetProductOut":
+        """From the row; its money null without assets.view_financials (D-157 2b)."""
+        money = subject.holds(service.VIEW_FINANCIALS)
         return cls(
             id=row.id,
             product_type_id=row.product_type_id,
             name=row.name,
             manufacturer=row.manufacturer,
             part_number=row.part_number,
-            price=row.price,
-            tax=row.tax,
-            total=service.product_total(row),
+            price=row.price if money else None,
+            tax=row.tax if money else None,
+            total=service.product_total(row) if money else None,
             currency=row.currency,
             gl_code=row.gl_code,
             hide_from_purchase_orders=row.hide_from_purchase_orders,
             depreciation_method=(
                 AssetDepreciationMethod(row.depreciation_method)
-                if row.depreciation_method
+                if money and row.depreciation_method
                 else None
             ),
-            useful_life_years=row.useful_life_years,
-            salvage_value=row.salvage_value,
+            useful_life_years=row.useful_life_years if money else None,
+            salvage_value=row.salvage_value if money else None,
             description=row.description,
             updated_at=row.updated_at,
             version=row.version,
@@ -730,11 +752,10 @@ async def list_products(
     session: TenantSession, query: ProductsQuery, subject: View
 ) -> Page[AssetProductOut]:
     """Products, filtered (`product_type_id=`, `manufacturer=`, the DSL) and paged."""
-    del subject
     await service.ensure_defaults(session)
     page = await paginate(session, service.products_query(), query)
     return Page[AssetProductOut](
-        items=[AssetProductOut.of(row) for row in page.rows],
+        items=[AssetProductOut.of(row, subject) for row in page.rows],
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
@@ -761,7 +782,7 @@ async def create_product(
         row = await service.create_product(
             session, subject, body.model_dump(exclude_none=True), source=source_of(request)
         )
-        return Created(body=AssetProductOut.of(row), headers={"ETag": f'"{row.version}"'})
+        return Created(body=AssetProductOut.of(row, subject), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -775,10 +796,9 @@ async def get_product(
     product_id: uuid.UUID, session: TenantSession, subject: View, response: Response
 ) -> AssetProductOut:
     """One product."""
-    del subject
     row = await service.get_product(session, product_id)
     set_etag(response, row.version)
-    return AssetProductOut.of(row)
+    return AssetProductOut.of(row, subject)
 
 
 @router.patch(
@@ -805,7 +825,7 @@ async def patch_product(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, product_id, values, expected_version=version, source=source_of(request)
     )
     set_etag(response, row.version)
-    return AssetProductOut.of(row)
+    return AssetProductOut.of(row, subject)
 
 
 @router.delete(
@@ -845,7 +865,7 @@ async def held_by(
     """Newest first, within what you may see; `current` keeps only the open holdings."""
     found = await ownership.held_by(session, subject, ownership.Holder(kind, holder_id))
     return [
-        HeldAssetOut(asset=AssetOut.of(asset), holding=AssetHoldingOut.of(holding))
+        HeldAssetOut(asset=AssetOut.of(asset, subject), holding=AssetHoldingOut.of(holding))
         for asset, holding in found
         if not current or holding.ended_at is None
     ]
@@ -1097,7 +1117,7 @@ async def group_assets(
 ) -> list[AssetOut]:
     """The ones you may see, by name (the count above counts the same)."""
     _, rows = await groups.group_assets(session, subject, group_id)
-    return [AssetOut.of(r) for r in rows]
+    return [AssetOut.of(r, subject) for r in rows]
 
 
 @router.post(

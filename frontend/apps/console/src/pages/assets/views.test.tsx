@@ -30,6 +30,7 @@ const typeOf = (id: string, apiName: string, en: string, parent: string | null, 
     life_cycle_id: null,
     tag_pattern: null,
     ack_required: false,
+    depreciation_factor: '2',
     sort,
     version: 1,
   }) satisfies AssetProductType;

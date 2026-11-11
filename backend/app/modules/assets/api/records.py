@@ -107,9 +107,11 @@ class AssetOut(BaseModel):
     parent_asset_id: uuid.UUID | None = Field(default=None, description="Fitted to this asset.")
     location: str | None
     purchase_order_id: uuid.UUID | None
-    purchase_price: Decimal | None
-    purchase_tax: Decimal | None
-    purchase_total: Decimal | None = Field(description="Price plus tax (D-141), worked out.")
+    purchase_price: Decimal | None = Field(description="Null without assets.view_financials.")
+    purchase_tax: Decimal | None = Field(description="Null without assets.view_financials.")
+    purchase_total: Decimal | None = Field(
+        description="Price plus tax (D-141), worked out. Null without assets.view_financials."
+    )
     currency: str | None
     acquired_on: date | None
     warranty_expires_on: date | None
@@ -124,8 +126,9 @@ class AssetOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, row: Asset) -> "AssetOut":
-        """From the row."""
+    def of(cls, row: Asset, subject: Subject) -> "AssetOut":
+        """From the row; the money (price, tax, total) null for those who may not see it."""
+        money = service.sees_money(subject)
         return cls(
             id=row.id,
             name=row.name,
@@ -143,9 +146,9 @@ class AssetOut(BaseModel):
             parent_asset_id=row.parent_asset_id,
             location=row.location,
             purchase_order_id=row.purchase_order_id,
-            purchase_price=row.purchase_price,
-            purchase_tax=row.purchase_tax,
-            purchase_total=service.purchase_total(row),
+            purchase_price=row.purchase_price if money else None,
+            purchase_tax=row.purchase_tax if money else None,
+            purchase_total=service.purchase_total(row) if money else None,
             currency=row.currency,
             acquired_on=row.acquired_on,
             warranty_expires_on=row.warranty_expires_on,
@@ -236,6 +239,10 @@ class AssetChangeOut(BaseModel):
     field: str
     old: Any = None
     new: Any = None
+    hidden: bool = Field(
+        default=False,
+        description="Money without assets.view_financials (D-157): the line stays, values null.",
+    )
 
 
 class AssetChangeOriginOut(BaseModel):
@@ -379,7 +386,7 @@ async def _page(  # noqa: PLR0913 - the list's parts, explicit
     page = await paginate(session, statement, query)
     people, parents, products = await _names(session, subject, list(page.rows))
     return AssetListPage(
-        items=[AssetOut.of(row) for row in page.rows],
+        items=[AssetOut.of(row, subject) for row in page.rows],
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
@@ -474,7 +481,7 @@ async def create_asset(
         row = await service.create_asset(
             session, subject, body.model_dump(exclude_none=True), source=source_of(request)
         )
-        return Created(body=AssetOut.of(row), headers={"ETag": f'"{row.version}"'})
+        return Created(body=AssetOut.of(row, subject), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -490,7 +497,30 @@ async def get_asset(
     """One asset you may see."""
     row = await service.get_asset(session, subject, asset_id)
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
+
+
+class AssetAccessOut(BaseModel):
+    """What you may change on this asset (its page shows the matching actions)."""
+
+    manage: bool = Field(description="assets.manage on it: everything your other rights allow.")
+    through_ticket: bool = Field(
+        description="D-157: linked to your own ticket and held by its requester or department:"
+        " its state, location, notes and fitted components only."
+    )
+
+
+@router.get(
+    "/{asset_id}/access",
+    summary="What you may change on an asset",
+    responses={404: {"model": ProblemDetail, "description": "asset_not_found"}},
+)
+async def asset_access(
+    asset_id: uuid.UUID, session: TenantSession, subject: View
+) -> AssetAccessOut:
+    """Whether you manage it, or may change a few fields through your own ticket (D-157)."""
+    manage, through_ticket = await service.edit_reach(session, subject, asset_id)
+    return AssetAccessOut(manage=manage, through_ticket=through_ticket)
 
 
 _REQUIRED = {"name", "product_id", "tag"}
@@ -506,7 +536,7 @@ async def patch_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     asset_id: uuid.UUID,
     body: AssetPatch,
     session: TenantSession,
-    subject: Manage,
+    subject: View,  # assets.manage, or a technician's ticket (D-157): the service decides
     version: ExpectedVersion,
     response: Response,
     request: Request,
@@ -524,7 +554,7 @@ async def patch_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         reason=body.reason,
     )
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
 
 
 @router.delete(
@@ -563,7 +593,18 @@ async def restore_asset(
     """Back from the trash; an IT asset needs a free slot again."""
     row = await service.restore_asset(session, subject, asset_id, source=source_of(request))
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
+
+
+def _change_out(field: str, old: Any, new: Any, *, money: bool) -> AssetChangeOut:  # noqa: ANN401 - history keeps JSON values
+    """A history line; a money field's values masked for those who may not see money (D-157).
+
+    Masked rather than dropped: the reader still sees that the price changed, and when and by
+    whom, and the pages keep their size.
+    """
+    if not money and field in service.MONEY_FIELDS:
+        return AssetChangeOut(field=field, hidden=True)
+    return AssetChangeOut(field=field, old=old, new=new)
 
 
 @router.get(
@@ -608,6 +649,7 @@ async def asset_history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and fi
         session, service.RECORD_TYPE, asset_id, before_version=cursor, limit=limit, where=where
     )
     names = await user_names(session, [e.actor_id for e in entries if e.actor_id])
+    money = service.sees_money(subject)
     return AssetHistoryOut(
         items=[
             AssetHistoryEntryOut(
@@ -618,7 +660,7 @@ async def asset_history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and fi
                 source=e.source,
                 reason=e.reason,
                 occurred_at=e.occurred_at,
-                changes=[AssetChangeOut(field=c.field, old=c.old, new=c.new) for c in e.changes],
+                changes=[_change_out(c.field, c.old, c.new, money=money) for c in e.changes],
                 origin=_origin(e.automation_ref),
             )
             for e in entries
@@ -679,7 +721,7 @@ async def move_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     asset_id: uuid.UUID,
     body: AssetMoveIn,
     session: TenantSession,
-    subject: Manage,
+    subject: View,  # assets.manage, or a technician's ticket (D-157): the service decides
     version: ExpectedVersion,
     response: Response,
     request: Request,
@@ -695,7 +737,7 @@ async def move_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
 
 
 class AssetCopyIn(BaseModel):
@@ -737,7 +779,7 @@ async def copy_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         made = await bulk.copy_asset(
             session, subject, asset_id, count=body.count, source=source_of(request)
         )
-        return Created(body=AssetCopiesOut(items=[AssetOut.of(row) for row in made]))
+        return Created(body=AssetCopiesOut(items=[AssetOut.of(row, subject) for row in made]))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -955,7 +997,7 @@ async def set_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     asset_id: uuid.UUID,
     body: AssetHolderIn,
     session: TenantSession,
-    subject: Manage,
+    subject: View,  # assets.manage, or a technician's ticket (D-157): the service decides
     version: ExpectedVersion,
     response: Response,
     request: Request,
@@ -970,7 +1012,7 @@ async def set_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
 
 
 @router.delete(
@@ -982,7 +1024,7 @@ async def set_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 async def clear_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     asset_id: uuid.UUID,
     session: TenantSession,
-    subject: Manage,
+    subject: View,  # assets.manage, or a technician's ticket (D-157): the service decides
     version: ExpectedVersion,
     response: Response,
     request: Request,
@@ -992,7 +1034,7 @@ async def clear_holder(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, asset_id, None, expected_version=version, source=source_of(request)
     )
     set_etag(response, row.version)
-    return AssetOut.of(row)
+    return AssetOut.of(row, subject)
 
 
 @router.get("/{asset_id}/holdings", summary="Who held an asset, and when")
@@ -1050,9 +1092,8 @@ async def add_link(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             session, subject, asset_id, body.to_asset_id, body.kind, source=source_of(request)
         )
         other = await service.get_asset(session, subject, body.to_asset_id)
-        return Created(
-            body=AssetLinkOut(id=link.id, kind=link.kind, outgoing=True, other=AssetOut.of(other))
-        )
+        out = AssetOut.of(other, subject)
+        return Created(body=AssetLinkOut(id=link.id, kind=link.kind, outgoing=True, other=out))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -1067,7 +1108,7 @@ async def asset_links(
             id=link.relationship.id,
             kind=link.relationship.kind,
             outgoing=link.outgoing,
-            other=AssetOut.of(link.other),
+            other=AssetOut.of(link.other, subject),
         )
         for link in await relationships.links_of(session, subject, asset_id)
     ]

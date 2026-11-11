@@ -276,14 +276,19 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** HA install survives the loss of any one node with the e2e suite passing; a
   restore drill (backup → new cluster → smoke test) passes in CI; alerts fire in a fault test.
 - **Depends on:** WP-014
-- [ ] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
+- [x] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
   master that dies within about 10 s of a fresh start, before its sentinels have seen its
   replicas (Sentinel reads a master's INFO every 10 s), does not fail over until it returns: every
   attempt aborts with `-failover-abort-no-good-slave`. No data is lost, since #284's guard still
   refuses to start empty, but the set is unavailable meanwhile. #388 only made the tests wait for
   the sentinels. Fix: a Valkey pod reports ready only once the sentinels list its replicas (the
   readiness option), with a test that fails over a master stopped right after a fresh start.
-  In Haider's summary as an FYI.
+  In Haider's summary as an FYI. **Done (2026-11-11, branch `feat/valkey-ready-sentinels`):** the
+  valkey container's readiness probe is the chart's `ready.sh` (`templates/valkey-ha.yaml`): until
+  a pod's first readiness in its role, its own sentinel must list it (replica, once synced) or
+  every replica connected to it (master); afterwards only the server counts. Tests in
+  `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
+  [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -1220,9 +1225,30 @@ it with no reload (rule c). Not built yet.
   - **Open:**
     - the "health check regression" default waits for health checks (REQ-CHG-086, MonetX);
     - the testing owner is not a change role yet, so it is not a recipient;
-    - the portal has no change page, so public notices link to the portal home (S4).
-- **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
-  personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
+    - ~~the portal has no change page~~: done in S4a.
+- **S4** (three PRs; REQ-CHG-109, 110, 116, 117):
+  - **S4a, the portal and counters (REQ-CHG-109, -117; no migration; lane B blocks the portal
+    access and approvals):**
+    - `/portal/changes`: list, the forms offered to requesters, raise (Idempotency-Key, staff
+      fields refused), one change with its stage, status and planned window (the
+      implementation's schedule), the public conversation and a reply. Plans, risk, approvals
+      detail, outcome and private notes are not in these responses (AC2). Same reach rules as
+      the portal's incidents and requests.
+    - Portal pages: My changes, a change's page, Raise a change; nav entry behind `change`.
+    - Live: the requester channel hears a change's stage and status, and the implementation's
+      schedule (another stage's schedule says nothing there).
+    - Approvals: a requester-only approver decides a change in the portal's approvals, through
+      the change's own route (AC3). Bulk approve stays with service requests (D-143). The
+      console's approvals drawer lists change approvals too.
+    - Notices: change notices link to the portal change page, approval notices to the portal's
+      approvals (the change page is its requester's only).
+    - Counters (REQ-CHG-117): "waiting for my approval" and "starting today" on changes only.
+    - **Open:** a requester-only approver sees only the number and title in the portal
+      approvals (no read-only summary page); tenant-own status codes show through the label
+      fallback.
+  - **S4b:** the mobile API audit and the push payload and deep-link format (REQ-CHG-110).
+  - **S4c:** change report fields, measures, dashboard and drill-down (REQ-CHG-116; lane C
+    reviews).
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
@@ -1642,8 +1668,27 @@ it with no reload (rule c). Not built yet.
     the API cannot tell beforehand whether a worker can render PDFs (a job without one fails
     with `pdf_not_available`); the label designer (040) and mobile scanning (041) are later;
     discovery calls `record_scan` (WP-050).
-- [x] **Session 4a (migration 0140, down revision 0138 after the main merge; re-pointed again at
-  the lane's turn if needed; REQ-AST-044, 045, 046, 047; branch backup/wp-049b-s4a):**
+- [x] **D-157 follow-up (lane B, 2026-11-11; migration 0136 after 0137;
+  branch backup/d157):**
+  - A technician changes an asset linked to its own ticket still being worked and held by the
+    ticket's requester or department: state, location, notes and fitted parts only
+    (`asset_field_not_allowed` otherwise); `GET /assets/{id}/access`; work_items'
+    `linked_requester_ids_select` port (additive; lane A reviews).
+  - Price, tax and total behind `assets.view_financials` in responses, history (masked) and
+    writes.
+  - Straight line by default; declining balance with the product type's factor
+    (`depreciation_factor`, default 2); double declining stays 200 %.
+  - One in-app notice per run to the people who set mail up when e-mails are given up after 7
+    days without mail (`outgoing_mail.not_sent`).
+  - Review fixes: the ticket path fits only free components and never retires or disposes;
+    the on-behalf person counts as a holder (lane A); the mail summary is claimed once per run.
+  - 2b: catalogue prices and default depreciation behind `assets.view_financials` (masked in
+    product responses, needed to write them).
+  - The Purchase manager role will need catalogue prices when procurement is built (WP-054);
+    granting it then is Haider's call, not granted now.
+  - **Open:** the e2e journey for the technician's path.
+- [x] **Session 4a (migration 0140, down revision 0136 after the second main merge; it moves
+  to 0139 at the lane's turn; REQ-AST-044, 045, 046, 047; branch backup/wp-049b-s4a):**
   - Shared list-settings store (the coordinator's decision): `app/shared/list_settings` owns the
     `list_settings` table (RLS forced, SELECT/INSERT/UPDATE, soft delete): per person, list and
     view, the columns with widths, sort, page size and a favourite star; a saved view is a row

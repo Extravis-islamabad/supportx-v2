@@ -504,6 +504,23 @@ export function useAssetMoves(id: string | undefined) {
   });
 }
 
+export type AssetAccess = S['AssetAccessOut'];
+
+/**
+ * What the person may change on an asset (D-157): everything (`manage`), or, through their own
+ * ticket, only its state, location, notes and fitted parts (`through_ticket`).
+ */
+export function useAssetAccess(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.assets.access(id ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/assets/{asset_id}/access', { params: { path: { asset_id: id ?? '' } } }),
+      ),
+    enabled: id !== undefined,
+  });
+}
+
 /** An asset's disposal record (REQ-AST-017); a 404 means it has none. */
 export function useAssetDisposal(id: string | undefined, enabled = true) {
   return useQuery({
