@@ -1150,10 +1150,20 @@ it with no reload (rule c). Not built yet.
   - live via `work_items.change_windows_changed`.
   - Defaults per D-156 (held): a freeze blocks, a maintenance window warns, weekly repeat only.
   - Lane B gives the blocking review.
-- **S2:** the record. The schedule and downtime become editable, with a conflicts panel and the
-  override dialog; "announce planned downtime" makes an announcement draft.
-- **S3:** the calendar at /changes/calendar (month, week, day, timeline; layers; drag to
-  reschedule with re-approval and the conflict check), and the windows admin on template E.
+- **S2 (built; its PR opens after #376):**
+  - the record's Schedule tab, with the editable implementation window and downtimes and a live
+    conflicts panel;
+  - the override dialog, which passes only the freezes named, then retries the save;
+  - "announce" for a planned downtime, which makes an announcement draft.
+- **S3 (built; its PR opens after S2):**
+  - `GET /change-calendar`, and the calendar at /changes/calendar: month, week, day and agenda;
+    the freeze and maintenance layers; "only mine"; zone days; drag to reschedule with the
+    re-approval warning and the freeze guard;
+  - the windows admin at /admin/change-windows (template E).
+- **Not yet:**
+  - a pixel-time grid in the week and day views (entries are listed by day);
+  - CI and service layers (with the CMDB);
+  - full recurrence rules (D-156 (c)).
 
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
@@ -1551,7 +1561,7 @@ it with no reload (rule c). Not built yet.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
 
-### [~] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-4 of 5 built, #233)
+### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
 Full-build plan: REQ-WF-008..029 (file 03 §15). Plan approved by the coordinator 2026-11-05.
 Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (approval chair).
@@ -1665,8 +1675,36 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     - the "Book value by cost centre" and "Total cost of ownership" reports (asset money
       measures, listed only for assets.view_financials);
     - the release downtime delete asks first (lane A's #377).
-- [ ] **S5** — the overview screen, versions and migration UI, skip a failed step, the
-  waiting-longer filter, e2e and guides.
+- [x] **S5** — the runs overview, versions and moving runs, skip, waiting longer than, e2e and
+  guides (feat/wp-048b-s5, backup/wp-048b-s5; one PR from main, no migration). Session log:
+  progress-log/2026-11-11-wp-048b-s5-lane-c.md.
+  - **S5d, skip a failed step (REQ-WF-024 AC2):**
+    - goes on through the failed step's "next" output only; a step that decides its own path
+      is refused with skip_without_next;
+    - POST /instances/{id}/skip: If-Match, may_edit, audited (who, step, record);
+    - "Skip this step" on the record panel, behind a confirm.
+  - **S5b, waiting longer than (REQ-WF-025 AC3):** `waiting_over_hours` on the overview. It
+    reads the last step on workflow_steps' tenant-first primary key, backwards (EXPLAIN checked
+    in a test), so no index or migration.
+  - **S5a, Admin › Workflows › Runs (template C):**
+    - filters for state, record type, workflow, step and waiting longer than;
+    - failures in words;
+    - a run's record named and linked only for those who may see it, via a read-only `labels`
+      port that lane A agreed (rule 8);
+    - bulk retry and cancel (with a reason) as jobs, one per workflow, at most 1,000 runs, with
+      live progress; the job's audit keeps its kind, run count and reason.
+  - **S5c, versions and moving runs (REQ-WF-021):**
+    - the designer's Versions tab: who published each version, when, and its live runs;
+    - the move dialog maps each occupied step, then a mandatory dry run, then the move as a job;
+    - new: `versions/{n}/steps` and the overview's `version_number` filter.
+  - **S5e, e2e and guides:**
+    - docs/guides/workflows.md;
+    - e2e/tests/workflows.spec.ts: a workflow built by keyboard and run on an incident, a test
+      run's timer, a failed step skipped;
+    - Visual matrix screens for Runs and the versions dialog.
+    - **Not a journey:** a webhook failing at its receiver needs the consumers worker and a test
+      receiver in the e2e stack. The DB tests cover it (test_workflow_webhooks.py); an e2e
+      journey waits for an e2e receiver (follow-up), never a retry loop (the coordinator).
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
   `users.preview` test once that permission lands (lane B).
 

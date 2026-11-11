@@ -285,7 +285,11 @@ async def save_draft(
 
 
 async def publish(
-    session: AsyncSession, workflow_id: uuid.UUID, *, expected_version: int
+    session: AsyncSession,
+    workflow_id: uuid.UUID,
+    *,
+    expected_version: int,
+    by: uuid.UUID | None = None,
 ) -> WorkflowVersion:
     """A clean draft becomes the next version; running instances keep theirs (REQ-WF-021)."""
     workflow = await _get(session, workflow_id)
@@ -303,6 +307,7 @@ async def publish(
         workflow_id=workflow.id,
         number=number,
         definition=dict(workflow.draft),
+        published_by=by,  # the Versions tab says who (REQ-WF-027)
     )
     session.add(version)
     workflow.published_version = number

@@ -276,6 +276,8 @@ export const ar: LabelResource = {
   'errors.field.certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
   'errors.field.certificate_wrong_host': 'الشهادة لا تذكر هذا النطاق.',
   'errors.field.chair_inactive': 'اختر شخصًا نشطًا رئيسًا.',
+  'errors.field.change_would_loop':
+    'لا يمكن أن يكون التغيير جزءًا من نفسه، مباشرة أو عبر تغييرات أخرى.',
   'errors.field.channel_reserved':
     'يمكن اختيار الهاتف أو الحضور الشخصي فقط؛ تُحدَّد القنوات الأخرى تلقائيًا.',
   'errors.field.choices_required': 'أضف خيارًا واحدًا على الأقل.',
@@ -696,6 +698,7 @@ export const ar: LabelResource = {
   'errors.limit_reached': 'تم الوصول إلى الحد المسموح به في خطتك. اطلب من المسؤول توسيع الخطة.',
   'errors.link_has_own_route':
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
+  'errors.link_not_found': 'هذا الرابط غير موجود، أو أُزيل.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
@@ -830,6 +833,8 @@ export const ar: LabelResource = {
   'errors.sign_in_unknown_person':
     'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
   'errors.site_not_found': 'الموقع غير موجود.',
+  'errors.skip_without_next':
+    'لا توجد خطوة تالية واحدة بعد هذه الخطوة، لذا لا يمكن تخطيها؛ أعد محاولتها أو شغّل مسار العمل مجددًا من خطوة تختارها.',
   'errors.sla_fallback_required':
     'لا يمكن حذف السياسة الافتراضية: فهي تُطبَّق عندما لا تنطبق أي سياسة أخرى.',
   'errors.sla_policy_not_found': 'سياسة اتفاقية مستوى الخدمة هذه غير موجودة أو حُذفت.',

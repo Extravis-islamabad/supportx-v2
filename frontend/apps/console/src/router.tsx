@@ -94,6 +94,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-045c S3: the change calendar.
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangeCalendarPage')).ChangeCalendarPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
@@ -407,6 +414,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-048b S5a: every run, the second tab of Admin › Workflows.
+            path: 'workflows/runs',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/workflows/RunsPage')).RunsPage,
+            }),
+          },
+          {
             path: 'workflows/:workflowId',
             lazy: async () => ({
               Component: (await import('./pages/admin/workflows/DesignerPage')).DesignerPage,
@@ -416,6 +430,14 @@ export const routes: RouteObject[] = [
             path: 'automation/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,
+            }),
+          },
+          {
+            // WP-045c: freeze and maintenance windows (template E).
+            path: 'change-windows',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/changes/ChangeWindowsPage'))
+                .ChangeWindowsPage,
             }),
           },
           {
