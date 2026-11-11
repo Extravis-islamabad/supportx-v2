@@ -1165,7 +1165,7 @@ it with no reload (rule c). Not built yet.
   - CI and service layers (with the CMDB);
   - full recurrence rules (D-156 (c)).
 
-### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migration 0133; REQ-CHG-088..117)
+### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migrations 0133, 0137; REQ-CHG-088..117)
 - **S1 (0133, #378):** tasks per stage, the post-implementation review and its date, closure
   codes and rules per stage, closing waits for child changes and releases, closed changes locked
   (REQ-CHG-088, 090-097). Lane B reviewed the lock.
@@ -1175,7 +1175,17 @@ it with no reload (rule c). Not built yet.
   - REQ-CHG-100: the change's conversation and attachments on its record.
   - REQ-CHG-101: bulk assign (D-154a: the owner must be in the group), take and close, through
     the shared bulk dialog. Each change follows its own life cycle, and skips say why.
-  - REQ-CHG-102: the CAB pack print view.
+  - REQ-CHG-102: the CAB pack print view, with the conflict list.
+  - **D-156 (Haider, 2026-11-11; migration 0137, lane B blocks):**
+    - change replies are e-mailed to the requester; notes never are;
+    - monthly windows ("first Sunday", on the tenant's local days); repeat_weekly is kept in
+      step for one release;
+    - a tenant setting makes outside-maintenance block (off by default), on the windows page,
+      audited;
+    - an emergency change in a blocking freeze is saved and marked, never refused. Its work
+      starts only once its emergency CAB passed the freeze (an approval with a reason, which
+      stamps it, is audited and shows in history) or the change manager overrode it. Normal
+      and standard changes are unchanged.
   - **Open under REQ-CHG-101:** bulk edit fields, add to a CAB agenda, cancel and delete.
     - Cancel and delete need the `work_item_bulk_jobs` action_code check widened, which is a
       migration.
