@@ -192,3 +192,26 @@ async def test_req_chg_109_the_requester_channel_hears_the_stage_status_and_plan
     assert window[portal].fields == ("planned_end", "planned_start")
     seen = (await world.call("GET", f"{PORTAL}/{raised['id']}", a, a.requester)).json()
     assert seen["planned_start"].startswith("2026-12-05T20:00")
+
+
+async def test_req_chg_109_change_notices_open_the_portal_change_page(
+    world: World, app_db: Database
+) -> None:
+    """A requester's e-mail about their change opens its portal page, never the console."""
+    from app.core.tenancy import TenantContext  # noqa: PLC0415 - only here
+    from app.modules.work_items.service.change_notifications import SOURCE  # noqa: PLC0415
+
+    a = world.a
+    raised = await _raise(world, a, a.requester)
+    fresh = (await world.call("GET", f"{CHG}/{raised['id']}", a, a.admin)).json()
+    assert (await move(world, a, fresh, "submission_awaiting_acceptance")).status_code == 200
+    [event] = [
+        e
+        for e in await events_of(world, "work_item")
+        if e.payload.get("work_item_id") == raised["id"]
+        and e.payload.get("to_status") == "submission_awaiting_acceptance"
+    ]
+    async with app_db.tenant_session(TenantContext(a.tenant)) as session:
+        context = await SOURCE.context(session, "change.status_entered", event)
+    assert context is not None
+    assert context.public_link == f"/changes/{raised['id']}"
