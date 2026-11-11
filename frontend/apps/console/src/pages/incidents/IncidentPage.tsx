@@ -19,6 +19,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router';
 
 import {
   ApiError,
+  checklistKeys,
   queryKeys,
   useCausingProblem,
   useDeleteIncident,
@@ -97,6 +98,9 @@ import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts'
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
 import { IncidentHistory } from './IncidentHistory';
+import { RecordAllFiles } from './RecordAllFiles';
+import { RecordChecklists } from './RecordChecklists';
+import { RecordReminders } from './RecordReminders';
 import { CategoryCascade } from './CategoryCascade';
 import {
   categoryPath,
@@ -252,6 +256,9 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(item.id) });
       } else if (part === 'worklog') {
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+      } else if (part === 'checklist') {
+        // WP-046a S2: a checklist added, ticked or removed.
+        void queryClient.invalidateQueries({ queryKey: checklistKeys.of('incidents', item.id) });
       } else if (part === 'asset') {
         // REQ-AST-025: an asset linked or unlinked.
         void queryClient.invalidateQueries({
@@ -639,6 +646,13 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                     },
                   ]
                 : []),
+              // Your own reminders on it (WP-046a S2, REQ-INC-082): yours only.
+              {
+                key: 'reminders',
+                title: t('reminders.title'),
+                bare: true,
+                children: <RecordReminders recordId={item.id} />,
+              },
               {
                 key: 'followers',
                 title: t('incidents.panel.followers'),
@@ -724,6 +738,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               key: 'tasks',
               label: <TasksTabLabel id={item.id} />,
               children: <IncidentTasks item={item} canEdit={canEditParts} />,
+            },
+            {
+              key: 'checklists',
+              label: t('checklists.tab'),
+              children: <RecordChecklists recordId={item.id} canEdit={canEditParts} />,
+            },
+            {
+              key: 'files',
+              label: t('files.all.tab'),
+              children: <RecordAllFiles recordType="incident" recordId={item.id} />,
             },
             {
               key: 'worklogs',
