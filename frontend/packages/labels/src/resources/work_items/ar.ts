@@ -1999,6 +1999,7 @@ export const ar: LabelResource = {
   'work_item.field.template_id': 'القالب',
   'work_item.field.urgency': 'الإلحاح',
   'work_item.field.workaround': 'الحل المؤقت',
+  'work_item.field.workflow_version': 'إصدار سير العمل',
   'work_item.field.worklog': 'سجل العمل',
   'work_item.history.changed': 'غيّر {{who}} {{field}} من {{old}} إلى {{new}}',
   'work_item.history.changed_only': 'غيّر {{who}} {{field}}',

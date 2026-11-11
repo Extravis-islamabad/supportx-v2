@@ -10,6 +10,7 @@ export const ur: LabelResource = {
   'errors.action_link_stale': 'یہ لنک بھیجے جانے کے بعد درخواست بدل گئی۔ اسے ایپ میں کھولیں۔',
   'errors.action_link_used': 'یہ لنک پہلے ہی استعمال ہو چکا ہے۔',
   'errors.already_known_error': '{{display_id}} پہلے ہی معلوم خرابی ہے۔',
+  'errors.already_on_version': 'یہ رن پہلے ہی اسی ورژن پر ہے۔',
   'errors.already_taken': '{{taken_by}} نے ابھی اسے لے لیا ہے۔ دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.already_yours': 'یہ پہلے ہی آپ کو تفویض ہے۔',
   'errors.announcement_not_found': 'یہ اعلان موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
@@ -146,6 +147,8 @@ export const ur: LabelResource = {
   'errors.change_source_not_found': 'وہ ریکارڈ نہیں ملا جس کے لیے یہ تبدیلی بنائی گئی۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
+  'errors.command_in_flight':
+    'یہ رن ایک ایسے مرحلے کا انتظار کر رہا ہے جو دوسری قسم کے مرحلے پر جائے گا۔ پہلے اسے مکمل ہونے دیں۔',
   'errors.conflict':
     'کسی اور نے یہ آئٹم تبدیل کر دیا۔ تازہ ترین ورژن دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.console_requester_only': 'یہ اکاؤنٹ درخواست گزار پورٹل استعمال کرتا ہے، کنسول نہیں۔',
@@ -675,6 +678,10 @@ export const ur: LabelResource = {
     'یہ واقعہ پہلے سے {{display_id}} سے جڑا ہے۔ تصدیق کے لیے اسے منتقل کریں۔',
   'errors.insert_too_large':
     'مضمون کی تصاویر ایک ساتھ شامل کرنے کے لیے بہت بڑی ہیں: زیادہ سے زیادہ {{limit_mb}} MB۔',
+  'errors.instance_not_failed': 'صرف ناکام ورک فلو کو دوبارہ آزمایا جا سکتا ہے۔',
+  'errors.instance_not_running': 'یہ ورک فلو نہیں چل رہا، اس لیے اسے روکا نہیں جا سکتا۔',
+  'errors.instance_running': 'دوبارہ چلانے سے پہلے اس ورک فلو کو روکیں۔',
+  'errors.instances_not_in_workflow': 'منتخب رنز میں سے کچھ اس ورک فلو کے نہیں ({{count}})۔',
   'errors.internal_error': 'ہماری طرف کچھ غلط ہو گیا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.invalid_choice': 'یہ قدر دستیاب انتخاب میں سے نہیں۔',
   'errors.invalid_cursor': 'یہ صفحہ لنک اب درست نہیں۔ پہلے صفحے سے شروع کریں۔',
@@ -698,6 +705,8 @@ export const ur: LabelResource = {
   'errors.invitation_not_pending': 'یہ دعوت نامہ اب منتظر نہیں: قبول ہو چکا یا واپس لیا جا چکا۔',
   'errors.invitation_pending': 'اس شخص کا ایک دعوت نامہ منتظر ہے۔ اس کے بجائے اسے دوبارہ بھیجیں۔',
   'errors.invitation_person_cannot_sign_in': 'یہ شخص غیر فعال ہے یا اسے سائن اِن کی اجازت نہیں۔',
+  'errors.job_kind_not_available': 'اس قسم کی جاب ابھی دستیاب نہیں۔',
+  'errors.job_size': '1 سے {{max}} تک رنز منتخب کریں۔',
   'errors.kb_article_not_editable':
     'آپ یہ مضمون نہیں بدل سکتے۔ اس کا مالک یا نالج مینیجر بدل سکتا ہے۔',
   'errors.kb_article_not_found': 'یہ مضمون موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
@@ -784,6 +793,9 @@ export const ur: LabelResource = {
     'SupportX تک ابھی رسائی نہیں ہو رہی۔ اپنا کنکشن چیک کریں؛ ہم کوشش جاری رکھیں گے۔',
   'errors.no_organization':
     'آپ کا اکاؤنٹ ابھی کسی ادارے سے منسلک نہیں۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.node_not_found': 'یہ مرحلہ ورک فلو کے اس ورژن میں نہیں ہے۔',
+  'errors.node_not_mapped':
+    'یہ رن جس مرحلے پر ہے اس کی نئے ورژن میں جگہ نہیں: اسے کسی مرحلے سے جوڑیں۔',
   'errors.not_a_member': 'آپ اس ادارے کے رکن نہیں ہیں۔',
   'errors.not_acceptable': 'مطلوبہ فارمیٹ معاون نہیں ہے۔',
   'errors.not_an_approver': 'آپ اس درخواست کے منظوری دہندہ نہیں ہیں۔',
@@ -793,6 +805,7 @@ export const ur: LabelResource = {
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
   'errors.nothing_to_override':
     'یہ تبدیلی دوبارہ منظوری کی منتظر نہیں، اس لیے نظر انداز کرنے کو کچھ نہیں۔',
+  'errors.nothing_to_retry': 'دوبارہ چلانے کے لیے کوئی ناکام مرحلہ نہیں۔',
   'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
   'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
   'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
@@ -803,6 +816,8 @@ export const ur: LabelResource = {
   'errors.order_out_of_date': 'اس دوران فہرست بدل گئی۔ دوبارہ لوڈ کر کے ترتیب دیں۔',
   'errors.out_of_range': 'یہ قدر اجازت شدہ حد سے باہر ہے۔',
   'errors.own_profile_only': 'آپ صرف اپنی ترجیحات تبدیل کر سکتے ہیں۔',
+  'errors.parallel_in_progress':
+    'یہ رن متوازی شاخوں کے اندر ہے اور ان کے ملنے تک منتقل نہیں ہو سکتا۔',
   'errors.password_policy_not_saved': 'پہلے پاس ورڈ پالیسی محفوظ کریں۔',
   'errors.password_policy_platform': 'اس انسٹالیشن پر پاس ورڈ پالیسی پلیٹ فارم طے کرتا ہے۔',
   'errors.password_reset_not_signed_in':
@@ -840,6 +855,7 @@ export const ur: LabelResource = {
   'errors.recipient_deferred': 'وصول کنندہ کے میل سرور نے بعد میں کوشش کرنے کو کہا۔',
   'errors.recipient_refused': 'میل سرور نے وصول کنندہ رد کر دیا۔',
   'errors.record_closed': 'بند یا منسوخ ریکارڈ تبدیل نہیں ہو سکتے۔',
+  'errors.record_not_editable': 'یہ کرنے کے لیے آپ کو ریکارڈ میں ترمیم کا اختیار ہونا چاہیے۔',
   'errors.reference_copied': 'حوالہ کاپی ہو گیا',
   'errors.reference_is': 'حوالہ: {{reference}}',
   'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
@@ -860,6 +876,7 @@ export const ur: LabelResource = {
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
   'errors.required': 'یہ فیلڈ لازمی ہے۔',
+  'errors.restart_at_end': 'چلانے کے لیے کوئی مرحلہ چنیں، اختتام نہیں۔',
   'errors.role_in_use':
     'یہ کردار ابھی صارفین کو تفویض ہے۔ پہلے وہ کردار منتخب کریں جس میں انہیں منتقل کرنا ہے۔',
   'errors.role_not_found': 'یہ رول نہیں ملا۔',
@@ -957,6 +974,11 @@ export const ur: LabelResource = {
   'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',
   'errors.work_item_view_not_found': 'یہ محفوظ ویو اب موجود نہیں، یا آپ کے ساتھ شیئر نہیں کیا گیا۔',
   'errors.work_item_worklog_not_found': 'یہ ورک لاگ اب موجود نہیں۔',
+  'errors.workflow_instance_changed':
+    'آپ کے کھولنے کے بعد یہ ورک فلو بدل گیا۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
+  'errors.workflow_instance_not_found': 'ورک فلو کا یہ رن نہیں ملا۔',
+  'errors.workflow_job_not_found': 'یہ جاب نہیں ملی۔',
+  'errors.workflow_version_not_found': 'ورک فلو کا یہ ورژن نہیں ملا۔',
   'errors.would_lose_access':
     'اس تبدیلی کے بعد آپ {{display_id}} نہیں دیکھ سکیں گے۔ حوالے کرنے کے لیے تصدیق کریں۔',
 };

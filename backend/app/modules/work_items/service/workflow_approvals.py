@@ -198,6 +198,27 @@ async def after_decision(
     )
 
 
+async def close_for_instance(
+    session: AsyncSession, record_id: uuid.UUID, instance_id: uuid.UUID
+) -> None:
+    """A stopped workflow's open approvals on the record close as not needed (REQ-WF-026).
+
+    Its tasks stay: they are people's work, which may still be wanted without the workflow.
+    """
+    record = await session.get(WorkItem, record_id)
+    if record is None:
+        return
+    rows = list(
+        await session.scalars(
+            select(WorkItemApproval).where(
+                WorkItemApproval.workflow_instance_id == instance_id,
+                WorkItemApproval.deleted_at.is_(None),
+            )
+        )
+    )
+    await _close_pending(session, record, rows)
+
+
 async def _close_pending(
     session: AsyncSession, record: WorkItem, rows: Sequence[WorkItemApproval]
 ) -> None:

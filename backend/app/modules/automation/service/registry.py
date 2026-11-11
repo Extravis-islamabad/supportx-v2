@@ -22,6 +22,20 @@ FieldsProvider = Callable[[AsyncSession], Awaitable[Mapping[str, RuleField]]]
 ValueChecker = Callable[[AsyncSession, Mapping[str, JsonValue]], Awaitable[Mapping[str, str]]]
 
 
+# The owning module's own access check, as the person (one policy layer, §11.2).
+RecordEditCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
+# Whether a person may see the record (its type's own view rule): a test run reads its facts.
+RecordViewCheck = Callable[[AsyncSession, Subject, uuid.UUID], Awaitable[bool]]
+# The record and the stopped instance.
+WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
+# The IDs among these that are live templates of the type, in the session's tenant.
+TemplateCheck = Callable[[AsyncSession, Sequence[uuid.UUID]], Awaitable[set[uuid.UUID]]]
+# The record, the workflow's history ref, and the version it left and the one it is on now.
+MigrationRecorder = Callable[
+    [AsyncSession, uuid.UUID, Mapping[str, Any], int, int], Awaitable[None]
+]
+
+
 @dataclass(frozen=True)
 class RecordType:
     """What automation needs to know about one record type."""
@@ -44,6 +58,17 @@ class RecordType:
     # the record roles an approval may name (empty: people and groups only).
     approval_roles: tuple[str, ...] | None = None
     notices: bool = False  # its notification source sends a workflow's notice (REQ-WF-022)
+    # Whether a person may edit one record (ADR-043 §10): running, stopping or restarting a
+    # workflow on it needs workflows.run and this. None: nobody may (the type has no workflows).
+    may_edit: "RecordEditCheck | None" = None
+    # A test run on a record shows its facts: only to someone who may see it (lane B, #374).
+    may_view: "RecordViewCheck | None" = None
+    # A stopped workflow's open parts on the record (its pending approvals) close (REQ-WF-026).
+    close_workflow: "WorkflowCloser | None" = None
+    # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).
+    record_migration: "MigrationRecorder | None" = None
+    # Which of these IDs are the type's templates, here (a workflow's start templates).
+    known_templates: "TemplateCheck | None" = None
 
 
 @dataclass(frozen=True)
