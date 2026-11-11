@@ -33,6 +33,7 @@ import {
   startHistory,
   toGraph,
   undo,
+  useNodesInitialized,
   useReactFlow,
   withLayout,
   type Connection,
@@ -81,6 +82,26 @@ const NODE_TYPES = { workflow: NodeView };
  * draft whatever its problems, which come back onto the canvas (REQ-WF-019). Live: another
  * admin's save shows at once when nothing is unsaved here, else a notice offers to reload.
  */
+// Fit the whole diagram in view, never zoomed past its own size: a short workflow fitted
+// without a ceiling drew its steps at twice their size, past the canvas (QA V-02).
+const FIT = { padding: 0.2, maxZoom: 1 } as const;
+
+/**
+ * Fit once the steps have been measured. Fitting on init ran before the nodes had sizes (and,
+ * on a narrow screen, before the pane had its own), so the first view was off (QA V-02).
+ */
+function FitWhenReady() {
+  const flow = useReactFlow();
+  const ready = useNodesInitialized();
+  const done = useRef(false);
+  useEffect(() => {
+    if (!ready || done.current) return;
+    done.current = true;
+    window.requestAnimationFrame(() => void flow.fitView(FIT));
+  }, [ready, flow]);
+  return null;
+}
+
 export function DesignerPage() {
   const t = useLabel();
   const { can } = useAccess();
@@ -346,7 +367,7 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
         position: laid.nodes.find((l) => l.id === n.id)?.position ?? n.position,
       })),
     });
-    window.requestAnimationFrame(() => void flow.fitView({ padding: 0.2 }));
+    window.requestAnimationFrame(() => void flow.fitView(FIT));
   };
 
   // Undo and redo from the keyboard, as in any editor (not while typing in a field).
@@ -699,16 +720,14 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
             }}
             deleteKeyCode={['Delete', 'Backspace']}
             fitView
+            fitViewOptions={FIT}
             colorMode={mode === 'dark' ? 'dark' : 'light'}
-            // Fit again once the pane has its size (a narrow screen lays it out after the nodes).
-            onInit={(instance) => {
-              window.requestAnimationFrame(() => void instance.fitView({ padding: 0.2 }));
-            }}
             minZoom={0.2}
             proOptions={{ hideAttribution: true }}
             aria-label={t('workflows.designer.canvas')}
           >
             <Background gap={20} />
+            <FitWhenReady />
             <Controls position={rtl ? 'bottom-right' : 'bottom-left'} />
             {wide && (
               <MiniMap

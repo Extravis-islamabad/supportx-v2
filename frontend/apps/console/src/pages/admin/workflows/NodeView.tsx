@@ -38,7 +38,8 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
         background: passed ? token.colorSuccessBg : token.colorBgContainer,
         border: `${String(current || selected || flagged ? 2 : 1)}px solid ${border}`,
         borderRadius: token.borderRadiusLG,
-        padding: '8px 12px 20px',
+        // Room at the foot for the outputs' names above their handles (QA V-02).
+        padding: data.ports.length > 1 ? '8px 12px 28px' : '8px 12px 20px',
         boxShadow: selected ? token.boxShadowSecondary : undefined,
       }}
     >
@@ -90,10 +91,16 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
         >
           <span
             style={{
+              // Inside the step, just above its output: below it, the name sat on the links
+              // leaving it and ran into the next step's (QA V-02). Centred physically, as the
+              // handle is placed by left in both directions.
               position: 'absolute',
-              top: 12,
-              insetInlineStart: '50%',
+              bottom: 14,
+              left: '50%',
               transform: 'translateX(-50%)',
+              maxWidth: 96,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
               fontSize: 11,
               whiteSpace: 'nowrap',
               color: token.colorTextSecondary,
