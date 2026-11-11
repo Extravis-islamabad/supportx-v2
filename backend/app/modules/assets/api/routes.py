@@ -85,6 +85,9 @@ class AssetSettingsOut(BaseModel):
         description="Days before a warranty ends that managers hear of it."
     )
     scan_retention_months: int
+    portal_booking: bool = Field(
+        default=False, description="Requesters may book loanable assets from the portal."
+    )
     version: int
 
     @classmethod
@@ -100,6 +103,7 @@ class AssetSettingsOut(BaseModel):
             email_include_assets=row.email_include_assets,
             warranty_notice_days=row.warranty_notice_days,
             scan_retention_months=row.scan_retention_months,
+            portal_booking=row.portal_booking,
             version=row.version,
         )
 
@@ -118,6 +122,7 @@ class AssetSettingsIn(BaseModel):
     email_include_assets: bool | None = None
     warranty_notice_days: int | None = Field(default=None, ge=1, le=365)
     scan_retention_months: int | None = Field(default=None, ge=1, le=60)
+    portal_booking: bool | None = None
 
 
 @router.get("/settings", summary="Asset settings")
@@ -1155,14 +1160,18 @@ class LoanableIn(BaseModel):
 
 
 class LoanIn(BaseModel):
-    """Loan loanable, in-stock assets to a person until a date."""
+    """Loan loanable, in-stock assets to a person, or a department, until a date."""
 
     model_config = ConfigDict(extra="forbid")
 
-    borrower_id: uuid.UUID
+    borrower_id: uuid.UUID = Field(description="Who takes them (for a department: who collects).")
     asset_ids: list[uuid.UUID] = Field(min_length=1, max_length=50)
     due_at: datetime
     comment: str | None = Field(default=None, max_length=2000)
+    department_id: uuid.UUID | None = Field(
+        default=None, description="Lent to this department, which then holds the assets."
+    )
+    site_id: uuid.UUID | None = Field(default=None, description="The loan's site.")
 
 
 class LoanReturnIn(BaseModel):
@@ -1189,7 +1198,11 @@ class LoanOut(BaseModel):
     """A loan: who, until when, its status (overdue computed now) and what is still out."""
 
     id: uuid.UUID
+    display_id: str | None = Field(default=None, description="LN-1; loans before 0130 have none.")
     borrower_id: uuid.UUID
+    department_id: uuid.UUID | None = None
+    site_id: uuid.UUID | None = None
+    booking_id: uuid.UUID | None = Field(default=None, description="The booking handed over.")
     starts_at: datetime
     due_at: datetime
     closed_at: datetime | None
@@ -1209,7 +1222,11 @@ async def _loan_out(
     status = loan_status(due_at=row.due_at, outstanding=len(out), now=system_clock.now())
     return LoanOut(
         id=row.id,
+        display_id=row.display_id,
         borrower_id=row.borrower_id,
+        department_id=row.department_id,
+        site_id=row.site_id,
+        booking_id=row.booking_id,
         starts_at=row.starts_at,
         due_at=row.due_at,
         closed_at=row.closed_at,
@@ -1262,10 +1279,20 @@ async def loanable_assets(
     return [LoanableAssetOut(id=r.id, tag=r.tag, name=r.name) for r in rows]
 
 
-@router.get("/loans", summary="Open loans, overdue first")
-async def list_loans(session: TenantSession, subject: AssetsView) -> list[LoanOut]:
-    """Every open loan of the organisation, those past due first."""
-    rows = await loans.open_loans(session, subject)
+@router.get("/loans", summary="The loan register: open loans, overdue first, or by status")
+async def list_loans(
+    session: TenantSession,
+    subject: AssetsView,
+    wanted: Annotated[
+        Literal["open", "overdue", "closed"] | None,
+        Query(
+            alias="status", description="One status; none: every loan still out (open, overdue)."
+        ),
+    ] = None,
+    site_id: Annotated[uuid.UUID | None, Query(description="That site's loans only.")] = None,
+) -> list[LoanOut]:
+    """Loans still out, those past due first; or one status (closed: latest first, 200 at most)."""
+    rows = await loans.open_loans(session, subject, status=wanted, site_id=site_id)
     items = await loans.loan_assets(session, [r.id for r in rows])
     return [await _loan_out(session, r, items[r.id]) for r in rows]
 
@@ -1275,7 +1302,12 @@ async def list_loans(session: TenantSession, subject: AssetsView) -> list[LoanOu
     summary="Loan assets to a person",
     status_code=status.HTTP_201_CREATED,
     response_model=LoanOut,
-    responses={409: {"model": ProblemDetail, "description": "asset_not_loanable, asset_on_loan"}},
+    responses={
+        409: {
+            "model": ProblemDetail,
+            "description": "asset_not_loanable, asset_on_loan, asset_booked",
+        }
+    },
     dependencies=[audited("asset_loan.created", object_type="asset_loan")],
 )
 async def create_loan(
@@ -1291,6 +1323,7 @@ async def create_loan(
         row = await loans.create_loan(
             session, subject, borrower_id=body.borrower_id, asset_ids=body.asset_ids,
             due_at=body.due_at, comment=body.comment, source=source_of(request),
+            department_id=body.department_id, site_id=body.site_id,
         )  # fmt: skip
         return Created(body=await _loan_out(session, row))
 

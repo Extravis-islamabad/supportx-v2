@@ -1,5 +1,6 @@
 import type { AnnouncementsQuery } from './announcements';
-import type { AssetProductsQuery, AssetRecordsQuery } from './assets';
+import type { BookingsQuery, ConsumablesQuery } from './assetStock';
+import type { AssetLoansQuery, AssetProductsQuery, AssetRecordsQuery } from './assets';
 import type { AuditEntriesQuery } from './audit';
 import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
@@ -82,7 +83,19 @@ export const queryKeys = {
     groupAssets: (id: string) => ['assets', 'groups', id] as const,
     mine: ['assets', 'mine'] as const,
     loans: ['assets', 'loans'] as const,
+    loanList: (query: AssetLoansQuery) => ['assets', 'loans', query] as const,
     loanable: (q: string) => ['assets', 'loanable', q] as const,
+    // WP-049b s1: consumables, minimum stock, bookings ahead.
+    consumables: (query: ConsumablesQuery) => ['assets', 'consumables', query] as const,
+    consumable: (id: string) => ['assets', 'consumable', id] as const,
+    ledger: (id: string) => ['assets', 'ledger', id] as const,
+    requestAllocations: (id: string) => ['assets', 'request-allocations', id] as const,
+    stockRules: ['assets', 'stock-rules'] as const,
+    bookings: (query: BookingsQuery) => ['assets', 'bookings', query] as const,
+    availability: (query: { productId?: string; siteId?: string; q?: string }) =>
+      ['assets', 'availability', query] as const,
+    myBookings: ['assets', 'my-bookings'] as const,
+    bookable: (q: string) => ['assets', 'bookable', q] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here

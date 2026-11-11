@@ -52,14 +52,14 @@ function PersonName({ id }: { id: string }) {
   return <bdi dir="auto">{user.data?.display_name ?? t('audit.ui.erased_person')}</bdi>;
 }
 
-function DepartmentName({ id }: { id: string }) {
+export function DepartmentName({ id }: { id: string }) {
   const departments = useStructure('departments');
   const found = (departments.data ?? []).find((d) => d.id === id) as { name?: string } | undefined;
   return <bdi dir="auto">{found?.name ?? ''}</bdi>;
 }
 
 /** Another asset, searched by tag, serial or name (the list's own search). */
-function AssetPicker({
+export function AssetPicker({
   value,
   onChange,
   exclude,

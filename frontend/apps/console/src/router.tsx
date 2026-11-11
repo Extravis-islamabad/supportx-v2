@@ -51,6 +51,19 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-049b s1 (REQ-AST-033, 034): consumable stock, its lots and ledger.
+            path: 'consumables',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/ConsumablesPage')).ConsumablesPage,
+            }),
+          },
+          {
+            path: 'consumables/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/ConsumablePage')).ConsumablePage,
+            }),
+          },
+          {
             // WP-049a s4 (REQ-AST-028): static and dynamic groups.
             path: 'groups',
             lazy: async () => ({

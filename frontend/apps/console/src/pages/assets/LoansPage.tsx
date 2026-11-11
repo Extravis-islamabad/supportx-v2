@@ -19,7 +19,6 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import {
-  ApiError,
   queryKeys,
   useAssetLoans,
   useLoanableAssets,
@@ -31,12 +30,12 @@ import { useTenantChannel } from '@supportx/realtime';
 import {
   CellText,
   EmptyText,
+  FilterBar,
   lengthLimit,
   ListPage,
   NoAccess,
   PageHeader,
   pickerFormat,
-  reportError,
   ToneTag,
   useAccess,
   useAppearance,
@@ -47,8 +46,11 @@ import {
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
-import { UserPicker } from '../incidents/pickers';
+import { DepartmentPicker, SitePicker, UserPicker } from '../incidents/pickers';
+import { DepartmentName } from './AssetRelations';
+import { useSiteNames } from './live';
 import { okFooter } from './dialogOk';
+import { problemText } from './problemText';
 
 const STATUS_TONE: Record<AssetLoan['status'], Tone> = {
   open: 'info',
@@ -57,23 +59,24 @@ const STATUS_TONE: Record<AssetLoan['status'], Tone> = {
 };
 const COMMENT_MAX = 2000;
 
-type T = ReturnType<typeof useLabel>;
+// The register's status filter (REQ-AST-030): every loan still out, or one status.
+type StatusFilter = 'out' | AssetLoan['status'];
+const STATUS_FILTERS: StatusFilter[] = ['out', 'open', 'overdue', 'closed'];
 
-/** A problem as words: the field's own message where the API names one (never a code). */
-function problemText(t: T, error: unknown): string | null {
-  if (error instanceof ApiError && error.problem !== null) {
-    const field = error.fieldErrors[0];
-    if (field !== undefined) return t(`errors.field.${field.code}`, field.params ?? {});
-    return t(error.messageKey, error.params);
-  }
-  reportError(error);
-  return null;
-}
-
-function Borrower({ id }: { id: string }) {
+/** Who has it: the person, and the department it is lent to when there is one. */
+function Borrower({ loan }: { loan: AssetLoan }) {
   const t = useLabel();
-  const user = useUser(id);
-  return <CellText>{user.data?.display_name ?? t('audit.ui.erased_person')}</CellText>;
+  const user = useUser(loan.borrower_id);
+  const person = user.data?.display_name ?? t('audit.ui.erased_person');
+  if (loan.department_id == null) return <CellText>{person}</CellText>;
+  return (
+    <Space direction="vertical" size={0}>
+      <DepartmentName id={loan.department_id} />
+      <Typography.Text type="secondary">
+        {t('assets.loans.collected_by', { name: person })}
+      </Typography.Text>
+    </Space>
+  );
 }
 
 function assetText(a: { tag: string | null; name: string }): string {
@@ -86,6 +89,8 @@ function NewLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }
   const { dates } = useAppearance();
   const { createLoan } = useLoanActions();
   const [borrower, setBorrower] = useState<string | null>(null);
+  const [department, setDepartment] = useState<string | null>(null);
+  const [site, setSite] = useState<string | null>(null);
   const [assets, setAssets] = useState<string[]>([]);
   const [due, setDue] = useState<Dayjs | null>(() => dayjs().add(7, 'day').endOf('day'));
   const [comment, setComment] = useState('');
@@ -96,6 +101,8 @@ function NewLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }
   const [problem, setProblem] = useState<string | null>(null);
   const close = () => {
     setBorrower(null);
+    setDepartment(null);
+    setSite(null);
     setAssets([]);
     setComment('');
     setProblem(null);
@@ -130,6 +137,8 @@ function NewLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }
               assetIds: assets,
               dueAt: due.toISOString(),
               comment: comment.trim() || undefined,
+              departmentId: department,
+              siteId: site,
             },
             {
               onSuccess: close,
@@ -153,6 +162,22 @@ function NewLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }
             onChange={setBorrower}
             testId="asset-loan-borrower"
             ariaLabel={t('assets.loans.borrower')}
+          />
+        </Form.Item>
+        <Form.Item label={t('assets.loans.department')} extra={t('assets.loans.department_help')}>
+          <DepartmentPicker
+            value={department}
+            onChange={setDepartment}
+            testId="asset-loan-department"
+            ariaLabel={t('assets.loans.department')}
+          />
+        </Form.Item>
+        <Form.Item label={t('assets.loans.site')}>
+          <SitePicker
+            value={site}
+            onChange={setSite}
+            testId="asset-loan-site"
+            ariaLabel={t('assets.loans.site')}
           />
         </Form.Item>
         <Form.Item label={t('assets.loans.assets')} required extra={t('assets.loans.assets_help')}>
@@ -318,7 +343,13 @@ export function LoansPage() {
   const queryClient = useQueryClient();
   const allowed = access.can('assets.view');
   const manage = access.can('assets.manage');
-  const loans = useAssetLoans(allowed);
+  const [status, setStatus] = useState<StatusFilter>('out');
+  const [siteFilter, setSiteFilter] = useState<string | null>(null);
+  const siteName = useSiteNames();
+  const loans = useAssetLoans(
+    { status: status === 'out' ? undefined : status, siteId: siteFilter ?? undefined },
+    allowed,
+  );
   const [adding, setAdding] = useState(false);
   const [returning, setReturning] = useState<string>();
   useTenantChannel((event) => {
@@ -350,6 +381,32 @@ export function LoansPage() {
           }
         />
       }
+      filters={
+        <FilterBar
+          testId="asset-loans-filterbar"
+          view={
+            <Segmented<StatusFilter>
+              value={status}
+              onChange={setStatus}
+              options={STATUS_FILTERS.map((s) => ({
+                value: s,
+                label: s === 'out' ? t('assets.loans.all_out') : t(`asset_loan_status.${s}`),
+              }))}
+              data-testid="asset-loans-status"
+            />
+          }
+          quick={
+            <div style={{ minWidth: 200 }}>
+              <SitePicker
+                value={siteFilter}
+                onChange={setSiteFilter}
+                ariaLabel={t('assets.loans.site')}
+                testId="asset-loans-site"
+              />
+            </div>
+          }
+        />
+      }
     >
       <Card>
         <Table<AssetLoan>
@@ -363,9 +420,27 @@ export function LoansPage() {
           data-testid="asset-loans"
           columns={[
             {
+              key: 'id',
+              title: t('assets.loans.display_id'),
+              render: (_, loan) => (
+                <span style={{ whiteSpace: 'nowrap' }} data-testid={`asset-loan-id-${loan.id}`}>
+                  {loan.display_id == null ? '' : <bdi dir="ltr">{loan.display_id}</bdi>}
+                </span>
+              ),
+            },
+            {
               key: 'borrower',
               title: t('assets.loans.borrower'),
-              render: (_, loan) => <Borrower id={loan.borrower_id} />,
+              render: (_, loan) => <Borrower loan={loan} />,
+            },
+            {
+              key: 'site',
+              title: t('assets.loans.site'),
+              render: (_, loan) => (
+                <CellText>
+                  {loan.site_id == null ? '' : <bdi dir="auto">{siteName(loan.site_id)}</bdi>}
+                </CellText>
+              ),
             },
             {
               key: 'assets',
@@ -418,17 +493,18 @@ export function LoansPage() {
                     // Always in view when the table scrolls sideways (390 px), as on the
                     // incident list; antd mirrors it in right-to-left.
                     fixed: 'right' as const,
-                    render: (_: unknown, loan: AssetLoan) => (
-                      <WriteButton
-                        size="small"
-                        onClick={() => {
-                          setReturning(loan.id);
-                        }}
-                        data-testid={`asset-loan-return-open-${loan.id}`}
-                      >
-                        {t('assets.loans.take_back')}
-                      </WriteButton>
-                    ),
+                    render: (_: unknown, loan: AssetLoan) =>
+                      loan.status === 'closed' ? null : (
+                        <WriteButton
+                          size="small"
+                          onClick={() => {
+                            setReturning(loan.id);
+                          }}
+                          data-testid={`asset-loan-return-open-${loan.id}`}
+                        >
+                          {t('assets.loans.take_back')}
+                        </WriteButton>
+                      ),
                   },
                 ]
               : []),

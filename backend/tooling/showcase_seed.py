@@ -1386,6 +1386,7 @@ class Report:
     articles: int = 0
     releases: int = 0
     assets: int = 0  # products, assets, holders, a loan and a group (showcase_assets)
+    stock: int = 0  # consumables, their stock, movements and minimum, a booking (WP-049b)
     backdated: int = 0
     freshened: int = 0  # step 7: seed records moved to read as of today
     # Between the steps only: step 6's candidates and who acts.
@@ -1431,6 +1432,7 @@ async def fill(
         report.assets = await assets.ensure_assets(
             admin, key, sites, signed_in[REQUESTER.email], signed_in[NEW_STARTER.email]
         )
+        report.stock = await assets.ensure_stock(admin, key, sites, signed_in[REQUESTER.email])
         report.admin_id = signed_in[ADMIN.email]
         # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
         # checks each was made by the seed's admin.
@@ -1726,6 +1728,7 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  incidents made now: {report.incidents}; dashboard made now: {report.dashboard}\n"
         f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
         f"  assets made now (products, assets, holders, a loan, a group): {report.assets}\n"
+        f"  stock made now (consumables, movements, a minimum, a booking): {report.stock}\n"
         f"  service requests made now: {report.service_requests}; problems made now:"
         f" {report.problems}; rules made now: {report.rules}; managers set now:"
         f" {report.managers}; catalog items featured now: {report.featured}\n"
