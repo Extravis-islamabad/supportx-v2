@@ -23,6 +23,9 @@ from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from app.modules.assets.service.bulk_jobs import run_asset_bulk_jobs
 from app.modules.assets.service.imports import run_asset_imports
+from app.modules.assets.service.realtime import BULK_PROGRESS, IMPORT_PROGRESS, ROUTES
+from app.shared.events import EventEnvelope
+from app.shared.realtime import personal
 from tests.db import test_incidents_api
 from tests.db.test_assets_api import _add, _product
 from tests.db.test_incidents_api import BASE as INCIDENTS
@@ -531,6 +534,38 @@ async def test_053_file_limits_a_zip_bomb_and_a_broken_file_are_refused(world: W
     done = await _job(world, a, started.json())
     assert done["status"] == "checked"
     assert done["problems"] == [{"row": 2, "field": "product", "code": "asset_product_not_found"}]
+
+
+# --- live progress ----------------------------------------------------------------------------
+
+
+async def test_progress_reaches_only_the_requesters_channel_with_ids_only(world: World) -> None:
+    a = world.a
+    one = await _asset(world, a, "Live one")
+    assert (
+        await _bulk(world, a, a.admin, {"action": "delete", "asset_ids": [one["id"]]})
+    ).status_code == 202
+    assert (await _import(world, a, b"Serial number\nL-1\n")).status_code == 201
+    for event_type, kind in (
+        ("assets.bulk_job.progressed", BULK_PROGRESS),
+        ("assets.import.progressed", IMPORT_PROGRESS),
+    ):
+        rows = await world.sql(
+            "SELECT envelope FROM outbox_events WHERE tenant_id = $1 AND event_type = $2",
+            a.tenant,
+            event_type,
+        )
+        envelope = EventEnvelope.model_validate(json.loads(rows[-1]["envelope"]))
+        # Counts, codes and IDs only (§8.2).
+        assert set(envelope.payload) <= {
+            "job_id", "import_id", "requested_by", "status", "processed", "total",
+        }  # fmt: skip
+        route = next(r for r in ROUTES if event_type in r.event_types)
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            effects = await route.route(envelope, session)
+        assert [(p.channel, p.type) for p in effects.publications] == [
+            (personal(a.tenant, a.admin), kind)
+        ]
 
 
 # --- isolation --------------------------------------------------------------------------------
