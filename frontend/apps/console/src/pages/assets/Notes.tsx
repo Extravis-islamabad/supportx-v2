@@ -215,7 +215,7 @@ function NoteItem({
         {editing === null ? (
           <RichTextView html={note.body} testId={`asset-note-body-${note.id}`} />
         ) : (
-          <Flex vertical gap={8}>
+          <Flex vertical gap={8} style={{ minWidth: 0 }}>
             <RichTextField
               label={t('assets.notes.edit_label')}
               value={editing}
@@ -312,9 +312,9 @@ export function AssetNotes({ asset, manage }: { asset: AssetRecord; manage: bool
     );
   };
   return (
-    <Flex vertical gap={16} style={{ paddingBottom: 16 }} data-testid="asset-notes">
+    <Flex vertical gap={16} style={{ paddingBottom: 16, minWidth: 0 }} data-testid="asset-notes">
       <Card size="small" title={t('assets.notes.title')}>
-        <Flex vertical gap={8}>
+        <Flex vertical gap={8} style={{ minWidth: 0 }}>
           {problem !== null && (
             <Alert
               type="error"
