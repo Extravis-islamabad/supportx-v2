@@ -458,10 +458,12 @@ function checks(): string[] {
   if (primary > 1) out.push(`primary_buttons:${String(primary)}`);
   for (const bar of document.querySelectorAll('[data-testid$="actions"], [role="toolbar"]')) {
     if (!shown(bar)) continue;
-    const tops = new Set(
-      [...bar.children].filter(shown).map((c) => Math.round(c.getBoundingClientRect().top)),
-    );
-    if (tops.size > 1) out.push(`toolbar_wraps:${name(bar)}`);
+    // Wrapped = an item starts below another's bottom. Comparing tops alone flagged one row of
+    // centred items of different heights (a 32px select beside 24px buttons; lane C polish).
+    const boxes = [...bar.children].filter(shown).map((c) => c.getBoundingClientRect());
+    const lowestTop = Math.max(...boxes.map((b) => b.top));
+    const highestBottom = Math.min(...boxes.map((b) => b.bottom));
+    if (boxes.length > 1 && lowestTop >= highestBottom - 1) out.push(`toolbar_wraps:${name(bar)}`);
   }
   return [...new Set(out)].slice(0, 40);
 }
