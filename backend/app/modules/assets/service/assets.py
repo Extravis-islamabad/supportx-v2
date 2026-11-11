@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata
 from app.modules.assets.domain.assets import (
     IDENTIFIER_MAX,
@@ -54,6 +54,7 @@ from app.modules.assets.domain.financials import (
 from app.modules.assets.events import AssetAction, AssetChanged
 from app.modules.assets.infra.models import (
     Asset,
+    AssetMerge,
     AssetProduct,
     AssetProductType,
     AssetSettings,
@@ -685,9 +686,19 @@ async def delete_asset(
 
 
 async def restore_asset(
-    session: AsyncSession, subject: Subject, asset_id: uuid.UUID, *, source: Source
+    session: AsyncSession,
+    subject: Subject,
+    asset_id: uuid.UUID,
+    *,
+    source: Source,
+    confirm_merged: bool = False,
 ) -> Asset:
-    """Back from the trash, taking a slot again if it counts (403 asset_limit_reached)."""
+    """Back from the trash, taking a slot again if it counts (403 asset_limit_reached).
+
+    An asset merged into another (REQ-AST-052) comes back only once the person has seen the
+    warning (409 `asset_restore_merged`, naming the survivor; then `confirm_merged`). It comes
+    back on its own: the alias ends, and what moved to the survivor stays there.
+    """
     _require(subject, MANAGE)
     in_trash = select(Asset).where(
         Asset.id == asset_id,
@@ -697,11 +708,28 @@ async def restore_asset(
     row = await session.scalar(in_trash.with_for_update())
     if row is None:
         raise NotFound(code="asset_not_found")
+    changes = [Change("deleted", old=True, new=False)]
+    merge = await session.scalar(
+        select(AssetMerge)
+        .where(
+            AssetMerge.merged_id == row.id,
+            AssetMerge.restored_at.is_(None),
+            AssetMerge.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if merge is not None:
+        survivor = await session.get(Asset, merge.survivor_id)
+        name = "" if survivor is None else (survivor.tag or survivor.name)
+        if not confirm_merged:
+            raise Conflict(code="asset_restore_merged", params={"asset": name})
+        merge.restored_at, merge.restored_by = datetime.now(UTC), subject.user_id
+        merge.version += 1
+        changes.append(Change("restored_after_merge", None, name))
     if await _counts(session, row.product_type_id, row.state_id):
         await _reserve(session)
     row.deleted_at = None
-    restored = Change("deleted", old=True, new=False)
-    await _saved(session, subject, row, [restored], action="restored", source=source)
+    await _saved(session, subject, row, changes, action="restored", source=source)
     return row
 
 
