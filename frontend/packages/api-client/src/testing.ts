@@ -599,6 +599,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     portal_show_due_time: false,
     segregation_strict: false,
     outside_maintenance_blocks: false,
+    open_stage_tasks_block: true,
     cab_every_match: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,

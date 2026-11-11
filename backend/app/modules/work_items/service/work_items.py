@@ -93,6 +93,7 @@ from app.modules.work_items.domain.lifecycle import (
     move_pause_clock,
     reason_problems,
 )
+from app.modules.work_items.domain.parts import TaskStatus
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
@@ -142,6 +143,7 @@ from app.modules.work_items.infra.models import (
     WorkItemRoleDef,
     WorkItemRoleHolder,
     WorkItemStageSchedule,
+    WorkItemTask,
     WorkItemTemplate,
 )
 from app.modules.work_items.service import (
@@ -2902,6 +2904,8 @@ class StagePanel:
     record: WorkItem
     rail: list[RailStage]
     moves: list[StageOffer]
+    # WP-058b S3 (REQ-REL-048 AC2): each stage's tasks, done and all (canceled ones not counted).
+    tasks: Mapping[str, tuple[int, int]] = field(default_factory=dict)
 
 
 async def stage_panel(
@@ -2933,7 +2937,22 @@ async def stage_panel(
         moves.append(
             StageOffer(t, target.stage, refused is None, refused, missing, planned.landed.code)
         )
-    return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves)
+    counted = await session.execute(
+        select(
+            WorkItemTask.stage,
+            func.count().filter(WorkItemTask.status == TaskStatus.DONE.value),
+            func.count(),
+        )
+        .where(
+            WorkItemTask.work_item_id == record.id,
+            WorkItemTask.deleted_at.is_(None),
+            WorkItemTask.status != TaskStatus.CANCELED.value,
+            WorkItemTask.stage.is_not(None),
+        )
+        .group_by(WorkItemTask.stage)
+    )
+    tasks = {str(stage): (int(done), int(total)) for stage, done, total in counted}
+    return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves, tasks)
 
 
 async def system_stage_move(  # noqa: PLR0913 - the move and its context, explicit

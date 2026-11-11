@@ -1791,6 +1791,8 @@ export const ur: LabelResource = {
   'stage_rail.optional': 'اختیاری',
   'stage_rail.rounds_one': '1 دور',
   'stage_rail.rounds_other': '{{count}} دور',
+  'stage_rail.tasks_one': 'کام {{done}} / 1',
+  'stage_rail.tasks_other': 'کام {{done}} / {{count}}',
   'staged.approvals.level': 'سطح {{level}}',
   'staged.approvals.none': 'ابھی کوئی منظوری نہیں۔',
   'staged.awaiting_approval': 'منظوری کا انتظار',

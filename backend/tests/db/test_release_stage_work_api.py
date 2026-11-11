@@ -195,3 +195,25 @@ async def test_req_rel_022_ac1_a_trigger_runs_once_per_stage_entry(world: World)
             json={"state": "disabled"},
             headers={"If-Match": f'"{made.json()["version"]}"'},
         )
+
+
+async def test_req_rel_048_ac2_each_stage_counts_its_tasks_done_and_all(world: World) -> None:
+    a = world.a
+    item = await a_release(world, a)
+    one = await task(world, a, item, "Draft the notes")
+    await task(world, a, item, "Book the room")
+    done = await world.call(
+        "PATCH",
+        f"{REL}/{item['id']}/tasks/{one['id']}",
+        a,
+        a.admin,
+        json={"status": "done"},
+        headers={"If-Match": f'"{one["version"]}"', **CONSOLE},
+    )
+    assert done.status_code == 200, done.text
+    rail = {s["stage"]: s for s in (await panel(world, a, item))["rail"]}
+    here = rail[item["stage"]]
+    assert (here["tasks_done"], here["tasks_total"]) == (1, 2)
+    assert {(s["tasks_done"], s["tasks_total"]) for k, s in rail.items() if k != item["stage"]} == {
+        (0, 0)
+    }

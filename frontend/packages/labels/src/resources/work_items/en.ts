@@ -1786,6 +1786,8 @@ export const en = {
   'stage_rail.optional': 'Optional',
   'stage_rail.rounds_one': '1 round',
   'stage_rail.rounds_other': '{{count}} rounds',
+  'stage_rail.tasks_one': 'Tasks {{done}} / 1',
+  'stage_rail.tasks_other': 'Tasks {{done}} / {{count}}',
   'staged.approvals.level': 'Level {{level}}',
   'staged.approvals.none': 'No approvals yet.',
   'staged.awaiting_approval': 'Waiting for approval',
