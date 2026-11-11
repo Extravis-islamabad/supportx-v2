@@ -119,6 +119,12 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
             }),
           },
+          {
+            path: ':id/pack',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangePack')).ChangePack,
+            }),
+          },
         ],
       },
       {

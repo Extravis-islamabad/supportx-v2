@@ -276,6 +276,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "BoardChoice": "change_board_choice",  # WP-045b S3 (REQ-CHG-041)
     "WindowKind": "change_window_kind",  # WP-045c (REQ-CHG-075, -076)
     "WindowMode": "change_window_mode",  # WP-045c (REQ-CHG-077)
+    "WindowOut.repeat": "window_repeat",  # D-156: none, weekly, monthly
+    "WindowIn.repeat": "window_repeat",
+    "WindowPatch.repeat": "window_repeat",
     "ConflictKind": "change_conflict",  # WP-045c (REQ-CHG-073, -074)
     "Watched": "reapproval_field",  # WP-045b S4 (REQ-CHG-053)
     "OnChange": "reapproval_effect",

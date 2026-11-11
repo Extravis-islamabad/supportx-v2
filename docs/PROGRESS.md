@@ -1165,6 +1165,39 @@ it with no reload (rule c). Not built yet.
   - CI and service layers (with the CMDB);
   - full recurrence rules (D-156 (c)).
 
+### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migrations 0133, 0137; REQ-CHG-088..117)
+- **S1 (0133, #378):** tasks per stage, the post-implementation review and its date, closure
+  codes and rules per stage, closing waits for child changes and releases, closed changes locked
+  (REQ-CHG-088, 090-097). Lane B reviewed the lock.
+- **S2:** the change list, the record and bulk work:
+  - REQ-CHG-098: type and risk columns; views for the CAB, in implementation now, emergency and
+    due for review.
+  - REQ-CHG-100: the change's conversation and attachments on its record.
+  - REQ-CHG-101: bulk assign (D-154a: the owner must be in the group), take and close, through
+    the shared bulk dialog. Each change follows its own life cycle, and skips say why.
+  - REQ-CHG-102: the CAB pack print view, with the conflict list.
+  - **D-156 (Haider, 2026-11-11; migration 0137, lane B blocks):**
+    - change replies are e-mailed to the requester; notes never are;
+    - monthly windows ("first Sunday", on the tenant's local days); repeat_weekly is kept in
+      step for one release;
+    - a tenant setting makes outside-maintenance block (off by default), on the windows page,
+      audited;
+    - an emergency change in a blocking freeze is saved and marked, never refused. Its work
+      starts only once its emergency CAB passed the freeze (an approval with a reason, which
+      stamps it, is audited and shows in history) or the change manager overrode it. Normal
+      and standard changes are unchanged.
+  - **Open under REQ-CHG-101:** bulk edit fields, add to a CAB agenda, cancel and delete.
+    - Cancel and delete need the `work_item_bulk_jobs` action_code check widened, which is a
+      migration.
+    - All four come with lane A's next migration WP (WP-045d S3/S4 or WP-046a), with DB tests;
+      no migration slot is taken for the check alone (coordinator, 2026-11-11).
+    - Until then the change list doesn't offer them at all.
+- **S3:** a change notification source with the Appendix A defaults, schedule reminders, the
+  workflow run on the record (lane C's Workflows tab, #379), and rules, triggers and SLAs on
+  changes (REQ-CHG-103..107). No e-mail reply threading unless Haider says yes.
+- **S4:** the portal (raise, follow, approve), the mobile API audit, report dimensions and
+  personal counters (REQ-CHG-109, 110, 116, 117). Lane B blocks the portal access.
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)

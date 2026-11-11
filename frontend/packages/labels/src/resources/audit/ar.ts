@@ -136,6 +136,8 @@ export const ar: LabelResource = {
   'audit.action.change.due_date_changed': 'غيّر موعد استحقاق تغيير',
   'audit.action.change.emergency_override': 'تجاوز موافقة تغيير في حالة طارئة',
   'audit.action.change.freeze_override': 'سمح بتنفيذ تغيير خلال فترة تجميد',
+  'audit.action.change.freeze_passed_by_cab':
+    'السماح لتغيير طارئ بالمضي خلال فترة تجميد (المجلس الطارئ)',
   'audit.action.change.linked': 'ربط تغييرًا بسجل آخر',
   'audit.action.change.note_visibility_changed': 'جعل ملاحظة تغيير عامة أو خاصة',
   'audit.action.change.part_added': 'أضاف عنصرًا إلى تغيير',
