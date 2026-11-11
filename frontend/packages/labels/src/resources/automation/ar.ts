@@ -492,6 +492,7 @@ export const ar: LabelResource = {
   'workflows.form.add_input': 'إضافة مدخل',
   'workflows.form.add_output': 'إضافة مخرج',
   'workflows.form.add_person': 'إضافة شخص',
+  'workflows.form.approval_barred': 'لا يقرر طالب التغيير ومالكه بشأنه أبداً، حتى إن ذُكرا هنا.',
   'workflows.form.approval_rule': 'يُحسم القرار بواسطة',
   'workflows.form.approver_people': 'الأشخاص',
   'workflows.form.approver_roles': 'أدوار السجل',

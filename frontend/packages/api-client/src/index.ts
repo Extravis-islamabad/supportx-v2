@@ -1222,6 +1222,7 @@ export {
   useStagedPlan,
   useStagedRoleCandidates,
   useStagedRoles,
+  useRoleDefs,
   useStagedSchedule,
   useRemoveStagedDowntime,
   useSaveStagedDowntime,
@@ -1229,6 +1230,7 @@ export {
   useUpdateStagedSchedule,
   useWriteStagedPlan,
   type StagedPath,
+  type RoleDefOut,
 } from './staged';
 export {
   changeKeys,

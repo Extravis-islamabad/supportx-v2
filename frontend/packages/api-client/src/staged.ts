@@ -96,6 +96,22 @@ export function useStagedRoles(path: StagedPath, id: string) {
   });
 }
 
+export type RoleDefOut = components['schemas']['RoleDefOut'];
+
+/**
+ * A staged type's role definitions with the admin's own labels (the roles settings), for screens
+ * that name its roles outside a record (a workflow's approval step). Reading needs the type's
+ * settings view: without it the query fails quietly and callers label roles from their codes.
+ */
+export function useRoleDefs(path: StagedPath | undefined) {
+  return useQuery({
+    queryKey: [...stagedKeys(path ?? 'changes').settings, 'roles'] as const,
+    queryFn: () => call(api.GET(at(path ?? 'changes', '/api/v1/releases/settings/roles'))),
+    enabled: path !== undefined,
+    retry: false,
+  });
+}
+
 export function useSetStagedRole(path: StagedPath) {
   const refresh = useRefresh(path);
   return useMutation({

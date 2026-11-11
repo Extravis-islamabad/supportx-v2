@@ -496,6 +496,8 @@ export const en = {
   'workflows.form.add_input': 'Add an input',
   'workflows.form.add_output': 'Add an output',
   'workflows.form.add_person': 'Add a person',
+  'workflows.form.approval_barred':
+    "A change's requester and its owner never decide on it, even when named here.",
   'workflows.form.approval_rule': 'Decided by',
   'workflows.form.approver_people': 'People',
   'workflows.form.approver_roles': "The record's roles",

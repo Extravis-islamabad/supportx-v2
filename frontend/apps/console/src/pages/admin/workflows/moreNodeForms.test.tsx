@@ -56,7 +56,7 @@ afterEach(() => {
   setDefaultClientFactory(inertClientFactory);
 });
 
-function api() {
+function api(recordType = 'incident') {
   const fake = consoleApi({
     me: fakeSession(
       { roles: ['admin'] },
@@ -73,7 +73,7 @@ function api() {
       [`GET /api/v1/automation/workflows/${FLOW_ID}`]: {
         body: {
           id: FLOW_ID,
-          record_type: 'incident',
+          record_type: recordType,
           name: 'Forms',
           description: null,
           enabled: false,
@@ -96,6 +96,19 @@ function api() {
             outputs: ['approved', 'rejected'],
             optional: [],
             roles: ['change_owner', 'requester'],
+          },
+        ],
+      },
+      'GET /api/v1/changes/settings/roles': {
+        body: [
+          {
+            code: 'change_owner',
+            labels: { en: 'Change lead' },
+            description: null,
+            disabled: false,
+            eligibility: null,
+            single: true,
+            built_in: true,
           },
         ],
       },
@@ -341,5 +354,30 @@ describe('console: workflow node forms (QA F-05)', () => {
       url: 'https://hooks.example.com/y',
       headers: { Authorization: '•••', 'X-Team': 'ops' },
     });
+  });
+  it('approval on a change: the admin’s own role names, and the barred note', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    api('change');
+    render(<App />);
+    const details = await open('ok');
+    expect(within(details).getByTestId('approval-barred').textContent).toContain(
+      'never decide on it',
+    );
+    const box = within(details)
+      .getByTestId('approval-roles')
+      .closest('.ant-select')
+      ?.querySelector('.ant-select-selector');
+    if (box === null || box === undefined) throw new Error('no roles select');
+    fireEvent.mouseDown(box);
+    expect((await screen.findAllByTitle('Change lead')).length).toBeGreaterThan(0);
+  });
+
+  it('set status: a status move retried when it fails', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('move');
+    fireEvent.change(within(details).getByTestId('node-retries'), { target: { value: '1' } });
+    expect(await saved(fake, 'move')).toMatchObject({ retries: 1 });
   });
 });
