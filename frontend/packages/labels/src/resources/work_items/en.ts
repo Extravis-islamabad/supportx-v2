@@ -457,6 +457,7 @@ export const en = {
   'changes.downtime.announce_body':
     'A planned change will cause downtime from {{start}} to {{end}}.',
   'changes.downtime.announce_title': 'Planned downtime: {{id}}',
+  'changes.downtime.delete_confirm': 'Delete this downtime?',
   'changes.downtime.phase': 'Planned or actual',
   'changes.emergency': 'Emergency',
   'changes.empty': 'No changes yet.',

@@ -1,6 +1,18 @@
 import { NotificationOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Flex, Form, Input, List, Modal, Select, Space, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Flex,
+  Form,
+  Input,
+  List,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Typography,
+} from 'antd';
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -21,7 +33,7 @@ import {
   type Downtime,
   type StageChanges,
 } from '@supportx/api-client';
-import { useTenantChannel } from '@supportx/realtime';
+import { useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   DateTimeField,
   EmptyText,
@@ -218,6 +230,11 @@ export function ConflictsPanel({ id }: { id: string }) {
     if (m.type === 'work_items.change_windows_changed') {
       void queryClient.invalidateQueries({ queryKey: changeKeys.part(id, 'conflicts') });
     }
+  });
+  // Another change moving into (or out of) this one's time is an overlap gained or gone: the
+  // changes' list channel says some change moved (lane C's review of #377).
+  useListChannel('changes', () => {
+    void queryClient.invalidateQueries({ queryKey: changeKeys.part(id, 'conflicts') });
   });
   const items = conflicts.data?.items ?? [];
   if (items.length === 0) return null;
@@ -485,17 +502,20 @@ function Downtimes({ change }: { change: Change }) {
                       </Button>,
                     ]
                   : []),
-                <WriteButton
+                <Popconfirm
                   key="remove"
-                  size="small"
-                  danger
-                  onClick={() => {
+                  title={t('changes.downtime.delete_confirm')}
+                  okText={t('actions.delete')}
+                  okButtonProps={{ danger: true, 'data-testid': `downtime-${d.id}-remove-ok` }}
+                  cancelText={t('actions.cancel')}
+                  onConfirm={() => {
                     remove.mutate({ id: change.id, downtimeId: d.id, version: d.version });
                   }}
-                  data-testid={`downtime-${d.id}-remove`}
                 >
-                  {t('actions.delete')}
-                </WriteButton>,
+                  <WriteButton size="small" danger data-testid={`downtime-${d.id}-remove`}>
+                    {t('actions.delete')}
+                  </WriteButton>
+                </Popconfirm>,
               ]}
             >
               <Space wrap>

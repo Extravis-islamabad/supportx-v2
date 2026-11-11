@@ -468,6 +468,7 @@ export const ar: LabelResource = {
   'changes.downtime.announce': 'إعلان',
   'changes.downtime.announce_body': 'سيتسبب تغيير مخطط في انقطاع من {{start}} إلى {{end}}.',
   'changes.downtime.announce_title': 'انقطاع مخطط: {{id}}',
+  'changes.downtime.delete_confirm': 'حذف فترة الانقطاع هذه؟',
   'changes.downtime.phase': 'مخطط أم فعلي',
   'changes.emergency': 'طارئ',
   'changes.empty': 'لا توجد تغييرات بعد.',

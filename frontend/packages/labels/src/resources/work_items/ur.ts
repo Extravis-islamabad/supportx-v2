@@ -458,6 +458,7 @@ export const ur: LabelResource = {
   'changes.downtime.announce_body':
     'ایک منصوبہ بند تبدیلی {{start}} سے {{end}} تک بندش کا سبب بنے گی۔',
   'changes.downtime.announce_title': 'منصوبہ بند بندش: {{id}}',
+  'changes.downtime.delete_confirm': 'یہ بندش حذف کریں؟',
   'changes.downtime.phase': 'منصوبہ بند یا اصل',
   'changes.emergency': 'ہنگامی',
   'changes.empty': 'ابھی کوئی تبدیلی نہیں۔',
