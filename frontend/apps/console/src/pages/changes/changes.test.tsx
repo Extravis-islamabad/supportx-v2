@@ -553,4 +553,43 @@ describe('console: changes', () => {
     expect(text).not.toContain('+00:00');
     expect(text).not.toContain('security_fix');
   });
+
+  it('QA-2026-11-11 F-01: a form that remounts keeps its Idempotency-Key, so a repeat never duplicates', async () => {
+    window.history.pushState({}, '', '/changes/new');
+    const fake = api({
+      'POST /api/v1/changes': {
+        status: 503,
+        body: {
+          type: 'urn:supportx:problem:service_unavailable',
+          title: 'Service Unavailable',
+          status: 503,
+          code: 'service_unavailable',
+          message_key: 'errors.service_unavailable',
+          params: {},
+          errors: [],
+        },
+      },
+    });
+    const fill = async () => {
+      expect(await screen.findByTestId('change-path')).toBeTruthy();
+      fireEvent.change(screen.getByTestId('change-subject'), {
+        target: { value: 'Core switch firmware 9.3' },
+      });
+      fireEvent.click(screen.getByTestId('change-save'));
+    };
+    const first = render(<App />);
+    await fill();
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(1);
+    });
+    first.unmount(); // the page remounts (a banner, a session refetch)
+    render(<App />);
+    await fill();
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(2);
+    });
+    const [one, two] = fake.find('POST', '/api/v1/changes');
+    expect(one?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(two?.headers.get('Idempotency-Key')).toBe(one?.headers.get('Idempotency-Key'));
+  });
 });
