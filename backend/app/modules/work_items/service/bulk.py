@@ -15,7 +15,7 @@ not flood). Progress goes to the requester's personal channel; the job stays rea
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, tzinfo
 from typing import Any
 
@@ -25,10 +25,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
-from app.core.errors import AppError, NotFound, PermissionDenied
+from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import Subject, subject_for, worker_policy
+from app.modules.work_items.domain.changes import CLOSED_STATUS
 from app.modules.work_items.domain.lifecycle import WorkItemAction
 from app.modules.work_items.domain.lists import (
     BULK_BATCH,
@@ -427,6 +428,8 @@ async def _apply(
                 uuid.UUID(str(given)) if given else None,
                 source=source,
             )
+        case BulkAction.CLOSE if wtype.stages is not None:
+            await _close_staged(session, subject, wtype, record_id, version, changes, source)
         case BulkAction.RESOLVE | BulkAction.CLOSE as action:
             await items.transition(
                 session,
@@ -447,6 +450,49 @@ async def _apply(
             )
             if changes.get("follow_up_of"):
                 await _note_follow_up(session, record_id, str(changes["follow_up_of"]), source)
+
+
+async def _close_staged(  # noqa: PLR0913, PLR0917 - the record and the bulk's values, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    version: int,
+    changes: Mapping[str, Any],
+    source: Source,
+) -> None:
+    """Close a staged record (a change) by its own listed move that lands in closed (REQ-CHG-101).
+
+    Its life cycle, closure rules and children decide, as for one change: the move the record
+    page would offer, with the code; none from where it is is a skip that says so.
+    """
+    panel = await items.stage_panel(session, subject, wtype, record_id)
+    closing_move = next(
+        (
+            m
+            for m in panel.moves
+            if m.allowed and (m.lands_in or m.transition.to_status) == CLOSED_STATUS
+        ),
+        None,
+    )
+    if closing_move is None:
+        raise Conflict(code="not_closable_from_here", params={"status": panel.record.status})
+    await items.move_status(
+        session,
+        subject,
+        wtype,
+        record_id,
+        target=closing_move.transition.to_status,
+        expected_version=version,
+        reason_code=None,
+        reason_text=None,
+        source=source,
+        closing_input=closing.MoveInput(
+            resolution=changes.get("resolution"),
+            closure_code=changes.get("closure_code"),
+            confirm_open_work=bool(changes.get("confirm_open_work")),
+        ),
+    )
 
 
 async def _note_follow_up(

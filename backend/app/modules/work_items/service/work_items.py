@@ -5222,6 +5222,21 @@ async def save_detail_change(  # noqa: PLR0913 - the save and its history, expli
     return updated
 
 
+async def change_list_facts(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str | None, str | None]]:
+    """Each listed change's type and its effective risk (chosen, else assessed)."""
+    rows = await session.execute(
+        select(
+            WorkItemChangeDetails.work_item_id,
+            WorkItemChangeDetails.change_type,
+            WorkItemChangeDetails.risk_chosen,
+            WorkItemChangeDetails.risk,
+        ).where(WorkItemChangeDetails.work_item_id.in_(list(ids)))
+    )
+    return {r.work_item_id: (r.change_type, r.risk_chosen or r.risk) for r in rows}
+
+
 may = _may
 is_closed = _closed
 audience_of = _audience

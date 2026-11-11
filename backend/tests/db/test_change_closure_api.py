@@ -342,3 +342,80 @@ async def test_req_chg_097_a_closed_change_is_locked_with_a_labelled_code(world:
         headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
     )
     assert problem(late) == (409, "record_closed"), late.text
+
+
+async def _bulk(
+    world: World, org: Org, action: str, records: list[dict[str, Any]], **changes: str
+) -> dict[str, Any]:
+    from app.modules.work_items.service.bulk import run_bulk_jobs  # noqa: PLC0415 - the runner
+
+    started = await world.call(
+        "POST",
+        f"{CHG}/bulk",
+        org,
+        org.admin,
+        json={"action": action, "changes": changes, "record_ids": [r["id"] for r in records]},
+    )
+    assert started.status_code == 202, started.text
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+    done = await world.call("GET", f"{CHG}/bulk-jobs/{started.json()['id']}", org, org.admin)
+    assert done.status_code == 200, done.text
+    return dict(done.json())
+
+
+async def _in_review(world: World, org: Org) -> dict[str, Any]:
+    made = await world.call(
+        "POST",
+        CHG,
+        org,
+        org.admin,
+        json={"subject": "Bulk", "requester_id": str(org.requester), "change_type": "standard"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    item = made.json()
+    item = (await move(world, org, item, "implementation_in_progress")).json()
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/schedule", org, org.admin)).json()
+    row = next(r for r in rows if r["stage"] == "implementation")
+    await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/schedule/implementation",
+        org,
+        org.admin,
+        json={"outcome": "successful"},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    return dict(
+        (await move(world, org, await fresh(world, org, item), "implementation_implemented")).json()
+    )
+
+
+async def test_req_chg_101_bulk_close_closes_what_may_close_and_says_why_the_rest_did_not(
+    world: World,
+) -> None:
+    """AC1: of three changes in review, the one with an open child is skipped, with why; a change
+    still in submission has no move to closed and is skipped too. Nothing leaves its life cycle.
+    """
+    a = world.a
+    ready = [await _in_review(world, a), await _in_review(world, a)]
+    held = await _in_review(world, a)
+    child = await a_change(world, a)
+    added = await world.call(
+        "POST",
+        f"{CHG}/{held['id']}/children",
+        a,
+        a.admin,
+        json={"child_id": child["id"]},
+        headers=CONSOLE,
+    )
+    assert added.status_code == 201, added.text
+    early = await a_change(world, a)
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    job = await _bulk(world, a, "close", [*ready, held, early], closure_code=codes[0]["code"])
+    outcomes = {r["id"]: (r["outcome"], r["code"]) for r in job["results"]}
+    for r in ready:
+        assert outcomes[r["id"]][0] == "done", outcomes
+        assert (await fresh(world, a, r))["status"] == "closure_closed"
+    assert outcomes[held["id"]][0] == "skipped", outcomes
+    assert outcomes[early["id"]] == ("skipped", "not_closable_from_here"), outcomes
+    assert (await fresh(world, a, held))["stage"] == "review"
+    assert (await fresh(world, a, early))["stage"] == "submission"

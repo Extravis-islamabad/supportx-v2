@@ -896,10 +896,21 @@ class WorkItemListItem(BaseModel):
     custom: dict[str, Any] = Field(default_factory=dict, description="Custom values by key.")
 
 
+class ListChangeFactsOut(BaseModel):
+    """A change's type and risk for its list row (REQ-CHG-098)."""
+
+    change_type: str | None
+    risk: RiskLevel | None
+
+
 class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
     people: dict[str, PersonOut] = Field(default_factory=dict)
+    changes: dict[str, ListChangeFactsOut] = Field(
+        default_factory=dict,
+        description="Changes only: each row's type and risk (the effective one), by record ID.",
+    )
 
 
 class CausingProblemOut(BaseModel):
@@ -2068,6 +2079,19 @@ async def _audit_reapproval(
         )
 
 
+async def _change_facts(
+    session: AsyncSession, wtype: WorkItemType, ids: list[uuid.UUID]
+) -> dict[str, ListChangeFactsOut]:
+    """A change list's type and risk per row: one read for the page (REQ-CHG-098)."""
+    if wtype.code is not WorkItemTypeCode.CHANGE or not ids:
+        return {}
+    facts = await service.change_list_facts(session, ids)
+    return {
+        str(i): ListChangeFactsOut(change_type=t, risk=RiskLevel(r) if r else None)
+        for i, (t, r) in facts.items()
+    }
+
+
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
@@ -2108,6 +2132,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             has_more=page.has_more,
             estimated_total=page.estimated_total,
             people=_people(await user_contacts(session, people)),
+            changes=await _change_facts(session, wtype, [r.id for r in page.rows]),
         )
 
     @router.get("", summary=f"List {wtype.path}")
