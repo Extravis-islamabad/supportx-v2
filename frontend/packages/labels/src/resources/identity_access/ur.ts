@@ -396,6 +396,12 @@ export const ur: LabelResource = {
   'permission.changes.manage_followers': 'تبدیلیاں کے فالوورز کا انتظام',
   'permission.changes.manage_followers.description':
     'تبدیلی کو فالو کرنے والے لوگ شامل کریں اور ہٹائیں۔',
+  'permission.changes.manage_windows': 'فریز اور مینٹیننس ونڈوز کا انتظام',
+  'permission.changes.manage_windows.description':
+    'وہ فریز اور مینٹیننس ونڈوز شامل کریں، بدلیں اور ہٹائیں جن کے مقابل تبدیلیاں جانچی جاتی ہیں۔',
+  'permission.changes.override_freeze': 'فریز کے دوران تبدیلی کو آگے بڑھنے دینا',
+  'permission.changes.override_freeze.description':
+    'ایک تبدیلی کے لیے روکنے والے فریز کو وجہ کے ساتھ پار کریں۔ یہ آڈٹ ہوتا ہے اور تبدیلی کی تاریخ میں رہتا ہے۔',
   'permission.changes.reopen': 'تبدیلیاں دوبارہ کھولیں',
   'permission.changes.reopen.description': 'حل شدہ یا بند تبدیلی دوبارہ تحقیق میں لائیں۔',
   'permission.changes.reply': 'تبدیلیاں پر عوامی نوٹس شامل کریں',
