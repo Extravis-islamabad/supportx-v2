@@ -269,6 +269,74 @@ export function useUpdateStagedSchedule(path: StagedPath) {
     onSettled: (_data, _error, { id }) => {
       void queryClient.invalidateQueries({ queryKey: keys.part(id, 'schedule') });
       void queryClient.invalidateQueries({ queryKey: keys.part(id, 'stages') });
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'conflicts') });
+    },
+  });
+}
+
+/** Add a window (one Idempotency-Key per form) or change one (its own If-Match). */
+export function useSaveStagedDowntime(path: StagedPath) {
+  const queryClient = useQueryClient();
+  const keys = stagedKeys(path);
+  return useMutation({
+    mutationFn: ({
+      id,
+      downtimeId,
+      version,
+      key,
+      body,
+    }: {
+      id: string;
+      downtimeId?: string;
+      version?: number;
+      key?: string;
+      body: components['schemas']['DowntimeIn'];
+    }) =>
+      downtimeId === undefined
+        ? call(
+            api.POST(at(path, `${RECORD}/downtimes`), {
+              params: { path: { record_id: id }, header: { 'Idempotency-Key': key ?? '' } },
+              body,
+            }),
+          )
+        : call(
+            api.PATCH(at(path, `${RECORD}/downtimes/{downtime_id}`), {
+              params: {
+                path: { record_id: id, downtime_id: downtimeId },
+                header: ifMatch(version ?? 0),
+              },
+              body,
+            }),
+          ),
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'downtimes') });
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'conflicts') });
+    },
+  });
+}
+
+export function useRemoveStagedDowntime(path: StagedPath) {
+  const queryClient = useQueryClient();
+  const keys = stagedKeys(path);
+  return useMutation({
+    mutationFn: async ({
+      id,
+      downtimeId,
+      version,
+    }: {
+      id: string;
+      downtimeId: string;
+      version: number;
+    }) => {
+      await call(
+        api.DELETE(at(path, `${RECORD}/downtimes/{downtime_id}`), {
+          params: { path: { record_id: id, downtime_id: downtimeId }, header: ifMatch(version) },
+        }),
+      );
+    },
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'downtimes') });
+      void queryClient.invalidateQueries({ queryKey: keys.part(id, 'conflicts') });
     },
   });
 }
